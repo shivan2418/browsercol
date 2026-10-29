@@ -1,5 +1,8 @@
-// Crude map renderer: one square per tile, coloured by tile type, settlements
-// outlined and units as dots. Falls back to Canvas 2D where PixiJS cannot get
+// Crude map renderer: one brick per tile, coloured by tile type, settlements
+// outlined, units as dots and the active unit's tile ringed. FreeCol's map is
+// a diamond grid stored as staggered rows (odd rows half a tile to the right),
+// so the bricks are half as tall as wide and odd rows are shifted: N is two
+// rows up, NE one row up and to the right. Falls back to Canvas 2D where PixiJS cannot get
 // a renderer (some headless browsers).
 import { Application, Graphics } from 'pixi.js';
 
@@ -8,6 +11,7 @@ export interface MapView {
   w: number;
   h: number;
   turn: string;
+  ourTurn: boolean;
   /** Tile type ids, indexed by the tile characters. */
   types: string[];
   /** One character per tile: 'A' + type index, '.' if unexplored. */
@@ -15,6 +19,28 @@ export interface MapView {
   /** [x, y, rgb] per settlement and per unit. */
   settlements: [number, number, number][];
   units: [number, number, number][];
+  /** The active unit's tile, if any. */
+  active: [number, number] | null;
+}
+
+/** Brick width in pixels (height is half) and the map's size in tiles. */
+export interface Layout {
+  size: number;
+  w: number;
+  h: number;
+}
+
+/** Where a tile's brick starts. */
+const origin = ({ size }: Layout, x: number, y: number): [number, number] => [
+  x * size + (y % 2) * (size / 2),
+  (y * size) / 2,
+];
+
+/** The tile [x, y] under a pixel of the map, or null off the map. */
+export function tileAt(layout: Layout, px: number, py: number): [number, number] | null {
+  const y = Math.floor(py / (layout.size / 2));
+  const x = Math.floor((px - (y % 2) * (layout.size / 2)) / layout.size);
+  return px < 0 || py < 0 || x < 0 || y < 0 || x >= layout.w || y >= layout.h ? null : [x, y];
 }
 
 // Colour per tile type id, matched on the last segment of the id.
@@ -88,16 +114,23 @@ function canvasPen(host: HTMLElement, width: number, height: number): Pen {
 }
 
 /** A map drawer for `host`; draws are serialised behind the renderer's async init. */
-export function mapDrawer(host: HTMLElement): { draw(map: MapView): Promise<void>; renderer(): string } {
+export function mapDrawer(host: HTMLElement): {
+  draw(map: MapView): Promise<void>;
+  renderer(): string;
+  /** The tile under a pixel of the map, or null off it or before the first draw. */
+  tileAt(px: number, py: number): [number, number] | null;
+} {
   let pen: Pen | null = null;
-  let size = 8;
+  let layout: Layout | null = null;
   let renderer = 'none';
   let drawing = Promise.resolve();
 
   async function init(map: MapView) {
-    size = Math.max(2, Math.floor(Math.min(900 / map.w, 700 / map.h)));
-    const w = map.w * size;
-    const h = map.h * size;
+    // An even size keeps the half-brick offsets on whole pixels.
+    const size = 2 * Math.max(1, Math.floor(Math.min(900 / (map.w + 0.5), 1400 / map.h) / 2));
+    layout = { size, w: map.w, h: map.h };
+    const w = (map.w + 0.5) * size;
+    const h = (map.h * size) / 2;
     try {
       pen = await pixiPen(host, w, h);
       renderer = 'pixi';
@@ -110,24 +143,35 @@ export function mapDrawer(host: HTMLElement): { draw(map: MapView): Promise<void
   async function drawNow(map: MapView) {
     if (!pen) await init(map);
     const p = pen!;
-    const s = size;
+    const at = layout!;
+    const s = at.size;
     const colors = map.types.map(colorOf);
     p.clear();
     for (let y = 0; y < map.h; y++) {
       for (let x = 0; x < map.w; x++) {
         const i = map.tiles.charCodeAt(y * map.w + x) - 65;
-        p.rect(x * s, y * s, s, s, i >= 0 ? colors[i] : 0x000000);
+        const [px, py] = origin(at, x, y);
+        p.rect(px, py, s, s / 2, i >= 0 ? colors[i] : 0x000000);
       }
     }
     for (const [x, y, rgb] of map.settlements) {
-      p.rect(x * s, y * s, s, s, rgb);
-      p.outline(x * s + 0.5, y * s + 0.5, s - 1, s - 1, 0xffffff);
+      const [px, py] = origin(at, x, y);
+      p.rect(px, py, s, s / 2, rgb);
+      p.outline(px + 0.5, py + 0.5, s - 1, s / 2 - 1, 0xffffff);
     }
-    for (const [x, y, rgb] of map.units) p.dot(x * s + s / 2, y * s + s / 2, Math.max(1.5, s / 3), rgb);
+    for (const [x, y, rgb] of map.units) {
+      const [px, py] = origin(at, x, y);
+      p.dot(px + s / 2, py + s / 4, Math.max(1.5, s / 6), rgb);
+    }
+    if (map.active) {
+      const [px, py] = origin(at, ...map.active);
+      p.outline(px - 0.5, py - 0.5, s + 1, s / 2 + 1, 0xffff00);
+    }
   }
 
   return {
     draw: (map) => (drawing = drawing.then(() => drawNow(map))),
     renderer: () => renderer,
+    tileAt: (px, py) => (layout ? tileAt(layout, px, py) : null),
   };
 }
