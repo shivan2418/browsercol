@@ -1,5 +1,5 @@
-// Spike: FreeCol's Engine (model, server, AI) built from the upstream clone
-// at ../../freecol plus our patched copies in patches/, which replace the
+// FreeCol's Engine (model, server, AI) built from the upstream clone
+// at ../freecol plus our patched copies in patches/, which replace the
 // upstream file at the same path.
 plugins {
     id 'java'
@@ -15,7 +15,7 @@ repositories {
     mavenCentral()
 }
 
-def freecol = file('../../freecol')
+def freecol = file('../freecol')
 def patches = file('patches')
 
 def patchedPaths = provider {
@@ -80,3 +80,22 @@ teavm {
         obfuscated = release
     }
 }
+
+// The two browser modules in one invocation: `gradle modules` (add
+// -Prelease for obfuscated builds). The TeaVM plugin builds one main class
+// per run, so each module is a nested build with its own -Pmain and -Pout.
+// Both land in build/generated/teavm/wasm-gc.
+['server': 'online.freecol.web.WorkerMain', 'client': 'online.freecol.web.ClientMain'].each { out, main ->
+    tasks.register("${out}Module", GradleBuild) {
+        buildName = "engine-${out}"
+        tasks = ['generateWasmGC', 'copyWasmGCRuntime']
+        startParameter.projectProperties = [main: main, out: out] +
+            (release ? [release: 'true'] : [:]) +
+            ['teavmVersion', 'teavmRepo'].findAll { project.hasProperty(it) }
+                .collectEntries { [(it): project.property(it)] }
+    }
+}
+tasks.register('modules') {
+    dependsOn 'serverModule', 'clientModule'
+}
+tasks.named('clientModule') { mustRunAfter 'serverModule' }

@@ -3,7 +3,7 @@
 
 [project]
 base_branch = "spike/toolchain"
-check_command = "./dev.sh -C spike/engine gradle -q compileJava"
+check_command = "./dev.sh -C engine gradle -q compileJava"
 hooks_path = ".githooks"
 # The upstream FreeCol clone (gitignored): the spike builds from its source.
 data_dirs = ["freecol"]

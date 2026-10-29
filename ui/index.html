@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>FreeCol Online</title>
+    <style>
+      body {
+        margin: 0;
+        font: 13px/1.4 monospace;
+        background: #222;
+        color: #ddd;
+        display: flex;
+        gap: 12px;
+      }
+      #map {
+        flex: none;
+      }
+      #out {
+        white-space: pre;
+        overflow: auto;
+        height: 100vh;
+        padding: 8px;
+        box-sizing: border-box;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+    <div id="out">starting...</div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
