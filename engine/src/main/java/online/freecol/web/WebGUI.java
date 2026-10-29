@@ -7,11 +7,14 @@ import javax.swing.ImageIcon;
 
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.client.gui.ChoiceItem;
+import net.sf.freecol.client.gui.DialogHandler;
 import net.sf.freecol.client.gui.GUI;
 import net.sf.freecol.client.gui.panel.FreeColPanel;
 import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.model.FreeColObject;
+import net.sf.freecol.common.model.IndianNationType;
 import net.sf.freecol.common.model.ModelMessage;
+import net.sf.freecol.common.model.Player;
 import net.sf.freecol.common.model.StringTemplate;
 import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.Unit;
@@ -57,6 +60,9 @@ import net.sf.freecol.common.model.Unit;
  *     <td>{text, cancel, tile, object,
  *         choices: [{text, enabled, ok, cancel, default}]};
  *         the chosen index, else cancel</td></tr>
+ * <tr><td>showFirstContactDialog</td><td>question confirm</td>
+ *     <td>as modalConfirmDialog, object the native player;
+ *         "false" declines, else (closed too) accepts, as in Swing</td></tr>
  * <tr><td>modalInputDialog</td><td>question input</td>
  *     <td>{text, value, ok, cancel, tile};
  *         the text entered, null to cancel</td></tr>
@@ -278,6 +284,34 @@ public class WebGUI extends GUI {
         }
         return (i < 0 || i >= choices.size() || !choices.get(i).isEnabled())
             ? null : choices.get(i).getObject();
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * The server holds the end of turn until this is answered, so it must
+     * not be dropped as the base GUI does.
+     */
+    @Override
+    public void showFirstContactDialog(Player player, Player other, Tile tile,
+                                       int settlementCount,
+                                       DialogHandler<Boolean> handler) {
+        final String type = ((IndianNationType)other.getNationType())
+            .getSettlementTypeKey(true);
+        final String answer = this.questions.ask("confirm", new Json()
+            .put("text", Messages.message(StringTemplate
+                .template((tile != null) ? "firstContactDialog.welcomeOffer.text"
+                    : "firstContactDialog.welcomeSimple.text")
+                .addStringTemplate("%nation%", other.getNationLabel())
+                .addName("%camps%", Integer.toString(settlementCount))
+                .add("%settlementType%", type)))
+            .put("ok", label("yes"))
+            .put("cancel", label("no"))
+            .put("defaultOk", true)
+            .put("tile", id(tile))
+            .put("object", id(other))
+            .toString());
+        handler.handle(!"false".equals(answer));
     }
 
     @Override

@@ -15,18 +15,33 @@
       #map {
         flex: none;
       }
+      #side {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 8px;
+        height: 100vh;
+        box-sizing: border-box;
+      }
       #out {
         white-space: pre;
         overflow: auto;
-        height: 100vh;
-        padding: 8px;
-        box-sizing: border-box;
+        flex: 1;
       }
     </style>
   </head>
   <body>
     <div id="map"></div>
-    <div id="out">starting...</div>
+    <div id="side">
+      <div>Turn: <span id="turn">-</span></div>
+      <div>
+        <button data-command="nextUnit">Next unit (W)</button>
+        <button data-command="buildColony">Build colony (B)</button>
+        <button data-command="endTurn">End turn (Enter)</button>
+      </div>
+      <div>Click a unit to select it, click a tile to go there. Arrows or numpad move.</div>
+      <div id="out">starting...</div>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
