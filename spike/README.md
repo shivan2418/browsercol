@@ -270,11 +270,11 @@ The other classes in that package:
 
 - `ServerEngine` and `ClientEngine` set up each side.
 - `WorkerMain` and `ClientMain` are the TeaVM entry points. They use JSO exports and `@JSBody` calls.
-- `WebGUI` is the stub.
+- `WebGUI` was a stub at stage 2. Since #14 it passes FreeCol's show calls to the Browser UI as events and its dialogs as questions it waits on (its class comment lists each method).
 
 **Starting a game is a control message, not protocol.** The page posts `{k:'start'}` to the Worker, which creates the `FreeColServer`, the way upstream's `ConnectController` would in process. After that the client logs in and launches over the protocol.
 
-**7 more FreeCol files are patched (20 in total).** Each changed line is marked `browser:`; comment blocks are marked on their first line.
+**7 more FreeCol files are patched at stage 2 (20 in total), and `GUI` since (21).** Each changed line is marked `browser:`; comment blocks are marked on their first line.
 
 | File | Why |
 |---|---|
@@ -284,6 +284,7 @@ The other classes in that package:
 | `InGameController` | The first-landing panel is cut, a Swing `FreeColPanel`, and with it the build-colony tutorial message. Client saving fails: it called `saveGame` on the in-process server, which reaches `ImageIO` and `File.toPath`. Saving belongs to the Worker now and is not ported. |
 | `FreeColDebugger` | No save at the end of a debug run, for the same reason. |
 | `FreeCol` (extended) | `quit` no longer calls `System.exit`. `fatal` no longer calls `Thread.dumpStack`. |
+| `GUI` (#14) | Dialog icons come from a `dialogIcon` hook instead of the `ImageLibrary`, which the WebGUI does not have. Its override carries the game object, so a question can name it. |
 | `FreeColXMLReader` (extended) | The `File` constructor no longer uses `toPath`. Every reader shares one Aalto factory (see 4 below). |
 
 **New shims:**
@@ -314,4 +315,3 @@ The other classes in that package:
 - **Firefox's module compile time:** more than 1 s per module.
 - **The `Class.forName` gap:** a TeaVM issue, or our policy?
 - **Branded desktop Chrome and Firefox** with a visible window and a GPU, rather than headless.
-- **The real `WebGUI`:** passing questions to the Browser UI and waiting for the answers.
