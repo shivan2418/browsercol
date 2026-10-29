@@ -70,7 +70,8 @@ public final class SpikeMain {
         human.endTurnSoon();
         human.done.await();
         log("finished at " + game.getTurn());
-        System.exit(0);
+        // TeaVM has no System.exit: stop the server thread instead.
+        server.getController().shutdown();
     }
 
     /** The human seat: ends its turn whenever it becomes current. */

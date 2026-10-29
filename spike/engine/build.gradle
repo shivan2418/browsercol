@@ -4,6 +4,7 @@
 plugins {
     id 'java'
     id 'application'
+    id 'org.teavm' version '0.16.0'
 }
 
 repositories { mavenCentral() }
@@ -27,17 +28,29 @@ compileJava.dependsOn 'engineSources'
 
 java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }
 compileJava {
-    options.release = 11
+    options.release = 17   // TeaVM 0.16 needs 17; FreeCol source is Java 11
     options.encoding = 'UTF-8'
     options.compilerArgs += ['-nowarn', '-Xlint:none']
 }
 
 dependencies {
     implementation fileTree("$freecol/jars") { include '*.jar' }
+    // TeaVM has no StAX; FreeColXMLReader/Writer get Aalto directly.
+    implementation 'stax:stax-api:1.0.1'  // has javax.xml.namespace too
+    implementation 'com.fasterxml:aalto-xml:1.3.3'
+    compileOnly "org.teavm:teavm-extension-spi:0.16.0"
 }
 
 application { mainClass = 'online.freecol.spike.SpikeMain' }
 tasks.named('run') {
     workingDir = freecol   // FreeCol finds data/ relative to the working dir
     jvmArgs '-Djava.awt.headless=true'
+}
+
+teavm {
+    all { mainClass = 'online.freecol.spike.SpikeMain' }
+    wasmGC {
+        targetFileName = 'engine.wasm'
+        obfuscated = false
+    }
 }
