@@ -90,3 +90,44 @@ requests (#1300, #1302, #1304, #1305) and publishes the build into
 ```sh
 ./dev.sh -C spike/teavm ./build-teavm.sh
 ```
+
+## TeaVM master with the monitor PRs
+
+Measured 2026-10-29 with a TeaVM built from source, master plus the four open
+monitor pull requests, published into `.cache/teavm-repo` as version
+`0.17.0-SNAPSHOT`. TeaVM master commit:
+`3101c602ca7624ac4d9692fa3103f039e6029170` (merge of `refs/pull/1305/head`);
+PR heads: #1300 `688bbff4d101bc6e056897c065e2047c8cabb1f5`, #1302
+`02bc4296357472c91ede084d71869ca26acbc287`, #1304 `8035e487908ff15d298f6c19d43b5020160d5464`, #1305
+`007eab3d6647999e481f94788addd4735163796a`.
+
+Reproduce against the built TeaVM:
+
+```sh
+./dev.sh -C spike/engine gradle generateWasmGC copyWasmGCRuntime -PteavmVersion=0.17.0-SNAPSHOT -PteavmRepo=/work/.cache/teavm-repo
+./dev.sh -C spike/engine node run-node.mjs selftest
+./dev.sh -C spike/engine node run-node.mjs 30
+```
+
+With that build:
+
+- `node run-node.mjs selftest` ends at `[spike ~1500ms] selftest: done` and
+  prints nothing from cases A, B and C — no `woke`, no `notified`. The waiting
+  threads never wake, the notifiers never get the monitor. **TeaVM master with
+  the monitor PRs still does not make `Object.wait`/`notify` work** in the
+  Engine's Wasm GC build; tracker issue
+  [#9](https://github.com/shivan2418/freecol-online/issues/9) stays open.
+- `node run-node.mjs 30` with that build: game ready at ~393 ms, AI round mean
+  317 ms (min 228, max 589), all 30 rounds finish, done at turn 31 (~9.9 s).
+
+With TeaVM 0.16.0 (`./dev.sh -C spike/engine gradle generateWasmGC
+copyWasmGCRuntime -PteavmVersion=0.16.0`) — the same two commands:
+
+- `selftest`: the same `[spike ~1500ms] selftest: done` and no case output.
+- `30`: game ready at ~347 ms, AI round mean 267 ms (min 183, max 609), all 30
+  rounds finish, done at turn 31 (~8.4 s).
+
+To build against the locally published TeaVM, `spike/engine` takes
+`-PteavmVersion=<version>` and `-PteavmRepo=<path>` (both default to TeaVM 0.16.0
+from Maven Central when unset; the plugin comes from the `pluginManagement`
+repository in `spike/engine/settings.gradle`, the libraries from `-PteavmRepo`).
