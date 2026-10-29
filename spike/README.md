@@ -80,3 +80,13 @@ Making every public method reflectable dragged Swing and much more into the buil
 - Server Engine and AI in a Web Worker, client Engine on the main thread, joined by FreeCol messages over `postMessage`. This is blocked by item 6 above.
 - Stub `WebGUI`, a Classic game started from the client, and a crude PixiJS map.
 - Measurements in a real browser (Chrome and Firefox), including first load over the network.
+
+## Building TeaVM from source
+
+`spike/teavm/build-teavm.sh` builds TeaVM master plus the four monitor pull
+requests (#1300, #1302, #1304, #1305) and publishes the build into
+`.cache/teavm-repo`:
+
+```sh
+./dev.sh -C spike/teavm ./build-teavm.sh
+```
