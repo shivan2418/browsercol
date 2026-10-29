@@ -1,0 +1,227 @@
+package online.freecol.web;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+
+import net.sf.freecol.common.i18n.Messages;
+import net.sf.freecol.common.model.Ability;
+import net.sf.freecol.common.model.Colony;
+import net.sf.freecol.common.model.Game;
+import net.sf.freecol.common.model.IndianSettlement;
+import net.sf.freecol.common.model.LostCityRumour;
+import net.sf.freecol.common.model.Map;
+import net.sf.freecol.common.model.Player;
+import net.sf.freecol.common.model.Resource;
+import net.sf.freecol.common.model.Role;
+import net.sf.freecol.common.model.Settlement;
+import net.sf.freecol.common.model.Tile;
+import net.sf.freecol.common.model.TileImprovement;
+import net.sf.freecol.common.model.TileItem;
+import net.sf.freecol.common.model.TileType;
+import net.sf.freecol.common.model.Unit;
+import net.sf.freecol.common.util.Utils;
+
+
+/**
+ * The client's view of the map for the Tileset renderer (ui/src/tileset.ts),
+ * as JSON. Where FreeCol's ImageLibrary picks a resource key by checking
+ * which keys exist, this sends the candidates, most specific first, and the
+ * Browser UI takes the first its Tileset has. Fields:
+ * <ul>
+ * <li>w, h, turn, ourTurn;
+ * <li>types: {id, land, forested} per tile type, indexed by tiles;
+ * <li>tiles: one character per tile, 'A' + type index, '.' if unexplored;
+ * <li>seen: one character per tile, '1' if the player can see it now;
+ * <li>rivers: [x, y, magnitude, style, forest mask], the style's digits
+ *     being the magnitudes toward NE, SE, SW, NW;
+ * <li>roads: [x, y] per complete road;
+ * <li>items: [x, y, zIndex, kind, key] per other complete tile item in
+ *     zIndex order, kind "centered" (resources, rumours) or "tile"
+ *     (improvement images, drawn if the key exists);
+ * <li>settlements: [x, y, [keys], rgb, name, population or -1];
+ * <li>units: [x, y, [keys], rgb, chip text, chip text rgb, units on the
+ *     tile, faded], for the unit MapViewer shows in front;
+ * <li>active: the active unit's tile, [x, y], or null.
+ * </ul>
+ */
+final class MapJson {
+
+    private MapJson() {}
+
+    static String of(Game game, Player player, Unit active) {
+        final Map map = game.getMap();
+        final int w = map.getWidth(), h = map.getHeight();
+        final List<TileType> types = new ArrayList<>();
+        final StringBuilder tiles = new StringBuilder(w * h);
+        final StringBuilder seen = new StringBuilder(w * h);
+        final List<String> rivers = new ArrayList<>(), roads = new ArrayList<>(),
+            items = new ArrayList<>(), settlements = new ArrayList<>(),
+            units = new ArrayList<>();
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                final Tile t = map.getTile(x, y);
+                final TileType type = (t == null || !t.isExplored()) ? null : t.getType();
+                seen.append(type != null && player.canSee(t) ? '1' : '0');
+                if (type == null) {
+                    tiles.append('.');
+                    continue;
+                }
+                int i = types.indexOf(type);
+                if (i < 0) { i = types.size(); types.add(type); }
+                tiles.append((char)('A' + i));
+                tileItems(t, rivers, roads, items);
+                final Settlement s = t.getSettlement();
+                if (s != null) settlements.add(settlement(s));
+                final Unit u = unitInFront(t, active);
+                if (u != null) units.add(unit(u, player));
+            }
+        }
+        final List<String> typeJson = new ArrayList<>();
+        for (TileType type : types) {
+            typeJson.add(new Json().put("id", type.getId())
+                .put("land", !type.isWater())
+                .put("forested", type.isForested()).toString());
+        }
+        final Tile at = (active == null) ? null : active.getTile();
+        return new Json().put("w", w).put("h", h)
+            .put("turn", String.valueOf(game.getTurn()))
+            .put("ourTurn", player == game.getCurrentPlayer())
+            .putRaw("types", Json.array(typeJson))
+            .put("tiles", tiles.toString())
+            .put("seen", seen.toString())
+            .putRaw("rivers", Json.array(rivers))
+            .putRaw("roads", Json.array(roads))
+            .putRaw("items", Json.array(items))
+            .putRaw("settlements", Json.array(settlements))
+            .putRaw("units", Json.array(units))
+            .putRaw("active", (at == null) ? "null"
+                : "[" + at.getX() + "," + at.getY() + "]")
+            .toString();
+    }
+
+    private static void tileItems(Tile t, List<String> rivers, List<String> roads,
+                                  List<String> items) {
+        final String xy = t.getX() + "," + t.getY();
+        final List<TileItem> sorted = new ArrayList<>(t.getCompleteItems());
+        sorted.sort(Comparator.comparingInt(TileItem::getZIndex));
+        for (TileItem item : sorted) {
+            final String z = xy + "," + item.getZIndex() + ",";
+            if (item instanceof TileImprovement) {
+                final TileImprovement ti = (TileImprovement)item;
+                if (ti.isRiver()) {
+                    if (ti.getStyle() == null) continue;
+                    rivers.add("[" + xy + "," + ti.getMagnitude() + ","
+                        + Json.quote(ti.getStyle().getString()) + ","
+                        + Json.quote(ti.getStyle().getMask()) + "]");
+                } else if (ti.isRoad()) {
+                    roads.add("[" + xy + "]");
+                } else {
+                    items.add("[" + z + "\"tile\","
+                        + Json.quote("image.tile." + ti.getType().getId()) + "]");
+                }
+            } else if (item instanceof LostCityRumour) {
+                items.add("[" + z + "\"centered\",\"image.tileitem.lostCityRumour\"]");
+            } else if (item instanceof Resource) {
+                items.add("[" + z + "\"centered\","
+                    + Json.quote("image.tileitem." + ((Resource)item).getType().getId()) + "]");
+            }
+        }
+    }
+
+    /** ImageLibrary.getSettlementKey, with and without the nation. */
+    private static String settlement(Settlement s) {
+        String key = "image.tileitem." + s.getType().getId();
+        int population = -1;
+        final List<String> keys = new ArrayList<>();
+        if (s instanceof Colony) {
+            final Colony colony = (Colony)s;
+            population = colony.getApparentUnitCount();
+            if (colony.isUndead()) {
+                key += ".undead";
+            } else {
+                key += (population <= 3) ? ".small"
+                    : (population <= 7) ? ".medium" : ".large";
+                final String stockade = colony.getStockadeKey();
+                if (stockade != null) key += "." + stockade;
+            }
+            keys.add(key + "." + s.getOwner().getNationResourceKey());
+        } else if (s instanceof IndianSettlement
+                   && ((IndianSettlement)s).hasMissionary()) {
+            key += ".mission";
+        }
+        keys.add(key);
+        final Tile t = s.getTile();
+        return "[" + t.getX() + "," + t.getY() + "," + keys(keys) + ","
+            + rgb(s.getOwner()) + "," + Json.quote(s.getName()) + ","
+            + population + "]";
+    }
+
+    /** MapViewerState.findUnitInFront, without animations. */
+    private static Unit unitInFront(Tile t, Unit active) {
+        if (t.isEmpty()) return null;
+        if (active != null && active.getTile() == t) return active;
+        if (t.hasSettlement()) return null;
+        if (active != null && active.isOffensiveUnit()) return t.getDefendingUnit(active);
+        Unit best = null;
+        int bestScore = -1;
+        for (Unit u : t.getUnitList()) {
+            int score = u.getMovesLeft()
+                + ((u.getState() == Unit.UnitState.ACTIVE) ? 10000 : 0);
+            if (bestScore < score) {
+                bestScore = score;
+                best = u;
+            }
+        }
+        return best;
+    }
+
+    /** MapViewer.displayUnit's image keys, chip and stack count. */
+    private static String unit(Unit u, Player player) {
+        final Tile t = u.getTile();
+        final boolean fade = u.getState() == Unit.UnitState.SENTRY
+            || !player.canSee(t);
+        final int rgb = rgb(u.getOwner());
+        final int fg = (u.getState() == Unit.UnitState.FORTIFIED) ? 0x808080
+            : foreground(rgb);
+        final String chip = Messages.message(u.getOccupationLabel(player, false));
+        return "[" + t.getX() + "," + t.getY() + "," + keys(unitKeys(u)) + ","
+            + rgb + "," + Json.quote(chip) + "," + fg + ","
+            + t.getTotalUnitCount() + "," + fade + "]";
+    }
+
+    /** ImageLibrary.getUnitTypeImageKey's candidates. */
+    private static List<String> unitKeys(Unit u) {
+        final String roleId = u.getRole().getId();
+        final String base = "image.unit." + u.getType().getId()
+            + (Role.isDefaultRoleId(roleId) ? "" : "." + Role.getRoleIdSuffix(roleId));
+        final String nation = (u.getOwner() == null) ? null
+            : u.getOwner().getNationResourceKey();
+        final List<String> keys = new ArrayList<>();
+        if (u.hasNativeEthnicity()
+            && !u.getType().hasAbility(Ability.BORN_IN_INDIAN_SETTLEMENT)) {
+            if (nation != null) keys.add(base + ".native." + nation);
+            keys.add(base + ".native");
+        }
+        if (nation != null) keys.add(base + "." + nation);
+        keys.add(base);
+        return keys;
+    }
+
+    private static String keys(List<String> keys) {
+        final List<String> quoted = new ArrayList<>();
+        for (String k : keys) quoted.add(Json.quote(k));
+        return Json.array(quoted);
+    }
+
+    private static int rgb(Player owner) {
+        return (owner == null || owner.getNationColor() == null) ? 0xffffff
+            : Utils.getRGB(owner.getNationColor()) & 0xffffff;
+    }
+
+    /** ImageLibrary.makeForegroundColor. */
+    private static int foreground(int rgb) {
+        final int r = (rgb >> 16) & 0xff, g = (rgb >> 8) & 0xff, b = rgb & 0xff;
+        return (r * 0.3 + g * 0.59 + b * 0.11 >= 126) ? 0x000000 : 0xffffff;
+    }
+}
