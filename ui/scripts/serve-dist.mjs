@@ -12,6 +12,7 @@ const TYPES = {
   '.js': 'text/javascript',
   '.json': 'application/json',
   '.wasm': 'application/wasm',
+  '.png': 'image/png',
 };
 
 /** Start serving; resolves to { url, dataFetches(), close() }. */
