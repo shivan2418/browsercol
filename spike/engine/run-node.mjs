@@ -28,4 +28,6 @@ createRequire(import.meta.url)(path.resolve(`${out}/engine.wasm-runtime.js`));
 const t0 = performance.now();
 const teavm = await globalThis.TeaVM.wasmGC.load(path.resolve(`${out}/engine.wasm`));
 console.log(`[node] wasm loaded in ${(performance.now() - t0).toFixed(0)}ms`);
+// main() starts the spike on its own thread and returns at once; the
+// game's threads keep Node alive through TeaVM's timers.
 teavm.exports.main(args);
