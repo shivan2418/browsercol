@@ -24,6 +24,7 @@ installed on the host.
 ./dev.sh -C ui npx vp test           # UI tests
 ./dev.sh -C ui npx vp check          # format, lint and type check
 DEV_VARIANT=web ./dev.sh node ui/scripts/smoke.mjs   # play dist/ in Chromium and Firefox
+DEV_VARIANT=web ./dev.sh node ui/scripts/play.mjs    # land, found a colony, end the turn in both
 ```
 
 `build.sh` builds both Engine modules in one Gradle run (`gradle modules`),
@@ -31,5 +32,9 @@ bundles FreeCol's rules and strings into a data file, and runs `vp build`
 into `dist/`. Serve `dist/` from any static host. URLs are relative, so a
 sub-path such as GitHub Pages' `/<repo>/` works.
 
-For now the page starts a Classic game and the human auto-ends its turn.
-`?autoplay=N` sets how many rounds it plays (default 10).
+The page starts a Classic game on the crude map. Click one of your units to
+select it (click again to cycle through a stack, units aboard ships
+included), click a tile to send the active unit there, move one step with
+the arrow keys or numpad, `W`/`Space` for the next unit, `B` to build a
+colony, `Enter` to end the turn. `?autoplay=N` first auto-ends N turns
+(debug; the smoke test uses 10).

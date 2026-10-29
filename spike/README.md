@@ -170,7 +170,7 @@ Stage 2 of the spike ([#10](https://github.com/shivan2418/freecol-online/issues/
 - A stub `WebGUI` starts a Classic single-player game from the client, and the AI plays round after round.
 - PixiJS draws the client's view of the map crudely, one square per tile.
 
-The human seat still only ends its turn, as in stage 1.
+The human seat still only ends its turn, as in stage 1. (Since [#15](https://github.com/shivan2418/freecol-online/issues/15) the human plays its own turns; see the root README.)
 
 ## Run it
 

@@ -2,6 +2,7 @@ package online.freecol.web;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.teavm.jso.JSBody;
 import org.teavm.jso.JSExport;
@@ -24,6 +25,8 @@ import net.sf.freecol.common.util.Utils;
 public final class ClientMain {
 
     private static ClientEngine engine;
+    /** A player command is running; input meanwhile is dropped. */
+    private static final AtomicBoolean busy = new AtomicBoolean(false);
 
     @JSBody(params = "xml", script = "fcToServer(xml);")
     private static native void toServer(String xml);
@@ -50,11 +53,11 @@ public final class ClientMain {
                             public void post(String xml) { toServer(xml); }
                         }, new ClientEngine.Listener() {
                             public void gameStarted(Game game) {
-                                event("gameStarted", mapJson(game));
+                                event("gameStarted", mapJson());
                             }
                             public void roundDone(int round, long millis) {
                                 event("round", round + "," + millis);
-                                event("map", mapJson(engine.getGame()));
+                                event("map", mapJson());
                             }
                             public void finished(Game game) {
                                 event("finished", String.valueOf(game.getTurn()));
@@ -62,6 +65,11 @@ public final class ClientMain {
                         }, new WebGUI.BrowserUI() {
                             public void show(String kind, String json) {
                                 ClientMain.show(kind, json);
+                                // A new active unit or a refresh, e.g. when
+                                // play comes back with or without one.
+                                if ("activeUnit".equals(kind) || "refresh".equals(kind)) {
+                                    event("map", mapJson());
+                                }
                             }
                             public void ask(int id, String kind, String json) {
                                 ClientMain.ask(id, kind, json);
@@ -100,11 +108,60 @@ public final class ClientMain {
     }
 
     /**
-     * The client's view of the map for the crude renderer, as JSON:
-     * w, h, the tile type ids, one character per tile ('A' + type index,
-     * '.' if unexplored), and settlements and units as [x, y, rgb].
+     * Run a player command off the page's event loop, then send the map.
+     * Input that arrives while one runs is dropped.
      */
-    static String mapJson(Game game) {
+    private static void command(String name, Runnable run) {
+        if (!busy.compareAndSet(false, true)) return;
+        new Thread(() -> {
+                try {
+                    run.run();
+                    event("map", mapJson());
+                } catch (Throwable ex) {
+                    ex.printStackTrace();
+                    event("commandFailed", name + ": " + ex);
+                } finally {
+                    busy.set(false);
+                }
+        }, "web-" + name).start();
+    }
+
+    /** Select our unit on a tile, or send the active unit there. */
+    @JSExport
+    public static void click(int x, int y) {
+        command("click", () -> engine.getCommands().click(x, y));
+    }
+
+    /** Move the active unit one step; a Direction name, e.g. "NE". */
+    @JSExport
+    public static void move(String direction) {
+        command("move", () -> engine.getCommands().move(direction));
+    }
+
+    @JSExport
+    public static void nextUnit() {
+        command("nextUnit", () -> engine.getCommands().nextUnit());
+    }
+
+    @JSExport
+    public static void buildColony() {
+        command("buildColony", () -> engine.getCommands().buildColony());
+    }
+
+    @JSExport
+    public static void endTurn() {
+        command("endTurn", () -> engine.getCommands().endTurn());
+    }
+
+    /**
+     * The client's view of the map for the crude renderer, as JSON:
+     * w, h, the turn and whether it is ours, the tile type ids, one
+     * character per tile ('A' + type index, '.' if unexplored),
+     * settlements and units as [x, y, rgb], and the active unit's tile
+     * as [x, y] or null.
+     */
+    static String mapJson() {
+        final Game game = engine.getGame();
         final Map map = game.getMap();
         final List<TileType> types = new ArrayList<>();
         final StringBuilder tiles = new StringBuilder(map.getWidth() * map.getHeight());
@@ -131,6 +188,7 @@ public final class ClientMain {
         sb.append("{\"w\":").append(map.getWidth())
             .append(",\"h\":").append(map.getHeight())
             .append(",\"turn\":\"").append(game.getTurn()).append('"')
+            .append(",\"ourTurn\":").append(engine.getClient().currentPlayerIsMyPlayer())
             .append(",\"types\":[");
         for (int i = 0; i < types.size(); i++) {
             if (i > 0) sb.append(',');
@@ -138,7 +196,11 @@ public final class ClientMain {
         }
         sb.append("],\"tiles\":\"").append(tiles)
             .append("\",\"settlements\":[").append(settlements)
-            .append("],\"units\":[").append(units).append("]}");
+            .append("],\"units\":[").append(units).append(']');
+        final Unit active = engine.getClient().getGUI().getActiveUnit();
+        final Tile at = (active == null) ? null : active.getTile();
+        sb.append(",\"active\":").append((at == null) ? "null"
+            : "[" + at.getX() + "," + at.getY() + "]").append('}');
         return sb.toString();
     }
 

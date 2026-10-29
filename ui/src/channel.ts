@@ -21,6 +21,15 @@ export interface ClientExports {
   receive(xml: string): void;
   /** Answer a WebGUI question; null for a closed dialog. */
   answer(id: number, value: string | null): void;
+  // Player commands (Commands.java). Each returns at once and sends a "map"
+  // event when done; input while one runs is dropped.
+  /** Select our unit on a tile, or send the active unit there. */
+  click(x: number, y: number): void;
+  /** Move the active unit one step; a FreeCol Direction name, e.g. "NE". */
+  move(direction: string): void;
+  nextUnit(): void;
+  buildColony(): void;
+  endTurn(): void;
 }
 
 export type ToWorker =
@@ -98,7 +107,7 @@ export interface PageOptions {
   /** The data bundle: alternating "data/<path>" and file text. */
   data: string[];
   rules: string;
-  /** Rounds the human player auto-ends before the game finishes. */
+  /** Rounds the human player auto-ends before play is handed to them. */
   autoplay: number;
   scope: Scope;
   /** Every event from either Engine: ready, gameStarted, round, map, finished, failed, ... */
@@ -110,9 +119,10 @@ export interface PageOptions {
 /**
  * Page side: hand the data bundle to the Worker, load the client module and
  * run a game: once the client is ready the Worker starts the server, then
- * the client logs in and plays `autoplay` rounds.
+ * the client logs in and plays `autoplay` rounds. Resolves to the client
+ * module once it has loaded, for the player's commands.
  */
-export function startPage(o: PageOptions): void {
+export function startPage(o: PageOptions): Promise<ClientExports> {
   const send = (m: ToWorker) => o.worker.postMessage(m);
   let client: ClientExports | null = null;
 
@@ -135,12 +145,11 @@ export function startPage(o: PageOptions): void {
   });
 
   send({ k: 'data', data: o.data });
-  void (async () => {
-    try {
-      client = await o.loadClient();
-      client.main(o.data); // returns at once; 'ready' arrives as an event
-    } catch (ex) {
-      o.onEvent('failed', 'client load: ' + describe(ex));
-    }
-  })();
+  const loaded = o.loadClient().then((exports) => {
+    client = exports;
+    client.main(o.data); // returns at once; 'ready' arrives as an event
+    return exports;
+  });
+  loaded.catch((ex: unknown) => o.onEvent('failed', 'client load: ' + describe(ex)));
+  return loaded;
 }

@@ -49,6 +49,11 @@ function fakeClient(scope: Scope, log: string[]): ClientExports {
       log.push(`client answer ${id} ${value}`);
       scope.fcClientEvent('finished', '1');
     },
+    click: () => {},
+    move: () => {},
+    nextUnit: () => {},
+    buildColony: () => {},
+    endTurn: () => {},
   };
 }
 

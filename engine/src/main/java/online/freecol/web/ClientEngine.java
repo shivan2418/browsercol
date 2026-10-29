@@ -15,8 +15,9 @@ import net.sf.freecol.common.model.Game;
  * and to the Browser UI through the WebGUI.
  * In the browser it runs on the main thread.
  *
- * For the spike the human player only ends turns, so a game is a run of
- * AI rounds: one round is from our end of turn to our next turn.
+ * A game may start with autoplay: the human ends its turn for a given
+ * number of AI rounds (one round is from our end of turn to our next
+ * turn), then play passes to the human, through {@link Commands}.
  */
 public final class ClientEngine {
 
@@ -33,12 +34,14 @@ public final class ClientEngine {
         void gameStarted(Game game);
         /** An AI round ended: our turn again, millis after we ended ours. */
         void roundDone(int round, long millis);
+        /** The autoplay rounds are done: play passes to the human. */
         void finished(Game game);
     }
 
     private final ServerLink link;
     private final Listener listener;
     private final FreeColClient client;
+    private final Commands commands;
     private WebGUI gui = null;
     private volatile PostMessageConnection connection = null;
 
@@ -61,14 +64,15 @@ public final class ClientEngine {
             return c;
         };
         this.client = new FreeColClient(fcc -> this.gui = new WebGUI(fcc, this, ui));
+        this.commands = new Commands(this.client);
     }
 
     /**
      * Log in to the server Engine's waiting game and launch it, then end
-     * our turn until the AI has played the given number of rounds.
-     * Blocks until the login is answered.
+     * our turn until the AI has played the given number of rounds, and
+     * hand play to the human. Blocks until the login is answered.
      *
-     * @param rounds How many AI rounds to run.
+     * @param rounds How many AI rounds to autoplay first; 0 for none.
      * @return True if the login succeeded.
      */
     public boolean startGame(int rounds) {
@@ -96,6 +100,11 @@ public final class ClientEngine {
      */
     public void answer(int id, String answer) {
         this.gui.answer(id, answer);
+    }
+
+    /** What the human player can do on their turn. */
+    public Commands getCommands() {
+        return this.commands;
     }
 
     FreeColClient getClient() {
