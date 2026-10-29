@@ -1,0 +1,53 @@
+# agent-dispatch config for freecol-online. See
+# ~/Programming/agent-dispatch/templates/agent-dispatch.example.toml.
+
+[project]
+base_branch = "spike/toolchain"
+check_command = "./dev.sh -C engine gradle -q compileJava"
+hooks_path = ".githooks"
+# The upstream FreeCol clone (gitignored): the spike builds from its source.
+data_dirs = ["freecol"]
+
+[sandbox]
+mode = "providers"
+threat = "accidents"
+image = "freecol-online-dev"   # docker/dev.Dockerfile: JDK 21, Gradle, Node, git
+workdir = "/work"
+# Share the Gradle cache so each job does not download everything again.
+mounts = [".cache/gradle:/work/.cache/gradle"]
+env = { FREECOL_SANDBOX = "1" }  # dev.sh runs commands directly
+busy_pattern = "gradle|java|node"
+
+[daemon]
+max = 1
+cpus = 6
+build_slots = 2
+mem_min = 6.0
+disk_min = 20.0
+timeout = "2h"
+
+[keys]
+# Dedicated OpenRouter key with a small credit limit, shared with smac1.5.
+openrouter_key = "~/.config/smac-trial/openrouter.key"
+
+# Free models only for now. OpenRouter's free models share one daily request
+# allowance per account (about 5 agent runs), also used by smac1.5.
+[[providers]]
+name = "openrouter-free"
+match = '^openrouter/.*:free$'
+tool = "opencode"
+unmetered = true
+probe = false
+cooldown = 1800
+sandbox = true
+sandbox_key = "openrouter"
+
+[[providers]]
+name = "zen-free"
+match = '^opencode/.*-free$'
+tool = "opencode"
+unmetered = true
+probe = true
+cooldown = 900
+sandbox = true
+sandbox_key = "opencode-zen"

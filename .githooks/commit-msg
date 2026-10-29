@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Every commit must say who wrote it, and overrides of the gate are recorded.
+# Install: git config core.hooksPath .githooks (and set hooks_path in
+# agent-dispatch.toml so job clones use it too).
+set -euo pipefail
+msg=$1
+if ! grep -qE '^(Agent|Co-Authored-By): ' "$msg"; then
+  echo "commit-msg: add a trailer naming the author model, e.g."
+  echo "  Agent: opencode/some-model   (non-Claude agents)"
+  echo "  Co-Authored-By: Claude ...   (Claude)"
+  echo "Humans committing by hand: add 'Agent: human'."
+  exit 1
+fi
+if [ -n "${REVIEW_OVERRIDE:-}" ]; then
+  git interpret-trailers --in-place --trailer "Review-Override: $REVIEW_OVERRIDE" "$msg"
+fi
+# The pre-commit gate passed on exactly this tree (see pre-commit).
+gate="$(git rev-parse --git-dir)/agent-dispatch-gate-tree"
+if [ "$(cat "$gate" 2>/dev/null)" = "$(git write-tree)" ]; then
+  git interpret-trailers --in-place --if-exists doNothing --trailer "Gate: passed" "$msg"
+fi
+rm -f "$gate"

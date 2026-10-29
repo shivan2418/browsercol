@@ -1,0 +1,101 @@
+// FreeCol's Engine (model, server, AI) built from the upstream clone
+// at ../freecol plus our patched copies in patches/, which replace the
+// upstream file at the same path.
+plugins {
+    id 'java'
+    id 'application'
+    id 'org.teavm' version "${teavmVersion}"
+}
+
+def teavmVersion = project.findProperty('teavmVersion') ?: '0.16.0'
+def teavmRepo = project.findProperty('teavmRepo')
+
+repositories {
+    if (teavmRepo) { maven { url = new File(teavmRepo as String).toURI() } }
+    mavenCentral()
+}
+
+def freecol = file('../freecol')
+def patches = file('patches')
+
+def patchedPaths = provider {
+    fileTree(patches).matching { include '**/*.java' }.files
+        .collect { patches.toPath().relativize(it.toPath()).toString() }
+}
+
+tasks.register('engineSources', Sync) {
+    from(fileTree("$freecol/src")) { exclude { patchedPaths.get().contains(it.relativePath.pathString) } }
+    from(patches)
+    into layout.buildDirectory.dir('engine-src')
+}
+
+sourceSets.main.java.srcDirs = [layout.buildDirectory.dir('engine-src'), 'src/main/java']
+compileJava.dependsOn 'engineSources'
+
+java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }
+compileJava {
+    options.release = 17   // TeaVM 0.16 needs 17; FreeCol source is Java 11
+    options.encoding = 'UTF-8'
+    options.compilerArgs += ['-nowarn', '-Xlint:none']
+}
+
+dependencies {
+    implementation fileTree("$freecol/jars") { include '*.jar' }
+    // TeaVM has no StAX; FreeColXMLReader/Writer get Aalto directly.
+    implementation 'stax:stax-api:1.0.1'  // has javax.xml.namespace too
+    implementation 'com.fasterxml:aalto-xml:1.3.3'
+    compileOnly "org.teavm:teavm-extension-spi:${teavmVersion}"
+    compileOnly "org.teavm:teavm-extension-apis:${teavmVersion}"
+    compileOnly "org.teavm:teavm-jso:${teavmVersion}"
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test {
+    useJUnitPlatform()
+    workingDir = freecol   // as for run: data/ is found relative to it
+    jvmArgs '-Djava.awt.headless=true'
+    testLogging { events 'failed'; exceptionFormat 'full'; showStandardStreams = project.hasProperty('verbose') }
+}
+
+application { mainClass = 'online.freecol.spike.SpikeMain' }
+tasks.named('run') {
+    workingDir = freecol   // FreeCol finds data/ relative to the working dir
+    jvmArgs '-Djava.awt.headless=true'
+}
+
+// -Prelease: obfuscated names, for size runs. -Paggressive also turns on
+// TeaVM's aggressive optimisation, which breaks the module under 0.16.
+def release = project.hasProperty('release')
+teavm {
+    all {
+        mainClass = project.findProperty('main') ?: 'online.freecol.spike.SpikeMain'
+        optimization = project.hasProperty('aggressive') ? org.teavm.gradle.api.OptimizationLevel.AGGRESSIVE
+                               : org.teavm.gradle.api.OptimizationLevel.BALANCED
+    }
+    wasmGC {
+        // -Pout=<name>: the module file name, e.g. server or client with
+        // -Pmain=online.freecol.web.WorkerMain or ClientMain.
+        targetFileName = "${project.findProperty('out') ?: 'engine'}.wasm"
+        obfuscated = release
+    }
+}
+
+// The two browser modules in one invocation: `gradle modules` (add
+// -Prelease for obfuscated builds). The TeaVM plugin builds one main class
+// per run, so each module is a nested build with its own -Pmain and -Pout.
+// Both land in build/generated/teavm/wasm-gc.
+['server': 'online.freecol.web.WorkerMain', 'client': 'online.freecol.web.ClientMain'].each { out, main ->
+    tasks.register("${out}Module", GradleBuild) {
+        buildName = "engine-${out}"
+        tasks = ['generateWasmGC', 'copyWasmGCRuntime']
+        startParameter.projectProperties = [main: main, out: out] +
+            (release ? [release: 'true'] : [:]) +
+            ['teavmVersion', 'teavmRepo'].findAll { project.hasProperty(it) }
+                .collectEntries { [(it): project.property(it)] }
+    }
+}
+tasks.register('modules') {
+    dependsOn 'serverModule', 'clientModule'
+}
+tasks.named('clientModule') { mustRunAfter 'serverModule' }

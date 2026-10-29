@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# The commit gate: runs .githooks/check (your fmt/lint/test script; exit
+# non-zero blocks the commit), then remembers the tree it passed so commit-msg
+# can add a `Gate: passed` trailer. A commit made with --no-verify runs
+# neither hook, so it has no trailer, and the dispatcher flags it UNGATED.
+# Without .githooks/check there is no gate and so no trailer.
+#
+# .githooks/skip-check (optional) lists glob patterns, one per line (`*`
+# matches across `/`; `#` starts a comment), for files no build or test
+# reads, such as `*.md`. A commit whose every staged file matches one skips
+# the check, so a docs edit doesn't run the whole test suite. Keep it to
+# files nothing reads: a doc a test loads must not be listed.
+set -euo pipefail
+top=$(git rev-parse --show-toplevel)
+check="$top/.githooks/check" skip="$top/.githooks/skip-check"
+[ -x "$check" ] || exit 0
+
+check_needed() {
+  [ -f "$skip" ] || return 0
+  local f p pats=() seen=
+  while read -r p; do
+    p=${p%%#*}; p=${p%"${p##*[![:space:]]}"}
+    [ -n "$p" ] && pats+=("$p")
+  done <"$skip"
+  while IFS= read -r f; do
+    seen=1
+    for p in "${pats[@]}"; do
+      # shellcheck disable=SC2053  # $p is a glob on purpose
+      [[ $f == $p ]] && continue 2
+    done
+    return 0
+  done < <(git diff --cached --name-only)
+  [ -z "$seen" ]   # nothing staged (--allow-empty): run the check
+}
+
+if check_needed; then
+  "$check"
+else
+  echo "pre-commit: only files in .githooks/skip-check changed; check skipped"
+fi
+git write-tree >"$(git rev-parse --git-dir)/agent-dispatch-gate-tree"
