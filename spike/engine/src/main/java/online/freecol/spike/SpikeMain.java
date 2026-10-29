@@ -66,20 +66,27 @@ public final class SpikeMain {
     private static void waitCase(String name, long timeout, long notifyAfter) {
         final Object lock = new Object();
         new Thread(() -> {
+              try {
                 long t = System.currentTimeMillis();
+                log("selftest " + name + ": waiter entering");
                 synchronized (lock) {
+                    log("selftest " + name + ": waiter holds lock");
                     try {
                         if (timeout > 0) lock.wait(timeout); else lock.wait();
                     } catch (InterruptedException ie) { }
                 }
                 log("selftest " + name + ": woke after "
                     + (System.currentTimeMillis() - t) + "ms");
+              } catch (Throwable th) { log("selftest " + name + ": waiter threw " + th); }
         }, "selftest-" + name + "-waiter").start();
         if (notifyAfter >= 0) {
             new Thread(() -> {
+                  try {
                     try { Thread.sleep(notifyAfter); } catch (InterruptedException ie) { }
+                    log("selftest " + name + ": notifier entering");
                     synchronized (lock) { lock.notifyAll(); }
                     log("selftest " + name + ": notified");
+                  } catch (Throwable th) { log("selftest " + name + ": notifier threw " + th); }
             }, "selftest-" + name + "-notifier").start();
         }
     }

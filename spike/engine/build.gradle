@@ -59,7 +59,7 @@ tasks.named('run') {
 def release = project.hasProperty('release')
 teavm {
     all {
-        mainClass = 'online.freecol.spike.SpikeMain'
+        mainClass = project.findProperty('main') ?: 'online.freecol.spike.SpikeMain'
         optimization = project.hasProperty('aggressive') ? org.teavm.gradle.api.OptimizationLevel.AGGRESSIVE
                                : org.teavm.gradle.api.OptimizationLevel.BALANCED
     }
