@@ -3,7 +3,7 @@ FROM eclipse-temurin:21-jdk-noble
 
 ARG GRADLE_VERSION=9.8.2
 RUN apt-get update \
- && apt-get install -y --no-install-recommends curl unzip ca-certificates xz-utils \
+ && apt-get install -y --no-install-recommends curl unzip ca-certificates xz-utils git \
  && rm -rf /var/lib/apt/lists/* \
  && curl -fsSL -o /tmp/gradle.zip https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip \
  && unzip -q /tmp/gradle.zip -d /opt && rm /tmp/gradle.zip \
