@@ -4,13 +4,15 @@ Stage 1 of [Toolchain spike on real FreeCol code](https://github.com/shivan2418/
 
 ## Run it
 
+> The Engine has since moved from `spike/engine` to `engine/` at the repo root ([#13](https://github.com/shivan2418/freecol-online/issues/13)); the commands below use the new path. Its two browser modules now build in one run with `gradle modules`.
+
 Everything runs in the dev container (`docker/dev.Dockerfile`, via `../dev.sh`). FreeCol's source and data come from the upstream clone at `../freecol`.
 
 ```sh
-./dev.sh -C spike/engine gradle generateWasmGC copyWasmGCRuntime   # debug build (add -Prelease for obfuscated)
-./dev.sh -C spike/engine node run-node.mjs 30 > /dev/null           # 30 AI rounds in Wasm; spike lines on stderr
-./dev.sh -C spike/engine node run-node.mjs selftest > /dev/null     # wait/notify self-test
-./dev.sh -C spike/engine gradle run --args=30                       # the same driver on the JVM
+./dev.sh -C engine gradle generateWasmGC copyWasmGCRuntime   # debug build (add -Prelease for obfuscated)
+./dev.sh -C engine node run-node.mjs 30 > /dev/null           # 30 AI rounds in Wasm; spike lines on stderr
+./dev.sh -C engine node run-node.mjs selftest > /dev/null     # wait/notify self-test
+./dev.sh -C engine gradle run --args=30                       # the same driver on the JVM
 ```
 
 ## Measurements
@@ -105,9 +107,9 @@ PR heads: #1300 `688bbff4d101bc6e056897c065e2047c8cabb1f5`, #1302
 Reproduce against the built TeaVM:
 
 ```sh
-./dev.sh -C spike/engine gradle generateWasmGC copyWasmGCRuntime -PteavmVersion=0.17.0-SNAPSHOT -PteavmRepo=/work/.cache/teavm-repo
-./dev.sh -C spike/engine node run-node.mjs selftest
-./dev.sh -C spike/engine node run-node.mjs 30
+./dev.sh -C engine gradle generateWasmGC copyWasmGCRuntime -PteavmVersion=0.17.0-SNAPSHOT -PteavmRepo=/work/.cache/teavm-repo
+./dev.sh -C engine node run-node.mjs selftest
+./dev.sh -C engine node run-node.mjs 30
 ```
 
 With that build:
@@ -121,17 +123,17 @@ With that build:
 - `node run-node.mjs 30` with that build: game ready at ~393 ms, AI round mean
   317 ms (min 228, max 589), all 30 rounds finish, done at turn 31 (~9.9 s).
 
-With TeaVM 0.16.0 (`./dev.sh -C spike/engine gradle generateWasmGC
+With TeaVM 0.16.0 (`./dev.sh -C engine gradle generateWasmGC
 copyWasmGCRuntime -PteavmVersion=0.16.0`) — the same two commands:
 
 - `selftest`: the same `[spike ~1500ms] selftest: done` and no case output.
 - `30`: game ready at ~347 ms, AI round mean 267 ms (min 183, max 609), all 30
   rounds finish, done at turn 31 (~8.4 s).
 
-To build against the locally published TeaVM, `spike/engine` takes
+To build against the locally published TeaVM, `engine/` takes
 `-PteavmVersion=<version>` and `-PteavmRepo=<path>` (both default to TeaVM 0.16.0
 from Maven Central when unset; the plugin comes from the `pluginManagement`
-repository in `spike/engine/settings.gradle`, the libraries from `-PteavmRepo`).
+repository in `engine/settings.gradle`, the libraries from `-PteavmRepo`).
 
 ### Isolating the cause
 
@@ -174,14 +176,14 @@ The human seat still only ends its turn, as in stage 1.
 
 ```sh
 # JVM tests: the channel, and a whole split game with no TeaVM
-./dev.sh -C spike/engine gradle test
+./dev.sh -C engine gradle test
 
 # The two modules (add -Prelease for obfuscated, size-measured builds)
-./dev.sh -C spike/engine gradle generateWasmGC copyWasmGCRuntime -Pmain=online.freecol.web.WorkerMain -Pout=server
-./dev.sh -C spike/engine gradle generateWasmGC copyWasmGCRuntime -Pmain=online.freecol.web.ClientMain -Pout=client
+./dev.sh -C engine gradle generateWasmGC copyWasmGCRuntime -Pmain=online.freecol.web.WorkerMain -Pout=server
+./dev.sh -C engine gradle generateWasmGC copyWasmGCRuntime -Pmain=online.freecol.web.ClientMain -Pout=client
 
 # The split in Node: server in a worker thread, client on the main thread
-./dev.sh -C spike/engine node run-split-node.mjs 10 > /dev/null
+./dev.sh -C engine node run-split-node.mjs 10 > /dev/null
 
 # The page: assemble spike/web/dist, then measure in browsers (docker/web.Dockerfile)
 ./dev.sh spike/web/build.sh                     # ./dev.sh env FAKE=1 ... uses fake modules
@@ -258,7 +260,7 @@ Almost all of the 760 KiB is the login reply, which carries the whole game inclu
 
 ## What it took
 
-**The channel** is `PostMessageConnection`, a `Connection` subclass used on both sides (`spike/engine/src/main/java/online/freecol/web/`):
+**The channel** is `PostMessageConnection`, a `Connection` subclass used on both sides (`engine/src/main/java/online/freecol/web/`):
 
 - **Message format.** Each message crosses as one string of the XML a socket would carry, so a WebSocket can replace the Worker later.
 - **No `Object.wait`.** It replaces `ReceivingThread` and `NetworkReplyObject`, so nothing calls the broken `Object.wait`: a thread waiting for a reply polls with `Thread.sleep(1)`.

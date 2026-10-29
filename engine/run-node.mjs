@@ -1,11 +1,11 @@
 // Runs the TeaVM-built Engine under Node: node run-node.mjs [rounds]
-// Expects to be run from spike/engine, with FreeCol's data at ../../freecol/data.
+// Expects to be run from engine/, with FreeCol's data at ../freecol/data.
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 
 const out = 'build/generated/teavm/wasm-gc';
-const data = '../../freecol/data';
+const data = '../freecol/data';
 const files = [
   'base/roles-compat.xml',
   'base/unit-change-types-compat.xml',

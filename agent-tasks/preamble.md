@@ -5,12 +5,12 @@ aim for something mergeable.
 Read CLAUDE.md, GLOSSARY.md and spike/README.md (the current state of the
 TeaVM spike) first and follow them exactly. FreeCol's upstream source is the
 read-only directory freecol/: never edit it; patched copies go in
-spike/engine/patches/.
+engine/patches/.
 
 Rules:
 - You are inside the dev image (JDK 21, Gradle, Node, git). Build and run
-  through ./dev.sh, e.g. `./dev.sh -C spike/engine gradle generateWasmGC` and
-  `./dev.sh -C spike/engine node run-node.mjs selftest`. Tools you need that
+  through ./dev.sh, e.g. `./dev.sh -C engine gradle generateWasmGC` and
+  `./dev.sh -C engine node run-node.mjs selftest`. Tools you need that
   the image lacks go in a gitignored directory under .cache/ of your clone.
 - Never weaken, delete or skip an existing test. Never use --no-verify.
 - Commit on <branch> only, staging explicit paths. One topic per commit.

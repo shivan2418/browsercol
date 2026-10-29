@@ -19,7 +19,7 @@ const draws = opt('draw', '1').split(',');   // 1: draw the map, 0: skip drawing
 const timeout = Number(opt('timeout', '900')) * 1000;
 const dist = path.resolve(process.argv.filter((a, i, v) => !a.startsWith('--') && !(v[i - 1] ?? '').startsWith('--')).slice(2)[0] ?? 'dist');
 
-// Raw, gzip -9 and brotli -11 sizes of every served file (as in spike/engine/sizes.mjs).
+// Raw, gzip -9 and brotli -11 sizes of every served file (as in engine/sizes.mjs).
 const q = zlib.constants.BROTLI_PARAM_QUALITY;
 const sizes = {};
 for (const f of fs.readdirSync(dist, { recursive: true })) {

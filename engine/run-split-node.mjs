@@ -2,7 +2,7 @@
 // in a worker thread, the client module on the main thread, joined only by
 // protocol XML strings over postMessage.
 //   node run-split-node.mjs [rounds]
-// Expects to be run from spike/engine after building both modules:
+// Expects to be run from engine/ after building both modules:
 //   gradle generateWasmGC copyWasmGCRuntime -Pmain=online.freecol.web.WorkerMain -Pout=server
 //   gradle generateWasmGC copyWasmGCRuntime -Pmain=online.freecol.web.ClientMain -Pout=client
 import fs from 'node:fs';
@@ -11,7 +11,7 @@ import { createRequire } from 'node:module';
 import { Worker, isMainThread, parentPort } from 'node:worker_threads';
 
 const out = 'build/generated/teavm/wasm-gc';
-const data = '../../freecol/data';
+const data = '../freecol/data';
 const t0 = performance.now();
 const log = (s) => console.error(`[${isMainThread ? 'client' : 'server'} ${(performance.now() - t0).toFixed(0)}ms] ${s}`);
 
