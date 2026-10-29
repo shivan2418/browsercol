@@ -57,6 +57,11 @@ class SplitGameTest {
                     roundTimes.add(millis);
                 }
                 public void finished(Game game) { finished.countDown(); }
+            }, new WebGUI.BrowserUI() {
+                public void show(String kind, String json) {}
+                public void ask(int id, String kind, String json) {
+                    client[0].answer(id, null);
+                }
             });
 
         server.startGame("classic");
