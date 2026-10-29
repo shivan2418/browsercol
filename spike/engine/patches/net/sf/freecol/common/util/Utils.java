@@ -64,6 +64,18 @@ public class Utils {
 
     private static final Logger logger = Logger.getLogger(Utils.class.getName());
 
+    /**
+     * Get a colour as packed ARGB, as Color.getRGB does.
+     * browser: TeaVM's Color has no getRGB.
+     *
+     * @param c The {@code Color}.
+     * @return The packed value.
+     */
+    public static int getRGB(java.awt.Color c) {
+        return (c.getAlpha() << 24) | (c.getRed() << 16)
+            | (c.getGreen() << 8) | c.getBlue();
+    }
+
     /** Hex constant digits for get/restoreRandomState. */
     private static final String HEX_DIGITS = "0123456789ABCDEF";
 
