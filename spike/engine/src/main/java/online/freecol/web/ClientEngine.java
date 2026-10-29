@@ -1,0 +1,118 @@
+package online.freecol.web;
+
+import java.util.Locale;
+
+import net.sf.freecol.FreeCol;
+import net.sf.freecol.client.FreeColClient;
+import net.sf.freecol.client.networking.UserServerAPI;
+import net.sf.freecol.common.i18n.Messages;
+import net.sf.freecol.common.model.Game;
+
+
+/**
+ * The client Engine: FreeCol's client controllers with a {@link WebGUI},
+ * talking to the server Engine through a {@link PostMessageConnection}.
+ * In the browser it runs on the main thread.
+ *
+ * For the spike the human player only ends turns, so a game is a run of
+ * AI rounds: one round is from our end of turn to our next turn.
+ */
+public final class ClientEngine {
+
+    /** How the client reaches the server Engine. */
+    public interface ServerLink {
+        /** Ask the server to accept a new connection. */
+        void connect();
+        /** Send protocol XML on that connection. */
+        void post(String xml);
+    }
+
+    /** What the client reports. */
+    public interface Listener {
+        void gameStarted(Game game);
+        /** An AI round ended: our turn again, millis after we ended ours. */
+        void roundDone(int round, long millis);
+        void finished(Game game);
+    }
+
+    private final ServerLink link;
+    private final Listener listener;
+    private final FreeColClient client;
+    private volatile PostMessageConnection connection = null;
+
+    private int roundsWanted = 0;
+    private int rounds = 0;
+    private int lastEndedTurn = -1;
+    private long roundStart = 0;
+    private boolean finished = false;
+
+
+    public ClientEngine(ServerLink link, Listener listener) {
+        this.link = link;
+        this.listener = listener;
+        MessageReaders.install();
+        Messages.loadMessageBundle(Locale.US);
+        UserServerAPI.connectionFactory = (name, host, port) -> {
+            PostMessageConnection c = new PostMessageConnection(name, link::post);
+            this.connection = c;
+            link.connect();
+            return c;
+        };
+        this.client = new FreeColClient(fcc -> new WebGUI(fcc, this));
+    }
+
+    /**
+     * Log in to the server Engine's waiting game and launch it, then end
+     * our turn until the AI has played the given number of rounds.
+     * Blocks until the login is answered.
+     *
+     * @param rounds How many AI rounds to run.
+     * @return True if the login succeeded.
+     */
+    public boolean startGame(int rounds) {
+        this.roundsWanted = rounds;
+        if (!this.client.getConnectController()
+            .requestLogin(FreeCol.getName(), null, "worker", -1)) return false;
+        // What StartGamePanel's start button does in a single-player game.
+        if (!this.client.isInGame()) {
+            this.client.getMyPlayer().setReady(true);
+            this.client.getPreGameController().requestLaunch();
+        }
+        return true;
+    }
+
+    /** Accept protocol XML from the server. */
+    public void receive(String xml) {
+        this.connection.receive(xml);
+    }
+
+    public Game getGame() {
+        return this.client.getGame();
+    }
+
+    void gameStarted() {
+        this.listener.gameStarted(getGame());
+        checkTurn();
+    }
+
+    /** If it is newly our turn, count the round and end the turn. */
+    synchronized void checkTurn() {
+        if (this.finished || !this.client.currentPlayerIsMyPlayer()) return;
+        final int turn = getGame().getTurn().getNumber();
+        if (turn <= this.lastEndedTurn) return;
+        if (this.lastEndedTurn >= 0) {
+            this.rounds++;
+            this.listener.roundDone(this.rounds,
+                System.currentTimeMillis() - this.roundStart);
+        }
+        if (this.rounds >= this.roundsWanted) {
+            this.finished = true;
+            this.listener.finished(getGame());
+            return;
+        }
+        this.lastEndedTurn = turn;
+        this.roundStart = System.currentTimeMillis();
+        new Thread(() -> this.client.getInGameController().endTurn(false),
+                   "web-endTurn").start();
+    }
+}

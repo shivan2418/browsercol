@@ -13,7 +13,15 @@ public class ShimSubstitutionPolicy extends SimpleSubstitutionPolicy {
     public void contribute(SubstitutionSink sink) {
         // org.xml.sax: FreeCol only names SAXException in catch clauses,
         // which TeaVM does not report as missing but miscompiles.
-        sink.selectClasses(inPackage("java", true).or(inPackage("org.xml.sax", true)))
+        // javax.swing: the client controllers call SwingUtilities.
+        sink.selectClasses(inPackage("java", true).or(inPackage("org.xml.sax", true))
+                           .or(inPackage("javax.swing", true)))
+            .packagePrefix("online.freecol.shim")
+            .simpleNamePrefix("T");
+        // FreeColPanel is a Swing JPanel. GUI methods that the client
+        // controllers call return it, and Wasm GC function types need the
+        // class even when only null is returned, so give it a stub.
+        sink.selectClasses(named("net.sf.freecol.client.gui.panel.FreeColPanel"))
             .packagePrefix("online.freecol.shim")
             .simpleNamePrefix("T");
     }

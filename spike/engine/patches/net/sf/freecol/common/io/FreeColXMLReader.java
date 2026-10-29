@@ -159,7 +159,7 @@ public class FreeColXMLReader extends StreamReaderDelegate
      * @exception XMLStreamException can be thrown while creating the reader.
      */
     public FreeColXMLReader(File file) throws IOException, XMLStreamException {
-        this(Files.newInputStream(file.toPath()));
+        this(new java.io.FileInputStream(file)); // browser: no File.toPath
     }
     
     /**
@@ -188,6 +188,19 @@ public class FreeColXMLReader extends StreamReaderDelegate
      * @return A new <code>XMLInputFactory</code>.
      */
     private static XMLInputFactory newXMLInputFactory() {
+        return SHARED_FACTORY; // browser: one factory, see below
+    }
+
+    /**
+     * browser: one factory for every reader. Aalto interns XML names, and
+     * TeaVM's Wasm GC intern pool holds them weakly: when a reader's factory
+     * (and its symbol table) was dropped, the GC cleared the names and the
+     * pool read a dead entry, which Firefox reports as "TypeError: bad
+     * type". The shared factory's symbol table keeps the names alive.
+     */
+    private static final XMLInputFactory SHARED_FACTORY = makeXMLInputFactory(); // browser:
+
+    private static XMLInputFactory makeXMLInputFactory() { // browser:
         XMLInputFactory xif = new com.fasterxml.aalto.stax.InputFactoryImpl(); // browser: no FactoryFinder
         // This disables DTDs entirely for that factory
         xif.setProperty(XMLInputFactory.SUPPORT_DTD, false); 

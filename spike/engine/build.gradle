@@ -46,6 +46,16 @@ dependencies {
     implementation 'com.fasterxml:aalto-xml:1.3.3'
     compileOnly "org.teavm:teavm-extension-spi:${teavmVersion}"
     compileOnly "org.teavm:teavm-extension-apis:${teavmVersion}"
+    compileOnly "org.teavm:teavm-jso:${teavmVersion}"
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test {
+    useJUnitPlatform()
+    workingDir = freecol   // as for run: data/ is found relative to it
+    jvmArgs '-Djava.awt.headless=true'
+    testLogging { events 'failed'; exceptionFormat 'full'; showStandardStreams = project.hasProperty('verbose') }
 }
 
 application { mainClass = 'online.freecol.spike.SpikeMain' }
@@ -64,7 +74,9 @@ teavm {
                                : org.teavm.gradle.api.OptimizationLevel.BALANCED
     }
     wasmGC {
-        targetFileName = 'engine.wasm'
+        // -Pout=<name>: the module file name, e.g. server or client with
+        // -Pmain=online.freecol.web.WorkerMain or ClientMain.
+        targetFileName = "${project.findProperty('out') ?: 'engine'}.wasm"
         obfuscated = release
     }
 }

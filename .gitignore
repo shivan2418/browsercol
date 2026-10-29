@@ -3,3 +3,5 @@
 /.cache/
 build/
 .gradle/
+/spike/web/dist/
+/spike/web/results.md
