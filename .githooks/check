@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Commit gate: the Engine must still compile (Java, in the dev image).
+# agent-dispatch-slot is on PATH in agent jobs; it limits concurrent builds.
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+slot=(); command -v agent-dispatch-slot >/dev/null && slot=(agent-dispatch-slot)
+exec "${slot[@]}" ./dev.sh -C engine gradle -q compileJava
