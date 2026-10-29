@@ -13,11 +13,11 @@ mergeable; merge them in that order. The self-test is `SpikeMain`'s
 gradle run --args=selftest`) all three print "woke"; under TeaVM 0.16.0 none
 do.
 
+`spike/teavm/build-teavm.sh` (already on your branch) builds TeaVM
+master plus the four PRs into `.cache/teavm-repo` and prints the version.
+Run it first.
+
 Done means:
-- `spike/teavm/build-teavm.sh`: clones TeaVM into `.cache/teavm-src` (or
-  updates it), checks out master at a commit it prints, merges the four PRs,
-  and publishes TeaVM into a Maven repository at `.cache/teavm-repo`
-  without running TeaVM's own test suite. It is rerunnable.
 - `spike/engine` builds against that TeaVM when run with
   `-PteavmVersion=<version> -PteavmRepo=<path>` (plugin and libraries both;
   the plugin needs a `pluginManagement` block in settings.gradle). Without
@@ -32,14 +32,11 @@ Done means:
   and how to reproduce.
 
 Traps:
-- TeaVM's own Gradle build is large. Skip its tests, and build only what
-  the Gradle plugin and the Wasm GC target need, if that is possible.
-  It may need Node/npm for its JS runtime; Node is in the image.
+- Keep your command output short (send long logs to a file under build/
+  and grep it): your run has a limited number of steps.
 - Do not change FreeCol code or the shims to make the self-test pass. This
   task only measures TeaVM.
 - If a PR does not merge cleanly, say which, and test with the ones that do.
-- If TeaVM cannot be built at all, commit the script as far as it got and
-  report the exact error.
 
 If the task turns out bigger than this, commit the finished parts first and
 say in the report what is left.
