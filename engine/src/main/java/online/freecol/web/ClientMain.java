@@ -18,8 +18,8 @@ import net.sf.freecol.common.util.Utils;
 
 /**
  * Entry point of the client module, which runs on the main thread. The
- * page script (spike/web/main.js) calls the exports and provides
- * fcToServer, fcConnect and fcClientEvent.
+ * page script (ui/src/channel.ts) calls the exports and provides
+ * fcToServer, fcConnect, fcClientEvent, and the WebGUI's fcShow and fcAsk.
  */
 public final class ClientMain {
 
@@ -33,6 +33,12 @@ public final class ClientMain {
 
     @JSBody(params = { "name", "detail" }, script = "fcClientEvent(name, detail);")
     private static native void event(String name, String detail);
+
+    @JSBody(params = { "kind", "json" }, script = "fcShow(kind, json);")
+    private static native void show(String kind, String json);
+
+    @JSBody(params = { "id", "kind", "json" }, script = "fcAsk(id, kind, json);")
+    private static native void ask(int id, String kind, String json);
 
     /** Load the data files, (path, text) pairs, and make the client. */
     public static void main(String[] args) {
@@ -52,6 +58,13 @@ public final class ClientMain {
                             }
                             public void finished(Game game) {
                                 event("finished", String.valueOf(game.getTurn()));
+                            }
+                        }, new WebGUI.BrowserUI() {
+                            public void show(String kind, String json) {
+                                ClientMain.show(kind, json);
+                            }
+                            public void ask(int id, String kind, String json) {
+                                ClientMain.ask(id, kind, json);
                             }
                         });
                     event("ready", "");
@@ -78,6 +91,12 @@ public final class ClientMain {
     @JSExport
     public static void receive(String xml) {
         engine.receive(xml);
+    }
+
+    /** The Browser UI's answer to a WebGUI question; null for a closed dialog. */
+    @JSExport
+    public static void answer(int id, String answer) {
+        engine.answer(id, answer);
     }
 
     /**

@@ -3,6 +3,8 @@
 //   page -> worker: data (the bundle, once) | start | connect | fc
 //   worker -> page: fc | event
 // The page fetches the data bundle and hands it over, so it is downloaded once.
+// The client Engine's WebGUI talks to the page alone, through webgui.ts.
+import { webGui, type GuiHandlers } from './webgui';
 
 /** Exports of the server module (online.freecol.web.WorkerMain). */
 export interface ServerExports {
@@ -17,6 +19,8 @@ export interface ClientExports {
   main(args: string[]): void;
   startGame(rounds: number): void;
   receive(xml: string): void;
+  /** Answer a WebGUI question; null for a closed dialog. */
+  answer(id: number, value: string | null): void;
 }
 
 export type ToWorker =
@@ -99,6 +103,8 @@ export interface PageOptions {
   scope: Scope;
   /** Every event from either Engine: ready, gameStarted, round, map, finished, failed, ... */
   onEvent: (name: string, detail: string) => void;
+  /** What the WebGUI shows and asks. */
+  gui: GuiHandlers;
 }
 
 /**
@@ -117,6 +123,10 @@ export function startPage(o: PageOptions): void {
     if (name === 'ready') send({ k: 'start', rules: o.rules });
     o.onEvent(name, detail);
   };
+  Object.assign(
+    o.scope,
+    webGui(o.gui, (id, value) => client!.answer(id, value)),
+  );
 
   listen<ToPage>(o.worker, (m) => {
     if (m.k === 'fc') return client!.receive(m.xml);
