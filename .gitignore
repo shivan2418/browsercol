@@ -1,2 +1,5 @@
 /freecol/
 /.claude/worktrees/
+/.cache/
+build/
+.gradle/
