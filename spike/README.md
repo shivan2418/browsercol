@@ -95,8 +95,9 @@ requests (#1300, #1302, #1304, #1305) and publishes the build into
 
 Measured 2026-10-29 with a TeaVM built from source, master plus the four open
 monitor pull requests, published into `.cache/teavm-repo` as version
-`0.17.0-SNAPSHOT`. TeaVM master commit:
-`3101c602ca7624ac4d9692fa3103f039e6029170` (merge of `refs/pull/1305/head`);
+`0.17.0-SNAPSHOT`. TeaVM master commit
+`109cf91e74f0617fa779b9702377c16d7fc107a2`; the merged result in that run was
+`3101c602ca7624ac4d9692fa3103f039e6029170`.
 PR heads: #1300 `688bbff4d101bc6e056897c065e2047c8cabb1f5`, #1302
 `02bc4296357472c91ede084d71869ca26acbc287`, #1304 `8035e487908ff15d298f6c19d43b5020160d5464`, #1305
 `007eab3d6647999e481f94788addd4735163796a`.
@@ -131,3 +132,29 @@ To build against the locally published TeaVM, `spike/engine` takes
 `-PteavmVersion=<version>` and `-PteavmRepo=<path>` (both default to TeaVM 0.16.0
 from Maven Central when unset; the plugin comes from the `pluginManagement`
 repository in `spike/engine/settings.gradle`, the libraries from `-PteavmRepo`).
+
+### Isolating the cause
+
+Object.wait itself works under TeaVM 0.16.0 Wasm GC. A minimal project with
+the same plugin settings, plus our shims and both policies, passes a timed wait
+on the main thread and on a new thread (110 ms). So does
+`online.freecol.probe.WaitProbe` (build with
+`-Pmain=online.freecol.probe.WaitProbe`, run `node probe.mjs`) in this
+project, as long as no FreeCol code is reachable (59 KB module). Once any of
+these is reachable, the wait never returns, even though the code never runs:
+
+| Made reachable from `WaitProbe.reach()` | module | wait |
+|---|---|---|
+| nothing | 0.06 MB | returns after 110 ms |
+| `SpikeMain.main` | 13.8 MB | never returns |
+| `new FreeColServer(...)` | 13.8 MB | never returns |
+| spec loading only | 14.3 MB | never returns |
+| one reflective constructor call | 13.7 MB | never returns |
+| one `java.util.logging` call | 13.9 MB | never returns |
+| one logging call, reflection policy off | 12.9 MB | never returns |
+
+The same logging call in the minimal project gives a 94 KB module and a
+working wait. So the trigger is something in the large FreeCol graph that
+both logging and reflection pull in, not one FreeCol feature. The self-test
+logs show the waiter takes the lock, calls wait, and never comes back, and
+nothing throws. Not yet found: which class or method in that graph does it.
