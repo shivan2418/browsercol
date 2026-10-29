@@ -7,7 +7,6 @@ import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
-import java.util.concurrent.CountDownLatch;
 
 import net.sf.freecol.FreeCol;
 import net.sf.freecol.common.i18n.Messages;
@@ -35,7 +34,9 @@ public final class SpikeMain {
     private static long t0;
 
     private static void log(String s) {
-        System.out.println("[spike " + (System.currentTimeMillis() - t0) + "ms] " + s);
+        // stderr: TeaVM prints FreeCol's log (every level) to stdout,
+        // which measurement runs discard.
+        System.err.println("[spike " + (System.currentTimeMillis() - t0) + "ms] " + s);
     }
 
     private static void writeFile(String path, String text) throws IOException {
@@ -48,16 +49,56 @@ public final class SpikeMain {
     }
 
     public static void main(String[] args) {
-        try {
-            run(args);
-        } catch (Throwable t) {
-            log("FAILED: " + t);
-            t.printStackTrace();
+        // Under TeaVM Wasm GC, wait() on the thread that entered through
+        // main() neither releases the monitor nor wakes up, so do the
+        // work on a thread of our own and let main() return.
+        new Thread(() -> {
+                try {
+                    run(args);
+                } catch (Throwable t) {
+                    log("FAILED: " + t);
+                    t.printStackTrace();
+                }
+        }, "spike-main").start();
+    }
+
+    /** One wait/notify case on its own threads; logs what happened. */
+    private static void waitCase(String name, long timeout, long notifyAfter) {
+        final Object lock = new Object();
+        new Thread(() -> {
+                long t = System.currentTimeMillis();
+                synchronized (lock) {
+                    try {
+                        if (timeout > 0) lock.wait(timeout); else lock.wait();
+                    } catch (InterruptedException ie) { }
+                }
+                log("selftest " + name + ": woke after "
+                    + (System.currentTimeMillis() - t) + "ms");
+        }, "selftest-" + name + "-waiter").start();
+        if (notifyAfter >= 0) {
+            new Thread(() -> {
+                    try { Thread.sleep(notifyAfter); } catch (InterruptedException ie) { }
+                    synchronized (lock) { lock.notifyAll(); }
+                    log("selftest " + name + ": notified");
+            }, "selftest-" + name + "-notifier").start();
         }
+    }
+
+    /** Which wait/notify cases work under this runtime? */
+    private static void monitorSelfTest() throws InterruptedException {
+        waitCase("A untimed+notify@50", 0, 50);
+        waitCase("B timed100 no notify", 100, -1);
+        waitCase("C timed1000+notify@50", 1000, 50);
+        Thread.sleep(1500);
+        log("selftest: done");
     }
 
     private static void run(String[] args) throws Exception {
         t0 = System.currentTimeMillis();
+        if (args.length > 0 && "selftest".equals(args[0])) {
+            monitorSelfTest();
+            return;
+        }
         final int turns = (args.length > 0) ? Integer.parseInt(args[0]) : 10;
         // In the browser the data files arrive as (path, text) argument
         // pairs and go into TeaVM's in-memory file system.
@@ -96,8 +137,15 @@ public final class SpikeMain {
 
         human.player = server.getPlayer(toHuman);
         human.endTurnSoon();
-        human.done.await();
+        // Poll: Object.wait does not work under TeaVM 0.16 Wasm GC (see
+        // monitorSelfTest), but Thread.sleep does.
+        while (!human.done) Thread.sleep(20);
         log("finished at " + game.getTurn());
+        for (Player p : game.getLiveEuropeanPlayerList()) {
+            log("  " + p.getName() + ": " + p.getColonyList().size()
+                + " colonies, " + p.getUnitCount() + " units, gold "
+                + p.getGold() + ", score " + p.getScore());
+        }
         // TeaVM has no System.exit: stop the server thread instead.
         server.getController().shutdown();
     }
@@ -106,7 +154,7 @@ public final class SpikeMain {
     private static final class HumanStub implements MessageHandler {
         final FreeColServer server;
         final int turns;
-        final CountDownLatch done = new CountDownLatch(1);
+        volatile boolean done = false;
         Connection connection;
         Player player;
         long roundStart;
@@ -127,7 +175,7 @@ public final class SpikeMain {
                             Connection.DEFAULT_REPLY_TIMEOUT);
                     } catch (Exception ex) {
                         ex.printStackTrace();
-                        done.countDown();
+                        done = true;
                     }
             }, "human-endTurn").start();
         }
@@ -138,7 +186,7 @@ public final class SpikeMain {
             // so check the shared game state instead of the message type.
             if (message instanceof GameEndedMessage) {
                 log("game ended");
-                done.countDown();
+                done = true;
                 return null;
             }
             Player current = server.getGame().getCurrentPlayer();
@@ -149,7 +197,7 @@ public final class SpikeMain {
                 log("round " + rounds + " (" + server.getGame().getTurn()
                     + ") AI took " + (System.currentTimeMillis() - roundStart)
                     + "ms");
-                if (rounds >= turns) done.countDown(); else endTurnSoon();
+                if (rounds >= turns) done = true; else endTurnSoon();
             }
             return null;
         }

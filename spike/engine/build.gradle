@@ -48,10 +48,17 @@ tasks.named('run') {
     jvmArgs '-Djava.awt.headless=true'
 }
 
+// -Prelease: obfuscated names, for size runs. -Paggressive also turns on
+// TeaVM's aggressive optimisation, which breaks the module under 0.16.
+def release = project.hasProperty('release')
 teavm {
-    all { mainClass = 'online.freecol.spike.SpikeMain' }
+    all {
+        mainClass = 'online.freecol.spike.SpikeMain'
+        optimization = project.hasProperty('aggressive') ? org.teavm.gradle.api.OptimizationLevel.AGGRESSIVE
+                               : org.teavm.gradle.api.OptimizationLevel.BALANCED
+    }
     wasmGC {
         targetFileName = 'engine.wasm'
-        obfuscated = false
+        obfuscated = release
     }
 }

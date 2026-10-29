@@ -18,6 +18,7 @@ public class FreeColReflectionPolicy extends SimpleReflectionPolicy {
     private static final String[] SPEC_METHODS = {
         "getNationID", "getNationType", "getSoL", "isConnectedPort",
         "isForested", "isIndian", "isWater",
+        "getType",  // Scope.appliesTo
     };
 
     /** Fields the server sends as partial updates (Introspector get/set). */
