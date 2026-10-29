@@ -1,5 +1,11 @@
 package online.freecol.spike;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
+import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.concurrent.CountDownLatch;
 
@@ -32,9 +38,31 @@ public final class SpikeMain {
         System.out.println("[spike " + (System.currentTimeMillis() - t0) + "ms] " + s);
     }
 
-    public static void main(String[] args) throws Exception {
+    private static void writeFile(String path, String text) throws IOException {
+        File f = new File(path);
+        if (f.getParentFile() != null) f.getParentFile().mkdirs();
+        try (Writer w = new OutputStreamWriter(new FileOutputStream(f),
+                                               StandardCharsets.UTF_8)) {
+            w.write(text);
+        }
+    }
+
+    public static void main(String[] args) {
+        try {
+            run(args);
+        } catch (Throwable t) {
+            log("FAILED: " + t);
+            t.printStackTrace();
+        }
+    }
+
+    private static void run(String[] args) throws Exception {
         t0 = System.currentTimeMillis();
         final int turns = (args.length > 0) ? Integer.parseInt(args[0]) : 10;
+        // In the browser the data files arrive as (path, text) argument
+        // pairs and go into TeaVM's in-memory file system.
+        for (int i = 1; i + 1 < args.length; i += 2) writeFile(args[i], args[i + 1]);
+        if (args.length > 1) log("wrote " + (args.length - 1) / 2 + " data files");
 
         Messages.loadMessageBundle(Locale.US);
         FreeColRules.loadRules();

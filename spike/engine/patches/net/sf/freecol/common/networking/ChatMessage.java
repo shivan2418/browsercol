@@ -52,14 +52,8 @@ public class ChatMessage extends AttributeMessage {
      * @param message The text of the message to send.
      * @param privateChat Whether this message is private.
      */
-    /** browser: TeaVM's Color has no getRGB. */
-    private static int rgb(java.awt.Color c) {
-        return (c.getAlpha() << 24) | (c.getRed() << 16)
-            | (c.getGreen() << 8) | c.getBlue();
-    }
-
     public ChatMessage(Player player, String message, boolean privateChat) {
-        super(TAG, COLOR_TAG, String.valueOf(rgb(player.getNationColor())),
+        super(TAG, COLOR_TAG, String.valueOf(net.sf.freecol.common.util.Utils.getRGB(player.getNationColor())), // browser
               MESSAGE_TAG, message,
               PRIVATE_TAG, String.valueOf(privateChat),
               SENDER_TAG, player.getName());

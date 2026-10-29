@@ -11,7 +11,9 @@ import org.teavm.extension.spi.substitution.SubstitutionSink;
 public class ShimSubstitutionPolicy extends SimpleSubstitutionPolicy {
     @Override
     public void contribute(SubstitutionSink sink) {
-        sink.selectClasses(inPackage("java", true))
+        // org.xml.sax: FreeCol only names SAXException in catch clauses,
+        // which TeaVM does not report as missing but miscompiles.
+        sink.selectClasses(inPackage("java", true).or(inPackage("org.xml.sax", true)))
             .packagePrefix("online.freecol.shim")
             .simpleNamePrefix("T");
     }
