@@ -537,7 +537,7 @@ public final class FreeCol {
      */
     @SuppressFBWarnings(value="DM_EXIT", justification="Deliberate")
     public static void quit(int status) {
-        System.exit(status);
+        System.err.println("FreeCol.quit(" + status + ")"); // browser: no System.exit, nothing to exit
     }
 
     /**
@@ -568,7 +568,7 @@ public final class FreeCol {
     private static void fatal(String err) {
         if (err == null || err.isEmpty()) {
             err = "Bogus null fatal error message";
-            Thread.dumpStack();
+            new Throwable(err).printStackTrace(); // browser: no Thread.dumpStack
         }
         System.err.println(err);
         quit(1);
