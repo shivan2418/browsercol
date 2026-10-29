@@ -39,7 +39,8 @@ import net.sf.freecol.common.util.Utils;
  * <li>items: [x, y, zIndex, kind, key] per other complete tile item in
  *     zIndex order, kind "centered" (resources, rumours) or "tile"
  *     (improvement images, drawn if the key exists);
- * <li>settlements: [x, y, [keys], rgb, name, population or -1];
+ * <li>settlements: [x, y, [keys], rgb, name as the player knows it,
+ *     population or -1, production bonus];
  * <li>units: [x, y, [keys], rgb, chip text, chip text rgb, units on the
  *     tile, faded], for the unit MapViewer shows in front;
  * <li>active: the active unit's tile, [x, y], or null.
@@ -72,7 +73,7 @@ final class MapJson {
                 tiles.append((char)('A' + i));
                 tileItems(t, rivers, roads, items);
                 final Settlement s = t.getSettlement();
-                if (s != null) settlements.add(settlement(s));
+                if (s != null) settlements.add(settlement(s, player));
                 final Unit u = unitInFront(t, active);
                 if (u != null) units.add(unit(u, player));
             }
@@ -130,13 +131,14 @@ final class MapJson {
     }
 
     /** ImageLibrary.getSettlementKey, with and without the nation. */
-    private static String settlement(Settlement s) {
+    private static String settlement(Settlement s, Player player) {
         String key = "image.tileitem." + s.getType().getId();
-        int population = -1;
+        int population = -1, bonus = 0;
         final List<String> keys = new ArrayList<>();
         if (s instanceof Colony) {
             final Colony colony = (Colony)s;
             population = colony.getApparentUnitCount();
+            bonus = colony.getProductionBonus();
             if (colony.isUndead()) {
                 key += ".undead";
             } else {
@@ -153,8 +155,9 @@ final class MapJson {
         keys.add(key);
         final Tile t = s.getTile();
         return "[" + t.getX() + "," + t.getY() + "," + keys(keys) + ","
-            + rgb(s.getOwner()) + "," + Json.quote(s.getName()) + ","
-            + population + "]";
+            + rgb(s.getOwner()) + ","
+            + Json.quote(Messages.message(s.getLocationLabelFor(player))) + ","
+            + population + "," + bonus + "]";
     }
 
     /** MapViewerState.findUnitInFront, without animations. */

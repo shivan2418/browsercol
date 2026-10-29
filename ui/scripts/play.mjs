@@ -80,7 +80,7 @@ const at = (list, tile) => list.some(([x, y]) => same([x, y], tile));
 function typeAt(m, [x, y]) {
   if (x < 0 || y < 0 || x >= m.w || y >= m.h) return null;
   const i = m.tiles.charCodeAt(y * m.w + x) - 65;
-  return i >= 0 ? m.types[i] : null;
+  return i >= 0 ? m.types[i].id : null;
 }
 
 async function play(page, url) {
@@ -127,8 +127,8 @@ async function play(page, url) {
   };
   const click = async (m, [x, y]) => {
     const box = await page.locator('#map canvas').boundingBox();
-    const size = box.width / (m.w + 0.5);
-    await page.mouse.click(box.x + x * size + ((y % 2) * size) / 2 + size / 2, box.y + (y * size) / 2 + size / 4);
+    const [px, py] = await page.evaluate(([x, y]) => window.fcPointOf(x, y), [x, y]);
+    await page.mouse.click(box.x + px, box.y + py);
   };
 
   await page.goto(url);
@@ -181,6 +181,8 @@ for (const name of browsers) {
   let result;
   try {
     result = await play(page, server.url);
+    await page.evaluate(([x, y]) => window.fcPointOf(x, y), result.land);
+    await page.screenshot({ path: path.join(dist, `../.cache/play-${name}.png`) });
   } catch (ex) {
     result = { error: String(ex) };
   }

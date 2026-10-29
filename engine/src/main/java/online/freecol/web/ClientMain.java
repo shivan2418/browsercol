@@ -1,20 +1,11 @@
 package online.freecol.web;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.teavm.jso.JSBody;
 import org.teavm.jso.JSExport;
 
 import net.sf.freecol.common.model.Game;
-import net.sf.freecol.common.model.Map;
-import net.sf.freecol.common.model.Player;
-import net.sf.freecol.common.model.Settlement;
-import net.sf.freecol.common.model.Tile;
-import net.sf.freecol.common.model.TileType;
-import net.sf.freecol.common.model.Unit;
-import net.sf.freecol.common.util.Utils;
 
 
 /**
@@ -153,61 +144,9 @@ public final class ClientMain {
         command("endTurn", () -> engine.getCommands().endTurn());
     }
 
-    /**
-     * The client's view of the map for the crude renderer, as JSON:
-     * w, h, the turn and whether it is ours, the tile type ids, one
-     * character per tile ('A' + type index, '.' if unexplored),
-     * settlements and units as [x, y, rgb], and the active unit's tile
-     * as [x, y] or null.
-     */
+    /** The client's view of the map for the Tileset renderer: see MapJson. */
     static String mapJson() {
-        final Game game = engine.getGame();
-        final Map map = game.getMap();
-        final List<TileType> types = new ArrayList<>();
-        final StringBuilder tiles = new StringBuilder(map.getWidth() * map.getHeight());
-        final StringBuilder settlements = new StringBuilder();
-        final StringBuilder units = new StringBuilder();
-        for (int y = 0; y < map.getHeight(); y++) {
-            for (int x = 0; x < map.getWidth(); x++) {
-                Tile t = map.getTile(x, y);
-                TileType type = (t == null) ? null : t.getType();
-                if (type == null) {
-                    tiles.append('.');
-                    continue;
-                }
-                int i = types.indexOf(type);
-                if (i < 0) { i = types.size(); types.add(type); }
-                tiles.append((char)('A' + i));
-                Settlement s = t.getSettlement();
-                if (s != null) item(settlements, x, y, s.getOwner());
-                Unit u = t.getFirstUnit();
-                if (u != null) item(units, x, y, u.getOwner());
-            }
-        }
-        StringBuilder sb = new StringBuilder();
-        sb.append("{\"w\":").append(map.getWidth())
-            .append(",\"h\":").append(map.getHeight())
-            .append(",\"turn\":\"").append(game.getTurn()).append('"')
-            .append(",\"ourTurn\":").append(engine.getClient().currentPlayerIsMyPlayer())
-            .append(",\"types\":[");
-        for (int i = 0; i < types.size(); i++) {
-            if (i > 0) sb.append(',');
-            sb.append('"').append(types.get(i).getId()).append('"');
-        }
-        sb.append("],\"tiles\":\"").append(tiles)
-            .append("\",\"settlements\":[").append(settlements)
-            .append("],\"units\":[").append(units).append(']');
-        final Unit active = engine.getClient().getGUI().getActiveUnit();
-        final Tile at = (active == null) ? null : active.getTile();
-        sb.append(",\"active\":").append((at == null) ? "null"
-            : "[" + at.getX() + "," + at.getY() + "]").append('}');
-        return sb.toString();
-    }
-
-    private static void item(StringBuilder sb, int x, int y, Player owner) {
-        if (sb.length() > 0) sb.append(',');
-        int rgb = (owner == null || owner.getNationColor() == null) ? 0xffffff
-            : Utils.getRGB(owner.getNationColor()) & 0xffffff;
-        sb.append('[').append(x).append(',').append(y).append(',').append(rgb).append(']');
+        return MapJson.of(engine.getGame(), engine.getClient().getMyPlayer(),
+                          engine.getClient().getGUI().getActiveUnit());
     }
 }

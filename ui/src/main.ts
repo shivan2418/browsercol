@@ -16,6 +16,8 @@ import type { GuiHandlers } from './webgui';
 declare global {
   interface Window {
     fcResult?: Record<string, unknown>;
+    /** For scripts/play.mjs: where a tile's centre is on the map canvas. */
+    fcPointOf?: (x: number, y: number) => [number, number];
   }
 }
 
@@ -25,8 +27,9 @@ const rules = params.get('rules') ?? 'classic';
 const out = document.getElementById('out')!;
 const turn = document.getElementById('turn')!;
 const mapHost = document.getElementById('map')!;
-const map = mapDrawer(mapHost);
+const map = mapDrawer(mapHost, 'art/');
 const rounds: string[] = [];
+window.fcPointOf = (x, y) => map.pointOf(x, y);
 let drawn = Promise.resolve();
 
 function show(status: string, extra: Record<string, unknown> = {}) {

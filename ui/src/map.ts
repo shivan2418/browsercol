@@ -1,90 +1,194 @@
-// Crude map renderer: one brick per tile, coloured by tile type, settlements
-// outlined, units as dots and the active unit's tile ringed. FreeCol's map is
-// a diamond grid stored as staggered rows (odd rows half a tile to the right),
-// so the bricks are half as tall as wide and odd rows are shifted: N is two
-// rows up, NE one row up and to the right. Falls back to Canvas 2D where PixiJS cannot get
-// a renderer (some headless browsers).
-import { Application, Graphics } from 'pixi.js';
+// Tileset mode map renderer: draws the operations of tileset.ts with
+// PixiJS, falling back to Canvas 2D where PixiJS cannot get a renderer (some
+// headless browsers). Images load by path from the art/ directory that
+// scripts/build-art.mjs fills; recipes (FreeCol's masked images) are
+// composited once on a canvas and cached by id. The map is FreeCol's: 128x64
+// diamonds in staggered rows, odd rows half a tile to the right. Drag to pan.
+import { Application, Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
+import { resources, type ArtLayer, type Resources } from './resources';
+import { scene, srcId, type Direction, type MapView, type Op, type Src } from './tileset';
 
-/** The client's view of the map, as ClientMain.mapJson writes it. */
-export interface MapView {
-  w: number;
-  h: number;
-  turn: string;
-  ourTurn: boolean;
-  /** Tile type ids, indexed by the tile characters. */
-  types: string[];
-  /** One character per tile: 'A' + type index, '.' if unexplored. */
-  tiles: string;
-  /** [x, y, rgb] per settlement and per unit. */
-  settlements: [number, number, number][];
-  units: [number, number, number][];
-  /** The active unit's tile, if any. */
-  active: [number, number] | null;
+export type { MapView } from './tileset';
+
+const W = 128;
+const H = 64;
+/** TileViewer.STATE_OFFSET_X and TileBounds' unit offsets, at scale 1. */
+const STATE_OFFSET_X = 25;
+const UNIT_OFFSET = 20;
+const OTHER_UNITS_OFFSET_X = -5;
+const OTHER_UNITS_WIDTH = 3;
+const MAX_OTHER_UNITS = 10;
+const ROAD_COLOR = 0x804000;
+/** color.map.productionBonus.N in FreeCol's default resources. */
+const BONUS_COLORS: Record<number, number> = { 2: 0x0000ff, 1: 0x00aa00, 0: 0xffffff, [-1]: 0xffa500, [-2]: 0xff0000 };
+
+/** Where a tile's 128x64 box starts on the whole map. */
+export const tileOrigin = (x: number, y: number): [number, number] => [x * W + (y % 2) * (W / 2), (y * H) / 2];
+
+/** The tile whose diamond holds a point of the whole map, or null off the map. */
+export function tileAt(w: number, h: number, px: number, py: number): [number, number] | null {
+  const row = Math.floor(py / (H / 2));
+  for (const y of [row - 1, row]) {
+    if (y < 0 || y >= h) continue;
+    const x = Math.floor((px - (y % 2) * (W / 2)) / W);
+    const [ox, oy] = tileOrigin(x, y);
+    if (x >= 0 && x < w && Math.abs(px - ox - W / 2) / (W / 2) + Math.abs(py - oy - H / 2) / (H / 2) <= 1) {
+      return [x, y];
+    }
+  }
+  return null;
 }
 
-/** Brick width in pixels (height is half) and the map's size in tiles. */
-export interface Layout {
-  size: number;
-  w: number;
-  h: number;
-}
-
-/** Where a tile's brick starts. */
-const origin = ({ size }: Layout, x: number, y: number): [number, number] => [
-  x * size + (y % 2) * (size / 2),
-  (y * size) / 2,
-];
-
-/** The tile [x, y] under a pixel of the map, or null off the map. */
-export function tileAt(layout: Layout, px: number, py: number): [number, number] | null {
-  const y = Math.floor(py / (layout.size / 2));
-  const x = Math.floor((px - (y % 2) * (layout.size / 2)) / layout.size);
-  return px < 0 || py < 0 || x < 0 || y < 0 || x >= layout.w || y >= layout.h ? null : [x, y];
-}
-
-// Colour per tile type id, matched on the last segment of the id.
-const COLORS: [RegExp, number][] = [
-  [/highSeas|deepOcean/i, 0x0a2a6b],
-  [/ocean/i, 0x1f5fbf],
-  [/lake/i, 0x4f8fdf],
-  [/plains/i, 0xc9b458],
-  [/grassland/i, 0x5fa83a],
-  [/prairie/i, 0x9cc45a],
-  [/savannah/i, 0xb7a93f],
-  [/marsh/i, 0x6f8f5f],
-  [/swamp/i, 0x4a6b4a],
-  [/desert/i, 0xe0c88a],
-  [/tundra/i, 0xb8c0b0],
-  [/arctic/i, 0xf4f8ff],
-  [/coniferForest|boreal/i, 0x1f5a2f],
-  [/scrubForest/i, 0x6f7f35],
-  [/tropicalForest|rain/i, 0x0f6f2f],
-  [/forest/i, 0x2f7f3f],
-  [/hills/i, 0x8f7050],
-  [/mountains/i, 0x777777],
-];
-const colorOf = (id: string) => COLORS.find(([re]) => re.test(id))?.[1] ?? 0x888888;
+type Picture = HTMLImageElement | HTMLCanvasElement;
 const css = (c: number) => '#' + c.toString(16).padStart(6, '0');
 
-interface Pen {
-  clear(): void;
-  rect(x: number, y: number, w: number, h: number, color: number): void;
-  outline(x: number, y: number, w: number, h: number, color: number): void;
-  dot(x: number, y: number, r: number, color: number): void;
+/** Images by path and recipes by id, loaded and composited once. */
+function pictures(base: string) {
+  const cache = new Map<string, Promise<Picture>>();
+  const canvas = (w: number, h: number) => Object.assign(document.createElement('canvas'), { width: w, height: h });
+  const load = (path: string) => {
+    const img = new Image();
+    img.src = base + path;
+    return img.decode().then(() => img);
+  };
+  const compose = async (src: Exclude<Src, string>): Promise<Picture> => {
+    const c = canvas(W, H);
+    const g = c.getContext('2d')!;
+    for (const step of src.steps) {
+      if ('mask' in step) {
+        g.globalCompositeOperation = 'destination-in';
+        g.drawImage(await get(step.mask), 0, 0, W, H);
+      } else {
+        const s = step.scale ?? 1;
+        g.globalCompositeOperation = 'source-over';
+        g.globalAlpha = step.alpha ?? 1;
+        g.drawImage(await get(step.draw), (W - W * s) / 2, (H - H * s) / 2, W * s, H * s);
+      }
+      g.globalAlpha = 1;
+    }
+    return c;
+  };
+  const get = (src: Src): Promise<Picture> => {
+    const id = srcId(src);
+    let p = cache.get(id);
+    if (!p) cache.set(id, (p = typeof src === 'string' ? load(src) : compose(src)));
+    return p;
+  };
+  /** ImageLibrary's grayscale images: sentries and units out of sight. */
+  const gray = (src: Src): Promise<Picture> => {
+    const id = 'gray:' + srcId(src);
+    let p = cache.get(id);
+    if (!p) {
+      p = get(src).then((img) => {
+        const c = canvas(img.width, img.height);
+        const g = c.getContext('2d')!;
+        g.filter = 'grayscale(1)';
+        g.drawImage(img, 0, 0);
+        return c;
+      });
+      cache.set(id, p);
+    }
+    return p;
+  };
+  return { get, gray };
 }
+
+interface TextStyle {
+  color: number;
+  font: string;
+  size: number;
+  bold?: boolean;
+  italic?: boolean;
+}
+
+/** What draws the map: a PixiJS scene graph or a Canvas 2D context. */
+interface Pen {
+  readonly canvas: HTMLCanvasElement;
+  clear(): void;
+  image(pic: Picture, x: number, y: number, dim: boolean): void;
+  diamond(x: number, y: number, color: number, alpha: number): void;
+  road(x: number, y: number, path: (p: PathSink) => void): void;
+  rect(x: number, y: number, w: number, h: number, color: number): void;
+  line(x1: number, y1: number, x2: number, y2: number, color: number): void;
+  /** Text with a black outline, its top centred on (x, y) or starting there. */
+  text(s: string, x: number, y: number, style: TextStyle, center: boolean): void;
+  measure(s: string, style: TextStyle): number;
+  /** Show the map moved by (dx, dy). */
+  show(dx: number, dy: number): void;
+}
+
+interface PathSink {
+  moveTo(x: number, y: number): void;
+  lineTo(x: number, y: number): void;
+  quadTo(cx: number, cy: number, x: number, y: number): void;
+}
+
+const fontOf = (s: TextStyle) => `${s.italic ? 'italic ' : ''}${s.bold ? 'bold ' : ''}${s.size}px ${s.font}`;
 
 async function pixiPen(host: HTMLElement, width: number, height: number): Promise<Pen> {
   const app = new Application();
-  await app.init({ width, height, background: 0x000000, antialias: false });
+  await app.init({ width, height, background: 0x000000, antialias: true });
   host.append(app.canvas);
-  const g = new Graphics();
-  app.stage.addChild(g);
+  const world = new Container();
+  app.stage.addChild(world);
+  const textures = new WeakMap<Picture, Texture>();
+  const texture = (pic: Picture) => {
+    let t = textures.get(pic);
+    if (!t) textures.set(pic, (t = Texture.from(pic)));
+    return t;
+  };
+  const measurer = document.createElement('canvas').getContext('2d')!;
   return {
-    clear: () => g.clear(),
-    rect: (x, y, w, h, color) => g.rect(x, y, w, h).fill(color),
-    outline: (x, y, w, h, color) => g.rect(x, y, w, h).stroke({ width: 1, color }),
-    dot: (x, y, r, color) => g.circle(x, y, r).fill(color),
+    canvas: app.canvas,
+    clear: () => {
+      for (const child of world.removeChildren()) child.destroy();
+    },
+    image: (pic, x, y, dim) => {
+      const s = new Sprite(texture(pic));
+      s.position.set(x, y);
+      if (dim) s.tint = 0xcccccc;
+      world.addChild(s);
+    },
+    diamond: (x, y, color, alpha) => {
+      world.addChild(
+        new Graphics().poly([x + W / 2, y, x + W, y + H / 2, x + W / 2, y + H, x, y + H / 2]).fill({ color, alpha }),
+      );
+    },
+    road: (x, y, path) => {
+      const g = new Graphics();
+      path({
+        moveTo: (px, py) => g.moveTo(x + px, y + py),
+        lineTo: (px, py) => g.lineTo(x + px, y + py),
+        quadTo: (cx, cy, px, py) => g.quadraticCurveTo(x + cx, y + cy, x + px, y + py),
+      });
+      world.addChild(g.stroke({ width: H / 32, color: ROAD_COLOR }));
+    },
+    rect: (x, y, w, h, color) => {
+      world.addChild(new Graphics().rect(x, y, w, h).fill(color));
+    },
+    line: (x1, y1, x2, y2, color) => {
+      world.addChild(new Graphics().moveTo(x1, y1).lineTo(x2, y2).stroke({ width: 1, color }));
+    },
+    text: (s, x, y, style, center) => {
+      const t = new Text({
+        text: s,
+        style: {
+          fontFamily: style.font,
+          fontSize: style.size,
+          fontWeight: style.bold ? 'bold' : 'normal',
+          fontStyle: style.italic ? 'italic' : 'normal',
+          fill: style.color,
+          stroke: { color: 0x000000, width: 2 },
+        },
+      });
+      t.position.set(center ? x - t.width / 2 : x, y);
+      world.addChild(t);
+    },
+    measure: (s, style) => {
+      measurer.font = fontOf(style);
+      return measurer.measureText(s).width;
+    },
+    show: (dx, dy) => world.position.set(dx, dy),
   };
 }
 
@@ -94,84 +198,302 @@ function canvasPen(host: HTMLElement, width: number, height: number): Pen {
   canvas.height = height;
   host.append(canvas);
   const c = canvas.getContext('2d')!;
+  // Canvas 2D has no scene graph: record the drawing and replay it to pan.
+  let calls: ((c: CanvasRenderingContext2D) => void)[] = [];
   return {
-    clear: () => c.clearRect(0, 0, width, height),
-    rect: (x, y, w, h, color) => {
-      c.fillStyle = css(color);
-      c.fillRect(x, y, w, h);
+    canvas,
+    clear: () => (calls = []),
+    image: (pic, x, y, dim) =>
+      calls.push((c) => {
+        c.filter = dim ? 'brightness(0.8)' : 'none';
+        c.drawImage(pic, x, y);
+        c.filter = 'none';
+      }),
+    diamond: (x, y, color, alpha) =>
+      calls.push((c) => {
+        c.globalAlpha = alpha;
+        c.fillStyle = css(color);
+        c.beginPath();
+        c.moveTo(x + W / 2, y);
+        c.lineTo(x + W, y + H / 2);
+        c.lineTo(x + W / 2, y + H);
+        c.lineTo(x, y + H / 2);
+        c.fill();
+        c.globalAlpha = 1;
+      }),
+    road: (x, y, path) =>
+      calls.push((c) => {
+        c.strokeStyle = css(ROAD_COLOR);
+        c.lineWidth = H / 32;
+        c.beginPath();
+        path({
+          moveTo: (px, py) => c.moveTo(x + px, y + py),
+          lineTo: (px, py) => c.lineTo(x + px, y + py),
+          quadTo: (cx, cy, px, py) => c.quadraticCurveTo(x + cx, y + cy, x + px, y + py),
+        });
+        c.stroke();
+      }),
+    rect: (x, y, w, h, color) =>
+      calls.push((c) => {
+        c.fillStyle = css(color);
+        c.fillRect(x, y, w, h);
+      }),
+    line: (x1, y1, x2, y2, color) =>
+      calls.push((c) => {
+        c.strokeStyle = css(color);
+        c.lineWidth = 1;
+        c.beginPath();
+        c.moveTo(x1, y1);
+        c.lineTo(x2, y2);
+        c.stroke();
+      }),
+    text: (s, x, y, style, center) =>
+      calls.push((c) => {
+        c.font = fontOf(style);
+        c.textAlign = center ? 'center' : 'left';
+        c.textBaseline = 'top';
+        c.lineWidth = 2;
+        c.strokeStyle = '#000';
+        c.strokeText(s, x, y);
+        c.fillStyle = css(style.color);
+        c.fillText(s, x, y);
+      }),
+    measure: (s, style) => {
+      c.font = fontOf(style);
+      return c.measureText(s).width;
     },
-    outline: (x, y, w, h, color) => {
-      c.strokeStyle = css(color);
-      c.strokeRect(x, y, w, h);
-    },
-    dot: (x, y, r, color) => {
-      c.fillStyle = css(color);
-      c.beginPath();
-      c.arc(x, y, r, 0, 2 * Math.PI);
-      c.fill();
+    show: (dx, dy) => {
+      c.setTransform(1, 0, 0, 1, 0, 0);
+      c.fillStyle = '#000';
+      c.fillRect(0, 0, width, height);
+      c.translate(dx, dy);
+      for (const call of calls) call(c);
     },
   };
 }
 
-/** A map drawer for `host`; draws are serialised behind the renderer's async init. */
-export function mapDrawer(host: HTMLElement): {
+/** RoadPainter's corner points and the road pairs it skips on 3 and 4 way tiles. */
+const CORNERS: Record<Direction, [number, number]> = {
+  N: [W / 2, 0],
+  NE: [0.75 * W, 0.25 * H],
+  E: [W, H / 2],
+  SE: [0.75 * W, 0.75 * H],
+  S: [W / 2, H],
+  SW: [0.25 * W, 0.75 * H],
+  W: [0, H / 2],
+  NW: [0.25 * W, 0.25 * H],
+};
+const PROHIBITED: Record<Direction, Direction[]> = {
+  N: ['NW', 'NE'],
+  NE: ['N', 'E'],
+  E: ['NE', 'SE'],
+  SE: ['E', 'S'],
+  S: ['SE', 'SW'],
+  SW: ['S', 'W'],
+  W: ['SW', 'NW'],
+  NW: ['W', 'N'],
+};
+function roadPath(dirs: Direction[], p: PathSink) {
+  const pts = dirs.map((d) => CORNERS[d]);
+  const [cx, cy] = [W / 2, H / 2];
+  if (pts.length === 0) {
+    p.moveTo(0.35 * W, 0.35 * H);
+    p.lineTo(0.65 * W, 0.65 * H);
+    p.moveTo(0.35 * W, 0.65 * H);
+    p.lineTo(0.65 * W, 0.35 * H);
+  } else if (pts.length === 1) {
+    p.moveTo(cx, cy);
+    p.lineTo(...pts[0]);
+  } else if (pts.length === 2) {
+    p.moveTo(...pts[0]);
+    p.quadTo(cx, cy, ...pts[1]);
+  } else if (pts.length <= 4) {
+    let pen = dirs[dirs.length - 1];
+    p.moveTo(...CORNERS[pen]);
+    for (const d of dirs) {
+      if (PROHIBITED[pen].includes(d)) p.moveTo(...CORNERS[d]);
+      else p.quadTo(cx, cy, ...CORNERS[d]);
+      pen = d;
+    }
+  } else {
+    for (const pt of pts) {
+      p.moveTo(cx, cy);
+      p.lineTo(...pt);
+    }
+  }
+}
+
+const CHIP: TextStyle = { color: 0, font: 'sans-serif', size: 10, bold: true };
+const NAME: TextStyle = { color: 0, font: 'serif', size: 13 };
+const POPULATION: TextStyle = { color: 0, font: 'sans-serif', size: 12, bold: true };
+
+/** Draw the scene's operations, loading what they need first. */
+async function paint(pen: Pen, ops: Op[], pics: ReturnType<typeof pictures>) {
+  const images = await Promise.all(
+    ops.map((op) =>
+      op.k === 'image' ? (op.fade ? pics.gray(op.src) : pics.get(op.src)).catch(() => null) : Promise.resolve(null),
+    ),
+  );
+  pen.clear();
+  ops.forEach((op, i) => {
+    const [ox, oy] = tileOrigin(op.x, op.y);
+    switch (op.k) {
+      case 'image': {
+        const img = images[i];
+        if (!img) return;
+        const [iw, ih] = [img.width, img.height];
+        const [dx, dy] =
+          op.at === 'tile'
+            ? [0, 0]
+            : op.at === 'bottom'
+              ? [0, H - ih]
+              : op.at === 'center'
+                ? [(W - iw) / 2, (H - ih) / 2]
+                : op.at === 'large'
+                  ? [(W - iw) / 2, H - ih > 0 ? (H - ih) / 2 : H - ih]
+                  : [(W - iw) / 2, (H - ih) / 2 - UNIT_OFFSET];
+        pen.image(img, ox + Math.trunc(dx), oy + Math.trunc(dy), !!op.dim);
+        return;
+      }
+      case 'fog':
+        return pen.diamond(ox, oy, 0x000000, 0.2);
+      case 'road':
+        return pen.road(ox, oy, (p) => roadPath(op.dirs, p));
+      case 'chip': {
+        // ImageLibrary.createChip: a black border round the owner's colour.
+        const pad = 6;
+        const cw = Math.ceil(pen.measure(op.text, CHIP)) + pad;
+        const ch = CHIP.size + pad;
+        const x = ox + STATE_OFFSET_X;
+        pen.rect(x, oy, cw, ch, 0x000000);
+        pen.rect(x + 1, oy + 1, cw - 2, ch - 2, op.bg);
+        pen.text(op.text, x + pad / 2, oy + pad / 2 - 1, { ...CHIP, color: op.fg }, false);
+        if (op.stack > 1) {
+          const x1 = x + OTHER_UNITS_OFFSET_X;
+          for (let n = 0; n < Math.min(op.stack, MAX_OTHER_UNITS); n++) {
+            pen.line(x1, oy + 1.5 + 2 * n, x1 + OTHER_UNITS_WIDTH, oy + 1.5 + 2 * n, 0xffffff);
+          }
+        }
+        return;
+      }
+      case 'label': {
+        // The classic colony labels: the population in the tile's centre,
+        // coloured by the production bonus, and the name below the tile.
+        if (op.population >= 0) {
+          pen.text(
+            String(op.population),
+            ox + W / 2,
+            oy + (H - POPULATION.size) / 2,
+            { ...POPULATION, color: BONUS_COLORS[op.bonus] ?? 0xffffff, italic: op.bonus > 0 },
+            true,
+          );
+        }
+        pen.text(op.name, ox + W / 2 + 1, oy + H, { ...NAME, color: op.rgb }, true);
+        return;
+      }
+    }
+  });
+}
+
+/** The art manifest from scripts/build-art.mjs. */
+interface Art {
+  layers: ArtLayer[];
+  files: string[];
+}
+
+/** A map drawer for `host`, with art under `artBase`; draws are serialised. */
+export function mapDrawer(
+  host: HTMLElement,
+  artBase: string,
+): {
   draw(map: MapView): Promise<void>;
   renderer(): string;
-  /** The tile under a pixel of the map, or null off it or before the first draw. */
+  /** The tile under a pixel of the canvas, or null off the map or before the first draw. */
   tileAt(px: number, py: number): [number, number] | null;
+  /** Where a tile's centre is on the canvas, panning it into view if needed. */
+  pointOf(x: number, y: number): [number, number];
+  /** The resolver, once the art manifest has loaded. */
+  resources(): Resources | null;
 } {
   let pen: Pen | null = null;
-  let layout: Layout | null = null;
+  let res: Resources | null = null;
+  let size: [number, number] = [0, 0];
   let renderer = 'none';
   let drawing = Promise.resolve();
+  const pics = pictures(artBase);
+  const view = { w: 0, h: 0, dx: 0, dy: 0, width: 0, height: 0 };
+
+  const clamp = () => {
+    view.dx = Math.min(0, Math.max(view.width - size[0], view.dx));
+    view.dy = Math.min(0, Math.max(view.height - size[1], view.dy));
+    pen?.show(view.dx, view.dy);
+  };
 
   async function init(map: MapView) {
-    // An even size keeps the half-brick offsets on whole pixels.
-    const size = 2 * Math.max(1, Math.floor(Math.min(900 / (map.w + 0.5), 1400 / map.h) / 2));
-    layout = { size, w: map.w, h: map.h };
-    const w = (map.w + 0.5) * size;
-    const h = (map.h * size) / 2;
+    const art = (await (await fetch(artBase + 'art.json')).json()) as Art;
+    res = resources(art.layers, art.files);
+    size = [(map.w + 0.5) * W, ((map.h + 1) * H) / 2];
+    view.w = map.w;
+    view.h = map.h;
+    view.width = Math.min(size[0], Math.max(320, innerWidth - 360));
+    view.height = Math.min(size[1], Math.max(240, innerHeight));
     try {
-      pen = await pixiPen(host, w, h);
+      pen = await pixiPen(host, view.width, view.height);
       renderer = 'pixi';
     } catch (ex) {
-      pen = canvasPen(host, w, h);
+      pen = canvasPen(host, view.width, view.height);
       renderer = `canvas2d (pixi failed: ${ex instanceof Error ? ex.message : String(ex)})`;
     }
+    pan(pen.canvas);
+    // Start on the active unit, if any.
+    if (map.active) centre(...map.active);
+  }
+
+  const centre = (x: number, y: number) => {
+    const [ox, oy] = tileOrigin(x, y);
+    view.dx = view.width / 2 - ox - W / 2;
+    view.dy = view.height / 2 - oy - H / 2;
+    clamp();
+  };
+
+  /** Drag to pan; a drag of a few pixels or more is not a click. */
+  function pan(canvas: HTMLCanvasElement) {
+    let from: [number, number] | null = null;
+    let moved = 0;
+    canvas.addEventListener('pointerdown', (e) => {
+      from = [e.clientX, e.clientY];
+      moved = 0;
+    });
+    addEventListener('pointermove', (e) => {
+      if (!from) return;
+      moved += Math.abs(e.clientX - from[0]) + Math.abs(e.clientY - from[1]);
+      view.dx += e.clientX - from[0];
+      view.dy += e.clientY - from[1];
+      from = [e.clientX, e.clientY];
+      clamp();
+    });
+    addEventListener('pointerup', () => (from = null));
+    canvas.addEventListener('click', (e) => {
+      if (moved > 4) e.stopPropagation();
+    });
   }
 
   async function drawNow(map: MapView) {
     if (!pen) await init(map);
-    const p = pen!;
-    const at = layout!;
-    const s = at.size;
-    const colors = map.types.map(colorOf);
-    p.clear();
-    for (let y = 0; y < map.h; y++) {
-      for (let x = 0; x < map.w; x++) {
-        const i = map.tiles.charCodeAt(y * map.w + x) - 65;
-        const [px, py] = origin(at, x, y);
-        p.rect(px, py, s, s / 2, i >= 0 ? colors[i] : 0x000000);
-      }
-    }
-    for (const [x, y, rgb] of map.settlements) {
-      const [px, py] = origin(at, x, y);
-      p.rect(px, py, s, s / 2, rgb);
-      p.outline(px + 0.5, py + 0.5, s - 1, s / 2 - 1, 0xffffff);
-    }
-    for (const [x, y, rgb] of map.units) {
-      const [px, py] = origin(at, x, y);
-      p.dot(px + s / 2, py + s / 4, Math.max(1.5, s / 6), rgb);
-    }
-    if (map.active) {
-      const [px, py] = origin(at, ...map.active);
-      p.outline(px - 0.5, py - 0.5, s + 1, s / 2 + 1, 0xffff00);
-    }
+    await paint(pen!, scene(map, res!), pics);
+    pen!.show(view.dx, view.dy);
   }
 
   return {
     draw: (map) => (drawing = drawing.then(() => drawNow(map))),
     renderer: () => renderer,
-    tileAt: (px, py) => (layout ? tileAt(layout, px, py) : null),
+    tileAt: (px, py) => (pen ? tileAt(view.w, view.h, px - view.dx, py - view.dy) : null),
+    pointOf: (x, y) => {
+      const [ox, oy] = tileOrigin(x, y);
+      const [px, py] = [ox + W / 2 + view.dx, oy + H / 2 + view.dy];
+      if (px < W || py < H || px > view.width - W || py > view.height - H) centre(x, y);
+      return [ox + W / 2 + view.dx, oy + H / 2 + view.dy];
+    },
+    resources: () => res,
   };
 }

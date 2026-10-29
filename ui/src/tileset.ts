@@ -29,8 +29,8 @@ export interface MapView {
   roads: [number, number, number][];
   /** [x, y, zIndex, kind, key] in zIndex order per tile. */
   items: [number, number, number, 'centered' | 'tile', string][];
-  /** [x, y, keys, rgb, name, population (-1 for native settlements)]. */
-  settlements: [number, number, string[], number, string, number][];
+  /** [x, y, keys, rgb, name, population (-1 for native settlements), production bonus]. */
+  settlements: [number, number, string[], number, string, number, number][];
   /** [x, y, keys, rgb, chip text, chip text rgb, units on the tile, faded]. */
   units: [number, number, string[], number, string, number, number, boolean][];
   active: [number, number] | null;
@@ -63,7 +63,7 @@ export type Op =
   /** A unit's occupation chip in its owner's colour, with a line per unit on the tile. */
   | { k: 'chip'; x: number; y: number; text: string; bg: number; fg: number; stack: number }
   /** A settlement's population (colonies) and its name below the tile, in the owner's colour. */
-  | { k: 'label'; x: number; y: number; name: string; population: number; rgb: number; dim?: true };
+  | { k: 'label'; x: number; y: number; name: string; population: number; bonus: number; rgb: number; dim?: true };
 
 export type Direction = 'N' | 'NE' | 'E' | 'SE' | 'S' | 'SW' | 'W' | 'NW';
 
@@ -390,9 +390,9 @@ export function scene(map: MapView, res: Resources): Op[] {
     if (src) ops.push({ k: 'image', x, y, src, at: 'center' });
   });
 
-  for (const [x, y, , rgb, name, population] of map.settlements) {
+  for (const [x, y, , rgb, name, population, bonus] of map.settlements) {
     if (!explored([x, y])) continue;
-    ops.push({ k: 'label', x, y, name, population, rgb, ...(seen(x, y) ? {} : { dim: true as const }) });
+    ops.push({ k: 'label', x, y, name, population, bonus, rgb, ...(seen(x, y) ? {} : { dim: true as const }) });
   }
   return ops;
 }

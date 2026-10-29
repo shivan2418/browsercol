@@ -28,13 +28,17 @@ DEV_VARIANT=web ./dev.sh node ui/scripts/play.mjs    # land, found a colony, end
 ```
 
 `build.sh` builds both Engine modules in one Gradle run (`gradle modules`),
-bundles FreeCol's rules and strings into a data file, and runs `vp build`
-into `dist/`. Serve `dist/` from any static host. URLs are relative, so a
+bundles FreeCol's rules and strings into a data file, copies the map art
+of the default Tileset (`ui/scripts/build-art.mjs`, which also prints the art
+budget) and runs `vp build` into `dist/`. Serve `dist/` from any static host. URLs are relative, so a
 sub-path such as GitHub Pages' `/<repo>/` works.
 
-The page starts a Classic game on the crude map. Click one of your units to
+The page starts a Classic game and draws the map in Tileset mode: FreeCol's
+own art, found by resource key as FreeCol finds it, so a Tileset (an
+art-only mod) can replace any key. Drag the map to pan. Click one of your units to
 select it (click again to cycle through a stack, units aboard ships
 included), click a tile to send the active unit there, move one step with
 the arrow keys or numpad, `W`/`Space` for the next unit, `B` to build a
 colony, `Enter` to end the turn. `?autoplay=N` first auto-ends N turns
-(debug; the smoke test uses 10).
+(debug; the smoke test uses 10). The browser scripts save screenshots in
+`.cache/`.
