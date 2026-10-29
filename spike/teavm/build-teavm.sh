@@ -1,10 +1,16 @@
 #!/usr/bin/env bash
+# Build TeaVM master plus the open monitor PRs and publish it into
+# .cache/teavm-repo. Rerunnable. See spike/README.md.
 set -euo pipefail
 
-SRC=/work/.cache/teavm-src
-DST=/work/.cache/teavm-repo
+repo="$(cd "$(dirname "$0")/../.." && pwd)"
+SRC="$repo/.cache/teavm-src"
+DST="$repo/.cache/teavm-repo"
 URL=https://github.com/konsoletyper/teavm.git
 PRS=(1300 1302 1304 1305)
+# Merge commits need an identity; a fresh clone has none.
+export GIT_AUTHOR_NAME="TeaVM build" GIT_AUTHOR_EMAIL=build@localhost
+export GIT_COMMITTER_NAME="TeaVM build" GIT_COMMITTER_EMAIL=build@localhost
 
 if [ ! -d "$SRC/.git" ]; then
     git clone "$URL" "$SRC"
@@ -28,9 +34,20 @@ for n in "${PRS[@]}"; do
     sha="$(git -C "$SRC" rev-parse "$ref")"
     echo "PR #${n}: $(git -C "$SRC" log -1 --format='%H %s' "$ref")"
     if ! git -C "$SRC" merge --no-edit "$ref"; then
-        echo "ERROR: merging PR #${n} (${sha}) into master conflicted; aborting." >&2
-        git -C "$SRC" merge --abort >/dev/null 2>&1 || true
-        exit 1
+        # The PRs each add tests to ObjectTest, which then conflicts. Tests
+        # are not built here, so keep the already-merged test files; any
+        # other conflict stops the build.
+        mapfile -t conflicted < <(git -C "$SRC" diff --name-only --diff-filter=U)
+        if printf '%s\n' "${conflicted[@]}" | grep -qv '/src/test/'; then
+            echo "ERROR: merging PR #${n} (${sha}) conflicted outside tests:" >&2
+            printf '  %s\n' "${conflicted[@]}" >&2
+            git -C "$SRC" merge --abort >/dev/null 2>&1 || true
+            exit 1
+        fi
+        echo "PR #${n}: kept the merged version of test-only conflicts: ${conflicted[*]}"
+        git -C "$SRC" checkout --ours -- "${conflicted[@]}"
+        git -C "$SRC" add -- "${conflicted[@]}"
+        git -C "$SRC" commit -q --no-edit
     fi
 done
 
