@@ -35,7 +35,7 @@ import net.sf.freecol.common.util.Utils;
  * <li>seen: one character per tile, '1' if the player can see it now;
  * <li>rivers: [x, y, magnitude, style, forest mask], the style's digits
  *     being the magnitudes toward NE, SE, SW, NW;
- * <li>roads: [x, y] per complete road;
+ * <li>roads: [x, y, zIndex] per complete road;
  * <li>items: [x, y, zIndex, kind, key] per other complete tile item in
  *     zIndex order, kind "centered" (resources, rumours) or "tile"
  *     (improvement images, drawn if the key exists);
@@ -115,7 +115,7 @@ final class MapJson {
                         + Json.quote(ti.getStyle().getString()) + ","
                         + Json.quote(ti.getStyle().getMask()) + "]");
                 } else if (ti.isRoad()) {
-                    roads.add("[" + xy + "]");
+                    roads.add("[" + xy + "," + item.getZIndex() + "]");
                 } else {
                     items.add("[" + z + "\"tile\","
                         + Json.quote("image.tile." + ti.getType().getId()) + "]");
