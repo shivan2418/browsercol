@@ -14,6 +14,12 @@ if ! docker image inspect "$image" >/dev/null 2>&1 || [[ "${DEV_REBUILD:-}" == 1
   docker build -q -t "$image" -f "$repo/docker/dev.Dockerfile" "$repo/docker" >/dev/null
 fi
 tty=(); [[ -t 0 && -t 1 ]] && tty=(-it)
+# A worktree or job clone may link freecol/ to the main checkout's clone,
+# which lies outside the mounted repo: mount its target instead.
+extra=()
+if [[ -L "$repo/freecol" ]]; then
+  extra=(-v "$(readlink -f "$repo/freecol"):/work/freecol:ro")
+fi
 # Rootless Docker: container root maps to the host user, so files stay ours.
 exec docker run --rm "${tty[@]}" -e HOME=/work/.cache/home \
-  -v "$repo:/work" -w "$workdir" "$image" "$@"
+  -v "$repo:/work" "${extra[@]}" -w "$workdir" "$image" "$@"
