@@ -11,7 +11,8 @@ import net.sf.freecol.common.model.Game;
 
 /**
  * The client Engine: FreeCol's client controllers with a {@link WebGUI},
- * talking to the server Engine through a {@link PostMessageConnection}.
+ * talking to the server Engine through a {@link PostMessageConnection}
+ * and to the Browser UI through the WebGUI.
  * In the browser it runs on the main thread.
  *
  * For the spike the human player only ends turns, so a game is a run of
@@ -38,6 +39,7 @@ public final class ClientEngine {
     private final ServerLink link;
     private final Listener listener;
     private final FreeColClient client;
+    private WebGUI gui = null;
     private volatile PostMessageConnection connection = null;
 
     private int roundsWanted = 0;
@@ -47,7 +49,7 @@ public final class ClientEngine {
     private boolean finished = false;
 
 
-    public ClientEngine(ServerLink link, Listener listener) {
+    public ClientEngine(ServerLink link, Listener listener, WebGUI.BrowserUI ui) {
         this.link = link;
         this.listener = listener;
         MessageReaders.install();
@@ -58,7 +60,7 @@ public final class ClientEngine {
             link.connect();
             return c;
         };
-        this.client = new FreeColClient(fcc -> new WebGUI(fcc, this));
+        this.client = new FreeColClient(fcc -> this.gui = new WebGUI(fcc, this, ui));
     }
 
     /**
@@ -84,6 +86,20 @@ public final class ClientEngine {
     /** Accept protocol XML from the server. */
     public void receive(String xml) {
         this.connection.receive(xml);
+    }
+
+    /**
+     * Accept the Browser UI's answer to a WebGUI question.
+     *
+     * @param id The question's id.
+     * @param answer The answer, or null if the player closed the dialog.
+     */
+    public void answer(int id, String answer) {
+        this.gui.answer(id, answer);
+    }
+
+    FreeColClient getClient() {
+        return this.client;
     }
 
     public Game getGame() {

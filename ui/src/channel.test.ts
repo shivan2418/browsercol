@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { serveWorker, startPage, type ClientExports, type ServerExports } from './channel';
+import type { GuiHandlers } from './webgui';
 
 // The Engine modules are faked: each calls the same globals the Java side
 // calls (WorkerMain's fcPost/fcServerEvent, ClientMain's fcToServer,
-// fcConnect and fcClientEvent), so the routing is tested end to end over a
-// real MessageChannel (Node's global one) standing in for the Worker.
+// fcConnect, fcClientEvent and the WebGUI's fcAsk), so the routing is tested
+// end to end over a real MessageChannel (Node's global one) standing in for
+// the Worker.
 
 type Scope = Record<string, any>;
 
@@ -36,13 +38,27 @@ function fakeClient(scope: Scope, log: string[]): ClientExports {
     },
     receive: (xml) => {
       log.push(`client got ${xml}`);
+      // As a controller would: ask the player before going on.
+      scope.fcAsk(
+        7,
+        'confirm',
+        '{"text":"Go on?","ok":"Yes","cancel":"No","defaultOk":true,"tile":null,"object":null}',
+      );
+    },
+    answer: (id, value) => {
+      log.push(`client answer ${id} ${value}`);
       scope.fcClientEvent('finished', '1');
     },
   };
 }
 
+const sayYes: GuiHandlers = {
+  events: {},
+  questions: { confirm: () => true, choice: () => null, input: () => null },
+};
+
 describe('the Worker channel', () => {
-  it('starts a game and carries protocol XML both ways', async () => {
+  it('starts a game, carries protocol XML both ways and answers the WebGUI', async () => {
     const { port1: page, port2: worker } = new MessageChannel();
     const log: string[] = [];
     const workerScope: Scope = {};
@@ -59,6 +75,7 @@ describe('the Worker channel', () => {
         rules: 'classic',
         autoplay: 3,
         scope: pageScope,
+        gui: sayYes,
         onEvent: (name) => {
           events.push(name);
           if (name === 'finished') done();
@@ -76,6 +93,7 @@ describe('the Worker channel', () => {
       'server connect',
       'server got <login/>',
       'client got <loginReply/>',
+      'client answer 7 true',
     ]);
     expect(events).toEqual(['ready', 'started', 'finished']);
   });
