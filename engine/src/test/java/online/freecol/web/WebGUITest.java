@@ -20,7 +20,10 @@ import org.junit.jupiter.api.Timeout;
 import net.sf.freecol.client.gui.ChoiceItem;
 import net.sf.freecol.client.gui.GUI;
 import net.sf.freecol.common.i18n.Messages;
+import net.sf.freecol.common.model.FoundingFather;
 import net.sf.freecol.common.model.Game;
+import net.sf.freecol.common.model.ModelMessage;
+import net.sf.freecol.common.model.Monarch.MonarchAction;
 import net.sf.freecol.common.model.StringTemplate;
 import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.Unit;
@@ -115,7 +118,7 @@ class WebGUITest {
 
         assertEquals(List.of("refresh {}",
                 "information {\"text\":\"" + Messages.message("info.enterSomeText")
-                + "\",\"object\":null}"),
+                + "\",\"object\":null,\"tile\":null,\"at\":null}"),
             shown.stream().filter(e -> !e.startsWith("messages ")).collect(Collectors.toList()));
     }
 
@@ -174,5 +177,93 @@ class WebGUITest {
         assertTrue(asked.get(3).contains("\"value\":\"Jamestown\""), asked.get(3));
         answer = null;
         assertNull(gui.modalInputDialog(null, explain, "Jamestown", "ok", "cancel"), "closed");
+    }
+
+    @Test
+    @Timeout(120)
+    void modelMessagesNameTheTileOfTheirSource() throws Exception {
+        final ClientEngine client = startGame();
+        final GUI gui = client.getClient().getGUI();
+        final Unit unit = gui.getActiveUnit();
+        final Tile at = unit.getTile();
+        final List<ModelMessage> messages = List.of(new ModelMessage(
+                ModelMessage.MessageType.DEFAULT, "info.enterSomeText", unit));
+        final String message = "{\"text\":\"" + Messages.message("info.enterSomeText")
+            + "\",\"type\":\"DEFAULT\",\"source\":\"" + unit.getId()
+            + "\",\"tile\":\"" + at.getId() + "\",\"at\":[" + at.getX() + ","
+            + at.getY() + "]}";
+
+        shown.clear();
+        gui.showModelMessages(messages);
+        gui.showReportTurnPanel(messages);
+        assertEquals(List.of(
+                "messages {\"title\":null,\"messages\":[" + message + "]}",
+                "messages {\"title\":\"" + Messages.message("reportTurnAction.name")
+                + "\",\"messages\":[" + message + "]}"),
+            shown.stream().filter(e -> e.contains(message)).collect(Collectors.toList()));
+    }
+
+    @Test
+    @Timeout(120)
+    void dialogsWithHandlersAskAndPassTheAnswerOn() throws Exception {
+        final ClientEngine client = startGame();
+        final GUI gui = client.getClient().getGUI();
+        final Unit unit = gui.getActiveUnit();
+        final Object[] got = new Object[1];
+
+        answer = "Vinland";
+        gui.showNamingDialog(StringTemplate.key("newLand.text"), "New Land",
+                             unit, name -> got[0] = name);
+        assertEquals("Vinland", got[0]);
+        String question = asked.get(asked.size() - 1);
+        assertTrue(question.startsWith("input {"), question);
+        assertTrue(question.contains("\"value\":\"New Land\""), question);
+
+        final List<FoundingFather> ffs = client.getGame().getSpecification()
+            .getFoundingFathers().subList(0, 3);
+        answer = "1";
+        gui.showChooseFoundingFatherDialog(ffs, ff -> got[0] = ff);
+        assertEquals(ffs.get(1), got[0]);
+        question = asked.get(asked.size() - 1);
+        assertTrue(question.startsWith("choice {"), question);
+        assertTrue(question.contains(Messages.getName(ffs.get(1))), question);
+        answer = null;
+        gui.showChooseFoundingFatherDialog(ffs, ff -> got[0] = ff);
+        assertNull(got[0], "closed: postponed");
+
+        final StringTemplate tax = StringTemplate.template("unused")
+            .addName("%newWorld%", "America").addAmount("%number%", 1)
+            .addAmount("%amount%", 10).addName("%goods%", "furs");
+        answer = "true";
+        gui.showMonarchDialog(MonarchAction.RAISE_TAX_ACT, tax, null,
+                              b -> got[0] = b);
+        assertEquals(Boolean.TRUE, got[0]);
+        question = asked.get(asked.size() - 1);
+        assertTrue(question.contains("raising your tax to 10%"), question);
+        assertTrue(question.contains("\"ok\":\"We accept\",\"cancel\":\"Give me Liberty"),
+                   question);
+        gui.showMonarchDialog(MonarchAction.DISPLEASURE, null, null,
+                              b -> got[0] = b);
+        question = asked.get(asked.size() - 1);
+        assertTrue(question.contains("\"ok\":null,\"cancel\":\"Done\""), question);
+
+        answer = "false";
+        gui.showEndTurnDialog(List.of(unit));
+        question = asked.get(asked.size() - 1);
+        assertTrue(question.startsWith("confirm {\"text\":\"The following unit is still waiting"),
+                   question);
+        assertTrue(client.getClient().currentPlayerIsMyPlayer(), "cancel keeps the turn");
+    }
+
+    @Test
+    @Timeout(120)
+    void aDialogWithNoBrowserUIYetIsReportedAndGetsTheDefault() throws Exception {
+        final GUI gui = startGame().getClient().getGUI();
+
+        shown.clear();
+        assertNull(gui.showSelectDestinationDialog(gui.getActiveUnit()));
+        assertEquals(List.of("unasked {\"method\":\"showSelectDestinationDialog\"}"),
+            shown.stream().filter(e -> !e.startsWith("messages ")).collect(Collectors.toList()));
+        assertTrue(asked.isEmpty(), asked.toString());
     }
 }
