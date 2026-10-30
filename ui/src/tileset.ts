@@ -132,7 +132,11 @@ export type Op =
    */
   | { k: 'population'; x: number; y: number; population: number; color: number; emph?: true; dim?: true }
   /** A settlement's name below the tile, in the owner's colour. */
-  | { k: 'label'; x: number; y: number; name: string; rgb: number; dim?: true };
+  | { k: 'label'; x: number; y: number; name: string; rgb: number; dim?: true }
+  /** A step of the active unit's path, centre to centre: green, or yellow if it ends on a later turn. */
+  | { k: 'pathLine'; x: number; y: number; to: [number, number]; turns: number }
+  /** A path step's mark in the tile's centre, with the turns to get there if any. */
+  | { k: 'pathMark'; x: number; y: number; turns: number };
 
 export type Direction = 'N' | 'NE' | 'E' | 'SE' | 'S' | 'SW' | 'W' | 'NW';
 
@@ -488,6 +492,28 @@ export function scene(map: MapView, res: Resources): Op[] {
     if (!explored([x, y])) continue;
     ops.push({ k: 'label', x, y, name, rgb, ...(seen(x, y) ? {} : { dim: true as const }) });
   }
+  return ops;
+}
+
+/**
+ * What MapViewer draws over the map: the cursor (image.tile.unitSelect on
+ * the active unit, tileSelect on a selected tile), then the active unit's
+ * path, as displayPath does: the lines, then the marks.
+ */
+export function overlay(
+  cursor: { at: [number, number]; kind: 'unit' | 'tile' } | null,
+  path: [number, number, number][] | null,
+  res: Resources,
+): Op[] {
+  const ops: Op[] = [];
+  const src = cursor && res.path(cursor.kind === 'unit' ? 'image.tile.unitSelect' : 'image.tile.tileSelect');
+  if (cursor && src) ops.push({ k: 'image', x: cursor.at[0], y: cursor.at[1], src, at: 'center' });
+  if (!path) return ops;
+  for (let i = 1; i < path.length; i++) {
+    const [x, y] = path[i - 1];
+    ops.push({ k: 'pathLine', x, y, to: [path[i][0], path[i][1]], turns: path[i][2] });
+  }
+  for (const [x, y, turns] of path) ops.push({ k: 'pathMark', x, y, turns });
   return ops;
 }
 
