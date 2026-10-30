@@ -8,6 +8,7 @@
 //   ?autoplay=N  rounds the human auto-ends its turn first (debug; default 0)
 //   ?rules=ID    the ruleset (default classic)
 //   ?tileset=ID  a Tileset built beside the default, art/<ID>.json (e.g. test)
+//   ?renderer=canvas2d  draw with the Canvas 2D fallback, not PixiJS (debug)
 import clientUrl from '../generated/client.wasm?url';
 import dataUrl from '../generated/data.json?url';
 import runtimeUrl from '../generated/teavm-runtime.js?url';
@@ -37,7 +38,13 @@ const turn = document.getElementById('turn')!;
 const info = document.getElementById('info')!;
 const mapHost = document.getElementById('map')!;
 const viewport: [number, number] = [Math.max(320, innerWidth - 360), Math.max(240, innerHeight)];
-const map = mapDrawer(mapHost, viewport, 'art/', tileset ? `${tileset}.json` : undefined);
+const map = mapDrawer(
+  mapHost,
+  viewport,
+  'art/',
+  tileset ? `${tileset}.json` : undefined,
+  params.get('renderer') === 'canvas2d',
+);
 const rounds: string[] = [];
 let drawn = Promise.resolve();
 

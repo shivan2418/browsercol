@@ -483,6 +483,8 @@ export function mapDrawer(
   size: [number, number],
   artBase: string,
   manifest = 'art.json',
+  /** Skip PixiJS and draw with Canvas 2D, the fallback, to test it. */
+  canvas2d = false,
 ): {
   draw(map: MapView): Promise<void>;
   /** Show the view: where it is centred, its zoom, the cursor and the active unit's path. */
@@ -506,6 +508,7 @@ export function mapDrawer(
     const art = (await (await fetch(artBase + manifest)).json()) as Art;
     res = resources(art.layers, art.files);
     try {
+      if (canvas2d) throw new Error('asked for canvas2d');
       pen = await pixiPen(host, ...size);
       renderer = 'pixi';
     } catch (ex) {

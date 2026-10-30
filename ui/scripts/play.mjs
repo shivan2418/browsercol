@@ -9,7 +9,7 @@
 // the wheel, a drag and the pointer at an edge must zoom and scroll it.
 // Exits non-zero unless every browser gets there. Run in
 // the web image:
-//   DEV_VARIANT=web ./dev.sh node ui/scripts/play.mjs [--browsers chromium,firefox]
+//   DEV_VARIANT=web ./dev.sh node ui/scripts/play.mjs [--browsers chromium,firefox] [--query renderer=canvas2d]
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { dist, serveDist } from './serve-dist.mjs';
@@ -21,6 +21,8 @@ const opt = (name, dflt) => {
   return i < 0 ? dflt : process.argv[i + 1];
 };
 const browsers = opt('browsers', 'chromium,firefox').split(',');
+/** Page parameters, e.g. renderer=canvas2d to play on the Canvas 2D fallback. */
+const query = opt('query', '');
 const MAX_TURNS = 15;
 
 // FreeCol's Direction deltas on its staggered rows: [odd row, even row].
@@ -237,7 +239,7 @@ for (const name of browsers) {
   const t = Date.now();
   let result;
   try {
-    result = await play(page, server.url);
+    result = await play(page, server.url + (query ? `?${query}` : ''));
     await page.evaluate(([x, y]) => window.fcReveal(x, y), result.land);
     await page.screenshot({ path: path.join(dist, `../.cache/play-${name}.png`) });
   } catch (ex) {
