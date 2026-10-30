@@ -41,6 +41,9 @@ export function tileAt(w: number, h: number, px: number, py: number): [number, n
 
 type Picture = HTMLImageElement | HTMLCanvasElement;
 const css = (c: number) => '#' + c.toString(16).padStart(6, '0');
+/** FreeCol's fog of war RescaleOp: each colour channel at 80%. */
+const fogged = (c: number) =>
+  [16, 8, 0].reduce((n, shift) => n | (Math.round(((c >> shift) & 0xff) * 0.8) << shift), 0);
 
 /** Images by path and recipes by id, loaded and composited once. */
 function pictures(base: string) {
@@ -337,6 +340,7 @@ async function paint(pen: Pen, ops: Op[], pics: ReturnType<typeof pictures>) {
   pen.clear();
   ops.forEach((op, i) => {
     const [ox, oy] = tileOrigin(op.x, op.y);
+    const shade = (c: number) => ('dim' in op && op.dim ? fogged(c) : c);
     switch (op.k) {
       case 'image': {
         const img = images[i];
@@ -381,13 +385,13 @@ async function paint(pen: Pen, ops: Op[], pics: ReturnType<typeof pictures>) {
           String(op.population),
           ox + W / 2,
           oy + (H - POPULATION.size) / 2,
-          { ...POPULATION, color: BONUS_COLORS[op.bonus] ?? 0xffffff, italic: op.bonus > 0 },
+          { ...POPULATION, color: shade(BONUS_COLORS[op.bonus] ?? 0xffffff), italic: op.bonus > 0 },
           true,
         );
         return;
       case 'label':
         // The classic colony labels: the name below the tile.
-        pen.text(op.name, ox + W / 2 + 1, oy + H, { ...NAME, color: op.rgb }, true);
+        pen.text(op.name, ox + W / 2 + 1, oy + H, { ...NAME, color: shade(op.rgb) }, true);
         return;
     }
   });
