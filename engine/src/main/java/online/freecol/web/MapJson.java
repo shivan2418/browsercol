@@ -42,7 +42,7 @@ import net.sf.freecol.common.util.Utils;
  * <li>settlements: [x, y, [keys], rgb, name as the player knows it,
  *     population or -1, production bonus, preferred size change, chips],
  *     chips being null for a colony and for a native settlement
- *     {capital, mission: {rgb, expert} or null, alarm: {fg, worthScouting}
+ *     {capital, fg, mission: {rgb, expert} or null, alarm: {fg, worthScouting}
  *     or null}, what ImageLibrary's settlement, mission and alarm chips
  *     show;
  * <li>units: [x, y, [keys], rgb, chip text, chip text rgb, units on the
@@ -178,6 +178,7 @@ final class MapJson {
         final Unit missionary = is.getMissionary();
         final Player enemy = is.getMostHated();
         return new Json().put("capital", is.getType().isCapital())
+            .put("fg", foreground(rgb(is.getOwner())))
             .putRaw("mission", (missionary == null) ? "null"
                 : new Json().put("rgb", rgb(missionary.getOwner()))
                     .put("expert", missionary.hasAbility(Ability.EXPERT_MISSIONARY))
