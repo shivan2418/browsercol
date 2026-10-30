@@ -16,7 +16,7 @@ import type { GuiHandlers } from './webgui';
 declare global {
   interface Window {
     fcResult?: Record<string, unknown>;
-    /** For scripts/play.mjs: where a tile's centre is on the map canvas. */
+    /** For scripts/play.mjs: pan a tile into view if needed; its centre on the map canvas. */
     fcReveal?: (x: number, y: number) => [number, number];
   }
 }

@@ -122,7 +122,10 @@ class MapJsonTest {
         final String units = field(json, "units");
         final String key = "image.unit." + ship.getType().getId();
         assertTrue(units.contains("{\"x\":" + at.getX() + ",\"y\":" + at.getY()
-            + ",\"keys\":[\"" + key + "." + nation + "\",\"" + key + "\"],"), units);
+            + ",\"keys\":[\"" + key + "." + nation + "\",\"" + key + "\"],"
+            + "\"rgb\":" + (Utils.getRGB(us.getNationColor()) & 0xffffff) + ",\"chip\":"), units);
+        assertTrue(units.contains(",\"stack\":" + at.getTotalUnitCount() + ",\"fade\":false}"),
+            "the ship is not sentried and in sight: " + units);
 
         assertEquals("[" + at.getX() + "," + at.getY() + "]", field(json, "active"));
     }
