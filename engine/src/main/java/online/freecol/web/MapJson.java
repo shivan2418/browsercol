@@ -40,7 +40,11 @@ import net.sf.freecol.common.util.Utils;
  *     zIndex order, kind "centered" (resources, rumours) or "tile"
  *     (improvement images, drawn if the key exists);
  * <li>settlements: [x, y, [keys], rgb, name as the player knows it,
- *     population or -1, production bonus, preferred size change];
+ *     population or -1, production bonus, preferred size change, chips],
+ *     chips being null for a colony and for a native settlement
+ *     {capital, mission: {rgb, expert} or null, alarm: {fg, worthScouting}
+ *     or null}, what ImageLibrary's settlement, mission and alarm chips
+ *     show;
  * <li>units: [x, y, [keys], rgb, chip text, chip text rgb, units on the
  *     tile, faded], for the unit MapViewer shows in front;
  * <li>active: the active unit's tile, [x, y], or null.
@@ -134,6 +138,7 @@ final class MapJson {
     private static String settlement(Settlement s, Player player) {
         String key = "image.tileitem." + s.getType().getId();
         int population = -1, bonus = 0, sizeChange = 0;
+        String chips = "null";
         final List<String> keys = new ArrayList<>();
         if (s instanceof Colony) {
             final Colony colony = (Colony)s;
@@ -149,16 +154,39 @@ final class MapJson {
                 if (stockade != null) key += "." + stockade;
             }
             keys.add(key + "." + s.getOwner().getNationResourceKey());
-        } else if (s instanceof IndianSettlement
-                   && ((IndianSettlement)s).hasMissionary()) {
-            key += ".mission";
+        } else if (s instanceof IndianSettlement) {
+            final IndianSettlement is = (IndianSettlement)s;
+            if (is.hasMissionary()) key += ".mission";
+            chips = chips(is, player);
         }
         keys.add(key);
         final Tile t = s.getTile();
         return "[" + t.getX() + "," + t.getY() + "," + keys(keys) + ","
             + rgb(s.getOwner()) + ","
             + Json.quote(Messages.message(s.getLocationLabelFor(player))) + ","
-            + population + "," + bonus + "," + sizeChange + "]";
+            + population + "," + bonus + "," + sizeChange + "," + chips + "]";
+    }
+
+    /**
+     * What ImageLibrary.getIndianSettlementChip, getMissionChip and
+     * getAlarmChip draw from. The alarm chip's background is the owner's
+     * colour; createChip never fills in the alarm level, as every chip is
+     * made "filled", so only the most hated nation's colour shows, as the
+     * text's foreground.
+     */
+    private static String chips(IndianSettlement is, Player player) {
+        final Unit missionary = is.getMissionary();
+        final Player enemy = is.getMostHated();
+        return new Json().put("capital", is.getType().isCapital())
+            .putRaw("mission", (missionary == null) ? "null"
+                : new Json().put("rgb", rgb(missionary.getOwner()))
+                    .put("expert", missionary.hasAbility(Ability.EXPERT_MISSIONARY))
+                    .toString())
+            .putRaw("alarm", (player == null || !is.hasContacted(player)) ? "null"
+                : new Json().put("fg", foreground((enemy == null) ? 0x000000 : rgb(enemy)))
+                    .put("worthScouting", is.worthScouting(player))
+                    .toString())
+            .toString();
     }
 
     /** MapViewerState.findUnitInFront, without animations. */
