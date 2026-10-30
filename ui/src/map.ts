@@ -9,7 +9,7 @@
 import { Application, Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import { resources, type ArtLayer, type Resources } from './resources';
 import { overlay, scene, srcId, type Direction, type MapView, type Op, type Src } from './tileset';
-import { H, W, cursor, tileOrigin, toMap, type ViewState } from './view';
+import { H, W, activeUnitFacts, cursor, tileOrigin, toMap, type ViewState } from './view';
 
 export type { MapView } from './tileset';
 /** TileViewer.STATE_OFFSET_X/Y and TileBounds' unit offsets, at scale 1. */
@@ -533,10 +533,7 @@ export function mapDrawer(
   }
 
   /** The overlay's operations for a view: its cursor, and the path if the map view is about its active unit. */
-  const overlayOf = (v: ViewState) => {
-    const unit = v.map?.activeUnit;
-    return overlay(cursor(v), unit && unit.id === v.active?.unit ? unit.path : null, res!);
-  };
+  const overlayOf = (v: ViewState) => overlay(cursor(v), activeUnitFacts(v)?.path ?? null, res!);
 
   const camera = () => {
     if (!pen || !view) return;
