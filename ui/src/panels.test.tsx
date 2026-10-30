@@ -104,7 +104,15 @@ describe('the choice dialog', () => {
     expect(await left).toBeNull();
   });
 
-  it('answers its cancel item on Escape, and keeps Escape without one', async () => {
+  it('takes its cancel button on Enter when no item is the default', async () => {
+    const { box } = host();
+    const q = { text: 'Meet the natives', cancel: 'Leave', tile: null, object: null, choices: [item('Trade')] };
+    const left = ask(box, 'choice', q);
+    key('Enter');
+    expect(await left).toBeNull();
+  });
+
+  it('answers its cancel item on Escape, else closes with null; Enter does nothing without a default', async () => {
     const { box } = host();
     const withItem = ask(box, 'choice', {
       text: 'Pick',
@@ -116,10 +124,17 @@ describe('the choice dialog', () => {
     key('Escape');
     expect(await withItem).toBe(1);
 
-    void ask(box, 'choice', { text: 'Who emigrates?', cancel: null, tile: null, object: null, choices: [item('A')] });
-    key('Escape');
+    const closed = ask(box, 'choice', {
+      text: 'Who emigrates?',
+      cancel: null,
+      tile: null,
+      object: null,
+      choices: [item('A')],
+    });
     key('Enter');
     screen.getByText('Who emigrates?');
+    key('Escape');
+    expect(await closed).toBeNull();
   });
 });
 
@@ -136,6 +151,17 @@ describe('the input dialog', () => {
     const kept = ask(box, 'input', q);
     fireEvent.click(screen.getByRole('button', { name: 'OK' }));
     expect(await kept).toBe('Jamestown');
+  });
+
+  it('leaves Enter on a focused button to the button', async () => {
+    const { box } = host();
+    const cancelled = ask(box, 'input', q);
+    const cancel = screen.getByRole('button', { name: 'Cancel' });
+    cancel.focus();
+    act(() => void fireEvent.keyDown(cancel, { key: 'Enter' }));
+    screen.getByRole('dialog');
+    fireEvent.click(cancel);
+    expect(await cancelled).toBeNull();
   });
 
   it('answers null on Escape', async () => {

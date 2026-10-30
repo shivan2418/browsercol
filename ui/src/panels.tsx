@@ -1,8 +1,9 @@
 // React components for the WebGUI's dialogs (dialogs.ts): the confirm,
 // choice and input questions and the information, error, event and message
 // panels. All text, button labels included, comes localized from the
-// Engine. Keys mean what they do in FreeCol's dialogs: Enter takes the
-// default option, Escape cancels; a panel closes on either.
+// Engine. Keys mean what they do in FreeCol's dialogs: Enter presses the
+// focused button, else takes the default option; Escape closes the dialog
+// as cancelled; a panel closes on either.
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import type { Dialog, Dialogs } from './dialogs';
 
@@ -11,12 +12,15 @@ type At = [number, number];
 /**
  * Answer Enter and Escape while the dialog is open, before anything else
  * on the page sees them. A key with no action is still kept from the page.
+ * Enter on a button of the dialog is left to the button, as in Swing.
  */
-function useKeys(enter: (() => void) | null, escape: (() => void) | null) {
+function useKeys(enter: (() => void) | null, escape: () => void) {
   const keys = useRef({ enter, escape });
   keys.current = { enter, escape };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      const target = e.target instanceof Element ? e.target : null;
+      if (e.key === 'Enter' && target?.matches('[role=dialog] button')) return;
       const act = e.key === 'Enter' ? keys.current.enter : e.key === 'Escape' ? keys.current.escape : undefined;
       if (act === undefined) return;
       e.preventDefault();
@@ -33,6 +37,24 @@ const Text = ({ text }: { text: string }) => <p className="text">{text}</p>;
 
 type Of<K extends Dialog['kind']> = Extract<Dialog, { kind: K }>;
 
+/** The ok and cancel buttons of a question, each only if it has a label. */
+function OkCancel(p: { ok: string | null; cancel: string | null; onOk: () => void; onCancel: () => void }) {
+  return (
+    <div className="buttons">
+      {p.ok !== null && (
+        <button data-answer="ok" onClick={p.onOk}>
+          {p.ok}
+        </button>
+      )}
+      {p.cancel !== null && (
+        <button data-answer="cancel" onClick={p.onCancel}>
+          {p.cancel}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function Confirm({ d }: { d: Of<'confirm'> }) {
   const { ask } = d;
   const ok = () => d.done(true);
@@ -41,18 +63,7 @@ function Confirm({ d }: { d: Of<'confirm'> }) {
   return (
     <>
       <Text text={ask.text} />
-      <div className="buttons">
-        {ask.ok !== null && (
-          <button data-answer="ok" onClick={ok}>
-            {ask.ok}
-          </button>
-        )}
-        {ask.cancel !== null && (
-          <button data-answer="cancel" onClick={cancel}>
-            {ask.cancel}
-          </button>
-        )}
-      </div>
+      <OkCancel ok={ask.ok} cancel={ask.cancel} onOk={ok} onCancel={cancel} />
     </>
   );
 }
@@ -62,10 +73,10 @@ function Choice({ d }: { d: Of<'choice'> }) {
   const pick = (i: number) => () => d.done(i);
   const byDefault = ask.choices.findIndex((c) => c.default && c.enabled);
   const cancelItem = ask.choices.findIndex((c) => c.cancel && c.enabled);
-  useKeys(
-    byDefault >= 0 ? pick(byDefault) : null,
-    cancelItem >= 0 ? pick(cancelItem) : ask.cancel !== null ? () => d.done(null) : null,
-  );
+  // Swing: Escape closes with the cancel item, else null; Enter takes the
+  // default item, else the cancel button if there is one.
+  const cancel = cancelItem >= 0 ? pick(cancelItem) : () => d.done(null);
+  useKeys(byDefault >= 0 ? pick(byDefault) : ask.cancel !== null ? cancel : null, cancel);
   return (
     <>
       <Text text={ask.text} />
@@ -103,18 +114,7 @@ function Input({ d }: { d: Of<'input'> }) {
     <>
       <Text text={ask.text} />
       <input autoFocus value={value} onChange={(e) => setValue(e.target.value)} />
-      <div className="buttons">
-        {ask.ok !== null && (
-          <button data-answer="ok" onClick={ok}>
-            {ask.ok}
-          </button>
-        )}
-        {ask.cancel !== null && (
-          <button data-answer="cancel" onClick={cancel}>
-            {ask.cancel}
-          </button>
-        )}
-      </div>
+      <OkCancel ok={ask.ok} cancel={ask.cancel} onOk={ok} onCancel={cancel} />
     </>
   );
 }
@@ -136,7 +136,7 @@ function Panel({ d, children, ok }: { d: Dialog; children: ReactNode; ok: string
 }
 
 /** Text that, if it is about a tile, goes there when clicked, as FreeCol's InformationPanel shows its objects. */
-function About({ text, at, goTo }: { text: string; at: At | null; goTo: (at: At) => void }) {
+function TileText({ text, at, goTo }: { text: string; at: At | null; goTo: (at: At) => void }) {
   if (!at) return <Text text={text} />;
   return (
     <p className="text">
@@ -165,7 +165,7 @@ function Body({ d, goTo }: { d: Dialog; goTo: (at: At) => void }) {
     case 'information':
       return (
         <Panel d={d} ok={d.event.ok}>
-          <About text={d.event.text} at={d.event.at} goTo={goTo} />
+          <TileText text={d.event.text} at={d.event.at} goTo={goTo} />
         </Panel>
       );
     case 'error':
@@ -186,7 +186,7 @@ function Body({ d, goTo }: { d: Dialog; goTo: (at: At) => void }) {
         <Panel d={d} ok={d.event.ok}>
           {d.event.title && <h2>{d.event.title}</h2>}
           {d.event.messages.map((m, i) => (
-            <About key={i} text={m.text} at={m.at} goTo={goTo} />
+            <TileText key={i} text={m.text} at={m.at} goTo={goTo} />
           ))}
         </Panel>
       );
