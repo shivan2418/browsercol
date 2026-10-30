@@ -376,21 +376,19 @@ async function paint(pen: Pen, ops: Op[], pics: ReturnType<typeof pictures>) {
         }
         return;
       }
-      case 'label': {
-        // The classic colony labels: the population in the tile's centre,
-        // coloured by the production bonus, and the name below the tile.
-        if (op.population >= 0) {
-          pen.text(
-            String(op.population),
-            ox + W / 2,
-            oy + (H - POPULATION.size) / 2,
-            { ...POPULATION, color: BONUS_COLORS[op.bonus] ?? 0xffffff, italic: op.bonus > 0 },
-            true,
-          );
-        }
+      case 'population':
+        pen.text(
+          String(op.population),
+          ox + W / 2,
+          oy + (H - POPULATION.size) / 2,
+          { ...POPULATION, color: BONUS_COLORS[op.bonus] ?? 0xffffff, italic: op.bonus > 0 },
+          true,
+        );
+        return;
+      case 'label':
+        // The classic colony labels: the name below the tile.
         pen.text(op.name, ox + W / 2 + 1, oy + H, { ...NAME, color: op.rgb }, true);
         return;
-      }
     }
   });
 }
