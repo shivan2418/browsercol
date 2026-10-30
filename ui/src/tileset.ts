@@ -5,6 +5,7 @@
 // some images by masking others (terrain transitions, beaches, rivers);
 // those come as a Recipe that map.ts composites and caches by id.
 import type { Resources } from './resources';
+import type { Cursor } from './view';
 
 export interface TileType {
   id: string;
@@ -40,6 +41,9 @@ export interface MapView {
   activeUnit: ActiveUnit | null;
 }
 
+/** A step of a path: its tile and the turns to get there, or null off the map. */
+export type PathStep = [number, number, number] | null;
+
 /** What FreeCol's InfoPanel shows of the active unit, and its way to its destination. */
 export interface ActiveUnit {
   id: string;
@@ -48,8 +52,8 @@ export interface ActiveUnit {
   moves: string;
   /** The units and goods aboard. */
   cargo: string[];
-  /** [x, y, turns] per step to the destination, or null without one. */
-  path: [number, number, number][] | null;
+  /** [x, y, turns] per step to the destination (null for a step off the map, e.g. Europe), or null without one. */
+  path: PathStep[] | null;
 }
 
 export interface Settlement {
@@ -500,20 +504,17 @@ export function scene(map: MapView, res: Resources): Op[] {
  * the active unit, tileSelect on a selected tile), then the active unit's
  * path, as displayPath does: the lines, then the marks.
  */
-export function overlay(
-  cursor: { at: [number, number]; kind: 'unit' | 'tile' } | null,
-  path: [number, number, number][] | null,
-  res: Resources,
-): Op[] {
+export function overlay(cursor: Cursor | null, path: PathStep[] | null, res: Resources): Op[] {
   const ops: Op[] = [];
   const src = cursor && res.path(cursor.kind === 'unit' ? 'image.tile.unitSelect' : 'image.tile.tileSelect');
   if (cursor && src) ops.push({ k: 'image', x: cursor.at[0], y: cursor.at[1], src, at: 'center' });
-  if (!path) return ops;
+  // displayPath draws nothing for a path of one step, and no line through a step off the map.
+  if (!path || path.length < 2) return ops;
   for (let i = 1; i < path.length; i++) {
-    const [x, y] = path[i - 1];
-    ops.push({ k: 'pathLine', x, y, to: [path[i][0], path[i][1]], turns: path[i][2] });
+    const [from, to] = [path[i - 1], path[i]];
+    if (from && to) ops.push({ k: 'pathLine', x: from[0], y: from[1], to: [to[0], to[1]], turns: to[2] });
   }
-  for (const [x, y, turns] of path) ops.push({ k: 'pathMark', x, y, turns });
+  for (const step of path) if (step) ops.push({ k: 'pathMark', x: step[0], y: step[1], turns: step[2] });
   return ops;
 }
 

@@ -2,8 +2,9 @@
 // the server Engine in worker.ts, runs a game, draws the map and turns the
 // player's clicks and keys into commands. The map's view state (view.ts)
 // takes the WebGUI's view events and the player's drags, wheel zooms,
-// edge scrolling and pointer moves; the map and the info panel show it. window.fcResult is set once the
-// autoplay rounds are done and play passes to the human, or on failure.
+// edge scrolling and pointer moves; the map and the info panel show it.
+// window.fcResult is set once the autoplay rounds are done and play passes
+// to the human, or on failure.
 //   ?autoplay=N  rounds the human auto-ends its turn first (debug; default 0)
 //   ?rules=ID    the ruleset (default classic)
 //   ?tileset=ID  a Tileset built beside the default, art/<ID>.json (e.g. test)
@@ -107,14 +108,20 @@ const EDGE = 24;
 const EDGE_DELAY = 300;
 const EDGE_SPEED = 16;
 
+/** Wheel deltas, in pixels, that make one zoom step: a trackpad's small deltas add up. */
+const WHEEL_STEP = 40;
+
+/** A pointer event's pixel on the map canvas, or null before there is one. */
+function onCanvas(e: { clientX: number; clientY: number }): [number, number] | null {
+  const canvas = mapHost.querySelector('canvas');
+  if (!canvas) return null;
+  const r = canvas.getBoundingClientRect();
+  return [e.clientX - r.left, e.clientY - r.top];
+}
+
 /** Drag, wheel and edge scrolling move the view; the pointer's tile is hovered. Returns whether a click was a drag. */
 function moveWith(): () => boolean {
-  const local = (e: { clientX: number; clientY: number }): [number, number] | null => {
-    const canvas = mapHost.querySelector('canvas');
-    if (!canvas) return null;
-    const r = canvas.getBoundingClientRect();
-    return [e.clientX - r.left, e.clientY - r.top];
-  };
+  let wheel = 0;
   let from: [number, number] | null = null;
   let moved = 0;
   mapHost.addEventListener('pointerdown', (e) => {
@@ -132,10 +139,14 @@ function moveWith(): () => boolean {
   mapHost.addEventListener(
     'wheel',
     (e) => {
-      const at = local(e);
-      if (!at || e.deltaY === 0) return;
+      const at = onCanvas(e);
+      if (!at) return;
       e.preventDefault();
-      dispatch({ k: 'zoom', steps: e.deltaY < 0 ? 1 : -1, at });
+      // Line and page deltas (Firefox's mouse wheel) count as a step each.
+      wheel += e.deltaMode === WheelEvent.DOM_DELTA_PIXEL ? e.deltaY : Math.sign(e.deltaY) * WHEEL_STEP;
+      if (Math.abs(wheel) < WHEEL_STEP) return;
+      dispatch({ k: 'zoom', steps: wheel < 0 ? 1 : -1, at });
+      wheel = 0;
     },
     { passive: false },
   );
@@ -148,7 +159,7 @@ function moveWith(): () => boolean {
     p[1] < EDGE ? 1 : p[1] > viewport[1] - EDGE ? -1 : 0,
   ];
   mapHost.addEventListener('pointermove', (e) => {
-    pointer = local(e);
+    pointer = onCanvas(e);
     const at = pointer && map.tileAt(...pointer);
     const was = view.hover;
     if (at?.[0] !== was?.[0] || at?.[1] !== was?.[1]) dispatch({ k: 'hover', at: at ?? null });
@@ -190,10 +201,8 @@ function playWith(client: ClientExports) {
     run(c);
   });
   mapHost.addEventListener('click', (e) => {
-    const canvas = mapHost.querySelector('canvas');
-    if (!canvas || dragged()) return;
-    const r = canvas.getBoundingClientRect();
-    const tile = map.tileAt(e.clientX - r.left, e.clientY - r.top);
+    const at = onCanvas(e);
+    const tile = at && !dragged() ? map.tileAt(...at) : null;
     if (tile) client.click(...tile);
   });
   for (const button of document.querySelectorAll<HTMLButtonElement>('button[data-command]')) {

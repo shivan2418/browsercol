@@ -19,8 +19,6 @@ const tileCentre = ([x, y]: Tile): [number, number] => {
   return [ox + W / 2, oy + H / 2];
 };
 
-const sameTile = (a: Tile | null, b: Tile | null) => a === b || (!!a && !!b && a[0] === b[0] && a[1] === b[1]);
-
 /** What the view uses of a map view. */
 export type MapFacts = Pick<MapView, 'w' | 'h' | 'types' | 'tiles' | 'owners' | 'players' | 'active' | 'activeUnit'>;
 
@@ -102,8 +100,14 @@ function onScreen(v: ViewState, at: Tile) {
   return c.every((p, i) => Math.abs(p - v.centre[i]) <= v.viewport[i] / 2 / v.zoom);
 }
 
+/** MapViewer's cursor: on the active unit, or on a selected tile in terrain mode. */
+export interface Cursor {
+  at: Tile;
+  kind: 'unit' | 'tile';
+}
+
 /** Where MapViewer draws its cursor: image.tile.unitSelect on the active unit, tileSelect on a selected tile. */
-export function cursor(v: ViewState): { at: Tile; kind: 'unit' | 'tile' } | null {
+export function cursor(v: ViewState): Cursor | null {
   if (v.mode === 'terrain') return v.selected && { at: v.selected, kind: 'tile' };
   return v.active?.tile ? { at: v.active.tile, kind: 'unit' } : null;
 }
@@ -132,10 +136,14 @@ export const reduce = (v: ViewState, e: ViewEvent): ViewState => clamp(apply(v, 
 function apply(v: ViewState, e: ViewEvent): ViewState {
   switch (e.k) {
     case 'activeUnit': {
-      // SwingGUI.changeView(Unit): the selected tile comes along, in focus.
-      const active = e.unit ? { unit: e.unit, tile: e.at } : null;
-      const moved = { ...v, active, mode: 'units' as const, selected: e.at ?? v.selected };
-      return e.at ? { ...moved, centre: tileCentre(e.at) } : moved;
+      // SwingGUI.changeView(Unit, force): unforced, the selected tile comes
+      // along, in focus; forced, the view moves only for a unit out of it.
+      // changeView() ends the turn with neither unit nor selection.
+      if (!e.unit) return { ...v, active: null, mode: 'units', selected: null };
+      const active = { ...v, active: { unit: e.unit, tile: e.at }, mode: 'units' as const };
+      if (!e.at) return active;
+      if (e.force) return onScreen(v, e.at) ? active : { ...active, centre: tileCentre(e.at) };
+      return { ...active, selected: e.at, centre: tileCentre(e.at) };
     }
     case 'selectedTile': {
       // SwingGUI.changeView(Tile): refocus only if the tile is out of view.
@@ -144,14 +152,8 @@ function apply(v: ViewState, e: ViewEvent): ViewState {
     }
     case 'focus':
       return e.at ? { ...v, centre: tileCentre(e.at) } : v;
-    case 'map': {
-      // The active unit moved: follow it, as its changeView would.
-      const at = e.map.active;
-      const moved = v.active && e.map.activeUnit?.id === v.active.unit && at && !sameTile(at, v.active.tile);
-      return moved
-        ? { ...v, map: e.map, active: { ...v.active!, tile: at }, selected: at, centre: tileCentre(at) }
-        : { ...v, map: e.map };
-    }
+    case 'map':
+      return { ...v, map: e.map };
     case 'resize':
       return { ...v, viewport: [e.width, e.height] };
     case 'pan':
@@ -161,8 +163,8 @@ function apply(v: ViewState, e: ViewEvent): ViewState {
     case 'zoom': {
       const level = ZOOMS.indexOf(v.zoom) + e.steps;
       const zoom = ZOOMS[Math.max(0, Math.min(ZOOMS.length - 1, level))];
+      const [mx, my] = toMap(v, e.at);
       const [ax, ay] = [e.at[0] - v.viewport[0] / 2, e.at[1] - v.viewport[1] / 2];
-      const [mx, my] = [v.centre[0] + ax / v.zoom, v.centre[1] + ay / v.zoom];
       return { ...v, zoom, centre: [mx - ax / zoom, my - ay / zoom] };
     }
   }

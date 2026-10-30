@@ -300,7 +300,7 @@ describe('overlay', () => {
   });
 
   it("draws the active unit's path over the cursor: the lines, then a mark per step", () => {
-    const path: [number, number, number][] = [
+    const path: ([number, number, number] | null)[] = [
       [1, 0, 0],
       [1, 1, 0],
       [1, 2, 1],
@@ -312,6 +312,16 @@ describe('overlay', () => {
       { k: 'pathMark', x: 1, y: 0, turns: 0 },
       { k: 'pathMark', x: 1, y: 1, turns: 0 },
       { k: 'pathMark', x: 1, y: 2, turns: 1 },
+    ]);
+  });
+
+  it('draws no path of one step, and breaks the line where a step has no tile', () => {
+    expect(overlay(null, [[1, 0, 0]], tileset)).toEqual([]);
+    // Sailing to Europe and back: the step in Europe has no tile.
+    const ops = overlay(null, [[1, 0, 0], null, [1, 2, 3]], tileset);
+    expect(ops).toEqual([
+      { k: 'pathMark', x: 1, y: 0, turns: 0 },
+      { k: 'pathMark', x: 1, y: 2, turns: 3 },
     ]);
   });
 });

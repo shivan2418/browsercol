@@ -16,7 +16,8 @@ export interface TileRef {
 /** Events: shown, nothing comes back. */
 export interface GuiEvents {
   refresh: Record<string, never>;
-  activeUnit: { unit: Id | null } & TileRef;
+  /** force: after a move, SwingGUI keeps the selection and refocuses only if the unit is out of view. */
+  activeUnit: { unit: Id | null; force: boolean } & TileRef;
   /** Terrain mode: a tile is selected; the active unit is kept. */
   selectedTile: TileRef;
   /** Centre the map on a tile. */
