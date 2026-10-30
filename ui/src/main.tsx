@@ -106,8 +106,8 @@ window.fcReveal = (x, y) => {
 
 window.fcView = () => {
   const { map: _, ...rest } = view;
-  const at = cursor(view);
-  return { ...rest, cursor: at, cursorOnScreen: at && tileOnScreen(view, at.at) };
+  const c = cursor(view);
+  return { ...rest, cursor: c, cursorOnScreen: c && tileOnScreen(view, c.at) };
 };
 
 /** FreeCol's InfoPanel, as text: the active unit, and the tile under the pointer. */

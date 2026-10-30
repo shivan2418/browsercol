@@ -164,7 +164,7 @@ public class WebGUI extends GUI {
 
     /** A tile as its id and, for the Browser UI's map, its [x, y]. */
     private static Json tile(Json json, Tile tile) {
-        return json.put("tile", id(tile)).putRaw("at", Json.xy(tile));
+        return json.put("tile", id(tile)).putRaw("at", MapJson.xy(tile));
     }
 
     /** The localized text for a message key, or null for no key. */
