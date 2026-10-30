@@ -71,7 +71,13 @@ function Choice({ d }: { d: Of<'choice'> }) {
       <Text text={ask.text} />
       <div className="choices">
         {ask.choices.map((c, i) => (
-          <button key={i} data-choice={i} disabled={!c.enabled} className={c.default ? 'default' : ''} onClick={pick(i)}>
+          <button
+            key={i}
+            data-choice={i}
+            disabled={!c.enabled}
+            className={c.default ? 'default' : ''}
+            onClick={pick(i)}
+          >
             {c.text}
           </button>
         ))}
@@ -134,10 +140,14 @@ function About({ text, at, goTo }: { text: string; at: At | null; goTo: (at: At)
   if (!at) return <Text text={text} />;
   return (
     <p className="text">
-      <a href="#" data-at={at.join(',')} onClick={(e) => {
+      <a
+        href="#"
+        data-at={at.join(',')}
+        onClick={(e) => {
           e.preventDefault();
           goTo(at);
-        }}>
+        }}
+      >
         {text}
       </a>
     </p>
