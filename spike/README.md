@@ -75,7 +75,7 @@ Making every public method reflectable dragged Swing and much more into the buil
 3. Where TeaVM's classlib has its own version of a class (`Color`, `Logger`), our shim is ignored. So `Color.getRGB` had to be patched at its call sites.
 4. TeaVM's `Logger` prints every level to stdout and has no `setLevel`. Measurement runs discard stdout.
 5. `-Paggressive` (TeaVM's `AGGRESSIVE` optimisation) produces a module that fails at run time with a negative timeout and a JS type error. The size gain comes from obfuscation anyway.
-6. **`Object.wait` does not work** in TeaVM 0.16 Wasm GC. A thread that waits keeps the monitor and never wakes, with or without a timeout and with or without `notify`, while `Thread.sleep` works. Run `selftest` to see it. These open TeaVM PRs (all mergeable, filed 2026-10-10 to 12) fix related monitor bugs: [#1300](https://github.com/konsoletyper/teavm/pull/1300), [#1302](https://github.com/konsoletyper/teavm/pull/1302), [#1304](https://github.com/konsoletyper/teavm/pull/1304), [#1305](https://github.com/konsoletyper/teavm/pull/1305). The server and AI never wait on a monitor in this game. But a real client `Connection` does: `askMessage` waits in `NetworkReplyObject`. **Stage 2 hits this.**
+6. **`Object.wait` does not work** in TeaVM 0.16 Wasm GC. A thread that waits keeps the monitor and never wakes, with or without a timeout and with or without `notify`, while `Thread.sleep` works. Run `selftest` to see it. *Fixed since #11 by `FiberSuspendFix`; see "Why Object.wait hangs" below.* These open TeaVM PRs (all mergeable, filed 2026-10-10 to 12) fix related monitor bugs: [#1300](https://github.com/konsoletyper/teavm/pull/1300), [#1302](https://github.com/konsoletyper/teavm/pull/1302), [#1304](https://github.com/konsoletyper/teavm/pull/1304), [#1305](https://github.com/konsoletyper/teavm/pull/1305). The server and AI never wait on a monitor in this game. But a real client `Connection` does: `askMessage` waits in `NetworkReplyObject`. **Stage 2 hits this.**
 
 ## Not done (stage 2)
 
@@ -160,6 +160,49 @@ working wait. So the trigger is something in the large FreeCol graph that
 both logging and reflection pull in, not one FreeCol feature. The self-test
 logs show the waiter takes the lock, calls wait, and never comes back, and
 nothing throws. Not yet found: which class or method in that graph does it.
+
+### Why Object.wait hangs
+
+Found 2026-10-30 ([#11](https://github.com/shivan2418/freecol-online/issues/11)). It is a TeaVM bug in `Fiber.suspend`. No FreeCol class causes it. A large graph only makes it likely.
+
+**The mechanism.** Wasm GC threads are coroutines. A method that may suspend is rewritten so that, after each call that may suspend, it checks "is the fiber suspending?". If so, it saves its locals and returns. `Fiber.suspend` (TeaVM 0.16 and master) does this:
+
+```java
+fiber.state = STATE_SUSPENDING;
+pendingCall.callback = new AsyncCallbackImpl(pendingCall, javaThread, fiber);
+call.run(pendingCall.callback);   // starts the async operation
+```
+
+For `Object.wait`, `call.run` is `waitImpl(timeout, nanos, callback)`. It queues the waiter, sets the timer and releases the monitor. But the fiber is already marked as suspending while that code runs. If `waitImpl` was itself rewritten as a coroutine, then its first call to a method that may suspend looks like a suspension when it returns. `waitImpl` saves its locals and returns at that point. The timer is never set and the monitor is never released, so the waiter never wakes and a notifier never gets the lock. With no timer pending, Node just exits.
+
+**Why only large programs.** TeaVM decides which methods may suspend from the call graph. A virtual call that may reach any suspending override counts as suspending. In the FreeCol graph this spreads into the core classlib. `Throwable`'s constructors call `Class.getName`, which builds strings through virtual `StringBuilder.insert` calls, and FreeCol has `toString`s that take locks (e.g. `Connection.toString` via `getSocketName`). In the Engine's module, 5,772 of 17,615 functions may suspend, including every exception constructor. `waitImpl` calls `ArrayDeque.addLast`, which has a `new NullPointerException()` path, so `addLast` may suspend. That is where `waitImpl` stops. One logging call or one reflective call pulled in enough of the graph to close this loop. The small probe did not, and there `waitImpl` is a plain function.
+
+It reproduces without FreeCol. Make an exception class whose `fillInStackTrace` sleeps reachable (never run it), and a timed wait on the main thread never returns, in a 40 KB module: `spike/teavm/wait-repro`.
+
+```sh
+./dev.sh -C spike/teavm/wait-repro gradle generateWasmGC copyWasmGCRuntime
+./dev.sh -C spike/teavm/wait-repro node run.mjs   # prints only "node exiting"
+```
+
+**The fix.** Set the state after `call.run` returns:
+
+```java
+pendingCall.callback = new AsyncCallbackImpl(pendingCall, javaThread, fiber);
+call.run(pendingCall.callback);
+fiber.state = STATE_SUSPENDING;
+```
+
+A `complete()` called synchronously inside `call.run` still works: it sets `isPendingResume`, and `Fiber.start` resumes once the stack has unwound. `engine/src/main/java/online/freecol/shim/FiberSuspendFix.java` applies this to TeaVM 0.16 without a TeaVM build. It is a `TeaVMPlugin` with a `ClassHolderTransformer` that moves that one store in `Fiber.suspend`. If `Fiber.suspend` changes shape in a later TeaVM, the plugin fails the build rather than doing nothing. A copy of `Fiber` in our sources did not work: TeaVM loads its own.
+
+With the fix, on TeaVM 0.16.0:
+
+- `node probe.mjs` with `SpikeMain.main` reachable prints `main timed wait returned after 110ms`.
+- `node run-node.mjs selftest`: all three cases work. A wakes on notify after 53 ms, C on notify after 52 ms, and B times out after 101 ms.
+- `node run-node.mjs 30`: all 30 rounds finish at turn 31 (14.7 s, AI round mean 466 ms). Without the fix, on the same busy machine that day: 15.3 s, mean 486 ms. Both runs print a Node `TimeoutNegativeWarning` (-694967296 ms) that comes from somewhere else.
+
+The `Thread.sleep` polling in `PostMessageConnection` and `Questions` is left in place. Swapping it for `wait`/`notify` needs the split game and browser runs to show it works, and `answer`/`complete` are called from JavaScript callbacks outside any fiber.
+
+**Upstream.** Worth reporting to TeaVM: the bug is in TeaVM, `Fiber.suspend` is unchanged on master, the reproducer is 30 lines, and the fix is one moved line. Any `@Async` method whose `call.run` side calls a method that may suspend is hit the same way. `Thread.sleep`'s happens not to. The reproducer and this explanation are ready to file, but have not been filed.
 
 # Toolchain spike, stage 2: the Engine split in the browser
 
