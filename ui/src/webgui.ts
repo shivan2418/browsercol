@@ -104,7 +104,6 @@ export function webGui(handlers: GuiHandlers, answer: (id: number, value: string
       void Promise.resolve()
         .then(async () => {
           if (!isKey(handlers.questions, kind)) {
-            console.error(`WebGUI question ${kind} has no dialog; answering as closed`);
             handlers.events.unasked?.({ method: `ask ${kind}` });
             return null;
           }

@@ -6,9 +6,9 @@
 // the colony must still be there when the AI hands play back. The page's
 // dialogs are answered as scripts/dialogs.mjs says, and every question the
 // controllers ask must reach one: a dialog with no Browser UI yet fails the
-// run. Along the way the map's view must follow the active unit, its cursor and the info
-// panel must match the client's active unit, and the wheel, a drag and the
-// pointer at an edge must zoom and scroll it.
+// run. Along the way the map's view must follow the active unit, its
+// cursor and the info panel must match the client's active unit, and the
+// wheel, a drag and the pointer at an edge must zoom and scroll it.
 // Exits non-zero unless every browser gets there. Run in
 // the web image:
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/play.mjs [--browsers chromium,firefox] [--query renderer=canvas2d]
