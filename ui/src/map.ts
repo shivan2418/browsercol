@@ -12,8 +12,9 @@ export type { MapView } from './tileset';
 
 const W = 128;
 const H = 64;
-/** TileViewer.STATE_OFFSET_X and TileBounds' unit offsets, at scale 1. */
+/** TileViewer.STATE_OFFSET_X/Y and TileBounds' unit offsets, at scale 1. */
 const STATE_OFFSET_X = 25;
+const STATE_OFFSET_Y = 10;
 const UNIT_OFFSET = 20;
 const OTHER_UNITS_OFFSET_X = -5;
 const OTHER_UNITS_WIDTH = 3;
@@ -339,6 +340,16 @@ async function paint(pen: Pen, ops: Op[], pics: ReturnType<typeof pictures>) {
       op.k === 'image' ? (op.fade ? pics.gray(op.src) : pics.get(op.src)).catch(() => null) : Promise.resolve(null),
     ),
   );
+  /** ImageLibrary.createChip: text on a colour with a black border; returns its width. */
+  const chip = (x: number, y: number, text: string, bg: number, fg: number) => {
+    const pad = 6;
+    const cw = Math.ceil(pen.measure(text, CHIP)) + pad;
+    const ch = CHIP.size + pad;
+    pen.rect(x, y, cw, ch, 0x000000);
+    pen.rect(x + 1, y + 1, cw - 2, ch - 2, bg);
+    pen.text(text, x + pad / 2, y + pad / 2 - 1, { ...CHIP, color: fg }, false);
+    return cw;
+  };
   pen.clear();
   ops.forEach((op, i) => {
     const [ox, oy] = tileOrigin(op.x, op.y);
@@ -366,19 +377,24 @@ async function paint(pen: Pen, ops: Op[], pics: ReturnType<typeof pictures>) {
       case 'road':
         return pen.road(ox, oy, (p) => roadPath(op.dirs, p));
       case 'chip': {
-        // ImageLibrary.createChip: a black border round the owner's colour.
-        const pad = 6;
-        const cw = Math.ceil(pen.measure(op.text, CHIP)) + pad;
-        const ch = CHIP.size + pad;
         const x = ox + STATE_OFFSET_X;
-        pen.rect(x, oy, cw, ch, 0x000000);
-        pen.rect(x + 1, oy + 1, cw - 2, ch - 2, op.bg);
-        pen.text(op.text, x + pad / 2, oy + pad / 2 - 1, { ...CHIP, color: op.fg }, false);
+        chip(x, oy, op.text, op.bg, op.fg);
         if (op.stack > 1) {
           const x1 = x + OTHER_UNITS_OFFSET_X;
           for (let n = 0; n < Math.min(op.stack, MAX_OTHER_UNITS); n++) {
             pen.line(x1, oy + 1.5 + 2 * n, x1 + OTHER_UNITS_WIDTH, oy + 1.5 + 2 * n, 0xffffff);
           }
+        }
+        return;
+      }
+      case 'chips': {
+        let x = ox + STATE_OFFSET_X;
+        // TileViewer steps by the first chip's width plus 2, whatever the others measure.
+        let step = 0;
+        for (const c of op.chips) {
+          const cw = chip(x, oy + STATE_OFFSET_Y, c.text, shade(c.bg), shade(c.fg));
+          step ||= cw + 2;
+          x += step;
         }
         return;
       }

@@ -29,11 +29,21 @@ export interface MapView {
   roads: [number, number, number][];
   /** [x, y, zIndex, kind, key] in zIndex order per tile. */
   items: [number, number, number, 'centered' | 'tile', string][];
-  /** [x, y, keys, rgb, name, population (-1 for native settlements), production bonus, preferred size change]. */
-  settlements: [number, number, string[], number, string, number, number, number][];
+  /**
+   * [x, y, keys, rgb, name, population (-1 for native settlements),
+   * production bonus, preferred size change, chips (null for colonies)].
+   */
+  settlements: [number, number, string[], number, string, number, number, number, Chips | null][];
   /** [x, y, keys, rgb, chip text, chip text rgb, units on the tile, faded]. */
   units: [number, number, string[], number, string, number, number, boolean][];
   active: [number, number] | null;
+}
+
+/** What a native settlement's chips show; the alarm chip once the player has made contact. */
+export interface Chips {
+  capital: boolean;
+  mission: { rgb: number; expert: boolean } | null;
+  alarm: { fg: number; worthScouting: boolean } | null;
 }
 
 /** An image file, or one made by drawing others in order onto a tile-sized canvas. */
@@ -62,6 +72,8 @@ export type Op =
   | { k: 'road'; x: number; y: number; dirs: Direction[] }
   /** A unit's occupation chip in its owner's colour, with a line per unit on the tile. */
   | { k: 'chip'; x: number; y: number; text: string; bg: number; fg: number; stack: number }
+  /** A native settlement's chips in a row beside it, each the first chip's width apart, as TileViewer spaces them. */
+  | { k: 'chips'; x: number; y: number; chips: { text: string; bg: number; fg: number }[]; dim?: true }
   /**
    * A colony's population in the tile's centre, coloured by its production
    * bonus, and emphasised when the colony would rather grow.
@@ -101,6 +113,12 @@ const BEACH = 'image.tile.model.tile.beach';
 const RIVER_WATER = 'image.tile.river.water';
 const RIVER_PEBBLES = 'image.tile.river.pebbles';
 const UNEXPLORED = 'model.tile.unexplored';
+/** color.foreground.mission.normal and .expert: Java's Color.darkGray and black. */
+const MISSION_FG = { normal: 0x404040, expert: 0x000000 };
+
+/** ImageLibrary.makeForegroundColor: black on light colours, white on dark. */
+const foreground = (rgb: number) =>
+  ((rgb >> 16) & 0xff) * 0.3 + ((rgb >> 8) & 0xff) * 0.59 + (rgb & 0xff) * 0.11 >= 126 ? 0x000000 : 0xffffff;
 
 /** ImageLibrary.variationSeedUsing. */
 const seedOf = (x: number, y: number) => x * 6841 + y * 7919;
@@ -381,11 +399,27 @@ export function scene(map: MapView, res: Resources): Op[] {
     if (s && key) {
       ops.push({ k: 'image', x, y, src: named(key)!, at: 'large', ...dim });
       // TileViewer.displaySettlementWithChipsOrPopulationNumber, classic labels.
-      const [, , , , , population, bonus, sizeChange] = s;
+      const [, , , rgb, , population, bonus, sizeChange, chips] = s;
       const emph = sizeChange > 0 ? { emph: true as const } : {};
       if (population >= 0) ops.push({ k: 'population', x, y, population, bonus, ...emph, ...dim });
+      if (chips) ops.push({ k: 'chips', x, y, chips: nativeChips(rgb, chips), ...dim });
     }
   });
+
+  // ImageLibrary's settlement, mission and alarm chips.
+  function nativeChips(rgb: number, { capital, mission, alarm }: Chips) {
+    const chips = [
+      { text: res.string(`indianSettlementChip.${capital ? 'capital' : 'normal'}`), bg: rgb, fg: foreground(rgb) },
+    ];
+    if (mission) {
+      chips.push({ text: res.string('cross'), bg: mission.rgb, fg: MISSION_FG[mission.expert ? 'expert' : 'normal'] });
+    }
+    if (alarm) {
+      const text = res.string(`indianAlarmChip.${alarm.worthScouting ? 'contacted' : 'scouted'}`);
+      chips.push({ text, bg: rgb, fg: alarm.fg });
+    }
+    return chips;
+  }
 
   for (const [x, y, keys, bg, text, fg, stack, fade] of map.units) {
     const key = first(keys);
