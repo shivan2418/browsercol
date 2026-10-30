@@ -183,8 +183,6 @@ export function scene(map: MapView, res: Resources): Op[] {
   const riverAt = (p: [number, number] | null) => (p ? rivers.get(index(...p)) : undefined);
   const roads = new Set(map.roads.map(([x, y]) => index(x, y)));
 
-  const variant = (key: string, n: number) => res.path(key, n);
-  const named = (key: string) => res.path(key);
   const first = (keys: string[]) => keys.find((k) => res.has(k));
 
   /** Image with its alpha cut to a mask (ImageUtils.imageWithAlphaFromMask). */
@@ -200,13 +198,13 @@ export function scene(map: MapView, res: Resources): Op[] {
     return lower(dirs.filter((d) => LONG_SIDES.includes(d) || pre === '' || !pre.includes(d.toLowerCase())));
   };
   const water = (x: number, y: number, type: TileType): Src | null => {
-    const ocean = variant(terrainKey(type.id), 0);
+    const ocean = res.path(terrainKey(type.id), 0);
     if (!ocean) return null;
     const dirs = DIRECTIONS.filter((d) => land(step(x, y, d)));
     const key = beachKey(dirs);
-    const beach = named(BEACH);
-    const mask = named(`image.mask.beach.${key}`);
-    const tileMask = named(TILE_MASK);
+    const beach = res.path(BEACH);
+    const mask = res.path(`image.mask.beach.${key}`);
+    const tileMask = res.path(TILE_MASK);
     if (dirs.length === 0 || !beach || !mask || !tileMask) return ocean;
     return {
       id: `beach:${ocean}:${key}`,
@@ -224,12 +222,12 @@ export function scene(map: MapView, res: Resources): Op[] {
     const special = nice && (d === 'NW' || d === 'SE');
     if (type === btype && !special) return null;
     const imageKey = land(b) || !land(tile) ? terrainKey(btype.id) : BEACH;
-    const image = named(imageKey);
-    const own = named(terrainKey(type.id));
-    const mask = named(`image.mask.${d.toLowerCase()}`);
+    const image = res.path(imageKey);
+    const own = res.path(terrainKey(type.id));
+    const mask = res.path(`image.mask.${d.toLowerCase()}`);
     if (!image || !own || !mask) return null;
     if (image === own && !special) return null;
-    const src = variant(imageKey, 0)!;
+    const src = res.path(imageKey, 0)!;
     if (!special) return { id: `transition:${image}:${mask}`, steps: [{ draw: src }, { mask }] };
 
     const beachNe = specialBeach(tile, b, 'NE');
@@ -241,8 +239,8 @@ export function scene(map: MapView, res: Resources): Op[] {
         [beachNe, 'ne'],
         [beachSw, 'sw'],
       ] as const) {
-        const beach = variant(BEACH, 0);
-        const beachMask = named(`image.mask.special.beach.${dir}`);
+        const beach = res.path(BEACH, 0);
+        const beachMask = res.path(`image.mask.special.beach.${dir}`);
         if (on && beach && beachMask) steps.push({ draw: masked(beach, beachMask) });
       }
     }
@@ -275,11 +273,11 @@ export function scene(map: MapView, res: Resources): Op[] {
   const delta = (d: Direction): Recipe | null => {
     const dir = d.toLowerCase();
     const [pebbles, waterImg, waterMask, pebblesMask, tileMask] = [
-      named(RIVER_PEBBLES),
-      variant(RIVER_WATER, 0),
-      named(`image.mask.river.delta.${dir}`),
-      named(`image.mask.river.delta.pebbles.${dir}`),
-      named(TILE_MASK),
+      res.path(RIVER_PEBBLES),
+      res.path(RIVER_WATER, 0),
+      res.path(`image.mask.river.delta.${dir}`),
+      res.path(`image.mask.river.delta.pebbles.${dir}`),
+      res.path(TILE_MASK),
     ];
     if (!pebbles || !waterImg || !waterMask || !pebblesMask || !tileMask) return null;
     return {
@@ -307,13 +305,15 @@ export function scene(map: MapView, res: Resources): Op[] {
             return !!n && ((riverAt(n)?.magnitude ?? 0) > 1 || (land([x, y]) && !land(n)));
           });
     const [pebbles, waterImg, base, tileMask] = [
-      named(RIVER_PEBBLES),
-      variant(RIVER_WATER, 0),
-      named(`image.mask.river${minor}${shape ? '.' + shape : ''}`),
-      named(TILE_MASK),
+      res.path(RIVER_PEBBLES),
+      res.path(RIVER_WATER, 0),
+      res.path(`image.mask.river${minor}${shape ? '.' + shape : ''}`),
+      res.path(TILE_MASK),
     ];
     if (!pebbles || !waterImg || !base || !tileMask) return null;
-    const extra = toMajor.map((d) => named(`image.mask.river.to_major.${d.toLowerCase()}`)).filter((m) => m !== null);
+    const extra = toMajor
+      .map((d) => res.path(`image.mask.river.to_major.${d.toLowerCase()}`))
+      .filter((m) => m !== null);
     const mask: Src = extra.length
       ? { id: `riverMask:${base}:${extra.join(',')}`, steps: [base, ...extra].map((m) => ({ draw: m })) }
       : base;
@@ -399,7 +399,7 @@ export function scene(map: MapView, res: Resources): Op[] {
     );
   }
   for (const [x, y, z, kind, key] of map.items) {
-    const src = named(key);
+    const src = res.path(key);
     const dim = seen(x, y) ? {} : { dim: true as const };
     if (src)
       addItem(x, y, z, () => ops.push({ k: 'image', x, y, src, at: kind === 'tile' ? 'tile' : 'center', ...dim }));
@@ -420,14 +420,14 @@ export function scene(map: MapView, res: Resources): Op[] {
     if (type.forested) {
       const r = riverAt([x, y]);
       const styled = r && `image.tileforest.${type.id}.s${r.mask === '0000' ? '0100' : r.mask}`;
-      const src = named(styled && res.has(styled) ? styled : `image.tileforest.${type.id}`);
+      const src = res.path(styled && res.has(styled) ? styled : `image.tileforest.${type.id}`);
       if (src) ops.push({ k: 'image', x, y, src, at: 'bottom', ...dim });
     }
     upTo(Infinity);
     const s = settlements.get(index(x, y));
     const key = s && first(s.keys);
     if (s && key) {
-      ops.push({ k: 'image', x, y, src: named(key)!, at: 'large', ...dim });
+      ops.push({ k: 'image', x, y, src: res.path(key)!, at: 'large', ...dim });
       // TileViewer.displaySettlementWithChipsOrPopulationNumber, classic labels.
       const { rgb, population, bonus, sizeChange, chips } = s;
       const emph = sizeChange > 0 ? { emph: true as const } : {};
@@ -451,7 +451,7 @@ export function scene(map: MapView, res: Resources): Op[] {
 
   for (const { x, y, keys, rgb, chip, fg, stack, fade } of map.units) {
     const key = first(keys);
-    if (key) ops.push({ k: 'image', x, y, src: named(key)!, at: 'unit', ...(fade ? { fade: true as const } : {}) });
+    if (key) ops.push({ k: 'image', x, y, src: res.path(key)!, at: 'unit', ...(fade ? { fade: true as const } : {}) });
     ops.push({ k: 'chip', x, y, text: chip, bg: rgb, fg, stack });
   }
 
