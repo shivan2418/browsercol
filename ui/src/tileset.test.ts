@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { resources } from './resources';
-import { scene, type MapView, type Op } from './tileset';
+import { scene, type Chips, type MapView, type Op } from './tileset';
 
 // A 2x4 corner of a map. FreeCol stores the diamond grid as staggered rows,
 // odd rows half a tile to the right, so from (1,0) the plains at (0,1),
@@ -46,6 +46,11 @@ image.tile.model.tile.unexplored.border.S=resources/border_S0.png
 image.tileitem.model.resource.ore=resources/ore.png
 image.unit.model.unit.caravel=resources/caravel.png
 image.settlement.colony=resources/colony.png
+indianSettlementChip.capital="*"
+indianSettlementChip.normal="-"
+indianAlarmChip.scouted="!"
+indianAlarmChip.contacted="-"
+cross="\\u271d"
 `;
 const files = [
   'mask',
@@ -155,7 +160,7 @@ describe('colony labels', () => {
   // A colony of 3 at (0,3) with a caravel in front, as FreeCol's classic labels draw it.
   const colony = (x: number, y: number, bonus = -1, sizeChange = 0): MapView => ({
     ...map,
-    settlements: [[x, y, ['image.settlement.colony'], 0xff8000, 'Jamestown', 3, bonus, sizeChange]],
+    settlements: [[x, y, ['image.settlement.colony'], 0xff8000, 'Jamestown', 3, bonus, sizeChange, null]],
     units: [[x, y, ['image.unit.model.unit.caravel'], 0xff8000, '-', 0, 1, false]],
   });
   const index = (ops: Op[], k: Op['k'], src?: string) =>
@@ -181,5 +186,54 @@ describe('colony labels', () => {
     const population = (m: MapView) => scene(m, tileset).find((op) => op.k === 'population');
     expect(population(colony(0, 3, -1, 1))).toMatchObject({ bonus: -1, emph: true });
     expect(population(colony(0, 3, 2, 0))).not.toHaveProperty('emph');
+  });
+});
+
+describe('native settlement chips', () => {
+  // A capital in light tan, with a dark red mission, at (0,3) in sight.
+  const village = (x: number, y: number, chips: Chips): MapView => ({
+    ...map,
+    settlements: [[x, y, ['image.settlement.colony'], 0xc0a080, 'Onondaga', -1, 0, 0, chips]],
+    units: [],
+  });
+  const contacted: Chips = {
+    capital: true,
+    mission: { rgb: 0x800000, expert: false },
+    alarm: { fg: 0xffffff, worthScouting: true },
+  };
+  const chipsOf = (m: MapView) => scene(m, tileset).filter((op) => op.k === 'chips');
+
+  it('draws the settlement, mission and alarm chips after the settlement, in that order', () => {
+    const ops = at(scene(village(0, 3, contacted), tileset), 0, 3);
+    const chips = ops.findIndex((op) => op.k === 'chips');
+    expect(ops[chips]).toEqual({
+      k: 'chips',
+      x: 0,
+      y: 3,
+      chips: [
+        // Black text on the light owner colour; a gray cross for a non-expert.
+        { text: '*', bg: 0xc0a080, fg: 0x000000 },
+        { text: '\u271d', bg: 0x800000, fg: 0x404040 },
+        { text: '-', bg: 0xc0a080, fg: 0xffffff },
+      ],
+    });
+    expect(ops.findIndex((op) => op.k === 'image' && op.at === 'large')).toBe(chips - 1);
+    expect(chips).toBeLessThan(ops.findIndex((op) => op.k === 'label'));
+  });
+
+  it('shows a black cross for an expert, "!" once scouted, and no alarm before contact', () => {
+    const scouted = { ...contacted, mission: { rgb: 0x800000, expert: true }, alarm: { fg: 0, worthScouting: false } };
+    expect(chipsOf(village(0, 3, scouted))[0]).toMatchObject({
+      chips: [{ text: '*' }, { text: '\u271d', fg: 0x000000 }, { text: '!' }],
+    });
+    expect(chipsOf(village(0, 3, { capital: false, mission: null, alarm: null }))[0]).toMatchObject({
+      chips: [{ text: '-' }],
+    });
+  });
+
+  it('dims the chips on a tile out of sight, and colonies have none', () => {
+    expect(chipsOf(village(1, 1, contacted))[0]).toHaveProperty('dim', true);
+    expect(chipsOf(village(0, 3, contacted))[0]).not.toHaveProperty('dim');
+    expect(chipsOf({ ...map, settlements: [[0, 3, ['image.settlement.colony'], 0, 'J', 1, 0, 0, null]] })).toEqual([]);
   });
 });
