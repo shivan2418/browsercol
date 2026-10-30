@@ -34,8 +34,12 @@ export interface Resources {
   forSeed(key: string, seed: number): string | null;
   /** A string resource, or "X" as ResourceManager.getString gives for a missing one. */
   string(key: string): string;
-  /** A colour resource as 0xRRGGBB, or magenta as ResourceManager.getColor gives for a missing one. */
-  color(key: string): number;
+  /**
+   * A colour resource as 0xRRGGBB. A missing one is the replacement, as for
+   * ImageLibrary.getColor(key, replacement), or else magenta as
+   * ResourceManager.getColor gives.
+   */
+  color(key: string, replacement?: number): number;
 }
 
 const IMAGE = /\.(png|jpe?g|gif)$/i;
@@ -180,7 +184,7 @@ export function resources(layers: ArtLayer[], files: string[]): Resources {
     path,
     forSeed: (key, seed) => path(key, javaRandomInt(seed, count(key))),
     string: (key) => strings.get(key) ?? NO_STRING,
-    color: (key) => colors.get(key) ?? NO_COLOR,
+    color: (key, replacement = NO_COLOR) => colors.get(key) ?? replacement,
   };
 }
 

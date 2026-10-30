@@ -70,6 +70,8 @@ cross="\\u271d"
 color.map.road=urn:color:0x804000
 color.map.productionBonus.-1=urn:color:orange
 color.map.productionBonus.2=urn:color:blue
+color.foreground.mission.normal=urn:color:darkGray
+color.foreground.mission.expert=urn:color:black
 `;
 const files = [
   'mask',
@@ -249,7 +251,7 @@ describe('native settlement chips', () => {
     mission: { rgb: 0x800000, expert: false },
     alarm: { fg: 0xffffff, worthScouting: true },
   };
-  const chipsOf = (m: MapView) => scene(m, tileset).filter((op) => op.k === 'chips');
+  const chipsOf = (m: MapView, res = tileset) => scene(m, res).filter((op) => op.k === 'chips');
 
   it('draws the settlement, mission and alarm chips after the settlement, in that order', () => {
     const ops = at(scene(village(0, 3, contacted), tileset), 0, 3);
@@ -277,6 +279,18 @@ describe('native settlement chips', () => {
     expect(chipsOf(village(0, 3, { capital: false, fg: 0, mission: null, alarm: null }))[0]).toMatchObject({
       chips: [{ text: '-' }],
     });
+  });
+
+  it("takes the cross's colour from the Tileset, else Java's gray or black", () => {
+    const cyan = { dir: 'mods/test', props: 'color.foreground.mission.normal=urn:color:0x00ffff\n' };
+    const cross = (res: typeof tileset, expert: boolean, fg: number) =>
+      expect(chipsOf(village(0, 3, { ...contacted, mission: { rgb: 0x800000, expert } }), res)[0]).toMatchObject({
+        chips: [{}, { text: '\u271d', fg }, {}],
+      });
+    cross(resources([{ dir: 'default', props }, cyan], files), false, 0x00ffff);
+    const bare = resources([{ dir: 'default', props: props.replace(/^color\.foreground\..*$/gm, '') }], files);
+    cross(bare, false, 0x808080);
+    cross(bare, true, 0x000000);
   });
 
   it('dims the chips on a tile out of sight, and colonies have none', () => {

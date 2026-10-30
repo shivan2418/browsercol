@@ -110,6 +110,12 @@ color.map.alias=resource:color.map.productionBonus.2
     expect(r.has('color.map.road')).toBe(false);
     expect(resources([base, colors, mod], files).color('color.map.road')).toBe(0x00ffff);
   });
+
+  it('gives the replacement for a missing colour, as ImageLibrary.getColor(key, replacement) does', () => {
+    const r = resources([base, tc], files);
+    expect(r.color('color.foreground.mission.normal', 0x808080)).toBe(0x808080);
+    expect(r.color('color.map.road', 0x808080)).toBe(0x804000);
+  });
 });
 
 describe('javaRandomInt', () => {

@@ -173,8 +173,8 @@ const BEACH = 'image.tile.model.tile.beach';
 const RIVER_WATER = 'image.tile.river.water';
 const RIVER_PEBBLES = 'image.tile.river.pebbles';
 const UNEXPLORED = 'model.tile.unexplored';
-/** color.foreground.mission.normal and .expert: Java's Color.darkGray and black. */
-const MISSION_FG = { normal: 0x404040, expert: 0x000000 };
+/** ImageLibrary.getMissionChip's text colours if the Tileset has none: Java's Color.GRAY and BLACK. */
+const MISSION_FG = { normal: 0x808080, expert: 0x000000 };
 
 /** ImageLibrary.variationSeedUsing. */
 const seedOf = (x: number, y: number) => x * 6841 + y * 7919;
@@ -471,7 +471,9 @@ export function scene(map: MapView, res: Resources): Op[] {
   function nativeChips(rgb: number, { capital, fg, mission, alarm }: Chips) {
     const chips = [{ text: res.string(`indianSettlementChip.${capital ? 'capital' : 'normal'}`), bg: rgb, fg }];
     if (mission) {
-      chips.push({ text: res.string('cross'), bg: mission.rgb, fg: MISSION_FG[mission.expert ? 'expert' : 'normal'] });
+      const kind = mission.expert ? 'expert' : 'normal';
+      const crossFg = res.color(`color.foreground.mission.${kind}`, MISSION_FG[kind]);
+      chips.push({ text: res.string('cross'), bg: mission.rgb, fg: crossFg });
     }
     if (alarm) {
       const text = res.string(`indianAlarmChip.${alarm.worthScouting ? 'contacted' : 'scouted'}`);
