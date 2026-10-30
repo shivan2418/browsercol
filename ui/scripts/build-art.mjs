@@ -1,7 +1,8 @@
 // Copies the map art of the default Tileset into the site and writes the
 // manifest the Browser UI's resolver loads: the resources.properties layers
 // (data/base, then the "default" TC, then any mods given) and the art files.
-// Only the keys the map draws are kept, with every variation of each.
+// Only the keys the map draws are kept: images, with every variation of
+// each, and the texts of native settlement chips.
 // Prints the art budget: file count, bytes, brotli bytes and atlas area.
 // Usage: node build-art.mjs <freecol/data> <out dir> [mod dir...]
 import fs from 'node:fs';
@@ -10,7 +11,8 @@ import zlib from 'node:zlib';
 import { parseProperties, resources } from '../src/resources.ts';
 
 const [data, out, ...mods] = process.argv.slice(2);
-const MAP_KEYS = /^image\.(tile|tileoverlay|tileforest|tileitem|abovetile|unit|mask)(\.|$)/;
+const MAP_KEYS =
+  /^(image\.(tile|tileoverlay|tileforest|tileitem|abovetile|unit|mask)(\.|$)|indianSettlementChip\.|indianAlarmChip\.|cross$)/;
 
 const layers = [
   { dir: 'base', root: path.join(data, 'base') },
