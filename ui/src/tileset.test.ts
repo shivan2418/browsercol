@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { resources } from './resources';
-import { scene, type Chips, type MapView, type Op } from './tileset';
+import { overlay, scene, type Chips, type MapView, type Op } from './tileset';
 
 // A 2x4 corner of a map. FreeCol stores the diamond grid as staggered rows,
 // odd rows half a tile to the right, so from (1,0) the plains at (0,1),
@@ -60,6 +60,8 @@ image.tile.model.tile.unexplored.border.S=resources/border_S0.png
 image.tileitem.model.resource.ore=resources/ore.png
 image.unit.model.unit.caravel=resources/caravel.png
 image.settlement.colony=resources/colony.png
+image.tile.unitSelect=resources/unitSelect.png
+image.tile.tileSelect=resources/tileSelect.png
 indianSettlementChip.capital="*"
 indianSettlementChip.normal="-"
 indianAlarmChip.scouted="!"
@@ -86,6 +88,8 @@ const files = [
   'ore',
   'caravel',
   'colony',
+  'unitSelect',
+  'tileSelect',
 ].map((f) => `default/resources/${f}.png`);
 const tileset = resources([{ dir: 'default', props }], files);
 const art = (f: string) => `default/resources/${f}.png`;
@@ -281,5 +285,33 @@ describe('native settlement chips', () => {
     const colony = { x: 0, y: 3, keys: ['image.settlement.colony'], rgb: 0, name: 'J' };
     const settlements = [{ ...colony, population: 1, bonus: 0, sizeChange: 0, chips: null }];
     expect(chipsOf({ ...map, settlements })).toEqual([]);
+  });
+});
+
+describe('overlay', () => {
+  it("draws MapViewer's cursor for the view mode, centred on its tile", () => {
+    expect(overlay({ at: [1, 0], kind: 'unit' }, null, tileset)).toEqual([
+      { k: 'image', x: 1, y: 0, src: art('unitSelect'), at: 'center' },
+    ]);
+    expect(overlay({ at: [0, 1], kind: 'tile' }, null, tileset)).toEqual([
+      { k: 'image', x: 0, y: 1, src: art('tileSelect'), at: 'center' },
+    ]);
+    expect(overlay(null, null, tileset)).toEqual([]);
+  });
+
+  it("draws the active unit's path over the cursor: the lines, then a mark per step", () => {
+    const path: [number, number, number][] = [
+      [1, 0, 0],
+      [1, 1, 0],
+      [1, 2, 1],
+    ];
+    const ops = overlay({ at: [1, 0], kind: 'unit' }, path, tileset);
+    expect(ops.slice(1)).toEqual([
+      { k: 'pathLine', x: 1, y: 0, to: [1, 1], turns: 0 },
+      { k: 'pathLine', x: 1, y: 1, to: [1, 2], turns: 1 },
+      { k: 'pathMark', x: 1, y: 0, turns: 0 },
+      { k: 'pathMark', x: 1, y: 1, turns: 0 },
+      { k: 'pathMark', x: 1, y: 2, turns: 1 },
+    ]);
   });
 });
