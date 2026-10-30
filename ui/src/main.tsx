@@ -23,16 +23,7 @@ import { DialogHost } from './panels';
 import { onCanvas, pointerInput } from './pointer';
 import { Side, type SideProps } from './side';
 import { loadModule } from './teavm';
-import {
-  cursor,
-  initialView,
-  panel,
-  reduce,
-  tileOnScreen,
-  W,
-  type ViewEvent,
-  type ViewState,
-} from './view';
+import { cursor, initialView, panel, reduce, tileOnScreen, W, type ViewEvent, type ViewState } from './view';
 import type { GuiHandlers } from './webgui';
 
 declare global {
