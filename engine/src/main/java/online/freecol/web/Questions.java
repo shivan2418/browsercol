@@ -12,8 +12,9 @@ import java.util.concurrent.atomic.AtomicInteger;
  * dialog the player closes answers null.
  *
  * The wait polls with {@code Thread.sleep}, as
- * {@link PostMessageConnection} does: TeaVM's Wasm GC {@code Object.wait}
- * never wakes (spike/README.md, #11).
+ * {@link PostMessageConnection} does. It was written while TeaVM's Wasm GC
+ * {@code Object.wait} never woke; {@code FiberSuspendFix} fixes that (#11),
+ * but the polling has not been replaced yet.
  */
 final class Questions {
 
