@@ -22,6 +22,7 @@ import net.sf.freecol.client.gui.GUI;
 import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.StringTemplate;
+import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.Unit;
 
 
@@ -115,6 +116,35 @@ class WebGUITest {
         assertEquals(List.of("refresh {}",
                 "information {\"text\":\"" + Messages.message("info.enterSomeText")
                 + "\",\"object\":null}"),
+            shown.stream().filter(e -> !e.startsWith("messages ")).collect(Collectors.toList()));
+    }
+
+    @Test
+    @Timeout(120)
+    void theViewFollowsTheActiveUnitAndTheFocus() throws Exception {
+        final ClientEngine client = startGame();
+        final GUI gui = client.getClient().getGUI();
+        final Unit active = gui.getActiveUnit();
+        final Tile at = active.getTile();
+        final String where = "\"tile\":\"" + at.getId() + "\",\"at\":["
+            + at.getX() + "," + at.getY() + "]";
+
+        // reconnectGUI, as SwingGUI's: the active unit, then the focus on it.
+        final List<String> view = shown.stream()
+            .filter(e -> e.startsWith("activeUnit ") || e.startsWith("focus "))
+            .collect(Collectors.toList());
+        final int start = view.indexOf("activeUnit {\"unit\":\"" + active.getId() + "\"," + where + "}");
+        assertTrue(start >= 0, view.toString());
+        assertEquals("focus {" + where + "}", view.get(start + 1));
+
+        shown.clear();
+        final Tile other = client.getGame().getMap().getTile(1, 2);
+        gui.changeView(other);
+        gui.setFocus(other);
+        gui.changeView();
+        final String there = "\"tile\":\"" + other.getId() + "\",\"at\":[1,2]";
+        assertEquals(List.of("selectedTile {" + there + "}", "focus {" + there + "}",
+                "activeUnit {\"unit\":null,\"tile\":null,\"at\":null}"),
             shown.stream().filter(e -> !e.startsWith("messages ")).collect(Collectors.toList()));
     }
 
