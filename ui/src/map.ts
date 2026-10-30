@@ -127,6 +127,23 @@ interface PathSink {
   quadTo(cx: number, cy: number, x: number, y: number): void;
 }
 
+/** A PathSink drawing onto a PixiJS Graphics or a Canvas 2D context, moved by (x, y). */
+function offset(
+  to: {
+    moveTo(x: number, y: number): unknown;
+    lineTo(x: number, y: number): unknown;
+    quadraticCurveTo(cx: number, cy: number, x: number, y: number): unknown;
+  },
+  x: number,
+  y: number,
+): PathSink {
+  return {
+    moveTo: (px, py) => to.moveTo(x + px, y + py),
+    lineTo: (px, py) => to.lineTo(x + px, y + py),
+    quadTo: (cx, cy, px, py) => to.quadraticCurveTo(x + cx, y + cy, x + px, y + py),
+  };
+}
+
 const fontOf = (s: TextStyle) => `${s.italic ? 'italic ' : ''}${s.bold ? 'bold ' : ''}${s.size}px ${s.font}`;
 
 async function pixiPen(host: HTMLElement, width: number, height: number): Promise<Pen> {
@@ -160,11 +177,7 @@ async function pixiPen(host: HTMLElement, width: number, height: number): Promis
     },
     road: (x, y, path) => {
       const g = new Graphics();
-      path({
-        moveTo: (px, py) => g.moveTo(x + px, y + py),
-        lineTo: (px, py) => g.lineTo(x + px, y + py),
-        quadTo: (cx, cy, px, py) => g.quadraticCurveTo(x + cx, y + cy, x + px, y + py),
-      });
+      path(offset(g, x, y));
       world.addChild(g.stroke({ width: H / 32, color: ROAD_COLOR }));
     },
     rect: (x, y, w, h, color) => {
@@ -230,11 +243,7 @@ function canvasPen(host: HTMLElement, width: number, height: number): Pen {
         c.strokeStyle = css(ROAD_COLOR);
         c.lineWidth = H / 32;
         c.beginPath();
-        path({
-          moveTo: (px, py) => c.moveTo(x + px, y + py),
-          lineTo: (px, py) => c.lineTo(x + px, y + py),
-          quadTo: (cx, cy, px, py) => c.quadraticCurveTo(x + cx, y + cy, x + px, y + py),
-        });
+        path(offset(c, x, y));
         c.stroke();
       }),
     rect: (x, y, w, h, color) =>
