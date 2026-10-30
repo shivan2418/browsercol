@@ -71,6 +71,16 @@ describe('resources', () => {
       'default/resources/images/terrain/ocean/center03.png',
     );
   });
+
+  it('reads string resources as StringResource does, with Java escapes, and X when missing', () => {
+    const strings = { dir: 'default', props: 'indianSettlementChip.capital="*"\ncross="\\u271d"\n' };
+    const mod = { dir: 'mods/m', props: 'indianSettlementChip.capital="C"\n' };
+    const r = resources([base, strings, mod], files);
+    expect(r.string('indianSettlementChip.capital')).toBe('C');
+    expect(r.string('cross')).toBe('\u271d');
+    expect(r.string('indianAlarmChip.scouted')).toBe('X');
+    expect(r.has('cross')).toBe(false);
+  });
 });
 
 describe('javaRandomInt', () => {

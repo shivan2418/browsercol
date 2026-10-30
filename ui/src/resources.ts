@@ -4,7 +4,8 @@
 // override earlier ones key by key. "resource:<key>" aliases another key of
 // the same layer. An image named foo0.png has variations foo<1-2 digits>.png
 // next to it (FreeColDataFile.findFilesWithVariationOrAlternativeSize), so
-// the resolver needs the list of art files. Only images are kept.
+// the resolver needs the list of art files. Images and quoted strings
+// (StringResource, e.g. chip texts) are kept.
 
 /** One resources.properties and the directory its paths are relative to. */
 export interface ArtLayer {
@@ -30,10 +31,22 @@ export interface Resources {
   path(key: string, variation?: number): string | null;
   /** The variation FreeCol shows for a seed, e.g. variationSeedUsing(x, y). */
   forSeed(key: string, seed: number): string | null;
+  /** A string resource, or "X" as ResourceManager.getString gives for a missing one. */
+  string(key: string): string;
 }
 
 const IMAGE = /\.(png|jpe?g|gif)$/i;
 const ALIAS = 'resource:';
+/** StringResource.REPLACEMENT_STRING. */
+const NO_STRING = 'X';
+
+/** A string resource's text: what follows the last quote but one, with Java's escapes undone. */
+const stringValue = (value: string) =>
+  value
+    .slice(value.lastIndexOf('"', value.length - 2) + 1, -1)
+    .replace(/\\u([0-9a-fA-F]{4})|\\(.)/g, (_, hex: string | undefined, c: string) =>
+      hex ? String.fromCharCode(parseInt(hex, 16)) : c,
+    );
 
 /** Key/value pairs of a Java .properties text (comments, continuations, ':' or '='). */
 export function parseProperties(text: string): [string, string][] {
@@ -75,6 +88,7 @@ export function resources(layers: ArtLayer[], files: string[]): Resources {
   };
 
   const merged = new Map<string, Image>();
+  const strings = new Map<string, string>();
   for (const { dir, props } of layers) {
     const layer = new Map<string, Image>();
     const aliases: [string, string][] = [];
@@ -85,6 +99,8 @@ export function resources(layers: ArtLayer[], files: string[]): Resources {
         const file = `${dir}/${value}`;
         // Rivers need new keys in order to support variations (FreeColDataFile).
         layer.set(key, { file, variations: key.includes('.improvement.river.') ? [] : variationsOf(file) });
+      } else if (value.startsWith('"') && value.endsWith('"') && value.length > 1) {
+        strings.set(key, stringValue(value));
       }
     }
     // Aliases may chain, so resolve until no more progress.
@@ -112,6 +128,7 @@ export function resources(layers: ArtLayer[], files: string[]): Resources {
     variations: count,
     path,
     forSeed: (key, seed) => path(key, javaRandomInt(seed, count(key))),
+    string: (key) => strings.get(key) ?? NO_STRING,
   };
 }
 
