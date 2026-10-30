@@ -5,13 +5,18 @@
 // each, the texts of native settlement chips, and the road and population
 // colours.
 // Prints the art budget: file count, bytes, brotli bytes and atlas area.
-// Usage: node build-art.mjs <freecol/data> <out dir> [mod dir...]
+// Usage: node build-art.mjs <freecol/data> <out dir> [--manifest <name>] [mod dir...]
+// The manifest is art.json unless named. Files already in the out dir stay,
+// so a Tileset built with mods can share the default Tileset's directory.
 import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { parseProperties, resources } from '../src/resources.ts';
 
-const [data, out, ...mods] = process.argv.slice(2);
+const [data, out, ...rest] = process.argv.slice(2);
+const named = rest[0] === '--manifest';
+const manifestName = named ? rest[1] : 'art.json';
+const mods = named ? rest.slice(2) : rest;
 const MAP_KEYS =
   /^(image\.(tile|tileoverlay|tileforest|tileitem|abovetile|unit|mask)(\.|$)|color\.map\.(road$|productionBonus\.)|indianSettlementChip\.|indianAlarmChip\.|cross$)/;
 
@@ -44,7 +49,6 @@ for (const key of keys) {
 used.delete(null);
 
 const rootOf = new Map(layers.map(({ dir, root }) => [dir, root]));
-fs.rmSync(out, { recursive: true, force: true });
 let bytes = 0;
 let brotli = 0;
 let area = 0;
@@ -61,10 +65,11 @@ const manifest = {
   layers: layers.map(({ dir, props }) => ({ dir, props })),
   files: [...used].sort((a, b) => (a < b ? -1 : 1)),
 };
-fs.writeFileSync(path.join(out, 'art.json'), JSON.stringify(manifest));
+fs.mkdirSync(out, { recursive: true });
+fs.writeFileSync(path.join(out, manifestName), JSON.stringify(manifest));
 const mib = (n) => `${(n / 2 ** 20).toFixed(1)} MiB`;
 console.log(
-  `art: ${used.size} files, ${mib(bytes)}, ${mib(brotli)} brotli, ` +
+  `${manifestName}: ${used.size} files, ${mib(bytes)}, ${mib(brotli)} brotli, ` +
     `${(area / 2048 ** 2).toFixed(1)} 2048x2048 atlas pages of pixels, ` +
-    `manifest ${(fs.statSync(path.join(out, 'art.json')).size / 1024).toFixed(0)} KiB`,
+    `manifest ${(fs.statSync(path.join(out, manifestName)).size / 1024).toFixed(0)} KiB`,
 );

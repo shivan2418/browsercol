@@ -429,10 +429,11 @@ interface Art {
   files: string[];
 }
 
-/** A map drawer for `host`, with art under `artBase`; draws are serialised. */
+/** A map drawer for `host`, with art under `artBase` listed by its `manifest`; draws are serialised. */
 export function mapDrawer(
   host: HTMLElement,
   artBase: string,
+  manifest = 'art.json',
 ): {
   draw(map: MapView): Promise<void>;
   renderer(): string;
@@ -458,7 +459,7 @@ export function mapDrawer(
   };
 
   async function init(map: MapView) {
-    const art = (await (await fetch(artBase + 'art.json')).json()) as Art;
+    const art = (await (await fetch(artBase + manifest)).json()) as Art;
     res = resources(art.layers, art.files);
     size = [(map.w + 0.5) * W, ((map.h + 1) * H) / 2];
     view.w = map.w;

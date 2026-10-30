@@ -4,6 +4,7 @@
 // autoplay rounds are done and play passes to the human, or on failure.
 //   ?autoplay=N  rounds the human auto-ends its turn first (debug; default 0)
 //   ?rules=ID    the ruleset (default classic)
+//   ?tileset=ID  a Tileset built beside the default, art/<ID>.json (e.g. test)
 import clientUrl from '../generated/client.wasm?url';
 import dataUrl from '../generated/data.json?url';
 import runtimeUrl from '../generated/teavm-runtime.js?url';
@@ -24,10 +25,11 @@ declare global {
 const params = new URLSearchParams(location.search);
 const autoplay = Number(params.get('autoplay') ?? '0');
 const rules = params.get('rules') ?? 'classic';
+const tileset = params.get('tileset');
 const out = document.getElementById('out')!;
 const turn = document.getElementById('turn')!;
 const mapHost = document.getElementById('map')!;
-const map = mapDrawer(mapHost, 'art/');
+const map = mapDrawer(mapHost, 'art/', tileset ? `${tileset}.json` : undefined);
 const rounds: string[] = [];
 window.fcReveal = (x, y) => map.reveal(x, y);
 let drawn = Promise.resolve();
