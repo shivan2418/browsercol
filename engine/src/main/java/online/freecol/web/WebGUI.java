@@ -41,9 +41,9 @@ import net.sf.freecol.common.model.Unit;
  *     <td>an icon carrying the object, for a question's object id</td></tr>
  * <tr><td>refresh</td><td>event refresh</td><td>{}</td></tr>
  * <tr><td>changeView(Unit, boolean)</td><td>event activeUnit</td>
- *     <td>{unit, tile, at: [x, y]}</td></tr>
+ *     <td>{unit, tile, at: [x, y], force}</td></tr>
  * <tr><td>changeView()</td><td>event activeUnit</td>
- *     <td>{unit: null, tile: null, at: null}</td></tr>
+ *     <td>{unit: null, tile: null, at: null, force: false}</td></tr>
  * <tr><td>changeView(Tile)</td><td>event selectedTile</td>
  *     <td>{tile, at}; the active unit is kept</td></tr>
  * <tr><td>setFocus</td><td>event focus</td><td>{tile, at}</td></tr>
@@ -194,7 +194,8 @@ public class WebGUI extends GUI {
     public void changeView(Unit unit, boolean force) {
         this.activeUnit = unit;
         this.ui.show("activeUnit", tile(new Json().put("unit", id(unit)),
-                (unit == null) ? null : unit.getTile()).toString());
+                (unit == null) ? null : unit.getTile())
+            .put("force", force).toString());
     }
 
     /**

@@ -133,7 +133,8 @@ class WebGUITest {
         final List<String> view = shown.stream()
             .filter(e -> e.startsWith("activeUnit ") || e.startsWith("focus "))
             .collect(Collectors.toList());
-        final int start = view.indexOf("activeUnit {\"unit\":\"" + active.getId() + "\"," + where + "}");
+        final int start = view.indexOf("activeUnit {\"unit\":\"" + active.getId() + "\"," + where
+            + ",\"force\":false}");
         assertTrue(start >= 0, view.toString());
         assertEquals("focus {" + where + "}", view.get(start + 1));
 
@@ -144,7 +145,7 @@ class WebGUITest {
         gui.changeView();
         final String there = "\"tile\":\"" + other.getId() + "\",\"at\":[1,2]";
         assertEquals(List.of("selectedTile {" + there + "}", "focus {" + there + "}",
-                "activeUnit {\"unit\":null,\"tile\":null,\"at\":null}"),
+                "activeUnit {\"unit\":null,\"tile\":null,\"at\":null,\"force\":false}"),
             shown.stream().filter(e -> !e.startsWith("messages ")).collect(Collectors.toList()));
     }
 

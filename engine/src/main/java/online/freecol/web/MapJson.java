@@ -58,8 +58,9 @@ import net.sf.freecol.common.util.Utils;
  * <li>active: the active unit's tile, [x, y], or null;
  * <li>activeUnit: {id, label, moves, cargo (labels of the units and goods
  *     aboard), path}, what FreeCol's InfoPanel shows of the active unit,
- *     or null. path is [x, y, turns] per step to the unit's destination,
- *     as SwingGUI.updateUnitPath finds it, or null without one.
+ *     or null. path is [x, y, turns] per step to the unit's destination
+ *     (null for a step off the map, e.g. Europe), as
+ *     SwingGUI.updateUnitPath finds it, or null without one.
  * </ul>
  */
 final class MapJson {
@@ -171,7 +172,8 @@ final class MapJson {
         final List<String> nodes = new ArrayList<>();
         for (PathNode p = path; p != null; p = p.next) {
             final Tile t = p.getTile();
-            if (t != null) nodes.add("[" + t.getX() + "," + t.getY() + "," + p.getTurns() + "]");
+            nodes.add((t == null) ? "null"
+                : "[" + t.getX() + "," + t.getY() + "," + p.getTurns() + "]");
         }
         return Json.array(nodes);
     }

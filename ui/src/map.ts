@@ -12,7 +12,6 @@ import { overlay, scene, srcId, type Direction, type MapView, type Op, type Src 
 import { H, W, cursor, tileOrigin, toMap, type ViewState } from './view';
 
 export type { MapView } from './tileset';
-export { tileOrigin } from './view';
 /** TileViewer.STATE_OFFSET_X/Y and TileBounds' unit offsets, at scale 1. */
 const STATE_OFFSET_X = 25;
 const STATE_OFFSET_Y = 10;
