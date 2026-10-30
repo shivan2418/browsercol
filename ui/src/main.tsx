@@ -40,8 +40,11 @@ declare global {
     fcResult?: Record<string, unknown>;
     /** For scripts/play.mjs: pan a tile into view if needed; its centre on the map canvas. */
     fcReveal?: (x: number, y: number) => [number, number];
-    /** For scripts/play.mjs: the view state, without its map, and where the cursor is. */
-    fcView?: () => Omit<ViewState, 'map'> & { cursor: ReturnType<typeof cursor> };
+    /** For scripts/play.mjs: the view state, without its map, the cursor, and its tile's centre in the viewport. */
+    fcView?: () => Omit<ViewState, 'map'> & {
+      cursor: ReturnType<typeof cursor>;
+      cursorOnScreen: [number, number] | null;
+    };
     /** For scripts: the WebGUI dialogs that had no Browser UI, by method, each time one was asked. */
     fcUnasked?: string[];
   }
@@ -103,7 +106,8 @@ window.fcReveal = (x, y) => {
 
 window.fcView = () => {
   const { map: _, ...rest } = view;
-  return { ...rest, cursor: cursor(view) };
+  const at = cursor(view);
+  return { ...rest, cursor: at, cursorOnScreen: at && tileOnScreen(view, at.at) };
 };
 
 /** FreeCol's InfoPanel, as text: the active unit, and the tile under the pointer. */
