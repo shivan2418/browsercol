@@ -6,12 +6,12 @@ set -euo pipefail
 repo="$(cd "$(dirname "$0")" && pwd)"
 image=freecol-online-dev
 dockerfile=dev.Dockerfile
-browser=()
+shm=()
 if [[ "${DEV_VARIANT:-}" == web ]]; then
   image=freecol-online-web; dockerfile=web.Dockerfile
-  # Docker's default 64 MB /dev/shm can crash the browsers (Firefox did on
-  # GitHub Actions, #31); Playwright's Docker docs advise more.
-  browser=(--shm-size=1g)
+  # Docker's default 64 MB /dev/shm can crash browsers, which Playwright's
+  # Docker docs warn of; a likely cause of Firefox's crash in #31.
+  shm=(--shm-size=1g)
 fi
 workdir=/work
 if [[ "${1:-}" == "-C" ]]; then workdir="/work/$2"; shift 2; fi
@@ -30,5 +30,5 @@ if [[ -L "$repo/freecol" ]]; then
   extra=(-v "$(readlink -f "$repo/freecol"):/work/freecol:ro")
 fi
 # Rootless Docker: container root maps to the host user, so files stay ours.
-exec docker run --rm "${tty[@]}" "${browser[@]}" -e HOME=/work/.cache/home \
+exec docker run --rm "${tty[@]}" "${shm[@]}" -e HOME=/work/.cache/home \
   -v "$repo:/work" "${extra[@]}" -w "$workdir" "$image" "$@"
