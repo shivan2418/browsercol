@@ -198,6 +198,7 @@ describe('native settlement chips', () => {
   });
   const contacted: Chips = {
     capital: true,
+    fg: 0x000000,
     mission: { rgb: 0x800000, expert: false },
     alarm: { fg: 0xffffff, worthScouting: true },
   };
@@ -211,7 +212,7 @@ describe('native settlement chips', () => {
       x: 0,
       y: 3,
       chips: [
-        // Black text on the light owner colour; a gray cross for a non-expert.
+        // The Engine's text colour on the owner's; a gray cross for a non-expert.
         { text: '*', bg: 0xc0a080, fg: 0x000000 },
         { text: '\u271d', bg: 0x800000, fg: 0x404040 },
         { text: '-', bg: 0xc0a080, fg: 0xffffff },
@@ -226,7 +227,7 @@ describe('native settlement chips', () => {
     expect(chipsOf(village(0, 3, scouted))[0]).toMatchObject({
       chips: [{ text: '*' }, { text: '\u271d', fg: 0x000000 }, { text: '!' }],
     });
-    expect(chipsOf(village(0, 3, { capital: false, mission: null, alarm: null }))[0]).toMatchObject({
+    expect(chipsOf(village(0, 3, { capital: false, fg: 0, mission: null, alarm: null }))[0]).toMatchObject({
       chips: [{ text: '-' }],
     });
   });

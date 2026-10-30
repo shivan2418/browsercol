@@ -192,15 +192,19 @@ class MapJsonTest {
         final Game game = server.getGame();
         final Player us = game.getFreeColGameObject(
             client.getClient().getMyPlayer().getId(), Player.class);
+        // A settlement of the nation in dark brown, 0x6c3c18, so its
+        // settlement chip's text is white.
         final IndianSettlement is = game.getMap().getTileSet(t ->
-                t.getSettlement() instanceof IndianSettlement)
+                t.getSettlement() instanceof IndianSettlement
+                && (Utils.getRGB(t.getOwner().getNationColor()) & 0xffffff) == 0x6c3c18)
             .stream().findFirst().get().getIndianSettlement();
         final Supplier<String> entry = () -> {
             final String all = field(MapJson.of(game, us, null), "settlements");
             final int from = all.indexOf("[" + is.getTile().getX() + "," + is.getTile().getY() + ",");
             return all.substring(from, all.indexOf("}]", from) + 2);
         };
-        final String capital = ",-1,0,0,{\"capital\":" + is.getType().isCapital();
+        final String capital = ",-1,0,0,{\"capital\":" + is.getType().isCapital()
+            + ",\"fg\":16777215";
         final int ours = Utils.getRGB(us.getNationColor()) & 0xffffff;
 
         // Before contact: the settlement chip only.

@@ -42,6 +42,8 @@ export interface MapView {
 /** What a native settlement's chips show; the alarm chip once the player has made contact. */
 export interface Chips {
   capital: boolean;
+  /** The settlement chip's text colour on the owner's. */
+  fg: number;
   mission: { rgb: number; expert: boolean } | null;
   alarm: { fg: number; worthScouting: boolean } | null;
 }
@@ -72,7 +74,7 @@ export type Op =
   | { k: 'road'; x: number; y: number; dirs: Direction[] }
   /** A unit's occupation chip in its owner's colour, with a line per unit on the tile. */
   | { k: 'chip'; x: number; y: number; text: string; bg: number; fg: number; stack: number }
-  /** A native settlement's chips in a row beside it, each the first chip's width apart, as TileViewer spaces them. */
+  /** A native settlement's chips in a row beside it, each the first chip's width plus 2 along, as TileViewer spaces them. */
   | { k: 'chips'; x: number; y: number; chips: { text: string; bg: number; fg: number }[]; dim?: true }
   /**
    * A colony's population in the tile's centre, coloured by its production
@@ -115,10 +117,6 @@ const RIVER_PEBBLES = 'image.tile.river.pebbles';
 const UNEXPLORED = 'model.tile.unexplored';
 /** color.foreground.mission.normal and .expert: Java's Color.darkGray and black. */
 const MISSION_FG = { normal: 0x404040, expert: 0x000000 };
-
-/** ImageLibrary.makeForegroundColor: black on light colours, white on dark. */
-const foreground = (rgb: number) =>
-  ((rgb >> 16) & 0xff) * 0.3 + ((rgb >> 8) & 0xff) * 0.59 + (rgb & 0xff) * 0.11 >= 126 ? 0x000000 : 0xffffff;
 
 /** ImageLibrary.variationSeedUsing. */
 const seedOf = (x: number, y: number) => x * 6841 + y * 7919;
@@ -407,10 +405,8 @@ export function scene(map: MapView, res: Resources): Op[] {
   });
 
   // ImageLibrary's settlement, mission and alarm chips.
-  function nativeChips(rgb: number, { capital, mission, alarm }: Chips) {
-    const chips = [
-      { text: res.string(`indianSettlementChip.${capital ? 'capital' : 'normal'}`), bg: rgb, fg: foreground(rgb) },
-    ];
+  function nativeChips(rgb: number, { capital, fg, mission, alarm }: Chips) {
+    const chips = [{ text: res.string(`indianSettlementChip.${capital ? 'capital' : 'normal'}`), bg: rgb, fg }];
     if (mission) {
       chips.push({ text: res.string('cross'), bg: mission.rgb, fg: MISSION_FG[mission.expert ? 'expert' : 'normal'] });
     }
