@@ -2,8 +2,6 @@ package online.freecol.web;
 
 import java.util.List;
 
-import net.sf.freecol.common.model.Tile;
-
 
 /**
  * Writes the WebGUI's payloads to the Browser UI: one flat JSON object,
@@ -36,11 +34,6 @@ final class Json {
     /** A JSON array of values that are already JSON. */
     static String array(List<String> json) {
         return "[" + String.join(",", json) + "]";
-    }
-
-    /** A tile as the Browser UI's map takes it, [x, y], or null for none. */
-    static String xy(Tile tile) {
-        return (tile == null) ? "null" : "[" + tile.getX() + "," + tile.getY() + "]";
     }
 
     static String quote(String s) {

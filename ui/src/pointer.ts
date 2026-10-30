@@ -10,6 +10,9 @@ const EDGE_SPEED = 16;
 /** Wheel deltas, in pixels, that make one zoom step: a trackpad's small deltas add up. */
 const WHEEL_STEP = 40;
 
+/** Pixels the pointer moves between press and release that make a click a drag. */
+const DRAG_PIXELS = 4;
+
 /** WheelEvent.DOM_DELTA_PIXEL, which tests have no WheelEvent for. */
 const DELTA_PIXEL = 0;
 
@@ -17,11 +20,11 @@ const DELTA_PIXEL = 0;
  * Add a wheel event to the deltas so far: the zoom steps it makes (+1 in,
  * -1 out, 0 for none yet) and the deltas left over.
  */
-export function wheelZoom(wheel: number, e: { deltaY: number; deltaMode: number }): { steps: number; wheel: number } {
+export function wheelZoom(wheel: number, e: { deltaY: number; deltaMode: number }): { steps: number; rest: number } {
   // Line and page deltas (Firefox's mouse wheel) count as a step each.
   const sum = wheel + (e.deltaMode === DELTA_PIXEL ? e.deltaY : Math.sign(e.deltaY) * WHEEL_STEP);
-  if (Math.abs(sum) < WHEEL_STEP) return { steps: 0, wheel: sum };
-  return { steps: sum < 0 ? 1 : -1, wheel: 0 };
+  if (Math.abs(sum) < WHEEL_STEP) return { steps: 0, rest: sum };
+  return { steps: sum < 0 ? 1 : -1, rest: 0 };
 }
 
 /** A pointer event's pixel on the map canvas in a host, or null before there is one. */
@@ -63,7 +66,7 @@ export function pointerInput(host: HTMLElement, { view, dispatch, tileAt }: Poin
       if (!at) return;
       e.preventDefault();
       const zoom = wheelZoom(wheel, e);
-      wheel = zoom.wheel;
+      wheel = zoom.rest;
       if (zoom.steps) dispatch({ k: 'zoom', steps: zoom.steps, at });
     },
     { passive: false },
@@ -90,5 +93,5 @@ export function pointerInput(host: HTMLElement, { view, dispatch, tileAt }: Poin
     requestAnimationFrame(scroll);
   };
   requestAnimationFrame(scroll);
-  return () => moved > 4;
+  return () => moved > DRAG_PIXELS;
 }

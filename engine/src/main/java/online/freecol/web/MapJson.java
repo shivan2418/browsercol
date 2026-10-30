@@ -133,9 +133,14 @@ final class MapJson {
             .putRaw("items", Json.array(items))
             .putRaw("settlements", Json.array(settlements))
             .putRaw("units", Json.array(units))
-            .putRaw("active", Json.xy(at))
+            .putRaw("active", xy(at))
             .putRaw("activeUnit", (active == null) ? "null" : activeUnit(active))
             .toString();
+    }
+
+    /** A tile as the Browser UI's map takes it, [x, y], or null for none. */
+    static String xy(Tile tile) {
+        return (tile == null) ? "null" : "[" + tile.getX() + "," + tile.getY() + "]";
     }
 
     /** InfoPanel.fillUnitPanel's text, and the path MapViewer draws. */
