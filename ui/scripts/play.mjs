@@ -1,12 +1,14 @@
 // Plays the human's first turns in the built site, through the page's own
-// input: arrow and numpad keys, map clicks, B and Enter. The ship sails
-// west until land is next to it, moves onto the land to put its units
-// ashore, a unit founds a colony and the turn ends; the colony must still
-// be there when the AI hands play back. Native dialogs are accepted, a
-// choice takes its last item ("All" when disembarking) and an input keeps
-// its suggestion. Along the way the map's view must follow the active unit,
-// its cursor and the info panel must match the client's active unit, and
-// the wheel, a drag and the pointer at an edge must zoom and scroll it.
+// input: arrow and numpad keys, map clicks, B and Enter. The ship sails by
+// the shortest explored sea route to free land that can feed a colony, or
+// toward the westmost explored sea while none is in sight, moves onto the
+// land to put its units ashore, a unit founds a colony and the turn ends;
+// the colony must still be there when the AI hands play back. Native
+// dialogs are accepted but sailing to Europe, a choice takes its last item
+// ("All" when disembarking) and an input keeps its suggestion. Along the
+// way the map's view must follow the active unit, its cursor and the info
+// panel must match the client's active unit, and the wheel, a drag and the
+// pointer at an edge must zoom and scroll it.
 // Exits non-zero unless every browser gets there. Run in
 // the web image:
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/play.mjs [--browsers chromium,firefox] [--query renderer=canvas2d]
@@ -72,6 +74,10 @@ const KEYS = {
   NW: 'Numpad7',
 };
 const WATER = /ocean|highSeas|lake/i;
+// Land whose colony centre yields less food than a colonist eats (classic
+// rules), where a lone founder starves on the next turn, or that cannot be
+// settled at all.
+const BARREN = /arctic|desert|scrubForest|mountains/;
 
 const neighbour = ([x, y], d) => {
   const [dx, dy] = DIRECTIONS[d][y % 2 ? 0 : 1];
@@ -88,7 +94,50 @@ function typeAt(m, [x, y]) {
   return i >= 0 ? m.types[i].id : null;
 }
 
-async function play(page, url) {
+/**
+ * Land to found on: explored, not water or barren, nobody's (so founding
+ * needs no land claim), and with no settlement or unit on it.
+ */
+const isFreeLand = (m, t) => {
+  const type = typeAt(m, t);
+  return (
+    type &&
+    !WATER.test(type) &&
+    !BARREN.test(type) &&
+    m.owners[t[1] * m.w + t[0]] === '.' &&
+    !at(m.settlements, t) &&
+    !at(m.units, t)
+  );
+};
+
+/**
+ * The ship's next step: the direction of free land beside it, or the first
+ * step of the shortest route over explored, empty sea to a tile beside free
+ * land, or failing that to the westmost explored sea, where more of the
+ * map comes into sight. Null if the ship can go nowhere.
+ */
+function nextStep(m, ship) {
+  const dirs = Object.keys(DIRECTIONS);
+  const shore = dirs.find((d) => isFreeLand(m, neighbour(ship, d)));
+  if (shore) return { dir: shore, shore: neighbour(ship, shore) };
+  const first = new Map([[label(ship), null]]);
+  const queue = [ship];
+  let west = null;
+  for (let i = 0; i < queue.length; i++) {
+    const t = queue[i];
+    if (i > 0 && dirs.some((d) => isFreeLand(m, neighbour(t, d)))) return { dir: first.get(label(t)) };
+    if (i > 0 && (!west || t[0] < west[0])) west = t;
+    for (const d of dirs) {
+      const n = neighbour(t, d);
+      if (first.has(label(n)) || !WATER.test(typeAt(m, n) ?? '') || at(m.units, n) || at(m.settlements, n)) continue;
+      first.set(label(n), first.get(label(t)) ?? d);
+      queue.push(n);
+    }
+  }
+  return west && { dir: first.get(label(west)) };
+}
+
+async function play(page, url, log) {
   // Keep every map view the client Engine sends (ui/src/channel.ts calls
   // fcClientEvent for each), and count them.
   await page.addInitScript(() => {
@@ -108,11 +157,11 @@ async function play(page, url) {
       },
     });
   });
-  const log = [];
   page.on('dialog', (d) => {
     const choices = d.message().match(/^\d+: /gm);
     log.push(`${d.type()}: ${d.message().split('\n')[0]}`);
     if (d.type() === 'prompt') void d.accept(choices ? String(choices.length - 1) : d.defaultValue());
+    else if (d.type() === 'confirm' && /Europe/.test(d.message())) void d.dismiss();
     else void d.accept();
   });
 
@@ -156,7 +205,10 @@ async function play(page, url) {
     const [cx, cy] = [box.x + box.width / 2, box.y + box.height / 2];
     const before = await viewState();
     await page.mouse.move(cx, cy);
+    // mouse.wheel does not wait for the page to handle the event (Firefox
+    // may be late), so wait for the zoom to change.
     await page.mouse.wheel(0, -100);
+    await page.waitForFunction((z) => window.fcView().zoom > z, before.zoom, { timeout: 5000 }).catch(() => {});
     const zoomed = await viewState();
     if (zoomed.zoom <= before.zoom) throw new Error(`the wheel did not zoom in: ${before.zoom} -> ${zoomed.zoom}`);
     await page.mouse.down();
@@ -193,26 +245,22 @@ async function play(page, url) {
   await following(m, 'at the start');
   await zoomAndScroll();
 
-  // Sail west until land is beside the ship, then move onto it to land.
+  // Sail toward land until it is beside the ship, then move onto it to land.
   let land = null;
   for (let turns = 0; !land;) {
-    if (!m.active) {
-      if (++turns > MAX_TURNS) throw new Error('no land within ' + MAX_TURNS + ' turns');
+    const step = m.active && nextStep(m, m.active);
+    if (!step) {
+      if (++turns > MAX_TURNS) throw new Error(`no land within ${MAX_TURNS} turns; the ship is at ${label(m.active)}`);
       m = await endTurn();
       continue;
     }
     const ship = m.active;
-    const shore = Object.keys(DIRECTIONS).find((d) => {
-      const t = neighbour(ship, d);
-      const type = typeAt(m, t);
-      return type && !WATER.test(type) && !at(m.settlements, t) && !at(m.units, t);
-    });
-    m = await act(() => page.keyboard.press(KEYS[shore ?? 'W']));
+    m = await act(() => page.keyboard.press(KEYS[step.dir]));
     if (m.activeUnit) await following(m, 'after a move');
-    if (shore && at(m.units, neighbour(ship, shore))) land = neighbour(ship, shore);
+    if (step.shore && at(m.units, step.shore)) land = step.shore;
     else if (same(m.active, ship)) {
       // The ship could not move: out of moves or blocked.
-      if (++turns > MAX_TURNS) throw new Error('no land within ' + MAX_TURNS + ' turns');
+      if (++turns > MAX_TURNS) throw new Error(`no land within ${MAX_TURNS} turns; the ship is at ${label(ship)}`);
       m = await endTurn();
     }
   }
@@ -223,10 +271,10 @@ async function play(page, url) {
   if (!same(m.active, land)) throw new Error(`clicking ${label(land)} selected ${label(m.active)}`);
   await following(m, 'after selecting a unit');
   m = await act(() => page.keyboard.press('b'));
-  if (!at(m.settlements, land)) throw new Error(`no colony at ${label(land)}; dialogs: ${log.join(' | ')}`);
+  if (!at(m.settlements, land)) throw new Error(`no colony at ${label(land)}`);
   m = await endTurn();
   if (!at(m.settlements, land)) throw new Error(`the colony at ${label(land)} is gone after the AI turn`);
-  return { land, turn: m.turn, dialogs: log };
+  return { land, turn: m.turn };
 }
 
 const server = await serveDist();
@@ -237,9 +285,10 @@ for (const name of browsers) {
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
   const t = Date.now();
+  const dialogs = [];
   let result;
   try {
-    result = await play(page, server.url + (query ? `?${query}` : ''));
+    result = await play(page, server.url + (query ? `?${query}` : ''), dialogs);
     await page.evaluate(([x, y]) => window.fcReveal(x, y), result.land);
     await page.screenshot({ path: path.join(dist, `../.cache/play-${name}.png`) });
   } catch (ex) {
@@ -252,7 +301,7 @@ for (const name of browsers) {
     `${name} ${browser.version()}: ` +
       (result.error ? `failed: ${result.error}` : `colony at ${label(result.land)}, play back on turn ${result.turn}`) +
       `, ${((Date.now() - t) / 1000).toFixed(1)} s` +
-      (result.dialogs ? `\n  dialogs: ${result.dialogs.join(' | ')}` : '') +
+      `\n  dialogs: ${dialogs.join(' | ')}` +
       (errors.length ? `\n  page errors: ${errors.join('; ')}` : ''),
   );
 }
