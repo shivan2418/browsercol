@@ -11,12 +11,28 @@ import net.sf.freecol.client.gui.DialogHandler;
 import net.sf.freecol.client.gui.GUI;
 import net.sf.freecol.client.gui.panel.FreeColPanel;
 import net.sf.freecol.common.i18n.Messages;
+import net.sf.freecol.common.model.AbstractUnit;
+import net.sf.freecol.common.model.Colony;
+import net.sf.freecol.common.model.CombatModel;
+import net.sf.freecol.common.model.DiplomaticTrade;
+import net.sf.freecol.common.model.Europe;
+import net.sf.freecol.common.model.FeatureContainer;
+import net.sf.freecol.common.model.FoundingFather;
+import net.sf.freecol.common.model.FreeColGameObject;
 import net.sf.freecol.common.model.FreeColObject;
+import net.sf.freecol.common.model.Game;
+import net.sf.freecol.common.model.Goods;
+import net.sf.freecol.common.model.GoodsType;
 import net.sf.freecol.common.model.IndianNationType;
+import net.sf.freecol.common.model.Location;
+import net.sf.freecol.common.model.LostCityRumour;
 import net.sf.freecol.common.model.ModelMessage;
+import net.sf.freecol.common.model.Monarch.MonarchAction;
 import net.sf.freecol.common.model.Player;
+import net.sf.freecol.common.model.Settlement;
 import net.sf.freecol.common.model.StringTemplate;
 import net.sf.freecol.common.model.Tile;
+import net.sf.freecol.common.model.Turn;
 import net.sf.freecol.common.model.Unit;
 
 
@@ -48,13 +64,16 @@ import net.sf.freecol.common.model.Unit;
  *     <td>{tile, at}; the active unit is kept</td></tr>
  * <tr><td>setFocus</td><td>event focus</td><td>{tile, at}</td></tr>
  * <tr><td>showInformationPanel(FreeColObject, StringTemplate)</td>
- *     <td>event information</td><td>{text, object}</td></tr>
+ *     <td>event information</td><td>{text, object, tile, at}</td></tr>
  * <tr><td>showErrorPanel(String, Runnable)</td><td>event error</td>
  *     <td>{text}</td></tr>
  * <tr><td>showEventPanel</td><td>event eventPanel</td>
  *     <td>{header, image, footer}</td></tr>
  * <tr><td>showModelMessages</td><td>event messages</td>
- *     <td>{messages: [{text, type, source}]}</td></tr>
+ *     <td>{title: null, messages: [{text, type, source, tile, at}]};
+ *         tile and at are the source's, to go to</td></tr>
+ * <tr><td>showReportTurnPanel</td><td>event messages</td>
+ *     <td>as showModelMessages, titled as the turn report</td></tr>
  * <tr><td>modalConfirmDialog(Tile, StringTemplate, ImageIcon, ...)</td>
  *     <td>question confirm</td>
  *     <td>{text, ok, cancel, defaultOk, tile, object};
@@ -70,6 +89,17 @@ import net.sf.freecol.common.model.Unit;
  * <tr><td>modalInputDialog</td><td>question input</td>
  *     <td>{text, value, ok, cancel, tile};
  *         the text entered, null to cancel</td></tr>
+ * <tr><td>showNamingDialog</td><td>question input</td>
+ *     <td>as modalInputDialog; the handler gets the answer</td></tr>
+ * <tr><td>showChooseFoundingFatherDialog, showEmigrationDialog</td>
+ *     <td>question choice</td><td>as modalChoiceDialog, no cancel</td></tr>
+ * <tr><td>showMonarchDialog, showNativeDemandDialog, showVictoryDialog,
+ *     showEndTurnDialog, showPreCombatDialog</td><td>question confirm</td>
+ *     <td>as modalConfirmDialog, with the Swing dialog's text and
+ *         buttons; a closed dialog cancels</td></tr>
+ * <tr><td>the other dialogs the controllers ask (see "Not asked yet")</td>
+ *     <td>event unasked</td><td>{method}; the controller gets the base
+ *         GUI's default, as before</td></tr>
  * </table>
  *
  * It also runs the controllers' deferred work at once (the base GUI drops
@@ -140,6 +170,54 @@ public class WebGUI extends GUI {
     /** The localized text for a message key, or null for no key. */
     private static String label(String key) {
         return (key == null) ? null : Messages.message(key);
+    }
+
+    /** The tile of a game object that has one, else null. */
+    private static Tile tileOf(FreeColObject object) {
+        return (object instanceof Location) ? ((Location)object).getTile()
+            : null;
+    }
+
+    /**
+     * Ask a confirm question.
+     *
+     * @return The raw answer: "true" for ok, else cancel or closed.
+     */
+    private String confirm(String text, String okKey, String cancelKey,
+                           boolean defaultOk, Tile tile, String object) {
+        return this.questions.ask("confirm", new Json()
+            .put("text", text)
+            .put("ok", label(okKey))
+            .put("cancel", label(cancelKey))
+            .put("defaultOk", defaultOk)
+            .put("tile", id(tile))
+            .put("object", object)
+            .toString());
+    }
+
+    /**
+     * Report a dialog the Browser UI cannot show yet. The caller then
+     * does what the base GUI does, so the controller gets its default.
+     */
+    private void unasked(String method) {
+        logger.warning("WebGUI: no dialog yet for " + method);
+        this.ui.show("unasked", new Json().put("method", method).toString());
+    }
+
+    /** The messages event, for both the model messages and the turn report. */
+    private void showMessages(String title, List<ModelMessage> modelMessages) {
+        final Game game = getGame();
+        List<String> messages = new ArrayList<>();
+        for (ModelMessage m : modelMessages) {
+            messages.add(tile(new Json()
+                .put("text", Messages.message(m))
+                .put("type", m.getMessageType().toString())
+                .put("source", m.getSourceId()),
+                tileOf(game.getMessageSource(m))).toString());
+        }
+        this.ui.show("messages", new Json()
+            .put("title", title)
+            .putRaw("messages", Json.array(messages)).toString());
     }
 
 
@@ -233,9 +311,9 @@ public class WebGUI extends GUI {
     @Override
     public FreeColPanel showInformationPanel(FreeColObject displayObject,
                                              StringTemplate template) {
-        this.ui.show("information", new Json()
+        this.ui.show("information", tile(new Json()
             .put("text", Messages.message(template))
-            .put("object", id(displayObject))
+            .put("object", id(displayObject)), tileOf(displayObject))
             .toString());
         return null;
     }
@@ -266,16 +344,13 @@ public class WebGUI extends GUI {
 
     @Override
     public FreeColPanel showModelMessages(List<ModelMessage> modelMessages) {
-        List<String> messages = new ArrayList<>();
-        for (ModelMessage m : modelMessages) {
-            messages.add(new Json()
-                .put("text", Messages.message(m))
-                .put("type", m.getMessageType().toString())
-                .put("source", m.getSourceId())
-                .toString());
-        }
-        this.ui.show("messages", new Json()
-            .putRaw("messages", Json.array(messages)).toString());
+        showMessages(null, modelMessages);
+        return null;
+    }
+
+    @Override
+    public FreeColPanel showReportTurnPanel(List<ModelMessage> messages) {
+        showMessages(Messages.message("reportTurnAction.name"), messages);
         return null;
     }
 
@@ -283,14 +358,8 @@ public class WebGUI extends GUI {
     public boolean modalConfirmDialog(Tile tile, StringTemplate template,
                                       ImageIcon icon, String okKey,
                                       String cancelKey, boolean defaultOk) {
-        return "true".equals(this.questions.ask("confirm", new Json()
-            .put("text", Messages.message(template))
-            .put("ok", label(okKey))
-            .put("cancel", label(cancelKey))
-            .put("defaultOk", defaultOk)
-            .put("tile", id(tile))
-            .put("object", id(icon))
-            .toString()));
+        return "true".equals(confirm(Messages.message(template), okKey,
+                cancelKey, defaultOk, tile, id(icon)));
     }
 
     @Override
@@ -336,19 +405,13 @@ public class WebGUI extends GUI {
                                        DialogHandler<Boolean> handler) {
         final String type = ((IndianNationType)other.getNationType())
             .getSettlementTypeKey(true);
-        final String answer = this.questions.ask("confirm", new Json()
-            .put("text", Messages.message(StringTemplate
+        final String answer = confirm(Messages.message(StringTemplate
                 .template((tile != null) ? "firstContactDialog.welcomeOffer.text"
                     : "firstContactDialog.welcomeSimple.text")
                 .addStringTemplate("%nation%", other.getNationLabel())
                 .addName("%camps%", Integer.toString(settlementCount))
-                .add("%settlementType%", type)))
-            .put("ok", label("yes"))
-            .put("cancel", label("no"))
-            .put("defaultOk", true)
-            .put("tile", id(tile))
-            .put("object", id(other))
-            .toString());
+                .add("%settlementType%", type)),
+            "yes", "no", true, tile, id(other));
         handler.handle(!"false".equals(answer));
     }
 
@@ -363,5 +426,218 @@ public class WebGUI extends GUI {
             .put("cancel", label(cancelKey))
             .put("tile", id(tile))
             .toString());
+    }
+
+    @Override
+    public void showNamingDialog(StringTemplate template, String defaultName,
+                                 Unit unit, DialogHandler<String> handler) {
+        handler.handle(modalInputDialog(unit.getTile(), template, defaultName,
+                                        "ok", "cancel"));
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * One item per father, as Swing's tabs; there is no cancel, and a
+     * closed dialog postpones the choice, as the controller expects.
+     */
+    @Override
+    public void showChooseFoundingFatherDialog(List<FoundingFather> ffs,
+                                               DialogHandler<FoundingFather> handler) {
+        List<ChoiceItem<FoundingFather>> choices = new ArrayList<>();
+        for (FoundingFather ff : ffs) {
+            choices.add(new ChoiceItem<>(Messages.getName(ff) + " ("
+                    + Messages.message(ff.getTypeKey()) + ")", ff));
+        }
+        if (!choices.isEmpty()) choices.get(0).defaultOption();
+        handler.handle(modalChoiceDialog(
+                StringTemplate.key("chooseFoundingFatherDialog.title"),
+                null, choices));
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * One item per recruitable unit, as Swing's buttons, answering its
+     * migrant slot. There is no cancel; a closed dialog chooses nothing.
+     */
+    @Override
+    public void showEmigrationDialog(Player player, boolean fountainOfYouth,
+                                     DialogHandler<Integer> handler) {
+        final List<AbstractUnit> recruitables
+            = player.getEurope().getExpandedRecruitables(false);
+        List<ChoiceItem<Integer>> choices = new ArrayList<>();
+        int slot = Europe.MigrationType.getDefaultSlot();
+        for (AbstractUnit au : recruitables) {
+            choices.add(new ChoiceItem<>(Messages.message(au.getSingleLabel()),
+                                         slot++));
+        }
+        StringTemplate text = StringTemplate.key("emigrationDialog.chooseImmigrant");
+        if (fountainOfYouth) {
+            text = StringTemplate.label("\n\n")
+                .addStringTemplate(StringTemplate.key(LostCityRumour.RumourType
+                        .FOUNTAIN_OF_YOUTH.getDescriptionKey()))
+                .addStringTemplate(text);
+        }
+        final Integer chosen = modalChoiceDialog(text, null, choices);
+        if (chosen != null) handler.handle(chosen);
+    }
+
+    /** {@inheritDoc} The text and buttons are MonarchDialog's. */
+    @Override
+    public void showMonarchDialog(MonarchAction action, StringTemplate template,
+                                  String monarchKey,
+                                  DialogHandler<Boolean> handler) {
+        final String messageId = action.getTextKey();
+        String yesId = action.getYesKey();
+        if (!Messages.containsKey(yesId)) yesId = null;
+        String noId = action.getNoKey();
+        if (!Messages.containsKey(noId)) noId = "close";
+        final String text = Messages.message((template == null)
+            ? StringTemplate.key(messageId)
+            : StringTemplate.copy(messageId, template));
+        handler.handle("true".equals(confirm(text, yesId, noId, false,
+                                             null, null)));
+    }
+
+    /** {@inheritDoc} The text and buttons are NativeDemandDialog's. */
+    @Override
+    public void showNativeDemandDialog(Unit unit, Colony colony,
+                                       GoodsType type, int amount,
+                                       DialogHandler<Boolean> handler) {
+        final String nation = Messages.message(unit.getOwner().getNationLabel());
+        final String key = (type == null) ? "gold"
+            : (type.isFoodType()) ? "food" : "other";
+        StringTemplate template = StringTemplate
+            .template("indianDemand." + key + ".text")
+            .addName("%nation%", nation)
+            .addName("%colony%", colony.getName())
+            .addAmount("%amount%", amount);
+        if (type != null && !type.isFoodType()) {
+            template = template.addNamed("%goods%", type);
+        }
+        final String yes = (type != null && type.isFoodType())
+            ? "indianDemand.food.yes" : "accept";
+        handler.handle("true".equals(confirm(Messages.message(template), yes,
+                    "indianDemand." + key + ".no", false,
+                    colony.getTile(), id(colony))));
+    }
+
+    /** {@inheritDoc} The text and buttons are VictoryDialog's. */
+    @Override
+    public void showVictoryDialog(DialogHandler<Boolean> handler) {
+        handler.handle("true".equals(confirm(Messages.message("victory.text"),
+                    "victory.yes", "victory.continue", false, null, null)));
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * EndTurnDialog's question, without its list of waiting units: ok
+     * ends the turn, as its ok button does.
+     */
+    @Override
+    public void showEndTurnDialog(List<Unit> units) {
+        final String text = Messages.message(StringTemplate
+            .template("endTurnDialog.areYouSure")
+            .addAmount("%number%", units.size()));
+        if ("true".equals(confirm(text, "ok", "cancel", true, null, null))) {
+            getFreeColClient().getInGameController().endTurn(false);
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * PreCombatDialog's names and final results, without the list of
+     * modifiers behind them.
+     */
+    @Override
+    public boolean showPreCombatDialog(Unit attacker,
+                                       FreeColGameObject defender, Tile tile) {
+        final CombatModel combat = attacker.getGame().getCombatModel();
+        final Turn turn = attacker.getGame().getTurn();
+        final String defenderName = (defender instanceof Settlement)
+            ? ((Settlement)defender).getName()
+            : (defender instanceof Unit)
+            ? ((Unit)defender).getDescription(Unit.UnitLabelType.NATIONAL)
+            : String.valueOf(defender);
+        final float offence = FeatureContainer.applyModifiers(0f, turn,
+            combat.getOffensiveModifiers(attacker, defender));
+        final float defence = FeatureContainer.applyModifiers(0f, turn,
+            combat.getDefensiveModifiers(attacker, defender));
+        final String text = attacker.getDescription(Unit.UnitLabelType.NATIONAL)
+            + " - " + defenderName + "\n" + Messages.message("finalResult")
+            + ": " + decimal(offence) + " - " + decimal(defence);
+        return "true".equals(confirm(text, "ok", "cancel", false, tile,
+                                     id(defender)));
+    }
+
+    /** A number with at most one decimal, as FreeCol's modifiers show. */
+    private static String decimal(float f) {
+        final long tenths = Math.round(f * 10.0);
+        return (tenths % 10 == 0) ? Long.toString(tenths / 10)
+            : Long.toString(tenths / 10) + "." + Math.abs(tenths % 10);
+    }
+
+
+    // Not asked yet: reported, then the base GUI's default.
+
+    @Override
+    public void showCaptureGoodsDialog(Unit unit, List<Goods> gl,
+                                       DialogHandler<List<Goods>> handler) {
+        unasked("showCaptureGoodsDialog");
+        super.showCaptureGoodsDialog(unit, gl, handler);
+    }
+
+    @Override
+    public List<String> showConfirmDeclarationDialog() {
+        unasked("showConfirmDeclarationDialog");
+        return super.showConfirmDeclarationDialog();
+    }
+
+    @Override
+    public void showDumpCargoDialog(Unit unit,
+                                    DialogHandler<List<Goods>> handler) {
+        unasked("showDumpCargoDialog");
+        super.showDumpCargoDialog(unit, handler);
+    }
+
+    @Override
+    public void showNegotiationDialog(FreeColGameObject our,
+                                      FreeColGameObject other,
+                                      DiplomaticTrade agreement,
+                                      StringTemplate comment,
+                                      DialogHandler<DiplomaticTrade> handler) {
+        unasked("showNegotiationDialog");
+        super.showNegotiationDialog(our, other, agreement, comment, handler);
+    }
+
+    @Override
+    public int showSelectAmountDialog(GoodsType goodsType, int available,
+                                      int defaultAmount, boolean needToPay) {
+        unasked("showSelectAmountDialog");
+        return super.showSelectAmountDialog(goodsType, available,
+                                            defaultAmount, needToPay);
+    }
+
+    @Override
+    public Location showSelectDestinationDialog(Unit unit) {
+        unasked("showSelectDestinationDialog");
+        return super.showSelectDestinationDialog(unit);
+    }
+
+    @Override
+    public int showSelectTributeAmountDialog(StringTemplate question,
+                                             int maximum) {
+        unasked("showSelectTributeAmountDialog");
+        return super.showSelectTributeAmountDialog(question, maximum);
+    }
+
+    @Override
+    public void showWarehouseDialog(Colony colony,
+                                    DialogHandler<Boolean> handler) {
+        unasked("showWarehouseDialog");
+        super.showWarehouseDialog(colony, handler);
     }
 }

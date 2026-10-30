@@ -108,14 +108,14 @@ public final class Commands {
     }
 
     /**
-     * End the turn (EndTurnAction). The end turn dialog is skipped: the
-     * WebGUI cannot show it yet (#18).
+     * End the turn (EndTurnAction), asking first if units still wait for
+     * orders and the client options say to.
      *
      * @return True if the turn was ours to end.
      */
     public boolean endTurn() {
         if (!this.client.currentPlayerIsMyPlayer()) return false;
-        igc().endTurn(false);
+        igc().endTurn(true);
         return true;
     }
 }
