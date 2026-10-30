@@ -153,9 +153,9 @@ describe('scene', () => {
 
 describe('colony labels', () => {
   // A colony of 3 at (0,3) with a caravel in front, as FreeCol's classic labels draw it.
-  const colony = (x: number, y: number): MapView => ({
+  const colony = (x: number, y: number, bonus = -1, sizeChange = 0): MapView => ({
     ...map,
-    settlements: [[x, y, ['image.settlement.colony'], 0xff8000, 'Jamestown', 3, -1]],
+    settlements: [[x, y, ['image.settlement.colony'], 0xff8000, 'Jamestown', 3, bonus, sizeChange]],
     units: [[x, y, ['image.unit.model.unit.caravel'], 0xff8000, '-', 0, 1, false]],
   });
   const index = (ops: Op[], k: Op['k'], src?: string) =>
@@ -175,5 +175,11 @@ describe('colony labels', () => {
     const labels = (ops: Op[]) => ops.filter((op) => op.k === 'population' || op.k === 'label');
     expect(labels(at(scene(colony(1, 1), tileset), 1, 1)).map((op) => op.dim)).toEqual([true, true]);
     expect(labels(at(scene(colony(0, 3), tileset), 0, 3)).map((op) => op.dim)).toEqual([undefined, undefined]);
+  });
+
+  it('emphasises the population when the colony would rather grow, whatever its bonus', () => {
+    const population = (m: MapView) => scene(m, tileset).find((op) => op.k === 'population');
+    expect(population(colony(0, 3, -1, 1))).toMatchObject({ bonus: -1, emph: true });
+    expect(population(colony(0, 3, 2, 0))).not.toHaveProperty('emph');
   });
 });

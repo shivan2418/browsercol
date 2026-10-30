@@ -328,7 +328,9 @@ function roadPath(dirs: Direction[], p: PathSink) {
 
 const CHIP: TextStyle = { color: 0, font: 'sans-serif', size: 10, bold: true };
 const NAME: TextStyle = { color: 0, font: 'serif', size: 13 };
+/** TileViewer's fonts: simple-bold-tiny, and simple-bold+italic-smaller to emphasise. */
 const POPULATION: TextStyle = { color: 0, font: 'sans-serif', size: 12, bold: true };
+const POPULATION_EMPH: TextStyle = { ...POPULATION, size: 14, italic: true };
 
 /** Draw the scene's operations, loading what they need first. */
 async function paint(pen: Pen, ops: Op[], pics: ReturnType<typeof pictures>) {
@@ -380,15 +382,12 @@ async function paint(pen: Pen, ops: Op[], pics: ReturnType<typeof pictures>) {
         }
         return;
       }
-      case 'population':
-        pen.text(
-          String(op.population),
-          ox + W / 2,
-          oy + (H - POPULATION.size) / 2,
-          { ...POPULATION, color: shade(BONUS_COLORS[op.bonus] ?? 0xffffff), italic: op.bonus > 0 },
-          true,
-        );
+      case 'population': {
+        const style = op.emph ? POPULATION_EMPH : POPULATION;
+        const color = shade(BONUS_COLORS[op.bonus] ?? 0xffffff);
+        pen.text(String(op.population), ox + W / 2, oy + (H - style.size) / 2, { ...style, color }, true);
         return;
+      }
       case 'label':
         // The classic colony labels: the name below the tile.
         pen.text(op.name, ox + W / 2 + 1, oy + H, { ...NAME, color: shade(op.rgb) }, true);
