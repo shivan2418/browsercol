@@ -153,7 +153,7 @@ function drawMap(m: MapView) {
   drawn = map.draw(m);
 }
 
-const dragged = pointerInput(mapHost, { view: () => view, dispatch, tileAt: map.tileAt });
+const dragged = pointerInput(mapHost, { view: () => view, dispatch, tileAt: (px, py) => map.tileAt(px, py) });
 
 /** Hook the player's input up to the client Engine's commands. */
 function playWith(client: ClientExports) {
