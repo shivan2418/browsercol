@@ -196,6 +196,13 @@ public class WebGUI extends GUI {
             .toString());
     }
 
+    /** Ask a confirm question; true for ok, false for cancel or closed. */
+    private boolean confirmed(String text, String okKey, String cancelKey,
+                              boolean defaultOk, Tile tile, String object) {
+        return "true".equals(confirm(text, okKey, cancelKey, defaultOk,
+                                     tile, object));
+    }
+
     /**
      * Report a dialog the Browser UI cannot show yet. The caller then
      * does what the base GUI does, so the controller gets its default.
@@ -361,8 +368,8 @@ public class WebGUI extends GUI {
     public boolean modalConfirmDialog(Tile tile, StringTemplate template,
                                       ImageIcon icon, String okKey,
                                       String cancelKey, boolean defaultOk) {
-        return "true".equals(confirm(Messages.message(template), okKey,
-                cancelKey, defaultOk, tile, id(icon)));
+        return confirmed(Messages.message(template), okKey, cancelKey,
+                         defaultOk, tile, id(icon));
     }
 
     @Override
@@ -462,7 +469,8 @@ public class WebGUI extends GUI {
      * {@inheritDoc}
      *
      * One item per recruitable unit, as Swing's buttons, answering its
-     * migrant slot. There is no cancel; a closed dialog chooses nothing.
+     * migrant slot. There is no cancel: Swing ignores Escape here, so a
+     * closed dialog is asked again.
      */
     @Override
     public void showEmigrationDialog(Player player, boolean fountainOfYouth,
@@ -482,8 +490,11 @@ public class WebGUI extends GUI {
                         .FOUNTAIN_OF_YOUTH.getDescriptionKey()))
                 .addStringTemplate(text);
         }
-        final Integer chosen = modalChoiceDialog(text, null, choices);
-        if (chosen != null) handler.handle(chosen);
+        Integer chosen;
+        do {
+            chosen = modalChoiceDialog(text, null, choices);
+        } while (chosen == null);
+        handler.handle(chosen);
     }
 
     /** {@inheritDoc} The text and buttons are MonarchDialog's. */
@@ -499,8 +510,7 @@ public class WebGUI extends GUI {
         final String text = Messages.message((template == null)
             ? StringTemplate.key(messageId)
             : StringTemplate.copy(messageId, template));
-        handler.handle("true".equals(confirm(text, yesId, noId, false,
-                                             null, null)));
+        handler.handle(confirmed(text, yesId, noId, false, null, null));
     }
 
     /** {@inheritDoc} The text and buttons are NativeDemandDialog's. */
@@ -516,21 +526,18 @@ public class WebGUI extends GUI {
             .addName("%nation%", nation)
             .addName("%colony%", colony.getName())
             .addAmount("%amount%", amount);
-        if (type != null && !type.isFoodType()) {
-            template = template.addNamed("%goods%", type);
-        }
-        final String yes = (type != null && type.isFoodType())
-            ? "indianDemand.food.yes" : "accept";
-        handler.handle("true".equals(confirm(Messages.message(template), yes,
-                    "indianDemand." + key + ".no", false,
-                    colony.getTile(), id(colony))));
+        if (key.equals("other")) template = template.addNamed("%goods%", type);
+        handler.handle(confirmed(Messages.message(template),
+                (key.equals("food")) ? "indianDemand.food.yes" : "accept",
+                "indianDemand." + key + ".no", false,
+                colony.getTile(), id(colony)));
     }
 
     /** {@inheritDoc} The text and buttons are VictoryDialog's. */
     @Override
     public void showVictoryDialog(DialogHandler<Boolean> handler) {
-        handler.handle("true".equals(confirm(Messages.message("victory.text"),
-                    "victory.yes", "victory.continue", false, null, null)));
+        handler.handle(confirmed(Messages.message("victory.text"),
+                "victory.yes", "victory.continue", false, null, null));
     }
 
     /**
@@ -544,7 +551,7 @@ public class WebGUI extends GUI {
         final String text = Messages.message(StringTemplate
             .template("endTurnDialog.areYouSure")
             .addAmount("%number%", units.size()));
-        if ("true".equals(confirm(text, "ok", "cancel", true, null, null))) {
+        if (confirmed(text, "ok", "cancel", true, null, null)) {
             getFreeColClient().getInGameController().endTurn(false);
         }
     }
@@ -572,8 +579,7 @@ public class WebGUI extends GUI {
         final String text = attacker.getDescription(Unit.UnitLabelType.NATIONAL)
             + " - " + defenderName + "\n" + Messages.message("finalResult")
             + ": " + decimal(offence) + " - " + decimal(defence);
-        return "true".equals(confirm(text, "ok", "cancel", false, tile,
-                                     id(defender)));
+        return confirmed(text, "ok", "cancel", false, tile, id(defender));
     }
 
     /** A number with at most one decimal, as FreeCol's modifiers show. */
