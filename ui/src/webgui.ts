@@ -22,10 +22,14 @@ export interface GuiEvents {
   selectedTile: TileRef;
   /** Centre the map on a tile. */
   focus: TileRef;
-  information: { text: string; object: Id | null };
-  error: { text: string };
-  eventPanel: { header: string; image: string | null; footer: string | null };
-  messages: { messages: { text: string; type: string; source: Id | null }[] };
+  /** ok: the close button's label, as for the other panels. The tile is the object's, if it has one. */
+  information: { text: string; object: Id | null; ok: string } & TileRef;
+  error: { text: string; ok: string };
+  eventPanel: { header: string; image: string | null; footer: string | null; ok: string };
+  /** Model messages, or with a title the turn report; each names its source's tile, to go to. */
+  messages: { title: string | null; messages: ({ text: string; type: string; source: Id | null } & TileRef)[]; ok: string };
+  /** A dialog the Browser UI cannot show yet; the controller got FreeCol's base default. */
+  unasked: { method: string };
 }
 
 export interface Choice {
@@ -95,7 +99,11 @@ export function webGui(handlers: GuiHandlers, answer: (id: number, value: string
       // Answer in a later microtask, never inside the Engine's call.
       void Promise.resolve()
         .then(async () => {
-          if (!isKey(handlers.questions, kind)) return null;
+          if (!isKey(handlers.questions, kind)) {
+            console.error(`WebGUI question ${kind} has no dialog; answering as closed`);
+            handlers.events.unasked?.({ method: `ask ${kind}` });
+            return null;
+          }
           const handle = handlers.questions[kind] as (q: unknown) => unknown;
           const encodeAnswer = encode[kind] as (a: unknown) => string | null;
           return encodeAnswer(await handle(JSON.parse(json)));
