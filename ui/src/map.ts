@@ -119,6 +119,8 @@ interface Pen {
   measure(s: string, style: TextStyle): number;
   /** Show the map scaled by `scale`, then moved by (dx, dy). */
   show(dx: number, dy: number, scale: number): void;
+  /** Make the canvas `width` by `height` pixels; show() draws it again. */
+  resize(width: number, height: number): void;
 }
 
 interface PathSink {
@@ -218,6 +220,7 @@ async function pixiPen(host: HTMLElement, width: number, height: number): Promis
       world.scale.set(scale);
       world.position.set(dx, dy);
     },
+    resize: (w, h) => app.renderer.resize(w, h),
   };
 }
 
@@ -312,6 +315,10 @@ function canvasPen(host: HTMLElement, width: number, height: number): Pen {
       c.fillRect(0, 0, width, height);
       c.setTransform(scale, 0, 0, scale, dx, dy);
       for (const layer of layers) for (const call of layer) call(c);
+    },
+    resize: (w, h) => {
+      canvas.width = width = w;
+      canvas.height = height = h;
     },
   };
 }
@@ -477,7 +484,7 @@ interface Art {
   files: string[];
 }
 
-/** A map drawer for `host`, `size` screen pixels, with art under `artBase` listed by its `manifest`; draws are serialised. */
+/** A map drawer for `host`, `size` screen pixels to start with, with art under `artBase` listed by its `manifest`; draws are serialised. */
 export function mapDrawer(
   host: HTMLElement,
   size: [number, number],
@@ -489,6 +496,8 @@ export function mapDrawer(
   draw(map: MapView): Promise<void>;
   /** Show the view: where it is centred, its zoom, the cursor and the active unit's path. */
   show(view: ViewState): void;
+  /** Make the canvas `size` screen pixels, as the window changed; show() the resized view after. */
+  resize(size: [number, number]): void;
   renderer(): string;
   /** The tile under a pixel of the canvas, or null off the map or before the first draw. */
   tileAt(px: number, py: number): [number, number] | null;
@@ -507,14 +516,19 @@ export function mapDrawer(
   async function init() {
     const art = (await (await fetch(artBase + manifest)).json()) as Art;
     res = resources(art.layers, art.files);
+    const at = size;
+    let p: Pen;
     try {
       if (canvas2d) throw new Error('asked for canvas2d');
-      pen = await pixiPen(host, ...size);
+      p = await pixiPen(host, ...at);
       renderer = 'pixi';
     } catch (ex) {
-      pen = canvasPen(host, ...size);
+      p = canvasPen(host, ...at);
       renderer = `canvas2d (pixi failed: ${ex instanceof Error ? ex.message : String(ex)})`;
     }
+    // The window may have changed while PixiJS started.
+    if (size !== at) p.resize(...size);
+    pen = p;
   }
 
   /** The overlay's operations for a view: its cursor, and the path if the map view is about its active unit. */
@@ -554,6 +568,10 @@ export function mapDrawer(
       // Pans and zooms move at once; a changed overlay waits its turn.
       camera();
       drawing = drawing.then(showNow);
+    },
+    resize: (s) => {
+      size = s;
+      pen?.resize(...s);
     },
     renderer: () => renderer,
     tileAt: (px, py) => {

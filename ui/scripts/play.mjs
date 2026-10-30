@@ -7,8 +7,9 @@
 // dialogs are answered as scripts/dialogs.mjs says, and every question the
 // controllers ask must reach one: a dialog with no Browser UI yet fails the
 // run. Along the way the map's view must follow the active unit, its
-// cursor and the info panel must match the client's active unit, and the
-// wheel, a drag and the pointer at an edge must zoom and scroll it.
+// cursor and the info panel must match the client's active unit, the map
+// canvas must follow a window resize, and the wheel, a drag and the pointer
+// at an edge must zoom and scroll it at its new size.
 // Exits non-zero unless every browser gets there. Run in
 // the web image:
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/play.mjs [--browsers chromium,firefox] [--query renderer=canvas2d]
@@ -202,6 +203,28 @@ async function play(page, url) {
       throw new Error(`${what}: the panel shows ${JSON.stringify(info)}`);
     }
   };
+  /** Shrink the window: the map canvas and the view's viewport must take the new size. */
+  const resize = async () => {
+    const before = await viewState();
+    await page.setViewportSize({ width: 1100, height: 700 });
+    const fits = ([w, h]) => {
+      const c = document.querySelector('#map canvas');
+      const [vw, vh] = window.fcView().viewport;
+      return c && c.width === w && c.height === h && vw === w && vh === h;
+    };
+    // The page's map is the window less the 360-pixel side panel (ui/src/main.tsx).
+    const want = [1100 - 360, 700];
+    if (!(await page.waitForFunction(fits, want, { timeout: 5000 }).catch(() => false))) {
+      const size = await page.evaluate(() => {
+        const c = document.querySelector('#map canvas');
+        return [c?.width, c?.height];
+      });
+      throw new Error(
+        `after a resize the canvas is ${size}, the view ${(await viewState()).viewport}, ` +
+          `not ${want} (was ${before.viewport})`,
+      );
+    }
+  };
   /** Zoom with the wheel, drag the map and rest the pointer at an edge; each must move the view. */
   const zoomAndScroll = async () => {
     await noDialog();
@@ -247,6 +270,7 @@ async function play(page, url) {
   let m = await view();
   if (!m.ourTurn) throw new Error('not our turn at the start');
   await following(m, 'at the start');
+  await resize();
   await zoomAndScroll();
 
   // Sail toward land until it is beside the ship, then move onto it to land.

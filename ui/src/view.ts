@@ -100,6 +100,15 @@ function onScreen(v: ViewState, at: Tile) {
   return c.every((p, i) => Math.abs(p - v.centre[i]) <= v.viewport[i] / 2 / v.zoom);
 }
 
+/** How near, in pixels, the pointer must be to the viewport's edge to scroll the map. */
+export const EDGE = 24;
+
+/** Which way the pointer at a viewport pixel scrolls the map: +1, -1 or 0 on each axis. */
+export const edgeScroll = ([px, py]: [number, number], [w, h]: [number, number]): [number, number] => [
+  px < EDGE ? 1 : px > w - EDGE ? -1 : 0,
+  py < EDGE ? 1 : py > h - EDGE ? -1 : 0,
+];
+
 /** MapViewer's cursor: on the active unit, or on a selected tile in terrain mode. */
 export interface Cursor {
   at: Tile;
