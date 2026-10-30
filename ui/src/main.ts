@@ -17,7 +17,7 @@ declare global {
   interface Window {
     fcResult?: Record<string, unknown>;
     /** For scripts/play.mjs: where a tile's centre is on the map canvas. */
-    fcPointOf?: (x: number, y: number) => [number, number];
+    fcReveal?: (x: number, y: number) => [number, number];
   }
 }
 
@@ -29,7 +29,7 @@ const turn = document.getElementById('turn')!;
 const mapHost = document.getElementById('map')!;
 const map = mapDrawer(mapHost, 'art/');
 const rounds: string[] = [];
-window.fcPointOf = (x, y) => map.pointOf(x, y);
+window.fcReveal = (x, y) => map.reveal(x, y);
 let drawn = Promise.resolve();
 
 function show(status: string, extra: Record<string, unknown> = {}) {

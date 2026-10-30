@@ -436,8 +436,8 @@ export function mapDrawer(
   renderer(): string;
   /** The tile under a pixel of the canvas, or null off the map or before the first draw. */
   tileAt(px: number, py: number): [number, number] | null;
-  /** Where a tile's centre is on the canvas, panning it into view if needed. */
-  pointOf(x: number, y: number): [number, number];
+  /** Pan a tile into view if it is near or past the edge; returns its centre on the canvas. */
+  reveal(x: number, y: number): [number, number];
   /** The resolver, once the art manifest has loaded. */
   resources(): Resources | null;
 } {
@@ -514,7 +514,7 @@ export function mapDrawer(
     draw: (map) => (drawing = drawing.then(() => drawNow(map))),
     renderer: () => renderer,
     tileAt: (px, py) => (pen ? tileAt(view.w, view.h, px - view.dx, py - view.dy) : null),
-    pointOf: (x, y) => {
+    reveal: (x, y) => {
       const [ox, oy] = tileOrigin(x, y);
       const [px, py] = [ox + W / 2 + view.dx, oy + H / 2 + view.dy];
       if (px < W || py < H || px > view.width - W || py > view.height - H) centre(x, y);

@@ -127,7 +127,7 @@ async function play(page, url) {
   };
   const click = async (m, [x, y]) => {
     const box = await page.locator('#map canvas').boundingBox();
-    const [px, py] = await page.evaluate(([x, y]) => window.fcPointOf(x, y), [x, y]);
+    const [px, py] = await page.evaluate(([x, y]) => window.fcReveal(x, y), [x, y]);
     await page.mouse.click(box.x + px, box.y + py);
   };
 
@@ -181,7 +181,7 @@ for (const name of browsers) {
   let result;
   try {
     result = await play(page, server.url);
-    await page.evaluate(([x, y]) => window.fcPointOf(x, y), result.land);
+    await page.evaluate(([x, y]) => window.fcReveal(x, y), result.land);
     await page.screenshot({ path: path.join(dist, `../.cache/play-${name}.png`) });
   } catch (ex) {
     result = { error: String(ex) };
