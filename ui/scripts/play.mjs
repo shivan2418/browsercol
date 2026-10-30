@@ -203,29 +203,28 @@ async function play(page, url) {
       throw new Error(`${what}: the panel shows ${JSON.stringify(info)}`);
     }
   };
-  /** Shrink the window: the map canvas and the view's viewport must take the new size. */
+  /** Shrink the window: the map canvas and the view's viewport must shrink with it. */
   const resize = async () => {
-    const before = await viewState();
-    await page.setViewportSize({ width: 1100, height: 700 });
-    const fits = ([w, h]) => {
+    const before = (await viewState()).viewport;
+    const [dw, dh] = [300, 200];
+    const size = page.viewportSize();
+    await page.setViewportSize({ width: size.width - dw, height: size.height - dh });
+    const want = [before[0] - dw, before[1] - dh];
+    const canvasSize = () => {
       const c = document.querySelector('#map canvas');
-      const [vw, vh] = window.fcView().viewport;
-      return c && c.width === w && c.height === h && vw === w && vh === h;
+      return [c?.width, c?.height];
     };
-    // The page's map is the window less the 360-pixel side panel (ui/src/main.tsx).
-    const want = [1100 - 360, 700];
+    const fits = ([w, h]) => {
+      const [cw, ch] = canvasSize();
+      const [vw, vh] = window.fcView().viewport;
+      return cw === w && ch === h && vw === w && vh === h;
+    };
     if (!(await page.waitForFunction(fits, want, { timeout: 5000 }).catch(() => false))) {
-      const size = await page.evaluate(() => {
-        const c = document.querySelector('#map canvas');
-        return [c?.width, c?.height];
-      });
-      throw new Error(
-        `after a resize the canvas is ${size}, the view ${(await viewState()).viewport}, ` +
-          `not ${want} (was ${before.viewport})`,
-      );
+      const got = await page.evaluate(canvasSize);
+      throw new Error(`after a resize the canvas is ${got}, the view ${(await viewState()).viewport}, not ${want}`);
     }
   };
-  /** Zoom with the wheel, drag the map and rest the pointer at an edge; each must move the view. */
+  /** Zoom with the wheel, drag the map and rest the pointer at its right edge; each must move the view. */
   const zoomAndScroll = async () => {
     await noDialog();
     const box = await page.locator('#map canvas').boundingBox();
@@ -238,26 +237,20 @@ async function play(page, url) {
     await page.waitForFunction((z) => window.fcView().zoom > z, before.zoom, { timeout: 5000 }).catch(() => {});
     const zoomed = await viewState();
     if (zoomed.zoom <= before.zoom) throw new Error(`the wheel did not zoom in: ${before.zoom} -> ${zoomed.zoom}`);
+    // Drag the map right, so it has room to scroll back at the right edge.
     await page.mouse.down();
     await page.mouse.move(cx + 150, cy + 100, { steps: 5 });
     await page.mouse.up();
     const dragged = await viewState();
     if (same(dragged.centre, zoomed.centre)) throw new Error('a drag did not scroll the map');
-    // Whichever side the map has room on.
-    for (const [ex, ey] of [
-      [box.x + 4, cy],
-      [box.x + box.width - 4, cy],
-    ]) {
-      const from = await viewState();
-      await page.mouse.move(ex, ey);
-      await page.waitForTimeout(800);
-      await page.mouse.move(cx, cy);
-      if (!same((await viewState()).centre, from.centre)) {
-        await page.mouse.wheel(0, 100);
-        return;
-      }
+    // The right edge, which only the current viewport's width finds after a resize.
+    await page.mouse.move(box.x + box.width - 4, cy);
+    await page.waitForTimeout(800);
+    await page.mouse.move(cx, cy);
+    if (same((await viewState()).centre, dragged.centre)) {
+      throw new Error('resting the pointer at the right edge did not scroll the map');
     }
-    throw new Error('resting the pointer at either edge did not scroll the map');
+    await page.mouse.wheel(0, 100);
   };
   const click = async (m, [x, y]) => {
     const box = await page.locator('#map canvas').boundingBox();
