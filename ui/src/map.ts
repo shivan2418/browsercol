@@ -19,8 +19,8 @@ const OTHER_UNITS_OFFSET_X = -5;
 const OTHER_UNITS_WIDTH = 3;
 const MAX_OTHER_UNITS = 10;
 const ROAD_COLOR = 0x804000;
-/** color.map.productionBonus.N in FreeCol's default resources. */
-const BONUS_COLORS: Record<number, number> = { 2: 0x0000ff, 1: 0x00aa00, 0: 0xffffff, [-1]: 0xffa500, [-2]: 0xff0000 };
+/** color.map.productionBonus.N in FreeCol's default resources, as Java's Color constants. */
+const BONUS_COLORS: Record<number, number> = { 2: 0x0000ff, 1: 0x00aa00, 0: 0xffffff, [-1]: 0xffc800, [-2]: 0xff0000 };
 
 /** Where a tile's 128x64 box starts on the whole map. */
 export const tileOrigin = (x: number, y: number): [number, number] => [x * W + (y % 2) * (W / 2), (y * H) / 2];
