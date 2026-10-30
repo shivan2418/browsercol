@@ -62,8 +62,10 @@ export type Op =
   | { k: 'road'; x: number; y: number; dirs: Direction[] }
   /** A unit's occupation chip in its owner's colour, with a line per unit on the tile. */
   | { k: 'chip'; x: number; y: number; text: string; bg: number; fg: number; stack: number }
-  /** A settlement's population (colonies) and its name below the tile, in the owner's colour. */
-  | { k: 'label'; x: number; y: number; name: string; population: number; bonus: number; rgb: number; dim?: true };
+  /** A colony's population in the tile's centre, coloured by its production bonus. */
+  | { k: 'population'; x: number; y: number; population: number; bonus: number; dim?: true }
+  /** A settlement's name below the tile, in the owner's colour. */
+  | { k: 'label'; x: number; y: number; name: string; rgb: number; dim?: true };
 
 export type Direction = 'N' | 'NE' | 'E' | 'SE' | 'S' | 'SW' | 'W' | 'NW';
 
@@ -375,6 +377,9 @@ export function scene(map: MapView, res: Resources): Op[] {
     const key = s && first(s[2]);
     if (s && key) {
       ops.push({ k: 'image', x, y, src: named(key)!, at: 'large', ...dim });
+      // TileViewer.displaySettlementWithChipsOrPopulationNumber, classic labels.
+      const [, , , , , population, bonus] = s;
+      if (population >= 0) ops.push({ k: 'population', x, y, population, bonus, ...dim });
     }
   });
 
@@ -390,9 +395,9 @@ export function scene(map: MapView, res: Resources): Op[] {
     if (src) ops.push({ k: 'image', x, y, src, at: 'center' });
   });
 
-  for (const [x, y, , rgb, name, population, bonus] of map.settlements) {
+  for (const [x, y, , rgb, name] of map.settlements) {
     if (!explored([x, y])) continue;
-    ops.push({ k: 'label', x, y, name, population, bonus, rgb, ...(seen(x, y) ? {} : { dim: true as const }) });
+    ops.push({ k: 'label', x, y, name, rgb, ...(seen(x, y) ? {} : { dim: true as const }) });
   }
   return ops;
 }

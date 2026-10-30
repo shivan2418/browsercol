@@ -45,6 +45,7 @@ image.tile.model.tile.unexplored.center=resources/unexplored0.png
 image.tile.model.tile.unexplored.border.S=resources/border_S0.png
 image.tileitem.model.resource.ore=resources/ore.png
 image.unit.model.unit.caravel=resources/caravel.png
+image.settlement.colony=resources/colony.png
 `;
 const files = [
   'mask',
@@ -62,6 +63,7 @@ const files = [
   'border_S0',
   'ore',
   'caravel',
+  'colony',
 ].map((f) => `default/resources/${f}.png`);
 const tileset = resources([{ dir: 'default', props }], files);
 const art = (f: string) => `default/resources/${f}.png`;
@@ -146,5 +148,25 @@ describe('scene', () => {
       { k: 'chip', x: 0, y: 0, text: '-', bg: 0xff8000, fg: 0, stack: 3 },
     ]);
     expect(ops).toContainEqual({ k: 'road', x: 0, y: 3, dirs: [] });
+  });
+});
+
+describe('colony labels', () => {
+  // A colony of 3 at (0,3) with a caravel in front, as FreeCol's classic labels draw it.
+  const colony = (x: number, y: number): MapView => ({
+    ...map,
+    settlements: [[x, y, ['image.settlement.colony'], 0xff8000, 'Jamestown', 3, -1]],
+    units: [[x, y, ['image.unit.model.unit.caravel'], 0xff8000, '-', 0, 1, false]],
+  });
+  const index = (ops: Op[], k: Op['k'], src?: string) =>
+    ops.findIndex((op) => op.k === k && (!src || (op.k === 'image' && op.src === src)));
+
+  it('paints the population with the colony, under the units, and the name over them', () => {
+    const ops = at(scene(colony(0, 3), tileset), 0, 3);
+    expect(ops[index(ops, 'population')]).toEqual({ k: 'population', x: 0, y: 3, population: 3, bonus: -1 });
+    expect(index(ops, 'image', art('colony'))).toBeLessThan(index(ops, 'population'));
+    expect(index(ops, 'population')).toBeLessThan(index(ops, 'image', art('caravel')));
+    expect(index(ops, 'chip')).toBeLessThan(index(ops, 'label'));
+    expect(ops[index(ops, 'label')]).toEqual({ k: 'label', x: 0, y: 3, name: 'Jamestown', rgb: 0xff8000 });
   });
 });
