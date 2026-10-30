@@ -121,8 +121,8 @@ class MapJsonTest {
         final String nation = us.getNationResourceKey();
         final String units = field(json, "units");
         final String key = "image.unit." + ship.getType().getId();
-        assertTrue(units.contains("[" + at.getX() + "," + at.getY()
-            + ",[\"" + key + "." + nation + "\",\"" + key + "\"],"), units);
+        assertTrue(units.contains("{\"x\":" + at.getX() + ",\"y\":" + at.getY()
+            + ",\"keys\":[\"" + key + "." + nation + "\",\"" + key + "\"],"), units);
 
         assertEquals("[" + at.getX() + "," + at.getY() + "]", field(json, "active"));
     }
@@ -178,10 +178,11 @@ class MapJsonTest {
         assertTrue(change > 0, "a colony of one can grow, so the flag shows");
 
         final String settlements = field(MapJson.of(game, us, null), "settlements");
-        assertTrue(settlements.contains("\"Jamestown\",1,"
-                + colony.getProductionBonus() + "," + change + ",null]"),
+        assertTrue(settlements.contains("\"name\":\"Jamestown\",\"population\":1,"
+                + "\"bonus\":" + colony.getProductionBonus()
+                + ",\"sizeChange\":" + change + ",\"chips\":null}"),
             "and no native settlement chips: " + settlements);
-        assertTrue(settlements.contains(",-1,0,0,{"),
+        assertTrue(settlements.contains("\"population\":-1,\"bonus\":0,\"sizeChange\":0,\"chips\":{"),
             "native settlements send no size change: " + settlements);
     }
 
@@ -200,15 +201,17 @@ class MapJsonTest {
             .stream().findFirst().get().getIndianSettlement();
         final Supplier<String> entry = () -> {
             final String all = field(MapJson.of(game, us, null), "settlements");
-            final int from = all.indexOf("[" + is.getTile().getX() + "," + is.getTile().getY() + ",");
-            return all.substring(from, all.indexOf("}]", from) + 2);
+            final int from = all.indexOf("{\"x\":" + is.getTile().getX()
+                + ",\"y\":" + is.getTile().getY() + ",");
+            final int to = all.indexOf(",{\"x\":", from);
+            return all.substring(from, (to < 0) ? all.length() - 1 : to);
         };
-        final String capital = ",-1,0,0,{\"capital\":" + is.getType().isCapital()
+        final String capital = "\"chips\":{\"capital\":" + is.getType().isCapital()
             + ",\"fg\":16777215";
         final int ours = Utils.getRGB(us.getNationColor()) & 0xffffff;
 
         // Before contact: the settlement chip only.
-        assertTrue(entry.get().endsWith(capital + ",\"mission\":null,\"alarm\":null}]"),
+        assertTrue(entry.get().endsWith(capital + ",\"mission\":null,\"alarm\":null}}"),
             entry.get());
 
         // Contacted, with our expert missionary and hating us most: the
@@ -220,9 +223,9 @@ class MapJsonTest {
             game.getSpecification().getUnitType("model.unit.jesuitMissionary")));
         assertTrue(entry.get().endsWith(capital
                 + ",\"mission\":{\"rgb\":" + ours + ",\"expert\":true}"
-                + ",\"alarm\":{\"fg\":0,\"worthScouting\":true}}]"),
+                + ",\"alarm\":{\"fg\":0,\"worthScouting\":true}}}"),
             entry.get());
         is.setScouted(us);
-        assertTrue(entry.get().endsWith("\"worthScouting\":false}}]"), entry.get());
+        assertTrue(entry.get().endsWith("\"worthScouting\":false}}}"), entry.get());
     }
 }

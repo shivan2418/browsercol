@@ -74,7 +74,7 @@ const neighbour = ([x, y], d) => {
 };
 const same = (a, b) => a && b && a[0] === b[0] && a[1] === b[1];
 const label = (tile) => (tile ? tile.join(',') : 'none');
-const at = (list, tile) => list.some(([x, y]) => same([x, y], tile));
+const at = (list, tile) => list.some(({ x, y }) => same([x, y], tile));
 
 /** The tile type id at a tile of a map view, null if unexplored or off the map. */
 function typeAt(m, [x, y]) {
