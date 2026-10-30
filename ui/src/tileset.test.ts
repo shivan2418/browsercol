@@ -62,6 +62,9 @@ indianSettlementChip.normal="-"
 indianAlarmChip.scouted="!"
 indianAlarmChip.contacted="-"
 cross="\\u271d"
+color.map.road=urn:color:0x804000
+color.map.productionBonus.-1=urn:color:orange
+color.map.productionBonus.2=urn:color:blue
 `;
 const files = [
   'mask',
@@ -163,7 +166,7 @@ describe('scene', () => {
       { k: 'image', x: 0, y: 0, src: art('caravel'), at: 'unit' },
       { k: 'chip', x: 0, y: 0, text: '-', bg: 0xff8000, fg: 0, stack: 3 },
     ]);
-    expect(ops).toContainEqual({ k: 'road', x: 0, y: 3, dirs: [] });
+    expect(ops).toContainEqual({ k: 'road', x: 0, y: 3, dirs: [], color: 0x804000 });
   });
 });
 
@@ -191,7 +194,7 @@ describe('colony labels', () => {
 
   it('paints the population with the colony, under the units, and the name over them', () => {
     const ops = at(scene(colony(0, 3), tileset), 0, 3);
-    expect(ops[index(ops, 'population')]).toEqual({ k: 'population', x: 0, y: 3, population: 3, bonus: -1 });
+    expect(ops[index(ops, 'population')]).toEqual({ k: 'population', x: 0, y: 3, population: 3, color: 0xffc800 });
     expect(index(ops, 'image', art('colony'))).toBeLessThan(index(ops, 'population'));
     expect(index(ops, 'population')).toBeLessThan(index(ops, 'image', art('caravel')));
     expect(index(ops, 'chip')).toBeLessThan(index(ops, 'label'));
@@ -207,7 +210,8 @@ describe('colony labels', () => {
 
   it('emphasises the population when the colony would rather grow, whatever its bonus', () => {
     const population = (m: MapView) => scene(m, tileset).find((op) => op.k === 'population');
-    expect(population(colony(0, 3, -1, 1))).toMatchObject({ bonus: -1, emph: true });
+    expect(population(colony(0, 3, -1, 1))).toMatchObject({ color: 0xffc800, emph: true });
+    expect(population(colony(0, 3, 2, 0))).toMatchObject({ color: 0x0000ff });
     expect(population(colony(0, 3, 2, 0))).not.toHaveProperty('emph');
   });
 });

@@ -19,9 +19,6 @@ const UNIT_OFFSET = 20;
 const OTHER_UNITS_OFFSET_X = -5;
 const OTHER_UNITS_WIDTH = 3;
 const MAX_OTHER_UNITS = 10;
-const ROAD_COLOR = 0x804000;
-/** color.map.productionBonus.N in FreeCol's default resources, as Java's Color constants. */
-const BONUS_COLORS: Record<number, number> = { 2: 0x0000ff, 1: 0x00aa00, 0: 0xffffff, [-1]: 0xffc800, [-2]: 0xff0000 };
 
 /** Where a tile's 128x64 box starts on the whole map. */
 export const tileOrigin = (x: number, y: number): [number, number] => [x * W + (y % 2) * (W / 2), (y * H) / 2];
@@ -111,7 +108,7 @@ interface Pen {
   clear(): void;
   image(pic: Picture, x: number, y: number, dim: boolean): void;
   diamond(x: number, y: number, color: number, alpha: number): void;
-  road(x: number, y: number, path: (p: PathSink) => void): void;
+  road(x: number, y: number, color: number, path: (p: PathSink) => void): void;
   rect(x: number, y: number, w: number, h: number, color: number): void;
   line(x1: number, y1: number, x2: number, y2: number, color: number): void;
   /** Text with a black outline, its top centred on (x, y) or starting there. */
@@ -175,10 +172,10 @@ async function pixiPen(host: HTMLElement, width: number, height: number): Promis
         new Graphics().poly([x + W / 2, y, x + W, y + H / 2, x + W / 2, y + H, x, y + H / 2]).fill({ color, alpha }),
       );
     },
-    road: (x, y, path) => {
+    road: (x, y, color, path) => {
       const g = new Graphics();
       path(offset(g, x, y));
-      world.addChild(g.stroke({ width: H / 32, color: ROAD_COLOR }));
+      world.addChild(g.stroke({ width: H / 32, color }));
     },
     rect: (x, y, w, h, color) => {
       world.addChild(new Graphics().rect(x, y, w, h).fill(color));
@@ -238,9 +235,9 @@ function canvasPen(host: HTMLElement, width: number, height: number): Pen {
         c.fill();
         c.globalAlpha = 1;
       }),
-    road: (x, y, path) =>
+    road: (x, y, color, path) =>
       calls.push((c) => {
-        c.strokeStyle = css(ROAD_COLOR);
+        c.strokeStyle = css(color);
         c.lineWidth = H / 32;
         c.beginPath();
         path(offset(c, x, y));
@@ -384,7 +381,7 @@ async function paint(pen: Pen, ops: Op[], pics: ReturnType<typeof pictures>) {
       case 'fog':
         return pen.diamond(ox, oy, 0x000000, 0.2);
       case 'road':
-        return pen.road(ox, oy, (p) => roadPath(op.dirs, p));
+        return pen.road(ox, oy, op.color, (p) => roadPath(op.dirs, p));
       case 'chip': {
         const x = ox + STATE_OFFSET_X;
         chip(x, oy, op.text, op.bg, op.fg);
@@ -409,8 +406,13 @@ async function paint(pen: Pen, ops: Op[], pics: ReturnType<typeof pictures>) {
       }
       case 'population': {
         const style = op.emph ? POPULATION_EMPH : POPULATION;
-        const color = shade(BONUS_COLORS[op.bonus] ?? 0xffffff);
-        pen.text(String(op.population), ox + W / 2, oy + (H - style.size) / 2, { ...style, color }, true);
+        pen.text(
+          String(op.population),
+          ox + W / 2,
+          oy + (H - style.size) / 2,
+          { ...style, color: shade(op.color) },
+          true,
+        );
         return;
       }
       case 'label':

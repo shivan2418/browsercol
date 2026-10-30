@@ -102,17 +102,17 @@ export type Op =
   | { k: 'image'; x: number; y: number; src: Src; at: Anchor; dim?: true; fade?: true }
   /** FreeCol's fog of war: 20% black over the tile's diamond. */
   | { k: 'fog'; x: number; y: number }
-  /** A road to the neighbours with roads (RoadPainter). */
-  | { k: 'road'; x: number; y: number; dirs: Direction[] }
+  /** A road to the neighbours with roads (RoadPainter), in color.map.road. */
+  | { k: 'road'; x: number; y: number; dirs: Direction[]; color: number }
   /** A unit's occupation chip in its owner's colour, with a line per unit on the tile. */
   | { k: 'chip'; x: number; y: number; text: string; bg: number; fg: number; stack: number }
   /** A native settlement's chips in a row beside it, each the first chip's width plus 2 along, as TileViewer spaces them. */
   | { k: 'chips'; x: number; y: number; chips: { text: string; bg: number; fg: number }[]; dim?: true }
   /**
-   * A colony's population in the tile's centre, coloured by its production
-   * bonus, and emphasised when the colony would rather grow.
+   * A colony's population in the tile's centre, in its production bonus's
+   * color.map.productionBonus.N, and emphasised when the colony would rather grow.
    */
-  | { k: 'population'; x: number; y: number; population: number; bonus: number; emph?: true; dim?: true }
+  | { k: 'population'; x: number; y: number; population: number; color: number; emph?: true; dim?: true }
   /** A settlement's name below the tile, in the owner's colour. */
   | { k: 'label'; x: number; y: number; name: string; rgb: number; dim?: true };
 
@@ -387,6 +387,7 @@ export function scene(map: MapView, res: Resources): Op[] {
     const i = index(x, y);
     itemsAt.set(i, [...(itemsAt.get(i) ?? []), { z, op }]);
   };
+  const roadColor = res.color('color.map.road');
   for (const [x, y, z] of map.roads) {
     addItem(x, y, z, () =>
       ops.push({
@@ -397,6 +398,7 @@ export function scene(map: MapView, res: Resources): Op[] {
           const n = step(x, y, d);
           return !!n && roads.has(index(...n));
         }),
+        color: roadColor,
       }),
     );
   }
@@ -433,7 +435,8 @@ export function scene(map: MapView, res: Resources): Op[] {
       // TileViewer.displaySettlementWithChipsOrPopulationNumber, classic labels.
       const { rgb, population, bonus, sizeChange, chips } = s;
       const emph = sizeChange > 0 ? { emph: true as const } : {};
-      if (population >= 0) ops.push({ k: 'population', x, y, population, bonus, ...emph, ...dim });
+      const color = res.color(`color.map.productionBonus.${bonus}`);
+      if (population >= 0) ops.push({ k: 'population', x, y, population, color, ...emph, ...dim });
       if (chips) ops.push({ k: 'chips', x, y, chips: nativeChips(rgb, chips), ...dim });
     }
   });
