@@ -2,7 +2,8 @@
 // manifest the Browser UI's resolver loads: the resources.properties layers
 // (data/base, then the "default" TC, then any mods given) and the art files.
 // Only the keys the map draws are kept: images, with every variation of
-// each, and the texts of native settlement chips.
+// each, the texts of native settlement chips, and the road and population
+// colours.
 // Prints the art budget: file count, bytes, brotli bytes and atlas area.
 // Usage: node build-art.mjs <freecol/data> <out dir> [mod dir...]
 import fs from 'node:fs';
@@ -12,7 +13,7 @@ import { parseProperties, resources } from '../src/resources.ts';
 
 const [data, out, ...mods] = process.argv.slice(2);
 const MAP_KEYS =
-  /^(image\.(tile|tileoverlay|tileforest|tileitem|abovetile|unit|mask)(\.|$)|indianSettlementChip\.|indianAlarmChip\.|cross$)/;
+  /^(image\.(tile|tileoverlay|tileforest|tileitem|abovetile|unit|mask)(\.|$)|color\.map\.(road$|productionBonus\.)|indianSettlementChip\.|indianAlarmChip\.|cross$)/;
 
 const layers = [
   { dir: 'base', root: path.join(data, 'base') },
