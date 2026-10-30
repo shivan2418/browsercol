@@ -118,7 +118,7 @@ class WebGUITest {
 
         assertEquals(List.of("refresh {}",
                 "information {\"text\":\"" + Messages.message("info.enterSomeText")
-                + "\",\"object\":null,\"tile\":null,\"at\":null}"),
+                + "\",\"object\":null,\"tile\":null,\"at\":null,\"ok\":\"OK\"}"),
             shown.stream().filter(e -> !e.startsWith("messages ")).collect(Collectors.toList()));
     }
 
@@ -197,9 +197,9 @@ class WebGUITest {
         gui.showModelMessages(messages);
         gui.showReportTurnPanel(messages);
         assertEquals(List.of(
-                "messages {\"title\":null,\"messages\":[" + message + "]}",
+                "messages {\"title\":null,\"messages\":[" + message + "],\"ok\":\"OK\"}",
                 "messages {\"title\":\"" + Messages.message("reportTurnAction.name")
-                + "\",\"messages\":[" + message + "]}"),
+                + "\",\"messages\":[" + message + "],\"ok\":\"OK\"}"),
             shown.stream().filter(e -> e.contains(message)).collect(Collectors.toList()));
     }
 

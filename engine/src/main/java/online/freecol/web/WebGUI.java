@@ -40,8 +40,9 @@ import net.sf.freecol.common.model.Unit;
  * FreeCol's {@code GUI} for the Browser UI. The client controllers call it
  * as they would the Swing GUI, and it turns each call into an event (show,
  * returns at once) or a question (ask, waits for the player's answer).
- * Payloads are JSON objects, with text already localized and game objects
- * as FreeCol ids. Answers come back as strings, null for a closed dialog.
+ * Payloads are JSON objects, with text already localized, button labels
+ * included (ok: the label of a panel's close button), and game objects as
+ * FreeCol ids. Answers come back as strings, null for a closed dialog.
  *
  * <table>
  * <caption>The GUI methods overridden, and what they send</caption>
@@ -64,13 +65,13 @@ import net.sf.freecol.common.model.Unit;
  *     <td>{tile, at}; the active unit is kept</td></tr>
  * <tr><td>setFocus</td><td>event focus</td><td>{tile, at}</td></tr>
  * <tr><td>showInformationPanel(FreeColObject, StringTemplate)</td>
- *     <td>event information</td><td>{text, object, tile, at}</td></tr>
+ *     <td>event information</td><td>{text, object, tile, at, ok}</td></tr>
  * <tr><td>showErrorPanel(String, Runnable)</td><td>event error</td>
- *     <td>{text}</td></tr>
+ *     <td>{text, ok}</td></tr>
  * <tr><td>showEventPanel</td><td>event eventPanel</td>
- *     <td>{header, image, footer}</td></tr>
+ *     <td>{header, image, footer, ok}</td></tr>
  * <tr><td>showModelMessages</td><td>event messages</td>
- *     <td>{title: null, messages: [{text, type, source, tile, at}]};
+ *     <td>{title: null, messages: [{text, type, source, tile, at}], ok};
  *         tile and at are the source's, to go to</td></tr>
  * <tr><td>showReportTurnPanel</td><td>event messages</td>
  *     <td>as showModelMessages, titled as the turn report</td></tr>
@@ -217,7 +218,8 @@ public class WebGUI extends GUI {
         }
         this.ui.show("messages", new Json()
             .put("title", title)
-            .putRaw("messages", Json.array(messages)).toString());
+            .putRaw("messages", Json.array(messages))
+            .put("ok", label("ok")).toString());
     }
 
 
@@ -314,7 +316,7 @@ public class WebGUI extends GUI {
         this.ui.show("information", tile(new Json()
             .put("text", Messages.message(template))
             .put("object", id(displayObject)), tileOf(displayObject))
-            .toString());
+            .put("ok", label("ok")).toString());
         return null;
     }
 
@@ -326,7 +328,8 @@ public class WebGUI extends GUI {
      */
     @Override
     public FreeColPanel showErrorPanel(String message, Runnable callback) {
-        this.ui.show("error", new Json().put("text", message).toString());
+        this.ui.show("error", new Json().put("text", message)
+            .put("ok", label("ok")).toString());
         if (callback != null) callback.run();
         return null;
     }
@@ -338,7 +341,7 @@ public class WebGUI extends GUI {
             .put("header", header)
             .put("image", image)
             .put("footer", footer)
-            .toString());
+            .put("ok", label("ok")).toString());
         return null;
     }
 
