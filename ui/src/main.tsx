@@ -77,12 +77,13 @@ function dispatch(e: ViewEvent) {
   map.show(view);
   showPanel();
 }
-let size: [number, number] = [0, 0];
+/** The size the map was last given, to skip the ResizeObserver's calls that change nothing. */
+let mapGiven: [number, number] = [0, 0];
 function resize() {
   const [w, h] = mapSize();
-  if (w === size[0] && h === size[1]) return;
-  size = [w, h];
-  map.resize(size);
+  if (w === mapGiven[0] && h === mapGiven[1]) return;
+  mapGiven = [w, h];
+  map.resize(mapGiven);
   dispatch({ k: 'resize', width: w, height: h });
 }
 resize();

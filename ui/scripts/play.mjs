@@ -221,7 +221,7 @@ async function play(page, url) {
   };
   /** Widen the side panel: the map must make room for it, and fill the window again once it narrows. */
   const widenSide = async () => {
-    const style = await page.addStyleTag({ content: '#side { flex: none; width: 600px; }' });
+    const style = await page.addStyleTag({ content: '#side { width: 600px; }' });
     await laidOut('with a wider side panel');
     await style.evaluate((s) => s.remove());
     await laidOut('with the side panel back');

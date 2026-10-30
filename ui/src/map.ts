@@ -496,7 +496,7 @@ export function mapDrawer(
   draw(map: MapView): Promise<void>;
   /** Show the view: where it is centred, its zoom, the cursor and the active unit's path. */
   show(view: ViewState): void;
-  /** Make the canvas `size` screen pixels, as the window changed; show() the resized view after. */
+  /** Make the canvas `size` screen pixels, as its host's box changed; show() the resized view after. */
   resize(size: [number, number]): void;
   renderer(): string;
   /** The tile under a pixel of the canvas, or null off the map or before the first draw. */
