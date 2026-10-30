@@ -3,6 +3,8 @@
 // player's clicks and keys into commands. The map's view state (view.ts)
 // takes the WebGUI's view events and the player's drags, wheel zooms,
 // edge scrolling and pointer moves; the map and the info panel show it.
+// The WebGUI's questions and panels open as dialogs (panels.tsx) over the
+// page, and the side panel (side.tsx) lists the dialogs it cannot show yet.
 // window.fcResult is set once the autoplay rounds are done and play passes
 // to the human, or on failure.
 //   ?autoplay=N  rounds the human auto-ends its turn first (debug; default 0)
@@ -12,9 +14,13 @@
 import clientUrl from '../generated/client.wasm?url';
 import dataUrl from '../generated/data.json?url';
 import runtimeUrl from '../generated/teavm-runtime.js?url';
+import { createRoot } from 'react-dom/client';
 import { startPage, type ClientExports, type Scope } from './channel';
+import { dialogs } from './dialogs';
 import { commandForKey, type Command } from './input';
 import { mapDrawer, type MapView } from './map';
+import { DialogHost } from './panels';
+import { Side, type SideProps } from './side';
 import { loadModule } from './teavm';
 import { cursor, initialView, panel, reduce, tileOnScreen, W, type ViewEvent, type ViewState } from './view';
 import type { GuiHandlers } from './webgui';
@@ -26,6 +32,8 @@ declare global {
     fcReveal?: (x: number, y: number) => [number, number];
     /** For scripts/play.mjs: the view state, without its map, and where the cursor is. */
     fcView?: () => Omit<ViewState, 'map'> & { cursor: ReturnType<typeof cursor> };
+    /** For scripts: the WebGUI dialogs that had no Browser UI, by method, each time one was asked. */
+    fcUnasked?: string[];
   }
 }
 
@@ -33,9 +41,6 @@ const params = new URLSearchParams(location.search);
 const autoplay = Number(params.get('autoplay') ?? '0');
 const rules = params.get('rules') ?? 'classic';
 const tileset = params.get('tileset');
-const out = document.getElementById('out')!;
-const turn = document.getElementById('turn')!;
-const info = document.getElementById('info')!;
 const mapHost = document.getElementById('map')!;
 const viewport: [number, number] = [Math.max(320, innerWidth - 360), Math.max(240, innerHeight)];
 const map = mapDrawer(
@@ -47,6 +52,19 @@ const map = mapDrawer(
 );
 const rounds: string[] = [];
 let drawn = Promise.resolve();
+
+const box = dialogs();
+const side: Omit<SideProps, 'run'> = { turn: '-', info: '', unasked: [], status: 'starting...' };
+let runCommand: (c: Command) => void = () => {};
+const sideRoot = createRoot(document.getElementById('side')!);
+function renderSide() {
+  sideRoot.render(
+    <>
+      <Side {...side} run={(c) => runCommand(c)} />
+      <DialogHost dialogs={box} goTo={(at) => dispatch({ k: 'focus', tile: null, at })} />
+    </>,
+  );
+}
 
 let view = initialView;
 function dispatch(e: ViewEvent) {
@@ -75,37 +93,49 @@ function showPanel() {
   const { unit, tile } = panel(view);
   const lines = unit ? [unit.label, `Moves: ${unit.moves}`, ...unit.cargo.map((c) => `  ${c}`)] : ['No active unit'];
   if (tile) lines.push('', tile.name ?? 'Unexplored', ...(tile.owner ? [tile.owner.name] : []));
-  info.textContent = lines.join('\n');
+  side.info = lines.join('\n');
+  renderSide();
 }
 
 function show(status: string, extra: Record<string, unknown> = {}) {
   const state = { status, rules, autoplay, renderer: map.renderer(), rounds, ...extra };
   if (status !== 'running') window.fcResult = state;
-  out.textContent = JSON.stringify(state, null, 1);
+  side.status = JSON.stringify(state, null, 1);
+  renderSide();
 }
 
-// Stopgap until the Browser UI has its own dialogs (#18): the browser's
-// native ones, where dismissing answers as a closed dialog does.
+window.fcUnasked = [];
 const gui: GuiHandlers = {
   events: {
     activeUnit: (e) => dispatch({ k: 'activeUnit', ...e }),
     selectedTile: (e) => dispatch({ k: 'selectedTile', ...e }),
     focus: (e) => dispatch({ k: 'focus', ...e }),
-    information: (e) => console.info(e.text),
-    error: (e) => console.error(e.text),
+    information: (e) => box.show('information', e),
+    error: (e) => {
+      console.error(e.text);
+      box.show('error', e);
+    },
+    eventPanel: (e) => box.show('eventPanel', e),
+    messages: (e) => {
+      if (e.messages.length > 0) box.show('messages', e);
+    },
+    unasked: (e) => {
+      console.warn(`WebGUI: no dialog yet for ${e.method}; FreeCol's default was used`);
+      side.unasked = [...side.unasked, e.method];
+      window.fcUnasked = side.unasked;
+      renderSide();
+    },
   },
   questions: {
-    confirm: (q) => confirm(`${q.text}\n\nOK: ${q.ok}\nCancel: ${q.cancel}`),
-    choice: (q) => {
-      const n = prompt(`${q.text}\n\n${q.choices.map((c, i) => `${i}: ${c.text}`).join('\n')}`);
-      return n === null || n.trim() === '' ? null : Number(n);
-    },
-    input: (q) => prompt(q.text, q.value ?? ''),
+    confirm: (q) => box.ask('confirm', q),
+    choice: (q) => box.ask('choice', q),
+    input: (q) => box.ask('input', q),
   },
 };
 
 function drawMap(m: MapView) {
-  turn.textContent = `${m.turn}${m.ourTurn ? '' : ' (AI playing)'}`;
+  side.turn = `${m.turn}${m.ourTurn ? '' : ' (AI playing)'}`;
+  renderSide();
   dispatch({ k: 'map', map: m });
   drawn = map.draw(m);
 }
@@ -187,21 +217,16 @@ function moveWith(): () => boolean {
 }
 const dragged = moveWith();
 
-/** The commands of the side panel's buttons, by their data-command. */
-const BUTTONS: Record<string, Command> = {
-  nextUnit: { k: 'nextUnit' },
-  buildColony: { k: 'buildColony' },
-  endTurn: { k: 'endTurn' },
-};
-
 /** Hook the player's input up to the client Engine's commands. */
 function playWith(client: ClientExports) {
   const run = (c: Command) => {
     if (c.k === 'move') client.move(c.direction);
     else client[c.k]();
   };
+  runCommand = run;
   addEventListener('keydown', (e) => {
-    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    // An open dialog has the keys (panels.tsx).
+    if (e.altKey || e.ctrlKey || e.metaKey || box.current()) return;
     const c = commandForKey(e);
     if (!c) return;
     e.preventDefault();
@@ -212,10 +237,6 @@ function playWith(client: ClientExports) {
     const tile = at && !dragged() ? map.tileAt(...at) : null;
     if (tile) client.click(...tile);
   });
-  for (const button of document.querySelectorAll<HTMLButtonElement>('button[data-command]')) {
-    const c = BUTTONS[button.dataset.command ?? ''];
-    if (c) button.addEventListener('click', () => run(c));
-  }
 }
 
 async function run() {

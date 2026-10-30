@@ -1,10 +1,12 @@
 // Smoke test of the built site: serves dist/ statically under a sub-path, as
 // GitHub Pages does, loads it in each browser and waits for window.fcResult.
 // Exits non-zero unless every browser finishes the game, fetching the data
-// bundle once. Run in the web image:
+// bundle once. The page's dialogs are answered as scripts/dialogs.mjs says.
+// Run in the web image:
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/smoke.mjs [--browsers chromium,firefox] [--autoplay N]
 import path from 'node:path';
 import { createRequire } from 'node:module';
+import { answerDialogs } from './dialogs.mjs';
 import { dist, serveDist } from './serve-dist.mjs';
 
 const require = createRequire(import.meta.url);
@@ -23,6 +25,7 @@ let failed = false;
 for (const name of browsers) {
   const browser = await playwright[name].launch();
   const page = await browser.newPage();
+  await answerDialogs(page);
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
   server.resetDataFetches();
