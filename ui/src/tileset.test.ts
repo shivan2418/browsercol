@@ -25,7 +25,18 @@ const map: MapView = {
   roads: [[0, 3, 150]],
   items: [[1, 1, 400, 'centered', 'image.tileitem.model.resource.ore']],
   settlements: [],
-  units: [[0, 0, ['image.unit.model.unit.caravel.dutch', 'image.unit.model.unit.caravel'], 0xff8000, '-', 0, 3, false]],
+  units: [
+    {
+      x: 0,
+      y: 0,
+      keys: ['image.unit.model.unit.caravel.dutch', 'image.unit.model.unit.caravel'],
+      rgb: 0xff8000,
+      chip: '-',
+      fg: 0,
+      stack: 3,
+      fade: false,
+    },
+  ],
   active: [0, 0],
 };
 
@@ -160,8 +171,20 @@ describe('colony labels', () => {
   // A colony of 3 at (0,3) with a caravel in front, as FreeCol's classic labels draw it.
   const colony = (x: number, y: number, bonus = -1, sizeChange = 0): MapView => ({
     ...map,
-    settlements: [[x, y, ['image.settlement.colony'], 0xff8000, 'Jamestown', 3, bonus, sizeChange, null]],
-    units: [[x, y, ['image.unit.model.unit.caravel'], 0xff8000, '-', 0, 1, false]],
+    settlements: [
+      {
+        x,
+        y,
+        keys: ['image.settlement.colony'],
+        rgb: 0xff8000,
+        name: 'Jamestown',
+        population: 3,
+        bonus,
+        sizeChange,
+        chips: null,
+      },
+    ],
+    units: [{ x, y, keys: ['image.unit.model.unit.caravel'], rgb: 0xff8000, chip: '-', fg: 0, stack: 1, fade: false }],
   });
   const index = (ops: Op[], k: Op['k'], src?: string) =>
     ops.findIndex((op) => op.k === k && (!src || (op.k === 'image' && op.src === src)));
@@ -193,7 +216,19 @@ describe('native settlement chips', () => {
   // A capital in light tan, with a dark red mission, at (0,3) in sight.
   const village = (x: number, y: number, chips: Chips): MapView => ({
     ...map,
-    settlements: [[x, y, ['image.settlement.colony'], 0xc0a080, 'Onondaga', -1, 0, 0, chips]],
+    settlements: [
+      {
+        x,
+        y,
+        keys: ['image.settlement.colony'],
+        rgb: 0xc0a080,
+        name: 'Onondaga',
+        population: -1,
+        bonus: 0,
+        sizeChange: 0,
+        chips,
+      },
+    ],
     units: [],
   });
   const contacted: Chips = {
@@ -235,6 +270,8 @@ describe('native settlement chips', () => {
   it('dims the chips on a tile out of sight, and colonies have none', () => {
     expect(chipsOf(village(1, 1, contacted))[0]).toHaveProperty('dim', true);
     expect(chipsOf(village(0, 3, contacted))[0]).not.toHaveProperty('dim');
-    expect(chipsOf({ ...map, settlements: [[0, 3, ['image.settlement.colony'], 0, 'J', 1, 0, 0, null]] })).toEqual([]);
+    const colony = { x: 0, y: 3, keys: ['image.settlement.colony'], rgb: 0, name: 'J' };
+    const settlements = [{ ...colony, population: 1, bonus: 0, sizeChange: 0, chips: null }];
+    expect(chipsOf({ ...map, settlements })).toEqual([]);
   });
 });

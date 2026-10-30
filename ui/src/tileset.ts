@@ -29,14 +29,44 @@ export interface MapView {
   roads: [number, number, number][];
   /** [x, y, zIndex, kind, key] in zIndex order per tile. */
   items: [number, number, number, 'centered' | 'tile', string][];
-  /**
-   * [x, y, keys, rgb, name, population (-1 for native settlements),
-   * production bonus, preferred size change, chips (null for colonies)].
-   */
-  settlements: [number, number, string[], number, string, number, number, number, Chips | null][];
-  /** [x, y, keys, rgb, chip text, chip text rgb, units on the tile, faded]. */
-  units: [number, number, string[], number, string, number, number, boolean][];
+  settlements: Settlement[];
+  units: Unit[];
   active: [number, number] | null;
+}
+
+export interface Settlement {
+  x: number;
+  y: number;
+  /** Image keys, most specific first. */
+  keys: string[];
+  /** The owner's colour. */
+  rgb: number;
+  /** The name as the player knows it. */
+  name: string;
+  /** -1 for native settlements. */
+  population: number;
+  /** The production bonus. */
+  bonus: number;
+  /** The preferred size change. */
+  sizeChange: number;
+  /** Null for colonies. */
+  chips: Chips | null;
+}
+
+/** The unit MapViewer shows in front on a tile. */
+export interface Unit {
+  x: number;
+  y: number;
+  /** Image keys, most specific first. */
+  keys: string[];
+  /** The owner's colour. */
+  rgb: number;
+  /** The occupation chip's text, and its colour. */
+  chip: string;
+  fg: number;
+  /** Units on the tile. */
+  stack: number;
+  fade: boolean;
 }
 
 /** What a native settlement's chips show; the alarm chip once the player has made contact. */
@@ -372,7 +402,7 @@ export function scene(map: MapView, res: Resources): Op[] {
     if (src)
       addItem(x, y, z, () => ops.push({ k: 'image', x, y, src, at: kind === 'tile' ? 'tile' : 'center', ...dim }));
   }
-  const settlements = new Map(map.settlements.map((s) => [s[1] * w + s[0], s]));
+  const settlements = new Map(map.settlements.map((s) => [s.y * w + s.x, s]));
   each((x, y) => {
     const type = typeAt(x, y);
     if (!type) return;
@@ -393,11 +423,11 @@ export function scene(map: MapView, res: Resources): Op[] {
     }
     upTo(Infinity);
     const s = settlements.get(y * w + x);
-    const key = s && first(s[2]);
+    const key = s && first(s.keys);
     if (s && key) {
       ops.push({ k: 'image', x, y, src: named(key)!, at: 'large', ...dim });
       // TileViewer.displaySettlementWithChipsOrPopulationNumber, classic labels.
-      const [, , , rgb, , population, bonus, sizeChange, chips] = s;
+      const { rgb, population, bonus, sizeChange, chips } = s;
       const emph = sizeChange > 0 ? { emph: true as const } : {};
       if (population >= 0) ops.push({ k: 'population', x, y, population, bonus, ...emph, ...dim });
       if (chips) ops.push({ k: 'chips', x, y, chips: nativeChips(rgb, chips), ...dim });
@@ -417,10 +447,10 @@ export function scene(map: MapView, res: Resources): Op[] {
     return chips;
   }
 
-  for (const [x, y, keys, bg, text, fg, stack, fade] of map.units) {
+  for (const { x, y, keys, rgb, chip, fg, stack, fade } of map.units) {
     const key = first(keys);
     if (key) ops.push({ k: 'image', x, y, src: named(key)!, at: 'unit', ...(fade ? { fade: true as const } : {}) });
-    ops.push({ k: 'chip', x, y, text, bg, fg, stack });
+    ops.push({ k: 'chip', x, y, text: chip, bg: rgb, fg, stack });
   }
 
   each((x, y) => {
@@ -429,7 +459,7 @@ export function scene(map: MapView, res: Resources): Op[] {
     if (src) ops.push({ k: 'image', x, y, src, at: 'center' });
   });
 
-  for (const [x, y, , rgb, name] of map.settlements) {
+  for (const { x, y, rgb, name } of map.settlements) {
     if (!explored([x, y])) continue;
     ops.push({ k: 'label', x, y, name, rgb, ...(seen(x, y) ? {} : { dim: true as const }) });
   }

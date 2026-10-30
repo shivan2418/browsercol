@@ -24,7 +24,7 @@ import net.sf.freecol.common.util.Utils;
 
 
 /**
- * The client's view of the map for the Tileset renderer (ui/src/tileset.ts),
+ * The client's view of the map for Tileset mode (ui/src/tileset.ts),
  * as JSON. Where FreeCol's ImageLibrary picks a resource key by checking
  * which keys exist, this sends the candidates, most specific first, and the
  * Browser UI takes the first its Tileset has. Fields:
@@ -39,14 +39,15 @@ import net.sf.freecol.common.util.Utils;
  * <li>items: [x, y, zIndex, kind, key] per other complete tile item in
  *     zIndex order, kind "centered" (resources, rumours) or "tile"
  *     (improvement images, drawn if the key exists);
- * <li>settlements: [x, y, [keys], rgb, name as the player knows it,
- *     population or -1, production bonus, preferred size change, chips],
- *     chips being null for a colony and for a native settlement
+ * <li>settlements: {x, y, keys, rgb, name as the player knows it,
+ *     population or -1, bonus (production), sizeChange (preferred),
+ *     chips}, chips being null for a colony and for a native settlement
  *     {capital, fg, mission: {rgb, expert} or null, alarm: {fg, worthScouting}
  *     or null}, what ImageLibrary's settlement, mission and alarm chips
  *     show;
- * <li>units: [x, y, [keys], rgb, chip text, chip text rgb, units on the
- *     tile, faded], for the unit MapViewer shows in front;
+ * <li>units: {x, y, keys, rgb, chip (text), fg (the chip text's rgb),
+ *     stack (units on the tile), fade}, for the unit MapViewer shows in
+ *     front;
  * <li>active: the active unit's tile, [x, y], or null.
  * </ul>
  */
@@ -161,10 +162,14 @@ final class MapJson {
         }
         keys.add(key);
         final Tile t = s.getTile();
-        return "[" + t.getX() + "," + t.getY() + "," + keys(keys) + ","
-            + rgb(s.getOwner()) + ","
-            + Json.quote(Messages.message(s.getLocationLabelFor(player))) + ","
-            + population + "," + bonus + "," + sizeChange + "," + chips + "]";
+        return new Json().put("x", t.getX()).put("y", t.getY())
+            .putRaw("keys", keys(keys))
+            .put("rgb", rgb(s.getOwner()))
+            .put("name", Messages.message(s.getLocationLabelFor(player)))
+            .put("population", population)
+            .put("bonus", bonus)
+            .put("sizeChange", sizeChange)
+            .putRaw("chips", chips).toString();
     }
 
     /**
@@ -218,9 +223,13 @@ final class MapJson {
         final int fg = (u.getState() == Unit.UnitState.FORTIFIED) ? 0x808080
             : foreground(rgb);
         final String chip = Messages.message(u.getOccupationLabel(player, false));
-        return "[" + t.getX() + "," + t.getY() + "," + keys(unitKeys(u)) + ","
-            + rgb + "," + Json.quote(chip) + "," + fg + ","
-            + t.getTotalUnitCount() + "," + fade + "]";
+        return new Json().put("x", t.getX()).put("y", t.getY())
+            .putRaw("keys", keys(unitKeys(u)))
+            .put("rgb", rgb)
+            .put("chip", chip)
+            .put("fg", fg)
+            .put("stack", t.getTotalUnitCount())
+            .put("fade", fade).toString();
     }
 
     /** ImageLibrary.getUnitTypeImageKey's candidates. */
