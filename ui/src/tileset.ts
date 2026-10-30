@@ -10,6 +10,7 @@ export interface TileType {
   id: string;
   land: boolean;
   forested: boolean;
+  name: string;
 }
 
 /** The client's view of the map, as MapJson.java writes it. */
@@ -23,6 +24,10 @@ export interface MapView {
   tiles: string;
   /** One character per tile: '1' if the player can see it now. */
   seen: string;
+  /** One character per tile: 'A' + players index, '.' if unexplored or nobody's. */
+  owners: string;
+  /** The tile owners: the nation's name and colour. */
+  players: { name: string; rgb: number }[];
   /** [x, y, magnitude, style, forest mask]; style digits face NE, SE, SW, NW. */
   rivers: [number, number, number, string, string][];
   /** [x, y, zIndex] per complete road. */
@@ -32,6 +37,19 @@ export interface MapView {
   settlements: Settlement[];
   units: Unit[];
   active: [number, number] | null;
+  activeUnit: ActiveUnit | null;
+}
+
+/** What FreeCol's InfoPanel shows of the active unit, and its way to its destination. */
+export interface ActiveUnit {
+  id: string;
+  label: string;
+  /** Moves left, as FreeCol writes them, e.g. "1 2/3". */
+  moves: string;
+  /** The units and goods aboard. */
+  cargo: string[];
+  /** [x, y, turns] per step to the destination, or null without one. */
+  path: [number, number, number][] | null;
 }
 
 export interface Settlement {

@@ -7,10 +7,20 @@
 /** Game objects are named by their FreeCol ids, e.g. "unit:12", "tile:345". */
 export type Id = string;
 
+/** A tile, by id and by its [x, y] on the map. */
+export interface TileRef {
+  tile: Id | null;
+  at: [number, number] | null;
+}
+
 /** Events: shown, nothing comes back. */
 export interface GuiEvents {
   refresh: Record<string, never>;
-  activeUnit: { unit: Id | null; tile: Id | null };
+  activeUnit: { unit: Id | null } & TileRef;
+  /** Terrain mode: a tile is selected; the active unit is kept. */
+  selectedTile: TileRef;
+  /** Centre the map on a tile. */
+  focus: TileRef;
   information: { text: string; object: Id | null };
   error: { text: string };
   eventPanel: { header: string; image: string | null; footer: string | null };

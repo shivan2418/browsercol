@@ -15,12 +15,14 @@ const map: MapView = {
   turn: 'Spring 1492',
   ourTurn: true,
   types: [
-    { id: 'model.tile.plains', land: true, forested: false },
-    { id: 'model.tile.ocean', land: false, forested: false },
-    { id: 'model.tile.hills', land: true, forested: false },
+    { id: 'model.tile.plains', land: true, forested: false, name: 'Plains' },
+    { id: 'model.tile.ocean', land: false, forested: false, name: 'Ocean' },
+    { id: 'model.tile.hills', land: true, forested: false, name: 'Hills' },
   ],
   tiles: 'AB' + 'AC' + '.A' + 'AA',
   seen: '11' + '10' + '01' + '11',
+  owners: '........',
+  players: [],
   rivers: [],
   roads: [[0, 3, 150]],
   items: [[1, 1, 400, 'centered', 'image.tileitem.model.resource.ore']],
@@ -38,6 +40,7 @@ const map: MapView = {
     },
   ],
   active: [0, 0],
+  activeUnit: null,
 };
 
 const props = `
