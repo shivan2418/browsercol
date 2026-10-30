@@ -61,10 +61,11 @@ describe('webGui', () => {
     ]);
   });
 
-  it('answers an unknown or failing question as a closed dialog', async () => {
+  it('answers an unknown or failing question as a closed dialog, reporting an unknown one', async () => {
     const a = answers();
+    const unasked: string[] = [];
     const handlers: GuiHandlers = {
-      events: {},
+      events: { unasked: (e) => unasked.push(e.method) },
       questions: {
         confirm: () => {
           throw new Error('no dialog');
@@ -91,6 +92,7 @@ describe('webGui', () => {
       [1, null],
       [2, null],
     ]);
+    expect(unasked).toEqual(['ask monarch']);
   });
 
   it('routes events to their handlers and drops the rest', () => {
