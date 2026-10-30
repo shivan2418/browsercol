@@ -3,15 +3,16 @@
 // headless browsers). Images load by path from the art/ directory that
 // scripts/build-art.mjs fills; recipes (FreeCol's masked images) are
 // composited once on a canvas and cached by id. The map is FreeCol's: 128x64
-// diamonds in staggered rows, odd rows half a tile to the right. Drag to pan.
+// diamonds in staggered rows, odd rows half a tile to the right. It shows
+// the part of the map, at the zoom, that the view state (view.ts) says, with
+// the cursor and the active unit's path drawn over it.
 import { Application, Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import { resources, type ArtLayer, type Resources } from './resources';
-import { scene, srcId, type Direction, type MapView, type Op, type Src } from './tileset';
+import { overlay, scene, srcId, type Direction, type MapView, type Op, type Src } from './tileset';
+import { H, W, cursor, tileOrigin, toMap, type ViewState } from './view';
 
 export type { MapView } from './tileset';
-
-const W = 128;
-const H = 64;
+export { tileOrigin } from './view';
 /** TileViewer.STATE_OFFSET_X/Y and TileBounds' unit offsets, at scale 1. */
 const STATE_OFFSET_X = 25;
 const STATE_OFFSET_Y = 10;
@@ -19,9 +20,6 @@ const UNIT_OFFSET = 20;
 const OTHER_UNITS_OFFSET_X = -5;
 const OTHER_UNITS_WIDTH = 3;
 const MAX_OTHER_UNITS = 10;
-
-/** Where a tile's 128x64 box starts on the whole map. */
-export const tileOrigin = (x: number, y: number): [number, number] => [x * W + (y % 2) * (W / 2), (y * H) / 2];
 
 /** The tile whose diamond holds a point of the whole map, or null off the map. */
 export function tileAt(w: number, h: number, px: number, py: number): [number, number] | null {
@@ -102,20 +100,26 @@ interface TextStyle {
   italic?: boolean;
 }
 
+/** The map's layers: the scene, and the cursor and path over it. */
+type Layer = 0 | 1;
+
 /** What draws the map: a PixiJS scene graph or a Canvas 2D context. */
 interface Pen {
   readonly canvas: HTMLCanvasElement;
-  clear(): void;
+  /** Clear a layer, and draw on it from now on. */
+  begin(layer: Layer): void;
   image(pic: Picture, x: number, y: number, dim: boolean): void;
   diamond(x: number, y: number, color: number, alpha: number): void;
   road(x: number, y: number, color: number, path: (p: PathSink) => void): void;
   rect(x: number, y: number, w: number, h: number, color: number): void;
-  line(x1: number, y1: number, x2: number, y2: number, color: number): void;
+  line(x1: number, y1: number, x2: number, y2: number, color: number, width?: number, alpha?: number): void;
+  /** A filled circle of radius r with a 2-pixel outline. */
+  circle(x: number, y: number, r: number, fill: number, outline: number, outlineAlpha: number): void;
   /** Text with a black outline, its top centred on (x, y) or starting there. */
   text(s: string, x: number, y: number, style: TextStyle, center: boolean): void;
   measure(s: string, style: TextStyle): number;
-  /** Show the map moved by (dx, dy). */
-  show(dx: number, dy: number): void;
+  /** Show the map scaled by `scale`, then moved by (dx, dy). */
+  show(dx: number, dy: number, scale: number): void;
 }
 
 interface PathSink {
@@ -148,7 +152,10 @@ async function pixiPen(host: HTMLElement, width: number, height: number): Promis
   await app.init({ width, height, background: 0x000000, antialias: true });
   host.append(app.canvas);
   const world = new Container();
+  const layers = [new Container(), new Container()];
+  world.addChild(...layers);
   app.stage.addChild(world);
+  let layer = layers[0];
   const textures = new WeakMap<Picture, Texture>();
   const texture = (pic: Picture) => {
     let t = textures.get(pic);
@@ -158,30 +165,36 @@ async function pixiPen(host: HTMLElement, width: number, height: number): Promis
   const measurer = document.createElement('canvas').getContext('2d')!;
   return {
     canvas: app.canvas,
-    clear: () => {
-      for (const child of world.removeChildren()) child.destroy();
+    begin: (n) => {
+      layer = layers[n];
+      for (const child of layer.removeChildren()) child.destroy();
     },
     image: (pic, x, y, dim) => {
       const s = new Sprite(texture(pic));
       s.position.set(x, y);
       if (dim) s.tint = 0xcccccc;
-      world.addChild(s);
+      layer.addChild(s);
     },
     diamond: (x, y, color, alpha) => {
-      world.addChild(
+      layer.addChild(
         new Graphics().poly([x + W / 2, y, x + W, y + H / 2, x + W / 2, y + H, x, y + H / 2]).fill({ color, alpha }),
       );
     },
     road: (x, y, color, path) => {
       const g = new Graphics();
       path(offset(g, x, y));
-      world.addChild(g.stroke({ width: H / 32, color }));
+      layer.addChild(g.stroke({ width: H / 32, color }));
     },
     rect: (x, y, w, h, color) => {
-      world.addChild(new Graphics().rect(x, y, w, h).fill(color));
+      layer.addChild(new Graphics().rect(x, y, w, h).fill(color));
     },
-    line: (x1, y1, x2, y2, color) => {
-      world.addChild(new Graphics().moveTo(x1, y1).lineTo(x2, y2).stroke({ width: 1, color }));
+    line: (x1, y1, x2, y2, color, width = 1, alpha = 1) => {
+      layer.addChild(new Graphics().moveTo(x1, y1).lineTo(x2, y2).stroke({ width, color, alpha, cap: 'round' }));
+    },
+    circle: (x, y, r, fill, outline, outlineAlpha) => {
+      layer.addChild(
+        new Graphics().circle(x, y, r).fill(fill).stroke({ width: 2, color: outline, alpha: outlineAlpha }),
+      );
     },
     text: (s, x, y, style, center) => {
       const t = new Text({
@@ -196,13 +209,16 @@ async function pixiPen(host: HTMLElement, width: number, height: number): Promis
         },
       });
       t.position.set(center ? x - t.width / 2 : x, y);
-      world.addChild(t);
+      layer.addChild(t);
     },
     measure: (s, style) => {
       measurer.font = fontOf(style);
       return measurer.measureText(s).width;
     },
-    show: (dx, dy) => world.position.set(dx, dy),
+    show: (dx, dy, scale) => {
+      world.scale.set(scale);
+      world.position.set(dx, dy);
+    },
   };
 }
 
@@ -213,10 +229,13 @@ function canvasPen(host: HTMLElement, width: number, height: number): Pen {
   host.append(canvas);
   const c = canvas.getContext('2d')!;
   // Canvas 2D has no scene graph: record the drawing and replay it to pan.
-  let calls: ((c: CanvasRenderingContext2D) => void)[] = [];
+  const layers: ((c: CanvasRenderingContext2D) => void)[][] = [[], []];
+  let calls = layers[0];
   return {
     canvas,
-    clear: () => (calls = []),
+    begin: (n) => {
+      calls = layers[n] = [];
+    },
     image: (pic, x, y, dim) =>
       calls.push((c) => {
         c.filter = dim ? 'brightness(0.8)' : 'none';
@@ -248,14 +267,30 @@ function canvasPen(host: HTMLElement, width: number, height: number): Pen {
         c.fillStyle = css(color);
         c.fillRect(x, y, w, h);
       }),
-    line: (x1, y1, x2, y2, color) =>
+    line: (x1, y1, x2, y2, color, width = 1, alpha = 1) =>
       calls.push((c) => {
+        c.globalAlpha = alpha;
         c.strokeStyle = css(color);
-        c.lineWidth = 1;
+        c.lineWidth = width;
+        c.lineCap = 'round';
         c.beginPath();
         c.moveTo(x1, y1);
         c.lineTo(x2, y2);
         c.stroke();
+        c.globalAlpha = 1;
+        c.lineCap = 'butt';
+      }),
+    circle: (x, y, r, fill, outline, outlineAlpha) =>
+      calls.push((c) => {
+        c.beginPath();
+        c.arc(x, y, r, 0, 2 * Math.PI);
+        c.fillStyle = css(fill);
+        c.fill();
+        c.globalAlpha = outlineAlpha;
+        c.strokeStyle = css(outline);
+        c.lineWidth = 2;
+        c.stroke();
+        c.globalAlpha = 1;
       }),
     text: (s, x, y, style, center) =>
       calls.push((c) => {
@@ -272,12 +307,12 @@ function canvasPen(host: HTMLElement, width: number, height: number): Pen {
       c.font = fontOf(style);
       return c.measureText(s).width;
     },
-    show: (dx, dy) => {
+    show: (dx, dy, scale) => {
       c.setTransform(1, 0, 0, 1, 0, 0);
       c.fillStyle = '#000';
       c.fillRect(0, 0, width, height);
-      c.translate(dx, dy);
-      for (const call of calls) call(c);
+      c.setTransform(scale, 0, 0, scale, dx, dy);
+      for (const layer of layers) for (const call of layer) call(c);
     },
   };
 }
@@ -338,9 +373,13 @@ const NAME: TextStyle = { color: 0, font: 'serif', size: 13 };
 /** TileViewer's fonts: simple-bold-tiny, and simple-bold+italic-smaller to emphasise. */
 const POPULATION: TextStyle = { color: 0, font: 'sans-serif', size: 12, bold: true };
 const POPULATION_EMPH: TextStyle = { ...POPULATION, size: 14, italic: true };
+/** The turns on a path mark, in black: the stroke is black too. */
+const PATH_TURNS: TextStyle = { color: 0x000000, font: 'sans-serif', size: 12 };
+/** Green for this turn's steps, yellow for later turns'. */
+const pathColor = (turns: number) => (turns > 0 ? 0xffff00 : 0x00ff00);
 
-/** Draw the scene's operations, loading what they need first. */
-async function paint(pen: Pen, ops: Op[], pics: ReturnType<typeof pictures>) {
+/** Draw operations on a layer, loading what they need first. */
+async function paint(pen: Pen, layer: Layer, ops: Op[], pics: ReturnType<typeof pictures>) {
   const images = await Promise.all(
     ops.map((op) =>
       op.k === 'image' ? (op.fade ? pics.gray(op.src) : pics.get(op.src)).catch(() => null) : Promise.resolve(null),
@@ -356,7 +395,7 @@ async function paint(pen: Pen, ops: Op[], pics: ReturnType<typeof pictures>) {
     pen.text(text, x + pad / 2, y + pad / 2 - 1, { ...CHIP, color: fg }, false);
     return cw;
   };
-  pen.clear();
+  pen.begin(layer);
   ops.forEach((op, i) => {
     const [ox, oy] = tileOrigin(op.x, op.y);
     const shade = (c: number) => ('dim' in op && op.dim ? fogged(c) : c);
@@ -419,6 +458,16 @@ async function paint(pen: Pen, ops: Op[], pics: ReturnType<typeof pictures>) {
         // The classic colony labels: the name below the tile.
         pen.text(op.name, ox + W / 2 + 1, oy + H, { ...NAME, color: shade(op.rgb) }, true);
         return;
+      // MapViewer.displayPath: half-transparent lines 5 wide, then 20-pixel marks.
+      case 'pathLine': {
+        const [tx, ty] = tileOrigin(...op.to);
+        pen.line(ox + W / 2, oy + H / 2, tx + W / 2, ty + H / 2, pathColor(op.turns), 5, 0.5);
+        return;
+      }
+      case 'pathMark':
+        pen.circle(ox + W / 2, oy + H / 2, 10, pathColor(op.turns), 0x000000, 0.5);
+        if (op.turns > 0) pen.text(String(op.turns), ox + W / 2, oy + H / 2 - PATH_TURNS.size / 2, PATH_TURNS, true);
+        return;
     }
   });
 }
@@ -429,99 +478,86 @@ interface Art {
   files: string[];
 }
 
-/** A map drawer for `host`, with art under `artBase` listed by its `manifest`; draws are serialised. */
+/** A map drawer for `host`, `size` screen pixels, with art under `artBase` listed by its `manifest`; draws are serialised. */
 export function mapDrawer(
   host: HTMLElement,
+  size: [number, number],
   artBase: string,
   manifest = 'art.json',
 ): {
   draw(map: MapView): Promise<void>;
+  /** Show the view: where it is centred, its zoom, the cursor and the active unit's path. */
+  show(view: ViewState): void;
   renderer(): string;
   /** The tile under a pixel of the canvas, or null off the map or before the first draw. */
   tileAt(px: number, py: number): [number, number] | null;
-  /** Pan a tile into view if it is near or past the edge; returns its centre on the canvas. */
-  reveal(x: number, y: number): [number, number];
   /** The resolver, once the art manifest has loaded. */
   resources(): Resources | null;
 } {
   let pen: Pen | null = null;
   let res: Resources | null = null;
-  let size: [number, number] = [0, 0];
   let renderer = 'none';
   let drawing = Promise.resolve();
   const pics = pictures(artBase);
-  const view = { w: 0, h: 0, dx: 0, dy: 0, width: 0, height: 0 };
+  let view: ViewState | null = null;
+  /** What the overlay layer shows, to redraw it only when that changes. */
+  let shown = '';
 
-  const clamp = () => {
-    view.dx = Math.min(0, Math.max(view.width - size[0], view.dx));
-    view.dy = Math.min(0, Math.max(view.height - size[1], view.dy));
-    pen?.show(view.dx, view.dy);
-  };
-
-  async function init(map: MapView) {
+  async function init() {
     const art = (await (await fetch(artBase + manifest)).json()) as Art;
     res = resources(art.layers, art.files);
-    size = [(map.w + 0.5) * W, ((map.h + 1) * H) / 2];
-    view.w = map.w;
-    view.h = map.h;
-    view.width = Math.min(size[0], Math.max(320, innerWidth - 360));
-    view.height = Math.min(size[1], Math.max(240, innerHeight));
     try {
-      pen = await pixiPen(host, view.width, view.height);
+      pen = await pixiPen(host, ...size);
       renderer = 'pixi';
     } catch (ex) {
-      pen = canvasPen(host, view.width, view.height);
+      pen = canvasPen(host, ...size);
       renderer = `canvas2d (pixi failed: ${ex instanceof Error ? ex.message : String(ex)})`;
     }
-    pan(pen.canvas);
-    // Start on the active unit, if any.
-    if (map.active) centre(...map.active);
   }
 
-  const centre = (x: number, y: number) => {
-    const [ox, oy] = tileOrigin(x, y);
-    view.dx = view.width / 2 - ox - W / 2;
-    view.dy = view.height / 2 - oy - H / 2;
-    clamp();
+  /** The overlay's operations for a view: its cursor, and the path if the map view is about its active unit. */
+  const overlayOf = (v: ViewState) => {
+    const unit = v.map?.activeUnit;
+    return overlay(cursor(v), unit && unit.id === v.active?.unit ? unit.path : null, res!);
   };
 
-  /** Drag to pan; a drag of a few pixels or more is not a click. */
-  function pan(canvas: HTMLCanvasElement) {
-    let from: [number, number] | null = null;
-    let moved = 0;
-    canvas.addEventListener('pointerdown', (e) => {
-      from = [e.clientX, e.clientY];
-      moved = 0;
-    });
-    addEventListener('pointermove', (e) => {
-      if (!from) return;
-      moved += Math.abs(e.clientX - from[0]) + Math.abs(e.clientY - from[1]);
-      view.dx += e.clientX - from[0];
-      view.dy += e.clientY - from[1];
-      from = [e.clientX, e.clientY];
-      clamp();
-    });
-    addEventListener('pointerup', () => (from = null));
-    canvas.addEventListener('click', (e) => {
-      if (moved > 4) e.stopPropagation();
-    });
+  const camera = () => {
+    if (!pen || !view) return;
+    const z = view.zoom;
+    pen.show(size[0] / 2 - view.centre[0] * z, size[1] / 2 - view.centre[1] * z, z);
+  };
+
+  /** Redraw the overlay if it changed, then move the camera. */
+  async function showNow() {
+    if (!pen || !view) return;
+    const ops = overlayOf(view);
+    const key = JSON.stringify(ops);
+    if (key !== shown) {
+      shown = key;
+      await paint(pen, 1, ops, pics);
+    }
+    camera();
   }
 
   async function drawNow(map: MapView) {
-    if (!pen) await init(map);
-    await paint(pen!, scene(map, res!), pics);
-    pen!.show(view.dx, view.dy);
+    if (!pen) await init();
+    await paint(pen!, 0, scene(map, res!), pics);
+    await showNow();
   }
 
   return {
     draw: (map) => (drawing = drawing.then(() => drawNow(map))),
+    show: (v) => {
+      view = v;
+      // Pans and zooms move at once; a changed overlay waits its turn.
+      camera();
+      drawing = drawing.then(showNow);
+    },
     renderer: () => renderer,
-    tileAt: (px, py) => (pen ? tileAt(view.w, view.h, px - view.dx, py - view.dy) : null),
-    reveal: (x, y) => {
-      const [ox, oy] = tileOrigin(x, y);
-      const [px, py] = [ox + W / 2 + view.dx, oy + H / 2 + view.dy];
-      if (px < W || py < H || px > view.width - W || py > view.height - H) centre(x, y);
-      return [ox + W / 2 + view.dx, oy + H / 2 + view.dy];
+    tileAt: (px, py) => {
+      if (!pen || !view?.map) return null;
+      const [mx, my] = toMap(view, [px, py]);
+      return tileAt(view.map.w, view.map.h, mx, my);
     },
     resources: () => res,
   };

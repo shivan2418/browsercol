@@ -4,7 +4,10 @@
 // ashore, a unit founds a colony and the turn ends; the colony must still
 // be there when the AI hands play back. Native dialogs are accepted, a
 // choice takes its last item ("All" when disembarking) and an input keeps
-// its suggestion. Exits non-zero unless every browser gets there. Run in
+// its suggestion. Along the way the map's view must follow the active unit,
+// its cursor and the info panel must match the client's active unit, and
+// the wheel, a drag and the pointer at an edge must zoom and scroll it.
+// Exits non-zero unless every browser gets there. Run in
 // the web image:
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/play.mjs [--browsers chromium,firefox]
 import path from 'node:path';
@@ -125,6 +128,56 @@ async function play(page, url) {
     await page.waitForFunction((t) => window.__map.turn !== t && window.__map.ourTurn, turn, { timeout: 120000 });
     return view();
   };
+  const viewState = () => page.evaluate(() => window.fcView());
+  /** The view is on the client's active unit: the cursor on its tile, in view, and the panel naming it. */
+  const following = async (m, what) => {
+    const v = await viewState();
+    if (!m.activeUnit || v.active?.unit !== m.activeUnit.id || !same(v.cursor?.at, m.active)) {
+      throw new Error(
+        `${what}: the view's active unit ${JSON.stringify(v.active)} is not the client's ${m.activeUnit?.id} at ${label(m.active)}`,
+      );
+    }
+    // The tile's centre on the map (ui/src/view.ts), then in the viewport.
+    const [x, y] = m.active;
+    const [px, py] = [x * 128 + (y % 2) * 64 + 64, y * 32 + 32].map(
+      (c, i) => (c - v.centre[i]) * v.zoom + v.viewport[i] / 2,
+    );
+    if (px < 0 || py < 0 || px > v.viewport[0] || py > v.viewport[1]) {
+      throw new Error(`${what}: the active unit at ${label(m.active)} is out of view`);
+    }
+    const info = await page.locator('#info').textContent();
+    if (!info.startsWith(m.activeUnit.label)) throw new Error(`${what}: the panel shows ${JSON.stringify(info)}`);
+  };
+  /** Zoom with the wheel, drag the map and rest the pointer at an edge; each must move the view. */
+  const zoomAndScroll = async () => {
+    const box = await page.locator('#map canvas').boundingBox();
+    const [cx, cy] = [box.x + box.width / 2, box.y + box.height / 2];
+    const before = await viewState();
+    await page.mouse.move(cx, cy);
+    await page.mouse.wheel(0, -100);
+    const zoomed = await viewState();
+    if (zoomed.zoom <= before.zoom) throw new Error(`the wheel did not zoom in: ${before.zoom} -> ${zoomed.zoom}`);
+    await page.mouse.down();
+    await page.mouse.move(cx + 150, cy + 100, { steps: 5 });
+    await page.mouse.up();
+    const dragged = await viewState();
+    if (same(dragged.centre, zoomed.centre)) throw new Error('a drag did not scroll the map');
+    // Whichever side the map has room on.
+    for (const [ex, ey] of [
+      [box.x + 4, cy],
+      [box.x + box.width - 4, cy],
+    ]) {
+      const from = await viewState();
+      await page.mouse.move(ex, ey);
+      await page.waitForTimeout(800);
+      await page.mouse.move(cx, cy);
+      if (!same((await viewState()).centre, from.centre)) {
+        await page.mouse.wheel(0, 100);
+        return;
+      }
+    }
+    throw new Error('resting the pointer at either edge did not scroll the map');
+  };
   const click = async (m, [x, y]) => {
     const box = await page.locator('#map canvas').boundingBox();
     const [px, py] = await page.evaluate(([x, y]) => window.fcReveal(x, y), [x, y]);
@@ -135,6 +188,8 @@ async function play(page, url) {
   await page.waitForFunction(() => window.fcResult, null, { timeout: 120000 });
   let m = await view();
   if (!m.ourTurn) throw new Error('not our turn at the start');
+  await following(m, 'at the start');
+  await zoomAndScroll();
 
   // Sail west until land is beside the ship, then move onto it to land.
   let land = null;
@@ -151,6 +206,7 @@ async function play(page, url) {
       return type && !WATER.test(type) && !at(m.settlements, t) && !at(m.units, t);
     });
     m = await act(() => page.keyboard.press(KEYS[shore ?? 'W']));
+    if (m.activeUnit) await following(m, 'after a move');
     if (shore && at(m.units, neighbour(ship, shore))) land = neighbour(ship, shore);
     else if (same(m.active, ship)) {
       // The ship could not move: out of moves or blocked.
@@ -163,6 +219,7 @@ async function play(page, url) {
   m = await endTurn();
   m = await act(() => click(m, land));
   if (!same(m.active, land)) throw new Error(`clicking ${label(land)} selected ${label(m.active)}`);
+  await following(m, 'after selecting a unit');
   m = await act(() => page.keyboard.press('b'));
   if (!at(m.settlements, land)) throw new Error(`no colony at ${label(land)}; dialogs: ${log.join(' | ')}`);
   m = await endTurn();
