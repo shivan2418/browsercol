@@ -8,10 +8,10 @@
 // controllers ask must reach one: a dialog with no Browser UI yet fails the
 // run. Along the way the map's view must follow the active unit, its
 // cursor and the info panel must match the client's active unit, the map
-// canvas must follow a window resize, and the wheel, a drag and the pointer
-// at an edge must zoom and scroll it at its new size.
-// Exits non-zero unless every browser gets there. Run in
-// the web image:
+// canvas must follow a window resize and fill what the side panel leaves
+// of the window, and the wheel, a drag and the pointer at an edge must zoom
+// and scroll it at its new size. Exits non-zero unless every browser gets
+// there. Run in the web image:
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/play.mjs [--browsers chromium,firefox] [--query renderer=canvas2d]
 import path from 'node:path';
 import { createRequire } from 'node:module';
@@ -201,8 +201,34 @@ async function play(page, url) {
       throw new Error(`${what}: the panel shows ${JSON.stringify(info)}`);
     }
   };
+  /** The map canvas must fill the window up to the side panel, which must reach the window's right edge. */
+  const laidOut = async (what) => {
+    // These run in the page, so neither can call the other.
+    const boxes = () => {
+      const c = document.querySelector('#map canvas').getBoundingClientRect();
+      const s = document.querySelector('#side').getBoundingClientRect();
+      return { canvas: [c.left, c.right, c.height], side: [s.left, s.right], window: [innerWidth, innerHeight] };
+    };
+    const fills = () => {
+      const c = document.querySelector('#map canvas').getBoundingClientRect();
+      const s = document.querySelector('#side').getBoundingClientRect();
+      return c.left === 0 && c.right <= s.left && s.right === innerWidth && c.height === innerHeight;
+    };
+    if (!(await page.waitForFunction(fills, null, { timeout: 5000 }).catch(() => false))) {
+      const got = await page.evaluate(boxes);
+      throw new Error(`${what}: the map and the side panel do not fill the window: ${JSON.stringify(got)}`);
+    }
+  };
+  /** Widen the side panel: the map must make room for it, and fill the window again once it narrows. */
+  const widenSide = async () => {
+    const style = await page.addStyleTag({ content: '#side { flex: none; width: 600px; }' });
+    await laidOut('with a wider side panel');
+    await style.evaluate((s) => s.remove());
+    await laidOut('with the side panel back');
+  };
   /** Shrink the window: the map canvas and the view's viewport must shrink with it. */
   const resize = async () => {
+    await laidOut('before a resize');
     const before = (await viewState()).viewport;
     const [dw, dh] = [300, 200];
     const size = page.viewportSize();
@@ -222,6 +248,7 @@ async function play(page, url) {
       const got = await page.evaluate(canvasSize);
       throw new Error(`after a resize the canvas is ${got}, the view ${(await viewState()).viewport}, not ${want}`);
     }
+    await laidOut('after a resize');
   };
   /** Zoom with the wheel, drag the map and rest the pointer at its right edge; each must move the view. */
   const zoomAndScroll = async () => {
@@ -263,6 +290,7 @@ async function play(page, url) {
   if (!m.ourTurn) throw new Error('not our turn at the start');
   await following(m, 'at the start');
   await resize();
+  await widenSide();
   await zoomAndScroll();
 
   // Sail toward land until it is beside the ship, then move onto it to land.

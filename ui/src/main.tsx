@@ -46,11 +46,11 @@ const autoplay = Number(params.get('autoplay') ?? '0');
 const rules = params.get('rules') ?? 'classic';
 const tileset = params.get('tileset');
 const mapHost = document.getElementById('map')!;
-/** The map's size for the window's: all of it but the side panel. */
-const mapSizeForWindow = (): [number, number] => [Math.max(320, innerWidth - 360), Math.max(240, innerHeight)];
+/** The map's size: its host's box, which the page's CSS gives what the side panel leaves. */
+const mapSize = (): [number, number] => [mapHost.clientWidth, mapHost.clientHeight];
 const map = mapDrawer(
   mapHost,
-  mapSizeForWindow(),
+  mapSize(),
   'art/',
   tileset ? `${tileset}.json` : undefined,
   params.get('renderer') === 'canvas2d',
@@ -77,13 +77,16 @@ function dispatch(e: ViewEvent) {
   map.show(view);
   showPanel();
 }
+let size: [number, number] = [0, 0];
 function resize() {
-  const size = mapSizeForWindow();
+  const [w, h] = mapSize();
+  if (w === size[0] && h === size[1]) return;
+  size = [w, h];
   map.resize(size);
-  dispatch({ k: 'resize', width: size[0], height: size[1] });
+  dispatch({ k: 'resize', width: w, height: h });
 }
 resize();
-addEventListener('resize', resize);
+new ResizeObserver(resize).observe(mapHost);
 
 window.fcReveal = (x, y) => {
   const [px, py] = tileOnScreen(view, [x, y]);
