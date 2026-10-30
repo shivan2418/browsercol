@@ -17,7 +17,7 @@ The Engine-side implementation of FreeCol's `GUI` interface that hands every sho
 _Avoid_: bridge, adapter, glue
 
 **Tileset**:
-A full set of map art addressed by resource keys and containing no rules changes. FreeCol's own art is the default Tileset; a player can provide another as an art-only mod.
+A full set of map art (images, plus the colours and chip texts the map draws) addressed by resource keys and containing no rules changes. FreeCol's own art is the default Tileset; a player can provide another as an art-only mod.
 _Avoid_: skin, theme, art pack
 
 **Map mode**:
@@ -33,5 +33,5 @@ The Map mode that draws terrain (ground, water, rivers, forests) in layers, with
 _Avoid_: fancy mode, HD mode, 3D mode
 
 **Resource key**:
-FreeCol's name for one piece of art (e.g. a terrain tile or unit image), resolved to an image through resource properties and mod overrides.
+FreeCol's name for one piece of art (e.g. a terrain tile, a unit image or the road colour), resolved to an image, colour or string through resource properties and mod overrides.
 _Avoid_: asset id, sprite name
