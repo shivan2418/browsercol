@@ -81,6 +81,33 @@ describe('resources', () => {
     expect(r.string('indianAlarmChip.scouted')).toBe('X');
     expect(r.has('cross')).toBe(false);
   });
+
+  it('reads colours as ColorResource does: 0x hex or a java.awt.Color name, magenta when missing', () => {
+    const colors = {
+      dir: 'default',
+      props: `
+color.map.productionBonus.2=urn:color:blue
+color.map.productionBonus.-1=urn:color:orange
+color.map.productionBonus.0=urn:color:LIGHT_GRAY
+color.map.productionBonus.1=urn:color:0X00aa00
+color.map.productionBonus.-2=urn:color:0x80ff0000
+color.map.bad=urn:color:chartreuse
+`,
+    };
+    const mod = { dir: 'mods/m', props: 'color.map.road=urn:color:0x00ffff\n' };
+    const r = resources([base, colors], files);
+    expect(r.color('color.map.road')).toBe(0x804000);
+    expect(r.color('color.map.productionBonus.2')).toBe(0x0000ff);
+    expect(r.color('color.map.productionBonus.-1')).toBe(0xffc800);
+    expect(r.color('color.map.productionBonus.0')).toBe(0xc0c0c0);
+    expect(r.color('color.map.productionBonus.1')).toBe(0x00aa00);
+    // An alpha byte is dropped: the map draws its colours opaque.
+    expect(r.color('color.map.productionBonus.-2')).toBe(0xff0000);
+    expect(r.color('color.map.bad')).toBe(0xff00ff);
+    expect(r.color('color.map.missing')).toBe(0xff00ff);
+    expect(r.has('color.map.road')).toBe(false);
+    expect(resources([base, colors, mod], files).color('color.map.road')).toBe(0x00ffff);
+  });
 });
 
 describe('javaRandomInt', () => {

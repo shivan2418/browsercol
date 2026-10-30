@@ -4,8 +4,9 @@
 // override earlier ones key by key. "resource:<key>" aliases another key of
 // the same layer. An image named foo0.png has variations foo<1-2 digits>.png
 // next to it (FreeColDataFile.findFilesWithVariationOrAlternativeSize), so
-// the resolver needs the list of art files. Images and quoted strings
-// (StringResource, e.g. chip texts) are kept.
+// the resolver needs the list of art files. Images, quoted strings
+// (StringResource, e.g. chip texts) and urn:color: values (ColorResource)
+// are kept.
 
 /** One resources.properties and the directory its paths are relative to. */
 export interface ArtLayer {
@@ -33,12 +34,44 @@ export interface Resources {
   forSeed(key: string, seed: number): string | null;
   /** A string resource, or "X" as ResourceManager.getString gives for a missing one. */
   string(key: string): string;
+  /** A colour resource as 0xRRGGBB, or magenta as ResourceManager.getColor gives for a missing one. */
+  color(key: string): number;
 }
 
 const IMAGE = /\.(png|jpe?g|gif)$/i;
 const ALIAS = 'resource:';
 /** StringResource.REPLACEMENT_STRING. */
 const NO_STRING = 'X';
+const COLOR = 'urn:color:';
+/** ColorResource.REPLACEMENT_COLOR. */
+const NO_COLOR = 0xff00ff;
+/** The colour constants of java.awt.Color, which ColorResource looks up by field name. */
+const JAVA_COLORS: Record<string, number> = {
+  white: 0xffffff,
+  lightGray: 0xc0c0c0,
+  gray: 0x808080,
+  darkGray: 0x404040,
+  black: 0x000000,
+  red: 0xff0000,
+  pink: 0xffafaf,
+  orange: 0xffc800,
+  yellow: 0xffff00,
+  green: 0x00ff00,
+  magenta: 0xff00ff,
+  cyan: 0x00ffff,
+  blue: 0x0000ff,
+};
+for (const [name, rgb] of Object.entries(JAVA_COLORS)) {
+  JAVA_COLORS[name.replace(/[A-Z]/g, '_$&').toUpperCase()] = rgb;
+}
+
+/** ColorResource.createColor: 0x hex (an alpha byte is dropped) or a java.awt.Color field. */
+const colorValue = (name: string) =>
+  /^0[xX][0-9a-fA-F]+$/.test(name)
+    ? parseInt(name.slice(2), 16) & 0xffffff
+    : Object.hasOwn(JAVA_COLORS, name)
+      ? JAVA_COLORS[name]
+      : NO_COLOR;
 
 /** A string resource's text: what follows the last quote but one, with Java's escapes undone. */
 const stringValue = (value: string) =>
@@ -89,6 +122,7 @@ export function resources(layers: ArtLayer[], files: string[]): Resources {
 
   const merged = new Map<string, Image>();
   const strings = new Map<string, string>();
+  const colors = new Map<string, number>();
   for (const { dir, props } of layers) {
     const layer = new Map<string, Image>();
     const aliases: [string, string][] = [];
@@ -101,6 +135,8 @@ export function resources(layers: ArtLayer[], files: string[]): Resources {
         layer.set(key, { file, variations: key.includes('.improvement.river.') ? [] : variationsOf(file) });
       } else if (value.startsWith('"') && value.endsWith('"') && value.length > 1) {
         strings.set(key, stringValue(value));
+      } else if (value.startsWith(COLOR)) {
+        colors.set(key, colorValue(value.slice(COLOR.length)));
       }
     }
     // Aliases may chain, so resolve until no more progress.
@@ -129,6 +165,7 @@ export function resources(layers: ArtLayer[], files: string[]): Resources {
     path,
     forSeed: (key, seed) => path(key, javaRandomInt(seed, count(key))),
     string: (key) => strings.get(key) ?? NO_STRING,
+    color: (key) => colors.get(key) ?? NO_COLOR,
   };
 }
 
