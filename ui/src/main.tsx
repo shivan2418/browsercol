@@ -1,8 +1,8 @@
 // Page script: hosts the client Engine (client.wasm) on the main thread and
 // the server Engine in worker.ts, runs a game, draws the map and turns the
 // player's clicks and keys into commands. The map's view state (view.ts)
-// takes the WebGUI's view events and the player's drags, wheel zooms,
-// edge scrolling and pointer moves; the map and the info panel show it.
+// takes the WebGUI's view events and the player's pointer on the map
+// (pointer.ts); the map and the info panel show it.
 // The WebGUI's questions and panels open as dialogs (panels.tsx) over the
 // page, and the side panel (side.tsx) lists the dialogs it cannot show yet.
 // window.fcResult is set once the autoplay rounds are done and play passes
@@ -20,11 +20,11 @@ import { dialogs } from './dialogs';
 import { commandForKey, type Command } from './input';
 import { mapDrawer, type MapView } from './map';
 import { DialogHost } from './panels';
+import { onCanvas, pointerInput } from './pointer';
 import { Side, type SideProps } from './side';
 import { loadModule } from './teavm';
 import {
   cursor,
-  edgeScroll,
   initialView,
   panel,
   reduce,
@@ -158,77 +158,7 @@ function drawMap(m: MapView) {
   drawn = map.draw(m);
 }
 
-/** Pointer at the map's edge (view.ts, edgeScroll), for EDGE_DELAY ms, scrolls it by EDGE_SPEED a frame. */
-const EDGE_DELAY = 300;
-const EDGE_SPEED = 16;
-
-/** Wheel deltas, in pixels, that make one zoom step: a trackpad's small deltas add up. */
-const WHEEL_STEP = 40;
-
-/** A pointer event's pixel on the map canvas, or null before there is one. */
-function onCanvas(e: { clientX: number; clientY: number }): [number, number] | null {
-  const canvas = mapHost.querySelector('canvas');
-  if (!canvas) return null;
-  const r = canvas.getBoundingClientRect();
-  return [e.clientX - r.left, e.clientY - r.top];
-}
-
-/** Drag, wheel and edge scrolling move the view; the pointer's tile is hovered. Returns whether a click was a drag. */
-function moveWith(): () => boolean {
-  let wheel = 0;
-  let from: [number, number] | null = null;
-  let moved = 0;
-  mapHost.addEventListener('pointerdown', (e) => {
-    from = [e.clientX, e.clientY];
-    moved = 0;
-  });
-  addEventListener('pointermove', (e) => {
-    if (!from) return;
-    const [dx, dy] = [e.clientX - from[0], e.clientY - from[1]];
-    moved += Math.abs(dx) + Math.abs(dy);
-    from = [e.clientX, e.clientY];
-    dispatch({ k: 'pan', dx, dy });
-  });
-  addEventListener('pointerup', () => (from = null));
-  mapHost.addEventListener(
-    'wheel',
-    (e) => {
-      const at = onCanvas(e);
-      if (!at) return;
-      e.preventDefault();
-      // Line and page deltas (Firefox's mouse wheel) count as a step each.
-      wheel += e.deltaMode === WheelEvent.DOM_DELTA_PIXEL ? e.deltaY : Math.sign(e.deltaY) * WHEEL_STEP;
-      if (Math.abs(wheel) < WHEEL_STEP) return;
-      dispatch({ k: 'zoom', steps: wheel < 0 ? 1 : -1, at });
-      wheel = 0;
-    },
-    { passive: false },
-  );
-
-  // The pointer over the map, and since when it has been at an edge.
-  let pointer: [number, number] | null = null;
-  let edgeSince = 0;
-  mapHost.addEventListener('pointermove', (e) => {
-    pointer = onCanvas(e);
-    const at = pointer && map.tileAt(...pointer);
-    const was = view.hover;
-    if (at?.[0] !== was?.[0] || at?.[1] !== was?.[1]) dispatch({ k: 'hover', at: at ?? null });
-  });
-  mapHost.addEventListener('pointerleave', () => {
-    pointer = null;
-    if (view.hover) dispatch({ k: 'hover', at: null });
-  });
-  const scroll = (now: number) => {
-    const [ex, ey] = pointer && !from ? edgeScroll(pointer, view.viewport) : [0, 0];
-    if (!ex && !ey) edgeSince = 0;
-    else if (!edgeSince) edgeSince = now;
-    else if (now - edgeSince >= EDGE_DELAY) dispatch({ k: 'pan', dx: ex * EDGE_SPEED, dy: ey * EDGE_SPEED });
-    requestAnimationFrame(scroll);
-  };
-  requestAnimationFrame(scroll);
-  return () => moved > 4;
-}
-const dragged = moveWith();
+const dragged = pointerInput(mapHost, { view: () => view, dispatch, tileAt: map.tileAt });
 
 /** Hook the player's input up to the client Engine's commands. */
 function playWith(client: ClientExports) {
@@ -246,7 +176,7 @@ function playWith(client: ClientExports) {
     run(c);
   });
   mapHost.addEventListener('click', (e) => {
-    const at = onCanvas(e);
+    const at = onCanvas(mapHost, e);
     const tile = at && !dragged() ? map.tileAt(...at) : null;
     if (tile) client.click(...tile);
   });
