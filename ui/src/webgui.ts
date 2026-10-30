@@ -27,7 +27,11 @@ export interface GuiEvents {
   error: { text: string; ok: string };
   eventPanel: { header: string; image: string | null; footer: string | null; ok: string };
   /** Model messages, or with a title the turn report; each names its source's tile, to go to. */
-  messages: { title: string | null; messages: ({ text: string; type: string; source: Id | null } & TileRef)[]; ok: string };
+  messages: {
+    title: string | null;
+    messages: ({ text: string; type: string; source: Id | null } & TileRef)[];
+    ok: string;
+  };
   /** A dialog the Browser UI cannot show yet; the controller got FreeCol's base default. */
   unasked: { method: string };
 }
