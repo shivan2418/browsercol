@@ -21,6 +21,6 @@ export default defineConfig({
     printWidth: 120,
   },
   test: {
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.{ts,tsx}'],
   },
 });
