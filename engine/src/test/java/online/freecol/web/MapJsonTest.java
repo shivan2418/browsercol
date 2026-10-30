@@ -11,6 +11,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
+import net.sf.freecol.common.model.Colony;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.LostCityRumour;
 import net.sf.freecol.common.model.Map;
@@ -19,6 +20,8 @@ import net.sf.freecol.common.model.Resource;
 import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.TileImprovementStyle;
 import net.sf.freecol.common.model.Unit;
+import net.sf.freecol.server.model.ServerColony;
+import net.sf.freecol.server.model.ServerUnit;
 
 
 /**
@@ -150,5 +153,31 @@ class MapJsonTest {
         assertTrue(ore >= 0 && rumour >= 0, items);
         assertTrue(ore < rumour,
             "items come in zIndex order");
+    }
+
+    @Test
+    @Timeout(120)
+    void aColonyTellsWhetherItWouldRatherGrow() throws Exception {
+        startGame();
+        // As FreeColTestUtils builds a colony, in the server's game.
+        final Game game = server.getGame();
+        final Player us = game.getFreeColGameObject(
+            client.getClient().getMyPlayer().getId(), Player.class);
+        final Tile land = game.getMap().getTileSet(t -> t.isLand()
+                && !t.hasSettlement() && t.getOwner() == null)
+            .stream().findFirst().get();
+        final Colony colony = new ServerColony(game, us, "Jamestown", land);
+        us.addSettlement(colony);
+        colony.placeSettlement(true);
+        new ServerUnit(game, land, us,
+            game.getSpecification().getDefaultUnitType(us)).setLocation(colony);
+        final int change = colony.getPreferredSizeChange();
+        assertTrue(change > 0, "a colony of one can grow, so the flag shows");
+
+        final String settlements = field(MapJson.of(game, us, null), "settlements");
+        assertTrue(settlements.contains("\"Jamestown\",1,"
+                + colony.getProductionBonus() + "," + change + "]"), settlements);
+        assertTrue(settlements.contains(",-1,0,0]"),
+            "native settlements send no size change: " + settlements);
     }
 }
