@@ -28,7 +28,10 @@ echo "ci.sh: $(gh run view "$run" --json url --jq .url)"
 until [[ "$(gh run view "$run" --json status --jq .status 2>/dev/null)" == completed ]]; do
   sleep 30
 done
-conclusion=$(gh run view "$run" --json conclusion --jq .conclusion)
+conclusion=
+until [[ -n "$conclusion" ]]; do
+  conclusion=$(gh run view "$run" --json conclusion --jq .conclusion 2>/dev/null) || sleep 10
+done
 # The summary is best effort: the API can fail here too.
 gh run view "$run" --json jobs \
   --jq '.jobs[].steps[] | select(.conclusion != "skipped") | "\(.conclusion)\t\(.name)"' || true
