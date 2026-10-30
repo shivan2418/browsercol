@@ -4,7 +4,7 @@
 // views and the player's pans, zooms and pointer moves, and follows the
 // active unit as SwingGUI does. map.ts draws what it says.
 import type { GuiEvents, Id } from './webgui';
-import type { MapView } from './tileset';
+import type { ActiveUnit, MapView } from './tileset';
 
 /** FreeCol's tiles: 128x64 diamonds in staggered rows, odd rows half a tile to the right. */
 export const W = 128;
@@ -128,11 +128,17 @@ export interface Panel {
   tile: { name: string | null; owner: { name: string; rgb: number } | null } | null;
 }
 
+/** The map view's facts about the active unit, or null if the map view is about another unit or none. */
+export function activeUnitFacts(v: ViewState): ActiveUnit | null {
+  const u = v.map?.activeUnit;
+  return u && u.id === v.active?.unit ? u : null;
+}
+
 /** What the info panel shows, as FreeCol's InfoPanel does for the unit and the tile. */
 export function panel(v: ViewState): Panel {
   const m = v.map;
-  const u = m?.activeUnit;
-  const unit = u && u.id === v.active?.unit ? { label: u.label, moves: u.moves, cargo: u.cargo } : null;
+  const u = activeUnitFacts(v);
+  const unit = u && { label: u.label, moves: u.moves, cargo: u.cargo };
   if (!m || !v.hover) return { unit, tile: null };
   const i = v.hover[1] * m.w + v.hover[0];
   const type = m.types[m.tiles.charCodeAt(i) - 65];

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vite-plus/test';
-import { cursor, edgeScroll, initialView, panel, reduce, toMap, toScreen, type MapFacts, type ViewEvent } from './view';
+import { activeUnitFacts, cursor, edgeScroll, initialView, panel, reduce, toMap, toScreen, type MapFacts, type ViewEvent } from './view';
 
 // A 20x40 map, 2624x1312 pixels at zoom 1, in a 640x480 viewport. Tile
 // (x, y)'s centre is at (128x + 64 + 64 * (y % 2), 32y + 32).
@@ -143,6 +143,25 @@ describe('the view', () => {
     const grown = reduce(corner, { k: 'resize', width: 1280, height: 960 });
     expect(grown.viewport).toEqual([1280, 960]);
     expect(grown.centre).toEqual([1984, 832]);
+  });
+});
+
+describe("the map view's active unit", () => {
+  const unit = { id: 'unit:7', label: 'Caravel', moves: '1', cargo: [], path: [[1, 0, 0] as [number, number, number]] };
+  const active = play(
+    { k: 'map', map: facts({ active: [1, 0], activeUnit: unit }) },
+    { k: 'activeUnit', unit: 'unit:7', tile: 'tile:1', at: [1, 0], force: false },
+  );
+
+  it('is the active unit, once a map view about it has come', () => {
+    expect(activeUnitFacts(active)).toBe(unit);
+    expect(activeUnitFacts(play({ k: 'activeUnit', unit: 'unit:7', tile: 'tile:1', at: [1, 0], force: false }))).toBeNull();
+  });
+
+  it('is none once the WebGUI has moved on to another unit or none', () => {
+    const other = { k: 'activeUnit', unit: 'unit:8', tile: 'tile:2', at: [0, 0], force: false } as const;
+    expect(activeUnitFacts(reduce(active, other))).toBeNull();
+    expect(activeUnitFacts(reduce(active, { ...other, unit: null, tile: null, at: null }))).toBeNull();
   });
 });
 
