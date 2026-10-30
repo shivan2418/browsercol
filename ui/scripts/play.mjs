@@ -210,14 +210,15 @@ async function play(page, url) {
     const size = page.viewportSize();
     await page.setViewportSize({ width: size.width - dw, height: size.height - dh });
     const want = [before[0] - dw, before[1] - dh];
+    // These run in the page, so neither can call the other.
     const canvasSize = () => {
       const c = document.querySelector('#map canvas');
       return [c?.width, c?.height];
     };
     const fits = ([w, h]) => {
-      const [cw, ch] = canvasSize();
+      const c = document.querySelector('#map canvas');
       const [vw, vh] = window.fcView().viewport;
-      return cw === w && ch === h && vw === w && vh === h;
+      return c?.width === w && c.height === h && vw === w && vh === h;
     };
     if (!(await page.waitForFunction(fits, want, { timeout: 5000 }).catch(() => false))) {
       const got = await page.evaluate(canvasSize);
