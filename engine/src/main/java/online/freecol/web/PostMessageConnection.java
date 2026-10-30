@@ -34,9 +34,10 @@ import net.sf.freecol.common.networking.TrivialMessage;
  * {@code Connection} writes, so a WebSocket can stand in for the Port.
  *
  * It replaces the socket {@code Connection}'s ReceivingThread and
- * NetworkReplyObject: TeaVM's Wasm GC {@code Object.wait} never wakes
- * (spike/README.md), so a thread waiting for a reply polls with
- * {@code Thread.sleep} instead. Questions and updates are read in arrival
+ * NetworkReplyObject. A thread waiting for a reply polls with
+ * {@code Thread.sleep}: this was written while TeaVM's Wasm GC
+ * {@code Object.wait} never woke. {@code FiberSuspendFix} fixes that (#11),
+ * but the polling has not been replaced yet. Questions and updates are read in arrival
  * order and each is handled on a thread of its own, as ReceivingThread does.
  */
 public class PostMessageConnection extends Connection {

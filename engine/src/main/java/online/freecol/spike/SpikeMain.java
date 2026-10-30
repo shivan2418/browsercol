@@ -49,9 +49,9 @@ public final class SpikeMain {
     }
 
     public static void main(String[] args) {
-        // Under TeaVM Wasm GC, wait() on the thread that entered through
-        // main() neither releases the monitor nor wakes up, so do the
-        // work on a thread of our own and let main() return.
+        // Do the work on a thread of our own and let main() return. This
+        // dates from when wait() under TeaVM Wasm GC neither released the
+        // monitor nor woke up (fixed by FiberSuspendFix, #11).
         new Thread(() -> {
                 try {
                     run(args);
@@ -144,8 +144,8 @@ public final class SpikeMain {
 
         human.player = server.getPlayer(toHuman);
         human.endTurnSoon();
-        // Poll: Object.wait does not work under TeaVM 0.16 Wasm GC (see
-        // monitorSelfTest), but Thread.sleep does.
+        // Poll. This dates from when Object.wait did not work under TeaVM
+        // 0.16 Wasm GC; FiberSuspendFix fixes it (#11, see monitorSelfTest).
         while (!human.done) Thread.sleep(20);
         log("finished at " + game.getTurn());
         for (Player p : game.getLiveEuropeanPlayerList()) {

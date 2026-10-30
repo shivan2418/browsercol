@@ -47,6 +47,8 @@ dependencies {
     compileOnly "org.teavm:teavm-extension-spi:${teavmVersion}"
     compileOnly "org.teavm:teavm-extension-apis:${teavmVersion}"
     compileOnly "org.teavm:teavm-jso:${teavmVersion}"
+    // FiberSuspendFix, a TeaVM plugin that patches Fiber.suspend (#11).
+    compileOnly "org.teavm:teavm-core:${teavmVersion}"
     testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
