@@ -37,7 +37,7 @@ export interface MapView {
 export interface Settlement {
   x: number;
   y: number;
-  /** Image keys, most specific first. */
+  /** Resource keys, most specific first. */
   keys: string[];
   /** The owner's colour. */
   rgb: number;
@@ -57,15 +57,17 @@ export interface Settlement {
 export interface Unit {
   x: number;
   y: number;
-  /** Image keys, most specific first. */
+  /** Resource keys, most specific first. */
   keys: string[];
   /** The owner's colour. */
   rgb: number;
-  /** The occupation chip's text, and its colour. */
+  /** The occupation chip's text. */
   chip: string;
+  /** The chip text's colour. */
   fg: number;
   /** Units on the tile. */
   stack: number;
+  /** Drawn in grayscale: sentried, or out of sight. */
   fade: boolean;
 }
 
