@@ -6,6 +6,7 @@
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/tileset.mjs [--browsers chromium,firefox]
 import path from 'node:path';
 import { createRequire } from 'node:module';
+import { answerDialogs } from './dialogs.mjs';
 import { dist, serveDist } from './serve-dist.mjs';
 
 const require = createRequire(import.meta.url);
@@ -24,6 +25,8 @@ async function cyanShare(page, url) {
   await page.waitForFunction(() => window.fcResult, null, { timeout: 120000 });
   const result = await page.evaluate(() => window.fcResult);
   if (result.status !== 'finished') throw new Error(`${result.status}: ${result.error}`);
+  // Turn messages open over the map; scripts/dialogs.mjs closes them.
+  await page.waitForFunction(() => !document.querySelector('[role=dialog]'), null, { timeout: 10000 });
   // A screenshot rather than reading the canvas, which WebGL may have cleared.
   const png = (await page.locator('#map canvas').screenshot()).toString('base64');
   const share = await page.evaluate(async (png) => {
@@ -48,6 +51,7 @@ for (const name of browsers) {
   const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
+  await answerDialogs(page);
   let line;
   try {
     const plain = await cyanShare(page, server.url);

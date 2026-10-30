@@ -3,10 +3,10 @@
 // the shortest explored sea route to free land that can feed a colony, or
 // toward the westmost explored sea while none is in sight, moves onto the
 // land to put its units ashore, a unit founds a colony and the turn ends;
-// the colony must still be there when the AI hands play back. Native
-// dialogs are accepted but sailing to Europe, a choice takes its last item
-// ("All" when disembarking) and an input keeps its suggestion. Along the
-// way the map's view must follow the active unit, its cursor and the info
+// the colony must still be there when the AI hands play back. The page's
+// dialogs are answered as scripts/dialogs.mjs says, and every question the
+// controllers ask must reach one: a dialog with no Browser UI yet fails the
+// run. Along the way the map's view must follow the active unit, its cursor and the info
 // panel must match the client's active unit, and the wheel, a drag and the
 // pointer at an edge must zoom and scroll it.
 // Exits non-zero unless every browser gets there. Run in
@@ -14,6 +14,7 @@
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/play.mjs [--browsers chromium,firefox] [--query renderer=canvas2d]
 import path from 'node:path';
 import { createRequire } from 'node:module';
+import { answerDialogs, dialogLog } from './dialogs.mjs';
 import { dist, serveDist } from './serve-dist.mjs';
 
 const require = createRequire(import.meta.url);
@@ -137,7 +138,7 @@ function nextStep(m, ship) {
   return west && { dir: first.get(label(west)) };
 }
 
-async function play(page, url, log) {
+async function play(page, url) {
   // Keep every map view the client Engine sends (ui/src/channel.ts calls
   // fcClientEvent for each), and count them.
   await page.addInitScript(() => {
@@ -157,17 +158,14 @@ async function play(page, url, log) {
       },
     });
   });
-  page.on('dialog', (d) => {
-    const choices = d.message().match(/^\d+: /gm);
-    log.push(`${d.type()}: ${d.message().split('\n')[0]}`);
-    if (d.type() === 'prompt') void d.accept(choices ? String(choices.length - 1) : d.defaultValue());
-    else if (d.type() === 'confirm' && /Europe/.test(d.message())) void d.dismiss();
-    else void d.accept();
-  });
+  await answerDialogs(page);
 
   const view = () => page.evaluate(() => window.__map);
+  /** Wait until no dialog is open, since an open one takes the keys and clicks. */
+  const noDialog = () => page.waitForFunction(() => !document.querySelector('[role=dialog]'), null, { timeout: 10000 });
   /** Do something that ends with a new map view, and return that view. */
   const act = async (doIt) => {
+    await noDialog();
     const n = await page.evaluate(() => window.__maps);
     await doIt();
     await page.waitForFunction((n) => window.__maps > n, n, { timeout: 60000 });
@@ -175,6 +173,7 @@ async function play(page, url, log) {
   };
   const endTurn = async () => {
     const turn = (await view()).turn;
+    await noDialog();
     await page.keyboard.press('Enter');
     await page.waitForFunction((t) => window.__map.turn !== t && window.__map.ourTurn, turn, { timeout: 120000 });
     return view();
@@ -196,11 +195,16 @@ async function play(page, url, log) {
     if (px < 0 || py < 0 || px > v.viewport[0] || py > v.viewport[1]) {
       throw new Error(`${what}: the active unit at ${label(m.active)} is out of view`);
     }
-    const info = await page.locator('#info').textContent();
-    if (!info.startsWith(m.activeUnit.label)) throw new Error(`${what}: the panel shows ${JSON.stringify(info)}`);
+    // React renders the panel a moment after the view changes.
+    const shows = (label) => document.querySelector('#info')?.textContent.startsWith(label);
+    if (!(await page.waitForFunction(shows, m.activeUnit.label, { timeout: 5000 }).catch(() => false))) {
+      const info = await page.locator('#info').textContent();
+      throw new Error(`${what}: the panel shows ${JSON.stringify(info)}`);
+    }
   };
   /** Zoom with the wheel, drag the map and rest the pointer at an edge; each must move the view. */
   const zoomAndScroll = async () => {
+    await noDialog();
     const box = await page.locator('#map canvas').boundingBox();
     const [cx, cy] = [box.x + box.width / 2, box.y + box.height / 2];
     const before = await viewState();
@@ -285,23 +289,24 @@ for (const name of browsers) {
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
   const t = Date.now();
-  const dialogs = [];
   let result;
   try {
-    result = await play(page, server.url + (query ? `?${query}` : ''), dialogs);
+    result = await play(page, server.url + (query ? `?${query}` : ''));
     await page.evaluate(([x, y]) => window.fcReveal(x, y), result.land);
     await page.screenshot({ path: path.join(dist, `../.cache/play-${name}.png`) });
   } catch (ex) {
     result = { error: String(ex) };
   }
   await page.screenshot({ path: path.join(dist, `../.cache/play-${name}.png`) });
+  const { dialogs, unasked } = await dialogLog(page).catch(() => ({ dialogs: [], unasked: [] }));
   await browser.close();
-  failed ||= Boolean(result.error) || errors.length > 0;
+  failed ||= Boolean(result.error) || errors.length > 0 || unasked.length > 0;
   console.log(
     `${name} ${browser.version()}: ` +
       (result.error ? `failed: ${result.error}` : `colony at ${label(result.land)}, play back on turn ${result.turn}`) +
       `, ${((Date.now() - t) / 1000).toFixed(1)} s` +
       `\n  dialogs: ${dialogs.join(' | ')}` +
+      (unasked.length ? `\n  no dialog yet for: ${unasked.join(', ')}` : '') +
       (errors.length ? `\n  page errors: ${errors.join('; ')}` : ''),
   );
 }
