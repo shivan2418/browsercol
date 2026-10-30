@@ -176,7 +176,13 @@ describe("the map view's active unit", () => {
   });
 
   it('is none once the WebGUI has moved on to another unit or none', () => {
-    const other = { k: 'activeUnit', unit: 'unit:8', tile: 'tile:2', at: [0, 0], force: false } as const;
+    const other: Extract<ViewEvent, { k: 'activeUnit' }> = {
+      k: 'activeUnit',
+      unit: 'unit:8',
+      tile: 'tile:2',
+      at: [0, 0],
+      force: false,
+    };
     expect(activeUnitFacts(reduce(active, other))).toBeNull();
     expect(activeUnitFacts(reduce(active, { ...other, unit: null, tile: null, at: null }))).toBeNull();
   });
