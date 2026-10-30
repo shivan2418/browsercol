@@ -7,10 +7,14 @@ import java.util.List;
 import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.model.Ability;
 import net.sf.freecol.common.model.Colony;
+import net.sf.freecol.common.model.FreeColGameObject;
 import net.sf.freecol.common.model.Game;
+import net.sf.freecol.common.model.Goods;
 import net.sf.freecol.common.model.IndianSettlement;
+import net.sf.freecol.common.model.Location;
 import net.sf.freecol.common.model.LostCityRumour;
 import net.sf.freecol.common.model.Map;
+import net.sf.freecol.common.model.PathNode;
 import net.sf.freecol.common.model.Player;
 import net.sf.freecol.common.model.Resource;
 import net.sf.freecol.common.model.Role;
@@ -30,8 +34,11 @@ import net.sf.freecol.common.util.Utils;
  * Browser UI takes the first its Tileset has. Fields:
  * <ul>
  * <li>w, h, turn, ourTurn;
- * <li>types: {id, land, forested} per tile type, indexed by tiles;
+ * <li>types: {id, land, forested, name} per tile type, indexed by tiles;
  * <li>tiles: one character per tile, 'A' + type index, '.' if unexplored;
+ * <li>owners: one character per tile, 'A' + players index, '.' if
+ *     unexplored or nobody's;
+ * <li>players: {name (the nation), rgb} per tile owner, indexed by owners;
  * <li>seen: one character per tile, '1' if the player can see it now;
  * <li>rivers: [x, y, magnitude, style, forest mask], the style's digits
  *     being the magnitudes toward NE, SE, SW, NW;
@@ -48,7 +55,11 @@ import net.sf.freecol.common.util.Utils;
  * <li>units: {x, y, keys, rgb, chip (text), fg (the chip text's rgb),
  *     stack (units on the tile), fade}, for the unit MapViewer shows in
  *     front;
- * <li>active: the active unit's tile, [x, y], or null.
+ * <li>active: the active unit's tile, [x, y], or null;
+ * <li>activeUnit: {id, label, moves, cargo (labels of the units and goods
+ *     aboard), path}, what FreeCol's InfoPanel shows of the active unit,
+ *     or null. path is [x, y, turns] per step to the unit's destination,
+ *     as SwingGUI.updateUnitPath finds it, or null without one.
  * </ul>
  */
 final class MapJson {
@@ -61,6 +72,8 @@ final class MapJson {
         final List<TileType> types = new ArrayList<>();
         final StringBuilder tiles = new StringBuilder(w * h);
         final StringBuilder seen = new StringBuilder(w * h);
+        final StringBuilder owners = new StringBuilder(w * h);
+        final List<Player> players = new ArrayList<>();
         final List<String> rivers = new ArrayList<>(), roads = new ArrayList<>(),
             items = new ArrayList<>(), settlements = new ArrayList<>(),
             units = new ArrayList<>();
@@ -71,7 +84,16 @@ final class MapJson {
                 seen.append(type != null && player.canSee(t) ? '1' : '0');
                 if (type == null) {
                     tiles.append('.');
+                    owners.append('.');
                     continue;
+                }
+                final Player owner = t.getOwner();
+                if (owner == null) {
+                    owners.append('.');
+                } else {
+                    int o = players.indexOf(owner);
+                    if (o < 0) { o = players.size(); players.add(owner); }
+                    owners.append((char)('A' + o));
                 }
                 int i = types.indexOf(type);
                 if (i < 0) { i = types.size(); types.add(type); }
@@ -87,7 +109,14 @@ final class MapJson {
         for (TileType type : types) {
             typeJson.add(new Json().put("id", type.getId())
                 .put("land", !type.isWater())
-                .put("forested", type.isForested()).toString());
+                .put("forested", type.isForested())
+                .put("name", Messages.getName(type)).toString());
+        }
+        final List<String> playerJson = new ArrayList<>();
+        for (Player p : players) {
+            playerJson.add(new Json()
+                .put("name", Messages.message(p.getNationLabel()))
+                .put("rgb", rgb(p)).toString());
         }
         final Tile at = (active == null) ? null : active.getTile();
         return new Json().put("w", w).put("h", h)
@@ -96,6 +125,8 @@ final class MapJson {
             .putRaw("types", Json.array(typeJson))
             .put("tiles", tiles.toString())
             .put("seen", seen.toString())
+            .put("owners", owners.toString())
+            .putRaw("players", Json.array(playerJson))
             .putRaw("rivers", Json.array(rivers))
             .putRaw("roads", Json.array(roads))
             .putRaw("items", Json.array(items))
@@ -103,7 +134,46 @@ final class MapJson {
             .putRaw("units", Json.array(units))
             .putRaw("active", (at == null) ? "null"
                 : "[" + at.getX() + "," + at.getY() + "]")
+            .putRaw("activeUnit", (active == null) ? "null" : activeUnit(active))
             .toString();
+    }
+
+    /** InfoPanel.fillUnitPanel's text, and the path MapViewer draws. */
+    private static String activeUnit(Unit u) {
+        final List<String> cargo = new ArrayList<>();
+        for (Unit aboard : u.getUnitList()) {
+            cargo.add(Json.quote(aboard.getDescription(Unit.UnitLabelType.NATIONAL)));
+        }
+        for (Goods g : u.getGoodsList()) {
+            cargo.add(Json.quote(Messages.message(g.getLabel(true))));
+        }
+        return new Json().put("id", u.getId())
+            .put("label", u.getDescription(Unit.UnitLabelType.FULL))
+            .put("moves", u.getMovesAsString())
+            .putRaw("cargo", Json.array(cargo))
+            .putRaw("path", path(u))
+            .toString();
+    }
+
+    /** SwingGUI.updateUnitPath: the way to the unit's destination, if any. */
+    private static String path(Unit u) {
+        final Location destination = u.getDestination();
+        if (destination == null
+            || ((FreeColGameObject)destination).isDisposed()
+            || u.isAtLocation(destination)) return "null";
+        final PathNode path;
+        try {
+            path = u.findPath(destination);
+        } catch (RuntimeException e) {
+            return "null";
+        }
+        if (path == null) return "null";
+        final List<String> nodes = new ArrayList<>();
+        for (PathNode p = path; p != null; p = p.next) {
+            final Tile t = p.getTile();
+            if (t != null) nodes.add("[" + t.getX() + "," + t.getY() + "," + p.getTurns() + "]");
+        }
+        return Json.array(nodes);
     }
 
     private static void tileItems(Tile t, List<String> rivers, List<String> roads,

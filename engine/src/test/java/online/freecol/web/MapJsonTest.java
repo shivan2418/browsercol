@@ -3,6 +3,9 @@ package online.freecol.web;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -12,11 +15,14 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
+import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.model.Colony;
 import net.sf.freecol.common.model.Game;
+import net.sf.freecol.common.model.Goods;
 import net.sf.freecol.common.model.IndianSettlement;
 import net.sf.freecol.common.model.LostCityRumour;
 import net.sf.freecol.common.model.Map;
+import net.sf.freecol.common.model.PathNode;
 import net.sf.freecol.common.model.Player;
 import net.sf.freecol.common.model.Resource;
 import net.sf.freecol.common.model.Tile;
@@ -112,8 +118,9 @@ class MapJsonTest {
         assertEquals('.', tiles.charAt(1 + unexplored.getY() * w + unexplored.getX()));
         assertEquals('0', seen.charAt(1 + unexplored.getY() * w + unexplored.getX()));
         assertTrue(field(json, "types").contains(
-            "{\"id\":\"model.tile.highSeas\",\"land\":false,\"forested\":false}"),
-            "tile types say whether they are land and forested");
+            "{\"id\":\"model.tile.highSeas\",\"land\":false,\"forested\":false,"
+            + "\"name\":" + Json.quote(Messages.getName("model.tile.highSeas")) + "}"),
+            "tile types say whether they are land and forested, and their name");
 
         // The ship: its image keys, most specific first, the owner's
         // colour, the occupation chip, how many units the tile holds and
@@ -128,6 +135,68 @@ class MapJsonTest {
             "the ship is not sentried and in sight: " + units);
 
         assertEquals("[" + at.getX() + "," + at.getY() + "]", field(json, "active"));
+
+        // For the info panel: what the ship is, its moves and its cargo.
+        final List<String> cargo = new ArrayList<>();
+        for (Unit u : ship.getUnitList()) {
+            cargo.add(Json.quote(u.getDescription(Unit.UnitLabelType.NATIONAL)));
+        }
+        for (Goods g : ship.getGoodsList()) cargo.add(Json.quote(Messages.message(g.getLabel(true))));
+        assertTrue(cargo.size() > 1, "the ship sails with colonists aboard");
+        assertEquals("{\"id\":\"" + ship.getId() + "\",\"label\":"
+            + Json.quote(ship.getDescription(Unit.UnitLabelType.FULL))
+            + ",\"moves\":\"" + ship.getMovesAsString() + "\",\"cargo\":" + Json.array(cargo)
+            + ",\"path\":null}", field(json, "activeUnit"));
+    }
+
+    @Test
+    @Timeout(120)
+    void theActiveUnitShowsItsPathWhileItHasADestination() throws Exception {
+        startGame();
+        final Game game = client.getGame();
+        final Player us = client.getClient().getMyPlayer();
+        final Unit ship = client.getClient().getGUI().getActiveUnit();
+        final Tile from = ship.getTile();
+        // The farthest water we have explored: the ship sees only so far.
+        final Tile to = game.getMap().getTileSet(t -> t.isExplored() && !t.isLand())
+            .stream().max(Comparator.comparingInt(t -> t.getDistanceTo(from))).get();
+        ship.setDestination(to);
+        final PathNode path = ship.findPath(to);
+
+        final List<String> nodes = new ArrayList<>();
+        for (PathNode p = path; p != null; p = p.next) {
+            nodes.add("[" + p.getTile().getX() + "," + p.getTile().getY() + "," + p.getTurns() + "]");
+        }
+        assertTrue(nodes.size() > 1, nodes.toString());
+        assertTrue(field(MapJson.of(game, us, ship), "activeUnit")
+                .endsWith(",\"path\":" + Json.array(nodes) + "}"),
+            "each step's tile, and the turns it takes to get there");
+    }
+
+    @Test
+    @Timeout(120)
+    void eachTileSaysWhoOwnsIt() throws Exception {
+        startGame();
+        final Game game = server.getGame();
+        final Player us = game.getFreeColGameObject(
+            client.getClient().getMyPlayer().getId(), Player.class);
+        final Map map = game.getMap();
+        final Tile owned = map.getTileSet(t -> t.getOwner() != null && t.isExplored())
+            .stream().findFirst().get();
+        final Tile free = map.getTileSet(t -> t.getOwner() == null)
+            .stream().findFirst().get();
+
+        final String json = MapJson.of(game, us, null);
+        final String owners = field(json, "owners");
+        final int w = map.getWidth();
+        assertEquals(w * map.getHeight() + 2, owners.length());
+        assertEquals('.', owners.charAt(1 + free.getY() * w + free.getX()));
+        final int i = owners.charAt(1 + owned.getY() * w + owned.getX()) - 'A';
+        final String players = field(json, "players");
+        assertTrue(players.startsWith("[{"), players);
+        final String entry = players.substring(1, players.length() - 1).split("(?<=\\}),")[i];
+        assertEquals("{\"name\":" + Json.quote(Messages.message(owned.getOwner().getNationLabel()))
+            + ",\"rgb\":" + (Utils.getRGB(owned.getOwner().getNationColor()) & 0xffffff) + "}", entry);
     }
 
     @Test
