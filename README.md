@@ -36,7 +36,10 @@ sub-path such as GitHub Pages' `/<repo>/` works.
 
 The page starts a Classic game and draws the map in Tileset mode: FreeCol's
 own art, found by resource key as FreeCol finds it, so a Tileset (an
-art-only mod) can replace any key. Drag the map to pan. Click one of your units to
+art-only mod) can replace any key. The map follows the active unit, marked
+with FreeCol's cursor, and the side panel shows it and the tile under the
+pointer. Drag the map or rest the pointer at its edge to scroll, and zoom
+with the wheel. Click one of your units to
 select it (click again to cycle through a stack, units aboard ships
 included), click a tile to send the active unit there, move one step with
 the arrow keys or numpad, `W`/`Space` for the next unit, `B` to build a

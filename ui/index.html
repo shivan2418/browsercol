@@ -23,6 +23,12 @@
         height: 100vh;
         box-sizing: border-box;
       }
+      #info {
+        white-space: pre;
+        min-height: 8em;
+        border: 1px solid #555;
+        padding: 4px;
+      }
       #out {
         white-space: pre;
         overflow: auto;
@@ -39,7 +45,11 @@
         <button data-command="buildColony">Build colony (B)</button>
         <button data-command="endTurn">End turn (Enter)</button>
       </div>
-      <div>Click a unit to select it, click a tile to go there. Arrows or numpad move.</div>
+      <div>
+        Click a unit to select it, click a tile to go there. Arrows or numpad move. Drag, or rest the pointer at an
+        edge, to scroll; the wheel zooms.
+      </div>
+      <div id="info"></div>
       <div id="out">starting...</div>
     </div>
     <script type="module" src="/src/main.ts"></script>

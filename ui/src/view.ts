@@ -81,6 +81,21 @@ function clamp(v: ViewState): ViewState {
   return centre[0] === v.centre[0] && centre[1] === v.centre[1] ? v : { ...v, centre };
 }
 
+/** A viewport pixel's map point, at zoom 1. */
+export const toMap = (v: ViewState, [px, py]: [number, number]): [number, number] => [
+  v.centre[0] + (px - v.viewport[0] / 2) / v.zoom,
+  v.centre[1] + (py - v.viewport[1] / 2) / v.zoom,
+];
+
+/** Where a map point shows in the viewport. */
+export const toScreen = (v: ViewState, [mx, my]: [number, number]): [number, number] => [
+  (mx - v.centre[0]) * v.zoom + v.viewport[0] / 2,
+  (my - v.centre[1]) * v.zoom + v.viewport[1] / 2,
+];
+
+/** Where a tile's centre shows in the viewport. */
+export const tileOnScreen = (v: ViewState, at: Tile) => toScreen(v, tileCentre(at));
+
 /** Whether a tile's centre is in view. */
 function onScreen(v: ViewState, at: Tile) {
   const c = tileCentre(at);

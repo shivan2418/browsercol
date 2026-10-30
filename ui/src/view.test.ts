@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vite-plus/test';
-import { cursor, initialView, panel, reduce, type MapFacts, type ViewEvent } from './view';
+import { cursor, initialView, panel, reduce, toMap, toScreen, type MapFacts, type ViewEvent } from './view';
 
 // A 20x40 map, 2624x1312 pixels at zoom 1, in a 640x480 viewport. Tile
 // (x, y)'s centre is at (128x + 64 + 64 * (y % 2), 32y + 32).
@@ -123,5 +123,13 @@ describe('the view', () => {
     // The WebGUI moved on to another unit before the next map view: show none.
     const next = reduce(v, { k: 'activeUnit', unit: 'unit:8', tile: 'tile:2', at: [0, 0] });
     expect(panel(next).unit).toBeNull();
+  });
+
+  it('converts between viewport and map pixels at the zoom', () => {
+    const v = reduce(play({ k: 'focus', tile: 'tile:2', at: [10, 20] }), { k: 'zoom', steps: 2, at: [320, 240] });
+    expect(v.zoom).toBe(2);
+    expect(toScreen(v, [1344, 672]), 'the centre').toEqual([320, 240]);
+    expect(toScreen(v, [1408, 640])).toEqual([448, 176]);
+    expect(toMap(v, [448, 176])).toEqual([1408, 640]);
   });
 });
