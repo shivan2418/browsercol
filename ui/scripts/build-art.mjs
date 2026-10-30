@@ -2,8 +2,8 @@
 // manifest the Browser UI's resolver loads: the resources.properties layers
 // (data/base, then the "default" TC, then any mods given) and the art files.
 // Only the keys the map draws are kept: images, with every variation of
-// each, the texts of native settlement chips, and the road and population
-// colours.
+// each, the texts of native settlement chips, and the road, population and
+// mission chip colours.
 // Prints the art budget: file count, bytes, brotli bytes and atlas area.
 // Usage: node build-art.mjs <freecol/data> <out dir> [--manifest <name>] [mod dir...]
 // The manifest is art.json unless named. Files already in the out dir stay,
@@ -18,7 +18,7 @@ const named = rest[0] === '--manifest';
 const manifestName = named ? rest[1] : 'art.json';
 const mods = named ? rest.slice(2) : rest;
 const MAP_KEYS =
-  /^(image\.(tile|tileoverlay|tileforest|tileitem|abovetile|unit|mask)(\.|$)|color\.map\.(road$|productionBonus\.)|indianSettlementChip\.|indianAlarmChip\.|cross$)/;
+  /^(image\.(tile|tileoverlay|tileforest|tileitem|abovetile|unit|mask)(\.|$)|color\.map\.(road$|productionBonus\.)|color\.foreground\.mission\.|indianSettlementChip\.|indianAlarmChip\.|cross$)/;
 
 const layers = [
   { dir: 'base', root: path.join(data, 'base') },
