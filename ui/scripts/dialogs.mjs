@@ -12,15 +12,12 @@ export async function answerDialogs(page) {
       const text = d.querySelector('.text, h2')?.textContent ?? '';
       window.__dialogs.push(`${d.dataset.kind}: ${text.split('\n')[0]}`);
       const pick = (selector) => d.querySelector(selector);
-      const button =
-        d.dataset.kind === 'confirm'
-          ? (!/Europe/.test(text) && pick('[data-answer=ok]')) || pick('[data-answer=cancel]')
-          : d.dataset.kind === 'choice'
-            ? [...d.querySelectorAll('[data-choice]:not(:disabled)')].pop()
-            : d.dataset.kind === 'input'
-              ? pick('[data-answer=ok]')
-              : pick('[data-answer=close]');
-      button?.click();
+      const buttonFor = {
+        confirm: () => (!/Europe/.test(text) && pick('[data-answer=ok]')) || pick('[data-answer=cancel]'),
+        choice: () => [...d.querySelectorAll('[data-choice]:not(:disabled)')].pop(),
+        input: () => pick('[data-answer=ok]'),
+      };
+      (buttonFor[d.dataset.kind] ?? (() => pick('[data-answer=close]')))()?.click();
     };
     const seen = new WeakSet();
     new MutationObserver(() => {

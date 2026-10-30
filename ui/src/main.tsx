@@ -53,7 +53,7 @@ const map = mapDrawer(
 const rounds: string[] = [];
 let drawn = Promise.resolve();
 
-const box = dialogs();
+const dialogQueue = dialogs();
 const side: Omit<SideProps, 'run'> = { turn: '-', info: '', unasked: [], status: 'starting...' };
 let runCommand: (c: Command) => void = () => {};
 const sideRoot = createRoot(document.getElementById('side')!);
@@ -61,7 +61,7 @@ function renderSide() {
   sideRoot.render(
     <>
       <Side {...side} run={(c) => runCommand(c)} />
-      <DialogHost dialogs={box} goTo={(at) => dispatch({ k: 'focus', tile: null, at })} />
+      <DialogHost dialogs={dialogQueue} goTo={(at) => dispatch({ k: 'focus', tile: null, at })} />
     </>,
   );
 }
@@ -110,14 +110,14 @@ const gui: GuiHandlers = {
     activeUnit: (e) => dispatch({ k: 'activeUnit', ...e }),
     selectedTile: (e) => dispatch({ k: 'selectedTile', ...e }),
     focus: (e) => dispatch({ k: 'focus', ...e }),
-    information: (e) => box.show('information', e),
+    information: (e) => dialogQueue.show('information', e),
     error: (e) => {
       console.error(e.text);
-      box.show('error', e);
+      dialogQueue.show('error', e);
     },
-    eventPanel: (e) => box.show('eventPanel', e),
+    eventPanel: (e) => dialogQueue.show('eventPanel', e),
     messages: (e) => {
-      if (e.messages.length > 0) box.show('messages', e);
+      if (e.messages.length > 0) dialogQueue.show('messages', e);
     },
     unasked: (e) => {
       console.warn(`WebGUI: no dialog yet for ${e.method}; FreeCol's default was used`);
@@ -127,9 +127,9 @@ const gui: GuiHandlers = {
     },
   },
   questions: {
-    confirm: (q) => box.ask('confirm', q),
-    choice: (q) => box.ask('choice', q),
-    input: (q) => box.ask('input', q),
+    confirm: (q) => dialogQueue.ask('confirm', q),
+    choice: (q) => dialogQueue.ask('choice', q),
+    input: (q) => dialogQueue.ask('input', q),
   },
 };
 
@@ -226,7 +226,7 @@ function playWith(client: ClientExports) {
   runCommand = run;
   addEventListener('keydown', (e) => {
     // An open dialog has the keys (panels.tsx).
-    if (e.altKey || e.ctrlKey || e.metaKey || box.current()) return;
+    if (e.altKey || e.ctrlKey || e.metaKey || dialogQueue.current()) return;
     const c = commandForKey(e);
     if (!c) return;
     e.preventDefault();
