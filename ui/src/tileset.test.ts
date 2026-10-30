@@ -169,4 +169,11 @@ describe('colony labels', () => {
     expect(index(ops, 'chip')).toBeLessThan(index(ops, 'label'));
     expect(ops[index(ops, 'label')]).toEqual({ k: 'label', x: 0, y: 3, name: 'Jamestown', rgb: 0xff8000 });
   });
+
+  it('dims the population and the name on a tile the player cannot see now', () => {
+    // (1,1) is explored but out of sight; (0,3) is in sight.
+    const labels = (ops: Op[]) => ops.filter((op) => op.k === 'population' || op.k === 'label');
+    expect(labels(at(scene(colony(1, 1), tileset), 1, 1)).map((op) => op.dim)).toEqual([true, true]);
+    expect(labels(at(scene(colony(0, 3), tileset), 0, 3)).map((op) => op.dim)).toEqual([undefined, undefined]);
+  });
 });
