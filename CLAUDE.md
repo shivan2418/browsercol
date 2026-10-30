@@ -9,6 +9,7 @@
 ## Finishing a ticket
 
 - Finish everything in the ticket's spec, including checking code you changed but that no test runs. Anything outside the spec, or a review suggestion you don't take, goes into a new issue (`needs-triage`, "Found while doing #N"). Never leave it only in a chat summary.
+- Before closing, run the whole suite on the final commit: Engine tests, `vp check`, `vp test`, `build.sh` and the browser scripts (`smoke`, `play`, `tileset`). Rerun a failure before calling it a flake, and file any flake as an issue.
 - When the ticket is done, merge its branch into `main` (ff-only, as above) if the work was on one, then close the GitHub issue with a comment summarising what landed and naming any follow-up issues.
 
 ## Agent skills
