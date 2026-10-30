@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vite-plus/test';
-import { cursor, initialView, panel, reduce, toMap, toScreen, type MapFacts, type ViewEvent } from './view';
+import { cursor, edgeScroll, initialView, panel, reduce, toMap, toScreen, type MapFacts, type ViewEvent } from './view';
 
 // A 20x40 map, 2624x1312 pixels at zoom 1, in a 640x480 viewport. Tile
 // (x, y)'s centre is at (128x + 64 + 64 * (y % 2), 32y + 32).
@@ -134,5 +134,25 @@ describe('the view', () => {
     expect(toScreen(v, [1344, 672]), 'the centre').toEqual([320, 240]);
     expect(toScreen(v, [1408, 640])).toEqual([448, 176]);
     expect(toMap(v, [448, 176])).toEqual([1408, 640]);
+  });
+
+  it('keeps the view on the map when the window grows', () => {
+    // In the bottom right corner of the map, then twice as wide and tall.
+    const corner = play({ k: 'focus', tile: 'tile:3', at: [19, 39] });
+    expect(corner.centre).toEqual([2304, 1072]);
+    const grown = reduce(corner, { k: 'resize', width: 1280, height: 960 });
+    expect(grown.viewport).toEqual([1280, 960]);
+    expect(grown.centre).toEqual([1984, 832]);
+  });
+});
+
+describe('edge scrolling', () => {
+  it("scrolls toward the edge the pointer is at, by the viewport's current size", () => {
+    expect(edgeScroll([10, 200], [640, 480])).toEqual([1, 0]);
+    expect(edgeScroll([630, 470], [640, 480])).toEqual([-1, -1]);
+    expect(edgeScroll([320, 5], [640, 480])).toEqual([0, 1]);
+    expect(edgeScroll([320, 240], [640, 480])).toEqual([0, 0]);
+    // The old right edge of a viewport that has since grown is not an edge.
+    expect(edgeScroll([630, 240], [1280, 960])).toEqual([0, 0]);
   });
 });

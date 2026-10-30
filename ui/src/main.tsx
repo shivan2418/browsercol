@@ -22,7 +22,17 @@ import { mapDrawer, type MapView } from './map';
 import { DialogHost } from './panels';
 import { Side, type SideProps } from './side';
 import { loadModule } from './teavm';
-import { cursor, initialView, panel, reduce, tileOnScreen, W, type ViewEvent, type ViewState } from './view';
+import {
+  cursor,
+  edgeScroll,
+  initialView,
+  panel,
+  reduce,
+  tileOnScreen,
+  W,
+  type ViewEvent,
+  type ViewState,
+} from './view';
 import type { GuiHandlers } from './webgui';
 
 declare global {
@@ -42,10 +52,11 @@ const autoplay = Number(params.get('autoplay') ?? '0');
 const rules = params.get('rules') ?? 'classic';
 const tileset = params.get('tileset');
 const mapHost = document.getElementById('map')!;
-const viewport: [number, number] = [Math.max(320, innerWidth - 360), Math.max(240, innerHeight)];
+/** The map's size for the window's: all of it but the side panel. */
+const viewport = (): [number, number] => [Math.max(320, innerWidth - 360), Math.max(240, innerHeight)];
 const map = mapDrawer(
   mapHost,
-  viewport,
+  viewport(),
   'art/',
   tileset ? `${tileset}.json` : undefined,
   params.get('renderer') === 'canvas2d',
@@ -72,12 +83,19 @@ function dispatch(e: ViewEvent) {
   map.show(view);
   showPanel();
 }
-dispatch({ k: 'resize', width: viewport[0], height: viewport[1] });
+function resize() {
+  const [width, height] = viewport();
+  map.resize([width, height]);
+  dispatch({ k: 'resize', width, height });
+}
+resize();
+addEventListener('resize', resize);
 
 window.fcReveal = (x, y) => {
   const [px, py] = tileOnScreen(view, [x, y]);
   const margin = W * view.zoom;
-  if (px < margin || py < margin || px > viewport[0] - margin || py > viewport[1] - margin) {
+  const [vw, vh] = view.viewport;
+  if (px < margin || py < margin || px > vw - margin || py > vh - margin) {
     dispatch({ k: 'focus', tile: null, at: [x, y] });
   }
   return tileOnScreen(view, [x, y]);
@@ -140,8 +158,7 @@ function drawMap(m: MapView) {
   drawn = map.draw(m);
 }
 
-/** Pointer within this many pixels of the map's edge, for EDGE_DELAY ms, scrolls it by EDGE_SPEED a frame. */
-const EDGE = 24;
+/** Pointer at the map's edge (view.ts, edgeScroll), for EDGE_DELAY ms, scrolls it by EDGE_SPEED a frame. */
 const EDGE_DELAY = 300;
 const EDGE_SPEED = 16;
 
@@ -191,10 +208,6 @@ function moveWith(): () => boolean {
   // The pointer over the map, and since when it has been at an edge.
   let pointer: [number, number] | null = null;
   let edgeSince = 0;
-  const edge = (p: [number, number]): [number, number] => [
-    p[0] < EDGE ? 1 : p[0] > viewport[0] - EDGE ? -1 : 0,
-    p[1] < EDGE ? 1 : p[1] > viewport[1] - EDGE ? -1 : 0,
-  ];
   mapHost.addEventListener('pointermove', (e) => {
     pointer = onCanvas(e);
     const at = pointer && map.tileAt(...pointer);
@@ -206,7 +219,7 @@ function moveWith(): () => boolean {
     if (view.hover) dispatch({ k: 'hover', at: null });
   });
   const scroll = (now: number) => {
-    const [ex, ey] = pointer && !from ? edge(pointer) : [0, 0];
+    const [ex, ey] = pointer && !from ? edgeScroll(pointer, view.viewport) : [0, 0];
     if (!ex && !ey) edgeSince = 0;
     else if (!edgeSince) edgeSince = now;
     else if (now - edgeSince >= EDGE_DELAY) dispatch({ k: 'pan', dx: ex * EDGE_SPEED, dy: ey * EDGE_SPEED });
