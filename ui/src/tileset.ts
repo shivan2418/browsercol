@@ -29,8 +29,8 @@ export interface MapView {
   roads: [number, number, number][];
   /** [x, y, zIndex, kind, key] in zIndex order per tile. */
   items: [number, number, number, 'centered' | 'tile', string][];
-  /** [x, y, keys, rgb, name, population (-1 for native settlements), production bonus]. */
-  settlements: [number, number, string[], number, string, number, number][];
+  /** [x, y, keys, rgb, name, population (-1 for native settlements), production bonus, preferred size change]. */
+  settlements: [number, number, string[], number, string, number, number, number][];
   /** [x, y, keys, rgb, chip text, chip text rgb, units on the tile, faded]. */
   units: [number, number, string[], number, string, number, number, boolean][];
   active: [number, number] | null;
@@ -62,8 +62,11 @@ export type Op =
   | { k: 'road'; x: number; y: number; dirs: Direction[] }
   /** A unit's occupation chip in its owner's colour, with a line per unit on the tile. */
   | { k: 'chip'; x: number; y: number; text: string; bg: number; fg: number; stack: number }
-  /** A colony's population in the tile's centre, coloured by its production bonus. */
-  | { k: 'population'; x: number; y: number; population: number; bonus: number; dim?: true }
+  /**
+   * A colony's population in the tile's centre, coloured by its production
+   * bonus, and emphasised when the colony would rather grow.
+   */
+  | { k: 'population'; x: number; y: number; population: number; bonus: number; emph?: true; dim?: true }
   /** A settlement's name below the tile, in the owner's colour. */
   | { k: 'label'; x: number; y: number; name: string; rgb: number; dim?: true };
 
@@ -378,8 +381,9 @@ export function scene(map: MapView, res: Resources): Op[] {
     if (s && key) {
       ops.push({ k: 'image', x, y, src: named(key)!, at: 'large', ...dim });
       // TileViewer.displaySettlementWithChipsOrPopulationNumber, classic labels.
-      const [, , , , , population, bonus] = s;
-      if (population >= 0) ops.push({ k: 'population', x, y, population, bonus, ...dim });
+      const [, , , , , population, bonus, sizeChange] = s;
+      const emph = sizeChange > 0 ? { emph: true as const } : {};
+      if (population >= 0) ops.push({ k: 'population', x, y, population, bonus, ...emph, ...dim });
     }
   });
 
