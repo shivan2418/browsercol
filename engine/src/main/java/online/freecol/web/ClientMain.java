@@ -144,7 +144,7 @@ public final class ClientMain {
         command("endTurn", () -> engine.getCommands().endTurn());
     }
 
-    /** The client's view of the map for the Tileset renderer: see MapJson. */
+    /** The client's view of the map for Tileset mode: see MapJson. */
     static String mapJson() {
         return MapJson.of(engine.getGame(), engine.getClient().getMyPlayer(),
                           engine.getClient().getGUI().getActiveUnit());

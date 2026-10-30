@@ -9,7 +9,7 @@ Vite+, PixiJS) carries FreeCol's messages between them and draws the map.
   clone at `freecol/`, our patched copies in `engine/patches/`, shims and the
   `online.freecol.web` entry points.
 - `ui/`: the Browser UI: page script, Worker script, `postMessage` channel,
-  map renderer.
+  map in Tileset mode.
 - `spike/`: the toolchain spike that got here, kept as a record.
 
 ## Commands

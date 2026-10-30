@@ -3,7 +3,7 @@
 // its ImageLibrary would pick, at FreeCol's default "normal" graphics
 // quality and with animations stopped at their first frame. FreeCol makes
 // some images by masking others (terrain transitions, beaches, rivers);
-// those come as a Recipe the renderer composites and caches by id.
+// those come as a Recipe that map.ts composites and caches by id.
 import type { Resources } from './resources';
 
 export interface TileType {
@@ -81,7 +81,7 @@ export interface Chips {
 /** An image file, or one made by drawing others in order onto a tile-sized canvas. */
 export type Src = string | Recipe;
 export interface Recipe {
-  /** Same id, same image: the renderer's cache key. */
+  /** Same id, same image: map.ts's cache key. */
   id: string;
   steps: Step[];
 }
