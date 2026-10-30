@@ -33,16 +33,20 @@ import net.sf.freecol.common.model.Unit;
  * <tr><td>invokeNowOrLater, invokeNowOrWait</td><td>nothing</td>
  *     <td>runs the task at once</td></tr>
  * <tr><td>playSound</td><td>nothing</td><td>no audio</td></tr>
- * <tr><td>reconnectGUI</td><td>nothing</td>
- *     <td>keeps the active unit; tells the ClientEngine the game started</td></tr>
+ * <tr><td>reconnectGUI</td><td>events activeUnit or selectedTile, focus</td>
+ *     <td>as SwingGUI: the active unit, else the fallback tile, then the
+ *         focus on its tile; tells the ClientEngine the game started</td></tr>
  * <tr><td>getActiveUnit</td><td>nothing</td><td>the kept active unit</td></tr>
  * <tr><td>dialogIcon (browser: hook)</td><td>nothing</td>
  *     <td>an icon carrying the object, for a question's object id</td></tr>
  * <tr><td>refresh</td><td>event refresh</td><td>{}</td></tr>
  * <tr><td>changeView(Unit, boolean)</td><td>event activeUnit</td>
- *     <td>{unit, tile}</td></tr>
+ *     <td>{unit, tile, at: [x, y]}</td></tr>
  * <tr><td>changeView()</td><td>event activeUnit</td>
- *     <td>{unit: null, tile: null}</td></tr>
+ *     <td>{unit: null, tile: null, at: null}</td></tr>
+ * <tr><td>changeView(Tile)</td><td>event selectedTile</td>
+ *     <td>{tile, at}; the active unit is kept</td></tr>
+ * <tr><td>setFocus</td><td>event focus</td><td>{tile, at}</td></tr>
  * <tr><td>showInformationPanel(FreeColObject, StringTemplate)</td>
  *     <td>event information</td><td>{text, object}</td></tr>
  * <tr><td>showErrorPanel(String, Runnable)</td><td>event error</td>
@@ -127,6 +131,12 @@ public class WebGUI extends GUI {
         return (icon instanceof ObjectIcon) ? id(((ObjectIcon)icon).display) : null;
     }
 
+    /** A tile as its id and, for the Browser UI's map, its [x, y]. */
+    private static Json tile(Json json, Tile tile) {
+        return json.put("tile", id(tile)).putRaw("at", (tile == null) ? "null"
+            : "[" + tile.getX() + "," + tile.getY() + "]");
+    }
+
     /** The localized text for a message key, or null for no key. */
     private static String label(String key) {
         return (key == null) ? null : Messages.message(key);
@@ -152,7 +162,20 @@ public class WebGUI extends GUI {
 
     @Override
     public void reconnectGUI(Unit active, Tile tile) {
-        this.activeUnit = active;
+        if (active != null) {
+            changeView(active, false);
+            if (active.hasTile()) {
+                tile = active.getTile();
+            } else if (active.getOwner().getFallbackTile() != null) {
+                tile = active.getOwner().getFallbackTile();
+                changeView(tile);
+            }
+        } else if (tile != null) {
+            changeView(tile);
+        } else {
+            changeView((Unit)null, false);
+        }
+        if (tile != null) setFocus(tile);
         this.engine.gameStarted();
     }
 
@@ -170,10 +193,24 @@ public class WebGUI extends GUI {
     @Override
     public void changeView(Unit unit, boolean force) {
         this.activeUnit = unit;
-        this.ui.show("activeUnit", new Json()
-            .put("unit", id(unit))
-            .put("tile", (unit == null) ? null : id(unit.getTile()))
-            .toString());
+        this.ui.show("activeUnit", tile(new Json().put("unit", id(unit)),
+                (unit == null) ? null : unit.getTile()).toString());
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * Terrain mode: a tile is selected, and the active unit is kept, as
+     * in SwingGUI, to come back to.
+     */
+    @Override
+    public void changeView(Tile tile) {
+        this.ui.show("selectedTile", tile(new Json(), tile).toString());
+    }
+
+    @Override
+    public void setFocus(Tile tile) {
+        this.ui.show("focus", tile(new Json(), tile).toString());
     }
 
     /**
