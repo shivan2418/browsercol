@@ -516,18 +516,19 @@ export function mapDrawer(
   async function init() {
     const art = (await (await fetch(artBase + manifest)).json()) as Art;
     res = resources(art.layers, art.files);
-    const at = size;
+    // resize() swaps in a new array, so a changed size is a different one.
+    const startSize = size;
     let p: Pen;
     try {
       if (canvas2d) throw new Error('asked for canvas2d');
-      p = await pixiPen(host, ...at);
+      p = await pixiPen(host, ...startSize);
       renderer = 'pixi';
     } catch (ex) {
-      p = canvasPen(host, ...at);
+      p = canvasPen(host, ...startSize);
       renderer = `canvas2d (pixi failed: ${ex instanceof Error ? ex.message : String(ex)})`;
     }
     // The window may have changed while PixiJS started.
-    if (size !== at) p.resize(...size);
+    if (size !== startSize) p.resize(...size);
     pen = p;
   }
 

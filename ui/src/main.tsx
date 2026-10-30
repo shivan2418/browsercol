@@ -53,10 +53,10 @@ const rules = params.get('rules') ?? 'classic';
 const tileset = params.get('tileset');
 const mapHost = document.getElementById('map')!;
 /** The map's size for the window's: all of it but the side panel. */
-const viewport = (): [number, number] => [Math.max(320, innerWidth - 360), Math.max(240, innerHeight)];
+const mapSizeForWindow = (): [number, number] => [Math.max(320, innerWidth - 360), Math.max(240, innerHeight)];
 const map = mapDrawer(
   mapHost,
-  viewport(),
+  mapSizeForWindow(),
   'art/',
   tileset ? `${tileset}.json` : undefined,
   params.get('renderer') === 'canvas2d',
@@ -84,9 +84,9 @@ function dispatch(e: ViewEvent) {
   showPanel();
 }
 function resize() {
-  const [width, height] = viewport();
-  map.resize([width, height]);
-  dispatch({ k: 'resize', width, height });
+  const size = mapSizeForWindow();
+  map.resize(size);
+  dispatch({ k: 'resize', width: size[0], height: size[1] });
 }
 resize();
 addEventListener('resize', resize);

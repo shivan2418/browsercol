@@ -101,7 +101,7 @@ function onScreen(v: ViewState, at: Tile) {
 }
 
 /** How near, in pixels, the pointer must be to the viewport's edge to scroll the map. */
-export const EDGE = 24;
+const EDGE = 24;
 
 /** Which way the pointer at a viewport pixel scrolls the map: +1, -1 or 0 on each axis. */
 export const edgeScroll = ([px, py]: [number, number], [w, h]: [number, number]): [number, number] => [
