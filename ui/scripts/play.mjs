@@ -188,11 +188,9 @@ async function play(page, url) {
         `${what}: the view's active unit ${JSON.stringify(v.active)} is not the client's ${m.activeUnit?.id} at ${label(m.active)}`,
       );
     }
-    // The tile's centre on the map (ui/src/view.ts), then in the viewport.
-    const [x, y] = m.active;
-    const [px, py] = [x * 128 + (y % 2) * 64 + 64, y * 32 + 32].map(
-      (c, i) => (c - v.centre[i]) * v.zoom + v.viewport[i] / 2,
-    );
+    // The view's own geometry (tileOnScreen in ui/src/view.ts, unit-tested
+    // there) places the cursor; clicks through fcReveal rely on the same maths.
+    const [px, py] = v.cursorOnScreen;
     if (px < 0 || py < 0 || px > v.viewport[0] || py > v.viewport[1]) {
       throw new Error(`${what}: the active unit at ${label(m.active)} is out of view`);
     }
