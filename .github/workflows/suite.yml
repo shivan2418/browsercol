@@ -1,10 +1,13 @@
 # The whole suite, as run locally before closing a ticket: Engine tests,
 # build.sh, vp check, vp test and the browser scripts. Started by hand from
-# the Actions tab (or `gh workflow run suite.yml`), on any branch.
+# the Actions tab (or `gh workflow run suite.yml`), on any branch, or by
+# ./ci.sh pushing a throwaway ci/<sha> branch.
 name: Suite
 
 on:
   workflow_dispatch:
+  push:
+    branches: ['ci/**']
 
 env:
   # freecol/ is a git-ignored upstream clone; CI pins the commit it was on
