@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.Supplier;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -13,6 +14,7 @@ import org.junit.jupiter.api.Timeout;
 
 import net.sf.freecol.common.model.Colony;
 import net.sf.freecol.common.model.Game;
+import net.sf.freecol.common.model.IndianSettlement;
 import net.sf.freecol.common.model.LostCityRumour;
 import net.sf.freecol.common.model.Map;
 import net.sf.freecol.common.model.Player;
@@ -20,6 +22,7 @@ import net.sf.freecol.common.model.Resource;
 import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.TileImprovementStyle;
 import net.sf.freecol.common.model.Unit;
+import net.sf.freecol.common.util.Utils;
 import net.sf.freecol.server.model.ServerColony;
 import net.sf.freecol.server.model.ServerUnit;
 
@@ -176,8 +179,46 @@ class MapJsonTest {
 
         final String settlements = field(MapJson.of(game, us, null), "settlements");
         assertTrue(settlements.contains("\"Jamestown\",1,"
-                + colony.getProductionBonus() + "," + change + "]"), settlements);
-        assertTrue(settlements.contains(",-1,0,0]"),
+                + colony.getProductionBonus() + "," + change + ",null]"),
+            "and no native settlement chips: " + settlements);
+        assertTrue(settlements.contains(",-1,0,0,{"),
             "native settlements send no size change: " + settlements);
+    }
+
+    @Test
+    @Timeout(120)
+    void aNativeSettlementSendsWhatItsChipsShow() throws Exception {
+        startGame();
+        final Game game = server.getGame();
+        final Player us = game.getFreeColGameObject(
+            client.getClient().getMyPlayer().getId(), Player.class);
+        final IndianSettlement is = game.getMap().getTileSet(t ->
+                t.getSettlement() instanceof IndianSettlement)
+            .stream().findFirst().get().getIndianSettlement();
+        final Supplier<String> entry = () -> {
+            final String all = field(MapJson.of(game, us, null), "settlements");
+            final int from = all.indexOf("[" + is.getTile().getX() + "," + is.getTile().getY() + ",");
+            return all.substring(from, all.indexOf("}]", from) + 2);
+        };
+        final String capital = ",-1,0,0,{\"capital\":" + is.getType().isCapital();
+        final int ours = Utils.getRGB(us.getNationColor()) & 0xffffff;
+
+        // Before contact: the settlement chip only.
+        assertTrue(entry.get().endsWith(capital + ",\"mission\":null,\"alarm\":null}]"),
+            entry.get());
+
+        // Contacted, with our expert missionary and hating us most: the
+        // alarm chip's text is in our light colour's foreground, black,
+        // and it reads as worth scouting until scouted.
+        is.setContacted(us);
+        is.setMostHated(us);
+        is.setMissionary(new ServerUnit(game, null, us,
+            game.getSpecification().getUnitType("model.unit.jesuitMissionary")));
+        assertTrue(entry.get().endsWith(capital
+                + ",\"mission\":{\"rgb\":" + ours + ",\"expert\":true}"
+                + ",\"alarm\":{\"fg\":0,\"worthScouting\":true}}]"),
+            entry.get());
+        is.setScouted(us);
+        assertTrue(entry.get().endsWith("\"worthScouting\":false}}]"), entry.get());
     }
 }
