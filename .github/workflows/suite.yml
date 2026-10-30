@@ -1,0 +1,64 @@
+# The whole suite, as run locally before closing a ticket: Engine tests,
+# build.sh, vp check, vp test and the browser scripts. Started by hand from
+# the Actions tab (or `gh workflow run suite.yml`), on any branch.
+name: Suite
+
+on:
+  workflow_dispatch:
+
+env:
+  # freecol/ is a git-ignored upstream clone; CI pins the commit it was on
+  # when last checked locally, since engine/patches/ replace whole files.
+  FREECOL_REPO: https://github.com/FreeCol/freecol.git
+  FREECOL_SHA: 1c272e80d2f8946e096063f6d88eb945a44f789d
+
+jobs:
+  suite:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clone upstream FreeCol
+        run: |
+          git init -q freecol
+          git -C freecol fetch -q --depth 1 "$FREECOL_REPO" "$FREECOL_SHA"
+          git -C freecol checkout -q FETCH_HEAD
+
+      - name: Engine tests
+        run: ./dev.sh -C engine gradle --console=plain test
+
+      # Later steps run even if an earlier one failed, to report every
+      # failure in one run; those after the build need its dist/ and npm ci.
+      - name: Build dist/
+        id: build
+        if: ${{ !cancelled() }}
+        run: ./dev.sh ./build.sh
+
+      - name: vp check
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: ./dev.sh -C ui npx vp check
+
+      - name: vp test
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: ./dev.sh -C ui npx vp test
+
+      - name: Browser smoke
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: DEV_VARIANT=web ./dev.sh node ui/scripts/smoke.mjs
+
+      - name: Browser play
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: DEV_VARIANT=web ./dev.sh node ui/scripts/play.mjs
+
+      - name: Browser tileset
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: DEV_VARIANT=web ./dev.sh node ui/scripts/tileset.mjs
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: .cache/*.png
+          if-no-files-found: ignore

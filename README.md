@@ -28,6 +28,12 @@ DEV_VARIANT=web ./dev.sh node ui/scripts/play.mjs    # land, found a colony, end
 DEV_VARIANT=web ./dev.sh node ui/scripts/tileset.mjs # draw with the test Tileset (ui/tilesets/test) in both
 ```
 
+To run the whole suite on GitHub Actions instead, start the Suite workflow
+(`.github/workflows/suite.yml`) from the Actions tab or with
+`gh workflow run suite.yml --ref <branch>`. It runs the commands above and
+uploads the browser screenshots. CI clones FreeCol at the commit pinned in
+the workflow's `FREECOL_SHA`; bump it when you update the local `freecol/`.
+
 `build.sh` builds both Engine modules in one Gradle run (`gradle modules`),
 bundles FreeCol's rules and strings into a data file, copies the map art
 of the default Tileset (`ui/scripts/build-art.mjs`, which also prints the art
