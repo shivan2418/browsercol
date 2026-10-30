@@ -6,6 +6,11 @@
 - Hooks: run `git config core.hooksPath .githooks` once per clone. `commit-msg` rejects a message with no `Co-Authored-By:` or `Agent:` trailer. `pre-commit` runs `.githooks/check`, which compiles the Engine and is skipped for docs-only changes. On a pass the hook adds `Gate: passed`; never type it by hand, and never use `--no-verify`. If a hook fails, fix the cause and make a new commit.
 - Side work by agents goes on its own branch. Once the full suite has visibly passed on it, bring it onto `main` with `git merge --ff-only`. No PRs and no squashing.
 
+## Finishing a ticket
+
+- Finish everything in the ticket's spec, including checking code you changed but that no test runs. Anything outside the spec, or a review suggestion you don't take, goes into a new issue (`needs-triage`, "Found while doing #N"). Never leave it only in a chat summary.
+- When the ticket is done, merge its branch into `main` (ff-only, as above) if the work was on one, then close the GitHub issue with a comment summarising what landed and naming any follow-up issues.
+
 ## Agent skills
 
 ### Issue tracker
