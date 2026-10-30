@@ -133,8 +133,7 @@ final class MapJson {
             .putRaw("items", Json.array(items))
             .putRaw("settlements", Json.array(settlements))
             .putRaw("units", Json.array(units))
-            .putRaw("active", (at == null) ? "null"
-                : "[" + at.getX() + "," + at.getY() + "]")
+            .putRaw("active", Json.xy(at))
             .putRaw("activeUnit", (active == null) ? "null" : activeUnit(active))
             .toString();
     }
