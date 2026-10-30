@@ -10,7 +10,8 @@ branch="ci/${sha:0:12}"
 [[ -z "$(git status --porcelain --untracked-files=no)" ]] \
   || echo "ci.sh: uncommitted changes are not tested, only HEAD ${sha:0:12}" >&2
 
-git push -q -f origin "HEAD:refs/heads/$branch"
+# Drop GitHub's "Create a pull request" hint for the new branch.
+git push -q -f origin "HEAD:refs/heads/$branch" 2>&1 | { grep -v '^remote:' || true; } >&2
 trap 'git push -q origin --delete "$branch" 2>/dev/null || true' EXIT
 
 run=
@@ -23,9 +24,16 @@ done
 [[ -n "$run" ]] || { echo "ci.sh: no Suite run started for $branch" >&2; exit 1; }
 echo "ci.sh: $(gh run view "$run" --json url --jq .url)"
 
-status=0
-gh run watch "$run" --exit-status --interval 30 >/dev/null || status=$?
+# Poll rather than `gh run watch`, which gives up on GitHub's API hiccups (502s).
+until [[ "$(gh run view "$run" --json status --jq .status 2>/dev/null)" == completed ]]; do
+  sleep 30
+done
+conclusion=$(gh run view "$run" --json conclusion --jq .conclusion)
+# The summary is best effort: the API can fail here too.
 gh run view "$run" --json jobs \
-  --jq '.jobs[].steps[] | select(.conclusion != "skipped") | "\(.conclusion)\t\(.name)"'
-[[ $status == 0 ]] || gh run view "$run" --log-failed | tail -100
-exit $status
+  --jq '.jobs[].steps[] | select(.conclusion != "skipped") | "\(.conclusion)\t\(.name)"' || true
+if [[ $conclusion != success ]]; then
+  { gh run view "$run" --log-failed | tail -100; } || true
+  echo "ci.sh: $conclusion" >&2
+  exit 1
+fi
