@@ -5,7 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -17,9 +20,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
 import net.sf.freecol.client.FreeColClient;
+import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.model.Colony;
 import net.sf.freecol.common.model.Direction;
 import net.sf.freecol.common.model.Game;
+import net.sf.freecol.common.model.GoodsType;
 import net.sf.freecol.common.model.Map;
 import net.sf.freecol.common.model.Player;
 import net.sf.freecol.common.model.Tile;
@@ -39,6 +44,9 @@ class CommandsTest {
 
     private static final Pattern VALUE = Pattern.compile("\"value\":\"([^\"]*)\"");
     private static final Pattern ENABLED = Pattern.compile("\"enabled\":(true|false)");
+
+    /** The questions the fake Browser UI answered, with its answers. */
+    private final List<String> asked = Collections.synchronizedList(new ArrayList<>());
 
     private ServerEngine server;
     private ClientEngine client;
@@ -87,7 +95,11 @@ class CommandsTest {
             }, new WebGUI.BrowserUI() {
                 public void show(String kind, String json) {}
                 public void ask(int id, String kind, String json) {
-                    ui.execute(() -> client.answer(id, accept(kind, json)));
+                    ui.execute(() -> {
+                            String answer = accept(kind, json);
+                            asked.add(kind + " " + json + " -> " + answer);
+                            client.answer(id, answer);
+                        });
                 }
             });
         server.startGame("classic");
@@ -146,13 +158,20 @@ class CommandsTest {
             .filter(u -> u.getType().canBuildColony()).findFirst().get();
 
         // The script knows the whole map, from the server: the nearest
-        // free land we may settle, and the sea beside it.
+        // free land we may settle, and the sea beside it. No one owns it,
+        // so founding needs no land claim (native land is only free until
+        // we meet its owners), and its centre tile alone feeds the
+        // colonist, who would otherwise starve on, say, arctic land.
         final Map known = server.getGame().getMap();
         final Player us = server.getGame().getFreeColGameObject(player.getId(), Player.class);
         final Tile from = known.getTile(ship.getTile().getX(), ship.getTile().getY());
+        final List<GoodsType> foods = server.getGame().getSpecification().getFoodGoodsTypeList();
+        final int eats = foods.stream()
+            .mapToInt(f -> colonist.getType().getConsumptionOf(f)).sum();
         final Tile coast = known.getTileSet(t -> t.isLand()
                 && !t.hasSettlement() && t.getUnitCount() == 0
-                && us.canClaimToFoundSettlement(t)
+                && t.getOwner() == null && us.canClaimToFoundSettlement(t)
+                && foods.stream().mapToInt(f -> t.getPotentialProduction(f, null)).sum() >= eats
                 && t.getSurroundingTiles(1, 1).stream().anyMatch(n -> !n.isLand()))
             .stream()
             .min(Comparator.comparingInt(t -> t.getDistanceTo(from)))
@@ -198,7 +217,8 @@ class CommandsTest {
         // The server's game agrees: our colony stands on that land.
         Colony colony = server.getGame().getMap()
             .getTile(land.getX(), land.getY()).getColony();
-        assertNotNull(colony, "the server has the colony");
+        assertNotNull(colony, () -> "the server has the colony; asked " + asked
+            + "; told " + player.getModelMessages().stream().map(Messages::message).toList());
         assertEquals(player.getId(), colony.getOwner().getId());
     }
 }
