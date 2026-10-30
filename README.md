@@ -25,6 +25,7 @@ installed on the host.
 ./dev.sh -C ui npx vp check          # format, lint and type check
 DEV_VARIANT=web ./dev.sh node ui/scripts/smoke.mjs   # play dist/ in Chromium and Firefox
 DEV_VARIANT=web ./dev.sh node ui/scripts/play.mjs    # land, found a colony, end the turn in both
+DEV_VARIANT=web ./dev.sh node ui/scripts/tileset.mjs # draw with the test Tileset (ui/tilesets/test) in both
 ```
 
 `build.sh` builds both Engine modules in one Gradle run (`gradle modules`),
