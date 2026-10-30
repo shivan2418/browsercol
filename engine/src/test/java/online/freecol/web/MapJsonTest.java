@@ -28,7 +28,7 @@ import net.sf.freecol.server.model.ServerUnit;
 
 
 /**
- * The map the Tileset renderer draws, as the client Engine sees it at the
+ * The map Tileset mode draws, as the client Engine sees it at the
  * start of a Classic game: tile types, what we can see now, tile items
  * and the resource keys of units, in FreeCol's ImageLibrary terms.
  */

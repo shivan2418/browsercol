@@ -1,4 +1,4 @@
-// Tileset mode map renderer: draws the operations of tileset.ts with
+// The map in Tileset mode: draws the operations of tileset.ts with
 // PixiJS, falling back to Canvas 2D where PixiJS cannot get a renderer (some
 // headless browsers). Images load by path from the art/ directory that
 // scripts/build-art.mjs fills; recipes (FreeCol's masked images) are
