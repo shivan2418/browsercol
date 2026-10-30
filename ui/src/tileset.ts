@@ -161,6 +161,8 @@ export function scene(map: MapView, res: Resources): Op[] {
   const { w, h } = map;
   const ops: Op[] = [];
 
+  /** A tile's place in the row-major per-tile strings and lookups. */
+  const index = (x: number, y: number) => y * w + x;
   const inside = (x: number, y: number) => x >= 0 && y >= 0 && x < w && y < h;
   const step = (x: number, y: number, d: Direction): [number, number] | null => {
     const s = STEPS[d];
@@ -168,18 +170,18 @@ export function scene(map: MapView, res: Resources): Op[] {
     return inside(nx, ny) ? [nx, ny] : null;
   };
   const typeAt = (x: number, y: number): TileType | null => {
-    const c = map.tiles.charCodeAt(y * w + x) - 65;
+    const c = map.tiles.charCodeAt(index(x, y)) - 65;
     return c >= 0 ? map.types[c] : null;
   };
   const explored = (p: [number, number] | null) => !!p && typeAt(...p) !== null;
   /** Tile.isLand: unexplored tiles have no type, so are not land. */
   const land = (p: [number, number] | null) => !!p && !!typeAt(...p)?.land;
-  const seen = (x: number, y: number) => map.seen[y * w + x] === '1';
+  const seen = (x: number, y: number) => map.seen[index(x, y)] === '1';
 
   const rivers = new Map<number, { magnitude: number; style: string; mask: string }>();
-  for (const [x, y, magnitude, style, mask] of map.rivers) rivers.set(y * w + x, { magnitude, style, mask });
-  const riverAt = (p: [number, number] | null) => (p ? rivers.get(p[1] * w + p[0]) : undefined);
-  const roads = new Set(map.roads.map(([x, y]) => y * w + x));
+  for (const [x, y, magnitude, style, mask] of map.rivers) rivers.set(index(x, y), { magnitude, style, mask });
+  const riverAt = (p: [number, number] | null) => (p ? rivers.get(index(...p)) : undefined);
+  const roads = new Set(map.roads.map(([x, y]) => index(x, y)));
 
   const variant = (key: string, n: number) => res.path(key, n);
   const named = (key: string) => res.path(key);
@@ -380,7 +382,7 @@ export function scene(map: MapView, res: Resources): Op[] {
   // TileViewer.displayTileItems and the settlement, per explored tile.
   const itemsAt = new Map<number, { z: number; op: () => void }[]>();
   const addItem = (x: number, y: number, z: number, op: () => void) => {
-    const i = y * w + x;
+    const i = index(x, y);
     itemsAt.set(i, [...(itemsAt.get(i) ?? []), { z, op }]);
   };
   for (const [x, y, z] of map.roads) {
@@ -391,7 +393,7 @@ export function scene(map: MapView, res: Resources): Op[] {
         y,
         dirs: DIRECTIONS.filter((d) => {
           const n = step(x, y, d);
-          return !!n && roads.has(n[1] * w + n[0]);
+          return !!n && roads.has(index(...n));
         }),
       }),
     );
@@ -402,12 +404,12 @@ export function scene(map: MapView, res: Resources): Op[] {
     if (src)
       addItem(x, y, z, () => ops.push({ k: 'image', x, y, src, at: kind === 'tile' ? 'tile' : 'center', ...dim }));
   }
-  const settlements = new Map(map.settlements.map((s) => [s.y * w + s.x, s]));
+  const settlements = new Map(map.settlements.map((s) => [index(s.x, s.y), s]));
   each((x, y) => {
     const type = typeAt(x, y);
     if (!type) return;
     const dim = seen(x, y) ? {} : { dim: true as const };
-    const items = (itemsAt.get(y * w + x) ?? []).sort((a, b) => a.z - b.z);
+    const items = (itemsAt.get(index(x, y)) ?? []).sort((a, b) => a.z - b.z);
     const upTo = (z: number) => {
       while (items.length && items[0].z < z) items.shift()!.op();
     };
@@ -422,7 +424,7 @@ export function scene(map: MapView, res: Resources): Op[] {
       if (src) ops.push({ k: 'image', x, y, src, at: 'bottom', ...dim });
     }
     upTo(Infinity);
-    const s = settlements.get(y * w + x);
+    const s = settlements.get(index(x, y));
     const key = s && first(s.keys);
     if (s && key) {
       ops.push({ k: 'image', x, y, src: named(key)!, at: 'large', ...dim });
