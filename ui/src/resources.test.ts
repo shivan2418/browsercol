@@ -92,12 +92,14 @@ color.map.productionBonus.0=urn:color:LIGHT_GRAY
 color.map.productionBonus.1=urn:color:0X00aa00
 color.map.productionBonus.-2=urn:color:0x80ff0000
 color.map.bad=urn:color:chartreuse
+color.map.alias=resource:color.map.productionBonus.2
 `,
     };
     const mod = { dir: 'mods/m', props: 'color.map.road=urn:color:0x00ffff\n' };
     const r = resources([base, colors], files);
     expect(r.color('color.map.road')).toBe(0x804000);
     expect(r.color('color.map.productionBonus.2')).toBe(0x0000ff);
+    expect(r.color('color.map.alias')).toBe(0x0000ff);
     expect(r.color('color.map.productionBonus.-1')).toBe(0xffc800);
     expect(r.color('color.map.productionBonus.0')).toBe(0xc0c0c0);
     expect(r.color('color.map.productionBonus.1')).toBe(0x00aa00);

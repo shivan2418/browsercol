@@ -48,22 +48,32 @@ const NO_COLOR = 0xff00ff;
 /** The colour constants of java.awt.Color, which ColorResource looks up by field name. */
 const JAVA_COLORS: Record<string, number> = {
   white: 0xffffff,
+  WHITE: 0xffffff,
   lightGray: 0xc0c0c0,
+  LIGHT_GRAY: 0xc0c0c0,
   gray: 0x808080,
+  GRAY: 0x808080,
   darkGray: 0x404040,
+  DARK_GRAY: 0x404040,
   black: 0x000000,
+  BLACK: 0x000000,
   red: 0xff0000,
+  RED: 0xff0000,
   pink: 0xffafaf,
+  PINK: 0xffafaf,
   orange: 0xffc800,
+  ORANGE: 0xffc800,
   yellow: 0xffff00,
+  YELLOW: 0xffff00,
   green: 0x00ff00,
+  GREEN: 0x00ff00,
   magenta: 0xff00ff,
+  MAGENTA: 0xff00ff,
   cyan: 0x00ffff,
+  CYAN: 0x00ffff,
   blue: 0x0000ff,
+  BLUE: 0x0000ff,
 };
-for (const [name, rgb] of Object.entries(JAVA_COLORS)) {
-  JAVA_COLORS[name.replace(/[A-Z]/g, '_$&').toUpperCase()] = rgb;
-}
 
 /** ColorResource.createColor: 0x hex (an alpha byte is dropped) or a java.awt.Color field. */
 const colorValue = (name: string) =>
@@ -125,6 +135,7 @@ export function resources(layers: ArtLayer[], files: string[]): Resources {
   const colors = new Map<string, number>();
   for (const { dir, props } of layers) {
     const layer = new Map<string, Image>();
+    const layerColors = new Map<string, number>();
     const aliases: [string, string][] = [];
     for (const [key, value] of parseProperties(props)) {
       if (value.startsWith(ALIAS)) {
@@ -136,21 +147,25 @@ export function resources(layers: ArtLayer[], files: string[]): Resources {
       } else if (value.startsWith('"') && value.endsWith('"') && value.length > 1) {
         strings.set(key, stringValue(value));
       } else if (value.startsWith(COLOR)) {
-        colors.set(key, colorValue(value.slice(COLOR.length)));
+        layerColors.set(key, colorValue(value.slice(COLOR.length)));
       }
     }
     // Aliases may chain, so resolve until no more progress.
     for (let progress = true; progress && aliases.length > 0;) {
       progress = false;
       for (let i = aliases.length - 1; i >= 0; i--) {
-        const target = layer.get(aliases[i][1]);
-        if (!target) continue;
-        layer.set(aliases[i][0], target);
+        const [key, to] = aliases[i];
+        const image = layer.get(to);
+        const color = layerColors.get(to);
+        if (image) layer.set(key, image);
+        else if (color !== undefined) layerColors.set(key, color);
+        else continue;
         aliases.splice(i, 1);
         progress = true;
       }
     }
     for (const [key, image] of layer) merged.set(key, image);
+    for (const [key, color] of layerColors) colors.set(key, color);
   }
 
   const path = (key: string, variation?: number) => {

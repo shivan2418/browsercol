@@ -211,8 +211,9 @@ describe('colony labels', () => {
   it('emphasises the population when the colony would rather grow, whatever its bonus', () => {
     const population = (m: MapView) => scene(m, tileset).find((op) => op.k === 'population');
     expect(population(colony(0, 3, -1, 1))).toMatchObject({ color: 0xffc800, emph: true });
-    expect(population(colony(0, 3, 2, 0))).toMatchObject({ color: 0x0000ff });
-    expect(population(colony(0, 3, 2, 0))).not.toHaveProperty('emph');
+    const plain = population(colony(0, 3, 2, 0));
+    expect(plain).toMatchObject({ color: 0x0000ff });
+    expect(plain).not.toHaveProperty('emph');
   });
 });
 
