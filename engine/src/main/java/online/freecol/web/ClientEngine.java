@@ -6,7 +6,10 @@ import net.sf.freecol.FreeCol;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.client.networking.UserServerAPI;
 import net.sf.freecol.common.i18n.Messages;
+import net.sf.freecol.common.debug.FreeColDebugger;
 import net.sf.freecol.common.model.Game;
+import net.sf.freecol.common.option.GameOptions;
+import net.sf.freecol.common.model.Specification;
 
 
 /**
@@ -98,6 +101,45 @@ public final class ClientEngine {
             this.client.getPreGameController().requestLaunch();
         }
         return true;
+    }
+
+    /**
+     * Skip turns with the AI playing: end our turn until the AI has played
+     * the given number of rounds, as a game's autoplay does, then play
+     * passes back to the human. Does nothing while a skip is on.
+     *
+     * @param rounds How many AI rounds.
+     */
+    public synchronized void skipTurns(int rounds) {
+        if (!this.finished && this.roundsWanted > 0) return;
+        this.finished = false;
+        this.rounds = 0;
+        this.roundsWanted = rounds;
+        this.lastEndedTurn = -1;
+        checkTurn();
+    }
+
+    /**
+     * The server has done a debug action: take the part of it that is the
+     * client's own. Revealing the map also turns off the client's fog of
+     * war, as DebugUtils.revealMap does for the client's game, and the
+     * tiles the client can see follow from that.
+     *
+     * @param answer What ServerEngine.debug answered.
+     */
+    public void debugApplied(String answer) {
+        Object top = JsonReader.read(answer);
+        if (!(top instanceof java.util.Map)) return;
+        java.util.Map<?, ?> r = (java.util.Map<?, ?>)top;
+        if (!"revealMap".equals(r.get("action"))) return;
+        Specification spec = getGame().getSpecification();
+        if (Boolean.TRUE.equals(r.get("reveal"))) {
+            FreeColDebugger.setNormalGameFogOfWar(spec.getBoolean(GameOptions.FOG_OF_WAR));
+            spec.setBoolean(GameOptions.FOG_OF_WAR, false);
+        } else {
+            spec.setBoolean(GameOptions.FOG_OF_WAR, FreeColDebugger.getNormalGameFogOfWar());
+        }
+        this.client.getMyPlayer().invalidateCanSeeTiles();
     }
 
     /** Accept protocol XML from the server. */
