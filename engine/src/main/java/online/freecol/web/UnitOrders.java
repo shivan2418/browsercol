@@ -28,7 +28,8 @@ import net.sf.freecol.common.model.Unit;
  * <tr><td>sentry</td><td>SentryAction</td><td>always</td></tr>
  * <tr><td>skip</td><td>SkipUnitAction</td><td>always</td></tr>
  * <tr><td>disband</td><td>DisbandUnitAction</td><td>always</td></tr>
- * <tr><td>goto</td><td>GotoAction</td><td>always</td></tr>
+ * <tr><td>goto</td><td>GotoAction</td><td>no panel is showing, which in
+ *     the Browser UI is always</td></tr>
  * <tr><td>the tile improvements</td><td>ImprovementAction</td>
  *     <td>the unit may work its tile, and the improvement is allowed
  *         there</td></tr>
@@ -73,8 +74,9 @@ public final class UnitOrders {
         orders.add(SENTRY);
         orders.add(SKIP);
         orders.add(DISBAND);
-        // GotoAction has no check of its own either: it asks where the
-        // unit goes, and the destinations it may go to are the question's.
+        // GotoAction's only check of its own is that no Swing panel is
+        // showing, and the Browser UI shows none. It asks where the unit
+        // goes, and the destinations it may go to are the question's.
         orders.add(GOTO);
         // ImprovementAction: one for each improvement the rules have, named
         // as the action is, e.g. "road" for the road.
