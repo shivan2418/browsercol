@@ -113,6 +113,19 @@
       .dialog .choices .default {
         font-weight: bold;
       }
+      .dialog .high-score dl {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 0 1em;
+        margin: 0 0 1em;
+      }
+      .dialog .high-score dl > div {
+        display: contents;
+      }
+      .dialog .high-score dd {
+        margin: 0;
+        text-align: right;
+      }
       .dialog .buttons {
         display: flex;
         justify-content: flex-end;
