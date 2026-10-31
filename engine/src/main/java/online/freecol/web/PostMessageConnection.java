@@ -34,18 +34,13 @@ import net.sf.freecol.common.networking.TrivialMessage;
  * {@code Connection} writes, so a WebSocket can stand in for the Port.
  *
  * It replaces the socket {@code Connection}'s ReceivingThread and
- * NetworkReplyObject. A thread waiting for a reply polls with
- * {@code Thread.sleep}: this was written while TeaVM's Wasm GC
- * {@code Object.wait} never woke. {@code FiberSuspendFix} fixes that (#11),
- * but the polling has not been replaced yet. Questions and updates are read in arrival
- * order and each is handled on a thread of its own, as ReceivingThread does.
+ * NetworkReplyObject. A thread waiting for a reply waits on the monitor of
+ * its {@code Pending}, which {@code complete} notifies. Questions and
+ * updates are read in arrival order and each is handled on a thread of its own, as ReceivingThread does.
  */
 public class PostMessageConnection extends Connection {
 
     private static final Logger logger = Logger.getLogger(PostMessageConnection.class.getName());
-
-    /** How long a thread waiting for a reply sleeps between checks. */
-    private static final long POLL_MS = 1;
 
     /** The outgoing side of a channel. */
     public interface Port {
@@ -54,12 +49,35 @@ public class PostMessageConnection extends Connection {
 
     /** A reply being waited for. */
     private static final class Pending {
-        volatile boolean done = false;
-        Message response = null;
+        private boolean done = false;
+        private Message response = null;
 
-        void complete(Message response) {
+        synchronized void complete(Message response) {
             this.response = response;
             this.done = true;
+            notifyAll();
+        }
+
+        /**
+         * Wait for the reply.
+         *
+         * @param timeout The longest to wait, in milliseconds.
+         * @return True if the reply came, false on timeout.
+         */
+        synchronized boolean await(long timeout) {
+            final long end = System.currentTimeMillis() + timeout;
+            while (!this.done) {
+                long left = end - System.currentTimeMillis();
+                if (left <= 0) return false;
+                try {
+                    wait(left);
+                } catch (InterruptedException ie) {}
+            }
+            return true;
+        }
+
+        synchronized Message response() {
+            return this.response;
         }
     }
 
@@ -250,23 +268,18 @@ public class PostMessageConnection extends Connection {
         this.pending.put(replyId, p);
         sendMessage(new QuestionMessage(replyId, message));
 
-        final long end = System.currentTimeMillis() + timeout;
-        while (!p.done) {
-            if (System.currentTimeMillis() > end) {
-                this.pending.remove(replyId);
-                throw new TimeoutException("No reply to " + message.getType()
-                    + " in " + timeout + "ms");
-            }
-            try {
-                Thread.sleep(POLL_MS);
-            } catch (InterruptedException ie) {}
+        if (!p.await(timeout)) {
+            this.pending.remove(replyId);
+            throw new TimeoutException("No reply to " + message.getType()
+                + " in " + timeout + "ms");
         }
-        if (p.response == null && !this.open) return null;
-        if (!(p.response instanceof ReplyMessage)) {
+        final Message response = p.response();
+        if (response == null && !this.open) return null;
+        if (!(response instanceof ReplyMessage)) {
             throw new FreeColException("Bad response to " + replyId + "/"
-                + message.getType() + ": " + p.response);
+                + message.getType() + ": " + response);
         }
-        ReplyMessage reply = (ReplyMessage)p.response;
+        ReplyMessage reply = (ReplyMessage)response;
         logMessage(reply, false);
         return reply.getMessage();
     }

@@ -11,10 +11,9 @@ import java.util.concurrent.atomic.AtomicInteger;
  * FreeCol's modal dialogs have no timeout, so neither does a question; a
  * dialog the player closes answers null.
  *
- * The wait polls with {@code Thread.sleep}, as
- * {@link PostMessageConnection} does. It was written while TeaVM's Wasm GC
- * {@code Object.wait} never woke; {@code FiberSuspendFix} fixes that (#11),
- * but the polling has not been replaced yet.
+ * Each question has a monitor of its own, so {@code answer} wakes only the
+ * thread that asked it, however many wait at once. {@code answer} is called
+ * from a JavaScript callback, outside any Java thread.
  */
 final class Questions {
 
@@ -23,12 +22,9 @@ final class Questions {
         void ask(int id, String kind, String json);
     }
 
-    /** How long an asking thread sleeps between checks. */
-    private static final long POLL_MS = 10;
-
     private static final class Pending {
-        volatile boolean done = false;
-        volatile String answer = null;
+        boolean done = false;
+        String answer = null;
     }
 
     private final Asker asker;
@@ -52,12 +48,14 @@ final class Questions {
         final Pending p = new Pending();
         this.pending.put(id, p);
         this.asker.ask(id, kind, json);
-        while (!p.done) {
-            try {
-                Thread.sleep(POLL_MS);
-            } catch (InterruptedException ie) {}
+        synchronized (p) {
+            while (!p.done) {
+                try {
+                    p.wait();
+                } catch (InterruptedException ie) {}
+            }
+            return p.answer;
         }
-        return p.answer;
     }
 
     /**
@@ -69,7 +67,10 @@ final class Questions {
     void answer(int id, String answer) {
         Pending p = this.pending.remove(id);
         if (p == null) return;
-        p.answer = answer;
-        p.done = true;
+        synchronized (p) {
+            p.answer = answer;
+            p.done = true;
+            p.notifyAll();
+        }
     }
 }
