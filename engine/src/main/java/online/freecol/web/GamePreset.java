@@ -130,22 +130,6 @@ public final class GamePreset {
     }
 
     /**
-     * Check the difficulty level exists in a specification.
-     *
-     * @param spec The specification.
-     * @exception IllegalArgumentException if there is no such level.
-     */
-    public void checkDifficulty(Specification spec) {
-        if (this.difficulty == null) return;
-        List<String> ids = new ArrayList<>();
-        spec.getDifficultyLevels().forEach(l -> ids.add(l.getId()));
-        if (!ids.contains(this.difficulty)) {
-            throw bad("unknown difficulty \"" + this.difficulty
-                + "\" (known: " + String.join(", ", ids) + ")");
-        }
-    }
-
-    /**
      * Set the difficulty level and the options on a specification.
      *
      * @param spec The specification, prepared with a difficulty level.
@@ -163,7 +147,7 @@ public final class GamePreset {
             }
             spec.applyDifficultyLevel(level);
         }
-        if (this.nation != null) findNation(spec);
+        if (this.nation != null) requireNation(spec);
         for (Map.Entry<String, Object> e : this.options.entrySet()) {
             setOption(spec, e.getKey(), e.getValue());
         }
@@ -222,7 +206,7 @@ public final class GamePreset {
         return bad("option \"" + id + "\" takes " + wanted + ", not " + v);
     }
 
-    private Nation findNation(Specification spec) {
+    private Nation requireNation(Specification spec) {
         List<String> ids = new ArrayList<>();
         for (Nation n : spec.getEuropeanNations()) {
             ids.add(n.getId());
@@ -237,7 +221,7 @@ public final class GamePreset {
      * is still available. The other nations that were available play as AI.
      */
     private void chooseNation(Game game) {
-        Nation chosen = findNation(game.getSpecification());
+        Nation chosen = requireNation(game.getSpecification());
         Map<Nation, NationState> nations = game.getNationOptions().getNations();
         for (Map.Entry<Nation, NationState> e : nations.entrySet()) {
             if (e.getValue() == NationState.AVAILABLE) e.setValue(NationState.AI_ONLY);
