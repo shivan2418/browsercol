@@ -219,6 +219,11 @@ public final class ServerEngine {
             this.connection = null;
             this.server = new FreeColServer(new FreeColSavegameFile(file),
                 null, null, 0, "browser");
+        } catch (Exception ex) {
+            // An EOFException has no message (#31): say what was loaded.
+            throw new IOException("loading a save of " + savegame.length
+                + " bytes, " + file.length() + " on disk, ending "
+                + tail(savegame) + ": " + ex, ex);
         } finally {
             file.delete();
         }
@@ -234,6 +239,15 @@ public final class ServerEngine {
     private static File savegameFile() {
         saveDirectory.mkdirs();
         return new File(saveDirectory, "browser.fsg");
+    }
+
+    /** The last bytes of a savegame in hex: a zip ends with its directory. */
+    private static String tail(byte[] bytes) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = Math.max(0, bytes.length - 8); i < bytes.length; i++) {
+            sb.append(Integer.toHexString(0x100 | (bytes[i] & 0xff)).substring(1));
+        }
+        return sb.toString();
     }
 
     private static byte[] readAll(File file) throws IOException {
