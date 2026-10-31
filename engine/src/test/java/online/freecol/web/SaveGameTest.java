@@ -1,6 +1,7 @@
 package online.freecol.web;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -153,9 +154,15 @@ class SaveGameTest {
     @Timeout(180)
     void aLoadedGameContinuesWithTheSavedTurnAndActiveUnit() throws Exception {
         Session played = playRounds(3);
-        assertTrue(played.client().getCommands().nextUnit(), "a unit is active");
-        String active = played.activeUnitId();
-        assertNotNull(active, "the client has an active unit");
+        // Save a unit the client would not pick by itself: another of
+        // the player's, e.g. a colonist aboard the ship.
+        String first = played.activeUnitId();
+        assertNotNull(first, "the client has an active unit");
+        String active = null;
+        for (Unit u : played.client().getClient().getMyPlayer().getUnits().toList()) {
+            if (!u.getId().equals(first)) active = u.getId();
+        }
+        assertNotNull(active, "the player has another unit");
         int turn = played.client().getGame().getTurn().getNumber();
         byte[] bytes = played.server().saveGame(active);
         assertTrue(savegameXml(bytes).contains("initialActiveUnitId=\"" + active + "\""),
@@ -168,6 +175,12 @@ class SaveGameTest {
         Session resumed = login(loaded, 0);
         assertEquals(turn, resumed.client().getGame().getTurn().getNumber(), "turn");
         assertEquals(active, resumed.activeUnitId(), "active unit");
+
+        // Without the id in the save the client picks its own.
+        ServerEngine unmarked = new ServerEngine(xml -> {});
+        unmarked.loadGame(played.server().saveGame(null));
+        assertNotEquals(active, login(unmarked, 0).activeUnitId(),
+            "a save with no active unit does not name one");
         assertTrue(resumed.client().getClient().currentPlayerIsMyPlayer(), "our turn");
     }
 }
