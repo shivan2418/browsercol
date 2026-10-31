@@ -32,10 +32,6 @@ Do:
   clashes with keys already bound and say in your report how you
   resolved any.
 - A side-panel button per order, disabled when the order is not valid.
-- Also Go to (Swing's GotoAction and its key): it calls
-  `InGameController.selectDestination(unit)`, which asks the select
-  destination question the WebGUI already answers (#50, see
-  `SelectDestinationTest`). This is how a ship is sent to Europe.
 - Disband asks for confirmation as Swing does, through the existing
   confirm question.
 
@@ -43,7 +39,7 @@ Done when:
 - CommandsTest: in a started Classic game, each order through the same
   entry points the Browser UI calls, checking the SERVER's game: fortify
   and sentry change the unit's state; skip leaves the unit for this
-  turn; disband removes it; go to gives the unit the chosen destination; a pioneer that plows or builds a road leaves
+  turn; disband removes it; a pioneer that plows or builds a road leaves
   the improvement on its tile after enough ended turns (bounded loop).
 - A UI test: buttons follow the valid-orders list (e.g. plow disabled
   for a soldier).
