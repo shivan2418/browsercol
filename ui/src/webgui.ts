@@ -23,7 +23,7 @@ export interface GuiEvents {
   /** Centre the map on a tile. */
   focus: TileRef;
   /** ok: the close button's label, as for the other panels. The tile is the object's, if it has one. */
-  information: { text: string; object: Id | null; ok: string } & TileRef;
+  information: { text: string; object: Id | null; images: string[]; ok: string } & TileRef;
   error: { text: string; ok: string };
   eventPanel: { header: string; image: string | null; footer: string | null; ok: string };
   /**
@@ -37,7 +37,10 @@ export interface GuiEvents {
   };
   /**
    * Model messages, or with a title the turn report; each names its source's tile, to go to. The turn
-   * report is grouped by source: a message with a heading starts its source's messages.
+   * report is arranged by the group by option: a message with a heading starts its group. Each message has
+   * the resource keys of its display object's image, best first, none if it has no image. The report's
+   * messages also have the buttons of Swing's report: filter is whether the type's messages are shown
+   * (null: it has no filter), filterTip and ignoreTip the buttons' tooltips (null: no such button).
    */
   messages: {
     title: string | null;
@@ -46,8 +49,18 @@ export interface GuiEvents {
       type: string;
       source: Id | null;
       heading: ({ text: string } & TileRef) | null;
+      images: string[];
+      filter: boolean | null;
+      filterTip: string | null;
+      /** Whether the ignore button has been pressed. */
+      ignored: boolean;
+      ignoreTip: string | null;
     } & TileRef)[];
     ok: string;
+    /** The turn report's group by option; absent for model messages. */
+    groupBy?: { label: string; value: number; choices: { value: number; text: string }[] };
+    /** The report again, as it was regrouped: it replaces the open one. */
+    regrouped?: boolean;
   };
   /** A dialog the Browser UI cannot show yet; the controller got FreeCol's base default. */
   unasked: { method: string };

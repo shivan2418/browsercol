@@ -64,6 +64,14 @@ export interface ClientExports {
   road(): void;
   /** Send the active unit to a destination; the player is asked where. */
   selectDestination(): void;
+  // The turn report's buttons (WebGUI.reportGroupBy and the others). Each message is named by its
+  // place in the report as shown.
+  /** Group the report by 0 nothing, 1 type or 2 source; the report is shown again, regrouped. */
+  reportGroupBy(value: number): void;
+  /** Show or filter out the type of a message. */
+  reportFilter(index: number, shown: boolean): void;
+  /** Ignore a message, or stop. */
+  reportIgnore(index: number, ignore: boolean): void;
 }
 
 export type ToWorker =

@@ -81,6 +81,9 @@ function fakeClient(scope: Scope, log: string[]): ClientExports {
     clearForest: () => {},
     road: () => {},
     selectDestination: () => {},
+    reportGroupBy: () => {},
+    reportFilter: () => {},
+    reportIgnore: () => {},
   };
 }
 

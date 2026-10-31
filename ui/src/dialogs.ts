@@ -25,6 +25,11 @@ export interface Dialogs {
   ask: <K extends keyof GuiQuestions>(kind: K, ask: GuiQuestions[K]['ask']) => Promise<GuiQuestions[K]['answer']>;
   /** Queue a panel. */
   show: <K extends PanelKind>(kind: K, event: GuiEvents[K]) => void;
+  /**
+   * Put a panel in the place of the first of its kind that is queued or open and that `same` says it is
+   * (any, by default), as the same panel shown differently; queue it if there is none.
+   */
+  replace: <K extends PanelKind>(kind: K, event: GuiEvents[K], same?: (open: GuiEvents[K]) => boolean) => void;
   /** The dialog on screen, or null. */
   current: () => Dialog | null;
   /** Called whenever the dialog on screen changes; returns an unsubscribe. */
@@ -36,7 +41,7 @@ export function dialogs(): Dialogs {
   const listeners = new Set<() => void>();
   let nextId = 1;
 
-  const add = (kind: string, payload: unknown, key: 'ask' | 'event', settle: (a: unknown) => void) => {
+  const make = (kind: string, payload: unknown, key: 'ask' | 'event', settle: (a: unknown) => void): Dialog => {
     const id = nextId++;
     const done = (a?: unknown) => {
       const i = queue.findIndex((d) => d.id === id);
@@ -45,13 +50,26 @@ export function dialogs(): Dialogs {
       settle(a);
       for (const l of listeners) l();
     };
-    queue.push({ id, kind, [key]: payload, done } as unknown as Dialog);
+    return { id, kind, [key]: payload, done } as unknown as Dialog;
+  };
+  const changed = () => {
     for (const l of listeners) l();
+  };
+  const add = (kind: string, payload: unknown, key: 'ask' | 'event', settle: (a: unknown) => void) => {
+    queue.push(make(kind, payload, key, settle));
+    changed();
   };
 
   return {
     ask: (kind, ask) => new Promise((ok) => add(kind, ask, 'ask', ok as (a: unknown) => void)),
     show: (kind, event) => add(kind, event, 'event', () => {}),
+    replace: (kind, event, same = () => true) => {
+      const i = queue.findIndex((d) => d.kind === kind && same((d as unknown as { event: typeof event }).event));
+      // A new dialog id, so that the panel starts afresh rather than keeping what React held.
+      if (i < 0) return add(kind, event, 'event', () => {});
+      queue[i] = make(kind, event, 'event', () => {});
+      changed();
+    },
     current: () => queue[0] ?? null,
     subscribe: (listener) => {
       listeners.add(listener);
