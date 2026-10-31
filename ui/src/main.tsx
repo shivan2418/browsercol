@@ -9,18 +9,20 @@
 // to the human, or on failure.
 //   ?autoplay=N  rounds the human auto-ends its turn first (debug; default 0)
 //   ?rules=ID    the ruleset (default classic)
+//   ?load=ID     continue the saved game with this id, in place of a new game
 //   ?tileset=ID  a Tileset built beside the default, art/<ID>.json (e.g. test)
 //   ?renderer=canvas2d  draw with the Canvas 2D fallback, not PixiJS (debug)
 import clientUrl from '../generated/client.wasm?url';
 import dataUrl from '../generated/data.json?url';
 import runtimeUrl from '../generated/teavm-runtime.js?url';
 import { createRoot } from 'react-dom/client';
-import { startPage, type ClientExports, type Scope } from './channel';
+import { startPage, type ClientExports, type Scope, type ToWorker } from './channel';
 import { dialogs } from './dialogs';
 import { commandForKey, type Command } from './input';
 import { mapDrawer, type MapView } from './map';
 import { DialogHost } from './panels';
 import { onCanvas, pointerInput } from './pointer';
+import { idbSaveStore, type SaveMeta } from './saves';
 import { Side, type SideProps } from './side';
 import { loadModule } from './teavm';
 import { cursor, initialView, panel, reduce, tileOnScreen, W, type ViewEvent, type ViewState } from './view';
@@ -44,6 +46,7 @@ declare global {
 const params = new URLSearchParams(location.search);
 const autoplay = Number(params.get('autoplay') ?? '0');
 const rules = params.get('rules') ?? 'classic';
+const loadId = params.has('load') ? Number(params.get('load')) : undefined;
 const tileset = params.get('tileset');
 const mapHost = document.getElementById('map')!;
 /** The map's size: its host's box, which the page's CSS gives what the side panel leaves. */
@@ -59,13 +62,51 @@ const rounds: string[] = [];
 let drawn = Promise.resolve();
 
 const dialogQueue = dialogs();
-const side: Omit<SideProps, 'run'> = { turn: '-', info: '', unasked: [], status: 'starting...', orders: [] };
+const side: Omit<SideProps, 'run' | 'save' | 'load' | 'remove'> = {
+  turn: '-',
+  info: '',
+  unasked: [],
+  status: 'starting...',
+  orders: [],
+  saves: [],
+  saveNote: '',
+};
+const store = idbSaveStore();
+/** Show the saves in the list; no storage (a private window, say) is an empty list. */
+function listSaves() {
+  store
+    .list()
+    .then((saves) => (side.saves = saves))
+    .catch((ex: unknown) => (side.saveNote = `Saves unavailable: ${String(ex)}`))
+    .finally(renderSide);
+}
+let saveGame: (name: string) => void = () => {};
 let runCommand: (c: Command) => void = () => {};
 const sideRoot = createRoot(document.getElementById('side')!);
 function renderSide() {
   sideRoot.render(
     <>
-      <Side {...side} run={(c) => runCommand(c)} />
+      <Side
+        {...side}
+        run={(c) => runCommand(c)}
+        save={(name) => saveGame(name)}
+        load={(id) => {
+          // A new page, with a new client Engine, is the cleanest way to a loaded game.
+          const next = new URLSearchParams({ load: String(id) });
+          const tileset = params.get('tileset');
+          if (tileset) next.set('tileset', tileset);
+          location.search = next.toString();
+        }}
+        remove={(id) => {
+          side.saveNote = 'Deleting...';
+          renderSide();
+          store
+            .remove(id)
+            .then(() => (side.saveNote = 'Deleted'))
+            .catch((ex: unknown) => (side.saveNote = `Delete failed: ${String(ex)}`))
+            .finally(listSaves);
+        }}
+      />
       <DialogHost dialogs={dialogQueue} goTo={(at) => dispatch({ k: 'focus', tile: null, at })} />
     </>,
   );
@@ -190,11 +231,13 @@ function playWith(client: ClientExports) {
 
 async function run() {
   const data = (await (await fetch(dataUrl)).json()) as string[];
+  const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
   const client = startPage({
-    worker: new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' }),
+    worker,
     loadClient: () => loadModule<ClientExports>(runtimeUrl, clientUrl),
     data,
     rules,
+    load: loadId,
     autoplay,
     scope: globalThis as unknown as Scope,
     gui,
@@ -211,13 +254,31 @@ async function run() {
           return show('finished', { turn: detail });
         case 'failed':
           return show('failed', { error: detail });
+        case 'saved': {
+          const meta = JSON.parse(detail) as SaveMeta;
+          side.saveNote = `Saved: ${meta.name}`;
+          return listSaves();
+        }
+        case 'saveFailed':
+          side.saveNote = `Save failed: ${detail}`;
+          return renderSide();
+        case 'loadFailed':
+          return show('failed', { error: detail });
         case 'commandFailed':
           return console.error('command failed:', detail);
       }
     },
   });
-  playWith(await client);
+  const exports = await client;
+  saveGame = (name) => {
+    side.saveNote = 'Saving...';
+    renderSide();
+    const m: ToWorker = { k: 'save', active: exports.activeUnitId(), name };
+    worker.postMessage(m);
+  };
+  playWith(exports);
 }
 
+listSaves();
 show('running');
 run().catch((ex) => show('failed', { error: String(ex) }));
