@@ -5,25 +5,50 @@
 // each, the texts of native settlement chips, and the road, population and
 // mission chip colours.
 // Prints the art budget: file count, bytes, brotli bytes and atlas area.
-// Usage: node build-art.mjs <freecol/data> <out dir> [--manifest <name>] [mod dir...]
-// The manifest is art.json unless named. Files already in the out dir stay,
-// so a Tileset built with mods can share the default Tileset's directory.
+// Usage: node build-art.mjs <freecol/data> <out dir> [--manifest <file>] [mod dir...]
+// The manifest is art.json unless --manifest names another file; the option
+// may come before or after the mod directories. Files already in the out dir
+// stay, so a Tileset built with mods can share the default Tileset's
+// directory.
 import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { parseProperties, resources } from '../src/resources.ts';
 
-const [data, out, ...rest] = process.argv.slice(2);
-const named = rest[0] === '--manifest';
-const manifestName = named ? rest[1] : 'art.json';
-const mods = named ? rest.slice(2) : rest;
+const args = process.argv.slice(2);
+const dataDir = args[0];
+const outDir = args[1];
+const usage = 'Usage: node build-art.mjs <freecol/data> <out dir> [--manifest <file>] [mod dir...]';
+if (!dataDir || !outDir) {
+  console.error(usage);
+  process.exit(1);
+}
+/** The mod directories to add as layers. */
+const modDirs = [];
+/** The manifest file to write: art.json unless --manifest names another. */
+let manifestFile = 'art.json';
+for (let i = 2; i < args.length; i++) {
+  if (args[i] === '--manifest') {
+    const file = args[++i];
+    if (!file) {
+      console.error('--manifest needs a file name');
+      process.exit(1);
+    }
+    manifestFile = file;
+  } else if (args[i].startsWith('--')) {
+    console.error(`unknown option: ${args[i]}`);
+    process.exit(1);
+  } else {
+    modDirs.push(args[i]);
+  }
+}
 const MAP_KEYS =
   /^(image\.(tile|tileoverlay|tileforest|tileitem|abovetile|unit|mask)(\.|$)|color\.map\.(road$|productionBonus\.)|color\.foreground\.mission\.|indianSettlementChip\.|indianAlarmChip\.|cross$)/;
 
 const layers = [
-  { dir: 'base', root: path.join(data, 'base') },
-  { dir: 'default', root: path.join(data, 'default') },
-  ...mods.map((m) => ({ dir: `mods/${path.basename(m)}`, root: m })),
+  { dir: 'base', root: path.join(dataDir, 'base') },
+  { dir: 'default', root: path.join(dataDir, 'default') },
+  ...modDirs.map((mod) => ({ dir: `mods/${path.basename(mod)}`, root: mod })),
 ].map(({ dir, root }) => {
   const props = parseProperties(fs.readFileSync(path.join(root, 'resources.properties'), 'utf8'))
     .filter(([key]) => MAP_KEYS.test(key))
@@ -55,8 +80,8 @@ let area = 0;
 for (const file of used) {
   const layer = [...rootOf.keys()].find((d) => file.startsWith(`${d}/`));
   const body = fs.readFileSync(path.join(rootOf.get(layer), file.slice(layer.length + 1)));
-  fs.mkdirSync(path.dirname(path.join(out, file)), { recursive: true });
-  fs.writeFileSync(path.join(out, file), body);
+  fs.mkdirSync(path.dirname(path.join(outDir, file)), { recursive: true });
+  fs.writeFileSync(path.join(outDir, file), body);
   bytes += body.length;
   brotli += zlib.brotliCompressSync(body).length;
   if (body.toString('ascii', 12, 16) === 'IHDR') area += body.readUInt32BE(16) * body.readUInt32BE(20);
@@ -65,11 +90,11 @@ const manifest = {
   layers: layers.map(({ dir, props }) => ({ dir, props })),
   files: [...used].sort((a, b) => (a < b ? -1 : 1)),
 };
-fs.mkdirSync(out, { recursive: true });
-fs.writeFileSync(path.join(out, manifestName), JSON.stringify(manifest));
+fs.mkdirSync(outDir, { recursive: true });
+fs.writeFileSync(path.join(outDir, manifestFile), JSON.stringify(manifest));
 const mib = (n) => `${(n / 2 ** 20).toFixed(1)} MiB`;
 console.log(
-  `${manifestName}: ${used.size} files, ${mib(bytes)}, ${mib(brotli)} brotli, ` +
+  `${manifestFile}: ${used.size} files, ${mib(bytes)}, ${mib(brotli)} brotli, ` +
     `${(area / 2048 ** 2).toFixed(1)} 2048x2048 atlas pages of pixels, ` +
-    `manifest ${(fs.statSync(path.join(out, manifestName)).size / 1024).toFixed(0)} KiB`,
+    `manifest ${(fs.statSync(path.join(outDir, manifestFile)).size / 1024).toFixed(0)} KiB`,
 );
