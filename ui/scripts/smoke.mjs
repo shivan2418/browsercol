@@ -5,7 +5,7 @@
 // Run in the web image:
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/smoke.mjs [--browsers chromium,firefox] [--autoplay N] [--query preset=NAME]
 import path from 'node:path';
-import { browserNames, collectPageErrors, opt, playwright, waitForResult } from './common.mjs';
+import { browserNames, collectPageErrors, diagnose, launchBrowser, opt, waitForResult } from './common.mjs';
 import { answerDialogs } from './dialogs.mjs';
 import { dist, serveDist } from './serve-dist.mjs';
 
@@ -19,7 +19,7 @@ const url = `${server.url}?autoplay=${autoplay}${query ? `&${query}` : ''}`;
 
 let failed = false;
 for (const name of browsers) {
-  const browser = await playwright[name].launch();
+  const browser = await launchBrowser(name);
   const page = await browser.newPage();
   await answerDialogs(page);
   const errors = collectPageErrors(page);
@@ -31,7 +31,7 @@ for (const name of browsers) {
     result = await waitForResult(page, timeout);
     await page.screenshot({ path: path.join(dist, `../.cache/smoke-${name}.png`) });
   } catch (ex) {
-    result = { status: 'failed', error: String(ex) };
+    result = { status: 'failed', error: await diagnose(ex) };
   }
   await browser.close();
   const ok = result.status === 'finished' && result.rounds.length === Number(autoplay) && server.dataFetches() === 1;

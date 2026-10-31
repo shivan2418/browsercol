@@ -16,7 +16,7 @@
 // unless every browser gets there. Run in the web image:
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/play.mjs [--browsers chromium,firefox] [--query renderer=canvas2d|preset=dutch-small] [--scale 2]
 import path from 'node:path';
-import { browserNames, collectPageErrors, opt, playwright, waitForResult } from './common.mjs';
+import { browserNames, collectPageErrors, diagnose, launchBrowser, opt, waitForResult } from './common.mjs';
 import { answerDialogs, dialogLog } from './dialogs.mjs';
 import { dist, serveDist } from './serve-dist.mjs';
 
@@ -484,7 +484,7 @@ async function play(page, url) {
 const server = await serveDist();
 let failed = false;
 for (const name of browsers) {
-  const browser = await playwright[name].launch();
+  const browser = await launchBrowser(name);
   const page = await browser.newPage({ viewport: { width: 1400, height: 900 }, deviceScaleFactor: scale });
   const errors = collectPageErrors(page);
   const t = Date.now();
@@ -494,7 +494,7 @@ for (const name of browsers) {
     await page.evaluate(([x, y]) => window.fcReveal(x, y), result.land);
     await page.screenshot({ path: path.join(dist, `../.cache/play-${name}.png`) });
   } catch (ex) {
-    result = { error: String(ex) };
+    result = { error: await diagnose(ex) };
   }
   await page.screenshot({ path: path.join(dist, `../.cache/play-${name}.png`) });
   const log = await dialogLog(page).catch(() => ({ dialogs: [], pictures: [], unasked: [] }));

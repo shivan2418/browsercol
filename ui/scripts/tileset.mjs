@@ -5,7 +5,7 @@
 // Run in the web image:
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/tileset.mjs [--browsers chromium,firefox]
 import path from 'node:path';
-import { browserNames, collectPageErrors, playwright, waitForResult } from './common.mjs';
+import { browserNames, collectPageErrors, diagnose, launchBrowser, waitForResult } from './common.mjs';
 import { answerDialogs } from './dialogs.mjs';
 import { dist, serveDist } from './serve-dist.mjs';
 
@@ -40,7 +40,7 @@ async function cyanShare(page, url) {
 const server = await serveDist();
 let failed = false;
 for (const name of browsers) {
-  const browser = await playwright[name].launch();
+  const browser = await launchBrowser(name);
   const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
   const errors = collectPageErrors(page);
   await answerDialogs(page);
@@ -57,7 +57,7 @@ for (const name of browsers) {
       `${pct(test.share)} with the test Tileset, renderer ${test.renderer}`;
   } catch (ex) {
     failed = true;
-    line = `failed: ${String(ex)}`;
+    line = `failed: ${await diagnose(ex)}`;
   }
   console.log(`${name} ${browser.version()}: ${line}${errors.length ? ', page errors: ' + errors.join('; ') : ''}`);
   await browser.close();
