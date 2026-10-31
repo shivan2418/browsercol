@@ -11,21 +11,15 @@
 // depend on the machine's load, so the script prints the load and CPU.
 import fs from 'node:fs';
 import os from 'node:os';
-import { createRequire } from 'node:module';
 import { execFileSync } from 'node:child_process';
+import { browserNames, opt, playwright } from './common.mjs';
 import { answerDialogs } from './dialogs.mjs';
 import { serveDist } from './serve-dist.mjs';
 
-const require = createRequire(import.meta.url);
-const playwright = require('playwright');
-const opt = (name, dflt) => {
-  const i = process.argv.indexOf('--' + name);
-  return i < 0 ? dflt : process.argv[i + 1];
-};
 const rounds = Number(opt('rounds', '300'));
 const every = Number(opt('every', '25'));
 const timeout = Number(opt('timeout', '7200')) * 1000;
-const browsers = opt('browsers', 'chromium,firefox').split(',');
+const browsers = browserNames();
 
 /** Resident memory in MB of this process's descendants (the browser). */
 function treeRssMb() {

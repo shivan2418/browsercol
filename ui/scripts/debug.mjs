@@ -3,14 +3,11 @@
 // comes back as the client's update; without it there is no menu.
 // Run in the web image:
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/debug.mjs [--browsers chromium,firefox]
-import { createRequire } from 'node:module';
+import { browserNames, collectPageErrors, playwright } from './common.mjs';
 import { answerDialogs } from './dialogs.mjs';
 import { serveDist } from './serve-dist.mjs';
 
-const require = createRequire(import.meta.url);
-const playwright = require('playwright'); // global install, found via NODE_PATH
-const i = process.argv.indexOf('--browsers');
-const browsers = (i < 0 ? 'chromium' : process.argv[i + 1]).split(',');
+const browsers = browserNames('chromium');
 const server = await serveDist();
 const base = `${server.url}?preset=dutch-small`;
 const timeout = 600_000;
@@ -39,8 +36,7 @@ for (const name of browsers) {
   // In debug mode: the menu, and its actions.
   const page = await browser.newPage();
   await answerDialogs(page);
-  const errors = [];
-  page.on('pageerror', (e) => errors.push(String(e)));
+  const errors = collectPageErrors(page);
   await page.goto(`${base}&debug&autoplay=0`);
   await page.waitForFunction(() => window.fcResult?.status === 'finished', null, { timeout });
   check(`${name}: the debug menu is there with ?debug`, (await page.$('#debug')) !== null);

@@ -5,17 +5,11 @@
 // Run in the web image:
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/smoke.mjs [--browsers chromium,firefox] [--autoplay N] [--query preset=NAME]
 import path from 'node:path';
-import { createRequire } from 'node:module';
+import { browserNames, collectPageErrors, opt, playwright, waitForResult } from './common.mjs';
 import { answerDialogs } from './dialogs.mjs';
 import { dist, serveDist } from './serve-dist.mjs';
 
-const require = createRequire(import.meta.url);
-const playwright = require('playwright'); // global install, found via NODE_PATH
-const opt = (name, dflt) => {
-  const i = process.argv.indexOf('--' + name);
-  return i < 0 ? dflt : process.argv[i + 1];
-};
-const browsers = opt('browsers', 'chromium,firefox').split(',');
+const browsers = browserNames();
 const autoplay = opt('autoplay', '10');
 const timeout = Number(opt('timeout', '900')) * 1000;
 const server = await serveDist();
@@ -28,15 +22,13 @@ for (const name of browsers) {
   const browser = await playwright[name].launch();
   const page = await browser.newPage();
   await answerDialogs(page);
-  const errors = [];
-  page.on('pageerror', (e) => errors.push(String(e)));
+  const errors = collectPageErrors(page);
   server.resetDataFetches();
   const t = Date.now();
   let result;
   try {
     await page.goto(url);
-    await page.waitForFunction(() => window.fcResult, null, { timeout });
-    result = await page.evaluate(() => window.fcResult);
+    result = await waitForResult(page, timeout);
     await page.screenshot({ path: path.join(dist, `../.cache/smoke-${name}.png`) });
   } catch (ex) {
     result = { status: 'failed', error: String(ex) };
