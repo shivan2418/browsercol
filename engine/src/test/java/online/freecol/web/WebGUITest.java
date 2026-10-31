@@ -371,7 +371,9 @@ class WebGUITest {
         shown.clear();
         client.getClient().getGUI().showHighScoresPanel(null, List.of(h));
 
-        final String e = shown.get(0);
+        // Not shown.get(0): a tutorial message the game sends at its start can
+        // arrive after the clear.
+        final String e = waitFor(shown, "highScores ");
         final String name = client.getClient().getMyPlayer().getName();
         assertTrue(e.startsWith("highScores {\"text\":null,\"scores\":[{\"score\":"
             + h.getScore() + ",\"headline\":\"" + Messages.message(StringTemplate
