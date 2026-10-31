@@ -29,15 +29,26 @@ const note = (what) => gone.push(`${((Date.now() - started) / 1000).toFixed(1)} 
 /** Browsers the script is closing itself: their pages and connection going away is no news. */
 const closing = new WeakSet();
 
+/** Browser log lines worth showing: the process's own stderr and exit, and anything that says it crashed. */
+const telling = (line) => /\[err\]|did exit|crash|abort|assert|fatal|memory|signal/i.test(line);
+
 // The debug lines go to the log, not to stderr, unless the caller asked to see them.
 const showDebug = !!process.env.FC_SHOW_PW_DEBUG;
 const writeStderr = process.stderr.write.bind(process.stderr);
 process.stderr.write = (chunk, ...rest) => {
-  const text = String(chunk);
-  if (!text.includes('pw:browser')) return writeStderr(chunk, ...rest);
-  for (const line of text.split('\n')) if (line) browserLog.push(line.replace(/^.*?pw:browser\s*/, ''));
-  while (browserLog.length > 60) browserLog.shift();
-  return showDebug ? writeStderr(chunk, ...rest) : true;
+  const other = [];
+  for (const line of String(chunk).split('\n')) {
+    if (!line.includes('pw:browser')) {
+      other.push(line);
+      continue;
+    }
+    const text = line.replace(/^.*?pw:browser\s*/, '');
+    if (telling(text)) browserLog.push(text);
+    while (browserLog.length > 60) browserLog.shift();
+    if (showDebug) other.push(line);
+  }
+  const rest_ = other.join('\n');
+  return rest_.trim() === '' ? true : writeStderr(rest_ + (String(chunk).endsWith('\n') ? '\n' : ''), ...rest);
 };
 
 /**
@@ -65,9 +76,6 @@ export function collectPageErrors(page) {
   return errors;
 }
 
-/** Browser log lines worth showing: the process's own stderr and exit, and anything that says it crashed. */
-const telling = (line) => /\[err\]|did exit|crash|abort|assert|fatal|memory|signal/i.test(line);
-
 /**
  * A failure as text. When the browser or page went away, what is known of
  * why: the page and browser events, and the browser process's last telling
@@ -77,7 +85,7 @@ export async function diagnose(ex) {
   const text = String(ex);
   if (!/closed|crash|disconnected/i.test(text)) return text;
   await new Promise((done) => setTimeout(done, 1000));
-  const lines = browserLog.filter(telling).slice(-15);
+  const lines = browserLog.slice(-15);
   return [text, ...gone.map((g) => `  ${g}`), ...lines.map((l) => `  | ${l}`)].join('\n');
 }
 
