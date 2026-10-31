@@ -2,7 +2,7 @@
 # ~/Programming/agent-dispatch/templates/agent-dispatch.example.toml.
 
 [project]
-base_branch = "spike/toolchain"
+base_branch = "main"
 check_command = "./dev.sh -C engine gradle -q compileJava"
 hooks_path = ".githooks"
 # The upstream FreeCol clone (gitignored): the spike builds from its source.
@@ -13,13 +13,13 @@ mode = "providers"
 threat = "accidents"
 image = "freecol-online-dev"   # docker/dev.Dockerfile: JDK 21, Gradle, Node, git
 workdir = "/work"
-# Share the Gradle cache so each job does not download everything again.
-mounts = [".cache/gradle:/work/.cache/gradle"]
+# Share the Gradle and npm caches so each job does not download everything again.
+mounts = [".cache/gradle:/work/.cache/gradle", ".cache/npm:/work/.cache/npm"]
 env = { FREECOL_SANDBOX = "1" }  # dev.sh runs commands directly
 busy_pattern = "gradle|java|node"
 
 [daemon]
-max = 1
+max = 2
 cpus = 6
 build_slots = 2
 mem_min = 6.0
@@ -30,7 +30,22 @@ timeout = "2h"
 # Dedicated OpenRouter key with a small credit limit, shared with smac1.5.
 openrouter_key = "~/.config/smac-trial/openrouter.key"
 
-# Free models only for now. OpenRouter's free models share one daily request
+# MiniMax M Plan (Explore tier), shared with smac1.5: a 5-hour and a weekly
+# allowance. A Flash job takes about 10-20% of the 5-hour window, so two at
+# once. Sandboxed with the key made for the agents; no probe, since it would
+# run with the host login. Running jobs of both projects count toward max.
+[[providers]]
+name = "minimax"
+match = '^minimax-coding-plan/'
+tool = "opencode"
+max = 2
+per_model = 2
+cooldown = 1800
+sandbox = true
+key_file = "~/.config/smac-trial/keys/minimax.key"
+auth_id = "minimax-coding-plan"
+
+# Free models. OpenRouter's free models share one daily request
 # allowance per account (about 5 agent runs), also used by smac1.5.
 [[providers]]
 name = "openrouter-free"
