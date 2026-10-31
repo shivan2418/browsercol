@@ -1,6 +1,7 @@
 package online.freecol.web;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
@@ -20,6 +21,7 @@ import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
 
 import net.sf.freecol.common.model.Game;
+import net.sf.freecol.common.model.Unit;
 
 
 /**
@@ -45,12 +47,24 @@ class SaveGameTest {
         toServer.shutdownNow();
     }
 
-    /** Play a few AI rounds of a Classic game between the two Engines. */
-    private ServerEngine playRounds(int rounds) throws Exception {
+    /** A server Engine and the client Engine logged in to it. */
+    private record Session(ServerEngine server, ClientEngine client) {
+
+        /** The id of the client's active unit, or null. */
+        String activeUnitId() {
+            Unit u = this.client.getClient().getGUI().getActiveUnit();
+            return (u == null) ? null : u.getId();
+        }
+    }
+
+    /**
+     * Connect a new client Engine to a server Engine that has a game, and
+     * play rounds the way the page does after a start or a load.
+     */
+    private Session login(ServerEngine server, int rounds) throws Exception {
         final CountDownLatch finished = new CountDownLatch(1);
         final ClientEngine[] client = new ClientEngine[1];
-        ServerEngine server = new ServerEngine(
-            xml -> toClient.execute(() -> client[0].receive(xml)));
+        server.setToClient(xml -> toClient.execute(() -> client[0].receive(xml)));
         client[0] = new ClientEngine(new ClientEngine.ServerLink() {
                 public void connect() { server.connect(); }
                 public void post(String xml) {
@@ -66,10 +80,16 @@ class SaveGameTest {
                     client[0].answer(id, null);
                 }
             });
-        server.startGame("classic");
         assertTrue(client[0].startGame(rounds), "login");
         finished.await();
-        return server;
+        return new Session(server, client[0]);
+    }
+
+    /** Play a few AI rounds of a Classic game between the two Engines. */
+    private Session playRounds(int rounds) throws Exception {
+        ServerEngine server = new ServerEngine(xml -> {});
+        server.startGame("classic");
+        return login(server, rounds);
     }
 
     /** The savegame.xml entry of a savegame, as text. */
@@ -96,7 +116,7 @@ class SaveGameTest {
     @Test
     @Timeout(180)
     void aSavedGameLoadsBackAsTheSameGame() throws Exception {
-        ServerEngine played = playRounds(3);
+        ServerEngine played = playRounds(3).server();
         String before = played.describe();
         byte[] first = played.saveGame();
 
@@ -123,5 +143,31 @@ class SaveGameTest {
         assertTrue(b.contains("randomState=\"\""), "the save has random states");
         assertEquals(b, comparable(savegameXml(third)),
             "a loaded game saves as it was saved");
+    }
+
+    /**
+     * A client logs in to a loaded server as it does to a new one, and
+     * play goes on at the saved turn with the saved active unit (#68).
+     */
+    @Test
+    @Timeout(180)
+    void aLoadedGameContinuesWithTheSavedTurnAndActiveUnit() throws Exception {
+        Session played = playRounds(3);
+        assertTrue(played.client().getCommands().nextUnit(), "a unit is active");
+        String active = played.activeUnitId();
+        assertNotNull(active, "the client has an active unit");
+        int turn = played.client().getGame().getTurn().getNumber();
+        byte[] bytes = played.server().saveGame(active);
+        assertTrue(savegameXml(bytes).contains("initialActiveUnitId=\"" + active + "\""),
+            "the save names the active unit");
+        assertEquals(null, played.server().getGame().getInitialActiveUnitId(),
+            "the live game does not keep it");
+
+        ServerEngine loaded = new ServerEngine(xml -> {});
+        loaded.loadGame(bytes);
+        Session resumed = login(loaded, 0);
+        assertEquals(turn, resumed.client().getGame().getTurn().getNumber(), "turn");
+        assertEquals(active, resumed.activeUnitId(), "active unit");
+        assertTrue(resumed.client().getClient().currentPlayerIsMyPlayer(), "our turn");
     }
 }

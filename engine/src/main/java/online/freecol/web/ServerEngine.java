@@ -14,7 +14,9 @@ import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.io.FreeColRules;
 import net.sf.freecol.common.io.FreeColSavegameFile;
 import net.sf.freecol.common.model.Game;
+import net.sf.freecol.common.model.Player;
 import net.sf.freecol.common.model.Specification;
+import net.sf.freecol.common.model.Unit;
 import net.sf.freecol.common.networking.GameStateMessage;
 import net.sf.freecol.common.networking.VacantPlayersMessage;
 import net.sf.freecol.server.FreeColServer;
@@ -28,13 +30,18 @@ import net.sf.freecol.server.FreeColServer.ServerState;
  */
 public final class ServerEngine {
 
-    private final PostMessageConnection.Port toClient;
+    private PostMessageConnection.Port toClient;
     private FreeColServer server = null;
     private PostMessageConnection connection = null;
 
     public ServerEngine(PostMessageConnection.Port toClient) {
         this.toClient = toClient;
         MessageReaders.install();
+    }
+
+    /** Where the next client's connection posts, for a test's second client. */
+    void setToClient(PostMessageConnection.Port toClient) {
+        this.toClient = toClient;
     }
 
     /**
@@ -81,20 +88,53 @@ public final class ServerEngine {
     /**
      * Save the game as desktop FreeCol does: a zipped savegame (.fsg)
      * written through the file system, here TeaVM's in-memory one.
-     * Prototype for #67: no client options, no active unit, no
-     * thumbnail.
+     * No client options and no thumbnail: the browser client's options
+     * are the defaults, and only the map editor saves an image.
      *
+     * @param activeUnitId The id of the client's active unit, which a
+     *     load makes active again, as desktop's InGameController.saveGame
+     *     passes it; null or empty for none.
      * @return The bytes of the savegame file.
      * @exception IOException if the save fails.
      */
-    public byte[] saveGame() throws IOException {
+    public byte[] saveGame(String activeUnitId) throws IOException {
         File file = savegameFile();
+        Game game = getGame();
+        Unit active = (activeUnitId == null || activeUnitId.isEmpty()) ? null
+            : game.getFreeColGameObject(activeUnitId, Unit.class);
         try {
-            this.server.saveGame(file, null, null);
+            this.server.saveGame(file, null, active);
             return readAll(file);
         } finally {
+            // The id is for the file; a live game does not keep it.
+            game.setInitialActiveUnitId(null);
             file.delete();
         }
+    }
+
+    /** Save the game with no active unit. */
+    public byte[] saveGame() throws IOException {
+        return saveGame(null);
+    }
+
+    /**
+     * What the save list shows of the game: the turn, its year and the
+     * human player's nation.
+     *
+     * @return A JSON object: turn, year, nation, owner.
+     */
+    public String saveInfo() {
+        Game game = getGame();
+        Player human = null;
+        for (Player p : game.getLiveEuropeanPlayerList()) {
+            if (!p.isAI()) { human = p; break; }
+        }
+        Json json = new Json();
+        json.put("turn", game.getTurn().getNumber());
+        json.put("year", game.getTurn().getYear());
+        json.put("nation", human == null ? "" : Messages.message(human.getNationLabel()));
+        json.put("owner", human == null ? "" : human.getName());
+        return json.toString();
     }
 
     /**
