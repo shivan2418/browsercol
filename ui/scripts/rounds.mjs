@@ -68,8 +68,18 @@ for (const name of browsers) {
   let last = 0;
   let stall = Date.now();
   let seen = 0;
+  let all = [];
   while (Date.now() - t0 < timeout) {
-    const state = await page.evaluate(() => ({ r: window.fcRounds ?? [], res: window.fcResult?.status }));
+    let state;
+    try {
+      state = await page.evaluate(() => ({ r: window.fcRounds ?? [], res: window.fcResult?.status }));
+    } catch (ex) {
+      console.log(
+        `page gone after ${seen} rounds, ${((Date.now() - t0) / 1000).toFixed(0)} s: ${String(ex).split('\n')[0]}`,
+      );
+      break;
+    }
+    all = state.r;
     if (state.r.length !== seen) {
       seen = state.r.length;
       stall = Date.now();
@@ -94,8 +104,7 @@ for (const name of browsers) {
     }
     await new Promise((r) => setTimeout(r, 2000));
   }
-  const all = await page.evaluate(() => window.fcRounds ?? []);
   console.log(`rounds done: ${all.length}; all ai_ms: ${all.map((x) => x.split(',')[1]).join(' ')}`);
-  await browser.close();
+  await browser.close().catch(() => {});
 }
 server.close();
