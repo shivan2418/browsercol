@@ -3,6 +3,8 @@ package online.freecol.web;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Level;
 
 import javax.swing.ImageIcon;
 
@@ -95,31 +97,32 @@ import net.sf.freecol.common.model.Unit;
  *     <td>{text, cancel, tile, object,
  *         choices: [{text, enabled, ok, cancel, default}]};
  *         the chosen index, else cancel</td></tr>
- * <tr><td>showFirstContactDialog</td><td>question confirm</td>
+ * <tr><td>showFirstContactDialog (defers)</td><td>question confirm</td>
  *     <td>as modalConfirmDialog, object the native player;
  *         "false" declines, else (closed too) accepts, as in Swing</td></tr>
  * <tr><td>modalInputDialog</td><td>question input</td>
  *     <td>{text, value, ok, cancel, tile};
  *         the text entered, null to cancel</td></tr>
- * <tr><td>showNamingDialog</td><td>question input</td>
+ * <tr><td>showNamingDialog (defers)</td><td>question input</td>
  *     <td>as modalInputDialog; the handler gets the answer</td></tr>
- * <tr><td>showConfirmDeclarationDialog</td><td>question names</td>
+ * <tr><td>showConfirmDeclarationDialog (blocks)</td><td>question names</td>
  *     <td>{text, fields: [{label, value}], ok, cancel}, the nation's then
  *         the country's name; the answers joined by a line break, null to
  *         cancel</td></tr>
- * <tr><td>showDeclarationPanel</td><td>question confirm</td>
+ * <tr><td>showDeclarationPanel (defers)</td><td>question confirm</td>
  *     <td>{text, ok} with no cancel; the callback runs when it is closed</td></tr>
- * <tr><td>showChooseFoundingFatherDialog, showEmigrationDialog</td>
+ * <tr><td>showChooseFoundingFatherDialog, showEmigrationDialog (defer)</td>
  *     <td>question choice</td><td>as modalChoiceDialog, no cancel</td></tr>
  * <tr><td>showSelectDestinationDialog</td><td>question choice</td>
  *     <td>as modalChoiceDialog, one choice per destination, as
  *         SelectDestinationDialog lists them; the chosen destination,
  *         else null, which cancels the move</td></tr>
  * <tr><td>showMonarchDialog, showNativeDemandDialog, showVictoryDialog,
- *     showEndTurnDialog, showPreCombatDialog</td><td>question confirm</td>
+ *     showEndTurnDialog (all defer), showPreCombatDialog (blocks)</td>
+ *     <td>question confirm</td>
  *     <td>as modalConfirmDialog, with the Swing dialog's text and
  *         buttons; a closed dialog cancels</td></tr>
- * <tr><td>showCaptureGoodsDialog, showDumpCargoDialog</td>
+ * <tr><td>showCaptureGoodsDialog, showDumpCargoDialog (defer)</td>
  *     <td>question goods</td>
  *     <td>{text, ok, cancel, max, object, goods: [{id, type, name, amount,
  *         icon, label, checked}]}, icon being the goods type's resource
@@ -130,6 +133,60 @@ import net.sf.freecol.common.model.Unit;
  *     <td>event unasked</td><td>{method}; the controller gets the base
  *         GUI's default, as before</td></tr>
  * </table>
+ *
+ * <h2>Which dialogs block and which defer</h2>
+ *
+ * A dialog either blocks the controller until the player answers, or
+ * defers: the call returns at once, the question is asked on a thread of
+ * its own, and the controller's handler runs there with the answer. The
+ * rule is Swing's. A dialog Swing shows non-modally, answering through a
+ * {@code DialogHandler}, defers. A dialog Swing shows modally, returning
+ * the answer from the call, blocks.
+ *
+ * The reason is the thread the controller runs on. The server sends each
+ * update as a request and waits for its reply, for
+ * {@code Connection.DEFAULT_REPLY_TIMEOUT} (30 s), and the
+ * {@link PostMessageConnection} sends that reply when the client's message
+ * handler returns. The handlers behind firstContactHandler,
+ * monarchActionHandler, indianDemandHandler, newLandNameHandler,
+ * newRegionNameHandler, chooseFoundingFatherHandler, fountainOfYouthHandler
+ * and gameEndedHandler ask their dialog through {@code invokeLater}, which
+ * here runs at once on that handler thread (in Swing it moves to the event
+ * thread). Blocking there would hold the server's thread, in the middle of
+ * whatever sent the update, until the player answered, and fail the send
+ * after 30 s. The player's answer would then reach the server as a command
+ * on top of a half-finished one. Deferring releases the server at once, as
+ * in Swing. Emigration is also asked from the updates of a new turn, so it
+ * defers too.
+ *
+ * <table>
+ * <caption>Blocks or defers, as Swing does</caption>
+ * <tr><th>Dialog</th><th>Swing</th><th>Here</th></tr>
+ * <tr><td>showFirstContactDialog, showMonarchDialog,
+ *     showNativeDemandDialog, showVictoryDialog,
+ *     showChooseFoundingFatherDialog, showNamingDialog,
+ *     showEmigrationDialog, showEndTurnDialog, showCaptureGoodsDialog,
+ *     showDumpCargoDialog, showDeclarationPanel</td>
+ *     <td>non-modal: a panel, or a dialog shown later, with a handler
+ *         or callback (capture goods and dump cargo: DialogCallback;
+ *         the declaration panel: showFreeColPanel and a closing
+ *         callback)</td>
+ *     <td>defer</td></tr>
+ * <tr><td>showNegotiationDialog, showWarehouseDialog (not asked yet)</td>
+ *     <td>non-modal</td><td>defer, when asked</td></tr>
+ * <tr><td>modalConfirmDialog, modalChoiceDialog, modalInputDialog,
+ *     showPreCombatDialog, showSelectDestinationDialog,
+ *     showSelectAmountDialog, showSelectTributeAmountDialog,
+ *     showConfirmDeclarationDialog</td>
+ *     <td>modal: the answer is the return value</td><td>block</td></tr>
+ * </table>
+ *
+ * The blocking dialogs are asked by the player's own commands, never from
+ * a message handler, so they hold nothing but that command. A dialog that
+ * defers has not answered when its call returns. While an end turn dialog
+ * waits for its answer another is not asked, as Swing's open panel stops
+ * another end turn. The negotiation dialog (#52) defers: its handler's
+ * answer is what {@code askServer().diplomacy} sends the server.
  *
  * It also runs the controllers' deferred work at once (the base GUI drops
  * it), keeps the active unit, and tells the {@link ClientEngine} when the
@@ -163,6 +220,8 @@ public class WebGUI extends GUI {
     private final BrowserUI ui;
     private final Questions questions;
     private volatile Unit activeUnit = null;
+    /** An end turn dialog has been asked and not yet answered. */
+    private final AtomicBoolean endTurnDialogOpen = new AtomicBoolean(false);
     /** The orders last sent with the active unit event. */
     private List<String> lastOrders = new ArrayList<>();
 
@@ -239,6 +298,22 @@ public class WebGUI extends GUI {
     private void unasked(String method) {
         logger.warning("WebGUI: no dialog yet for " + method);
         this.ui.show("unasked", new Json().put("method", method).toString());
+    }
+
+    /**
+     * Run a dialog's question and handler on a thread of its own, so the
+     * controller returns at once, as it does when Swing shows the dialog
+     * later. The dialogs that defer are listed in the class comment.
+     */
+    private void defer(String name, Runnable task) {
+        new Thread(() -> {
+                try {
+                    task.run();
+                } catch (RuntimeException ex) {
+                    logger.log(Level.WARNING,
+                               "WebGUI: " + name + " failed: " + ex, ex);
+                }
+        }, "WebGUI-" + name).start();
     }
 
     /** The messages event, for both the model messages and the turn report. */
@@ -546,8 +621,9 @@ public class WebGUI extends GUI {
     /**
      * {@inheritDoc}
      *
-     * The server holds the end of turn until this is answered, so it must
-     * not be dropped as the base GUI does.
+     * Defers (Swing shows a panel). The server holds the end of turn until
+     * this is answered, so it must not be dropped as the base GUI does,
+     * and it is asked from a message handler, so it must not block it.
      */
     @Override
     public void showFirstContactDialog(Player player, Player other, Tile tile,
@@ -555,14 +631,14 @@ public class WebGUI extends GUI {
                                        DialogHandler<Boolean> handler) {
         final String type = ((IndianNationType)other.getNationType())
             .getSettlementTypeKey(true);
-        final String answer = confirm(Messages.message(StringTemplate
+        final String text = Messages.message(StringTemplate
                 .template((tile != null) ? "firstContactDialog.welcomeOffer.text"
                     : "firstContactDialog.welcomeSimple.text")
                 .addStringTemplate("%nation%", other.getNationLabel())
                 .addName("%camps%", Integer.toString(settlementCount))
-                .add("%settlementType%", type)),
-            "yes", "no", true, tile, id(other));
-        handler.handle(!"false".equals(answer));
+                .add("%settlementType%", type));
+        defer("showFirstContactDialog", () -> handler.handle(!"false".equals(
+            confirm(text, "yes", "no", true, tile, id(other)))));
     }
 
     @Override
@@ -578,18 +654,20 @@ public class WebGUI extends GUI {
             .toString());
     }
 
+    /** {@inheritDoc} Defers: Swing's input dialog is a panel with a handler. */
     @Override
     public void showNamingDialog(StringTemplate template, String defaultName,
                                  Unit unit, DialogHandler<String> handler) {
-        handler.handle(modalInputDialog(unit.getTile(), template, defaultName,
-                                        "ok", "cancel"));
+        final Tile tile = unit.getTile();
+        defer("showNamingDialog", () -> handler.handle(
+            modalInputDialog(tile, template, defaultName, "ok", "cancel")));
     }
 
     /**
      * {@inheritDoc}
      *
-     * One item per father, as Swing's tabs; there is no cancel, and a
-     * closed dialog postpones the choice, as the controller expects.
+     * Defers. One item per father, as Swing's tabs; there is no cancel,
+     * and a closed dialog postpones the choice, as the controller expects.
      */
     @Override
     public void showChooseFoundingFatherDialog(List<FoundingFather> ffs,
@@ -600,15 +678,16 @@ public class WebGUI extends GUI {
                     + Messages.message(ff.getTypeKey()) + ")", ff));
         }
         if (!choices.isEmpty()) choices.get(0).defaultOption();
-        handler.handle(modalChoiceDialog(
+        defer("showChooseFoundingFatherDialog", () -> handler.handle(
+            modalChoiceDialog(
                 StringTemplate.key("chooseFoundingFatherDialog.title"),
-                null, choices));
+                null, choices)));
     }
 
     /**
      * {@inheritDoc}
      *
-     * One item per recruitable unit, as Swing's buttons, answering its
+     * Defers. One item per recruitable unit, as Swing's buttons, answering its
      * migrant slot. There is no cancel: Swing ignores Escape here, so a
      * closed dialog is asked again.
      */
@@ -630,14 +709,17 @@ public class WebGUI extends GUI {
                         .FOUNTAIN_OF_YOUTH.getDescriptionKey()))
                 .addStringTemplate(text);
         }
-        Integer chosen;
-        do {
-            chosen = modalChoiceDialog(text, null, choices);
-        } while (chosen == null);
-        handler.handle(chosen);
+        final StringTemplate question = text;
+        defer("showEmigrationDialog", () -> {
+                Integer chosen;
+                do {
+                    chosen = modalChoiceDialog(question, null, choices);
+                } while (chosen == null);
+                handler.handle(chosen);
+            });
     }
 
-    /** {@inheritDoc} The text and buttons are MonarchDialog's. */
+    /** {@inheritDoc} Defers. The text and buttons are MonarchDialog's. */
     @Override
     public void showMonarchDialog(MonarchAction action, StringTemplate template,
                                   String monarchKey,
@@ -650,10 +732,13 @@ public class WebGUI extends GUI {
         final String text = Messages.message((template == null)
             ? StringTemplate.key(messageId)
             : StringTemplate.copy(messageId, template));
-        handler.handle(confirmed(text, yesId, noId, false, null, null));
+        final String yes = yesId;
+        final String no = noId;
+        defer("showMonarchDialog", () -> handler.handle(
+            confirmed(text, yes, no, false, null, null)));
     }
 
-    /** {@inheritDoc} The text and buttons are NativeDemandDialog's. */
+    /** {@inheritDoc} Defers. The text and buttons are NativeDemandDialog's. */
     @Override
     public void showNativeDemandDialog(Unit unit, Colony colony,
                                        GoodsType type, int amount,
@@ -667,33 +752,45 @@ public class WebGUI extends GUI {
             .addName("%colony%", colony.getName())
             .addAmount("%amount%", amount);
         if (key.equals("other")) template = template.addNamed("%goods%", type);
-        handler.handle(confirmed(Messages.message(template),
+        final String text = Messages.message(template);
+        defer("showNativeDemandDialog", () -> handler.handle(confirmed(text,
                 (key.equals("food")) ? "indianDemand.food.yes" : "accept",
                 "indianDemand." + key + ".no", false,
-                colony.getTile(), id(colony)));
+                colony.getTile(), id(colony))));
     }
 
-    /** {@inheritDoc} The text and buttons are VictoryDialog's. */
+    /** {@inheritDoc} Defers. The text and buttons are VictoryDialog's. */
     @Override
     public void showVictoryDialog(DialogHandler<Boolean> handler) {
-        handler.handle(confirmed(Messages.message("victory.text"),
-                "victory.yes", "victory.continue", false, null, null));
+        defer("showVictoryDialog", () -> handler.handle(
+            confirmed(Messages.message("victory.text"),
+                "victory.yes", "victory.continue", false, null, null)));
     }
 
     /**
      * {@inheritDoc}
      *
-     * EndTurnDialog's question, without its list of waiting units: ok
-     * ends the turn, as its ok button does.
+     * Defers: Swing shows EndTurnDialog as a panel, and its ok button ends
+     * the turn later. This asks EndTurnDialog's question, without its list
+     * of waiting units, and ok ends the turn, as its ok button does. A
+     * second end turn while the question is open is dropped, as Swing's
+     * open panel stops it.
      */
     @Override
     public void showEndTurnDialog(List<Unit> units) {
         final String text = Messages.message(StringTemplate
             .template("endTurnDialog.areYouSure")
             .addAmount("%number%", units.size()));
-        if (confirmed(text, "ok", "cancel", true, null, null)) {
-            getFreeColClient().getInGameController().endTurn(false);
-        }
+        if (!this.endTurnDialogOpen.compareAndSet(false, true)) return;
+        defer("showEndTurnDialog", () -> {
+                try {
+                    if (confirmed(text, "ok", "cancel", true, null, null)) {
+                        getFreeColClient().getInGameController().endTurn(false);
+                    }
+                } finally {
+                    this.endTurnDialogOpen.set(false);
+                }
+            });
     }
 
     /**
@@ -837,22 +934,24 @@ public class WebGUI extends GUI {
     /**
      * {@inheritDoc}
      *
-     * Shows the declaration's resolution as a confirm with only an ok
-     * button, which waits until the player closes it, then runs the
-     * callback, as DeclarationPanel does on closing. The animated
+     * Defers, as Swing shows DeclarationPanel without waiting. Asks the
+     * declaration's resolution as a confirm with only an ok button, then
+     * runs the callback, as DeclarationPanel does on closing. The animated
      * signature is not shown.
      */
     @Override
     public void showDeclarationPanel(Runnable afterClosing) {
-        this.questions.ask("confirm", new Json()
-            .put("text", Messages.message("declareIndependence.resolution"))
-            .put("ok", label("ok"))
-            .put("cancel", (String)null)
-            .put("defaultOk", true)
-            .put("tile", (String)null)
-            .put("object", (String)null)
-            .toString());
-        afterClosing.run();
+        defer("showDeclarationPanel", () -> {
+                this.questions.ask("confirm", new Json()
+                    .put("text", Messages.message("declareIndependence.resolution"))
+                    .put("ok", label("ok"))
+                    .put("cancel", (String)null)
+                    .put("defaultOk", true)
+                    .put("tile", (String)null)
+                    .put("object", (String)null)
+                    .toString());
+                afterClosing.run();
+            });
     }
 
 
@@ -865,8 +964,10 @@ public class WebGUI extends GUI {
     @Override
     public void showCaptureGoodsDialog(Unit unit, List<Goods> gl,
                                        DialogHandler<List<Goods>> handler) {
-        handler.handle(pickGoods(Messages.message("captureGoodsDialog.title"),
-                                 gl, unit.getSpaceLeft(), false, unit));
+        final int space = unit.getSpaceLeft();
+        defer("showCaptureGoodsDialog", () -> handler.handle(
+            pickGoods(Messages.message("captureGoodsDialog.title"),
+                      gl, space, false, unit)));
     }
 
     /**
@@ -879,8 +980,9 @@ public class WebGUI extends GUI {
     public void showDumpCargoDialog(Unit unit,
                                     DialogHandler<List<Goods>> handler) {
         final List<Goods> cargo = unit.getGoodsList();
-        handler.handle(pickGoods(Messages.message("dumpCargo"), cargo,
-                                 cargo.size(), true, unit));
+        defer("showDumpCargoDialog", () -> handler.handle(
+            pickGoods(Messages.message("dumpCargo"), cargo,
+                      cargo.size(), true, unit)));
     }
 
     // Not asked yet: reported, then the base GUI's default.

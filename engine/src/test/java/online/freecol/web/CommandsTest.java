@@ -389,6 +389,11 @@ class CommandsTest {
         // The Browser UI answers the names and closes the declaration.
         names = "Free Test!\nUnited Test";
         assertTrue(commands.declareIndependence(), "declared");
+        // The declaration panel defers, as Swing's does: the declaration
+        // goes to the server once it is closed.
+        for (int i = 0; i < 3000 && us.getPlayerType() != Player.PlayerType.REBEL; i++) {
+            Thread.sleep(10);
+        }
         assertEquals(2, asked.size(), asked.toString());
         assertTrue(asked.get(0).startsWith("names {"), asked.get(0));
         assertTrue(asked.get(0).contains("\"label\":\"" + Messages.message(
