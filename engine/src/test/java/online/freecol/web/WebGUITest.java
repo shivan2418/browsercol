@@ -510,15 +510,28 @@ class WebGUITest {
         assertEquals(5, offer.getGoldGivenBy(ai));
         assertEquals(Stance.PEACE, offer.getStance());
 
+        // The other kinds: a colony the other player gives, goods, a unit.
+        got.clear();
+        answer = "propose\ncolony\tdemand\t" + known.getId() + "\t0\n"
+            + "goods\tdemand\tmodel.goods.food\t40\n"
+            + "unit\toffer\t" + unit.getId() + "\t0\nbogus\toffer\tx\t0";
+        fc.getGUI().showNegotiationDialog(unit, known, offer, null, got::add);
+        awaitCount(got, 1);
+        assertEquals(List.of(known), offer.getColoniesGivenBy(ai));
+        assertEquals(1, offer.getGoodsGivenBy(ai).size());
+        assertEquals(40, offer.getGoodsGivenBy(ai).get(0).getAmount());
+        assertEquals(List.of(unit), offer.getUnitsGivenBy(me));
+        assertEquals(3, offer.getItems().size(), "the bogus line is dropped");
+
         got.clear();
         answer = "reject";
         fc.getGUI().showNegotiationDialog(unit, known, offer, null, got::add);
         awaitCount(got, 1);
         assertEquals(TradeStatus.REJECT_TRADE, offer.getStatus());
-        assertEquals(5, offer.getGoldGivenBy(ai), "reject keeps the agreement");
+        assertEquals(3, offer.getItems().size(), "reject keeps the agreement");
         // The question lists the agreement's items.
         assertTrue(asked.get(asked.size() - 1).contains(
-            "\"kind\":\"gold\",\"side\":\"demand\",\"key\":\"\",\"amount\":5"),
+            "\"kind\":\"goods\",\"side\":\"demand\",\"key\":\"model.goods.food\",\"amount\":40"),
             asked.get(asked.size() - 1));
     }
 
