@@ -143,6 +143,39 @@ class CommandsTest {
 
     /** Start a Classic game with no autoplay and return once it is our turn. */
     private void startGame() throws Exception {
+        for (long seed = FIRST_SEED; seed < FIRST_SEED + MAX_SEEDS; seed++) {
+            startGame(seed);
+            final int nearest = landNearTheShip();
+            if (nearest <= LAND_WITHIN) {
+                System.out.println("CommandsTest: map seed " + seed
+                    + ", land " + nearest + " tiles from the ship");
+                return;
+            }
+            System.out.println("CommandsTest: map seed " + seed + " rejected, land "
+                + nearest + " tiles from the ship");
+        }
+        fail("no map seed from " + FIRST_SEED + " to " + (FIRST_SEED + MAX_SEEDS - 1)
+            + " puts land within " + LAND_WITHIN + " tiles of the ship");
+    }
+
+    /** Seeds are tried in order from here, so a run can be reproduced. */
+    private static final long FIRST_SEED = 1;
+    private static final int MAX_SEEDS = 20;
+    /** The tests sail with a limit of 8 turns to sight land; this leaves margin. */
+    private static final int LAND_WITHIN = 10;
+
+    /** The distance from the human's ship to the nearest land, on the server's map. */
+    private int landNearTheShip() {
+        final String me = client.getClient().getMyPlayer().getId();
+        final Unit ship = server.getGame().getFreeColGameObject(me, Player.class)
+            .getUnits().filter(Unit::isNaval).findFirst().get();
+        final Tile from = ship.getTile();
+        return server.getGame().getMap().getTileSet(Tile::isLand).stream()
+            .mapToInt(t -> t.getDistanceTo(from)).min().orElse(Integer.MAX_VALUE);
+    }
+
+    /** Start a Classic game on the map a seed makes, and return once it is our turn. */
+    private void startGame(long seed) throws Exception {
         final CountDownLatch ourTurn = new CountDownLatch(1);
         server = new ServerEngine(
             xml -> toClient.execute(() -> client.receive(xml)));
@@ -166,7 +199,8 @@ class CommandsTest {
                         });
                 }
             });
-        server.startGame("classic");
+        server.startGame("classic", new GamePreset(null, null, null,
+            seed, new java.util.LinkedHashMap<>()));
         assertTrue(client.startGame(0), "login");
         ourTurn.await();
     }
