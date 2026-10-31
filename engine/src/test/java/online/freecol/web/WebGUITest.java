@@ -8,9 +8,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.AfterEach;
@@ -46,6 +48,20 @@ class WebGUITest {
     private final List<String> asked = Collections.synchronizedList(new ArrayList<>());
     /** The answer the fake Browser UI gives to every question. */
     private volatile String answer = null;
+    /** While true the fake Browser UI leaves questions unanswered, in held. */
+    private volatile boolean hold = false;
+    private final List<Integer> held = Collections.synchronizedList(new ArrayList<>());
+
+    /** Wait for a deferred dialog's handler to have answered n times. */
+    private static void awaitCount(List<?> got, int n) throws Exception {
+        for (int i = 0; i < 3000 && got.size() < n; i++) Thread.sleep(10);
+        assertEquals(n, got.size());
+    }
+
+    /** Wait for a deferred dialog's handler to give its answer. */
+    private static <T> T await(CompletableFuture<T> future) throws Exception {
+        return future.get(30, TimeUnit.SECONDS);
+    }
 
     @AfterEach
     void stop() {
@@ -75,7 +91,11 @@ class WebGUITest {
                 }
                 public void ask(int id, String kind, String json) {
                     asked.add(kind + " " + json);
-                    ui.execute(() -> client[0].answer(id, answer));
+                    if (hold) {
+                        held.add(id);
+                    } else {
+                        ui.execute(() -> client[0].answer(id, answer));
+                    }
                 }
             });
         server.startGame("classic");
@@ -221,12 +241,12 @@ class WebGUITest {
         final ClientEngine client = startGame();
         final GUI gui = client.getClient().getGUI();
         final Unit unit = gui.getActiveUnit();
-        final Object[] got = new Object[1];
+        CompletableFuture<Object> got = new CompletableFuture<>();
 
         answer = "Vinland";
         gui.showNamingDialog(StringTemplate.key("newLand.text"), "New Land",
-                             unit, name -> got[0] = name);
-        assertEquals("Vinland", got[0]);
+                             unit, got::complete);
+        assertEquals("Vinland", await(got));
         String question = asked.get(asked.size() - 1);
         assertTrue(question.startsWith("input {"), question);
         assertTrue(question.contains("\"value\":\"New Land\""), question);
@@ -234,37 +254,73 @@ class WebGUITest {
         final List<FoundingFather> ffs = client.getGame().getSpecification()
             .getFoundingFathers().subList(0, 3);
         answer = "1";
-        gui.showChooseFoundingFatherDialog(ffs, ff -> got[0] = ff);
-        assertEquals(ffs.get(1), got[0]);
+        got = new CompletableFuture<>();
+        gui.showChooseFoundingFatherDialog(ffs, got::complete);
+        assertEquals(ffs.get(1), await(got));
         question = asked.get(asked.size() - 1);
         assertTrue(question.startsWith("choice {"), question);
         assertTrue(question.contains(Messages.getName(ffs.get(1))), question);
         answer = null;
-        gui.showChooseFoundingFatherDialog(ffs, ff -> got[0] = ff);
-        assertNull(got[0], "closed: postponed");
+        got = new CompletableFuture<>();
+        gui.showChooseFoundingFatherDialog(ffs, got::complete);
+        assertNull(await(got), "closed: postponed");
 
         final StringTemplate tax = StringTemplate.template("unused")
             .addName("%newWorld%", "America").addAmount("%number%", 1)
             .addAmount("%amount%", 10).addName("%goods%", "furs");
         answer = "true";
-        gui.showMonarchDialog(MonarchAction.RAISE_TAX_ACT, tax, null,
-                              b -> got[0] = b);
-        assertEquals(Boolean.TRUE, got[0]);
+        got = new CompletableFuture<>();
+        gui.showMonarchDialog(MonarchAction.RAISE_TAX_ACT, tax, null, got::complete);
+        assertEquals(Boolean.TRUE, await(got));
         question = asked.get(asked.size() - 1);
         assertTrue(question.contains("raising your tax to 10%"), question);
         assertTrue(question.contains("\"ok\":\"We accept\",\"cancel\":\"Give me Liberty"),
                    question);
-        gui.showMonarchDialog(MonarchAction.DISPLEASURE, null, null,
-                              b -> got[0] = b);
+        got = new CompletableFuture<>();
+        gui.showMonarchDialog(MonarchAction.DISPLEASURE, null, null, got::complete);
+        await(got);
         question = asked.get(asked.size() - 1);
         assertTrue(question.contains("\"ok\":null,\"cancel\":\"Done\""), question);
 
+        // The end turn dialog asks, and cancel keeps the turn.
         answer = "false";
+        final int before = asked.size();
         gui.showEndTurnDialog(List.of(unit));
+        while (asked.size() == before) Thread.sleep(10);
         question = asked.get(asked.size() - 1);
         assertTrue(question.startsWith("confirm {\"text\":\"The following unit is still waiting"),
                    question);
+        Thread.sleep(200);
         assertTrue(client.getClient().currentPlayerIsMyPlayer(), "cancel keeps the turn");
+    }
+
+    @Test
+    @Timeout(120)
+    void aDialogWithAHandlerReturnsBeforeTheAnswerComes() throws Exception {
+        final ClientEngine client = startGame();
+        final GUI gui = client.getClient().getGUI();
+        final CompletableFuture<Boolean> got = new CompletableFuture<>();
+
+        hold = true;
+        final int before = held.size();
+        gui.showMonarchDialog(MonarchAction.DISPLEASURE, null, null, got::complete);
+        // Returned with the question out and unanswered: a message handler
+        // calling this must not wait for the player.
+        while (held.size() == before) Thread.sleep(10);
+        assertFalse(got.isDone());
+
+        // A second end turn while one waits is not asked again.
+        final Unit unit = gui.getActiveUnit();
+        final int askedBefore = asked.size();
+        gui.showEndTurnDialog(List.of(unit));
+        while (asked.size() == askedBefore) Thread.sleep(10);
+        gui.showEndTurnDialog(List.of(unit));
+        Thread.sleep(200);
+        assertEquals(askedBefore + 1, asked.size());
+
+        hold = false;
+        for (int id : new ArrayList<>(held)) client.answer(id, "true");
+        assertEquals(Boolean.TRUE, await(got));
     }
 
     @Test
@@ -297,9 +353,10 @@ class WebGUITest {
         final int space = ship.getSpaceLeft();
         assertTrue(space >= 2, "room for the loot");
 
-        final List<List<Goods>> got = new ArrayList<>();
+        final List<List<Goods>> got = Collections.synchronizedList(new ArrayList<>());
         answer = "[2,0]";
         gui.showCaptureGoodsDialog(ship, loot, got::add);
+        awaitCount(got, 1);
         assertEquals(List.of(List.of(loot.get(2), loot.get(0))), got);
         String question = asked.get(asked.size() - 1);
         assertTrue(question.startsWith("goods {"), question);
@@ -310,17 +367,20 @@ class WebGUITest {
         got.clear();
         answer = "[]";
         gui.showCaptureGoodsDialog(ship, loot, got::add);
+        awaitCount(got, 1);
         assertEquals(List.of(List.<Goods>of()), got);
 
         got.clear();
         answer = null;
         gui.showCaptureGoodsDialog(ship, loot, got::add);
+        awaitCount(got, 1);
         assertEquals(List.of(List.<Goods>of()), got, "closed: nothing");
 
         // More than the free holds cannot be taken.
         got.clear();
         answer = "[0,1,2]";
         gui.showCaptureGoodsDialog(ship, loot, got::add);
+        awaitCount(got, 1);
         assertEquals(1, got.size());
         assertEquals(Math.min(3, space), got.get(0).size());
 
@@ -334,6 +394,7 @@ class WebGUITest {
         got.clear();
         answer = "[1]";
         gui.showDumpCargoDialog(ship, got::add);
+        awaitCount(got, 1);
         assertEquals(List.of(List.of(cargo.get(1))), got);
         question = asked.get(asked.size() - 1);
         assertTrue(question.contains("\"checked\":true"), question);
@@ -341,6 +402,7 @@ class WebGUITest {
         got.clear();
         answer = null;
         gui.showDumpCargoDialog(ship, got::add);
+        awaitCount(got, 1);
         assertEquals(List.of(List.<Goods>of()), got, "closed: Swing's empty list");
     }
 
