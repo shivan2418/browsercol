@@ -22,6 +22,7 @@ import net.sf.freecol.client.gui.GUI;
 import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.model.FoundingFather;
 import net.sf.freecol.common.model.Game;
+import net.sf.freecol.common.model.Goods;
 import net.sf.freecol.common.model.ModelMessage;
 import net.sf.freecol.common.model.Monarch.MonarchAction;
 import net.sf.freecol.common.model.StringTemplate;
@@ -266,5 +267,69 @@ class WebGUITest {
         assertEquals(List.of("unasked {\"method\":\"showSelectTributeAmountDialog\"}"),
             shown.stream().filter(e -> !e.startsWith("messages ")).collect(Collectors.toList()));
         assertTrue(asked.isEmpty(), asked.toString());
+    }
+
+    @Test
+    @Timeout(120)
+    void capturingAndDumpingGoodsGetTheChosenGoods() throws Exception {
+        final ClientEngine client = startGame();
+        final GUI gui = client.getClient().getGUI();
+        final Game game = client.getClient().getGame();
+        final Unit ship = client.getClient().getMyPlayer().getUnits()
+            .filter(Unit::isNaval).findFirst().get();
+        final List<Goods> loot = new ArrayList<>();
+        final String[] ids = { "model.goods.food", "model.goods.sugar",
+                               "model.goods.tobacco" };
+        for (String id : ids) {
+            loot.add(new Goods(game, null, game.getSpecification().getGoodsType(id), 40));
+        }
+        final int space = ship.getSpaceLeft();
+        assertTrue(space >= 2, "room for the loot");
+
+        final List<List<Goods>> got = new ArrayList<>();
+        answer = "[2,0]";
+        gui.showCaptureGoodsDialog(ship, loot, got::add);
+        assertEquals(List.of(List.of(loot.get(2), loot.get(0))), got);
+        String question = asked.get(asked.size() - 1);
+        assertTrue(question.startsWith("goods {"), question);
+        assertTrue(question.contains("\"max\":" + space), question);
+        assertTrue(question.contains("\"icon\":\"image.icon.model.goods.sugar\""), question);
+        assertTrue(question.contains("\"amount\":40"), question);
+
+        got.clear();
+        answer = "[]";
+        gui.showCaptureGoodsDialog(ship, loot, got::add);
+        assertEquals(List.of(List.<Goods>of()), got);
+
+        got.clear();
+        answer = null;
+        gui.showCaptureGoodsDialog(ship, loot, got::add);
+        assertEquals(List.of(List.<Goods>of()), got, "closed: nothing");
+
+        // More than the free holds cannot be taken.
+        got.clear();
+        answer = "[0,1,2]";
+        gui.showCaptureGoodsDialog(ship, loot, got::add);
+        assertEquals(1, got.size());
+        assertEquals(Math.min(3, space), got.get(0).size());
+
+        // Dump: the unit's own goods.
+        ship.add(new Goods(game, ship, game.getSpecification()
+            .getGoodsType("model.goods.rum"), 100));
+        ship.add(new Goods(game, ship, game.getSpecification()
+            .getGoodsType("model.goods.cotton"), 100));
+        final List<Goods> cargo = ship.getGoodsList();
+        assertTrue(cargo.size() >= 2, cargo.toString());
+        got.clear();
+        answer = "[1]";
+        gui.showDumpCargoDialog(ship, got::add);
+        assertEquals(List.of(List.of(cargo.get(1))), got);
+        question = asked.get(asked.size() - 1);
+        assertTrue(question.contains("\"checked\":true"), question);
+
+        got.clear();
+        answer = null;
+        gui.showDumpCargoDialog(ship, got::add);
+        assertEquals(List.of(List.<Goods>of()), got, "closed: Swing's empty list");
     }
 }

@@ -105,6 +105,13 @@ import net.sf.freecol.common.model.Unit;
  *     showEndTurnDialog, showPreCombatDialog</td><td>question confirm</td>
  *     <td>as modalConfirmDialog, with the Swing dialog's text and
  *         buttons; a closed dialog cancels</td></tr>
+ * <tr><td>showCaptureGoodsDialog, showDumpCargoDialog</td>
+ *     <td>question goods</td>
+ *     <td>{text, ok, cancel, max, object, goods: [{id, type, name, amount,
+ *         icon, label, checked}]}, icon being the goods type's resource
+ *         key; the chosen indexes as a JSON array, at most max of them,
+ *         null for a closed dialog. The handler gets the chosen goods,
+ *         an empty list for cancel or closed, as Swing's dialogs give</td></tr>
  * <tr><td>the other dialogs the controllers ask (see "Not asked yet")</td>
  *     <td>event unasked</td><td>{method}; the controller gets the base
  *         GUI's default, as before</td></tr>
@@ -651,26 +658,86 @@ public class WebGUI extends GUI {
     }
 
 
-    // Not asked yet: reported, then the base GUI's default.
+    /**
+     * Ask a goods question: which of some goods to take.
+     *
+     * @return The chosen goods, in the order picked; none for a closed dialog.
+     */
+    private List<Goods> pickGoods(String text, List<Goods> goods, int max,
+                                  boolean checked, Unit unit) {
+        final List<String> lots = new ArrayList<>();
+        for (Goods g : goods) {
+            lots.add(new Json()
+                .put("id", g.getType().getId())
+                .put("type", g.getType().getId())
+                .put("name", Messages.getName(g.getType()))
+                .put("amount", g.getAmount())
+                .put("icon", "image.icon." + g.getType().getId())
+                .put("label", Messages.message(g.getLabel(true)))
+                .put("checked", checked)
+                .toString());
+        }
+        final String answer = this.questions.ask("goods", new Json()
+            .put("text", text)
+            .put("ok", label("ok"))
+            .put("cancel", label("cancel"))
+            .put("max", max)
+            .put("object", id(unit))
+            .putRaw("goods", Json.array(lots))
+            .toString());
+        final List<Goods> chosen = new ArrayList<>();
+        if (answer == null) return chosen;
+        final String body = answer.replaceAll("[\\[\\]\\s]", "");
+        if (body.isEmpty()) return chosen;
+        final List<Integer> seen = new ArrayList<>();
+        for (String part : body.split(",")) {
+            final int i;
+            try {
+                i = Integer.parseInt(part);
+            } catch (NumberFormatException nfe) {
+                continue;
+            }
+            if (i < 0 || i >= goods.size() || seen.contains(i)) continue;
+            if (chosen.size() >= max) break;
+            seen.add(i);
+            chosen.add(goods.get(i));
+        }
+        return chosen;
+    }
 
+    /**
+     * {@inheritDoc}
+     *
+     * CaptureGoodsDialog: none are checked at first, at most the winner's
+     * free holds can be; a closed dialog gives an empty list, as Swing's.
+     */
     @Override
     public void showCaptureGoodsDialog(Unit unit, List<Goods> gl,
                                        DialogHandler<List<Goods>> handler) {
-        unasked("showCaptureGoodsDialog");
-        super.showCaptureGoodsDialog(unit, gl, handler);
+        handler.handle(pickGoods(Messages.message("captureGoodsDialog.title"),
+                                 gl, unit.getSpaceLeft(), false, unit));
     }
+
+    /**
+     * {@inheritDoc}
+     *
+     * DumpCargoDialog: all the unit's goods are checked at first, with no
+     * limit; cancel or closed gives an empty list.
+     */
+    @Override
+    public void showDumpCargoDialog(Unit unit,
+                                    DialogHandler<List<Goods>> handler) {
+        final List<Goods> cargo = unit.getGoodsList();
+        handler.handle(pickGoods(Messages.message("dumpCargo"), cargo,
+                                 cargo.size(), true, unit));
+    }
+
+    // Not asked yet: reported, then the base GUI's default.
 
     @Override
     public List<String> showConfirmDeclarationDialog() {
         unasked("showConfirmDeclarationDialog");
         return super.showConfirmDeclarationDialog();
-    }
-
-    @Override
-    public void showDumpCargoDialog(Unit unit,
-                                    DialogHandler<List<Goods>> handler) {
-        unasked("showDumpCargoDialog");
-        super.showDumpCargoDialog(unit, handler);
     }
 
     @Override
