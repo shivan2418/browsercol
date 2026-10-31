@@ -9,6 +9,7 @@ import java.util.logging.Level;
 
 import javax.swing.ImageIcon;
 
+import net.sf.freecol.client.ClientOptions;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.client.gui.ChoiceItem;
 import net.sf.freecol.client.gui.DialogHandler;
@@ -47,6 +48,7 @@ import net.sf.freecol.common.model.StringTemplate;
 import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.Turn;
 import net.sf.freecol.common.model.Unit;
+import net.sf.freecol.common.option.BooleanOption;
 import net.sf.freecol.common.option.Option;
 import net.sf.freecol.common.option.OptionGroup;
 
@@ -85,22 +87,35 @@ import net.sf.freecol.common.option.OptionGroup;
  *     <td>{tile, at}; the active unit is kept</td></tr>
  * <tr><td>setFocus</td><td>event focus</td><td>{tile, at}</td></tr>
  * <tr><td>showInformationPanel(FreeColObject, StringTemplate)</td>
- *     <td>event information</td><td>{text, object, tile, at, ok}</td></tr>
+ *     <td>event information</td>
+ *     <td>{text, object, tile, at, images, ok}; images are the resource
+ *         keys of the object's image, best first, as ImageLibrary shows it</td></tr>
  * <tr><td>showErrorPanel(String, Runnable)</td><td>event error</td>
  *     <td>{text, ok}</td></tr>
  * <tr><td>showEventPanel</td><td>event eventPanel</td>
- *     <td>{header, image, footer, ok}</td></tr>
+ *     <td>{header, image, footer, ok}; image is a resource key</td></tr>
  * <tr><td>showHighScoresPanel(String, List)</td><td>event highScores</td>
  *     <td>{text, scores: [{score, headline, fields: [{label, value}]}], ok};
  *         text is the message for the key, or null; the fields are the
  *         ones ReportHighScoresPanel shows below its headline</td></tr>
  * <tr><td>showModelMessages</td><td>event messages</td>
  *     <td>{title: null, messages: [{text, type, source, tile, at,
- *         heading: null}], ok}; tile and at are the source's, to go to</td></tr>
+ *         heading: null, images, filter: null, filterTip: null,
+ *         ignoreTip: null}], ok}; tile and at are the source's, to go to;
+ *         images are the resource keys of the message's display object's
+ *         image, best first</td></tr>
  * <tr><td>showReportTurnPanel</td><td>event messages</td>
- *     <td>as showModelMessages, titled as the turn report, grouped by
- *         source: the messages sorted so a source's are together, and a
- *         heading {text, tile, at} on the first of each source's</td></tr>
+ *     <td>as showModelMessages, titled as the turn report, and arranged by
+ *         the group by client option: unsorted, sorted by type or sorted
+ *         so a source's are together, with a heading {text, tile, at} on
+ *         the first of each group. Also {groupBy: {label, value, choices:
+ *         [{value, text}]}, regrouped: false}, and per message the
+ *         buttons ReportTurnPanel has for it: filter is whether its type
+ *         is shown (null: no filter button), filterTip and ignoreTip
+ *         are the buttons' tooltips (null: no button). reportGroupBy,
+ *         reportFilter and reportIgnore are the buttons' actions, by the
+ *         message's index in the report as shown; reportGroupBy sends the
+ *         report again, regrouped: true, to replace the open one</td></tr>
  * <tr><td>modalConfirmDialog(Tile, StringTemplate, ImageIcon, ...)</td>
  *     <td>question confirm</td>
  *     <td>{text, ok, cancel, defaultOk, tile, object, header};
@@ -358,27 +373,53 @@ public class WebGUI extends GUI {
 
     /**
      * The messages event, for both the model messages and the turn report.
-     * The turn report is grouped by source, as ReportTurnPanel does with its
-     * group by source option: the messages of a source together, sources
-     * by kind (as FreeCol orders its classes), a source's messages by
-     * type, and a heading where the source changes.
+     * The turn report is arranged as ReportTurnPanel does by the group by
+     * client option: as they come, grouped by type, or grouped by source.
+     * Grouped by type the messages are sorted by type, with a heading where
+     * the type changes. Grouped by source the messages of a source are
+     * together, sources by kind (as FreeCol orders its classes), a source's
+     * messages by type, with a heading where the source changes. The
+     * report's messages also say what ReportTurnPanel's buttons do for them.
+     *
+     * @param regrouped The report is the one already open, arranged
+     *     differently.
      */
     private void showMessages(String title, List<ModelMessage> modelMessages,
-                              boolean grouped) {
+                              boolean report, boolean regrouped) {
         final Game game = getGame();
+        final ClientOptions co = getClientOptions();
+        final int groupBy = (report)
+            ? co.getInteger(ClientOptions.MESSAGES_GROUP_BY)
+            : ClientOptions.MESSAGES_GROUP_BY_NOTHING;
         final List<ModelMessage> sorted = new ArrayList<>(modelMessages);
-        if (grouped) sortBySource(game, sorted);
+        if (groupBy == ClientOptions.MESSAGES_GROUP_BY_SOURCE) {
+            sortBySource(game, sorted);
+        } else if (groupBy == ClientOptions.MESSAGES_GROUP_BY_TYPE) {
+            sorted.sort(ModelMessage.messageTypeComparator);
+        }
+        if (report) {
+            this.reportMessages = new ArrayList<>(modelMessages);
+            this.shownReport = sorted;
+        }
         List<String> messages = new ArrayList<>();
         String sourceId = null;
+        ModelMessage.MessageType type = null;
         for (int i = 0; i < sorted.size(); i++) {
             final ModelMessage m = sorted.get(i);
             final FreeColGameObject source = game.getMessageSource(m);
             String heading = null;
-            if (grouped && (i == 0 || !Objects.equals(sourceId, m.getSourceId()))) {
+            if (groupBy == ClientOptions.MESSAGES_GROUP_BY_SOURCE
+                && (i == 0 || !Objects.equals(sourceId, m.getSourceId()))) {
                 heading = tile(new Json().put("text", headline(source)),
                                tileOf(source)).toString();
+            } else if (groupBy == ClientOptions.MESSAGES_GROUP_BY_TYPE
+                && (i == 0 || m.getMessageType() != type)) {
+                heading = tile(new Json().put("text",
+                        Messages.getName(m.getMessageType())), null).toString();
             }
             sourceId = m.getSourceId();
+            type = m.getMessageType();
+            final Boolean shown = filterState(co, m);
             final Json json = tile(new Json()
                 .put("text", Messages.message(m))
                 .put("type", m.getMessageType().toString())
@@ -386,12 +427,114 @@ public class WebGUI extends GUI {
                 tileOf(source));
             if (heading == null) json.put("heading", (String)null);
             else json.putRaw("heading", heading);
+            json.putRaw("images", ObjectImages.json(game.getMessageDisplay(m)));
+            json.putRaw("filter", (!report || shown == null) ? "null"
+                : shown.toString());
+            json.put("filterTip", (report && shown != null)
+                ? Messages.message(StringTemplate
+                    .template("report.turn.filter")
+                    .addNamed("%type%", m.getMessageType())) : null);
+            json.put("ignoreTip", (report && ignorable(m))
+                ? Messages.message(StringTemplate.copy("report.turn.ignore", m))
+                : null);
             messages.add(json.toString());
         }
-        this.ui.show("messages", new Json()
+        final Json event = new Json()
             .put("title", title)
             .putRaw("messages", Json.array(messages))
-            .put("ok", label("ok")).toString());
+            .put("ok", label("ok"));
+        if (report) {
+            final List<String> choices = new ArrayList<>();
+            for (int value : GROUP_BY) {
+                choices.add(new Json().put("value", value)
+                    .put("text", Messages.message(
+                            GROUP_BY_LABELS[value] + ".name")).toString());
+            }
+            event.putRaw("groupBy", new Json()
+                .put("label", Messages.message(
+                        ClientOptions.MESSAGES_GROUP_BY + ".name"))
+                .put("value", groupBy)
+                .putRaw("choices", Json.array(choices)).toString());
+            event.put("regrouped", regrouped);
+        }
+        this.ui.show("messages", event.toString());
+    }
+
+    /** The values of the group by option, and the labels of their choices. */
+    private static final int[] GROUP_BY = {
+        ClientOptions.MESSAGES_GROUP_BY_NOTHING,
+        ClientOptions.MESSAGES_GROUP_BY_TYPE,
+        ClientOptions.MESSAGES_GROUP_BY_SOURCE };
+    private static final String[] GROUP_BY_LABELS = {
+        "clientOptions.messages.guiMessagesGroupBy.nothing",
+        "clientOptions.messages.guiMessagesGroupBy.type",
+        "clientOptions.messages.guiMessagesGroupBy.source" };
+
+    /** The turn report as FreeCol sent it, and in the order last shown. */
+    private volatile List<ModelMessage> reportMessages = new ArrayList<>();
+    private volatile List<ModelMessage> shownReport = new ArrayList<>();
+
+    /**
+     * Whether the message's type is shown, or null if it has no filter
+     * option, as ReportTurnPanel decides to add its filter button.
+     */
+    private static Boolean filterState(ClientOptions co, ModelMessage m) {
+        final String key = m.getOptionName();
+        return (key != null && co.hasOption(key, BooleanOption.class))
+            ? co.getBoolean(key) : null;
+    }
+
+    /** Whether ReportTurnPanel offers to ignore the message: only some types. */
+    private static boolean ignorable(ModelMessage m) {
+        return m.getMessageType() == ModelMessage.MessageType.WAREHOUSE_CAPACITY;
+    }
+
+    /**
+     * Change how the turn report groups its messages, as the group by client
+     * option does, and show the report again in that arrangement.
+     *
+     * @param value One of ClientOptions.MESSAGES_GROUP_BY_*.
+     */
+    public void reportGroupBy(int value) {
+        for (int v : GROUP_BY) {
+            if (v != value) continue;
+            getClientOptions().setInteger(ClientOptions.MESSAGES_GROUP_BY, value);
+            showMessages(Messages.message("reportTurnAction.name"),
+                         this.reportMessages, true, true);
+            return;
+        }
+    }
+
+    /**
+     * Show or filter out a message's type, as ReportTurnPanel's filter
+     * button does: the type's client option, which the next turn's
+     * messages are checked against.
+     *
+     * @param index The message's place in the report as shown.
+     * @param shown Whether the type's messages are shown.
+     */
+    public void reportFilter(int index, boolean shown) {
+        final List<ModelMessage> report = this.shownReport;
+        if (index < 0 || index >= report.size()) return;
+        final ClientOptions co = getClientOptions();
+        final ModelMessage m = report.get(index);
+        if (filterState(co, m) != null) co.setBoolean(m.getOptionName(), shown);
+    }
+
+    /**
+     * Ignore a message from now on until it is not generated in a turn, or
+     * stop ignoring it, as ReportTurnPanel's ignore button does.
+     *
+     * @param index The message's place in the report as shown.
+     * @param ignore Whether to ignore it.
+     */
+    public void reportIgnore(int index, boolean ignore) {
+        final List<ModelMessage> report = this.shownReport;
+        if (index < 0 || index >= report.size()) return;
+        final ModelMessage m = report.get(index);
+        if (ignorable(m)) {
+            getFreeColClient().getInGameController().ignoreMessage(m, ignore);
+        }
     }
 
     /**
@@ -591,6 +734,7 @@ public class WebGUI extends GUI {
         this.ui.show("information", tile(new Json()
             .put("text", Messages.message(template))
             .put("object", id(displayObject)), tileOf(displayObject))
+            .putRaw("images", ObjectImages.json(displayObject))
             .put("ok", label("ok")).toString());
         return null;
     }
@@ -684,13 +828,14 @@ public class WebGUI extends GUI {
 
     @Override
     public FreeColPanel showModelMessages(List<ModelMessage> modelMessages) {
-        showMessages(null, modelMessages, false);
+        showMessages(null, modelMessages, false, false);
         return null;
     }
 
     @Override
     public FreeColPanel showReportTurnPanel(List<ModelMessage> messages) {
-        showMessages(Messages.message("reportTurnAction.name"), messages, true);
+        showMessages(Messages.message("reportTurnAction.name"), messages,
+                     true, false);
         return null;
     }
 

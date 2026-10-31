@@ -230,31 +230,41 @@ final class MapJson {
     }
 
     /** ImageLibrary.getSettlementKey, with and without the nation. */
-    private static String settlement(Settlement s, Player player) {
+    static List<String> settlementKeys(Settlement s) {
         String key = "image.tileitem." + s.getType().getId();
-        int population = -1, bonus = 0, sizeChange = 0;
-        String chips = "null";
         final List<String> keys = new ArrayList<>();
         if (s instanceof Colony) {
             final Colony colony = (Colony)s;
-            population = colony.getApparentUnitCount();
-            bonus = colony.getProductionBonus();
-            sizeChange = colony.getPreferredSizeChange();
             if (colony.isUndead()) {
                 key += ".undead";
             } else {
+                final int population = colony.getApparentUnitCount();
                 key += (population <= 3) ? ".small"
                     : (population <= 7) ? ".medium" : ".large";
                 final String stockade = colony.getStockadeKey();
                 if (stockade != null) key += "." + stockade;
             }
             keys.add(key + "." + s.getOwner().getNationResourceKey());
-        } else if (s instanceof IndianSettlement) {
-            final IndianSettlement is = (IndianSettlement)s;
-            if (is.hasMissionary()) key += ".mission";
-            chips = chips(is, player);
+        } else if (s instanceof IndianSettlement
+            && ((IndianSettlement)s).hasMissionary()) {
+            key += ".mission";
         }
         keys.add(key);
+        return keys;
+    }
+
+    private static String settlement(Settlement s, Player player) {
+        int population = -1, bonus = 0, sizeChange = 0;
+        String chips = "null";
+        final List<String> keys = settlementKeys(s);
+        if (s instanceof Colony) {
+            final Colony colony = (Colony)s;
+            population = colony.getApparentUnitCount();
+            bonus = colony.getProductionBonus();
+            sizeChange = colony.getPreferredSizeChange();
+        } else if (s instanceof IndianSettlement) {
+            chips = chips((IndianSettlement)s, player);
+        }
         final Tile t = s.getTile();
         return new Json().put("x", t.getX()).put("y", t.getY())
             .putRaw("keys", keys(keys))

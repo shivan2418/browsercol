@@ -155,6 +155,21 @@ public final class ClientEngine {
         return this.commands;
     }
 
+    /** Group the turn report by this, as the group by client option. */
+    public void reportGroupBy(int value) {
+        this.gui.reportGroupBy(value);
+    }
+
+    /** Show or filter out the type of the report's message at this index. */
+    public void reportFilter(int index, boolean shown) {
+        this.gui.reportFilter(index, shown);
+    }
+
+    /** Ignore the report's message at this index, or stop ignoring it. */
+    public void reportIgnore(int index, boolean ignore) {
+        this.gui.reportIgnore(index, ignore);
+    }
+
     FreeColClient getClient() {
         return this.client;
     }
