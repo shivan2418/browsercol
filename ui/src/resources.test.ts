@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vite-plus/test';
-import { javaRandomInt, resources } from './resources';
+import { javaRandomInt, JAVA_COLORS, resources } from './resources';
 
 // Layers as FreeCol loads them: data/base, then the "default" TC, then mods.
 const base = {
@@ -115,6 +115,52 @@ color.map.alias=resource:color.map.productionBonus.2
     const r = resources([base, tc], files);
     expect(r.color('color.foreground.mission.normal', 0x808080)).toBe(0x808080);
     expect(r.color('color.map.road', 0x808080)).toBe(0x804000);
+  });
+});
+
+describe('java.awt.Color', () => {
+  // The colour constants of the class: the name of its field, the
+  // upper-case name it also has, and the colour's rgb.
+  const fields: [string, string, number][] = [
+    ['white', 'WHITE', 0xffffff],
+    ['lightGray', 'LIGHT_GRAY', 0xc0c0c0],
+    ['gray', 'GRAY', 0x808080],
+    ['darkGray', 'DARK_GRAY', 0x404040],
+    ['black', 'BLACK', 0x000000],
+    ['red', 'RED', 0xff0000],
+    ['pink', 'PINK', 0xffafaf],
+    ['orange', 'ORANGE', 0xffc800],
+    ['yellow', 'YELLOW', 0xffff00],
+    ['green', 'GREEN', 0x00ff00],
+    ['magenta', 'MAGENTA', 0xff00ff],
+    ['cyan', 'CYAN', 0x00ffff],
+    ['blue', 'BLUE', 0x0000ff],
+  ];
+
+  it('knows every colour of the class, by both of the names of its field', () => {
+    expect(Object.keys(JAVA_COLORS).sort()).toEqual(fields.flatMap(([name, upper]) => [name, upper]).sort());
+    for (const [name, upper, value] of fields) {
+      expect(JAVA_COLORS[name]).toBe(value);
+      expect(JAVA_COLORS[upper]).toBe(value);
+    }
+  });
+
+  it('resolves a colour resource by either name of the field', () => {
+    const props = fields
+      .flatMap(([name, upper]) => [`color.map.${name}=urn:color:${name}`, `color.map.${upper}=urn:color:${upper}`])
+      .join('\n');
+    const r = resources([{ dir: 'default', props }], []);
+    for (const [name, upper, value] of fields) {
+      expect(r.color(`color.map.${name}`)).toBe(value);
+      expect(r.color(`color.map.${upper}`)).toBe(value);
+    }
+  });
+
+  it('knows no colour the class does not have', () => {
+    const props = 'color.map.lightgray=urn:color:lightgray\ncolor.map.chartreuse=urn:color:chartreuse\n';
+    const r = resources([{ dir: 'default', props }], []);
+    expect(r.color('color.map.lightgray')).toBe(0xff00ff);
+    expect(r.color('color.map.chartreuse')).toBe(0xff00ff);
   });
 });
 

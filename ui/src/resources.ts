@@ -49,35 +49,37 @@ const NO_STRING = 'X';
 const COLOR = 'urn:color:';
 /** ColorResource.REPLACEMENT_COLOR. */
 const NO_COLOR = 0xff00ff;
-/** The colour constants of java.awt.Color, which ColorResource looks up by field name. */
-const JAVA_COLORS: Record<string, number> = {
+/**
+ * The colour constants of java.awt.Color, which ColorResource looks up by
+ * field name: each colour once, by the camel-case name of its field, with
+ * the upper-case name the class also has derived from it.
+ */
+const JAVA_COLOR_VALUES: Record<string, number> = {
   white: 0xffffff,
-  WHITE: 0xffffff,
   lightGray: 0xc0c0c0,
-  LIGHT_GRAY: 0xc0c0c0,
   gray: 0x808080,
-  GRAY: 0x808080,
   darkGray: 0x404040,
-  DARK_GRAY: 0x404040,
   black: 0x000000,
-  BLACK: 0x000000,
   red: 0xff0000,
-  RED: 0xff0000,
   pink: 0xffafaf,
-  PINK: 0xffafaf,
   orange: 0xffc800,
-  ORANGE: 0xffc800,
   yellow: 0xffff00,
-  YELLOW: 0xffff00,
   green: 0x00ff00,
-  GREEN: 0x00ff00,
   magenta: 0xff00ff,
-  MAGENTA: 0xff00ff,
   cyan: 0x00ffff,
-  CYAN: 0x00ffff,
   blue: 0x0000ff,
-  BLUE: 0x0000ff,
 };
+
+/** java.awt.Color's upper-case field name: the camel-case words split by an underscore. */
+const javaColorName = (name: string) => name.replace(/([a-z])([A-Z])/g, '$1_$2').toUpperCase();
+
+/** The colour constants of java.awt.Color, by both of the names of their fields. */
+export const JAVA_COLORS: Record<string, number> = Object.fromEntries(
+  Object.entries(JAVA_COLOR_VALUES).flatMap(([name, value]): [string, number][] => [
+    [name, value],
+    [javaColorName(name), value],
+  ]),
+);
 
 /** ColorResource.createColor: 0x hex (an alpha byte is dropped) or a java.awt.Color field. */
 const colorValue = (name: string) =>
