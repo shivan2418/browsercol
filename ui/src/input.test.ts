@@ -19,9 +19,26 @@ describe('commandForKey', () => {
   it('selects the next unit, builds a colony and ends the turn', () => {
     expect(key('w', 'KeyW')).toEqual({ k: 'nextUnit' });
     expect(key('W', 'KeyW')).toEqual({ k: 'nextUnit' });
-    expect(key(' ', 'Space')).toEqual({ k: 'nextUnit' });
     expect(key('b', 'KeyB')).toEqual({ k: 'buildColony' });
     expect(key('Enter', 'Enter')).toEqual({ k: 'endTurn' });
+  });
+
+  it('gives the standing orders, with the keys the Swing client binds them to', () => {
+    expect(key('f', 'KeyF')).toEqual({ k: 'fortify' });
+    expect(key('F', 'KeyF')).toEqual({ k: 'fortify' });
+    expect(key('s', 'KeyS')).toEqual({ k: 'sentry' });
+    expect(key('S', 'KeyS')).toEqual({ k: 'sentry' });
+    // Space skips the unit, as SkipUnitAction does; the next unit waits
+    // for W, as WaitAction does.
+    expect(key(' ', 'Space')).toEqual({ k: 'skip' });
+    expect(key('d', 'KeyD')).toEqual({ k: 'disband' });
+    expect(key('D', 'KeyD')).toEqual({ k: 'disband' });
+    expect(key('p', 'KeyP')).toEqual({ k: 'plow' });
+    expect(key('P', 'KeyP')).toEqual({ k: 'plow' });
+    expect(key('c', 'KeyC')).toEqual({ k: 'clearForest' });
+    expect(key('C', 'KeyC')).toEqual({ k: 'clearForest' });
+    expect(key('r', 'KeyR')).toEqual({ k: 'road' });
+    expect(key('R', 'KeyR')).toEqual({ k: 'road' });
   });
 
   it('ignores other keys', () => {

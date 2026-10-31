@@ -11,6 +11,8 @@ export interface SideProps {
   unasked: string[];
   /** The page's status, as window.fcResult shows it. */
   status: string;
+  /** The orders the active unit can take now, by name, as the Engine says. */
+  orders: string[];
   run: (c: Command) => void;
 }
 
@@ -21,6 +23,20 @@ const BUTTONS: [string, Command][] = [
   ['End turn (Enter)', { k: 'endTurn' }],
 ];
 
+/**
+ * The standing orders, with the keys the Swing client binds them to: the
+ * order's name, as the Engine sends it, and the command it stands for.
+ */
+const ORDERS: [string, string, Command][] = [
+  ['Fortify (F)', 'fortify', { k: 'fortify' }],
+  ['Sentry (S)', 'sentry', { k: 'sentry' }],
+  ['Skip (Space)', 'skip', { k: 'skip' }],
+  ['Disband (D)', 'disband', { k: 'disband' }],
+  ['Plow (P)', 'plow', { k: 'plow' }],
+  ['Clear forest (C)', 'clearForest', { k: 'clearForest' }],
+  ['Road (R)', 'road', { k: 'road' }],
+];
+
 /** How many times each item is in a list, in first-seen order. */
 function counts(list: string[]): [string, number][] {
   const n = new Map<string, number>();
@@ -28,7 +44,7 @@ function counts(list: string[]): [string, number][] {
   return [...n];
 }
 
-export function Side({ turn, info, unasked, status, run }: SideProps) {
+export function Side({ turn, info, unasked, status, orders, run }: SideProps) {
   return (
     <>
       <div>
@@ -37,6 +53,13 @@ export function Side({ turn, info, unasked, status, run }: SideProps) {
       <div>
         {BUTTONS.map(([label, c]) => (
           <button key={c.k} data-command={c.k} onClick={() => run(c)}>
+            {label}
+          </button>
+        ))}
+      </div>
+      <div>
+        {ORDERS.map(([label, name, c]) => (
+          <button key={c.k} data-command={c.k} disabled={!orders.includes(name)} onClick={() => run(c)}>
             {label}
           </button>
         ))}

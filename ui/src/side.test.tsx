@@ -6,13 +6,47 @@ import { Side } from './side';
 
 afterEach(cleanup);
 
+/** A button by its name, as the browser sees it. */
+const button = (name: string) => screen.getByRole('button', { name }) as HTMLButtonElement;
+
 describe('the side panel', () => {
   it('runs a button’s command', () => {
     const ran: Command[] = [];
-    render(<Side turn="1" info="" unasked={[]} status="" run={(c) => ran.push(c)} />);
+    render(<Side turn="1" info="" unasked={[]} status="" orders={[]} run={(c) => ran.push(c)} />);
     fireEvent.click(screen.getByRole('button', { name: 'Build colony (B)' }));
     fireEvent.click(screen.getByRole('button', { name: 'End turn (Enter)' }));
     expect(ran).toEqual([{ k: 'buildColony' }, { k: 'endTurn' }]);
+  });
+
+  it('enables the orders the active unit can take, and disables the rest', () => {
+    const ran: Command[] = [];
+    render(
+      <Side
+        turn="1"
+        info=""
+        unasked={[]}
+        status=""
+        orders={['fortify', 'sentry', 'skip', 'disband', 'road']}
+        run={(c) => ran.push(c)}
+      />,
+    );
+    expect(button('Fortify (F)').disabled, 'fortify').toBe(false);
+    expect(button('Sentry (S)').disabled, 'sentry').toBe(false);
+    expect(button('Skip (Space)').disabled, 'skip').toBe(false);
+    expect(button('Disband (D)').disabled, 'disband').toBe(false);
+    expect(button('Road (R)').disabled, 'road').toBe(false);
+    // A soldier cannot work its tile.
+    expect(button('Plow (P)').disabled, 'plow').toBe(true);
+    expect(button('Clear forest (C)').disabled, 'clear forest').toBe(true);
+    fireEvent.click(button('Fortify (F)'));
+    expect(ran).toEqual([{ k: 'fortify' }]);
+  });
+
+  it('disables every order while no unit is active', () => {
+    render(<Side turn="1" info="" unasked={[]} status="" orders={[]} run={() => {}} />);
+    for (const name of ['Fortify (F)', 'Sentry (S)', 'Skip (Space)', 'Disband (D)', 'Plow (P)', 'Road (R)']) {
+      expect(button(name).disabled, name).toBe(true);
+    }
   });
 
   it('lists the dialogs not asked yet, with how often', () => {
@@ -22,6 +56,7 @@ describe('the side panel', () => {
         info=""
         unasked={['showDumpCargoDialog', 'showWarehouseDialog', 'showDumpCargoDialog']}
         status=""
+        orders={[]}
         run={() => {}}
       />,
     );
@@ -32,7 +67,7 @@ describe('the side panel', () => {
   });
 
   it('lists nothing while every dialog was asked', () => {
-    render(<Side turn="1" info="" unasked={[]} status="" run={() => {}} />);
+    render(<Side turn="1" info="" unasked={[]} status="" orders={[]} run={() => {}} />);
     expect(screen.queryByRole('list')).toBeNull();
   });
 });
