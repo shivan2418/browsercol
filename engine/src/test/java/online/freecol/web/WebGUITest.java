@@ -261,8 +261,9 @@ class WebGUITest {
         final GUI gui = startGame().getClient().getGUI();
 
         shown.clear();
-        assertNull(gui.showSelectDestinationDialog(gui.getActiveUnit()));
-        assertEquals(List.of("unasked {\"method\":\"showSelectDestinationDialog\"}"),
+        assertEquals(-1, gui.showSelectTributeAmountDialog(
+            StringTemplate.key("unused"), 10));
+        assertEquals(List.of("unasked {\"method\":\"showSelectTributeAmountDialog\"}"),
             shown.stream().filter(e -> !e.startsWith("messages ")).collect(Collectors.toList()));
         assertTrue(asked.isEmpty(), asked.toString());
     }

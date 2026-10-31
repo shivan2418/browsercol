@@ -1,0 +1,290 @@
+package online.freecol.web;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
+
+import net.sf.freecol.client.FreeColClient;
+import net.sf.freecol.common.i18n.Messages;
+import net.sf.freecol.common.model.Game;
+import net.sf.freecol.common.model.Map;
+import net.sf.freecol.common.model.Player;
+import net.sf.freecol.common.model.Tile;
+import net.sf.freecol.common.model.Unit;
+
+
+/**
+ * The player asks where a ship sails, and the ship sails to Europe and
+ * back, in a Classic game between the two Engines. The fake Browser UI
+ * answers the destination question with the destination it is told to.
+ */
+class SelectDestinationTest {
+
+    private final ExecutorService toClient = Executors.newSingleThreadExecutor();
+    private final ExecutorService toServer = Executors.newSingleThreadExecutor();
+    private final ExecutorService ui = Executors.newSingleThreadExecutor();
+
+    /** The choices of a choice question, as they reach the Browser UI. */
+    private static final Pattern CHOICES = Pattern.compile("\"choices\":\\[(.*)]");
+    private static final Pattern TEXT = Pattern.compile("\"text\":\"((?:[^\"\\\\]|\\\\.)*)\"");
+
+    /** The questions the fake Browser UI saw, as "kind json". */
+    private final List<String> asked = Collections.synchronizedList(new ArrayList<>());
+
+    /** The label of the destination the fake Browser UI picks. */
+    private volatile String wanted = null;
+
+    private ServerEngine server;
+    private ClientEngine client;
+
+    @AfterEach
+    void stop() {
+        toClient.shutdownNow();
+        toServer.shutdownNow();
+        ui.shutdownNow();
+    }
+
+    /**
+     * The fake Browser UI picks the destination it is told to, closes the
+     * dialog when there is none to pick, and accepts every confirmation
+     * but the one that would sail to Europe on its own.
+     */
+    private String answer(String kind, String json) {
+        switch (kind) {
+        case "choice":
+            if (wanted == null) return null;
+            final List<String> texts = choiceTexts(json);
+            final int i = texts.indexOf(wanted);
+            if (i < 0) fail("no choice " + wanted + " in " + texts);
+            return String.valueOf(i);
+        case "confirm":
+            return json.contains("high seas") ? "false" : "true";
+        default:
+            return null;
+        }
+    }
+
+    /** Start a Classic game and return once it is our turn. */
+    private void startGame() throws Exception {
+        final CountDownLatch ourTurn = new CountDownLatch(1);
+        server = new ServerEngine(
+            xml -> toClient.execute(() -> client.receive(xml)));
+        client = new ClientEngine(new ClientEngine.ServerLink() {
+                public void connect() { server.connect(); }
+                public void post(String xml) {
+                    toServer.execute(() -> server.receive(xml));
+                }
+            }, new ClientEngine.Listener() {
+                public void gameStarted(Game game) {}
+                public void roundDone(int round, long millis) {}
+                public void finished(Game game) { ourTurn.countDown(); }
+            }, new WebGUI.BrowserUI() {
+                public void show(String kind, String json) {}
+                public void ask(int id, String kind, String json) {
+                    asked.add(kind + " " + json);
+                    ui.execute(() -> client.answer(id, answer(kind, json)));
+                }
+            });
+        server.startGame("classic");
+        assertTrue(client.startGame(0), "login");
+        ourTurn.await();
+    }
+
+    /** End our turn and wait until the AI hands play back. */
+    private void endTurnAndWait() throws InterruptedException {
+        final FreeColClient fcc = client.getClient();
+        final int turn = client.getGame().getTurn().getNumber();
+        assertTrue(client.getCommands().endTurn(), "end turn");
+        while (!(fcc.currentPlayerIsMyPlayer()
+                 && client.getGame().getTurn().getNumber() > turn)) {
+            Thread.sleep(20);
+        }
+    }
+
+    /** The ship's unit in the server's game, which is the truth here. */
+    private Unit serverShip(Unit ship) {
+        final Unit s = server.getGame()
+            .getFreeColGameObject(ship.getId(), Unit.class);
+        assertNotNull(s, "the server knows the ship");
+        return s;
+    }
+
+    /** The player's ship, the only one there is at the start. */
+    private Unit ship() {
+        final Player player = client.getClient().getMyPlayer();
+        return player.getUnits().filter(Unit::isNaval).findFirst().get();
+    }
+
+    /** The active unit of the client. */
+    private Unit active() {
+        return client.getClient().getGUI().getActiveUnit();
+    }
+
+    /** Click a tile until the wanted unit is the active one. */
+    private void select(Unit unit) {
+        final Tile tile = unit.getTile();
+        for (int i = 0; i < 10 && active() != unit; i++) {
+            assertTrue(client.getCommands().click(tile.getX(), tile.getY()),
+                "click selects");
+        }
+        assertSame(unit, active());
+    }
+
+    /**
+     * Move the ship onto the high seas, where it can sail to Europe. It
+     * starts there, but the map is made afresh for every game.
+     */
+    private void sailOntoHighSeas(Unit ship) throws InterruptedException {
+        if (ship.getTile().isDirectlyHighSeasConnected()) return;
+        final Map known = server.getGame().getMap();
+        final Tile from = known.getTile(ship.getTile().getX(),
+                                        ship.getTile().getY());
+        final Tile highSeas = known.getTileSet(
+            t -> t.isDirectlyHighSeasConnected() && t.getUnitCount() == 0)
+            .stream().min(Comparator.comparingInt(t -> t.getDistanceTo(from)))
+            .orElse(null);
+        assertNotNull(highSeas, "the map has high seas");
+        select(ship);
+        assertTrue(client.getCommands().goTo(highSeas.getX(), highSeas.getY()),
+            "the ship sets off for the high seas");
+        int turns = 0;
+        while (!ship.getTile().isDirectlyHighSeasConnected()) {
+            endTurnAndWait();
+            assertTrue(++turns < 8,
+                "the ship reaches the high seas within 8 turns; asked " + asked);
+        }
+    }
+
+    /** The labels of the choices of a choice question. */
+    private static List<String> choiceTexts(String json) {
+        final Matcher c = CHOICES.matcher(json);
+        assertTrue(c.find(), json);
+        final List<String> texts = new ArrayList<>();
+        final Matcher t = TEXT.matcher(c.group(1));
+        while (t.find()) texts.add(unescape(t.group(1)));
+        return texts;
+    }
+
+    /** The text of a JSON string, as the Browser UI reads it. */
+    private static String unescape(String s) {
+        final StringBuilder sb = new StringBuilder(s.length());
+        for (int i = 0; i < s.length(); i++) {
+            final char ch = s.charAt(i);
+            if (ch != '\\' || i + 1 >= s.length()) {
+                sb.append(ch);
+                continue;
+            }
+            final char next = s.charAt(++i);
+            switch (next) {
+            case 'n': sb.append('\n'); break;
+            case 'r': sb.append('\r'); break;
+            case 't': sb.append('\t'); break;
+            case 'u':
+                sb.append((char)Integer.parseInt(s.substring(i + 1, i + 5), 16));
+                i += 4;
+                break;
+            default: sb.append(next);
+            }
+        }
+        return sb.toString();
+    }
+
+    /** The last question of its kind the fake Browser UI saw. */
+    private String lastQuestion(String kind) {
+        String found = null;
+        for (String q : asked) {
+            if (q.startsWith(kind + " ")) found = q;
+        }
+        assertNotNull(found, "no " + kind + " question in " + asked);
+        return found;
+    }
+
+    @Test
+    @Timeout(300)
+    void theShipSailsToEuropeAndBack() throws Exception {
+        startGame();
+        final Player player = client.getClient().getMyPlayer();
+        final Unit ship = ship();
+
+        // The ship is on the high seas, where it can sail to Europe.
+        sailOntoHighSeas(ship);
+
+        // Ask where to sail, and answer Europe.
+        final String europe = Messages.message(
+            player.getEurope().getLocationLabelFor(player));
+        wanted = europe;
+        assertTrue(client.getClient().getInGameController()
+            .selectDestination(ship), "the ship sails to Europe");
+        String question = lastQuestion("choice");
+        assertTrue(question.contains("\"text\":\"Select destination\""), question);
+        assertTrue(question.contains("\"cancel\":\"Remain where you are\""), question);
+        assertTrue(choiceTexts(question).contains(europe), question);
+        // The ship sails: the server has it at sea, on its way.
+        assertTrue(serverShip(ship).isAtSea(), "the server has the ship at sea");
+        int turns = 0;
+        while (!serverShip(ship).isInEurope()) {
+            endTurnAndWait();
+            assertTrue(++turns < 12,
+                "the ship reaches Europe within 12 turns; asked " + asked);
+        }
+        assertTrue(ship.isInEurope(), "the client has the ship in Europe");
+
+        // Now sail back to the New World.
+        final String newWorld = Messages.message(
+            client.getGame().getMap().getLocationLabelFor(player));
+        wanted = newWorld;
+        assertTrue(client.getClient().getInGameController()
+            .selectDestination(ship), "the ship sails home");
+        question = lastQuestion("choice");
+        assertTrue(choiceTexts(question).contains(newWorld), question);
+
+        turns = 0;
+        while (serverShip(ship).getTile() == null) {
+            endTurnAndWait();
+            assertTrue(++turns < 12,
+                "the ship reaches the New World within 12 turns; asked " + asked);
+        }
+        final Tile landed = serverShip(ship).getTile();
+        assertSame(server.getGame().getMap(), landed.getMap(),
+            "the ship is on a tile of the map");
+    }
+
+    @Test
+    @Timeout(300)
+    void aClosedDialogCancelsTheMove() throws Exception {
+        startGame();
+        final Unit ship = ship();
+        final Tile at = ship.getTile();
+
+        // The player closes the dialog: the ship stays where it is.
+        wanted = null;
+        assertFalse(client.getClient().getInGameController()
+            .selectDestination(ship), "a closed dialog cancels the move");
+        assertTrue(lastQuestion("choice").contains("Select destination"),
+            "the destination was asked");
+        assertNull(ship.getDestination(), "the ship has no destination");
+        assertEquals(at, ship.getTile(), "the ship stays where it was");
+        assertEquals(at.getId(), serverShip(ship).getTile().getId(),
+            "the server has the ship where it was");
+        assertNull(serverShip(ship).getDestination(),
+            "the server has the ship with no destination");
+    }
+}
