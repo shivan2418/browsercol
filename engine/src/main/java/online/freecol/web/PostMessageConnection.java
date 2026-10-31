@@ -42,6 +42,9 @@ public class PostMessageConnection extends Connection {
 
     private static final Logger logger = Logger.getLogger(PostMessageConnection.class.getName());
 
+    /** The longest single wait: TeaVM narrows a wait's milliseconds to an int. */
+    private static final long MAX_WAIT_MS = 1L << 30;
+
     /** The outgoing side of a channel. */
     public interface Port {
         void post(String data);
@@ -70,7 +73,7 @@ public class PostMessageConnection extends Connection {
                 long left = end - System.currentTimeMillis();
                 if (left <= 0) return false;
                 try {
-                    wait(left);
+                    wait(Math.min(left, MAX_WAIT_MS));
                 } catch (InterruptedException ie) {}
             }
             return true;

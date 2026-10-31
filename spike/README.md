@@ -198,9 +198,9 @@ With the fix, on TeaVM 0.16.0:
 
 - `node probe.mjs` with `SpikeMain.main` reachable prints `main timed wait returned after 110ms`.
 - `node run-node.mjs selftest`: all three cases work. A wakes on notify after 53 ms, C on notify after 52 ms, and B times out after 101 ms.
-- `node run-node.mjs 30`: all 30 rounds finish at turn 31 (14.7 s, AI round mean 466 ms). Without the fix, on the same busy machine that day: 15.3 s, mean 486 ms. Both runs print a Node `TimeoutNegativeWarning` (-694967296 ms) that comes from somewhere else.
+- `node run-node.mjs 30`: all 30 rounds finish at turn 31 (14.7 s, AI round mean 466 ms). Without the fix, on the same busy machine that day: 15.3 s, mean 486 ms. Both runs print a Node `TimeoutNegativeWarning` (-694967296 ms) that comes from somewhere else: `FreeCol.getTimeout(true)` is 3,600,000 s, and `TimedSession` hands `timeout * 1000` (3.6e9 ms, over 2^31) to `Timer.schedule`, which TeaVM narrows to an int. The timer fired after 1 ms and ended every native demand and diplomacy session at once. #44 sets the timeout to 2,000,000 s (`ServerEngine`).
 
-The `Thread.sleep` polling in `PostMessageConnection` and `Questions` is left in place. Swapping it for `wait`/`notify` needs the split game and browser runs to show it works, and `answer`/`complete` are called from JavaScript callbacks outside any fiber.
+`PostMessageConnection` and `Questions` wait on a monitor and are notified (#44). It works in the split Node run and in Chromium and Firefox, where `Questions.answer` is called from a JavaScript callback outside any fiber and wakes its waiter.
 
 **Upstream.** Worth reporting to TeaVM: the bug is in TeaVM, `Fiber.suspend` is unchanged on master, the reproducer is 30 lines, and the fix is one moved line. Any `@Async` method whose `call.run` side calls a method that may suspend is hit the same way. `Thread.sleep`'s happens not to. The reproducer and this explanation are ready to file, but have not been filed.
 

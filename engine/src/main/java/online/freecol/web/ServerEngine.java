@@ -37,7 +37,16 @@ public final class ServerEngine {
     public ServerEngine(PostMessageConnection.Port toClient) {
         this.toClient = toClient;
         MessageReaders.install();
+        // A single-player game's timeout is 3.6 billion ms, which TeaVM's
+        // Timer and Object.wait narrow to an int: the timer fired after 1 ms
+        // (Node's TimeoutNegativeWarning, -694967296) and ended every
+        // native demand and diplomacy session at once. 2 million s is
+        // 23 days, below 2^31 ms.
+        FreeCol.setTimeout(Long.toString(MAX_TIMEOUT_S));
     }
+
+    /** The longest timeout in seconds whose milliseconds fit an int. */
+    static final long MAX_TIMEOUT_S = 2_000_000L;
 
     /** Where the next client's connection posts, for a test's second client. */
     void setToClient(PostMessageConnection.Port toClient) {
