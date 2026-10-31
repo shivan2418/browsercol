@@ -95,6 +95,12 @@ import net.sf.freecol.common.model.Unit;
  *         the text entered, null to cancel</td></tr>
  * <tr><td>showNamingDialog</td><td>question input</td>
  *     <td>as modalInputDialog; the handler gets the answer</td></tr>
+ * <tr><td>showConfirmDeclarationDialog</td><td>question names</td>
+ *     <td>{text, fields: [{label, value}], ok, cancel}, the nation's then
+ *         the country's name; the answers joined by a line break, null to
+ *         cancel</td></tr>
+ * <tr><td>showDeclarationPanel</td><td>question confirm</td>
+ *     <td>{text, ok} with no cancel; the callback runs when it is closed</td></tr>
  * <tr><td>showChooseFoundingFatherDialog, showEmigrationDialog</td>
  *     <td>question choice</td><td>as modalChoiceDialog, no cancel</td></tr>
  * <tr><td>showSelectDestinationDialog</td><td>question choice</td>
@@ -708,6 +714,63 @@ public class WebGUI extends GUI {
     /**
      * {@inheritDoc}
      *
+     * Asks for the two names, as ConfirmDeclarationDialog does: the
+     * nation first, then the country. The nation is cleaned as Swing
+     * cleans it, being used in a save file name. The flag is not asked.
+     */
+    @Override
+    public List<String> showConfirmDeclarationDialog() {
+        final Player player = getMyPlayer();
+        final String nation = Messages.message(StringTemplate
+            .template("confirmDeclarationDialog.defaultNation")
+            .addStringTemplate("%nation%", player.getNationLabel()));
+        final String country = Messages.message(StringTemplate
+            .template("confirmDeclarationDialog.defaultCountry")
+            .addStringTemplate("%nation%", player.getNationLabel()));
+        final String answer = this.questions.ask("names", new Json()
+            .put("text", Messages.message(StringTemplate
+                .template("confirmDeclarationDialog.areYouSure.text")
+                .addNamed("%monarch%", player.getMonarch())))
+            .putRaw("fields", Json.array(List.of(
+                new Json().put("label", label("confirmDeclarationDialog.enterNation"))
+                    .put("value", nation).toString(),
+                new Json().put("label", label("confirmDeclarationDialog.enterCountry"))
+                    .put("value", country).toString())))
+            .put("ok", label("confirmDeclarationDialog.areYouSure.yes"))
+            .put("cancel", label("confirmDeclarationDialog.areYouSure.no"))
+            .toString());
+        if (answer == null) return null;
+        // The names are separated by a line break, which a field has none of.
+        final String[] names = answer.split("\n", -1);
+        if (names.length != 2) return null;
+        return List.of(names[0].replaceAll("[^\\s\\w]", ""), names[1]);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * Shows the declaration's resolution as a confirm with only an ok
+     * button, which waits until the player closes it, then runs the
+     * callback, as DeclarationPanel does on closing. The animated
+     * signature is not shown.
+     */
+    @Override
+    public void showDeclarationPanel(Runnable afterClosing) {
+        this.questions.ask("confirm", new Json()
+            .put("text", Messages.message("declareIndependence.resolution"))
+            .put("ok", label("ok"))
+            .put("cancel", (String)null)
+            .put("defaultOk", true)
+            .put("tile", (String)null)
+            .put("object", (String)null)
+            .toString());
+        afterClosing.run();
+    }
+
+
+    /**
+     * {@inheritDoc}
+     *
      * CaptureGoodsDialog: none are checked at first, at most the winner's
      * free holds can be; a closed dialog gives an empty list, as Swing's.
      */
@@ -733,12 +796,6 @@ public class WebGUI extends GUI {
     }
 
     // Not asked yet: reported, then the base GUI's default.
-
-    @Override
-    public List<String> showConfirmDeclarationDialog() {
-        unasked("showConfirmDeclarationDialog");
-        return super.showConfirmDeclarationDialog();
-    }
 
     @Override
     public void showNegotiationDialog(FreeColGameObject our,

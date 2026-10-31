@@ -103,6 +103,15 @@ public final class Commands {
         return igc().waitUnit();
     }
 
+    /**
+     * Declare independence (DeclareIndependenceAction): the controller
+     * explains if it is not allowed yet, else asks for the new names and
+     * shows the declaration, and the server hears of it when that closes.
+     */
+    public boolean declareIndependence() {
+        return igc().declareIndependence();
+    }
+
     /** Fortify the active unit (FortifyAction). */
     public boolean fortify() {
         return changeState(Unit.UnitState.FORTIFYING);
