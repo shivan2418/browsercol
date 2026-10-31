@@ -30,6 +30,8 @@ export interface ClientExports {
   nextUnit(): void;
   buildColony(): void;
   endTurn(): void;
+  /** Declare independence (DeclareIndependenceAction). */
+  declareIndependence(): void;
   /** The standing orders of the active unit. */
   fortify(): void;
   sentry(): void;

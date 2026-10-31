@@ -11,6 +11,7 @@ export type Command =
   | { k: 'nextUnit' }
   | { k: 'buildColony' }
   | { k: 'endTurn' }
+  | { k: 'declareIndependence' }
   | { k: 'fortify' }
   | { k: 'sentry' }
   | { k: 'skip' }

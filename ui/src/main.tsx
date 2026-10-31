@@ -152,6 +152,7 @@ const gui: GuiHandlers = {
     choice: (q) => dialogQueue.ask('choice', q),
     input: (q) => dialogQueue.ask('input', q),
     goods: (q) => dialogQueue.ask('goods', q),
+    names: (q) => dialogQueue.ask('names', q),
   },
 };
 
