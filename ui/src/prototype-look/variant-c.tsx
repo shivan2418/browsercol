@@ -3,7 +3,7 @@
 // command bar; the active unit is a floating card. A colony or Europe is a
 // full-screen sheet with a "Back to map" bar, laid out as a board you scan
 // left to right. High contrast, 17px type, big figures, numbered answers.
-import type { VariantProps } from './main';
+import type { Show, VariantProps } from './main';
 import {
   art,
   choice,
@@ -21,7 +21,7 @@ import {
   type Amount,
 } from './data';
 
-const CSS = `
+export const CSS = `
 .vc {
   --bg: #000; --sheet: #0b0b0c; --card: #161618; --ink: #fff; --muted: #b9b9c0; --line: #3c3c44; --strong: #fff;
   --accent: #ffd60a; --accent-ink: #000; --good: #4ade80; --bad: #ff6b6b; --bar: rgb(0 0 0 / 82%);
@@ -110,14 +110,14 @@ const CSS = `
 .vc .person b { font-size: var(--fs-l); }
 `;
 
-const Amt = ({ a: [g, n] }: { a: Amount }) => (
+export const Amt = ({ a: [g, n] }: { a: Amount }) => (
   <span className="amt" title={GOOD_NAMES[g]}>
     <img src={goodArt(g)} alt={GOOD_NAMES[g]} />
     {n}
   </span>
 );
 
-function MapChrome({ open }: { open: VariantProps['open'] }) {
+export function MapChrome({ open, colony = 'colony' }: { open: VariantProps['open']; colony?: Show }) {
   return (
     <>
       <div className="topbar">
@@ -162,7 +162,7 @@ function MapChrome({ open }: { open: VariantProps['open'] }) {
           </button>
         ))}
         <span className="grow" />
-        <button className="btn" onClick={() => open('colony')}>
+        <button className="btn" onClick={() => open(colony)}>
           Colonies
         </button>
         <button className="btn" onClick={() => open('europe')}>
@@ -179,7 +179,7 @@ function MapChrome({ open }: { open: VariantProps['open'] }) {
   );
 }
 
-function Ask({ close }: { close: () => void }) {
+export function Ask({ close }: { close: () => void }) {
   return (
     <div className="sheetwrap">
       <div className="ask">
@@ -204,7 +204,7 @@ function Ask({ close }: { close: () => void }) {
   );
 }
 
-function Colony({ close }: { close: () => void }) {
+export function Colony({ close }: { close: () => void }) {
   const c = colony;
   const [h, hMax] = c.building.hammers;
   return (
@@ -307,7 +307,7 @@ function Colony({ close }: { close: () => void }) {
   );
 }
 
-function Europe({ close }: { close: () => void }) {
+export function Europe({ close }: { close: () => void }) {
   const e = europe;
   return (
     <div className="full">

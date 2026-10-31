@@ -1,7 +1,7 @@
 // PROTOTYPE (#48), throwaway: three looks for the Browser UI's panels and
 // dialogs, on mock content, switchable from a floating bar.
 //   ?variant=A|B|C            the look
-//   ?show=none|choice|colony|europe   what is open over the map
+//   ?show=none|choice|glance|colony|europe   what is open over the map (glance: D's colony drawer)
 //   ?theme=light|dark         (default: the variant's own)
 // Arrow keys cycle the variant; 1-4 pick what is open; T flips the theme.
 import { useEffect, useState } from 'react';
@@ -9,8 +9,9 @@ import { createRoot } from 'react-dom/client';
 import { VariantA } from './variant-a';
 import { VariantB } from './variant-b';
 import { VariantC } from './variant-c';
+import { VariantD } from './variant-d';
 
-export type Show = 'none' | 'choice' | 'colony' | 'europe';
+export type Show = 'none' | 'choice' | 'glance' | 'colony' | 'europe';
 export type Theme = 'light' | 'dark';
 export interface VariantProps {
   show: Show;
@@ -22,8 +23,9 @@ const VARIANTS = [
   { key: 'A', name: 'Ledger: light windows, tables', theme: 'light', C: VariantA },
   { key: 'B', name: 'Field kit: dark docked drawer, chips', theme: 'dark', C: VariantB },
   { key: 'C', name: 'Big board: full-screen sheets, big type', theme: 'dark', C: VariantC },
+  { key: 'D', name: 'Big board + colony drawer', theme: 'dark', C: VariantD },
 ] as const;
-const SHOWS: Show[] = ['none', 'choice', 'colony', 'europe'];
+const SHOWS: Show[] = ['none', 'choice', 'glance', 'colony', 'europe'];
 
 function read() {
   const p = new URLSearchParams(location.search);
@@ -55,7 +57,7 @@ function App() {
       if (t.closest('input, textarea, [contenteditable]')) return;
       if (e.key === 'ArrowLeft') cycle(-1);
       else if (e.key === 'ArrowRight') cycle(1);
-      else if (e.key >= '1' && e.key <= '4' && !e.altKey) go({ show: SHOWS[Number(e.key) - 1] });
+      else if (e.key >= '1' && e.key <= '5' && !e.altKey) go({ show: SHOWS[Number(e.key) - 1] });
       else if (e.key === 't') flip();
       else return;
       e.preventDefault();
@@ -82,7 +84,7 @@ function App() {
           <span className="proto-sep" />
           {SHOWS.map((sh, n) => (
             <button key={sh} className={sh === s.show ? 'on' : ''} onClick={() => go({ show: sh })} title={`${n + 1}`}>
-              {sh === 'none' ? 'Map' : sh[0].toUpperCase() + sh.slice(1)}
+              {sh === 'none' ? 'Map' : sh === 'glance' ? 'Drawer' : sh[0].toUpperCase() + sh.slice(1)}
             </button>
           ))}
           <span className="proto-sep" />
