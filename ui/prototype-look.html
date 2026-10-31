@@ -1,0 +1,31 @@
+<!doctype html>
+<!-- PROTOTYPE (#48), throwaway: looks for the Browser UI's panels and dialogs. -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Panel looks</title>
+    <style>
+      html, body, #root { margin: 0; height: 100%; }
+      body { background: #111; }
+      /* The prototype's own switcher: deliberately not part of any look. */
+      .proto-bar {
+        position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 1000;
+        display: flex; align-items: center; gap: 4px; padding: 5px 8px;
+        background: #ff2d87; color: #fff; border-radius: 999px; box-shadow: 0 4px 18px rgb(0 0 0 / 45%);
+        font: 600 12px/1 system-ui, sans-serif; white-space: nowrap; max-width: calc(100vw - 32px); overflow-x: auto;
+      }
+      .proto-bar button {
+        font: inherit; color: inherit; background: rgb(255 255 255 / 15%); border: 0; border-radius: 999px;
+        padding: 6px 10px; cursor: pointer;
+      }
+      .proto-bar button.on { background: #fff; color: #ff2d87; }
+      .proto-label { padding: 0 6px; }
+      .proto-sep { width: 1px; align-self: stretch; background: rgb(255 255 255 / 35%); margin: 0 4px; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/prototype-look/main.tsx"></script>
+  </body>
+</html>

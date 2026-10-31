@@ -5,7 +5,9 @@
   "scripts": {
     "test": "vp test",
     "check": "vp check",
-    "build": "vp build"
+    "build": "vp build",
+    "prototype-look": "vp dev --config prototype-look.config.ts",
+    "prototype-look:build": "vp build --config prototype-look.config.ts"
   },
   "dependencies": {
     "pixi.js": "8.22.0",
