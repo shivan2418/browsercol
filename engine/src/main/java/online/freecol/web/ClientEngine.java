@@ -6,9 +6,7 @@ import net.sf.freecol.FreeCol;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.client.networking.UserServerAPI;
 import net.sf.freecol.common.i18n.Messages;
-import net.sf.freecol.common.debug.FreeColDebugger;
 import net.sf.freecol.common.model.Game;
-import net.sf.freecol.common.option.GameOptions;
 import net.sf.freecol.common.model.Specification;
 
 
@@ -133,12 +131,7 @@ public final class ClientEngine {
         java.util.Map<?, ?> r = (java.util.Map<?, ?>)top;
         if (!"revealMap".equals(r.get("action"))) return;
         Specification spec = getGame().getSpecification();
-        if (Boolean.TRUE.equals(r.get("reveal"))) {
-            FreeColDebugger.setNormalGameFogOfWar(spec.getBoolean(GameOptions.FOG_OF_WAR));
-            spec.setBoolean(GameOptions.FOG_OF_WAR, false);
-        } else {
-            spec.setBoolean(GameOptions.FOG_OF_WAR, FreeColDebugger.getNormalGameFogOfWar());
-        }
+        DebugActions.setFogOfWar(spec, Boolean.TRUE.equals(r.get("reveal")));
         this.client.getMyPlayer().invalidateCanSeeTiles();
     }
 

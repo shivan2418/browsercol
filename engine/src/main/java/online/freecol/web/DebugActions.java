@@ -132,18 +132,27 @@ final class DebugActions {
             Set<Tile> tiles = ((ServerPlayer)p).exploreMap(reveal);
             if (p == this.human) changed = tiles;
         }
-        if (reveal) {
-            FreeColDebugger.setNormalGameFogOfWar(spec.getBoolean(GameOptions.FOG_OF_WAR));
-            spec.setBoolean(GameOptions.FOG_OF_WAR, false);
-        } else {
-            spec.setBoolean(GameOptions.FOG_OF_WAR, FreeColDebugger.getNormalGameFogOfWar());
-        }
+        setFogOfWar(spec, reveal);
         if (this.human != null && changed != null) {
             ChangeSet cs = new ChangeSet();
             cs.add(See.only(this.human), changed);
             this.sGame.sendTo(this.human, cs);
         }
         return new Json().put("action", "revealMap").put("reveal", reveal).toString();
+    }
+
+    /**
+     * Fog of war off while the map is revealed, back to what it was when
+     * it is hidden again (as DebugUtils.revealMap does). Each side's game
+     * has its own specification, so each side calls this.
+     */
+    static void setFogOfWar(Specification spec, boolean reveal) {
+        if (reveal) {
+            FreeColDebugger.setNormalGameFogOfWar(spec.getBoolean(GameOptions.FOG_OF_WAR));
+            spec.setBoolean(GameOptions.FOG_OF_WAR, false);
+        } else {
+            spec.setBoolean(GameOptions.FOG_OF_WAR, FreeColDebugger.getNormalGameFogOfWar());
+        }
     }
 
     /** DebugUtils.addGold, for the human player. */
