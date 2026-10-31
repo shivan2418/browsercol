@@ -2,6 +2,7 @@ package online.freecol.web;
 
 import org.teavm.jso.JSBody;
 import org.teavm.jso.JSExport;
+import org.teavm.jso.typedarrays.Int8Array;
 
 
 /**
@@ -43,6 +44,49 @@ public final class WorkerMain {
                     event("failed", String.valueOf(ex));
                 }
         }, "web-startGame").start();
+    }
+
+    @JSBody(params = "bytes", script = "fcSaved(bytes);")
+    private static native void saved(Int8Array bytes);
+
+    /**
+     * Save the game, then hand the savegame's bytes to fcSaved and
+     * report "saved" with the time it took. Prototype for #67.
+     */
+    @JSExport
+    public static void saveGame() {
+        new Thread(() -> {
+                long t = System.currentTimeMillis();
+                try {
+                    byte[] bytes = engine.saveGame();
+                    saved(Int8Array.copyFromJavaArray(bytes));
+                    event("saved", String.valueOf(System.currentTimeMillis() - t));
+                } catch (Throwable ex) {
+                    ex.printStackTrace();
+                    event("failed", String.valueOf(ex));
+                }
+        }, "web-saveGame").start();
+    }
+
+    /**
+     * Load a game from a savegame's bytes in place of the current one,
+     * then report "loaded" with the time it took and what was loaded.
+     * Prototype for #67.
+     */
+    @JSExport
+    public static void loadGame(Int8Array savegame) {
+        final byte[] bytes = savegame.copyToJavaArray();
+        new Thread(() -> {
+                long t = System.currentTimeMillis();
+                try {
+                    engine.loadGame(bytes);
+                    long ms = System.currentTimeMillis() - t;
+                    event("loaded", ms + "," + engine.describe());
+                } catch (Throwable ex) {
+                    ex.printStackTrace();
+                    event("failed", String.valueOf(ex));
+                }
+        }, "web-loadGame").start();
     }
 
     @JSExport

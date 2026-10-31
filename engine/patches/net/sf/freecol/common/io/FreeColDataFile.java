@@ -169,10 +169,24 @@ public class FreeColDataFile {
             return new BufferedInputStream(new java.io.FileInputStream(
                 new File(this.file, filename)));
         }
-        final URLConnection connection = getURI(filename).toURL()
-            .openConnection();
-        connection.setDefaultUseCaches(false);
-        return new BufferedInputStream(connection.getInputStream());
+        // browser: nor jar: URLs, so read the entry with ZipFile, whole,
+        // and close the archive at once.
+        try (java.util.zip.ZipFile zf = new java.util.zip.ZipFile(this.file)) {
+            final java.util.zip.ZipEntry entry
+                = zf.getEntry(this.jarDirectory + filename);
+            if (entry == null) {
+                throw new FileNotFoundException(this.file.getName()
+                    + " has no " + this.jarDirectory + filename);
+            }
+            try (InputStream in = zf.getInputStream(entry)) {
+                java.io.ByteArrayOutputStream out
+                    = new java.io.ByteArrayOutputStream();
+                byte[] buf = new byte[65536];
+                for (int n; (n = in.read(buf)) > 0;) out.write(buf, 0, n);
+                return new BufferedInputStream(
+                    new java.io.ByteArrayInputStream(out.toByteArray()));
+            }
+        }
     }
 
     /**
