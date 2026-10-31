@@ -35,6 +35,7 @@ const ORDERS: [string, string, Command][] = [
   ['Plow (P)', 'plow', { k: 'plow' }],
   ['Clear forest (C)', 'clearForest', { k: 'clearForest' }],
   ['Road (R)', 'road', { k: 'road' }],
+  ['Go to (H)', 'goto', { k: 'selectDestination' }],
 ];
 
 /** How many times each item is in a list, in first-seen order. */

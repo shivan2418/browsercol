@@ -38,6 +38,8 @@ export interface ClientExports {
   plow(): void;
   clearForest(): void;
   road(): void;
+  /** Send the active unit to a destination; the player is asked where. */
+  selectDestination(): void;
 }
 
 export type ToWorker =

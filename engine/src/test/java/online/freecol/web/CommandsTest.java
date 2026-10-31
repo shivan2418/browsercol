@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -50,9 +51,15 @@ class CommandsTest {
 
     private static final Pattern VALUE = Pattern.compile("\"value\":\"([^\"]*)\"");
     private static final Pattern ENABLED = Pattern.compile("\"enabled\":(true|false)");
+    /** The choices of a choice question, as they reach the Browser UI. */
+    private static final Pattern CHOICES = Pattern.compile("\"choices\":\\[(.*)]");
+    private static final Pattern TEXT = Pattern.compile("\"text\":\"((?:[^\"\\\\]|\\\\.)*)\"");
 
     /** The questions the fake Browser UI answered, with its answers. */
     private final List<String> asked = Collections.synchronizedList(new ArrayList<>());
+
+    /** The label of the destination the fake Browser UI picks, if any. */
+    private volatile String wanted = null;
 
     private ServerEngine server;
     private ClientEngine client;
@@ -67,12 +74,17 @@ class CommandsTest {
     /**
      * The fake Browser UI accepts every confirmation but sailing to
      * Europe, takes the first choice it can and keeps the suggested text
-     * of an input.
+     * of an input. A destination it is told to pick is the one it takes.
      */
-    private static String accept(String kind, String json) {
+    private String accept(String kind, String json) {
         switch (kind) {
         case "confirm": return String.valueOf(!json.contains("Europe"));
         case "choice":
+            if (wanted != null) {
+                final int i = choiceIndex(json, wanted);
+                if (i < 0) fail("no choice " + wanted + " in " + json);
+                return String.valueOf(i);
+            }
             Matcher e = ENABLED.matcher(json);
             for (int i = 0; e.find(); i++) {
                 if (e.group(1).equals("true")) return String.valueOf(i);
@@ -82,6 +94,46 @@ class CommandsTest {
             Matcher m = VALUE.matcher(json);
             return m.find() ? m.group(1) : null;
         }
+    }
+
+    /**
+     * The index of the choice with the wanted text, or -1 if there is no
+     * such choice.
+     */
+    private static int choiceIndex(String json, String wanted) {
+        final Matcher c = CHOICES.matcher(json);
+        if (!c.find()) return -1;
+        final Matcher t = TEXT.matcher(c.group(1));
+        int i = 0;
+        while (t.find()) {
+            if (wanted.equals(unescape(t.group(1)))) return i;
+            i++;
+        }
+        return -1;
+    }
+
+    /** The text of a JSON string, as the Browser UI reads it. */
+    private static String unescape(String s) {
+        final StringBuilder sb = new StringBuilder(s.length());
+        for (int i = 0; i < s.length(); i++) {
+            final char ch = s.charAt(i);
+            if (ch != '\\' || i + 1 >= s.length()) {
+                sb.append(ch);
+                continue;
+            }
+            final char next = s.charAt(++i);
+            switch (next) {
+            case 'n': sb.append('\n'); break;
+            case 'r': sb.append('\r'); break;
+            case 't': sb.append('\t'); break;
+            case 'u':
+                sb.append((char)Integer.parseInt(s.substring(i + 1, i + 5), 16));
+                i += 4;
+                break;
+            default: sb.append(next);
+            }
+        }
+        return sb.toString();
     }
 
     /** Start a Classic game with no autoplay and return once it is our turn. */
@@ -192,6 +244,31 @@ class CommandsTest {
             endTurnAndWait(commands);
             assertTrue(++turns < 12, "the ship arrives within 12 turns");
         }
+    }
+
+    /**
+     * Move the ship onto the high seas, where it can sail to Europe. It
+     * starts there, but the map is made afresh for every game.
+     *
+     * @param commands The commands to play through.
+     * @param ship The ship to sail.
+     */
+    private void sailOntoHighSeas(Commands commands, Unit ship)
+            throws InterruptedException {
+        if (ship.getTile().isDirectlyHighSeasConnected()) return;
+        // The server's map knows the high seas: the nearest tile that
+        // touches them and has no unit on it.
+        final Map known = server.getGame().getMap();
+        final Tile from = known.getTile(ship.getTile().getX(), ship.getTile().getY());
+        final Tile highSeas = known.getTileSet(
+                t -> t.isDirectlyHighSeasConnected() && t.getUnitCount() == 0)
+            .stream().min(Comparator.comparingInt(t -> t.getDistanceTo(from)))
+            .orElse(null);
+        assertNotNull(highSeas, "the map has high seas");
+        sailTo(commands, ship, client.getGame().getMap()
+            .getTile(highSeas.getX(), highSeas.getY()));
+        assertTrue(ship.getTile().isDirectlyHighSeasConnected(),
+                   "the ship is on the high seas");
     }
 
     @Test
@@ -363,9 +440,9 @@ class CommandsTest {
         assertTrue(orders.contains("road"), () -> "the pioneer builds a road: " + orders);
         assertFalse(orders.contains("clearForest"),
                     () -> "there is no forest to clear: " + orders);
-        assertEquals(List.of("fortify", "sentry", "skip", "disband"),
+        assertEquals(List.of("fortify", "sentry", "skip", "disband", "goto"),
                      UnitOrders.valid(player, soldier),
-                    "a soldier cannot work its tile");
+                     "a soldier cannot work its tile");
 
         // Plow: the pioneer works the tile, and the plow is on it when
         // the work is done.
@@ -398,5 +475,48 @@ class CommandsTest {
     private static boolean improved(Tile tile, TileImprovementType type) {
         final TileImprovement ti = tile.getTileImprovement(type);
         return ti != null && ti.isComplete();
+    }
+
+    /**
+     * The Go To order: the player is asked where the ship sails, and
+     * Europe is the answer.
+     */
+    @Test
+    @Timeout(300)
+    void theShipSailsToEurope() throws Exception {
+        startGame();
+        final Commands commands = client.getCommands();
+        final Player player = client.getClient().getMyPlayer();
+        final Unit ship = player.getUnits().filter(Unit::isNaval).findFirst().get();
+
+        // A ship sails to Europe from the high seas.
+        sailOntoHighSeas(commands, ship);
+        assertFalse(serverUnit(ship).isInEurope(), "the ship is not in Europe yet");
+
+        // The order asks the player where the ship sails. Europe is
+        // named as the player's Europe is named.
+        final String europe = Messages.message(
+            player.getEurope().getLocationLabelFor(player));
+        wanted = europe;
+        select(commands, ship);
+        assertTrue(commands.selectDestination(), "the ship sails to Europe");
+        assertTrue(asked.stream().anyMatch(q -> q.startsWith("choice ")
+                                           && q.contains("Select destination")),
+                   () -> "the destination is asked: " + asked);
+
+        // The server knows where the ship is going.
+        final Player us = server.getGame()
+            .getFreeColGameObject(player.getId(), Player.class);
+        assertSame(us.getEurope(), serverUnit(ship).getDestination(),
+                   "the ship sails for Europe");
+
+        // And the ship gets there.
+        int turns = 0;
+        while (!serverUnit(ship).isInEurope()) {
+            endTurnAndWait(commands);
+            assertTrue(++turns < 12,
+                       "the ship reaches Europe within 12 turns; asked " + asked);
+        }
+        assertTrue(ship.isInEurope(), "the client has the ship in Europe");
     }
 }

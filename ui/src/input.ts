@@ -1,7 +1,7 @@
 // The player's keys, mapped to the client Engine's player commands
 // (engine/.../web/Commands.java). Arrow keys and the numpad move the active
-// unit one step, as FreeCol's MoveAction keys do, and the standing orders
-// have the keys the Swing client binds them to.
+// unit one step, as FreeCol's MoveAction keys do, and the orders have the
+// keys the Swing client binds them to.
 
 /** FreeCol's Direction names. */
 export type Direction = 'N' | 'NE' | 'E' | 'SE' | 'S' | 'SW' | 'W' | 'NW';
@@ -17,7 +17,8 @@ export type Command =
   | { k: 'disband' }
   | { k: 'plow' }
   | { k: 'clearForest' }
-  | { k: 'road' };
+  | { k: 'road' }
+  | { k: 'selectDestination' };
 
 const BY_KEY: Record<string, Command> = {
   ArrowUp: { k: 'move', direction: 'N' },
@@ -46,6 +47,10 @@ const BY_KEY: Record<string, Command> = {
   C: { k: 'clearForest' },
   r: { k: 'road' },
   R: { k: 'road' },
+  // The Go To order, as GotoAction binds it: the player is asked where
+  // the unit goes.
+  h: { k: 'selectDestination' },
+  H: { k: 'selectDestination' },
 };
 
 // Numpad keys by code, the same with Num Lock on or off.

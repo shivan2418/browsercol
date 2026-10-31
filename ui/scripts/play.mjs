@@ -1,18 +1,19 @@
 // Plays the human's first turns in the built site, through the page's own
-// input: arrow and numpad keys, map clicks, B, F and Enter. The ship sails
+// input: arrow and numpad keys, map clicks, B, F, H and Enter. The ship sails
 // by the shortest explored sea route to free land that can feed a colony,
 // or toward the westmost explored sea while none is in sight, moves onto
 // the land to put its units ashore, a unit founds a colony, the ship
 // fortifies and the turn ends; the colony must still be there when the AI
-// hands play back. The page's dialogs are answered as scripts/dialogs.mjs
-// says, and every question the controllers ask must reach one: a dialog
-// with no Browser UI yet fails the run. Along the way the map's view must
-// follow the active unit, its cursor and the info panel must match the
-// client's active unit, the side panel's buttons must follow the Engine's
-// orders, the map canvas must follow a window resize and fill what the
-// side panel leaves of the window, and the wheel, a drag and the pointer at
-// an edge must zoom and scroll it at its new size. Exits non-zero unless
-// every browser gets there. Run in the web image:
+// hands play back. The Go To order then asks where the ship sails, which
+// the page must ask the player. The page's dialogs are answered as
+// scripts/dialogs.mjs says, and every question the controllers ask must
+// reach one: a dialog with no Browser UI yet fails the run. Along the way
+// the map's view must follow the active unit, its cursor and the info panel
+// must match the client's active unit, the side panel's buttons must follow
+// the Engine's orders, the map canvas must follow a window resize and fill
+// what the side panel leaves of the window, and the wheel, a drag and the
+// pointer at an edge must zoom and scroll it at its new size. Exits non-zero
+// unless every browser gets there. Run in the web image:
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/play.mjs [--browsers chromium,firefox] [--query renderer=canvas2d]
 import path from 'node:path';
 import { createRequire } from 'node:module';
@@ -346,6 +347,23 @@ async function play(page, url) {
   const ship = m.units.find((u) => u.x === shipTile[0] && u.y === shipTile[1]);
   if (!ship || ship.fg !== FORTIFIED) {
     throw new Error(`the ship at ${label(shipTile)} is not fortified: ${JSON.stringify(ship)}`);
+  }
+
+  // The Go To order, as GotoAction binds it: the player is asked where
+  // the ship sails, and the ship sets off for the place picked. The ship
+  // is the active unit again, as it was when it was fortified.
+  m = await act(() => click(m, shipTile));
+  if (!same(m.active, shipTile)) throw new Error(`clicking ${label(shipTile)} selected ${label(m.active)}`);
+  await following(m, 'after selecting the ship for the Go To order');
+  await act(() => page.keyboard.press('h'));
+  const asked = await page
+    .waitForFunction(() => (window.__dialogs ?? []).some((d) => d.startsWith('choice: Select destination')), null, {
+      timeout: 10000,
+    })
+    .catch(() => false);
+  if (!asked) {
+    const dialogs = await page.evaluate(() => window.__dialogs);
+    throw new Error(`the Go To order did not ask for a destination: ${JSON.stringify(dialogs)}`);
   }
   return { land, turn: m.turn };
 }

@@ -14,10 +14,11 @@ import net.sf.freecol.common.model.Unit;
  * take now.
  *
  * FreeCol's Swing client has an action for each order: FortifyAction,
- * SentryAction, SkipUnitAction and DisbandUnitAction. Each action says in
- * its shouldBeEnabled() whether it may be used, and the Browser UI must
- * not repeat FreeCol's rules, so the Engine works the orders out here and
- * tells the Browser UI which ones the active unit can take.
+ * SentryAction, SkipUnitAction, DisbandUnitAction and GotoAction. Each
+ * action says in its shouldBeEnabled() whether it may be used, and the
+ * Browser UI must not repeat FreeCol's rules, so the Engine works the
+ * orders out here and tells the Browser UI which ones the active unit can
+ * take.
  *
  * <table>
  * <caption>The orders, and what the Swing actions check</caption>
@@ -27,6 +28,7 @@ import net.sf.freecol.common.model.Unit;
  * <tr><td>sentry</td><td>SentryAction</td><td>always</td></tr>
  * <tr><td>skip</td><td>SkipUnitAction</td><td>always</td></tr>
  * <tr><td>disband</td><td>DisbandUnitAction</td><td>always</td></tr>
+ * <tr><td>goto</td><td>GotoAction</td><td>always</td></tr>
  * <tr><td>the tile improvements</td><td>ImprovementAction</td>
  *     <td>the unit may work its tile, and the improvement is allowed
  *         there</td></tr>
@@ -42,6 +44,11 @@ public final class UnitOrders {
     public static final String SKIP = "skip";
     /** Disband the unit, as DisbandUnitAction does. */
     public static final String DISBAND = "disband";
+    /**
+     * Send the unit to a destination, as GotoAction does. It is not the
+     * tile the player clicks on the map, which is GotoTileAction.
+     */
+    public static final String GOTO = "goto";
 
     private UnitOrders() {}
 
@@ -66,6 +73,9 @@ public final class UnitOrders {
         orders.add(SENTRY);
         orders.add(SKIP);
         orders.add(DISBAND);
+        // GotoAction has no check of its own either: it asks where the
+        // unit goes, and the destinations it may go to are the question's.
+        orders.add(GOTO);
         // ImprovementAction: one for each improvement the rules have, named
         // as the action is, e.g. "road" for the road.
         final Tile tile = unit.getTile();
