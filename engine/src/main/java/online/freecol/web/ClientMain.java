@@ -134,6 +134,12 @@ public final class ClientMain {
         command("nextUnit", () -> engine.getCommands().nextUnit());
     }
 
+    /** Declare independence (DeclareIndependenceAction). */
+    @JSExport
+    public static void declareIndependence() {
+        command("declareIndependence", () -> engine.getCommands().declareIndependence());
+    }
+
     /** Fortify the active unit (FortifyAction). */
     @JSExport
     public static void fortify() {

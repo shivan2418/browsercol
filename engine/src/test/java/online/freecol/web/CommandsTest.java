@@ -60,6 +60,8 @@ class CommandsTest {
 
     /** The label of the destination the fake Browser UI picks, if any. */
     private volatile String wanted = null;
+    /** What the fake Browser UI answers to the names of a new nation. */
+    private volatile String names = null;
 
     private ServerEngine server;
     private ClientEngine client;
@@ -154,7 +156,8 @@ class CommandsTest {
                 public void show(String kind, String json) {}
                 public void ask(int id, String kind, String json) {
                     ui.execute(() -> {
-                            String answer = accept(kind, json);
+                            String answer = kind.equals("names")
+                                ? names : accept(kind, json);
                             asked.add(kind + " " + json + " -> " + answer);
                             client.answer(id, answer);
                         });
@@ -277,6 +280,22 @@ class CommandsTest {
         startGame();
         final Commands commands = client.getCommands();
         final Player player = client.getClient().getMyPlayer();
+        final Colony colony = foundAColony(commands);
+
+        // The server's game agrees: our colony stands on that land.
+        assertNotNull(colony, () -> "the server has the colony; asked " + asked
+            + "; told " + player.getModelMessages().stream().map(Messages::message).toList());
+        assertEquals(player.getId(), colony.getOwner().getId());
+    }
+
+    /**
+     * Sail to land, put a colonist ashore and found a colony, through the
+     * commands, then end the turn.
+     *
+     * @return The server's colony.
+     */
+    private Colony foundAColony(Commands commands) throws Exception {
+        final Player player = client.getClient().getMyPlayer();
         final Map map = client.getGame().getMap();
         final Unit ship = player.getUnits().filter(Unit::isNaval).findFirst().get();
         final Unit colonist = ship.getUnitList().stream()
@@ -322,12 +341,63 @@ class CommandsTest {
         assertTrue(commands.buildColony(), "colony founded");
         endTurnAndWait(commands);
 
-        // The server's game agrees: our colony stands on that land.
-        Colony colony = server.getGame().getMap()
+        return server.getGame().getMap()
             .getTile(land.getX(), land.getY()).getColony();
-        assertNotNull(colony, () -> "the server has the colony; asked " + asked
-            + "; told " + player.getModelMessages().stream().map(Messages::message).toList());
-        assertEquals(player.getId(), colony.getOwner().getId());
+    }
+
+    /** Make the share of rebels in a colony what is wanted, on the client and the server. */
+    private void rebelsIn(Colony serverColony, int percent) throws Exception {
+        final Colony ours = client.getGame().getFreeColGameObject(
+            serverColony.getId(), Colony.class);
+        final java.lang.reflect.Field f = Colony.class.getDeclaredField("sonsOfLiberty");
+        f.setAccessible(true);
+        f.setInt(ours, percent);
+        // The server checks the declaration again.
+        f.setInt(serverColony, percent);
+    }
+
+    @Test
+    @Timeout(240)
+    void theHumanDeclaresIndependence() throws Exception {
+        startGame();
+        final Commands commands = client.getCommands();
+        final Player player = client.getClient().getMyPlayer();
+        final Player us = server.getGame().getFreeColGameObject(player.getId(), Player.class);
+
+        // Too early: the controller explains, and asks nothing.
+        assertFalse(commands.declareIndependence(), "no colony yet");
+        assertTrue(asked.isEmpty(), asked.toString());
+
+        final Colony colony = foundAColony(commands);
+        rebelsIn(colony, 60);
+        asked.clear();
+        assertNull(player.checkDeclareIndependence(), "allowed now");
+
+        // Cancelling the names leaves us colonial.
+        names = null;
+        assertFalse(commands.declareIndependence(), "cancelled");
+        assertEquals(Player.PlayerType.COLONIAL, us.getPlayerType());
+        assertEquals(1, asked.size(), asked.toString());
+        assertTrue(asked.get(0).startsWith("names {"), asked.get(0));
+
+        // Names left empty cancel too.
+        names = "Free Test\n";
+        assertFalse(commands.declareIndependence(), "empty country");
+        assertEquals(Player.PlayerType.COLONIAL, us.getPlayerType());
+        asked.clear();
+
+        // The Browser UI answers the names and closes the declaration.
+        names = "Free Test!\nUnited Test";
+        assertTrue(commands.declareIndependence(), "declared");
+        assertEquals(2, asked.size(), asked.toString());
+        assertTrue(asked.get(0).startsWith("names {"), asked.get(0));
+        assertTrue(asked.get(0).contains("\"label\":\"" + Messages.message(
+            "confirmDeclarationDialog.enterNation") + "\""), asked.get(0));
+        assertTrue(asked.get(1).startsWith("confirm {"), asked.get(1));
+        assertTrue(asked.get(1).contains("\"cancel\":null"), asked.get(1));
+        assertEquals(Player.PlayerType.REBEL, us.getPlayerType());
+        assertEquals("Free Test", us.getIndependentNationName());
+        assertEquals("United Test", us.getNewLandName());
     }
 
     /**
