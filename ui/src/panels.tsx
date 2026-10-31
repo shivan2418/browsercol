@@ -394,10 +394,22 @@ function Panel({ d, children, ok }: { d: Dialog; children: ReactNode; ok: string
 }
 
 /** Text that, if it is about a tile, goes there when clicked, as FreeCol's InformationPanel shows its objects. */
-function TileText({ text, at, goTo }: { text: string; at: At | null; goTo: (at: At) => void }) {
-  if (!at) return <Text text={text} />;
+function TileText({
+  text,
+  at,
+  goTo,
+  heading = false,
+}: {
+  text: string;
+  at: At | null;
+  goTo: (at: At) => void;
+  /** A heading (a source's, in the turn report) rather than a paragraph. */
+  heading?: boolean;
+}) {
+  const Tag = heading ? 'h3' : 'p';
+  if (!at) return <Tag className="text">{text}</Tag>;
   return (
-    <p className="text">
+    <Tag className="text">
       <a
         href="#"
         data-at={at.join(',')}
@@ -408,7 +420,7 @@ function TileText({ text, at, goTo }: { text: string; at: At | null; goTo: (at: 
       >
         {text}
       </a>
-    </p>
+    </Tag>
   );
 }
 
@@ -475,7 +487,10 @@ function Body({ d, goTo }: { d: Dialog; goTo: (at: At) => void }) {
         <Panel d={d} ok={d.event.ok}>
           {d.event.title && <h2>{d.event.title}</h2>}
           {d.event.messages.map((m, i) => (
-            <TileText key={i} text={m.text} at={m.at} goTo={goTo} />
+            <div key={i} className="message">
+              {m.heading && <TileText heading text={m.heading.text} at={m.heading.at} goTo={goTo} />}
+              <TileText text={m.text} at={m.at} goTo={goTo} />
+            </div>
           ))}
         </Panel>
       );

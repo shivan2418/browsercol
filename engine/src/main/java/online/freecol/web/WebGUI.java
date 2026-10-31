@@ -16,6 +16,7 @@ import net.sf.freecol.client.gui.GUI;
 import net.sf.freecol.client.gui.panel.FreeColPanel;
 import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.model.AbstractUnit;
+import net.sf.freecol.common.model.Building;
 import net.sf.freecol.common.model.Colony;
 import net.sf.freecol.common.model.CombatModel;
 import net.sf.freecol.common.model.DiplomaticTrade;
@@ -31,6 +32,7 @@ import net.sf.freecol.common.model.HighScore;
 import net.sf.freecol.common.model.IndianNationType;
 import net.sf.freecol.common.model.Location;
 import net.sf.freecol.common.model.LostCityRumour;
+import net.sf.freecol.common.model.Market;
 import net.sf.freecol.common.model.ModelMessage;
 import net.sf.freecol.common.model.Modifier;
 import net.sf.freecol.common.model.Monarch.MonarchAction;
@@ -90,10 +92,12 @@ import net.sf.freecol.common.model.Unit;
  *         text is the message for the key, or null; the fields are the
  *         ones ReportHighScoresPanel shows below its headline</td></tr>
  * <tr><td>showModelMessages</td><td>event messages</td>
- *     <td>{title: null, messages: [{text, type, source, tile, at}], ok};
- *         tile and at are the source's, to go to</td></tr>
+ *     <td>{title: null, messages: [{text, type, source, tile, at,
+ *         heading: null}], ok}; tile and at are the source's, to go to</td></tr>
  * <tr><td>showReportTurnPanel</td><td>event messages</td>
- *     <td>as showModelMessages, titled as the turn report</td></tr>
+ *     <td>as showModelMessages, titled as the turn report, grouped by
+ *         source: the messages sorted so a source's are together, and a
+ *         heading {text, tile, at} on the first of each source's</td></tr>
  * <tr><td>modalConfirmDialog(Tile, StringTemplate, ImageIcon, ...)</td>
  *     <td>question confirm</td>
  *     <td>{text, ok, cancel, defaultOk, tile, object, header};
@@ -345,21 +349,96 @@ public class WebGUI extends GUI {
         }, "WebGUI-" + name).start();
     }
 
-    /** The messages event, for both the model messages and the turn report. */
-    private void showMessages(String title, List<ModelMessage> modelMessages) {
+    /**
+     * The messages event, for both the model messages and the turn report.
+     * The turn report is grouped by source, as ReportTurnPanel does with its
+     * group by source option: the messages of a source together, sources
+     * by kind (as FreeCol orders its classes), a source's messages by
+     * type, and a heading where the source changes.
+     */
+    private void showMessages(String title, List<ModelMessage> modelMessages,
+                              boolean grouped) {
         final Game game = getGame();
+        final List<ModelMessage> sorted = new ArrayList<>(modelMessages);
+        if (grouped) sortBySource(game, sorted);
         List<String> messages = new ArrayList<>();
-        for (ModelMessage m : modelMessages) {
-            messages.add(tile(new Json()
+        String sourceId = null;
+        for (int i = 0; i < sorted.size(); i++) {
+            final ModelMessage m = sorted.get(i);
+            final FreeColGameObject source = game.getMessageSource(m);
+            String heading = null;
+            if (grouped && (i == 0 || !Objects.equals(sourceId, m.getSourceId()))) {
+                heading = tile(new Json().put("text", headline(source)),
+                               tileOf(source)).toString();
+            }
+            sourceId = m.getSourceId();
+            final Json json = tile(new Json()
                 .put("text", Messages.message(m))
                 .put("type", m.getMessageType().toString())
                 .put("source", m.getSourceId()),
-                tileOf(game.getMessageSource(m))).toString());
+                tileOf(source));
+            if (heading == null) json.put("heading", (String)null);
+            else json.putRaw("heading", heading);
+            messages.add(json.toString());
         }
         this.ui.show("messages", new Json()
             .put("title", title)
             .putRaw("messages", Json.array(messages))
             .put("ok", label("ok")).toString());
+    }
+
+    /**
+     * Sort messages so that a source's are together, as ReportTurnPanel
+     * gets by sorting with ModelMessage.getSourceComparator, whose ties
+     * between sources of one kind it leaves unordered. Sources go by kind,
+     * then as they first appear; a source's messages by type.
+     */
+    private static void sortBySource(Game game, List<ModelMessage> messages) {
+        final List<String> order = new ArrayList<>();
+        for (ModelMessage m : messages) {
+            if (!order.contains(m.getSourceId())) order.add(m.getSourceId());
+        }
+        messages.sort((m1, m2) -> {
+                final int kind = FreeColObject.getObjectClassIndex(
+                        game.getMessageSource(m1))
+                    - FreeColObject.getObjectClassIndex(
+                        game.getMessageSource(m2));
+                if (kind != 0) return kind;
+                final int first = order.indexOf(m1.getSourceId())
+                    - order.indexOf(m2.getSourceId());
+                return (first != 0) ? first
+                    : ModelMessage.messageTypeComparator.compare(m1, m2);
+            });
+    }
+
+    /** A message source's headline, as ReportTurnPanel's getHeadline words it. */
+    private String headline(FreeColGameObject source) {
+        if (source == null) return "";
+        if (source instanceof Player) {
+            final Player player = (Player)source;
+            return Messages.message(StringTemplate
+                .template("report.turn.playerNation")
+                .addName("%player%", player.getName())
+                .addStringTemplate("%nation%", player.getNationLabel()));
+        } else if (source instanceof Europe) {
+            return Messages.getName((Europe)source);
+        } else if (source instanceof Market) {
+            return Messages.message(((Market)source).getOwner().getMarketName());
+        } else if (source instanceof Colony) {
+            return ((Colony)source).getName();
+        } else if (source instanceof Building) {
+            return ((Building)source).getColony().getName();
+        } else if (source instanceof Unit) {
+            return ((Unit)source).getDescription(Unit.UnitLabelType.NATIONAL);
+        } else if (source instanceof Tile) {
+            return Messages.message(
+                ((Tile)source).getLocationLabelFor(getMyPlayer()));
+        } else if (source instanceof Named) {
+            return Messages.message(((Named)source).getNameKey());
+        } else if (source instanceof Nameable) {
+            return ((Nameable)source).getName();
+        }
+        return source.toString();
     }
 
 
@@ -598,13 +677,13 @@ public class WebGUI extends GUI {
 
     @Override
     public FreeColPanel showModelMessages(List<ModelMessage> modelMessages) {
-        showMessages(null, modelMessages);
+        showMessages(null, modelMessages, false);
         return null;
     }
 
     @Override
     public FreeColPanel showReportTurnPanel(List<ModelMessage> messages) {
-        showMessages(Messages.message("reportTurnAction.name"), messages);
+        showMessages(Messages.message("reportTurnAction.name"), messages, true);
         return null;
     }
 

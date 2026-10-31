@@ -240,16 +240,52 @@ class WebGUITest {
         final String message = "{\"text\":\"" + Messages.message("info.enterSomeText")
             + "\",\"type\":\"DEFAULT\",\"source\":\"" + unit.getId()
             + "\",\"tile\":\"" + at.getId() + "\",\"at\":[" + at.getX() + ","
-            + at.getY() + "]}";
+            + at.getY() + "],\"heading\":null}";
 
         shown.clear();
         gui.showModelMessages(messages);
         gui.showReportTurnPanel(messages);
+        final String grouped = message.replace("\"heading\":null", "\"heading\":{\"text\":\""
+            + unit.getDescription(Unit.UnitLabelType.NATIONAL) + "\",\"tile\":\"" + at.getId()
+            + "\",\"at\":[" + at.getX() + "," + at.getY() + "]}");
         assertEquals(List.of(
                 "messages {\"title\":null,\"messages\":[" + message + "],\"ok\":\"OK\"}",
                 "messages {\"title\":\"" + Messages.message("reportTurnAction.name")
-                + "\",\"messages\":[" + message + "],\"ok\":\"OK\"}"),
-            shown.stream().filter(e -> e.contains(message)).collect(Collectors.toList()));
+                + "\",\"messages\":[" + grouped + "],\"ok\":\"OK\"}"),
+            shown.stream().filter(e -> e.contains("\"source\":\"" + unit.getId() + "\""))
+                .collect(Collectors.toList()));
+    }
+
+    @Test
+    @Timeout(120)
+    void theTurnReportGroupsMessagesBySourceAndType() throws Exception {
+        final ClientEngine client = startGame();
+        final GUI gui = client.getClient().getGUI();
+        final List<Unit> units = client.getClient().getMyPlayer().getUnits()
+            .filter(u -> !u.isNaval()).collect(Collectors.toList());
+        final Unit first = units.get(0);
+        final Unit second = units.get(1);
+        // Interleaved, and a source's warning before its default message.
+        final List<ModelMessage> messages = List.of(
+            new ModelMessage(ModelMessage.MessageType.WARNING, "info.enterSomeText", first),
+            new ModelMessage(ModelMessage.MessageType.DEFAULT, "info.enterSomeText", second),
+            new ModelMessage(ModelMessage.MessageType.DEFAULT, "info.enterSomeText", first));
+
+        shown.clear();
+        gui.showReportTurnPanel(messages);
+        final String report = shown.stream()
+            .filter(e -> e.startsWith("messages {\"title\":\"" + Messages.message("reportTurnAction.name")))
+            .reduce((a, b) -> b).get();
+        final List<String> seen = new ArrayList<>();
+        final java.util.regex.Matcher m = java.util.regex.Pattern
+            .compile("\"type\":\"(\\w+)\",\"source\":\"([^\"]+)\".*?\"heading\":(null|\\{\"text\":\"[^\"]*\")")
+            .matcher(report);
+        while (m.find()) seen.add(m.group(1) + " " + m.group(2) + " " + (m.group(3).equals("null") ? "-" : "heading"));
+        assertEquals(List.of(
+                "DEFAULT " + first.getId() + " heading",
+                "WARNING " + first.getId() + " -",
+                "DEFAULT " + second.getId() + " heading"),
+            seen, report);
     }
 
     @Test
