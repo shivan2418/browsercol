@@ -159,7 +159,11 @@ async function play(page, url) {
       },
     });
   });
-  await answerDialogs(page);
+  // A dialog with images is shot once its images have loaded: the first three of each kind.
+  const browserName = page.context().browser().browserType().name();
+  await answerDialogs(page, (kind, n) =>
+    page.screenshot({ path: path.join(dist, `../.cache/play-${browserName}-${kind}-${n}.png`) }),
+  );
 
   const view = () => page.evaluate(() => window.__map);
   /** Wait until no dialog is open, since an open one takes the keys and clicks. */
@@ -373,6 +377,64 @@ async function play(page, url) {
     const dialogs = await page.evaluate(() => window.__dialogs);
     throw new Error(`the Go To order did not ask for a destination: ${JSON.stringify(dialogs)}`);
   }
+
+  // The art the dialogs show, from events as the client Engine sends them (the page's fcShow): the
+  // event panel's two flavour images, and a turn report with the image of each kind of object, and
+  // its group by option and buttons. The real game gives few of these in its first turns.
+  const show = async (kind, event) => {
+    await noDialog();
+    const before = await page.evaluate(() => window.__pictures.length);
+    await page.evaluate(([k, json]) => window.fcShow(k, json), [kind, JSON.stringify(event)]);
+    await page.waitForFunction((n) => window.__pictures.length > n, before, { timeout: 10000 });
+    await noDialog();
+  };
+  const ok = 'OK';
+  await show('eventPanel', { header: 'Landfall', image: 'image.flavor.event.firstLanding', footer: null, ok });
+  await show('eventPanel', { header: 'The Pacific', image: 'image.flavor.event.discoverPacific', footer: null, ok });
+  const message = (text, type, images, more = {}) => ({
+    text,
+    type,
+    source: null,
+    tile: null,
+    at: null,
+    heading: null,
+    images,
+    filter: null,
+    filterTip: null,
+    ignored: false,
+    ignoreTip: null,
+    ...more,
+  });
+  const warehouse = {
+    filter: true,
+    filterTip: 'Do not display this type of message',
+    ignoreTip: 'Ignore this message',
+  };
+  await show('messages', {
+    title: 'Turn Report',
+    ok,
+    groupBy: {
+      label: 'Group messages by',
+      value: 0,
+      choices: [
+        { value: 0, text: 'Nothing' },
+        { value: 1, text: 'Type' },
+        { value: 2, text: 'Source' },
+      ],
+    },
+    messages: [
+      message('A free colonist is a unit.', 'DEFAULT', ['image.unit.model.unit.freeColonist']),
+      message('The Dutch are a nation.', 'DEFAULT', ['image.miscicon.model.nation.dutch']),
+      message('Food is goods.', 'WAREHOUSE_CAPACITY', ['image.icon.model.goods.food'], warehouse),
+      message('A town hall is a building.', 'DEFAULT', ['image.buildingicon.model.building.townHall']),
+      message('Plains are terrain.', 'DEFAULT', ['image.tile.model.tile.plains.center']),
+      message('A colony is a settlement.', 'DEFAULT', [
+        'image.tileitem.model.settlement.colony.small.dutch',
+        'image.tileitem.model.settlement.colony.small',
+      ]),
+      message('Nothing to show.', 'DEFAULT', []),
+    ],
+  });
   return { land, turn: m.turn };
 }
 
@@ -392,8 +454,14 @@ for (const name of browsers) {
     result = { error: String(ex) };
   }
   await page.screenshot({ path: path.join(dist, `../.cache/play-${name}.png`) });
-  const log = await dialogLog(page).catch(() => ({ dialogs: [], unasked: [] }));
-  const { dialogs } = log;
+  const log = await dialogLog(page).catch(() => ({ dialogs: [], pictures: [], unasked: [] }));
+  const { dialogs, pictures } = log;
+  // The art of the dialogs must have loaded, and the first landing's event panel must have had its image.
+  const broken = pictures.filter((p) => !p.loaded);
+  if (!result.error && broken.length > 0) result = { error: `dialog images did not load: ${JSON.stringify(broken)}` };
+  if (!result.error && !pictures.some((p) => p.kind === 'eventPanel' && /landing/.test(p.src))) {
+    result = { error: `the first landing's event panel showed no image: ${JSON.stringify(pictures)}` };
+  }
   // The controllers open the colony panel themselves (after founding), which has no Browser UI yet.
   const unasked = log.unasked.filter((method) => method !== 'showColonyPanel');
   const routine = log.unasked.length - unasked.length;
@@ -404,6 +472,7 @@ for (const name of browsers) {
       (result.error ? `failed: ${result.error}` : `colony at ${label(result.land)}, play back on turn ${result.turn}`) +
       `, ${((Date.now() - t) / 1000).toFixed(1)} s` +
       `\n  dialogs: ${dialogs.join(' | ')}` +
+      `\n  images: ${pictures.map((p) => `${p.kind} ${p.src}`).join(' | ')}` +
       (routine ? `\n  colony panel not shown (no Browser UI yet): ${routine}x` : '') +
       (unasked.length ? `\n  no dialog yet for: ${unasked.join(', ')}` : '') +
       (errors.length ? `\n  page errors: ${errors.join('; ')}` : ''),
