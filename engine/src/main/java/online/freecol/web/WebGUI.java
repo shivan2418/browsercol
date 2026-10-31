@@ -94,6 +94,10 @@ import net.sf.freecol.common.model.Unit;
  *     <td>as modalInputDialog; the handler gets the answer</td></tr>
  * <tr><td>showChooseFoundingFatherDialog, showEmigrationDialog</td>
  *     <td>question choice</td><td>as modalChoiceDialog, no cancel</td></tr>
+ * <tr><td>showSelectDestinationDialog</td><td>question choice</td>
+ *     <td>as modalChoiceDialog, one choice per destination, as
+ *         SelectDestinationDialog lists them; the chosen destination,
+ *         else null, which cancels the move</td></tr>
  * <tr><td>showMonarchDialog, showNativeDemandDialog, showVictoryDialog,
  *     showEndTurnDialog, showPreCombatDialog</td><td>question confirm</td>
  *     <td>as modalConfirmDialog, with the Swing dialog's text and
@@ -588,6 +592,28 @@ public class WebGUI extends GUI {
             : Long.toString(tenths / 10) + "." + Math.abs(tenths % 10);
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * The destinations of FreeCol's SelectDestinationDialog, one choice
+     * each, as that dialog lists them. A closed dialog cancels the
+     * move, as it does in Swing.
+     */
+    @Override
+    public Location showSelectDestinationDialog(Unit unit) {
+        if (unit == null) return null;
+        final List<ChoiceItem<Location>> choices = new ArrayList<>();
+        for (Destinations.Destination d : Destinations.of(unit)) {
+            choices.add(new ChoiceItem<>(d.name, d.location));
+        }
+        if (choices.isEmpty()) return null;
+        // Swing's dialog has the first destination selected.
+        choices.get(0).defaultOption();
+        return modalChoiceDialog(unit.getTile(),
+            StringTemplate.key("selectDestinationDialog.text"),
+            dialogIcon(unit), "selectDestinationDialog.cancel", choices);
+    }
+
 
     // Not asked yet: reported, then the base GUI's default.
 
@@ -627,12 +653,6 @@ public class WebGUI extends GUI {
         unasked("showSelectAmountDialog");
         return super.showSelectAmountDialog(goodsType, available,
                                             defaultAmount, needToPay);
-    }
-
-    @Override
-    public Location showSelectDestinationDialog(Unit unit) {
-        unasked("showSelectDestinationDialog");
-        return super.showSelectDestinationDialog(unit);
     }
 
     @Override
