@@ -497,7 +497,7 @@ for (const name of browsers) {
     result = { error: await diagnose(ex) };
   }
   await page.screenshot({ path: path.join(dist, `../.cache/play-${name}.png`) });
-  const log = await dialogLog(page).catch(() => ({ dialogs: [], pictures: [], unasked: [] }));
+  const log = await dialogLog(page).catch(() => ({ dialogs: [], texts: [], pictures: [], unasked: [] }));
   const { dialogs, pictures } = log;
   // The art of the dialogs must have loaded, and the first landing's event panel must have had its image.
   const broken = pictures.filter((p) => !p.loaded);
@@ -510,9 +510,11 @@ for (const name of browsers) {
   if (!result.error && !pictures.some((p) => p.kind === 'event' && /landing/.test(p.src))) {
     result = { error: `the Engine did not ask the first landing's event panel: ${dialogs.join(' | ')}` };
   }
-  const landing = dialogs.findIndex((d) => d.startsWith('event: '));
-  if (!result.error && !dialogs.slice(landing + 1).some((d) => /^messages: .*Try building a Colony/.test(d))) {
-    result = { error: `the build colony tutorial did not follow the first landing: ${dialogs.join(' | ')}` };
+  // The tutorial is a model message, shown by nextModelMessage with any others that are queued, so it may
+  // be one of several in a messages dialog, not the first.
+  const landing = log.texts.findIndex((d) => d.startsWith('event: '));
+  if (!result.error && !log.texts.slice(landing + 1).some((d) => /^messages: .*Try building a Colony/.test(d))) {
+    result = { error: `the build colony tutorial did not follow the first landing: ${log.texts.join(' | ')}` };
   }
   // The controllers open the colony panel themselves (after founding), which has no Browser UI yet.
   const unasked = log.unasked.filter((method) => method !== 'showColonyPanel');
