@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vite-plus/test';
 import { fakeSaveStore } from './fake-saves';
 import { defaultSaveName, keepSaves, newestFirst, newSave, type SavedInfo, type SaveMeta } from './saves';
 
-const info: SavedInfo = { turn: 12, year: 1503, nation: 'Dutch', owner: 'emil' };
+const info: SavedInfo = { turn: 12, year: 1503, nation: 'Dutch', owner: 'Ana' };
 
 describe('the save list', () => {
   it('names a save after the nation and turn, unless the player names it', () => {
