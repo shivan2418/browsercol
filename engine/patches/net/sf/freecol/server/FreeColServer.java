@@ -46,7 +46,7 @@ import java.util.jar.JarOutputStream;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import javax.imageio.ImageIO;
+// browser: no javax.imageio (see saveGame)
 import javax.xml.stream.XMLStreamException;
 
 import net.sf.freecol.FreeCol;
@@ -863,8 +863,8 @@ public final class FreeColServer {
                 new java.io.FileOutputStream(file))) { // browser: no File.toPath
             if (image != null) {
                 fos.putNextEntry(new JarEntry(FreeColSavegameFile.THUMBNAIL_FILE));
-                ImageIO.write(image, "png", fos);
-                fos.closeEntry();
+                // browser: no javax.imageio; only the map editor passes an image.
+                throw new IOException("No thumbnails in the browser");
             }
 
             if (options != null) {
@@ -879,7 +879,13 @@ public final class FreeColServer {
             properties.setProperty("map.height",
                 Integer.toString(this.serverGame.getMap().getHeight()));
             fos.putNextEntry(new JarEntry(FreeColSavegameFile.SAVEGAME_PROPERTIES));
-            properties.store(fos, null);
+            // browser: TeaVM's Properties.store asks for an "ISO8859_1"
+            // writer, a charset name TeaVM does not know.  The values are
+            // digits, so write the lines store would write.
+            for (String key : properties.stringPropertyNames()) {
+                fos.write((key + "=" + properties.getProperty(key) + "\n")
+                    .getBytes(java.nio.charset.StandardCharsets.ISO_8859_1));
+            }
             fos.closeEntry();
 
             // save the actual game data

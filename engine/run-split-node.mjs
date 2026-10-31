@@ -1,7 +1,12 @@
 // Runs the split Engine under Node, as the browser will: the server module
 // in a worker thread, the client module on the main thread, joined only by
 // protocol XML strings over postMessage.
-//   node run-split-node.mjs [rounds] [--verbose]
+//   node run-split-node.mjs [rounds] [--verbose] [--save]
+//   node run-split-node.mjs --load <file.fsg>
+// --save: after the rounds, the server Engine saves the game, loads the
+// save in place of the game and saves again; both saves are written to
+// ../.cache/saves. --load: the server Engine loads a savegame, e.g. one
+// desktop FreeCol wrote, and saves it again beside the others. (#67)
 // Expects to be run from engine/ after building both modules:
 //   gradle generateWasmGC copyWasmGCRuntime -Pmain=online.freecol.web.WorkerMain -Pout=server
 //   gradle generateWasmGC copyWasmGCRuntime -Pmain=online.freecol.web.ClientMain -Pout=client
@@ -75,7 +80,21 @@ if (isMainThread) {
   const args = process.argv.slice(2);
   const rounds = Number(args.find((a) => !a.startsWith('-')) ?? 5);
   const verbose = args.includes('--verbose') || process.env.FC_VERBOSE === '1';
+  const save = args.includes('--save');
+  const loadFrom = args.includes('--load') ? args[args.indexOf('--load') + 1] : null;
   const worker = new Worker(new URL(import.meta.url));
+  // Savegames from the Worker: the first is loaded back, the second ends
+  // the run. A --load run saves once and ends.
+  const saves = [];
+  const saveDir = '../.cache/saves';
+  const writeSave = (bytes) => {
+    fs.mkdirSync(saveDir, { recursive: true });
+    const name = loadFrom
+      ? `${saveDir}/${path.basename(loadFrom, '.fsg')}-resaved.fsg`
+      : `${saveDir}/split-${saves.length}.fsg`;
+    fs.writeFileSync(name, bytes);
+    log(`wrote ${name}: ${bytes.length} bytes`);
+  };
   // Per round: messages and characters in each direction.
   const traffic = { up: [0, 0], down: [0, 0] };
   const count = (dir, xml) => { traffic[dir][0]++; traffic[dir][1] += xml.length; };
@@ -148,7 +167,9 @@ if (isMainThread) {
     case 'map': break;
     case 'finished':
       log(`finished at ${detail}`);
-      process.exit(0);
+      if (save) worker.postMessage({ k: 'save' });
+      else process.exit(0);
+      break;
     default:
       log(`${name}: ${detail}`);
       if (name === 'failed') process.exit(1);
@@ -156,22 +177,39 @@ if (isMainThread) {
   };
   worker.on('message', (m) => {
     if (m.k === 'fc') { count('down', m.xml); client.receive(m.xml); }
-    else if (m.k === 'event') {
+    else if (m.k === 'saved') {
+      saves.push(m.bytes);
+      writeSave(m.bytes);
+    } else if (m.k === 'event') {
       log(`server ${m.name}: ${m.detail}`);
       if (m.name === 'started') client.startGame(rounds);
       if (m.name === 'failed') process.exit(1);
+      if (m.name === 'ready' && loadFrom) {
+        worker.postMessage({ k: 'load', bytes: new Uint8Array(fs.readFileSync(loadFrom)) });
+      }
+      if (m.name === 'loaded') worker.postMessage({ k: 'save' });
+      if (m.name === 'saved') {
+        if (loadFrom || saves.length >= 2) process.exit(0);
+        worker.postMessage({ k: 'load', bytes: saves[0] });
+      }
     }
   });
   worker.on('error', (e) => { log(`worker error ${e}`); process.exit(1); });
-  client = await load('client');
-  client.main(dataArgs());
+  if (!loadFrom) {
+    client = await load('client');
+    client.main(dataArgs());
+  }
 } else {
   globalThis.fcPost = (xml) => parentPort.postMessage({ k: 'fc', xml });
   globalThis.fcServerEvent = (name, detail) => parentPort.postMessage({ k: 'event', name, detail });
+  globalThis.fcSaved = (bytes) => parentPort.postMessage({ k: 'saved', bytes: new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.length) });
   const server = await load('server');
   server.main(dataArgs());
+  parentPort.postMessage({ k: 'event', name: 'ready', detail: '' });
   parentPort.on('message', (m) => {
     if (m.k === 'start') server.startGame(m.rules);
+    else if (m.k === 'save') server.saveGame();
+    else if (m.k === 'load') server.loadGame(new Int8Array(m.bytes.buffer, m.bytes.byteOffset, m.bytes.length));
     else if (m.k === 'connect') server.connect();
     else if (m.k === 'fc') server.receive(m.xml);
   });
