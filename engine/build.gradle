@@ -64,6 +64,7 @@ dependencies {
 
 test {
     useJUnitPlatform()
+    maxHeapSize = '2g'   // each game a test starts stays on the heap until the JVM ends
     workingDir = freecol   // as for run: data/ is found relative to it
     jvmArgs '-Djava.awt.headless=true'
     // Every test starts whole FreeCol games in this one JVM; Gradle's

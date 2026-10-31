@@ -170,7 +170,7 @@ export interface PageOptions {
   /** A saved game's id to load in place of a new game. */
   load?: number;
   /** The JSON of a GamePreset (options, nation, map seed) to start from, or "" for none. */
-  preset: string;
+  preset?: string;
   /** Rounds the human player auto-ends before play is handed to them. */
   autoplay: number;
   scope: Scope;
@@ -194,7 +194,8 @@ export function startPage(o: PageOptions): Promise<ClientExports> {
   o.scope.fcToServer = (xml: string) => send({ k: 'fc', xml });
   o.scope.fcConnect = () => send({ k: 'connect' });
   o.scope.fcClientEvent = (name: string, detail: string) => {
-    if (name === 'ready') send(o.load === undefined ? { k: 'start', rules: o.rules, preset: o.preset } : { k: 'load', id: o.load });
+    if (name === 'ready')
+      send(o.load === undefined ? { k: 'start', rules: o.rules, preset: o.preset ?? '' } : { k: 'load', id: o.load });
     o.onEvent(name, detail);
   };
   Object.assign(
