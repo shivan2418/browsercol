@@ -84,6 +84,7 @@ runs desktop FreeCol's `--check-savegame` on a save, e.g. one exported here
 (debug; the smoke test uses 10). The map canvas is drawn at the screen's
 pixel ratio, so the map is sharp on a HiDPI display. The browser scripts save
 screenshots in `.cache/`.
+
 `?preset=NAME` is the debug quick start: it skips the start screen and
 starts from `ui/presets/NAME.json` (shipped as `presets/NAME.json`; a URL
 ending `.json` works too). A preset sets what the start screen will set, in
