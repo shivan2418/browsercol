@@ -3,7 +3,7 @@
 // Exits non-zero unless every browser finishes the game, fetching the data
 // bundle once. The page's dialogs are answered as scripts/dialogs.mjs says.
 // Run in the web image:
-//   DEV_VARIANT=web ./dev.sh node ui/scripts/smoke.mjs [--browsers chromium,firefox] [--autoplay N]
+//   DEV_VARIANT=web ./dev.sh node ui/scripts/smoke.mjs [--browsers chromium,firefox] [--autoplay N] [--query preset=NAME]
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { answerDialogs } from './dialogs.mjs';
@@ -19,7 +19,9 @@ const browsers = opt('browsers', 'chromium,firefox').split(',');
 const autoplay = opt('autoplay', '10');
 const timeout = Number(opt('timeout', '900')) * 1000;
 const server = await serveDist();
-const url = `${server.url}?autoplay=${autoplay}`;
+/** More page parameters, e.g. preset=dutch-small to start from a preset. */
+const query = opt('query', '');
+const url = `${server.url}?autoplay=${autoplay}${query ? `&${query}` : ''}`;
 
 let failed = false;
 for (const name of browsers) {

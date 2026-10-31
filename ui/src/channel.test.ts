@@ -14,8 +14,8 @@ type Scope = Record<string, any>;
 function fakeServer(scope: Scope, log: string[]): ServerExports {
   return {
     main: (args) => log.push(`server main ${args.length}`),
-    startGame: (rules) => {
-      log.push(`server start ${rules}`);
+    startGame: (rules, preset) => {
+      log.push(`server start ${rules} ${preset}`);
       scope.fcServerEvent('started', '12');
     },
     connect: () => log.push('server connect'),
@@ -99,6 +99,7 @@ describe('the Worker channel', () => {
         loadClient: async () => fakeClient(pageScope, log),
         data,
         rules: 'classic',
+        preset: '{"seed":1}',
         autoplay: 3,
         scope: pageScope,
         gui: sayYes,
@@ -114,7 +115,7 @@ describe('the Worker channel', () => {
     // The two modules load concurrently, so their mains may run in either order.
     expect(log.slice(0, 2).sort()).toEqual(['client main 4', 'server main 4']);
     expect(log.slice(2)).toEqual([
-      'server start classic',
+      'server start classic {"seed":1}',
       'client start 3',
       'server connect',
       'server got <login/>',
