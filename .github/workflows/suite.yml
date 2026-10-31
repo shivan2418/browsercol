@@ -9,12 +9,6 @@ on:
   push:
     branches: ['ci/**']
 
-env:
-  # freecol/ is a git-ignored upstream clone; CI pins the commit it was on
-  # when last checked locally, since engine/patches/ replace whole files.
-  FREECOL_REPO: https://github.com/FreeCol/freecol.git
-  FREECOL_SHA: 1c272e80d2f8946e096063f6d88eb945a44f789d
-
 jobs:
   suite:
     runs-on: ubuntu-24.04
@@ -22,11 +16,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Clone upstream FreeCol
-        run: |
-          git init -q freecol
-          git -C freecol fetch -q --depth 1 "$FREECOL_REPO" "$FREECOL_SHA"
-          git -C freecol checkout -q FETCH_HEAD
+      - name: Clone upstream FreeCol at the pinned commit
+        run: ./freecol.sh
 
       - name: Engine tests
         run: ./dev.sh -C engine gradle --console=plain test
