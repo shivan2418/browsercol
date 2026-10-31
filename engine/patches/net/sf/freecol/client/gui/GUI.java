@@ -2148,6 +2148,25 @@ public class GUI extends FreeColClientHolder {
                                        String footer) { return null; }
 
     /**
+     * Show an event panel and run something once it is closed.
+     *
+     * browser: added. Upstream calls addClosingCallback on the panel that
+     * showEventPanel returns, but a FreeColPanel is a Swing JPanel, which
+     * TeaVM cannot load, so the WebGUI cannot return one. The base GUI
+     * shows no panel and runs the callback at once.
+     *
+     * @param header The header text.
+     * @param image The image resource key.
+     * @param footer Optional footer text.
+     * @param closing What to run when the panel is closed.
+     */
+    public void showEventPanel(String header, String image, String footer,
+                               Runnable closing) {
+        showEventPanel(header, image, footer);
+        if (closing != null) closing.run();
+    }
+
+    /**
      * Show the FindSettlement panel.
      *
      * @return The panel shown.

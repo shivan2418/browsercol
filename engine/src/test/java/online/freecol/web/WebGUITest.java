@@ -647,6 +647,72 @@ class WebGUITest {
         assertTrue(asked.isEmpty(), asked.toString());
     }
 
+    /**
+     * Naming the new land brings up the first landing panel; once the
+     * Browser UI closes it, the build colony tutorial message is added.
+     * Upstream calls addClosingCallback on what showEventPanel returns.
+     */
+    @Test
+    @Timeout(120)
+    void namingTheNewLandShowsTheLandingPanelAndClosingItAddsTheTutorial() throws Exception {
+        final ClientEngine client = startGame();
+        final Player me = client.getClient().getMyPlayer();
+        final ServerGame game = (ServerGame)this.server.getGame();
+        final ServerPlayer human = (ServerPlayer)game.getFreeColGameObject(me.getId(), Player.class);
+        final Tile land = game.getMap().getTileList(
+            t -> t.isLand() && t.getOwner() == null && t.getSettlement() == null
+                && t.getUnitCount() == 0 && t.isCoastland()).get(0);
+        final Unit ship = human.getUnits().filter(Unit::isNaval).findFirst().get();
+        final Tile sea = land.getSurroundingTiles(1, 1).stream()
+            .filter(t -> !t.isLand()).findFirst().get();
+        ship.setLocation(sea);
+        final Unit passenger = ship.getUnitList().get(0);
+        passenger.setLocation(land);
+        human.invalidateCanSeeTiles();
+        final ChangeSet cs = new ChangeSet();
+        cs.add(See.only(human), human.exploreForUnit(ship));
+        cs.add(See.only(human), ship, passenger);
+        game.sendTo(human, cs);
+        Unit unit = null;
+        for (int i = 0; i < 500 && (unit == null || !unit.hasTile()); i++) {
+            unit = me.getOurFreeColGameObject(passenger.getId(), Unit.class);
+            Thread.sleep(10);
+        }
+        assertNotNull(unit);
+        assertTrue(unit.hasTile(), "the passenger is ashore");
+
+        shown.clear();
+        asked.clear();
+        held.clear();
+        hold = true;
+        client.getClient().getInGameController().newLandNameHandler(unit, "New Land");
+        while (held.isEmpty()) Thread.sleep(10);
+        assertTrue(asked.get(0).startsWith("input {"), asked.get(0));
+        client.answer(held.remove(0), "Vinland");
+
+        // The panel is asked, not just shown, and has the land's name.
+        while (held.isEmpty()) Thread.sleep(10);
+        final String panel = asked.get(1);
+        assertTrue(panel.startsWith("event {"), panel);
+        assertTrue(panel.contains("Vinland"), "the landing panel names the land: " + panel);
+        assertTrue(panel.contains("\"image\":\"image.flavor.event.firstLanding\""), panel);
+        Thread.sleep(200);
+        assertFalse(tutorial(), "the tutorial waits for the panel to close");
+
+        // Closing the panel adds the tutorial message.
+        client.answer(held.remove(0), "closed");
+        for (int i = 0; i < 3000 && !tutorial(); i++) Thread.sleep(10);
+        assertTrue(tutorial(), "closing the panel adds the tutorial message: " + shown);
+        hold = false;
+    }
+
+    private boolean tutorial() {
+        synchronized (shown) {
+            return shown.stream().anyMatch(e -> e.startsWith("messages ")
+                                           && e.contains("Try building a Colony"));
+        }
+    }
+
     @Test
     @Timeout(120)
     void theTributeAmountIsWhatWasEnteredOrMinusOne() throws Exception {

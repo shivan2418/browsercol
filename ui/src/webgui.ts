@@ -76,6 +76,14 @@ export interface Choice {
 
 /** Questions: what is asked, and what the player answers (null: closed). */
 export interface GuiQuestions {
+  /**
+   * An event panel the Engine waits on: the first landing's, whose closing adds the build colony tutorial.
+   * It looks as the eventPanel event does; closing it answers.
+   */
+  event: {
+    ask: { header: string; image: string | null; footer: string | null; ok: string };
+    answer: true;
+  };
   confirm: {
     ask: {
       text: string;
@@ -226,6 +234,7 @@ export interface GuiHandlers {
 /** How each kind of answer crosses to Java, as a string or null. */
 const encode: { [K in keyof GuiQuestions]: (answer: GuiQuestions[K]['answer']) => string | null } = {
   confirm: (a) => String(a),
+  event: () => 'closed',
   preCombat: (a) => String(a),
   choice: (a) => (a === null ? null : String(a)),
   input: (a) => a,

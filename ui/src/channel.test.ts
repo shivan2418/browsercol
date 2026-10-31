@@ -90,6 +90,7 @@ function fakeClient(scope: Scope, log: string[]): ClientExports {
 const sayYes: GuiHandlers = {
   events: {},
   questions: {
+    event: () => true,
     confirm: () => true,
     choice: () => null,
     input: () => null,

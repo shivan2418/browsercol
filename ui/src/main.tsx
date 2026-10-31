@@ -262,6 +262,7 @@ const gui: GuiHandlers = {
     },
   },
   questions: {
+    event: (q) => dialogQueue.ask('event', q),
     confirm: (q) => dialogQueue.ask('confirm', q),
     choice: (q) => dialogQueue.ask('choice', q),
     input: (q) => dialogQueue.ask('input', q),
