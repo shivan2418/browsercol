@@ -2,6 +2,8 @@ package online.freecol.web;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -146,6 +148,48 @@ class CommandsTest {
         return best;
     }
 
+    /** The server's copy of one of our units. */
+    private Unit serverUnit(Unit unit) {
+        return server.getGame().getFreeColGameObject(unit.getId(), Unit.class);
+    }
+
+    /** The server's copy of a tile. */
+    private Tile serverTile(Tile tile) {
+        return server.getGame().getMap().getTile(tile.getX(), tile.getY());
+    }
+
+    /**
+     * Sail the ship to a sea tile, exploring as it goes, and wait for it
+     * to arrive.
+     *
+     * @param commands The commands to play through.
+     * @param ship The ship to sail.
+     * @param sea The sea tile to reach.
+     */
+    private void sailTo(Commands commands, Unit ship, Tile sea)
+            throws InterruptedException {
+        int turns = 0;
+        // Explore toward it step by step until the sea tile is in sight,
+        // then go there.
+        while (!sea.isExplored()) {
+            if (ship.getMovesLeft() == 0) {
+                endTurnAndWait(commands);
+                assertTrue(++turns < 8, "land is in sight within 8 turns");
+            }
+            select(commands, ship);
+            assertTrue(commands.move(stepToward(ship.getTile(), sea).toString()),
+                       "the ship moves");
+        }
+        if (ship.getTile() != sea) {
+            select(commands, ship);
+            assertTrue(commands.goTo(sea.getX(), sea.getY()), "the ship sets off");
+        }
+        while (ship.getTile() != sea) {
+            endTurnAndWait(commands);
+            assertTrue(++turns < 12, "the ship arrives within 12 turns");
+        }
+    }
+
     @Test
     @Timeout(180)
     void theHumanSailsToLandAndFoundsAColony() throws Exception {
@@ -185,24 +229,7 @@ class CommandsTest {
 
         // Explore toward it step by step until the sea tile is in sight,
         // then go there.
-        int turns = 0;
-        while (!sea.isExplored()) {
-            if (ship.getMovesLeft() == 0) {
-                endTurnAndWait(commands);
-                assertTrue(++turns < 8, "land is in sight within 8 turns");
-            }
-            select(commands, ship);
-            assertTrue(commands.move(stepToward(ship.getTile(), sea).toString()),
-                       "the ship moves");
-        }
-        if (ship.getTile() != sea) {
-            select(commands, ship);
-            assertTrue(commands.goTo(sea.getX(), sea.getY()), "the ship sets off");
-        }
-        while (ship.getTile() != sea) {
-            endTurnAndWait(commands);
-            assertTrue(++turns < 12, "the ship arrives within 12 turns");
-        }
+        sailTo(commands, ship, sea);
 
         select(commands, colonist);
         Direction toLand = map.getDirection(sea, land);
@@ -220,5 +247,57 @@ class CommandsTest {
         assertNotNull(colony, () -> "the server has the colony; asked " + asked
             + "; told " + player.getModelMessages().stream().map(Messages::message).toList());
         assertEquals(player.getId(), colony.getOwner().getId());
+    }
+
+    /**
+     * The standing orders the Swing client gives the active unit: fortify
+     * it, sentry it, leave it for this turn and disband it.
+     */
+    @Test
+    @Timeout(240)
+    void theActiveUnitTakesItsStandingOrders() throws Exception {
+        startGame();
+        final Commands commands = client.getCommands();
+        final Player player = client.getClient().getMyPlayer();
+        final Unit ship = player.getUnits().filter(Unit::isNaval).findFirst().get();
+        final Unit soldier = player.getUnits()
+            .filter(u -> "model.role.soldier".equals(u.getRole().getId()))
+            .findFirst().get();
+        final Unit pioneer = player.getUnits()
+            .filter(u -> "model.role.pioneer".equals(u.getRole().getId()))
+            .findFirst().get();
+        final Player us = server.getGame().getFreeColGameObject(player.getId(), Player.class);
+
+        // Fortify: the unit starts fortifying at once, and is fortified
+        // when its turn ends.
+        select(commands, soldier);
+        assertTrue(commands.fortify(), "the soldier fortifies");
+        assertEquals(Unit.UnitState.FORTIFYING, serverUnit(soldier).getState());
+        endTurnAndWait(commands);
+        assertEquals(Unit.UnitState.FORTIFIED, serverUnit(soldier).getState());
+
+        // Skip: the ship is done for this turn, and the next unit is
+        // selected.
+        select(commands, ship);
+        assertTrue(commands.skip(), "the ship is skipped");
+        assertEquals(Unit.UnitState.SKIPPED, serverUnit(ship).getState());
+        assertNotSame(ship, active(), "the next unit is selected");
+
+        // Sentry: the soldier keeps watch.
+        select(commands, soldier);
+        assertTrue(commands.sentry(), "the soldier is sentried");
+        assertEquals(Unit.UnitState.SENTRY, serverUnit(soldier).getState());
+
+        // Disband: the player is asked to confirm it, and the unit goes.
+        final int units = us.getUnitCount();
+        select(commands, pioneer);
+        assertTrue(commands.disband(), "the pioneer is disbanded");
+        assertTrue(pioneer.isDisposed(), "the unit is gone");
+        assertNull(server.getGame().getFreeColGameObject(pioneer.getId(), Unit.class),
+                   "and gone on the server");
+        assertEquals(units - 1, us.getUnitCount(), "the server has one unit less");
+        assertTrue(asked.stream().anyMatch(q -> q.startsWith("confirm ")
+                                           && q.contains("disband this unit")),
+                   () -> "the player is asked to confirm: " + asked);
     }
 }
