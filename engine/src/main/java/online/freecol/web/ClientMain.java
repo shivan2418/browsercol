@@ -81,7 +81,7 @@ public final class ClientMain {
                     event("ready", "");
                 } catch (Throwable ex) {
                     ex.printStackTrace();
-                    event("failed", String.valueOf(ex));
+                    event("failed", Failures.describe(ex));
                 }
         }, "web-client").start();
     }
@@ -98,7 +98,7 @@ public final class ClientMain {
                     if (!engine.startGame(rounds, name)) event("failed", "login");
                 } catch (Throwable ex) {
                     ex.printStackTrace();
-                    event("failed", String.valueOf(ex));
+                    event("failed", Failures.describe(ex));
                 }
         }, "web-login").start();
     }

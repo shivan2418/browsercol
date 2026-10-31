@@ -25,7 +25,7 @@ public final class WorkerMain {
         try {
             DataFiles.write(args);
         } catch (Exception ex) {
-            event("failed", String.valueOf(ex));
+            event("failed", Failures.describe(ex));
             return;
         }
         engine = new ServerEngine(WorkerMain::post);
@@ -42,7 +42,7 @@ public final class WorkerMain {
                     event("started", String.valueOf(System.currentTimeMillis() - t));
                 } catch (Throwable ex) {
                     ex.printStackTrace();
-                    event("failed", String.valueOf(ex));
+                    event("failed", Failures.describe(ex));
                 }
         }, "web-startGame").start();
     }
@@ -69,7 +69,7 @@ public final class WorkerMain {
                         + ",\"ms\":" + (System.currentTimeMillis() - t) + "}");
                 } catch (Throwable ex) {
                     ex.printStackTrace();
-                    event("failed", String.valueOf(ex));
+                    event("failed", Failures.describe(ex));
                 }
         }, "web-saveGame").start();
     }
@@ -92,7 +92,7 @@ public final class WorkerMain {
                     event("loaded", ms + "," + engine.describe());
                 } catch (Throwable ex) {
                     ex.printStackTrace();
-                    event("failed", String.valueOf(ex));
+                    event("failed", Failures.describe(ex));
                 }
         }, "web-loadGame").start();
     }
