@@ -12,7 +12,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { browserNames, collectPageErrors, opt, playwright, waitForResult } from './common.mjs';
+import { browserNames, collectPageErrors, diagnose, launchBrowser, opt, waitForResult } from './common.mjs';
 import { answerDialogs } from './dialogs.mjs';
 import { dist, serveDist } from './serve-dist.mjs';
 
@@ -160,7 +160,7 @@ async function run(page, url, shot, browserName) {
 const server = await serveDist();
 let failed = false;
 for (const name of browsers) {
-  const browser = await playwright[name].launch();
+  const browser = await launchBrowser(name);
   const page = await browser.newPage();
   const errors = collectPageErrors(page);
   const t = Date.now();
@@ -175,7 +175,7 @@ for (const name of browsers) {
     line = `ok: saved at turn ${r.saved}, exported, deleted and imported, loaded at turn ${r.loaded} with ${r.active}, played on to turn ${r.next}`;
   } catch (ex) {
     failed = true;
-    line = `failed: ${String(ex)}`;
+    line = `failed: ${await diagnose(ex)}`;
   }
   failed ||= errors.length > 0;
   await browser.close();
