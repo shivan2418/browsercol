@@ -137,6 +137,7 @@ const gui: GuiHandlers = {
       dialogQueue.show('error', e);
     },
     eventPanel: (e) => dialogQueue.show('eventPanel', e),
+    highScores: (e) => dialogQueue.show('highScores', e),
     messages: (e) => {
       if (e.messages.length > 0) dialogQueue.show('messages', e);
     },

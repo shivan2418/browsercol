@@ -26,6 +26,15 @@ export interface GuiEvents {
   information: { text: string; object: Id | null; ok: string } & TileRef;
   error: { text: string; ok: string };
   eventPanel: { header: string; image: string | null; footer: string | null; ok: string };
+  /**
+   * The high scores at the game's end, text as FreeCol's header (or null). Closing the panel does
+   * nothing more: there is no start screen yet, so the player keeps playing (victory) or reloads the page.
+   */
+  highScores: {
+    text: string | null;
+    scores: { score: number; headline: string; fields: { label: string; value: string }[] }[];
+    ok: string;
+  };
   /** Model messages, or with a title the turn report; each names its source's tile, to go to. */
   messages: {
     title: string | null;

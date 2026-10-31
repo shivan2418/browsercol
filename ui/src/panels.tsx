@@ -242,6 +242,27 @@ function Body({ d, goTo }: { d: Dialog; goTo: (at: At) => void }) {
           {d.event.footer && <Text text={d.event.footer} />}
         </Panel>
       );
+    case 'highScores':
+      return (
+        <Panel d={d} ok={d.event.ok}>
+          {d.event.text && <Text text={d.event.text} />}
+          {d.event.scores.map((s, i) => (
+            <div className="high-score" key={i}>
+              <h2>
+                {s.score} {s.headline}
+              </h2>
+              <dl>
+                {s.fields.map((f) => (
+                  <div key={f.label}>
+                    <dt>{f.label}</dt>
+                    <dd>{f.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          ))}
+        </Panel>
+      );
     case 'messages':
       return (
         <Panel d={d} ok={d.event.ok}>

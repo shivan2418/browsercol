@@ -250,6 +250,32 @@ describe('the panels', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
+  it('list the high scores, with their header, and close on Enter', () => {
+    const { box } = host();
+    act(() =>
+      box.show('highScores', {
+        text: 'You have won!',
+        ok: 'OK',
+        scores: [
+          {
+            score: 1234,
+            headline: 'Governor Ann of New Albion',
+            fields: [
+              { label: 'Turn:', value: 'Spring 1600' },
+              { label: 'Colonies:', value: '3' },
+            ],
+          },
+        ],
+      }),
+    );
+    screen.getByText('You have won!');
+    screen.getByRole('heading', { name: '1234 Governor Ann of New Albion' });
+    expect(screen.getByText('Colonies:').nextSibling?.textContent).toBe('3');
+
+    key('Enter');
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
   it('come after the open dialog and close with their button', async () => {
     const { box } = host();
     const yes = ask(box, 'confirm', confirm);
