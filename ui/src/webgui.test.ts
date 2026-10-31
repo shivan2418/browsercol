@@ -15,7 +15,15 @@ function answers() {
 }
 
 const question = {
-  confirm: { text: 'Disband?', ok: 'Yes', cancel: 'No', defaultOk: true, tile: 'tile:1', object: 'unit:2' },
+  confirm: {
+    text: 'Disband?',
+    ok: 'Yes',
+    cancel: 'No',
+    defaultOk: true,
+    tile: 'tile:1',
+    object: 'unit:2',
+    header: null,
+  },
   choice: {
     text: 'Pick',
     cancel: 'Cancel',

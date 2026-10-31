@@ -92,15 +92,16 @@ import net.sf.freecol.common.model.Unit;
  *     <td>as showModelMessages, titled as the turn report</td></tr>
  * <tr><td>modalConfirmDialog(Tile, StringTemplate, ImageIcon, ...)</td>
  *     <td>question confirm</td>
- *     <td>{text, ok, cancel, defaultOk, tile, object};
- *         "true" for ok, else cancel</td></tr>
+ *     <td>{text, ok, cancel, defaultOk, tile, object, header};
+ *         "true" for ok, else cancel; the header is the Swing dialog's, null
+ *         for a dialog with none</td></tr>
  * <tr><td>modalChoiceDialog(Tile, StringTemplate, ImageIcon, ...)</td>
  *     <td>question choice</td>
  *     <td>{text, cancel, tile, object,
  *         choices: [{text, enabled, ok, cancel, default}]};
  *         the chosen index, else cancel</td></tr>
  * <tr><td>showFirstContactDialog (defers)</td><td>question confirm</td>
- *     <td>as modalConfirmDialog, object the native player;
+ *     <td>as modalConfirmDialog with its header, object the native player;
  *         "false" declines, else (closed too) accepts, as in Swing</td></tr>
  * <tr><td>modalInputDialog</td><td>question input</td>
  *     <td>{text, value, ok, cancel, tile};
@@ -122,7 +123,7 @@ import net.sf.freecol.common.model.Unit;
  * <tr><td>showMonarchDialog, showNativeDemandDialog, showVictoryDialog,
  *     showEndTurnDialog (all defer), showPreCombatDialog (blocks)</td>
  *     <td>question confirm</td>
- *     <td>as modalConfirmDialog, with the Swing dialog's text and
+ *     <td>as modalConfirmDialog, with the Swing dialog's header, text and
  *         buttons; a closed dialog cancels</td></tr>
  * <tr><td>showCaptureGoodsDialog, showDumpCargoDialog (defer)</td>
  *     <td>question goods</td>
@@ -283,8 +284,9 @@ public class WebGUI extends GUI {
      *
      * @return The raw answer: "true" for ok, else cancel or closed.
      */
-    private String confirm(String text, String okKey, String cancelKey,
-                           boolean defaultOk, Tile tile, String object) {
+    private String confirm(String header, String text, String okKey,
+                           String cancelKey, boolean defaultOk, Tile tile,
+                           String object) {
         return this.questions.ask("confirm", new Json()
             .put("text", text)
             .put("ok", label(okKey))
@@ -292,14 +294,16 @@ public class WebGUI extends GUI {
             .put("defaultOk", defaultOk)
             .put("tile", id(tile))
             .put("object", object)
+            .put("header", header)
             .toString());
     }
 
     /** Ask a confirm question; true for ok, false for cancel or closed. */
-    private boolean confirmed(String text, String okKey, String cancelKey,
-                              boolean defaultOk, Tile tile, String object) {
-        return "true".equals(confirm(text, okKey, cancelKey, defaultOk,
-                                     tile, object));
+    private boolean confirmed(String header, String text, String okKey,
+                              String cancelKey, boolean defaultOk, Tile tile,
+                              String object) {
+        return "true".equals(confirm(header, text, okKey, cancelKey,
+                                     defaultOk, tile, object));
     }
 
     /**
@@ -594,7 +598,7 @@ public class WebGUI extends GUI {
     public boolean modalConfirmDialog(Tile tile, StringTemplate template,
                                       ImageIcon icon, String okKey,
                                       String cancelKey, boolean defaultOk) {
-        return confirmed(Messages.message(template), okKey, cancelKey,
+        return confirmed(null, Messages.message(template), okKey, cancelKey,
                          defaultOk, tile, id(icon));
     }
 
@@ -642,6 +646,12 @@ public class WebGUI extends GUI {
                                        DialogHandler<Boolean> handler) {
         final String type = ((IndianNationType)other.getNationType())
             .getSettlementTypeKey(true);
+        String headerKey = "firstContactDialog.meeting."
+            + other.getNation().getSuffix();
+        if (!Messages.containsKey(headerKey)) {
+            headerKey = "firstContactDialog.meeting.natives";
+        }
+        final String header = Messages.message(headerKey);
         final String text = Messages.message(StringTemplate
                 .template((tile != null) ? "firstContactDialog.welcomeOffer.text"
                     : "firstContactDialog.welcomeSimple.text")
@@ -649,7 +659,7 @@ public class WebGUI extends GUI {
                 .addName("%camps%", Integer.toString(settlementCount))
                 .add("%settlementType%", type));
         defer("showFirstContactDialog", () -> handler.handle(!"false".equals(
-            confirm(text, "yes", "no", true, tile, id(other)))));
+            confirm(header, text, "yes", "no", true, tile, id(other)))));
     }
 
     @Override
@@ -743,10 +753,13 @@ public class WebGUI extends GUI {
         final String text = Messages.message((template == null)
             ? StringTemplate.key(messageId)
             : StringTemplate.copy(messageId, template));
+        String headerKey = action.getHeaderKey();
+        if (!Messages.containsKey(headerKey)) headerKey = "monarchDialog.default";
+        final String header = Messages.message(headerKey);
         final String yes = yesId;
         final String no = noId;
         defer("showMonarchDialog", () -> handler.handle(
-            confirmed(text, yes, no, false, null, null)));
+            confirmed(header, text, yes, no, false, null, null)));
     }
 
     /** {@inheritDoc} Defers. The text and buttons are NativeDemandDialog's. */
@@ -764,7 +777,10 @@ public class WebGUI extends GUI {
             .addAmount("%amount%", amount);
         if (key.equals("other")) template = template.addNamed("%goods%", type);
         final String text = Messages.message(template);
-        defer("showNativeDemandDialog", () -> handler.handle(confirmed(text,
+        final String header = Messages.message(StringTemplate
+            .template("nativeDemandDialog.name")
+            .addName("%colony%", colony.getName()));
+        defer("showNativeDemandDialog", () -> handler.handle(confirmed(header, text,
                 (key.equals("food")) ? "indianDemand.food.yes" : "accept",
                 "indianDemand." + key + ".no", false,
                 colony.getTile(), id(colony))));
@@ -774,7 +790,7 @@ public class WebGUI extends GUI {
     @Override
     public void showVictoryDialog(DialogHandler<Boolean> handler) {
         defer("showVictoryDialog", () -> handler.handle(
-            confirmed(Messages.message("victory.text"),
+            confirmed(null, Messages.message("victory.text"),
                 "victory.yes", "victory.continue", false, null, null)));
     }
 
@@ -792,10 +808,11 @@ public class WebGUI extends GUI {
         final String text = Messages.message(StringTemplate
             .template("endTurnDialog.areYouSure")
             .addAmount("%number%", units.size()));
+        final String header = Messages.message("endTurnDialog.name");
         if (!this.endTurnDialogOpen.compareAndSet(false, true)) return;
         defer("showEndTurnDialog", () -> {
                 try {
-                    if (confirmed(text, "ok", "cancel", true, null, null)) {
+                    if (confirmed(header, text, "ok", "cancel", true, null, null)) {
                         getFreeColClient().getInGameController().endTurn(false);
                     }
                 } finally {
@@ -827,7 +844,7 @@ public class WebGUI extends GUI {
         final String text = attacker.getDescription(Unit.UnitLabelType.NATIONAL)
             + " - " + defenderName + "\n" + Messages.message("finalResult")
             + ": " + decimal(offence) + " - " + decimal(defence);
-        return confirmed(text, "ok", "cancel", false, tile, id(defender));
+        return confirmed(null, text, "ok", "cancel", false, tile, id(defender));
     }
 
     /** A number with at most one decimal, as FreeCol's modifiers show. */
@@ -960,6 +977,7 @@ public class WebGUI extends GUI {
                     .put("defaultOk", true)
                     .put("tile", (String)null)
                     .put("object", (String)null)
+                    .put("header", (String)null)
                     .toString());
                 afterClosing.run();
             });

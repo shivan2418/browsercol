@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { dialogs } from './dialogs';
 
-const confirm = { text: 'Disband?', ok: 'Yes', cancel: 'No', defaultOk: false, tile: null, object: null };
+const confirm = { text: 'Disband?', ok: 'Yes', cancel: 'No', defaultOk: false, tile: null, object: null, header: null };
 const error = { text: 'Oops', ok: 'OK' };
 
 describe('dialogs', () => {

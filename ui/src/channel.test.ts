@@ -58,7 +58,7 @@ function fakeClient(scope: Scope, log: string[]): ClientExports {
       scope.fcAsk(
         7,
         'confirm',
-        '{"text":"Go on?","ok":"Yes","cancel":"No","defaultOk":true,"tile":null,"object":null}',
+        '{"text":"Go on?","ok":"Yes","cancel":"No","defaultOk":true,"tile":null,"object":null,"header":null}',
       );
     },
     answer: (id, value) => {
