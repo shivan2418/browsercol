@@ -27,6 +27,7 @@ DEV_VARIANT=web ./dev.sh node ui/scripts/smoke.mjs   # play dist/ in Chromium an
 DEV_VARIANT=web ./dev.sh node ui/scripts/play.mjs    # land, found a colony, end the turn in both
 DEV_VARIANT=web ./dev.sh node ui/scripts/saves.mjs   # save, reload the page, load the save and play on in both
 DEV_VARIANT=web ./dev.sh node ui/scripts/tileset.mjs # draw with the test Tileset (ui/tilesets/test) in both
+DEV_VARIANT=web ./dev.sh node ui/scripts/rounds.mjs --rounds 300  # time AI rounds and memory as the game grows, per browser
 ```
 
 To run the whole suite on GitHub Actions instead, start the Suite workflow
