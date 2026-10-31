@@ -67,6 +67,13 @@ const question = {
     ],
     options: [],
   },
+  endTurn: {
+    header: 'End turn',
+    text: 'One unit is waiting.',
+    ok: 'OK',
+    cancel: 'Cancel',
+    units: [{ id: 'unit:2', name: 'Soldier', location: 'Jamestown' }],
+  },
   names: {
     text: 'Declare?',
     fields: [
@@ -92,6 +99,7 @@ describe('webGui', () => {
           goods: (q) => (asked.push(q), [1, 0]),
           negotiation: (q) => (asked.push(q), { status: 'propose', items: [q.items[0]] }),
           names: (q) => (asked.push(q), [q.fields[0].value, 'Newland']),
+          endTurn: (q) => (asked.push(q), { status: 'select', unit: q.units[0].id }),
         },
       },
       a.answer,
@@ -104,6 +112,7 @@ describe('webGui', () => {
       [4, 'goods'],
       [5, 'negotiation'],
       [6, 'names'],
+      [7, 'endTurn'],
     ] as const) {
       const arrived = a.next();
       gui.fcAsk(id, kind, JSON.stringify(question[kind]));
@@ -118,6 +127,7 @@ describe('webGui', () => {
       question.goods,
       question.negotiation,
       question.names,
+      question.endTurn,
     ]);
     expect(a.got).toEqual([
       [1, 'true'],
@@ -126,6 +136,7 @@ describe('webGui', () => {
       [4, '[1,0]'],
       [5, 'propose\ngold\toffer\t\t30'],
       [6, 'Free Dutch\nNewland'],
+      [7, 'select\nunit:2'],
     ]);
   });
 
@@ -143,6 +154,7 @@ describe('webGui', () => {
         goods: () => null,
         negotiation: () => null,
         names: () => null,
+        endTurn: () => null,
       },
     };
     const gui = webGui(handlers, a.answer);
@@ -178,6 +190,7 @@ describe('webGui', () => {
           goods: () => null,
           negotiation: () => null,
           names: () => null,
+          endTurn: () => null,
         },
       },
       () => {},

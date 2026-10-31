@@ -85,6 +85,44 @@ describe('the confirm dialog', () => {
   });
 });
 
+describe('the end turn dialog', () => {
+  const endTurn = {
+    header: 'End turn',
+    text: 'The following units are still waiting.',
+    ok: 'OK',
+    cancel: 'Cancel',
+    units: [
+      { id: 'unit:1', name: 'Free Colonist', location: 'Jamestown' },
+      { id: 'unit:2', name: 'Soldier', location: 'tile 3, 4' },
+    ],
+  };
+
+  it('lists the waiting units and ends the turn on ok or keeps it on cancel', async () => {
+    const { box } = host();
+    expect(screen.queryByRole('heading')).toBeNull();
+    const ended = ask(box, 'endTurn', endTurn);
+    expect(screen.getByRole('heading').textContent).toBe('End turn');
+    expect(screen.getAllByRole('button').map((b) => b.getAttribute('data-unit'))).toEqual([
+      'unit:1',
+      'unit:2',
+      null,
+      null,
+    ]);
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    expect(await ended).toEqual({ status: 'ok' });
+    const kept = ask(box, 'endTurn', endTurn);
+    key('Escape');
+    expect(await kept).toEqual({ status: 'cancel' });
+  });
+
+  it('answers the unit that is clicked', async () => {
+    const { box } = host();
+    const picked = ask(box, 'endTurn', endTurn);
+    fireEvent.click(screen.getByRole('button', { name: /Soldier/ }));
+    expect(await picked).toEqual({ status: 'select', unit: 'unit:2' });
+  });
+});
+
 describe('the choice dialog', () => {
   const choices = [item('Trade'), item('Speak', { default: true }), item('Attack', { enabled: false })];
 

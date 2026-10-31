@@ -1,5 +1,5 @@
 // React components for the WebGUI's dialogs (dialogs.ts): the confirm,
-// choice, input, goods, negotiation and names questions and the information, error, event and message
+// choice, input, goods, end turn, negotiation and names questions and the information, error, event and message
 // panels. All text, button labels included, comes localized from the
 // Engine. Keys mean what they do in FreeCol's dialogs: Enter presses the
 // focused button, else takes the default option; Escape closes the dialog
@@ -116,6 +116,29 @@ function Input({ d }: { d: Of<'input'> }) {
     <>
       <Text text={ask.text} />
       <input autoFocus value={value} onChange={(e) => setValue(e.target.value)} />
+      <OkCancel ok={ask.ok} cancel={ask.cancel} onOk={ok} onCancel={cancel} />
+    </>
+  );
+}
+
+/** FreeCol's end turn dialog: the units still waiting, each a button that makes the unit active. */
+function EndTurn({ d }: { d: Of<'endTurn'> }) {
+  const { ask } = d;
+  const ok = () => d.done({ status: 'ok' });
+  const cancel = () => d.done({ status: 'cancel' });
+  useKeys(ask.ok !== null ? ok : cancel, cancel);
+  return (
+    <>
+      <h2>{ask.header}</h2>
+      <Text text={ask.text} />
+      <div className="choices waiting">
+        {ask.units.map((u) => (
+          <button key={u.id} data-unit={u.id} onClick={() => d.done({ status: 'select', unit: u.id })}>
+            {u.name}
+            <span className="note"> {u.location}</span>
+          </button>
+        ))}
+      </div>
       <OkCancel ok={ask.ok} cancel={ask.cancel} onOk={ok} onCancel={cancel} />
     </>
   );
@@ -358,6 +381,8 @@ function Body({ d, goTo }: { d: Dialog; goTo: (at: At) => void }) {
       return <Negotiation d={d} />;
     case 'names':
       return <Names d={d} />;
+    case 'endTurn':
+      return <EndTurn d={d} />;
     case 'information':
       return (
         <Panel d={d} ok={d.event.ok}>

@@ -77,6 +77,20 @@ export interface GuiQuestions {
     ask: { text: string; value: string | null; ok: string | null; cancel: string | null; tile: Id | null };
     answer: string | null;
   };
+  /**
+   * The end turn dialog: the units still waiting, any of which can be picked to be made the active unit
+   * (the dialog closes and the turn goes on). Answers ok to end the turn, cancel to keep it.
+   */
+  endTurn: {
+    ask: {
+      header: string;
+      text: string;
+      ok: string | null;
+      cancel: string | null;
+      units: { id: Id; name: string; location: string }[];
+    };
+    answer: { status: 'ok' | 'cancel' } | { status: 'select'; unit: Id } | null;
+  };
   /** Pick goods to capture or dump; at most `max` lots. */
   goods: {
     ask: {
@@ -173,6 +187,8 @@ const encode: { [K in keyof GuiQuestions]: (answer: GuiQuestions[K]['answer']) =
   choice: (a) => (a === null ? null : String(a)),
   input: (a) => a,
   goods: (a) => (a === null ? null : JSON.stringify(a)),
+  // Java splits the answer at the line break, after the word.
+  endTurn: (a) => (a === null ? null : a.status === 'select' ? `select\n${a.unit}` : a.status),
   // A status line, then a line for each item, its fields separated by tabs (no field has one).
   negotiation: (a) =>
     a === null

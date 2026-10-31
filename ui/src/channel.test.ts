@@ -93,6 +93,7 @@ const sayYes: GuiHandlers = {
     goods: () => null,
     negotiation: () => null,
     names: () => null,
+    endTurn: () => null,
   },
 };
 

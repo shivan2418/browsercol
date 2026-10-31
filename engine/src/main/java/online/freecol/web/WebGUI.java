@@ -120,8 +120,12 @@ import net.sf.freecol.common.model.Unit;
  *     <td>as modalChoiceDialog, one choice per destination, as
  *         SelectDestinationDialog lists them; the chosen destination,
  *         else null, which cancels the move</td></tr>
- * <tr><td>showMonarchDialog, showNativeDemandDialog, showVictoryDialog,
- *     showEndTurnDialog (all defer), showPreCombatDialog (blocks)</td>
+ * <tr><td>showEndTurnDialog (defers)</td><td>question endTurn</td>
+ *     <td>{header, text, ok, cancel, units: [{id, name, location}]}; "ok"
+ *         ends the turn, "select" and a line break and a unit's id makes
+ *         that unit active, anything else keeps the turn</td></tr>
+ * <tr><td>showMonarchDialog, showNativeDemandDialog, showVictoryDialog
+ *     (all defer), showPreCombatDialog (blocks)</td>
  *     <td>question confirm</td>
  *     <td>as modalConfirmDialog, with the Swing dialog's header, text and
  *         buttons; a closed dialog cancels</td></tr>
@@ -798,10 +802,13 @@ public class WebGUI extends GUI {
      * {@inheritDoc}
      *
      * Defers: Swing shows EndTurnDialog as a panel, and its ok button ends
-     * the turn later. This asks EndTurnDialog's question, without its list
-     * of waiting units, and ok ends the turn, as its ok button does. A
-     * second end turn while the question is open is dropped, as Swing's
-     * open panel stops it.
+     * the turn later. This asks EndTurnDialog's question and lists the units
+     * still waiting, and ok ends the turn, as its ok button does. Picking a
+     * unit makes it the active one and, as Swing's selectUnit does, opens
+     * its colony or Europe (reported, not shown yet). Swing leaves the panel
+     * open for that; the Browser UI's dialog covers the map, so it closes
+     * and the turn goes on, as with cancel. A second end turn while the
+     * question is open is dropped, as Swing's open panel stops it.
      */
     @Override
     public void showEndTurnDialog(List<Unit> units) {
@@ -809,16 +816,50 @@ public class WebGUI extends GUI {
             .template("endTurnDialog.areYouSure")
             .addAmount("%number%", units.size()));
         final String header = Messages.message("endTurnDialog.name");
+        final List<String> waiting = new ArrayList<>();
+        for (Unit u : units) {
+            waiting.add(new Json()
+                .put("id", u.getId())
+                .put("name", u.getDescription(Unit.UnitLabelType.NATIONAL))
+                .put("location", Messages.message(u.getLocation()
+                        .getLocationLabelFor(u.getOwner())))
+                .toString());
+        }
         if (!this.endTurnDialogOpen.compareAndSet(false, true)) return;
         defer("showEndTurnDialog", () -> {
                 try {
-                    if (confirmed(header, text, "ok", "cancel", true, null, null)) {
+                    final String answer = this.questions.ask("endTurn", new Json()
+                        .put("header", header)
+                        .put("text", text)
+                        .put("ok", label("ok"))
+                        .put("cancel", label("cancel"))
+                        .putRaw("units", Json.array(waiting))
+                        .toString());
+                    if ("ok".equals(answer)) {
                         getFreeColClient().getInGameController().endTurn(false);
+                    } else if (answer != null && answer.startsWith("select\n")) {
+                        selectWaiting(units, answer.substring("select\n".length()));
                     }
                 } finally {
                     this.endTurnDialogOpen.set(false);
                 }
             });
+    }
+
+    /** EndTurnDialog's selectUnit, for the unit with this id. */
+    private void selectWaiting(List<Unit> units, String unitId) {
+        for (Unit unit : units) {
+            if (!unit.getId().equals(unitId)) continue;
+            if (unit.isInEurope()) {
+                showEuropePanel();
+            } else {
+                changeView(unit, false);
+                if (unit.getColony() != null) {
+                    showColonyPanel(unit.getColony(), unit);
+                }
+            }
+            return;
+        }
     }
 
     /**

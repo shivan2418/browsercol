@@ -306,16 +306,38 @@ class WebGUITest {
         assertTrue(question.endsWith("\"header\":\"Foreign Correspondence\"}"), question);
 
         // The end turn dialog asks, and cancel keeps the turn.
-        answer = "false";
+        answer = "cancel";
         final int before = asked.size();
         gui.showEndTurnDialog(List.of(unit));
         while (asked.size() == before) Thread.sleep(10);
         question = asked.get(asked.size() - 1);
-        assertTrue(question.startsWith("confirm {\"text\":\"The following unit is still waiting"),
+        assertTrue(question.startsWith("endTurn {\"header\":\"End turn\",\"text\":\"The following unit is still waiting"),
                    question);
-        assertTrue(question.endsWith("\"header\":\"End turn\"}"), question);
+        assertTrue(question.contains("\"units\":[{\"id\":\"" + unit.getId() + "\",\"name\":\""
+                                     + unit.getDescription(Unit.UnitLabelType.NATIONAL) + "\",\"location\":\""),
+                   question);
         Thread.sleep(200);
         assertTrue(client.getClient().currentPlayerIsMyPlayer(), "cancel keeps the turn");
+    }
+
+    @Test
+    @Timeout(120)
+    void pickingAWaitingUnitInTheEndTurnDialogMakesItActive() throws Exception {
+        final ClientEngine client = startGame();
+        final GUI gui = client.getClient().getGUI();
+        final Unit active = gui.getActiveUnit();
+        final Unit other = client.getClient().getMyPlayer().getUnits()
+            .filter(u -> u != active && !u.isNaval()).findFirst().get();
+
+        shown.clear();
+        final int before = asked.size();
+        answer = "select\n" + other.getId();
+        gui.showEndTurnDialog(List.of(active, other));
+        while (shown.stream().noneMatch(e -> e.startsWith("activeUnit {\"unit\":\""
+                + other.getId() + "\""))) Thread.sleep(10);
+        assertEquals(other, gui.getActiveUnit());
+        assertEquals(before + 1, asked.size());
+        assertTrue(client.getClient().currentPlayerIsMyPlayer(), "picking keeps the turn");
     }
 
     @Test
