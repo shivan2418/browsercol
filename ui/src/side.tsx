@@ -1,7 +1,9 @@
 // The side panel beside the map: the turn, the command buttons, the info
 // panel (FreeCol's InfoPanel, as text), the dialogs the Browser UI cannot
-// show yet, and the page's status. main.tsx renders it again on each change.
+// show yet, the saved games and the page's status. main.tsx renders it again on each change.
+import { useRef } from 'react';
 import type { Command } from './input';
+import type { SaveMeta } from './saves';
 
 export interface SideProps {
   turn: string;
@@ -13,7 +15,16 @@ export interface SideProps {
   status: string;
   /** The orders the active unit can take now, by name, as the Engine says. */
   orders: string[];
+  /** The saved games, newest first. */
+  saves: SaveMeta[];
+  /** What happened to the last save, load or delete; empty for nothing yet. */
+  saveNote: string;
   run: (c: Command) => void;
+  /** Save the game under a name; empty for the default one. */
+  save: (name: string) => void;
+  /** Load a saved game in place of this one. */
+  load: (id: number) => void;
+  remove: (id: number) => void;
 }
 
 /** The buttons, as the keys they stand for. */
@@ -46,7 +57,12 @@ function counts(list: string[]): [string, number][] {
   return [...n];
 }
 
-export function Side({ turn, info, unasked, status, orders, run }: SideProps) {
+/** A save's line in the list: its name, when it was made, the turn and the nation. */
+const saveLine = (s: SaveMeta) =>
+  `${s.name} | ${new Date(s.date).toLocaleString()} | turn ${s.turn} (${s.year}) | ${s.nation}`;
+
+export function Side({ turn, info, unasked, status, orders, saves, saveNote, run, save, load, remove }: SideProps) {
+  const name = useRef<HTMLInputElement>(null);
   return (
     <>
       <div>
@@ -71,6 +87,33 @@ export function Side({ turn, info, unasked, status, orders, run }: SideProps) {
         edge, to scroll; the wheel zooms.
       </div>
       <div id="info">{info}</div>
+      <div id="saving">
+        <input ref={name} id="save-name" placeholder="Save name (optional)" />
+        <button
+          data-command="save"
+          onClick={() => {
+            save(name.current?.value ?? '');
+            if (name.current) name.current.value = '';
+          }}
+        >
+          Save game
+        </button>
+        <span id="save-note">{saveNote}</span>
+        <div id="saves">
+          {saves.length === 0 && 'No saved games'}
+          {saves.map((s) => (
+            <div key={s.id} data-save={s.id}>
+              {saveLine(s)}{' '}
+              <button data-load={s.id} onClick={() => load(s.id)}>
+                Load
+              </button>{' '}
+              <button data-delete={s.id} onClick={() => remove(s.id)}>
+                Delete
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
       {unasked.length > 0 && (
         <div id="unasked">
           Not asked yet (FreeCol's default was used):

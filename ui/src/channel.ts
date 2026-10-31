@@ -1,15 +1,24 @@
 // The postMessage routing between the page, which hosts the client Engine
 // (client.wasm), and the Worker, which hosts the server Engine (server.wasm).
-//   page -> worker: data (the bundle, once) | start | connect | fc
+//   page -> worker: data (the bundle, once) | start | load | save | connect | fc
 //   worker -> page: fc | event
+// The Worker also keeps the saved games (saves.ts): a save request carries the
+// client's active unit, the server Engine makes the .fsg, and the Worker puts it
+// in IndexedDB; a load request names a save, which the Worker hands the server
+// Engine in place of a new game.
 // The page fetches the data bundle and hands it over, so it is downloaded once.
 // The client Engine's WebGUI talks to the page alone, through webgui.ts.
+import { newSave, type SavedInfo, type SaveStore } from './saves';
 import { webGui, type GuiHandlers } from './webgui';
 
 /** Exports of the server module (online.freecol.web.WorkerMain). */
 export interface ServerExports {
   main(args: string[]): void;
   startGame(rules: string): void;
+  /** Save the game; the bytes go out through fcSaved and then a "saved" event. */
+  saveGame(activeUnitId: string): void;
+  /** Replace the game with the one in a savegame; a "loaded" event follows. */
+  loadGame(savegame: Int8Array): void;
   connect(): void;
   receive(xml: string): void;
 }
@@ -18,6 +27,8 @@ export interface ServerExports {
 export interface ClientExports {
   main(args: string[]): void;
   startGame(rounds: number): void;
+  /** The id of the active unit, or "" for none: what a save request carries. */
+  activeUnitId(): string;
   receive(xml: string): void;
   /** Answer a WebGUI question; null for a closed dialog. */
   answer(id: number, value: string | null): void;
@@ -47,6 +58,8 @@ export interface ClientExports {
 export type ToWorker =
   | { k: 'data'; data: string[] }
   | { k: 'start'; rules: string }
+  | { k: 'load'; id: number }
+  | { k: 'save'; active: string; name: string }
   | { k: 'connect' }
   | { k: 'fc'; xml: string };
 
@@ -74,11 +87,33 @@ const describe = (ex: unknown) => (ex instanceof Error ? (ex.stack ?? ex.message
  * sends, then route the page's messages to it. Messages that arrive while
  * the module still loads are queued.
  */
-export function serveWorker(endpoint: Endpoint, loadServer: () => Promise<ServerExports>, scope: Scope): void {
+export function serveWorker(
+  endpoint: Endpoint,
+  loadServer: () => Promise<ServerExports>,
+  scope: Scope,
+  store: SaveStore,
+): void {
   const send = (m: ToPage) => endpoint.postMessage(m);
+  const event = (name: string, detail: string) => send({ k: 'event', name, detail });
+  // Saves in flight: the names asked for, and the bytes of the one the Engine has made.
+  const names: string[] = [];
+  let bytes: Uint8Array | null = null;
   // Globals WorkerMain calls.
   scope.fcPost = (xml: string) => send({ k: 'fc', xml });
-  scope.fcServerEvent = (name: string, detail: string) => send({ k: 'event', name, detail });
+  scope.fcSaved = (b: Int8Array) => {
+    bytes = Uint8Array.from(new Uint8Array(b.buffer, b.byteOffset, b.length)); // a copy: the Engine's memory moves on
+  };
+  scope.fcServerEvent = (name: string, detail: string) => {
+    if (name !== 'saved') return event(name, detail);
+    // The Engine has saved: keep the bytes with what the list shows, in one transaction.
+    const mine = bytes;
+    bytes = null;
+    const wanted = names.shift() ?? '';
+    store
+      .put(newSave(JSON.parse(detail) as SavedInfo, wanted, Date.now()), mine!)
+      .then((meta) => event('saved', JSON.stringify(meta)))
+      .catch((ex: unknown) => event('saveFailed', describe(ex)));
+  };
 
   let server: ServerExports | null = null;
   const queued: ToWorker[] = [];
@@ -89,6 +124,17 @@ export function serveWorker(endpoint: Endpoint, loadServer: () => Promise<Server
     switch (m.k) {
       case 'start':
         return server!.startGame(m.rules);
+      case 'save':
+        names.push(m.name);
+        return server!.saveGame(m.active);
+      case 'load':
+        return void store
+          .get(m.id)
+          .then((b) => {
+            if (!b) return event('loadFailed', `no save ${m.id}`);
+            server!.loadGame(new Int8Array(b.buffer, b.byteOffset, b.length));
+          })
+          .catch((ex: unknown) => event('loadFailed', describe(ex)));
       case 'connect':
         return server!.connect();
       case 'fc':
@@ -119,6 +165,8 @@ export interface PageOptions {
   /** The data bundle: alternating "data/<path>" and file text. */
   data: string[];
   rules: string;
+  /** A saved game's id to load in place of a new game. */
+  load?: number;
   /** Rounds the human player auto-ends before play is handed to them. */
   autoplay: number;
   scope: Scope;
@@ -142,7 +190,7 @@ export function startPage(o: PageOptions): Promise<ClientExports> {
   o.scope.fcToServer = (xml: string) => send({ k: 'fc', xml });
   o.scope.fcConnect = () => send({ k: 'connect' });
   o.scope.fcClientEvent = (name: string, detail: string) => {
-    if (name === 'ready') send({ k: 'start', rules: o.rules });
+    if (name === 'ready') send(o.load === undefined ? { k: 'start', rules: o.rules } : { k: 'load', id: o.load });
     o.onEvent(name, detail);
   };
   Object.assign(
@@ -153,6 +201,8 @@ export function startPage(o: PageOptions): Promise<ClientExports> {
   listen<ToPage>(o.worker, (m) => {
     if (m.k === 'fc') return client!.receive(m.xml);
     if (m.name === 'started') client!.startGame(o.autoplay);
+    // A loaded game goes on where it stopped, with no autoplay.
+    if (m.name === 'loaded') client!.startGame(0);
     o.onEvent(m.name, m.detail);
   });
 

@@ -6,6 +6,7 @@ import org.teavm.jso.JSBody;
 import org.teavm.jso.JSExport;
 
 import net.sf.freecol.common.model.Game;
+import net.sf.freecol.common.model.Unit;
 
 
 /**
@@ -85,6 +86,18 @@ public final class ClientMain {
                     event("failed", String.valueOf(ex));
                 }
         }, "web-login").start();
+    }
+
+    /**
+     * The id of the active unit, for a save request to carry to the
+     * server Engine, as desktop's InGameController.saveGame passes it.
+     *
+     * @return The id, or "" if there is none.
+     */
+    @JSExport
+    public static String activeUnitId() {
+        Unit u = engine.getClient().getGUI().getActiveUnit();
+        return (u == null) ? "" : u.getId();
     }
 
     @JSExport

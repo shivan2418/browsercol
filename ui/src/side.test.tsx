@@ -9,10 +9,13 @@ afterEach(cleanup);
 /** A button by its name, as the browser sees it. */
 const button = (name: string) => screen.getByRole('button', { name }) as HTMLButtonElement;
 
+/** The save props, for a test that does not look at them. */
+const saving = () => ({ saves: [], saveNote: '', save: () => {}, load: () => {}, remove: () => {} });
+
 describe('the side panel', () => {
   it('runs a button’s command', () => {
     const ran: Command[] = [];
-    render(<Side turn="1" info="" unasked={[]} status="" orders={[]} run={(c) => ran.push(c)} />);
+    render(<Side turn="1" info="" unasked={[]} status="" orders={[]} run={(c) => ran.push(c)} {...saving()} />);
     fireEvent.click(screen.getByRole('button', { name: 'Build colony (B)' }));
     fireEvent.click(screen.getByRole('button', { name: 'End turn (Enter)' }));
     fireEvent.click(screen.getByRole('button', { name: 'Declare independence' }));
@@ -29,6 +32,7 @@ describe('the side panel', () => {
         status=""
         orders={['fortify', 'sentry', 'skip', 'disband', 'road', 'goto']}
         run={(c) => ran.push(c)}
+        {...saving()}
       />,
     );
     expect(button('Fortify (F)').disabled, 'fortify').toBe(false);
@@ -46,14 +50,14 @@ describe('the side panel', () => {
 
   it('runs the Go To order, which asks where the unit goes', () => {
     const ran: Command[] = [];
-    render(<Side turn="1" info="" unasked={[]} status="" orders={['goto']} run={(c) => ran.push(c)} />);
+    render(<Side turn="1" info="" unasked={[]} status="" orders={['goto']} run={(c) => ran.push(c)} {...saving()} />);
     expect(button('Go to (H)').disabled, 'goto').toBe(false);
     fireEvent.click(button('Go to (H)'));
     expect(ran).toEqual([{ k: 'selectDestination' }]);
   });
 
   it('disables every order while no unit is active', () => {
-    render(<Side turn="1" info="" unasked={[]} status="" orders={[]} run={() => {}} />);
+    render(<Side turn="1" info="" unasked={[]} status="" orders={[]} run={() => {}} {...saving()} />);
     for (const name of [
       'Fortify (F)',
       'Sentry (S)',
@@ -76,6 +80,7 @@ describe('the side panel', () => {
         status=""
         orders={[]}
         run={() => {}}
+        {...saving()}
       />,
     );
     expect(screen.getAllByRole('listitem').map((li) => li.textContent)).toEqual([
@@ -85,7 +90,63 @@ describe('the side panel', () => {
   });
 
   it('lists nothing while every dialog was asked', () => {
-    render(<Side turn="1" info="" unasked={[]} status="" orders={[]} run={() => {}} />);
+    render(<Side turn="1" info="" unasked={[]} status="" orders={[]} run={() => {}} {...saving()} />);
     expect(screen.queryByRole('list')).toBeNull();
+  });
+
+  const meta = (id: number, name: string) => ({ id, name, date: 0, turn: 7, year: 1499, nation: 'Dutch', size: 100 });
+
+  it('saves under the name typed, then clears it', () => {
+    const named: string[] = [];
+    render(
+      <Side
+        turn="1"
+        info=""
+        unasked={[]}
+        status=""
+        orders={[]}
+        run={() => {}}
+        {...saving()}
+        save={(n) => named.push(n)}
+      />,
+    );
+    fireEvent.click(button('Save game'));
+    fireEvent.change(screen.getByPlaceholderText('Save name (optional)'), { target: { value: 'before the war' } });
+    fireEvent.click(button('Save game'));
+    expect(named).toEqual(['', 'before the war']);
+    expect((screen.getByPlaceholderText('Save name (optional)') as HTMLInputElement).value).toBe('');
+  });
+
+  it('lists the saves with name, turn and nation, and loads or deletes one', () => {
+    const done: string[] = [];
+    render(
+      <Side
+        turn="1"
+        info=""
+        unasked={[]}
+        status=""
+        orders={[]}
+        run={() => {}}
+        {...saving()}
+        saves={[meta(2, 'second'), meta(1, 'first')]}
+        saveNote="Saved: second"
+        load={(id) => done.push(`load ${id}`)}
+        remove={(id) => done.push(`delete ${id}`)}
+      />,
+    );
+    const rows = document.querySelectorAll('[data-save]');
+    expect([...rows].map((r) => r.textContent)).toEqual([
+      expect.stringMatching(/^second \|.*\| turn 7 \(1499\) \| Dutch Load Delete$/),
+      expect.stringMatching(/^first \|/),
+    ]);
+    expect(screen.getByText('Saved: second')).toBeTruthy();
+    fireEvent.click(document.querySelector('[data-save="1"] [data-load]')!);
+    fireEvent.click(document.querySelector('[data-save="2"] [data-delete]')!);
+    expect(done).toEqual(['load 1', 'delete 2']);
+  });
+
+  it('says so when there are no saves', () => {
+    render(<Side turn="1" info="" unasked={[]} status="" orders={[]} run={() => {}} {...saving()} />);
+    expect(screen.getByText('No saved games')).toBeTruthy();
   });
 });
