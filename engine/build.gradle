@@ -18,6 +18,15 @@ repositories {
 def freecol = file('../freecol')
 def patches = file('patches')
 
+// The patches replace whole upstream files, so build only against the
+// FreeCol commit pinned in freecol.sha (../freecol.sh checks it out).
+def pinned = file('../freecol.sha').text.trim()
+def head = new File(freecol, '.git/HEAD')
+def checkedOut = head.exists() ? head.text.trim() : 'no clone'
+if (checkedOut != pinned) {
+    throw new GradleException("freecol/ is at '$checkedOut', not the pinned $pinned; run ./freecol.sh")
+}
+
 def patchedPaths = provider {
     fileTree(patches).matching { include '**/*.java' }.files
         .collect { patches.toPath().relativize(it.toPath()).toString() }

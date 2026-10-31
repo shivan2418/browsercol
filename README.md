@@ -33,8 +33,12 @@ To run the whole suite on GitHub Actions instead, start the Suite workflow
 `gh workflow run suite.yml --ref <branch>`. It runs the commands above and
 uploads the browser screenshots. `./ci.sh` does the same for the
 committed HEAD of any branch and waits for the result, so the machine stays
-free. CI clones FreeCol at the commit pinned in
-the workflow's `FREECOL_SHA`; bump it when you update the local `freecol/`.
+free.
+
+FreeCol is pinned to the commit in `freecol.sha`. `./freecol.sh` clones
+`freecol/` or checks it out at that commit, and the Gradle build fails when
+`freecol/` is on any other commit or on a branch. To move to a newer FreeCol,
+change `freecol.sha`, run `./freecol.sh` and fix `engine/patches/`.
 
 `build.sh` builds both Engine modules in one Gradle run (`gradle modules`),
 bundles FreeCol's rules and strings into a data file, copies the map art
