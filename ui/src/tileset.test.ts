@@ -13,6 +13,7 @@ const map: MapView = {
   w: 2,
   h: 4,
   turn: 'Spring 1492',
+  statusLine: 'Score: 0    ✧    Gold: 1000    ✧    Tax: 0%    ✧    Year: Spring 1492',
   ourTurn: true,
   types: [
     { id: 'model.tile.plains', land: true, forested: false, name: 'Plains' },

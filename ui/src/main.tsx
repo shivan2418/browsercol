@@ -67,6 +67,7 @@ let drawn = Promise.resolve();
 const dialogQueue = dialogs();
 const side: Omit<SideProps, 'run' | 'save' | 'load' | 'remove'> = {
   turn: '-',
+  statusLine: '',
   info: '',
   unasked: [],
   status: 'starting...',
@@ -203,6 +204,7 @@ const gui: GuiHandlers = {
 
 function drawMap(m: MapView) {
   side.turn = `${m.turn}${m.ourTurn ? '' : ' (AI playing)'}`;
+  side.statusLine = m.statusLine;
   renderSide();
   dispatch({ k: 'map', map: m });
   drawn = map.draw(m);
