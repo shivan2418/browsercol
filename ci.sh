@@ -16,7 +16,8 @@ runs() {
 }
 # An earlier run on this commit is listed before the new one is (#41):
 # note the runs there are now and wait for one that is not among them.
-seen=$(runs)
+# Retry the lookup: pushing without it would bring the old answer back.
+until seen=$(runs); do sleep 10; done
 
 # Drop GitHub's "Create a pull request" hint for the new branch.
 git push -q -f origin "HEAD:refs/heads/$branch" 2>&1 | { grep -v '^remote:' || true; } >&2
@@ -28,7 +29,10 @@ for _ in $(seq 30); do
   [[ -n "$run" ]] && break
   sleep 5
 done
-[[ -n "$run" ]] || { echo "ci.sh: no Suite run started for $branch" >&2; exit 1; }
+[[ -n "$run" ]] || {
+  echo "ci.sh: no Suite run started for $branch; if another ci.sh is still running on this commit, the push changed nothing: wait for it" >&2
+  exit 1
+}
 echo "ci.sh: $(gh run view "$run" --json url --jq .url)"
 
 # Poll rather than `gh run watch`, which gives up on GitHub's API hiccups (502s).
