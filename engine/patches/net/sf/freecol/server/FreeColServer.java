@@ -853,7 +853,7 @@ public final class FreeColServer {
      * @exception IOException If a problem was encountered while trying
      *     to open, write or close the file.
      */
-    private void saveGame(File file, String owner, OptionGroup options,
+    public void saveGame(File file, String owner, OptionGroup options,
                           Unit active, BufferedImage image) throws IOException {
         // Try to GC now before launching into the save, as a failure
         // here can lead to a corrupt saved game file (BR#3146).

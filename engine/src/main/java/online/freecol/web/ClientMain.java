@@ -86,12 +86,16 @@ public final class ClientMain {
         }, "web-client").start();
     }
 
-    /** Log in to the Worker's game, launch it and run AI rounds. */
+    /**
+     * Log in to the Worker's game, launch it and run AI rounds.
+     *
+     * @param name The player's name: the owner of a loaded game; empty for a new one.
+     */
     @JSExport
-    public static void startGame(int rounds) {
+    public static void startGame(int rounds, String name) {
         new Thread(() -> {
                 try {
-                    if (!engine.startGame(rounds)) event("failed", "login");
+                    if (!engine.startGame(rounds, name)) event("failed", "login");
                 } catch (Throwable ex) {
                     ex.printStackTrace();
                     event("failed", String.valueOf(ex));

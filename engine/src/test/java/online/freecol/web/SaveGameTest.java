@@ -63,6 +63,10 @@ class SaveGameTest {
      * play rounds the way the page does after a start or a load.
      */
     private Session login(ServerEngine server, int rounds) throws Exception {
+        return login(server, rounds, null);
+    }
+
+    private Session login(ServerEngine server, int rounds, String name) throws Exception {
         final CountDownLatch finished = new CountDownLatch(1);
         final ClientEngine[] client = new ClientEngine[1];
         server.setToClient(xml -> toClient.execute(() -> client[0].receive(xml)));
@@ -81,7 +85,7 @@ class SaveGameTest {
                     client[0].answer(id, null);
                 }
             });
-        assertTrue(client[0].startGame(rounds), "login");
+        assertTrue(client[0].startGame(rounds, name), "login");
         finished.await();
         return new Session(server, client[0]);
     }
@@ -182,5 +186,31 @@ class SaveGameTest {
         assertNotEquals(active, login(unmarked, 0).activeUnitId(),
             "a save with no active unit does not name one");
         assertTrue(resumed.client().getClient().currentPlayerIsMyPlayer(), "our turn");
+    }
+
+    /**
+     * A save from desktop FreeCol names its own player, not the browser's
+     * default: the client logs in under the save's owner, and a save made
+     * from it names that owner again (#69).
+     */
+    @Test
+    @Timeout(180)
+    void aSaveFromAnotherPlayerLoadsAndKeepsItsOwner() throws Exception {
+        ServerEngine played = playRounds(1).server();
+        for (var p : played.getGame().getLiveEuropeanPlayerList()) {
+            if (!p.isAI()) p.setName("emil");
+        }
+        byte[] bytes = played.saveGame();
+        assertTrue(savegameXml(bytes).contains("<savedGame owner=\"emil\""),
+            "the save names its human player as owner");
+
+        ServerEngine loaded = new ServerEngine(xml -> {});
+        loaded.loadGame(bytes);
+        assertEquals("emil", loaded.ownerName());
+        Session resumed = login(loaded, 0, loaded.ownerName());
+        assertEquals("emil", resumed.client().getClient().getMyPlayer().getName());
+        assertTrue(resumed.client().getClient().currentPlayerIsMyPlayer(), "our turn");
+        assertTrue(savegameXml(loaded.saveGame()).contains("<savedGame owner=\"emil\""),
+            "a save of the loaded game keeps the owner");
     }
 }

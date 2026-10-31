@@ -30,6 +30,7 @@ function fakeServer(scope: Scope, log: string[]): ServerExports {
     },
     loadGame: (bytes) => {
       log.push(`server load ${[...bytes].join(',')}`);
+      scope.fcServerEvent('owner', 'emil');
       scope.fcServerEvent('loaded', '5,Turn 4');
     },
   };
@@ -42,8 +43,8 @@ function fakeClient(scope: Scope, log: string[]): ClientExports {
       log.push(`client main ${args.length}`);
       queueMicrotask(() => scope.fcClientEvent('ready', ''));
     },
-    startGame: (rounds) => {
-      log.push(`client start ${rounds}`);
+    startGame: (rounds, name) => {
+      log.push(`client start ${rounds}${name ? ` as ${name}` : ''}`);
       scope.fcConnect();
       scope.fcToServer('<login/>');
     },
@@ -207,13 +208,13 @@ describe('the Worker channel', () => {
     page.close();
     expect(log.filter((l) => !l.endsWith(' main 0'))).toEqual([
       'server load 7,8,9',
-      'client start 0',
+      'client start 0 as emil',
       'server connect',
       'server got <login/>',
       'client got <loginReply/>',
       'client answer 7 true',
     ]);
-    expect(events).toEqual(['ready', 'loaded', 'finished']);
+    expect(events).toEqual(['ready', 'owner', 'loaded', 'finished']);
   });
 
   it('reports a save that is not there', async () => {
