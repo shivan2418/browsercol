@@ -10,7 +10,15 @@ afterEach(cleanup);
 const button = (name: string) => screen.getByRole('button', { name }) as HTMLButtonElement;
 
 /** The save props, for a test that does not look at them. */
-const saving = () => ({ saves: [], saveNote: '', save: () => {}, load: () => {}, remove: () => {} });
+const saving = () => ({
+  saves: [],
+  saveNote: '',
+  save: () => {},
+  load: () => {},
+  remove: () => {},
+  exportSave: () => {},
+  importFile: () => {},
+});
 
 describe('the side panel', () => {
   it('shows FreeCol’s status line, and the turn below it', () => {
@@ -151,7 +159,7 @@ describe('the side panel', () => {
     expect((screen.getByPlaceholderText('Save name (optional)') as HTMLInputElement).value).toBe('');
   });
 
-  it('lists the saves with name, turn and nation, and loads or deletes one', () => {
+  it('lists the saves with name, turn and nation, and loads, exports or deletes one', () => {
     const done: string[] = [];
     render(
       <Side
@@ -167,17 +175,39 @@ describe('the side panel', () => {
         saveNote="Saved: second"
         load={(id) => done.push(`load ${id}`)}
         remove={(id) => done.push(`delete ${id}`)}
+        exportSave={(id) => done.push(`export ${id}`)}
       />,
     );
     const rows = document.querySelectorAll('[data-save]');
     expect([...rows].map((r) => r.textContent)).toEqual([
-      expect.stringMatching(/^second \|.*\| turn 7 \(1499\) \| Dutch Load Delete$/),
+      expect.stringMatching(/^second \|.*\| turn 7 \(1499\) \| Dutch Load Export Delete$/),
       expect.stringMatching(/^first \|/),
     ]);
     expect(screen.getByText('Saved: second')).toBeTruthy();
     fireEvent.click(document.querySelector('[data-save="1"] [data-load]')!);
+    fireEvent.click(document.querySelector('[data-save="1"] [data-export]')!);
     fireEvent.click(document.querySelector('[data-save="2"] [data-delete]')!);
-    expect(done).toEqual(['load 1', 'delete 2']);
+    expect(done).toEqual(['load 1', 'export 1', 'delete 2']);
+  });
+
+  it('hands the file chosen to import', () => {
+    const got: string[] = [];
+    render(
+      <Side
+        turn="1"
+        statusLine=""
+        info=""
+        unasked={[]}
+        status=""
+        orders={[]}
+        run={() => {}}
+        {...saving()}
+        importFile={(f) => got.push(f.name)}
+      />,
+    );
+    const input = document.querySelector('#import-file') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [new File(['x'], 'a.fsg')] } });
+    expect(got).toEqual(['a.fsg']);
   });
 
   it('says so when there are no saves', () => {

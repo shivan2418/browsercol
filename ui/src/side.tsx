@@ -28,6 +28,10 @@ export interface SideProps {
   /** Load a saved game in place of this one. */
   load: (id: number) => void;
   remove: (id: number) => void;
+  /** Download a saved game as its .fsg file. */
+  exportSave: (id: number) => void;
+  /** Add a .fsg file the player chose to the saved games. */
+  importFile: (file: File) => void;
 }
 
 /** The buttons, as the keys they stand for. */
@@ -77,6 +81,8 @@ export function Side({
   save,
   load,
   remove,
+  exportSave,
+  importFile,
 }: SideProps) {
   const name = useRef<HTMLInputElement>(null);
   return (
@@ -116,6 +122,21 @@ export function Side({
           Save game
         </button>
         <span id="save-note">{saveNote}</span>
+        <div>
+          <label>
+            Import a .fsg:{' '}
+            <input
+              id="import-file"
+              type="file"
+              accept=".fsg"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) importFile(file);
+                e.target.value = ''; // so the same file can be chosen again
+              }}
+            />
+          </label>
+        </div>
         <div id="saves">
           {saves.length === 0 && 'No saved games'}
           {saves.map((s) => (
@@ -123,6 +144,9 @@ export function Side({
               {saveLine(s)}{' '}
               <button data-load={s.id} onClick={() => load(s.id)}>
                 Load
+              </button>{' '}
+              <button data-export={s.id} onClick={() => exportSave(s.id)}>
+                Export
               </button>{' '}
               <button data-delete={s.id} onClick={() => remove(s.id)}>
                 Delete

@@ -22,6 +22,7 @@ import { commandForKey, type Command } from './input';
 import { mapDrawer, type MapView } from './map';
 import { DialogHost } from './panels';
 import { onCanvas, pointerInput } from './pointer';
+import { fileNameOf, importSave } from './save-files';
 import { idbSaveStore, type SaveMeta } from './saves';
 import { Side, type SideProps } from './side';
 import { loadModule } from './teavm';
@@ -65,7 +66,7 @@ window.fcRounds = rounds;
 let drawn = Promise.resolve();
 
 const dialogQueue = dialogs();
-const side: Omit<SideProps, 'run' | 'save' | 'load' | 'remove'> = {
+const side: Omit<SideProps, 'run' | 'save' | 'load' | 'remove' | 'exportSave' | 'importFile'> = {
   turn: '-',
   statusLine: '',
   info: '',
@@ -83,6 +84,17 @@ function listSaves() {
     .then((saves) => (side.saves = saves))
     .catch((ex: unknown) => (side.saveNote = `Saves unavailable: ${String(ex)}`))
     .finally(renderSide);
+}
+/** Hand the bytes to the browser as a file download. */
+function download(bytes: Uint8Array, fileName: string) {
+  const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'application/octet-stream' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 let saveGame: (name: string) => void = () => {};
 let runCommand: (c: Command) => void = () => {};
@@ -108,6 +120,28 @@ function renderSide() {
             .remove(id)
             .then(() => (side.saveNote = 'Deleted'))
             .catch((ex: unknown) => (side.saveNote = `Delete failed: ${String(ex)}`))
+            .finally(listSaves);
+        }}
+        exportSave={(id) => {
+          const meta = side.saves.find((s) => s.id === id);
+          store
+            .get(id)
+            .then((bytes) => {
+              if (!meta || !bytes) throw new Error('no such save');
+              download(bytes, fileNameOf(meta.name));
+              side.saveNote = `Exported: ${meta.name}`;
+            })
+            .catch((ex: unknown) => (side.saveNote = `Export failed: ${String(ex)}`))
+            .finally(renderSide);
+        }}
+        importFile={(file) => {
+          side.saveNote = 'Importing...';
+          renderSide();
+          file
+            .arrayBuffer()
+            .then((buffer) => importSave(store, file.name, new Uint8Array(buffer), Date.now()))
+            .then((meta) => (side.saveNote = `Imported: ${meta.name}`))
+            .catch((ex: unknown) => (side.saveNote = `Import failed: ${ex instanceof Error ? ex.message : String(ex)}`))
             .finally(listSaves);
         }}
       />
