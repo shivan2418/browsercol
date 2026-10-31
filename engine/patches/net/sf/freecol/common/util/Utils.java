@@ -114,9 +114,62 @@ public class Utils {
      */
     public static synchronized String getRandomState(Random random)
         throws IOException {
-        // browser: no Java serialization in TeaVM, so the PRNG state is
-        // not saved; a loaded game reseeds.  FIXME before save/load.
-        return "";
+        // browser: no Java serialization in TeaVM, and no way to read a
+        // Random's private seed.  So reseed the generator from itself,
+        // which makes its seed known, and write the bytes that
+        // ObjectOutputStream writes for a java.util.Random with that
+        // seed, so desktop FreeCol reads the state as before.  The
+        // game goes on from the reseeded state, as a load of this save
+        // does.
+        long seed = random.nextLong();
+        random.setSeed(seed);
+        long scrambled = (seed ^ RANDOM_MULTIPLIER) & RANDOM_MASK;
+        StringBuilder sb = new StringBuilder(RANDOM_STATE_LENGTH);
+        sb.append(RANDOM_HEADER)
+            .append("00")                // haveNextNextGaussian
+            .append("0000000000000000"); // nextNextGaussian
+        appendHex(sb, scrambled);        // seed
+        sb.append("78");                 // TC_ENDBLOCKDATA
+        return sb.toString();
+    }
+
+    // browser: the serialized form of java.util.Random, see
+    // getRandomState.  The class descriptor: stream magic and version,
+    // TC_OBJECT, TC_CLASSDESC, the class name, its serialVersionUID,
+    // SC_WRITE_METHOD | SC_SERIALIZABLE, and its three fields as
+    // ObjectStreamClass orders them, then TC_ENDBLOCKDATA and TC_NULL
+    // for no superclass descriptor.  The values follow: a boolean, a
+    // double and a long.
+    private static final String RANDOM_HEADER
+        = "ACED0005" + "7372" + "0010" + hex("java.util.Random")
+        + "363296344BF00A53" + "03" + "0003"
+        + "5A" + "0014" + hex("haveNextNextGaussian")
+        + "44" + "0010" + hex("nextNextGaussian")
+        + "4A" + "0004" + hex("seed")
+        + "7870";
+
+    private static final int RANDOM_STATE_LENGTH
+        = RANDOM_HEADER.length() + 2 + 16 + 16 + 2;
+
+    /** java.util.Random's multiplier, with which setSeed scrambles. */
+    private static final long RANDOM_MULTIPLIER = 0x5DEECE66DL;
+
+    private static final long RANDOM_MASK = (1L << 48) - 1;
+
+    private static String hex(String ascii) {
+        StringBuilder sb = new StringBuilder(ascii.length() * 2);
+        for (int i = 0; i < ascii.length(); i++) {
+            char c = ascii.charAt(i);
+            sb.append(HEX_DIGITS.charAt((c >> 4) & 0x0F))
+                .append(HEX_DIGITS.charAt(c & 0x0F));
+        }
+        return sb.toString();
+    }
+
+    private static void appendHex(StringBuilder sb, long value) {
+        for (int shift = 60; shift >= 0; shift -= 4) {
+            sb.append(HEX_DIGITS.charAt((int)(value >>> shift) & 0x0F));
+        }
     }
 
     /**
@@ -126,7 +179,28 @@ public class Utils {
      * @return The restored {@code Random}.
      */
     public static synchronized Random restoreRandomState(String state) {
-        return null; // browser: see getRandomState
+        if (state == null || state.isEmpty()) return null;
+        // browser: read the serialized java.util.Random by hand, see
+        // getRandomState.  Desktop FreeCol writes the same bytes.  The
+        // stored Gaussian is dropped: FreeCol never asks for one.
+        final String s = state.toUpperCase(java.util.Locale.ROOT);
+        if (s.length() != RANDOM_STATE_LENGTH || !s.startsWith(RANDOM_HEADER)
+            || !s.endsWith("78")) {
+            logger.warning("Unable to restore random state: " + state);
+            return null;
+        }
+        final int at = RANDOM_HEADER.length() + 2 + 16;
+        long scrambled = 0;
+        for (int i = at; i < at + 16; i++) {
+            int d = HEX_DIGITS.indexOf(s.charAt(i));
+            if (d < 0) {
+                logger.warning("Unable to restore random state: " + state);
+                return null;
+            }
+            scrambled = (scrambled << 4) | d;
+        }
+        // setSeed scrambles with the multiplier, so unscramble first.
+        return new Random((scrambled & RANDOM_MASK) ^ RANDOM_MULTIPLIER);
     }
 
     /**
