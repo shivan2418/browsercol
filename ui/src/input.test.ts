@@ -41,6 +41,11 @@ describe('commandForKey', () => {
     expect(key('R', 'KeyR')).toEqual({ k: 'road' });
   });
 
+  it('asks where the active unit goes, as GotoAction does', () => {
+    expect(key('h', 'KeyH')).toEqual({ k: 'selectDestination' });
+    expect(key('H', 'KeyH')).toEqual({ k: 'selectDestination' });
+  });
+
   it('ignores other keys', () => {
     expect(key('x', 'KeyX')).toBeNull();
     expect(key('5', 'Numpad5')).toBeNull();

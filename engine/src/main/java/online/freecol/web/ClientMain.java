@@ -158,6 +158,13 @@ public final class ClientMain {
         command("disband", () -> engine.getCommands().disband());
     }
 
+    /** Send the active unit to a destination (GotoAction). */
+    @JSExport
+    public static void selectDestination() {
+        command("selectDestination",
+                () -> engine.getCommands().selectDestination());
+    }
+
     /** Plow the active unit's tile (the plow ImprovementAction). */
     @JSExport
     public static void plow() {

@@ -137,7 +137,7 @@ class WebGUITest {
             .filter(e -> e.startsWith("activeUnit ") || e.startsWith("focus "))
             .collect(Collectors.toList());
         final int start = view.indexOf("activeUnit {\"unit\":\"" + active.getId() + "\"," + where
-            + ",\"force\":false,\"orders\":[\"fortify\",\"sentry\",\"skip\",\"disband\"]}");
+            + ",\"force\":false,\"orders\":[\"fortify\",\"sentry\",\"skip\",\"disband\",\"goto\"]}");
         assertTrue(start >= 0, view.toString());
         assertEquals("focus {" + where + "}", view.get(start + 1));
 

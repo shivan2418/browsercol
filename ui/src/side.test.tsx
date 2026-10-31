@@ -26,7 +26,7 @@ describe('the side panel', () => {
         info=""
         unasked={[]}
         status=""
-        orders={['fortify', 'sentry', 'skip', 'disband', 'road']}
+        orders={['fortify', 'sentry', 'skip', 'disband', 'road', 'goto']}
         run={(c) => ran.push(c)}
       />,
     );
@@ -35,6 +35,7 @@ describe('the side panel', () => {
     expect(button('Skip (Space)').disabled, 'skip').toBe(false);
     expect(button('Disband (D)').disabled, 'disband').toBe(false);
     expect(button('Road (R)').disabled, 'road').toBe(false);
+    expect(button('Go to (H)').disabled, 'goto').toBe(false);
     // A soldier cannot work its tile.
     expect(button('Plow (P)').disabled, 'plow').toBe(true);
     expect(button('Clear forest (C)').disabled, 'clear forest').toBe(true);
@@ -42,9 +43,25 @@ describe('the side panel', () => {
     expect(ran).toEqual([{ k: 'fortify' }]);
   });
 
+  it('runs the Go To order, which asks where the unit goes', () => {
+    const ran: Command[] = [];
+    render(<Side turn="1" info="" unasked={[]} status="" orders={['goto']} run={(c) => ran.push(c)} />);
+    expect(button('Go to (H)').disabled, 'goto').toBe(false);
+    fireEvent.click(button('Go to (H)'));
+    expect(ran).toEqual([{ k: 'selectDestination' }]);
+  });
+
   it('disables every order while no unit is active', () => {
     render(<Side turn="1" info="" unasked={[]} status="" orders={[]} run={() => {}} />);
-    for (const name of ['Fortify (F)', 'Sentry (S)', 'Skip (Space)', 'Disband (D)', 'Plow (P)', 'Road (R)']) {
+    for (const name of [
+      'Fortify (F)',
+      'Sentry (S)',
+      'Skip (Space)',
+      'Disband (D)',
+      'Plow (P)',
+      'Road (R)',
+      'Go to (H)',
+    ]) {
       expect(button(name).disabled, name).toBe(true);
     }
   });

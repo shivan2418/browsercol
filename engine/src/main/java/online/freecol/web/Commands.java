@@ -137,6 +137,22 @@ public final class Commands {
         return igc().disbandUnit(gui().getActiveUnit());
     }
 
+    /**
+     * Send the active unit to a destination (GotoAction): the player is
+     * asked where it goes, and the unit sails there.
+     *
+     * The order is named after the controller method it calls, as
+     * {@code goto} is a Java keyword and {@code goTo} is already the
+     * order that sends the unit to a tile of the map.
+     *
+     * @return True if the unit set off.
+     */
+    public boolean selectDestination() {
+        final Unit unit = gui().getActiveUnit();
+        if (unit == null) return false;
+        return igc().selectDestination(unit);
+    }
+
     /** Change the active unit's state, as FortifyAction and SentryAction do. */
     private boolean changeState(Unit.UnitState state) {
         final Unit unit = gui().getActiveUnit();
