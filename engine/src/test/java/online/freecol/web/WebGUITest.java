@@ -298,6 +298,12 @@ class WebGUITest {
         await(got);
         question = asked.get(asked.size() - 1);
         assertTrue(question.contains("\"ok\":null,\"cancel\":\"Done\""), question);
+        assertTrue(question.endsWith("\"header\":\"A message from the Crown\"}"), question);
+        got = new CompletableFuture<>();
+        gui.showMonarchDialog(MonarchAction.HESSIAN_MERCENARIES, null, null, got::complete);
+        await(got);
+        question = asked.get(asked.size() - 1);
+        assertTrue(question.endsWith("\"header\":\"Foreign Correspondence\"}"), question);
 
         // The end turn dialog asks, and cancel keeps the turn.
         answer = "false";
@@ -307,6 +313,7 @@ class WebGUITest {
         question = asked.get(asked.size() - 1);
         assertTrue(question.startsWith("confirm {\"text\":\"The following unit is still waiting"),
                    question);
+        assertTrue(question.endsWith("\"header\":\"End turn\"}"), question);
         Thread.sleep(200);
         assertTrue(client.getClient().currentPlayerIsMyPlayer(), "cancel keeps the turn");
     }

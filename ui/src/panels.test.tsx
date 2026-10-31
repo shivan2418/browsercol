@@ -14,6 +14,7 @@ const confirm: GuiQuestions['confirm']['ask'] = {
   defaultOk: false,
   tile: null,
   object: null,
+  header: null,
 };
 
 const item = (text: string, more: Partial<Choice> = {}): Choice => ({
@@ -68,6 +69,13 @@ describe('the confirm dialog', () => {
     const escaped = ask(box, 'confirm', { ...confirm, defaultOk: true });
     key('Escape');
     expect(await escaped).toBe(false);
+  });
+
+  it('shows the header Swing gives a dialog above its text', () => {
+    const { box } = host();
+    void ask(box, 'confirm', { ...confirm, header: 'Native demand at Jamestown' });
+    expect(screen.getByRole('heading').textContent).toBe('Native demand at Jamestown');
+    expect(screen.getByText('Disband?')).toBeTruthy();
   });
 
   it('shows only the buttons it has labels for', () => {

@@ -63,6 +63,8 @@ export interface GuiQuestions {
       defaultOk: boolean;
       tile: Id | null;
       object: Id | null;
+      /** The title Swing's dialog shows above its text, if it has one. */
+      header: string | null;
     };
     answer: boolean;
   };

@@ -63,6 +63,7 @@ function Confirm({ d }: { d: Of<'confirm'> }) {
   useKeys(ask.defaultOk && ask.ok !== null ? ok : cancel, cancel);
   return (
     <>
+      {ask.header !== null && <h2>{ask.header}</h2>}
       <Text text={ask.text} />
       <OkCancel ok={ask.ok} cancel={ask.cancel} onOk={ok} onCancel={cancel} />
     </>
