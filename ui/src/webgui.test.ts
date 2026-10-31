@@ -24,6 +24,24 @@ const question = {
     choices: [{ text: 'A', enabled: true, ok: false, cancel: false, default: true }],
   },
   input: { text: 'Name?', value: 'Jamestown', ok: 'OK', cancel: 'Cancel', tile: null },
+  goods: {
+    text: 'Loot Cargo',
+    ok: 'OK',
+    cancel: 'Cancel',
+    max: 2,
+    object: 'unit:2',
+    goods: [
+      {
+        id: 'model.goods.rum',
+        type: 'model.goods.rum',
+        name: 'Rum',
+        amount: 40,
+        icon: 'image.icon.model.goods.rum',
+        label: '40 Rum',
+        checked: false,
+      },
+    ],
+  },
 };
 
 describe('webGui', () => {
@@ -37,6 +55,7 @@ describe('webGui', () => {
           confirm: (q) => (asked.push(q), true),
           choice: async (q) => (asked.push(q), 0),
           input: (q) => (asked.push(q), null),
+          goods: (q) => (asked.push(q), [1, 0]),
         },
       },
       a.answer,
@@ -46,6 +65,7 @@ describe('webGui', () => {
       [1, 'confirm'],
       [2, 'choice'],
       [3, 'input'],
+      [4, 'goods'],
     ] as const) {
       const arrived = a.next();
       gui.fcAsk(id, kind, JSON.stringify(question[kind]));
@@ -53,11 +73,12 @@ describe('webGui', () => {
       await arrived;
     }
 
-    expect(asked).toEqual([question.confirm, question.choice, question.input]);
+    expect(asked).toEqual([question.confirm, question.choice, question.input, question.goods]);
     expect(a.got).toEqual([
       [1, 'true'],
       [2, '0'],
       [3, null],
+      [4, '[1,0]'],
     ]);
   });
 
@@ -72,6 +93,7 @@ describe('webGui', () => {
         },
         choice: () => null,
         input: () => null,
+        goods: () => null,
       },
     };
     const gui = webGui(handlers, a.answer);
@@ -100,7 +122,7 @@ describe('webGui', () => {
     const gui = webGui(
       {
         events: { activeUnit: (e) => seen.push(e.unit) },
-        questions: { confirm: () => false, choice: () => null, input: () => null },
+        questions: { confirm: () => false, choice: () => null, input: () => null, goods: () => null },
       },
       () => {},
     );

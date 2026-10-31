@@ -16,6 +16,7 @@ export async function answerDialogs(page) {
         confirm: () => (!/Europe/.test(text) && pick('[data-answer=ok]')) || pick('[data-answer=cancel]'),
         choice: () => [...d.querySelectorAll('[data-choice]:not(:disabled)')].pop(),
         input: () => pick('[data-answer=ok]'),
+        goods: () => pick('[data-answer=ok]'),
       };
       (buttonFor[d.dataset.kind] ?? (() => pick('[data-answer=close]')))()?.click();
     };

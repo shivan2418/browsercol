@@ -66,6 +66,31 @@ export interface GuiQuestions {
     ask: { text: string; value: string | null; ok: string | null; cancel: string | null; tile: Id | null };
     answer: string | null;
   };
+  /** Pick goods to capture or dump; at most `max` lots. */
+  goods: {
+    ask: {
+      text: string;
+      ok: string | null;
+      cancel: string | null;
+      max: number;
+      object: Id | null;
+      goods: Lot[];
+    };
+    /** The indexes of the lots chosen, null for a closed dialog. */
+    answer: number[] | null;
+  };
+}
+
+export interface Lot {
+  id: string;
+  type: string;
+  name: string;
+  amount: number;
+  /** The goods type's resource key, so a Tileset can replace the picture. */
+  icon: string;
+  label: string;
+  /** Checked when the dialog opens. */
+  checked: boolean;
 }
 
 export interface GuiHandlers {
@@ -84,6 +109,7 @@ const encode: { [K in keyof GuiQuestions]: (answer: GuiQuestions[K]['answer']) =
   confirm: (a) => String(a),
   choice: (a) => (a === null ? null : String(a)),
   input: (a) => a,
+  goods: (a) => (a === null ? null : JSON.stringify(a)),
 };
 
 const isKey = <T extends object>(o: T, k: string): k is Extract<keyof T, string> => Object.hasOwn(o, k);

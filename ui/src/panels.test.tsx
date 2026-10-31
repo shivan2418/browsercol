@@ -172,6 +172,62 @@ describe('the input dialog', () => {
   });
 });
 
+describe('the goods dialog', () => {
+  const lot = (name: string, checked = false) => ({
+    id: name,
+    type: name,
+    name,
+    amount: 40,
+    icon: `image.icon.${name}`,
+    label: `40 ${name}`,
+    checked,
+  });
+  const q = (max: number, checked = false) => ({
+    text: 'Loot Cargo',
+    ok: 'OK',
+    cancel: 'Cancel',
+    max,
+    object: null,
+    goods: [lot('Rum', checked), lot('Sugar', checked), lot('Cotton', checked)],
+  });
+
+  it('answers the indexes picked, on OK or Enter', async () => {
+    const { box } = host();
+    const taken = ask(box, 'goods', q(3));
+    fireEvent.click(screen.getByRole('checkbox', { name: /Cotton/ }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /Rum/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    expect(await taken).toEqual([0, 2]);
+
+    const entered = ask(box, 'goods', q(3, true));
+    fireEvent.click(screen.getByRole('checkbox', { name: /Sugar/ }));
+    key('Enter');
+    expect(await entered).toEqual([0, 2]);
+  });
+
+  it('stops at max picks', async () => {
+    const { box } = host();
+    const taken = ask(box, 'goods', q(2));
+    fireEvent.click(screen.getByRole('checkbox', { name: /Rum/ }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /Sugar/ }));
+    const cotton = screen.getByRole('checkbox', { name: /Cotton/ });
+    expect((cotton as HTMLInputElement).disabled).toBe(true);
+    fireEvent.click(cotton);
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    expect(await taken).toEqual([0, 1]);
+  });
+
+  it('answers null on Cancel and Escape', async () => {
+    const { box } = host();
+    const cancelled = ask(box, 'goods', q(3, true));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(await cancelled).toBeNull();
+    const escaped = ask(box, 'goods', q(3));
+    key('Escape');
+    expect(await escaped).toBeNull();
+  });
+});
+
 describe('the panels', () => {
   it('list the model messages, each going to its tile, and close on Enter', () => {
     const { box, went } = host();
