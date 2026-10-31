@@ -444,12 +444,28 @@ describe('the panels', () => {
         title: 'Turn Report',
         ok: 'OK',
         messages: [
-          { text: 'Jamestown has grown.', type: 'DEFAULT', source: 'colony:1', tile: 'tile:9', at: [3, 4] },
-          { text: 'Taxes are up.', type: 'DEFAULT', source: null, tile: null, at: null },
+          {
+            text: 'Jamestown has grown.',
+            type: 'DEFAULT',
+            source: 'colony:1',
+            tile: 'tile:9',
+            at: [3, 4],
+            heading: { text: 'Jamestown', tile: 'tile:9', at: [3, 4] },
+          },
+          {
+            text: 'Jamestown is hungry.',
+            type: 'WARNING',
+            source: 'colony:1',
+            tile: 'tile:9',
+            at: [3, 4],
+            heading: null,
+          },
+          { text: 'Taxes are up.', type: 'DEFAULT', source: null, tile: null, at: null, heading: null },
         ],
       }),
     );
     screen.getByRole('heading', { name: 'Turn Report' });
+    expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['Jamestown']);
     fireEvent.click(screen.getByText('Jamestown has grown.'));
     expect(went).toEqual([[3, 4]]);
     expect(screen.getByText('Taxes are up.').closest('a')).toBeNull();

@@ -35,10 +35,18 @@ export interface GuiEvents {
     scores: { score: number; headline: string; fields: { label: string; value: string }[] }[];
     ok: string;
   };
-  /** Model messages, or with a title the turn report; each names its source's tile, to go to. */
+  /**
+   * Model messages, or with a title the turn report; each names its source's tile, to go to. The turn
+   * report is grouped by source: a message with a heading starts its source's messages.
+   */
   messages: {
     title: string | null;
-    messages: ({ text: string; type: string; source: Id | null } & TileRef)[];
+    messages: ({
+      text: string;
+      type: string;
+      source: Id | null;
+      heading: ({ text: string } & TileRef) | null;
+    } & TileRef)[];
     ok: string;
   };
   /** A dialog the Browser UI cannot show yet; the controller got FreeCol's base default. */
