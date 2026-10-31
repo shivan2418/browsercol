@@ -14,7 +14,7 @@
 // what the side panel leaves of the window, and the wheel, a drag and the
 // pointer at an edge must zoom and scroll it at its new size. Exits non-zero
 // unless every browser gets there. Run in the web image:
-//   DEV_VARIANT=web ./dev.sh node ui/scripts/play.mjs [--browsers chromium,firefox] [--query renderer=canvas2d]
+//   DEV_VARIANT=web ./dev.sh node ui/scripts/play.mjs [--browsers chromium,firefox] [--query renderer=canvas2d] [--scale 2]
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { answerDialogs, dialogLog } from './dialogs.mjs';
@@ -29,6 +29,8 @@ const opt = (name, dflt) => {
 const browsers = opt('browsers', 'chromium,firefox').split(',');
 /** Page parameters, e.g. renderer=canvas2d to play on the Canvas 2D fallback. */
 const query = opt('query', '');
+/** The device pixel ratio the browser reports: 2 to play as on a HiDPI screen. */
+const scale = Number(opt('scale', '1'));
 const MAX_TURNS = 15;
 
 // FreeCol's Direction deltas on its staggered rows: [odd row, even row].
@@ -243,10 +245,22 @@ async function play(page, url) {
       const c = document.querySelector('#map canvas');
       return [c?.width, c?.height];
     };
+    // The canvas's CSS box is the viewport's size, in CSS pixels, and its
+    // backing store is that many device pixels: the map is drawn at the
+    // screen's pixel ratio.
     const fits = ([w, h]) => {
       const c = document.querySelector('#map canvas');
       const [vw, vh] = window.fcView().viewport;
-      return c?.width === w && c.height === h && vw === w && vh === h;
+      const r = window.devicePixelRatio || 1;
+      const box = c?.getBoundingClientRect();
+      return (
+        box?.width === w &&
+        box.height === h &&
+        c.width === Math.round(w * r) &&
+        c.height === Math.round(h * r) &&
+        vw === w &&
+        vh === h
+      );
     };
     if (!(await page.waitForFunction(fits, want, { timeout: 5000 }).catch(() => false))) {
       const got = await page.evaluate(canvasSize);
@@ -372,7 +386,7 @@ const server = await serveDist();
 let failed = false;
 for (const name of browsers) {
   const browser = await playwright[name].launch();
-  const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
+  const page = await browser.newPage({ viewport: { width: 1400, height: 900 }, deviceScaleFactor: scale });
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
   const t = Date.now();
