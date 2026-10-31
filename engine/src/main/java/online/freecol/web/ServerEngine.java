@@ -103,7 +103,7 @@ public final class ServerEngine {
         Unit active = (activeUnitId == null || activeUnitId.isEmpty()) ? null
             : game.getFreeColGameObject(activeUnitId, Unit.class);
         try {
-            this.server.saveGame(file, null, active);
+            this.server.saveGame(file, ownerName(), null, active, null);
             return readAll(file);
         } finally {
             // The id is for the file; a live game does not keep it.
@@ -117,6 +117,26 @@ public final class ServerEngine {
         return saveGame(null);
     }
 
+    /** The human player, or null if there is none. */
+    private Player human() {
+        for (Player p : getGame().getLiveEuropeanPlayerList()) {
+            if (!p.isAI()) return p;
+        }
+        return null;
+    }
+
+    /**
+     * The human player's name, the owner a savegame names: the client
+     * logs in under it, as desktop FreeCol does for a saved game, whoever
+     * made the save.
+     *
+     * @return The name, or null if there is no human player.
+     */
+    public String ownerName() {
+        Player human = human();
+        return (human == null) ? null : human.getName();
+    }
+
     /**
      * What the save list shows of the game: the turn, its year and the
      * human player's nation.
@@ -125,10 +145,7 @@ public final class ServerEngine {
      */
     public String saveInfo() {
         Game game = getGame();
-        Player human = null;
-        for (Player p : game.getLiveEuropeanPlayerList()) {
-            if (!p.isAI()) { human = p; break; }
-        }
+        Player human = human();
         Json json = new Json();
         json.put("turn", game.getTurn().getNumber());
         json.put("year", game.getTurn().getYear());

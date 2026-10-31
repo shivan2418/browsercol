@@ -84,6 +84,9 @@ public final class WorkerMain {
                 long t = System.currentTimeMillis();
                 try {
                     engine.loadGame(bytes);
+                    // The client logs in under the save's owner.
+                    String owner = engine.ownerName();
+                    event("owner", owner == null ? "" : owner);
                     long ms = System.currentTimeMillis() - t;
                     event("loaded", ms + "," + engine.describe());
                 } catch (Throwable ex) {

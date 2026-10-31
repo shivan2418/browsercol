@@ -26,7 +26,8 @@ export interface ServerExports {
 /** Exports of the client module (online.freecol.web.ClientMain). */
 export interface ClientExports {
   main(args: string[]): void;
-  startGame(rounds: number): void;
+  /** Log in as `name` (a loaded game's owner; empty for a new game) and play `rounds` rounds. */
+  startGame(rounds: number, name: string): void;
   /** The id of the active unit, or "" for none: what a save request carries. */
   activeUnitId(): string;
   receive(xml: string): void;
@@ -198,11 +199,14 @@ export function startPage(o: PageOptions): Promise<ClientExports> {
     webGui(o.gui, (id, value) => client!.answer(id, value)),
   );
 
+  let owner = '';
   listen<ToPage>(o.worker, (m) => {
     if (m.k === 'fc') return client!.receive(m.xml);
-    if (m.name === 'started') client!.startGame(o.autoplay);
+    if (m.name === 'started') client!.startGame(o.autoplay, '');
+    // The owner of a loaded game, which the client must log in as, comes just before "loaded".
+    if (m.name === 'owner') owner = m.detail;
     // A loaded game goes on where it stopped, with no autoplay.
-    if (m.name === 'loaded') client!.startGame(0);
+    if (m.name === 'loaded') client!.startGame(0, owner);
     o.onEvent(m.name, m.detail);
   });
 

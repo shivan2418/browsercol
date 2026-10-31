@@ -76,9 +76,22 @@ public final class ClientEngine {
      * @return True if the login succeeded.
      */
     public boolean startGame(int rounds) {
+        return startGame(rounds, null);
+    }
+
+    /**
+     * Like startGame(int), logging in under a name: that of a loaded
+     * game's owner, whoever made the save.
+     *
+     * @param rounds How many AI rounds to autoplay first; 0 for none.
+     * @param name The player's name, or null or empty for FreeCol's default.
+     * @return True if the login succeeded.
+     */
+    public boolean startGame(int rounds, String name) {
         this.roundsWanted = rounds;
         if (!this.client.getConnectController()
-            .requestLogin(FreeCol.getName(), null, "worker", -1)) return false;
+            .requestLogin((name == null || name.isEmpty()) ? FreeCol.getName() : name,
+                null, "worker", -1)) return false;
         // What StartGamePanel's start button does in a single-player game.
         if (!this.client.isInGame()) {
             this.client.getMyPlayer().setReady(true);
