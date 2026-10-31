@@ -25,6 +25,7 @@ installed on the host.
 ./dev.sh -C ui npx vp check          # format, lint and type check; a lint warning fails it
 DEV_VARIANT=web ./dev.sh node ui/scripts/smoke.mjs   # play dist/ in Chromium and Firefox
 DEV_VARIANT=web ./dev.sh node ui/scripts/play.mjs    # land, found a colony, end the turn in both
+DEV_VARIANT=web ./dev.sh node ui/scripts/saves.mjs   # save, reload the page, load the save and play on in both
 DEV_VARIANT=web ./dev.sh node ui/scripts/tileset.mjs # draw with the test Tileset (ui/tilesets/test) in both
 ```
 
@@ -63,6 +64,14 @@ plow its tile, `C` to clear a forest, `R` to build a road, `H` to send it
 to a destination, `B` to build a colony, `Enter` to end the turn. The side
 panel has a button for each of them, disabled while the active unit may not
 take that order.
+The side panel also saves the game under a name and lists the saved games
+(name, date, turn, nation) with a Load and a Delete button each. Saves live
+in the browser's IndexedDB, written by the Worker, and the Worker asks the
+browser to keep them (`navigator.storage.persist()`). A save is FreeCol's own
+zipped `.fsg` with the active unit, so a loaded game continues at the same
+turn with the same unit active; Load reloads the page on `?load=ID`. Autosave
+is off: the browser client has no in-process server, so FreeCol's autosave
+never runs.
 `?autoplay=N` first auto-ends N turns
 (debug; the smoke test uses 10). The map canvas is drawn at the screen's
 pixel ratio, so the map is sharp on a HiDPI display. The browser scripts save
