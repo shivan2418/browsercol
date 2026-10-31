@@ -136,7 +136,7 @@ if (isMainThread) {
       value = null;
     }
     // Answer in a later microtask, as the Browser UI does: never inside
-    // the Engine's call. The Engine's wait polls with Thread.sleep, which
+    // the Engine's call. The Engine's wait suspends its thread, which
     // lets the Node event loop run the microtask.
     queueMicrotask(() => {
       try {
@@ -207,7 +207,7 @@ if (isMainThread) {
   server.main(dataArgs());
   parentPort.postMessage({ k: 'event', name: 'ready', detail: '' });
   parentPort.on('message', (m) => {
-    if (m.k === 'start') server.startGame(m.rules);
+    if (m.k === 'start') server.startGame(m.rules, '');
     else if (m.k === 'save') server.saveGame('');
     else if (m.k === 'load') server.loadGame(new Int8Array(m.bytes.buffer, m.bytes.byteOffset, m.bytes.length));
     else if (m.k === 'connect') server.connect();
