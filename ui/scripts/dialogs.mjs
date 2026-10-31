@@ -1,7 +1,7 @@
 // Answers the page's WebGUI dialogs (ui/src/panels.tsx) as they open, by
 // clicking their buttons, as a player would: confirmations are accepted but
 // sailing to Europe, a choice takes its last enabled item ("All" when
-// disembarking), an input keeps its suggestion, a negotiation is cancelled
+// disembarking), an input keeps its suggestion, an end turn dialog ends the turn, a negotiation is cancelled
 // (sent, if it has no cancel) and a panel is closed. Each dialog is logged
 // in window.__dialogs as "kind: first line".
 // Call before page.goto; read the log with dialogLog(page).
@@ -14,10 +14,12 @@ export async function answerDialogs(page) {
       window.__dialogs.push(`${d.dataset.kind}: ${text.split('\n')[0]}`);
       const pick = (selector) => d.querySelector(selector);
       const buttonFor = {
-        confirm: () => (!/Europe/.test(text) && pick('[data-answer=ok]')) || pick('[data-answer=cancel]'),
+        confirm: () =>
+          (!/Europe/.test(d.textContent ?? '') && pick('[data-answer=ok]')) || pick('[data-answer=cancel]'),
         choice: () => [...d.querySelectorAll('[data-choice]:not(:disabled)')].pop(),
         input: () => pick('[data-answer=ok]'),
         goods: () => pick('[data-answer=ok]'),
+        endTurn: () => pick('[data-answer=ok]'),
         negotiation: () => pick('[data-answer=cancel]') || pick('[data-answer=send]'),
       };
       (buttonFor[d.dataset.kind] ?? (() => pick('[data-answer=close]')))()?.click();
