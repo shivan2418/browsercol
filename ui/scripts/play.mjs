@@ -363,8 +363,8 @@ async function play(page, url) {
     throw new Error(`the ship at ${label(shipTile)} is not fortified: ${JSON.stringify(ship)}`);
   }
 
-  // The Go To order, as GotoAction binds it: the player is asked where
-  // the ship sails, and the ship sets off for the place picked. The ship
+  // The Go To order, as GotoAction binds it: the player must be asked
+  // where the ship sails. Where it goes is CommandsTest's to check. The ship
   // is the active unit again, as it was when it was fortified.
   m = await act(() => click(m, shipTile));
   if (!same(m.active, shipTile)) throw new Error(`clicking ${label(shipTile)} selected ${label(m.active)}`);
