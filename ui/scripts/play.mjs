@@ -139,6 +139,9 @@ function nextStep(m, ship) {
   return west && { dir: first.get(label(west)) };
 }
 
+/** How long each screenshot of a dialog took, for the report. */
+const shotTimes = [];
+
 async function play(page, url) {
   // Keep every map view the client Engine sends (ui/src/channel.ts calls
   // fcClientEvent for each), and count them.
@@ -161,16 +164,48 @@ async function play(page, url) {
   });
   // A dialog with images is shot once its images have loaded: the first three of each kind.
   const browserName = page.context().browser().browserType().name();
-  await answerDialogs(page, (kind, n) =>
-    page.screenshot({ path: path.join(dist, `../.cache/play-${browserName}-${kind}-${n}.png`) }),
-  );
+  // The dialog stays open while it is shot, which Firefox can take long over (on CI, longer than the 10 s
+  // noDialog waits for a dialog to close), so noDialog waits for the shot to be done first.
+  let shooting = 0;
+  shotTimes.length = 0;
+  await answerDialogs(page, async (kind, n) => {
+    const t = Date.now();
+    shooting++;
+    try {
+      await page.screenshot({ path: path.join(dist, `../.cache/play-${browserName}-${kind}-${n}.png`) });
+      shotTimes.push(`${kind} ${n}: ${((Date.now() - t) / 1000).toFixed(1)} s`);
+    } catch (ex) {
+      shotTimes.push(`${kind} ${n}: failed ${String(ex).split('\n')[0]}`);
+    } finally {
+      shooting--;
+    }
+  });
 
   const view = () => page.evaluate(() => window.__map);
-  /** Wait until no dialog is open, since an open one takes the keys and clicks. */
-  const noDialog = () => page.waitForFunction(() => !document.querySelector('[role=dialog]'), null, { timeout: 10000 });
+  /**
+   * Wait until no dialog is open, since an open one takes the keys and clicks. The 10 s count only the
+   * time no shot is being taken.
+   */
+  const noDialog = async (what = 'a step') => {
+    const open = () => page.evaluate(() => document.querySelector('[role=dialog]')?.dataset.kind ?? null);
+    let idle = Date.now();
+    for (let kind = await open(); kind; kind = await open()) {
+      if (shooting > 0) idle = Date.now();
+      if (Date.now() - idle > 10000) {
+        const detail = await page.evaluate(
+          () =>
+            `${document.querySelector('[role=dialog]')?.textContent.slice(0, 80)}; answered: ${window.__dialogs.slice(-3).join(' | ')}`,
+        );
+        throw new Error(
+          `a ${kind} dialog stayed open for 10 s before ${what}: ${detail}; screenshots ${shooting > 0 ? 'still being taken' : 'done'}: ${shotTimes.join(' | ')}`,
+        );
+      }
+      await new Promise((ok) => setTimeout(ok, 50));
+    }
+  };
   /** Do something that ends with a new map view, and return that view. */
   const act = async (doIt) => {
-    await noDialog();
+    await noDialog('a command');
     const n = await page.evaluate(() => window.__maps);
     await doIt();
     await page.waitForFunction((n) => window.__maps > n, n, { timeout: 60000 });
@@ -178,7 +213,7 @@ async function play(page, url) {
   };
   const endTurn = async () => {
     const turn = (await view()).turn;
-    await noDialog();
+    await noDialog('ending the turn');
     await page.keyboard.press('Enter');
     await page.waitForFunction((t) => window.__map.turn !== t && window.__map.ourTurn, turn, { timeout: 120000 });
     return view();
@@ -271,7 +306,7 @@ async function play(page, url) {
   };
   /** Zoom with the wheel, drag the map and rest the pointer at its right edge; each must move the view. */
   const zoomAndScroll = async () => {
-    await noDialog();
+    await noDialog('zooming');
     const box = await page.locator('#map canvas').boundingBox();
     const [cx, cy] = [box.x + box.width / 2, box.y + box.height / 2];
     const before = await viewState();
@@ -382,11 +417,19 @@ async function play(page, url) {
   // event panel's two flavour images, and a turn report with the image of each kind of object, and
   // its group by option and buttons. The real game gives few of these in its first turns.
   const show = async (kind, event) => {
-    await noDialog();
+    await noDialog(`showing the ${kind} event`);
     const before = await page.evaluate(() => window.__pictures.length);
     await page.evaluate(([k, json]) => window.fcShow(k, json), [kind, JSON.stringify(event)]);
-    await page.waitForFunction((n) => window.__pictures.length > n, before, { timeout: 10000 });
-    await noDialog();
+    await page
+      .waitForFunction((n) => window.__pictures.length > n, before, { timeout: 10000 })
+      .catch(async () => {
+        throw new Error(
+          `no dialog with images came for the ${kind} event within 10 s; the page shows ${await page.evaluate(
+            () => document.querySelector('[role=dialog]')?.outerHTML.slice(0, 300) ?? 'no dialog',
+          )}`,
+        );
+      });
+    await noDialog(`the ${kind} event was answered`);
   };
   const ok = 'OK';
   await show('eventPanel', { header: 'Landfall', image: 'image.flavor.event.firstLanding', footer: null, ok });
@@ -472,6 +515,7 @@ for (const name of browsers) {
       (result.error ? `failed: ${result.error}` : `colony at ${label(result.land)}, play back on turn ${result.turn}`) +
       `, ${((Date.now() - t) / 1000).toFixed(1)} s` +
       `\n  dialogs: ${dialogs.join(' | ')}` +
+      (shotTimes.length ? `\n  screenshots: ${shotTimes.join(' | ')}` : '') +
       `\n  images: ${pictures.map((p) => `${p.kind} ${p.src}`).join(' | ')}` +
       (routine ? `\n  colony panel not shown (no Browser UI yet): ${routine}x` : '') +
       (unasked.length ? `\n  no dialog yet for: ${unasked.join(', ')}` : '') +
