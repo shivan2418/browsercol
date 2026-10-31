@@ -20,6 +20,7 @@ export async function answerDialogs(page) {
         input: () => pick('[data-answer=ok]'),
         goods: () => pick('[data-answer=ok]'),
         endTurn: () => pick('[data-answer=ok]'),
+        preCombat: () => pick('[data-answer=ok]'),
         negotiation: () => pick('[data-answer=cancel]') || pick('[data-answer=send]'),
       };
       (buttonFor[d.dataset.kind] ?? (() => pick('[data-answer=close]')))()?.click();

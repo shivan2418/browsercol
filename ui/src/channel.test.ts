@@ -94,6 +94,7 @@ const sayYes: GuiHandlers = {
     negotiation: () => null,
     names: () => null,
     endTurn: () => null,
+    preCombat: () => false,
   },
 };
 

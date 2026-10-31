@@ -342,6 +342,36 @@ class WebGUITest {
 
     @Test
     @Timeout(120)
+    void thePreCombatDialogListsBothSidesModifiersAndTheFinalResults() throws Exception {
+        final ClientEngine client = startGame();
+        final GUI gui = client.getClient().getGUI();
+        final List<Unit> mine = client.getClient().getMyPlayer().getUnits()
+            .filter(u -> !u.isNaval()).collect(Collectors.toList());
+        final Unit attacker = mine.get(0);
+        final Unit defender = mine.get(1);
+
+        answer = "true";
+        assertTrue(gui.showPreCombatDialog(attacker, defender, defender.getTile()));
+        final String question = asked.get(asked.size() - 1);
+        assertTrue(question.startsWith("preCombat {\"attacker\":\""
+                + attacker.getDescription(Unit.UnitLabelType.NATIONAL) + "\",\"defender\":\""
+                + defender.getDescription(Unit.UnitLabelType.NATIONAL) + "\",\"offence\":[{\"source\":\""),
+            question);
+        // A colonist's base offence, 0 here, as ModifierFormat writes it: a sign and two decimals.
+        assertTrue(question.contains("\"value\":\"+") || question.contains("\"value\":\"\u00D7"), question);
+        assertTrue(question.contains("\"defence\":[{\"source\":\""), question);
+        assertTrue(question.contains("\"finalResult\":\"" + Messages.message("finalResult") + "\""), question);
+        assertTrue(question.matches(".*\"offenceResult\":\"-?\\d+\\.\\d\\d\",\"defenceResult\":\"-?\\d+\\.\\d\\d\".*"),
+            question);
+
+        answer = "false";
+        assertFalse(gui.showPreCombatDialog(attacker, defender, defender.getTile()));
+        answer = null;
+        assertFalse(gui.showPreCombatDialog(attacker, defender, defender.getTile()), "closed");
+    }
+
+    @Test
+    @Timeout(120)
     void aDialogWithAHandlerReturnsBeforeTheAnswerComes() throws Exception {
         final ClientEngine client = startGame();
         final GUI gui = client.getClient().getGUI();

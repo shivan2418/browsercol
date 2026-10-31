@@ -74,6 +74,22 @@ const question = {
     cancel: 'Cancel',
     units: [{ id: 'unit:2', name: 'Soldier', location: 'Jamestown' }],
   },
+  preCombat: {
+    attacker: 'Soldier',
+    defender: 'Brave',
+    offence: [{ source: 'Base offence', value: '+1.00' }],
+    defence: [
+      { source: 'Base defence', value: '+1.00' },
+      { source: 'Fortified', value: '+50.00%' },
+    ],
+    finalResult: 'Final result',
+    offenceResult: '1.00',
+    defenceResult: '1.50',
+    ok: 'OK',
+    cancel: 'Cancel',
+    tile: 'tile:3',
+    object: 'unit:9',
+  },
   names: {
     text: 'Declare?',
     fields: [
@@ -100,6 +116,7 @@ describe('webGui', () => {
           negotiation: (q) => (asked.push(q), { status: 'propose', items: [q.items[0]] }),
           names: (q) => (asked.push(q), [q.fields[0].value, 'Newland']),
           endTurn: (q) => (asked.push(q), { status: 'select', unit: q.units[0].id }),
+          preCombat: (q) => (asked.push(q), false),
         },
       },
       a.answer,
@@ -113,6 +130,7 @@ describe('webGui', () => {
       [5, 'negotiation'],
       [6, 'names'],
       [7, 'endTurn'],
+      [8, 'preCombat'],
     ] as const) {
       const arrived = a.next();
       gui.fcAsk(id, kind, JSON.stringify(question[kind]));
@@ -128,6 +146,7 @@ describe('webGui', () => {
       question.negotiation,
       question.names,
       question.endTurn,
+      question.preCombat,
     ]);
     expect(a.got).toEqual([
       [1, 'true'],
@@ -137,6 +156,7 @@ describe('webGui', () => {
       [5, 'propose\ngold\toffer\t\t30'],
       [6, 'Free Dutch\nNewland'],
       [7, 'select\nunit:2'],
+      [8, 'false'],
     ]);
   });
 
@@ -155,6 +175,7 @@ describe('webGui', () => {
         negotiation: () => null,
         names: () => null,
         endTurn: () => null,
+        preCombat: () => false,
       },
     };
     const gui = webGui(handlers, a.answer);
@@ -191,6 +212,7 @@ describe('webGui', () => {
           negotiation: () => null,
           names: () => null,
           endTurn: () => null,
+          preCombat: () => false,
         },
       },
       () => {},

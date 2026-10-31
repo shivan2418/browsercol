@@ -248,6 +248,7 @@ const gui: GuiHandlers = {
     input: (q) => dialogQueue.ask('input', q),
     goods: (q) => dialogQueue.ask('goods', q),
     endTurn: (q) => dialogQueue.ask('endTurn', q),
+    preCombat: (q) => dialogQueue.ask('preCombat', q),
     negotiation: (q) => dialogQueue.ask('negotiation', q),
     names: (q) => dialogQueue.ask('names', q),
   },

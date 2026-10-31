@@ -91,6 +91,27 @@ export interface GuiQuestions {
     };
     answer: { status: 'ok' | 'cancel' } | { status: 'select'; unit: Id } | null;
   };
+  /**
+   * The dialog before an attack: both sides' modifiers, side by side in FreeCol's order, and the final
+   * results. Answers true to attack.
+   */
+  preCombat: {
+    ask: {
+      attacker: string;
+      defender: string;
+      offence: { source: string; value: string }[];
+      defence: { source: string; value: string }[];
+      /** The label of the results. */
+      finalResult: string;
+      offenceResult: string;
+      defenceResult: string;
+      ok: string | null;
+      cancel: string | null;
+      tile: Id | null;
+      object: Id | null;
+    };
+    answer: boolean;
+  };
   /** Pick goods to capture or dump; at most `max` lots. */
   goods: {
     ask: {
@@ -184,6 +205,7 @@ export interface GuiHandlers {
 /** How each kind of answer crosses to Java, as a string or null. */
 const encode: { [K in keyof GuiQuestions]: (answer: GuiQuestions[K]['answer']) => string | null } = {
   confirm: (a) => String(a),
+  preCombat: (a) => String(a),
   choice: (a) => (a === null ? null : String(a)),
   input: (a) => a,
   goods: (a) => (a === null ? null : JSON.stringify(a)),

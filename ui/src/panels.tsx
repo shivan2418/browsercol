@@ -1,5 +1,5 @@
 // React components for the WebGUI's dialogs (dialogs.ts): the confirm,
-// choice, input, goods, end turn, negotiation and names questions and the information, error, event and message
+// choice, input, goods, end turn, pre-combat, negotiation and names questions and the information, error, event and message
 // panels. All text, button labels included, comes localized from the
 // Engine. Keys mean what they do in FreeCol's dialogs: Enter presses the
 // focused button, else takes the default option; Escape closes the dialog
@@ -116,6 +116,51 @@ function Input({ d }: { d: Of<'input'> }) {
     <>
       <Text text={ask.text} />
       <input autoFocus value={value} onChange={(e) => setValue(e.target.value)} />
+      <OkCancel ok={ask.ok} cancel={ask.cancel} onOk={ok} onCancel={cancel} />
+    </>
+  );
+}
+
+/** FreeCol's pre-combat dialog: the offence and the defence modifiers side by side, then the results. */
+function PreCombat({ d }: { d: Of<'preCombat'> }) {
+  const { ask } = d;
+  const ok = () => d.done(true);
+  const cancel = () => d.done(false);
+  // Swing's dialog has no default button; Enter takes the focused one only.
+  useKeys(null, cancel);
+  const rows = Math.max(ask.offence.length, ask.defence.length);
+  const cell = (side: { source: string; value: string }[], i: number) => (
+    <>
+      <td>{side[i]?.source}</td>
+      <td className="value">{side[i]?.value}</td>
+    </>
+  );
+  return (
+    <>
+      <table className="modifiers">
+        <thead>
+          <tr>
+            <th colSpan={2}>{ask.attacker}</th>
+            <th colSpan={2}>{ask.defender}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {Array.from({ length: rows }, (_, i) => (
+            <tr key={i}>
+              {cell(ask.offence, i)}
+              {cell(ask.defence, i)}
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr>
+            <th>{ask.finalResult}</th>
+            <th className="value">{ask.offenceResult}</th>
+            <th>{ask.finalResult}</th>
+            <th className="value">{ask.defenceResult}</th>
+          </tr>
+        </tfoot>
+      </table>
       <OkCancel ok={ask.ok} cancel={ask.cancel} onOk={ok} onCancel={cancel} />
     </>
   );
@@ -383,6 +428,8 @@ function Body({ d, goTo }: { d: Dialog; goTo: (at: At) => void }) {
       return <Names d={d} />;
     case 'endTurn':
       return <EndTurn d={d} />;
+    case 'preCombat':
+      return <PreCombat d={d} />;
     case 'information':
       return (
         <Panel d={d} ok={d.event.ok}>

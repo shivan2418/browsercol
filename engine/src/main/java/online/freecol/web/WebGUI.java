@@ -2,6 +2,7 @@ package online.freecol.web;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
@@ -31,7 +32,10 @@ import net.sf.freecol.common.model.IndianNationType;
 import net.sf.freecol.common.model.Location;
 import net.sf.freecol.common.model.LostCityRumour;
 import net.sf.freecol.common.model.ModelMessage;
+import net.sf.freecol.common.model.Modifier;
 import net.sf.freecol.common.model.Monarch.MonarchAction;
+import net.sf.freecol.common.model.Nameable;
+import net.sf.freecol.common.model.Named;
 import net.sf.freecol.common.model.NationSummary;
 import net.sf.freecol.common.model.Ownable;
 import net.sf.freecol.common.model.Player;
@@ -124,8 +128,14 @@ import net.sf.freecol.common.model.Unit;
  *     <td>{header, text, ok, cancel, units: [{id, name, location}]}; "ok"
  *         ends the turn, "select" and a line break and a unit's id makes
  *         that unit active, anything else keeps the turn</td></tr>
+ * <tr><td>showPreCombatDialog (blocks)</td><td>question preCombat</td>
+ *     <td>{attacker, defender, offence, defence: [{source, value}],
+ *         finalResult (the label), offenceResult, defenceResult, ok, cancel,
+ *         tile, object}; the modifiers in PreCombatDialog's order, values
+ *         formatted as ModifierFormat does; "true" for ok, else
+ *         cancel</td></tr>
  * <tr><td>showMonarchDialog, showNativeDemandDialog, showVictoryDialog
- *     (all defer), showPreCombatDialog (blocks)</td>
+ *     (all defer)</td>
  *     <td>question confirm</td>
  *     <td>as modalConfirmDialog, with the Swing dialog's header, text and
  *         buttons; a closed dialog cancels</td></tr>
@@ -865,8 +875,9 @@ public class WebGUI extends GUI {
     /**
      * {@inheritDoc}
      *
-     * PreCombatDialog's names and final results, without the list of
-     * modifiers behind them.
+     * PreCombatDialog's names, the offence and defence modifiers side by
+     * side in its order, and the final results. The unit and settlement
+     * images are not shown.
      */
     @Override
     public boolean showPreCombatDialog(Unit attacker,
@@ -878,21 +889,80 @@ public class WebGUI extends GUI {
             : (defender instanceof Unit)
             ? ((Unit)defender).getDescription(Unit.UnitLabelType.NATIONAL)
             : String.valueOf(defender);
-        final float offence = FeatureContainer.applyModifiers(0f, turn,
-            combat.getOffensiveModifiers(attacker, defender));
-        final float defence = FeatureContainer.applyModifiers(0f, turn,
-            combat.getDefensiveModifiers(attacker, defender));
-        final String text = attacker.getDescription(Unit.UnitLabelType.NATIONAL)
-            + " - " + defenderName + "\n" + Messages.message("finalResult")
-            + ": " + decimal(offence) + " - " + decimal(defence);
-        return confirmed(null, text, "ok", "cancel", false, tile, id(defender));
+        final Set<Modifier> offence
+            = combat.getOffensiveModifiers(attacker, defender);
+        final Set<Modifier> defence
+            = combat.getDefensiveModifiers(attacker, defender);
+        final String answer = this.questions.ask("preCombat", new Json()
+            .put("attacker", attacker.getDescription(Unit.UnitLabelType.NATIONAL))
+            .put("defender", defenderName)
+            .putRaw("offence", Json.array(modifiers(offence, turn)))
+            .putRaw("defence", Json.array(modifiers(defence, turn)))
+            .put("finalResult", label("finalResult"))
+            .put("offenceResult", decimal(
+                    FeatureContainer.applyModifiers(0f, turn, offence)))
+            .put("defenceResult", decimal(
+                    FeatureContainer.applyModifiers(0f, turn, defence)))
+            .put("ok", label("ok"))
+            .put("cancel", label("cancel"))
+            .put("tile", id(tile))
+            .put("object", id(defender))
+            .toString());
+        return "true".equals(answer);
     }
 
-    /** A number with at most one decimal, as FreeCol's modifiers show. */
+    /** The modifiers as PreCombatDialog lists them, in its order. */
+    private static List<String> modifiers(Set<Modifier> set, Turn turn) {
+        final List<Modifier> sorted = new ArrayList<>(set);
+        sorted.sort(Modifier.ascendingModifierIndexComparator);
+        final List<String> lines = new ArrayList<>();
+        for (Modifier m : sorted) {
+            lines.add(new Json()
+                .put("source", modifierSource(m.getSource()))
+                .put("value", modifierValue(m, turn))
+                .toString());
+        }
+        return lines;
+    }
+
+    /** What ModifierFormat calls the name of a modifier's source. */
+    private static String modifierSource(FreeColObject source) {
+        if (source == null) return Messages.message("modifierFormat.unknown");
+        String name = null;
+        if (source instanceof Nameable) {
+            name = ((Nameable)source).getName();
+            if (name != null && name.isEmpty()) name = null;
+        }
+        if (name == null && source instanceof Named) {
+            name = Messages.getName((Named)source);
+            if (name.isEmpty()) name = null;
+        }
+        return (name != null) ? name : Messages.getName(source.getId());
+    }
+
+    /**
+     * A modifier's value as ModifierFormat shows it: a sign (or a times
+     * sign for a multiplier), two decimals, and a percent sign for a
+     * percentage.
+     */
+    private static String modifierValue(Modifier m, Turn turn) {
+        final float value = m.getValue(turn);
+        if (!Modifier.isFloatKnown(value)) {
+            return Messages.message("modifierFormat.unknown");
+        }
+        final String sign = (m.getType() == Modifier.ModifierType.MULTIPLICATIVE)
+            ? "\u00D7" : (value < 0) ? "-" : "+";
+        return sign + decimal(Math.abs(value))
+            + ((m.getType() == Modifier.ModifierType.PERCENTAGE) ? "%" : "");
+    }
+
+    /** A number with two decimals, as FreeCol's modifiers show. */
     private static String decimal(float f) {
-        final long tenths = Math.round(f * 10.0);
-        return (tenths % 10 == 0) ? Long.toString(tenths / 10)
-            : Long.toString(tenths / 10) + "." + Math.abs(tenths % 10);
+        final boolean negative = f < 0;
+        final long hundredths = Math.round(Math.abs((double)f) * 100.0);
+        return ((negative && hundredths != 0) ? "-" : "")
+            + (hundredths / 100) + "." + (hundredths % 100 < 10 ? "0" : "")
+            + (hundredths % 100);
     }
 
     /**
