@@ -332,4 +332,75 @@ class WebGUITest {
         gui.showDumpCargoDialog(ship, got::add);
         assertEquals(List.of(List.<Goods>of()), got, "closed: Swing's empty list");
     }
+
+    /** Wait up to a few seconds for the fake Browser UI to have seen a "kind " entry. */
+    private String waitFor(List<String> seen, String kindPrefix) throws Exception {
+        for (int i = 0; i < 100; i++) {
+            synchronized (seen) {
+                for (String e : seen) if (e.startsWith(kindPrefix)) return e;
+            }
+            Thread.sleep(100);
+        }
+        throw new AssertionError("no " + kindPrefix + " in " + seen);
+    }
+
+    @Test
+    @Timeout(120)
+    void victoryAsksTheServerForTheScoresAndShowsThem() throws Exception {
+        final ClientEngine client = startGame();
+        final String me = client.getClient().getMyPlayer().getId();
+        answer = "false";
+        shown.clear();
+        client.receive("<gameEnded winner=\"" + me + "\" highScore=\"true\"/>");
+
+        final String scores = waitFor(shown, "highScores ");
+        assertTrue(scores.startsWith("highScores {\"text\":\""
+            + Messages.message("highscores.yes") + "\",\"scores\":["), scores);
+        assertTrue(scores.endsWith("],\"ok\":\"OK\"}"), scores);
+        final String victory = waitFor(asked, "confirm ");
+        assertTrue(victory.contains("\"text\":\"" + Messages.message("victory.text")), victory);
+    }
+
+    @Test
+    @Timeout(120)
+    void highScoresShowTheFieldsOfFreeColsPanel() throws Exception {
+        final ClientEngine client = startGame();
+        client.getClient().getMyPlayer().setNewLandName("New Albion");
+        final net.sf.freecol.common.model.HighScore h
+            = new net.sf.freecol.common.model.HighScore(client.getClient().getMyPlayer());
+        shown.clear();
+        client.getClient().getGUI().showHighScoresPanel(null, List.of(h));
+
+        final String e = shown.get(0);
+        final String name = client.getClient().getMyPlayer().getName();
+        assertTrue(e.startsWith("highScores {\"text\":null,\"scores\":[{\"score\":"
+            + h.getScore() + ",\"headline\":\"" + Messages.message(StringTemplate
+                .template("report.highScores.governor").addName("%name%", name)
+                .addName("%nation%", h.getNewLandName())) + "\","), e);
+        assertTrue(e.contains("{\"label\":\"" + Messages.message("report.highScores.colonies")
+            + "\",\"value\":\"" + h.getColonyCount() + "\"}"), e);
+        assertTrue(e.contains("{\"label\":\"" + Messages.message("report.highScores.independence")
+            + "\",\"value\":\"" + Messages.message("no") + "\"}"), e);
+        assertTrue(e.contains("{\"label\":\"" + Messages.message("report.highScores.units")
+            + "\",\"value\":\"" + h.getUnitCount() + "\"}"), e);
+
+        shown.clear();
+        client.getClient().getGUI().showHighScoresPanel("highscores.no", null);
+        assertEquals("highScores {\"text\":\"" + Messages.message("highscores.no")
+            + "\",\"scores\":[],\"ok\":\"OK\"}", shown.get(0));
+    }
+
+    @Test
+    @Timeout(120)
+    void defeatAsksFreeColsGameOverQuestion() throws Exception {
+        final ClientEngine client = startGame();
+        // ok is "revenge"; cancel ("quit") would log the client out, ending the game.
+        answer = "true";
+        client.getClient().getInGameController()
+            .setDeadHandler(client.getClient().getMyPlayer());
+        final String q = waitFor(asked, "confirm ");
+        assertTrue(q.startsWith("confirm {\"text\":\"You have been defeated!\\n"), q);
+        assertTrue(q.contains("\"ok\":\"" + Messages.message("defeatedSinglePlayer.yes")
+            + "\",\"cancel\":\"" + Messages.message("quit") + "\",\"defaultOk\":true"), q);
+    }
 }

@@ -2,6 +2,7 @@ package online.freecol.web;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import javax.swing.ImageIcon;
 
@@ -23,6 +24,7 @@ import net.sf.freecol.common.model.FreeColObject;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.Goods;
 import net.sf.freecol.common.model.GoodsType;
+import net.sf.freecol.common.model.HighScore;
 import net.sf.freecol.common.model.IndianNationType;
 import net.sf.freecol.common.model.Location;
 import net.sf.freecol.common.model.LostCityRumour;
@@ -73,6 +75,10 @@ import net.sf.freecol.common.model.Unit;
  *     <td>{text, ok}</td></tr>
  * <tr><td>showEventPanel</td><td>event eventPanel</td>
  *     <td>{header, image, footer, ok}</td></tr>
+ * <tr><td>showHighScoresPanel(String, List)</td><td>event highScores</td>
+ *     <td>{text, scores: [{score, headline, fields: [{label, value}]}], ok};
+ *         text is the message for the key, or null; the fields are the
+ *         ones ReportHighScoresPanel shows below its headline</td></tr>
  * <tr><td>showModelMessages</td><td>event messages</td>
  *     <td>{title: null, messages: [{text, type, source, tile, at}], ok};
  *         tile and at are the source's, to go to</td></tr>
@@ -402,6 +408,68 @@ public class WebGUI extends GUI {
             .put("footer", footer)
             .put("ok", label("ok")).toString());
         return null;
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * The entries as ReportHighScoresPanel lists them. The server may have
+     * no scores file to read (it sends null then): that shows as no entries.
+     */
+    @Override
+    public FreeColPanel showHighScoresPanel(String messageId,
+                                            List<HighScore> scores) {
+        List<String> entries = new ArrayList<>();
+        if (scores != null) {
+            for (HighScore h : scores) entries.add(highScore(h));
+        }
+        this.ui.show("highScores", new Json()
+            .put("text", label(messageId))
+            .putRaw("scores", Json.array(entries))
+            .put("ok", label("ok")).toString());
+        return null;
+    }
+
+    private static String highScore(HighScore h) {
+        final boolean independent = h.getIndependenceTurn() > 0;
+        final String headline = Messages.message(StringTemplate
+            .template(independent ? "report.highScores.president"
+                                  : "report.highScores.governor")
+            .addName("%name%", h.getPlayerName())
+            .addName("%nation%", Objects.toString(h.getNewLandName(), "")));
+        final String nation = Messages.message(independent
+            ? StringTemplate.name(h.getNationName())
+            : StringTemplate.key(h.getOldNationNameKey()));
+        final List<String> fields = new ArrayList<>();
+        fields.add(field("report.highScores.turn", turnOrNone(
+            h.getRetirementTurn(), "notApplicable")));
+        fields.add(field("report.highScores.score",
+            String.valueOf(h.getScore())));
+        fields.add(field("report.highScores.difficulty",
+            Messages.message(Messages.nameKey(h.getDifficulty()))));
+        fields.add(field("report.highScores.independence", turnOrNone(
+            h.getIndependenceTurn(), "no")));
+        fields.add(field("report.highScores.nation", nation));
+        fields.add(field("report.highScores.nationType",
+            Messages.message(Messages.nameKey(h.getNationTypeId()))));
+        fields.add(field("report.highScores.units",
+            String.valueOf(h.getUnitCount())));
+        fields.add(field("report.highScores.colonies",
+            String.valueOf(h.getColonyCount())));
+        fields.add(field("report.highScores.retired", h.getDateString()));
+        return new Json().put("score", h.getScore())
+            .put("headline", headline)
+            .putRaw("fields", Json.array(fields)).toString();
+    }
+
+    private static String turnOrNone(int turn, String noneKey) {
+        return (turn <= 0) ? Messages.message(noneKey)
+            : Messages.message(Turn.getTurnLabel(turn));
+    }
+
+    private static String field(String labelKey, String value) {
+        return new Json().put("label", Messages.message(labelKey))
+            .put("value", value).toString();
     }
 
     @Override
