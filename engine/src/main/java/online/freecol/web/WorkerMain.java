@@ -51,16 +51,21 @@ public final class WorkerMain {
 
     /**
      * Save the game, then hand the savegame's bytes to fcSaved and
-     * report "saved" with the time it took. Prototype for #67.
+     * report "saved" with what the save list shows (ServerEngine.saveInfo)
+     * and the time it took.
+     *
+     * @param activeUnitId The client's active unit, or empty for none.
      */
     @JSExport
-    public static void saveGame() {
+    public static void saveGame(String activeUnitId) {
         new Thread(() -> {
                 long t = System.currentTimeMillis();
                 try {
-                    byte[] bytes = engine.saveGame();
+                    String info = engine.saveInfo();
+                    byte[] bytes = engine.saveGame(activeUnitId);
                     saved(Int8Array.copyFromJavaArray(bytes));
-                    event("saved", String.valueOf(System.currentTimeMillis() - t));
+                    event("saved", info.substring(0, info.length() - 1)
+                        + ",\"ms\":" + (System.currentTimeMillis() - t) + "}");
                 } catch (Throwable ex) {
                     ex.printStackTrace();
                     event("failed", String.valueOf(ex));
@@ -71,7 +76,6 @@ public final class WorkerMain {
     /**
      * Load a game from a savegame's bytes in place of the current one,
      * then report "loaded" with the time it took and what was loaded.
-     * Prototype for #67.
      */
     @JSExport
     public static void loadGame(Int8Array savegame) {
