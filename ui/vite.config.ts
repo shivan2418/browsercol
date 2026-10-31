@@ -13,7 +13,9 @@ export default defineConfig({
     format: 'es',
   },
   lint: {
-    options: { typeAware: true, typeCheck: true },
+    // A lint warning fails the check, so a new one cannot slip by unnoticed
+    // (oxlint's own option, the same as `vp check --deny-warnings`).
+    options: { typeAware: true, typeCheck: true, denyWarnings: true },
   },
   fmt: {
     ignorePatterns: ['generated/**'],
