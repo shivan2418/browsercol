@@ -88,12 +88,58 @@ export interface GuiQuestions {
     /** The indexes of the lots chosen, null for a closed dialog. */
     answer: number[] | null;
   };
+  /**
+   * A trade, as FreeCol's negotiation dialog: the agreement's items, and what can be added to it. Answers
+   * with the status and, to propose, the items the agreement should have.
+   */
+  negotiation: {
+    ask: {
+      title: string;
+      text: string | null;
+      /** The headings of what the other player gives and what we give, and the one between them. */
+      demand: string;
+      offer: string;
+      exchange: string;
+      version: number;
+      add: string;
+      send: string;
+      /** Null: this offer cannot be accepted, or cancelled. */
+      accept: string | null;
+      cancel: string | null;
+      items: TradeItem[];
+      options: TradeOption[];
+    };
+    answer: { status: 'accept' | 'propose' | 'reject'; items: TradeItem[] } | null;
+  };
   /** Text fields, each with its label and a suggestion (the new nation's names). */
   names: {
     ask: { text: string; fields: { label: string; value: string }[]; ok: string | null; cancel: string | null };
     /** The fields' values, in order; null when cancelled or closed. */
     answer: string[] | null;
   };
+}
+
+export type TradeKind = 'gold' | 'stance' | 'colony' | 'goods' | 'incite' | 'unit';
+
+/** One thing traded. We give an "offer"; the other player gives a "demand"; a stance has no side. */
+export interface TradeItem {
+  kind: TradeKind;
+  side: 'offer' | 'demand' | null;
+  /** What names the thing: a stance, an id, a goods type; empty for gold. */
+  key: string;
+  amount: number;
+  text: string;
+}
+
+/** What can be added: gold up to max, else one of the choices. A unique kind has one item at most. */
+export interface TradeOption {
+  kind: TradeKind;
+  side: 'offer' | 'demand' | null;
+  label: string;
+  note: string | null;
+  unique: boolean;
+  max?: number;
+  choices: { key: string; amount: number; text: string }[];
 }
 
 export interface Lot {
@@ -125,6 +171,14 @@ const encode: { [K in keyof GuiQuestions]: (answer: GuiQuestions[K]['answer']) =
   choice: (a) => (a === null ? null : String(a)),
   input: (a) => a,
   goods: (a) => (a === null ? null : JSON.stringify(a)),
+  // A status line, then a line for each item, its fields separated by tabs (no field has one).
+  negotiation: (a) =>
+    a === null
+      ? null
+      : [
+          a.status,
+          ...(a.status === 'propose' ? a.items.map((i) => [i.kind, i.side ?? '', i.key, i.amount].join('\t')) : []),
+        ].join('\n'),
   // Java splits the answer at the line break, which a text field never holds.
   names: (a) => (a === null ? null : a.join('\n')),
 };

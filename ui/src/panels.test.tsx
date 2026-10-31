@@ -228,6 +228,124 @@ describe('the goods dialog', () => {
   });
 });
 
+describe('the negotiation dialog', () => {
+  const stance = { key: 'PEACE', amount: 0, text: 'Peace' };
+  const q = (more: Partial<GuiQuestions['negotiation']['ask']> = {}): GuiQuestions['negotiation']['ask'] => ({
+    title: 'Diplomatic Negotiation',
+    text: 'Let us consider our diplomatic situation.',
+    demand: 'Spain requires of France',
+    offer: 'Spain offers France',
+    exchange: 'in return for',
+    version: 0,
+    add: 'Add',
+    send: 'Send',
+    accept: null,
+    cancel: 'Cancel',
+    items: [],
+    options: [
+      { kind: 'gold', side: 'demand', label: 'Gold', note: '(90 gold available)', unique: true, max: 90, choices: [] },
+      { kind: 'gold', side: 'offer', label: 'Gold', note: null, unique: true, max: 50, choices: [] },
+      {
+        kind: 'colony',
+        side: 'offer',
+        label: 'Colony',
+        note: null,
+        unique: false,
+        choices: [
+          { key: 'colony:1', amount: 0, text: 'Jamestown' },
+          { key: 'colony:2', amount: 0, text: 'Plymouth' },
+        ],
+      },
+      { kind: 'stance', side: null, label: 'Stance', note: null, unique: true, choices: [stance] },
+    ],
+    ...more,
+  });
+  const within = (side: string, kind: string) =>
+    document.querySelector(`.trade-option[data-side="${side}"][data-kind="${kind}"]`) as HTMLElement;
+
+  it('proposes what the player added, an item replacing one of a unique kind', async () => {
+    const { box } = host();
+    const answer = ask(box, 'negotiation', q());
+    screen.getByRole('heading', { name: 'Diplomatic Negotiation' });
+    expect(screen.queryByRole('button', { name: 'Accept' })).toBeNull();
+
+    const gold = within('offer', 'gold');
+    fireEvent.change(gold.querySelector('input')!, { target: { value: '20' } });
+    fireEvent.click(gold.querySelector('button')!);
+    fireEvent.change(gold.querySelector('input')!, { target: { value: '30' } });
+    fireEvent.click(gold.querySelector('button')!);
+    fireEvent.click(within('', 'stance').querySelector('button')!);
+    const colony = within('offer', 'colony');
+    fireEvent.change(colony.querySelector('select')!, { target: { value: 'colony:2' } });
+    fireEvent.click(colony.querySelector('button')!);
+    // Plymouth is on the table: Jamestown is what is left to add.
+    expect(colony.querySelector('select')!.value).toBe('colony:1');
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    expect(await answer).toEqual({
+      status: 'propose',
+      items: [
+        { kind: 'gold', side: 'offer', key: '', amount: 30, text: 'Gold 30' },
+        { kind: 'stance', side: null, key: 'PEACE', amount: 0, text: 'Peace' },
+        { kind: 'colony', side: 'offer', key: 'colony:2', amount: 0, text: 'Plymouth' },
+      ],
+    });
+  });
+
+  it('removes an item that is clicked, and offers only the gold there is', async () => {
+    const { box } = host();
+    const answer = ask(
+      box,
+      'negotiation',
+      q({ items: [{ kind: 'gold', side: 'demand', key: '', amount: 10, text: 'Gold 10' }] }),
+    );
+    const gold = within('demand', 'gold');
+    fireEvent.change(gold.querySelector('input')!, { target: { value: '91' } });
+    expect((gold.querySelector('button') as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Gold 10' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    expect(await answer).toEqual({ status: 'propose', items: [] });
+  });
+
+  it('accepts an offer that has not been changed, and rejects on Cancel or Escape', async () => {
+    const { box } = host();
+    const offer = q({
+      version: 1,
+      accept: 'Accept',
+      items: [{ kind: 'stance', side: null, key: 'PEACE', amount: 0, text: 'Peace' }],
+    });
+    const accepted = ask(box, 'negotiation', offer);
+    fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
+    expect((await accepted)?.status).toBe('accept');
+
+    const entered = ask(box, 'negotiation', offer);
+    key('Enter');
+    expect((await entered)?.status).toBe('accept');
+
+    // An edited offer cannot be accepted: Enter sends it.
+    const edited = ask(box, 'negotiation', offer);
+    fireEvent.click(screen.getByRole('button', { name: 'Peace' }));
+    expect((screen.getByRole('button', { name: 'Accept' }) as HTMLButtonElement).disabled).toBe(true);
+    key('Enter');
+    expect(await edited).toEqual({ status: 'propose', items: [] });
+
+    const cancelled = ask(box, 'negotiation', offer);
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect((await cancelled)?.status).toBe('reject');
+    const escaped = ask(box, 'negotiation', offer);
+    key('Escape');
+    expect((await escaped)?.status).toBe('reject');
+  });
+
+  it('cannot be cancelled when it has no cancel button', () => {
+    const { box } = host();
+    void ask(box, 'negotiation', q({ cancel: null }));
+    key('Escape');
+    expect(screen.queryByRole('dialog')).not.toBeNull();
+    expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull();
+  });
+});
+
 describe('the panels', () => {
   it('list the model messages, each going to its tile, and close on Enter', () => {
     const { box, went } = host();
