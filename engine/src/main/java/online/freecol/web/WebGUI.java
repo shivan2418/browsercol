@@ -58,9 +58,10 @@ import net.sf.freecol.common.model.Unit;
  *     <td>an icon carrying the object, for a question's object id</td></tr>
  * <tr><td>refresh</td><td>event refresh</td><td>{}</td></tr>
  * <tr><td>changeView(Unit, boolean)</td><td>event activeUnit</td>
- *     <td>{unit, tile, at: [x, y], force}</td></tr>
+ *     <td>{unit, tile, at: [x, y], force, orders}; the orders are the
+ *         ones the active unit can take now</td></tr>
  * <tr><td>changeView()</td><td>event activeUnit</td>
- *     <td>{unit: null, tile: null, at: null, force: false}</td></tr>
+ *     <td>{unit: null, tile: null, at: null, force: false, orders: []}</td></tr>
  * <tr><td>changeView(Tile)</td><td>event selectedTile</td>
  *     <td>{tile, at}; the active unit is kept</td></tr>
  * <tr><td>setFocus</td><td>event focus</td><td>{tile, at}</td></tr>
@@ -285,7 +286,18 @@ public class WebGUI extends GUI {
         this.activeUnit = unit;
         this.ui.show("activeUnit", tile(new Json().put("unit", id(unit)),
                 (unit == null) ? null : unit.getTile())
-            .put("force", force).toString());
+            .put("force", force)
+            .putRaw("orders", Json.array(orders(unit)))
+            .toString());
+    }
+
+    /** The orders the unit can take now, as UnitOrders works them out. */
+    private List<String> orders(Unit unit) {
+        final List<String> names = UnitOrders.valid(
+            getFreeColClient().getMyPlayer(), unit);
+        final List<String> json = new ArrayList<>();
+        for (String name : names) json.add(Json.quote(name));
+        return json;
     }
 
     /**

@@ -102,6 +102,47 @@ public final class Commands {
         return igc().waitUnit();
     }
 
+    /** Fortify the active unit (FortifyAction). */
+    public boolean fortify() {
+        return changeState(Unit.UnitState.FORTIFYING);
+    }
+
+    /** Sentry the active unit (SentryAction). */
+    public boolean sentry() {
+        return changeState(Unit.UnitState.SENTRY);
+    }
+
+    /**
+     * Leave the active unit for this turn (SkipUnitAction): the unit is
+     * done for now, and the next one is selected.
+     */
+    public boolean skip() {
+        final Unit unit = gui().getActiveUnit();
+        if (unit == null) return false;
+        if (unit.getState() != Unit.UnitState.SKIPPED) {
+            igc().changeState(unit, Unit.UnitState.SKIPPED);
+        }
+        if (unit.getState() == Unit.UnitState.SKIPPED) {
+            return igc().nextActiveUnit();
+        }
+        return false;
+    }
+
+    /**
+     * Disband the active unit (DisbandUnitAction), which asks the player
+     * to confirm it first.
+     */
+    public boolean disband() {
+        return igc().disbandUnit(gui().getActiveUnit());
+    }
+
+    /** Change the active unit's state, as FortifyAction and SentryAction do. */
+    private boolean changeState(Unit.UnitState state) {
+        final Unit unit = gui().getActiveUnit();
+        if (unit == null) return false;
+        return igc().changeState(unit, state);
+    }
+
     /** Found a colony with the active unit (BuildColonyAction). */
     public boolean buildColony() {
         return igc().buildColony(gui().getActiveUnit());

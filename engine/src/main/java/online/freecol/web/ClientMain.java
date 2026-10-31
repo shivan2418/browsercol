@@ -134,6 +134,30 @@ public final class ClientMain {
         command("nextUnit", () -> engine.getCommands().nextUnit());
     }
 
+    /** Fortify the active unit (FortifyAction). */
+    @JSExport
+    public static void fortify() {
+        command("fortify", () -> engine.getCommands().fortify());
+    }
+
+    /** Sentry the active unit (SentryAction). */
+    @JSExport
+    public static void sentry() {
+        command("sentry", () -> engine.getCommands().sentry());
+    }
+
+    /** Leave the active unit for this turn (SkipUnitAction). */
+    @JSExport
+    public static void skip() {
+        command("skip", () -> engine.getCommands().skip());
+    }
+
+    /** Disband the active unit (DisbandUnitAction). */
+    @JSExport
+    public static void disband() {
+        command("disband", () -> engine.getCommands().disband());
+    }
+
     @JSExport
     public static void buildColony() {
         command("buildColony", () -> engine.getCommands().buildColony());
