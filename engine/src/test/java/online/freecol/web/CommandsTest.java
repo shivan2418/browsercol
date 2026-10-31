@@ -171,14 +171,32 @@ class CommandsTest {
         ourTurn.await();
     }
 
-    /** End our turn and wait until the AI hands play back. */
+    /**
+     * End our turn and wait until the AI hands play back.
+     *
+     * The client may decline to end the turn: a unit that arrives at the
+     * end of its goto with moves left is selected for the player instead
+     * (Swing's player presses End Turn again). So press it again while
+     * the turn stands still, and fail rather than wait for ever.
+     */
     private void endTurnAndWait(Commands commands) throws InterruptedException {
         final FreeColClient fcc = client.getClient();
         final int turn = client.getGame().getTurn().getNumber();
         assertTrue(commands.endTurn(), "end turn");
+        final long start = System.currentTimeMillis();
+        long pressed = start;
         while (!(fcc.currentPlayerIsMyPlayer()
                  && client.getGame().getTurn().getNumber() > turn)) {
             Thread.sleep(20);
+            final long now = System.currentTimeMillis();
+            assertTrue(now - start < 60_000, () -> "the turn ended within 60 s; asked "
+                + asked + ", units " + fcc.getMyPlayer().getUnits()
+                    .map(u -> u + " " + u.getState() + " moves " + u.getMovesLeft()
+                        + " to " + u.getDestination()).toList());
+            if (now - pressed > 2_000) {
+                commands.endTurn(); // a no-op while the AI plays
+                pressed = now;
+            }
         }
     }
 
