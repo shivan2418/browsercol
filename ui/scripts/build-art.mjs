@@ -3,7 +3,8 @@
 // (data/base, then the "default" TC, then any mods given) and the art files.
 // Only the keys the map draws are kept: images, with every variation of
 // each, the texts of native settlement chips, and the road, population and
-// mission chip colours.
+// mission chip colours; and the keys the panels show (map-keys.ts): the
+// images of what a message is about, and of the event panel.
 // Prints the art budget: file count, bytes, brotli bytes and atlas area.
 // Usage: node build-art.mjs <freecol/data> <out dir> [--manifest <file>] [mod dir...]
 // The manifest is art.json unless --manifest names another file; the option
@@ -13,7 +14,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
-import { isMapKey } from '../src/map-keys.ts';
+import { isArtKey } from '../src/map-keys.ts';
 import { parseProperties, resources } from '../src/resources.ts';
 
 const args = process.argv.slice(2);
@@ -49,7 +50,7 @@ const layers = [
   ...modDirs.map((mod) => ({ dir: `mods/${path.basename(mod)}`, root: mod })),
 ].map(({ dir, root }) => {
   const props = parseProperties(fs.readFileSync(path.join(root, 'resources.properties'), 'utf8'))
-    .filter(([key]) => isMapKey(key))
+    .filter(([key]) => isArtKey(key))
     .map(([key, value]) => `${key}=${value}`)
     .join('\n');
   return { dir, root, props };
