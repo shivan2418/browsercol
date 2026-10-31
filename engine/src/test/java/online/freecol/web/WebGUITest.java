@@ -125,6 +125,17 @@ class WebGUITest {
 
     @Test
     @Timeout(120)
+    void theMenuBarUpdateSendsARefresh() throws Exception {
+        final GUI gui = startGame().getClient().getGUI();
+
+        shown.clear();
+        gui.updateMenuBar();
+        assertEquals(List.of("refresh {}"),
+            shown.stream().filter(e -> !e.startsWith("messages ")).collect(Collectors.toList()));
+    }
+
+    @Test
+    @Timeout(120)
     void theViewFollowsTheActiveUnitAndTheFocus() throws Exception {
         final ClientEngine client = startGame();
         final GUI gui = client.getClient().getGUI();

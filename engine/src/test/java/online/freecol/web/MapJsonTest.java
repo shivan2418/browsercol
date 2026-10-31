@@ -1,6 +1,7 @@
 package online.freecol.web;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
@@ -25,6 +26,7 @@ import net.sf.freecol.common.model.Map;
 import net.sf.freecol.common.model.PathNode;
 import net.sf.freecol.common.model.Player;
 import net.sf.freecol.common.model.Resource;
+import net.sf.freecol.common.model.StringTemplate;
 import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.TileImprovementStyle;
 import net.sf.freecol.common.model.Unit;
@@ -147,6 +149,38 @@ class MapJsonTest {
             + Json.quote(ship.getDescription(Unit.UnitLabelType.FULL))
             + ",\"moves\":\"" + ship.getMovesAsString() + "\",\"cargo\":" + Json.array(cargo)
             + ",\"path\":null}", field(json, "activeUnit"));
+    }
+
+    @Test
+    @Timeout(120)
+    void theMapCarriesFreeColsStatusLine() throws Exception {
+        startGame();
+        final Game game = client.getGame();
+        final Player us = client.getClient().getMyPlayer();
+
+        // The line InGameMenuBar paints: the score, gold, tax and year.
+        final String expected = Messages.message(StringTemplate
+            .template("menuBar.statusLine")
+            .addAmount("%gold%", us.getGold())
+            .addAmount("%tax%", us.getTax())
+            .addAmount("%score%", us.getScore())
+            .addStringTemplate("%year%", game.getTurn().getLabel()))
+            .replace("|", "\u2727");
+        final String statusLine = field(MapJson.of(game, us, null), "statusLine");
+        assertEquals(Json.quote(expected), statusLine);
+        assertTrue(statusLine.contains("Gold: " + us.getGold()),
+            "the gold is in the line: " + statusLine);
+        assertTrue(statusLine.contains("Year: "), "the year is in the line: "
+            + statusLine);
+        assertTrue(statusLine.contains("\u2727"), "the bars are stars: "
+            + statusLine);
+
+        // The gold changes in the middle of a turn: the line follows.
+        us.modifyGold(1234);
+        final String after = field(MapJson.of(game, us, null), "statusLine");
+        assertTrue(after.contains("Gold: " + us.getGold()),
+            "the new gold is in the line: " + after);
+        assertNotEquals(statusLine, after, "the line changed: " + after);
     }
 
     @Test
