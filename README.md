@@ -37,8 +37,11 @@ free.
 
 FreeCol is pinned to the commit in `freecol.sha`. `./freecol.sh` clones
 `freecol/` or checks it out at that commit, and the Gradle build fails when
-`freecol/` is on any other commit or on a branch. To move to a newer FreeCol,
-change `freecol.sha`, run `./freecol.sh` and fix `engine/patches/`.
+`freecol/` is on any other commit or on a branch. To try a newer FreeCol, run
+`./freecol.sh <commit, branch or tag>`: it rewrites `freecol.sha`, checks the
+commit out and lists the files in `engine/patches/` whose upstream changed,
+which need those changes merged in. Then run the whole suite, e.g. by
+committing on a branch and running `./ci.sh`.
 
 `build.sh` builds both Engine modules in one Gradle run (`gradle modules`),
 bundles FreeCol's rules and strings into a data file, copies the map art
