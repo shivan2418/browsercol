@@ -1,17 +1,18 @@
 // Plays the human's first turns in the built site, through the page's own
-// input: arrow and numpad keys, map clicks, B and Enter. The ship sails by
-// the shortest explored sea route to free land that can feed a colony, or
-// toward the westmost explored sea while none is in sight, moves onto the
-// land to put its units ashore, a unit founds a colony and the turn ends;
-// the colony must still be there when the AI hands play back. The page's
-// dialogs are answered as scripts/dialogs.mjs says, and every question the
-// controllers ask must reach one: a dialog with no Browser UI yet fails the
-// run. Along the way the map's view must follow the active unit, its
-// cursor and the info panel must match the client's active unit, the map
-// canvas must follow a window resize and fill what the side panel leaves
-// of the window, and the wheel, a drag and the pointer at an edge must zoom
-// and scroll it at its new size. Exits non-zero unless every browser gets
-// there. Run in the web image:
+// input: arrow and numpad keys, map clicks, B, F and Enter. The ship sails
+// by the shortest explored sea route to free land that can feed a colony,
+// or toward the westmost explored sea while none is in sight, moves onto
+// the land to put its units ashore, a unit founds a colony, the ship
+// fortifies and the turn ends; the colony must still be there when the AI
+// hands play back. The page's dialogs are answered as scripts/dialogs.mjs
+// says, and every question the controllers ask must reach one: a dialog
+// with no Browser UI yet fails the run. Along the way the map's view must
+// follow the active unit, its cursor and the info panel must match the
+// client's active unit, the side panel's buttons must follow the Engine's
+// orders, the map canvas must follow a window resize and fill what the
+// side panel leaves of the window, and the wheel, a drag and the pointer at
+// an edge must zoom and scroll it at its new size. Exits non-zero unless
+// every browser gets there. Run in the web image:
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/play.mjs [--browsers chromium,firefox] [--query renderer=canvas2d]
 import path from 'node:path';
 import { createRequire } from 'node:module';
@@ -80,6 +81,8 @@ const WATER = /ocean|highSeas|lake/i;
 // rules), where a lone founder starves on the next turn, or that cannot be
 // settled at all.
 const BARREN = /arctic|desert|scrubForest|mountains/;
+// FreeCol's grey for a fortified unit (MapJson draws it in that colour).
+const FORTIFIED = 0x808080;
 
 const neighbour = ([x, y], d) => {
   const [dx, dy] = DIRECTIONS[d][y % 2 ? 0 : 1];
@@ -316,6 +319,10 @@ async function play(page, url) {
     }
   }
 
+  // The ship is the active unit while it sails: remember where it is, to
+  // select it and fortify it later.
+  const shipTile = m.active;
+
   // The landed units have no moves left: next turn, select one and build.
   m = await endTurn();
   m = await act(() => click(m, land));
@@ -325,6 +332,21 @@ async function play(page, url) {
   if (!at(m.settlements, land)) throw new Error(`no colony at ${label(land)}`);
   m = await endTurn();
   if (!at(m.settlements, land)) throw new Error(`the colony at ${label(land)} is gone after the AI turn`);
+
+  // The ship is still at sea: select it and fortify it, as a player would.
+  // The side panel's Fortify button follows the Engine's orders, and the
+  // ship is drawn in grey once its turn has ended.
+  m = await act(() => click(m, shipTile));
+  if (!same(m.active, shipTile)) throw new Error(`clicking ${label(shipTile)} selected ${label(m.active)}`);
+  await following(m, 'after selecting the ship');
+  const fortify = page.locator('button[data-command=fortify]');
+  if (await fortify.isDisabled()) throw new Error('the ship cannot be fortified');
+  m = await act(() => page.keyboard.press('f'));
+  m = await endTurn();
+  const ship = m.units.find((u) => u.x === shipTile[0] && u.y === shipTile[1]);
+  if (!ship || ship.fg !== FORTIFIED) {
+    throw new Error(`the ship at ${label(shipTile)} is not fortified: ${JSON.stringify(ship)}`);
+  }
   return { land, turn: m.turn };
 }
 
