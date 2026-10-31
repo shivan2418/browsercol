@@ -31,6 +31,8 @@ import type { GuiHandlers } from './webgui';
 declare global {
   interface Window {
     fcResult?: Record<string, unknown>;
+    /** For scripts/rounds.mjs: the AI rounds so far, each as "round,milliseconds". */
+    fcRounds?: string[];
     /** For scripts/play.mjs: pan a tile into view if needed; its centre on the map canvas. */
     fcReveal?: (x: number, y: number) => [number, number];
     /** For scripts/play.mjs: the view state, without its map, the cursor, and its tile's centre in the viewport. */
@@ -59,6 +61,7 @@ const map = mapDrawer(
   params.get('renderer') === 'canvas2d',
 );
 const rounds: string[] = [];
+window.fcRounds = rounds;
 let drawn = Promise.resolve();
 
 const dialogQueue = dialogs();
