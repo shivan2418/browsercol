@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import net.sf.freecol.common.model.Player;
+import net.sf.freecol.common.model.Tile;
+import net.sf.freecol.common.model.TileImprovementType;
 import net.sf.freecol.common.model.Unit;
 
 
@@ -25,6 +27,9 @@ import net.sf.freecol.common.model.Unit;
  * <tr><td>sentry</td><td>SentryAction</td><td>always</td></tr>
  * <tr><td>skip</td><td>SkipUnitAction</td><td>always</td></tr>
  * <tr><td>disband</td><td>DisbandUnitAction</td><td>always</td></tr>
+ * <tr><td>the tile improvements</td><td>ImprovementAction</td>
+ *     <td>the unit may work its tile, and the improvement is allowed
+ *         there</td></tr>
  * </table>
  */
 public final class UnitOrders {
@@ -61,6 +66,19 @@ public final class UnitOrders {
         orders.add(SENTRY);
         orders.add(SKIP);
         orders.add(DISBAND);
+        // ImprovementAction: one for each improvement the rules have, named
+        // as the action is, e.g. "road" for the road.
+        final Tile tile = unit.getTile();
+        if (tile != null && unit.checkSetState(Unit.UnitState.IMPROVING)) {
+            for (TileImprovementType type
+                 : unit.getSpecification().getTileImprovementTypeList()) {
+                if (type.isNatural()) continue;
+                if (tile.isImprovementTypeAllowed(type)
+                    && type.isWorkerAllowed(unit)) {
+                    orders.add(type.getSuffix());
+                }
+            }
+        }
         return orders;
     }
 }
