@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -21,11 +22,14 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
+import net.sf.freecol.client.ClientOptions;
 import net.sf.freecol.client.FreeColClient;
+import net.sf.freecol.client.control.InGameController;
 import net.sf.freecol.client.gui.ChoiceItem;
 import net.sf.freecol.client.gui.GUI;
 import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.model.Ability;
+import net.sf.freecol.common.model.BuildingType;
 import net.sf.freecol.common.model.Colony;
 import net.sf.freecol.common.model.DiplomaticTrade;
 import net.sf.freecol.common.model.DiplomaticTrade.TradeContext;
@@ -33,12 +37,15 @@ import net.sf.freecol.common.model.DiplomaticTrade.TradeStatus;
 import net.sf.freecol.common.model.FoundingFather;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.Goods;
+import net.sf.freecol.common.model.GoodsType;
 import net.sf.freecol.common.model.ModelMessage;
 import net.sf.freecol.common.model.Monarch.MonarchAction;
 import net.sf.freecol.common.model.Player;
+import net.sf.freecol.common.model.Specification;
 import net.sf.freecol.common.model.Stance;
 import net.sf.freecol.common.model.StringTemplate;
 import net.sf.freecol.common.model.Tile;
+import net.sf.freecol.common.model.TileType;
 import net.sf.freecol.common.model.Unit;
 import net.sf.freecol.common.networking.ChangeSet;
 import net.sf.freecol.common.networking.ChangeSet.See;
@@ -156,7 +163,7 @@ class WebGUITest {
 
         assertEquals(List.of("refresh {}",
                 "information {\"text\":\"" + Messages.message("info.enterSomeText")
-                + "\",\"object\":null,\"tile\":null,\"at\":null,\"ok\":\"OK\"}"),
+                + "\",\"object\":null,\"tile\":null,\"at\":null,\"images\":[],\"ok\":\"OK\"}"),
             shown.stream().filter(e -> !e.startsWith("messages ")).collect(Collectors.toList()));
     }
 
@@ -228,39 +235,117 @@ class WebGUITest {
         assertNull(gui.modalInputDialog(null, explain, "Jamestown", "ok", "cancel"), "closed");
     }
 
+    /**
+     * The messages events shown so far that these tests caused, parsed.
+     * Turn messages may arrive meanwhile, so only events of the tests'
+     * own message text count.
+     */
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> messageEvents() {
+        final List<Map<String, Object>> events = new ArrayList<>();
+        for (String e : new ArrayList<>(shown)) {
+            if (e.startsWith("messages ")) {
+                final Map<String, Object> event
+                    = (Map<String, Object>)JsonReader.read(e.substring("messages ".length()));
+                if (messagesOf(event).stream().allMatch(m -> Messages.message("info.enterSomeText")
+                        .equals(m.get("text")))) {
+                    events.add(event);
+                }
+            }
+        }
+        return events;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<Map<String, Object>> messagesOf(Map<String, Object> event) {
+        return (List<Map<String, Object>>)event.get("messages");
+    }
+
+    /** The last turn report shown. */
+    private Map<String, Object> lastReport() {
+        Map<String, Object> last = null;
+        for (Map<String, Object> e : messageEvents()) {
+            if (e.get("title") != null) last = e;
+        }
+        return last;
+    }
+
+    /** What a report holds, as "TYPE source", then " heading" or " heading:text" if one starts there. */
+    private static List<String> describe(Map<String, Object> report, boolean headingText) {
+        return messagesOf(report).stream().map(m -> {
+                final Object h = m.get("heading");
+                return m.get("type") + " " + m.get("source")
+                    + ((h == null) ? "" : headingText
+                        ? " heading:" + ((Map<?, ?>)h).get("text") : " heading");
+            }).collect(Collectors.toList());
+    }
+
     @Test
     @Timeout(120)
-    void modelMessagesNameTheTileOfTheirSource() throws Exception {
+    void modelMessagesNameTheTileAndImageOfTheirSource() throws Exception {
         final ClientEngine client = startGame();
         final GUI gui = client.getClient().getGUI();
         final Unit unit = gui.getActiveUnit();
         final Tile at = unit.getTile();
         final List<ModelMessage> messages = List.of(new ModelMessage(
                 ModelMessage.MessageType.DEFAULT, "info.enterSomeText", unit));
-        final String message = "{\"text\":\"" + Messages.message("info.enterSomeText")
-            + "\",\"type\":\"DEFAULT\",\"source\":\"" + unit.getId()
-            + "\",\"tile\":\"" + at.getId() + "\",\"at\":[" + at.getX() + ","
-            + at.getY() + "],\"heading\":null}";
 
         shown.clear();
         gui.showModelMessages(messages);
-        gui.showReportTurnPanel(messages);
-        final String grouped = message.replace("\"heading\":null", "\"heading\":{\"text\":\""
-            + unit.getDescription(Unit.UnitLabelType.NATIONAL) + "\",\"tile\":\"" + at.getId()
-            + "\",\"at\":[" + at.getX() + "," + at.getY() + "]}");
-        assertEquals(List.of(
-                "messages {\"title\":null,\"messages\":[" + message + "],\"ok\":\"OK\"}",
-                "messages {\"title\":\"" + Messages.message("reportTurnAction.name")
-                + "\",\"messages\":[" + grouped + "],\"ok\":\"OK\"}"),
-            shown.stream().filter(e -> e.contains("\"source\":\"" + unit.getId() + "\""))
-                .collect(Collectors.toList()));
+        final Map<String, Object> event = messageEvents().get(0);
+        assertNull(event.get("title"));
+        assertNull(event.get("groupBy"), "only the turn report has the option");
+        final Map<String, Object> m = messagesOf(event).get(0);
+        assertEquals(Messages.message("info.enterSomeText"), m.get("text"));
+        assertEquals("DEFAULT", m.get("type"));
+        assertEquals(unit.getId(), m.get("source"));
+        assertEquals(at.getId(), m.get("tile"));
+        assertEquals(List.of((long)at.getX(), (long)at.getY()), m.get("at"));
+        assertNull(m.get("heading"));
+        assertEquals(ObjectImages.keys(unit), m.get("images"));
+        assertTrue(((String)((List<?>)m.get("images")).get(0))
+            .startsWith("image.unit." + unit.getType().getId()), m.toString());
+        assertNull(m.get("filterTip"), "a model message has no buttons");
+        assertNull(m.get("ignoreTip"));
     }
 
     @Test
     @Timeout(120)
-    void theTurnReportGroupsMessagesBySourceAndType() throws Exception {
+    void aMessagesImageIsThatOfItsDisplayObject() throws Exception {
         final ClientEngine client = startGame();
         final GUI gui = client.getClient().getGUI();
+        final Unit unit = gui.getActiveUnit();
+        final Player me = client.getClient().getMyPlayer();
+        final Specification spec = client.getGame().getSpecification();
+        final GoodsType goods = spec.getGoodsTypeList().get(0);
+        final BuildingType building = spec.getBuildingTypeList().get(0);
+        final TileType type = spec.getTileTypeList().get(0);
+        final List<ModelMessage> messages = List.of(
+            new ModelMessage(ModelMessage.MessageType.DEFAULT, "info.enterSomeText", unit, goods),
+            new ModelMessage(ModelMessage.MessageType.DEFAULT, "info.enterSomeText", unit, building),
+            new ModelMessage(ModelMessage.MessageType.DEFAULT, "info.enterSomeText", unit, type),
+            new ModelMessage(ModelMessage.MessageType.DEFAULT, "info.enterSomeText", unit, me),
+            new ModelMessage(ModelMessage.MessageType.DEFAULT, "info.enterSomeText", unit, me.getEurope()));
+
+        shown.clear();
+        gui.showModelMessages(messages);
+        assertEquals(List.of(
+                List.of("image.icon." + goods.getId()),
+                List.of("image.buildingicon." + building.getId()),
+                List.of("image.tile." + type.getId() + ".center"),
+                List.of("image.miscicon." + me.getNation().getId()),
+                List.of()),
+            messagesOf(messageEvents().get(0)).stream().map(m -> m.get("images"))
+                .collect(Collectors.toList()),
+            "Europe has no image, as in Swing");
+    }
+
+    @Test
+    @Timeout(120)
+    void theTurnReportIsGroupedAsTheClientOptionSays() throws Exception {
+        final ClientEngine client = startGame();
+        final GUI gui = client.getClient().getGUI();
+        final ClientOptions options = client.getClient().getClientOptions();
         final List<Unit> units = client.getClient().getMyPlayer().getUnits()
             .filter(u -> !u.isNaval()).collect(Collectors.toList());
         final Unit first = units.get(0);
@@ -271,21 +356,99 @@ class WebGUITest {
             new ModelMessage(ModelMessage.MessageType.DEFAULT, "info.enterSomeText", second),
             new ModelMessage(ModelMessage.MessageType.DEFAULT, "info.enterSomeText", first));
 
+        // Swing's default is not to group at all.
         shown.clear();
         gui.showReportTurnPanel(messages);
-        final String report = shown.stream()
-            .filter(e -> e.startsWith("messages {\"title\":\"" + Messages.message("reportTurnAction.name")))
-            .reduce((a, b) -> b).get();
-        final List<String> seen = new ArrayList<>();
-        final java.util.regex.Matcher m = java.util.regex.Pattern
-            .compile("\"type\":\"(\\w+)\",\"source\":\"([^\"]+)\".*?\"heading\":(null|\\{\"text\":\"[^\"]*\")")
-            .matcher(report);
-        while (m.find()) seen.add(m.group(1) + " " + m.group(2) + " " + (m.group(3).equals("null") ? "-" : "heading"));
-        assertEquals(List.of(
-                "DEFAULT " + first.getId() + " heading",
-                "WARNING " + first.getId() + " -",
-                "DEFAULT " + second.getId() + " heading"),
-            seen, report);
+        assertEquals(List.of("WARNING " + first.getId(), "DEFAULT " + second.getId(),
+                "DEFAULT " + first.getId()),
+            describe(lastReport(), false), "as they come");
+        final Map<?, ?> groupBy = (Map<?, ?>)lastReport().get("groupBy");
+        assertEquals(0L, groupBy.get("value"));
+        assertEquals(Messages.message("model.option.guiMessagesGroupBy.name"), groupBy.get("label"));
+        assertEquals(List.of("Nothing", "Type", "Source"),
+            ((List<?>)groupBy.get("choices")).stream()
+                .map(c -> ((Map<?, ?>)c).get("text")).collect(Collectors.toList()));
+        assertEquals(false, lastReport().get("regrouped"));
+
+        options.setInteger(ClientOptions.MESSAGES_GROUP_BY,
+                           ClientOptions.MESSAGES_GROUP_BY_SOURCE);
+        gui.showReportTurnPanel(messages);
+        assertEquals(List.of("DEFAULT " + first.getId() + " heading",
+                "WARNING " + first.getId(), "DEFAULT " + second.getId() + " heading"),
+            describe(lastReport(), false));
+
+        options.setInteger(ClientOptions.MESSAGES_GROUP_BY,
+                           ClientOptions.MESSAGES_GROUP_BY_TYPE);
+        gui.showReportTurnPanel(messages);
+        assertEquals(List.of("DEFAULT " + second.getId() + " heading:"
+                    + Messages.getName(ModelMessage.MessageType.DEFAULT),
+                "DEFAULT " + first.getId(),
+                "WARNING " + first.getId() + " heading:"
+                    + Messages.getName(ModelMessage.MessageType.WARNING)),
+            describe(lastReport(), true));
+        assertNull(((Map<?, ?>)messagesOf(lastReport()).get(0).get("heading")).get("tile"),
+                   "a type has no tile to go to");
+    }
+
+    @Test
+    @Timeout(120)
+    void theTurnReportsButtonsFilterAndIgnoreMessages() throws Exception {
+        final ClientEngine client = startGame();
+        final WebGUI gui = (WebGUI)client.getClient().getGUI();
+        final ClientOptions options = client.getClient().getClientOptions();
+        final Unit unit = gui.getActiveUnit();
+        final List<ModelMessage> messages = List.of(
+            new ModelMessage(ModelMessage.MessageType.WARNING, "info.enterSomeText", unit),
+            new ModelMessage(ModelMessage.MessageType.WAREHOUSE_CAPACITY, "info.enterSomeText", unit),
+            new ModelMessage(ModelMessage.MessageType.LOST_CITY_RUMOUR, "info.enterSomeText", unit));
+        final String option = ModelMessage.MessageType.WAREHOUSE_CAPACITY.getOptionName();
+
+        shown.clear();
+        gui.showReportTurnPanel(messages);
+        final List<Map<String, Object>> ms = messagesOf(lastReport());
+        assertEquals(true, ms.get(1).get("filter"), "the type is shown");
+        assertEquals(Messages.message(StringTemplate.template("report.turn.filter")
+                .addNamed("%type%", ModelMessage.MessageType.WAREHOUSE_CAPACITY)),
+            ms.get(1).get("filterTip"));
+        assertEquals(Messages.message(StringTemplate.copy("report.turn.ignore", messages.get(1))),
+            ms.get(1).get("ignoreTip"));
+        assertNull(ms.get(0).get("ignoreTip"), "only warehouse messages can be ignored");
+        assertNull(ms.get(2).get("filter"), "a type with no option has no filter button");
+        assertNull(ms.get(2).get("filterTip"));
+
+        gui.reportFilter(1, false);
+        assertFalse(options.getBoolean(option), "the type is filtered");
+        gui.reportFilter(2, false); // no option: nothing happens
+        gui.reportFilter(7, false); // no such message
+        // Regrouping shows the report again, replacing the open one.
+        gui.reportGroupBy(ClientOptions.MESSAGES_GROUP_BY_TYPE);
+        final Map<String, Object> again = lastReport();
+        assertEquals(true, again.get("regrouped"));
+        assertEquals(ClientOptions.MESSAGES_GROUP_BY_TYPE,
+            options.getInteger(ClientOptions.MESSAGES_GROUP_BY));
+        final int index = describe(again, false).indexOf("WAREHOUSE_CAPACITY " + unit.getId()
+            + " heading");
+        assertEquals(false, messagesOf(again).get(index).get("filter"));
+        gui.reportGroupBy(9);
+        assertEquals(ClientOptions.MESSAGES_GROUP_BY_TYPE,
+            options.getInteger(ClientOptions.MESSAGES_GROUP_BY), "not a way to group");
+        gui.reportFilter(index, true);
+        assertTrue(options.getBoolean(option));
+
+        // The ignore button asks the controller, which then ignores the
+        // message in the turns that follow.
+        final java.lang.reflect.Field f = InGameController.class.getDeclaredField("messagesToIgnore");
+        f.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        final Map<String, Integer> ignored = (Map<String, Integer>)f.get(
+            client.getClient().getInGameController());
+        final String key = messages.get(1).getIgnoredMessageKey();
+        gui.reportIgnore(index, true);
+        assertTrue(ignored.containsKey(key), "ignored");
+        gui.reportIgnore(index, false);
+        assertFalse(ignored.containsKey(key), "not ignored any more");
+        gui.reportIgnore(0, true);
+        assertTrue(ignored.isEmpty(), "a warning cannot be ignored");
     }
 
     @Test

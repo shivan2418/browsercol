@@ -127,6 +127,27 @@ public final class ClientMain {
     }
 
     /**
+     * Group the turn report as the group by client option says: 0 as it
+     * comes, 1 by type, 2 by source. The report is shown again, regrouped.
+     */
+    @JSExport
+    public static void reportGroupBy(int value) {
+        engine.reportGroupBy(value);
+    }
+
+    /** Show (or not) the type of the turn report's message at an index. */
+    @JSExport
+    public static void reportFilter(int index, boolean shown) {
+        engine.reportFilter(index, shown);
+    }
+
+    /** Ignore the turn report's message at an index, or stop ignoring it. */
+    @JSExport
+    public static void reportIgnore(int index, boolean ignore) {
+        engine.reportIgnore(index, ignore);
+    }
+
+    /**
      * Run a player command off the page's event loop, then send the map.
      * Input that arrives while one runs is dropped.
      *
