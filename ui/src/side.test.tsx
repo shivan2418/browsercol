@@ -13,9 +13,29 @@ const button = (name: string) => screen.getByRole('button', { name }) as HTMLBut
 const saving = () => ({ saves: [], saveNote: '', save: () => {}, load: () => {}, remove: () => {} });
 
 describe('the side panel', () => {
+  it('shows FreeCol’s status line, and the turn below it', () => {
+    const statusLine = 'Score: 0    ✧    Gold: 1000    ✧    Tax: 0%    ✧    Year: Spring 1493';
+    render(
+      <Side
+        turn="5 (AI playing)"
+        statusLine={statusLine}
+        info=""
+        unasked={[]}
+        status=""
+        orders={[]}
+        run={() => {}}
+        {...saving()}
+      />,
+    );
+    expect(screen.getByText('Score: 0 ✧ Gold: 1000 ✧ Tax: 0% ✧ Year: Spring 1493').textContent).toBe(statusLine);
+    expect(screen.getByText('5 (AI playing)').id).toBe('turn');
+  });
+
   it('runs a button’s command', () => {
     const ran: Command[] = [];
-    render(<Side turn="1" info="" unasked={[]} status="" orders={[]} run={(c) => ran.push(c)} {...saving()} />);
+    render(
+      <Side turn="1" statusLine="" info="" unasked={[]} status="" orders={[]} run={(c) => ran.push(c)} {...saving()} />,
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Build colony (B)' }));
     fireEvent.click(screen.getByRole('button', { name: 'End turn (Enter)' }));
     fireEvent.click(screen.getByRole('button', { name: 'Declare independence' }));
@@ -27,6 +47,7 @@ describe('the side panel', () => {
     render(
       <Side
         turn="1"
+        statusLine=""
         info=""
         unasked={[]}
         status=""
@@ -50,14 +71,25 @@ describe('the side panel', () => {
 
   it('runs the Go To order, which asks where the unit goes', () => {
     const ran: Command[] = [];
-    render(<Side turn="1" info="" unasked={[]} status="" orders={['goto']} run={(c) => ran.push(c)} {...saving()} />);
+    render(
+      <Side
+        turn="1"
+        statusLine=""
+        info=""
+        unasked={[]}
+        status=""
+        orders={['goto']}
+        run={(c) => ran.push(c)}
+        {...saving()}
+      />,
+    );
     expect(button('Go to (H)').disabled, 'goto').toBe(false);
     fireEvent.click(button('Go to (H)'));
     expect(ran).toEqual([{ k: 'selectDestination' }]);
   });
 
   it('disables every order while no unit is active', () => {
-    render(<Side turn="1" info="" unasked={[]} status="" orders={[]} run={() => {}} {...saving()} />);
+    render(<Side turn="1" statusLine="" info="" unasked={[]} status="" orders={[]} run={() => {}} {...saving()} />);
     for (const name of [
       'Fortify (F)',
       'Sentry (S)',
@@ -75,6 +107,7 @@ describe('the side panel', () => {
     render(
       <Side
         turn="1"
+        statusLine=""
         info=""
         unasked={['showDumpCargoDialog', 'showWarehouseDialog', 'showDumpCargoDialog']}
         status=""
@@ -90,7 +123,7 @@ describe('the side panel', () => {
   });
 
   it('lists nothing while every dialog was asked', () => {
-    render(<Side turn="1" info="" unasked={[]} status="" orders={[]} run={() => {}} {...saving()} />);
+    render(<Side turn="1" statusLine="" info="" unasked={[]} status="" orders={[]} run={() => {}} {...saving()} />);
     expect(screen.queryByRole('list')).toBeNull();
   });
 
@@ -101,6 +134,7 @@ describe('the side panel', () => {
     render(
       <Side
         turn="1"
+        statusLine=""
         info=""
         unasked={[]}
         status=""
@@ -122,6 +156,7 @@ describe('the side panel', () => {
     render(
       <Side
         turn="1"
+        statusLine=""
         info=""
         unasked={[]}
         status=""
@@ -146,7 +181,7 @@ describe('the side panel', () => {
   });
 
   it('says so when there are no saves', () => {
-    render(<Side turn="1" info="" unasked={[]} status="" orders={[]} run={() => {}} {...saving()} />);
+    render(<Side turn="1" statusLine="" info="" unasked={[]} status="" orders={[]} run={() => {}} {...saving()} />);
     expect(screen.getByText('No saved games')).toBeTruthy();
   });
 });

@@ -21,6 +21,8 @@ export interface MapView {
   h: number;
   turn: string;
   ourTurn: boolean;
+  /** FreeCol's status line: the score, the gold, the tax and the year. */
+  statusLine: string;
   types: TileType[];
   /** One character per tile: 'A' + type index, '.' if unexplored. */
   tiles: string;
