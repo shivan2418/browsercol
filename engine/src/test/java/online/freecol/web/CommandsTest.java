@@ -1,6 +1,7 @@
 package online.freecol.web;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -29,7 +30,10 @@ import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.GoodsType;
 import net.sf.freecol.common.model.Map;
 import net.sf.freecol.common.model.Player;
+import net.sf.freecol.common.model.Specification;
 import net.sf.freecol.common.model.Tile;
+import net.sf.freecol.common.model.TileImprovement;
+import net.sf.freecol.common.model.TileImprovementType;
 import net.sf.freecol.common.model.Unit;
 
 
@@ -299,5 +303,100 @@ class CommandsTest {
         assertTrue(asked.stream().anyMatch(q -> q.startsWith("confirm ")
                                            && q.contains("disband this unit")),
                    () -> "the player is asked to confirm: " + asked);
+    }
+
+    /**
+     * A pioneer works its tile: it plows it, and builds a road on it.
+     */
+    @Test
+    @Timeout(300)
+    void aPioneerPlowsAndBuildsARoad() throws Exception {
+        startGame();
+        final Commands commands = client.getCommands();
+        final Player player = client.getClient().getMyPlayer();
+        final Map map = client.getGame().getMap();
+        final Unit ship = player.getUnits().filter(Unit::isNaval).findFirst().get();
+        final Unit pioneer = player.getUnits()
+            .filter(u -> "model.role.pioneer".equals(u.getRole().getId()))
+            .findFirst().get();
+        final Unit soldier = player.getUnits()
+            .filter(u -> "model.role.soldier".equals(u.getRole().getId()))
+            .findFirst().get();
+
+        // The server's map knows the land: the nearest tile the pioneer
+        // may plow, that nobody owns, and the sea beside it.
+        final Map known = server.getGame().getMap();
+        final Tile from = known.getTile(ship.getTile().getX(), ship.getTile().getY());
+        final Specification spec = server.getGame().getSpecification();
+        final TileImprovementType plow
+            = spec.getTileImprovementType("model.improvement.plow");
+        final Tile land = known.getTileSet(t -> t.isLand()
+                && plow.isTileTypeAllowed(t.getType())
+                && t.getOwner() == null && t.getUnitCount() == 0
+                && !t.hasSettlement()
+                && t.getSurroundingTiles(1, 1).stream().anyMatch(n -> !n.isLand()))
+            .stream()
+            .min(Comparator.comparingInt(t -> t.getDistanceTo(from)))
+            .get();
+        final Tile offshore = land.getSurroundingTiles(1, 1).stream()
+            .filter(n -> !n.isLand())
+            .min(Comparator.comparingInt(t -> t.getDistanceTo(from)))
+            .get();
+        final Tile work = map.getTile(land.getX(), land.getY());
+        final Tile sea = map.getTile(offshore.getX(), offshore.getY());
+
+        sailTo(commands, ship, sea);
+
+        // Put the pioneer ashore. It is a passenger, and landing uses up
+        // its moves, so it waits for the next turn to work.
+        select(commands, pioneer);
+        Direction toLand = map.getDirection(sea, work);
+        assertTrue(commands.move(toLand.toString()), "the pioneer lands");
+        assertSame(work, pioneer.getTile());
+        if (pioneer.getMovesLeft() == 0) endTurnAndWait(commands);
+
+        // The Engine tells the Browser UI which orders the unit can take:
+        // a pioneer may plow and build a road, but not clear a forest
+        // that is not there.
+        final List<String> orders = UnitOrders.valid(player, pioneer);
+        assertTrue(orders.contains("plow"), () -> "the pioneer plows: " + orders);
+        assertTrue(orders.contains("road"), () -> "the pioneer builds a road: " + orders);
+        assertFalse(orders.contains("clearForest"),
+                    () -> "there is no forest to clear: " + orders);
+        assertEquals(List.of("fortify", "sentry", "skip", "disband"),
+                     UnitOrders.valid(player, soldier),
+                    "a soldier cannot work its tile");
+
+        // Plow: the pioneer works the tile, and the plow is on it when
+        // the work is done.
+        select(commands, pioneer);
+        assertTrue(commands.plow(), "the pioneer plows");
+        assertEquals(Unit.UnitState.IMPROVING, serverUnit(pioneer).getState());
+        int turns = 0;
+        while (!improved(serverTile(work), plow)) {
+            endTurnAndWait(commands);
+            assertTrue(++turns < 12, "the plow is finished within 12 turns");
+        }
+        // The work used up the pioneer's moves, so it needs a new turn
+        // before it can work again.
+        endTurnAndWait(commands);
+
+        // A road on the same tile.
+        final TileImprovementType road
+            = spec.getTileImprovementType("model.improvement.road");
+        select(commands, pioneer);
+        assertTrue(commands.road(), "the pioneer builds a road");
+        assertEquals(Unit.UnitState.IMPROVING, serverUnit(pioneer).getState());
+        turns = 0;
+        while (!improved(serverTile(work), road)) {
+            endTurnAndWait(commands);
+            assertTrue(++turns < 12, "the road is finished within 12 turns");
+        }
+    }
+
+    /** Whether the tile has the improvement, and it is complete. */
+    private static boolean improved(Tile tile, TileImprovementType type) {
+        final TileImprovement ti = tile.getTileImprovement(type);
+        return ti != null && ti.isComplete();
     }
 }

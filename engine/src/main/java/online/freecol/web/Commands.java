@@ -10,6 +10,7 @@ import net.sf.freecol.common.model.Direction;
 import net.sf.freecol.common.model.PathNode;
 import net.sf.freecol.common.model.Player;
 import net.sf.freecol.common.model.Tile;
+import net.sf.freecol.common.model.TileImprovementType;
 import net.sf.freecol.common.model.Unit;
 
 
@@ -141,6 +142,34 @@ public final class Commands {
         final Unit unit = gui().getActiveUnit();
         if (unit == null) return false;
         return igc().changeState(unit, state);
+    }
+
+    /** Plow the active unit's tile (the plow ImprovementAction). */
+    public boolean plow() {
+        return improve("model.improvement.plow");
+    }
+
+    /**
+     * Clear the forest on the active unit's tile (the clearForest
+     * ImprovementAction).
+     */
+    public boolean clearForest() {
+        return improve("model.improvement.clearForest");
+    }
+
+    /** Build a road on the active unit's tile (the road ImprovementAction). */
+    public boolean road() {
+        return improve("model.improvement.road");
+    }
+
+    /** Work the active unit's tile, as ImprovementAction does. */
+    private boolean improve(String id) {
+        final Unit unit = gui().getActiveUnit();
+        if (unit == null) return false;
+        final TileImprovementType type = this.client.getGame()
+            .getSpecification().getTileImprovementType(id);
+        if (type == null) return false;
+        return igc().changeWorkImprovementType(unit, type);
     }
 
     /** Found a colony with the active unit (BuildColonyAction). */

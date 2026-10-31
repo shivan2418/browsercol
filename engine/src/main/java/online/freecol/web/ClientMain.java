@@ -158,6 +158,24 @@ public final class ClientMain {
         command("disband", () -> engine.getCommands().disband());
     }
 
+    /** Plow the active unit's tile (the plow ImprovementAction). */
+    @JSExport
+    public static void plow() {
+        command("plow", () -> engine.getCommands().plow());
+    }
+
+    /** Clear the forest on the active unit's tile (the clearForest ImprovementAction). */
+    @JSExport
+    public static void clearForest() {
+        command("clearForest", () -> engine.getCommands().clearForest());
+    }
+
+    /** Build a road on the active unit's tile (the road ImprovementAction). */
+    @JSExport
+    public static void road() {
+        command("road", () -> engine.getCommands().road());
+    }
+
     @JSExport
     public static void buildColony() {
         command("buildColony", () -> engine.getCommands().buildColony());
