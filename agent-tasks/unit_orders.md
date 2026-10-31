@@ -43,8 +43,7 @@ Done when:
   the improvement on its tile after enough ended turns (bounded loop).
 - A UI test: buttons follow the valid-orders list (e.g. plow disabled
   for a soldier).
-- `play.mjs` fortifies or sentries a unit; you cannot run it here (no
-  browsers), so write it carefully and say so in the report.
+- `play.mjs` fortifies or sentries a unit and passes in both browsers.
 - `./dev.sh -C engine gradle test`, `vp check` and `vp test` pass.
 - Commits: Engine, then Browser UI, e.g.
   `Commands: fortify, sentry, skip and disband the active unit (#49)` and
