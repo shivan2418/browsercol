@@ -10,6 +10,7 @@
 //   ?autoplay=N  rounds the human auto-ends its turn first (debug; default 0)
 //   ?rules=ID    the ruleset (default classic)
 //   ?load=ID     continue the saved game with this id, in place of a new game
+//   ?debug       the debug menu: reveal the map, add gold, units and goods, skip turns, show the AI's view
 //   ?preset=NAME start straight away from presets/NAME.json (or a URL ending .json): a
 //                preset sets the nation, difficulty, options and map seed (debug)
 //   ?tileset=ID  a Tileset built beside the default, art/<ID>.json (e.g. test)
@@ -19,6 +20,7 @@ import dataUrl from '../generated/data.json?url';
 import runtimeUrl from '../generated/teavm-runtime.js?url';
 import { createRoot } from 'react-dom/client';
 import { startPage, type ClientExports, type Scope, type ToWorker } from './channel';
+import { debugMessage, debugMode, describeAnswer, type DebugRequest } from './debug';
 import { dialogs } from './dialogs';
 import { commandForKey, type Command } from './input';
 import { mapDrawer, type MapView } from './map';
@@ -53,6 +55,7 @@ const autoplay = Number(params.get('autoplay') ?? '0');
 const rules = params.get('rules') ?? 'classic';
 const loadId = params.has('load') ? Number(params.get('load')) : undefined;
 const preset = params.get('preset');
+const debug = debugMode(params);
 const tileset = params.get('tileset');
 const mapHost = document.getElementById('map')!;
 /** The map's size: its host's box, which the page's CSS gives what the side panel leaves. */
@@ -79,6 +82,10 @@ const side: Omit<SideProps, 'run' | 'save' | 'load' | 'remove' | 'exportSave' | 
   saves: [],
   saveNote: '',
 };
+/** The debug menu's state: what the last action answered, and what to do with a request. */
+let debugNote = '';
+let debugRequest: (r: DebugRequest) => void = () => {};
+let debugSkip: (n: number) => void = () => {};
 const store = idbSaveStore();
 /** Show the saves in the list; no storage (a private window, say) is an empty list. */
 function listSaves() {
@@ -107,6 +114,11 @@ function renderSide() {
     <>
       <Side
         {...side}
+        debug={
+          debug
+            ? { at: cursor(view)?.at ?? null, note: debugNote, request: debugRequest, skipTurns: debugSkip }
+            : undefined
+        }
         run={(c) => runCommand(c)}
         save={(name) => saveGame(name)}
         load={(id) => {
@@ -316,6 +328,12 @@ async function run() {
           return renderSide();
         case 'loadFailed':
           return show('failed', { error: detail });
+        case 'debug':
+          debugNote = describeAnswer(detail);
+          return renderSide();
+        case 'debugFailed':
+          debugNote = `Failed: ${detail}`;
+          return renderSide();
         case 'commandFailed':
           return console.error('command failed:', detail);
       }
@@ -327,6 +345,10 @@ async function run() {
     renderSide();
     const m: ToWorker = { k: 'save', active: exports.activeUnitId(), name };
     worker.postMessage(m);
+  };
+  debugRequest = (r) => worker.postMessage(debugMessage(r));
+  debugSkip = (n) => {
+    if (n > 0) exports.skipTurns(n);
   };
   playWith(exports);
 }
