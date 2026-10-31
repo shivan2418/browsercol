@@ -110,6 +110,7 @@ let saveGame: (name: string) => void = () => {};
 /** The turn report's buttons, once the client Engine has loaded. */
 let reportButtons: ReportButtons = { groupBy: () => {}, filter: () => {}, ignore: () => {} };
 /** The art of the first resource key the Tileset has, as a URL to show in a dialog, once its manifest has loaded. */
+let artReady = false;
 const art: Art = (keys) => {
   const res = map.resources();
   const key = res && keys.find((k) => res.has(k));
@@ -278,6 +279,8 @@ function drawMap(m: MapView) {
   renderSide();
   dispatch({ k: 'map', map: m });
   drawn = map.draw(m);
+  // A dialog shown before the art manifest loaded has no images: draw it again once they can be had.
+  if (!artReady) void drawn.then(() => map.resources() && ((artReady = true), renderSide()));
 }
 
 const dragged = pointerInput(mapHost, { view: () => view, dispatch, tileAt: (px, py) => map.tileAt(px, py) });
