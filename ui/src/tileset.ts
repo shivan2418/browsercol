@@ -4,6 +4,7 @@
 // quality and with animations stopped at their first frame. FreeCol makes
 // some images by masking others (terrain transitions, beaches, rivers);
 // those come as a Recipe that map.ts composites and caches by id.
+import { MAP_KEY_FAMILIES, MAP_KEYS } from './map-keys';
 import type { Resources } from './resources';
 import type { Cursor } from './view';
 
@@ -168,10 +169,25 @@ const REVERSE: Record<Direction, Direction> = {
   NW: 'SE',
 };
 
-const TILE_MASK = 'image.mask';
-const BEACH = 'image.tile.model.tile.beach';
-const RIVER_WATER = 'image.tile.river.water';
-const RIVER_PEBBLES = 'image.tile.river.pebbles';
+// The map's resource keys, from map-keys.ts, where the families the map
+// draws live: the prefixes are the ones build-art.mjs copies the art of,
+// so a key the map draws is never missing from the site.
+const {
+  tile: TILE,
+  tileOverlay: TILE_OVERLAY,
+  tileForest: TILE_FOREST,
+  aboveTile: ABOVE_TILE,
+  mask: MASK,
+  productionBonus: PRODUCTION_BONUS,
+  mission: MISSION,
+  settlementChip: SETTLEMENT_CHIP,
+  alarmChip: ALARM_CHIP,
+} = MAP_KEY_FAMILIES;
+const { tileMask: TILE_MASK, road: ROAD, cross: CROSS } = MAP_KEYS;
+
+const BEACH = `${TILE}model.tile.beach`;
+const RIVER_WATER = `${TILE}river.water`;
+const RIVER_PEBBLES = `${TILE}river.pebbles`;
 const UNEXPLORED = 'model.tile.unexplored';
 /** ImageLibrary.getMissionChip's text colours if the Tileset has none: Java's Color.GRAY and BLACK. */
 const MISSION_FG = { normal: 0x808080, expert: 0x000000 };
@@ -183,7 +199,7 @@ const lower = (ds: Direction[]) =>
     .map((d) => d.toLowerCase())
     .sort()
     .join('_');
-const terrainKey = (id: string) => `image.tile.${id}.center`;
+const terrainKey = (id: string) => `${TILE}${id}.center`;
 
 export function scene(map: MapView, res: Resources): Op[] {
   const { w, h } = map;
@@ -231,7 +247,7 @@ export function scene(map: MapView, res: Resources): Op[] {
     const dirs = DIRECTIONS.filter((d) => land(step(x, y, d)));
     const key = beachKey(dirs);
     const beach = res.path(BEACH);
-    const mask = res.path(`image.mask.beach.${key}`);
+    const mask = res.path(`${MASK}beach.${key}`);
     const tileMask = res.path(TILE_MASK);
     if (dirs.length === 0 || !beach || !mask || !tileMask) return ocean;
     return {
@@ -252,7 +268,7 @@ export function scene(map: MapView, res: Resources): Op[] {
     const imageKey = land(b) || !land(tile) ? terrainKey(btype.id) : BEACH;
     const image = res.path(imageKey);
     const own = res.path(terrainKey(type.id));
-    const mask = res.path(`image.mask.${d.toLowerCase()}`);
+    const mask = res.path(`${MASK}${d.toLowerCase()}`);
     if (!image || !own || !mask) return null;
     if (image === own && !special) return null;
     const src = res.path(imageKey, 0)!;
@@ -268,7 +284,7 @@ export function scene(map: MapView, res: Resources): Op[] {
         [beachSw, 'sw'],
       ] as const) {
         const beach = res.path(BEACH, 0);
-        const beachMask = res.path(`image.mask.special.beach.${dir}`);
+        const beachMask = res.path(`${MASK}special.beach.${dir}`);
         if (on && beach && beachMask) steps.push({ draw: masked(beach, beachMask) });
       }
     }
@@ -303,8 +319,8 @@ export function scene(map: MapView, res: Resources): Op[] {
     const [pebbles, waterImg, waterMask, pebblesMask, tileMask] = [
       res.path(RIVER_PEBBLES),
       res.path(RIVER_WATER, 0),
-      res.path(`image.mask.river.delta.${dir}`),
-      res.path(`image.mask.river.delta.pebbles.${dir}`),
+      res.path(`${MASK}river.delta.${dir}`),
+      res.path(`${MASK}river.delta.pebbles.${dir}`),
       res.path(TILE_MASK),
     ];
     if (!pebbles || !waterImg || !waterMask || !pebblesMask || !tileMask) return null;
@@ -335,13 +351,11 @@ export function scene(map: MapView, res: Resources): Op[] {
     const [pebbles, waterImg, base, tileMask] = [
       res.path(RIVER_PEBBLES),
       res.path(RIVER_WATER, 0),
-      res.path(`image.mask.river${minor}${shape ? '.' + shape : ''}`),
+      res.path(`${MASK}river${minor}${shape ? '.' + shape : ''}`),
       res.path(TILE_MASK),
     ];
     if (!pebbles || !waterImg || !base || !tileMask) return null;
-    const extra = toMajor
-      .map((d) => res.path(`image.mask.river.to_major.${d.toLowerCase()}`))
-      .filter((m) => m !== null);
+    const extra = toMajor.map((d) => res.path(`${MASK}river.to_major.${d.toLowerCase()}`)).filter((m) => m !== null);
     const mask: Src = extra.length
       ? { id: `riverMask:${base}:${extra.join(',')}`, steps: [base, ...extra].map((m) => ({ draw: m })) }
       : base;
@@ -402,7 +416,7 @@ export function scene(map: MapView, res: Resources): Op[] {
     for (const d of DIRECTIONS) {
       const n = step(x, y, d);
       if (!n || explored(n)) continue;
-      const src = res.forSeed(`image.tile.${UNEXPLORED}.border.${d}`, seedOf(x, y));
+      const src = res.forSeed(`${TILE}${UNEXPLORED}.border.${d}`, seedOf(x, y));
       if (src) ops.push({ k: 'image', x, y, src, at: 'tile' });
     }
   });
@@ -413,7 +427,7 @@ export function scene(map: MapView, res: Resources): Op[] {
     const i = index(x, y);
     itemsAt.set(i, [...(itemsAt.get(i) ?? []), { z, op }]);
   };
-  const roadColor = res.color('color.map.road');
+  const roadColor = res.color(ROAD);
   for (const [x, y, z] of map.roads) {
     addItem(x, y, z, () =>
       ops.push({
@@ -444,13 +458,13 @@ export function scene(map: MapView, res: Resources): Op[] {
       while (items.length && items[0].z < z) items.shift()!.op();
     };
     upTo(100);
-    const overlay = res.forSeed(`image.tileoverlay.${type.id}`, seedOf(x, y));
+    const overlay = res.forSeed(`${TILE_OVERLAY}${type.id}`, seedOf(x, y));
     if (overlay) ops.push({ k: 'image', x, y, src: overlay, at: 'bottom', ...dim });
     upTo(200);
     if (type.forested) {
       const r = riverAt([x, y]);
-      const styled = r && `image.tileforest.${type.id}.s${r.mask === '0000' ? '0100' : r.mask}`;
-      const src = res.path(styled && res.has(styled) ? styled : `image.tileforest.${type.id}`);
+      const styled = r && `${TILE_FOREST}${type.id}.s${r.mask === '0000' ? '0100' : r.mask}`;
+      const src = res.path(styled && res.has(styled) ? styled : `${TILE_FOREST}${type.id}`);
       if (src) ops.push({ k: 'image', x, y, src, at: 'bottom', ...dim });
     }
     upTo(Infinity);
@@ -461,7 +475,7 @@ export function scene(map: MapView, res: Resources): Op[] {
       // TileViewer.displaySettlementWithChipsOrPopulationNumber, classic labels.
       const { rgb, population, bonus, sizeChange, chips } = s;
       const emph = sizeChange > 0 ? { emph: true as const } : {};
-      const color = res.color(`color.map.productionBonus.${bonus}`);
+      const color = res.color(`${PRODUCTION_BONUS}${bonus}`);
       if (population >= 0) ops.push({ k: 'population', x, y, population, color, ...emph, ...dim });
       if (chips) ops.push({ k: 'chips', x, y, chips: nativeChips(rgb, chips), ...dim });
     }
@@ -469,14 +483,14 @@ export function scene(map: MapView, res: Resources): Op[] {
 
   // ImageLibrary's settlement, mission and alarm chips.
   function nativeChips(rgb: number, { capital, fg, mission, alarm }: Chips) {
-    const chips = [{ text: res.string(`indianSettlementChip.${capital ? 'capital' : 'normal'}`), bg: rgb, fg }];
+    const chips = [{ text: res.string(`${SETTLEMENT_CHIP}${capital ? 'capital' : 'normal'}`), bg: rgb, fg }];
     if (mission) {
       const kind = mission.expert ? 'expert' : 'normal';
-      const crossFg = res.color(`color.foreground.mission.${kind}`, MISSION_FG[kind]);
-      chips.push({ text: res.string('cross'), bg: mission.rgb, fg: crossFg });
+      const crossFg = res.color(`${MISSION}${kind}`, MISSION_FG[kind]);
+      chips.push({ text: res.string(CROSS), bg: mission.rgb, fg: crossFg });
     }
     if (alarm) {
-      const text = res.string(`indianAlarmChip.${alarm.worthScouting ? 'contacted' : 'scouted'}`);
+      const text = res.string(`${ALARM_CHIP}${alarm.worthScouting ? 'contacted' : 'scouted'}`);
       chips.push({ text, bg: rgb, fg: alarm.fg });
     }
     return chips;
@@ -490,7 +504,7 @@ export function scene(map: MapView, res: Resources): Op[] {
 
   each((x, y) => {
     const type = typeAt(x, y);
-    const src = type && res.forSeed(`image.abovetile.${type.id}`, seedOf(x, y));
+    const src = type && res.forSeed(`${ABOVE_TILE}${type.id}`, seedOf(x, y));
     if (src) ops.push({ k: 'image', x, y, src, at: 'center' });
   });
 
@@ -508,7 +522,7 @@ export function scene(map: MapView, res: Resources): Op[] {
  */
 export function overlay(cursor: Cursor | null, path: PathStep[] | null, res: Resources): Op[] {
   const ops: Op[] = [];
-  const src = cursor && res.path(cursor.kind === 'unit' ? 'image.tile.unitSelect' : 'image.tile.tileSelect');
+  const src = cursor && res.path(cursor.kind === 'unit' ? `${TILE}unitSelect` : `${TILE}tileSelect`);
   if (cursor && src) ops.push({ k: 'image', x: cursor.at[0], y: cursor.at[1], src, at: 'center' });
   // displayPath draws nothing for a path of one step, and no line through a step off the map.
   if (!path || path.length < 2) return ops;
