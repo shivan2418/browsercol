@@ -53,6 +53,25 @@ Done when:
 - Commits: one for the Engine side, one for the Browser UI, e.g.
   `WebGUI: ask the capture goods and dump cargo dialogs (#51)`.
 
+Facts already looked up (a first run spent its whole two hours reading
+FreeCol and never wrote code; do not repeat that research, start writing
+within your first 20 steps and commit the Engine side as soon as its
+tests pass):
+- Swing: `CaptureGoodsDialog.getResponse()` and
+  `DumpCargoDialog.getResponse()` both return the checked goods on OK
+  and an EMPTY list (not null) on cancel or close. Capture's limit is
+  `winner.getSpaceLeft()`; dump has none.
+- Callers: `InGameController` ~3928 (capture: the handler loots the
+  chosen goods) and ~5206 (dump: the handler unloads each chosen goods
+  overboard). The handler is a `DialogHandler<List<Goods>>`; call
+  `handler.handle(list)` once.
+- Pattern to copy: `WebGUI.showChooseFoundingFatherDialog` (~line 494),
+  which asks a question and passes the answer to its handler.
+- For the test, take a ship from a started game (`WebGUITest` shows how)
+  and give it goods on the client side with `new Goods(game, ship,
+  goodsType, amount)` or `ship.add(...)`; call the WebGUI method directly
+  with a handler that records what it gets.
+
 Traps:
 - WebGUI methods are called on the client's thread and must not block
   forever: copy how the founding-father question waits and answers.
