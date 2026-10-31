@@ -12,17 +12,11 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { createRequire } from 'node:module';
+import { browserNames, collectPageErrors, opt, playwright, waitForResult } from './common.mjs';
 import { answerDialogs } from './dialogs.mjs';
 import { dist, serveDist } from './serve-dist.mjs';
 
-const require = createRequire(import.meta.url);
-const playwright = require('playwright'); // global install, found via NODE_PATH
-const opt = (name, dflt) => {
-  const i = process.argv.indexOf('--' + name);
-  return i < 0 ? dflt : process.argv[i + 1];
-};
-const browsers = opt('browsers', 'chromium,firefox').split(',');
+const browsers = browserNames();
 const keepExport = opt('keep-export', '');
 const SAVE_NAME = 'script save';
 
@@ -51,8 +45,7 @@ async function run(page, url, shot, browserName) {
   const view = () => page.evaluate(() => window.__map);
   const noDialog = () => page.waitForFunction(() => !document.querySelector('[role=dialog]'), null, { timeout: 10000 });
   const finished = async () => {
-    await page.waitForFunction(() => window.fcResult, null, { timeout: 300000 });
-    const r = await page.evaluate(() => window.fcResult);
+    const r = await waitForResult(page, 300000);
     if (r.status !== 'finished') throw new Error(`the page did not start a game: ${JSON.stringify(r)}`);
     // The first map view and the active unit have arrived.
     await page.waitForFunction(() => window.__map?.ourTurn, null, { timeout: 60000 });
@@ -169,8 +162,7 @@ let failed = false;
 for (const name of browsers) {
   const browser = await playwright[name].launch();
   const page = await browser.newPage();
-  const errors = [];
-  page.on('pageerror', (e) => errors.push(String(e)));
+  const errors = collectPageErrors(page);
   const t = Date.now();
   let line;
   try {

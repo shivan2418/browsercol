@@ -16,17 +16,11 @@
 // unless every browser gets there. Run in the web image:
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/play.mjs [--browsers chromium,firefox] [--query renderer=canvas2d|preset=dutch-small] [--scale 2]
 import path from 'node:path';
-import { createRequire } from 'node:module';
+import { browserNames, collectPageErrors, opt, playwright, waitForResult } from './common.mjs';
 import { answerDialogs, dialogLog } from './dialogs.mjs';
 import { dist, serveDist } from './serve-dist.mjs';
 
-const require = createRequire(import.meta.url);
-const playwright = require('playwright'); // global install, found via NODE_PATH
-const opt = (name, dflt) => {
-  const i = process.argv.indexOf('--' + name);
-  return i < 0 ? dflt : process.argv[i + 1];
-};
-const browsers = opt('browsers', 'chromium,firefox').split(',');
+const browsers = browserNames();
 /** Page parameters, e.g. renderer=canvas2d to play on the Canvas 2D fallback. */
 const query = opt('query', '');
 /** The device pixel ratio the browser reports: 2 to play as on a HiDPI screen. */
@@ -306,7 +300,7 @@ async function play(page, url) {
   };
 
   await page.goto(url);
-  await page.waitForFunction(() => window.fcResult, null, { timeout: 120000 });
+  await waitForResult(page, 120000);
   let m = await view();
   if (!m.ourTurn) throw new Error('not our turn at the start');
   await following(m, 'at the start');
@@ -387,8 +381,7 @@ let failed = false;
 for (const name of browsers) {
   const browser = await playwright[name].launch();
   const page = await browser.newPage({ viewport: { width: 1400, height: 900 }, deviceScaleFactor: scale });
-  const errors = [];
-  page.on('pageerror', (e) => errors.push(String(e)));
+  const errors = collectPageErrors(page);
   const t = Date.now();
   let result;
   try {
