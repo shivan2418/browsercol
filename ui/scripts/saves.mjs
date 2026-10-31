@@ -1,11 +1,16 @@
 // Saves and loads a game in the built site, through the page's own side panel
-// (#68): start a game, play a turn, save it under a name, reload the page (a
-// new game starts, and the save is in the list from IndexedDB), load the save,
-// check it comes back at the saved turn with the saved active unit and the
-// player's turn, and play another turn. Exits non-zero unless every browser
+// (#68, #69): start a game, play a turn, save it under a name, reload the page
+// (a new game starts, and the save is in the list from IndexedDB), export the
+// save as a file, delete it, import the file again (a file that is not a save is
+// refused), check the export is byte for byte the import, load the save, check
+// it comes back at the saved turn with the saved active unit and the player's
+// turn, and play another turn. Exits non-zero unless every browser
 // gets there. The page's dialogs are answered as scripts/dialogs.mjs says.
 // Run in the web image:
-//   DEV_VARIANT=web ./dev.sh node ui/scripts/saves.mjs [--browsers chromium,firefox]
+//   DEV_VARIANT=web ./dev.sh node ui/scripts/saves.mjs [--browsers chromium,firefox] [--keep-export DIR]
+// --keep-export copies each browser's exported .fsg to DIR (for tools/desktop-check.sh).
+import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { answerDialogs } from './dialogs.mjs';
@@ -18,10 +23,11 @@ const opt = (name, dflt) => {
   return i < 0 ? dflt : process.argv[i + 1];
 };
 const browsers = opt('browsers', 'chromium,firefox').split(',');
+const keepExport = opt('keep-export', '');
 const SAVE_NAME = 'script save';
 
 /** Play with the page of one browser; returns what was checked. */
-async function run(page, url, shot) {
+async function run(page, url, shot, browserName) {
   // Keep the latest map view the client Engine sends, as play.mjs does.
   await page.addInitScript(() => {
     let inner;
@@ -93,7 +99,53 @@ async function run(page, url, shot) {
   const fresh = await view();
   if (fresh.turn === played.turn) throw new Error('the reloaded page is not a new game');
 
-  // 4. Load it: the page reloads on the saved game.
+  // 4. Export it, delete it, import the file, and refuse a file that is no save.
+  const exportOne = async () => {
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.click('#saves [data-save] [data-export]'),
+    ]);
+    const file = path.join(tmp, download.suggestedFilename());
+    await download.saveAs(file);
+    return { file, name: download.suggestedFilename(), bytes: fs.readFileSync(file) };
+  };
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'saves-'));
+  const exported = await exportOne();
+  if (exported.name !== `${SAVE_NAME}.fsg` || exported.bytes.subarray(0, 2).toString() !== 'PK') {
+    throw new Error(`the export is ${exported.name}, ${exported.bytes.length} bytes, not a zip named for the save`);
+  }
+  await page.click('#saves [data-save] [data-delete]');
+  await page.waitForFunction(() => document.querySelectorAll('#saves [data-save]').length === 0, null, {
+    timeout: 10000,
+  });
+  const junk = path.join(tmp, 'junk.fsg');
+  fs.writeFileSync(junk, 'this is not a save');
+  await page.setInputFiles('#import-file', junk);
+  await page.waitForFunction(
+    () => document.querySelector('#save-note')?.textContent?.startsWith('Import failed: '),
+    null,
+    {
+      timeout: 10000,
+    },
+  );
+  if ((await rows()).length !== 0) throw new Error('a file that is no save was imported');
+  await page.setInputFiles('#import-file', exported.file);
+  await page.waitForFunction((n) => document.querySelector('#save-note')?.textContent === `Imported: ${n}`, SAVE_NAME, {
+    timeout: 10000,
+  });
+  const [imported] = await rows();
+  if (!imported?.startsWith(`${SAVE_NAME} |`) || !imported.includes(`turn ${played.turn}`)) {
+    throw new Error(`the save list does not show the import with its turn: ${JSON.stringify(imported)}`);
+  }
+  const again = await exportOne();
+  if (!again.bytes.equals(exported.bytes)) throw new Error('the imported save exports as different bytes');
+  if (keepExport) {
+    fs.mkdirSync(keepExport, { recursive: true });
+    fs.copyFileSync(exported.file, path.join(keepExport, `${browserName}-${exported.name}`));
+  }
+  fs.rmSync(tmp, { recursive: true });
+
+  // 5. Load it: the page reloads on the saved game.
   await noDialog();
   await Promise.all([page.waitForURL(/[?&]load=\d+/), page.click('#saves [data-save] [data-load]')]);
   await finished();
@@ -106,7 +158,7 @@ async function run(page, url, shot) {
   }
   await shot();
 
-  // 5. Play a turn in the loaded game.
+  // 6. Play a turn in the loaded game.
   const next = await endTurn();
   if (next.turn === played.turn) throw new Error('the loaded game did not go on');
   return { saved: played.turn, loaded: loaded.turn, active, next: next.turn };
@@ -122,10 +174,13 @@ for (const name of browsers) {
   const t = Date.now();
   let line;
   try {
-    const r = await run(page, server.url, () =>
-      page.screenshot({ path: path.join(dist, `../.cache/saves-${name}.png`) }),
+    const r = await run(
+      page,
+      server.url,
+      () => page.screenshot({ path: path.join(dist, `../.cache/saves-${name}.png`) }),
+      name,
     );
-    line = `ok: saved at turn ${r.saved}, loaded at turn ${r.loaded} with ${r.active}, played on to turn ${r.next}`;
+    line = `ok: saved at turn ${r.saved}, exported, deleted and imported, loaded at turn ${r.loaded} with ${r.active}, played on to turn ${r.next}`;
   } catch (ex) {
     failed = true;
     line = `failed: ${String(ex)}`;
