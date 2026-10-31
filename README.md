@@ -64,5 +64,6 @@ to a destination, `B` to build a colony, `Enter` to end the turn. The side
 panel has a button for each of them, disabled while the active unit may not
 take that order.
 `?autoplay=N` first auto-ends N turns
-(debug; the smoke test uses 10). The browser scripts save screenshots in
-`.cache/`.
+(debug; the smoke test uses 10). The map canvas is drawn at the screen's
+pixel ratio, so the map is sharp on a HiDPI display. The browser scripts save
+screenshots in `.cache/`.

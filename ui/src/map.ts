@@ -102,6 +102,18 @@ interface TextStyle {
 /** The map's layers: the scene, and the cursor and path over it. */
 type Layer = 0 | 1;
 
+/** The screen's pixel ratio: how many device pixels a CSS pixel covers. */
+export const pixelRatio = (dpr: number | undefined): number => (dpr && dpr > 0 ? dpr : 1);
+
+/** The canvas's backing store size, in device pixels, for a CSS size at a pixel ratio. */
+export const backingSize = (w: number, h: number, ratio: number): [number, number] => [
+  Math.round(w * ratio),
+  Math.round(h * ratio),
+];
+
+/** The screen's pixel ratio now, which a window moving to another screen can change. */
+const screenRatio = (): number => pixelRatio(window.devicePixelRatio);
+
 /** What draws the map: a PixiJS scene graph or a Canvas 2D context. */
 interface Pen {
   readonly canvas: HTMLCanvasElement;
@@ -119,7 +131,7 @@ interface Pen {
   measure(s: string, style: TextStyle): number;
   /** Show the map scaled by `scale`, then moved by (dx, dy). */
   show(dx: number, dy: number, scale: number): void;
-  /** Make the canvas `width` by `height` pixels; show() draws it again. */
+  /** Make the canvas `width` by `height` CSS pixels; show() draws it again. */
   resize(width: number, height: number): void;
 }
 
@@ -150,8 +162,27 @@ const fontOf = (s: TextStyle) => `${s.italic ? 'italic ' : ''}${s.bold ? 'bold '
 
 async function pixiPen(host: HTMLElement, width: number, height: number): Promise<Pen> {
   const app = new Application();
-  await app.init({ width, height, background: 0x000000, antialias: true });
+  // The canvas's backing store is at the screen's pixel ratio, so the map is
+  // sharp on a HiDPI screen; autoDensity keeps its CSS size the host's box.
+  await app.init({
+    width,
+    height,
+    background: 0x000000,
+    antialias: true,
+    resolution: screenRatio(),
+    autoDensity: true,
+  });
   host.append(app.canvas);
+  /**
+   * The canvas's CSS size: the host's box, in CSS pixels. PixiJS rounds its
+   * own to whole device pixels and leaves it alone when the backing store
+   * keeps its size, so the page sets it.
+   */
+  const cssSize = (w: number, h: number) => {
+    app.canvas.style.width = `${w}px`;
+    app.canvas.style.height = `${h}px`;
+  };
+  cssSize(width, height);
   const world = new Container();
   const layers = [new Container(), new Container()];
   world.addChild(...layers);
@@ -220,14 +251,28 @@ async function pixiPen(host: HTMLElement, width: number, height: number): Promis
       world.scale.set(scale);
       world.position.set(dx, dy);
     },
-    resize: (w, h) => app.renderer.resize(w, h),
+    // resize() takes CSS pixels: the renderer keeps its own resolution.
+    resize: (w, h) => {
+      app.renderer.resize(w, h, screenRatio());
+      cssSize(w, h);
+    },
   };
 }
 
 function canvasPen(host: HTMLElement, width: number, height: number): Pen {
   const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
+  let ratio = screenRatio();
+  /** The canvas's backing store at the pixel ratio, its CSS size in CSS pixels. */
+  const setSize = (w: number, h: number) => {
+    width = w;
+    height = h;
+    canvas.style.width = `${w}px`;
+    canvas.style.height = `${h}px`;
+    const [pw, ph] = backingSize(w, h, ratio);
+    canvas.width = pw;
+    canvas.height = ph;
+  };
+  setSize(width, height);
   host.append(canvas);
   const c = canvas.getContext('2d')!;
   // Canvas 2D has no scene graph: record the drawing and replay it to pan.
@@ -310,15 +355,16 @@ function canvasPen(host: HTMLElement, width: number, height: number): Pen {
       return c.measureText(s).width;
     },
     show: (dx, dy, scale) => {
-      c.setTransform(1, 0, 0, 1, 0, 0);
+      // The transform carries the pixel ratio, so the drawing code works in CSS pixels.
+      c.setTransform(ratio, 0, 0, ratio, 0, 0);
       c.fillStyle = '#000';
       c.fillRect(0, 0, width, height);
-      c.setTransform(scale, 0, 0, scale, dx, dy);
+      c.setTransform(scale * ratio, 0, 0, scale * ratio, dx * ratio, dy * ratio);
       for (const layer of layers) for (const call of layer) call(c);
     },
     resize: (w, h) => {
-      canvas.width = width = w;
-      canvas.height = height = h;
+      ratio = screenRatio();
+      setSize(w, h);
     },
   };
 }
