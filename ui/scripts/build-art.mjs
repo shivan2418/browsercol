@@ -13,6 +13,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
+import { isMapKey } from '../src/map-keys.ts';
 import { parseProperties, resources } from '../src/resources.ts';
 
 const args = process.argv.slice(2);
@@ -42,16 +43,13 @@ for (let i = 2; i < args.length; i++) {
     modDirs.push(args[i]);
   }
 }
-const MAP_KEYS =
-  /^(image\.(tile|tileoverlay|tileforest|tileitem|abovetile|unit|mask)(\.|$)|color\.map\.(road$|productionBonus\.)|color\.foreground\.mission\.|indianSettlementChip\.|indianAlarmChip\.|cross$)/;
-
 const layers = [
   { dir: 'base', root: path.join(dataDir, 'base') },
   { dir: 'default', root: path.join(dataDir, 'default') },
   ...modDirs.map((mod) => ({ dir: `mods/${path.basename(mod)}`, root: mod })),
 ].map(({ dir, root }) => {
   const props = parseProperties(fs.readFileSync(path.join(root, 'resources.properties'), 'utf8'))
-    .filter(([key]) => MAP_KEYS.test(key))
+    .filter(([key]) => isMapKey(key))
     .map(([key, value]) => `${key}=${value}`)
     .join('\n');
   return { dir, root, props };
