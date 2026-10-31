@@ -1,4 +1,4 @@
-Issue #39: `./dev.sh -C ui npx vp check` passes but prints lint warnings on
+Issue #36 (lint-warning item, folded in from #39): `./dev.sh -C ui npx vp check` passes but prints lint warnings on
 every run, so a new warning is easy to miss.
 
 Known warnings (run `vp check` first and fix every one it prints, these or
@@ -23,7 +23,7 @@ Done when:
   one (check this, then undo it; say in the report that you did).
 - `vp test` passes.
 - Commits: one for the fixes, one for failing on warnings, subjects like
-  `vp check: clear the lint warnings it prints on every run (#39)`.
+  `vp check: clear the lint warnings it prints on every run (#36)`.
 
 Traps:
 - Do not silence a rule with a disable comment or by turning the rule off;
