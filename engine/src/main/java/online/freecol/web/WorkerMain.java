@@ -97,6 +97,23 @@ public final class WorkerMain {
         }, "web-loadGame").start();
     }
 
+    /**
+     * Run a debug action (ServerEngine.debug), then report "debug" with its
+     * answer, or "debugFailed" with what was wrong. The page only calls it
+     * in debug mode.
+     */
+    @JSExport
+    public static void debug(String request) {
+        new Thread(() -> {
+                try {
+                    event("debug", engine.debug(request));
+                } catch (Throwable ex) {
+                    ex.printStackTrace();
+                    event("debugFailed", String.valueOf(ex.getMessage()));
+                }
+        }, "web-debug").start();
+    }
+
     @JSExport
     public static void connect() {
         engine.connect();

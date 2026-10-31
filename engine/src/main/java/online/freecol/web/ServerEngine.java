@@ -85,6 +85,19 @@ public final class ServerEngine {
     }
 
     /**
+     * Run one of FreeCol's debug actions on the server's game, as the
+     * Browser UI asks in debug mode; see {@link DebugActions} for the
+     * requests. The human player gets the change as any other update.
+     *
+     * @param request The request, JSON.
+     * @return The answer, JSON: the action's name and what it found.
+     * @exception IllegalArgumentException if the request is bad.
+     */
+    public String debug(String request) {
+        return new DebugActions(getGame(), human(), this.server.getAIMain()).run(request);
+    }
+
+    /**
      * Accept the client, as FreeColServer.addNewUserConnection does for a
      * socket.
      */
