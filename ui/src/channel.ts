@@ -1,7 +1,10 @@
 // The postMessage routing between the page, which hosts the client Engine
 // (client.wasm), and the Worker, which hosts the server Engine (server.wasm).
-//   page -> worker: data (the bundle, once) | start | load | save | connect | fc
+//   page -> worker: data (the bundle, once) | start | load | save | debug | connect | fc
 //   worker -> page: fc | event
+// A debug request (debug mode only, debug.ts) goes to the server Engine, which
+// changes its game and answers with a "debug" event, or "debugFailed"; the
+// page hands the answer to the client Engine for its own part of the change.
 // The Worker also keeps the saved games (saves.ts): a save request carries the
 // client's active unit, the server Engine makes the .fsg, and the Worker puts it
 // in IndexedDB; a load request names a save, which the Worker hands the server
@@ -20,6 +23,8 @@ export interface ServerExports {
   saveGame(activeUnitId: string): void;
   /** Replace the game with the one in a savegame; a "loaded" event follows. */
   loadGame(savegame: Int8Array): void;
+  /** Run a debug action (DebugActions.java); a "debug" or "debugFailed" event follows. */
+  debug(request: string): void;
   connect(): void;
   receive(xml: string): void;
 }
@@ -29,6 +34,10 @@ export interface ClientExports {
   main(args: string[]): void;
   /** Log in as `name` (a loaded game's owner; empty for a new game) and play `rounds` rounds. */
   startGame(rounds: number, name: string): void;
+  /** Debug mode: skip turns with the AI playing, then play returns ("finished"). */
+  skipTurns(rounds: number): void;
+  /** Debug mode: the server's answer to a debug request; the client's part of it, then a map. */
+  debugApplied(answer: string): void;
   /** The id of the active unit, or "" for none: what a save request carries. */
   activeUnitId(): string;
   receive(xml: string): void;
@@ -62,6 +71,7 @@ export type ToWorker =
   | { k: 'start'; rules: string; preset: string }
   | { k: 'load'; id: number }
   | { k: 'save'; active: string; name: string }
+  | { k: 'debug'; request: string }
   | { k: 'connect' }
   | { k: 'fc'; xml: string };
 
@@ -137,6 +147,8 @@ export function serveWorker(
             server!.loadGame(new Int8Array(b.buffer, b.byteOffset, b.length));
           })
           .catch((ex: unknown) => event('loadFailed', describe(ex)));
+      case 'debug':
+        return server!.debug(m.request);
       case 'connect':
         return server!.connect();
       case 'fc':
@@ -206,6 +218,7 @@ export function startPage(o: PageOptions): Promise<ClientExports> {
   let owner = '';
   listen<ToPage>(o.worker, (m) => {
     if (m.k === 'fc') return client!.receive(m.xml);
+    if (m.name === 'debug') client!.debugApplied(m.detail);
     if (m.name === 'started') client!.startGame(o.autoplay, '');
     // The owner of a loaded game, which the client must log in as, comes just before "loaded".
     if (m.name === 'owner') owner = m.detail;

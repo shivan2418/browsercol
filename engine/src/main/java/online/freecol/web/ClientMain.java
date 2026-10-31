@@ -155,6 +155,40 @@ public final class ClientMain {
         }, "web-" + name).start();
     }
 
+    /**
+     * Debug mode: skip turns with the AI playing (ClientEngine.skipTurns).
+     * Each AI round sends "round" and "map" events, and "finished" when
+     * play comes back.
+     */
+    @JSExport
+    public static void skipTurns(int rounds) {
+        new Thread(() -> {
+                try {
+                    engine.skipTurns(rounds);
+                } catch (Throwable ex) {
+                    ex.printStackTrace();
+                    event("commandFailed", "skipTurns: " + ex);
+                }
+        }, "web-skipTurns").start();
+    }
+
+    /**
+     * Debug mode: the server has done a debug action (its "debug" event);
+     * take the client's part of it, then send the map.
+     */
+    @JSExport
+    public static void debugApplied(String answer) {
+        new Thread(() -> {
+                try {
+                    engine.debugApplied(answer);
+                    event("map", mapJson());
+                } catch (Throwable ex) {
+                    ex.printStackTrace();
+                    event("commandFailed", "debug: " + ex);
+                }
+        }, "web-debugApplied").start();
+    }
+
     /** Select our unit on a tile, or send the active unit there. */
     @JSExport
     public static void click(int x, int y) {

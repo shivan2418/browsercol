@@ -3,6 +3,7 @@
 // panel (FreeCol's InfoPanel, as text), the dialogs the Browser UI cannot
 // show yet, the saved games and the page's status. main.tsx renders it again on each change.
 import { useRef } from 'react';
+import { DebugMenu, type DebugMenuProps } from './debug-menu';
 import type { Command } from './input';
 import type { SaveMeta } from './saves';
 
@@ -32,6 +33,8 @@ export interface SideProps {
   exportSave: (id: number) => void;
   /** Add a .fsg file the player chose to the saved games. */
   importFile: (file: File) => void;
+  /** The debug menu, in debug mode (`?debug`) only: with none, it is not drawn. */
+  debug?: DebugMenuProps;
 }
 
 /** The buttons, as the keys they stand for. */
@@ -83,6 +86,7 @@ export function Side({
   remove,
   exportSave,
   importFile,
+  debug,
 }: SideProps) {
   const name = useRef<HTMLInputElement>(null);
   return (
@@ -110,6 +114,7 @@ export function Side({
         edge, to scroll; the wheel zooms.
       </div>
       <div id="info">{info}</div>
+      {debug && <DebugMenu {...debug} />}
       <div id="saving">
         <input ref={name} id="save-name" placeholder="Save name (optional)" />
         <button

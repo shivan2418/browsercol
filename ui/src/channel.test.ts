@@ -28,6 +28,10 @@ function fakeServer(scope: Scope, log: string[]): ServerExports {
       scope.fcSaved(new Int8Array([1, 2, 3]));
       scope.fcServerEvent('saved', '{"turn":4,"year":1495,"nation":"Dutch","owner":"me","ms":9}');
     },
+    debug: (request) => {
+      log.push(`server debug ${request}`);
+      scope.fcServerEvent('debug', '{"action":"addGold"}');
+    },
     loadGame: (bytes) => {
       log.push(`server load ${[...bytes].join(',')}`);
       scope.fcServerEvent('owner', 'Ana');
@@ -61,6 +65,8 @@ function fakeClient(scope: Scope, log: string[]): ClientExports {
       log.push(`client answer ${id} ${value}`);
       scope.fcClientEvent('finished', '1');
     },
+    skipTurns: (rounds) => log.push(`client skip ${rounds}`),
+    debugApplied: (answer) => log.push(`client applied ${answer}`),
     click: () => {},
     move: () => {},
     nextUnit: () => {},
@@ -216,6 +222,16 @@ describe('the Worker channel', () => {
       'client answer 7 true',
     ]);
     expect(events).toEqual(['ready', 'owner', 'loaded', 'finished']);
+  });
+
+  it('sends a debug request to the server Engine and hands its answer to the client Engine', async () => {
+    const t = joined();
+    await t.seen('started');
+    t.page.postMessage({ k: 'debug', request: '{"action":"addGold","amount":5}' });
+    await t.seen('debug');
+    t.page.close();
+    expect(t.log).toContain('server debug {"action":"addGold","amount":5}');
+    expect(t.log).toContain('client applied {"action":"addGold"}');
   });
 
   it('reports a save that is not there', async () => {
