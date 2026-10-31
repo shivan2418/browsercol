@@ -6,9 +6,25 @@
 // as cancelled; a panel closes on either.
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import type { Dialog, Dialogs } from './dialogs';
-import type { TradeItem, TradeOption } from './webgui';
+import type { GuiEvents, TradeItem, TradeOption } from './webgui';
 
 type At = [number, number];
+
+/** The URL of the art for the first of some resource keys the Tileset has, or null if it has none (yet). */
+export type Art = (keys: readonly string[]) => string | null;
+
+/** What the turn report's buttons do (ClientExports.reportGroupBy and the others). */
+export interface ReportButtons {
+  groupBy: (value: number) => void;
+  filter: (index: number, shown: boolean) => void;
+  ignore: (index: number, ignore: boolean) => void;
+}
+
+/** An image of a game object or event, if the Tileset has one. */
+function Pic({ keys, art, className = 'pic' }: { keys: readonly string[]; art: Art; className?: string }) {
+  const src = art(keys);
+  return src === null ? null : <img className={className} src={src} alt="" />;
+}
 
 /**
  * Answer Enter and Escape while the dialog is open, before anything else
@@ -424,7 +440,95 @@ function TileText({
   );
 }
 
-function Body({ d, goTo }: { d: Dialog; goTo: (at: At) => void }) {
+type Messages = GuiEvents['messages'];
+
+/**
+ * The messages, each with the image of what it is about. The turn report has FreeCol's buttons for them:
+ * the group by option, a filter for a message's type, and for some messages an ignore. Like Swing's, they
+ * dim the messages, and tell the Engine what to do about the next turns' messages; a filtered type is
+ * dimmed in all its messages. The messages are named to the Engine by their place in the report.
+ */
+function MessageList({
+  event,
+  goTo,
+  art,
+  report,
+}: {
+  event: Messages;
+  goTo: (at: At) => void;
+  art: Art;
+  report: ReportButtons;
+}) {
+  const [ignored, setIgnored] = useState(() => new Set(event.messages.flatMap((m, i) => (m.ignored ? [i] : []))));
+  const [shown, setShown] = useState(
+    () => new Map(event.messages.flatMap((m) => (m.filter === null ? [] : [[m.type, m.filter] as const]))),
+  );
+  const { groupBy } = event;
+  return (
+    <>
+      {event.title && <h2>{event.title}</h2>}
+      {groupBy && (
+        <label className="field group-by">
+          {groupBy.label}{' '}
+          <select value={groupBy.value} onChange={(e) => report.groupBy(Number(e.target.value))}>
+            {groupBy.choices.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.text}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {event.messages.map((m, i) => {
+        const dim = ignored.has(i) || shown.get(m.type) === false;
+        return (
+          <div key={i} className="message" data-dim={dim || undefined}>
+            {m.heading && <TileText heading text={m.heading.text} at={m.heading.at} goTo={goTo} />}
+            <div className="row">
+              <Pic keys={m.images} art={art} />
+              <TileText text={m.text} at={m.at} goTo={goTo} />
+              {m.ignoreTip !== null && (
+                <button
+                  className="ignore"
+                  title={m.ignoreTip}
+                  aria-pressed={ignored.has(i)}
+                  onClick={() => {
+                    const flag = !ignored.has(i);
+                    report.ignore(i, flag);
+                    setIgnored((was) => {
+                      const next = new Set(was);
+                      if (flag) next.add(i);
+                      else next.delete(i);
+                      return next;
+                    });
+                  }}
+                >
+                  x
+                </button>
+              )}
+              {m.filterTip !== null && (
+                <button
+                  className="filter"
+                  title={m.filterTip}
+                  aria-pressed={shown.get(m.type) === false}
+                  onClick={() => {
+                    const now = !(shown.get(m.type) ?? true);
+                    report.filter(i, now);
+                    setShown((was) => new Map(was).set(m.type, now));
+                  }}
+                >
+                  X
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+function Body({ d, goTo, art, report }: { d: Dialog; goTo: (at: At) => void; art: Art; report: ReportButtons }) {
   switch (d.kind) {
     case 'confirm':
       return <Confirm d={d} />;
@@ -445,7 +549,10 @@ function Body({ d, goTo }: { d: Dialog; goTo: (at: At) => void }) {
     case 'information':
       return (
         <Panel d={d} ok={d.event.ok}>
-          <TileText text={d.event.text} at={d.event.at} goTo={goTo} />
+          <div className="row">
+            <Pic keys={d.event.images} art={art} />
+            <TileText text={d.event.text} at={d.event.at} goTo={goTo} />
+          </div>
         </Panel>
       );
     case 'error':
@@ -458,6 +565,7 @@ function Body({ d, goTo }: { d: Dialog; goTo: (at: At) => void }) {
       return (
         <Panel d={d} ok={d.event.ok}>
           <h2>{d.event.header}</h2>
+          {d.event.image && <Pic keys={[d.event.image]} art={art} className="flavour" />}
           {d.event.footer && <Text text={d.event.footer} />}
         </Panel>
       );
@@ -485,26 +593,33 @@ function Body({ d, goTo }: { d: Dialog; goTo: (at: At) => void }) {
     case 'messages':
       return (
         <Panel d={d} ok={d.event.ok}>
-          {d.event.title && <h2>{d.event.title}</h2>}
-          {d.event.messages.map((m, i) => (
-            <div key={i} className="message">
-              {m.heading && <TileText heading text={m.heading.text} at={m.heading.at} goTo={goTo} />}
-              <TileText text={m.text} at={m.at} goTo={goTo} />
-            </div>
-          ))}
+          <MessageList event={d.event} goTo={goTo} art={art} report={report} />
         </Panel>
       );
   }
 }
 
-/** The open dialog, over the page, or nothing. goTo centres the map on a tile. */
-export function DialogHost({ dialogs, goTo }: { dialogs: Dialogs; goTo: (at: At) => void }) {
+/**
+ * The open dialog, over the page, or nothing. goTo centres the map on a tile, art finds the image for
+ * resource keys, report is what the turn report's buttons do.
+ */
+export function DialogHost({
+  dialogs,
+  goTo,
+  art,
+  report,
+}: {
+  dialogs: Dialogs;
+  goTo: (at: At) => void;
+  art: Art;
+  report: ReportButtons;
+}) {
   const d = useSyncExternalStore(dialogs.subscribe, dialogs.current);
   if (!d) return null;
   return (
     <div className="modal">
       <div className="dialog" role="dialog" aria-modal="true" data-kind={d.kind} key={d.id}>
-        <Body d={d} goTo={goTo} />
+        <Body d={d} goTo={goTo} art={art} report={report} />
       </div>
     </div>
   );

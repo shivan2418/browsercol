@@ -157,6 +157,29 @@
         margin: 0;
         text-align: right;
       }
+      .dialog .row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .dialog .row .text {
+        flex: 1;
+      }
+      .dialog .pic {
+        max-width: 48px;
+        max-height: 48px;
+        object-fit: contain;
+      }
+      .dialog .flavour {
+        display: block;
+        max-width: 100%;
+        max-height: 50vh;
+        margin: 0 auto 8px;
+      }
+      .dialog .message[data-dim] .pic,
+      .dialog .message[data-dim] .text {
+        opacity: 0.4;
+      }
       .dialog .buttons {
         display: flex;
         justify-content: flex-end;

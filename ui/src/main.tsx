@@ -24,7 +24,7 @@ import { debugMessage, debugMode, describeAnswer, type DebugRequest } from './de
 import { dialogs } from './dialogs';
 import { commandForKey, type Command } from './input';
 import { mapDrawer, type MapView } from './map';
-import { DialogHost } from './panels';
+import { DialogHost, type Art, type ReportButtons } from './panels';
 import { onCanvas, pointerInput } from './pointer';
 import { fileNameOf, importSave } from './save-files';
 import { idbSaveStore, type SaveMeta } from './saves';
@@ -107,6 +107,14 @@ function download(bytes: Uint8Array, fileName: string) {
   setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 let saveGame: (name: string) => void = () => {};
+/** The turn report's buttons, once the client Engine has loaded. */
+let reportButtons: ReportButtons = { groupBy: () => {}, filter: () => {}, ignore: () => {} };
+/** The art of the first resource key the Tileset has, as a URL to show in a dialog, once its manifest has loaded. */
+const art: Art = (keys) => {
+  const res = map.resources();
+  const key = res && keys.find((k) => res.has(k));
+  return res && key ? `art/${res.path(key)}` : null;
+};
 let runCommand: (c: Command) => void = () => {};
 const sideRoot = createRoot(document.getElementById('side')!);
 function renderSide() {
@@ -160,7 +168,16 @@ function renderSide() {
             .finally(listSaves);
         }}
       />
-      <DialogHost dialogs={dialogQueue} goTo={(at) => dispatch({ k: 'focus', tile: null, at })} />
+      <DialogHost
+        dialogs={dialogQueue}
+        goTo={(at) => dispatch({ k: 'focus', tile: null, at })}
+        art={art}
+        report={{
+          groupBy: (value) => reportButtons.groupBy(value),
+          filter: (index, shown) => reportButtons.filter(index, shown),
+          ignore: (index, ignore) => reportButtons.ignore(index, ignore),
+        }}
+      />
     </>,
   );
 }
@@ -233,7 +250,8 @@ const gui: GuiHandlers = {
     eventPanel: (e) => dialogQueue.show('eventPanel', e),
     highScores: (e) => dialogQueue.show('highScores', e),
     messages: (e) => {
-      if (e.messages.length > 0) dialogQueue.show('messages', e);
+      if (e.regrouped) dialogQueue.replace('messages', e, (open) => open.title === e.title);
+      else if (e.messages.length > 0) dialogQueue.show('messages', e);
     },
     unasked: (e) => {
       console.warn(`WebGUI: no dialog yet for ${e.method}; FreeCol's default was used`);
@@ -352,6 +370,11 @@ async function run() {
   debugRequest = (r) => worker.postMessage(debugMessage(r));
   debugSkip = (n) => {
     if (n > 0) exports.skipTurns(n);
+  };
+  reportButtons = {
+    groupBy: (value) => exports.reportGroupBy(value),
+    filter: (index, shown) => exports.reportFilter(index, shown),
+    ignore: (index, ignore) => exports.reportIgnore(index, ignore),
   };
   playWith(exports);
 }

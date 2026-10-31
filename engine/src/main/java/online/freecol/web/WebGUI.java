@@ -101,7 +101,7 @@ import net.sf.freecol.common.option.OptionGroup;
  * <tr><td>showModelMessages</td><td>event messages</td>
  *     <td>{title: null, messages: [{text, type, source, tile, at,
  *         heading: null, images, filter: null, filterTip: null,
- *         ignoreTip: null}], ok}; tile and at are the source's, to go to;
+ *         ignored: false, ignoreTip: null}], ok}; tile and at are the source's, to go to;
  *         images are the resource keys of the message's display object's
  *         image, best first</td></tr>
  * <tr><td>showReportTurnPanel</td><td>event messages</td>
@@ -111,8 +111,9 @@ import net.sf.freecol.common.option.OptionGroup;
  *         the first of each group. Also {groupBy: {label, value, choices:
  *         [{value, text}]}, regrouped: false}, and per message the
  *         buttons ReportTurnPanel has for it: filter is whether its type
- *         is shown (null: no filter button), filterTip and ignoreTip
- *         are the buttons' tooltips (null: no button). reportGroupBy,
+ *         is shown (null: no filter button), ignored whether the ignore
+ *         button was pressed, filterTip and ignoreTip are the buttons'
+ *         tooltips (null: no button). reportGroupBy,
  *         reportFilter and reportIgnore are the buttons' actions, by the
  *         message's index in the report as shown; reportGroupBy sends the
  *         report again, regrouped: true, to replace the open one</td></tr>
@@ -398,6 +399,7 @@ public class WebGUI extends GUI {
             sorted.sort(ModelMessage.messageTypeComparator);
         }
         if (report) {
+            if (!regrouped) this.ignored.clear();
             this.reportMessages = new ArrayList<>(modelMessages);
             this.shownReport = sorted;
         }
@@ -434,6 +436,8 @@ public class WebGUI extends GUI {
                 ? Messages.message(StringTemplate
                     .template("report.turn.filter")
                     .addNamed("%type%", m.getMessageType())) : null);
+            json.put("ignored", report && ignorable(m)
+                && this.ignored.contains(m.getIgnoredMessageKey()));
             json.put("ignoreTip", (report && ignorable(m))
                 ? Messages.message(StringTemplate.copy("report.turn.ignore", m))
                 : null);
@@ -473,6 +477,12 @@ public class WebGUI extends GUI {
     /** The turn report as FreeCol sent it, and in the order last shown. */
     private volatile List<ModelMessage> reportMessages = new ArrayList<>();
     private volatile List<ModelMessage> shownReport = new ArrayList<>();
+    /**
+     * The ignored messages of the open report, by ignored message key, as
+     * the report's own buttons set them: the report shows them dimmed, as
+     * Swing's buttons disable the message, and regrouping keeps them so.
+     */
+    private final Set<String> ignored = new java.util.HashSet<>();
 
     /**
      * Whether the message's type is shown, or null if it has no filter
@@ -534,6 +544,8 @@ public class WebGUI extends GUI {
         final ModelMessage m = report.get(index);
         if (ignorable(m)) {
             getFreeColClient().getInGameController().ignoreMessage(m, ignore);
+            if (ignore) this.ignored.add(m.getIgnoredMessageKey());
+            else this.ignored.remove(m.getIgnoredMessageKey());
         }
     }
 

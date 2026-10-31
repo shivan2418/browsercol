@@ -2,8 +2,8 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { dialogs } from './dialogs';
-import { DialogHost } from './panels';
-import type { Choice, GuiQuestions } from './webgui';
+import { DialogHost, type Art, type ReportButtons } from './panels';
+import type { Choice, GuiEvents, GuiQuestions } from './webgui';
 
 afterEach(cleanup);
 
@@ -26,13 +26,45 @@ const item = (text: string, more: Partial<Choice> = {}): Choice => ({
   ...more,
 });
 
-/** The host on a fresh store, and the tiles it was asked to go to. */
+/** The art the Tileset of these tests has: a file per key, as the page would find it. */
+const files: Record<string, string> = {
+  'image.unit.model.unit.caravel': 'art/caravel.png',
+  'image.flavor.event.firstLanding': 'art/landing.png',
+};
+const art: Art = (keys) => {
+  const key = keys.find((k) => k in files);
+  return key ? files[key] : null;
+};
+
+/** The host on a fresh store, the tiles it was asked to go to, and what the report's buttons were asked. */
 function host() {
   const box = dialogs();
   const went: [number, number][] = [];
-  render(<DialogHost dialogs={box} goTo={(at) => went.push(at)} />);
-  return { box, went };
+  const pressed: string[] = [];
+  const report: ReportButtons = {
+    groupBy: (value) => pressed.push(`groupBy ${value}`),
+    filter: (index, shown) => pressed.push(`filter ${index} ${shown}`),
+    ignore: (index, ignore) => pressed.push(`ignore ${index} ${ignore}`),
+  };
+  render(<DialogHost dialogs={box} goTo={(at) => went.push(at)} art={art} report={report} />);
+  return { box, went, pressed };
 }
+
+type Message = GuiEvents['messages']['messages'][number];
+const message = (text: string, more: Partial<Message> = {}): Message => ({
+  text,
+  type: 'DEFAULT',
+  source: null,
+  tile: null,
+  at: null,
+  heading: null,
+  images: [],
+  filter: null,
+  filterTip: null,
+  ignored: false,
+  ignoreTip: null,
+  ...more,
+});
 
 function ask<K extends keyof GuiQuestions>(box: ReturnType<typeof dialogs>, kind: K, q: GuiQuestions[K]['ask']) {
   let answer!: Promise<GuiQuestions[K]['answer']>;
@@ -444,23 +476,14 @@ describe('the panels', () => {
         title: 'Turn Report',
         ok: 'OK',
         messages: [
-          {
-            text: 'Jamestown has grown.',
-            type: 'DEFAULT',
+          message('Jamestown has grown.', {
             source: 'colony:1',
             tile: 'tile:9',
             at: [3, 4],
             heading: { text: 'Jamestown', tile: 'tile:9', at: [3, 4] },
-          },
-          {
-            text: 'Jamestown is hungry.',
-            type: 'WARNING',
-            source: 'colony:1',
-            tile: 'tile:9',
-            at: [3, 4],
-            heading: null,
-          },
-          { text: 'Taxes are up.', type: 'DEFAULT', source: null, tile: null, at: null, heading: null },
+          }),
+          message('Jamestown is hungry.', { type: 'WARNING', source: 'colony:1', tile: 'tile:9', at: [3, 4] }),
+          message('Taxes are up.'),
         ],
       }),
     );
@@ -472,6 +495,174 @@ describe('the panels', () => {
 
     key('Enter');
     expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('show the image of what a message is about, the first of its keys the Tileset has', () => {
+    const { box } = host();
+    act(() =>
+      box.show('messages', {
+        title: null,
+        ok: 'OK',
+        messages: [
+          message('The Caravel is lost.', {
+            images: ['image.unit.model.unit.caravel.dutch', 'image.unit.model.unit.caravel'],
+          }),
+          message('Nothing to see.', { images: ['image.icon.model.goods.nothing'] }),
+          message('No image at all.'),
+        ],
+      }),
+    );
+    const pics = screen.getAllByRole('presentation') as HTMLImageElement[];
+    expect(pics.map((p) => p.getAttribute('src'))).toEqual(['art/caravel.png']);
+    expect(pics[0].closest('.message')?.textContent).toBe('The Caravel is lost.');
+  });
+
+  it('show the image of the object an information panel is about', () => {
+    const { box } = host();
+    act(() =>
+      box.show('information', {
+        text: 'A ship.',
+        object: 'unit:1',
+        tile: null,
+        at: null,
+        images: ['image.unit.model.unit.caravel'],
+        ok: 'OK',
+      }),
+    );
+    expect(screen.getByRole('presentation').getAttribute('src')).toBe('art/caravel.png');
+  });
+
+  it('show the flavour image of an event panel above its footer', () => {
+    const { box } = host();
+    act(() =>
+      box.show('eventPanel', {
+        header: 'Landfall',
+        image: 'image.flavor.event.firstLanding',
+        footer: 'Land ho!',
+        ok: 'OK',
+      }),
+    );
+    const img = screen.getByRole('presentation');
+    expect(img.getAttribute('src')).toBe('art/landing.png');
+    expect(img.compareDocumentPosition(screen.getByText('Land ho!')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    key('Enter');
+    act(() => box.show('eventPanel', { header: 'Gone', image: 'image.flavor.nothing', footer: null, ok: 'OK' }));
+    expect(screen.queryByRole('presentation'), 'an image the Tileset lacks is left out').toBeNull();
+  });
+
+  describe('of the turn report', () => {
+    const report = (groupBy = 0): GuiEvents['messages'] => ({
+      title: 'Turn Report',
+      ok: 'OK',
+      groupBy: {
+        label: 'Group messages by',
+        value: groupBy,
+        choices: [
+          { value: 0, text: 'Nothing' },
+          { value: 1, text: 'Type' },
+          { value: 2, text: 'Source' },
+        ],
+      },
+      messages: [
+        message('The warehouse is full.', {
+          type: 'WAREHOUSE_CAPACITY',
+          filter: true,
+          filterTip: 'Do not display this type of message (Warehouse capacity)',
+          ignoreTip: 'Ignore this message (Colony: Jamestown, Goods: Food)',
+        }),
+        message('The rumour is gone.', { type: 'LOST_CITY_RUMOUR' }),
+        message('Another warehouse is full.', {
+          type: 'WAREHOUSE_CAPACITY',
+          filter: true,
+          filterTip: 'Do not display this type of message (Warehouse capacity)',
+          ignoreTip: 'Ignore this message (Colony: Boston, Goods: Rum)',
+        }),
+      ],
+    });
+    const dim = (text: string) => screen.getByText(text).closest('.message')?.hasAttribute('data-dim');
+
+    it('offers the group by option, and asks the Engine to regroup when it changes', () => {
+      const { box, pressed } = host();
+      act(() => box.show('messages', report(0)));
+      const select = screen.getByRole('combobox', { name: /Group messages by/ }) as HTMLSelectElement;
+      expect(select.value).toBe('0');
+      expect([...select.options].map((o) => o.text)).toEqual(['Nothing', 'Type', 'Source']);
+      fireEvent.change(select, { target: { value: '2' } });
+      expect(pressed).toEqual(['groupBy 2']);
+    });
+
+    it('shows the regrouped report in the place of the open one', () => {
+      const { box } = host();
+      act(() => box.show('messages', report(0)));
+      act(() =>
+        box.replace('messages', {
+          ...report(1),
+          regrouped: true,
+          messages: [message('The rumour is gone.', { heading: { text: 'Rumours', tile: null, at: null } })],
+        }),
+      );
+      expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['Rumours']);
+      expect((screen.getByRole('combobox') as HTMLSelectElement).value).toBe('1');
+      expect(screen.queryByText('The warehouse is full.')).toBeNull();
+    });
+
+    it('has no group by option for model messages', () => {
+      const { box } = host();
+      act(() => box.show('messages', { title: null, ok: 'OK', messages: [message('Hello.')] }));
+      expect(screen.queryByRole('combobox')).toBeNull();
+      expect(screen.queryByRole('button', { name: 'X' })).toBeNull();
+    });
+
+    it('gives only the messages that have them an ignore and a filter button', () => {
+      const { box } = host();
+      act(() => box.show('messages', report()));
+      expect(screen.getAllByRole('button', { name: 'x' })).toHaveLength(2);
+      expect(screen.getAllByRole('button', { name: 'X' })).toHaveLength(2);
+      const rumour = screen.getByText('The rumour is gone.').closest('.message')!;
+      expect(rumour.querySelectorAll('button')).toHaveLength(0);
+      expect(screen.getAllByRole('button', { name: 'x' })[1].getAttribute('title')).toBe(
+        'Ignore this message (Colony: Boston, Goods: Rum)',
+      );
+    });
+
+    it('dims an ignored message, tells the Engine, and brings it back when pressed again', () => {
+      const { box, pressed } = host();
+      act(() => box.show('messages', report()));
+      const [first] = screen.getAllByRole('button', { name: 'x' });
+      fireEvent.click(first);
+      expect(pressed).toEqual(['ignore 0 true']);
+      expect(dim('The warehouse is full.')).toBe(true);
+      expect(dim('Another warehouse is full.'), 'only that message').toBe(false);
+      fireEvent.click(first);
+      expect(pressed).toEqual(['ignore 0 true', 'ignore 0 false']);
+      expect(dim('The warehouse is full.')).toBe(false);
+    });
+
+    it('dims all the messages of a filtered type, tells the Engine, and shows them again when pressed again', () => {
+      const { box, pressed } = host();
+      act(() => box.show('messages', report()));
+      const [first] = screen.getAllByRole('button', { name: 'X' });
+      fireEvent.click(first);
+      expect(pressed).toEqual(['filter 0 false']);
+      expect(dim('The warehouse is full.')).toBe(true);
+      expect(dim('Another warehouse is full.'), 'both of the type').toBe(true);
+      expect(dim('The rumour is gone.'), 'not of another type').toBe(false);
+      fireEvent.click(screen.getAllByRole('button', { name: 'X' })[1]);
+      expect(pressed).toEqual(['filter 0 false', 'filter 2 true']);
+      expect(dim('Another warehouse is full.')).toBe(false);
+    });
+
+    it('starts with the messages the Engine says are ignored or filtered out dimmed', () => {
+      const { box } = host();
+      const r = report();
+      r.messages[0] = { ...r.messages[0], ignored: true };
+      r.messages[2] = { ...r.messages[2], filter: false };
+      act(() => box.show('messages', r));
+      expect(dim('The warehouse is full.')).toBe(true);
+      expect(dim('Another warehouse is full.')).toBe(true);
+      expect(dim('The rumour is gone.')).toBe(false);
+    });
   });
 
   it('list the high scores, with their header, and close on Enter', () => {

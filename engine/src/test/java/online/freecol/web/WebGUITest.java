@@ -445,9 +445,19 @@ class WebGUITest {
         final String key = messages.get(1).getIgnoredMessageKey();
         gui.reportIgnore(index, true);
         assertTrue(ignored.containsKey(key), "ignored");
-        gui.reportIgnore(index, false);
+        gui.reportGroupBy(ClientOptions.MESSAGES_GROUP_BY_SOURCE);
+        assertEquals(true, messagesOf(lastReport()).stream()
+            .filter(m -> "WAREHOUSE_CAPACITY".equals(m.get("type"))).findFirst().get().get("ignored"),
+            "regrouping keeps the message ignored");
+        final int at = describe(lastReport(), false).stream()
+            .map(d -> d.split(" ")[0]).collect(Collectors.toList()).indexOf("WAREHOUSE_CAPACITY");
+        gui.reportIgnore(at, false);
         assertFalse(ignored.containsKey(key), "not ignored any more");
-        gui.reportIgnore(0, true);
+        gui.reportGroupBy(ClientOptions.MESSAGES_GROUP_BY_SOURCE);
+        assertEquals(false, messagesOf(lastReport()).stream()
+            .filter(m -> "WAREHOUSE_CAPACITY".equals(m.get("type"))).findFirst().get().get("ignored"));
+        gui.reportIgnore(describe(lastReport(), false).stream()
+            .map(d -> d.split(" ")[0]).collect(Collectors.toList()).indexOf("WARNING"), true);
         assertTrue(ignored.isEmpty(), "a warning cannot be ignored");
     }
 
