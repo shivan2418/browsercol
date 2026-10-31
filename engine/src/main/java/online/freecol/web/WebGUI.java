@@ -32,6 +32,8 @@ import net.sf.freecol.common.model.Location;
 import net.sf.freecol.common.model.LostCityRumour;
 import net.sf.freecol.common.model.ModelMessage;
 import net.sf.freecol.common.model.Monarch.MonarchAction;
+import net.sf.freecol.common.model.NationSummary;
+import net.sf.freecol.common.model.Ownable;
 import net.sf.freecol.common.model.Player;
 import net.sf.freecol.common.model.Settlement;
 import net.sf.freecol.common.model.StringTemplate;
@@ -129,6 +131,12 @@ import net.sf.freecol.common.model.Unit;
  *         key; the chosen indexes as a JSON array, at most max of them,
  *         null for a closed dialog. The handler gets the chosen goods,
  *         an empty list for cancel or closed, as Swing's dialogs give</td></tr>
+ * <tr><td>showNegotiationDialog (defers)</td><td>question negotiation</td>
+ *     <td>the question {@link Negotiation} describes; the answer is its
+ *         lines, and the handler gets the agreement, null for a closed
+ *         dialog</td></tr>
+ * <tr><td>showSelectTributeAmountDialog (blocks)</td><td>question input</td>
+ *     <td>as modalInputDialog, suggesting the most; the amount, else -1</td></tr>
  * <tr><td>the other dialogs the controllers ask (see "Not asked yet")</td>
  *     <td>event unasked</td><td>{method}; the controller gets the base
  *         GUI's default, as before</td></tr>
@@ -172,7 +180,10 @@ import net.sf.freecol.common.model.Unit;
  *         the declaration panel: showFreeColPanel and a closing
  *         callback)</td>
  *     <td>defer</td></tr>
- * <tr><td>showNegotiationDialog, showWarehouseDialog (not asked yet)</td>
+ * <tr><td>showNegotiationDialog</td>
+ *     <td>non-modal: showFreeColPanel, with a handler</td>
+ *     <td>defer</td></tr>
+ * <tr><td>showWarehouseDialog (not asked yet)</td>
  *     <td>non-modal</td><td>defer, when asked</td></tr>
  * <tr><td>modalConfirmDialog, modalChoiceDialog, modalInputDialog,
  *     showPreCombatDialog, showSelectDestinationDialog,
@@ -985,17 +996,56 @@ public class WebGUI extends GUI {
                       cargo.size(), true, unit)));
     }
 
-    // Not asked yet: reported, then the base GUI's default.
-
+    /**
+     * {@inheritDoc}
+     *
+     * Defers (Swing shows a panel): it is asked from the message handler of
+     * a diplomatic offer, whose handler's answer is what the controller
+     * sends the server. A closed dialog gives the handler null, which the
+     * controllers take as a rejection. See {@link Negotiation}.
+     */
     @Override
     public void showNegotiationDialog(FreeColGameObject our,
                                       FreeColGameObject other,
                                       DiplomaticTrade agreement,
                                       StringTemplate comment,
                                       DialogHandler<DiplomaticTrade> handler) {
-        unasked("showNegotiationDialog");
-        super.showNegotiationDialog(our, other, agreement, comment, handler);
+        final Player player = getMyPlayer();
+        defer("showNegotiationDialog", () -> {
+                final Player otherPlayer = ((Ownable)other).getOwner();
+                final NationSummary ns = getFreeColClient()
+                    .getInGameController().nationSummary(otherPlayer);
+                final Negotiation negotiation = new Negotiation(player, our,
+                    other, agreement, comment,
+                    (ns == null) ? Player.GOLD_NOT_ACCOUNTED : ns.getGold());
+                handler.handle(negotiation.answer(
+                    this.questions.ask("negotiation", negotiation.question())));
+            });
     }
+
+    /**
+     * {@inheritDoc}
+     *
+     * Blocks (Swing's is a modal input dialog), asked by the player's own
+     * demand. The amount suggested is the most there is. Cancel, and
+     * anything that is not a whole number from 1 to the most, is -1, as
+     * the base GUI gives; Swing's dialog would throw on those.
+     */
+    @Override
+    public int showSelectTributeAmountDialog(StringTemplate question,
+                                             int maximum) {
+        final String answer = modalInputDialog(null, question,
+            Integer.toString(maximum), "ok", "cancel");
+        if (answer == null) return -1;
+        try {
+            final int amount = Integer.parseInt(answer.trim());
+            return (amount <= 0 || amount > maximum) ? -1 : amount;
+        } catch (NumberFormatException nfe) {
+            return -1;
+        }
+    }
+
+    // Not asked yet: reported, then the base GUI's default.
 
     @Override
     public int showSelectAmountDialog(GoodsType goodsType, int available,
@@ -1003,13 +1053,6 @@ public class WebGUI extends GUI {
         unasked("showSelectAmountDialog");
         return super.showSelectAmountDialog(goodsType, available,
                                             defaultAmount, needToPay);
-    }
-
-    @Override
-    public int showSelectTributeAmountDialog(StringTemplate question,
-                                             int maximum) {
-        unasked("showSelectTributeAmountDialog");
-        return super.showSelectTributeAmountDialog(question, maximum);
     }
 
     @Override

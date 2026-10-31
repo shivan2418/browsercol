@@ -2,6 +2,8 @@ package online.freecol.web;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -19,17 +21,30 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
+import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.client.gui.ChoiceItem;
 import net.sf.freecol.client.gui.GUI;
 import net.sf.freecol.common.i18n.Messages;
+import net.sf.freecol.common.model.Ability;
+import net.sf.freecol.common.model.Colony;
+import net.sf.freecol.common.model.DiplomaticTrade;
+import net.sf.freecol.common.model.DiplomaticTrade.TradeContext;
+import net.sf.freecol.common.model.DiplomaticTrade.TradeStatus;
 import net.sf.freecol.common.model.FoundingFather;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.Goods;
 import net.sf.freecol.common.model.ModelMessage;
 import net.sf.freecol.common.model.Monarch.MonarchAction;
+import net.sf.freecol.common.model.Player;
+import net.sf.freecol.common.model.Stance;
 import net.sf.freecol.common.model.StringTemplate;
 import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.Unit;
+import net.sf.freecol.common.networking.ChangeSet;
+import net.sf.freecol.common.networking.ChangeSet.See;
+import net.sf.freecol.server.model.ServerColony;
+import net.sf.freecol.server.model.ServerGame;
+import net.sf.freecol.server.model.ServerPlayer;
 
 
 /**
@@ -51,6 +66,8 @@ class WebGUITest {
     /** While true the fake Browser UI leaves questions unanswered, in held. */
     private volatile boolean hold = false;
     private final List<Integer> held = Collections.synchronizedList(new ArrayList<>());
+    /** The server Engine of the game startGame started. */
+    private ServerEngine server;
 
     /** Wait for a deferred dialog's handler to have answered n times. */
     private static void awaitCount(List<?> got, int n) throws Exception {
@@ -74,12 +91,12 @@ class WebGUITest {
     private ClientEngine startGame() throws Exception {
         final CountDownLatch ourTurn = new CountDownLatch(1);
         final ClientEngine[] client = new ClientEngine[1];
-        ServerEngine server = new ServerEngine(
+        this.server = new ServerEngine(
             xml -> toClient.execute(() -> client[0].receive(xml)));
         client[0] = new ClientEngine(new ClientEngine.ServerLink() {
-                public void connect() { server.connect(); }
+                public void connect() { WebGUITest.this.server.connect(); }
                 public void post(String xml) {
-                    toServer.execute(() -> server.receive(xml));
+                    toServer.execute(() -> WebGUITest.this.server.receive(xml));
                 }
             }, new ClientEngine.Listener() {
                 public void gameStarted(Game game) {}
@@ -98,7 +115,7 @@ class WebGUITest {
                     }
                 }
             });
-        server.startGame("classic");
+        this.server.startGame("classic");
         assertTrue(client[0].startGame(0), "login");
         ourTurn.await();
         return client[0];
@@ -326,14 +343,183 @@ class WebGUITest {
     @Test
     @Timeout(120)
     void aDialogWithNoBrowserUIYetIsReportedAndGetsTheDefault() throws Exception {
-        final GUI gui = startGame().getClient().getGUI();
+        final ClientEngine client = startGame();
+        final GUI gui = client.getClient().getGUI();
 
         shown.clear();
-        assertEquals(-1, gui.showSelectTributeAmountDialog(
-            StringTemplate.key("unused"), 10));
-        assertEquals(List.of("unasked {\"method\":\"showSelectTributeAmountDialog\"}"),
+        assertEquals(-1, gui.showSelectAmountDialog(
+            client.getGame().getSpecification()
+                .getGoodsType("model.goods.food"), 10, 5, false));
+        assertEquals(List.of("unasked {\"method\":\"showSelectAmountDialog\"}"),
             shown.stream().filter(e -> !e.startsWith("messages ")).collect(Collectors.toList()));
         assertTrue(asked.isEmpty(), asked.toString());
+    }
+
+    @Test
+    @Timeout(120)
+    void theTributeAmountIsWhatWasEnteredOrMinusOne() throws Exception {
+        final GUI gui = startGame().getClient().getGUI();
+        final StringTemplate demand = StringTemplate.key("info.enterSomeText");
+
+        answer = "7";
+        assertEquals(7, gui.showSelectTributeAmountDialog(demand, 10));
+        final String question = asked.get(0);
+        assertTrue(question.startsWith("input {"), question);
+        assertTrue(question.contains("\"value\":\"10\""), "suggests the most: " + question);
+
+        answer = " 10 ";
+        assertEquals(10, gui.showSelectTributeAmountDialog(demand, 10));
+        for (String bad : new String[] { "0", "-3", "11", "lots", "" }) {
+            answer = bad;
+            assertEquals(-1, gui.showSelectTributeAmountDialog(demand, 10), bad);
+        }
+        answer = null;
+        assertEquals(-1, gui.showSelectTributeAmountDialog(demand, 10), "cancel");
+    }
+
+    /**
+     * Give an AI European player a colony on the server, and sail the
+     * human's ship to its coast, so that the human sees the colony, with a
+     * scout aboard to negotiate with it.
+     */
+    private Colony aiColony(ClientEngine client) {
+        final ServerGame game = (ServerGame)this.server.getGame();
+        final ServerPlayer human = (ServerPlayer)game.getFreeColGameObject(
+            client.getClient().getMyPlayer().getId(), Player.class);
+        final ServerPlayer ai = (ServerPlayer)game.getLiveEuropeanPlayerList(human).get(0);
+        final Tile tile = game.getMap().getTileList(
+            t -> t.isLand() && t.getOwner() == null && t.getSettlement() == null
+                && t.getUnitCount() == 0 && t.isCoastland()).get(0);
+        final ServerColony colony = new ServerColony(game, ai, "Testville", tile);
+        ai.addSettlement(colony);
+        colony.placeSettlement(true);
+
+        final Tile sea = tile.getSurroundingTiles(1, 1).stream()
+            .filter(t -> !t.isLand()).findFirst().get();
+        final Unit ship = human.getUnits().filter(Unit::isNaval).findFirst().get();
+        ship.setLocation(sea);
+        human.invalidateCanSeeTiles();
+        final Unit scout = ship.getUnitList().get(0);
+        scout.changeRole(game.getSpecification().getRole("model.role.scout"), 1);
+        final ChangeSet cs = new ChangeSet();
+        cs.add(See.only(human), human.exploreForUnit(ship));
+        cs.add(See.only(human), ship, scout);
+        game.sendTo(human, cs);
+        return colony;
+    }
+
+    /** The scout aiColony made, once the update has arrived. */
+    private static Unit scout(Player me) throws Exception {
+        for (int i = 0; i < 500; i++) {
+            final Unit u = me.getUnits().filter(x -> x.hasAbility(Ability.NEGOTIATE))
+                .findFirst().orElse(null);
+            if (u != null) return u;
+            Thread.sleep(10);
+        }
+        throw new AssertionError("no scout");
+    }
+
+    /** The client's colony for a server's, once the update has arrived. */
+    private static Colony seen(ClientEngine client, Colony server) throws Exception {
+        for (int i = 0; i < 500; i++) {
+            final Colony c = client.getGame().getFreeColGameObject(server.getId(), Colony.class);
+            if (c != null) return c;
+            Thread.sleep(10);
+        }
+        return null;
+    }
+
+    @Test
+    @Timeout(120)
+    void aPlayerProposesPeaceToAnAINationAndSeesItsReply() throws Exception {
+        final ClientEngine client = startGame();
+        final FreeColClient fc = client.getClient();
+        final Player me = fc.getMyPlayer();
+        final Colony theirs = aiColony(client);
+        final Player ai = client.getGame().getPlayerByNationId(theirs.getOwner().getNationId());
+        final Colony known = seen(client, theirs);
+        assertNotNull(known, "the human sees the colony");
+        final Unit unit = scout(me);
+
+        final DiplomaticTrade offer = new DiplomaticTrade(client.getGame(),
+            TradeContext.DIPLOMATIC, me, ai, null, 0);
+        // The player picks the peace stance and nothing else.
+        answer = "propose\nstance\t\tPEACE\t0";
+        final List<DiplomaticTrade> sent = Collections.synchronizedList(new ArrayList<>());
+        fc.getGUI().showNegotiationDialog(unit, known, offer,
+            offer.getSendMessage(me, known), dt -> {
+                sent.add(dt);
+                fc.askServer().diplomacy(unit, known, dt);
+            });
+        awaitCount(sent, 1);
+
+        final String question = asked.get(0);
+        assertTrue(question.startsWith("negotiation {"), question);
+        assertTrue(question.contains("\"accept\":null"), "a new offer cannot be accepted: " + question);
+        assertTrue(question.contains("\"kind\":\"stance\",\"side\":null,\"label\":\"Stance\""), question);
+        assertTrue(question.contains("{\"key\":\"PEACE\",\"amount\":0,\"text\":\"Peace\"}"), question);
+        assertEquals(TradeStatus.PROPOSE_TRADE, sent.get(0).getStatus());
+        assertEquals(Stance.PEACE, sent.get(0).getStance());
+
+        // The AI answers: an acceptance, a rejection or a counter offer.
+        final long end = System.currentTimeMillis() + 20000;
+        boolean replied = false;
+        while (!replied && System.currentTimeMillis() < end) {
+            Thread.sleep(50);
+            synchronized (shown) {
+                replied = shown.stream().anyMatch(e -> e.startsWith("information ")
+                    && e.contains(Messages.message(StringTemplate
+                        .template("diplomacy.offerRejected")
+                        .addStringTemplate("%nation%", ai.getNationLabel()))));
+            }
+            replied |= asked.size() > 1 && asked.get(1).startsWith("negotiation {");
+            replied |= me.getStance(ai) == Stance.PEACE;
+        }
+        assertTrue(replied, "no reply: " + shown + asked);
+    }
+
+    @Test
+    @Timeout(120)
+    void aClosedNegotiationGivesTheHandlerNullAndAnEditedOneRebuildsTheAgreement()
+            throws Exception {
+        final ClientEngine client = startGame();
+        final FreeColClient fc = client.getClient();
+        final Player me = fc.getMyPlayer();
+        final Colony known = seen(client, aiColony(client));
+        assertNotNull(known, "the human sees the colony");
+        final Player ai = known.getOwner();
+        final Unit unit = scout(me);
+        final DiplomaticTrade offer = new DiplomaticTrade(client.getGame(),
+            TradeContext.DIPLOMATIC, me, ai, null, 0);
+        final List<DiplomaticTrade> got = Collections.synchronizedList(new ArrayList<>());
+        final List<Boolean> closed = Collections.synchronizedList(new ArrayList<>());
+
+        answer = null;
+        fc.getGUI().showNegotiationDialog(unit, known, offer, null,
+            dt -> closed.add(dt == null));
+        awaitCount(closed, 1);
+        assertEquals(List.of(true), closed);
+
+        answer = "propose\ngold\toffer\t\t30\nstance\t\tPEACE\t0\ngold\tdemand\t\t5\n";
+        fc.getGUI().showNegotiationDialog(unit, known, offer, null, got::add);
+        awaitCount(got, 1);
+        assertSame(offer, got.get(0));
+        assertEquals(TradeStatus.PROPOSE_TRADE, offer.getStatus());
+        // Gold is unique: the later item replaces the earlier.
+        assertEquals(-1, offer.getGoldGivenBy(me));
+        assertEquals(5, offer.getGoldGivenBy(ai));
+        assertEquals(Stance.PEACE, offer.getStance());
+
+        got.clear();
+        answer = "reject";
+        fc.getGUI().showNegotiationDialog(unit, known, offer, null, got::add);
+        awaitCount(got, 1);
+        assertEquals(TradeStatus.REJECT_TRADE, offer.getStatus());
+        assertEquals(5, offer.getGoldGivenBy(ai), "reject keeps the agreement");
+        // The question lists the agreement's items.
+        assertTrue(asked.get(asked.size() - 1).contains(
+            "\"kind\":\"gold\",\"side\":\"demand\",\"key\":\"\",\"amount\":5"),
+            asked.get(asked.size() - 1));
     }
 
     @Test
