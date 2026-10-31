@@ -123,6 +123,50 @@ describe('the end turn dialog', () => {
   });
 });
 
+describe('the pre-combat dialog', () => {
+  const preCombat = {
+    attacker: 'Soldier',
+    defender: 'Brave',
+    offence: [{ source: 'Base offence', value: '+1.00' }],
+    defence: [
+      { source: 'Base defence', value: '+1.00' },
+      { source: 'Fortified', value: '+50.00%' },
+    ],
+    finalResult: 'Final result',
+    offenceResult: '1.00',
+    defenceResult: '1.50',
+    ok: 'OK',
+    cancel: 'Cancel',
+    tile: null,
+    object: null,
+  };
+
+  it('lists both sides modifiers in rows and their final results', async () => {
+    const { box } = host();
+    const attack = ask(box, 'preCombat', preCombat);
+    const rows = screen.getAllByRole('row').map((r) => [...r.children].map((c) => c.textContent));
+    expect(rows).toEqual([
+      ['Soldier', 'Brave'],
+      ['Base offence', '+1.00', 'Base defence', '+1.00'],
+      ['', '', 'Fortified', '+50.00%'],
+      ['Final result', '1.00', 'Final result', '1.50'],
+    ]);
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    expect(await attack).toBe(true);
+  });
+
+  it('cancels on its button or Escape, and has no default button', async () => {
+    const { box } = host();
+    const kept = ask(box, 'preCombat', preCombat);
+    key('Enter');
+    key('Escape');
+    expect(await kept).toBe(false);
+    const other = ask(box, 'preCombat', preCombat);
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(await other).toBe(false);
+  });
+});
+
 describe('the choice dialog', () => {
   const choices = [item('Trade'), item('Speak', { default: true }), item('Attack', { enabled: false })];
 
