@@ -4,7 +4,7 @@ import { zip } from './fsg-fixture';
 import { fileNameOf, importSave } from './save-files';
 
 const XML =
-  '<savedGame owner="emil"><game turn="12"><player nationId="model.nation.english" ai="false"></game></savedGame>';
+  '<savedGame owner="Ana"><game turn="12"><player nationId="model.nation.english" ai="false"></game></savedGame>';
 
 describe('importSave', () => {
   it('stores the file unchanged, named after the file, with the turn, year and nation read from it', async () => {

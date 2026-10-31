@@ -4,16 +4,16 @@ import { NotASave, readFsg, turnYear } from './fsg';
 
 const SAVE =
   '<?xml version="1.0" encoding="UTF-8"?><!--Configuration: x-->\n' +
-  '<savedGame owner="emil &amp; co" version="14">\n' +
+  '<savedGame owner="Ana &amp; co" version="14">\n' +
   '<game id="0" turn="34" currentPlayer="player:19">\n' +
   '<player id="player:94" username="Louis XIV" nationId="model.nation.french" ai="true">\n' +
-  '<player id="player:19" username="emil &amp; co" nationId="model.nation.dutch" ai="false">\n' +
+  '<player id="player:19" username="Ana &amp; co" nationId="model.nation.dutch" ai="false">\n' +
   '</game></savedGame>';
 
 describe('readFsg', () => {
   it('reads the turn, year, nation and owner of a save', async () => {
     const info = await readFsg(await zip({ 'client-options.xml': '<x/>', 'savegame.xml': SAVE }));
-    expect(info).toEqual({ turn: 34, year: 1525, nation: 'Dutch', owner: 'emil & co' });
+    expect(info).toEqual({ turn: 34, year: 1525, nation: 'Dutch', owner: 'Ana & co' });
   });
 
   it('reads a zip whose local headers carry no sizes', async () => {

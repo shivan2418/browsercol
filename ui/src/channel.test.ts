@@ -30,7 +30,7 @@ function fakeServer(scope: Scope, log: string[]): ServerExports {
     },
     loadGame: (bytes) => {
       log.push(`server load ${[...bytes].join(',')}`);
-      scope.fcServerEvent('owner', 'emil');
+      scope.fcServerEvent('owner', 'Ana');
       scope.fcServerEvent('loaded', '5,Turn 4');
     },
   };
@@ -208,7 +208,7 @@ describe('the Worker channel', () => {
     page.close();
     expect(log.filter((l) => !l.endsWith(' main 0'))).toEqual([
       'server load 7,8,9',
-      'client start 0 as emil',
+      'client start 0 as Ana',
       'server connect',
       'server got <login/>',
       'client got <loginReply/>',

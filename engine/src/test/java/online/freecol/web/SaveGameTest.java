@@ -198,19 +198,19 @@ class SaveGameTest {
     void aSaveFromAnotherPlayerLoadsAndKeepsItsOwner() throws Exception {
         ServerEngine played = playRounds(1).server();
         for (var p : played.getGame().getLiveEuropeanPlayerList()) {
-            if (!p.isAI()) p.setName("emil");
+            if (!p.isAI()) p.setName("Ana");
         }
         byte[] bytes = played.saveGame();
-        assertTrue(savegameXml(bytes).contains("<savedGame owner=\"emil\""),
+        assertTrue(savegameXml(bytes).contains("<savedGame owner=\"Ana\""),
             "the save names its human player as owner");
 
         ServerEngine loaded = new ServerEngine(xml -> {});
         loaded.loadGame(bytes);
-        assertEquals("emil", loaded.ownerName());
+        assertEquals("Ana", loaded.ownerName());
         Session resumed = login(loaded, 0, loaded.ownerName());
-        assertEquals("emil", resumed.client().getClient().getMyPlayer().getName());
+        assertEquals("Ana", resumed.client().getClient().getMyPlayer().getName());
         assertTrue(resumed.client().getClient().currentPlayerIsMyPlayer(), "our turn");
-        assertTrue(savegameXml(loaded.saveGame()).contains("<savedGame owner=\"emil\""),
+        assertTrue(savegameXml(loaded.saveGame()).contains("<savedGame owner=\"Ana\""),
             "a save of the loaded game keeps the owner");
     }
 }
