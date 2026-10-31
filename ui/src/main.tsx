@@ -151,6 +151,7 @@ const gui: GuiHandlers = {
     confirm: (q) => dialogQueue.ask('confirm', q),
     choice: (q) => dialogQueue.ask('choice', q),
     input: (q) => dialogQueue.ask('input', q),
+    goods: (q) => dialogQueue.ask('goods', q),
   },
 };
 

@@ -1,5 +1,5 @@
 // React components for the WebGUI's dialogs (dialogs.ts): the confirm,
-// choice and input questions and the information, error, event and message
+// choice, input and goods questions and the information, error, event and message
 // panels. All text, button labels included, comes localized from the
 // Engine. Keys mean what they do in FreeCol's dialogs: Enter presses the
 // focused button, else takes the default option; Escape closes the dialog
@@ -119,6 +119,39 @@ function Input({ d }: { d: Of<'input'> }) {
   );
 }
 
+function Goods({ d }: { d: Of<'goods'> }) {
+  const { ask } = d;
+  const [picked, setPicked] = useState<number[]>(() =>
+    ask.goods.flatMap((g, i) => (g.checked ? [i] : [])).slice(0, ask.max),
+  );
+  const full = picked.length >= ask.max;
+  const toggle = (i: number) =>
+    setPicked((p) => (p.includes(i) ? p.filter((x) => x !== i) : p.length < ask.max ? [...p, i] : p));
+  const ok = () => d.done([...picked].sort((a, b) => a - b));
+  const cancel = () => d.done(null);
+  useKeys(ok, cancel);
+  return (
+    <>
+      <Text text={ask.text} />
+      <div className="lots">
+        {ask.goods.map((g, i) => (
+          <label key={i} data-icon={g.icon}>
+            <input
+              type="checkbox"
+              checked={picked.includes(i)}
+              disabled={full && !picked.includes(i)}
+              onChange={() => toggle(i)}
+            />
+            <span className="name">{g.name}</span>
+            <span className="amount">{g.amount}</span>
+          </label>
+        ))}
+      </div>
+      <OkCancel ok={ask.ok} cancel={ask.cancel} onOk={ok} onCancel={cancel} />
+    </>
+  );
+}
+
 /** A panel's body, then its close button. */
 function Panel({ d, children, ok }: { d: Dialog; children: ReactNode; ok: string }) {
   const close = () => (d.done as () => void)();
@@ -162,6 +195,8 @@ function Body({ d, goTo }: { d: Dialog; goTo: (at: At) => void }) {
       return <Choice d={d} />;
     case 'input':
       return <Input d={d} />;
+    case 'goods':
+      return <Goods d={d} />;
     case 'information':
       return (
         <Panel d={d} ok={d.event.ok}>
