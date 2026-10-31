@@ -1,5 +1,5 @@
 // React components for the WebGUI's dialogs (dialogs.ts): the confirm,
-// choice, input and goods questions and the information, error, event and message
+// choice, input, goods and names questions and the information, error, event and message
 // panels. All text, button labels included, comes localized from the
 // Engine. Keys mean what they do in FreeCol's dialogs: Enter presses the
 // focused button, else takes the default option; Escape closes the dialog
@@ -119,6 +119,30 @@ function Input({ d }: { d: Of<'input'> }) {
   );
 }
 
+function Names({ d }: { d: Of<'names'> }) {
+  const { ask } = d;
+  const [values, setValues] = useState(ask.fields.map((f) => f.value));
+  const ok = () => d.done(values);
+  const cancel = () => d.done(null);
+  useKeys(ok, cancel);
+  return (
+    <>
+      <Text text={ask.text} />
+      {ask.fields.map((f, i) => (
+        <label key={i} className="field">
+          <span className="text">{f.label}</span>
+          <input
+            autoFocus={i === 0}
+            value={values[i]}
+            onChange={(e) => setValues(values.map((v, j) => (j === i ? e.target.value : v)))}
+          />
+        </label>
+      ))}
+      <OkCancel ok={ask.ok} cancel={ask.cancel} onOk={ok} onCancel={cancel} />
+    </>
+  );
+}
+
 function Goods({ d }: { d: Of<'goods'> }) {
   const { ask } = d;
   const [picked, setPicked] = useState<number[]>(() =>
@@ -197,6 +221,8 @@ function Body({ d, goTo }: { d: Dialog; goTo: (at: At) => void }) {
       return <Input d={d} />;
     case 'goods':
       return <Goods d={d} />;
+    case 'names':
+      return <Names d={d} />;
     case 'information':
       return (
         <Panel d={d} ok={d.event.ok}>

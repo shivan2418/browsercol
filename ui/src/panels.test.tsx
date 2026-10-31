@@ -263,3 +263,38 @@ describe('the panels', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 });
+
+describe('the names dialog', () => {
+  const q = {
+    text: 'Declare independence?',
+    fields: [
+      { label: 'Nation', value: 'Free Dutch' },
+      { label: 'Country', value: 'United Dutch' },
+    ],
+    ok: 'Liberty',
+    cancel: 'Later',
+  };
+
+  it('answers the fields, as edited, on ok or Enter', async () => {
+    const { box } = host();
+    const edited = ask(box, 'names', q);
+    fireEvent.change(screen.getByLabelText('Country'), { target: { value: 'Newland' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Liberty' }));
+    expect(await edited).toEqual(['Free Dutch', 'Newland']);
+
+    const kept = ask(box, 'names', q);
+    key('Enter');
+    expect(await kept).toEqual(['Free Dutch', 'United Dutch']);
+  });
+
+  it('answers null on cancel or Escape', async () => {
+    const { box } = host();
+    const later = ask(box, 'names', q);
+    fireEvent.click(screen.getByRole('button', { name: 'Later' }));
+    expect(await later).toBeNull();
+
+    const escaped = ask(box, 'names', q);
+    key('Escape');
+    expect(await escaped).toBeNull();
+  });
+});

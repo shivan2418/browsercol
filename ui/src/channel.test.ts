@@ -54,6 +54,7 @@ function fakeClient(scope: Scope, log: string[]): ClientExports {
     nextUnit: () => {},
     buildColony: () => {},
     endTurn: () => {},
+    declareIndependence: () => {},
     fortify: () => {},
     sentry: () => {},
     skip: () => {},
@@ -67,7 +68,7 @@ function fakeClient(scope: Scope, log: string[]): ClientExports {
 
 const sayYes: GuiHandlers = {
   events: {},
-  questions: { confirm: () => true, choice: () => null, input: () => null, goods: () => null },
+  questions: { confirm: () => true, choice: () => null, input: () => null, goods: () => null, names: () => null },
 };
 
 describe('the Worker channel', () => {

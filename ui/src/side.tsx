@@ -21,6 +21,7 @@ const BUTTONS: [string, Command][] = [
   ['Next unit (W)', { k: 'nextUnit' }],
   ['Build colony (B)', { k: 'buildColony' }],
   ['End turn (Enter)', { k: 'endTurn' }],
+  ['Declare independence', { k: 'declareIndependence' }],
 ];
 
 /**

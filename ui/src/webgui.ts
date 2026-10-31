@@ -79,6 +79,12 @@ export interface GuiQuestions {
     /** The indexes of the lots chosen, null for a closed dialog. */
     answer: number[] | null;
   };
+  /** Text fields, each with its label and a suggestion (the new nation's names). */
+  names: {
+    ask: { text: string; fields: { label: string; value: string }[]; ok: string | null; cancel: string | null };
+    /** The fields' values, in order; null when cancelled or closed. */
+    answer: string[] | null;
+  };
 }
 
 export interface Lot {
@@ -110,6 +116,8 @@ const encode: { [K in keyof GuiQuestions]: (answer: GuiQuestions[K]['answer']) =
   choice: (a) => (a === null ? null : String(a)),
   input: (a) => a,
   goods: (a) => (a === null ? null : JSON.stringify(a)),
+  // Java splits the answer at the line break, which a text field never holds.
+  names: (a) => (a === null ? null : a.join('\n')),
 };
 
 const isKey = <T extends object>(o: T, k: string): k is Extract<keyof T, string> => Object.hasOwn(o, k);

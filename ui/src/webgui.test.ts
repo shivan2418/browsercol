@@ -42,6 +42,15 @@ const question = {
       },
     ],
   },
+  names: {
+    text: 'Declare?',
+    fields: [
+      { label: 'Nation', value: 'Free Dutch' },
+      { label: 'Country', value: 'United Dutch' },
+    ],
+    ok: 'Liberty',
+    cancel: 'Later',
+  },
 };
 
 describe('webGui', () => {
@@ -56,6 +65,7 @@ describe('webGui', () => {
           choice: async (q) => (asked.push(q), 0),
           input: (q) => (asked.push(q), null),
           goods: (q) => (asked.push(q), [1, 0]),
+          names: (q) => (asked.push(q), [q.fields[0].value, 'Newland']),
         },
       },
       a.answer,
@@ -66,6 +76,7 @@ describe('webGui', () => {
       [2, 'choice'],
       [3, 'input'],
       [4, 'goods'],
+      [5, 'names'],
     ] as const) {
       const arrived = a.next();
       gui.fcAsk(id, kind, JSON.stringify(question[kind]));
@@ -73,12 +84,13 @@ describe('webGui', () => {
       await arrived;
     }
 
-    expect(asked).toEqual([question.confirm, question.choice, question.input, question.goods]);
+    expect(asked).toEqual([question.confirm, question.choice, question.input, question.goods, question.names]);
     expect(a.got).toEqual([
       [1, 'true'],
       [2, '0'],
       [3, null],
       [4, '[1,0]'],
+      [5, 'Free Dutch\nNewland'],
     ]);
   });
 
@@ -94,6 +106,7 @@ describe('webGui', () => {
         choice: () => null,
         input: () => null,
         goods: () => null,
+        names: () => null,
       },
     };
     const gui = webGui(handlers, a.answer);
@@ -122,7 +135,13 @@ describe('webGui', () => {
     const gui = webGui(
       {
         events: { activeUnit: (e) => seen.push(e.unit) },
-        questions: { confirm: () => false, choice: () => null, input: () => null, goods: () => null },
+        questions: {
+          confirm: () => false,
+          choice: () => null,
+          input: () => null,
+          goods: () => null,
+          names: () => null,
+        },
       },
       () => {},
     );
