@@ -69,6 +69,7 @@ test {
     // Every test starts whole FreeCol games in this one JVM; Gradle's
     // default 512 MB ran out once #80 added two more.
     maxHeapSize = '2g'
+    systemProperty 'presets.dir', file('../ui/presets').absolutePath
     testLogging { events 'failed'; exceptionFormat 'full'; showStandardStreams = project.hasProperty('verbose') }
 }
 
