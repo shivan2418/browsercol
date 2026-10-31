@@ -57,7 +57,11 @@ pointer. Drag the map or rest the pointer at its edge to scroll, and zoom
 with the wheel. Click one of your units to
 select it (click again to cycle through a stack, units aboard ships
 included), click a tile to send the active unit there, move one step with
-the arrow keys or numpad, `W`/`Space` for the next unit, `B` to build a
-colony, `Enter` to end the turn. `?autoplay=N` first auto-ends N turns
+the arrow keys or numpad, `W` for the next unit, `Space` to leave it for
+this turn, `F` to fortify it, `S` to sentry it, `D` to disband it, `P` to
+plow its tile, `C` to clear a forest and `R` to build a road, `B` to build
+a colony, `Enter` to end the turn. The side panel has a button for each of
+them, disabled while the active unit may not take that order.
+`?autoplay=N` first auto-ends N turns
 (debug; the smoke test uses 10). The browser scripts save screenshots in
 `.cache/`.

@@ -30,6 +30,14 @@ export interface ClientExports {
   nextUnit(): void;
   buildColony(): void;
   endTurn(): void;
+  /** The standing orders of the active unit. */
+  fortify(): void;
+  sentry(): void;
+  skip(): void;
+  disband(): void;
+  plow(): void;
+  clearForest(): void;
+  road(): void;
 }
 
 export type ToWorker =

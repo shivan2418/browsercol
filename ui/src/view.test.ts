@@ -34,7 +34,7 @@ const play = (...events: ViewEvent[]) => [...SIZE, ...events].reduce(reduce, ini
 
 describe('the view', () => {
   it('centres on the active unit when it changes', () => {
-    const v = play({ k: 'activeUnit', unit: 'unit:7', tile: 'tile:1', at: [5, 11], force: false });
+    const v = play({ k: 'activeUnit', unit: 'unit:7', tile: 'tile:1', at: [5, 11], force: false, orders: [] });
     expect(v.centre).toEqual([768, 384]);
     expect(v.active).toEqual({ unit: 'unit:7', tile: [5, 11] });
   });
@@ -51,12 +51,26 @@ describe('the view', () => {
     // After each move the controller calls changeView(unit, true): as in
     // SwingGUI, the cursor moves on, but the view and selection stay put
     // while the unit is in sight.
-    const selected = play({ k: 'activeUnit', unit: 'unit:7', tile: 'tile:1', at: [5, 11], force: false });
-    const step = reduce(selected, { k: 'activeUnit', unit: 'unit:7', tile: 'tile:9', at: [6, 11], force: true });
+    const selected = play({ k: 'activeUnit', unit: 'unit:7', tile: 'tile:1', at: [5, 11], force: false, orders: [] });
+    const step = reduce(selected, {
+      k: 'activeUnit',
+      unit: 'unit:7',
+      tile: 'tile:9',
+      at: [6, 11],
+      force: true,
+      orders: [],
+    });
     expect(step.active).toEqual({ unit: 'unit:7', tile: [6, 11] });
     expect(step.centre).toEqual(selected.centre);
     expect(step.selected).toEqual([5, 11]);
-    const away = reduce(step, { k: 'activeUnit', unit: 'unit:7', tile: 'tile:8', at: [15, 30], force: true });
+    const away = reduce(step, {
+      k: 'activeUnit',
+      unit: 'unit:7',
+      tile: 'tile:8',
+      at: [15, 30],
+      force: true,
+      orders: [],
+    });
     expect(away.centre).toEqual([1984, 992]);
   });
 
@@ -79,7 +93,7 @@ describe('the view', () => {
   });
 
   it("puts FreeCol's cursor on the active unit, or on the selected tile in terrain mode", () => {
-    const active = play({ k: 'activeUnit', unit: 'unit:7', tile: 'tile:1', at: [5, 11], force: false });
+    const active = play({ k: 'activeUnit', unit: 'unit:7', tile: 'tile:1', at: [5, 11], force: false, orders: [] });
     expect(cursor(active)).toEqual({ at: [5, 11], kind: 'unit' });
 
     // No units left to move: changeView(fallback tile) selects a tile and
@@ -92,7 +106,7 @@ describe('the view', () => {
     expect(reduce(active, { k: 'selectedTile', tile: 'tile:5', at: [15, 30] }).centre).toEqual([1984, 992]);
 
     // End-turn mode: no active unit, no cursor.
-    const ended = reduce(near, { k: 'activeUnit', unit: null, tile: null, at: null, force: false });
+    const ended = reduce(near, { k: 'activeUnit', unit: null, tile: null, at: null, force: false, orders: [] });
     expect(cursor(ended)).toBeNull();
     expect(ended.selected, 'changeView() clears the selection too').toBeNull();
   });
@@ -121,7 +135,7 @@ describe('the view', () => {
     });
     const events: ViewEvent[] = [
       { k: 'map', map },
-      { k: 'activeUnit', unit: 'unit:7', tile: 'tile:1', at: [1, 0], force: false },
+      { k: 'activeUnit', unit: 'unit:7', tile: 'tile:1', at: [1, 0], force: false, orders: [] },
     ];
     const v = events.reduce(reduce, initialView);
     expect(panel(v)).toEqual({
@@ -136,7 +150,7 @@ describe('the view', () => {
     expect(hover(null)).toBeNull();
 
     // The WebGUI moved on to another unit before the next map view: show none.
-    const next = reduce(v, { k: 'activeUnit', unit: 'unit:8', tile: 'tile:2', at: [0, 0], force: false });
+    const next = reduce(v, { k: 'activeUnit', unit: 'unit:8', tile: 'tile:2', at: [0, 0], force: false, orders: [] });
     expect(panel(next).unit).toBeNull();
   });
 
@@ -167,7 +181,7 @@ describe('the view', () => {
 
 describe("the map view's active unit", () => {
   const unit = { id: 'unit:7', label: 'Caravel', moves: '1', cargo: [], path: [[1, 0, 0] as [number, number, number]] };
-  const select: ViewEvent = { k: 'activeUnit', unit: 'unit:7', tile: 'tile:1', at: [1, 0], force: false };
+  const select: ViewEvent = { k: 'activeUnit', unit: 'unit:7', tile: 'tile:1', at: [1, 0], force: false, orders: [] };
   const active = play({ k: 'map', map: facts({ active: [1, 0], activeUnit: unit }) }, select);
 
   it('is the active unit, once a map view about it has come', () => {
@@ -182,6 +196,7 @@ describe("the map view's active unit", () => {
       tile: 'tile:2',
       at: [0, 0],
       force: false,
+      orders: [],
     };
     expect(activeUnitFacts(reduce(active, other))).toBeNull();
     expect(activeUnitFacts(reduce(active, { ...other, unit: null, tile: null, at: null }))).toBeNull();

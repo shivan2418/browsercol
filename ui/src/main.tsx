@@ -59,7 +59,7 @@ const rounds: string[] = [];
 let drawn = Promise.resolve();
 
 const dialogQueue = dialogs();
-const side: Omit<SideProps, 'run'> = { turn: '-', info: '', unasked: [], status: 'starting...' };
+const side: Omit<SideProps, 'run'> = { turn: '-', info: '', unasked: [], status: 'starting...', orders: [] };
 let runCommand: (c: Command) => void = () => {};
 const sideRoot = createRoot(document.getElementById('side')!);
 function renderSide() {
@@ -124,7 +124,11 @@ function show(status: string, extra: Record<string, unknown> = {}) {
 window.fcUnasked = [];
 const gui: GuiHandlers = {
   events: {
-    activeUnit: (e) => dispatch({ k: 'activeUnit', ...e }),
+    activeUnit: (e) => {
+      // The Engine says which orders the active unit can take now.
+      side.orders = e.orders;
+      dispatch({ k: 'activeUnit', ...e });
+    },
     selectedTile: (e) => dispatch({ k: 'selectedTile', ...e }),
     focus: (e) => dispatch({ k: 'focus', ...e }),
     information: (e) => dialogQueue.show('information', e),

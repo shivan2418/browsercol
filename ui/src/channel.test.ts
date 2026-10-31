@@ -54,6 +54,13 @@ function fakeClient(scope: Scope, log: string[]): ClientExports {
     nextUnit: () => {},
     buildColony: () => {},
     endTurn: () => {},
+    fortify: () => {},
+    sentry: () => {},
+    skip: () => {},
+    disband: () => {},
+    plow: () => {},
+    clearForest: () => {},
+    road: () => {},
   };
 }
 

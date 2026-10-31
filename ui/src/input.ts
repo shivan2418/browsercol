@@ -1,11 +1,23 @@
 // The player's keys, mapped to the client Engine's player commands
 // (engine/.../web/Commands.java). Arrow keys and the numpad move the active
-// unit one step, as FreeCol's MoveAction keys do.
+// unit one step, as FreeCol's MoveAction keys do, and the standing orders
+// have the keys the Swing client binds them to.
 
 /** FreeCol's Direction names. */
 export type Direction = 'N' | 'NE' | 'E' | 'SE' | 'S' | 'SW' | 'W' | 'NW';
 
-export type Command = { k: 'move'; direction: Direction } | { k: 'nextUnit' } | { k: 'buildColony' } | { k: 'endTurn' };
+export type Command =
+  | { k: 'move'; direction: Direction }
+  | { k: 'nextUnit' }
+  | { k: 'buildColony' }
+  | { k: 'endTurn' }
+  | { k: 'fortify' }
+  | { k: 'sentry' }
+  | { k: 'skip' }
+  | { k: 'disband' }
+  | { k: 'plow' }
+  | { k: 'clearForest' }
+  | { k: 'road' };
 
 const BY_KEY: Record<string, Command> = {
   ArrowUp: { k: 'move', direction: 'N' },
@@ -14,10 +26,26 @@ const BY_KEY: Record<string, Command> = {
   ArrowLeft: { k: 'move', direction: 'W' },
   w: { k: 'nextUnit' },
   W: { k: 'nextUnit' },
-  ' ': { k: 'nextUnit' },
   b: { k: 'buildColony' },
   B: { k: 'buildColony' },
   Enter: { k: 'endTurn' },
+  // The standing orders, with the keys the Swing client binds them to:
+  // FortifyAction, SentryAction, SkipUnitAction, DisbandUnitAction and
+  // the ImprovementActions. Space skips the unit, as SkipUnitAction does;
+  // the next unit waits for W, as WaitAction does.
+  f: { k: 'fortify' },
+  F: { k: 'fortify' },
+  s: { k: 'sentry' },
+  S: { k: 'sentry' },
+  ' ': { k: 'skip' },
+  d: { k: 'disband' },
+  D: { k: 'disband' },
+  p: { k: 'plow' },
+  P: { k: 'plow' },
+  c: { k: 'clearForest' },
+  C: { k: 'clearForest' },
+  r: { k: 'road' },
+  R: { k: 'road' },
 };
 
 // Numpad keys by code, the same with Num Lock on or off.
