@@ -120,6 +120,17 @@ class SaveGameTest {
 
     @Test
     @Timeout(180)
+    void aSaveCutShortFailsWithWhatWasLoaded() throws Exception {
+        byte[] whole = playRounds(1).server().saveGame(null);
+        byte[] cut = java.util.Arrays.copyOf(whole, whole.length / 2);
+        ServerEngine fresh = new ServerEngine(xml -> {});
+        IOException ex = org.junit.jupiter.api.Assertions.assertThrows(IOException.class, () -> fresh.loadGame(cut));
+        assertTrue(ex.getMessage().startsWith("loading a save of " + cut.length + " bytes, " + cut.length + " on disk"),
+            ex.getMessage());
+    }
+
+    @Test
+    @Timeout(180)
     void aSavedGameLoadsBackAsTheSameGame() throws Exception {
         ServerEngine played = playRounds(3).server();
         String before = played.describe();
