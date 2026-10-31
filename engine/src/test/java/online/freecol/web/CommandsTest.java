@@ -81,6 +81,9 @@ class CommandsTest {
     private String accept(String kind, String json) {
         switch (kind) {
         case "confirm": return String.valueOf(!json.contains("Europe"));
+        // The end turn dialog's ok ends the turn; the pre-combat dialog's attacks.
+        case "endTurn": return "ok";
+        case "preCombat": return "true";
         case "choice":
             if (wanted != null) {
                 final int i = choiceIndex(json, wanted);
