@@ -23,6 +23,9 @@ node ui/scripts/build-data.mjs freecol/data "$gen/data.json"
 # Tileset's manifest beside the default's (the page's ?tileset=test).
 node ui/scripts/build-art.mjs freecol/data "$gen/public/art"
 node ui/scripts/build-art.mjs freecol/data "$gen/public/art" --manifest test.json ui/tilesets/test
+# Debug quick-start presets, served as presets/NAME.json (the page's ?preset=NAME).
+mkdir -p "$gen/public/presets"
+cp ui/presets/*.json "$gen/public/presets/"
 
 cd ui
 npm ci --no-audit --no-fund

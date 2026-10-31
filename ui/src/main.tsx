@@ -10,6 +10,8 @@
 //   ?autoplay=N  rounds the human auto-ends its turn first (debug; default 0)
 //   ?rules=ID    the ruleset (default classic)
 //   ?load=ID     continue the saved game with this id, in place of a new game
+//   ?preset=NAME start straight away from presets/NAME.json (or a URL ending .json): a
+//                preset sets the nation, difficulty, options and map seed (debug)
 //   ?tileset=ID  a Tileset built beside the default, art/<ID>.json (e.g. test)
 //   ?renderer=canvas2d  draw with the Canvas 2D fallback, not PixiJS (debug)
 import clientUrl from '../generated/client.wasm?url';
@@ -50,6 +52,7 @@ const params = new URLSearchParams(location.search);
 const autoplay = Number(params.get('autoplay') ?? '0');
 const rules = params.get('rules') ?? 'classic';
 const loadId = params.has('load') ? Number(params.get('load')) : undefined;
+const preset = params.get('preset');
 const tileset = params.get('tileset');
 const mapHost = document.getElementById('map')!;
 /** The map's size: its host's box, which the page's CSS gives what the side panel leaves. */
@@ -194,7 +197,7 @@ function showPanel() {
 }
 
 function show(status: string, extra: Record<string, unknown> = {}) {
-  const state = { status, rules, autoplay, renderer: map.renderer(), rounds, ...extra };
+  const state = { status, rules, preset, autoplay, renderer: map.renderer(), rounds, ...extra };
   if (status !== 'running') window.fcResult = state;
   side.status = JSON.stringify(state, null, 1);
   renderSide();
@@ -268,15 +271,25 @@ function playWith(client: ClientExports) {
   });
 }
 
+/** A preset's JSON: a bare name is presets/NAME.json of this build. */
+async function fetchPreset(name: string): Promise<string> {
+  const url = name.endsWith('.json') ? name : `presets/${name}.json`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`preset ${name}: ${url} gave ${res.status}`);
+  return res.text();
+}
+
 async function run() {
   const data = (await (await fetch(dataUrl)).json()) as string[];
   const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
+  const presetJson = preset ? await fetchPreset(preset) : '';
   const client = startPage({
     worker,
     loadClient: () => loadModule<ClientExports>(runtimeUrl, clientUrl),
     data,
     rules,
     load: loadId,
+    preset: presetJson,
     autoplay,
     scope: globalThis as unknown as Scope,
     gui,

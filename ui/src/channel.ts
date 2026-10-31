@@ -14,7 +14,8 @@ import { webGui, type GuiHandlers } from './webgui';
 /** Exports of the server module (online.freecol.web.WorkerMain). */
 export interface ServerExports {
   main(args: string[]): void;
-  startGame(rules: string): void;
+  /** `preset` is a GamePreset's JSON ("" for none); a bad one fails with a message. */
+  startGame(rules: string, preset: string): void;
   /** Save the game; the bytes go out through fcSaved and then a "saved" event. */
   saveGame(activeUnitId: string): void;
   /** Replace the game with the one in a savegame; a "loaded" event follows. */
@@ -58,7 +59,7 @@ export interface ClientExports {
 
 export type ToWorker =
   | { k: 'data'; data: string[] }
-  | { k: 'start'; rules: string }
+  | { k: 'start'; rules: string; preset: string }
   | { k: 'load'; id: number }
   | { k: 'save'; active: string; name: string }
   | { k: 'connect' }
@@ -124,7 +125,7 @@ export function serveWorker(
   const handle = (m: ToWorker) => {
     switch (m.k) {
       case 'start':
-        return server!.startGame(m.rules);
+        return server!.startGame(m.rules, m.preset);
       case 'save':
         names.push(m.name);
         return server!.saveGame(m.active);
@@ -168,6 +169,8 @@ export interface PageOptions {
   rules: string;
   /** A saved game's id to load in place of a new game. */
   load?: number;
+  /** The JSON of a GamePreset (options, nation, map seed) to start from, or "" for none. */
+  preset: string;
   /** Rounds the human player auto-ends before play is handed to them. */
   autoplay: number;
   scope: Scope;
@@ -191,7 +194,7 @@ export function startPage(o: PageOptions): Promise<ClientExports> {
   o.scope.fcToServer = (xml: string) => send({ k: 'fc', xml });
   o.scope.fcConnect = () => send({ k: 'connect' });
   o.scope.fcClientEvent = (name: string, detail: string) => {
-    if (name === 'ready') send(o.load === undefined ? { k: 'start', rules: o.rules } : { k: 'load', id: o.load });
+    if (name === 'ready') send(o.load === undefined ? { k: 'start', rules: o.rules, preset: o.preset } : { k: 'load', id: o.load });
     o.onEvent(name, detail);
   };
   Object.assign(

@@ -14,7 +14,7 @@
 // what the side panel leaves of the window, and the wheel, a drag and the
 // pointer at an edge must zoom and scroll it at its new size. Exits non-zero
 // unless every browser gets there. Run in the web image:
-//   DEV_VARIANT=web ./dev.sh node ui/scripts/play.mjs [--browsers chromium,firefox] [--query renderer=canvas2d] [--scale 2]
+//   DEV_VARIANT=web ./dev.sh node ui/scripts/play.mjs [--browsers chromium,firefox] [--query renderer=canvas2d|preset=dutch-small] [--scale 2]
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { answerDialogs, dialogLog } from './dialogs.mjs';

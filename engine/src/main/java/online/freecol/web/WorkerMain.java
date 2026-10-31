@@ -31,13 +31,14 @@ public final class WorkerMain {
         engine = new ServerEngine(WorkerMain::post);
     }
 
-    /** Start a new game, then report "started" with the time it took. */
+    /** Start a new game from a preset's JSON ("" for none), then report "started" with the time it took. */
     @JSExport
-    public static void startGame(String rules) {
+    public static void startGame(String rules, String preset) {
         new Thread(() -> {
                 long t = System.currentTimeMillis();
                 try {
-                    engine.startGame(rules);
+                    engine.startGame(rules, (preset.isEmpty()) ? GamePreset.none()
+                        : GamePreset.parse(preset));
                     event("started", String.valueOf(System.currentTimeMillis() - t));
                 } catch (Throwable ex) {
                     ex.printStackTrace();
