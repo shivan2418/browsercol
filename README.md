@@ -107,3 +107,13 @@ take, fails the start with a message naming it. `england-large` and
 `dutch-small` ship. The browser scripts take page parameters:
 `DEV_VARIANT=web ./dev.sh node ui/scripts/smoke.mjs --query preset=dutch-small`
 and the same `--query` for `play.mjs`.
+
+`?debug` adds a debug menu to the side panel: reveal or hide the map, add
+gold, add a unit or goods at the selected tile (goods go to the colony
+there), skip N turns with the AI playing, and show the AI players' units and
+missions. It combines with `?preset=` and `?autoplay=`. The actions are
+FreeCol's own debug actions (`DebugUtils`), run by the server Engine in the
+Worker as requests (`engine/.../DebugActions.java`), because `DebugUtils`
+reaches into the server's game from the client, which the browser cannot do.
+`DEV_VARIANT=web ./dev.sh node ui/scripts/debug.mjs` checks them in the
+built site.
