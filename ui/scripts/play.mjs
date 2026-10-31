@@ -246,7 +246,10 @@ async function play(page, url) {
     };
     if (!(await page.waitForFunction(fits, want, { timeout: 5000 }).catch(() => false))) {
       const got = await page.evaluate(canvasSize);
-      throw new Error(`after a resize the canvas is ${got}, the view ${(await viewState()).viewport}, not ${want}`);
+      const view = (await viewState()).viewport;
+      throw new Error(
+        `after a resize the canvas is ${JSON.stringify(got)}, the view ${JSON.stringify(view)}, not ${JSON.stringify(want)}`,
+      );
     }
     await laidOut('after a resize');
   };
