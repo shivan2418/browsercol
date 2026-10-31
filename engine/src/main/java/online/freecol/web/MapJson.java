@@ -19,6 +19,7 @@ import net.sf.freecol.common.model.Player;
 import net.sf.freecol.common.model.Resource;
 import net.sf.freecol.common.model.Role;
 import net.sf.freecol.common.model.Settlement;
+import net.sf.freecol.common.model.StringTemplate;
 import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.TileImprovement;
 import net.sf.freecol.common.model.TileItem;
@@ -33,7 +34,8 @@ import net.sf.freecol.common.util.Utils;
  * which keys exist, this sends the candidates, most specific first, and the
  * Browser UI takes the first its Tileset has. Fields:
  * <ul>
- * <li>w, h, turn, ourTurn;
+ * <li>w, h, turn, ourTurn, statusLine, the last being FreeCol's status
+ *     line, as InGameMenuBar paints it: the score, gold, tax and year;
  * <li>types: {id, land, forested, name} per tile type, indexed by tiles;
  * <li>tiles: one character per tile, 'A' + type index, '.' if unexplored;
  * <li>owners: one character per tile, 'A' + players index, '.' if
@@ -123,6 +125,7 @@ final class MapJson {
         return new Json().put("w", w).put("h", h)
             .put("turn", String.valueOf(game.getTurn()))
             .put("ourTurn", player == game.getCurrentPlayer())
+            .put("statusLine", statusLine(game, player))
             .putRaw("types", Json.array(typeJson))
             .put("tiles", tiles.toString())
             .put("seen", seen.toString())
@@ -136,6 +139,21 @@ final class MapJson {
             .putRaw("active", xy(at))
             .putRaw("activeUnit", (active == null) ? "null" : activeUnit(active))
             .toString();
+    }
+
+    /**
+     * FreeCol's status line, as InGameMenuBar paints it: the score, the
+     * gold, the tax and the year, separated by the stars it replaces the
+     * bars of the message with.
+     */
+    static String statusLine(Game game, Player player) {
+        return Messages.message(StringTemplate
+            .template("menuBar.statusLine")
+            .addAmount("%gold%", player.getGold())
+            .addAmount("%tax%", player.getTax())
+            .addAmount("%score%", player.getScore())
+            .addStringTemplate("%year%", game.getTurn().getLabel()))
+            .replace("|", "\u2727"); // ✧
     }
 
     /** A tile as the Browser UI's map takes it, [x, y], or null for none. */

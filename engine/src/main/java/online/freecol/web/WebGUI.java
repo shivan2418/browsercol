@@ -59,6 +59,8 @@ import net.sf.freecol.common.model.Unit;
  * <tr><td>dialogIcon (browser: hook)</td><td>nothing</td>
  *     <td>an icon carrying the object, for a question's object id</td></tr>
  * <tr><td>refresh</td><td>event refresh</td><td>{}</td></tr>
+ * <tr><td>updateMenuBar</td><td>event refresh</td><td>{}; the status line
+ *         comes with the map, so the map is sent again</td></tr>
  * <tr><td>changeView(Unit, boolean)</td><td>event activeUnit</td>
  *     <td>{unit, tile, at: [x, y], force, orders}; the orders are the
  *         ones the active unit can take now</td></tr>
@@ -296,6 +298,24 @@ public class WebGUI extends GUI {
     @Override
     public void refresh() {
         this.engine.checkTurn();
+        sendRefresh();
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * The Swing GUI repaints its menu bar, whose status line shows the
+     * player's score, gold, tax and the year. The Browser UI's status
+     * line comes with the map, so a refresh makes it up to date, as when
+     * the gold changes in the middle of a turn.
+     */
+    @Override
+    public void updateMenuBar() {
+        sendRefresh();
+    }
+
+    /** The refresh event: the Browser UI pulls the map again. */
+    private void sendRefresh() {
         this.ui.show("refresh", new Json().toString());
     }
 
