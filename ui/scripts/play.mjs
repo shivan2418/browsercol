@@ -505,6 +505,15 @@ for (const name of browsers) {
   if (!result.error && !pictures.some((p) => p.kind === 'eventPanel' && /landing/.test(p.src))) {
     result = { error: `the first landing's event panel showed no image: ${JSON.stringify(pictures)}` };
   }
+  // The panel above is the one the script injects (kind eventPanel). The game's own is asked by the Engine
+  // (kind event) when the new land is named, and closing it adds the build colony tutorial message.
+  if (!result.error && !pictures.some((p) => p.kind === 'event' && /landing/.test(p.src))) {
+    result = { error: `the Engine did not ask the first landing's event panel: ${dialogs.join(' | ')}` };
+  }
+  const landing = dialogs.findIndex((d) => d.startsWith('event: '));
+  if (!result.error && !dialogs.slice(landing + 1).some((d) => /^messages: .*Try building a Colony/.test(d))) {
+    result = { error: `the build colony tutorial did not follow the first landing: ${dialogs.join(' | ')}` };
+  }
   // The controllers open the colony panel themselves (after founding), which has no Browser UI yet.
   const unasked = log.unasked.filter((method) => method !== 'showColonyPanel');
   const routine = log.unasked.length - unasked.length;

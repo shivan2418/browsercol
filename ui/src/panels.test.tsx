@@ -551,6 +551,21 @@ describe('the panels', () => {
     expect(screen.queryByRole('presentation'), 'an image the Tileset lacks is left out').toBeNull();
   });
 
+  it('answers when the Engine waits on an event panel and the player closes it', async () => {
+    const { box } = host();
+    const closed = ask(box, 'event', {
+      header: 'Landfall',
+      image: 'image.flavor.event.firstLanding',
+      footer: null,
+      ok: 'OK',
+    });
+    expect(screen.getByRole('dialog').getAttribute('data-kind')).toBe('event');
+    expect(screen.getByRole('presentation').getAttribute('src')).toBe('art/landing.png');
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    expect(await closed).toBeUndefined();
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
   describe('of the turn report', () => {
     const report = (groupBy = 0): GuiEvents['messages'] => ({
       title: 'Turn Report',

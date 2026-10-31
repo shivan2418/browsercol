@@ -92,8 +92,12 @@ import net.sf.freecol.common.option.OptionGroup;
  *         keys of the object's image, best first, as ImageLibrary shows it</td></tr>
  * <tr><td>showErrorPanel(String, Runnable)</td><td>event error</td>
  *     <td>{text, ok}</td></tr>
- * <tr><td>showEventPanel</td><td>event eventPanel</td>
+ * <tr><td>showEventPanel(String, String, String)</td><td>event eventPanel</td>
  *     <td>{header, image, footer, ok}; image is a resource key</td></tr>
+ * <tr><td>showEventPanel(String, String, String, Runnable) (defers)</td>
+ *     <td>question event</td>
+ *     <td>{header, image, footer, ok}; the callback runs once the player
+ *         closes the panel (the first landing's tutorial message)</td></tr>
  * <tr><td>showHighScoresPanel(String, List)</td><td>event highScores</td>
  *     <td>{text, scores: [{score, headline, fields: [{label, value}]}], ok};
  *         text is the message for the key, or null; the fields are the
@@ -365,7 +369,7 @@ public class WebGUI extends GUI {
         new Thread(() -> {
                 try {
                     task.run();
-                } catch (RuntimeException ex) {
+                } catch (RuntimeException | Error ex) {
                     logger.log(Level.WARNING,
                                "WebGUI: " + name + " failed: " + ex, ex);
                 }
@@ -774,6 +778,28 @@ public class WebGUI extends GUI {
             .put("footer", footer)
             .put("ok", label("ok")).toString());
         return null;
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * Defers, as Swing's panel does: the Browser UI is asked with an event
+     * question, and the callback runs when the player closes the panel.
+     * No panel is returned for the caller to add a closing callback to:
+     * a FreeColPanel is a Swing JPanel, which TeaVM cannot load (see the
+     * patched InGameController.newLandName).
+     */
+    @Override
+    public void showEventPanel(String header, String image, String footer,
+                               Runnable closing) {
+        defer("showEventPanel", () -> {
+            this.questions.ask("event", new Json()
+                .put("header", header)
+                .put("image", image)
+                .put("footer", footer)
+                .put("ok", label("ok")).toString());
+            if (closing != null) closing.run();
+        });
     }
 
     /**

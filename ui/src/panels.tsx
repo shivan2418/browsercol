@@ -409,6 +409,17 @@ function Panel({ d, children, ok }: { d: Dialog; children: ReactNode; ok: string
   );
 }
 
+/** An event panel's header, flavour image and footer. */
+function EventBody({ e, art }: { e: GuiEvents['eventPanel']; art: Art }) {
+  return (
+    <>
+      <h2>{e.header}</h2>
+      {e.image && <Pic keys={[e.image]} art={art} className="flavour" />}
+      {e.footer && <Text text={e.footer} />}
+    </>
+  );
+}
+
 /** Text that, if it is about a tile, goes there when clicked, as FreeCol's InformationPanel shows its objects. */
 function TileText({
   text,
@@ -564,9 +575,13 @@ function Body({ d, goTo, art, report }: { d: Dialog; goTo: (at: At) => void; art
     case 'eventPanel':
       return (
         <Panel d={d} ok={d.event.ok}>
-          <h2>{d.event.header}</h2>
-          {d.event.image && <Pic keys={[d.event.image]} art={art} className="flavour" />}
-          {d.event.footer && <Text text={d.event.footer} />}
+          <EventBody e={d.event} art={art} />
+        </Panel>
+      );
+    case 'event':
+      return (
+        <Panel d={d} ok={d.ask.ok}>
+          <EventBody e={d.ask} art={art} />
         </Panel>
       );
     case 'highScores':

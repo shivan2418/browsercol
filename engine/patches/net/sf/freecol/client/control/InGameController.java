@@ -4327,22 +4327,22 @@ public final class InGameController extends FreeColClientHolder {
         StringTemplate t = StringTemplate.template("event.firstLanding")
             .addName("%name%", name);
 
-        // browser: the first landing panel is a Swing FreeColPanel, which TeaVM cannot load.
-//      invokeLater(() -> { // browser:
-//          final FreeColPanel firstLandinPanel = getGUI().showEventPanel(Messages.message(t), "image.flavor.event.firstLanding", null); // browser:
-//          firstLandinPanel.addClosingCallback(() -> { // browser:
-//              // Add tutorial message. // browser:
-//              final String key = FreeColActionUI // browser:
-//                  .getHumanKeyStrokeText(getFreeColClient() // browser:
-//                      .getActionManager().getFreeColAction("buildColonyAction") // browser:
-//                      .getAccelerator()); // browser:
-//              player.addModelMessage(new ModelMessage(ModelMessage.MessageType.TUTORIAL, "buildColony.tutorial", player) // browser:
-//                  .addName("%colonyKey%", key) // browser:
-//                  .add("%colonyMenuItem%", "buildColonyAction.name") // browser:
-//                  .add("%ordersMenuItem%", "menuBar.orders")); // browser:
-//              nextModelMessage(); // browser:
-//          }); // browser:
-//      }); // browser:
+        // browser: the first landing panel is a Swing FreeColPanel, which TeaVM cannot load, so
+        // the closing callback goes to showEventPanel, which the WebGUI runs when the player
+        // closes the panel, instead of to addClosingCallback on the panel it returns. The
+        // tutorial names the Browser UI's key for building a colony, as the Swing action's
+        // accelerator (FreeColActionUI) is Swing's.
+        invokeLater(() -> {
+            getGUI().showEventPanel(Messages.message(t), "image.flavor.event.firstLanding", null, () -> {
+                // Add tutorial message.
+                final String key = "B"; // browser:
+                player.addModelMessage(new ModelMessage(ModelMessage.MessageType.TUTORIAL, "buildColony.tutorial", player)
+                    .addName("%colonyKey%", key)
+                    .add("%colonyMenuItem%", "buildColonyAction.name")
+                    .add("%ordersMenuItem%", "menuBar.orders"));
+                nextModelMessage();
+            });
+        });
 
         return true;
     }

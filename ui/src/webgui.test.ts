@@ -24,6 +24,7 @@ const question = {
     object: 'unit:2',
     header: null,
   },
+  event: { header: 'Landfall', image: 'image.flavor.event.firstLanding', footer: null, ok: 'OK' },
   choice: {
     text: 'Pick',
     cancel: 'Cancel',
@@ -109,6 +110,7 @@ describe('webGui', () => {
       {
         events: {},
         questions: {
+          event: (q) => (asked.push(q), true),
           confirm: (q) => (asked.push(q), true),
           choice: async (q) => (asked.push(q), 0),
           input: (q) => (asked.push(q), null),
@@ -131,6 +133,7 @@ describe('webGui', () => {
       [6, 'names'],
       [7, 'endTurn'],
       [8, 'preCombat'],
+      [9, 'event'],
     ] as const) {
       const arrived = a.next();
       gui.fcAsk(id, kind, JSON.stringify(question[kind]));
@@ -147,6 +150,7 @@ describe('webGui', () => {
       question.names,
       question.endTurn,
       question.preCombat,
+      question.event,
     ]);
     expect(a.got).toEqual([
       [1, 'true'],
@@ -157,6 +161,7 @@ describe('webGui', () => {
       [6, 'Free Dutch\nNewland'],
       [7, 'select\nunit:2'],
       [8, 'false'],
+      [9, 'closed'],
     ]);
   });
 
@@ -166,6 +171,7 @@ describe('webGui', () => {
     const handlers: GuiHandlers = {
       events: { unasked: (e) => unasked.push(e.method) },
       questions: {
+        event: () => true,
         confirm: () => {
           throw new Error('no dialog');
         },
@@ -205,6 +211,7 @@ describe('webGui', () => {
       {
         events: { activeUnit: (e) => seen.push(e.unit) },
         questions: {
+          event: () => true,
           confirm: () => false,
           choice: () => null,
           input: () => null,
