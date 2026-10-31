@@ -22,7 +22,7 @@ installed on the host.
 ./dev.sh -C engine gradle test       # JVM tests of the Engine
 ./dev.sh -C ui npm ci                # once, before the UI commands below
 ./dev.sh -C ui npx vp test           # UI tests
-./dev.sh -C ui npx vp check          # format, lint and type check
+./dev.sh -C ui npx vp check          # format, lint and type check; a lint warning fails it
 DEV_VARIANT=web ./dev.sh node ui/scripts/smoke.mjs   # play dist/ in Chromium and Firefox
 DEV_VARIANT=web ./dev.sh node ui/scripts/play.mjs    # land, found a colony, end the turn in both
 DEV_VARIANT=web ./dev.sh node ui/scripts/tileset.mjs # draw with the test Tileset (ui/tilesets/test) in both
