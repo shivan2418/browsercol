@@ -66,6 +66,9 @@ test {
     useJUnitPlatform()
     workingDir = freecol   // as for run: data/ is found relative to it
     jvmArgs '-Djava.awt.headless=true'
+    // Every test starts whole FreeCol games in this one JVM; Gradle's
+    // default 512 MB ran out once #80 added two more.
+    maxHeapSize = '2g'
     testLogging { events 'failed'; exceptionFormat 'full'; showStandardStreams = project.hasProperty('verbose') }
 }
 
