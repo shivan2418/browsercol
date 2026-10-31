@@ -1,7 +1,7 @@
 // Runs the split Engine under Node, as the browser will: the server module
 // in a worker thread, the client module on the main thread, joined only by
 // protocol XML strings over postMessage.
-//   node run-split-node.mjs [rounds]
+//   node run-split-node.mjs [rounds] [--verbose]
 // Expects to be run from engine/ after building both modules:
 //   gradle generateWasmGC copyWasmGCRuntime -Pmain=online.freecol.web.WorkerMain -Pout=server
 //   gradle generateWasmGC copyWasmGCRuntime -Pmain=online.freecol.web.ClientMain -Pout=client
@@ -37,8 +37,44 @@ async function load(name) {
   return teavm.exports;
 }
 
+/**
+ * The answers the runner gives the WebGUI's questions, one per kind, as
+ * the strings the Engine expects (ui/src/webgui.ts): "true" for a confirm,
+ * the index of a choice, the text of an input. They are the defaults a
+ * player would give, as the Browser UI takes them when the player presses
+ * Enter (ui/src/panels.tsx) or its auto-player clicks (ui/scripts/dialogs.mjs).
+ */
+const answers = {
+  /**
+   * A confirm: the dialog's default button, which keeps the game going
+   * (the end turn dialog's default ends the turn, the victory dialog's
+   * continues playing), except when the question is about going to
+   * Europe: nothing is sent there on its own.
+   */
+  confirm: (ask) => (/Europe/.test(ask.text ?? '')
+    ? 'false'
+    : ask.defaultOk && ask.ok !== null ? 'true' : 'false'),
+  /**
+   * A choice: FreeCol's default choice, the one Enter takes (the Browser
+   * UI's panels.tsx), else the first enabled one.
+   */
+  choice: (ask) => {
+    const choices = Array.isArray(ask.choices) ? ask.choices : [];
+    const usable = choices.map((c, i) => (c.enabled === false ? -1 : i)).filter((i) => i >= 0);
+    if (usable.length === 0) return null;
+    const byDefault = usable.find((i) => choices[i].default);
+    return String(byDefault ?? usable[0]);
+  },
+  /**
+   * An input: the text the dialog offers, which OK accepts.
+   */
+  input: (ask) => (typeof ask.value === 'string' ? ask.value : ''),
+};
+
 if (isMainThread) {
-  const rounds = Number(process.argv[2] ?? 5);
+  const args = process.argv.slice(2);
+  const rounds = Number(args.find((a) => !a.startsWith('-')) ?? 5);
+  const verbose = args.includes('--verbose') || process.env.FC_VERBOSE === '1';
   const worker = new Worker(new URL(import.meta.url));
   // Per round: messages and characters in each direction.
   const traffic = { up: [0, 0], down: [0, 0] };
@@ -46,6 +82,51 @@ if (isMainThread) {
   let client;
   globalThis.fcToServer = (xml) => { count('up', xml); worker.postMessage({ k: 'fc', xml }); };
   globalThis.fcConnect = () => worker.postMessage({ k: 'connect' });
+  // The WebGUI's globals for the client Engine, as the Browser UI defines
+  // them (ui/src/webgui.ts): fcShow(kind, json) for an event, fcAsk(id,
+  // kind, json) for a question, whose answer goes back through the client
+  // module's answer(id, value) export. The runner has no player, so it
+  // answers every question with the default for its kind.
+  const unknownKinds = new Set();
+  globalThis.fcShow = (kind, json) => {
+    if (!verbose) return;
+    try {
+      log(`show ${kind}: ${json}`);
+    } catch (ex) {
+      // An event must never break the game.
+    }
+  };
+  globalThis.fcAsk = (id, kind, json) => {
+    let value = null;
+    try {
+      const ask = JSON.parse(json);
+      const answer = Object.hasOwn(answers, kind) ? answers[kind] : undefined;
+      if (answer === undefined) {
+        // A kind the runner does not know: say so once, and answer as
+        // closed, as the Browser UI does.
+        if (!unknownKinds.has(kind)) {
+          unknownKinds.add(kind);
+          log(`unknown question kind ${kind}; answering as closed`);
+        }
+      } else {
+        value = answer(ask);
+        if (verbose) log(`asked ${kind}: ${json} -> ${value}`);
+      }
+    } catch (ex) {
+      // A question must never break the game: answer as closed.
+      value = null;
+    }
+    // Answer in a later microtask, as the Browser UI does: never inside
+    // the Engine's call. The Engine's wait polls with Thread.sleep, which
+    // lets the Node event loop run the microtask.
+    queueMicrotask(() => {
+      try {
+        client.answer(id, value);
+      } catch (ex) {
+        log(`answer ${id} failed: ${ex}`);
+      }
+    });
+  };
   globalThis.fcClientEvent = (name, detail) => {
     switch (name) {
     case 'ready':
