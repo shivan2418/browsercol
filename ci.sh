@@ -10,14 +10,21 @@ branch="ci/${sha:0:12}"
 [[ -z "$(git status --porcelain --untracked-files=no)" ]] \
   || echo "ci.sh: uncommitted changes are not tested, only HEAD ${sha:0:12}" >&2
 
+runs() {
+  gh run list --workflow suite.yml --branch "$branch" --commit "$sha" \
+    --limit 20 --json databaseId --jq '.[].databaseId'
+}
+# An earlier run on this commit is listed before the new one is (#41):
+# note the runs there are now and wait for one that is not among them.
+seen=$(runs)
+
 # Drop GitHub's "Create a pull request" hint for the new branch.
 git push -q -f origin "HEAD:refs/heads/$branch" 2>&1 | { grep -v '^remote:' || true; } >&2
 trap 'git push -q origin --delete "$branch" 2>/dev/null || true' EXIT
 
 run=
 for _ in $(seq 30); do
-  run=$(gh run list --workflow suite.yml --branch "$branch" --commit "$sha" \
-    --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+  run=$(runs | grep -vxF -f <(printf '%s\n' $seen) | head -1 || true)
   [[ -n "$run" ]] && break
   sleep 5
 done
