@@ -1,8 +1,9 @@
 // Answers the page's WebGUI dialogs (ui/src/panels.tsx) as they open, by
 // clicking their buttons, as a player would: confirmations are accepted but
 // sailing to Europe, a choice takes its last enabled item ("All" when
-// disembarking), an input keeps its suggestion and a panel is closed. Each
-// dialog is logged in window.__dialogs as "kind: first line".
+// disembarking), an input keeps its suggestion, a negotiation is cancelled
+// (sent, if it has no cancel) and a panel is closed. Each dialog is logged
+// in window.__dialogs as "kind: first line".
 // Call before page.goto; read the log with dialogLog(page).
 
 export async function answerDialogs(page) {
@@ -17,6 +18,7 @@ export async function answerDialogs(page) {
         choice: () => [...d.querySelectorAll('[data-choice]:not(:disabled)')].pop(),
         input: () => pick('[data-answer=ok]'),
         goods: () => pick('[data-answer=ok]'),
+        negotiation: () => pick('[data-answer=cancel]') || pick('[data-answer=send]'),
       };
       (buttonFor[d.dataset.kind] ?? (() => pick('[data-answer=close]')))()?.click();
     };

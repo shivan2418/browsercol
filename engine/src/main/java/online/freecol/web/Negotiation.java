@@ -42,7 +42,7 @@ import net.sf.freecol.common.model.UnitTradeItem;
  * agreement.
  *
  * The question is {@code {title, text, demand, offer, exchange, version,
- * send, accept, cancel, items, options}}. The items are the agreement's:
+ * add, send, accept, cancel, items, options}}. The items are the agreement's:
  * {@code {kind, side, key, amount, text}}, the kind being gold, stance,
  * colony, goods, incite or unit, the side "offer" for what we give and
  * "demand" for what the other player gives (a stance has neither, being
@@ -123,6 +123,7 @@ final class Negotiation {
                 .addStringTemplate("%otherNation%", otherNation)))
             .put("exchange", Messages.message("negotiationDialog.exchange"))
             .put("version", this.agreement.getVersion())
+            .put("add", Messages.message("negotiationDialog.add"))
             .put("send", Messages.message("negotiationDialog.send"))
             // A new offer can not be accepted.
             .put("accept", version

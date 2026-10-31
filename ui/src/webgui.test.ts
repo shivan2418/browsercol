@@ -42,6 +42,23 @@ const question = {
       },
     ],
   },
+  negotiation: {
+    title: 'Diplomatic Negotiation',
+    text: 'Let us talk.',
+    demand: 'France requires of Spain',
+    offer: 'France offers Spain',
+    exchange: 'in return for',
+    version: 0,
+    add: 'Add',
+    send: 'Send',
+    accept: null,
+    cancel: 'Cancel',
+    items: [
+      { kind: 'gold', side: 'offer', key: '', amount: 30, text: 'Gold 30' },
+      { kind: 'stance', side: null, key: 'PEACE', amount: 0, text: 'Peace' },
+    ],
+    options: [],
+  },
   names: {
     text: 'Declare?',
     fields: [
@@ -65,6 +82,7 @@ describe('webGui', () => {
           choice: async (q) => (asked.push(q), 0),
           input: (q) => (asked.push(q), null),
           goods: (q) => (asked.push(q), [1, 0]),
+          negotiation: (q) => (asked.push(q), { status: 'propose', items: [q.items[0]] }),
           names: (q) => (asked.push(q), [q.fields[0].value, 'Newland']),
         },
       },
@@ -76,7 +94,8 @@ describe('webGui', () => {
       [2, 'choice'],
       [3, 'input'],
       [4, 'goods'],
-      [5, 'names'],
+      [5, 'negotiation'],
+      [6, 'names'],
     ] as const) {
       const arrived = a.next();
       gui.fcAsk(id, kind, JSON.stringify(question[kind]));
@@ -84,13 +103,21 @@ describe('webGui', () => {
       await arrived;
     }
 
-    expect(asked).toEqual([question.confirm, question.choice, question.input, question.goods, question.names]);
+    expect(asked).toEqual([
+      question.confirm,
+      question.choice,
+      question.input,
+      question.goods,
+      question.negotiation,
+      question.names,
+    ]);
     expect(a.got).toEqual([
       [1, 'true'],
       [2, '0'],
       [3, null],
       [4, '[1,0]'],
-      [5, 'Free Dutch\nNewland'],
+      [5, 'propose\ngold\toffer\t\t30'],
+      [6, 'Free Dutch\nNewland'],
     ]);
   });
 
@@ -106,6 +133,7 @@ describe('webGui', () => {
         choice: () => null,
         input: () => null,
         goods: () => null,
+        negotiation: () => null,
         names: () => null,
       },
     };
@@ -140,6 +168,7 @@ describe('webGui', () => {
           choice: () => null,
           input: () => null,
           goods: () => null,
+          negotiation: () => null,
           names: () => null,
         },
       },
