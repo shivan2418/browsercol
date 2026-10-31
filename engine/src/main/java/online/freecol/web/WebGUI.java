@@ -29,6 +29,7 @@ import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.Goods;
 import net.sf.freecol.common.model.GoodsType;
 import net.sf.freecol.common.model.HighScore;
+import net.sf.freecol.common.model.IndianSettlement;
 import net.sf.freecol.common.model.IndianNationType;
 import net.sf.freecol.common.model.Location;
 import net.sf.freecol.common.model.LostCityRumour;
@@ -46,6 +47,8 @@ import net.sf.freecol.common.model.StringTemplate;
 import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.Turn;
 import net.sf.freecol.common.model.Unit;
+import net.sf.freecol.common.option.Option;
+import net.sf.freecol.common.option.OptionGroup;
 
 
 /**
@@ -156,7 +159,11 @@ import net.sf.freecol.common.model.Unit;
  *         dialog</td></tr>
  * <tr><td>showSelectTributeAmountDialog (blocks)</td><td>question input</td>
  *     <td>as modalInputDialog, suggesting the most; the amount, else -1</td></tr>
- * <tr><td>the other dialogs the controllers ask (see "Not asked yet")</td>
+ * <tr><td>the other dialogs the controllers ask (see "Not asked yet"), and
+ *     the panels the base GUI drops: showColonyPanel, showEuropePanel,
+ *     showIndianSettlementPanel, showGameOptionsDialog,
+ *     showClientOptionsDialog, showEditOptionDialog,
+ *     showEditSettlementDialog, showFindSettlementPanel</td>
  *     <td>event unasked</td><td>{method}; the controller gets the base
  *         GUI's default, as before</td></tr>
  * </table>
@@ -1268,5 +1275,59 @@ public class WebGUI extends GUI {
                                     DialogHandler<Boolean> handler) {
         unasked("showWarehouseDialog");
         super.showWarehouseDialog(colony, handler);
+    }
+
+    // Panels with no Browser UI yet: the base GUI drops them silently, and
+    // they are reported as the dialogs above are. The colony panel is
+    // opened by the controllers (after founding a colony, and by the end
+    // turn dialog's units in one), so the browser scripts expect it.
+
+    @Override
+    public FreeColPanel showColonyPanel(Colony colony, Unit unit) {
+        unasked("showColonyPanel");
+        return super.showColonyPanel(colony, unit);
+    }
+
+    @Override
+    public FreeColPanel showEuropePanel() {
+        unasked("showEuropePanel");
+        return super.showEuropePanel();
+    }
+
+    @Override
+    public FreeColPanel showIndianSettlementPanel(IndianSettlement is) {
+        unasked("showIndianSettlementPanel");
+        return super.showIndianSettlementPanel(is);
+    }
+
+    @Override
+    public void showGameOptionsDialog(boolean editable,
+                                      DialogHandler<OptionGroup> dialogHandler) {
+        unasked("showGameOptionsDialog");
+        super.showGameOptionsDialog(editable, dialogHandler);
+    }
+
+    @Override
+    public void showClientOptionsDialog() {
+        unasked("showClientOptionsDialog");
+        super.showClientOptionsDialog();
+    }
+
+    @Override
+    public boolean showEditOptionDialog(Option<?> option) {
+        unasked("showEditOptionDialog");
+        return super.showEditOptionDialog(option);
+    }
+
+    @Override
+    public IndianSettlement showEditSettlementDialog(IndianSettlement is) {
+        unasked("showEditSettlementDialog");
+        return super.showEditSettlementDialog(is);
+    }
+
+    @Override
+    public FreeColPanel showFindSettlementPanel() {
+        unasked("showFindSettlementPanel");
+        return super.showFindSettlementPanel();
     }
 }

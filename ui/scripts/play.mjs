@@ -399,7 +399,11 @@ for (const name of browsers) {
     result = { error: String(ex) };
   }
   await page.screenshot({ path: path.join(dist, `../.cache/play-${name}.png`) });
-  const { dialogs, unasked } = await dialogLog(page).catch(() => ({ dialogs: [], unasked: [] }));
+  const log = await dialogLog(page).catch(() => ({ dialogs: [], unasked: [] }));
+  const { dialogs } = log;
+  // The controllers open the colony panel themselves (after founding), which has no Browser UI yet.
+  const unasked = log.unasked.filter((method) => method !== 'showColonyPanel');
+  const routine = log.unasked.length - unasked.length;
   await browser.close();
   failed ||= Boolean(result.error) || errors.length > 0 || unasked.length > 0;
   console.log(
@@ -407,6 +411,7 @@ for (const name of browsers) {
       (result.error ? `failed: ${result.error}` : `colony at ${label(result.land)}, play back on turn ${result.turn}`) +
       `, ${((Date.now() - t) / 1000).toFixed(1)} s` +
       `\n  dialogs: ${dialogs.join(' | ')}` +
+      (routine ? `\n  colony panel not shown (no Browser UI yet): ${routine}x` : '') +
       (unasked.length ? `\n  no dialog yet for: ${unasked.join(', ')}` : '') +
       (errors.length ? `\n  page errors: ${errors.join('; ')}` : ''),
   );

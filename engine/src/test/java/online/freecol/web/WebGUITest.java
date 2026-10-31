@@ -452,6 +452,30 @@ class WebGUITest {
 
     @Test
     @Timeout(120)
+    void thePanelsTheBaseGUIDropsAreReported() throws Exception {
+        final ClientEngine client = startGame();
+        final GUI gui = client.getClient().getGUI();
+        final Unit unit = gui.getActiveUnit();
+
+        shown.clear();
+        assertNull(gui.showColonyPanel(null, unit));
+        assertNull(gui.showEuropePanel());
+        assertNull(gui.showIndianSettlementPanel(null));
+        gui.showGameOptionsDialog(false, null);
+        gui.showClientOptionsDialog();
+        assertFalse(gui.showEditOptionDialog(null), "the base GUI's default");
+        assertNull(gui.showEditSettlementDialog(null));
+        assertNull(gui.showFindSettlementPanel());
+        assertEquals(List.of("showColonyPanel", "showEuropePanel", "showIndianSettlementPanel",
+                "showGameOptionsDialog", "showClientOptionsDialog", "showEditOptionDialog",
+                "showEditSettlementDialog", "showFindSettlementPanel").stream()
+                .map(m -> "unasked {\"method\":\"" + m + "\"}").collect(Collectors.toList()),
+            shown.stream().filter(e -> !e.startsWith("messages ")).collect(Collectors.toList()));
+        assertTrue(asked.isEmpty(), asked.toString());
+    }
+
+    @Test
+    @Timeout(120)
     void theTributeAmountIsWhatWasEnteredOrMinusOne() throws Exception {
         final GUI gui = startGame().getClient().getGUI();
         final StringTemplate demand = StringTemplate.key("info.enterSomeText");
