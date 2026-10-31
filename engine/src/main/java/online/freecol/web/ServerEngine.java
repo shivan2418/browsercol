@@ -52,12 +52,36 @@ public final class ServerEngine {
      * @exception Exception if the rules or the server fail.
      */
     public void startGame(String rules) throws Exception {
+        startGame(rules, GamePreset.none());
+    }
+
+    /**
+     * Start a new single-player server game as a preset says, waiting in
+     * pre-game for the client to log in.
+     *
+     * @param rules The rules id, e.g. "classic", unless the preset names
+     *     its own.
+     * @param preset What to set before the game is made.
+     * @exception IllegalArgumentException if the preset names something
+     *     the rules do not have.
+     * @exception Exception if the rules or the server fail.
+     */
+    public void startGame(String rules, GamePreset preset) throws Exception {
         Messages.loadMessageBundle(Locale.US);
         FreeColRules.loadRules();
+        final String id = (preset.rules != null) ? preset.rules : rules;
+        if (FreeColRules.getFreeColRulesFile(id) == null) {
+            throw new IllegalArgumentException("Unknown rules \"" + id + "\"");
+        }
         Specification spec = FreeCol.loadSpecification(
-            FreeColRules.getFreeColRulesFile(rules), null,
+            FreeColRules.getFreeColRulesFile(id), null,
             "model.difficulty.medium");
-        this.server = new FreeColServer(false, true, spec, null, 0, "browser");
+        // Everything the preset can get wrong fails here, before a server
+        // is made.
+        preset.applyTo(spec);
+        FreeColServer made = new FreeColServer(false, true, spec, null, 0, "browser");
+        preset.applyTo(made);
+        this.server = made;
     }
 
     /**
