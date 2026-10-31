@@ -62,6 +62,8 @@ import net.sf.freecol.common.model.Unit;
  *         ones the active unit can take now</td></tr>
  * <tr><td>changeView()</td><td>event activeUnit</td>
  *     <td>{unit: null, tile: null, at: null, force: false, orders: []}</td></tr>
+ * <tr><td>updateMapControls</td><td>event activeUnit</td>
+ *     <td>the active unit again, when its orders have changed</td></tr>
  * <tr><td>changeView(Tile)</td><td>event selectedTile</td>
  *     <td>{tile, at}; the active unit is kept</td></tr>
  * <tr><td>setFocus</td><td>event focus</td><td>{tile, at}</td></tr>
@@ -140,6 +142,8 @@ public class WebGUI extends GUI {
     private final BrowserUI ui;
     private final Questions questions;
     private volatile Unit activeUnit = null;
+    /** The orders last sent with the active unit event. */
+    private List<String> lastOrders = new ArrayList<>();
 
 
     public WebGUI(FreeColClient freeColClient, ClientEngine engine, BrowserUI ui) {
@@ -284,10 +288,17 @@ public class WebGUI extends GUI {
     @Override
     public void changeView(Unit unit, boolean force) {
         this.activeUnit = unit;
-        this.ui.show("activeUnit", tile(new Json().put("unit", id(unit)),
-                (unit == null) ? null : unit.getTile())
+        showActiveUnit(force);
+    }
+
+    /** Send the active unit event, with the orders the unit can take now. */
+    private void showActiveUnit(boolean force) {
+        final List<String> orders = orders(this.activeUnit);
+        this.lastOrders = orders;
+        this.ui.show("activeUnit", tile(new Json().put("unit", id(this.activeUnit)),
+                (this.activeUnit == null) ? null : this.activeUnit.getTile())
             .put("force", force)
-            .putRaw("orders", Json.array(orders(unit)))
+            .putRaw("orders", Json.array(orders))
             .toString());
     }
 
@@ -298,6 +309,19 @@ public class WebGUI extends GUI {
         final List<String> json = new ArrayList<>();
         for (String name : names) json.add(Json.quote(name));
         return json;
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * The Swing GUI updates the order buttons here, so the Browser UI
+     * needs the orders again whenever they have changed, as they do when
+     * the unit's state changes and it stays the active one.
+     */
+    @Override
+    public void updateMapControls() {
+        if (orders(this.activeUnit).equals(this.lastOrders)) return;
+        showActiveUnit(false);
     }
 
     /**
