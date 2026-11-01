@@ -43,6 +43,7 @@ function fakeServer(scope: Scope, log: string[]): ServerExports {
 function fakeClient(scope: Scope, log: string[]): ClientExports {
   return {
     activeUnitId: () => 'unit:42',
+    colony: () => 'null',
     main: (args) => {
       log.push(`client main ${args.length}`);
       queueMicrotask(() => scope.fcClientEvent('ready', ''));

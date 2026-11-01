@@ -6,7 +6,7 @@
 import type { GuiEvents, GuiQuestions } from './webgui';
 
 /** The events shown as panels, closed by the player. */
-export type PanelKind = 'information' | 'error' | 'eventPanel' | 'messages' | 'highScores';
+export type PanelKind = 'information' | 'error' | 'eventPanel' | 'messages' | 'highScores' | 'colony';
 
 type Asked = {
   [K in keyof GuiQuestions]: { kind: K; ask: GuiQuestions[K]['ask']; done: (a: GuiQuestions[K]['answer']) => void };
@@ -30,6 +30,8 @@ export interface Dialogs {
    * (any, by default), as the same panel shown differently; queue it if there is none.
    */
   replace: <K extends PanelKind>(kind: K, event: GuiEvents[K], same?: (open: GuiEvents[K]) => boolean) => void;
+  /** The events of the panels of a kind that are queued or open, in order. */
+  shown: <K extends PanelKind>(kind: K) => GuiEvents[K][];
   /** The dialog on screen, or null. */
   current: () => Dialog | null;
   /** Called whenever the dialog on screen changes; returns an unsubscribe. */
@@ -70,6 +72,8 @@ export function dialogs(): Dialogs {
       queue[i] = make(kind, event, 'event', () => {});
       changed();
     },
+    shown: <K extends PanelKind>(kind: K) =>
+      queue.flatMap((d) => (d.kind === kind ? [(d as unknown as { event: GuiEvents[K] }).event] : [])),
     current: () => queue[0] ?? null,
     subscribe: (listener) => {
       listeners.add(listener);

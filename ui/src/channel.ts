@@ -41,6 +41,8 @@ export interface ClientExports {
   /** The id of the active unit, or "" for none: what a save request carries. */
   activeUnitId(): string;
   receive(xml: string): void;
+  /** Our colony with this id as the colony panel shows it (ColonyJson), or "null" if it is not ours now. */
+  colony(id: string): string;
   /** Answer a WebGUI question; null for a closed dialog. */
   answer(id: number, value: string | null): void;
   // Player commands (Commands.java). Each returns at once and sends a "map"
