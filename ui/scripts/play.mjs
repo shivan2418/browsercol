@@ -240,18 +240,36 @@ async function play(page, url) {
       throw new Error(`${what}: the panel shows ${JSON.stringify(info)}`);
     }
   };
-  /** The map canvas must fill the window up to the side panel, which must reach the window's right edge. */
+  /**
+   * The menu bar must span the top of the map, and the map canvas fill the window below it up to the side
+   * panel, which must reach the window's right edge.
+   */
   const laidOut = async (what) => {
     // These run in the page, so neither can call the other.
     const boxes = () => {
       const c = document.querySelector('#map canvas').getBoundingClientRect();
       const s = document.querySelector('#side').getBoundingClientRect();
-      return { canvas: [c.left, c.right, c.height], side: [s.left, s.right], window: [innerWidth, innerHeight] };
+      const m = document.querySelector('.menubar').getBoundingClientRect();
+      return {
+        menubar: [m.left, m.right, m.top, m.bottom],
+        canvas: [c.left, c.right, c.top, c.bottom],
+        side: [s.left, s.right],
+        window: [innerWidth, innerHeight],
+      };
     };
     const fills = () => {
       const c = document.querySelector('#map canvas').getBoundingClientRect();
       const s = document.querySelector('#side').getBoundingClientRect();
-      return c.left === 0 && c.right <= s.left && s.right === innerWidth && c.height === innerHeight;
+      const m = document.querySelector('.menubar').getBoundingClientRect();
+      const bar = m.top === 0 && m.height > 0 && m.left === 0 && m.right === c.right;
+      return (
+        bar &&
+        c.left === 0 &&
+        c.right <= s.left &&
+        s.right === innerWidth &&
+        c.top === m.bottom &&
+        c.bottom === innerHeight
+      );
     };
     if (!(await page.waitForFunction(fills, null, { timeout: 5000 }).catch(() => false))) {
       const got = await page.evaluate(boxes);
