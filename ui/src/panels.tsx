@@ -1,16 +1,16 @@
 // React components for the WebGUI's dialogs (dialogs.ts): the confirm,
 // choice, input, goods, end turn, pre-combat, negotiation and names
-// questions and the information, error, event, message and colony
+// questions and the information, error, event, native settlement, message and colony
 // (colony-panel.tsx) panels, each in a window frame (frame.tsx). All text,
 // button labels included, comes localized from the Engine. Keys mean what
 // they do in FreeCol's dialogs: Enter presses the focused button, else takes
 // the default option; Escape, or the frame's close button, closes the
 // dialog as cancelled; a panel closes on either key.
-import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { Fragment, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { ColonyPanel } from './colony-panel';
 import type { Dialog, Dialogs } from './dialogs';
 import { GoodsAmount, WindowFrame, type Art } from './frame';
-import type { EuropeUnit, GuiEvents, TradeItem, TradeOption, TradeRouteDraft } from './webgui';
+import type { EuropeUnit, GuiEvents, SettlementEntry, TradeItem, TradeOption, TradeRouteDraft } from './webgui';
 
 export type { Art };
 
@@ -852,16 +852,61 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
   );
 }
 
+/** A native settlement as IndianSettlementPanel lays it out: the settlement and its missionary, then what is known. */
+function SettlementBody({
+  e,
+  art,
+  string,
+}: {
+  e: GuiEvents['indianSettlement'];
+  art: Art;
+  string: (key: string) => string;
+}) {
+  const entry = (item: SettlementEntry, tip: string | null = null) => (
+    <span className="entry" title={tip ?? undefined}>
+      <Pic keys={item.images} art={art} />
+      {item.text}
+    </span>
+  );
+  return (
+    <div className="settlement">
+      <div className="entry">
+        <Pic keys={e.images} art={art} />
+        <span>
+          {e.name}, {e.kind}
+          {e.tension && ` (${e.tension})`}
+          {e.worthScouting && string('unscoutedIndianSettlement')}
+        </span>
+      </div>
+      {e.missionary && entry(e.missionary)}
+      <h3>{e.labels.learnableSkill}</h3>
+      {entry(e.skill)}
+      <h3>{e.labels.hatedNation}</h3>
+      {entry(e.mostHated)}
+      <h3>{e.labels.highlyWanted}</h3>
+      {entry(e.wanted[0], e.wanted[0].tip)}
+      <h3>{e.labels.otherWanted}</h3>
+      <div className="wanted">
+        {e.wanted.slice(1).map((w, i) => (
+          <Fragment key={i}>{entry(w, w.tip)}</Fragment>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Body({
   d,
   goTo,
   art,
+  string,
   report,
   routes,
 }: {
   d: Dialog;
   goTo: (at: At) => void;
   art: Art;
+  string: (key: string) => string;
   report: ReportButtons;
   routes: RouteButtons;
 }) {
@@ -905,6 +950,12 @@ function Body({
       return (
         <Panel d={d} title={d.event.header} ok={d.event.ok}>
           <EventBody e={d.event} art={art} />
+        </Panel>
+      );
+    case 'indianSettlement':
+      return (
+        <Panel d={d} ok={d.event.ok}>
+          <SettlementBody e={d.event} art={art} string={string} />
         </Panel>
       );
     case 'event':
@@ -951,18 +1002,22 @@ function Body({
 
 /**
  * The open dialog, over the page, or nothing. goTo centres the map on a tile, art finds the image for
- * resource keys, report is what the turn report's buttons do, routes what the trade routes panel's do.
+ * resource keys, string reads a string resource, report is what the turn report's buttons do, routes what
+ * the trade routes panel's do.
  */
 export function DialogHost({
   dialogs,
   goTo,
   art,
+  string = (key) => key,
   report,
   routes,
 }: {
   dialogs: Dialogs;
   goTo: (at: At) => void;
   art: Art;
+  /** A string resource of the Tileset. */
+  string?: (key: string) => string;
   report: ReportButtons;
   routes: RouteButtons;
 }) {
@@ -970,7 +1025,7 @@ export function DialogHost({
   if (!d) return null;
   return (
     <div className="modal">
-      <Body key={d.id} d={d} goTo={goTo} art={art} report={report} routes={routes} />
+      <Body key={d.id} d={d} goTo={goTo} art={art} string={string} report={report} routes={routes} />
     </div>
   );
 }

@@ -37,6 +37,20 @@ for (const name of browsers) {
   const page = await browser.newPage();
   await answerDialogs(page);
   const errors = collectPageErrors(page);
+  // Keep the latest map view the client Engine sends, to find a native settlement in.
+  await page.addInitScript(() => {
+    let inner;
+    Object.defineProperty(window, 'fcClientEvent', {
+      configurable: true,
+      get: () => inner,
+      set: (f) => {
+        inner = (name, detail) => {
+          if (name === 'map' || name === 'gameStarted') window.__map = JSON.parse(detail);
+          return f(name, detail);
+        };
+      },
+    });
+  });
   await page.goto(`${base}&debug&autoplay=0`);
   await page.waitForFunction(() => window.fcResult?.status === 'finished', null, { timeout });
   check(`${name}: the debug menu is there with ?debug`, (await page.$('#debug')) !== null);
@@ -62,6 +76,22 @@ for (const name of browsers) {
     timeout: 60_000,
   });
   check(`${name}: reveal map answers`, true);
+
+  // Clicking a native settlement opens its panel (answerDialogs closes it and logs it).
+  const native = await page
+    .waitForFunction(() => window.__map?.settlements?.find((s) => s.chips), null, { timeout: 60_000 })
+    .then((h) => h.jsonValue());
+  const box = await page.locator('#map canvas').boundingBox();
+  const [px, py] = await page.evaluate(([x, y]) => window.fcReveal(x, y), [native.x, native.y]);
+  await page.mouse.click(box.x + px, box.y + py);
+  await page
+    .waitForFunction(() => window.__dialogs.some((d) => d.startsWith('indianSettlement:')), null, { timeout: 10_000 })
+    .catch(() => {});
+  check(
+    `${name}: clicking a native settlement opens its panel`,
+    (await page.evaluate(() => window.__dialogs)).some((d) => d.startsWith('indianSettlement:')),
+    `at ${native.x},${native.y}: ${await page.evaluate(() => window.__dialogs.join(' | '))}`,
+  );
 
   await page.click('button[data-debug="aiView"]');
   await page.waitForFunction(

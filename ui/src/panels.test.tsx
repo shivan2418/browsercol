@@ -575,6 +575,67 @@ describe('the panels', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
+  describe('of a native settlement', () => {
+    const settlement = (more: Partial<GuiEvents['indianSettlement']> = {}): GuiEvents['indianSettlement'] => ({
+      name: 'Cuzco',
+      kind: 'Inca Capital',
+      tension: 'Content',
+      worthScouting: false,
+      images: [],
+      missionary: null,
+      skill: { text: 'Expert Fur Trapper', images: ['image.unit.model.unit.caravel'] },
+      mostHated: { text: 'the English', images: [] },
+      wanted: [
+        { text: 'Rum', images: [], tip: 'sold for 3' },
+        { text: 'Tools', images: [], tip: null },
+        { text: 'Muskets', images: [], tip: null },
+      ],
+      labels: {
+        learnableSkill: 'Skill taught:',
+        hatedNation: 'Most hated:',
+        highlyWanted: 'Very interested in:',
+        otherWanted: 'Also wanted:',
+      },
+      ok: 'OK',
+      tile: 'tile:9',
+      at: [3, 4],
+      ...more,
+    });
+
+    it('shows what the player has learned and closes with OK or Escape', () => {
+      const { box } = host();
+      act(() => box.show('indianSettlement', settlement({ missionary: { text: 'Our Jesuit', images: [] } })));
+      const dialog = screen.getByRole('dialog');
+      expect(dialog.getAttribute('data-kind')).toBe('indianSettlement');
+      for (const text of [
+        'Cuzco, Inca Capital (Content)',
+        'Our Jesuit',
+        'Expert Fur Trapper',
+        'the English',
+        'Rum',
+        'Tools',
+        'Muskets',
+      ]) {
+        screen.getByText(text);
+      }
+      expect(screen.getByText('Rum').getAttribute('title')).toBe('sold for 3');
+      expect(screen.getByText('Skill taught:')).toBeTruthy();
+      expect(dialog.querySelector('img')?.getAttribute('src'), 'the skill icon').toBe('art/caravel.png');
+      key('Escape');
+      expect(screen.queryByRole('dialog')).toBeNull();
+
+      act(() => box.show('indianSettlement', settlement()));
+      fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+
+    it('marks a settlement worth scouting with the Tileset string', () => {
+      const { box } = host();
+      act(() => box.show('indianSettlement', settlement({ worthScouting: true })));
+      expect(screen.getByText(/Cuzco, Inca Capital/).textContent).toContain('unscoutedIndianSettlement');
+    });
+  });
+
   describe('of the turn report', () => {
     const report = (groupBy = 0): GuiEvents['messages'] => ({
       title: 'Turn Report',

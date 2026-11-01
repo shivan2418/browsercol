@@ -230,6 +230,7 @@ function renderSide() {
             dialogs={dialogQueue}
             goTo={(at) => dispatch({ k: 'focus', tile: null, at })}
             art={art}
+            string={(key) => map.resources()?.string(key) ?? ''}
             report={{
               groupBy: (value) => reportButtons.groupBy(value),
               filter: (index, shown) => reportButtons.filter(index, shown),
@@ -309,6 +310,7 @@ const gui: GuiHandlers = {
       dialogQueue.show('error', e);
     },
     eventPanel: (e) => dialogQueue.show('eventPanel', e),
+    indianSettlement: (e) => dialogQueue.show('indianSettlement', e),
     highScores: (e) => dialogQueue.show('highScores', e),
     tradeRoutes: (e) => dialogQueue.replace('tradeRoutes', e),
     europe: (e) => dialogQueue.replace('europe', e),

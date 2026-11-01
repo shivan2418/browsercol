@@ -10,6 +10,7 @@ export type PanelKind =
   | 'information'
   | 'error'
   | 'eventPanel'
+  | 'indianSettlement'
   | 'messages'
   | 'highScores'
   | 'colony'

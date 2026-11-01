@@ -196,8 +196,13 @@ import net.sf.freecol.common.option.OptionGroup;
  *         icon}], error, and the labels of the panel's buttons}; a panel that
  *         is open is replaced. error is why the last change was refused
  *         (FreeCol's reason), null if it was not</td></tr>
+ * <tr><td>showIndianSettlementPanel</td><td>event indianSettlement</td>
+ *     <td>{name, kind, tension, worthScouting, images, labels, missionary,
+ *         skill, mostHated, wanted: [...], ok, tile, at}; as {@link SettlementJson}
+ *         describes, with only what the player has learned; opened by a
+ *         click on the settlement and by the controllers</td></tr>
  * <tr><td>the other dialogs the controllers ask (see "Not asked yet"), and
- *     the panels the base GUI drops: showIndianSettlementPanel, showGameOptionsDialog,
+ *     the panels the base GUI drops: showGameOptionsDialog,
  *     showClientOptionsDialog, showEditOptionDialog,
  *     showEditSettlementDialog, showFindSettlementPanel</td>
  *     <td>event unasked</td><td>{method}; the controller gets the base
@@ -1549,8 +1554,11 @@ public class WebGUI extends GUI {
 
     @Override
     public FreeColPanel showIndianSettlementPanel(IndianSettlement is) {
-        unasked("showIndianSettlementPanel");
-        return super.showIndianSettlementPanel(is);
+        final Tile tile = is.getTile();
+        this.ui.show("indianSettlement", tile(SettlementJson.of(is,
+                getMyPlayer()), tile)
+            .put("ok", label("ok")).toString());
+        return null;
     }
 
     @Override

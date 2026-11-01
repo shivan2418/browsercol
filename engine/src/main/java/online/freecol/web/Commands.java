@@ -10,6 +10,7 @@ import net.sf.freecol.common.model.Colony;
 import net.sf.freecol.common.model.Direction;
 import net.sf.freecol.common.model.FreeColGameObject;
 import net.sf.freecol.common.model.GoodsType;
+import net.sf.freecol.common.model.IndianSettlement;
 import net.sf.freecol.common.model.StringTemplate;
 import net.sf.freecol.common.model.UnitLocation.NoAddReason;
 import net.sf.freecol.common.model.WorkLocation;
@@ -49,8 +50,9 @@ public final class Commands {
     }
 
     /**
-     * Click a tile: on our colony, open its panel, as SwingGUI.clickAt
-     * does. Elsewhere select our next unit there, units aboard a carrier
+     * Click a tile: on a native settlement, show its panel; on our colony,
+     * open its panel, as SwingGUI.clickAt does. Elsewhere select our next
+     * unit there, units aboard a carrier
      * included, so repeated clicks cycle through a stack. With none, send
      * the active unit there.
      *
@@ -61,6 +63,11 @@ public final class Commands {
     public boolean click(int x, int y) {
         final Tile tile = tile(x, y);
         if (tile == null) return false;
+        // A native settlement opens its panel, as SwingGUI's click does.
+        if (tile.isExplored() && tile.getSettlement() instanceof IndianSettlement) {
+            gui().showIndianSettlementPanel((IndianSettlement)tile.getSettlement());
+            return true;
+        }
         final Player player = this.client.getMyPlayer();
         final Colony colony = tile.getColony();
         if (colony != null && player.owns(colony)) {
