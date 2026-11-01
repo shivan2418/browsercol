@@ -84,6 +84,8 @@ const OVER = 'over-target';
 
 /** The ship chosen in port, per colony, so it stays chosen as the panel is shown again. */
 const chosen = new Map<string, string | null>();
+/** The colonist picked, per colony, as the panel is shown again whenever the colony changes. */
+const picks = new Map<string, string | null>();
 
 function Img({
   keys,
@@ -327,7 +329,11 @@ function WorkChoice({ c, picked, art }: { c: ColonyView; picked: string; art: Ar
 export function ColonyPanel({ colony: c, art }: { colony: ColonyView; art: Art }) {
   const p = c.population;
   const moves = useContext(ColonyActions);
-  const [picked, setPicked] = useState<string | null>(null);
+  const [picked, show] = useState<string | null>(() => picks.get(c.id) ?? null);
+  const setPicked = (unit: string | null) => {
+    picks.set(c.id, unit);
+    show(unit);
+  };
   // A unit that has left the colony, or been disbanded, is no longer picked.
   const here = JSON.stringify(c).includes(`"id":"${picked}"`);
   const hand: Hand = !moves

@@ -218,6 +218,95 @@ async function play(page, url) {
     await page.waitForFunction((t) => window.__map.turn !== t && window.__map.ourTurn, turn, { timeout: 120000 });
     return view();
   };
+  /**
+   * Open the colony's panel and move colonists in it as a player would: the founder is dragged to a building,
+   * clicked back to its tile, given other work, and a colonist outside is put to work and out again. After each
+   * move the panel must show the colonist in its new place, and the net production must have changed.
+   */
+  const moveColonists = async (m, land, founder) => {
+    await noDialog('opening the colony panel');
+    await page.evaluate(() => (window.__hold = 'colony'));
+    await act(() => click(m, land));
+    const panel = page.locator('[role=dialog][data-kind=colony]');
+    await panel.waitFor({ timeout: 10000 });
+    const net = () => panel.locator('[data-part=net]').innerText();
+    const unit = (id) => panel.locator(`[data-unit="${id}"]`).first();
+    const within = (place, id, timeout = 20000) => place.locator(`[data-unit="${id}"]`).waitFor({ timeout });
+    const changed = async (than, what) => {
+      await page
+        .waitForFunction((old) => document.querySelector('[data-part=net]')?.innerText !== old, than, {
+          timeout: 20000,
+        })
+        .catch(() => {
+          throw new Error(`the net production did not change after ${what}`);
+        });
+      return net();
+    };
+    const tileId = await unit(founder).evaluate((e) => e.closest('[data-tile]')?.dataset.tile ?? null);
+    if (!tileId) throw new Error(`the founder ${founder} does not start on a tile of the colony panel`);
+    const tile = panel.locator(`[data-tile="${tileId}"]`);
+    const hall = panel.locator('[data-building]').first();
+    const onTile = await net();
+
+    // Drag the founder from its tile into a building.
+    await unit(founder).dragTo(hall);
+    await within(hall, founder);
+    const inHall = await changed(onTile, 'the founder was dragged into a building');
+    if ((await tile.locator(`[data-unit="${founder}"]`).count()) > 0) {
+      throw new Error('the founder is on its tile and in the building');
+    }
+
+    // Click it, then its tile: back to work there.
+    await unit(founder).click();
+    if ((await unit(founder).getAttribute('data-picked')) !== 'true')
+      throw new Error('a click did not pick the founder');
+    await tile.locator('.hit').click();
+    await within(tile, founder);
+    const backOnTile = await changed(inHall, 'the founder was clicked back to its tile');
+
+    // Change what it makes, when the tile offers another.
+    await unit(founder).click();
+    const others = panel.locator('[data-part=work] button[aria-pressed=false]');
+    if ((await others.count()) > 0) {
+      const goods = await others.first().getAttribute('data-goods');
+      await others.first().click();
+      await panel
+        .locator(`[data-part=work] button[data-goods="${goods}"][aria-pressed=true]`)
+        .waitFor({ timeout: 20000 });
+      await changed(backOnTile, `the founder was set to make ${goods}`);
+    }
+    await unit(founder).click();
+
+    // A colonist outside the colony goes to work, and out again.
+    const outside = panel.locator('[data-part=outside]');
+    const waiting = await outside.locator('[data-unit]').evaluateAll((es) => es.map((e) => e.dataset.unit));
+    const before = await net();
+    // Not every unit left on the colony's tile can work in a building (a soldier cannot): the first that can does.
+    let other = null;
+    for (const id of waiting) {
+      // The units outside are at the foot of a panel taller than the window, so this goes by clicks, not a drag.
+      await unit(id).click();
+      await hall.click();
+      if (
+        await within(hall, id, 8000).then(
+          () => true,
+          () => false,
+        )
+      ) {
+        other = id;
+        break;
+      }
+    }
+    if (other === null) throw new Error(`no colonist outside could be put to work in a building: ${waiting}`);
+    await changed(before, 'a colonist outside was put to work in a building');
+    await unit(other).click();
+    await outside.click();
+    await within(outside, other);
+    await page.evaluate(() => (window.__hold = null));
+    await panel.locator('[data-answer=close]').click();
+    await noDialog('closing the colony panel');
+    console.log(`  colony panel: moved ${founder} and ${other}`);
+  };
   const viewState = () => page.evaluate(() => window.fcView());
   /** The view is on the client's active unit: the cursor on its tile, in view, and the panel naming it. */
   const following = async (m, what) => {
@@ -409,6 +498,7 @@ async function play(page, url) {
     const seen = await page.evaluate(() => window.__dialogUnits);
     throw new Error(`the colony panel did not show the founder ${founder}: ${JSON.stringify(seen)}`);
   }
+  await moveColonists(m, land, founder);
   m = await endTurn();
   if (!at(m.settlements, land)) throw new Error(`the colony at ${label(land)} is gone after the AI turn`);
 

@@ -303,6 +303,8 @@ describe('moving colonists in the colony panel', () => {
     putOutside: (u) => calls.push(`outside ${u}`),
     changeWork: (u, g) => calls.push(`change ${u} ${g}`),
   };
+  /** A colony of its own each time: the colonist picked stays picked per colony. */
+  let n = 100;
   function openMovable() {
     calls.length = 0;
     const box = dialogs();
@@ -311,7 +313,7 @@ describe('moving colonists in the colony panel', () => {
         <DialogHost dialogs={box} goTo={() => {}} art={art} report={{ groupBy() {}, filter() {}, ignore() {} }} />
       </ColonyActions.Provider>,
     );
-    act(() => box.show('colony', jamestown));
+    act(() => box.show('colony', { ...jamestown, id: `colony:${++n}` }));
     return box;
   }
   const unit = (id: string) => document.querySelector<HTMLElement>(`[data-unit="${id}"]`)!;
@@ -367,9 +369,11 @@ describe('moving colonists in the colony panel', () => {
   });
 
   it('offers the picked colonist the other goods it could make where it works', () => {
-    openMovable();
+    const box = openMovable();
     expect(part('work')).toBeNull();
     fireEvent.click(unit('unit:1'));
+    // The colony is shown again as it changes, with the colonist still picked.
+    act(() => box.replace('colony', box.shown('colony')[0], () => true));
     const work = part('work');
     expect(work.querySelector('[data-goods="model.goods.grain"]')?.getAttribute('aria-pressed')).toBe('true');
     fireEvent.click(work.querySelector('[data-goods="model.goods.cotton"]')!);
@@ -386,7 +390,7 @@ describe('moving colonists in the colony panel', () => {
     act(() =>
       box.replace(
         'colony',
-        { ...jamestown, buildings: jamestown.buildings.map((b) => ({ ...b, workers: [] })) },
+        { ...box.shown('colony')[0], buildings: jamestown.buildings.map((b) => ({ ...b, workers: [] })) },
         () => true,
       ),
     );
