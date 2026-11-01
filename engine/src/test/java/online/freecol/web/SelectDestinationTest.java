@@ -25,17 +25,20 @@ import org.junit.jupiter.api.Timeout;
 
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.i18n.Messages;
+import net.sf.freecol.common.model.Europe;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.GoodsType;
 import net.sf.freecol.common.model.Map;
 import net.sf.freecol.common.model.Player;
 import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.Unit;
+import net.sf.freecol.common.model.UnitType;
 
 
 /**
  * The player asks where a ship sails, and the ship sails to Europe and
- * back, in a Classic game between the two Engines. The fake Browser UI
+ * back; the player also buys units in Europe and sails a loaded ship to the New World,
+ * in a Classic game between the two Engines. The fake Browser UI
  * answers the destination question with the destination it is told to.
  */
 class SelectDestinationTest {
@@ -79,6 +82,8 @@ class SelectDestinationTest {
             final int i = texts.indexOf(wanted);
             if (i < 0) fail("no choice " + wanted + " in " + texts);
             return String.valueOf(i);
+        case "endTurn":
+            return "ok";
         case "confirm":
             return json.contains("high seas") ? "false" : "true";
         default:
@@ -331,6 +336,133 @@ class SelectDestinationTest {
         final Tile landed = serverShip(ship).getTile();
         assertSame(server.getGame().getMap(), landed.getMap(),
             "the ship is on a tile of the map");
+    }
+
+    /** Sail the ship to Europe, and wait until it is in port. */
+    private void sailToEurope(Unit ship) throws InterruptedException {
+        final Player player = client.getClient().getMyPlayer();
+        sailOntoHighSeas(ship);
+        wanted = Messages.message(player.getEurope().getLocationLabelFor(player));
+        assertTrue(client.getClient().getInGameController()
+            .selectDestination(ship), "the ship sails to Europe");
+        wanted = null;
+        int turns = 0;
+        while (!serverShip(ship).isInEurope() || !ship.isInEurope()) {
+            endTurnAndWait();
+            assertTrue(++turns < 12, "the ship reaches Europe; asked " + asked);
+        }
+    }
+
+    /** Wait until the client has this much gold. */
+    private void awaitGold(int gold) throws InterruptedException {
+        final Player player = client.getClient().getMyPlayer();
+        for (int i = 0; i < 500 && player.getGold() != gold; i++) Thread.sleep(10);
+        assertEquals(gold, player.getGold());
+    }
+
+    /** The offers of the panel's train or purchase list, by unit type id. */
+    @SuppressWarnings("unchecked")
+    private static java.util.Map<String, java.util.Map<String, Object>> offers(
+            java.util.Map<String, Object> panel, String list) {
+        final java.util.Map<String, java.util.Map<String, Object>> byId
+            = new java.util.LinkedHashMap<>();
+        for (Object o : (List<Object>)((java.util.Map<String, Object>)panel.get(list))
+                 .get("units")) {
+            final java.util.Map<String, Object> offer = (java.util.Map<String, Object>)o;
+            byId.put((String)offer.get("id"), offer);
+        }
+        return byId;
+    }
+
+    private UnitType serverType(String id) {
+        return server.getGame().getSpecification().getUnitType(id);
+    }
+
+    @Test
+    @Timeout(300)
+    void unitsAreRecruitedTrainedAndBoughtAndALoadedShipSails() throws Exception {
+        startGame();
+        final Player player = client.getClient().getMyPlayer();
+        final Player serverPlayer = server.getGame()
+            .getFreeColGameObject(player.getId(), Player.class);
+        final Europe serverEurope = serverPlayer.getEurope();
+        final Unit ship = ship();
+        sailToEurope(ship);
+        // A purse for the whole shopping.
+        client.debugApplied(server.debug("{\"action\":\"addGold\",\"amount\":5000}"));
+        awaitGold(serverPlayer.getGold());
+        java.util.Map<String, Object> panel = europePanel(player);
+
+        // The prices shown are the server's.
+        @SuppressWarnings("unchecked")
+        final java.util.Map<String, Object> recruit
+            = (java.util.Map<String, Object>)panel.get("recruit");
+        assertEquals((long)serverPlayer.getEuropeanRecruitPrice(), recruit.get("price"));
+        assertEquals(3, ((List<?>)recruit.get("units")).size(),
+            "three in the recruit pool");
+        for (String list : List.of("train", "purchase")) {
+            final java.util.Map<String, java.util.Map<String, Object>> offers
+                = offers(panel, list);
+            assertFalse(offers.isEmpty(), list + " offers units");
+            for (java.util.Map.Entry<String, java.util.Map<String, Object>> o
+                     : offers.entrySet()) {
+                assertEquals((long)serverEurope.getUnitPrice(serverType(o.getKey())),
+                    o.getValue().get("price"), list + " " + o.getKey());
+                assertEquals(true, o.getValue().get("enabled"));
+            }
+        }
+
+        // Recruit the first of the pool.
+        final int docks = unitIds(panel, "docks").size();
+        int gold = serverPlayer.getGold();
+        final int recruitPrice = serverPlayer.getEuropeanRecruitPrice();
+        assertTrue(client.getCommands().recruitUnit(0), "a unit is recruited");
+        assertEquals(gold - recruitPrice, serverPlayer.getGold());
+        awaitGold(gold - recruitPrice);
+        panel = europePanel(player);
+        assertEquals(docks + 1, unitIds(panel, "docks").size());
+
+        // Train a specialist.
+        final String trained = offers(panel, "train").keySet().iterator().next();
+        gold = serverPlayer.getGold();
+        final int trainPrice = serverEurope.getUnitPrice(serverType(trained));
+        assertTrue(client.getCommands().trainUnit(trained), "a unit is trained");
+        assertEquals(gold - trainPrice, serverPlayer.getGold());
+        awaitGold(gold - trainPrice);
+        panel = europePanel(player);
+        assertEquals(docks + 2, unitIds(panel, "docks").size());
+
+        // Buy a ship.
+        final String bought = offers(panel, "purchase").keySet().stream()
+            .filter(id -> serverType(id).isNaval()).findFirst().get();
+        gold = serverPlayer.getGold();
+        final int shipPrice = serverEurope.getUnitPrice(serverType(bought));
+        assertTrue(client.getCommands().trainUnit(bought), "a ship is bought");
+        assertEquals(gold - shipPrice, serverPlayer.getGold());
+        awaitGold(gold - shipPrice);
+        panel = europePanel(player);
+        assertEquals(2, unitIds(panel, "inPort").size(), "two ships in port");
+
+        // Load the recruit onto the first ship and sail it.
+        final String passenger = unitIds(panel, "docks").get(0);
+        assertTrue(client.getCommands().boardShip(passenger, ship.getId()),
+            "the unit boards");
+        assertSame(serverShip(ship), server.getGame()
+            .getFreeColGameObject(passenger, Unit.class).getLocation());
+        assertTrue(client.getCommands().sailToNewWorld(ship.getId()),
+            "the loaded ship sails");
+        assertFalse(serverShip(ship).isInEurope(), "the ship has left Europe");
+        panel = europePanel(player);
+        assertEquals(List.of(ship.getId()), unitIds(panel, "toAmerica"));
+        int turns = 0;
+        while (serverShip(ship).getTile() == null) {
+            endTurnAndWait();
+            assertTrue(++turns < 12, "the ship reaches the New World; asked " + asked);
+        }
+        assertSame(server.getGame().getMap(), serverShip(ship).getTile().getMap());
+        assertSame(serverShip(ship), server.getGame()
+            .getFreeColGameObject(passenger, Unit.class).getLocation(),
+            "the passenger is still aboard");
     }
 
     @Test

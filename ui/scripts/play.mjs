@@ -166,10 +166,27 @@ async function play(page, url) {
   });
   /** The Europe panel, as the page draws it: its headings, its lists, its goods and its gold. */
   const europePanel = () =>
-    page.evaluate(() => {
+    page.evaluate(async () => {
       const d = document.querySelector('[role=dialog][data-kind=europe]');
+      if (!d) return null;
+      // The panel's lists are opened by its buttons, and are counted in the dialog the script is shooting:
+      // the script closes it once shot.
+      const shop = async (kind, what) => {
+        d.querySelector(`button[data-europe=${kind}]`)?.click();
+        await new Promise((ok) => requestAnimationFrame(() => setTimeout(ok, 50)));
+        return [...d.querySelectorAll(`[data-shop=${kind}] ${what}`)];
+      };
+      const recruits = (await shop('recruit', '[data-recruit]')).length;
+      const trains = (await shop('train', '[data-offer]')).length;
+      const buys = (await shop('purchase', '[data-offer] .price')).map((p) => p.textContent);
+      d.querySelector('button[data-europe=purchase]')?.click();
+      await new Promise((ok) => requestAnimationFrame(() => setTimeout(ok, 50)));
       return (
         d && {
+          recruits,
+          trains,
+          buys,
+          sailDisabled: d.querySelector('button[data-europe=sail]')?.disabled === true,
           headings: [...d.querySelectorAll('h2, h3')].map((h) => h.textContent),
           lists: [...d.querySelectorAll('[data-list]')].map((l) => l.dataset.list),
           goods: d.querySelectorAll('[data-goods]').length,
@@ -604,6 +621,18 @@ async function play(page, url) {
   // WebGUITest and SelectDestinationTest compare it with the model.
   if (europe.goods < 10 || !europe.prices.every((p) => /^\d+\/\d+$/.test(p)) || !(europe.gold >= 0)) {
     throw new Error(`the Europe panel's market or gold is wrong: ${JSON.stringify(europe)}`);
+  }
+
+  // The Recruit, Train and Purchase buttons list what Europe sells, with prices; the Set sail button needs
+  // a ship in port, which this game does not have yet. SelectDestinationTest does the buying and sailing.
+  if (
+    europe.recruits !== 3 ||
+    europe.trains < 1 ||
+    europe.buys.length < 1 ||
+    !europe.buys.every((p) => /\d/.test(p)) ||
+    !europe.sailDisabled
+  ) {
+    throw new Error(`Europe's recruit, train or purchase list or its sail button is wrong: ${JSON.stringify(europe)}`);
   }
 
   // The Game menu's entries show the game's difficulty level and game options in the option editor, read-only.

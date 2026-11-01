@@ -1545,9 +1545,10 @@ public class WebGUI extends GUI {
     /**
      * {@inheritDoc}
      *
-     * Shows Europe as it is now: read-only for now, so the panel's
-     * buttons and drags are not offered. A player without a Europe (after
-     * independence) has no panel.
+     * Shows Europe as it is now, with what the player can recruit, train
+     * and buy; Commands acts on it and sends the panel again. Cargo and
+     * the market's goods are not yet offered. A player without a Europe
+     * (after independence) has no panel.
      */
     @Override
     public FreeColPanel showEuropePanel() {

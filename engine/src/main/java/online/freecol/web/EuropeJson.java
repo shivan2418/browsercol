@@ -1,9 +1,11 @@
 package online.freecol.web;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 import net.sf.freecol.common.i18n.Messages;
+import net.sf.freecol.common.model.AbstractUnit;
 import net.sf.freecol.common.model.Europe;
 import net.sf.freecol.common.model.Goods;
 import net.sf.freecol.common.model.GoodsType;
@@ -12,20 +14,28 @@ import net.sf.freecol.common.model.Location;
 import net.sf.freecol.common.model.Map;
 import net.sf.freecol.common.model.Market;
 import net.sf.freecol.common.model.Player;
+import net.sf.freecol.common.model.StringTemplate;
 import net.sf.freecol.common.model.Unit;
+import net.sf.freecol.common.model.UnitType;
 
 
 /**
  * What FreeCol's EuropePanel shows, as the Browser UI's {@code europe}
  * event (WebGUI.showEuropePanel): the ships sailing to the New World and
  * to Europe, the ships in port, the units on the docks, the market's buy
- * and sell prices and the player's gold. Read-only.
+ * and sell prices and the player's gold, and what the player can recruit,
+ * train and buy there.
  *
  * <pre>
  * {title, gold, goldLabel, ok, headings: {toAmerica, toEurope, inPort,
  *  docks, cargo}, toAmerica: [unit], toEurope: [unit], inPort: [unit],
  *  docks: [unit], selected: the id of the ship whose cargo shows first
- *  (or null), market: [{id, name, images, sell, buy, enabled}]}
+ *  (or null), market: [{id, name, images, sell, buy, enabled}],
+ *  buttons: {train, purchase, recruit, sail},
+ *  recruit: {heading, text, price, units: [{index, name, images,
+ *  enabled}]}, train: {heading, units: [offer]},
+ *  purchase: {heading, units: [offer]}}
+ * offer: {id, name, images, price, priceLabel, enabled}
  * unit: {id, name, images, selected, cargo: [{kind: "unit"|"goods", id,
  *  name, images, amount}]}   (cargo on a carrier only)
  * </pre>
@@ -35,6 +45,11 @@ import net.sf.freecol.common.model.Unit;
  * and {@code buy} what it asks (MarketLabel's "sell/buy"), in the
  * specification's storable order; {@code enabled} is false for goods that
  * are boycotted.
+ *
+ * The recruit, train and purchase lists are those of FreeCol's RecruitPanel,
+ * TrainPanel and PurchasePanel: the docks' recruitable units at one price,
+ * and the unit types of Europe by ascending price, each enabled when the
+ * player can pay. The prices are the ones the server charges.
  */
 final class EuropeJson {
 
@@ -95,6 +110,76 @@ final class EuropeJson {
             .putRaw("docks", units(docks, selected))
             .put("selected", (selected == null) ? null : selected.getId())
             .putRaw("market", market(player))
+            .putRaw("buttons", new Json()
+                .put("train", Messages.message("train"))
+                .put("purchase", Messages.message("purchase"))
+                .put("recruit", Messages.message("recruit"))
+                .put("sail", Messages.message("setSail"))
+                .toString())
+            .putRaw("recruit", recruit(player))
+            .putRaw("train", offers(player, "trainPanel.clickOn",
+                player.getGame().getSpecification()
+                    .getUnitTypesTrainedInEurope(player)))
+            .putRaw("purchase", offers(player, "purchasePanel.clickOn",
+                player.getGame().getSpecification()
+                    .getUnitTypesPurchasedInEurope(player)))
+            .toString();
+    }
+
+    /** RecruitPanel: the recruitable units, all at the current price. */
+    private static String recruit(Player player) {
+        final Europe europe = player.getEurope();
+        final int price = player.getEuropeanRecruitPrice();
+        final int production = player.getTotalImmigrationProduction();
+        int turns = 100;
+        if (production > 0) {
+            final int required = player.getImmigrationRequired()
+                - player.getImmigration();
+            turns = required / production;
+            if (required % production > 0) turns++;
+        }
+        final boolean enabled = player.checkGold(price);
+        final List<String> units = new ArrayList<>();
+        int index = 0;
+        for (AbstractUnit au : europe.getExpandedRecruitables(false)) {
+            final UnitType type = au.getType(europe.getSpecification());
+            final String key = ObjectImages.unitKey(type, au.getRoleId());
+            units.add(new Json().put("index", index++)
+                .put("name", Messages.message(au.getSingleLabel()))
+                .putRaw("images", quoted(List.of(key)))
+                .put("enabled", enabled).toString());
+        }
+        return new Json()
+            .put("heading", Messages.message("recruit"))
+            .put("text", Messages.message(StringTemplate
+                .template("recruitPanel.clickOn")
+                .addAmount("%money%", price)
+                .addAmount("%number%", turns)))
+            .put("price", price)
+            .putRaw("units", Json.array(units))
+            .toString();
+    }
+
+    /** NewUnitPanel: the unit types on offer by ascending price. */
+    private static String offers(Player player, String textKey,
+                                 List<UnitType> types) {
+        final Europe europe = player.getEurope();
+        final List<UnitType> sorted = new ArrayList<>(types);
+        sorted.sort(Comparator.comparingInt(europe::getUnitPrice));
+        final List<String> units = new ArrayList<>();
+        for (UnitType type : sorted) {
+            final int price = europe.getUnitPrice(type);
+            units.add(new Json().put("id", type.getId())
+                .put("name", Messages.getName(type))
+                .putRaw("images", ObjectImages.json(type))
+                .put("price", price)
+                .put("priceLabel", Messages.message(StringTemplate
+                    .template("goldAmount").addAmount("%amount%", price)))
+                .put("enabled", player.checkGold(price)).toString());
+        }
+        return new Json()
+            .put("heading", Messages.message(textKey))
+            .putRaw("units", Json.array(units))
             .toString();
     }
 
