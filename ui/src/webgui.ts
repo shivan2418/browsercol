@@ -27,6 +27,28 @@ export interface GuiEvents {
   error: { text: string; ok: string };
   eventPanel: { header: string; image: string | null; footer: string | null; ok: string };
   /**
+   * A native settlement, as FreeCol's IndianSettlementPanel shows it to the player, with only what the
+   * player has learned: an entry whose images are empty has no icon. The skill and wanted goods are
+   * known after a visit, the most hated nation after contact. wanted[0] is the highly wanted goods and
+   * the rest the others; tip is the last sale there. The tile is the settlement's.
+   */
+  indianSettlement: {
+    name: string;
+    /** The nation and the kind of settlement, as "Inca Capital". */
+    kind: string;
+    /** The settlement's tension towards the player, if any. */
+    tension: string | null;
+    /** Contacted but not scouted: the panel marks it. */
+    worthScouting: boolean;
+    images: string[];
+    missionary: SettlementEntry | null;
+    skill: SettlementEntry;
+    mostHated: SettlementEntry;
+    wanted: (SettlementEntry & { tip: string | null })[];
+    labels: { learnableSkill: string; hatedNation: string; highlyWanted: string; otherWanted: string };
+    ok: string;
+  } & TileRef;
+  /**
    * The high scores at the game's end, text as FreeCol's header (or null). Closing the panel does
    * nothing more: there is no start screen yet, so the player keeps playing (victory) or reloads the page.
    */
@@ -232,6 +254,12 @@ export interface EuropeUnit {
   images: string[];
   selected: boolean;
   cargo?: { kind: 'unit' | 'goods'; id: Id; name: string; images: string[]; amount: number }[];
+}
+
+/** A text with the resource keys of its icon, best first. */
+export interface SettlementEntry {
+  text: string;
+  images: string[];
 }
 
 export interface Choice {

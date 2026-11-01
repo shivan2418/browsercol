@@ -632,13 +632,12 @@ class WebGUITest {
 
         shown.clear();
         assertNull(gui.showColonyPanel(null, unit), "no colony: nothing to show");
-        assertNull(gui.showIndianSettlementPanel(null));
         gui.showGameOptionsDialog(false, null);
         gui.showClientOptionsDialog();
         assertFalse(gui.showEditOptionDialog(null), "the base GUI's default");
         assertNull(gui.showEditSettlementDialog(null));
         assertNull(gui.showFindSettlementPanel());
-        assertEquals(List.of("showIndianSettlementPanel",
+        assertEquals(List.of(
                 "showGameOptionsDialog", "showClientOptionsDialog", "showEditOptionDialog",
                 "showEditSettlementDialog", "showFindSettlementPanel").stream()
                 .map(m -> "unasked {\"method\":\"" + m + "\"}").collect(Collectors.toList()),
@@ -1076,5 +1075,37 @@ class WebGUITest {
         assertTrue(q.startsWith("confirm {\"text\":\"You have been defeated!\\n"), q);
         assertTrue(q.contains("\"ok\":\"" + Messages.message("defeatedSinglePlayer.yes")
             + "\",\"cancel\":\"" + Messages.message("quit") + "\",\"defaultOk\":true"), q);
+    }
+
+    /**
+     * Clicking a native settlement on the map opens its panel, as SwingGUI
+     * does, instead of sending the active unit there; the panel is the
+     * settlement's JSON as the player knows it.
+     */
+    @Test
+    @Timeout(120)
+    void clickingANativeSettlementShowsItsPanel() throws Exception {
+        final ClientEngine client = startGame();
+        client.debugApplied(this.server.debug("{\"action\":\"revealMap\"}"));
+        final net.sf.freecol.common.model.Map map = client.getClient().getGame().getMap();
+        Tile at = null;
+        for (int i = 0; i < 3000 && at == null; i++) {
+            at = map.getTileSet(t -> t.isExplored() && t.getIndianSettlement() != null)
+                .stream().findFirst().orElse(null);
+            if (at == null) Thread.sleep(10);
+        }
+        assertNotNull(at, "the client knows a native settlement");
+
+        shown.clear();
+        assertTrue(client.getCommands().click(at.getX(), at.getY()));
+        final String panel = shown.stream()
+            .filter(e -> e.startsWith("indianSettlement ")).findFirst().orElse("");
+        final net.sf.freecol.common.model.IndianSettlement is = at.getIndianSettlement();
+        assertTrue(panel.contains("\"tile\":\"" + at.getId() + "\",\"at\":["
+                + at.getX() + "," + at.getY() + "]"), panel);
+        assertTrue(panel.contains(Messages.message(is.getLocationLabelFor(
+                client.getClient().getMyPlayer()))), panel);
+        assertTrue(panel.endsWith("\"ok\":\"OK\"}"), panel);
+        assertFalse(shown.stream().anyMatch(e -> e.startsWith("unasked ")), shown.toString());
     }
 }

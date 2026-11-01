@@ -334,4 +334,75 @@ class MapJsonTest {
         is.setScouted(us);
         assertTrue(entry.get().endsWith("\"worthScouting\":false}}}"), entry.get());
     }
+
+    /**
+     * The native settlement panel's payload, against the model: what the
+     * player has not learned is hidden, and each step of contact and visit
+     * shows more, as IndianSettlementPanel's checks have it.
+     */
+    @Test
+    @Timeout(120)
+    void theNativeSettlementPanelShowsOnlyWhatThePlayerHasLearned() throws Exception {
+        startGame();
+        final Game game = server.getGame();
+        final Player us = game.getFreeColGameObject(
+            client.getClient().getMyPlayer().getId(), Player.class);
+        final IndianSettlement is = game.getMap().getTileSet(
+                t -> t.getSettlement() instanceof IndianSettlement)
+            .stream().findFirst().get().getIndianSettlement();
+        is.setWantedGoods(List.of(game.getSpecification().getGoodsType("model.goods.rum"),
+            game.getSpecification().getGoodsType("model.goods.tools")));
+        final String nation = Messages.message(is.getOwner().getNationLabel());
+        final String skillName = Messages.message(is.getLearnableSkill().getNameKey());
+        final String wanted = Messages.message(is.getWantedGoods(0).getNameKey());
+        final String skillKey = ObjectImages.json(is.getLearnableSkill());
+        final String goodsKey = ObjectImages.json(is.getWantedGoods(0));
+        final String none = "[{\"text\":\"\",\"images\":[],\"tip\":null}]";
+
+        // Unmet: the settlement and its type, nothing it knows.
+        String json = SettlementJson.of(is, us).toString();
+        assertEquals(Messages.message(is.getLocationLabelFor(us)), unquote(field(json, "name")));
+        assertTrue(unquote(field(json, "kind")).contains(nation), json);
+        assertEquals("null", field(json, "tension"));
+        assertEquals("null", field(json, "missionary"));
+        assertEquals("false", field(json, "worthScouting"));
+        assertEquals("{\"text\":\"" + Messages.message("model.indianSettlement.skillUnknown")
+            + "\",\"images\":[]}", field(json, "skill"));
+        assertEquals("{\"text\":\"" + Messages.message("model.indianSettlement.mostHatedUnknown")
+            + "\",\"images\":[]}", field(json, "mostHated"));
+        assertEquals(none, field(json, "wanted"));
+        assertTrue(!json.contains(skillName) && !json.contains(skillKey), json);
+
+        // Contacted: the most hated nation is known, the skill still not.
+        is.setContacted(us);
+        is.setMostHated(us);
+        json = SettlementJson.of(is, us).toString();
+        assertEquals("true", field(json, "worthScouting"));
+        assertTrue(field(json, "mostHated").contains(Messages.message(us.getCountryLabel())), json);
+        assertTrue(field(json, "mostHated").contains(ObjectImages.json(us.getNation())), json);
+        assertTrue(field(json, "skill").contains("\"images\":[]"), json);
+        assertEquals(none, field(json, "wanted"));
+
+        // Visited: the skill and the wanted goods, with their icons.
+        is.setVisited(us);
+        json = SettlementJson.of(is, us).toString();
+        assertEquals("{\"text\":\"" + skillName + "\",\"images\":" + skillKey + "}",
+            field(json, "skill"));
+        assertTrue(field(json, "wanted").startsWith("[{\"text\":\"" + wanted
+                + "\",\"images\":" + goodsKey), json);
+        assertEquals(Math.max(1, is.getWantedGoodsCount()),
+            field(json, "wanted").split("\\{\"text\"", -1).length - 1);
+
+        // A missionary of ours shows with its label.
+        is.setMissionary(new ServerUnit(game, null, us,
+            game.getSpecification().getUnitType("model.unit.jesuitMissionary")));
+        json = SettlementJson.of(is, us).toString();
+        assertTrue(field(json, "missionary").contains(
+            Messages.message(is.getMissionary().getLabel(Unit.UnitLabelType.NATIONAL))), json);
+        assertTrue(field(json, "missionary").contains("image.unit.model.unit.jesuitMissionary"), json);
+    }
+
+    private static String unquote(String quoted) {
+        return quoted.substring(1, quoted.length() - 1);
+    }
 }
