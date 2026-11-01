@@ -485,6 +485,9 @@
       }
       .start-window {
         width: min(32em, 92vw);
+        /* Open option editors can make it taller than the page: it scrolls, so Start stays reachable. */
+        max-height: 96vh;
+        overflow-y: auto;
         padding: 0 0 12px;
         background: var(--panel);
         border: 2px solid var(--line);
