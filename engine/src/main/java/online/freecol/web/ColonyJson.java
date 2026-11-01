@@ -350,7 +350,7 @@ final class ColonyJson {
     }
 
     /** Goods of a type: {type, name, keys, amount}, open for more fields. */
-    private static Json goods(GoodsType type, int amount) {
+    static Json goods(GoodsType type, int amount) {
         return new Json().put("type", type.getId())
             .put("name", Messages.getName(type))
             .putRaw("keys", ObjectImages.json(type))
@@ -383,13 +383,13 @@ final class ColonyJson {
     }
 
     /** A unit: {id, name, keys}, open for more fields. */
-    private static Json unit(Unit u) {
+    static Json unit(Unit u) {
         return new Json().put("id", u.getId())
             .put("name", u.getDescription(Unit.UnitLabelType.NATIONAL))
             .putRaw("keys", MapJson.unitKeyJson(u));
     }
 
-    private static String unitList(List<Unit> units) {
+    static String unitList(List<Unit> units) {
         final List<String> out = new ArrayList<>();
         for (Unit u : units) out.add(unit(u).toString());
         return Json.array(out);

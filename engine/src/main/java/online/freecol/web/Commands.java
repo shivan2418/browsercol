@@ -313,6 +313,62 @@ public final class Commands {
         return true;
     }
 
+    /**
+     * Open a report of the Report menu, as its action does: colony, labour
+     * or compactLabour. {@link Reports} says how to add one.
+     *
+     * @param name The report's name.
+     * @return True if there is such a report.
+     */
+    public boolean showReport(String name) {
+        switch (name) {
+        case "colony": gui().showReportColonyPanel(); return true;
+        case "labour": gui().showReportLabourPanel(); return true;
+        case "compactLabour": gui().showCompactLabourReport(); return true;
+        default: return false;
+        }
+    }
+
+    /**
+     * Open the details a report links to: labourDetail or compactLabour
+     * for a unit type (compactLabour with an empty id is for all colonists).
+     *
+     * @param name The report's name.
+     * @param id What the details are of.
+     * @return True if there is such a report and thing.
+     */
+    public boolean showReportDetail(String name, String id) {
+        final net.sf.freecol.common.model.UnitType type = id.isEmpty() ? null
+            : this.client.getGame().getSpecification().getUnitType(id);
+        switch (name) {
+        case "labourDetail":
+            if (type == null) return false;
+            gui().showReportLabourDetailPanel(type, null, null, null);
+            return true;
+        case "compactLabour":
+            final net.sf.freecol.client.gui.panel.report.LabourData data
+                = new net.sf.freecol.client.gui.panel.report.LabourData(this.client);
+            gui().showCompactLabourReport((type == null) ? data.getSummary()
+                                          : data.getUnitData(type));
+            return true;
+        default: return false;
+        }
+    }
+
+    /**
+     * Open the panel of one of our colonies, as a link in a report does.
+     *
+     * @param id The colony's id.
+     * @return True if it is ours.
+     */
+    public boolean showColony(String id) {
+        final Colony colony = this.client.getGame()
+            .getFreeColGameObject(id, Colony.class);
+        if (colony == null || !this.client.getMyPlayer().owns(colony)) return false;
+        gui().showColonyPanel(colony, null);
+        return true;
+    }
+
     private TradeRoute route(String id) {
         final Player player = this.client.getMyPlayer();
         for (TradeRoute tr : player.getTradeRoutes()) {
