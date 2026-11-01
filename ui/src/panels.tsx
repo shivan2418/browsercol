@@ -1,10 +1,11 @@
 // React components for the WebGUI's dialogs (dialogs.ts): the confirm,
-// choice, input, goods, end turn, pre-combat, negotiation and names questions and the information, error, event, message
-// and colony (colony-panel.tsx) panels, each in a window frame (frame.tsx). All text, button labels included,
-// comes localized from the
-// Engine. Keys mean what they do in FreeCol's dialogs: Enter presses the
-// focused button, else takes the default option; Escape, or the frame's
-// close button, closes the dialog as cancelled; a panel closes on either key.
+// choice, input, goods, end turn, pre-combat, negotiation and names
+// questions and the information, error, event, message and colony
+// (colony-panel.tsx) panels, each in a window frame (frame.tsx). All text,
+// button labels included, comes localized from the Engine. Keys mean what
+// they do in FreeCol's dialogs: Enter presses the focused button, else takes
+// the default option; Escape, or the frame's close button, closes the
+// dialog as cancelled; a panel closes on either key.
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { ColonyPanel } from './colony-panel';
 import type { Dialog, Dialogs } from './dialogs';
