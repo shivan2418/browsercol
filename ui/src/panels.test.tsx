@@ -2,6 +2,7 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { dialogs } from './dialogs';
+import { europeButtons } from './europe-client';
 import { DialogHost, type Art, type ReportButtons, type RouteButtons } from './panels';
 import type { Choice, EuropeUnit, GuiEvents, GuiQuestions, TradeRouteDraft } from './webgui';
 
@@ -994,6 +995,43 @@ describe('the Europe panel', () => {
     inPort: [caravel, galleon],
     docks: [unit('unit:4', 'Expert Farmer', { images: [] })],
     selected: 'unit:1',
+    buttons: { train: 'Train', purchase: 'Purchase', recruit: 'Recruit', sail: 'Set sail' },
+    recruit: {
+      heading: 'Recruit',
+      text: 'Click on a unit to recruit it for 200 gold (1 turns)',
+      price: 200,
+      units: [
+        { index: 0, name: 'Expert Fisherman', images: [], enabled: true },
+        { index: 1, name: 'Free Colonist', images: [], enabled: true },
+      ],
+    },
+    train: {
+      heading: 'Train',
+      units: [
+        {
+          id: 'model.unit.masterCarpenter',
+          name: 'Master Carpenter',
+          images: [],
+          price: 500,
+          priceLabel: '500 gold',
+          enabled: true,
+        },
+        {
+          id: 'model.unit.masterGunsmith',
+          name: 'Master Gunsmith',
+          images: [],
+          price: 900,
+          priceLabel: '900 gold',
+          enabled: false,
+        },
+      ],
+    },
+    purchase: {
+      heading: 'Purchase',
+      units: [
+        { id: 'model.unit.galleon', name: 'Galleon', images: [], price: 1000, priceLabel: '1000 gold', enabled: true },
+      ],
+    },
     market: [
       { id: 'model.goods.food', name: 'Food', images: [], sell: 1, buy: 2, enabled: true },
       { id: 'model.goods.rum', name: 'Rum', images: [], sell: 5, buy: 6, enabled: false },
@@ -1033,6 +1071,48 @@ describe('the Europe panel', () => {
     expect(names('cargo')).toEqual(['50 Food']);
     fireEvent.click(screen.getByRole('button', { name: 'Galleon' }));
     expect(names('cargo')).toEqual(['Free Colonist']);
+  });
+
+  it('recruits, trains and buys from the lists its buttons open, and offers what is too dear dimmed', () => {
+    const calls: string[] = [];
+    Object.assign(europeButtons, {
+      recruit: (i: number) => calls.push(`recruit ${i}`),
+      train: (id: string) => calls.push(`train ${id}`),
+    });
+    const { box } = host();
+    act(() => box.show('europe', europe));
+    expect(document.querySelector('[data-shop]')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Recruit' }));
+    expect(screen.getByText(/recruit it for 200 gold/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Free Colonist' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Train' }));
+    expect(document.querySelector('[data-shop=recruit]')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Master Carpenter/ }));
+    expect(screen.getByText('500 gold')).toBeTruthy();
+    expect((screen.getByRole('button', { name: /Master Gunsmith/ }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Purchase' }));
+    fireEvent.click(screen.getByRole('button', { name: /1000 gold/ }));
+    expect(calls).toEqual(['recruit 1', 'train model.unit.masterCarpenter', 'train model.unit.galleon']);
+  });
+
+  it('loads a unit of the docks on the picked ship, and sends that ship to the New World', () => {
+    const calls: string[] = [];
+    Object.assign(europeButtons, {
+      board: (u: string, s: string) => calls.push(`board ${u} ${s}`),
+      sail: (s: string) => calls.push(`sail ${s}`),
+    });
+    const { box } = host();
+    act(() => box.show('europe', europe));
+    fireEvent.click(screen.getByRole('button', { name: 'Expert Farmer' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Galleon' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Set sail' }));
+    expect(calls).toEqual(['board unit:4 unit:1', 'sail unit:2']);
+  });
+
+  it('has nothing to sail with no ship in port', () => {
+    const { box } = host();
+    act(() => box.show('europe', { ...europe, inPort: [], selected: null }));
+    expect((screen.getByRole('button', { name: 'Set sail' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it('closes on the button and Escape, and a second panel replaces the open one', () => {

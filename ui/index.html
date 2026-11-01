@@ -439,6 +439,25 @@
       .europe .market {
         grid-column: 1 / -1;
       }
+      .europe-buttons {
+        display: flex;
+        gap: 6px;
+        margin: 6px 0;
+      }
+      .europe-buttons button[aria-pressed='true'] {
+        outline: 2px solid var(--accent);
+        outline-offset: -3px;
+      }
+      .dialog .shop {
+        background: var(--box);
+        border: 1px solid var(--line);
+        padding: 4px 8px;
+        margin-bottom: 8px;
+      }
+      .shop .offer .price {
+        margin-left: 4px;
+        font-variant-numeric: tabular-nums;
+      }
       .europe .chips {
         display: flex;
         flex-wrap: wrap;

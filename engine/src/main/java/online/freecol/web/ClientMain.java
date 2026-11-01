@@ -266,6 +266,30 @@ public final class ClientMain {
         command("showDifficulty", () -> engine.getCommands().showDifficulty());
     }
 
+    /** Europe panel: recruit the unit at an index of the docks. */
+    @JSExport
+    public static void recruitUnit(int index) {
+        command("recruitUnit", () -> engine.getCommands().recruitUnit(index));
+    }
+
+    /** Europe panel: train or buy a unit of a type, by id. */
+    @JSExport
+    public static void trainUnit(String unitTypeId) {
+        command("trainUnit", () -> engine.getCommands().trainUnit(unitTypeId));
+    }
+
+    /** Europe panel: put a unit of the docks aboard a ship in port, by ids. */
+    @JSExport
+    public static void boardShip(String unitId, String shipId) {
+        command("boardShip", () -> engine.getCommands().boardShip(unitId, shipId));
+    }
+
+    /** Europe panel: send a ship in port to the New World, by id. */
+    @JSExport
+    public static void sailToNewWorld(String shipId) {
+        command("sailToNewWorld", () -> engine.getCommands().sailToNewWorld(shipId));
+    }
+
     /** Declare independence (DeclareIndependenceAction). */
     @JSExport
     public static void declareIndependence() {

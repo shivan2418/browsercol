@@ -54,6 +54,14 @@ export interface ClientExports {
   nextUnit(): void;
   buildColony(): void;
   endTurn(): void;
+  /** Europe panel: recruit the unit at an index of the docks. */
+  recruitUnit(index: number): void;
+  /** Europe panel: train or buy a unit of a type, by id. */
+  trainUnit(unitTypeId: string): void;
+  /** Europe panel: put a unit of the docks aboard a ship in port, by ids. */
+  boardShip(unitId: string, shipId: string): void;
+  /** Europe panel: send a ship in port to the New World, by id. */
+  sailToNewWorld(shipId: string): void;
   /** Declare independence (DeclareIndependenceAction). */
   declareIndependence(): void;
   /** Show the Europe panel (EuropeAction). */
