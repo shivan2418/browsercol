@@ -129,6 +129,11 @@ export interface GuiEvents {
     selected: Id | null;
     market: { id: Id; name: string; images: string[]; sell: number; buy: number; enabled: boolean }[];
   };
+  /**
+   * A report of the Report menu (Reports.java): the report field tells which. It replaces the open report,
+   * so a link to a detail report opens it in place.
+   */
+  report: ReportView;
   /** A dialog the Browser UI cannot show yet; the controller got FreeCol's base default. */
   unasked: { method: string };
 }
@@ -482,3 +487,64 @@ export function webGui(handlers: GuiHandlers, answer: (id: number, value: string
     },
   };
 }
+
+/** What every report has: its window's title and close button's label, and the report that a detail returns to. */
+interface ReportHead<K extends string> {
+  report: K;
+  title: string;
+  ok: string;
+  back: ReportName | null;
+}
+
+/** A unit type, with the resource keys of its image. */
+export interface TypeRef {
+  id: string;
+  name: string;
+  keys: string[];
+}
+
+/** The reports of Reports.java, as the Engine sends them. Adding a report adds a member here. */
+export type ReportView =
+  | (ReportHead<'colony'> & {
+      colonies: {
+        id: Id;
+        name: string;
+        /** What the colony is building, or null; unit says it is a unit rather than a building. */
+        building: { name: string; keys: string[]; unit: boolean } | null;
+        colonists: UnitRef[];
+        outside: UnitRef[];
+        /** Goods made, used or kept: amount is the net production, stock what is stored, max what could be made. */
+        goods: (GoodsAmount & { stock: number; max: number })[];
+        buildings: { id: Id; name: string; keys: string[] }[];
+      }[];
+    })
+  | (ReportHead<'labour'> & { types: (TypeRef & { count: number })[] })
+  | (ReportHead<'labourDetail'> & {
+      unit: TypeRef;
+      total: number;
+      colonies: { id: Id; name: string; count: number; canTrain: boolean }[];
+      /** Europe, and tiles on land (at is where on the map). */
+      places: { label: string; count: number; europe: boolean; at: [number, number] | null }[];
+      atSea: { label: string; count: number }[];
+      canTrain: string | null;
+    })
+  | (ReportHead<'compactLabour'> & {
+      /** The unit type the details are of; null for the overview. */
+      unit: TypeRef | null;
+      canTrain: string | null;
+      showProduction: boolean;
+      showNet: boolean;
+      /** The image of the goods the expert makes. */
+      goods: string[] | null;
+      groups: {
+        label: string;
+        keys: string[] | null;
+        /** Where a click on the label goes: details of a unit type (id "" for all colonists), a colony or Europe. */
+        link: { kind: 'unit' | 'colony' | 'europe'; id: string } | null;
+        summary: { colonists: number; production: number; net: number; hasNet: boolean };
+        rows: { unit: string | null; doing: string; count: number; production: number; counted: boolean }[];
+      }[];
+    });
+
+/** The reports the menu opens and the Engine can send. */
+export type ReportName = ReportView['report'];

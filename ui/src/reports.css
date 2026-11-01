@@ -1,0 +1,152 @@
+/*
+ * The reports of the Report menu (src/reports.tsx), in the colours of theme.css's tokens.
+ * Specific enough to win over the general .dialog rules in index.html whatever the order.
+ */
+.dialog[data-kind='report'] {
+  width: min(1050px, 96vw);
+  max-height: 94vh;
+}
+.dialog .report {
+  min-height: 12em;
+  overflow: auto;
+}
+.dialog .report .pic {
+  width: 32px;
+  height: 32px;
+  max-width: none;
+  max-height: none;
+  object-fit: contain;
+}
+.dialog .report .pic[data-dim] {
+  opacity: 0.4;
+}
+.dialog .report .link {
+  padding: 0 2px;
+  color: var(--link);
+  background: none;
+  border: 0;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.dialog .report .muted {
+  color: var(--muted);
+}
+/* The colony report: a heading with a rule, then rows of people, goods and buildings. */
+.dialog .report .colonies section {
+  margin-bottom: 14px;
+}
+.dialog .report .colonies h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 4px;
+  color: var(--head);
+}
+.dialog .report .colonies h3::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid var(--line);
+}
+.dialog .report .colonies .row {
+  flex-wrap: wrap;
+  gap: 2px 4px;
+  min-height: 34px;
+}
+.dialog .report .made {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  margin-right: 10px;
+}
+.dialog .report .made .stock {
+  color: var(--muted);
+  font-size: var(--fs-s);
+}
+.dialog .report .goods {
+  display: inline-flex;
+  margin: 0;
+}
+/* The labour report: one button per kind of person. */
+.dialog .report .labour-types {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11em, 1fr));
+  gap: 6px;
+}
+.dialog .report .labour-type {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 8px;
+  align-items: center;
+  text-align: left;
+  padding: 4px 8px;
+}
+.dialog .report .labour-type .pic {
+  grid-row: span 2;
+}
+.dialog .report .labour-type .count {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.dialog .report .labour-type:disabled {
+  color: var(--muted);
+}
+.dialog .report .head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.dialog .report .head .count {
+  font-weight: 700;
+}
+.dialog .report .labour-detail dl {
+  display: grid;
+  grid-template-columns: max-content max-content;
+  gap: 2px 28px;
+  margin: 0 0 8px;
+}
+.dialog .report .labour-detail dl > div {
+  display: contents;
+}
+.dialog .report .labour-detail dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+/* The compact labour report: a table, a group of rows for each kind or place. */
+.dialog .report .compact-labour {
+  border-collapse: collapse;
+  width: 100%;
+}
+.dialog .report .compact-labour th,
+.dialog .report .compact-labour td {
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  vertical-align: middle;
+}
+.dialog .report .compact-labour th {
+  text-align: left;
+  font-weight: 400;
+  background: var(--box);
+  white-space: nowrap;
+}
+.dialog .report .compact-labour .pic {
+  width: 24px;
+  height: 24px;
+  vertical-align: middle;
+  margin-right: 4px;
+}
+.dialog .report .compact-labour .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.dialog .report .compact-labour .total {
+  font-weight: 700;
+}
+.dialog .report .compact-labour td[data-counted='false'] {
+  color: var(--muted);
+}
+.dialog .report .compact-labour td[data-sign='loss'] {
+  color: var(--bad);
+}

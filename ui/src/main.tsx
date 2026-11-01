@@ -32,6 +32,7 @@ import { MENUS, MenuBar } from './frame';
 import { commandForKey, type Command } from './input';
 import { mapDrawer, type MapView } from './map';
 import { DialogHost, type Art, type ReportButtons, type RouteButtons } from './panels';
+import { ReportContext, reportMenu, type ReportActions } from './reports';
 import { onCanvas, pointerInput } from './pointer';
 import { StartScreen } from './start-screen';
 import { presetJson, startOptions } from './start';
@@ -145,7 +146,19 @@ const colonyMoves: ColonyMoves = {
 };
 /** FreeCol's status line: the score, the gold, the tax and the year. */
 let statusLine = '';
-const menus = MENUS.map((name) => ({ name, items: [] }));
+/** What the links in a report do, once the client Engine has loaded. */
+const reportActions: ReportActions = {
+  open: (name) => colonyClient?.report(name),
+  detail: (name, id) => colonyClient?.reportDetail(name, id),
+  colony: (id) => colonyClient?.showColony(id),
+  europe: () => runCommand({ k: 'showEurope' }),
+  goTo: (at) => dispatch({ k: 'focus', tile: null, at }),
+};
+/** The menus: Report opens each of the reports. */
+const menus = MENUS.map((name) => ({
+  name,
+  items: name === 'Report' ? reportMenu(reportActions.open) : [],
+}));
 const menuRoot = createRoot(document.getElementById('menubar')!);
 /** Our colony as the colony panel shows it, once the client Engine has loaded (ClientExports.colony). */
 let colonyNow: (id: string) => string = () => 'null';
@@ -226,18 +239,20 @@ function renderSide() {
       />
       <ColonyTiles.Provider value={drawColonyTiles}>
         <ColonyActions.Provider value={colonyMoves}>
-          <DialogHost
-            dialogs={dialogQueue}
-            goTo={(at) => dispatch({ k: 'focus', tile: null, at })}
-            art={art}
-            string={(key) => map.resources()?.string(key) ?? ''}
-            report={{
-              groupBy: (value) => reportButtons.groupBy(value),
-              filter: (index, shown) => reportButtons.filter(index, shown),
-              ignore: (index, ignore) => reportButtons.ignore(index, ignore),
-            }}
-            routes={{ save: (d) => routeButtons.save(d), remove: (id) => routeButtons.remove(id) }}
-          />
+          <ReportContext.Provider value={reportActions}>
+            <DialogHost
+              dialogs={dialogQueue}
+              goTo={(at) => dispatch({ k: 'focus', tile: null, at })}
+              art={art}
+              string={(key) => map.resources()?.string(key) ?? ''}
+              report={{
+                groupBy: (value) => reportButtons.groupBy(value),
+                filter: (index, shown) => reportButtons.filter(index, shown),
+                ignore: (index, ignore) => reportButtons.ignore(index, ignore),
+              }}
+              routes={{ save: (d) => routeButtons.save(d), remove: (id) => routeButtons.remove(id) }}
+            />
+          </ReportContext.Provider>
         </ColonyActions.Provider>
       </ColonyTiles.Provider>
     </>,
@@ -314,6 +329,8 @@ const gui: GuiHandlers = {
     highScores: (e) => dialogQueue.show('highScores', e),
     tradeRoutes: (e) => dialogQueue.replace('tradeRoutes', e),
     europe: (e) => dialogQueue.replace('europe', e),
+    // A report that is open is replaced: a link in it opens a detail in its place.
+    report: (e) => dialogQueue.replace('report', e),
     messages: (e) => {
       if (e.regrouped) dialogQueue.replace('messages', e, (open) => open.title === e.title);
       else if (e.messages.length > 0) dialogQueue.show('messages', e);
