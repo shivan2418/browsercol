@@ -620,6 +620,50 @@
       .colony .ship[aria-pressed='true'] {
         border-color: var(--accent);
       }
+      /* Moving colonists (colony-panel.tsx): units are dragged, or picked by a click; places take drops and clicks. */
+      .colony [draggable='true'] {
+        cursor: grab;
+      }
+      .colony [data-picked='true'] {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+      }
+      .colony .over-target:not(.tile) {
+        outline: 2px dashed var(--accent);
+      }
+      /* The tiles overlap by their boxes, so only the diamond of each takes a drop, a click or the pointer. */
+      .colony .tile {
+        pointer-events: none;
+      }
+      .colony .tile .hit {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+        pointer-events: auto;
+      }
+      .colony .tile.over-target .hit {
+        background: var(--accent);
+        opacity: 0.3;
+      }
+      .colony .tile .who {
+        z-index: 2;
+        pointer-events: auto;
+      }
+      /* The picked colonist's other work: the goods it could make where it works. */
+      .colony .work {
+        grid-column: 1 / -1;
+        display: flex;
+        gap: 6px;
+        align-items: center;
+      }
+      .colony .choice {
+        padding: 2px 4px;
+        border: 2px solid transparent;
+      }
+      .colony .choice[aria-pressed='true'] {
+        border-color: var(--accent);
+      }
       .colony .warehouse {
         gap: 10px;
         align-items: center;
