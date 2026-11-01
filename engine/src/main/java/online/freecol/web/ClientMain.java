@@ -247,6 +247,12 @@ public final class ClientMain {
         command("nextUnit", () -> engine.getCommands().nextUnit());
     }
 
+    /** Show the Europe panel (EuropeAction). */
+    @JSExport
+    public static void showEurope() {
+        command("showEurope", () -> engine.getCommands().showEurope());
+    }
+
     /** Declare independence (DeclareIndependenceAction). */
     @JSExport
     public static void declareIndependence() {

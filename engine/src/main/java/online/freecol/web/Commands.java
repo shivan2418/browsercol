@@ -111,6 +111,12 @@ public final class Commands {
         return path != null && igc().goToTile(unit, path);
     }
 
+    /** Show the Europe panel (EuropeAction). */
+    public boolean showEurope() {
+        gui().showEuropePanel();
+        return true;
+    }
+
     /** Leave the active unit for now and select the next one (WaitAction). */
     public boolean nextUnit() {
         return igc().waitUnit();

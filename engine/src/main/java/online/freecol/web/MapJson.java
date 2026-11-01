@@ -337,7 +337,7 @@ final class MapJson {
     }
 
     /** ImageLibrary.getUnitTypeImageKey's candidates. */
-    private static List<String> unitKeys(Unit u) {
+    static List<String> unitKeys(Unit u) {
         final String roleId = u.getRole().getId();
         final String base = "image.unit." + u.getType().getId()
             + (Role.isDefaultRoleId(roleId) ? "" : "." + Role.getRoleIdSuffix(roleId));
