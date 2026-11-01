@@ -116,6 +116,39 @@ class GamePresetTest {
                 .findFirst().get().getNationId());
     }
 
+    /** The nation the human plays, and the difficulty level the server's game has, after a start from a preset. */
+    private static String[] humanAndLevel(Game game) {
+        return new String[] {
+            game.getLivePlayerList().stream().filter(p -> !p.isAI() && p.isEuropean())
+                .findFirst().get().getNationId(),
+            game.getSpecification().getDifficultyLevel() };
+    }
+
+    @Test
+    @Timeout(600)
+    void everyClassicNationCanBeChosenOnTheStartScreen() throws Exception {
+        for (String nation : new String[] { "dutch", "french", "english", "spanish" }) {
+            String id = "model.nation." + nation;
+            Game game = play("{ \"nation\": \"" + id + "\", \"options\": {"
+                + " \"model.option.mapWidth\": 40, \"model.option.mapHeight\": 60 } }");
+            assertEquals(id, humanAndLevel(game)[0]);
+        }
+    }
+
+    @Test
+    @Timeout(300)
+    void theChosenDifficultyReachesTheServersGameOptions() throws Exception {
+        String small = ", \"options\": { \"model.option.mapWidth\": 40,"
+            + " \"model.option.mapHeight\": 60 } }";
+        Game easy = play("{ \"difficulty\": \"model.difficulty.veryEasy\"" + small);
+        Game hard = play("{ \"difficulty\": \"model.difficulty.veryHard\"" + small);
+        assertEquals("model.difficulty.veryEasy", humanAndLevel(easy)[1]);
+        assertEquals("model.difficulty.veryHard", humanAndLevel(hard)[1]);
+        String price = "model.option.landPriceFactor";
+        assertNotEquals(easy.getSpecification().getInteger(price),
+            hard.getSpecification().getInteger(price), "an option of the level differs");
+    }
+
     @Test
     @Timeout(180)
     void anotherSeedGivesAnotherMap() throws Exception {
