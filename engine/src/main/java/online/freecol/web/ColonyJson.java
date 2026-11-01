@@ -19,6 +19,7 @@ import net.sf.freecol.common.model.Specification;
 import net.sf.freecol.common.model.StringTemplate;
 import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.Unit;
+import net.sf.freecol.common.option.GameOptions;
 
 
 /**
@@ -29,11 +30,13 @@ import net.sf.freecol.common.model.Unit;
  * <li>id, name, at ([x, y]), ok (the close button's label);
  * <li>population: {total, rebels, royalists, bonus (PopulationPanel's
  *     labels), rebelPercent, rebelShield and royalistShield (keys)};
- * <li>buildings: {id, type, name, keys, capacity, workers, production},
- *     in the specification's order, without the defences and the docks,
- *     which Swing's BuildingsPanel leaves to the background; production
- *     is what BuildingPanel shows, {type, name, keys, amount, max}, or
- *     null;
+ * <li>buildings: {id, type, name, keys, site, capacity, workers,
+ *     production, upkeep}, in the specification's order, without the
+ *     defences and the docks, which Swing's BuildingsPanel leaves to the
+ *     background; a kind not built yet is an empty plot (site true, id
+ *     null). production is what BuildingPanel shows, {type, name, keys,
+ *     amount, max}, or null; upkeep its UpkeepLabel's number, or null when
+ *     the upkeep game option is off or the building has none;
  * <li>tiles: the 3x3 of TilesPanel, {id, pos ([x, y] in TilesPanel's
  *     grid: north at [0, 0], south at [2, 2]), name, terrain (keys),
  *     forest (keys, or null), centre, ours (the colony owns the tile),
@@ -114,25 +117,55 @@ final class ColonyJson {
             .toString();
     }
 
-    /** BuildingsPanel's buildings, each as BuildingPanel shows it. */
+    /**
+     * BuildingsPanel: per kind of building (its first level), the
+     * colony's building as BuildingPanel shows it, else an empty plot.
+     * The defences and the docks are left to the background, as in Swing.
+     * Swing shuffles the places by a seed per colony; this keeps the
+     * specification's order.
+     */
     private static String buildings(Colony colony) {
+        final Specification spec = colony.getSpecification();
+        final boolean upkeep = spec.getBoolean(GameOptions.ENABLE_UPKEEP);
         final List<String> out = new ArrayList<>();
-        for (BuildingType type : colony.getSpecification().getBuildingTypeList()) {
-            final Building b = colony.getBuilding(type);
-            if (b == null || b.getType() != type) continue;
-            final BuildingType first = type.getFirstLevel();
-            if (first.isDefenceType() || first.hasAbility(Ability.PRODUCE_IN_WATER)) continue;
+        for (BuildingType first : spec.getBuildingTypeList()) {
+            if (first.getUpgradesFrom() != null || first.isDefenceType()
+                || first.hasAbility(Ability.PRODUCE_IN_WATER)) continue;
+            Building b = null;
+            for (Building built : colony.getBuildings()) {
+                if (built.getType().getFirstLevel() == first) b = built;
+            }
+            if (b == null) {
+                out.add(new Json().putRaw("id", "null")
+                    .put("type", first.getId())
+                    .put("name", Messages.getName(first))
+                    .putRaw("keys", "[" + Json.quote(BUILDING_SITE) + "]")
+                    .put("site", true)
+                    .put("capacity", 0)
+                    .putRaw("workers", "[]")
+                    .putRaw("production", "null")
+                    .putRaw("upkeep", "null")
+                    .toString());
+                continue;
+            }
+            final BuildingType type = b.getType();
             out.add(new Json().put("id", b.getId())
                 .put("type", type.getId())
                 .put("name", Messages.getName(type))
                 .putRaw("keys", ObjectImages.json(type))
+                .put("site", false)
                 .put("capacity", b.getUnitCapacity())
                 .putRaw("workers", unitList(b.getUnitList()))
                 .putRaw("production", buildingProduction(colony, b))
+                .putRaw("upkeep", (upkeep && type.getUpkeep() > 0)
+                    ? String.valueOf(type.getUpkeep()) : "null")
                 .toString());
         }
         return Json.array(out);
     }
+
+    /** ImageLibrary.getScaledBuildingEmptyLandImage's key: an empty plot. */
+    private static final String BUILDING_SITE = "image.buildingicon.model.building.BuildingSite";
 
     /** BuildingPanel.update's production label: the output, and the most it could be. */
     private static String buildingProduction(Colony colony, Building b) {

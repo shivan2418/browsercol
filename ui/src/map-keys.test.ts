@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vite-plus/test';
-import { EVENT_KEYS, isArtKey, isMapKey, isPanelKey, MAP_KEY_FAMILIES, MAP_KEYS, PANEL_KEY_FAMILIES } from './map-keys';
+import {
+  EVENT_KEYS,
+  isArtKey,
+  isMapKey,
+  isPanelKey,
+  MAP_KEY_FAMILIES,
+  MAP_KEYS,
+  PANEL_KEY_FAMILIES,
+  PANEL_KEYS,
+} from './map-keys';
 import { resources, type Resources } from './resources';
 import { overlay, scene, type MapView } from './tileset';
 
@@ -169,8 +178,9 @@ describe('the map keys', () => {
 });
 
 describe('the panel keys', () => {
-  it('are the art of what a message is about, and of the event panel, and nothing else', () => {
+  it('are the art of what a message is about, of the event panel and of the colony panel, and nothing else', () => {
     for (const key of [
+      'image.icon.coin',
       'image.icon.model.goods.food',
       'image.buildingicon.model.building.townHall',
       'image.miscicon.model.nation.dutch',
@@ -181,7 +191,6 @@ describe('the panel keys', () => {
       expect(isMapKey(key), `the map does not draw ${key}`).toBe(false);
     }
     for (const key of [
-      'image.icon.coin',
       'image.icon.Colopedia.idea',
       'image.flavor.Title',
       'image.flavor.event.meeting.natives',
@@ -195,6 +204,7 @@ describe('the panel keys', () => {
   it('are each a family or key of the lists, which the art build ships with the map keys', () => {
     expect(Object.keys(PANEL_KEY_FAMILIES)).toEqual(['goods', 'building', 'nation']);
     expect(EVENT_KEYS).toHaveLength(2);
+    expect(Object.keys(PANEL_KEYS)).toEqual(['coin']);
     expect(isArtKey('image.unit.model.unit.caravel')).toBe(true);
   });
 });

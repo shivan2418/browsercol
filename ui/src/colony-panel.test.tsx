@@ -16,6 +16,8 @@ const files: Record<string, string> = {
   'image.icon.model.goods.hammers': 'art/hammers.png',
   'image.icon.model.goods.lumber': 'art/lumber.png',
   'image.tile.model.tile.plains.center': 'art/plains.png',
+  'image.buildingicon.model.building.BuildingSite': 'art/site.png',
+  'image.icon.coin': 'art/coin.png',
 };
 const art: Art = (keys) => {
   const key = keys.find((k) => k in files);
@@ -66,18 +68,33 @@ const jamestown: ColonyView = {
       type: 'model.building.townHall',
       name: 'Town Hall',
       keys: ['image.buildingicon.model.building.townHall'],
+      site: false,
       capacity: 3,
       workers: [],
       production: { ...goods('bells', 1), max: 1 },
+      upkeep: null,
     },
     {
       id: 'building:2',
       type: 'model.building.carpenterHouse',
       name: "Carpenter's house",
       keys: ['image.buildingicon.model.building.carpenterHouse'],
+      site: false,
       capacity: 3,
       workers: [colonist('unit:2')],
       production: { ...goods('hammers', 3), max: 6 },
+      upkeep: 5,
+    },
+    {
+      id: null,
+      type: 'model.building.schoolhouse',
+      name: 'Schoolhouse',
+      keys: ['image.buildingicon.model.building.BuildingSite'],
+      site: true,
+      capacity: 0,
+      workers: [],
+      production: null,
+      upkeep: null,
     },
   ],
   tiles: [
@@ -127,6 +144,19 @@ describe('the colony panel', () => {
     expect(carpenter.querySelector('[data-unit="unit:2"]')).toBeTruthy();
     expect(carpenter.querySelector('[data-goods="model.goods.hammers"]')?.textContent).toBe('3/6');
     expect(carpenter.querySelectorAll('.slot')).toHaveLength(2);
+    // BuildingPanel's UpkeepLabel.
+    const upkeep = carpenter.querySelector('.upkeep')!;
+    expect(upkeep.textContent).toBe('5');
+    expect(upkeep.querySelector('img')?.getAttribute('src')).toBe('art/coin.png');
+    expect(screen.getByTitle('Town Hall').querySelector('.upkeep')).toBeNull();
+  });
+
+  it('shows an empty plot where a kind of building is not built yet', () => {
+    open();
+    const plot = document.querySelector('[data-site="model.building.schoolhouse"]')!;
+    expect(plot.querySelector('img')?.getAttribute('src')).toBe('art/site.png');
+    expect(plot.querySelector('.name')).toBeNull();
+    expect(plot.querySelectorAll('.slot')).toHaveLength(0);
   });
 
   it('places the tiles as Swing does and shows who works them and what they make', () => {

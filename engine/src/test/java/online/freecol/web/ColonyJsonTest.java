@@ -27,6 +27,7 @@ import net.sf.freecol.common.model.Specification;
 import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.Unit;
 import net.sf.freecol.common.model.WorkLocation;
+import net.sf.freecol.common.option.GameOptions;
 import net.sf.freecol.server.model.ServerColony;
 import net.sf.freecol.server.model.ServerUnit;
 
@@ -170,6 +171,25 @@ class ColonyJsonTest {
         assertTrue(buildings.stream().anyMatch(b -> List.of(
                     "image.buildingicon.model.building.townHall").equals(b.get("keys"))),
             "the town hall is there");
+        assertNull(carpentry.get("upkeep"), "Classic has no building upkeep");
+        // Where a building is not built yet, an empty plot, as BuildingsPanel
+        // shows: a new colony has no schoolhouse.
+        final Map<String, Object> school = buildings.stream()
+            .filter(b -> "model.building.schoolhouse".equals(b.get("type"))).findFirst().get();
+        assertEquals(Boolean.TRUE, school.get("site"));
+        assertNull(school.get("id"));
+        assertEquals(List.of("image.buildingicon.model.building.BuildingSite"), school.get("keys"));
+        assertEquals(Boolean.FALSE, carpentry.get("site"));
+        // With the upkeep option on, an upgraded building shows its upkeep.
+        final Building smithy = colony.getBuilding(
+            spec.getBuildingType("model.building.blacksmithHouse"));
+        smithy.upgrade();
+        spec.setBoolean(GameOptions.ENABLE_UPKEEP, true);
+        final Map<String, Object> shop = list(obj(JsonReader.read(ColonyJson.of(colony, 1)))
+                .get("buildings")).stream().map(ColonyJsonTest::obj)
+            .filter(b -> smithy.getId().equals(b.get("id"))).findFirst().get();
+        assertEquals("model.building.blacksmithShop", shop.get("type"));
+        assertEquals(5L, shop.get("upkeep"));
         assertTrue(buildings.stream().noneMatch(b -> ((String)b.get("type"))
                     .equals("model.building.docks")),
             "docks and the stockade are drawn by the panel's background in Swing, not as buildings");

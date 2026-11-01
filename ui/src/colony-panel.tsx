@@ -5,12 +5,15 @@
 // button. Every image is found by resource key, so a Tileset can replace
 // it; every text comes localized from the Engine (ColonyJson.java).
 import type { ReactNode } from 'react';
+import { PANEL_KEYS } from './map-keys';
 import type { Art } from './panels';
 import type { ColonyView, GoodsAmount, UnitRef } from './webgui';
 
 /** FreeCol's tile size, which the tiles of TilesPanel are laid out by. */
 const TILE_W = 128;
 const TILE_H = 64;
+/** ImageLibrary.ICON_COIN, which an UpkeepLabel shows. */
+const COIN = PANEL_KEYS.coin;
 
 function Img({
   keys,
@@ -76,29 +79,45 @@ export function ColonyPanel({ colony: c, art }: { colony: ColonyView; art: Art }
           <Img keys={p.royalistShield} art={art} className="shield" />
         </Box>
         <div className="buildings">
-          {c.buildings.map((b) => (
-            <div key={b.id} className="building" title={b.name}>
-              <span className="name">{b.name}</span>
-              <Img keys={b.keys} art={art} className="art" />
-              {b.production && (
+          {c.buildings.map((b) =>
+            b.site ? (
+              // EmptyBuildingSite: the plot's image, nothing more.
+              <div key={b.type} className="building site" data-site={b.type} title={b.name}>
+                <Img keys={b.keys} art={art} className="art" />
+              </div>
+            ) : (
+              <div key={b.type} className="building" title={b.name}>
+                <span className="name">{b.name}</span>
+                <Img keys={b.keys} art={art} className="art" />
                 <span className="output">
-                  <Goods
-                    g={b.production}
-                    art={art}
-                    text={
-                      b.production.max > b.production.amount ? `${b.production.amount}/${b.production.max}` : undefined
-                    }
-                  />
+                  {b.production && (
+                    <Goods
+                      g={b.production}
+                      art={art}
+                      text={
+                        b.production.max > b.production.amount
+                          ? `${b.production.amount}/${b.production.max}`
+                          : undefined
+                      }
+                    />
+                  )}
+                  {b.upkeep !== null && (
+                    // BuildingPanel's UpkeepLabel: the coin, with the upkeep.
+                    <span className="upkeep" title={String(b.upkeep)}>
+                      <Img keys={[COIN]} art={art} className="icon" />
+                      {b.upkeep}
+                    </span>
+                  )}
                 </span>
-              )}
-              <span className="workers">
-                <Units units={b.workers} art={art} />
-                {Array.from({ length: Math.max(0, b.capacity - b.workers.length) }, (_, i) => (
-                  <span key={i} className="slot" />
-                ))}
-              </span>
-            </div>
-          ))}
+                <span className="workers">
+                  <Units units={b.workers} art={art} />
+                  {Array.from({ length: Math.max(0, b.capacity - b.workers.length) }, (_, i) => (
+                    <span key={i} className="slot" />
+                  ))}
+                </span>
+              </div>
+            ),
+          )}
         </div>
         <div className="upper">
           <section className="tiles" data-part="tiles" style={{ width: TILE_W * 3, height: TILE_H * 3 }}>
