@@ -542,8 +542,8 @@ class CommandsTest {
             assertTrue(commands.leaveShip(u.getId()), "leaves the ship: " + u);
         }
         final Unit passenger = land.getUnitList().stream()
-            .filter(u -> !u.isNaval()).findFirst().orElse(null);
-        assertNotNull(passenger, "a unit stands in the colony: " + land.getUnitList());
+            .filter(Unit::isColonist).findFirst().orElse(null);
+        assertNotNull(passenger, "a colonist stands in the colony: " + land.getUnitList());
         assertFalse(commands.leaveShip(passenger.getId()), "already ashore");
         assertTrue(commands.boardShip(passenger.getId(), ship.getId()), "boards");
         assertSame(serverShip, serverUnit(passenger).getLocation());
@@ -588,6 +588,9 @@ class CommandsTest {
         amount = "20";
         assertTrue(commands.unloadGoods(ship.getId(), cloth.getId(), 100, true), "unloads some");
         assertTrue(lastAsked().contains("\"max\":100,"), lastAsked());
+        // Swing suggests what the warehouse has room for.
+        final int room = serverColony.getWarehouseCapacity() - 50;
+        assertTrue(lastAsked().contains("\"value\":" + Math.min(100, room) + ","), lastAsked());
         assertEquals(80, serverShip.getGoodsCount(cloth));
         assertEquals(70, serverColony.getGoodsCount(cloth));
         assertEquals(70, ours.getGoodsCount(cloth));

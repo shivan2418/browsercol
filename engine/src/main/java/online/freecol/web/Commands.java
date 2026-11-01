@@ -217,12 +217,10 @@ public final class Commands {
      * @return True if goods were loaded.
      */
     public boolean loadGoods(String shipId, String goodsTypeId, boolean ask) {
-        final Unit ship = this.client.getMyPlayer()
-            .getOurFreeColGameObject(shipId, Unit.class);
-        final GoodsType type = this.client.getGame().getSpecification()
-            .getGoodsType(goodsTypeId);
-        final Colony colony = (ship == null) ? null : ship.getColony();
-        if (colony == null || type == null || !ship.isCarrier()) return false;
+        final Unit ship = shipInPort(shipId);
+        final GoodsType type = goodsType(goodsTypeId);
+        if (ship == null || type == null) return false;
+        final Colony colony = ship.getColony();
         final int stored = colony.getGoodsCount(type);
         if (stored <= 0) return false;
         int amount = Math.min(stored, GoodsContainer.CARGO_SIZE);
@@ -247,7 +245,9 @@ public final class Commands {
      * Unload goods from a ship in a colony's port into the warehouse, as
      * dragging a stack of the colony panel's cargo out does (a GoodsLabel
      * per stack of up to 100): the whole stack, or, asked, as much of it
-     * as the player chooses through the select amount dialog.
+     * as the player chooses through the select amount dialog, starting from
+     * what the warehouse has room for (WarehousePanel.suggested). With no
+     * room left, nothing is asked or unloaded, as in Swing.
      *
      * @param shipId The id of one of our ships in a colony.
      * @param goodsTypeId The id of the goods type.
@@ -257,16 +257,32 @@ public final class Commands {
      */
     public boolean unloadGoods(String shipId, String goodsTypeId, int stack,
                                boolean ask) {
-        final Unit ship = this.client.getMyPlayer()
-            .getOurFreeColGameObject(shipId, Unit.class);
-        final GoodsType type = this.client.getGame().getSpecification()
-            .getGoodsType(goodsTypeId);
-        if (ship == null || type == null || ship.getColony() == null) return false;
+        final Unit ship = shipInPort(shipId);
+        final GoodsType type = goodsType(goodsTypeId);
+        if (ship == null || type == null) return false;
         int amount = Math.min(stack, ship.getGoodsCount(type));
         if (amount <= 0) return false;
-        if (ask) amount = gui().showSelectAmountDialog(type, amount, amount, false);
+        if (ask) {
+            final Colony colony = ship.getColony();
+            final int room = colony.getWarehouseCapacity() - colony.getGoodsCount(type);
+            final int suggested = (room >= 0 && room < amount) ? room : amount;
+            if (suggested <= 0) return false;
+            amount = gui().showSelectAmountDialog(type, amount, suggested, false);
+        }
         if (amount <= 0) return false;
         return igc().unloadCargo(new Goods(this.client.getGame(), ship, type, amount), false);
+    }
+
+    /** One of our carriers in one of our colonies, by id, else null. */
+    private Unit shipInPort(String shipId) {
+        final Unit ship = this.client.getMyPlayer()
+            .getOurFreeColGameObject(shipId, Unit.class);
+        return (ship == null || !ship.isCarrier() || ship.getColony() == null) ? null : ship;
+    }
+
+    /** The goods type with this id, else null. */
+    private GoodsType goodsType(String id) {
+        return this.client.getGame().getSpecification().getGoodsType(id);
     }
 
     /**
