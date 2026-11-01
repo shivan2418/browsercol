@@ -80,6 +80,9 @@ function fakeClient(scope: Scope, log: string[]): ClientExports {
     recruitUnit: () => {},
     trainUnit: () => {},
     boardShip: () => {},
+    leaveShip: () => {},
+    loadGoods: () => {},
+    unloadGoods: () => {},
     sailToNewWorld: () => {},
     fortify: () => {},
     sentry: () => {},
@@ -118,6 +121,7 @@ const sayYes: GuiHandlers = {
     names: () => null,
     endTurn: () => null,
     preCombat: () => false,
+    amount: () => null,
   },
 };
 

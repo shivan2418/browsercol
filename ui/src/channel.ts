@@ -58,8 +58,14 @@ export interface ClientExports {
   recruitUnit(index: number): void;
   /** Europe panel: train or buy a unit of a type, by id. */
   trainUnit(unitTypeId: string): void;
-  /** Europe panel: put a unit of the docks aboard a ship in port, by ids. */
+  /** Europe and colony panels: put a unit aboard a ship beside it, by ids. */
   boardShip(unitId: string, shipId: string): void;
+  /** Colony panel: take a unit off a ship in port, by id. */
+  leaveShip(unitId: string): void;
+  /** Colony panel: load goods of a type from the warehouse onto a ship in port; ask asks the amount. */
+  loadGoods(shipId: string, goodsTypeId: string, ask: boolean): void;
+  /** Colony panel: unload a stack of a ship's goods into the warehouse; ask asks the amount. */
+  unloadGoods(shipId: string, goodsTypeId: string, stack: number, ask: boolean): void;
   /** Europe panel: send a ship in port to the New World, by id. */
   sailToNewWorld(shipId: string): void;
   /** Declare independence (DeclareIndependenceAction). */

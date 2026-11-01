@@ -33,6 +33,17 @@ const question = {
     choices: [{ text: 'A', enabled: true, ok: false, cancel: false, default: true }],
   },
   input: { text: 'Name?', value: 'Jamestown', ok: 'OK', cancel: 'Cancel', tile: null },
+  amount: {
+    text: 'Select the amount',
+    type: 'model.goods.cloth',
+    name: 'Cloth',
+    keys: ['image.icon.model.goods.cloth'],
+    values: [20, 40, 45],
+    value: 40,
+    max: 45,
+    ok: 'OK',
+    cancel: 'Cancel',
+  },
   goods: {
     text: 'Loot Cargo',
     ok: 'OK',
@@ -119,6 +130,7 @@ describe('webGui', () => {
           names: (q) => (asked.push(q), [q.fields[0].value, 'Newland']),
           endTurn: (q) => (asked.push(q), { status: 'select', unit: q.units[0].id }),
           preCombat: (q) => (asked.push(q), false),
+          amount: (q) => (asked.push(q), 35),
         },
       },
       a.answer,
@@ -134,6 +146,7 @@ describe('webGui', () => {
       [7, 'endTurn'],
       [8, 'preCombat'],
       [9, 'event'],
+      [10, 'amount'],
     ] as const) {
       const arrived = a.next();
       gui.fcAsk(id, kind, JSON.stringify(question[kind]));
@@ -151,6 +164,7 @@ describe('webGui', () => {
       question.endTurn,
       question.preCombat,
       question.event,
+      question.amount,
     ]);
     expect(a.got).toEqual([
       [1, 'true'],
@@ -162,6 +176,7 @@ describe('webGui', () => {
       [7, 'select\nunit:2'],
       [8, 'false'],
       [9, 'closed'],
+      [10, '35'],
     ]);
   });
 
@@ -182,6 +197,7 @@ describe('webGui', () => {
         names: () => null,
         endTurn: () => null,
         preCombat: () => false,
+        amount: () => null,
       },
     };
     const gui = webGui(handlers, a.answer);
@@ -220,6 +236,7 @@ describe('webGui', () => {
           names: () => null,
           endTurn: () => null,
           preCombat: () => false,
+          amount: () => null,
         },
       },
       () => {},

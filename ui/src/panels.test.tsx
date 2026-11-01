@@ -303,6 +303,65 @@ describe('the input dialog', () => {
   });
 });
 
+describe('the select amount dialog', () => {
+  const q = {
+    text: 'Select the amount',
+    type: 'model.goods.cloth',
+    name: 'Cloth',
+    keys: ['image.icon.model.goods.cloth'],
+    values: [20, 25, 30],
+    value: 25,
+    max: 30,
+    ok: 'OK',
+    cancel: 'Cancel',
+  };
+  const field = () => screen.getByRole('spinbutton') as HTMLInputElement;
+
+  it('starts at the amount selected, and answers one of the listed amounts or one typed in', async () => {
+    const { box } = host();
+    const kept = ask(box, 'amount', q);
+    expect(field().value).toBe('25');
+    key('Enter');
+    expect(await kept).toBe(25);
+
+    const listed = ask(box, 'amount', q);
+    fireEvent.click(screen.getByRole('button', { name: '30' }));
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    expect(await listed).toBe(30);
+
+    const typed = ask(box, 'amount', { ...q, value: null });
+    expect(field().value).toBe('');
+    fireEvent.change(field(), { target: { value: '7' } });
+    key('Enter');
+    expect(await typed).toBe(7);
+  });
+
+  it('takes no amount over the most, nor one that is not whole', async () => {
+    const { box } = host();
+    const answered = ask(box, 'amount', q);
+    const ok = screen.getByRole('button', { name: 'OK' }) as HTMLButtonElement;
+    fireEvent.change(field(), { target: { value: '31' } });
+    expect(ok.disabled).toBe(true);
+    key('Enter');
+    screen.getByRole('dialog');
+    fireEvent.change(field(), { target: { value: '2.5' } });
+    expect(ok.disabled).toBe(true);
+    fireEvent.change(field(), { target: { value: '30' } });
+    fireEvent.click(ok);
+    expect(await answered).toBe(30);
+  });
+
+  it('answers null on cancel and on Escape', async () => {
+    const { box } = host();
+    const cancelled = ask(box, 'amount', q);
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(await cancelled).toBeNull();
+    const escaped = ask(box, 'amount', q);
+    key('Escape');
+    expect(await escaped).toBeNull();
+  });
+});
+
 describe('the goods dialog', () => {
   const lot = (name: string, checked = false) => ({
     id: name,
