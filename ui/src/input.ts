@@ -19,7 +19,8 @@ export type Command =
   | { k: 'plow' }
   | { k: 'clearForest' }
   | { k: 'road' }
-  | { k: 'selectDestination' };
+  | { k: 'selectDestination' }
+  | { k: 'tradeRoutes' };
 
 const BY_KEY: Record<string, Command> = {
   ArrowUp: { k: 'move', direction: 'N' },

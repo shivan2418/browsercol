@@ -72,6 +72,12 @@ export interface ClientExports {
   changeWorkType(unitId: string, goodsTypeId: string): void;
   /** Send the active unit to a destination; the player is asked where. */
   selectDestination(): void;
+  /** Open the trade routes panel (TradeRouteAction). */
+  tradeRoutes(): void;
+  /** Create or change a trade route: a TradeRouteDraft as JSON. The panel is sent again. */
+  saveTradeRoute(json: string): void;
+  /** Delete a trade route, by its id. The panel is sent again. */
+  deleteTradeRoute(id: string): void;
   // The turn report's buttons (WebGUI.reportGroupBy and the others). Each message is named by its
   // place in the report as shown.
   /** Group the report by 0 nothing, 1 type or 2 source; the report is shown again, regrouped. */

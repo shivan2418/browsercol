@@ -141,7 +141,13 @@ function open(colony: ColonyView = jamestown, drawTiles: DrawTiles | null = null
   const box = dialogs();
   render(
     <ColonyTiles.Provider value={drawTiles}>
-      <DialogHost dialogs={box} goTo={() => {}} art={art} report={{ groupBy() {}, filter() {}, ignore() {} }} />
+      <DialogHost
+        dialogs={box}
+        goTo={() => {}}
+        art={art}
+        report={{ groupBy() {}, filter() {}, ignore() {} }}
+        routes={{ save() {}, remove() {} }}
+      />
     </ColonyTiles.Provider>,
   );
   act(() => box.show('colony', colony));
@@ -310,7 +316,13 @@ describe('moving colonists in the colony panel', () => {
     const box = dialogs();
     render(
       <ColonyActions.Provider value={moves}>
-        <DialogHost dialogs={box} goTo={() => {}} art={art} report={{ groupBy() {}, filter() {}, ignore() {} }} />
+        <DialogHost
+          dialogs={box}
+          goTo={() => {}}
+          art={art}
+          report={{ groupBy() {}, filter() {}, ignore() {} }}
+          routes={{ save() {}, remove() {} }}
+        />
       </ColonyActions.Provider>,
     );
     act(() => box.show('colony', { ...jamestown, id: `colony:${++n}` }));

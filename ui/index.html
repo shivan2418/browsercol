@@ -354,6 +354,50 @@
       .dialog .message[data-dim] .text {
         opacity: 0.4;
       }
+      /* The trade routes panel: the routes, and a route's stops and goods. */
+      .dialog[data-kind='tradeRoutes'] {
+        min-width: 28em;
+      }
+      .dialog .routes,
+      .dialog .stops {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        margin: 8px 0;
+        padding: 4px;
+        min-height: 4em;
+        background: var(--box);
+        border: 1px solid var(--line);
+      }
+      .dialog .stops button {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        text-align: left;
+      }
+      .dialog .stops .name {
+        flex: 1;
+      }
+      .dialog .goods {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(8em, 1fr));
+        gap: 4px;
+        margin-top: 8px;
+      }
+      .dialog button[aria-pressed='true'] {
+        border-color: var(--accent);
+        outline: 2px solid var(--accent);
+        outline-offset: -3px;
+        font-weight: bold;
+      }
+      .dialog .error {
+        color: var(--bad);
+      }
+      .dialog .pic.small {
+        max-width: 20px;
+        max-height: 20px;
+        vertical-align: middle;
+      }
       .dialog .buttons {
         display: flex;
         justify-content: flex-end;

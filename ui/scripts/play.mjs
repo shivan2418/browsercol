@@ -508,6 +508,20 @@ async function play(page, url) {
   m = await endTurn();
   if (!at(m.settlements, land)) throw new Error(`the colony at ${label(land)} is gone after the AI turn`);
 
+  // The Trade routes button asks the Engine for the panel, which the page shows (the dialog answerer
+  // closes it). Making, changing and deleting routes is CommandsTest's and panels.test.tsx's to check.
+  m = await act(() => page.click('button[data-command=tradeRoutes]'));
+  const routesShown = await page
+    .waitForFunction(() => (window.__dialogs ?? []).some((d) => d.startsWith('tradeRoutes: ')), null, {
+      timeout: 10000,
+    })
+    .catch(() => false);
+  if (!routesShown) {
+    throw new Error(
+      `the trade routes panel did not open: ${JSON.stringify(await page.evaluate(() => window.__dialogs))}`,
+    );
+  }
+
   // The ship is still at sea: select it and fortify it, as a player would.
   // The side panel's Fortify button follows the Engine's orders, and the
   // ship is drawn in grey once its turn has ended.
