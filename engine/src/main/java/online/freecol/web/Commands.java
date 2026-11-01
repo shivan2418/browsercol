@@ -124,6 +124,75 @@ public final class Commands {
         return true;
     }
 
+    /**
+     * Recruit the unit at an index of Europe's docks (RecruitPanel). The
+     * Europe panel is sent again.
+     *
+     * @param index The index in the recruit pool, [0..RECRUIT_COUNT).
+     * @return True if a unit was recruited.
+     */
+    public boolean recruitUnit(int index) {
+        final boolean done = igc().recruitUnitInEurope(index);
+        gui().showEuropePanel();
+        return done;
+    }
+
+    /**
+     * Train or buy a unit of a type in Europe (TrainPanel, PurchasePanel:
+     * both are the controller's trainUnitInEurope). The Europe panel is
+     * sent again.
+     *
+     * @param unitTypeId The id of the unit type.
+     * @return True if the unit was bought.
+     */
+    public boolean trainUnit(String unitTypeId) {
+        final boolean done = igc().trainUnitInEurope(
+            this.client.getGame().getSpecification().getUnitType(unitTypeId));
+        gui().showEuropePanel();
+        return done;
+    }
+
+    /**
+     * Put a unit on the docks aboard a ship in port (a drop on the cargo
+     * panel). The Europe panel is sent again.
+     *
+     * @param unitId The id of the unit.
+     * @param shipId The id of the ship.
+     * @return True if the unit boarded.
+     */
+    public boolean boardShip(String unitId, String shipId) {
+        final Player player = this.client.getMyPlayer();
+        final Unit unit = player.getOurFreeColGameObject(unitId, Unit.class);
+        final Unit ship = player.getOurFreeColGameObject(shipId, Unit.class);
+        final boolean done = igc().boardShip(unit, ship);
+        gui().showEuropePanel();
+        return done;
+    }
+
+    /**
+     * Send a ship in Europe to the New World (EuropePanel's sail button, a
+     * drop on the sailing to America list). A trade route it follows is
+     * cleared first, after asking. The Europe panel is sent again.
+     *
+     * @param shipId The id of the ship.
+     * @return True if the ship set sail.
+     */
+    public boolean sailToNewWorld(String shipId) {
+        final Player player = this.client.getMyPlayer();
+        final Unit ship = player.getOurFreeColGameObject(shipId, Unit.class);
+        boolean done = false;
+        if (ship != null && ship.isInEurope() && ship.isNaval()
+            && !ship.isDamagedAndUnderForcedRepair()
+            && (ship.getTradeRoute() == null
+                || (gui().confirmClearTradeRoute(ship)
+                    && igc().assignTradeRoute(ship, null)))) {
+            igc().moveTo(ship, this.client.getGame().getMap());
+            done = !ship.isInEurope();
+        }
+        gui().showEuropePanel();
+        return done;
+    }
+
     /** Leave the active unit for now and select the next one (WaitAction). */
     public boolean nextUnit() {
         return igc().waitUnit();
