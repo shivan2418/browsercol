@@ -3,6 +3,7 @@ package online.freecol.web;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import net.sf.freecol.common.i18n.Messages;
@@ -97,7 +98,7 @@ final class BuildQueues {
     private static boolean checkAbilities(Colony colony, FeatureContainer queued,
                                           BuildableType type, List<String> reasons) {
         final int old = reasons.size();
-        for (java.util.Map.Entry<String, Boolean> e : type.getRequiredAbilities().entrySet()) {
+        for (Map.Entry<String, Boolean> e : type.getRequiredAbilities().entrySet()) {
             final String id = e.getKey();
             final boolean value = e.getValue();
             if (queued.hasAbility(id, null, null) != value && colony.hasAbility(id) != value) {
@@ -135,7 +136,8 @@ final class BuildQueues {
      * Why a queue cannot be set, or null if it can: a buildable twice (a
      * unit may be queued more than once), or one added to the queue that
      * the colony could not build after those ahead of it. Buildables the
-     * colony already queues stay, as the panel keeps them.
+     * colony already queues stay, as the panel keeps them, unless the edit is
+     * what stops the colony building them.
      *
      * @param colony The colony.
      * @param queue The queue wanted.
@@ -150,9 +152,13 @@ final class BuildQueues {
                     || (!have.contains(type) && hasBuildingType(colony, (BuildingType)type)))) {
                 return Messages.getName(type);
             }
-            if (!have.contains(type)) {
-                final String why = requires(reasons(colony, type, before, null));
-                if (why != null) return Messages.getName(type) + ": " + why;
+            final String why = requires(reasons(colony, type, before, null));
+            // What the colony already queues stays, unless this edit is what locks it
+            // (a building taken out from under the upgrade queued after it).
+            final int was = have.indexOf(type);
+            if (why != null && (was < 0
+                || reasons(colony, type, have.subList(0, was), null).isEmpty())) {
+                return Messages.getName(type) + ": " + why;
             }
             before.add(type);
         }
@@ -218,11 +224,7 @@ final class BuildQueues {
     private static String entry(Colony colony, BuildableType type, String reason) {
         final List<String> required = new ArrayList<>();
         for (AbstractGoods ag : type.getRequiredGoodsList()) {
-            required.add(new Json().put("type", ag.getType().getId())
-                .put("name", Messages.getName(ag.getType()))
-                .putRaw("keys", ObjectImages.json(ag.getType()))
-                .put("amount", ag.getAmount())
-                .toString());
+            required.add(ColonyJson.goods(ag.getType(), ag.getAmount()).toString());
         }
         return new Json().put("type", type.getId())
             .put("name", Messages.getName(type))
