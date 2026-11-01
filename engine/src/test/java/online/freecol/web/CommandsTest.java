@@ -55,6 +55,9 @@ class CommandsTest {
     private static final Pattern CHOICES = Pattern.compile("\"choices\":\\[(.*)]");
     private static final Pattern TEXT = Pattern.compile("\"text\":\"((?:[^\"\\\\]|\\\\.)*)\"");
 
+    /** The colony panels the WebGUI showed, as their JSON. */
+    private final List<String> colonies = Collections.synchronizedList(new ArrayList<>());
+
     /** The questions the fake Browser UI answered, with its answers. */
     private final List<String> asked = Collections.synchronizedList(new ArrayList<>());
 
@@ -189,7 +192,9 @@ class CommandsTest {
                 public void roundDone(int round, long millis) {}
                 public void finished(Game game) { ourTurn.countDown(); }
             }, new WebGUI.BrowserUI() {
-                public void show(String kind, String json) {}
+                public void show(String kind, String json) {
+                    if (kind.equals("colony")) colonies.add(json);
+                }
                 public void ask(int id, String kind, String json) {
                     ui.execute(() -> {
                             String answer = kind.equals("names")
@@ -341,6 +346,22 @@ class CommandsTest {
         assertNotNull(colony, () -> "the server has the colony; asked " + asked
             + "; told " + player.getModelMessages().stream().map(Messages::message).toList());
         assertEquals(player.getId(), colony.getOwner().getId());
+
+        // The controller opened the colony panel after founding, with the
+        // founding colonist working in it.
+        final Colony ours = client.getGame().getFreeColGameObject(colony.getId(), Colony.class);
+        assertTrue(colonies.stream().anyMatch(json -> json.startsWith(
+                    "{\"id\":\"" + colony.getId() + "\"")),
+            () -> "the colony panel opened after founding: " + colonies);
+        final String founder = ours.getUnitList().get(0).getId();
+        assertTrue(colonies.get(0).contains("\"id\":\"" + founder + "\""),
+            () -> "the founder is in the panel: " + colonies.get(0));
+
+        // Clicking our colony on the map opens its panel, as in Swing.
+        colonies.clear();
+        assertTrue(commands.click(colony.getTile().getX(), colony.getTile().getY()));
+        assertEquals(1, colonies.size(), colonies::toString);
+        assertTrue(colonies.get(0).startsWith("{\"id\":\"" + colony.getId() + "\""));
     }
 
     /**
