@@ -83,7 +83,7 @@ test('the changed options go to the Engine in the preset’s options', () => {
   });
 });
 
-test('it offers the level’s options and the game options from the specification', () => {
+test('a group with no option to change in the specification is not offered', () => {
   const { groups } = startOptions(data, 'classic');
   expect(groups.level('model.difficulty.veryEasy')).toBeNull(); // nothing in it to change in this small specification
   expect(groups.game()).toBeNull();

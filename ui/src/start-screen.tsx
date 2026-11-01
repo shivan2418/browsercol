@@ -109,6 +109,7 @@ export function StartScreen({ options, start }: { options: StartOptions; start: 
           </select>
           {levelGroup && (
             <Customize
+              key={levelGroup.id}
               kind="difficulty"
               summary="Customize this level"
               group={levelGroup}
