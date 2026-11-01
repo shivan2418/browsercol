@@ -49,6 +49,16 @@ describe('dialogs', () => {
     expect(d.current()).toBe(panel);
   });
 
+  it('keeps a question behind a panel queued before it and not yet shown', async () => {
+    const d = dialogs();
+    void d.ask('confirm', confirm);
+    d.show('error', error);
+    void d.ask('confirm', { ...confirm, text: 'Again?' });
+    const first = d.current()!;
+    if (first.kind === 'confirm') first.done(true);
+    expect(d.current()!.kind, 'the panel, in its turn').toBe('error');
+  });
+
   it('replaces a panel with another of its kind, in its place', () => {
     const d = dialogs();
     const messages = (title: string | null) => ({ title, messages: [], ok: 'OK' });
