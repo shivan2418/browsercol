@@ -565,6 +565,8 @@ export function mapDrawer(
   let view: ViewState | null = null;
   /** What the overlay layer shows, to redraw it only when that changes. */
   let shown = '';
+  /** The map last drawn, which drawTiles draws from. */
+  let drawn: MapView | null = null;
 
   async function init() {
     const art = (await (await fetch(artBase + manifest)).json()) as Art;
@@ -607,6 +609,7 @@ export function mapDrawer(
   }
 
   async function drawNow(map: MapView) {
+    drawn = map;
     if (!pen) await init();
     await paint(pen!, 0, scene(map, res!), pics);
     await showNow();
@@ -632,12 +635,13 @@ export function mapDrawer(
     },
     resources: () => res,
     drawTiles: (host, centre, tiles, top) => {
-      const map = view?.map;
-      if (!map || !res) return () => {};
+      const map = drawn;
+      const r = res;
+      if (!map || !r) return () => {};
       const pen = canvasPen(host, 3 * W, 3 * H + top, false);
       const keep = new Set(tiles.map(([x, y]) => `${x},${y}`));
       // The tiles' terrain, items, roads and settlement; not the units, chips, fog or labels the map adds.
-      const ops = scene(map, res).filter(
+      const ops = scene(map, r).filter(
         (op) => keep.has(`${op.x},${op.y}`) && ((op.k === 'image' && op.at !== 'unit') || op.k === 'road'),
       );
       const [cx, cy] = tileOrigin(...centre);

@@ -60,9 +60,11 @@ pointer. The menu bar over the map has FreeCol's menus and its status line
 scaffold, shows the turn. Drag the map or rest the
 pointer at its edge to scroll, and zoom with the wheel. Click one of your
 colonies to open its colony panel (also opened after founding one), which
-shows what FreeCol's does, read-only: buildings, tiles and who works them,
-units outside and in port, the warehouse, net production, population and
-the current build, and follows the colony as it changes. Click one of your
+shows what FreeCol's does, read-only: buildings (with empty plots and
+upkeep), the tiles drawn as the map draws them and who works them, units
+outside, ships in port and the cargo of the one clicked, the warehouse, net
+production, population and the current build, and follows the colony as it
+changes. Click one of your
 units to select it (click again to cycle through a stack, units aboard ships
 included; not in a colony, where a click opens the panel, as in FreeCol), click a tile to send the active unit there, move one step with
 the arrow keys or numpad, `W` for the next unit, `Space` to leave it for
