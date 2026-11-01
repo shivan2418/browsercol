@@ -271,7 +271,7 @@ function Goods({ d, art }: { d: Of<'goods'>; art: Art }) {
               onChange={() => toggle(i)}
             />
             <span className="name">{g.name}</span>
-            <GoodsAmount icon={g.icon} name={g.name} amount={g.amount} art={art} />
+            <GoodsAmount keys={[g.icon]} name={g.name} amount={g.amount} art={art} />
           </label>
         ))}
       </div>

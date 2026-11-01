@@ -96,9 +96,9 @@ describe('the boxed section', () => {
 });
 
 describe('the goods amount', () => {
-  const art: Art = (keys) => (keys[0] === 'image.icon.model.goods.food' ? 'art/food.png' : null);
-  const goods = (amount: number, change = false, icon = 'image.icon.model.goods.food') => {
-    const { container } = render(<GoodsAmount icon={icon} name="Food" amount={amount} change={change} art={art} />);
+  const art: Art = (keys) => (keys.includes('image.icon.model.goods.food') ? 'art/food.png' : null);
+  const goods = (amount: number, change = false, keys = ['image.icon.model.goods.food']) => {
+    const { container } = render(<GoodsAmount keys={keys} name="Food" amount={amount} change={change} art={art} />);
     return container.firstElementChild as HTMLElement;
   };
 
@@ -121,8 +121,13 @@ describe('the goods amount', () => {
     ]);
   });
 
+  it('shows the first of its keys the Tileset has', () => {
+    const g = goods(1, false, ['image.icon.model.goods.food.dutch', 'image.icon.model.goods.food']);
+    expect(g.querySelector('img')?.getAttribute('src')).toBe('art/food.png');
+  });
+
   it('shows the name when the Tileset has no icon', () => {
-    const g = goods(5, false, 'image.icon.model.goods.rum');
+    const g = goods(5, false, ['image.icon.model.goods.rum']);
     expect(g.querySelector('img')).toBeNull();
     expect(g.textContent).toBe('Food5');
   });
