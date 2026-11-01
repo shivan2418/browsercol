@@ -25,7 +25,7 @@ import { createRoot } from 'react-dom/client';
 import './theme.css';
 import { startPage, type ClientExports, type Scope, type ToWorker } from './channel';
 import { debugMessage, debugMode, describeAnswer, type DebugRequest } from './debug';
-import { ColonyTiles, type DrawTiles } from './colony-panel';
+import { ColonyActions, ColonyTiles, type ColonyMoves, type DrawTiles } from './colony-panel';
 import { dialogs } from './dialogs';
 import { MENUS, MenuBar } from './frame';
 import { commandForKey, type Command } from './input';
@@ -126,6 +126,13 @@ const art: Art = (keys) => {
 let runCommand: (c: Command) => void = () => {};
 /** The colony panel draws its tiles from the map, as the map draws them. */
 const drawColonyTiles: DrawTiles = (host, centre, tiles, top) => map.drawTiles(host, centre, tiles, top);
+/** The colonists' moves in the colony panel, once the client Engine has loaded (Commands.java). */
+let colonyClient: ClientExports | null = null;
+const colonyMoves: ColonyMoves = {
+  work: (unit, location) => colonyClient?.work(unit, location),
+  putOutside: (unit) => colonyClient?.putOutsideColony(unit),
+  changeWork: (unit, goods) => colonyClient?.changeWorkType(unit, goods),
+};
 /** FreeCol's status line: the score, the gold, the tax and the year. */
 let statusLine = '';
 const menus = MENUS.map((name) => ({ name, items: [] }));
@@ -208,16 +215,18 @@ function renderSide() {
         }}
       />
       <ColonyTiles.Provider value={drawColonyTiles}>
-        <DialogHost
-          dialogs={dialogQueue}
-          goTo={(at) => dispatch({ k: 'focus', tile: null, at })}
-          art={art}
-          report={{
-            groupBy: (value) => reportButtons.groupBy(value),
-            filter: (index, shown) => reportButtons.filter(index, shown),
-            ignore: (index, ignore) => reportButtons.ignore(index, ignore),
-          }}
-        />
+        <ColonyActions.Provider value={colonyMoves}>
+          <DialogHost
+            dialogs={dialogQueue}
+            goTo={(at) => dispatch({ k: 'focus', tile: null, at })}
+            art={art}
+            report={{
+              groupBy: (value) => reportButtons.groupBy(value),
+              filter: (index, shown) => reportButtons.filter(index, shown),
+              ignore: (index, ignore) => reportButtons.ignore(index, ignore),
+            }}
+          />
+        </ColonyActions.Provider>
       </ColonyTiles.Provider>
     </>,
   );
@@ -418,6 +427,7 @@ async function run() {
     worker.postMessage(m);
   };
   colonyNow = (id) => exports.colony(id);
+  colonyClient = exports;
   debugRequest = (r) => worker.postMessage(debugMessage(r));
   debugSkip = (n) => {
     if (n > 0) exports.skipTurns(n);

@@ -2,7 +2,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { dialogs } from './dialogs';
-import { ColonyTiles, type DrawTiles } from './colony-panel';
+import { ColonyActions, ColonyTiles, type ColonyMoves, type DrawTiles } from './colony-panel';
 import { DialogHost, type Art } from './panels';
 import type { ColonyView } from './webgui';
 
@@ -109,7 +109,17 @@ const jamestown: ColonyView = {
   tiles: [
     tile(0, 0),
     tile(1, 1, { centre: true, production: [goods('grain', 5), goods('cotton', 2)] }),
-    tile(2, 1, { workers: [{ ...colonist('unit:1'), occupation: 'F' }], production: [goods('grain', 3)] }),
+    tile(2, 1, {
+      workers: [
+        {
+          ...colonist('unit:1'),
+          occupation: 'F',
+          work: 'model.goods.grain',
+          choices: [goods('grain', 3), goods('cotton', 2)],
+        },
+      ],
+      production: [goods('grain', 3)],
+    }),
     tile(2, 2, { ours: false, taken: true }),
     tile(0, 2, { natives: true }),
   ],
@@ -283,5 +293,105 @@ describe('the colony panel', () => {
     act(() => box.replace('colony', { ...jamestown, name: 'Jamestown (2)' }, (c) => c.id === jamestown.id));
     expect(box.shown('colony').map((c) => c.name)).toEqual(['Jamestown (2)']);
     expect(screen.getByRole('heading', { level: 2 }).textContent).toBe('Jamestown (2)');
+  });
+});
+
+describe('moving colonists in the colony panel', () => {
+  const calls: string[] = [];
+  const moves: ColonyMoves = {
+    work: (u, l) => calls.push(`work ${u} ${l}`),
+    putOutside: (u) => calls.push(`outside ${u}`),
+    changeWork: (u, g) => calls.push(`change ${u} ${g}`),
+  };
+  function openMovable() {
+    calls.length = 0;
+    const box = dialogs();
+    render(
+      <ColonyActions.Provider value={moves}>
+        <DialogHost dialogs={box} goTo={() => {}} art={art} report={{ groupBy() {}, filter() {}, ignore() {} }} />
+      </ColonyActions.Provider>,
+    );
+    act(() => box.show('colony', jamestown));
+    return box;
+  }
+  const unit = (id: string) => document.querySelector<HTMLElement>(`[data-unit="${id}"]`)!;
+  const tileHit = (id: string) => document.querySelector<HTMLElement>(`[data-tile="${id}"]`)!;
+  const building = (id: string) => document.querySelector<HTMLElement>(`[data-building="${id}"]`)!;
+  /** What a browser's drag of a unit onto a place sends. */
+  const drag = (id: string, onto: HTMLElement) => {
+    const dataTransfer = { setData() {}, effectAllowed: '' };
+    fireEvent.dragStart(unit(id), { dataTransfer });
+    fireEvent.dragOver(onto, { dataTransfer });
+    fireEvent.drop(onto, { dataTransfer });
+    fireEvent.dragEnd(unit(id), { dataTransfer });
+  };
+
+  it('moves nothing, and makes nothing draggable, without the means to move', () => {
+    open();
+    expect(unit('unit:1').getAttribute('draggable')).toBeNull();
+    fireEvent.click(unit('unit:1'));
+    expect(unit('unit:1').dataset.picked).toBeUndefined();
+  });
+
+  it('puts a dragged colonist to work in a building or on a tile, or outside the colony', () => {
+    openMovable();
+    expect(unit('unit:1').getAttribute('draggable')).toBe('true');
+    drag('unit:1', building('building:1'));
+    drag('unit:2', tileHit('colonyTile:00'));
+    drag('unit:1', part('outside'));
+    expect(calls).toEqual(['work unit:1 building:1', 'work unit:2 colonyTile:00', 'outside unit:1']);
+  });
+
+  it('puts a colonist outside only if it works in the colony, and gives the centre tile none', () => {
+    openMovable();
+    drag('unit:3', part('outside'));
+    drag('unit:3', tileHit('colonyTile:11'));
+    expect(calls).toEqual([]);
+    drag('unit:3', tileHit('colonyTile:21'));
+    expect(calls).toEqual(['work unit:3 colonyTile:21']);
+  });
+
+  it('moves a colonist picked by a click to the place clicked next', () => {
+    openMovable();
+    fireEvent.click(unit('unit:2'));
+    expect(unit('unit:2').dataset.picked).toBe('true');
+    fireEvent.click(tileHit('colonyTile:00'));
+    expect(calls).toEqual(['work unit:2 colonyTile:00']);
+    expect(unit('unit:2').dataset.picked).toBe('false');
+    // Clicking a place with nothing picked does nothing, and a second click on a unit puts it down.
+    fireEvent.click(building('building:1'));
+    fireEvent.click(unit('unit:3'));
+    fireEvent.click(unit('unit:3'));
+    fireEvent.click(building('building:1'));
+    expect(calls).toHaveLength(1);
+  });
+
+  it('offers the picked colonist the other goods it could make where it works', () => {
+    openMovable();
+    expect(part('work')).toBeNull();
+    fireEvent.click(unit('unit:1'));
+    const work = part('work');
+    expect(work.querySelector('[data-goods="model.goods.grain"]')?.getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(work.querySelector('[data-goods="model.goods.cotton"]')!);
+    expect(calls).toEqual(['change unit:1 model.goods.cotton']);
+    // One with nothing else to make has no choice to offer.
+    fireEvent.click(unit('unit:1'));
+    fireEvent.click(unit('unit:2'));
+    expect(part('work')).toBeNull();
+  });
+
+  it('puts a colonist down when it has left the colony', () => {
+    const box = openMovable();
+    fireEvent.click(unit('unit:2'));
+    act(() =>
+      box.replace(
+        'colony',
+        { ...jamestown, buildings: jamestown.buildings.map((b) => ({ ...b, workers: [] })) },
+        () => true,
+      ),
+    );
+    expect(unit('unit:2')).toBeNull();
+    fireEvent.click(building('building:1'));
+    expect(calls).toEqual([]);
   });
 });

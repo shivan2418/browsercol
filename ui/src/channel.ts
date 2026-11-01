@@ -64,6 +64,12 @@ export interface ClientExports {
   plow(): void;
   clearForest(): void;
   road(): void;
+  /** Colony panel: put a colonist to work at a building or colony tile, by ids. */
+  work(unitId: string, locationId: string): void;
+  /** Colony panel: put a colonist outside the colony. */
+  putOutsideColony(unitId: string): void;
+  /** Colony panel: change the goods a working colonist makes. */
+  changeWorkType(unitId: string, goodsTypeId: string): void;
   /** Send the active unit to a destination; the player is asked where. */
   selectDestination(): void;
   // The turn report's buttons (WebGUI.reportGroupBy and the others). Each message is named by its

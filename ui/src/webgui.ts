@@ -83,6 +83,9 @@ export interface UnitRef {
   keys: string[];
   /** On a colony tile: the text of TileViewer's occupation chip. */
   occupation?: string;
+  /** Working in a colony: the goods type it makes (null for none), and the goods it could make there, with the amount it would make. */
+  work?: string | null;
+  choices?: GoodsAmount[];
 }
 
 /** What FreeCol's colony panel shows of a colony: see ColonyJson.java. All text is localized. */
