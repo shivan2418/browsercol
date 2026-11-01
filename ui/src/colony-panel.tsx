@@ -14,8 +14,8 @@
 // go to the client Engine's controller (ColonyMoves, Commands.java); the
 // panel is shown again as they change the colony.
 //
-// The ship chosen in port is loaded the same way: a unit beside the colony or
-// goods of the warehouse dropped on its cargo go aboard, and a unit or a stack
+// The ship chosen in port is loaded the same way: a unit beside the colony, a
+// colonist working in it or goods of the warehouse dropped on its cargo go aboard, and a unit or a stack
 // of goods of the cargo dropped outside or on the warehouse go ashore. Goods
 // move a hold's worth, or the stack; with shift held as they are picked up,
 // FreeCol's partial drag, the Engine asks the amount.
@@ -319,16 +319,18 @@ function TilePlace({
 function Port({ c, art }: { c: ColonyView; art: Art }) {
   const moves = useContext(ColonyActions);
   const port = c.inPort;
-  const [pick, setPick] = useState(() => (chosen.has(c.id) ? chosen.get(c.id)! : port.selected));
-  const ship = port.units.find((u) => u.id === pick) ?? port.units.find((u) => u.id === port.selected) ?? null;
+  // The choice is kept in chosen, which the warehouse reads too; this only draws it again.
+  const [, redraw] = useState(0);
+  const ship = chosenShip(c);
   const choose = (id: string) => {
     chosen.set(c.id, id);
-    setPick(id);
+    redraw((n) => n + 1);
   };
-  const beside = new Set(c.outside.units.map((u) => u.id));
+  // Units beside the colony and colonists working in it board (CargoPanel accepts what the carrier can add).
+  const boardable = new Set([...c.outside.units, ...workingIn(c)].map((u) => u.id));
   const target = useTarget((item) => {
     if (!ship || !moves) return;
-    if (item.kind === 'unit' && beside.has(item.id)) moves.board(item.id, ship.id);
+    if (item.kind === 'unit' && boardable.has(item.id)) moves.board(item.id, ship.id);
     else if (item.kind === 'goods' && item.from === 'warehouse') moves.load(ship.id, item.type, item.ask);
   });
   return (
@@ -374,7 +376,10 @@ function Port({ c, art }: { c: ColonyView; art: Art }) {
   );
 }
 
-/** The ship chosen in port, as Port chooses it. */
+/** The colonists working in the colony's buildings and on its tiles. */
+const workingIn = (c: ColonyView) => [...c.buildings.flatMap((b) => b.workers), ...c.tiles.flatMap((t) => t.workers)];
+
+/** The ship chosen in port: the one the player chose, else the one the Engine chose first. */
 function chosenShip(c: ColonyView) {
   const pick = chosen.has(c.id) ? chosen.get(c.id)! : c.inPort.selected;
   return c.inPort.units.find((u) => u.id === pick) ?? c.inPort.units.find((u) => u.id === c.inPort.selected) ?? null;
@@ -425,9 +430,7 @@ function BuildingPlace({ b, children }: { b: ColonyView['buildings'][number]; ch
 /** OutsideColonyPanel: the units on the colony's tile, and where a colonist working in the colony is put. */
 function Outside({ c, art }: { c: ColonyView; art: Art }) {
   const moves = useContext(ColonyActions);
-  const working = new Set(
-    [...c.buildings.flatMap((b) => b.workers), ...c.tiles.flatMap((t) => t.workers)].map((u) => u.id),
-  );
+  const working = new Set(workingIn(c).map((u) => u.id));
   const aboard = new Set(c.inPort.units.flatMap((s) => s.cargo.units).map((u) => u.id));
   // A colonist working in the colony is put outside, and a unit aboard a ship goes ashore; one already
   // outside has nowhere to go.
@@ -452,9 +455,7 @@ function Outside({ c, art }: { c: ColonyView; art: Art }) {
 /** What the picked colonist makes where it works, and the other goods it could make there. */
 function WorkChoice({ c, picked, art }: { c: ColonyView; picked: string; art: Art }) {
   const moves = useContext(ColonyActions);
-  const u = [...c.buildings.flatMap((b) => b.workers), ...c.tiles.flatMap((t) => t.workers)].find(
-    (w) => w.id === picked,
-  );
+  const u = workingIn(c).find((w) => w.id === picked);
   if (!moves || !u?.choices || u.choices.length < 2) return null;
   return (
     <Part part="work">
