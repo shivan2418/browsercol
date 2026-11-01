@@ -585,11 +585,10 @@ async function play(page, url) {
   if (!europe.headings[0] || europe.headings.length < 6 || !lists.every((l) => europe.lists.includes(l))) {
     throw new Error(`the Europe panel lacks FreeCol's headings or lists: ${JSON.stringify(europe)}`);
   }
-  const statusGold = Number(/Gold:\s*(-?\d+)/.exec((await view()).statusLine)?.[1]);
-  if (europe.goods < 10 || !europe.prices.every((p) => /^\d+\/\d+$/.test(p)) || europe.gold !== statusGold) {
-    throw new Error(
-      `the Europe panel's market or gold is wrong (status line gold ${statusGold}): ${JSON.stringify(europe)}`,
-    );
+  // The gold is not compared with the status line: a first contact's gift can come after its last map.
+  // WebGUITest and SelectDestinationTest compare it with the model.
+  if (europe.goods < 10 || !europe.prices.every((p) => /^\d+\/\d+$/.test(p)) || !(europe.gold >= 0)) {
+    throw new Error(`the Europe panel's market or gold is wrong: ${JSON.stringify(europe)}`);
   }
 
   // The art the dialogs show, from events as the client Engine sends them (the page's fcShow): the
