@@ -7,8 +7,8 @@
 // "cross", the cross on a mission chip, is listed by itself.
 //
 // The panels' art is a second, smaller list below: the images a message's
-// display object and an event panel show. The art build ships both, and
-// nothing else.
+// display object, an event panel and the colony panel show. The art build
+// ships both, and nothing else.
 
 /** The resource key families the map draws, by name: the prefix each family's keys start with. */
 export const MAP_KEY_FAMILIES = {
@@ -65,6 +65,12 @@ export const PANEL_KEY_FAMILIES = {
   nation: 'image.miscicon.model.nation.',
 } as const;
 
+/** The resource keys that stand alone that a panel shows. */
+export const PANEL_KEYS = {
+  /** The coin of a building's upkeep in the colony panel (ImageLibrary.ICON_COIN). */
+  coin: 'image.icon.coin',
+} as const;
+
 /**
  * The resource keys the event panel shows, which are the ones InGameController asks it for: the
  * first landing and the discovery of the Pacific.
@@ -74,6 +80,7 @@ export const EVENT_KEYS = ['image.flavor.event.firstLanding', 'image.flavor.even
 /** Whether a panel shows the resource with this key. */
 export const isPanelKey = (key: string) =>
   (EVENT_KEYS as readonly string[]).includes(key) ||
+  Object.values(PANEL_KEYS).some((k) => k === key) ||
   Object.values(PANEL_KEY_FAMILIES).some((prefix) => key.startsWith(prefix));
 
 /** Whether the art build ships the resource with this key. */
