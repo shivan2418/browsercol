@@ -354,6 +354,16 @@ final class MapJson {
         return keys;
     }
 
+    /** The image keys of a tile type's terrain, as a JSON array. */
+    static String terrainKeyJson(TileType type) {
+        return keys(List.of("image.tile." + type.getId() + ".center"));
+    }
+
+    /** The image keys of a tile type's forest, as a JSON array; null if it has none. */
+    static String forestKeyJson(TileType type) {
+        return type.isForested() ? keys(List.of("image.tileforest." + type.getId())) : "null";
+    }
+
     /** A unit's image keys, best first, as a JSON array. */
     static String unitKeyJson(Unit u) {
         return keys(unitKeys(u));
