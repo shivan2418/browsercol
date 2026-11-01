@@ -10,6 +10,7 @@
 // shot function (answerDialogs(page, shot)), the first three dialogs of each
 // kind that has images are shown to it first, as shot(kind, n), e.g. to take
 // a screenshot.
+// A kind named by window.__hold is logged and shot, but left open for the script to use.
 // Call before page.goto; read the log with dialogLog(page).
 
 export async function answerDialogs(page, shot = null) {
@@ -54,6 +55,8 @@ export async function answerDialogs(page, shot = null) {
         shots[d.dataset.kind] = n;
         await window.__shot(d.dataset.kind, n);
       }
+      // A script that works in a panel sets window.__hold to its kind, and closes it itself.
+      if (window.__hold === d.dataset.kind) return;
       const pick = (selector) => d.querySelector(selector);
       const buttonFor = {
         confirm: () =>
