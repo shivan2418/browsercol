@@ -160,7 +160,8 @@ final class BuildQueues {
     }
 
     /**
-     * The build queue for the colony panel: {queue: [entry], buildings:
+     * The build queue for the colony panel: {title, buildingsTitle,
+     * unitsTitle, showAll (BuildQueuePanel's labels), queue: [entry], buildings:
      * [entry], units: [entry], buy}. An entry is {type, name, keys,
      * required: [{type, name, keys, amount}], reason}, reason being
      * BuildQueuePanel's "Requires: ..." text or null; buildings and units
@@ -203,7 +204,11 @@ final class BuildQueues {
                 .put("price", colony.getPriceForBuilding(current))
                 .put("enabled", colony.canPayToFinishBuilding(current))
                 .toString();
-        return new Json().putRaw("queue", Json.array(queued))
+        return new Json().put("title", Messages.message("buildQueuePanel.buildQueue"))
+            .put("buildingsTitle", Messages.message("buildQueuePanel.buildings"))
+            .put("unitsTitle", Messages.message("buildQueuePanel.units"))
+            .put("showAll", Messages.message("buildQueuePanel.showAll"))
+            .putRaw("queue", Json.array(queued))
             .putRaw("buildings", Json.array(buildings))
             .putRaw("units", Json.array(units))
             .putRaw("buy", buy)
