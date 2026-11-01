@@ -135,6 +135,47 @@ const jamestown: ColonyView = {
     required: [{ ...goods('hammers', 80), needed: 80, available: 20, produced: 3 }],
   },
   nothing: 'Click on the building site to select a building or unit to build.',
+  queue: {
+    title: 'Build Queue',
+    buildingsTitle: 'Buildings',
+    unitsTitle: 'Units',
+    showAll: 'Show all',
+    queue: [
+      {
+        type: 'model.building.warehouse',
+        name: 'Warehouse',
+        keys: ['image.buildingicon.model.building.warehouse'],
+        required: [goods('hammers', 80)],
+        reason: null,
+      },
+    ],
+    buildings: [
+      {
+        type: 'model.building.stockade',
+        name: 'Stockade',
+        keys: ['image.buildingicon.model.building.stockade'],
+        required: [goods('hammers', 64)],
+        reason: null,
+      },
+      {
+        type: 'model.building.university',
+        name: 'University',
+        keys: ['image.buildingicon.model.building.university'],
+        required: [goods('hammers', 200)],
+        reason: 'Requires: College',
+      },
+    ],
+    units: [
+      {
+        type: 'model.unit.wagonTrain',
+        name: 'Wagon Train',
+        keys: ['image.unit.model.unit.wagonTrain'],
+        required: [goods('hammers', 40)],
+        reason: null,
+      },
+    ],
+    buy: { label: 'Buy Warehouse', price: 210, enabled: true },
+  },
 };
 
 function open(colony: ColonyView = jamestown, drawTiles: DrawTiles | null = null) {
@@ -308,6 +349,8 @@ describe('moving colonists in the colony panel', () => {
     work: (u, l) => calls.push(`work ${u} ${l}`),
     putOutside: (u) => calls.push(`outside ${u}`),
     changeWork: (u, g) => calls.push(`change ${u} ${g}`),
+    setQueue: (c, types) => calls.push(`queue ${c} ${types.join(',')}`),
+    buy: (c) => calls.push(`buy ${c}`),
   };
   /** A colony of its own each time: the colonist picked stays picked per colony. */
   let n = 100;
@@ -409,5 +452,94 @@ describe('moving colonists in the colony panel', () => {
     expect(unit('unit:2')).toBeNull();
     fireEvent.click(building('building:1'));
     expect(calls).toEqual([]);
+  });
+});
+
+describe('the build queue in the colony panel', () => {
+  const calls: string[] = [];
+  const moves: ColonyMoves = {
+    work: () => {},
+    putOutside: () => {},
+    changeWork: () => {},
+    setQueue: (c, types) => calls.push(`queue ${c} ${types.join(',')}`),
+    buy: (c) => calls.push(`buy ${c}`),
+  };
+  let n = 200;
+  function openQueue(colony: Partial<ColonyView> = {}) {
+    calls.length = 0;
+    const box = dialogs();
+    render(
+      <ColonyActions.Provider value={moves}>
+        <DialogHost
+          dialogs={box}
+          goTo={() => {}}
+          art={art}
+          report={{ groupBy() {}, filter() {}, ignore() {} }}
+          routes={{ save() {}, remove() {} }}
+        />
+      </ColonyActions.Provider>,
+    );
+    act(() => box.show('colony', { ...jamestown, id: `colony:${++n}`, ...colony }));
+    fireEvent.click(within(part('queue')).getByRole('button', { name: 'Build Queue' }));
+    return box;
+  }
+  const withQueue = (queue: ColonyView['queue']['queue']) => ({ queue: { ...jamestown.queue, queue } });
+
+  it('opens on its button, listing the queue and only what the colony can build', () => {
+    openQueue();
+    expect(part('queued').querySelector('[data-queued="model.building.warehouse"]')?.textContent).toContain('80');
+    expect(part('buildings').querySelector('[data-buildable="model.building.stockade"]')).toBeTruthy();
+    expect(part('buildings').querySelector('[data-buildable="model.building.university"]')).toBeNull();
+    expect(part('units').querySelector('[data-buildable="model.unit.wagonTrain"]')).toBeTruthy();
+  });
+
+  it('shows what the colony cannot build yet, with the reason, behind the show all box', () => {
+    openQueue();
+    fireEvent.click(screen.getByLabelText('Show all'));
+    const university = part('buildings').querySelector<HTMLElement>('[data-buildable="model.building.university"]')!;
+    expect(university.textContent).toContain('Requires: College');
+    expect(university.querySelector('button')!.disabled).toBe(true);
+    fireEvent.click(university.querySelector('button')!);
+    expect(calls).toEqual([]);
+  });
+
+  it('adds a building or unit at the end of the queue', () => {
+    openQueue();
+    fireEvent.click(part('buildings').querySelector('[data-buildable="model.building.stockade"] button')!);
+    fireEvent.click(part('units').querySelector('[data-buildable="model.unit.wagonTrain"] button')!);
+    expect(calls).toEqual([
+      `queue colony:${n} model.building.warehouse,model.building.stockade`,
+      `queue colony:${n} model.building.warehouse,model.unit.wagonTrain`,
+    ]);
+  });
+
+  it('moves and removes what is queued', () => {
+    const two = [...jamestown.queue.queue, { ...jamestown.queue.buildings[0], required: [goods('hammers', 64)] }];
+    openQueue(withQueue(two));
+    const row = (type: string) => part('queued').querySelector<HTMLElement>(`[data-queued="${type}"]`)!;
+    const button = (type: string, name: string) => within(row(type)).getByRole('button', { name });
+    expect(button('model.building.warehouse', 'up').hasAttribute('disabled')).toBe(true);
+    fireEvent.click(button('model.building.stockade', 'up'));
+    fireEvent.click(button('model.building.warehouse', 'down'));
+    fireEvent.click(button('model.building.warehouse', 'remove'));
+    expect(calls).toEqual([
+      `queue colony:${n} model.building.stockade,model.building.warehouse`,
+      `queue colony:${n} model.building.stockade,model.building.warehouse`,
+      `queue colony:${n} model.building.stockade`,
+    ]);
+  });
+
+  it('buys the current build, when the colony can pay', () => {
+    openQueue();
+    fireEvent.click(screen.getByRole('button', { name: /Buy Warehouse/ }));
+    expect(calls).toEqual([`buy colony:${n}`]);
+  });
+
+  it('cannot buy when the colony cannot pay, and has no buy button with nothing queued', () => {
+    openQueue({ queue: { ...jamestown.queue, buy: { label: 'Buy Warehouse', price: 210, enabled: false } } });
+    expect((screen.getByRole('button', { name: /Buy Warehouse/ }) as HTMLButtonElement).disabled).toBe(true);
+    cleanup();
+    openQueue({ queue: { ...jamestown.queue, queue: [], buy: null } });
+    expect(screen.queryByRole('button', { name: /Buy/ })).toBeNull();
   });
 });

@@ -85,6 +85,8 @@ function fakeClient(scope: Scope, log: string[]): ClientExports {
     work: () => {},
     putOutsideColony: () => {},
     changeWorkType: () => {},
+    setBuildQueue: () => {},
+    payForBuilding: () => {},
     clearForest: () => {},
     road: () => {},
     selectDestination: () => {},

@@ -13,6 +13,12 @@
 // that works somewhere offers the other goods it could make there. The moves
 // go to the client Engine's controller (ColonyMoves, Commands.java); the
 // panel is shown again as they change the colony.
+//
+// The build queue (BuildQueuePanel) opens under the construction: the queue
+// with buttons to move or remove each item, then what the colony can build
+// to add at the end, the rest (with FreeCol's reasons) behind the show all
+// box, and the buy button. Every edit goes to the Engine, which sets the queue
+// of the server's colony and sends the colony again.
 import {
   createContext,
   useContext,
@@ -25,7 +31,7 @@ import {
 } from 'react';
 import { Box, GoodsAmount, type Art } from './frame';
 import { PANEL_KEYS } from './map-keys';
-import type { ColonyView, GoodsAmount as Goods, UnitRef } from './webgui';
+import type { Buildable, ColonyView, GoodsAmount as Goods, UnitRef } from './webgui';
 
 /** FreeCol's tile size, which the tiles of TilesPanel are laid out by. */
 const TILE_W = 128;
@@ -58,6 +64,10 @@ export interface ColonyMoves {
   putOutside(unit: string): void;
   /** Change what a working colonist makes. */
   changeWork(unit: string, goods: string): void;
+  /** Set the colony's build queue, by the ids of what to build, in order. */
+  setQueue(colony: string, types: string[]): void;
+  /** Pay for what the colony is building now. */
+  buy(colony: string): void;
 }
 /** Without it the panel only shows the colony. */
 export const ColonyActions = createContext<ColonyMoves | null>(null);
@@ -86,6 +96,8 @@ const OVER = 'over-target';
 const chosen = new Map<string, string | null>();
 /** The colonist picked, per colony, as the panel is shown again whenever the colony changes. */
 const picks = new Map<string, string | null>();
+/** Whether the build queue is open, and whether it shows what cannot be built, per colony. */
+const queues = new Map<string, { open: boolean; all: boolean }>();
 
 function Img({
   keys,
@@ -326,6 +338,109 @@ function WorkChoice({ c, picked, art }: { c: ColonyView; picked: string; art: Ar
   );
 }
 
+/** A buildable with its image, name and the goods it takes; a locked one says what it lacks. */
+function BuildableLabel({ b, art }: { b: Buildable; art: Art }) {
+  return (
+    <>
+      <Img keys={b.keys} art={art} className="buildable-icon" />
+      <span className="name">{b.name}</span>
+      {b.required.map((g) => (
+        <Made key={g.type} g={g} art={art} />
+      ))}
+      {b.reason !== null && <span className="reason muted">{b.reason}</span>}
+    </>
+  );
+}
+
+/** BuildQueuePanel: edit the colony's build queue, and pay for the build. */
+function BuildQueue({ c, art }: { c: ColonyView; art: Art }) {
+  const moves = useContext(ColonyActions);
+  const [state, setState] = useState(() => queues.get(c.id) ?? { open: false, all: false });
+  const set = (s: { open: boolean; all: boolean }) => {
+    queues.set(c.id, s);
+    setState(s);
+  };
+  const q = c.queue;
+  if (!moves) return null;
+  const ids = q.queue.map((b) => b.type);
+  const move = (from: number, to: number) => {
+    const next = [...ids];
+    next.splice(to, 0, ...next.splice(from, 1));
+    moves.setQueue(c.id, next);
+  };
+  const lists = [
+    { part: 'buildings', title: q.buildingsTitle, items: q.buildings },
+    { part: 'units', title: q.unitsTitle, items: q.units },
+  ];
+  return (
+    <Part part="queue">
+      <button className="toggle" aria-expanded={state.open} onClick={() => set({ ...state, open: !state.open })}>
+        {q.title}
+      </button>
+      {state.open && (
+        <div className="queue-body">
+          <Box caption={q.title} data-part="queued" className="queued">
+            <ol>
+              {q.queue.map((b, i) => (
+                <li key={`${b.type}:${i}`} data-queued={b.type} data-locked={b.reason !== null || undefined}>
+                  <BuildableLabel b={b} art={art} />
+                  <button disabled={i === 0} aria-label="up" title="up" onClick={() => move(i, i - 1)}>
+                    ↑
+                  </button>
+                  <button disabled={i === ids.length - 1} aria-label="down" title="down" onClick={() => move(i, i + 1)}>
+                    ↓
+                  </button>
+                  <button
+                    aria-label="remove"
+                    title="remove"
+                    onClick={() =>
+                      moves.setQueue(
+                        c.id,
+                        ids.filter((_, j) => j !== i),
+                      )
+                    }
+                  >
+                    ✕
+                  </button>
+                </li>
+              ))}
+            </ol>
+          </Box>
+          {lists.map(({ part, title, items }) => (
+            <Box key={part} caption={title} data-part={part} className="can-build">
+              <ul>
+                {items
+                  .filter((b) => state.all || b.reason === null)
+                  .map((b) => (
+                    <li key={b.type} data-buildable={b.type} data-locked={b.reason !== null || undefined}>
+                      <button
+                        disabled={b.reason !== null}
+                        title={b.reason ?? b.name}
+                        onClick={() => moves.setQueue(c.id, [...ids, b.type])}
+                      >
+                        <BuildableLabel b={b} art={art} />
+                      </button>
+                    </li>
+                  ))}
+              </ul>
+            </Box>
+          ))}
+          <label className="show-all">
+            <input type="checkbox" checked={state.all} onChange={(e) => set({ ...state, all: e.target.checked })} />
+            {q.showAll}
+          </label>
+          {q.buy && (
+            <button className="buy" disabled={!q.buy.enabled} onClick={() => moves.buy(c.id)}>
+              {q.buy.label}
+              <span className="muted">{` (${q.buy.price})`}</span>
+            </button>
+          )}
+        </div>
+      )}
+    </Part>
+  );
+}
+
 export function ColonyPanel({ colony: c, art }: { colony: ColonyView; art: Art }) {
   const p = c.population;
   const moves = useContext(ColonyActions);
@@ -448,6 +563,7 @@ export function ColonyPanel({ colony: c, art }: { colony: ColonyView; art: Art }
               )}
             </Part>
           </div>
+          <BuildQueue c={c} art={art} />
           {hand.picked !== null && <WorkChoice c={c} picked={hand.picked} art={art} />}
           <Port c={c} art={art} />
           <Outside c={c} art={art} />

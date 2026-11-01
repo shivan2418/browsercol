@@ -76,6 +76,10 @@ export interface ClientExports {
   putOutsideColony(unitId: string): void;
   /** Colony panel: change the goods a working colonist makes. */
   changeWorkType(unitId: string, goodsTypeId: string): void;
+  /** Colony panel: set a colony's build queue, the ids of what to build in order, joined by commas. */
+  setBuildQueue(colonyId: string, typeIds: string): void;
+  /** Colony panel: pay for what the colony is building now (the player confirms the price). */
+  payForBuilding(colonyId: string): void;
   /** Send the active unit to a destination; the player is asked where. */
   selectDestination(): void;
   /** Open the trade routes panel (TradeRouteAction). */
