@@ -6,7 +6,15 @@
 import type { GuiEvents, GuiQuestions } from './webgui';
 
 /** The events shown as panels, closed by the player. */
-export type PanelKind = 'information' | 'error' | 'eventPanel' | 'messages' | 'highScores' | 'colony' | 'tradeRoutes' | 'europe';
+export type PanelKind =
+  | 'information'
+  | 'error'
+  | 'eventPanel'
+  | 'messages'
+  | 'highScores'
+  | 'colony'
+  | 'tradeRoutes'
+  | 'europe';
 
 type Asked = {
   [K in keyof GuiQuestions]: { kind: K; ask: GuiQuestions[K]['ask']; done: (a: GuiQuestions[K]['answer']) => void };
