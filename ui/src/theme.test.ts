@@ -2,8 +2,12 @@ import { expect, test } from 'vite-plus/test';
 import html from '../index.html?raw';
 import css from './theme.css?raw';
 
-/** The components' sources, by file. */
-const components = import.meta.glob<string>('./*.tsx', { query: '?raw', import: 'default', eager: true });
+/** The components' sources, by file; tests hold made-up data, such as a nation's colour from the Engine. */
+const components = import.meta.glob<string>(['./*.tsx', '!./*.test.tsx'], {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+});
 
 /** The custom properties each top-level block of theme.css sets, by its selector. */
 function palettes(): Map<string, Set<string>> {
