@@ -253,6 +253,18 @@ public final class ClientMain {
         command("showEurope", () -> engine.getCommands().showEurope());
     }
 
+    /** Show the game options, read-only (ShowGameOptionsAction). */
+    @JSExport
+    public static void showGameOptions() {
+        command("showGameOptions", () -> engine.getCommands().showGameOptions());
+    }
+
+    /** Show the game's difficulty level, read-only (ShowDifficultyAction). */
+    @JSExport
+    public static void showDifficulty() {
+        command("showDifficulty", () -> engine.getCommands().showDifficulty());
+    }
+
     /** Declare independence (DeclareIndependenceAction). */
     @JSExport
     public static void declareIndependence() {

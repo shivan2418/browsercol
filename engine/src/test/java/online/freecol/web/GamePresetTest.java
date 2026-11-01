@@ -149,9 +149,29 @@ class GamePresetTest {
             hard.getSpecification().getInteger(price), "an option of the level differs");
     }
 
+    /**
+     * What the start screen's option editor sends: a level, and the
+     * options of it the player changed, which are the server's game's.
+     */
+    @Test
+    @Timeout(300)
+    void aDifficultyOptionEditedOnTheStartScreenReachesTheServersGame() throws Exception {
+        String small = "\"model.option.mapWidth\": 40, \"model.option.mapHeight\": 60";
+        Game edited = play("{ \"difficulty\": \"model.difficulty.veryEasy\", \"options\": { " + small
+            + ", \"model.option.landPriceFactor\": 123, \"model.option.crossesIncrement\": 7,"
+            + " \"model.option.fogOfWar\": false } }");
+        Specification spec = edited.getSpecification();
+        assertEquals("model.difficulty.veryEasy", spec.getDifficultyLevel());
+        assertEquals(123, spec.getInteger("model.option.landPriceFactor"));
+        assertEquals(7, spec.getInteger("model.option.crossesIncrement"));
+        assertEquals(false, spec.getBoolean("model.option.fogOfWar"));
+        Game plain = play("{ \"difficulty\": \"model.difficulty.veryEasy\", \"options\": { " + small + " } }");
+        assertNotEquals(123, plain.getSpecification().getInteger("model.option.landPriceFactor"));
+    }
+
     @Test
     @Timeout(180)
-    void anotherSeedGivesAnotherMap() throws Exception {
+    void anotherSeedGivesAnotherMap()throws Exception {
         Game a = play("{ \"seed\": 1, \"options\": { \"model.option.mapWidth\": 40,"
             + " \"model.option.mapHeight\": 60 } }");
         Game b = play("{ \"seed\": 2, \"options\": { \"model.option.mapWidth\": 40,"

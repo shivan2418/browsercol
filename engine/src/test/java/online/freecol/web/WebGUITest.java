@@ -632,17 +632,76 @@ class WebGUITest {
 
         shown.clear();
         assertNull(gui.showColonyPanel(null, unit), "no colony: nothing to show");
-        gui.showGameOptionsDialog(false, null);
         gui.showClientOptionsDialog();
         assertFalse(gui.showEditOptionDialog(null), "the base GUI's default");
         assertNull(gui.showEditSettlementDialog(null));
         assertNull(gui.showFindSettlementPanel());
         assertEquals(List.of(
-                "showGameOptionsDialog", "showClientOptionsDialog", "showEditOptionDialog",
+                "showClientOptionsDialog", "showEditOptionDialog",
                 "showEditSettlementDialog", "showFindSettlementPanel").stream()
                 .map(m -> "unasked {\"method\":\"" + m + "\"}").collect(Collectors.toList()),
             shown.stream().filter(e -> !e.startsWith("messages ")).collect(Collectors.toList()));
         assertTrue(asked.isEmpty(), asked.toString());
+    }
+
+    /**
+     * The in-game menu's difficulty and game options entries show the
+     * game's own option groups, read-only: every option type the groups
+     * hold comes with its value, and the values are the game's.
+     */
+    @Test
+    @Timeout(120)
+    @SuppressWarnings("unchecked")
+    void theOptionEntriesShowTheGamesOptionGroups() throws Exception {
+        final ClientEngine client = startGame();
+        final GUI gui = client.getClient().getGUI();
+        final Specification spec = client.getGame().getSpecification();
+
+        shown.clear();
+        gui.showDifficultyDialog();
+        gui.showGameOptionsDialog(false, null);
+        final List<String> events = shown.stream().filter(e -> e.startsWith("options "))
+            .collect(Collectors.toList());
+        assertEquals(2, events.size(), shown.toString());
+        final Map<String, Object> difficulty
+            = (Map<String, Object>)JsonReader.read(events.get(0).substring("options ".length()));
+        final Map<String, Object> game
+            = (Map<String, Object>)JsonReader.read(events.get(1).substring("options ".length()));
+        assertEquals("difficulty", difficulty.get("kind"));
+        assertEquals("game", game.get("kind"));
+        assertEquals("Game Options", game.get("title"));
+
+        final Map<String, Map<String, Object>> byId = new java.util.HashMap<>();
+        collect((Map<String, Object>)difficulty.get("root"), byId);
+        collect((Map<String, Object>)game.get("root"), byId);
+        // One of each kind, with the game's own value.
+        assertEquals((long)spec.getInteger("model.option.landPriceFactor"),
+            byId.get("model.option.landPriceFactor").get("value"));
+        assertEquals("integer", byId.get("model.option.landPriceFactor").get("kind"));
+        assertEquals("boolean", byId.get("model.option.fogOfWar").get("kind"));
+        assertEquals(spec.getBoolean("model.option.fogOfWar"), byId.get("model.option.fogOfWar").get("value"));
+        assertEquals("percentage", byId.get("model.option.giftProbability").get("kind"));
+        assertEquals("select", byId.get("model.option.startingPositions").get("kind"));
+        assertEquals(List.of("Classic", "Random", "Historical"),
+            ((List<Map<String, Object>>)byId.get("model.option.startingPositions").get("choices"))
+                .stream().map(c -> c.get("label")).collect(Collectors.toList()));
+        assertEquals("select", byId.get("model.option.settlementNumber").get("kind"));
+        assertEquals("string", byId.get("model.option.buildOnNativeLand").get("kind"));
+        assertEquals(List.of(spec.getOption("model.option.buildOnNativeLand",
+                net.sf.freecol.common.option.StringOption.class).getValue()),
+            ((List<Map<String, Object>>)byId.get("model.option.buildOnNativeLand").get("choices"))
+                .stream().map(c -> c.get("value")).collect(Collectors.toList()));
+        assertFalse(byId.containsKey("model.option.immigrants"), "a list of units is left out");
+        assertTrue(asked.isEmpty(), asked.toString());
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void collect(Map<String, Object> node, Map<String, Map<String, Object>> into) {
+        into.put((String)node.get("id"), node);
+        final Object children = node.get("children");
+        if (children != null) {
+            for (Object c : (List<?>)children) collect((Map<String, Object>)c, into);
+        }
     }
 
     /**

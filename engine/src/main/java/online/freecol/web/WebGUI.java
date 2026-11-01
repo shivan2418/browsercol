@@ -44,6 +44,7 @@ import net.sf.freecol.common.model.NationSummary;
 import net.sf.freecol.common.model.Ownable;
 import net.sf.freecol.common.model.Player;
 import net.sf.freecol.common.model.Settlement;
+import net.sf.freecol.common.model.Specification;
 import net.sf.freecol.common.model.StringTemplate;
 import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.Turn;
@@ -201,9 +202,13 @@ import net.sf.freecol.common.option.OptionGroup;
  *         skill, mostHated, wanted: [...], ok, tile, at}; as {@link SettlementJson}
  *         describes, with only what the player has learned; opened by a
  *         click on the settlement and by the controllers</td></tr>
+ * <tr><td>showGameOptionsDialog, showDifficultyDialog (the in-game menu's
+ *     entries)</td><td>event options</td>
+ *     <td>{kind: game or difficulty, title, ok, root}: the option group
+ *         as {@link OptionsJson} describes it, read-only; a panel that is
+ *         open is replaced</td></tr>
  * <tr><td>the other dialogs the controllers ask (see "Not asked yet"), and
- *     the panels the base GUI drops: showGameOptionsDialog,
- *     showClientOptionsDialog, showEditOptionDialog,
+ *     the panels the base GUI drops: showClientOptionsDialog, showEditOptionDialog,
  *     showEditSettlementDialog, showFindSettlementPanel</td>
  *     <td>event unasked</td><td>{method}; the controller gets the base
  *         GUI's default, as before</td></tr>
@@ -1561,11 +1566,35 @@ public class WebGUI extends GUI {
         return null;
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * Shows the game options, read-only: a game that has started has its
+     * options. The editable form belongs to the start screen, before there
+     * is a game, so the handler is not called.
+     */
     @Override
     public void showGameOptionsDialog(boolean editable,
                                       DialogHandler<OptionGroup> dialogHandler) {
-        unasked("showGameOptionsDialog");
-        super.showGameOptionsDialog(editable, dialogHandler);
+        final Game game = getGame();
+        if (game == null) return;
+        this.ui.show("options", OptionsJson.event("game",
+            Messages.message("gameOptions.name"), game.getGameOptions(),
+            Messages.message("ok")).toString());
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * Shows the difficulty level of the game, read-only, as above.
+     */
+    @Override
+    public void showDifficultyDialog(Specification spec, OptionGroup group,
+                                     boolean editable,
+                                     DialogHandler<OptionGroup> dialogHandler) {
+        this.ui.show("options", OptionsJson.event("difficulty",
+            Messages.message("difficultyDialog.name") + ": " + group.getName(),
+            group, Messages.message("ok")).toString());
     }
 
     @Override
