@@ -142,6 +142,8 @@ const colonyMoves: ColonyMoves = {
   work: (unit, location) => colonyClient?.work(unit, location),
   putOutside: (unit) => colonyClient?.putOutsideColony(unit),
   changeWork: (unit, goods) => colonyClient?.changeWorkType(unit, goods),
+  setQueue: (colony, types) => colonyClient?.setBuildQueue(colony, types.join(',')),
+  buy: (colony) => colonyClient?.payForBuilding(colony),
 };
 /** FreeCol's status line: the score, the gold, the tax and the year. */
 let statusLine = '';

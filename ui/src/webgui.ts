@@ -227,6 +227,29 @@ export interface ColonyView {
     required: (GoodsAmount & { needed: number; available: number; produced: number })[];
   } | null;
   nothing: string;
+  /** The build queue panel: see BuildQueues.java. */
+  queue: BuildQueueView;
+}
+
+/** What the colony can build: the goods it takes, and why it cannot be queued (null when it can). */
+export interface Buildable {
+  type: string;
+  name: string;
+  keys: string[];
+  required: GoodsAmount[];
+  reason: string | null;
+}
+
+/** BuildQueuePanel: its labels, the queue (first is being built), what can be queued, and the buy button (null for none). */
+export interface BuildQueueView {
+  title: string;
+  buildingsTitle: string;
+  unitsTitle: string;
+  showAll: string;
+  queue: Buildable[];
+  buildings: Buildable[];
+  units: Buildable[];
+  buy: { label: string; price: number; enabled: boolean } | null;
 }
 
 /** A trade route: where it stops, in order, and the goods types (by id) loaded at each stop. */
