@@ -33,7 +33,7 @@ export const ReportContext = createContext<ReportActions>({
 });
 
 /** The Report menu's entries, in order: the report's name, which Commands.showReport knows, and its label. */
-export const REPORTS: readonly { name: 'colony' | 'labour' | 'compactLabour'; label: string }[] = [
+export const REPORTS: readonly { name: Exclude<ReportName, 'labourDetail'>; label: string }[] = [
   { name: 'colony', label: 'Colony report' },
   { name: 'labour', label: 'Labour report' },
   { name: 'compactLabour', label: 'Compact labour report' },
@@ -194,6 +194,22 @@ function CompactLabour({ e, art, go }: { e: View<'compactLabour'>; art: Art; go:
         </div>
       )}
       <table className="compact-labour">
+        <thead>
+          <tr>
+            <td />
+            <th scope="col">{e.headers.unitType}</th>
+            <th scope="col">{e.headers.workingAs}</th>
+            <th scope="col" colSpan={2}>
+              {e.headers.colonists}
+            </th>
+            {e.showProduction && (
+              <th scope="col" colSpan={2}>
+                {e.goods ? <Img keys={e.goods} art={art} /> : e.headers.production}
+              </th>
+            )}
+            {e.showNet && <th scope="col">{e.storedAs ? <Img keys={e.storedAs} art={art} /> : e.goods ? null : ''}</th>}
+          </tr>
+        </thead>
         <tbody>
           {e.groups.map((g, i) => {
             const rows = g.rows.length > 0 ? g.rows : [null];

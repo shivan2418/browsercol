@@ -244,6 +244,8 @@ class ReportsTest {
         final Map<String, Object> overview = obj(JsonReader.read(
             Reports.compactLabour(client.getClient(), null)));
         assertEquals("compactLabour", overview.get("report"));
+        assertEquals("Working As", obj(overview.get("headers")).get("workingAs"));
+        assertEquals("Unit Type", obj(overview.get("headers")).get("unitType"));
         assertNull(overview.get("unit"));
         final List<Map<String, Object>> groups = objs(overview.get("groups"));
         assertEquals("All Colonists", groups.get(0).get("label"));
