@@ -14,7 +14,6 @@ import net.sf.freecol.common.model.Location;
 import net.sf.freecol.common.model.Map;
 import net.sf.freecol.common.model.Market;
 import net.sf.freecol.common.model.Player;
-import net.sf.freecol.common.model.Role;
 import net.sf.freecol.common.model.StringTemplate;
 import net.sf.freecol.common.model.Unit;
 import net.sf.freecol.common.model.UnitType;
@@ -144,10 +143,7 @@ final class EuropeJson {
         int index = 0;
         for (AbstractUnit au : europe.getExpandedRecruitables(false)) {
             final UnitType type = au.getType(europe.getSpecification());
-            final String roleId = au.getRoleId();
-            final String key = "image.unit." + type.getId()
-                + (Role.isDefaultRoleId(roleId) ? ""
-                    : "." + Role.getRoleIdSuffix(roleId));
+            final String key = ObjectImages.unitKey(type, au.getRoleId());
             units.add(new Json().put("index", index++)
                 .put("name", Messages.message(au.getSingleLabel()))
                 .putRaw("images", quoted(List.of(key)))

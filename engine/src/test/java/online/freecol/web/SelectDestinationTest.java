@@ -37,7 +37,8 @@ import net.sf.freecol.common.model.UnitType;
 
 /**
  * The player asks where a ship sails, and the ship sails to Europe and
- * back, in a Classic game between the two Engines. The fake Browser UI
+ * back; the player also buys units in Europe and sails a loaded ship to the New World,
+ * in a Classic game between the two Engines. The fake Browser UI
  * answers the destination question with the destination it is told to.
  */
 class SelectDestinationTest {
