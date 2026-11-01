@@ -10,7 +10,7 @@ import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } fro
 import { ColonyPanel } from './colony-panel';
 import type { Dialog, Dialogs } from './dialogs';
 import { GoodsAmount, WindowFrame, type Art } from './frame';
-import type { GuiEvents, TradeItem, TradeOption } from './webgui';
+import type { GuiEvents, TradeItem, TradeOption, TradeRouteDraft } from './webgui';
 
 export type { Art };
 
@@ -21,6 +21,12 @@ export interface ReportButtons {
   groupBy: (value: number) => void;
   filter: (index: number, shown: boolean) => void;
   ignore: (index: number, ignore: boolean) => void;
+}
+
+/** What the trade routes panel does to the player's routes (ClientExports.saveTradeRoute and deleteTradeRoute). */
+export interface RouteButtons {
+  save: (draft: TradeRouteDraft) => void;
+  remove: (id: string) => void;
 }
 
 /** An image of a game object or event, if the Tileset has one. */
@@ -563,8 +569,224 @@ function MessageList({
   );
 }
 
-function Body({ d, goTo, art, report }: { d: Dialog; goTo: (at: At) => void; art: Art; report: ReportButtons }) {
+type Routes = GuiEvents['tradeRoutes'];
+type Stop = TradeRouteDraft['stops'][number] & { label: string };
+type Draft = Omit<TradeRouteDraft, 'stops'> & { stops: Stop[] };
+
+/** The route the player last tried to save, which the Engine refused: the editor opens on it again. */
+let refused: Draft | null = null;
+
+/**
+ * FreeCol's trade route input panel: a route's name, its stops (a stop is selected to remove it or to say
+ * which goods it loads), where to add one, and silence. Saving leaves the panel to the Engine, which sends
+ * the routes again.
+ */
+function RouteEditor({
+  e,
+  start,
+  art,
+  save,
+  cancel,
+}: {
+  e: Routes;
+  start: Draft;
+  art: Art;
+  save: (d: Draft) => void;
+  cancel: () => void;
+}) {
+  const [draft, setDraft] = useState(start);
+  const [at, setAt] = useState<number | null>(start.stops.length > 0 ? 0 : null);
+  const [place, setPlace] = useState('');
+  const ok = () => draft.name.trim() !== '' && save(draft);
+  useEnter(ok);
+  const stop = at === null ? undefined : draft.stops[at];
+  const label = (id: string) => e.places.find((p) => p.id === id)?.label ?? id;
+  const add = () => {
+    // As Swing's: after the selected stop, with the goods it loads; all colonies means Europe and every colony.
+    const ids = place === '' ? e.places.map((p) => p.id) : [place];
+    const made = ids.map((id) => ({ place: id, label: label(id), cargo: [...(stop?.cargo ?? [])] }));
+    const where = at === null ? draft.stops.length : at + 1;
+    setDraft({ ...draft, stops: [...draft.stops.slice(0, where), ...made, ...draft.stops.slice(where)] });
+    setAt(where + made.length - 1);
+  };
+  const remove = () => {
+    if (at === null) return;
+    const stops = draft.stops.filter((_, i) => i !== at);
+    setDraft({ ...draft, stops });
+    setAt(stops.length === 0 ? null : Math.min(at, stops.length - 1));
+  };
+  const toggle = (goods: string) =>
+    at !== null &&
+    setDraft({
+      ...draft,
+      stops: draft.stops.map((s, i) =>
+        i !== at
+          ? s
+          : { ...s, cargo: s.cargo.includes(goods) ? s.cargo.filter((g) => g !== goods) : [...s.cargo, goods] },
+      ),
+    });
+  const goodsName = (id: string) => e.goods.find((g) => g.id === id);
+  return (
+    <>
+      {e.error !== null && (
+        <p className="text error" role="alert">
+          {e.error}
+        </p>
+      )}
+      <label className="field">
+        <span className="text">{e.nameLabel}</span>
+        <input autoFocus value={draft.name} onChange={(ev) => setDraft({ ...draft, name: ev.target.value })} />
+      </label>
+      <label className="field">
+        <input
+          type="checkbox"
+          checked={draft.silent}
+          onChange={(ev) => setDraft({ ...draft, silent: ev.target.checked })}
+        />{' '}
+        {e.silence}
+      </label>
+      <div className="stops">
+        {draft.stops.map((s, i) => (
+          <button key={i} data-stop={i} aria-pressed={i === at} onClick={() => setAt(i)}>
+            <span className="name">{s.label}</span>
+            {s.cargo.map((g) => (
+              <span key={g} className="cargo">
+                <Pic keys={[goodsName(g)?.icon ?? g]} art={art} className="pic small" />
+                {goodsName(g)?.name ?? g}
+              </span>
+            ))}
+          </button>
+        ))}
+      </div>
+      <div className="row">
+        <label className="text">
+          {e.destinationLabel}{' '}
+          <select value={place} onChange={(ev) => setPlace(ev.target.value)}>
+            <option value="">{e.allColonies}</option>
+            {e.places.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button data-answer="addStop" onClick={add}>
+          {e.addStop}
+        </button>
+        <button data-answer="removeStop" disabled={at === null} onClick={remove}>
+          {e.removeStop}
+        </button>
+      </div>
+      <div className="goods">
+        {e.goods.map((g) => (
+          <button
+            key={g.id}
+            data-goods={g.id}
+            disabled={stop === undefined}
+            aria-pressed={stop?.cargo.includes(g.id) ?? false}
+            onClick={() => toggle(g.id)}
+          >
+            <Pic keys={[g.icon]} art={art} className="pic small" />
+            {g.name}
+          </button>
+        ))}
+      </div>
+      <div className="buttons">
+        <button data-answer="ok" disabled={draft.name.trim() === ''} onClick={ok}>
+          {e.ok}
+        </button>
+        <button data-answer="cancel" onClick={cancel}>
+          {e.cancel}
+        </button>
+      </div>
+    </>
+  );
+}
+
+/** FreeCol's trade route panel: the routes, with the units that follow each, to create, edit and delete. */
+function RoutesPanel({ d, art, routes }: { d: Of<'tradeRoutes'>; art: Art; routes: RouteButtons }) {
+  const e = d.event;
+  // A refused change leaves the editor open on what the player made of the route.
+  const [editing, setEditing] = useState<Draft | null>(e.error !== null ? refused : null);
+  const [picked, setPicked] = useState<string | null>(null);
+  const close = () => d.done();
+  const route = e.routes.find((r) => r.id === picked);
+  const blank: Draft = { id: null, name: '', silent: false, stops: [] };
+  const edit = (r: Routes['routes'][number]): Draft => ({
+    id: r.id,
+    name: r.name,
+    silent: r.silent,
+    stops: r.stops.map((s) => ({ place: s.place, label: s.label, cargo: [...s.cargo] })),
+  });
+  useEnter(editing === null ? close : null);
+  if (editing !== null) {
+    const leave = () => {
+      refused = null;
+      setEditing(null);
+    };
+    return (
+      <Win d={d} title={e.editRoute} close={leave}>
+        <RouteEditor
+          e={e}
+          start={editing}
+          art={art}
+          save={(draft) => {
+            refused = draft;
+            routes.save({
+              id: draft.id,
+              name: draft.name.trim(),
+              silent: draft.silent,
+              stops: draft.stops.map((s) => ({ place: s.place, cargo: s.cargo })),
+            });
+          }}
+          cancel={leave}
+        />
+      </Win>
+    );
+  }
+  return (
+    <Win d={d} title={e.title} close={close}>
+      <div className="routes">
+        {e.routes.map((r) => (
+          <button key={r.id} data-route={r.id} aria-pressed={r.id === picked} onClick={() => setPicked(r.id)}>
+            {r.units > 0 ? `${r.name}  (${r.units})` : r.name}
+          </button>
+        ))}
+      </div>
+      <div className="buttons">
+        <button data-answer="new" onClick={() => setEditing(blank)}>
+          {e.newRoute}
+        </button>
+        <button data-answer="edit" disabled={!route} onClick={() => route && setEditing(edit(route))}>
+          {e.editRoute}
+        </button>
+        <button data-answer="delete" disabled={!route} onClick={() => route && routes.remove(route.id)}>
+          {e.deleteRoute}
+        </button>
+        <button data-answer="close" onClick={close}>
+          {e.ok}
+        </button>
+      </div>
+    </Win>
+  );
+}
+
+function Body({
+  d,
+  goTo,
+  art,
+  report,
+  routes,
+}: {
+  d: Dialog;
+  goTo: (at: At) => void;
+  art: Art;
+  report: ReportButtons;
+  routes: RouteButtons;
+}) {
   switch (d.kind) {
+    case 'tradeRoutes':
+      return <RoutesPanel d={d} art={art} routes={routes} />;
     case 'confirm':
       return <Confirm d={d} />;
     case 'choice':
@@ -646,24 +868,26 @@ function Body({ d, goTo, art, report }: { d: Dialog; goTo: (at: At) => void; art
 
 /**
  * The open dialog, over the page, or nothing. goTo centres the map on a tile, art finds the image for
- * resource keys, report is what the turn report's buttons do.
+ * resource keys, report is what the turn report's buttons do, routes what the trade routes panel's do.
  */
 export function DialogHost({
   dialogs,
   goTo,
   art,
   report,
+  routes,
 }: {
   dialogs: Dialogs;
   goTo: (at: At) => void;
   art: Art;
   report: ReportButtons;
+  routes: RouteButtons;
 }) {
   const d = useSyncExternalStore(dialogs.subscribe, dialogs.current);
   if (!d) return null;
   return (
     <div className="modal">
-      <Body key={d.id} d={d} goTo={goTo} art={art} report={report} />
+      <Body key={d.id} d={d} goTo={goTo} art={art} report={report} routes={routes} />
     </div>
   );
 }

@@ -2,8 +2,8 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { dialogs } from './dialogs';
-import { DialogHost, type Art, type ReportButtons } from './panels';
-import type { Choice, GuiEvents, GuiQuestions } from './webgui';
+import { DialogHost, type Art, type ReportButtons, type RouteButtons } from './panels';
+import type { Choice, GuiEvents, GuiQuestions, TradeRouteDraft } from './webgui';
 
 afterEach(cleanup);
 
@@ -46,8 +46,11 @@ function host() {
     filter: (index, shown) => pressed.push(`filter ${index} ${shown}`),
     ignore: (index, ignore) => pressed.push(`ignore ${index} ${ignore}`),
   };
-  render(<DialogHost dialogs={box} goTo={(at) => went.push(at)} art={art} report={report} />);
-  return { box, went, pressed };
+  const saved: TradeRouteDraft[] = [];
+  const removed: string[] = [];
+  const routes: RouteButtons = { save: (d) => saved.push(d), remove: (id) => removed.push(id) };
+  render(<DialogHost dialogs={box} goTo={(at) => went.push(at)} art={art} report={report} routes={routes} />);
+  return { box, went, pressed, saved, removed };
 }
 
 type Message = GuiEvents['messages']['messages'][number];
@@ -758,5 +761,142 @@ describe('the names dialog', () => {
     const escaped = ask(box, 'names', q);
     key('Escape');
     expect(await escaped).toBeNull();
+  });
+});
+
+describe('the trade routes panel', () => {
+  const routes = (more: Partial<GuiEvents['tradeRoutes']> = {}): GuiEvents['tradeRoutes'] => ({
+    title: 'Trade Routes',
+    routes: [
+      {
+        id: 'tradeRoute:1',
+        name: 'Fur run',
+        silent: false,
+        units: 2,
+        stops: [
+          { place: 'europe:1', label: 'Europe', cargo: ['model.goods.tools'] },
+          { place: 'colony:7', label: 'New Amsterdam', cargo: ['model.goods.furs'] },
+        ],
+      },
+      { id: 'tradeRoute:2', name: 'Rum run', silent: true, units: 0, stops: [] },
+    ],
+    places: [
+      { id: 'europe:1', label: 'Europe' },
+      { id: 'colony:7', label: 'New Amsterdam' },
+    ],
+    goods: [
+      { id: 'model.goods.tools', name: 'Tools', icon: 'image.icon.model.goods.tools' },
+      { id: 'model.goods.furs', name: 'Furs', icon: 'image.icon.model.goods.furs' },
+    ],
+    error: null,
+    newRoute: 'New Trade Route',
+    editRoute: 'Edit Trade Route',
+    deleteRoute: 'Delete Trade Route',
+    nameLabel: 'Name',
+    destinationLabel: 'Destination',
+    silence: 'Silence messages',
+    addStop: 'Add new stop',
+    removeStop: 'Remove stop',
+    allColonies: 'All colonies',
+    ok: 'OK',
+    cancel: 'Cancel',
+    ...more,
+  });
+  const press = (name: string | RegExp) => act(() => void fireEvent.click(screen.getByRole('button', { name })));
+
+  it('lists the routes with the units that follow them, and deletes the picked one', () => {
+    const { box, removed } = host();
+    act(() => box.replace('tradeRoutes', routes()));
+    expect(screen.getByRole('button', { name: 'Fur run (2)' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Rum run' })).toBeTruthy();
+    expect((screen.getByRole('button', { name: 'Delete Trade Route' }) as HTMLButtonElement).disabled).toBe(true);
+    press('Rum run');
+    press('Delete Trade Route');
+    expect(removed).toEqual(['tradeRoute:2']);
+  });
+
+  it('makes a new route: a name, stops with their goods, and saves it', () => {
+    const { box, saved } = host();
+    act(() => box.replace('tradeRoutes', routes()));
+    press('New Trade Route');
+    // Nothing to save without a name.
+    expect((screen.getByRole('button', { name: 'OK' }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Tool run' } });
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'europe:1' } });
+    press('Add new stop');
+    press('Tools');
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'colony:7' } });
+    press('Add new stop');
+    press('Furs');
+    press('OK');
+    expect(saved).toEqual([
+      {
+        id: null,
+        name: 'Tool run',
+        silent: false,
+        stops: [
+          { place: 'europe:1', cargo: ['model.goods.tools'] },
+          { place: 'colony:7', cargo: ['model.goods.tools', 'model.goods.furs'] },
+        ],
+      },
+    ]);
+  });
+
+  it('edits a route and removes a stop', () => {
+    const { box, saved } = host();
+    act(() => box.replace('tradeRoutes', routes()));
+    press('Fur run (2)');
+    press('Edit Trade Route');
+    expect((screen.getByRole('textbox') as HTMLInputElement).value).toBe('Fur run');
+    fireEvent.click(screen.getByLabelText(/Silence messages/));
+    // The first stop is selected; take it away and load tools at the colony as well.
+    press('Remove stop');
+    press('Tools');
+    press('OK');
+    expect(saved).toEqual([
+      {
+        id: 'tradeRoute:1',
+        name: 'Fur run',
+        silent: true,
+        stops: [{ place: 'colony:7', cargo: ['model.goods.furs', 'model.goods.tools'] }],
+      },
+    ]);
+  });
+
+  it('adds Europe and every colony for all colonies', () => {
+    const { box, saved } = host();
+    act(() => box.replace('tradeRoutes', routes()));
+    press('New Trade Route');
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'All' } });
+    press('Add new stop');
+    press('OK');
+    expect(saved[0].stops.map((s) => s.place)).toEqual(['europe:1', 'colony:7']);
+  });
+
+  it("shows FreeCol's reason when a change is refused, and keeps what the player made", () => {
+    const { box, saved } = host();
+    act(() => box.replace('tradeRoutes', routes()));
+    press('New Trade Route');
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Short' } });
+    press('OK');
+    expect(saved).toHaveLength(1);
+    // The Engine refuses and sends the panel again, with the reason.
+    act(() => box.replace('tradeRoutes', routes({ error: 'A trade route needs at least two stops.' })));
+    expect(screen.getByRole('alert').textContent).toBe('A trade route needs at least two stops.');
+    expect((screen.getByRole('textbox') as HTMLInputElement).value).toBe('Short');
+    // Cancel goes back to the routes.
+    press('Cancel');
+    expect(screen.getByRole('button', { name: 'Fur run (2)' })).toBeTruthy();
+  });
+
+  it('closes on Enter or Escape from the list, and goes back from the editor on Escape', () => {
+    const { box } = host();
+    act(() => box.replace('tradeRoutes', routes()));
+    press('New Trade Route');
+    key('Escape');
+    expect(box.current()?.kind).toBe('tradeRoutes');
+    expect(screen.getByRole('button', { name: 'Fur run (2)' })).toBeTruthy();
+    key('Escape');
+    expect(box.current()).toBeNull();
   });
 });

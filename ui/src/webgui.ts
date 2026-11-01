@@ -64,6 +64,30 @@ export interface GuiEvents {
   };
   /** A colony, as FreeCol's colony panel shows it (ColonyJson.java). */
   colony: ColonyView;
+  /**
+   * The player's trade routes (TradeRoutePanel), each with its stops, the goods loaded at each, and how many
+   * units follow it, with the places a stop can be at and the goods that can be loaded (TradeRouteInputPanel).
+   * It replaces the open panel: the Engine sends it again after each change. error is why the last change was
+   * refused (FreeCol's reason, the route was not saved), else null. The other texts are the panels' labels.
+   */
+  tradeRoutes: {
+    title: string;
+    routes: TradeRoute[];
+    places: { id: Id; label: string }[];
+    goods: { id: string; name: string; icon: string }[];
+    error: string | null;
+    newRoute: string;
+    editRoute: string;
+    deleteRoute: string;
+    nameLabel: string;
+    destinationLabel: string;
+    silence: string;
+    addStop: string;
+    removeStop: string;
+    allColonies: string;
+    ok: string;
+    cancel: string;
+  };
   /** A dialog the Browser UI cannot show yet; the controller got FreeCol's base default. */
   unasked: { method: string };
 }
@@ -162,6 +186,24 @@ export interface ColonyView {
     required: (GoodsAmount & { needed: number; available: number; produced: number })[];
   } | null;
   nothing: string;
+}
+
+/** A trade route: where it stops, in order, and the goods types (by id) loaded at each stop. */
+export interface TradeRoute {
+  id: Id;
+  name: string;
+  silent: boolean;
+  /** How many units follow it. */
+  units: number;
+  stops: { place: Id; label: string; cargo: string[] }[];
+}
+
+/** A route as the player saves it: a null id makes a new route. */
+export interface TradeRouteDraft {
+  id: Id | null;
+  name: string;
+  silent: boolean;
+  stops: { place: Id; cargo: string[] }[];
 }
 
 export interface Choice {

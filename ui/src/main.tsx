@@ -30,7 +30,7 @@ import { dialogs } from './dialogs';
 import { MENUS, MenuBar } from './frame';
 import { commandForKey, type Command } from './input';
 import { mapDrawer, type MapView } from './map';
-import { DialogHost, type Art, type ReportButtons } from './panels';
+import { DialogHost, type Art, type ReportButtons, type RouteButtons } from './panels';
 import { onCanvas, pointerInput } from './pointer';
 import { fileNameOf, importSave } from './save-files';
 import { idbSaveStore, type SaveMeta } from './saves';
@@ -116,6 +116,8 @@ function download(bytes: Uint8Array, fileName: string) {
 let saveGame: (name: string) => void = () => {};
 /** The turn report's buttons, once the client Engine has loaded. */
 let reportButtons: ReportButtons = { groupBy: () => {}, filter: () => {}, ignore: () => {} };
+/** The trade routes panel's buttons, once the client Engine has loaded. */
+let routeButtons: RouteButtons = { save: () => {}, remove: () => {} };
 /** The art of the first resource key the Tileset has, as a URL to show in a dialog, once its manifest has loaded. */
 let artReady = false;
 const art: Art = (keys) => {
@@ -225,6 +227,7 @@ function renderSide() {
               filter: (index, shown) => reportButtons.filter(index, shown),
               ignore: (index, ignore) => reportButtons.ignore(index, ignore),
             }}
+            routes={{ save: (d) => routeButtons.save(d), remove: (id) => routeButtons.remove(id) }}
           />
         </ColonyActions.Provider>
       </ColonyTiles.Provider>
@@ -299,6 +302,7 @@ const gui: GuiHandlers = {
     },
     eventPanel: (e) => dialogQueue.show('eventPanel', e),
     highScores: (e) => dialogQueue.show('highScores', e),
+    tradeRoutes: (e) => dialogQueue.replace('tradeRoutes', e),
     messages: (e) => {
       if (e.regrouped) dialogQueue.replace('messages', e, (open) => open.title === e.title);
       else if (e.messages.length > 0) dialogQueue.show('messages', e);
@@ -436,6 +440,10 @@ async function run() {
     groupBy: (value) => exports.reportGroupBy(value),
     filter: (index, shown) => exports.reportFilter(index, shown),
     ignore: (index, ignore) => exports.reportIgnore(index, ignore),
+  };
+  routeButtons = {
+    save: (d) => exports.saveTradeRoute(JSON.stringify(d)),
+    remove: (id) => exports.deleteTradeRoute(id),
   };
   playWith(exports);
 }

@@ -82,6 +82,7 @@ final class TradeRoutes {
             .put("silence", Messages.message("tradeRouteInputPanel.silence"))
             .put("addStop", Messages.message("tradeRouteInputPanel.addStop"))
             .put("removeStop", Messages.message("tradeRouteInputPanel.removeStop"))
+            .put("allColonies", Messages.message("tradeRouteInputPanel.allColonies"))
             .put("ok", Messages.message("ok"))
             .put("cancel", Messages.message("cancel"))
             .toString();
