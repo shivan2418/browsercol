@@ -133,6 +133,7 @@ let colonyNow: (id: string) => string = () => 'null';
 function refreshColonies() {
   for (const open of dialogQueue.shown('colony')) {
     const json = colonyNow(open.id);
+    // JSON.parse keeps the Engine's key order, so an unchanged colony stringifies to the same text.
     if (json === 'null' || json === JSON.stringify(open)) continue;
     dialogQueue.replace('colony', JSON.parse(json) as GuiEvents['colony'], (c) => c.id === open.id);
   }
@@ -302,7 +303,8 @@ function drawMap(m: MapView) {
   statusLine = m.statusLine;
   renderSide();
   dispatch({ k: 'map', map: m });
-  refreshColonies();
+  // Later, not inside this event: it comes from a client Engine thread, and the pull calls back into the Engine.
+  setTimeout(refreshColonies, 0);
   drawn = map.draw(m);
   // A dialog shown before the art manifest loaded has no images: draw it again once they can be had.
   if (!artReady) void drawn.then(() => map.resources() && ((artReady = true), renderSide()));
