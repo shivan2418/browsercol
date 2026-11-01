@@ -27,8 +27,13 @@ function Img({
   return src === null ? null : <img className={className} src={src} alt={alt} title={alt || undefined} />;
 }
 
+/** The units' images, each naming its unit by id (data-unit), as the browser scripts look for them. */
 const Units = ({ units, art }: { units: UnitRef[]; art: Art }) =>
-  units.map((u) => <Img key={u.id} keys={u.keys} art={art} className="unit" alt={u.name} />);
+  units.map((u) => (
+    <span key={u.id} data-unit={u.id}>
+      <Img keys={u.keys} art={art} className="unit" alt={u.name} />
+    </span>
+  ));
 
 /** A ProductionLabel: the goods' icon and the amount, signed for net production. */
 function Goods({ g, art, text }: { g: GoodsAmount; art: Art; text?: string }) {
@@ -85,7 +90,7 @@ export function ColonyPanel({ colony: c, art }: { colony: ColonyView; art: Art }
           {c.buildings.map((b) => (
             <div key={b.id} className="building" title={b.name}>
               <span className="name">{b.name}</span>
-              <Img keys={b.keys} art={art} className="building" />
+              <Img keys={b.keys} art={art} className="art" />
               {b.production && (
                 <span className="output">
                   <Goods
@@ -173,7 +178,13 @@ export function ColonyPanel({ colony: c, art }: { colony: ColonyView; art: Art }
         </Box>
         <Box label={c.warehouse.title} caption className="warehouse">
           {c.warehouse.goods.map((g) => (
-            <span key={g.type} className="stored" data-goods={g.type} data-over={g.over} title={g.name}>
+            <span
+              key={g.type}
+              className={g.amount === 0 ? 'stored zero' : 'stored'}
+              data-goods={g.type}
+              data-over={g.over}
+              title={g.name}
+            >
               <Img keys={g.keys} art={art} className="icon" />
               {g.amount}
             </span>
