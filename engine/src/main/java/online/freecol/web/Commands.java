@@ -10,6 +10,8 @@ import net.sf.freecol.common.model.BuildableType;
 import net.sf.freecol.common.model.Colony;
 import net.sf.freecol.common.model.Direction;
 import net.sf.freecol.common.model.FreeColGameObject;
+import net.sf.freecol.common.model.Goods;
+import net.sf.freecol.common.model.GoodsContainer;
 import net.sf.freecol.common.model.GoodsType;
 import net.sf.freecol.common.model.IndianSettlement;
 import net.sf.freecol.common.model.StringTemplate;
@@ -166,8 +168,10 @@ public final class Commands {
     }
 
     /**
-     * Put a unit on the docks aboard a ship in port (a drop on the cargo
-     * panel). The Europe panel is sent again.
+     * Put a unit aboard a ship beside it: on Europe's docks (a drop on the
+     * Europe panel's cargo) or in a colony with the ship in port (a drop
+     * on the colony panel's cargo, UnitLabel.addCargo). In Europe the
+     * Europe panel is sent again.
      *
      * @param unitId The id of the unit.
      * @param shipId The id of the ship.
@@ -177,9 +181,92 @@ public final class Commands {
         final Player player = this.client.getMyPlayer();
         final Unit unit = player.getOurFreeColGameObject(unitId, Unit.class);
         final Unit ship = player.getOurFreeColGameObject(shipId, Unit.class);
-        final boolean done = igc().boardShip(unit, ship);
-        gui().showEuropePanel();
+        final boolean done = unit != null && ship != null && ship.canAdd(unit)
+            && igc().boardShip(unit, ship);
+        if (ship != null && ship.isInEurope()) gui().showEuropePanel();
         return done;
+    }
+
+    /**
+     * Take a unit off a ship in a colony's port, onto the colony's tile
+     * (dragging it out of the colony panel's cargo, UnitLabel.removeCargo).
+     *
+     * @param unitId The id of one of our units aboard a ship in a colony.
+     * @return True if the unit left the ship.
+     */
+    public boolean leaveShip(String unitId) {
+        final Unit unit = this.client.getMyPlayer()
+            .getOurFreeColGameObject(unitId, Unit.class);
+        if (unit == null || !unit.isOnCarrier()
+            || unit.getCarrier().getColony() == null) return false;
+        return igc().leaveShip(unit);
+    }
+
+    /**
+     * Load goods of a type from a colony's warehouse onto a ship in its
+     * port, as dropping the warehouse's goods on the colony panel's cargo
+     * does (DefaultTransferHandler.importGoods, GoodsLabel.addCargo): a
+     * plain drop takes up to a hold's worth (100); asked, the player
+     * chooses up to all the warehouse has, through the select amount
+     * dialog, starting from what the ship can take. Either way the ship
+     * takes no more than it has room for.
+     *
+     * @param shipId The id of one of our ships in a colony.
+     * @param goodsTypeId The id of the goods type.
+     * @param ask Whether to ask the amount (FreeCol's shift-drag).
+     * @return True if goods were loaded.
+     */
+    public boolean loadGoods(String shipId, String goodsTypeId, boolean ask) {
+        final Unit ship = this.client.getMyPlayer()
+            .getOurFreeColGameObject(shipId, Unit.class);
+        final GoodsType type = this.client.getGame().getSpecification()
+            .getGoodsType(goodsTypeId);
+        final Colony colony = (ship == null) ? null : ship.getColony();
+        if (colony == null || type == null || !ship.isCarrier()) return false;
+        final int stored = colony.getGoodsCount(type);
+        if (stored <= 0) return false;
+        int amount = Math.min(stored, GoodsContainer.CARGO_SIZE);
+        if (ask) {
+            int suggested = stored;
+            final int capacity = colony.getWarehouseCapacity();
+            // Over capacity, favour the amount that would correct it.
+            if (stored > capacity) {
+                suggested = Math.min(GoodsContainer.CARGO_SIZE, stored - capacity);
+            }
+            final int loadable = ship.getLoadableAmount(type);
+            if (loadable >= 0 && loadable < suggested) suggested = loadable;
+            if (suggested <= 0) return false;
+            amount = gui().showSelectAmountDialog(type, stored, suggested, false);
+        }
+        amount = Math.min(amount, ship.getLoadableAmount(type));
+        if (amount <= 0) return false;
+        return igc().loadCargo(new Goods(this.client.getGame(), colony, type, amount), ship);
+    }
+
+    /**
+     * Unload goods from a ship in a colony's port into the warehouse, as
+     * dragging a stack of the colony panel's cargo out does (a GoodsLabel
+     * per stack of up to 100): the whole stack, or, asked, as much of it
+     * as the player chooses through the select amount dialog.
+     *
+     * @param shipId The id of one of our ships in a colony.
+     * @param goodsTypeId The id of the goods type.
+     * @param stack The amount of the stack dragged.
+     * @param ask Whether to ask the amount (FreeCol's shift-drag).
+     * @return True if goods were unloaded.
+     */
+    public boolean unloadGoods(String shipId, String goodsTypeId, int stack,
+                               boolean ask) {
+        final Unit ship = this.client.getMyPlayer()
+            .getOurFreeColGameObject(shipId, Unit.class);
+        final GoodsType type = this.client.getGame().getSpecification()
+            .getGoodsType(goodsTypeId);
+        if (ship == null || type == null || ship.getColony() == null) return false;
+        int amount = Math.min(stack, ship.getGoodsCount(type));
+        if (amount <= 0) return false;
+        if (ask) amount = gui().showSelectAmountDialog(type, amount, amount, false);
+        if (amount <= 0) return false;
+        return igc().unloadCargo(new Goods(this.client.getGame(), ship, type, amount), false);
     }
 
     /**

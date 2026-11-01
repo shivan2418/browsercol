@@ -72,6 +72,8 @@ class CommandsTest {
     private volatile String wanted = null;
     /** What the fake Browser UI answers to the names of a new nation. */
     private volatile String names = null;
+    /** What the fake Browser UI answers to the select amount dialog. */
+    private volatile String amount = null;
 
     /** The trade routes panels the fake Browser UI was shown. */
     private final List<String> routePanels = Collections.synchronizedList(new ArrayList<>());
@@ -208,8 +210,9 @@ class CommandsTest {
                 }
                 public void ask(int id, String kind, String json) {
                     ui.execute(() -> {
-                            String answer = kind.equals("names")
-                                ? names : accept(kind, json);
+                            String answer = kind.equals("names") ? names
+                                : kind.equals("amount") ? amount
+                                : accept(kind, json);
                             asked.add(kind + " " + json + " -> " + answer);
                             client.answer(id, answer);
                         });
@@ -499,6 +502,99 @@ class CommandsTest {
         assertEquals(0, serverColony.getPriceForBuilding());
         assertEquals(gold - price, us.getGold());
         assertEquals(0, ours.getPriceForBuilding());
+    }
+
+    /** Wait until a condition holds, as the server's changes reach the client. */
+    private static void awaitTrue(java.util.function.BooleanSupplier ok, String what)
+            throws InterruptedException {
+        for (int i = 0; i < 500 && !ok.getAsBoolean(); i++) Thread.sleep(10);
+        assertTrue(ok.getAsBoolean(), what);
+    }
+
+    /** The last question asked, as "kind json -> answer". */
+    private String lastAsked() {
+        return asked.get(asked.size() - 1);
+    }
+
+    @Test
+    @Timeout(240)
+    void theHumanLoadsAndUnloadsAShipInTheColony() throws Exception {
+        startGame();
+        final Commands commands = client.getCommands();
+        final Colony serverColony = foundAColony(commands);
+        final Colony ours = client.getGame()
+            .getFreeColGameObject(serverColony.getId(), Colony.class);
+        final Player player = client.getClient().getMyPlayer();
+        final Unit ship = player.getUnits().filter(Unit::isNaval).findFirst().get();
+        final Unit serverShip = serverUnit(ship);
+        final Tile land = ours.getTile();
+
+        // Into port.
+        select(commands, ship);
+        assertTrue(commands.move(client.getGame().getMap()
+            .getDirection(ship.getTile(), land).toString()), "the ship enters the colony");
+        assertSame(land, ship.getTile());
+        assertSame(serverColony.getTile(), serverShip.getTile());
+
+        // A unit beside it (the passengers come ashore as it docks) boards it,
+        // and leaves it again.
+        for (Unit u : new ArrayList<>(ship.getUnitList())) {
+            assertTrue(commands.leaveShip(u.getId()), "leaves the ship: " + u);
+        }
+        final Unit passenger = land.getUnitList().stream()
+            .filter(u -> !u.isNaval()).findFirst().orElse(null);
+        assertNotNull(passenger, "a unit stands in the colony: " + land.getUnitList());
+        assertFalse(commands.leaveShip(passenger.getId()), "already ashore");
+        assertTrue(commands.boardShip(passenger.getId(), ship.getId()), "boards");
+        assertSame(serverShip, serverUnit(passenger).getLocation());
+        assertTrue(ColonyJson.of(ours, 0).contains("\"units\":[{\"id\":\"" + passenger.getId()
+            + "\""), "the cargo shows it");
+        assertTrue(commands.leaveShip(passenger.getId()), "leaves the ship");
+        assertSame(serverColony.getTile(), serverUnit(passenger).getLocation());
+
+        // Goods in the warehouse to load.
+        final GoodsType cloth = client.getGame().getSpecification().getGoodsType("model.goods.cloth");
+        client.debugApplied(server.debug("{\"action\":\"addGoods\",\"type\":\"model.goods.cloth\","
+            + "\"amount\":150,\"x\":" + land.getX() + ",\"y\":" + land.getY() + "}"));
+        awaitTrue(() -> ours.getGoodsCount(cloth) == 150, "the colony has the cloth");
+
+        // A plain load takes a hold's worth.
+        asked.clear();
+        assertTrue(commands.loadGoods(ship.getId(), cloth.getId(), false), "loads");
+        assertEquals(100, serverShip.getGoodsCount(cloth));
+        assertEquals(50, serverColony.getGoodsCount(cloth));
+        assertEquals(100, ship.getGoodsCount(cloth));
+        assertTrue(asked.isEmpty(), "nothing asked: " + asked);
+
+        // Asked, the amount chosen, at most what the warehouse has.
+        amount = "30";
+        assertTrue(commands.loadGoods(ship.getId(), cloth.getId(), true), "loads some");
+        assertTrue(lastAsked().startsWith("amount {"), lastAsked());
+        assertTrue(lastAsked().contains("\"max\":50,"), lastAsked());
+        assertEquals(130, serverShip.getGoodsCount(cloth));
+        assertEquals(20, serverColony.getGoodsCount(cloth));
+
+        // Cancelled, nothing moves.
+        amount = null;
+        assertFalse(commands.loadGoods(ship.getId(), cloth.getId(), true), "cancelled");
+        assertFalse(commands.unloadGoods(ship.getId(), cloth.getId(), 100, true), "cancelled");
+        assertEquals(130, serverShip.getGoodsCount(cloth));
+        assertEquals(20, serverColony.getGoodsCount(cloth));
+
+        // Unloading a stack of the cargo: the stack, or as much of it as is chosen.
+        assertTrue(commands.unloadGoods(ship.getId(), cloth.getId(), 30, false), "unloads a stack");
+        assertEquals(100, serverShip.getGoodsCount(cloth));
+        assertEquals(50, serverColony.getGoodsCount(cloth));
+        amount = "20";
+        assertTrue(commands.unloadGoods(ship.getId(), cloth.getId(), 100, true), "unloads some");
+        assertTrue(lastAsked().contains("\"max\":100,"), lastAsked());
+        assertEquals(80, serverShip.getGoodsCount(cloth));
+        assertEquals(70, serverColony.getGoodsCount(cloth));
+        assertEquals(70, ours.getGoodsCount(cloth));
+        assertTrue(commands.unloadGoods(ship.getId(), cloth.getId(), 80, false));
+        assertEquals(0, serverShip.getGoodsCount(cloth));
+        assertEquals(150, serverColony.getGoodsCount(cloth));
+        assertFalse(commands.unloadGoods(ship.getId(), cloth.getId(), 80, false), "nothing aboard");
     }
 
     private static List<BuildableType> serverQueue(Colony serverColony) {

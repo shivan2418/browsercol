@@ -278,7 +278,7 @@ public final class ClientMain {
         command("trainUnit", () -> engine.getCommands().trainUnit(unitTypeId));
     }
 
-    /** Europe panel: put a unit of the docks aboard a ship in port, by ids. */
+    /** Europe and colony panels: put a unit aboard a ship beside it, by ids. */
     @JSExport
     public static void boardShip(String unitId, String shipId) {
         command("boardShip", () -> engine.getCommands().boardShip(unitId, shipId));
@@ -361,6 +361,24 @@ public final class ClientMain {
     @JSExport
     public static void changeWorkType(String unitId, String goodsTypeId) {
         command("changeWorkType", () -> engine.getCommands().changeWorkType(unitId, goodsTypeId));
+    }
+
+    /** Colony panel: take a unit off a ship in port, by id. */
+    @JSExport
+    public static void leaveShip(String unitId) {
+        command("leaveShip", () -> engine.getCommands().leaveShip(unitId));
+    }
+
+    /** Colony panel: load goods of a type from the warehouse onto a ship in port; ask asks the amount. */
+    @JSExport
+    public static void loadGoods(String shipId, String goodsTypeId, boolean ask) {
+        command("loadGoods", () -> engine.getCommands().loadGoods(shipId, goodsTypeId, ask));
+    }
+
+    /** Colony panel: unload a stack of a ship's goods into the warehouse; ask asks the amount. */
+    @JSExport
+    public static void unloadGoods(String shipId, String goodsTypeId, int stack, boolean ask) {
+        command("unloadGoods", () -> engine.getCommands().unloadGoods(shipId, goodsTypeId, stack, ask));
     }
 
     /** Set a colony's build queue: the ids of what to build, in order, joined by commas. */
