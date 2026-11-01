@@ -218,9 +218,22 @@ public class PostMessageConnection extends Connection {
         }
     }
 
+    /** Run after each message from the other end has been handled; null for nothing. */
+    private volatile Runnable afterHandle = null;
+
+    /**
+     * Run something after each message from the other end has been
+     * handled, e.g. to tell the Browser UI that the game may have changed,
+     * as Swing's panels hear of it through property change listeners.
+     */
+    public void setAfterHandle(Runnable afterHandle) {
+        this.afterHandle = afterHandle;
+    }
+
     /**
      * Handle a message on a new thread and send what the handler returns,
-     * wrapped as the reply to a question when replyId is not negative.
+     * wrapped as the reply to a question when replyId is not negative,
+     * then run the afterHandle.
      */
     private void handleOnThread(final Message message, final int replyId) {
         if (message == null) return;
@@ -233,6 +246,8 @@ public class PostMessageConnection extends Connection {
                     logger.log(Level.WARNING, getName() + ": handling "
                         + message.getType() + " failed: " + ex, ex);
                 }
+                final Runnable after = this.afterHandle;
+                if (after != null) after.run();
         }, getName() + "-handle-" + message.getType()).start();
     }
 

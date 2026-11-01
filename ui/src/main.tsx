@@ -124,7 +124,20 @@ const art: Art = (keys) => {
 let runCommand: (c: Command) => void = () => {};
 /** Our colony as the colony panel shows it, once the client Engine has loaded (ClientExports.colony). */
 let colonyNow: (id: string) => string = () => 'null';
-/** Show the open and queued colony panels again, as the colonies may have changed with the map. */
+let colonyPull = false;
+/**
+ * Show the colony panels again soon, once: the Engine's events come from its threads, and the pull calls
+ * back into the Engine, so it runs after the event, and a burst of updates pulls once.
+ */
+function pullColonies() {
+  if (colonyPull) return;
+  colonyPull = true;
+  setTimeout(() => {
+    colonyPull = false;
+    refreshColonies();
+  }, 0);
+}
+/** Show the open and queued colony panels again, as the colonies may have changed. */
 function refreshColonies() {
   for (const open of dialogQueue.shown('colony')) {
     const json = colonyNow(open.id);
@@ -297,8 +310,7 @@ function drawMap(m: MapView) {
   side.statusLine = m.statusLine;
   renderSide();
   dispatch({ k: 'map', map: m });
-  // Later, not inside this event: it comes from a client Engine thread, and the pull calls back into the Engine.
-  setTimeout(refreshColonies, 0);
+  pullColonies();
   drawn = map.draw(m);
   // A dialog shown before the art manifest loaded has no images: draw it again once they can be had.
   if (!artReady) void drawn.then(() => map.resources() && ((artReady = true), renderSide()));
@@ -355,6 +367,9 @@ async function run() {
         case 'gameStarted':
         case 'map':
           return drawMap(JSON.parse(detail) as MapView);
+        case 'updated':
+          // A message from the server has been handled: the open colonies may have changed.
+          return pullColonies();
         case 'round':
           rounds.push(detail);
           return show('running');

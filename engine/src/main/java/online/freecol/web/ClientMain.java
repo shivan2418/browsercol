@@ -17,6 +17,7 @@ import net.sf.freecol.common.model.Unit;
  *
  * The map goes out with the gameStarted event, after every player command,
  * and when a refresh or a new active unit asks for it outside a command.
+ * An updated event follows each message from the server once it is handled.
  */
 public final class ClientMain {
 
@@ -59,6 +60,10 @@ public final class ClientMain {
                             }
                             public void finished(Game game) {
                                 event("finished", String.valueOf(game.getTurn()));
+                            }
+                            public void updated() {
+                                // The open colony panels are pulled again (ui/src/main.tsx).
+                                event("updated", "");
                             }
                         }, new WebGUI.BrowserUI() {
                             public void show(String kind, String json) {
