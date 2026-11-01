@@ -111,7 +111,7 @@ export interface GuiEvents {
     cancel: string;
   };
   /**
-   * Europe, as FreeCol's EuropePanel shows it (read-only): the ships sailing each way, the ships in port,
+   * Europe, as FreeCol's EuropePanel shows it (the player recruits, trains and buys units there): the ships sailing each way, the ships in port,
    * the units on the docks, the market and the gold. Texts are localized; images are resource keys, best
    * first. Market prices: sell is what Europe pays, buy what it asks. selected is the ship in port whose
    * cargo shows first.
@@ -128,6 +128,17 @@ export interface GuiEvents {
     docks: EuropeUnit[];
     selected: Id | null;
     market: { id: Id; name: string; images: string[]; sell: number; buy: number; enabled: boolean }[];
+    buttons: { train: string; purchase: string; recruit: string; sail: string };
+    /** The docks' recruit pool at one price (RecruitPanel); index is what recruiting sends. */
+    recruit: {
+      heading: string;
+      text: string;
+      price: number;
+      units: { index: number; name: string; images: string[]; enabled: boolean }[];
+    };
+    /** The unit types to train and to buy, by ascending price (TrainPanel, PurchasePanel). */
+    train: { heading: string; units: EuropeOffer[] };
+    purchase: { heading: string; units: EuropeOffer[] };
   };
   /** A dialog the Browser UI cannot show yet; the controller got FreeCol's base default. */
   unasked: { method: string };
@@ -245,6 +256,16 @@ export interface TradeRouteDraft {
   name: string;
   silent: boolean;
   stops: { place: Id; cargo: string[] }[];
+}
+
+/** A unit type Europe sells, with the server's price; enabled when the player can pay. */
+export interface EuropeOffer {
+  id: Id;
+  name: string;
+  images: string[];
+  price: number;
+  priceLabel: string;
+  enabled: boolean;
 }
 
 /** A unit in Europe or on its way; a carrier also lists its cargo. */

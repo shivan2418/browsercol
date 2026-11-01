@@ -9,6 +9,7 @@
 import { Fragment, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { ColonyPanel } from './colony-panel';
 import type { Dialog, Dialogs } from './dialogs';
+import { europeButtons } from './europe-client';
 import { GoodsAmount, WindowFrame, type Art } from './frame';
 import type { EuropeUnit, GuiEvents, SettlementEntry, TradeItem, TradeOption, TradeRouteDraft } from './webgui';
 
@@ -793,14 +794,35 @@ function UnitChip({ u, art, pick, on }: { u: EuropeUnit; art: Art; pick?: () => 
 }
 
 /**
- * Europe, arranged as EuropePanel arranges it, read-only: the ships sailing to America and to Europe, the
+ * Europe, arranged as EuropePanel arranges it: the ships sailing to America and to Europe, the
  * ships in port with the cargo of the one picked, the docks, and the market with each goods' sell/buy price
  * (MarketLabel's). The gold is beside the title.
  */
 function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
   const e: Europe = d.event;
   const [picked, setPicked] = useState(e.selected);
+  const [shop, setShop] = useState<'recruit' | 'train' | 'purchase' | null>(null);
   const ship = e.inPort.find((u) => u.id === picked) ?? null;
+  const offers = (kind: 'train' | 'purchase') => (
+    <section className="box shop" data-shop={kind}>
+      <h3>{e[kind].heading}</h3>
+      <div className="chips">
+        {e[kind].units.map((o) => (
+          <button
+            key={o.id}
+            className="chip offer"
+            data-offer={o.id}
+            disabled={!o.enabled}
+            onClick={() => europeButtons.train(o.id)}
+          >
+            <Pic keys={o.images} art={art} />
+            <span className="name">{o.name}</span>
+            <span className="price">{o.priceLabel}</span>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
   const list = (heading: string, kind: string, units: EuropeUnit[], pick?: (u: EuropeUnit) => () => void) => (
     <section className="box" data-list={kind}>
       <h3>{heading}</h3>
@@ -819,11 +841,47 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
           {e.goldLabel}: <b data-gold>{e.gold}</b>
         </span>
       </div>
+      <div className="europe-buttons">
+        {(['recruit', 'train', 'purchase'] as const).map((kind) => (
+          <button
+            key={kind}
+            data-europe={kind}
+            aria-pressed={shop === kind}
+            onClick={() => setShop(shop === kind ? null : kind)}
+          >
+            {e.buttons[kind]}
+          </button>
+        ))}
+        <button data-europe="sail" disabled={!ship} onClick={() => ship && europeButtons.sail(ship.id)}>
+          {e.buttons.sail}
+        </button>
+      </div>
+      {shop === 'recruit' && (
+        <section className="box shop" data-shop="recruit">
+          <h3>{e.recruit.heading}</h3>
+          <p className="text">{e.recruit.text}</p>
+          <div className="chips">
+            {e.recruit.units.map((r) => (
+              <button
+                key={r.index}
+                className="chip offer"
+                data-recruit={r.index}
+                disabled={!r.enabled}
+                onClick={() => europeButtons.recruit(r.index)}
+              >
+                <Pic keys={r.images} art={art} />
+                <span className="name">{r.name}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+      {(shop === 'train' || shop === 'purchase') && offers(shop)}
       <div className="europe">
         {list(e.headings.toAmerica, 'toAmerica', e.toAmerica)}
         {list(e.headings.toEurope, 'toEurope', e.toEurope)}
         {list(e.headings.inPort, 'inPort', e.inPort, (u) => () => setPicked(u.id))}
-        {list(e.headings.docks, 'docks', e.docks)}
+        {list(e.headings.docks, 'docks', e.docks, (u) => () => ship && europeButtons.board(u.id, ship.id))}
         <section className="box cargo" data-list="cargo">
           <h3>{e.headings.cargo}</h3>
           <div className="chips">
