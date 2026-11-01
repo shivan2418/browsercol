@@ -1,7 +1,7 @@
 // Answers the page's WebGUI dialogs (ui/src/panels.tsx) as they open, by
 // clicking their buttons, as a player would: confirmations are accepted but
 // sailing to Europe, a choice takes its last enabled item ("All" when
-// disembarking), an input keeps its suggestion, an end turn dialog ends the turn, a negotiation is cancelled
+// disembarking), an input keeps its suggestion, a select amount dialog the amount selected, an end turn dialog ends the turn, a negotiation is cancelled
 // (sent, if it has no cancel) and a panel is closed. Each dialog is logged
 // in window.__dialogs as "kind: first line", and in window.__dialogTexts as "kind: every text of it"
 // (a messages dialog holds several messages, of which the first line is only the first).
@@ -63,6 +63,7 @@ export async function answerDialogs(page, shot = null) {
           (!/Europe/.test(d.textContent ?? '') && pick('[data-answer=ok]')) || pick('[data-answer=cancel]'),
         choice: () => [...d.querySelectorAll('[data-choice]:not(:disabled)')].pop(),
         input: () => pick('[data-answer=ok]'),
+        amount: () => pick('[data-answer=ok]'),
         goods: () => pick('[data-answer=ok]'),
         endTurn: () => pick('[data-answer=ok]'),
         preCombat: () => pick('[data-answer=ok]'),

@@ -362,6 +362,131 @@ async function play(page, url) {
     await noDialog('closing the colony panel');
     console.log(`  colony panel: moved ${founder} and ${other}`);
   };
+  /**
+   * Sail the ship from the sea into the colony and load it in the colony panel as a player would: a unit
+   * beside the colony boards it and goes ashore again, and goods of the warehouse, picked with shift so the
+   * select amount dialog asks how much (the answerer keeps the amount it suggests), go aboard and come back.
+   * Next turn the ship sails back out to sea. What the server does with the cargo is CommandsTest's to check.
+   */
+  const loadShip = async (m, land, sea) => {
+    m = await act(() => click(m, sea));
+    if (!same(m.active, sea)) throw new Error(`clicking ${label(sea)} selected ${label(m.active)}`);
+    const shipId = m.activeUnit.id;
+    const dirs = Object.keys(DIRECTIONS);
+    const into = dirs.find((d) => same(neighbour(sea, d), land));
+    const out = dirs.find((d) => same(neighbour(land, d), sea));
+    m = await act(() => page.keyboard.press(KEYS[into]));
+    // The map names the unit in front on a tile only, so the ship is found gone from the sea.
+    if (m.units.some((u) => u.id === shipId)) {
+      throw new Error(`the ship ${shipId} did not sail into the colony at ${label(land)}`);
+    }
+
+    await noDialog('opening the colony panel to load the ship');
+    await page.evaluate(() => (window.__hold = 'colony'));
+    await act(() => click(m, land));
+    const panel = page.locator('[role=dialog][data-kind=colony]');
+    await panel.waitFor({ timeout: 10000 });
+    const cargo = panel.locator(`[data-part=cargo][data-ship="${shipId}"]`);
+    await cargo.waitFor({ timeout: 10000 }).catch(() => {
+      throw new Error(`the colony panel does not show the cargo of the ship ${shipId}`);
+    });
+    const outside = panel.locator('[data-part=outside]');
+    const warehouse = panel.locator('[data-part=warehouse]');
+
+    // The panel is shown afresh as each change reaches the client, so a click can land as it is redrawn:
+    // a pick is clicked again until it shows picked, and a place until nothing is.
+    const pickUp = async (thing, what, modifiers = []) => {
+      for (let i = 0; i < 5; i++) {
+        await thing.click({ modifiers });
+        if ((await thing.getAttribute('data-picked')) === 'true') return;
+        await page.waitForTimeout(300);
+      }
+      throw new Error(`a click did not pick ${what}`);
+    };
+    // The Engine runs one command at a time and drops one sent while another runs, so a put waits for its
+    // command's closing map.
+    const putOn = async (place, what) => {
+      const n = await page.evaluate(() => window.__maps);
+      for (let i = 0; i < 5; i++) {
+        await place.click();
+        if ((await panel.locator('[data-picked=true]').count()) === 0) {
+          await page.waitForFunction((n) => window.__maps > n, n, { timeout: 60000 });
+          return;
+        }
+        await page.waitForTimeout(300);
+      }
+      throw new Error(`a click did not put ${what} down`);
+    };
+
+    // A unit beside the colony boards, by clicks, and goes ashore again.
+    const passenger = await outside.locator('[data-unit]').first().getAttribute('data-unit');
+    if (!passenger) throw new Error('no unit beside the colony to board the ship');
+    await pickUp(outside.locator(`[data-unit="${passenger}"]`), passenger);
+    await putOn(cargo, passenger);
+    await cargo
+      .locator(`[data-unit="${passenger}"]`)
+      .waitFor({ timeout: 20000 })
+      .catch(() => {
+        throw new Error(`the unit ${passenger} did not board the ship`);
+      });
+    await pickUp(cargo.locator(`[data-unit="${passenger}"]`), passenger);
+    await putOn(outside, passenger);
+    await outside
+      .locator(`[data-unit="${passenger}"]`)
+      .waitFor({ timeout: 20000 })
+      .catch(() => {
+        throw new Error(`the unit ${passenger} did not leave the ship`);
+      });
+
+    // Goods of the warehouse, shift-picked: the amount is asked, and they go aboard; then ashore again.
+    // The warehouse lists goods from the display threshold up, which can be none at all.
+    const goods = await warehouse
+      .locator('[data-goods]')
+      .evaluateAll((es) => es.find((e) => Number(e.querySelector('.amount')?.textContent) > 0)?.dataset.goods ?? null);
+    if (!goods) throw new Error('the colony has no goods in its warehouse to load');
+    const before = await page.evaluate(() => window.__dialogs.length);
+    await pickUp(warehouse.locator(`[data-goods="${goods}"]`), goods, ['Shift']);
+    await putOn(cargo, goods);
+    await cargo
+      .locator(`[data-goods="${goods}"]`)
+      .first()
+      .waitFor({ timeout: 20000 })
+      .catch(() => {
+        throw new Error(`the ship did not take ${goods} aboard`);
+      });
+    const asked = await page.evaluate((n) => window.__dialogs.slice(n), before);
+    if (!asked.some((d) => d.startsWith('amount: '))) {
+      throw new Error(`loading with shift did not ask the amount: ${JSON.stringify(asked)}`);
+    }
+    await pickUp(cargo.locator(`[data-goods="${goods}"]`).first(), goods);
+    await putOn(warehouse, goods);
+    await page
+      .waitForFunction(
+        ([ship]) => !document.querySelector(`[data-part=cargo][data-ship="${ship}"] [data-goods]`),
+        [shipId],
+        { timeout: 20000 },
+      )
+      .catch(() => {
+        throw new Error(`the ship did not unload ${goods}`);
+      });
+    await page.evaluate(() => (window.__hold = null));
+    await panel.locator('[data-answer=close]').click();
+    await noDialog('closing the colony panel after loading the ship');
+
+    // Back to sea, next turn: the panel's commands leave no unit active, and a new turn chooses one, from
+    // which the ship is reached as the next unit with moves left.
+    m = await endTurn();
+    for (let i = 0; i < 8 && m.activeUnit?.id !== shipId; i++) m = await act(() => page.keyboard.press('w'));
+    if (m.activeUnit?.id !== shipId) {
+      throw new Error(
+        `the ship ${shipId} could not be selected in the colony: active ${m.activeUnit?.id} at ${label(m.active)}`,
+      );
+    }
+    m = await act(() => page.keyboard.press(KEYS[out]));
+    if (!same(m.active, sea)) throw new Error(`the ship did not sail back to ${label(sea)}: at ${label(m.active)}`);
+    console.log(`  colony panel: ${passenger} boarded the ship and left it, ${goods} loaded and unloaded`);
+    return m;
+  };
   const viewState = () => page.evaluate(() => window.fcView());
   /** The view is on the client's active unit: the cursor on its tile, in view, and the panel naming it. */
   const following = async (m, what) => {
@@ -600,7 +725,9 @@ async function play(page, url) {
     }
   }
 
-  // The ship is still at sea: select it and fortify it, as a player would.
+  m = await loadShip(m, land, shipTile);
+
+  // The ship is at sea again: select it and fortify it, as a player would.
   // The side panel's Fortify button follows the Engine's orders, and the
   // ship is drawn in grey once its turn has ended.
   m = await act(() => click(m, shipTile));
