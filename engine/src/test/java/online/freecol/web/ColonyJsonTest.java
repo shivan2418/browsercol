@@ -137,6 +137,10 @@ class ColonyJsonTest {
         carpenter.setLocation(carpentersHouse);
         carpenter.changeWorkType(spec.getGoodsType("model.goods.hammers"));
         final Unit outside = new ServerUnit(game, land, us, spec.getDefaultUnitType(us));
+        // A ship in port, a colonist and food aboard.
+        final Unit ship = new ServerUnit(game, land, us, spec.getUnitType("model.unit.caravel"));
+        final Unit aboard = new ServerUnit(game, ship, us, spec.getDefaultUnitType(us));
+        ship.addGoods(spec.getGoodsType("model.goods.food"), 50);
         final GoodsType lumber = spec.getGoodsType("model.goods.lumber");
         colony.addGoods(lumber, 150);
         colony.invalidateCache();
@@ -225,7 +229,16 @@ class ColonyJsonTest {
 
         // Units on the colony's tile but not in it.
         assertEquals(List.of(outside.getId()), ids(obj(json.get("outside")).get("units")));
-        assertEquals(List.of(), ids(obj(json.get("inPort")).get("units")));
+        // The ship in port, with its cargo as ColonyCargoPanel shows it, and
+        // chosen, as InPortPanel.selectLabel chooses the last carrier.
+        final Map<String, Object> port = obj(json.get("inPort"));
+        assertEquals(List.of(ship.getId()), ids(port.get("units")));
+        assertEquals(ship.getId(), port.get("selected"));
+        final Map<String, Object> cargo = obj(obj(list(port.get("units")).get(0)).get("cargo"));
+        assertEquals("Cargo on Dutch Caravel (0 holds left)", cargo.get("title"));
+        assertEquals(List.of(aboard.getId()), ids(cargo.get("units")));
+        assertEquals(Map.of("model.goods.food", 50L), amounts(cargo.get("goods")));
+        assertEquals("Cargo on carrier", port.get("cargo"), "the cargo box's title with no ship chosen");
 
         // The warehouse: the goods over the display threshold, and its capacity.
         final Map<String, Object> warehouse = obj(json.get("warehouse"));
