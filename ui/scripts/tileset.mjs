@@ -72,7 +72,7 @@ const colony = {
   production: [],
   warehouse: { title: 'Warehouse', capacity: 100, goods: [] },
   outside: { title: 'Outside Colony', units: [] },
-  inPort: { title: 'In Port', units: [] },
+  inPort: { title: 'In Port', units: [], selected: null, cargo: 'Cargo on carrier' },
   construction: null,
   nothing: '',
 };

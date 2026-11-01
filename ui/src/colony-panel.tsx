@@ -1,19 +1,41 @@
 // FreeCol's colony panel (ColonyPanel), read-only, laid out as look E
 // (docs/adr/0004): the population and the buildings on the left; the 3x3
 // tiles, the net production and the construction on the right; then the
-// units in port and outside the colony, and the warehouse with the close
-// button. Every image is found by resource key, so a Tileset can replace
-// it; every text comes localized from the Engine (ColonyJson.java).
-import type { ReactNode } from 'react';
+// ships in port beside the cargo of the one chosen, the units outside the
+// colony, and the warehouse. Every image is found by resource key, so a
+// Tileset can replace it; every text comes localized from the Engine
+// (ColonyJson.java). The boxes FreeCol captions use the shared Box, and
+// goods amounts the shared GoodsAmount (frame.tsx).
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Box, GoodsAmount, type Art } from './frame';
 import { PANEL_KEYS } from './map-keys';
-import type { Art } from './panels';
-import type { ColonyView, GoodsAmount, UnitRef } from './webgui';
+import type { ColonyView, GoodsAmount as Goods, UnitRef } from './webgui';
 
 /** FreeCol's tile size, which the tiles of TilesPanel are laid out by. */
 const TILE_W = 128;
 const TILE_H = 64;
+/** Room above the tiles for art taller than its tile (forests, hills, the colony). */
+const TILE_TOP = TILE_H / 2;
 /** ImageLibrary.ICON_COIN, which an UpkeepLabel shows. */
 const COIN = PANEL_KEYS.coin;
+/** ImageLibrary.TILE_TAKEN and TILE_OWNED_BY_INDIANS, which TileViewer.displayColonyTile draws over a tile. */
+const TILE_TAKEN = ['image.tile.tileTaken'];
+const NATIVE_LAND = ['image.tileitem.nativeLand'];
+
+/**
+ * Draws tiles of the map as the map draws them, into a canvas in `host` (mapDrawer's drawTiles); returns
+ * what removes it. Without one, the panel shows each tile's terrain and forest images.
+ */
+export type DrawTiles = (
+  host: HTMLElement,
+  centre: [number, number],
+  tiles: [number, number][],
+  top: number,
+) => () => void;
+export const ColonyTiles = createContext<DrawTiles | null>(null);
+
+/** The ship chosen in port, per colony, so it stays chosen as the panel is shown again. */
+const chosen = new Map<string, string | null>();
 
 function Img({
   keys,
@@ -38,25 +60,109 @@ const Units = ({ units, art }: { units: UnitRef[]; art: Art }) =>
     </span>
   ));
 
-/** A ProductionLabel: the goods' icon and the amount, signed for net production. */
-function Goods({ g, art, text }: { g: GoodsAmount; art: Art; text?: string }) {
+/** A ProductionLabel: the shared goods amount, named by its type (data-goods); `more` follows the number. */
+function Made({ g, art, change = false, more }: { g: Goods; art: Art; change?: boolean; more?: string }) {
   return (
-    <span className="goods" data-goods={g.type} title={g.name}>
-      <Img keys={g.keys} art={art} className="icon" />
-      {text ?? g.amount}
+    <span className="made-goods" data-goods={g.type}>
+      <GoodsAmount keys={g.keys} name={g.name} amount={g.amount} change={change} art={art} />
+      {more}
     </span>
   );
 }
 
-const signed = (n: number) => (n > 0 ? `+${n}` : String(n));
+/** A part of the panel FreeCol gives no caption, named by data-part. */
+const Part = ({ part, children }: { part: string; children: ReactNode }) => (
+  <section className={`box ${part}`} data-part={part}>
+    {children}
+  </section>
+);
 
-/** A boxed part of the panel, named by data-part; a caption (localized text from the Engine) also names it to assistive tech. */
-function Box({ part, caption, children }: { part: string; caption?: string; children: ReactNode }) {
+/** TilesPanel: the colony's 3x3, drawn as the map draws them, with who works each and what it makes. */
+function Tiles({ c, art }: { c: ColonyView; art: Art }) {
+  const draw = useContext(ColonyTiles);
+  const ground = useRef<HTMLDivElement>(null);
+  const centre = c.tiles.find((t) => t.centre)?.at ?? c.at;
+  const at = JSON.stringify(c.tiles.map((t) => t.at));
+  useEffect(() => {
+    if (!draw || !ground.current) return;
+    return draw(ground.current, centre, JSON.parse(at) as [number, number][], TILE_TOP);
+  }, [draw, at, centre[0], centre[1]]);
   return (
-    <section className={`box ${part}`} data-part={part} aria-label={caption}>
-      {caption !== undefined && <span className="cap">{caption}</span>}
-      {children}
+    <section className="tiles" data-part="tiles" style={{ width: TILE_W * 3, height: TILE_H * 3 + TILE_TOP }}>
+      {draw && <div className="ground" ref={ground} />}
+      <div className="over" style={{ top: TILE_TOP }}>
+        {c.tiles.map((t) => {
+          const [x, y] = t.pos;
+          return (
+            <div
+              key={t.id}
+              className="tile"
+              data-tile={t.id}
+              data-ours={t.ours}
+              title={t.name}
+              style={{ left: ((2 - x + y) * TILE_W) / 2, top: ((x + y) * TILE_H) / 2 }}
+            >
+              {!draw && <Img keys={t.terrain} art={art} className="terrain" />}
+              {!draw && t.forest && <Img keys={t.forest} art={art} className="forest" />}
+              {t.taken && <Img keys={TILE_TAKEN} art={art} className="taken" />}
+              {t.natives && <Img keys={NATIVE_LAND} art={art} className="natives" />}
+              {t.workers.map((u) => (
+                <span key={u.id} className="who" data-unit={u.id}>
+                  <Img keys={u.keys} art={art} className="unit" alt={u.name} />
+                  {u.occupation && <span className="chip">{u.occupation}</span>}
+                </span>
+              ))}
+              {t.production.length > 0 && (
+                <span className="made">
+                  {t.production.map((g) => (
+                    <Made key={g.type} g={g} art={art} />
+                  ))}
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </section>
+  );
+}
+
+/** ColonyInPortPanel and ColonyCargoPanel: the ships in port, and what the chosen one carries. */
+function Port({ c, art }: { c: ColonyView; art: Art }) {
+  const port = c.inPort;
+  const [pick, setPick] = useState(() => (chosen.has(c.id) ? chosen.get(c.id)! : port.selected));
+  const ship = port.units.find((u) => u.id === pick) ?? port.units.find((u) => u.id === port.selected) ?? null;
+  const choose = (id: string) => {
+    chosen.set(c.id, id);
+    setPick(id);
+  };
+  return (
+    <>
+      <Box caption={port.title} data-part="port" className="port">
+        {port.units.map((u) => (
+          <button
+            key={u.id}
+            className="ship"
+            data-unit={u.id}
+            aria-pressed={u.id === ship?.id}
+            title={u.name}
+            onClick={() => choose(u.id)}
+          >
+            <Img keys={u.keys} art={art} className="unit" alt={u.name} />
+          </button>
+        ))}
+      </Box>
+      <Box caption={ship ? ship.cargo.title : port.cargo} data-part="cargo" className="cargo">
+        {ship && (
+          <>
+            <Units units={ship.cargo.units} art={art} />
+            {ship.cargo.goods.map((g) => (
+              <Made key={g.type} g={g} art={art} />
+            ))}
+          </>
+        )}
+      </Box>
+    </>
   );
 }
 
@@ -65,7 +171,7 @@ export function ColonyPanel({ colony: c, art }: { colony: ColonyView; art: Art }
   return (
     <div className="colony">
       <div className="cbody">
-        <Box part="population">
+        <Part part="population">
           <Img keys={p.rebelShield} art={art} className="shield" />
           <span>
             {p.rebels} <b>{`${p.rebelPercent}%`}</b>
@@ -77,7 +183,7 @@ export function ColonyPanel({ colony: c, art }: { colony: ColonyView; art: Art }
             {p.royalists} <b>{`${100 - p.rebelPercent}%`}</b>
           </span>
           <Img keys={p.royalistShield} art={art} className="shield" />
-        </Box>
+        </Part>
         <div className="buildings">
           {c.buildings.map((b) =>
             b.site ? (
@@ -91,14 +197,10 @@ export function ColonyPanel({ colony: c, art }: { colony: ColonyView; art: Art }
                 <Img keys={b.keys} art={art} className="art" />
                 <span className="output">
                   {b.production && (
-                    <Goods
+                    <Made
                       g={b.production}
                       art={art}
-                      text={
-                        b.production.max > b.production.amount
-                          ? `${b.production.amount}/${b.production.max}`
-                          : undefined
-                      }
+                      more={b.production.max > b.production.amount ? `/${b.production.max}` : undefined}
                     />
                   )}
                   {b.upkeep !== null && (
@@ -120,42 +222,13 @@ export function ColonyPanel({ colony: c, art }: { colony: ColonyView; art: Art }
           )}
         </div>
         <div className="upper">
-          <section className="tiles" data-part="tiles" style={{ width: TILE_W * 3, height: TILE_H * 3 }}>
-            {c.tiles.map((t) => {
-              const [x, y] = t.pos;
-              return (
-                <div
-                  key={t.id}
-                  className="tile"
-                  data-tile={t.id}
-                  data-ours={t.ours}
-                  title={t.name}
-                  style={{ left: ((2 - x + y) * TILE_W) / 2, top: ((x + y) * TILE_H) / 2 }}
-                >
-                  <Img keys={t.terrain} art={art} className="terrain" />
-                  {t.forest && <Img keys={t.forest} art={art} className="forest" />}
-                  <span className="who">
-                    <Units units={t.workers} art={art} />
-                  </span>
-                  {t.production.length > 0 && (
-                    <span className="made">
-                      {t.production.map((g) => (
-                        <Goods key={g.type} g={g} art={art} />
-                      ))}
-                    </span>
-                  )}
-                </div>
-              );
-            })}
-          </section>
-          <Box part="net">
+          <Tiles c={c} art={art} />
+          <Part part="net">
             {c.production.map((g) => (
-              <span key={g.type} className={g.amount < 0 ? 'neg' : ''}>
-                <Goods g={g} art={art} text={signed(g.amount)} />
-              </span>
+              <Made key={g.type} g={g} art={art} change />
             ))}
-          </Box>
-          <Box part="construction">
+          </Part>
+          <Part part="construction">
             {c.construction === null ? (
               <span className="muted">{c.nothing}</span>
             ) : (
@@ -177,25 +250,16 @@ export function ColonyPanel({ colony: c, art }: { colony: ColonyView; art: Art }
                 </div>
               </>
             )}
-          </Box>
+          </Part>
         </div>
-        <Box part="port" caption={c.inPort.title}>
-          <Units units={c.inPort.units} art={art} />
-        </Box>
-        <Box part="outside" caption={c.outside.title}>
+        <Port c={c} art={art} />
+        <Box caption={c.outside.title} data-part="outside" className="outside">
           <Units units={c.outside.units} art={art} />
         </Box>
-        <Box part="warehouse" caption={c.warehouse.title}>
+        <Box caption={c.warehouse.title} data-part="warehouse" className="warehouse">
           {c.warehouse.goods.map((g) => (
-            <span
-              key={g.type}
-              className={g.amount === 0 ? 'stored zero' : 'stored'}
-              data-goods={g.type}
-              data-over={g.over}
-              title={g.name}
-            >
-              <Img keys={g.keys} art={art} className="icon" />
-              {g.amount}
+            <span key={g.type} className="stored" data-goods={g.type} data-over={g.over}>
+              <GoodsAmount keys={g.keys} name={g.name} amount={g.amount} art={art} />
             </span>
           ))}
         </Box>

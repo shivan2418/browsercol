@@ -81,6 +81,8 @@ export interface UnitRef {
   id: Id;
   name: string;
   keys: string[];
+  /** On a colony tile: the text of TileViewer's occupation chip. */
+  occupation?: string;
 }
 
 /** What FreeCol's colony panel shows of a colony: see ColonyJson.java. All text is localized. */
@@ -119,12 +121,17 @@ export interface ColonyView {
   tiles: {
     id: Id;
     pos: [number, number];
+    /** The tile on the map. */
+    at: [number, number];
     name: string;
     terrain: string[];
     forest: string[] | null;
     centre: boolean;
     /** Whether the colony owns the tile. */
     ours: boolean;
+    /** Whether the colony cannot work it (TileViewer's tile taken image), and whether it is native land. */
+    taken: boolean;
+    natives: boolean;
     workers: UnitRef[];
     production: GoodsAmount[];
   }[];
@@ -133,7 +140,16 @@ export interface ColonyView {
   /** over: more than the warehouse holds. */
   warehouse: { title: string; capacity: number; goods: (GoodsAmount & { over: boolean })[] };
   outside: { title: string; units: UnitRef[] };
-  inPort: { title: string; units: UnitRef[] };
+  /**
+   * The ships in port, each with its cargo (ColonyCargoPanel's title, units and goods), the one chosen at
+   * first, and the cargo box's title with none chosen.
+   */
+  inPort: {
+    title: string;
+    units: (UnitRef & { cargo: { title: string; units: UnitRef[]; goods: GoodsAmount[] } })[];
+    selected: Id | null;
+    cargo: string;
+  };
   /** The current build, and the goods it needs; null when nothing is built, which `nothing` says. */
   construction: {
     type: string;

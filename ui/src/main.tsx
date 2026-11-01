@@ -25,6 +25,7 @@ import { createRoot } from 'react-dom/client';
 import './theme.css';
 import { startPage, type ClientExports, type Scope, type ToWorker } from './channel';
 import { debugMessage, debugMode, describeAnswer, type DebugRequest } from './debug';
+import { ColonyTiles, type DrawTiles } from './colony-panel';
 import { dialogs } from './dialogs';
 import { MENUS, MenuBar } from './frame';
 import { commandForKey, type Command } from './input';
@@ -123,6 +124,8 @@ const art: Art = (keys) => {
   return res && key ? `art/${res.path(key)}` : null;
 };
 let runCommand: (c: Command) => void = () => {};
+/** The colony panel draws its tiles from the map, as the map draws them. */
+const drawColonyTiles: DrawTiles = (host, centre, tiles, top) => map.drawTiles(host, centre, tiles, top);
 /** FreeCol's status line: the score, the gold, the tax and the year. */
 let statusLine = '';
 const menus = MENUS.map((name) => ({ name, items: [] }));
@@ -204,16 +207,18 @@ function renderSide() {
             .finally(listSaves);
         }}
       />
-      <DialogHost
-        dialogs={dialogQueue}
-        goTo={(at) => dispatch({ k: 'focus', tile: null, at })}
-        art={art}
-        report={{
-          groupBy: (value) => reportButtons.groupBy(value),
-          filter: (index, shown) => reportButtons.filter(index, shown),
-          ignore: (index, ignore) => reportButtons.ignore(index, ignore),
-        }}
-      />
+      <ColonyTiles.Provider value={drawColonyTiles}>
+        <DialogHost
+          dialogs={dialogQueue}
+          goTo={(at) => dispatch({ k: 'focus', tile: null, at })}
+          art={art}
+          report={{
+            groupBy: (value) => reportButtons.groupBy(value),
+            filter: (index, shown) => reportButtons.filter(index, shown),
+            ignore: (index, ignore) => reportButtons.ignore(index, ignore),
+          }}
+        />
+      </ColonyTiles.Provider>
     </>,
   );
 }

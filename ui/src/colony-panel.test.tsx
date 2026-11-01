@@ -2,6 +2,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { dialogs } from './dialogs';
+import { ColonyTiles, type DrawTiles } from './colony-panel';
 import { DialogHost, type Art } from './panels';
 import type { ColonyView } from './webgui';
 
@@ -13,11 +14,16 @@ const files: Record<string, string> = {
   'image.buildingicon.model.building.townHall': 'art/townhall.png',
   'image.buildingicon.model.building.carpenterHouse': 'art/test-carpenter.png',
   'image.icon.model.goods.food': 'art/food.png',
+  'image.icon.model.goods.grain': 'art/grain.png',
+  'image.icon.model.goods.cotton': 'art/cotton.png',
   'image.icon.model.goods.hammers': 'art/hammers.png',
   'image.icon.model.goods.lumber': 'art/lumber.png',
   'image.tile.model.tile.plains.center': 'art/plains.png',
   'image.buildingicon.model.building.BuildingSite': 'art/site.png',
   'image.icon.coin': 'art/coin.png',
+  'image.tile.tileTaken': 'art/taken.png',
+  'image.tileitem.nativeLand': 'art/native.png',
+  'image.unit.model.unit.caravel': 'art/caravel.png',
 };
 const art: Art = (keys) => {
   const key = keys.find((k) => k in files);
@@ -38,11 +44,14 @@ const goods = (type: string, amount: number) => ({
 const tile = (x: number, y: number, more: Partial<ColonyView['tiles'][number]> = {}) => ({
   id: `colonyTile:${x}${y}`,
   pos: [x, y] as [number, number],
+  at: [10 + y - x, 20 + x + y] as [number, number],
   name: 'Plains',
   terrain: ['image.tile.model.tile.plains.center'],
   forest: null,
   centre: false,
   ours: true,
+  taken: false,
+  natives: false,
   workers: [],
   production: [],
   ...more,
@@ -100,13 +109,14 @@ const jamestown: ColonyView = {
   tiles: [
     tile(0, 0),
     tile(1, 1, { centre: true, production: [goods('grain', 5), goods('cotton', 2)] }),
-    tile(2, 1, { workers: [colonist('unit:1')], production: [goods('grain', 3)] }),
-    tile(2, 2, { ours: false }),
+    tile(2, 1, { workers: [{ ...colonist('unit:1'), occupation: 'F' }], production: [goods('grain', 3)] }),
+    tile(2, 2, { ours: false, taken: true }),
+    tile(0, 2, { natives: true }),
   ],
   production: [goods('food', 4), goods('lumber', -3)],
   warehouse: { title: 'Warehouse', capacity: 100, goods: [{ ...goods('lumber', 150), over: true }] },
   outside: { title: 'Outside Colony', units: [colonist('unit:3')] },
-  inPort: { title: 'In Port', units: [] },
+  inPort: { title: 'In Port', units: [], selected: null, cargo: 'Cargo on carrier' },
   construction: {
     type: 'model.building.warehouse',
     name: 'Warehouse',
@@ -117,9 +127,13 @@ const jamestown: ColonyView = {
   nothing: 'Click on the building site to select a building or unit to build.',
 };
 
-function open(colony: ColonyView = jamestown) {
+function open(colony: ColonyView = jamestown, drawTiles: DrawTiles | null = null) {
   const box = dialogs();
-  render(<DialogHost dialogs={box} goTo={() => {}} art={art} report={{ groupBy() {}, filter() {}, ignore() {} }} />);
+  render(
+    <ColonyTiles.Provider value={drawTiles}>
+      <DialogHost dialogs={box} goTo={() => {}} art={art} report={{ groupBy() {}, filter() {}, ignore() {} }} />
+    </ColonyTiles.Provider>,
+  );
   act(() => box.show('colony', colony));
   return box;
 }
@@ -171,25 +185,83 @@ describe('the colony panel', () => {
     expect(at('colonyTile:21').querySelector('[data-goods="model.goods.grain"]')?.textContent).toBe('3');
     expect(at('colonyTile:11').querySelector('[data-goods="model.goods.cotton"]')?.textContent).toBe('2');
     expect(at('colonyTile:22').dataset.ours).toBe('false');
+    // TileViewer.displayColonyTile: the tile taken image, native land, and the worker's occupation chip.
+    expect(at('colonyTile:22').querySelector('img.taken')?.getAttribute('src')).toBe('art/taken.png');
+    expect(at('colonyTile:02').querySelector('img.natives')?.getAttribute('src')).toBe('art/native.png');
+    expect(at('colonyTile:11').querySelector('img.taken')).toBeNull();
+    expect(at('colonyTile:21').querySelector('.chip')?.textContent).toBe('F');
+    // With no map to draw from, each tile shows its terrain image.
+    expect(at('colonyTile:11').querySelector('img.terrain')?.getAttribute('src')).toBe('art/plains.png');
+  });
+
+  it('draws the tiles as the map draws them, given a drawer, and removes the drawing when it closes', () => {
+    const asked: unknown[] = [];
+    let removed = 0;
+    const box = open(jamestown, (host, centre, tiles, top) => {
+      asked.push({ host: host.className, centre, tiles, top });
+      return () => removed++;
+    });
+    expect(asked).toEqual([{ host: 'ground', centre: [10, 22], tiles: jamestown.tiles.map((t) => t.at), top: 32 }]);
+    expect(part('tiles').querySelector('img.terrain')).toBeNull();
+    act(() => box.current()!.done(undefined as never));
+    expect(removed).toBe(1);
   });
 
   it('shows the net production, the warehouse, the units outside and the build', () => {
     open();
     const net = part('net');
     expect(net.querySelector('[data-goods="model.goods.food"]')?.textContent).toBe('+4');
-    expect(net.querySelector('[data-goods="model.goods.lumber"]')?.textContent).toBe('-3');
+    expect(net.querySelector('[data-goods="model.goods.lumber"]')?.textContent).toBe('\u22123');
     const lumber = part('warehouse').querySelector<HTMLElement>('[data-goods="model.goods.lumber"]')!;
     expect(lumber.textContent).toBe('150');
     expect(lumber.dataset.over).toBe('true');
     expect(lumber.querySelector('img')?.getAttribute('src')).toBe('art/lumber.png');
     expect(within(part('outside')).getAllByAltText('Dutch Free Colonist')).toHaveLength(1);
     expect(within(part('port')).queryAllByRole('img')).toHaveLength(0);
+    expect(within(part('cargo')).getByText('Cargo on carrier')).toBeTruthy();
     const build = part('construction');
     expect(within(build).getByText('Warehouse')).toBeTruthy();
     expect(within(build).getByText('(Turns to complete: 27)')).toBeTruthy();
     expect(within(build).getByText('20+3/80')).toBeTruthy();
     // The captioned boxes are named by the Engine's text.
     expect(screen.getByRole('region', { name: 'Warehouse' })).toBe(part('warehouse'));
+  });
+
+  it('shows the cargo of the ship chosen in port, and of another when it is clicked', () => {
+    const ship = (id: string, name: string, cargo: ColonyView['inPort']['units'][number]['cargo']) => ({
+      id,
+      name,
+      keys: ['image.unit.model.unit.caravel'],
+      cargo,
+    });
+    const box = open({
+      ...jamestown,
+      inPort: {
+        ...jamestown.inPort,
+        units: [
+          ship('unit:7', 'Caravel A', {
+            title: 'Cargo on Caravel A (1 hold left)',
+            units: [colonist('unit:8')],
+            goods: [],
+          }),
+          ship('unit:9', 'Caravel B', {
+            title: 'Cargo on Caravel B (1 hold left)',
+            units: [],
+            goods: [goods('food', 50)],
+          }),
+        ],
+        selected: 'unit:9',
+      },
+    });
+    const cargo = () => part('cargo');
+    expect(within(cargo()).getByText('Cargo on Caravel B (1 hold left)')).toBeTruthy();
+    expect(cargo().querySelector('[data-goods="model.goods.food"]')?.textContent).toBe('50');
+    fireEvent.click(part('port').querySelector('[data-unit="unit:7"]')!);
+    expect(within(cargo()).getByText('Cargo on Caravel A (1 hold left)')).toBeTruthy();
+    expect(cargo().querySelector('[data-unit="unit:8"]')).toBeTruthy();
+    // The choice stays as the panel is shown again.
+    act(() => box.replace('colony', box.shown('colony')[0], () => true));
+    expect(within(cargo()).getByText('Cargo on Caravel A (1 hold left)')).toBeTruthy();
   });
 
   it('says so when nothing is built', () => {
