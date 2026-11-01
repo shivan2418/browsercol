@@ -26,7 +26,7 @@ installed on the host.
 DEV_VARIANT=web ./dev.sh node ui/scripts/smoke.mjs   # play dist/ in Chromium and Firefox
 DEV_VARIANT=web ./dev.sh node ui/scripts/play.mjs    # land, found a colony, end the turn in both
 DEV_VARIANT=web ./dev.sh node ui/scripts/saves.mjs   # save, reload, export, delete, import, load the save and play on in both
-DEV_VARIANT=web ./dev.sh node ui/scripts/tileset.mjs # draw with the test Tileset (ui/tilesets/test) in both
+DEV_VARIANT=web ./dev.sh node ui/scripts/tileset.mjs # draw the map and a colony panel with the test Tileset (ui/tilesets/test) in both
 DEV_VARIANT=web ./dev.sh node ui/scripts/rounds.mjs --rounds 300  # time AI rounds and memory as the game grows, per browser
 ```
 
@@ -58,6 +58,10 @@ with FreeCol's cursor, and the side panel shows it and the tile under the
 pointer. The side panel shows FreeCol's status line (the score, the gold,
 the tax and the year) first, then the turn. Drag the map or rest the
 pointer at its edge to scroll, and zoom with the wheel. Click one of your
+colonies to open its colony panel (also opened after founding one), which
+shows what FreeCol's does, read-only: buildings, tiles and who works them,
+units outside and in port, the warehouse, net production, population and
+the current build, and follows the colony as it changes. Click one of your
 units to select it (click again to cycle through a stack, units aboard ships
 included), click a tile to send the active unit there, move one step with
 the arrow keys or numpad, `W` for the next unit, `Space` to leave it for
