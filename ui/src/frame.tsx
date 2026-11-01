@@ -83,27 +83,27 @@ export function Box({
 }
 
 /**
- * A goods icon, found by its resource key, and a number. A change (net
+ * A goods icon, the first of its resource keys the Tileset has, and a number. A change (net
  * production, say) is signed: a gain shows in --good, a loss in --bad. A
  * zero is greyed out. With no art for the key, the goods' name stands in
  * for the icon.
  */
 export function GoodsAmount({
-  icon,
+  keys,
   name,
   amount,
   change = false,
   art,
 }: {
-  /** The goods type's resource key, image.icon.model.goods.<id>. */
-  icon: string;
+  /** The goods icon's resource keys, best first (image.icon.model.goods.<id>, say). */
+  keys: readonly string[];
   /** The goods type's name, for the icon's alt text and tooltip. */
   name: string;
   amount: number;
   change?: boolean;
   art: Art;
 }) {
-  const src = art([icon]);
+  const src = art(keys);
   const sign = amount === 0 ? 'zero' : !change ? undefined : amount > 0 ? 'gain' : 'loss';
   const text = amount < 0 ? `−${-amount}` : change && amount > 0 ? `+${amount}` : String(amount);
   return (
