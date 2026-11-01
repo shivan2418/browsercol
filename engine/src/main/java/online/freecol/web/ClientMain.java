@@ -330,6 +330,43 @@ public final class ClientMain {
         command("endTurn", () -> engine.getCommands().endTurn());
     }
 
+    /** Open the trade routes panel (TradeRouteAction). */
+    @JSExport
+    public static void tradeRoutes() {
+        command("tradeRoutes", () -> engine.getCommands().tradeRoutes());
+    }
+
+    /**
+     * Create or change a trade route.
+     *
+     * @param json {id (null for a new route), name, silent, stops: [{place,
+     *     cargo: [goods type id]}]}
+     */
+    @JSExport
+    public static void saveTradeRoute(String json) {
+        command("saveTradeRoute", () -> {
+                final java.util.Map<?, ?> r = (java.util.Map<?, ?>)JsonReader.read(json);
+                final java.util.List<String> places = new java.util.ArrayList<>();
+                final java.util.List<java.util.List<String>> cargo = new java.util.ArrayList<>();
+                for (Object o : (java.util.List<?>)r.get("stops")) {
+                    final java.util.Map<?, ?> stop = (java.util.Map<?, ?>)o;
+                    places.add((String)stop.get("place"));
+                    final java.util.List<String> goods = new java.util.ArrayList<>();
+                    for (Object g : (java.util.List<?>)stop.get("cargo")) goods.add((String)g);
+                    cargo.add(goods);
+                }
+                engine.getCommands().saveTradeRoute((String)r.get("id"),
+                    (String)r.get("name"), Boolean.TRUE.equals(r.get("silent")),
+                    places, cargo);
+        });
+    }
+
+    /** Delete a trade route, by its id. */
+    @JSExport
+    public static void deleteTradeRoute(String id) {
+        command("deleteTradeRoute", () -> engine.getCommands().deleteTradeRoute(id));
+    }
+
     /** The client's view of the map for Tileset mode: see MapJson. */
     static String mapJson() {
         return MapJson.of(engine.getGame(), engine.getClient().getMyPlayer(),

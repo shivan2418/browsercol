@@ -182,6 +182,13 @@ import net.sf.freecol.common.option.OptionGroup;
  * <tr><td>showColonyPanel</td><td>event colony</td>
  *     <td>the colony, as {@link ColonyJson} describes it; null for no
  *         colony sends nothing</td></tr>
+ * <tr><td>showTradeRoutePanel, and each change of a route</td>
+ *     <td>event tradeRoutes</td>
+ *     <td>{title, routes: [{id, name, silent, units, stops: [{place, label,
+ *         cargo: [goods type]}]}], places: [{id, label}], goods: [{id, name,
+ *         icon}], error, and the labels of the panel's buttons}; a panel that
+ *         is open is replaced. error is why the last change was refused
+ *         (FreeCol's reason), null if it was not</td></tr>
  * <tr><td>the other dialogs the controllers ask (see "Not asked yet"), and
  *     the panels the base GUI drops: showEuropePanel,
  *     showIndianSettlementPanel, showGameOptionsDialog,
@@ -1444,6 +1451,28 @@ public class WebGUI extends GUI {
         } catch (NumberFormatException nfe) {
             return -1;
         }
+    }
+
+    /**
+     * Show the player's trade routes, as TradeRoutePanel does: event
+     * tradeRoutes, which replaces the panel if it is open.
+     *
+     * @param unit The unit that would be assigned a route; not yet used.
+     */
+    @Override
+    public FreeColPanel showTradeRoutePanel(Unit unit) {
+        showTradeRoutes(null);
+        return null;
+    }
+
+    /**
+     * Show the trade routes panel.
+     *
+     * @param error Why the last change to a route was refused, or null.
+     */
+    void showTradeRoutes(String error) {
+        this.ui.show("tradeRoutes",
+                     TradeRoutes.json(getFreeColClient(), error));
     }
 
     // Not asked yet: reported, then the base GUI's default.

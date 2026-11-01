@@ -17,6 +17,7 @@ import net.sf.freecol.common.model.PathNode;
 import net.sf.freecol.common.model.Player;
 import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.TileImprovementType;
+import net.sf.freecol.common.model.TradeRoute;
 import net.sf.freecol.common.model.Unit;
 
 
@@ -291,5 +292,70 @@ public final class Commands {
         if (!this.client.currentPlayerIsMyPlayer()) return false;
         igc().endTurn(true);
         return true;
+    }
+
+    /** Open the trade routes panel (TradeRouteAction). */
+    public boolean tradeRoutes() {
+        gui().showTradeRoutePanel(null);
+        return true;
+    }
+
+    private TradeRoute route(String id) {
+        final Player player = this.client.getMyPlayer();
+        for (TradeRoute tr : player.getTradeRoutes()) {
+            if (tr.getId().equals(id)) return tr;
+        }
+        return null;
+    }
+
+    /**
+     * Create a trade route, or change one, as TradeRoutePanel and
+     * TradeRouteInputPanel do. The server is asked for a new route, which
+     * is then given its name and stops and checked as FreeCol checks it. A
+     * route that is not valid is not saved, and the reason is shown in the
+     * trade routes panel, which is shown again.
+     *
+     * @param id The id of the route to change, or null for a new one.
+     * @param name The route's name.
+     * @param silent Whether it is to be silent.
+     * @param places The ids of the places (Europe or a colony) of its stops.
+     * @param cargo For each stop, the ids of the goods types to load there.
+     * @return The reason the route was not saved, or null if it was.
+     */
+    public String saveTradeRoute(String id, String name, boolean silent,
+                                 List<String> places,
+                                 List<List<String>> cargo) {
+        final TradeRoute existing = (id == null) ? null : route(id);
+        if (id != null && existing == null) return refused("No such trade route.");
+        final TradeRoute route = (existing != null) ? existing
+            : igc().newTradeRoute(this.client.getMyPlayer());
+        if (route == null) return refused("The server did not make a trade route.");
+        final String why = TradeRoutes.edit(this.client, route, name, silent,
+                                            places, cargo);
+        // A new route that is not valid is dropped, as TradeRoutePanel drops it.
+        if (why != null && existing == null) igc().deleteTradeRoute(route);
+        return refused(why);
+    }
+
+    /**
+     * Delete a trade route: the units that follow it stop, as
+     * TradeRoutePanel's delete button does first.
+     *
+     * @param id The id of the route.
+     * @return True if the route is gone.
+     */
+    public boolean deleteTradeRoute(String id) {
+        final TradeRoute route = route(id);
+        if (route == null) return false;
+        for (Unit u : TradeRoutes.assigned(route)) igc().assignTradeRoute(u, null);
+        final boolean done = igc().deleteTradeRoute(route);
+        refused(null);
+        return done;
+    }
+
+    /** Show the trade routes panel again with the reason a change was refused, if any; pass the reason on. */
+    private String refused(String why) {
+        if (gui() instanceof WebGUI) ((WebGUI)gui()).showTradeRoutes(why);
+        return why;
     }
 }

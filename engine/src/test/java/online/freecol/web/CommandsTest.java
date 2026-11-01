@@ -36,7 +36,9 @@ import net.sf.freecol.common.model.Player;
 import net.sf.freecol.common.model.Specification;
 import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.TileImprovement;
+import net.sf.freecol.common.model.StringTemplate;
 import net.sf.freecol.common.model.TileImprovementType;
+import net.sf.freecol.common.model.TradeRoute;
 import net.sf.freecol.common.model.Unit;
 import net.sf.freecol.common.model.UnitLocation;
 
@@ -68,6 +70,9 @@ class CommandsTest {
     private volatile String wanted = null;
     /** What the fake Browser UI answers to the names of a new nation. */
     private volatile String names = null;
+
+    /** The trade routes panels the fake Browser UI was shown. */
+    private final List<String> routePanels = Collections.synchronizedList(new ArrayList<>());
 
     private ServerEngine server;
     private ClientEngine client;
@@ -197,6 +202,7 @@ class CommandsTest {
             }, new WebGUI.BrowserUI() {
                 public void show(String kind, String json) {
                     if (kind.equals("colony")) colonies.add(json);
+                    if (kind.equals("tradeRoutes")) routePanels.add(json);
                 }
                 public void ask(int id, String kind, String json) {
                     ui.execute(() -> {
@@ -728,5 +734,100 @@ class CommandsTest {
                        "the ship reaches Europe within 12 turns; asked " + asked);
         }
         assertTrue(ship.isInEurope(), "the client has the ship in Europe");
+    }
+
+    /** The server's trade routes of the human. */
+    private List<TradeRoute> serverRoutes(Player player) {
+        return server.getGame().getFreeColGameObject(player.getId(), Player.class)
+            .getTradeRoutes();
+    }
+
+    /** The goods types of each stop of a route, as ids. */
+    private static List<List<String>> cargoOf(TradeRoute route) {
+        return route.getStopList().stream()
+            .map(s -> s.getCargo().stream().map(GoodsType::getId).toList())
+            .toList();
+    }
+
+    /**
+     * The player manages trade routes through the commands: a route is
+     * made with stops in Europe and the colony, changed, refused when it
+     * is not valid, and deleted, each time as the server sees it.
+     */
+    @Test
+    @Timeout(300)
+    void theHumanCreatesEditsAndDeletesTradeRoutes() throws Exception {
+        startGame();
+        final Commands commands = client.getCommands();
+        final Player player = client.getClient().getMyPlayer();
+        final Colony colony = foundAColony(commands);
+        final String europe = player.getEurope().getId();
+        final String home = colony.getId();
+        final String tools = "model.goods.tools";
+        final String furs = "model.goods.furs";
+        final String rum = "model.goods.rum";
+        assertTrue(serverRoutes(player).isEmpty(), "no routes to begin with");
+
+        // A new route: the server has it, with its stops and what they load.
+        assertNull(commands.saveTradeRoute(null, "Fur run", false,
+            List.of(europe, home), List.of(List.of(tools), List.of(furs))),
+            "a valid route is saved");
+        assertEquals(1, serverRoutes(player).size());
+        final TradeRoute made = serverRoutes(player).get(0);
+        assertEquals("Fur run", made.getName());
+        assertFalse(made.isSilent());
+        assertEquals(List.of(europe, home),
+                     made.getStopList().stream().map(s -> s.getLocation().getId()).toList());
+        assertEquals(List.of(List.of(tools), List.of(furs)), cargoOf(made));
+        final String id = made.getId();
+        assertTrue(routePanels.get(routePanels.size() - 1).contains("\"Fur run\""),
+                   "the panel shows the route");
+
+        // Changed: renamed, silenced, a third stop, other goods.
+        assertNull(commands.saveTradeRoute(id, "Rum run", true,
+            List.of(home, europe, home),
+            List.of(List.of(rum), List.of(tools, furs), List.of())),
+            "a valid change is saved");
+        assertEquals(1, serverRoutes(player).size());
+        final TradeRoute changed = serverRoutes(player).get(0);
+        assertEquals(id, changed.getId());
+        assertEquals("Rum run", changed.getName());
+        assertTrue(changed.isSilent());
+        assertEquals(3, changed.getStopCount());
+        assertEquals(List.of(List.of(rum), List.of(tools, furs), List.of()), cargoOf(changed));
+
+        // Not valid: FreeCol's reason is given, and nothing is saved.
+        final String tooFew = Messages.message(
+            StringTemplate.template("model.tradeRoute.notEnoughStops"));
+        assertEquals(tooFew, commands.saveTradeRoute(null, "Short", false,
+            List.of(home), List.of(List.of(rum))), "a route needs two stops");
+        assertEquals(tooFew, commands.saveTradeRoute(id, "Shorter", false,
+            List.of(europe), List.of(List.of(tools))), "so does a changed one");
+        final String empty = Messages.message(
+            StringTemplate.template("model.tradeRoute.allEmpty"));
+        assertEquals(empty, commands.saveTradeRoute(null, "Empty", false,
+            List.of(europe, home), List.of(List.of(), List.of())), "it must load something");
+        final String duplicate = Messages.message(
+            StringTemplate.template("model.tradeRoute.duplicateName")
+                .addName("%name%", "Rum run"));
+        assertEquals(duplicate, commands.saveTradeRoute(null, "Rum run", false,
+            List.of(europe, home), List.of(List.of(tools), List.of(furs))), "names are unique");
+        assertTrue(routePanels.get(routePanels.size() - 1).contains(
+                       "\"error\":" + Json.quote(duplicate)),
+                   "the panel gives the reason");
+        assertEquals(1, serverRoutes(player).size(), "no refused route was saved");
+        final TradeRoute kept = serverRoutes(player).get(0);
+        assertEquals("Rum run", kept.getName());
+        assertEquals(3, kept.getStopCount());
+        // The client's route is as it was, too.
+        assertEquals(1, player.getTradeRoutes().size());
+        final TradeRoute mine = player.getTradeRoutes().get(0);
+        assertEquals("Rum run", mine.getName());
+        assertEquals(3, mine.getStopCount());
+
+        // Deleted.
+        assertTrue(commands.deleteTradeRoute(id), "the route is deleted");
+        assertTrue(serverRoutes(player).isEmpty(), "the server has no route");
+        assertTrue(player.getTradeRoutes().isEmpty(), "nor does the client");
     }
 }
