@@ -122,8 +122,9 @@ describe('the colony panel', () => {
   it('shows each building with its workers and production, its icon from the Tileset', () => {
     open();
     const carpenter = screen.getByTitle("Carpenter's house");
-    expect(carpenter.querySelector('img.building')?.getAttribute('src')).toBe('art/test-carpenter.png');
+    expect(carpenter.querySelector('img.art')?.getAttribute('src')).toBe('art/test-carpenter.png');
     expect(within(carpenter).getByAltText('Dutch Free Colonist').getAttribute('src')).toBe('art/colonist.png');
+    expect(carpenter.querySelector('[data-unit="unit:2"]')).toBeTruthy();
     expect(carpenter.querySelector('[data-goods="model.goods.hammers"]')?.textContent).toBe('3/6');
     expect(carpenter.querySelectorAll('.slot')).toHaveLength(2);
   });

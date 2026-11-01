@@ -18,6 +18,8 @@ export async function answerDialogs(page, shot = null) {
     window.__dialogs = [];
     window.__dialogTexts = [];
     window.__pictures = [];
+    /** The units each dialog names by id (data-unit), e.g. the colony panel's workers. */
+    window.__dialogUnits = [];
     const shots = {};
     const loadedImages = async (d) => {
       const imgs = [...d.querySelectorAll('img')];
@@ -39,6 +41,10 @@ export async function answerDialogs(page, shot = null) {
       window.__dialogTexts.push(
         `${d.dataset.kind}: ${[...d.querySelectorAll('.text, h2')].map((e) => e.textContent).join(' / ')}`,
       );
+      window.__dialogUnits.push({
+        kind: d.dataset.kind,
+        units: [...d.querySelectorAll('[data-unit]')].map((e) => e.dataset.unit),
+      });
       const imgs = await loadedImages(d);
       for (const img of imgs) {
         window.__pictures.push({ kind: d.dataset.kind, src: img.getAttribute('src'), loaded: img.naturalWidth > 0 });

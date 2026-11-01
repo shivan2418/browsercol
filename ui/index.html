@@ -302,11 +302,13 @@
         font-size: var(--fs-s);
         font-weight: 600;
       }
-      .colony img.building {
+      .colony .building .art {
         position: absolute;
         left: 50%;
         top: 22px;
         height: 70px;
+        max-width: 92%;
+        object-fit: contain;
         transform: translateX(-50%);
         opacity: 0.85;
       }
@@ -449,6 +451,9 @@
         display: inline-flex;
         flex-direction: column;
         align-items: center;
+      }
+      .colony .stored.zero {
+        color: var(--muted);
       }
       .colony .stored[data-over='true'] {
         color: var(--bad);
