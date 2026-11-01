@@ -75,6 +75,16 @@ const colony = {
   inPort: { title: 'In Port', units: [], selected: null, cargo: 'Cargo on carrier' },
   construction: null,
   nothing: '',
+  queue: {
+    title: 'Build Queue',
+    buildingsTitle: 'Buildings',
+    unitsTitle: 'Units',
+    showAll: 'Show all',
+    queue: [],
+    buildings: [],
+    units: [],
+    buy: null,
+  },
 };
 
 /** The file the colony panel shows for the town hall. dialogs.mjs closes the panel and keeps its images. */
