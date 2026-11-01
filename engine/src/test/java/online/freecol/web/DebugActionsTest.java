@@ -6,6 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -42,6 +45,11 @@ class DebugActionsTest {
     private ClientEngine client;
     private volatile CountDownLatch finished = new CountDownLatch(1);
     private volatile int rounds = 0;
+    /** What the client's colony held, if there was one, each time the listener heard of an update. */
+    private final List<Integer> heldAtUpdate = Collections.synchronizedList(new ArrayList<>());
+    /** The tile and goods type whose amount heldAtUpdate records, once a test sets them. */
+    private volatile int[] watched = null;
+    private volatile String watchedType = null;
 
     @BeforeEach
     void start() throws Exception {
@@ -55,6 +63,13 @@ class DebugActionsTest {
                 public void gameStarted(Game game) { }
                 public void roundDone(int round, long millis) { rounds = round; }
                 public void finished(Game game) { finished.countDown(); }
+                public void updated() {
+                    final int[] at = watched;
+                    if (at == null) return;
+                    final Colony c = client.getGame().getMap().getTile(at[0], at[1]).getColony();
+                    if (c != null) heldAtUpdate.add(c.getGoodsContainer().getGoodsCount(
+                            client.getGame().getSpecification().getGoodsType(watchedType)));
+                }
             }, new WebGUI.BrowserUI() {
                 public void show(String kind, String json) { }
                 public void ask(int id, String kind, String json) {
@@ -180,6 +195,8 @@ class DebugActionsTest {
             client.getGame().getMap().getTile(land.getX(), land.getY()).getColony() != null);
         final GoodsType tools = game.getSpecification().getGoodsType("model.goods.tools");
         final int before = colony.getGoodsContainer().getGoodsCount(tools);
+        watchedType = "model.goods.tools";
+        watched = new int[] { land.getX(), land.getY() };
 
         server.debug("{\"action\":\"addGoods\",\"type\":\"model.goods.tools\",\"amount\":75,\"x\":"
             + land.getX() + ",\"y\":" + land.getY() + "}");
@@ -191,6 +208,9 @@ class DebugActionsTest {
                 && t.getColony().getGoodsContainer().getGoodsCount(
                     client.getGame().getSpecification().getGoodsType("model.goods.tools")) == before + 75;
         });
+        // The listener hears of the update once the client has it, which is
+        // when the colony panel is pulled again.
+        eventually("an update after the goods arrived", () -> heldAtUpdate.contains(before + 75));
         server.debug("{\"action\":\"addGoods\",\"type\":\"model.goods.tools\",\"amount\":-1000,\"x\":"
             + land.getX() + ",\"y\":" + land.getY() + "}");
         assertEquals(0, colony.getGoodsContainer().getGoodsCount(tools), "taking away stops at none");

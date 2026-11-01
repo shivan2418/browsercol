@@ -37,6 +37,8 @@ public final class ClientEngine {
         void roundDone(int round, long millis);
         /** The autoplay rounds are done: play passes to the human. */
         void finished(Game game);
+        /** A message from the server has been handled: the game may have changed. */
+        default void updated() {}
     }
 
     private final ServerLink link;
@@ -60,6 +62,7 @@ public final class ClientEngine {
         Messages.loadMessageBundle(Locale.US);
         UserServerAPI.connectionFactory = (name, host, port) -> {
             PostMessageConnection c = new PostMessageConnection(name, link::post);
+            c.setAfterHandle(listener::updated);
             this.connection = c;
             link.connect();
             return c;
