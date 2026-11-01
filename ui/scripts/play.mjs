@@ -591,6 +591,23 @@ async function play(page, url) {
     throw new Error(`the Europe panel's market or gold is wrong: ${JSON.stringify(europe)}`);
   }
 
+  // The Recruit, Train and Purchase buttons list what Europe sells, with prices; the Set sail button needs
+  // a ship in port, which this game does not have yet. SelectDestinationTest does the buying and sailing.
+  await page.locator('button[data-europe=recruit]').click();
+  const recruits = await page.locator('[data-shop=recruit] [data-recruit]').count();
+  await page.locator('button[data-europe=train]').click();
+  const trains = await page.locator('[data-shop=train] [data-offer]').count();
+  await page.locator('button[data-europe=purchase]').click();
+  const buys = await page.locator('[data-shop=purchase] [data-offer] .price').allTextContents();
+  if (recruits !== 3 || trains < 1 || buys.length < 1 || !buys.every((p) => /\d/.test(p))) {
+    throw new Error(
+      `Europe's recruit, train or purchase list is wrong: ${recruits} recruits, ${trains} trained, ${buys}`,
+    );
+  }
+  if (!(await page.locator('button[data-europe=sail]').isDisabled())) {
+    throw new Error('the Set sail button is enabled with no ship in port');
+  }
+
   // The art the dialogs show, from events as the client Engine sends them (the page's fcShow): the
   // event panel's two flavour images, and a turn report with the image of each kind of object, and
   // its group by option and buttons. The real game gives few of these in its first turns.

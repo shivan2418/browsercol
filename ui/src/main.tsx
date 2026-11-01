@@ -31,6 +31,7 @@ import { dialogs } from './dialogs';
 import { MENUS, MenuBar } from './frame';
 import { commandForKey, type Command } from './input';
 import { mapDrawer, type MapView } from './map';
+import { europeButtons } from './europe-client';
 import { DialogHost, type Art, type ReportButtons, type RouteButtons } from './panels';
 import { onCanvas, pointerInput } from './pointer';
 import { StartScreen } from './start-screen';
@@ -478,6 +479,12 @@ async function run() {
     save: (d) => exports.saveTradeRoute(JSON.stringify(d)),
     remove: (id) => exports.deleteTradeRoute(id),
   };
+  Object.assign(europeButtons, {
+    recruit: (i: number) => exports.recruitUnit(i),
+    train: (id: string) => exports.trainUnit(id),
+    board: (unit: string, ship: string) => exports.boardShip(unit, ship),
+    sail: (ship: string) => exports.sailToNewWorld(ship),
+  });
   playWith(exports);
 }
 
