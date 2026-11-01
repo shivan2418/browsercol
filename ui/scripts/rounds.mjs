@@ -57,7 +57,7 @@ for (const name of browsers) {
   await answerDialogs(page);
   page.on('pageerror', (e) => console.log(`page error: ${e}`));
   const t0 = Date.now();
-  await page.goto(`${server.url}?autoplay=${rounds}`);
+  await page.goto(`${server.url}?skipstart&autoplay=${rounds}`);
   let next = 1;
   let last = 0;
   let stall = Date.now();

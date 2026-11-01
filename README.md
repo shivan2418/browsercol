@@ -51,7 +51,15 @@ of the default Tileset (`ui/scripts/build-art.mjs`, which also prints the art
 budget) and runs `vp build` into `dist/`. Serve `dist/` from any static host. URLs are relative, so a
 sub-path such as GitHub Pages' `/<repo>/` works.
 
-The page starts a Classic game and draws the map in Tileset mode: FreeCol's
+The page opens on a start screen (FreeCol's NewPanel and StartGamePanel,
+single player): pick a European nation and a difficulty level, then Start
+game. The choices come from the ruleset's own specification and go to the
+server Engine as a preset (below). `?skipstart` skips the screen and starts
+with FreeCol's defaults; `?preset=` and `?load=` skip it too. The browser
+scripts use `?skipstart`, except `smoke`, which plays through the screen and
+starts each Classic nation from it.
+
+Then the page starts a Classic game and draws the map in Tileset mode: FreeCol's
 own art, found by resource key as FreeCol finds it, so a Tileset (an
 art-only mod) can replace any key. The map follows the active unit, marked
 with FreeCol's cursor, and the side panel shows it and the tile under the

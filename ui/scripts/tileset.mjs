@@ -99,9 +99,9 @@ for (const name of browsers) {
   await answerDialogs(page);
   let line;
   try {
-    const plain = await cyanShare(page, server.url);
+    const plain = await cyanShare(page, `${server.url}?skipstart`);
     const plainHall = await townHall(page);
-    const test = await cyanShare(page, `${server.url}?tileset=test`);
+    const test = await cyanShare(page, `${server.url}?skipstart&tileset=test`);
     const testHall = await townHall(page);
     await page.screenshot({ path: path.join(dist, `../.cache/tileset-${name}.png`) });
     const pct = (s) => `${(s * 100).toFixed(1)}%`;
