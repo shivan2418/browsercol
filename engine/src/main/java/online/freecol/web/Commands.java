@@ -6,6 +6,7 @@ import java.util.List;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.client.control.InGameController;
 import net.sf.freecol.client.gui.GUI;
+import net.sf.freecol.common.model.BuildableType;
 import net.sf.freecol.common.model.Colony;
 import net.sf.freecol.common.model.Direction;
 import net.sf.freecol.common.model.FreeColGameObject;
@@ -300,6 +301,45 @@ public final class Commands {
         if (unit == null || type == null || !this.client.getMyPlayer().owns(unit)
             || !(unit.getLocation() instanceof WorkLocation)) return false;
         return igc().changeWorkType(unit, type);
+    }
+
+    /**
+     * Set a colony's build queue, as the build queue panel's OK does. A
+     * queue with something the colony cannot build there is explained and
+     * not set.
+     *
+     * @param colonyId The id of one of our colonies.
+     * @param typeIds The ids of the buildings and units to build, in order.
+     * @return True if the colony's build queue is now this.
+     */
+    public boolean setBuildQueue(String colonyId, List<String> typeIds) {
+        final Colony colony = object(colonyId, Colony.class);
+        if (colony == null || !this.client.getMyPlayer().owns(colony)) return false;
+        final List<BuildableType> queue = new ArrayList<>();
+        for (String id : typeIds) {
+            final Object type = this.client.getGame().getSpecification().getType(id);
+            if (!(type instanceof BuildableType)) return false;
+            queue.add((BuildableType)type);
+        }
+        final String problem = BuildQueues.problem(colony, queue);
+        if (problem != null) {
+            gui().showInformationPanel(null, StringTemplate.name(problem));
+            return false;
+        }
+        return igc().setBuildQueue(colony, queue);
+    }
+
+    /**
+     * Pay for what the colony is building now (the build queue panel's buy
+     * button), once the player confirms the price.
+     *
+     * @param colonyId The id of one of our colonies.
+     * @return True if the building was paid for.
+     */
+    public boolean payForBuilding(String colonyId) {
+        final Colony colony = object(colonyId, Colony.class);
+        if (colony == null || !this.client.getMyPlayer().owns(colony)) return false;
+        return igc().payForBuilding(colony);
     }
 
     /** The game object with this id, if it is of the class. */

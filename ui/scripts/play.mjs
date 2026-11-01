@@ -237,7 +237,7 @@ async function play(page, url) {
   };
   /**
    * Open the colony's panel and move colonists in it as a player would: the founder is dragged to a building,
-   * clicked back to its tile, given other work, and a colonist outside is put to work and out again. After each
+   * clicked back to its tile, given other work, and a colonist outside is put to work and out again, and a building is queued. After each
    * move the panel must show the colonist in its new place, and the net production must have changed.
    */
   const moveColonists = async (m, land, founder) => {
@@ -325,6 +325,21 @@ async function play(page, url) {
     await unit(other).click();
     await outside.click();
     await within(outside, other);
+
+    // Queue a building the colony can build, from the build queue; the panel must list it as queued. (What
+    // the server's colony does with the queue, and paying for it, are CommandsTest's to check.)
+    await panel.locator('[data-part=queue] button.toggle').click();
+    const addable = panel.locator('[data-part=buildings] [data-buildable] button:not([disabled])');
+    if ((await addable.count()) > 0) {
+      const type = await addable.first().evaluate((e) => e.closest('[data-buildable]').dataset.buildable);
+      await addable.first().click();
+      await panel
+        .locator(`[data-part=queued] [data-queued="${type}"]`)
+        .waitFor({ timeout: 20000 })
+        .catch(() => {
+          throw new Error(`the build queue did not show ${type} after it was added`);
+        });
+    }
     await page.evaluate(() => (window.__hold = null));
     await panel.locator('[data-answer=close]').click();
     await noDialog('closing the colony panel');
