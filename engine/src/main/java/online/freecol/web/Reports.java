@@ -75,6 +75,7 @@ final class Reports {
         final Specification spec = player.getSpecification();
         final List<String> colonies = new ArrayList<>();
         for (Colony colony : player.getColonyList()) {
+            // The production is cached; the report is read after the server's updates, as ColonyJson is.
             colony.invalidateCache();
             final BuildableType now = colony.getCurrentlyBuilding();
             final boolean unit = now != null && spec.getUnitTypeList().contains(now);
@@ -221,11 +222,11 @@ final class Reports {
         final List<String> groups = new ArrayList<>();
         if (overview) {
             groups.add(group(Messages.message("report.labour.allColonists"), null,
-                "{\"kind\":\"unit\",\"id\":\"\"}", data.getSummary().getTotal(), null));
+                link("unit", ""), data.getSummary().getTotal(), null));
             for (UnitType t : LabourData.getLabourTypes(player)) {
                 final LabourData.UnitData u = data.getUnitData(t);
                 groups.add(group(u.getUnitName(), t,
-                    u.hasDetails() ? new Json().put("kind", "unit").put("id", t.getId()).toString() : "null",
+                    u.hasDetails() ? link("unit", t.getId()) : "null",
                     u.getTotal(), null));
             }
         } else {
@@ -235,12 +236,11 @@ final class Reports {
                 final LabourData.LocationData d = one.getDetails().get(colony);
                 if (d == null) continue;
                 final String name = colony.getName() + (colony.canTrain(unitType) ? "*" : "");
-                groups.add(group(name, null, new Json().put("kind", "colony")
-                    .put("id", colony.getId()).toString(), d, colony));
+                groups.add(group(name, null, link("colony", colony.getId()), d, colony));
             }
             if (one.getUnitsInEurope().getRowCount() > 0) {
                 groups.add(group(Messages.getName(player.getEurope()), null,
-                    "{\"kind\":\"europe\",\"id\":\"\"}", one.getUnitsInEurope(), null));
+                    link("europe", ""), one.getUnitsInEurope(), null));
             }
             if (one.getUnitsOnLand().getRowCount() > 0) {
                 groups.add(group(Messages.message("report.labour.onLand"), null, "null",
@@ -259,6 +259,14 @@ final class Reports {
             .put("showProduction", overview || one.showProduction())
             .put("showNet", overview || one.showNetProduction())
             .putRaw("goods", (expert == null) ? "null" : ObjectImages.json(expert))
+            .putRaw("storedAs", (expert == null || !expert.isStoredAs()) ? "null"
+                : ObjectImages.json(expert.getStoredAs()))
+            .putRaw("headers", new Json()
+                .put("unitType", Messages.message("unitType"))
+                .put("workingAs", Messages.message("report.labour.workingAs"))
+                .put("colonists", Messages.message("colonists"))
+                .put("production", Messages.message("report.labour.production"))
+                .toString())
             .putRaw("groups", Json.array(groups))
             .toString();
     }
@@ -269,16 +277,18 @@ final class Reports {
         final boolean all = ud.isSummary();
         final String name = ud.getUnitName();
         final String as = all ? null : Messages.message(ud.getUnitType().getWorkingAsKey());
+        // Swing shows production only for a kind that makes goods (addRow, addLocationSummary).
+        final boolean makes = ud.showProduction();
         final List<String> rows = new ArrayList<>();
         if (!all && d.getOtherWorkingAmateurs().getColonists() > 0) {
             rows.add(row(Messages.message("report.labour.otherUnitType"), as,
                 d.getOtherWorkingAmateurs().getColonists(),
-                d.getOtherWorkingAmateurs().getProduction(), false));
+                makes ? d.getOtherWorkingAmateurs().getProduction() : 0, false));
         }
         if (d.getWorkingProfessionals().getColonists() > 0) {
             rows.add(row(name, all ? Messages.message("report.labour.expertsWorking") : as,
                 d.getWorkingProfessionals().getColonists(),
-                d.getWorkingProfessionals().getProduction(), true));
+                makes ? d.getWorkingProfessionals().getProduction() : 0, true));
         }
         if (d.getWorkingAmateurs() > 0) {
             rows.add(row(name, Messages.message(all ? "report.labour.amateursWorking"
@@ -311,7 +321,7 @@ final class Reports {
             .putRaw("keys", (unit == null) ? "null" : ObjectImages.json(unit))
             .putRaw("link", link)
             .putRaw("summary", new Json().put("colonists", d.getTotalColonists())
-                .put("production", d.getTotalProduction())
+                .put("production", makes ? d.getTotalProduction() : 0)
                 .put("net", net)
                 .put("hasNet", ud.showNetProduction() && (d.isTotal() || net != 0))
                 .toString())
@@ -336,6 +346,11 @@ final class Reports {
             ? Messages.message(StringTemplate.template("report.labour.learning")
                 .addName("%unit%", becoming))
             : Messages.message("report.labour.learningOther");
+    }
+
+    /** A link to details or a place: {kind: unit, colony or europe, id}. */
+    private static String link(String kind, String id) {
+        return new Json().put("kind", kind).put("id", id).toString();
     }
 
     private static String row(String unit, String doing, int count, int production,

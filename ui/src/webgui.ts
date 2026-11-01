@@ -536,6 +536,10 @@ export type ReportView =
       showNet: boolean;
       /** The image of the goods the expert makes. */
       goods: string[] | null;
+      /** The image of the goods the net production is of (the goods are stored as it), or null. */
+      storedAs: string[] | null;
+      /** The column headers, localized. */
+      headers: { unitType: string; workingAs: string; colonists: string; production: string };
       groups: {
         label: string;
         keys: string[] | null;

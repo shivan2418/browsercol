@@ -178,6 +178,8 @@ describe('the compact labour report', () => {
     showProduction: true,
     showNet: true,
     goods: null,
+    storedAs: null,
+    headers: { unitType: 'Unit Type', workingAs: 'Working As', colonists: 'Colonists', production: 'Production' },
     groups: [
       {
         label: 'All Colonists',
@@ -199,6 +201,8 @@ describe('the compact labour report', () => {
   it('shows the rows of a kind and opens its details from the name', () => {
     const { box, calls } = host();
     show(box, compact);
+    expect(screen.getByRole('columnheader', { name: 'Working As' })).toBeTruthy();
+    expect(screen.getByRole('columnheader', { name: 'Production' })).toBeTruthy();
     expect(screen.getByText('amateurs')).toBeTruthy();
     expect(screen.getByText('Expert Farmer')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'All Colonists' }));
