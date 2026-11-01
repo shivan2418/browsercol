@@ -166,10 +166,27 @@ async function play(page, url) {
   });
   /** The Europe panel, as the page draws it: its headings, its lists, its goods and its gold. */
   const europePanel = () =>
-    page.evaluate(() => {
+    page.evaluate(async () => {
       const d = document.querySelector('[role=dialog][data-kind=europe]');
+      if (!d) return null;
+      // The panel's lists are opened by its buttons, and are counted in the dialog the script is shooting:
+      // the script closes it once shot.
+      const shop = async (kind, what) => {
+        d.querySelector(`button[data-europe=${kind}]`)?.click();
+        await new Promise((ok) => requestAnimationFrame(() => setTimeout(ok, 50)));
+        return [...d.querySelectorAll(`[data-shop=${kind}] ${what}`)];
+      };
+      const recruits = (await shop('recruit', '[data-recruit]')).length;
+      const trains = (await shop('train', '[data-offer]')).length;
+      const buys = (await shop('purchase', '[data-offer] .price')).map((p) => p.textContent);
+      d.querySelector('button[data-europe=purchase]')?.click();
+      await new Promise((ok) => requestAnimationFrame(() => setTimeout(ok, 50)));
       return (
         d && {
+          recruits,
+          trains,
+          buys,
+          sailDisabled: d.querySelector('button[data-europe=sail]')?.disabled === true,
           headings: [...d.querySelectorAll('h2, h3')].map((h) => h.textContent),
           lists: [...d.querySelectorAll('[data-list]')].map((l) => l.dataset.list),
           goods: d.querySelectorAll('[data-goods]').length,
@@ -593,19 +610,14 @@ async function play(page, url) {
 
   // The Recruit, Train and Purchase buttons list what Europe sells, with prices; the Set sail button needs
   // a ship in port, which this game does not have yet. SelectDestinationTest does the buying and sailing.
-  await page.locator('button[data-europe=recruit]').click();
-  const recruits = await page.locator('[data-shop=recruit] [data-recruit]').count();
-  await page.locator('button[data-europe=train]').click();
-  const trains = await page.locator('[data-shop=train] [data-offer]').count();
-  await page.locator('button[data-europe=purchase]').click();
-  const buys = await page.locator('[data-shop=purchase] [data-offer] .price').allTextContents();
-  if (recruits !== 3 || trains < 1 || buys.length < 1 || !buys.every((p) => /\d/.test(p))) {
-    throw new Error(
-      `Europe's recruit, train or purchase list is wrong: ${recruits} recruits, ${trains} trained, ${buys}`,
-    );
-  }
-  if (!(await page.locator('button[data-europe=sail]').isDisabled())) {
-    throw new Error('the Set sail button is enabled with no ship in port');
+  if (
+    europe.recruits !== 3 ||
+    europe.trains < 1 ||
+    europe.buys.length < 1 ||
+    !europe.buys.every((p) => /\d/.test(p)) ||
+    !europe.sailDisabled
+  ) {
+    throw new Error(`Europe's recruit, train or purchase list or its sail button is wrong: ${JSON.stringify(europe)}`);
   }
 
   // The art the dialogs show, from events as the client Engine sends them (the page's fcShow): the
