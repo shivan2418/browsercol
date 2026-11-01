@@ -39,10 +39,13 @@ import net.sf.freecol.common.option.GameOptions;
  *     amount, max}, or null; upkeep its UpkeepLabel's number, or null when
  *     the upkeep game option is off or the building has none;
  * <li>tiles: the 3x3 of TilesPanel, {id, pos ([x, y] in TilesPanel's
- *     grid: north at [0, 0], south at [2, 2]), name, terrain (keys),
- *     forest (keys, or null), centre, ours (the colony owns the tile),
- *     workers, production: [{type, name, keys, amount}]}; production is
- *     the centre tile's and the worked tiles';
+ *     grid: north at [0, 0], south at [2, 2]), at (the tile on the map),
+ *     name, terrain (keys), forest (keys, or null), centre, ours (the
+ *     colony owns the tile), taken and natives (whether TileViewer draws
+ *     the tile taken and the native land images over it), workers (each
+ *     with occupation, the text of TileViewer's chip), production:
+ *     [{type, name, keys, amount}]}; production is the centre tile's and
+ *     the worked tiles';
  * <li>production: the net production of each goods type, non-zero only;
  * <li>warehouse: {title, capacity, goods: [{type, name, keys, amount,
  *     over}]}, the storable goods at or over the display threshold, over
@@ -216,19 +219,37 @@ final class ColonyJson {
                         }
                     }
                 }
+                final List<String> workers = new ArrayList<>();
+                for (Unit u : ct.getUnitList()) {
+                    workers.add(unit(u).put("occupation", Messages.message(
+                        u.getOccupationLabel(colony.getOwner(), false))).toString());
+                }
                 out.add(new Json().put("id", ct.getId())
                     .putRaw("pos", "[" + x + "," + y + "]")
+                    .putRaw("at", MapJson.xy(t))
                     .put("name", Messages.message(ct.getLabel()))
                     .putRaw("terrain", MapJson.terrainKeyJson(t.getType()))
                     .putRaw("forest", MapJson.forestKeyJson(t.getType()))
                     .put("centre", ct.isColonyCenterTile())
                     .put("ours", t.getOwningSettlement() == colony)
-                    .putRaw("workers", unitList(ct.getUnitList()))
+                    .put("taken", taken(ct))
+                    .put("natives", colony.getOwner().getLandPrice(t) > 0 && !t.hasSettlement())
+                    .putRaw("workers", Json.array(workers))
                     .putRaw("production", Json.array(made))
                     .toString());
             }
         }
         return Json.array(out);
+    }
+
+    /** TileViewer.displayColonyTile: whether the tile taken image covers the tile. */
+    private static boolean taken(ColonyTile ct) {
+        switch (ct.getNoWorkReason()) {
+        case NONE: case COLONY_CENTER: case CLAIM_REQUIRED:
+            return false;
+        default:
+            return true;
+        }
     }
 
     /** ColonyPanel.updateNetProductionPanel. */

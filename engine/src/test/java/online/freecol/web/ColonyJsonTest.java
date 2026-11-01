@@ -17,6 +17,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
+import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.model.Building;
 import net.sf.freecol.common.model.Colony;
 import net.sf.freecol.common.model.ColonyTile;
@@ -98,11 +99,11 @@ class ColonyJsonTest {
                                       g -> (Long)g.get("amount")));
     }
 
-    /** All eight neighbours are on the map and nobody's. */
+    /** All eight neighbours are on the map, land (a colony without docks cannot work water) and nobody's. */
     private static boolean freeAround(Tile t) {
         int n = 0;
         for (Tile around : t.getSurroundingTiles(1)) {
-            if (around.getOwner() != null) return false;
+            if (around.getOwner() != null || !around.isLand()) return false;
             n++;
         }
         return n == 8;
@@ -216,6 +217,9 @@ class ColonyJsonTest {
             final Map<String, Object> worked = tiles.stream()
                 .filter(t -> where.getId().equals(t.get("id"))).findFirst().get();
             assertEquals(List.of(founder.getId()), ids(worked.get("workers")));
+            // TileViewer's occupation chip on the tile's worker.
+            assertEquals(Messages.message(founder.getOccupationLabel(us, false)),
+                obj(list(worked.get("workers")).get(0)).get("occupation"));
             assertTrue(!amounts(worked.get("production")).isEmpty(), "a worked tile produces");
         } else {
             final Map<String, Object> worked = buildings.stream()
@@ -226,6 +230,21 @@ class ColonyJsonTest {
         assertEquals(List.of(0L, 0L), tiles.stream()
             .filter(t -> colony.getColonyTile(north).getId().equals(t.get("id")))
             .findFirst().get().get("pos"), "north is at the top, as in Swing");
+        // Each tile's place on the map, for the panel to draw it as the map
+        // does, and none taken or native land in a colony on free land.
+        final Map<String, Object> northJson = tiles.stream()
+            .filter(t -> colony.getColonyTile(north).getId().equals(t.get("id")))
+            .findFirst().get();
+        assertEquals(List.of((long)north.getX(), (long)north.getY()), northJson.get("at"));
+        assertTrue(tiles.stream().noneMatch(t -> Boolean.TRUE.equals(t.get("taken"))
+                    || Boolean.TRUE.equals(t.get("natives"))), "free tiles");
+        // Water cannot be worked without docks: TileViewer draws the tile
+        // taken image over it. (Another player's land only needs a claim.)
+        north.changeType(spec.getTileType("model.tile.ocean"));
+        final Map<String, Object> taken = list(obj(JsonReader.read(ColonyJson.of(colony, 1)))
+                .get("tiles")).stream().map(ColonyJsonTest::obj)
+            .filter(t -> northJson.get("id").equals(t.get("id"))).findFirst().get();
+        assertEquals(Boolean.TRUE, taken.get("taken"), "water, and no docks");
 
         // Units on the colony's tile but not in it.
         assertEquals(List.of(outside.getId()), ids(obj(json.get("outside")).get("units")));
