@@ -2,12 +2,12 @@
 // input: arrow and numpad keys, map clicks, B, F, H and Enter. The ship sails
 // by the shortest explored sea route to free land that can feed a colony,
 // or toward the westmost explored sea while none is in sight, moves onto
-// the land to put its units ashore, a unit founds a colony, the ship
-// fortifies and the turn ends; the colony must still be there when the AI
-// hands play back. The Go To order then asks where the ship sails, which
-// the page must ask the player. The page's dialogs are answered as
-// scripts/dialogs.mjs says, and every question the controllers ask must
-// reach one: a dialog with no Browser UI yet fails the run. Along the way
+// the land to put its units ashore, a unit founds a colony (whose panel
+// opens and must show the founder), the ship fortifies and the turn ends;
+// the colony must still be there when the AI hands play back. The Go To
+// order then asks where the ship sails, which the page must ask the player.
+// The page's dialogs are answered as scripts/dialogs.mjs says, and every
+// question the controllers ask must reach one: a dialog with no Browser UI yet fails the run. Along the way
 // the map's view must follow the active unit, its cursor and the info panel
 // must match the client's active unit, the side panel's buttons must follow
 // the Engine's orders, the map canvas must follow a window resize and fill
@@ -394,8 +394,21 @@ async function play(page, url) {
   m = await act(() => click(m, land));
   if (!same(m.active, land)) throw new Error(`clicking ${label(land)} selected ${label(m.active)}`);
   await following(m, 'after selecting a unit');
+  const founder = m.activeUnit.id;
   m = await act(() => page.keyboard.press('b'));
   if (!at(m.settlements, land)) throw new Error(`no colony at ${label(land)}`);
+  // The controller opens the colony panel after founding, with the founder working in the colony.
+  const panelShowsFounder = await page
+    .waitForFunction(
+      (id) => (window.__dialogUnits ?? []).some((d) => d.kind === 'colony' && d.units.includes(id)),
+      founder,
+      { timeout: 10000 },
+    )
+    .catch(() => false);
+  if (!panelShowsFounder) {
+    const seen = await page.evaluate(() => window.__dialogUnits);
+    throw new Error(`the colony panel did not show the founder ${founder}: ${JSON.stringify(seen)}`);
+  }
   m = await endTurn();
   if (!at(m.settlements, land)) throw new Error(`the colony at ${label(land)} is gone after the AI turn`);
 
@@ -534,9 +547,7 @@ for (const name of browsers) {
   if (!result.error && !log.texts.slice(landing + 1).some((d) => /^messages: .*Try building a Colony/.test(d))) {
     result = { error: `the build colony tutorial did not follow the first landing: ${log.texts.join(' | ')}` };
   }
-  // The controllers open the colony panel themselves (after founding), which has no Browser UI yet.
-  const unasked = log.unasked.filter((method) => method !== 'showColonyPanel');
-  const routine = log.unasked.length - unasked.length;
+  const { unasked } = log;
   await browser.close();
   failed ||= Boolean(result.error) || errors.length > 0 || unasked.length > 0;
   console.log(
@@ -546,7 +557,6 @@ for (const name of browsers) {
       `\n  dialogs: ${dialogs.join(' | ')}` +
       (shotTimes.length ? `\n  screenshots: ${shotTimes.join(' | ')}` : '') +
       `\n  images: ${pictures.map((p) => `${p.kind} ${p.src}`).join(' | ')}` +
-      (routine ? `\n  colony panel not shown (no Browser UI yet): ${routine}x` : '') +
       (unasked.length ? `\n  no dialog yet for: ${unasked.join(', ')}` : '') +
       (errors.length ? `\n  page errors: ${errors.join('; ')}` : ''),
   );
