@@ -393,6 +393,25 @@ export interface GuiQuestions {
     };
     answer: boolean;
   };
+  /**
+   * FreeCol's select amount dialog: an amount of goods, from 0 to max. values are the amounts it lists, value
+   * the one selected at first (null for none); any whole number in range may be typed instead.
+   */
+  amount: {
+    ask: {
+      text: string;
+      type: Id | null;
+      name: string | null;
+      keys: string[];
+      values: number[];
+      value: number | null;
+      max: number;
+      ok: string | null;
+      cancel: string | null;
+    };
+    /** The amount, null for a closed dialog. */
+    answer: number | null;
+  };
   /** Pick goods to capture or dump; at most `max` lots. */
   goods: {
     ask: {
@@ -490,6 +509,7 @@ const encode: { [K in keyof GuiQuestions]: (answer: GuiQuestions[K]['answer']) =
   preCombat: (a) => String(a),
   choice: (a) => (a === null ? null : String(a)),
   input: (a) => a,
+  amount: (a) => (a === null ? null : String(a)),
   goods: (a) => (a === null ? null : JSON.stringify(a)),
   // Java splits the answer at the line break, after the word.
   endTurn: (a) => (a === null ? null : a.status === 'select' ? `select\n${a.unit}` : a.status),

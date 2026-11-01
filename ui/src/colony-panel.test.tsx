@@ -351,6 +351,10 @@ describe('moving colonists in the colony panel', () => {
     changeWork: (u, g) => calls.push(`change ${u} ${g}`),
     setQueue: (c, types) => calls.push(`queue ${c} ${types.join(',')}`),
     buy: (c) => calls.push(`buy ${c}`),
+    board: (u, s) => calls.push(`board ${u} ${s}`),
+    leaveShip: (u) => calls.push(`leave ${u}`),
+    load: (s, g, a) => calls.push(`load ${s} ${g}${a ? ' ask' : ''}`),
+    unload: (s, g, n, a) => calls.push(`unload ${s} ${g} ${n}${a ? ' ask' : ''}`),
   };
   /** A colony of its own each time: the colonist picked stays picked per colony. */
   let n = 100;
@@ -455,6 +459,111 @@ describe('moving colonists in the colony panel', () => {
   });
 });
 
+describe('loading a ship in port in the colony panel', () => {
+  const calls: string[] = [];
+  const moves: ColonyMoves = {
+    work: (u, l) => calls.push(`work ${u} ${l}`),
+    putOutside: (u) => calls.push(`outside ${u}`),
+    changeWork: () => {},
+    setQueue: () => {},
+    buy: () => {},
+    board: (u, s) => calls.push(`board ${u} ${s}`),
+    leaveShip: (u) => calls.push(`leave ${u}`),
+    load: (s, g, a) => calls.push(`load ${s} ${g}${a ? ' ask' : ''}`),
+    unload: (s, g, n, a) => calls.push(`unload ${s} ${g} ${n}${a ? ' ask' : ''}`),
+  };
+  const caravel = {
+    id: 'unit:9',
+    name: 'Caravel',
+    keys: ['image.unit.model.unit.caravel'],
+    cargo: {
+      title: 'Caravel (0 holds left)',
+      units: [colonist('unit:8')],
+      goods: [goods('cloth', 100), goods('cloth', 30)],
+    },
+  };
+  const port = { ...jamestown.inPort, units: [caravel], selected: caravel.id };
+  let n = 300;
+  function openPort(colony: Partial<ColonyView> = { inPort: port }) {
+    calls.length = 0;
+    const box = dialogs();
+    render(
+      <ColonyActions.Provider value={moves}>
+        <DialogHost
+          dialogs={box}
+          goTo={() => {}}
+          art={art}
+          report={{ groupBy() {}, filter() {}, ignore() {} }}
+          routes={{ save() {}, remove() {} }}
+        />
+      </ColonyActions.Provider>,
+    );
+    act(() => box.show('colony', { ...jamestown, id: `colony:${++n}`, ...colony }));
+    return box;
+  }
+  const unit = (id: string) => document.querySelector<HTMLElement>(`[data-unit="${id}"]`)!;
+  const stored = (type: string) => part('warehouse').querySelector<HTMLElement>(`[data-goods="model.goods.${type}"]`)!;
+  const stacks = () => [...part('cargo').querySelectorAll<HTMLElement>('[data-goods]')];
+  /** A drag as a browser sends it: the press, then the drag. FreeCol reads shift from the press. */
+  const drag = (what: HTMLElement, onto: HTMLElement, shiftKey = false) => {
+    const dataTransfer = { setData() {}, effectAllowed: '' };
+    fireEvent.mouseDown(what, { shiftKey });
+    fireEvent.dragStart(what, { dataTransfer });
+    fireEvent.dragOver(onto, { dataTransfer });
+    fireEvent.drop(onto, { dataTransfer });
+    fireEvent.dragEnd(what, { dataTransfer });
+  };
+
+  it('puts a unit beside the colony aboard the ship chosen, and takes one off it', () => {
+    openPort();
+    drag(unit('unit:3'), part('cargo'));
+    drag(unit('unit:8'), part('outside'));
+    expect(calls).toEqual(['board unit:3 unit:9', 'leave unit:8']);
+  });
+
+  it('loads goods dragged from the warehouse, asking the amount on a shift-drag', () => {
+    openPort();
+    expect(stored('lumber').getAttribute('draggable')).toBe('true');
+    drag(stored('lumber'), part('cargo'));
+    drag(stored('lumber'), part('cargo'), true);
+    expect(calls).toEqual(['load unit:9 model.goods.lumber', 'load unit:9 model.goods.lumber ask']);
+  });
+
+  it('unloads the stack of cargo dragged into the warehouse, asking the amount on a shift-drag', () => {
+    openPort();
+    expect(stacks().map((g) => g.querySelector('.amount')?.textContent)).toEqual(['100', '30']);
+    drag(stacks()[1], part('warehouse'));
+    drag(stacks()[0], part('warehouse'), true);
+    expect(calls).toEqual(['unload unit:9 model.goods.cloth 30', 'unload unit:9 model.goods.cloth 100 ask']);
+  });
+
+  it('moves goods picked by a click to the box clicked next', () => {
+    openPort();
+    fireEvent.click(stored('lumber'));
+    expect(stored('lumber').dataset.picked).toBe('true');
+    fireEvent.click(part('cargo'));
+    fireEvent.click(stacks()[0], { shiftKey: true });
+    fireEvent.click(part('warehouse'));
+    expect(calls).toEqual(['load unit:9 model.goods.lumber', 'unload unit:9 model.goods.cloth 100 ask']);
+  });
+
+  it('puts goods nowhere else, and units not in the warehouse', () => {
+    openPort();
+    drag(stored('lumber'), part('outside'));
+    drag(stored('lumber'), document.querySelector<HTMLElement>('[data-building="building:1"]')!);
+    drag(stacks()[0], part('cargo'));
+    drag(unit('unit:3'), part('warehouse'));
+    expect(calls).toEqual([]);
+  });
+
+  it('loads nothing with no ship in port', () => {
+    openPort({});
+    drag(stored('lumber'), part('cargo'));
+    drag(unit('unit:3'), part('cargo'));
+    expect(calls).toEqual([]);
+  });
+});
+
 describe('the build queue in the colony panel', () => {
   const calls: string[] = [];
   const moves: ColonyMoves = {
@@ -463,6 +572,10 @@ describe('the build queue in the colony panel', () => {
     changeWork: () => {},
     setQueue: (c, types) => calls.push(`queue ${c} ${types.join(',')}`),
     buy: (c) => calls.push(`buy ${c}`),
+    board: () => {},
+    leaveShip: () => {},
+    load: () => {},
+    unload: () => {},
   };
   let n = 200;
   function openQueue(colony: Partial<ColonyView> = {}) {

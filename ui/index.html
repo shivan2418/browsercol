@@ -313,6 +313,24 @@
       .dialog .modifiers .value {
         text-align: right;
       }
+      /* The select amount dialog: the goods and the amount, then the amounts it lists in a row. */
+      .dialog .amount {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .dialog .amount input {
+        width: 8em;
+      }
+      .dialog .choices.amounts {
+        flex-direction: row;
+        flex-wrap: wrap;
+        margin-top: 6px;
+      }
+      .dialog .amounts [aria-pressed='true'] {
+        outline: 2px solid var(--accent);
+        outline-offset: -3px;
+      }
       .dialog .choices .default {
         font-weight: bold;
         outline: 2px solid var(--accent);
@@ -894,7 +912,7 @@
       .colony .ship[aria-pressed='true'] {
         border-color: var(--accent);
       }
-      /* Moving colonists (colony-panel.tsx): units are dragged, or picked by a click; places take drops and clicks. */
+      /* Moving colonists and goods (colony-panel.tsx): units and goods are dragged, or picked by a click; places take drops and clicks. */
       .colony [draggable='true'] {
         cursor: grab;
       }

@@ -1,5 +1,5 @@
 // React components for the WebGUI's dialogs (dialogs.ts): the confirm,
-// choice, input, goods, end turn, pre-combat, negotiation and names
+// choice, input, select amount, goods, end turn, pre-combat, negotiation and names
 // questions and the information, error, event, native settlement, message and colony
 // (colony-panel.tsx) panels, each in a window frame (frame.tsx). All text,
 // button labels included, comes localized from the Engine. Keys mean what
@@ -161,6 +161,57 @@ function Input({ d }: { d: Of<'input'> }) {
       <Text text={ask.text} />
       <input autoFocus value={value} onChange={(e) => setValue(e.target.value)} />
       <OkCancel ok={ask.ok} cancel={ask.cancel} onOk={ok} onCancel={cancel} />
+    </Win>
+  );
+}
+
+/**
+ * FreeCol's select amount dialog: the goods, and an editable box of the amounts it lists. OK takes only a whole
+ * number from 0 to the most, as Swing's input verifier does.
+ */
+function Amount({ d, art }: { d: Of<'amount'>; art: Art }) {
+  const { ask } = d;
+  const [value, setValue] = useState(ask.value === null ? '' : String(ask.value));
+  const n = Number(value);
+  const valid = value.trim() !== '' && Number.isInteger(n) && n >= 0 && n <= ask.max;
+  const ok = () => valid && d.done(n);
+  const cancel = () => d.done(null);
+  useEnter(ok);
+  return (
+    <Win d={d} close={cancel}>
+      <Text text={ask.text} />
+      <div className="amount" data-goods={ask.type ?? undefined}>
+        <Pic keys={ask.keys} art={art} className="icon" />
+        <input
+          type="number"
+          autoFocus
+          min={0}
+          max={ask.max}
+          step={1}
+          aria-label={ask.name ?? undefined}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+        />
+      </div>
+      <div className="choices amounts">
+        {ask.values.map((v) => (
+          <button key={v} data-amount={v} aria-pressed={String(v) === value} onClick={() => setValue(String(v))}>
+            {v}
+          </button>
+        ))}
+      </div>
+      <div className="buttons">
+        {ask.ok !== null && (
+          <button data-answer="ok" disabled={!valid} onClick={ok}>
+            {ask.ok}
+          </button>
+        )}
+        {ask.cancel !== null && (
+          <button data-answer="cancel" onClick={cancel}>
+            {ask.cancel}
+          </button>
+        )}
+      </div>
     </Win>
   );
 }
@@ -987,6 +1038,8 @@ function Body({
       return <Choice d={d} />;
     case 'input':
       return <Input d={d} />;
+    case 'amount':
+      return <Amount d={d} art={art} />;
     case 'goods':
       return <Goods d={d} art={art} />;
     case 'negotiation':

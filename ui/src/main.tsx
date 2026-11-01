@@ -138,7 +138,7 @@ const art: Art = (keys) => {
 let runCommand: (c: Command) => void = () => {};
 /** The colony panel draws its tiles from the map, as the map draws them. */
 const drawColonyTiles: DrawTiles = (host, centre, tiles, top) => map.drawTiles(host, centre, tiles, top);
-/** The colonists' moves in the colony panel, once the client Engine has loaded (Commands.java). */
+/** The colonists' moves and the ships' loading in the colony panel, once the client Engine has loaded (Commands.java). */
 let colonyClient: ClientExports | null = null;
 const colonyMoves: ColonyMoves = {
   work: (unit, location) => colonyClient?.work(unit, location),
@@ -146,6 +146,10 @@ const colonyMoves: ColonyMoves = {
   changeWork: (unit, goods) => colonyClient?.changeWorkType(unit, goods),
   setQueue: (colony, types) => colonyClient?.setBuildQueue(colony, types.join(',')),
   buy: (colony) => colonyClient?.payForBuilding(colony),
+  board: (unit, ship) => colonyClient?.boardShip(unit, ship),
+  leaveShip: (unit) => colonyClient?.leaveShip(unit),
+  load: (ship, goods, ask) => colonyClient?.loadGoods(ship, goods, ask),
+  unload: (ship, goods, stack, ask) => colonyClient?.unloadGoods(ship, goods, stack, ask),
 };
 /** FreeCol's status line: the score, the gold, the tax and the year. */
 let statusLine = '';
@@ -353,6 +357,7 @@ const gui: GuiHandlers = {
     confirm: (q) => dialogQueue.ask('confirm', q),
     choice: (q) => dialogQueue.ask('choice', q),
     input: (q) => dialogQueue.ask('input', q),
+    amount: (q) => dialogQueue.ask('amount', q),
     goods: (q) => dialogQueue.ask('goods', q),
     endTurn: (q) => dialogQueue.ask('endTurn', q),
     preCombat: (q) => dialogQueue.ask('preCombat', q),
