@@ -13,6 +13,7 @@
 //   ?rules=ID    the ruleset (default classic)
 //   ?load=ID     continue the saved game with this id, in place of a new game
 //   ?debug       the debug menu: reveal the map, add gold, units and goods, skip turns, show the AI's view
+//   ?skipstart   no start screen: start a game with FreeCol's defaults (debug; the browser scripts use it)
 //   ?preset=NAME start straight away from presets/NAME.json (or a URL ending .json): a
 //                preset sets the nation, difficulty, options and map seed (debug)
 //   ?tileset=ID  a Tileset built beside the default, art/<ID>.json (e.g. test)
@@ -32,6 +33,8 @@ import { commandForKey, type Command } from './input';
 import { mapDrawer, type MapView } from './map';
 import { DialogHost, type Art, type ReportButtons, type RouteButtons } from './panels';
 import { onCanvas, pointerInput } from './pointer';
+import { StartScreen } from './start-screen';
+import { presetJson, startOptions } from './start';
 import { fileNameOf, importSave } from './save-files';
 import { idbSaveStore, type SaveMeta } from './saves';
 import { Side, type SideProps } from './side';
@@ -61,6 +64,8 @@ const autoplay = Number(params.get('autoplay') ?? '0');
 const rules = params.get('rules') ?? 'classic';
 const loadId = params.has('load') ? Number(params.get('load')) : undefined;
 const preset = params.get('preset');
+/** No start screen: a debug start, a loaded game, or ?skipstart. */
+const skipStart = params.has('skipstart') || params.has('preset') || loadId !== undefined;
 const debug = debugMode(params);
 const tileset = params.get('tileset');
 const theme = params.get('theme');
@@ -78,6 +83,9 @@ const map = mapDrawer(
 const rounds: string[] = [];
 window.fcRounds = rounds;
 let drawn = Promise.resolve();
+/** The player's nation, as the last map said, and what the start screen sent; both for window.fcResult. */
+let nation = '';
+let choice = '';
 
 const dialogQueue = dialogs();
 const side: Omit<SideProps, 'run' | 'save' | 'load' | 'remove' | 'exportSave' | 'importFile'> = {
@@ -279,7 +287,7 @@ function showPanel() {
 }
 
 function show(status: string, extra: Record<string, unknown> = {}) {
-  const state = { status, rules, preset, autoplay, renderer: map.renderer(), rounds, ...extra };
+  const state = { status, rules, preset, choice, nation, autoplay, renderer: map.renderer(), rounds, ...extra };
   if (status !== 'running') window.fcResult = state;
   side.status = JSON.stringify(state, null, 1);
   renderSide();
@@ -331,6 +339,7 @@ const gui: GuiHandlers = {
 };
 
 function drawMap(m: MapView) {
+  nation = m.nation;
   side.turn = `${m.turn}${m.ourTurn ? '' : ' (AI playing)'}`;
   statusLine = m.statusLine;
   renderSide();
@@ -373,10 +382,31 @@ async function fetchPreset(name: string): Promise<string> {
   return res.text();
 }
 
+/** The start screen, until the player starts the game: resolves to the preset JSON the choice makes. */
+function chooseGame(data: string[]): Promise<string> {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const root = createRoot(host);
+  return new Promise((done) => {
+    root.render(
+      <StartScreen
+        options={startOptions(data, rules)}
+        start={(c) => {
+          root.unmount();
+          host.remove();
+          done(presetJson(c));
+        }}
+      />,
+    );
+  });
+}
+
 async function run() {
   const data = (await (await fetch(dataUrl)).json()) as string[];
+  const chosen = skipStart ? '' : await chooseGame(data);
+  choice = chosen;
   const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
-  const presetJson = preset ? await fetchPreset(preset) : '';
+  const presetJson = preset ? await fetchPreset(preset) : chosen;
   const client = startPage({
     worker,
     loadClient: () => loadModule<ClientExports>(runtimeUrl, clientUrl),

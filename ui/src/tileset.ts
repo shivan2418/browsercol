@@ -21,6 +21,8 @@ export interface MapView {
   h: number;
   turn: string;
   ourTurn: boolean;
+  /** The id of the player's nation, e.g. model.nation.dutch. */
+  nation: string;
   /** FreeCol's status line: the score, the gold, the tax and the year. */
   statusLine: string;
   types: TileType[];

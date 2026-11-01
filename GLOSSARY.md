@@ -35,3 +35,7 @@ _Avoid_: fancy mode, HD mode, 3D mode
 **Resource key**:
 FreeCol's name for one piece of art (e.g. a terrain tile, a unit image or the road colour), resolved to an image, colour or string through resource properties and mod overrides.
 _Avoid_: asset id, sprite name
+
+**Start screen**:
+The Browser UI's first page, where the player picks a European nation and a difficulty level before the game starts (FreeCol's NewPanel and StartGamePanel, single player). Its choices reach the Engine as a preset.
+_Avoid_: new game dialog, lobby

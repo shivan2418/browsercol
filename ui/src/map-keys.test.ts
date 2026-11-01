@@ -23,6 +23,7 @@ const map: MapView = {
   w: 4,
   h: 4,
   turn: 'Spring 1492',
+  nation: 'model.nation.dutch',
   statusLine: 'Score: 0    ✧    Gold: 1000    ✧    Tax: 0%    ✧    Year: Spring 1492',
   ourTurn: true,
   types: [

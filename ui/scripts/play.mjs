@@ -668,7 +668,7 @@ for (const name of browsers) {
   const t = Date.now();
   let result;
   try {
-    result = await play(page, server.url + (query ? `?${query}` : ''));
+    result = await play(page, `${server.url}?skipstart${query ? `&${query}` : ''}`);
     await page.evaluate(([x, y]) => window.fcReveal(x, y), result.land);
     await page.screenshot({ path: path.join(dist, `../.cache/play-${name}.png`) });
   } catch (ex) {

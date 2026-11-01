@@ -168,7 +168,7 @@ for (const name of browsers) {
   try {
     const r = await run(
       page,
-      server.url,
+      `${server.url}?skipstart`,
       () => page.screenshot({ path: path.join(dist, `../.cache/saves-${name}.png`) }),
       name,
     );
