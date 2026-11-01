@@ -5,6 +5,7 @@ import { defineConfig } from 'vite-plus';
 export default defineConfig({
   base: './',
   publicDir: false,
+  cacheDir: '../.cache/vite-prototype-look',
   server: { host: true, port: 5199, open: false },
   build: {
     outDir: '../.cache/prototype-look',

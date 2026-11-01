@@ -10,6 +10,7 @@ import { VariantA } from './variant-a';
 import { VariantB } from './variant-b';
 import { VariantC } from './variant-c';
 import { VariantD } from './variant-d';
+import { VariantE } from './variant-e';
 
 export type Show = 'none' | 'choice' | 'glance' | 'colony' | 'europe';
 export type Theme = 'light' | 'dark';
@@ -24,6 +25,7 @@ const VARIANTS = [
   { key: 'B', name: 'Field kit: dark docked drawer, chips', theme: 'dark', C: VariantB },
   { key: 'C', name: 'Big board: full-screen sheets, big type', theme: 'dark', C: VariantC },
   { key: 'D', name: 'Big board + colony drawer', theme: 'dark', C: VariantD },
+  { key: 'E', name: 'FreeCol layout, colours to tune', theme: 'light', C: VariantE },
 ] as const;
 const SHOWS: Show[] = ['none', 'choice', 'glance', 'colony', 'europe'];
 
