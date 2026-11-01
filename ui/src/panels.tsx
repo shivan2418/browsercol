@@ -881,7 +881,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
         {list(e.headings.toAmerica, 'toAmerica', e.toAmerica)}
         {list(e.headings.toEurope, 'toEurope', e.toEurope)}
         {list(e.headings.inPort, 'inPort', e.inPort, (u) => () => setPicked(u.id))}
-        {list(e.headings.docks, 'docks', e.docks, (u) => () => ship && europeButtons.board(u.id, ship.id))}
+        {list(e.headings.docks, 'docks', e.docks, ship ? (u) => () => europeButtons.board(u.id, ship.id) : undefined)}
         <section className="box cargo" data-list="cargo">
           <h3>{e.headings.cargo}</h3>
           <div className="chips">

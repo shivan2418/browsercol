@@ -52,12 +52,16 @@ final class ObjectImages {
             keys.add("image.tile." + derived.getId() + ".center");
         } else if (derived instanceof UnitType) {
             final UnitType type = (UnitType)derived;
-            final String roleId = type.getDisplayRoleId();
-            keys.add("image.unit." + type.getId()
-                + (Role.isDefaultRoleId(roleId) ? ""
-                    : "." + Role.getRoleIdSuffix(roleId)));
+            keys.add(unitKey(type, type.getDisplayRoleId()));
         }
         return keys;
+    }
+
+    /** The key of a unit type's image in a role. */
+    static String unitKey(UnitType type, String roleId) {
+        return "image.unit." + type.getId()
+            + (Role.isDefaultRoleId(roleId) ? ""
+                : "." + Role.getRoleIdSuffix(roleId));
     }
 
     /** The keys as a JSON array. */
