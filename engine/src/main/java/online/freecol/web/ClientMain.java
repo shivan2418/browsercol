@@ -336,6 +336,24 @@ public final class ClientMain {
         command("endTurn", () -> engine.getCommands().endTurn());
     }
 
+    /** Open a report of the Report menu: colony, labour or compactLabour (Commands.showReport). */
+    @JSExport
+    public static void report(String name) {
+        command("report", () -> engine.getCommands().showReport(name));
+    }
+
+    /** Open the details a report links to (Commands.showReportDetail). */
+    @JSExport
+    public static void reportDetail(String name, String id) {
+        command("reportDetail", () -> engine.getCommands().showReportDetail(name, id));
+    }
+
+    /** Open one of our colonies' panels, as a link in a report does. */
+    @JSExport
+    public static void showColony(String id) {
+        command("showColony", () -> engine.getCommands().showColony(id));
+    }
+
     /** Open the trade routes panel (TradeRouteAction). */
     @JSExport
     public static void tradeRoutes() {
