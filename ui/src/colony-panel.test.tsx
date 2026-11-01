@@ -521,6 +521,13 @@ describe('loading a ship in port in the colony panel', () => {
     expect(calls).toEqual(['board unit:3 unit:9', 'leave unit:8']);
   });
 
+  it('puts a colonist working in the colony aboard too, and not one already aboard', () => {
+    openPort();
+    drag(unit('unit:1'), part('cargo'));
+    drag(unit('unit:8'), part('cargo'));
+    expect(calls).toEqual(['board unit:1 unit:9']);
+  });
+
   it('loads goods dragged from the warehouse, asking the amount on a shift-drag', () => {
     openPort();
     expect(stored('lumber').getAttribute('draggable')).toBe('true');
