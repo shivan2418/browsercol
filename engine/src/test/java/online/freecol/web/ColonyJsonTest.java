@@ -300,5 +300,28 @@ class ColonyJsonTest {
         final List<String> types = new ArrayList<>();
         for (Map<String, Object> need : needs) types.add((String)need.get("type"));
         assertTrue(types.contains("model.goods.hammers"), "a building takes hammers: " + types);
+
+        // The build queue: what is queued, and what the colony can queue, with
+        // the reasons it cannot queue the rest, as BuildQueuePanel gives them.
+        final Map<String, Object> queue = obj(json.get("queue"));
+        final List<Map<String, Object>> queued = list(queue.get("queue")).stream()
+            .map(ColonyJsonTest::obj).collect(Collectors.toList());
+        assertEquals(colony.getBuildQueue().stream().map(t -> t.getId())
+            .collect(Collectors.toList()),
+            queued.stream().map(q -> (String)q.get("type")).collect(Collectors.toList()));
+        final Map<String, Map<String, Object>> buildable = new java.util.LinkedHashMap<>();
+        for (Object o : list(queue.get("buildings"))) buildable.put((String)obj(o).get("type"), obj(o));
+        for (Object o : list(queue.get("units"))) buildable.put((String)obj(o).get("type"), obj(o));
+        final Map<String, Object> open = buildable.values().stream()
+            .filter(e -> e.get("reason") == null).findFirst().orElse(null);
+        assertNotNull(open, "something can be queued: " + buildable);
+        assertTrue(!list(open.get("required")).isEmpty(), "it shows what it costs");
+        // Locked buildings are listed with what they lack.
+        final Map<String, Object> university = buildable.get("model.building.university");
+        assertNotNull(university, "locked buildings are listed too: " + buildable.keySet());
+        assertTrue(((String)university.get("reason")).startsWith("Requires: "), "" + university);
+        // The buy button prices the current build.
+        final Map<String, Object> buy = obj(queue.get("buy"));
+        assertEquals((long)colony.getPriceForBuilding(), buy.get("price"));
     }
 }
