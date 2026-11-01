@@ -56,6 +56,8 @@ export interface ClientExports {
   endTurn(): void;
   /** Declare independence (DeclareIndependenceAction). */
   declareIndependence(): void;
+  /** Show the Europe panel (EuropeAction). */
+  showEurope(): void;
   /** The standing orders of the active unit. */
   fortify(): void;
   sentry(): void;

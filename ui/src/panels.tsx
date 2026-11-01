@@ -10,7 +10,7 @@ import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } fro
 import { ColonyPanel } from './colony-panel';
 import type { Dialog, Dialogs } from './dialogs';
 import { GoodsAmount, WindowFrame, type Art } from './frame';
-import type { GuiEvents, TradeItem, TradeOption, TradeRouteDraft } from './webgui';
+import type { EuropeUnit, GuiEvents, TradeItem, TradeOption, TradeRouteDraft } from './webgui';
 
 export type { Art };
 
@@ -771,6 +771,87 @@ function RoutesPanel({ d, art, routes }: { d: Of<'tradeRoutes'>; art: Art; route
   );
 }
 
+type Europe = GuiEvents['europe'];
+
+/** A unit or ship of Europe's panel, with its picture. */
+function UnitChip({ u, art, pick, on }: { u: EuropeUnit; art: Art; pick?: () => void; on?: boolean }) {
+  const inner = (
+    <>
+      <Pic keys={u.images} art={art} />
+      <span className="name">{u.name}</span>
+    </>
+  );
+  return pick ? (
+    <button className="chip" data-unit={u.id} aria-pressed={on} onClick={pick}>
+      {inner}
+    </button>
+  ) : (
+    <div className="chip" data-unit={u.id}>
+      {inner}
+    </div>
+  );
+}
+
+/**
+ * Europe, arranged as EuropePanel arranges it, read-only: the ships sailing to America and to Europe, the
+ * ships in port with the cargo of the one picked, the docks, and the market with each goods' sell/buy price
+ * (MarketLabel's). The gold is beside the title.
+ */
+function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
+  const e: Europe = d.event;
+  const [picked, setPicked] = useState(e.selected);
+  const ship = e.inPort.find((u) => u.id === picked) ?? null;
+  const list = (heading: string, kind: string, units: EuropeUnit[], pick?: (u: EuropeUnit) => () => void) => (
+    <section className="box" data-list={kind}>
+      <h3>{heading}</h3>
+      <div className="chips">
+        {units.map((u) => (
+          <UnitChip key={u.id} u={u} art={art} pick={pick?.(u)} on={u.id === picked} />
+        ))}
+      </div>
+    </section>
+  );
+  return (
+    <Panel d={d} ok={e.ok}>
+      <div className="europe-title">
+        <h2>{e.title}</h2>
+        <span className="gold">
+          {e.goldLabel}: <b data-gold>{e.gold}</b>
+        </span>
+      </div>
+      <div className="europe">
+        {list(e.headings.toAmerica, 'toAmerica', e.toAmerica)}
+        {list(e.headings.toEurope, 'toEurope', e.toEurope)}
+        {list(e.headings.inPort, 'inPort', e.inPort, (u) => () => setPicked(u.id))}
+        {list(e.headings.docks, 'docks', e.docks)}
+        <section className="box cargo" data-list="cargo">
+          <h3>{e.headings.cargo}</h3>
+          <div className="chips">
+            {ship?.cargo?.map((c) => (
+              <div className="chip" key={`${c.kind}/${c.id}`} data-cargo={c.kind}>
+                <Pic keys={c.images} art={art} />
+                <span className="name">{c.kind === 'goods' ? `${c.amount} ${c.name}` : c.name}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+        <section className="box market" data-list="market">
+          <div className="goods">
+            {e.market.map((g) => (
+              <div className="good" key={g.id} data-goods={g.id} data-disabled={!g.enabled || undefined} title={g.name}>
+                <Pic keys={g.images} art={art} />
+                <span className="price">
+                  {g.sell}/{g.buy}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+    </Panel>
+  );
+}
+
 function Body({
   d,
   goTo,
@@ -785,6 +866,8 @@ function Body({
   routes: RouteButtons;
 }) {
   switch (d.kind) {
+    case 'europe':
+      return <EuropePanel d={d} art={art} />;
     case 'tradeRoutes':
       return <RoutesPanel d={d} art={art} routes={routes} />;
     case 'confirm':

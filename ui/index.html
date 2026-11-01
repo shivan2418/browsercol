@@ -398,6 +398,68 @@
         max-height: 20px;
         vertical-align: middle;
       }
+      /* Europe (src/panels.tsx), as EuropePanel lays it out: the ships, the docks and cargo, the market. */
+      .dialog[data-kind='europe'] {
+        width: min(60em, 94vw);
+        max-width: none;
+      }
+      .europe-title {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+      }
+      .europe {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+      .europe .box {
+        background: var(--box);
+        border: 1px solid var(--line);
+        padding: 4px 8px;
+        min-height: 4.5em;
+      }
+      .europe .box h3 {
+        margin: 0 0 4px;
+      }
+      .europe [data-list='docks'] {
+        grid-row: span 2;
+      }
+      .europe .market {
+        grid-column: 1 / -1;
+      }
+      .europe .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .europe .chip {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        color: var(--ink);
+      }
+      .europe button.chip[aria-pressed='true'] {
+        outline: 2px solid var(--accent);
+        outline-offset: -3px;
+      }
+      .europe .goods {
+        display: grid;
+        grid-template-columns: repeat(8, 1fr);
+        gap: 4px 8px;
+      }
+      .europe .good {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+      }
+      .europe .good[data-disabled] {
+        opacity: 0.4;
+      }
+      .europe .price {
+        font-variant-numeric: tabular-nums;
+      }
       .dialog .buttons {
         display: flex;
         justify-content: flex-end;

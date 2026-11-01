@@ -31,8 +31,9 @@ describe('the side panel', () => {
     render(<Side turn="1" info="" unasked={[]} status="" orders={[]} run={(c) => ran.push(c)} {...saving()} />);
     fireEvent.click(screen.getByRole('button', { name: 'Build colony (B)' }));
     fireEvent.click(screen.getByRole('button', { name: 'End turn (Enter)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Europe' }));
     fireEvent.click(screen.getByRole('button', { name: 'Declare independence' }));
-    expect(ran).toEqual([{ k: 'buildColony' }, { k: 'endTurn' }, { k: 'declareIndependence' }]);
+    expect(ran).toEqual([{ k: 'buildColony' }, { k: 'endTurn' }, { k: 'showEurope' }, { k: 'declareIndependence' }]);
   });
 
   it('enables the orders the active unit can take, and disables the rest', () => {
