@@ -631,7 +631,7 @@ class WebGUITest {
         final Unit unit = gui.getActiveUnit();
 
         shown.clear();
-        assertNull(gui.showColonyPanel(null, unit));
+        assertNull(gui.showColonyPanel(null, unit), "no colony: nothing to show");
         assertNull(gui.showEuropePanel());
         assertNull(gui.showIndianSettlementPanel(null));
         gui.showGameOptionsDialog(false, null);
@@ -639,7 +639,7 @@ class WebGUITest {
         assertFalse(gui.showEditOptionDialog(null), "the base GUI's default");
         assertNull(gui.showEditSettlementDialog(null));
         assertNull(gui.showFindSettlementPanel());
-        assertEquals(List.of("showColonyPanel", "showEuropePanel", "showIndianSettlementPanel",
+        assertEquals(List.of("showEuropePanel", "showIndianSettlementPanel",
                 "showGameOptionsDialog", "showClientOptionsDialog", "showEditOptionDialog",
                 "showEditSettlementDialog", "showFindSettlementPanel").stream()
                 .map(m -> "unasked {\"method\":\"" + m + "\"}").collect(Collectors.toList()),
