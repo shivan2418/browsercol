@@ -15,10 +15,12 @@
 //                preset sets the nation, difficulty, options and map seed (debug)
 //   ?tileset=ID  a Tileset built beside the default, art/<ID>.json (e.g. test)
 //   ?renderer=canvas2d  draw with the Canvas 2D fallback, not PixiJS (debug)
+//   ?theme=dark  the dark palette of theme.css, in place of parchment
 import clientUrl from '../generated/client.wasm?url';
 import dataUrl from '../generated/data.json?url';
 import runtimeUrl from '../generated/teavm-runtime.js?url';
 import { createRoot } from 'react-dom/client';
+import './theme.css';
 import { startPage, type ClientExports, type Scope, type ToWorker } from './channel';
 import { debugMessage, debugMode, describeAnswer, type DebugRequest } from './debug';
 import { dialogs } from './dialogs';
@@ -57,6 +59,8 @@ const loadId = params.has('load') ? Number(params.get('load')) : undefined;
 const preset = params.get('preset');
 const debug = debugMode(params);
 const tileset = params.get('tileset');
+const theme = params.get('theme');
+if (theme) document.documentElement.dataset.theme = theme;
 const mapHost = document.getElementById('map')!;
 /** The map's size: its host's box, which the page's CSS gives what the side panel leaves. */
 const mapSize = (): [number, number] => [mapHost.clientWidth, mapHost.clientHeight];
