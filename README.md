@@ -63,7 +63,7 @@ shows what FreeCol's does, read-only: buildings, tiles and who works them,
 units outside and in port, the warehouse, net production, population and
 the current build, and follows the colony as it changes. Click one of your
 units to select it (click again to cycle through a stack, units aboard ships
-included), click a tile to send the active unit there, move one step with
+included; not in a colony, where a click opens the panel, as in FreeCol), click a tile to send the active unit there, move one step with
 the arrow keys or numpad, `W` for the next unit, `Space` to leave it for
 this turn, `F` to fortify it, `S` to sentry it, `D` to disband it, `P` to
 plow its tile, `C` to clear a forest, `R` to build a road, `H` to send it

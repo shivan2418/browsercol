@@ -47,21 +47,11 @@ function Goods({ g, art, text }: { g: GoodsAmount; art: Art; text?: string }) {
 
 const signed = (n: number) => (n > 0 ? `+${n}` : String(n));
 
-/** A boxed part of the panel; its caption, if any, names it. */
-function Box({
-  label,
-  caption,
-  className,
-  children,
-}: {
-  label: string;
-  caption?: boolean;
-  className: string;
-  children: ReactNode;
-}) {
+/** A boxed part of the panel, named by data-part; a caption (localized text from the Engine) also names it to assistive tech. */
+function Box({ part, caption, children }: { part: string; caption?: string; children: ReactNode }) {
   return (
-    <section className={`box ${className}`} aria-label={label}>
-      {caption && <span className="cap">{label}</span>}
+    <section className={`box ${part}`} data-part={part} aria-label={caption}>
+      {caption !== undefined && <span className="cap">{caption}</span>}
       {children}
     </section>
   );
@@ -73,7 +63,7 @@ export function ColonyPanel({ colony: c, art }: { colony: ColonyView; art: Art }
     <div className="colony">
       <h2>{c.name}</h2>
       <div className="cbody">
-        <Box label="population" className="population">
+        <Box part="population">
           <Img keys={p.rebelShield} art={art} className="shield" />
           <span>
             {p.rebels} <b>{`${p.rebelPercent}%`}</b>
@@ -112,7 +102,7 @@ export function ColonyPanel({ colony: c, art }: { colony: ColonyView; art: Art }
           ))}
         </div>
         <div className="upper">
-          <section className="tiles" aria-label="tiles" style={{ width: TILE_W * 3, height: TILE_H * 3 }}>
+          <section className="tiles" data-part="tiles" style={{ width: TILE_W * 3, height: TILE_H * 3 }}>
             {c.tiles.map((t) => {
               const [x, y] = t.pos;
               return (
@@ -140,14 +130,14 @@ export function ColonyPanel({ colony: c, art }: { colony: ColonyView; art: Art }
               );
             })}
           </section>
-          <Box label="production" className="net">
+          <Box part="net">
             {c.production.map((g) => (
               <span key={g.type} className={g.amount < 0 ? 'neg' : ''}>
                 <Goods g={g} art={art} text={signed(g.amount)} />
               </span>
             ))}
           </Box>
-          <Box label="construction" className="construction">
+          <Box part="construction">
             {c.construction === null ? (
               <span className="muted">{c.nothing}</span>
             ) : (
@@ -162,7 +152,8 @@ export function ColonyPanel({ colony: c, art }: { colony: ColonyView; art: Art }
                       <span className="bar">
                         <i style={{ width: `${Math.min(100, (100 * r.available) / Math.max(1, r.needed))}%` }} />
                       </span>
-                      <span>{`${r.available}/${r.needed}`}</span>
+                      {/* FreeColProgressBar's text: what is there, what comes next turn, and what is needed. */}
+                      <span>{`${r.available}${r.produced < 0 ? '-' : '+'}${Math.abs(r.produced)}/${r.needed}`}</span>
                     </span>
                   ))}
                 </div>
@@ -170,13 +161,13 @@ export function ColonyPanel({ colony: c, art }: { colony: ColonyView; art: Art }
             )}
           </Box>
         </div>
-        <Box label={c.inPort.title} caption className="port">
+        <Box part="port" caption={c.inPort.title}>
           <Units units={c.inPort.units} art={art} />
         </Box>
-        <Box label={c.outside.title} caption className="outside">
+        <Box part="outside" caption={c.outside.title}>
           <Units units={c.outside.units} art={art} />
         </Box>
-        <Box label={c.warehouse.title} caption className="warehouse">
+        <Box part="warehouse" caption={c.warehouse.title}>
           {c.warehouse.goods.map((g) => (
             <span
               key={g.type}

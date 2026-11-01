@@ -180,13 +180,11 @@ final class ColonyJson {
                         }
                     }
                 }
-                final String type = t.getType().getId();
                 out.add(new Json().put("id", ct.getId())
                     .putRaw("pos", "[" + x + "," + y + "]")
                     .put("name", Messages.message(ct.getLabel()))
-                    .putRaw("terrain", "[" + Json.quote("image.tile." + type + ".center") + "]")
-                    .putRaw("forest", t.getType().isForested()
-                        ? "[" + Json.quote("image.tileforest." + type) + "]" : "null")
+                    .putRaw("terrain", MapJson.terrainKeyJson(t.getType()))
+                    .putRaw("forest", MapJson.forestKeyJson(t.getType()))
                     .put("centre", ct.isColonyCenterTile())
                     .put("ours", t.getOwningSettlement() == colony)
                     .putRaw("workers", unitList(ct.getUnitList()))
