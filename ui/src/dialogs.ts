@@ -1,9 +1,10 @@
 // The Browser UI's dialogs, shown one at a time in the order the WebGUI
 // sends them: its questions, which the Engine waits on, and the panels its
-// events show, which wait for nothing. A question goes before the panels,
-// as Swing's modal dialogs show over its panels: one asked from a panel (the
-// select amount dialog from the colony panel, say) shows at once, and the
-// panel again once it is answered. A store, so the React components
+// events show, which wait for nothing. A question asked while a panel is on
+// screen goes before it, as Swing's modal dialogs show over its panels: one
+// asked from a panel (the select amount dialog from the colony panel, say)
+// shows at once, after any already over that panel, and the panel again once
+// they are answered. Otherwise dialogs come in the order sent. A store, so the React components
 // (panels.tsx) draw the open one and the page's keys stay off the map while
 // one is open.
 import type { GuiEvents, GuiQuestions } from './webgui';
@@ -71,10 +72,14 @@ export function dialogs(): Dialogs {
   const changed = () => {
     for (const l of listeners) l();
   };
+  /** The panels that questions were put in front of: they were on screen. */
+  const covered = new Set<number>();
   const add = (kind: string, payload: unknown, key: 'ask' | 'event', settle: (a: unknown) => void) => {
+    // The first panel, behind the questions at the head of the queue: on screen if none are, or if they cover it.
     const panel = queue.findIndex((d) => !('ask' in d));
-    const at = key === 'ask' && panel >= 0 ? panel : queue.length;
-    queue.splice(at, 0, make(kind, payload, key, settle));
+    const over = key === 'ask' && panel >= 0 && (panel === 0 || covered.has(queue[panel].id));
+    if (over) covered.add(queue[panel].id);
+    queue.splice(over ? panel : queue.length, 0, make(kind, payload, key, settle));
     changed();
   };
 
@@ -85,7 +90,9 @@ export function dialogs(): Dialogs {
       const i = queue.findIndex((d) => d.kind === kind && same((d as unknown as { event: typeof event }).event));
       // A new dialog id, so that the panel starts afresh rather than keeping what React held.
       if (i < 0) return add(kind, event, 'event', () => {});
-      queue[i] = make(kind, event, 'event', () => {});
+      const next = make(kind, event, 'event', () => {});
+      if (covered.has(queue[i].id)) covered.add(next.id);
+      queue[i] = next;
       changed();
     },
     shown: <K extends PanelKind>(kind: K) =>
