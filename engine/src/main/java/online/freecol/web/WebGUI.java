@@ -197,6 +197,12 @@ import net.sf.freecol.common.option.OptionGroup;
  *         icon}], error, and the labels of the panel's buttons}; a panel that
  *         is open is replaced. error is why the last change was refused
  *         (FreeCol's reason), null if it was not</td></tr>
+ * <tr><td>showReportColonyPanel, showReportLabourPanel,
+ *     showReportLabourDetailPanel, showCompactLabourReport</td>
+ *     <td>event report</td>
+ *     <td>one of the reports {@link Reports} describes, told apart by its
+ *         report field; a report that is open is replaced, so a link to a
+ *         detail report opens it in place</td></tr>
  * <tr><td>showIndianSettlementPanel</td><td>event indianSettlement</td>
  *     <td>{name, kind, tension, worthScouting, images, labels, missionary,
  *         skill, mostHated, wanted: [...], ok, tile, at}; as {@link SettlementJson}
@@ -1502,6 +1508,56 @@ public class WebGUI extends GUI {
     void showTradeRoutes(String error) {
         this.ui.show("tradeRoutes",
                      TradeRoutes.json(getFreeColClient(), error));
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * Shows the classic colony report ({@link Reports#colony}); the compact
+     * colony report is not made, so the colony report option is not read.
+     */
+    @Override
+    public FreeColPanel showReportColonyPanel() {
+        this.ui.show("report", Reports.colony(getMyPlayer()));
+        return null;
+    }
+
+    /** {@inheritDoc} Shows the labour report ({@link Reports#labour}). */
+    @Override
+    public FreeColPanel showReportLabourPanel() {
+        this.ui.show("report", Reports.labour(getMyPlayer()));
+        return null;
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * Shows the details ({@link Reports#labourDetail}) of the unit type,
+     * counted again from the player's units, so the data is not used.
+     */
+    @Override
+    public FreeColPanel showReportLabourDetailPanel(net.sf.freecol.common.model.UnitType unitType,
+        java.util.Map<net.sf.freecol.common.model.UnitType, java.util.Map<Location, Integer>> data,
+        net.sf.freecol.common.model.TypeCountMap<net.sf.freecol.common.model.UnitType> unitCount,
+        List<Colony> colonies) {
+        this.ui.show("report", Reports.labourDetail(getMyPlayer(), unitType));
+        return null;
+    }
+
+    /** {@inheritDoc} Shows the compact labour report ({@link Reports#compactLabour}). */
+    @Override
+    public FreeColPanel showCompactLabourReport() {
+        this.ui.show("report", Reports.compactLabour(getFreeColClient(), null));
+        return null;
+    }
+
+    /** {@inheritDoc} Shows the compact labour report of one kind of unit (all colonists for the summary). */
+    @Override
+    public FreeColPanel showCompactLabourReport(
+        net.sf.freecol.client.gui.panel.report.LabourData.UnitData unitData) {
+        this.ui.show("report", Reports.compactLabour(getFreeColClient(),
+                                                     unitData.getUnitType()));
+        return null;
     }
 
     // Not asked yet: reported, then the base GUI's default.

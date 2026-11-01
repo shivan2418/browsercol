@@ -90,6 +90,12 @@ export interface ClientExports {
   payForBuilding(colonyId: string): void;
   /** Send the active unit to a destination; the player is asked where. */
   selectDestination(): void;
+  /** Open a report of the Report menu by name: colony, labour or compactLabour (Commands.showReport). */
+  report(name: string): void;
+  /** Open the details a report links to, of a unit type by id (Commands.showReportDetail). */
+  reportDetail(name: string, id: string): void;
+  /** Open the panel of one of our colonies, by id, as a link in a report does. */
+  showColony(id: string): void;
   /** Open the trade routes panel (TradeRouteAction). */
   tradeRoutes(): void;
   /** Create or change a trade route: a TradeRouteDraft as JSON. The panel is sent again. */

@@ -12,6 +12,7 @@ import type { Dialog, Dialogs } from './dialogs';
 import { europeButtons } from './europe-client';
 import { GoodsAmount, WindowFrame, type Art } from './frame';
 import { OptionEditor } from './option-editor';
+import { ReportPanel } from './reports';
 import type { EuropeUnit, GuiEvents, SettlementEntry, TradeItem, TradeOption, TradeRouteDraft } from './webgui';
 
 export type { Art };
@@ -1056,6 +1057,8 @@ function Body({
           <MessageList event={d.event} goTo={goTo} art={art} report={report} />
         </Panel>
       );
+    case 'report':
+      return <ReportPanel d={d} e={d.event} art={art} />;
     case 'colony':
       return (
         <Panel d={d} title={d.event.name} ok={d.event.ok}>

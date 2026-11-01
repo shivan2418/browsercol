@@ -16,7 +16,8 @@ export type PanelKind =
   | 'colony'
   | 'tradeRoutes'
   | 'europe'
-  | 'options';
+  | 'options'
+  | 'report';
 
 type Asked = {
   [K in keyof GuiQuestions]: { kind: K; ask: GuiQuestions[K]['ask']; done: (a: GuiQuestions[K]['answer']) => void };

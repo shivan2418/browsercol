@@ -571,6 +571,35 @@ async function play(page, url) {
     );
   }
 
+  // The Report menu opens each report, as a player would: its window is the dialog the answerer then
+  // closes. The colony report shows the colonists of our colony. Their figures are ReportsTest's to check.
+  for (const [item, title] of [
+    ['Colony report', 'Colony Advisor'],
+    ['Labour report', 'Labor Advisor'],
+    ['Compact labour report', 'Labor Advisor'],
+  ]) {
+    await noDialog(`opening the ${item}`);
+    const before = await page.evaluate(() => window.__dialogs.length);
+    await page.getByRole('menuitem', { name: 'Report', exact: true }).click();
+    await page.getByRole('menuitem', { name: item, exact: true }).click();
+    const opened = await page
+      .waitForFunction(([n, t]) => window.__dialogs.slice(n).includes(`report: ${t}`), [before, title], {
+        timeout: 10000,
+      })
+      .catch(() => false);
+    if (!opened) {
+      const last = await page.evaluate(() => window.__dialogs.slice(-3));
+      throw new Error(`the ${item} did not open: ${JSON.stringify(last)}`);
+    }
+    if (item === 'Colony report') {
+      const named = await page.evaluate(
+        (id) => window.__dialogUnits.some((d) => d.kind === 'report' && d.units.includes(id)),
+        founder,
+      );
+      if (!named) throw new Error(`the colony report does not show the founder ${founder}`);
+    }
+  }
+
   // The ship is still at sea: select it and fortify it, as a player would.
   // The side panel's Fortify button follows the Engine's orders, and the
   // ship is drawn in grey once its turn has ended.
