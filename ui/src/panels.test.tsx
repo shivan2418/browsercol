@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { dialogs } from './dialogs';
 import { DialogHost, type Art, type ReportButtons, type RouteButtons } from './panels';
-import type { Choice, GuiEvents, GuiQuestions, TradeRouteDraft } from './webgui';
+import type { Choice, EuropeUnit, GuiEvents, GuiQuestions, TradeRouteDraft } from './webgui';
 
 afterEach(cleanup);
 
@@ -896,6 +896,93 @@ describe('the trade routes panel', () => {
     key('Escape');
     expect(box.current()?.kind).toBe('tradeRoutes');
     expect(screen.getByRole('button', { name: 'Fur run (2)' })).toBeTruthy();
+    key('Escape');
+    expect(box.current()).toBeNull();
+  });
+});
+
+describe('the Europe panel', () => {
+  const unit = (id: string, name: string, more: Partial<EuropeUnit> = {}): EuropeUnit => ({
+    id,
+    name,
+    images: ['image.unit.model.unit.caravel'],
+    selected: false,
+    ...more,
+  });
+  const caravel = unit('unit:1', 'Caravel', {
+    selected: true,
+    cargo: [{ kind: 'goods', id: 'model.goods.food', name: 'Food', amount: 50, images: [] }],
+  });
+  const galleon = unit('unit:2', 'Galleon', {
+    cargo: [{ kind: 'unit', id: 'unit:9', name: 'Free Colonist', amount: 1, images: [] }],
+  });
+  const europe: GuiEvents['europe'] = {
+    title: 'Europe',
+    gold: 1234,
+    goldLabel: 'Gold',
+    ok: 'Close',
+    headings: {
+      toAmerica: 'Sailing to America',
+      toEurope: 'Sailing to Europe',
+      inPort: 'In port',
+      docks: 'Docks',
+      cargo: 'Cargo',
+    },
+    toAmerica: [unit('unit:3', 'Merchantman')],
+    toEurope: [],
+    inPort: [caravel, galleon],
+    docks: [unit('unit:4', 'Expert Farmer', { images: [] })],
+    selected: 'unit:1',
+    market: [
+      { id: 'model.goods.food', name: 'Food', images: [], sell: 1, buy: 2, enabled: true },
+      { id: 'model.goods.rum', name: 'Rum', images: [], sell: 5, buy: 6, enabled: false },
+    ],
+  };
+  /** The names in one of the panel's lists. */
+  const names = (list: string) =>
+    [...document.querySelectorAll(`[data-list=${list}] .chip .name`)].map((n) => n.textContent);
+
+  it('lists the ships, the docks, the gold and every goods’ prices under FreeCol’s headings', () => {
+    const { box } = host();
+    act(() => box.show('europe', europe));
+    expect(screen.getByRole('heading', { name: 'Europe' })).toBeTruthy();
+    expect(document.querySelector('[data-gold]')?.textContent).toBe('1234');
+    expect(screen.getByRole('heading', { name: 'Sailing to America' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Sailing to Europe' })).toBeTruthy();
+    expect(names('toAmerica')).toEqual(['Merchantman']);
+    expect(names('toEurope')).toEqual([]);
+    expect(names('inPort')).toEqual(['Caravel', 'Galleon']);
+    expect(names('docks')).toEqual(['Expert Farmer']);
+    const prices = [...document.querySelectorAll('[data-goods]')].map((g) => [
+      g.getAttribute('data-goods'),
+      g.querySelector('.price')?.textContent,
+      g.hasAttribute('data-disabled'),
+    ]);
+    expect(prices).toEqual([
+      ['model.goods.food', '1/2', false],
+      ['model.goods.rum', '5/6', true],
+    ]);
+    // The art of the unit's key is shown.
+    expect(document.querySelector('[data-list=toAmerica] img')?.getAttribute('src')).toBe('art/caravel.png');
+  });
+
+  it('shows the cargo of the selected ship, and of another when it is picked', () => {
+    const { box } = host();
+    act(() => box.show('europe', europe));
+    expect(names('cargo')).toEqual(['50 Food']);
+    fireEvent.click(screen.getByRole('button', { name: 'Galleon' }));
+    expect(names('cargo')).toEqual(['Free Colonist']);
+  });
+
+  it('closes on the button and Escape, and a second panel replaces the open one', () => {
+    const { box } = host();
+    act(() => box.show('europe', europe));
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(box.current()).toBeNull();
+
+    act(() => box.show('europe', europe));
+    act(() => box.replace('europe', { ...europe, gold: 99 }));
+    expect(document.querySelector('[data-gold]')?.textContent).toBe('99');
     key('Escape');
     expect(box.current()).toBeNull();
   });

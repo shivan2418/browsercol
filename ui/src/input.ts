@@ -12,6 +12,7 @@ export type Command =
   | { k: 'buildColony' }
   | { k: 'endTurn' }
   | { k: 'declareIndependence' }
+  | { k: 'showEurope' }
   | { k: 'fortify' }
   | { k: 'sentry' }
   | { k: 'skip' }

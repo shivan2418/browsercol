@@ -303,6 +303,7 @@ const gui: GuiHandlers = {
     eventPanel: (e) => dialogQueue.show('eventPanel', e),
     highScores: (e) => dialogQueue.show('highScores', e),
     tradeRoutes: (e) => dialogQueue.replace('tradeRoutes', e),
+    europe: (e) => dialogQueue.replace('europe', e),
     messages: (e) => {
       if (e.regrouped) dialogQueue.replace('messages', e, (open) => open.title === e.title);
       else if (e.messages.length > 0) dialogQueue.show('messages', e);

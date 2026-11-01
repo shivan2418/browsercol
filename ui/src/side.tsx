@@ -40,6 +40,7 @@ const BUTTONS: [string, Command][] = [
   ['Next unit (W)', { k: 'nextUnit' }],
   ['Build colony (B)', { k: 'buildColony' }],
   ['End turn (Enter)', { k: 'endTurn' }],
+  ['Europe', { k: 'showEurope' }],
   ['Declare independence', { k: 'declareIndependence' }],
   ['Trade routes', { k: 'tradeRoutes' }],
 ];

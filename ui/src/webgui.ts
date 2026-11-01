@@ -88,6 +88,25 @@ export interface GuiEvents {
     ok: string;
     cancel: string;
   };
+  /**
+   * Europe, as FreeCol's EuropePanel shows it (read-only): the ships sailing each way, the ships in port,
+   * the units on the docks, the market and the gold. Texts are localized; images are resource keys, best
+   * first. Market prices: sell is what Europe pays, buy what it asks. selected is the ship in port whose
+   * cargo shows first.
+   */
+  europe: {
+    title: string;
+    gold: number;
+    goldLabel: string;
+    ok: string;
+    headings: { toAmerica: string; toEurope: string; inPort: string; docks: string; cargo: string };
+    toAmerica: EuropeUnit[];
+    toEurope: EuropeUnit[];
+    inPort: EuropeUnit[];
+    docks: EuropeUnit[];
+    selected: Id | null;
+    market: { id: Id; name: string; images: string[]; sell: number; buy: number; enabled: boolean }[];
+  };
   /** A dialog the Browser UI cannot show yet; the controller got FreeCol's base default. */
   unasked: { method: string };
 }
@@ -204,6 +223,15 @@ export interface TradeRouteDraft {
   name: string;
   silent: boolean;
   stops: { place: Id; cargo: string[] }[];
+}
+
+/** A unit in Europe or on its way; a carrier also lists its cargo. */
+export interface EuropeUnit {
+  id: Id;
+  name: string;
+  images: string[];
+  selected: boolean;
+  cargo?: { kind: 'unit' | 'goods'; id: Id; name: string; images: string[]; amount: number }[];
 }
 
 export interface Choice {

@@ -141,6 +141,8 @@ function nextStep(m, ship) {
 
 /** How long each screenshot of a dialog took, for the report. */
 const shotTimes = [];
+/** What the Europe panel showed when it was shot, as it was asked for by the Europe button. */
+const europeSeen = [];
 
 async function play(page, url) {
   // Keep every map view the client Engine sends (ui/src/channel.ts calls
@@ -162,6 +164,20 @@ async function play(page, url) {
       },
     });
   });
+  /** The Europe panel, as the page draws it: its headings, its lists, its goods and its gold. */
+  const europePanel = () =>
+    page.evaluate(() => {
+      const d = document.querySelector('[role=dialog][data-kind=europe]');
+      return (
+        d && {
+          headings: [...d.querySelectorAll('h2, h3')].map((h) => h.textContent),
+          lists: [...d.querySelectorAll('[data-list]')].map((l) => l.dataset.list),
+          goods: d.querySelectorAll('[data-goods]').length,
+          prices: [...d.querySelectorAll('.price')].map((p) => p.textContent),
+          gold: Number(d.querySelector('[data-gold]')?.textContent),
+        }
+      );
+    });
   // A dialog with images is shot once its images have loaded: the first three of each kind.
   const browserName = page.context().browser().browserType().name();
   // The dialog stays open while it is shot, which Firefox can take long over (on CI, longer than the 10 s
@@ -172,6 +188,7 @@ async function play(page, url) {
     const t = Date.now();
     shooting++;
     try {
+      if (kind === 'europe') europeSeen.push(await europePanel());
       await page.screenshot({ path: path.join(dist, `../.cache/play-${browserName}-${kind}-${n}.png`) });
       shotTimes.push(`${kind} ${n}: ${((Date.now() - t) / 1000).toFixed(1)} s`);
     } catch (ex) {
@@ -552,6 +569,27 @@ async function play(page, url) {
   if (!asked) {
     const dialogs = await page.evaluate(() => window.__dialogs);
     throw new Error(`the Go To order did not ask for a destination: ${JSON.stringify(dialogs)}`);
+  }
+
+  // The Europe button opens FreeCol's Europe panel: its headings and lists, and the market's goods with
+  // each one's sell/buy price. The panel is read while it is shot, before the script closes it.
+  await noDialog('pressing the Europe button');
+  await page.locator('button[data-command=showEurope]').click();
+  await page.waitForFunction(() => (window.__dialogs ?? []).some((d) => d.startsWith('europe: ')), null, {
+    timeout: 10000,
+  });
+  for (let i = 0; i < 200 && europeSeen.length === 0; i++) await new Promise((ok) => setTimeout(ok, 50));
+  const europe = europeSeen[0];
+  if (!europe) throw new Error('the Europe button showed no Europe panel with images to shoot');
+  const lists = ['toAmerica', 'toEurope', 'inPort', 'docks', 'cargo', 'market'];
+  if (!europe.headings[0] || europe.headings.length < 6 || !lists.every((l) => europe.lists.includes(l))) {
+    throw new Error(`the Europe panel lacks FreeCol's headings or lists: ${JSON.stringify(europe)}`);
+  }
+  const statusGold = Number(/Gold:\s*(-?\d+)/.exec((await view()).statusLine)?.[1]);
+  if (europe.goods < 10 || !europe.prices.every((p) => /^\d+\/\d+$/.test(p)) || europe.gold !== statusGold) {
+    throw new Error(
+      `the Europe panel's market or gold is wrong (status line gold ${statusGold}): ${JSON.stringify(europe)}`,
+    );
   }
 
   // The art the dialogs show, from events as the client Engine sends them (the page's fcShow): the
