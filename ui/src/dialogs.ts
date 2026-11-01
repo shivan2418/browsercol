@@ -1,6 +1,9 @@
 // The Browser UI's dialogs, shown one at a time in the order the WebGUI
 // sends them: its questions, which the Engine waits on, and the panels its
-// events show, which wait for nothing. A store, so the React components
+// events show, which wait for nothing. A question goes before the panels,
+// as Swing's modal dialogs show over its panels: one asked from a panel (the
+// select amount dialog from the colony panel, say) shows at once, and the
+// panel again once it is answered. A store, so the React components
 // (panels.tsx) draw the open one and the page's keys stay off the map while
 // one is open.
 import type { GuiEvents, GuiQuestions } from './webgui';
@@ -69,7 +72,9 @@ export function dialogs(): Dialogs {
     for (const l of listeners) l();
   };
   const add = (kind: string, payload: unknown, key: 'ask' | 'event', settle: (a: unknown) => void) => {
-    queue.push(make(kind, payload, key, settle));
+    const panel = queue.findIndex((d) => !('ask' in d));
+    const at = key === 'ask' && panel >= 0 ? panel : queue.length;
+    queue.splice(at, 0, make(kind, payload, key, settle));
     changed();
   };
 

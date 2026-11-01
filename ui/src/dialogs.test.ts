@@ -29,6 +29,26 @@ describe('dialogs', () => {
     expect(changes, 'two added, two closed').toBe(4);
   });
 
+  it('shows a question asked while a panel is on screen over it, and the panel again once it is answered', async () => {
+    const d = dialogs();
+    d.show('error', error);
+    const panel = d.current()!;
+    d.show('error', { ...error, text: 'Later' });
+    const answer = d.ask('confirm', confirm);
+    const asked = d.current()!;
+    expect(asked.kind).toBe('confirm');
+    // A second question waits for the first, as before.
+    void d.ask('confirm', { ...confirm, text: 'Again?' });
+    expect(d.current()).toBe(asked);
+    if (asked.kind !== 'confirm') return;
+    asked.done(false);
+    expect(await answer).toBe(false);
+    const next = d.current()!;
+    expect(next.kind === 'confirm' && next.ask.text).toBe('Again?');
+    if (next.kind === 'confirm') next.done(true);
+    expect(d.current()).toBe(panel);
+  });
+
   it('replaces a panel with another of its kind, in its place', () => {
     const d = dialogs();
     const messages = (title: string | null) => ({ title, messages: [], ok: 'OK' });
