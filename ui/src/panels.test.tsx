@@ -1048,3 +1048,61 @@ describe('the Europe panel', () => {
     expect(box.current()).toBeNull();
   });
 });
+
+describe('the options panel', () => {
+  const options: GuiEvents['options'] = {
+    kind: 'game',
+    title: 'Game Options',
+    ok: 'Close',
+    root: {
+      id: 'gameOptions',
+      kind: 'group',
+      label: 'Game Options',
+      description: null,
+      children: [
+        {
+          id: 'gameOptions.map',
+          kind: 'group',
+          label: 'Map',
+          description: null,
+          children: [
+            { id: 'model.option.fogOfWar', kind: 'boolean', label: 'Fog of war', description: null, value: true },
+            {
+              id: 'model.option.turnsToSail',
+              kind: 'integer',
+              label: 'Turns to sail',
+              description: null,
+              value: 3,
+              min: 1,
+              max: 10,
+            },
+          ],
+        },
+      ],
+    },
+  };
+
+  it('shows the group read-only under its title', () => {
+    const { box } = host();
+    act(() => box.show('options', options));
+    expect(screen.getByRole('heading', { name: 'Game Options' })).toBeTruthy();
+    expect(screen.getByText('Map')).toBeTruthy();
+    expect((screen.getByLabelText('Turns to sail') as HTMLInputElement).value).toBe('3');
+    const controls = [...document.querySelectorAll<HTMLInputElement>('[data-option] input')];
+    expect(controls).toHaveLength(2);
+    expect(controls.every((c) => c.disabled)).toBe(true);
+  });
+
+  it('closes on the button, and the difficulty panel replaces only an open difficulty panel', () => {
+    const { box } = host();
+    act(() => box.show('options', options));
+    fireEvent.click(document.querySelector('[data-answer="close"]')!);
+    expect(box.current()).toBeNull();
+
+    act(() => box.show('options', options));
+    act(() =>
+      box.replace('options', { ...options, kind: 'difficulty', title: 'Difficulty' }, (o) => o.kind === 'difficulty'),
+    );
+    expect(box.shown('options').map((o) => o.kind)).toEqual(['game', 'difficulty']);
+  });
+});

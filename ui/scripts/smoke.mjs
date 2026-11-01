@@ -29,11 +29,20 @@ const NATIONS = [
   ['model.nation.spanish', 'model.difficulty.veryHard'],
 ];
 
+const LAND_PRICE = 'model.option.landPriceFactor';
+
 /** Pick on the start screen (nothing picked keeps what it shows first) and start the game. */
-async function startFromScreen(page, nation, level) {
+async function startFromScreen(page, nation, level, edits = false) {
   await page.waitForSelector('[data-start]', { timeout: 60000 });
   if (nation) await page.click(`[data-nation="${nation}"]`);
   if (level) await page.selectOption('[data-difficulty]', level);
+  if (edits) {
+    // The option editor: a difficulty option and a game option, changed before the start.
+    await page.click('[data-customize=difficulty] summary');
+    await page.fill(`[data-customize=difficulty] [data-option="${LAND_PRICE}"] input`, '123');
+    await page.click('[data-customize=game] summary');
+    await page.click('[data-customize=game] [data-option="model.option.fogOfWar"] input');
+  }
   await page.click('[data-start]');
 }
 
@@ -61,11 +70,15 @@ for (const name of browsers) {
     for (const [nation, level] of NATIONS) {
       try {
         await page.goto(`${server.url}?autoplay=0`);
-        await startFromScreen(page, nation, level);
+        await startFromScreen(page, nation, level, nation === 'model.nation.french');
         const r = await waitForResult(page, timeout);
         const sent = r.choice ? JSON.parse(r.choice) : {};
         nations.push(
-          r.status === 'finished' && r.nation === nation && sent.difficulty === level
+          r.status === 'finished' &&
+            r.nation === nation &&
+            sent.difficulty === level &&
+            (nation !== 'model.nation.french' ||
+              (sent.options?.[LAND_PRICE] === 123 && sent.options?.['model.option.fogOfWar'] === false))
             ? `${nation.split('.').pop()} ok`
             : `${nation} FAILED (${r.status}${r.error ? ': ' + r.error : ''}, player ${r.nation}, sent ${r.choice})`,
         );

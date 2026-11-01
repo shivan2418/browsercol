@@ -28,7 +28,7 @@ import { startPage, type ClientExports, type Scope, type ToWorker } from './chan
 import { debugMessage, debugMode, describeAnswer, type DebugRequest } from './debug';
 import { ColonyActions, ColonyTiles, type ColonyMoves, type DrawTiles } from './colony-panel';
 import { dialogs } from './dialogs';
-import { MENUS, MenuBar } from './frame';
+import { MENUS, MenuBar, type Menu } from './frame';
 import { commandForKey, type Command } from './input';
 import { mapDrawer, type MapView } from './map';
 import { DialogHost, type Art, type ReportButtons, type RouteButtons } from './panels';
@@ -145,7 +145,7 @@ const colonyMoves: ColonyMoves = {
 };
 /** FreeCol's status line: the score, the gold, the tax and the year. */
 let statusLine = '';
-const menus = MENUS.map((name) => ({ name, items: [] }));
+const menus: Menu[] = MENUS.map((name) => ({ name, items: [] }));
 const menuRoot = createRoot(document.getElementById('menubar')!);
 /** Our colony as the colony panel shows it, once the client Engine has loaded (ClientExports.colony). */
 let colonyNow: (id: string) => string = () => 'null';
@@ -314,6 +314,7 @@ const gui: GuiHandlers = {
     highScores: (e) => dialogQueue.show('highScores', e),
     tradeRoutes: (e) => dialogQueue.replace('tradeRoutes', e),
     europe: (e) => dialogQueue.replace('europe', e),
+    options: (e) => dialogQueue.replace('options', e, (open) => open.kind === e.kind),
     messages: (e) => {
       if (e.regrouped) dialogQueue.replace('messages', e, (open) => open.title === e.title);
       else if (e.messages.length > 0) dialogQueue.show('messages', e);
@@ -361,6 +362,12 @@ function playWith(client: ClientExports) {
     else client[c.k]();
   };
   runCommand = run;
+  // The Game menu's entries that show the game's options (ShowGameOptionsAction, ShowDifficultyAction).
+  menus.find((m) => m.name === 'Game')!.items = [
+    { label: 'Show Game Options', run: () => run({ k: 'showGameOptions' }) },
+    { label: 'Show Difficulty Level', run: () => run({ k: 'showDifficulty' }) },
+  ];
+  renderSide();
   addEventListener('keydown', (e) => {
     // An open dialog has the keys (panels.tsx).
     if (e.altKey || e.ctrlKey || e.metaKey || dialogQueue.current()) return;

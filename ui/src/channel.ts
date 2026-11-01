@@ -58,6 +58,10 @@ export interface ClientExports {
   declareIndependence(): void;
   /** Show the Europe panel (EuropeAction). */
   showEurope(): void;
+  /** Show the game options, read-only (ShowGameOptionsAction). */
+  showGameOptions(): void;
+  /** Show the game's difficulty level, read-only (ShowDifficultyAction). */
+  showDifficulty(): void;
   /** The standing orders of the active unit. */
   fortify(): void;
   sentry(): void;

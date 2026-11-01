@@ -14,6 +14,8 @@ export interface TileRef {
 }
 
 /** Events: shown, nothing comes back. */
+import type { OptionGroup } from './options';
+
 export interface GuiEvents {
   refresh: Record<string, never>;
   /** force: after a move, SwingGUI keeps the selection and refocuses only if the unit is out of view. */
@@ -129,6 +131,11 @@ export interface GuiEvents {
     selected: Id | null;
     market: { id: Id; name: string; images: string[]; sell: number; buy: number; enabled: boolean }[];
   };
+  /**
+   * The game's difficulty level or game options (the in-game menu's entries), as an option group the option
+   * editor shows read-only (options.ts, OptionsJson.java). root is null when nothing in the group can be shown.
+   */
+  options: { kind: 'difficulty' | 'game'; title: string; root: OptionGroup | null; ok: string };
   /** A dialog the Browser UI cannot show yet; the controller got FreeCol's base default. */
   unasked: { method: string };
 }

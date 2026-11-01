@@ -591,6 +591,31 @@ async function play(page, url) {
     throw new Error(`the Europe panel's market or gold is wrong: ${JSON.stringify(europe)}`);
   }
 
+  // The Game menu's entries show the game's difficulty level and game options in the option editor, read-only.
+  for (const [entry, kind] of [
+    ['Show Difficulty Level', 'difficulty'],
+    ['Show Game Options', 'game'],
+  ]) {
+    await noDialog(`the ${kind} options entry`);
+    await page.evaluate(() => (window.__hold = 'options'));
+    await page.getByRole('menuitem', { name: 'Game', exact: true }).click();
+    await page.getByRole('menuitem', { name: entry }).click();
+    await page.waitForSelector('[role=dialog][data-kind=options] [data-option]', { timeout: 10000 });
+    const editor = await page.evaluate(() => {
+      const controls = [
+        ...document.querySelectorAll('[role=dialog][data-kind=options] [data-option] :is(input, select)'),
+      ];
+      return { options: controls.length, editable: controls.filter((c) => !c.disabled).length };
+    });
+    if (editor.options < 10 || editor.editable > 0) {
+      throw new Error(
+        `the ${kind} options panel is not a read-only editor of the game's options: ${JSON.stringify(editor)}`,
+      );
+    }
+    await page.evaluate(() => (window.__hold = null));
+    await page.click('[role=dialog][data-kind=options] [data-answer=close]');
+  }
+
   // The art the dialogs show, from events as the client Engine sends them (the page's fcShow): the
   // event panel's two flavour images, and a turn report with the image of each kind of object, and
   // its group by option and buttons. The real game gives few of these in its first turns.

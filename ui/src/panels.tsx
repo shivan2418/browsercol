@@ -10,6 +10,7 @@ import { Fragment, useEffect, useRef, useState, useSyncExternalStore, type React
 import { ColonyPanel } from './colony-panel';
 import type { Dialog, Dialogs } from './dialogs';
 import { GoodsAmount, WindowFrame, type Art } from './frame';
+import { OptionEditor } from './option-editor';
 import type { EuropeUnit, GuiEvents, SettlementEntry, TradeItem, TradeOption, TradeRouteDraft } from './webgui';
 
 export type { Art };
@@ -913,6 +914,12 @@ function Body({
   switch (d.kind) {
     case 'europe':
       return <EuropePanel d={d} art={art} />;
+    case 'options':
+      return (
+        <Panel d={d} title={d.event.title} ok={d.event.ok}>
+          {d.event.root && <OptionEditor root={d.event.root} editable={false} />}
+        </Panel>
+      );
     case 'tradeRoutes':
       return <RoutesPanel d={d} art={art} routes={routes} />;
     case 'confirm':

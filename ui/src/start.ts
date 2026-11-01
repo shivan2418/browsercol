@@ -5,6 +5,8 @@
 // nations or levels shows those. The pick goes to the server Engine as a
 // GamePreset's JSON, the same way ?preset= does.
 
+import { specificationGroup, type OptionGroup, type OptionValue } from './options';
+
 export interface NationChoice {
   /** FreeCol's id, e.g. model.nation.dutch. */
   id: string;
@@ -28,12 +30,21 @@ export interface StartOptions {
   levels: LevelChoice[];
   /** The level FreeCol starts a new game at. */
   defaultLevel: string;
+  /** The option groups the player may change before the game starts (#56); null if the ruleset has none. */
+  groups: {
+    /** A difficulty level's options. */
+    level: (id: string) => OptionGroup | null;
+    /** The game options. */
+    game: () => OptionGroup | null;
+  };
 }
 
 /** What the player picked; a null nation is the Engine's first free one. */
 export interface StartChoice {
   nation: string | null;
   difficulty: string;
+  /** The options the player changed, by FreeCol's option id: what the preset's options hold. */
+  options: Record<string, OptionValue>;
 }
 
 /** The data bundle's text of a file, from its alternating path and text. */
@@ -92,19 +103,25 @@ export function startOptions(data: string[], rules: string, defaultLevel = 'mode
       };
     });
 
-  // FreeCol's Custom level is edited option by option, which this screen does not offer.
+  // FreeCol's Custom level is a level to edit option by option; here any level can be changed, so it is not listed.
   const levels = [...spec.querySelectorAll('optionGroup[id="difficultyLevels"] > optionGroup')]
     .map((g) => g.getAttribute('id')!)
     .filter((id) => id !== 'model.difficulty.custom')
     .map((id): LevelChoice => ({ id, name: say(`${id}.name`, id) }));
 
-  return { nations, levels, defaultLevel };
+  const groups = {
+    level: (id: string) =>
+      specificationGroup(data, rules, `optionGroup[id="difficultyLevels"] > optionGroup[id="${id}"]`),
+    game: () => specificationGroup(data, rules, 'optionGroup[id="gameOptions"]'),
+  };
+  return { nations, levels, defaultLevel, groups };
 }
 
-/** The GamePreset JSON for the Engine. */
+/** The GamePreset JSON for the Engine: the level, and the options changed from the level's own values. */
 export function presetJson(choice: StartChoice): string {
   return JSON.stringify({
     ...(choice.nation ? { nation: choice.nation } : {}),
     difficulty: choice.difficulty,
+    ...(Object.keys(choice.options).length > 0 ? { options: choice.options } : {}),
   });
 }

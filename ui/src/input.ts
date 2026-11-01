@@ -13,6 +13,8 @@ export type Command =
   | { k: 'endTurn' }
   | { k: 'declareIndependence' }
   | { k: 'showEurope' }
+  | { k: 'showGameOptions' }
+  | { k: 'showDifficulty' }
   | { k: 'fortify' }
   | { k: 'sentry' }
   | { k: 'skip' }

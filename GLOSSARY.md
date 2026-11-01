@@ -39,3 +39,7 @@ _Avoid_: asset id, sprite name
 **Start screen**:
 The Browser UI's first page, where the player picks a European nation and a difficulty level before the game starts (FreeCol's NewPanel and StartGamePanel, single player). Its choices reach the Engine as a preset.
 _Avoid_: new game dialog, lobby
+
+**Option editor**:
+The one Browser UI editor for FreeCol option groups (a difficulty level, the game options): editable on the Start screen, where changes go to the Engine in the preset, read-only during play (FreeCol's DifficultyDialog and GameOptionsDialog).
+_Avoid_: settings panel, options dialog
