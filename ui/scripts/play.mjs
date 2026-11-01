@@ -262,7 +262,7 @@ async function play(page, url) {
       throw new Error('a click did not pick the founder');
     await tile.locator('.hit').click();
     await within(tile, founder);
-    const backOnTile = await changed(inHall, 'the founder was clicked back to its tile');
+    await changed(inHall, 'the founder was clicked back to its tile');
 
     // Change what it makes, when the tile offers another.
     await unit(founder).click();
@@ -273,7 +273,13 @@ async function play(page, url) {
       await panel
         .locator(`[data-part=work] button[data-goods="${goods}"][aria-pressed=true]`)
         .waitFor({ timeout: 20000 });
-      await changed(backOnTile, `the founder was set to make ${goods}`);
+      // The tile makes it now. (The net production would do, but it moves twice when a colonist returns to work.)
+      await tile
+        .locator(`[data-goods="${goods}"]`)
+        .waitFor({ timeout: 20000 })
+        .catch(() => {
+          throw new Error(`the tile did not show ${goods} after the founder was set to make it`);
+        });
     }
     await unit(founder).click();
 
