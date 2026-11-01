@@ -473,6 +473,22 @@ class CommandsTest {
         assertFalse(commands.setBuildQueue(ours.getId(), List.of("model.building.noSuch")), "unknown");
         assertEquals(List.of(first), serverQueue(serverColony), "the queue stands");
 
+        // An upgrade queued after the building it upgrades stays with it: taking the
+        // building out would leave the colony unable to build the upgrade, so it is refused.
+        BuildingType upgrade = null;
+        for (BuildableType up : free) {
+            for (BuildingType bt : ours.getSpecification().getBuildingTypeList()) {
+                if (bt.getUpgradesFrom() == up && !free.contains(bt)
+                    && BuildQueues.reasons(ours, bt, List.of(up), null).isEmpty()) upgrade = bt;
+            }
+        }
+        assertNotNull(upgrade, "some upgrade can follow a building the colony can queue");
+        assertTrue(commands.setBuildQueue(ours.getId(),
+            List.of(upgrade.getUpgradesFrom().getId(), upgrade.getId())));
+        assertFalse(commands.setBuildQueue(ours.getId(), List.of(upgrade.getId())), "upgrade alone");
+        assertEquals(List.of(upgrade.getUpgradesFrom(), upgrade), serverQueue(serverColony));
+        assertTrue(commands.setBuildQueue(ours.getId(), List.of(first.getId())));
+
         // Pay for the build: the server's gold goes and nothing is left to make.
         us.modifyGold(5000);
         ours.getOwner().modifyGold(5000);
