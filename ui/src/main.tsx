@@ -4,7 +4,8 @@
 // takes the WebGUI's view events and the player's pointer on the map
 // (pointer.ts); the map and the info panel show it.
 // The WebGUI's questions and panels open as dialogs (panels.tsx) over the
-// page, and the side panel (side.tsx) lists the dialogs it cannot show yet.
+// page, the menu bar (frame.tsx) over the map shows the status line, and the
+// side panel (side.tsx) lists the dialogs it cannot show yet.
 // window.fcResult is set once the autoplay rounds are done and play passes
 // to the human, or on failure.
 //   ?autoplay=N  rounds the human auto-ends its turn first (debug; default 0)
@@ -24,6 +25,7 @@ import './theme.css';
 import { startPage, type ClientExports, type Scope, type ToWorker } from './channel';
 import { debugMessage, debugMode, describeAnswer, type DebugRequest } from './debug';
 import { dialogs } from './dialogs';
+import { MENUS, MenuBar } from './frame';
 import { commandForKey, type Command } from './input';
 import { mapDrawer, type MapView } from './map';
 import { DialogHost, type Art, type ReportButtons } from './panels';
@@ -78,7 +80,6 @@ let drawn = Promise.resolve();
 const dialogQueue = dialogs();
 const side: Omit<SideProps, 'run' | 'save' | 'load' | 'remove' | 'exportSave' | 'importFile'> = {
   turn: '-',
-  statusLine: '',
   info: '',
   unasked: [],
   status: 'starting...',
@@ -121,8 +122,13 @@ const art: Art = (keys) => {
   return res && key ? `art/${res.path(key)}` : null;
 };
 let runCommand: (c: Command) => void = () => {};
+/** FreeCol's status line: the score, the gold, the tax and the year. */
+let statusLine = '';
+const menus = MENUS.map((name) => ({ name, items: [] }));
+const menuRoot = createRoot(document.getElementById('menubar')!);
 const sideRoot = createRoot(document.getElementById('side')!);
 function renderSide() {
+  menuRoot.render(<MenuBar menus={menus} status={statusLine} />);
   sideRoot.render(
     <>
       <Side
@@ -280,7 +286,7 @@ const gui: GuiHandlers = {
 
 function drawMap(m: MapView) {
   side.turn = `${m.turn}${m.ourTurn ? '' : ' (AI playing)'}`;
-  side.statusLine = m.statusLine;
+  statusLine = m.statusLine;
   renderSide();
   dispatch({ k: 'map', map: m });
   drawn = map.draw(m);

@@ -72,6 +72,9 @@ function ask<K extends keyof GuiQuestions>(box: ReturnType<typeof dialogs>, kind
   return answer;
 }
 
+/** The dialog's own buttons, without its frame's close button. */
+const answers = () => screen.getAllByRole('button').filter((b) => b.getAttribute('aria-label') !== 'Close');
+
 const key = (k: string) => act(() => void fireEvent.keyDown(window, { key: k }));
 
 describe('the confirm dialog', () => {
@@ -110,10 +113,17 @@ describe('the confirm dialog', () => {
     expect(screen.getByText('Disband?')).toBeTruthy();
   });
 
+  it('cancels on its frame’s close button', async () => {
+    const { box } = host();
+    const closed = ask(box, 'confirm', { ...confirm, defaultOk: true });
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(await closed).toBe(false);
+  });
+
   it('shows only the buttons it has labels for', () => {
     const { box } = host();
     void ask(box, 'confirm', { ...confirm, ok: null, cancel: 'Done' });
-    expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['Done']);
+    expect(answers().map((b) => b.textContent)).toEqual(['Done']);
   });
 });
 
@@ -134,12 +144,7 @@ describe('the end turn dialog', () => {
     expect(screen.queryByRole('heading')).toBeNull();
     const ended = ask(box, 'endTurn', endTurn);
     expect(screen.getByRole('heading').textContent).toBe('End turn');
-    expect(screen.getAllByRole('button').map((b) => b.getAttribute('data-unit'))).toEqual([
-      'unit:1',
-      'unit:2',
-      null,
-      null,
-    ]);
+    expect(answers().map((b) => b.getAttribute('data-unit'))).toEqual(['unit:1', 'unit:2', null, null]);
     fireEvent.click(screen.getByRole('button', { name: 'OK' }));
     expect(await ended).toEqual({ status: 'ok' });
     const kept = ask(box, 'endTurn', endTurn);
@@ -465,6 +470,7 @@ describe('the negotiation dialog', () => {
     key('Escape');
     expect(screen.queryByRole('dialog')).not.toBeNull();
     expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Close' })).toBeNull();
   });
 });
 
