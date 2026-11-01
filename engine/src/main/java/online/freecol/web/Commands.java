@@ -124,6 +124,18 @@ public final class Commands {
         return true;
     }
 
+    /** Show the game options, read-only (ShowGameOptionsAction). */
+    public boolean showGameOptions() {
+        gui().showGameOptionsDialog(false, null);
+        return true;
+    }
+
+    /** Show the game's difficulty level, read-only (ShowDifficultyAction). */
+    public boolean showDifficulty() {
+        gui().showDifficultyDialog();
+        return true;
+    }
+
     /** Leave the active unit for now and select the next one (WaitAction). */
     public boolean nextUnit() {
         return igc().waitUnit();
