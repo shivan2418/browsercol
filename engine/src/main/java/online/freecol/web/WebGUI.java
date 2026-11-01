@@ -185,6 +185,13 @@ import net.sf.freecol.common.option.OptionGroup;
  *     <td>the question {@link Negotiation} describes; the answer is its
  *         lines, and the handler gets the agreement, null for a closed
  *         dialog</td></tr>
+ * <tr><td>showSelectAmountDialog (blocks)</td><td>question amount</td>
+ *     <td>{text, type, name, keys, values, value, max, ok, cancel}: the
+ *         goods type (id, null for none) and its image's keys, the
+ *         amounts SelectGoodsAmountDialog lists ({@link SelectAmount}) and
+ *         the one it selects at first (null for none), and the most that
+ *         may be chosen; any whole number from 0 to max may be given. The
+ *         amount, else -1</td></tr>
  * <tr><td>showSelectTributeAmountDialog (blocks)</td><td>question input</td>
  *     <td>as modalInputDialog, suggesting the most; the amount, else -1</td></tr>
  * <tr><td>showColonyPanel</td><td>event colony</td>
@@ -1560,15 +1567,41 @@ public class WebGUI extends GUI {
         return null;
     }
 
-    // Not asked yet: reported, then the base GUI's default.
-
+    /**
+     * {@inheritDoc}
+     *
+     * Asks as SelectGoodsAmountDialog does (see {@link SelectAmount}),
+     * blocking. Paying, the most is what the player's gold buys at the
+     * market's price.
+     */
     @Override
     public int showSelectAmountDialog(GoodsType goodsType, int available,
                                       int defaultAmount, boolean needToPay) {
-        unasked("showSelectAmountDialog");
-        return super.showSelectAmountDialog(goodsType, available,
-                                            defaultAmount, needToPay);
+        int most = available;
+        if (needToPay) {
+            final Player player = getMyPlayer();
+            final Market market = (player == null) ? null : player.getMarket();
+            final int price = (market == null) ? 0 : market.getCostToBuy(goodsType);
+            most = (price <= 0) ? 0 : Math.min(available, player.getGold() / price);
+        }
+        final SelectAmount.Choices choices = SelectAmount.choices(most, defaultAmount);
+        final List<String> values = new ArrayList<>();
+        for (Integer v : choices.values) values.add(String.valueOf(v));
+        return SelectAmount.amount(this.questions.ask("amount", new Json()
+            .put("text", Messages.message("selectAmountDialog.text"))
+            .put("type", id(goodsType))
+            .put("name", (goodsType == null) ? null : Messages.getName(goodsType))
+            .putRaw("keys", (goodsType == null) ? "[]" : ObjectImages.json(goodsType))
+            .putRaw("values", Json.array(values))
+            .putRaw("value", (choices.selected == null) ? "null"
+                : String.valueOf(choices.selected))
+            .put("max", most)
+            .put("ok", label("ok"))
+            .put("cancel", label("cancel"))
+            .toString()), most);
     }
+
+    // Not asked yet: reported, then the base GUI's default.
 
     @Override
     public void showWarehouseDialog(Colony colony,

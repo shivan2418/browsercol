@@ -613,14 +613,51 @@ class WebGUITest {
     void aDialogWithNoBrowserUIYetIsReportedAndGetsTheDefault() throws Exception {
         final ClientEngine client = startGame();
         final GUI gui = client.getClient().getGUI();
+        final java.util.List<Boolean> got = Collections.synchronizedList(new ArrayList<>());
 
         shown.clear();
-        assertEquals(-1, gui.showSelectAmountDialog(
-            client.getGame().getSpecification()
-                .getGoodsType("model.goods.food"), 10, 5, false));
-        assertEquals(List.of("unasked {\"method\":\"showSelectAmountDialog\"}"),
+        gui.showWarehouseDialog(null, got::add);
+        assertEquals(List.of("unasked {\"method\":\"showWarehouseDialog\"}"),
             shown.stream().filter(e -> !e.startsWith("messages ")).collect(Collectors.toList()));
         assertTrue(asked.isEmpty(), asked.toString());
+    }
+
+    /**
+     * The select amount dialog asks for an amount of goods, offering the
+     * amounts SelectGoodsAmountDialog lists, and returns the one chosen,
+     * or -1 when the player cancels.
+     */
+    @Test
+    @Timeout(120)
+    void theSelectAmountDialogReturnsTheChosenAmountOrCancels() throws Exception {
+        final ClientEngine client = startGame();
+        final GUI gui = client.getClient().getGUI();
+        final GoodsType furs = client.getGame().getSpecification()
+            .getGoodsType("model.goods.furs");
+
+        shown.clear();
+        answer = "35";
+        assertEquals(35, gui.showSelectAmountDialog(furs, 45, 40, false));
+        final String question = asked.get(asked.size() - 1);
+        assertEquals("amount {\"text\":\"" + Messages.message("selectAmountDialog.text")
+            + "\",\"type\":\"model.goods.furs\",\"name\":\"" + Messages.getName(furs)
+            + "\",\"keys\":[\"image.icon.model.goods.furs\"],\"values\":[20,40,45],"
+            + "\"value\":40,\"max\":45,\"ok\":\"" + Messages.message("ok")
+            + "\",\"cancel\":\"" + Messages.message("cancel") + "\"}", question);
+        assertFalse(shown.stream().anyMatch(e -> e.startsWith("unasked ")), shown.toString());
+
+        answer = null;
+        assertEquals(-1, gui.showSelectAmountDialog(furs, 45, 40, false), "closed");
+        answer = "46";
+        assertEquals(-1, gui.showSelectAmountDialog(furs, 45, 40, false), "more than there is");
+
+        // Paying, the most is what the gold buys.
+        final Player player = client.getClient().getMyPlayer();
+        final int buys = player.getGold() / player.getMarket().getCostToBuy(furs);
+        answer = "1";
+        gui.showSelectAmountDialog(furs, buys + 50, -1, true);
+        assertTrue(asked.get(asked.size() - 1).contains("\"max\":" + buys + ","),
+            asked.get(asked.size() - 1));
     }
 
     @Test
