@@ -259,7 +259,7 @@ async function pixiPen(host: HTMLElement, width: number, height: number): Promis
   };
 }
 
-function canvasPen(host: HTMLElement, width: number, height: number): Pen {
+function canvasPen(host: HTMLElement, width: number, height: number, background = true): Pen {
   const canvas = document.createElement('canvas');
   let ratio = screenRatio();
   /** The canvas's backing store at the pixel ratio, its CSS size in CSS pixels. */
@@ -358,7 +358,8 @@ function canvasPen(host: HTMLElement, width: number, height: number): Pen {
       // The transform carries the pixel ratio, so the drawing code works in CSS pixels.
       c.setTransform(ratio, 0, 0, ratio, 0, 0);
       c.fillStyle = '#000';
-      c.fillRect(0, 0, width, height);
+      if (background) c.fillRect(0, 0, width, height);
+      else c.clearRect(0, 0, width, height);
       c.setTransform(scale * ratio, 0, 0, scale * ratio, dx * ratio, dy * ratio);
       for (const layer of layers) for (const call of layer) call(c);
     },
@@ -549,6 +550,12 @@ export function mapDrawer(
   tileAt(px: number, py: number): [number, number] | null;
   /** The resolver, once the art manifest has loaded. */
   resources(): Resources | null;
+  /**
+   * Draw some tiles of the map as the map draws them, without units, into a new canvas in `host`, as
+   * TileViewer.displayColonyTiles draws the colony panel's tiles: `centre` at (W, H + top) of a canvas
+   * 3 tiles wide and 3 high plus `top` above for art taller than its tile. Returns what removes it.
+   */
+  drawTiles(host: HTMLElement, centre: [number, number], tiles: [number, number][], top: number): () => void;
 } {
   let pen: Pen | null = null;
   let res: Resources | null = null;
@@ -624,5 +631,18 @@ export function mapDrawer(
       return tileAt(view.map.w, view.map.h, mx, my);
     },
     resources: () => res,
+    drawTiles: (host, centre, tiles, top) => {
+      const map = view?.map;
+      if (!map || !res) return () => {};
+      const pen = canvasPen(host, 3 * W, 3 * H + top, false);
+      const keep = new Set(tiles.map(([x, y]) => `${x},${y}`));
+      // The tiles' terrain, items, roads and settlement; not the units, chips, fog or labels the map adds.
+      const ops = scene(map, res).filter(
+        (op) => keep.has(`${op.x},${op.y}`) && ((op.k === 'image' && op.at !== 'unit') || op.k === 'road'),
+      );
+      const [cx, cy] = tileOrigin(...centre);
+      void paint(pen, 0, ops, pics).then(() => pen.show(W - cx, H + top - cy, 1));
+      return () => pen.canvas.remove();
+    },
   };
 }
