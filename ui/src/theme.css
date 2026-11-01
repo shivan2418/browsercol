@@ -1,0 +1,68 @@
+/*
+ * The Browser UI's colours, in one place (#48, docs/adr/0004).
+ *
+ * Every panel, dialog and bar takes its colours from these tokens, never
+ * from a colour of its own: to change how the UI looks, change them here.
+ * Each token is named for its role, not its colour, so a palette can swap
+ * them around freely (light text on a dark menu bar, dark text on light
+ * panels, or the other way round).
+ *
+ * The palettes: parchment (the default) and dark (?theme=dark). A new
+ * palette is one more :root[data-theme='NAME'] block that sets every token;
+ * theme.test.ts checks that each palette sets them all.
+ */
+:root {
+  /* The menu bar over the map, and the title bars of windows. */
+  --menubar: #3b2a17;
+  --menubar-ink: #f3e6c4;
+  /* What is behind the map and the panels. */
+  --page: #1d4357;
+  /* A window or panel, and a boxed section inside one. */
+  --panel: #e9dcb8;
+  --box: #f4ead0;
+  /* Text: normal, quiet (secondary) and headings. */
+  --ink: #2a1c0c;
+  --muted: #6e5634;
+  --head: #5a3714;
+  /* Borders and dividers. */
+  --line: #8c6c3c;
+  /* Buttons and their text. */
+  --btn: #cdb27a;
+  --btn-ink: #2a1c0c;
+  /* The default button, focus, progress bars. */
+  --accent: #8a2e12;
+  /* Links. */
+  --link: #1f4f8b;
+  /* Gains and losses (+3, −2), and warnings. */
+  --good: #1f6b1f;
+  --bad: #b01e10;
+  --warn: #8a5a00;
+  /* The dimming behind a modal dialog. */
+  --backdrop: rgb(0 0 0 / 40%);
+
+  --font: 'Segoe UI', 'Noto Sans', Ubuntu, Cantarell, system-ui, sans-serif;
+  --font-mono: ui-monospace, 'DejaVu Sans Mono', monospace;
+  --fs: 15px;
+  --fs-s: 13px;
+  --fs-h: 17px;
+}
+
+:root[data-theme='dark'] {
+  --menubar: #0b0b0c;
+  --menubar-ink: #f2f2f2;
+  --page: #111214;
+  --panel: #16171a;
+  --box: #202227;
+  --ink: #f1f1f1;
+  --muted: #a9abb3;
+  --head: #ffd60a;
+  --line: #3d4049;
+  --btn: #2c2f36;
+  --btn-ink: #ffffff;
+  --accent: #ffd60a;
+  --link: #8cc4ff;
+  --good: #4ade80;
+  --bad: #ff6b6b;
+  --warn: #ffb020;
+  --backdrop: rgb(0 0 0 / 55%);
+}

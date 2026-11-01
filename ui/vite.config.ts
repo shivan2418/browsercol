@@ -24,5 +24,7 @@ export default defineConfig({
   },
   test: {
     include: ['src/**/*.test.{ts,tsx}'],
+    // theme.test.ts reads theme.css as text; Vitest empties other CSS.
+    css: { include: [/theme\.css/] },
   },
 });
