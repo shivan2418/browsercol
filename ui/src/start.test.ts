@@ -57,11 +57,34 @@ test('a ruleset the bundle lacks offers nothing', () => {
 });
 
 test('the choice goes to the Engine as a preset', () => {
-  expect(JSON.parse(presetJson({ nation: 'model.nation.french', difficulty: 'model.difficulty.hard' }))).toEqual({
+  expect(
+    JSON.parse(presetJson({ nation: 'model.nation.french', difficulty: 'model.difficulty.hard', options: {} })),
+  ).toEqual({
     nation: 'model.nation.french',
     difficulty: 'model.difficulty.hard',
   });
-  expect(JSON.parse(presetJson({ nation: null, difficulty: 'model.difficulty.easy' }))).toEqual({
+  expect(JSON.parse(presetJson({ nation: null, difficulty: 'model.difficulty.easy', options: {} }))).toEqual({
     difficulty: 'model.difficulty.easy',
   });
+});
+
+test('the changed options go to the Engine in the preset’s options', () => {
+  expect(
+    JSON.parse(
+      presetJson({
+        nation: null,
+        difficulty: 'model.difficulty.easy',
+        options: { 'model.option.landPriceFactor': 250, 'model.option.fogOfWar': false },
+      }),
+    ),
+  ).toEqual({
+    difficulty: 'model.difficulty.easy',
+    options: { 'model.option.landPriceFactor': 250, 'model.option.fogOfWar': false },
+  });
+});
+
+test('it offers the level’s options and the game options from the specification', () => {
+  const { groups } = startOptions(data, 'classic');
+  expect(groups.level('model.difficulty.veryEasy')).toBeNull(); // nothing in it to change in this small specification
+  expect(groups.game()).toBeNull();
 });

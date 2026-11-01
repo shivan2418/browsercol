@@ -75,6 +75,8 @@ function fakeClient(scope: Scope, log: string[]): ClientExports {
     endTurn: () => {},
     declareIndependence: () => {},
     showEurope: () => {},
+    showGameOptions: () => {},
+    showDifficulty: () => {},
     fortify: () => {},
     sentry: () => {},
     skip: () => {},

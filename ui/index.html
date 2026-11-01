@@ -546,9 +546,56 @@
       .start-window .quiet {
         margin: 6px 0 0;
       }
-      .start-window select {
+      .start-window fieldset > select {
         width: 100%;
         padding: 3px;
+      }
+      .start-window .customize {
+        margin-top: 6px;
+      }
+      .start-window .customize > summary {
+        cursor: pointer;
+        color: var(--muted);
+        font-size: var(--fs-s);
+      }
+      .start-window .customize .options {
+        max-height: 18em;
+        overflow-y: auto;
+        margin-top: 6px;
+      }
+      /* The option editor (src/option-editor.tsx), on the start screen and in the in-game panel. */
+      .options .box {
+        margin: 6px 0;
+        padding: 4px 8px;
+        background: var(--box);
+        border: 1px solid var(--line);
+      }
+      .options .option {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1px 0;
+      }
+      .options .option .name {
+        flex: 1;
+      }
+      .options .option[data-changed] .name {
+        font-weight: bold;
+      }
+      .options input[type='number'] {
+        width: 8em;
+      }
+      .options input[type='text'],
+      .options select {
+        width: 14em;
+      }
+      .options input[aria-invalid] {
+        outline: 2px solid var(--bad);
+      }
+      .dialog[data-kind='options'] .options {
+        max-height: 60vh;
+        overflow-y: auto;
       }
       .start-window .buttons {
         display: flex;

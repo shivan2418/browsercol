@@ -3,9 +3,48 @@
 // European nation and a difficulty level and starts the game. Rendered by
 // main.tsx until the game starts. Hooks for the browser scripts: [data-nation]
 // on each nation's radio button, [data-difficulty] on the level's select and
-// [data-start] on the Start button.
-import { useState } from 'react';
+// [data-start] on the Start button. The level's options and the game options
+// open in the option editor (#56) under [data-customize=difficulty] and
+// [data-customize=game]; what the player changes goes to the Engine in the
+// preset's options.
+import { useMemo, useState } from 'react';
+import { OptionEditor } from './option-editor';
+import { leaves, type OptionGroup, type OptionValue } from './options';
 import type { StartChoice, StartOptions } from './start';
+
+/** The options of a group, editable, as the values the player changed from the group's own. */
+function Customize({
+  kind,
+  summary,
+  group,
+  edits,
+  setEdits,
+}: {
+  kind: string;
+  summary: string;
+  group: OptionGroup;
+  edits: Record<string, OptionValue>;
+  setEdits: (edits: Record<string, OptionValue>) => void;
+}) {
+  const base = useMemo(() => leaves(group), [group]);
+  const count = Object.keys(edits).length;
+  return (
+    <details className="customize" data-customize={kind}>
+      <summary>{count > 0 ? `${summary} (${count} changed)` : summary}</summary>
+      <OptionEditor
+        root={group}
+        editable
+        values={edits}
+        onChange={(id, value) => {
+          const next = { ...edits };
+          if (base.get(id)?.value === value) delete next[id];
+          else next[id] = value;
+          setEdits(next);
+        }}
+      />
+    </details>
+  );
+}
 
 export function StartScreen({ options, start }: { options: StartOptions; start: (choice: StartChoice) => void }) {
   const [nation, setNation] = useState<string | null>(options.nations[0]?.id ?? null);
@@ -14,13 +53,17 @@ export function StartScreen({ options, start }: { options: StartOptions; start: 
     levels.some((l) => l.id === options.defaultLevel) ? options.defaultLevel : (levels[0]?.id ?? options.defaultLevel),
   );
   const chosen = options.nations.find((n) => n.id === nation);
+  const [levelEdits, setLevelEdits] = useState<Record<string, OptionValue>>({});
+  const [gameEdits, setGameEdits] = useState<Record<string, OptionValue>>({});
+  const levelGroup = useMemo(() => options.groups.level(difficulty), [options, difficulty]);
+  const gameGroup = useMemo(() => options.groups.game(), [options]);
   return (
     <div className="start" data-testid="start">
       <form
         className="start-window"
         onSubmit={(e) => {
           e.preventDefault();
-          start({ nation, difficulty });
+          start({ nation, difficulty, options: { ...gameEdits, ...levelEdits } });
         }}
       >
         <h1>FreeCol Online</h1>
@@ -52,7 +95,11 @@ export function StartScreen({ options, start }: { options: StartOptions; start: 
             data-difficulty
             aria-label="Difficulty"
             value={difficulty}
-            onChange={(e) => setDifficulty(e.target.value)}
+            onChange={(e) => {
+              setDifficulty(e.target.value);
+              // Another level has other values: what was changed in the one before does not carry over.
+              setLevelEdits({});
+            }}
           >
             {levels.map((l) => (
               <option key={l.id} value={l.id}>
@@ -60,7 +107,28 @@ export function StartScreen({ options, start }: { options: StartOptions; start: 
               </option>
             ))}
           </select>
+          {levelGroup && (
+            <Customize
+              kind="difficulty"
+              summary="Customize this level"
+              group={levelGroup}
+              edits={levelEdits}
+              setEdits={setLevelEdits}
+            />
+          )}
         </fieldset>
+        {gameGroup && (
+          <fieldset>
+            <legend>Game options</legend>
+            <Customize
+              kind="game"
+              summary="Show game options"
+              group={gameGroup}
+              edits={gameEdits}
+              setEdits={setGameEdits}
+            />
+          </fieldset>
+        )}
         <div className="buttons">
           <button type="submit" className="default" data-start>
             Start game

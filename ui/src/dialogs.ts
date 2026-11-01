@@ -15,7 +15,8 @@ export type PanelKind =
   | 'highScores'
   | 'colony'
   | 'tradeRoutes'
-  | 'europe';
+  | 'europe'
+  | 'options';
 
 type Asked = {
   [K in keyof GuiQuestions]: { kind: K; ask: GuiQuestions[K]['ask']; done: (a: GuiQuestions[K]['answer']) => void };
