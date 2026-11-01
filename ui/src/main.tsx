@@ -4,7 +4,8 @@
 // takes the WebGUI's view events and the player's pointer on the map
 // (pointer.ts); the map and the info panel show it.
 // The WebGUI's questions and panels open as dialogs (panels.tsx) over the
-// page, the menu bar (frame.tsx) over the map shows the status line, and the
+// page, the colony panel among them, shown again with each map; the menu bar
+// (frame.tsx) over the map shows the status line; and the
 // side panel (side.tsx) lists the dialogs it cannot show yet.
 // window.fcResult is set once the autoplay rounds are done and play passes
 // to the human, or on failure.
@@ -35,7 +36,7 @@ import { idbSaveStore, type SaveMeta } from './saves';
 import { Side, type SideProps } from './side';
 import { loadModule } from './teavm';
 import { cursor, initialView, panel, reduce, tileOnScreen, W, type ViewEvent, type ViewState } from './view';
-import type { GuiHandlers } from './webgui';
+import type { GuiEvents, GuiHandlers } from './webgui';
 
 declare global {
   interface Window {
@@ -126,6 +127,16 @@ let runCommand: (c: Command) => void = () => {};
 let statusLine = '';
 const menus = MENUS.map((name) => ({ name, items: [] }));
 const menuRoot = createRoot(document.getElementById('menubar')!);
+/** Our colony as the colony panel shows it, once the client Engine has loaded (ClientExports.colony). */
+let colonyNow: (id: string) => string = () => 'null';
+/** Show the open and queued colony panels again, as the colonies may have changed with the map. */
+function refreshColonies() {
+  for (const open of dialogQueue.shown('colony')) {
+    const json = colonyNow(open.id);
+    if (json === 'null' || json === JSON.stringify(open)) continue;
+    dialogQueue.replace('colony', JSON.parse(json) as GuiEvents['colony'], (c) => c.id === open.id);
+  }
+}
 const sideRoot = createRoot(document.getElementById('side')!);
 function renderSide() {
   menuRoot.render(<MenuBar menus={menus} status={statusLine} />);
@@ -264,6 +275,8 @@ const gui: GuiHandlers = {
       if (e.regrouped) dialogQueue.replace('messages', e, (open) => open.title === e.title);
       else if (e.messages.length > 0) dialogQueue.show('messages', e);
     },
+    // A colony already open or queued is shown again in its place, else it opens.
+    colony: (e) => dialogQueue.replace('colony', e, (open) => open.id === e.id),
     unasked: (e) => {
       console.warn(`WebGUI: no dialog yet for ${e.method}; FreeCol's default was used`);
       side.unasked = [...side.unasked, e.method];
@@ -289,6 +302,7 @@ function drawMap(m: MapView) {
   statusLine = m.statusLine;
   renderSide();
   dispatch({ k: 'map', map: m });
+  refreshColonies();
   drawn = map.draw(m);
   // A dialog shown before the art manifest loaded has no images: draw it again once they can be had.
   if (!artReady) void drawn.then(() => map.resources() && ((artReady = true), renderSide()));
@@ -381,6 +395,7 @@ async function run() {
     const m: ToWorker = { k: 'save', active: exports.activeUnitId(), name };
     worker.postMessage(m);
   };
+  colonyNow = (id) => exports.colony(id);
   debugRequest = (r) => worker.postMessage(debugMessage(r));
   debugSkip = (n) => {
     if (n > 0) exports.skipTurns(n);

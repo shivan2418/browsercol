@@ -6,6 +6,7 @@ import java.util.List;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.client.control.InGameController;
 import net.sf.freecol.client.gui.GUI;
+import net.sf.freecol.common.model.Colony;
 import net.sf.freecol.common.model.Direction;
 import net.sf.freecol.common.model.PathNode;
 import net.sf.freecol.common.model.Player;
@@ -42,18 +43,24 @@ public final class Commands {
     }
 
     /**
-     * Click a tile: select our next unit there, units aboard a carrier
+     * Click a tile: on our colony, open its panel, as SwingGUI.clickAt
+     * does. Elsewhere select our next unit there, units aboard a carrier
      * included, so repeated clicks cycle through a stack. With none, send
      * the active unit there.
      *
      * @param x The tile's x.
      * @param y The tile's y.
-     * @return True if a unit was selected or set off.
+     * @return True if a panel opened or a unit was selected or set off.
      */
     public boolean click(int x, int y) {
         final Tile tile = tile(x, y);
         if (tile == null) return false;
         final Player player = this.client.getMyPlayer();
+        final Colony colony = tile.getColony();
+        if (colony != null && player.owns(colony)) {
+            gui().showColonyPanel(colony, null);
+            return true;
+        }
         final List<Unit> ours = new ArrayList<>();
         for (Unit u : tile.getUnitList()) {
             if (!player.owns(u)) continue;

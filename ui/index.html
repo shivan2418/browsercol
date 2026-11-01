@@ -360,6 +360,234 @@
         gap: 8px;
         margin-top: 12px;
       }
+      /* The colony panel (src/colony-panel.tsx), laid out as Swing's ColonyPanel (look E, docs/adr/0004). */
+      .dialog[data-kind='colony'] {
+        max-width: none;
+        width: min(1180px, 96vw);
+        max-height: 94vh;
+      }
+      .colony .cbody {
+        display: grid;
+        grid-template-columns: 1fr 400px;
+        gap: 6px;
+      }
+      .colony .box {
+        position: relative;
+        padding: 6px;
+        background: var(--box);
+        border: 1px solid var(--line);
+        border-radius: 3px;
+      }
+      .colony .box > .cap {
+        display: block;
+        margin-bottom: 2px;
+        font-size: var(--fs-s);
+        font-weight: 700;
+        color: var(--head);
+      }
+      .colony .muted {
+        color: var(--muted);
+      }
+      .colony .icon {
+        width: 24px;
+        height: 24px;
+        object-fit: contain;
+        vertical-align: middle;
+      }
+      .colony .goods {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        font-weight: 700;
+      }
+      .colony .unit {
+        height: 48px;
+      }
+      .colony .population {
+        grid-column: 1;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+      }
+      .colony .population .shield {
+        height: 32px;
+      }
+      .colony .buildings {
+        grid-column: 1;
+        grid-row: 2 / span 2;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 6px;
+        align-content: start;
+      }
+      .colony .building {
+        position: relative;
+        height: 128px;
+        border: 1px solid var(--line);
+        border-radius: 3px;
+        background: var(--box);
+        overflow: hidden;
+      }
+      .colony .building .name {
+        position: absolute;
+        left: 4px;
+        top: 2px;
+        font-size: var(--fs-s);
+        font-weight: 600;
+      }
+      .colony img.building {
+        position: absolute;
+        left: 50%;
+        top: 22px;
+        height: 70px;
+        transform: translateX(-50%);
+        opacity: 0.85;
+      }
+      .colony .building .output {
+        position: absolute;
+        right: 4px;
+        top: 18px;
+      }
+      .colony .building .workers {
+        position: absolute;
+        left: 4px;
+        bottom: 2px;
+        display: flex;
+        align-items: end;
+      }
+      .colony .building .slot {
+        width: 22px;
+        height: 40px;
+        margin: 0 2px;
+        border: 1px dashed var(--line);
+      }
+      .colony .upper {
+        grid-column: 2;
+        grid-row: 1 / span 2;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+      }
+      .colony .tiles {
+        position: relative;
+        flex: none;
+      }
+      .colony .tile {
+        position: absolute;
+        width: 128px;
+        height: 64px;
+      }
+      .colony .tile[data-ours='false'] {
+        filter: grayscale(0.7) brightness(0.7);
+      }
+      .colony .tile .terrain {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+      }
+      .colony .tile .forest {
+        position: absolute;
+        left: 0;
+        bottom: 0;
+        width: 100%;
+      }
+      .colony .tile .who {
+        position: absolute;
+        left: 50%;
+        bottom: 10px;
+        transform: translateX(-50%);
+      }
+      .colony .tile .who .unit {
+        height: 44px;
+      }
+      .colony .tile .made {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 4px;
+        display: flex;
+        justify-content: center;
+        gap: 2px;
+        color: var(--box);
+        text-shadow:
+          0 0 3px var(--ink),
+          0 0 3px var(--ink);
+      }
+      .colony .tile .made .icon {
+        width: 20px;
+        height: 20px;
+      }
+      .colony .net,
+      .colony .construction {
+        width: 100%;
+        box-sizing: border-box;
+      }
+      .colony .net {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 10px;
+      }
+      .colony .net .neg {
+        color: var(--bad);
+      }
+      .colony .construction {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+      .colony .buildable {
+        width: 80px;
+      }
+      .colony .needs {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .colony .need {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        gap: 6px;
+        align-items: center;
+      }
+      .colony .bar {
+        height: 10px;
+        border: 1px solid var(--line);
+        background: var(--panel);
+      }
+      .colony .bar i {
+        display: block;
+        height: 100%;
+        background: var(--accent);
+      }
+      .colony .port,
+      .colony .outside,
+      .colony .warehouse {
+        grid-column: 1 / -1;
+        min-height: 64px;
+      }
+      .colony .warehouse {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+      }
+      .colony .warehouse > .cap {
+        width: 100%;
+      }
+      .colony .stored {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      .colony .stored[data-over='true'] {
+        color: var(--bad);
+        font-weight: 700;
+      }
     </style>
   </head>
   <body>
