@@ -117,34 +117,30 @@ function Row({
       );
       break;
     case 'string':
-      control = node.choices ? (
-        <select aria-label={node.label} disabled={disabled} value={String(value)} onChange={(e) => set(e.target.value)}>
-          {node.choices.map((c) => (
-            <option key={c.value} value={c.value}>
-              {c.label}
-            </option>
-          ))}
-        </select>
-      ) : (
-        <input
-          type="text"
-          aria-label={node.label}
-          disabled={disabled}
-          value={String(value)}
-          onChange={(e) => set(e.target.value)}
-        />
-      );
-      break;
     case 'text':
-      control = (
-        <input
-          type="text"
-          aria-label={node.label}
-          disabled={disabled}
-          value={String(value)}
-          onChange={(e) => set(e.target.value)}
-        />
-      );
+      control =
+        node.kind === 'string' && node.choices ? (
+          <select
+            aria-label={node.label}
+            disabled={disabled}
+            value={String(value)}
+            onChange={(e) => set(e.target.value)}
+          >
+            {node.choices.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <input
+            type="text"
+            aria-label={node.label}
+            disabled={disabled}
+            value={String(value)}
+            onChange={(e) => set(e.target.value)}
+          />
+        );
       break;
   }
   return (
@@ -160,12 +156,17 @@ function Row({
   );
 }
 
+/** A group's options and subgroups, in order. */
+function Children({ nodes, ...rest }: { nodes: OptionNode[] } & Omit<Props, 'root'>) {
+  return nodes.map((c) =>
+    c.kind === 'group' ? <Group key={c.id} node={c} {...rest} /> : <Row key={c.id} node={c} {...rest} />,
+  );
+}
+
 function Group({ node, ...rest }: { node: Extract<OptionNode, { kind: 'group' }> } & Omit<Props, 'root'>) {
   return (
     <Box caption={node.label} data-group={node.id}>
-      {node.children.map((c) =>
-        c.kind === 'group' ? <Group key={c.id} node={c} {...rest} /> : <Row key={c.id} node={c} {...rest} />,
-      )}
+      <Children nodes={node.children} {...rest} />
     </Box>
   );
 }
@@ -174,13 +175,7 @@ function Group({ node, ...rest }: { node: Extract<OptionNode, { kind: 'group' }>
 export function OptionEditor({ root, ...rest }: Props) {
   return (
     <div className="options">
-      {root.kind === 'group' ? (
-        root.children.map((c) =>
-          c.kind === 'group' ? <Group key={c.id} node={c} {...rest} /> : <Row key={c.id} node={c} {...rest} />,
-        )
-      ) : (
-        <Row node={root} {...rest} />
-      )}
+      <Children nodes={root.kind === 'group' ? root.children : [root]} {...rest} />
     </div>
   );
 }
