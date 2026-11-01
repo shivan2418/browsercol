@@ -25,7 +25,9 @@ import org.junit.jupiter.api.Timeout;
 
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.i18n.Messages;
+import net.sf.freecol.common.model.BuildableType;
 import net.sf.freecol.common.model.Building;
+import net.sf.freecol.common.model.BuildingType;
 import net.sf.freecol.common.model.Colony;
 import net.sf.freecol.common.model.ColonyTile;
 import net.sf.freecol.common.model.Direction;
@@ -427,6 +429,64 @@ class CommandsTest {
         assertFalse(commands.putOutsideColony(colonist.getId()), "already outside");
         assertTrue(commands.work(colonist.getId(), hall.getId()), "back to work from outside");
         assertEquals(hall.getId(), onServer.getLocation().getId());
+    }
+
+    @Test
+    @Timeout(180)
+    void theHumanEditsTheBuildQueueAndPaysForTheBuild() throws Exception {
+        startGame();
+        final Commands commands = client.getCommands();
+        final Colony serverColony = foundAColony(commands);
+        final Colony ours = client.getGame()
+            .getFreeColGameObject(serverColony.getId(), Colony.class);
+        final Player us = serverColony.getOwner();
+
+        // What the colony can queue, as the panel lists it (no reason given).
+        final List<BuildableType> free = new ArrayList<>();
+        BuildableType locked = null;
+        for (BuildingType bt : ours.getSpecification().getBuildingTypeList()) {
+            if (!bt.needsGoodsToBuild() || ours.getBuilding(bt) != null
+                && ours.getBuilding(bt).getType() == bt) continue;
+            if (BuildQueues.reasons(ours, bt, List.of(), null).isEmpty()) free.add(bt);
+            else if (locked == null) locked = bt;
+        }
+        assertTrue(free.size() >= 2, "the colony can queue two buildings: " + free);
+        assertNotNull(locked, "and cannot queue another");
+        final BuildableType first = free.get(0);
+        final BuildableType second = free.get(1);
+        assertFalse(BuildQueues.reasons(ours, locked, List.of(), null).isEmpty());
+
+        // Queue two, then reorder, then empty it: the server's colony follows.
+        assertTrue(commands.setBuildQueue(ours.getId(), List.of(first.getId(), second.getId())));
+        assertEquals(List.of(first, second), serverQueue(serverColony));
+        assertEquals(List.of(first, second), ours.getBuildQueue());
+        assertTrue(commands.setBuildQueue(ours.getId(), List.of(second.getId(), first.getId())));
+        assertEquals(List.of(second, first), serverQueue(serverColony));
+        assertTrue(ColonyJson.of(ours, 0).contains("\"queue\":[{\"type\":\"" + second.getId() + "\""));
+        assertTrue(commands.setBuildQueue(ours.getId(), List.of()));
+        assertTrue(serverQueue(serverColony).isEmpty());
+
+        // What the colony cannot build, twice, or not at all, is refused.
+        assertTrue(commands.setBuildQueue(ours.getId(), List.of(first.getId())));
+        assertFalse(commands.setBuildQueue(ours.getId(), List.of(locked.getId())), "locked");
+        assertFalse(commands.setBuildQueue(ours.getId(), List.of(first.getId(), first.getId())), "twice");
+        assertFalse(commands.setBuildQueue(ours.getId(), List.of("model.building.noSuch")), "unknown");
+        assertEquals(List.of(first), serverQueue(serverColony), "the queue stands");
+
+        // Pay for the build: the server's gold goes and nothing is left to make.
+        us.modifyGold(5000);
+        ours.getOwner().modifyGold(5000);
+        final int price = serverColony.getPriceForBuilding();
+        assertTrue(price > 0, "something is left to pay");
+        final int gold = us.getGold();
+        assertTrue(commands.payForBuilding(ours.getId()), "paid");
+        assertEquals(0, serverColony.getPriceForBuilding());
+        assertEquals(gold - price, us.getGold());
+        assertEquals(0, ours.getPriceForBuilding());
+    }
+
+    private static List<BuildableType> serverQueue(Colony serverColony) {
+        return new ArrayList<>(serverColony.getBuildQueue());
     }
 
     /**

@@ -1,5 +1,6 @@
 package online.freecol.web;
 
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.teavm.jso.JSBody;
@@ -324,6 +325,19 @@ public final class ClientMain {
     @JSExport
     public static void changeWorkType(String unitId, String goodsTypeId) {
         command("changeWorkType", () -> engine.getCommands().changeWorkType(unitId, goodsTypeId));
+    }
+
+    /** Set a colony's build queue: the ids of what to build, in order, joined by commas. */
+    @JSExport
+    public static void setBuildQueue(String colonyId, String typeIds) {
+        command("setBuildQueue", () -> engine.getCommands().setBuildQueue(colonyId,
+            typeIds.isEmpty() ? List.of() : List.of(typeIds.split(","))));
+    }
+
+    /** Pay for what a colony is building now. */
+    @JSExport
+    public static void payForBuilding(String colonyId) {
+        command("payForBuilding", () -> engine.getCommands().payForBuilding(colonyId));
     }
 
     @JSExport

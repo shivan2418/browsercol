@@ -61,6 +61,7 @@ import net.sf.freecol.common.option.GameOptions;
  *     turns (text, or null), required: [{type, name, keys, needed,
  *     available, produced}]}, or null when nothing is being built, with
  *     nothing, ConstructionPanel's text for that.
+ * <li>queue: the build queue panel, see {@link BuildQueues#json}.
  * </ul>
  * A unit is {id, name, keys}; one working in a building or on a tile
  * also has work (the goods type it works at, or null) and choices (the
@@ -91,6 +92,7 @@ final class ColonyJson {
             .putRaw("outside", outside(colony))
             .putRaw("inPort", inPort(colony))
             .putRaw("construction", construction(colony))
+            .putRaw("queue", BuildQueues.json(colony))
             .put("nothing", Messages.message(StringTemplate
                     .template("constructionPanel.clickToBuild")))
             .toString();
