@@ -107,7 +107,7 @@ function open(colony: ColonyView = jamestown) {
   return box;
 }
 
-const part = (name: string) => screen.getByRole('region', { name });
+const part = (name: string) => document.querySelector<HTMLElement>(`[data-part="${name}"]`)!;
 
 describe('the colony panel', () => {
   it('is titled with the colony and shows its population', () => {
@@ -145,19 +145,21 @@ describe('the colony panel', () => {
 
   it('shows the net production, the warehouse, the units outside and the build', () => {
     open();
-    const net = part('production');
+    const net = part('net');
     expect(net.querySelector('[data-goods="model.goods.food"]')?.textContent).toBe('+4');
     expect(net.querySelector('[data-goods="model.goods.lumber"]')?.textContent).toBe('-3');
-    const lumber = part('Warehouse').querySelector<HTMLElement>('[data-goods="model.goods.lumber"]')!;
+    const lumber = part('warehouse').querySelector<HTMLElement>('[data-goods="model.goods.lumber"]')!;
     expect(lumber.textContent).toBe('150');
     expect(lumber.dataset.over).toBe('true');
     expect(lumber.querySelector('img')?.getAttribute('src')).toBe('art/lumber.png');
-    expect(within(part('Outside Colony')).getAllByAltText('Dutch Free Colonist')).toHaveLength(1);
-    expect(within(part('In Port')).queryAllByRole('img')).toHaveLength(0);
+    expect(within(part('outside')).getAllByAltText('Dutch Free Colonist')).toHaveLength(1);
+    expect(within(part('port')).queryAllByRole('img')).toHaveLength(0);
     const build = part('construction');
     expect(within(build).getByText('Warehouse')).toBeTruthy();
     expect(within(build).getByText('(Turns to complete: 27)')).toBeTruthy();
-    expect(within(build).getByText('20/80')).toBeTruthy();
+    expect(within(build).getByText('20+3/80')).toBeTruthy();
+    // The captioned boxes are named by the Engine's text.
+    expect(screen.getByRole('region', { name: 'Warehouse' })).toBe(part('warehouse'));
   });
 
   it('says so when nothing is built', () => {
