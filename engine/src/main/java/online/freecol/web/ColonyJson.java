@@ -12,6 +12,7 @@ import net.sf.freecol.common.model.BuildingType;
 import net.sf.freecol.common.model.Colony;
 import net.sf.freecol.common.model.ColonyTile;
 import net.sf.freecol.common.model.Direction;
+import net.sf.freecol.common.model.Goods;
 import net.sf.freecol.common.model.GoodsType;
 import net.sf.freecol.common.model.Nation;
 import net.sf.freecol.common.model.ProductionInfo;
@@ -46,8 +47,12 @@ import net.sf.freecol.common.option.GameOptions;
  * <li>warehouse: {title, capacity, goods: [{type, name, keys, amount,
  *     over}]}, the storable goods at or over the display threshold, over
  *     being whether the amount exceeds the capacity (Swing's red);
- * <li>outside and inPort: {title, units}, the units on the colony's tile
- *     that are not carriers, and the carriers;
+ * <li>outside: {title, units}, the units on the colony's tile that are
+ *     not carriers;
+ * <li>inPort: {title, units, selected, cargo}, the carriers on the tile,
+ *     each unit with cargo: {title, units, goods} as ColonyCargoPanel
+ *     shows it; selected is the carrier chosen at first (or null), cargo
+ *     the cargo box's title with none chosen;
  * <li>construction: {type, name (as ConstructionPanel labels it), keys,
  *     turns (text, or null), required: [{type, name, keys, needed,
  *     available, produced}]}, or null when nothing is being built, with
@@ -77,10 +82,8 @@ final class ColonyJson {
             .putRaw("tiles", tiles(colony))
             .putRaw("production", netProduction(colony, spec))
             .putRaw("warehouse", warehouse(colony, spec, threshold))
-            .putRaw("outside", units(Messages.message("colonyPanel.outsideColony"),
-                    colony, false))
-            .putRaw("inPort", units(Messages.message("colonyPanel.inPort"),
-                    colony, true))
+            .putRaw("outside", outside(colony))
+            .putRaw("inPort", inPort(colony))
             .putRaw("construction", construction(colony))
             .put("nothing", Messages.message(StringTemplate
                     .template("constructionPanel.clickToBuild")))
@@ -254,13 +257,46 @@ final class ColonyJson {
             .toString();
     }
 
-    /** OutsideColonyPanel (not carriers) or ColonyInPortPanel (carriers). */
-    private static String units(String title, Colony colony, boolean carriers) {
+    /** OutsideColonyPanel: the units on the colony's tile that are not carriers. */
+    private static String outside(Colony colony) {
         final List<Unit> units = new ArrayList<>();
         for (Unit u : colony.getTile().getUnitList()) {
-            if (u.isCarrier() == carriers) units.add(u);
+            if (!u.isCarrier()) units.add(u);
         }
-        return new Json().put("title", title).putRaw("units", unitList(units)).toString();
+        return new Json().put("title", Messages.message("colonyPanel.outsideColony"))
+            .putRaw("units", unitList(units)).toString();
+    }
+
+    /**
+     * ColonyInPortPanel: the carriers on the colony's tile, each with its
+     * cargo as ColonyCargoPanel shows it, and the one InPortPanel.selectLabel
+     * chooses at first, the last carrier with no trade route.
+     */
+    private static String inPort(Colony colony) {
+        final List<String> out = new ArrayList<>();
+        Unit selected = null;
+        for (Unit u : colony.getTile().getUnitList()) {
+            if (!u.isCarrier()) continue;
+            if (u.getTradeRoute() == null) selected = u;
+            final List<String> goods = new ArrayList<>();
+            for (Goods g : u.getGoodsList()) {
+                goods.add(goods(g.getType(), g.getAmount()).toString());
+            }
+            out.add(unit(u).putRaw("cargo", new Json()
+                    .put("title", Messages.message(StringTemplate
+                            .template("cargoPanel.cargoAndSpace")
+                            .addStringTemplate("%name%", u.getLabel(Unit.UnitLabelType.NATIONAL))
+                            .addAmount("%space%", u.getSpaceLeft())))
+                    .putRaw("units", unitList(u.getUnitList()))
+                    .putRaw("goods", Json.array(goods))
+                    .toString())
+                .toString());
+        }
+        return new Json().put("title", Messages.message("colonyPanel.inPort"))
+            .putRaw("units", Json.array(out))
+            .put("selected", (selected == null) ? null : selected.getId())
+            .put("cargo", Messages.message("cargoOnCarrier"))
+            .toString();
     }
 
     /** ConstructionPanel: the current build and the goods it needs. */
@@ -295,14 +331,16 @@ final class ColonyJson {
             .put("amount", amount);
     }
 
+    /** A unit: {id, name, keys}, open for more fields. */
+    private static Json unit(Unit u) {
+        return new Json().put("id", u.getId())
+            .put("name", u.getDescription(Unit.UnitLabelType.NATIONAL))
+            .putRaw("keys", MapJson.unitKeyJson(u));
+    }
+
     private static String unitList(List<Unit> units) {
         final List<String> out = new ArrayList<>();
-        for (Unit u : units) {
-            out.add(new Json().put("id", u.getId())
-                .put("name", u.getDescription(Unit.UnitLabelType.NATIONAL))
-                .putRaw("keys", MapJson.unitKeyJson(u))
-                .toString());
-        }
+        for (Unit u : units) out.add(unit(u).toString());
         return Json.array(out);
     }
 }
