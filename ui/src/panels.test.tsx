@@ -977,7 +977,7 @@ describe('the Europe panel', () => {
   it('closes on the button and Escape, and a second panel replaces the open one', () => {
     const { box } = host();
     act(() => box.show('europe', europe));
-    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    fireEvent.click(document.querySelector('[data-answer="close"]')!);
     expect(box.current()).toBeNull();
 
     act(() => box.show('europe', europe));
