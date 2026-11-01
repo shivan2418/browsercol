@@ -100,16 +100,20 @@ export interface ColonyView {
     rebelShield: string[];
     royalistShield: string[];
   };
+  /** The buildings, and an empty plot (site, with no id) for each kind not built yet. */
   buildings: {
-    id: Id;
+    id: Id | null;
     type: string;
     name: string;
     keys: string[];
+    site: boolean;
     /** How many units can work there. */
     capacity: number;
     workers: UnitRef[];
     /** The output, and the most it could be with the inputs it lacks; null for none. */
     production: (GoodsAmount & { max: number }) | null;
+    /** The upkeep, when the game has upkeep and the building costs some; else null. */
+    upkeep: number | null;
   }[];
   /** The 3x3 tiles, pos being the place in Swing's TilesPanel grid: north [0, 0], the centre [1, 1], south [2, 2]. */
   tiles: {
