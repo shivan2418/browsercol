@@ -632,19 +632,61 @@ class WebGUITest {
 
         shown.clear();
         assertNull(gui.showColonyPanel(null, unit), "no colony: nothing to show");
-        assertNull(gui.showEuropePanel());
         assertNull(gui.showIndianSettlementPanel(null));
         gui.showGameOptionsDialog(false, null);
         gui.showClientOptionsDialog();
         assertFalse(gui.showEditOptionDialog(null), "the base GUI's default");
         assertNull(gui.showEditSettlementDialog(null));
         assertNull(gui.showFindSettlementPanel());
-        assertEquals(List.of("showEuropePanel", "showIndianSettlementPanel",
+        assertEquals(List.of("showIndianSettlementPanel",
                 "showGameOptionsDialog", "showClientOptionsDialog", "showEditOptionDialog",
                 "showEditSettlementDialog", "showFindSettlementPanel").stream()
                 .map(m -> "unasked {\"method\":\"" + m + "\"}").collect(Collectors.toList()),
             shown.stream().filter(e -> !e.startsWith("messages ")).collect(Collectors.toList()));
         assertTrue(asked.isEmpty(), asked.toString());
+    }
+
+    /**
+     * The Europe panel lists what FreeCol's does: with the game just
+     * started the player's ship is not in port, and the market lists
+     * every storable goods type; the active unit's cargo is not asked
+     * about when no ship is in port.
+     */
+    @Test
+    @Timeout(120)
+    @SuppressWarnings("unchecked")
+    void theEuropePanelHasTheShipsDocksAndMarket() throws Exception {
+        final ClientEngine client = startGame();
+        final GUI gui = client.getClient().getGUI();
+        final Player me = client.getClient().getMyPlayer();
+
+        shown.clear();
+        assertNull(gui.showEuropePanel());
+        final List<String> events = shown.stream().filter(e -> e.startsWith("europe "))
+            .collect(Collectors.toList());
+        assertEquals(1, events.size(), shown.toString());
+        final Map<String, Object> panel
+            = (Map<String, Object>)JsonReader.read(events.get(0).substring("europe ".length()));
+        assertEquals(Messages.getName(me.getEurope()), panel.get("title"));
+        assertEquals((long)me.getGold(), panel.get("gold"));
+        assertEquals(Messages.message("close"), panel.get("ok"));
+        final Map<String, Object> headings = (Map<String, Object>)panel.get("headings");
+        assertEquals(Messages.message("sailingToAmerica"), headings.get("toAmerica"));
+        assertEquals(Messages.message("docks"), headings.get("docks"));
+        // The unit lists are those of the model.
+        final List<String> docks = me.getEurope().getUnitList().stream()
+            .filter(u -> !u.isNaval()).map(Unit::getId).collect(Collectors.toList());
+        assertEquals(docks, ((List<Map<String, Object>>)panel.get("docks")).stream()
+            .map(u -> (String)u.get("id")).collect(Collectors.toList()));
+        final List<Map<String, Object>> market = (List<Map<String, Object>>)panel.get("market");
+        assertFalse(market.isEmpty());
+        final Map<String, Object> first = market.get(0);
+        final GoodsType type = client.getGame().getSpecification()
+            .getGoodsType((String)first.get("id"));
+        assertEquals((long)me.getMarket().getPaidForSale(type), first.get("sell"));
+        assertEquals((long)me.getMarket().getCostToBuy(type), first.get("buy"));
+        assertEquals(Messages.getName(type), first.get("name"));
+        assertEquals(ObjectImages.keys(type), first.get("images"));
     }
 
     /**

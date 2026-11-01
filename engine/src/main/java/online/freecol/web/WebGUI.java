@@ -102,6 +102,13 @@ import net.sf.freecol.common.option.OptionGroup;
  *     <td>{text, scores: [{score, headline, fields: [{label, value}]}], ok};
  *         text is the message for the key, or null; the fields are the
  *         ones ReportHighScoresPanel shows below its headline</td></tr>
+ * <tr><td>showEuropePanel</td><td>event europe</td>
+ *     <td>what {@link EuropeJson} describes: the ships sailing, in port
+ *         and their cargo, the docks, the market's prices and the gold.
+ *         Shown when the player asks (the Europe button, EuropeAction),
+ *         when the end turn dialog picks a unit in Europe, and when
+ *         the messages of a turn tell of a ship's arrival in Europe
+ *         (after those messages)</td></tr>
  * <tr><td>showModelMessages</td><td>event messages</td>
  *     <td>{title: null, messages: [{text, type, source, tile, at,
  *         heading: null, images, filter: null, filterTip: null,
@@ -190,8 +197,7 @@ import net.sf.freecol.common.option.OptionGroup;
  *         is open is replaced. error is why the last change was refused
  *         (FreeCol's reason), null if it was not</td></tr>
  * <tr><td>the other dialogs the controllers ask (see "Not asked yet"), and
- *     the panels the base GUI drops: showEuropePanel,
- *     showIndianSettlementPanel, showGameOptionsDialog,
+ *     the panels the base GUI drops: showIndianSettlementPanel, showGameOptionsDialog,
  *     showClientOptionsDialog, showEditOptionDialog,
  *     showEditSettlementDialog, showFindSettlementPanel</td>
  *     <td>event unasked</td><td>{method}; the controller gets the base
@@ -476,6 +482,19 @@ public class WebGUI extends GUI {
             event.put("regrouped", regrouped);
         }
         this.ui.show("messages", event.toString());
+        if (!regrouped && arrivedInEurope(game, modelMessages)) {
+            showEuropePanel();
+        }
+    }
+
+    /** Whether a message tells that a ship has arrived in Europe. */
+    private static boolean arrivedInEurope(Game game,
+                                           List<ModelMessage> messages) {
+        for (ModelMessage m : messages) {
+            if (m.getMessageType() == ModelMessage.MessageType.UNIT_ARRIVED
+                && game.getMessageSource(m) instanceof Europe) return true;
+        }
+        return false;
     }
 
     /** The values of the group by option, and the labels of their choices. */
@@ -1513,13 +1532,19 @@ public class WebGUI extends GUI {
             .getInteger(ClientOptions.MIN_NUMBER_FOR_DISPLAYING_GOODS));
     }
 
-    // Panels with no Browser UI yet: the base GUI drops them silently, and
-    // they are reported as the dialogs above are.
-
+    /**
+     * {@inheritDoc}
+     *
+     * Shows Europe as it is now: read-only for now, so the panel's
+     * buttons and drags are not offered. A player without a Europe (after
+     * independence) has no panel.
+     */
     @Override
     public FreeColPanel showEuropePanel() {
-        unasked("showEuropePanel");
-        return super.showEuropePanel();
+        final Player player = getMyPlayer();
+        if (player == null || player.getEurope() == null) return null;
+        this.ui.show("europe", EuropeJson.of(player, this.activeUnit));
+        return null;
     }
 
     @Override

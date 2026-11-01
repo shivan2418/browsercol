@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -25,6 +26,7 @@ import org.junit.jupiter.api.Timeout;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.model.Game;
+import net.sf.freecol.common.model.GoodsType;
 import net.sf.freecol.common.model.Map;
 import net.sf.freecol.common.model.Player;
 import net.sf.freecol.common.model.Tile;
@@ -48,6 +50,8 @@ class SelectDestinationTest {
 
     /** The questions the fake Browser UI saw, as "kind json". */
     private final List<String> asked = Collections.synchronizedList(new ArrayList<>());
+    /** The events the fake Browser UI saw, as "kind json". */
+    private final List<String> shown = Collections.synchronizedList(new ArrayList<>());
 
     /** The label of the destination the fake Browser UI picks. */
     private volatile String wanted = null;
@@ -97,7 +101,9 @@ class SelectDestinationTest {
                 public void roundDone(int round, long millis) {}
                 public void finished(Game game) { ourTurn.countDown(); }
             }, new WebGUI.BrowserUI() {
-                public void show(String kind, String json) {}
+                public void show(String kind, String json) {
+                    shown.add(kind + " " + json);
+                }
                 public void ask(int id, String kind, String json) {
                     asked.add(kind + " " + json);
                     ui.execute(() -> client.answer(id, answer(kind, json)));
@@ -173,6 +179,35 @@ class SelectDestinationTest {
         }
     }
 
+    @SuppressWarnings("unchecked")
+    private static java.util.Map<String, Object> parse(String json) {
+        return (java.util.Map<String, Object>)JsonReader.read(json);
+    }
+
+    /** The Europe panel as the client describes it now. */
+    private java.util.Map<String, Object> europePanel(Player player) {
+        return parse(EuropeJson.of(player, active()));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<java.util.Map<String, Object>> marketOf(java.util.Map<String, Object> panel) {
+        final List<java.util.Map<String, Object>> goods = new ArrayList<>();
+        for (Object g : (List<Object>)panel.get("market")) {
+            goods.add((java.util.Map<String, Object>)g);
+        }
+        return goods;
+    }
+
+    /** The ids of the units a Europe panel lists under a heading. */
+    @SuppressWarnings("unchecked")
+    private static List<String> unitIds(java.util.Map<String, Object> panel, String list) {
+        final List<String> ids = new ArrayList<>();
+        for (Object u : (List<Object>)panel.get(list)) {
+            ids.add((String)((java.util.Map<String, Object>)u).get("id"));
+        }
+        return ids;
+    }
+
     /** The labels of the choices of a choice question. */
     private static List<String> choiceTexts(String json) {
         final Matcher c = CHOICES.matcher(json);
@@ -239,6 +274,11 @@ class SelectDestinationTest {
         assertTrue(choiceTexts(question).contains(europe), question);
         // The ship sails: the server has it at sea, on its way.
         assertTrue(serverShip(ship).isAtSea(), "the server has the ship at sea");
+        // The Europe panel lists it sailing to Europe, and not yet in port.
+        final java.util.Map<String, Object> sailing = europePanel(player);
+        assertEquals(List.of(ship.getId()), unitIds(sailing, "toEurope"));
+        assertEquals(List.of(), unitIds(sailing, "inPort"));
+        shown.clear();
         int turns = 0;
         while (!serverShip(ship).isInEurope()) {
             endTurnAndWait();
@@ -246,6 +286,32 @@ class SelectDestinationTest {
                 "the ship reaches Europe within 12 turns; asked " + asked);
         }
         assertTrue(ship.isInEurope(), "the client has the ship in Europe");
+
+        // The panel opens when the ship arrives, with the ship in port.
+        java.util.Map<String, Object> panel = null;
+        for (int i = 0; i < 500 && panel == null; i++) {
+            for (String e : new ArrayList<>(shown)) {
+                if (e.startsWith("europe ")) panel = parse(e.substring("europe ".length()));
+            }
+            if (panel == null) Thread.sleep(10);
+        }
+        assertNotNull(panel, "the Europe panel is shown on arrival; saw " + shown);
+        assertEquals(List.of(ship.getId()), unitIds(panel, "inPort"));
+        assertEquals(List.of(), unitIds(panel, "toEurope"));
+        assertEquals(ship.getId(), panel.get("selected"));
+        assertEquals((long)player.getGold(), panel.get("gold"));
+        // The market lists every storable goods type with its prices.
+        final List<java.util.Map<String, Object>> market = marketOf(panel);
+        final List<GoodsType> storable = client.getGame().getSpecification()
+            .getStorableGoodsTypeList();
+        assertEquals(storable.stream().map(GoodsType::getId).collect(Collectors.toList()),
+            market.stream().map(g -> (String)g.get("id")).collect(Collectors.toList()));
+        for (int g = 0; g < storable.size(); g++) {
+            assertEquals((long)player.getMarket().getPaidForSale(storable.get(g)),
+                market.get(g).get("sell"), storable.get(g).getId());
+            assertEquals((long)player.getMarket().getCostToBuy(storable.get(g)),
+                market.get(g).get("buy"), storable.get(g).getId());
+        }
 
         // Now sail back to the New World.
         final String newWorld = Messages.message(
