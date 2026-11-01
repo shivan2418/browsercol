@@ -20,6 +20,7 @@ import net.sf.freecol.common.model.Specification;
 import net.sf.freecol.common.model.StringTemplate;
 import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.Unit;
+import net.sf.freecol.common.model.WorkLocation;
 import net.sf.freecol.common.option.GameOptions;
 
 
@@ -61,7 +62,9 @@ import net.sf.freecol.common.option.GameOptions;
  *     available, produced}]}, or null when nothing is being built, with
  *     nothing, ConstructionPanel's text for that.
  * </ul>
- * A unit is {id, name, keys}.
+ * A unit is {id, name, keys}; one working in a building or on a tile
+ * also has work (the goods type it works at, or null) and choices (the
+ * goods it could make there, with the amount it would make).
  */
 final class ColonyJson {
 
@@ -161,7 +164,7 @@ final class ColonyJson {
                 .putRaw("keys", ObjectImages.json(type))
                 .put("site", false)
                 .put("capacity", b.getUnitCapacity())
-                .putRaw("workers", unitList(b.getUnitList()))
+                .putRaw("workers", workers(colony, b))
                 .putRaw("production", buildingProduction(colony, b))
                 .putRaw("upkeep", (upkeep && type.getUpkeep() > 0)
                     ? String.valueOf(type.getUpkeep()) : "null")
@@ -221,8 +224,10 @@ final class ColonyJson {
                 }
                 final List<String> workers = new ArrayList<>();
                 for (Unit u : ct.getUnitList()) {
-                    workers.add(unit(u).put("occupation", Messages.message(
-                        u.getOccupationLabel(colony.getOwner(), false))).toString());
+                    workers.add(worker(colony, ct, u)
+                        .put("occupation", Messages.message(
+                            u.getOccupationLabel(colony.getOwner(), false)))
+                        .toString());
                 }
                 out.add(new Json().put("id", ct.getId())
                     .putRaw("pos", "[" + x + "," + y + "]")
@@ -350,6 +355,31 @@ final class ColonyJson {
             .put("name", Messages.getName(type))
             .putRaw("keys", ObjectImages.json(type))
             .put("amount", amount);
+    }
+
+    /** The units working in a building, each as {@link #worker} says. */
+    private static String workers(Colony colony, Building b) {
+        final List<String> out = new ArrayList<>();
+        for (Unit u : b.getUnitList()) out.add(worker(colony, b, u).toString());
+        return Json.array(out);
+    }
+
+    /**
+     * A unit working at a work location: the unit, with the goods it
+     * makes there and the goods it could make there instead, each as
+     * {type, name, keys, amount}, amount being what the unit would make
+     * there with them (the work type menu of the colony panel, as
+     * QuickActionMenu lists it for a location).
+     */
+    private static Json worker(Colony colony, WorkLocation wl, Unit u) {
+        final List<String> choices = new ArrayList<>();
+        for (GoodsType type : colony.getSpecification().getGoodsTypeList()) {
+            final int amount = wl.getPotentialProduction(type, u.getType());
+            if (amount > 0) choices.add(goods(type, amount).toString());
+        }
+        final GoodsType now = u.getWorkType();
+        return unit(u).put("work", (now == null) ? null : now.getId())
+            .putRaw("choices", Json.array(choices));
     }
 
     /** A unit: {id, name, keys}, open for more fields. */

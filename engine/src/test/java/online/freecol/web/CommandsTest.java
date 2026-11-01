@@ -25,7 +25,9 @@ import org.junit.jupiter.api.Timeout;
 
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.i18n.Messages;
+import net.sf.freecol.common.model.Building;
 import net.sf.freecol.common.model.Colony;
+import net.sf.freecol.common.model.ColonyTile;
 import net.sf.freecol.common.model.Direction;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.GoodsType;
@@ -36,6 +38,7 @@ import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.TileImprovement;
 import net.sf.freecol.common.model.TileImprovementType;
 import net.sf.freecol.common.model.Unit;
+import net.sf.freecol.common.model.UnitLocation;
 
 
 /**
@@ -362,6 +365,62 @@ class CommandsTest {
         assertTrue(commands.click(colony.getTile().getX(), colony.getTile().getY()));
         assertEquals(1, colonies.size(), colonies::toString);
         assertTrue(colonies.get(0).startsWith("{\"id\":\"" + colony.getId() + "\""));
+    }
+
+    @Test
+    @Timeout(180)
+    void theHumanMovesAColonistBetweenATileABuildingAndOutside() throws Exception {
+        startGame();
+        final Commands commands = client.getCommands();
+        final Colony serverColony = foundAColony(commands);
+        final Colony ours = client.getGame()
+            .getFreeColGameObject(serverColony.getId(), Colony.class);
+        final Unit colonist = ours.getUnitList().get(0);
+        final Unit onServer = serverColony.getGame().getFreeColGameObject(colonist.getId(), Unit.class);
+        assertNotNull(onServer, "the server has the colonist");
+
+        // Where the colonist works at first: a colony tile, not the building.
+        final Building hall = ours.getBuildings().stream()
+            .filter(b -> b.getNoAddReason(colonist) == UnitLocation.NoAddReason.NONE)
+            .findFirst().get();
+        final String tileId = colonist.getLocation().getId();
+        assertTrue(colonist.getLocation() instanceof ColonyTile, "starts on a tile");
+        final ColonyTile tile = (ColonyTile)colonist.getLocation();
+        final String made = ColonyJson.of(ours, 0);
+        assertTrue(made.contains("\"workers\":[{\"id\":\"" + colonist.getId() + "\""), made);
+
+        // To a building and the server agrees, with the panel's JSON.
+        assertTrue(commands.work(colonist.getId(), hall.getId()), "works in the building");
+        assertEquals(hall.getId(), onServer.getLocation().getId());
+        assertEquals(hall.getId(), colonist.getLocation().getId());
+        assertEquals(1, serverColony.getBuilding(hall.getType()).getUnitList().size());
+        assertTrue(serverColony.getColonyTile(
+                serverColony.getGame().getFreeColGameObject(tile.getId(), ColonyTile.class)
+                    .getWorkTile()).isEmpty(), "the tile is free");
+        assertFalse(commands.work(colonist.getId(), hall.getId()), "already there");
+
+        // Back to the tile.
+        assertTrue(commands.work(colonist.getId(), tileId), "works the tile again");
+        assertEquals(tileId, onServer.getLocation().getId());
+        assertEquals(tileId, colonist.getLocation().getId());
+
+        // What the tile makes can change.
+        final GoodsType now = onServer.getWorkType();
+        final GoodsType other = client.getGame().getSpecification().getGoodsTypeList().stream()
+            .filter(g -> g != now && tile.getPotentialProduction(g, colonist.getType()) > 0)
+            .findFirst().orElse(null);
+        assertNotNull(other, "the tile makes something else too");
+        assertTrue(commands.changeWorkType(colonist.getId(), other.getId()), "work type");
+        assertEquals(other.getId(), onServer.getWorkType().getId());
+        assertFalse(commands.changeWorkType(colonist.getId(), "model.goods.noSuch"));
+
+        // Outside the colony: on its tile, working nothing.
+        assertTrue(commands.putOutsideColony(colonist.getId()), "outside");
+        assertEquals(serverColony.getTile().getId(), onServer.getLocation().getId());
+        assertEquals(ours.getTile(), colonist.getLocation());
+        assertFalse(commands.putOutsideColony(colonist.getId()), "already outside");
+        assertTrue(commands.work(colonist.getId(), hall.getId()), "back to work from outside");
+        assertEquals(hall.getId(), onServer.getLocation().getId());
     }
 
     /**

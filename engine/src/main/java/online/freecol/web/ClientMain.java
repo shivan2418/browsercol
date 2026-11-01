@@ -302,6 +302,24 @@ public final class ClientMain {
         command("road", () -> engine.getCommands().road());
     }
 
+    /** Put a colonist to work at a building or colony tile, by ids (the colony panel's drop). */
+    @JSExport
+    public static void work(String unitId, String locationId) {
+        command("work", () -> engine.getCommands().work(unitId, locationId));
+    }
+
+    /** Put a colonist outside the colony, by id (the colony panel's outside box). */
+    @JSExport
+    public static void putOutsideColony(String unitId) {
+        command("putOutsideColony", () -> engine.getCommands().putOutsideColony(unitId));
+    }
+
+    /** Change the goods a colonist produces where it works, by ids. */
+    @JSExport
+    public static void changeWorkType(String unitId, String goodsTypeId) {
+        command("changeWorkType", () -> engine.getCommands().changeWorkType(unitId, goodsTypeId));
+    }
+
     @JSExport
     public static void buildColony() {
         command("buildColony", () -> engine.getCommands().buildColony());

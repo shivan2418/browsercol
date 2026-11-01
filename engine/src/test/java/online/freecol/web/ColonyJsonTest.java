@@ -167,6 +167,11 @@ class ColonyJsonTest {
                 "image.unit.model.unit.freeColonist"),
             obj(list(carpentry.get("workers")).get(0)).get("keys"));
         assertEquals(3L, carpentry.get("capacity"));
+        // A worker names what it makes there, and what it could make instead.
+        final Map<String, Object> carpenterJson = obj(list(carpentry.get("workers")).get(0));
+        assertEquals("model.goods.hammers", carpenterJson.get("work"));
+        assertEquals(List.of("model.goods.hammers"), list(carpenterJson.get("choices")).stream()
+            .map(c -> obj(c).get("type")).collect(Collectors.toList()));
         final Map<String, Object> hammers = obj(carpentry.get("production"));
         assertEquals("model.goods.hammers", hammers.get("type"));
         assertEquals(List.of("image.icon.model.goods.hammers"), hammers.get("keys"));
