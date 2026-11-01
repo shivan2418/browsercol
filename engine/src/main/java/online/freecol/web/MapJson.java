@@ -354,6 +354,11 @@ final class MapJson {
         return keys;
     }
 
+    /** A unit's image keys, best first, as a JSON array. */
+    static String unitKeyJson(Unit u) {
+        return keys(unitKeys(u));
+    }
+
     private static String keys(List<String> keys) {
         final List<String> quoted = new ArrayList<>();
         for (String k : keys) quoted.add(Json.quote(k));
