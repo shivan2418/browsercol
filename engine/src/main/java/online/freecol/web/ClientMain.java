@@ -5,6 +5,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.teavm.jso.JSBody;
 import org.teavm.jso.JSExport;
 
+import net.sf.freecol.common.model.Colony;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.Unit;
 
@@ -113,6 +114,20 @@ public final class ClientMain {
     public static String activeUnitId() {
         Unit u = engine.getClient().getGUI().getActiveUnit();
         return (u == null) ? "" : u.getId();
+    }
+
+    /**
+     * Our colony with this id as the colony panel shows it (ColonyJson),
+     * for the Browser UI to show it again as it changes.
+     *
+     * @return The JSON, or "null" if there is no such colony of ours now.
+     */
+    @JSExport
+    public static String colony(String id) {
+        final Colony colony = engine.getGame().getFreeColGameObject(id, Colony.class);
+        if (colony == null || colony.isDisposed()
+            || !engine.getClient().getMyPlayer().owns(colony)) return "null";
+        return ((WebGUI)engine.getClient().getGUI()).colonyJson(colony);
     }
 
     @JSExport

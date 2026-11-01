@@ -62,8 +62,83 @@ export interface GuiEvents {
     /** The report again, as it was regrouped: it replaces the open one. */
     regrouped?: boolean;
   };
+  /** A colony, as FreeCol's colony panel shows it (ColonyJson.java). */
+  colony: ColonyView;
   /** A dialog the Browser UI cannot show yet; the controller got FreeCol's base default. */
   unasked: { method: string };
+}
+
+/** Goods of a type, with the resource keys of its icon, best first. */
+export interface GoodsAmount {
+  type: string;
+  name: string;
+  keys: string[];
+  amount: number;
+}
+
+/** A unit, with the resource keys of its image, best first. */
+export interface UnitRef {
+  id: Id;
+  name: string;
+  keys: string[];
+}
+
+/** What FreeCol's colony panel shows of a colony: see ColonyJson.java. All text is localized. */
+export interface ColonyView {
+  id: Id;
+  name: string;
+  at: [number, number];
+  /** The close button's label. */
+  ok: string;
+  /** PopulationPanel's labels, the share of rebels and the two shields. */
+  population: {
+    total: string;
+    rebels: string;
+    royalists: string;
+    bonus: string;
+    rebelPercent: number;
+    rebelShield: string[];
+    royalistShield: string[];
+  };
+  buildings: {
+    id: Id;
+    type: string;
+    name: string;
+    keys: string[];
+    /** How many units can work there. */
+    capacity: number;
+    workers: UnitRef[];
+    /** The output, and the most it could be with the inputs it lacks; null for none. */
+    production: (GoodsAmount & { max: number }) | null;
+  }[];
+  /** The 3x3 tiles, pos being the place in Swing's TilesPanel grid: north [0, 0], the centre [1, 1], south [2, 2]. */
+  tiles: {
+    id: Id;
+    pos: [number, number];
+    name: string;
+    terrain: string[];
+    forest: string[] | null;
+    centre: boolean;
+    /** Whether the colony owns the tile. */
+    ours: boolean;
+    workers: UnitRef[];
+    production: GoodsAmount[];
+  }[];
+  /** The net production of each goods type, the non-zero ones. */
+  production: GoodsAmount[];
+  /** over: more than the warehouse holds. */
+  warehouse: { title: string; capacity: number; goods: (GoodsAmount & { over: boolean })[] };
+  outside: { title: string; units: UnitRef[] };
+  inPort: { title: string; units: UnitRef[] };
+  /** The current build, and the goods it needs; null when nothing is built, which `nothing` says. */
+  construction: {
+    type: string;
+    name: string;
+    keys: string[];
+    turns: string | null;
+    required: (GoodsAmount & { needed: number; available: number; produced: number })[];
+  } | null;
+  nothing: string;
 }
 
 export interface Choice {

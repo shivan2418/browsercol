@@ -179,8 +179,11 @@ import net.sf.freecol.common.option.OptionGroup;
  *         dialog</td></tr>
  * <tr><td>showSelectTributeAmountDialog (blocks)</td><td>question input</td>
  *     <td>as modalInputDialog, suggesting the most; the amount, else -1</td></tr>
+ * <tr><td>showColonyPanel</td><td>event colony</td>
+ *     <td>the colony, as {@link ColonyJson} describes it; null for no
+ *         colony sends nothing</td></tr>
  * <tr><td>the other dialogs the controllers ask (see "Not asked yet"), and
- *     the panels the base GUI drops: showColonyPanel, showEuropePanel,
+ *     the panels the base GUI drops: showEuropePanel,
  *     showIndianSettlementPanel, showGameOptionsDialog,
  *     showClientOptionsDialog, showEditOptionDialog,
  *     showEditSettlementDialog, showFindSettlementPanel</td>
@@ -1084,7 +1087,7 @@ public class WebGUI extends GUI {
      * the turn later. This asks EndTurnDialog's question and lists the units
      * still waiting, and ok ends the turn, as its ok button does. Picking a
      * unit makes it the active one and, as Swing's selectUnit does, opens
-     * its colony or Europe (reported, not shown yet). Swing leaves the panel
+     * its colony, or Europe (reported, not shown yet). Swing leaves the panel
      * open for that; the Browser UI's dialog covers the map, so it closes
      * and the turn goes on, as with cancel. A second end turn while the
      * question is open is dropped, as Swing's open panel stops it.
@@ -1460,16 +1463,29 @@ public class WebGUI extends GUI {
         super.showWarehouseDialog(colony, handler);
     }
 
-    // Panels with no Browser UI yet: the base GUI drops them silently, and
-    // they are reported as the dialogs above are. The colony panel is
-    // opened by the controllers (after founding a colony, and by the end
-    // turn dialog's units in one), so the browser scripts expect it.
-
+    /**
+     * {@inheritDoc}
+     *
+     * Sends the colony, as {@link ColonyJson} describes it. The controllers
+     * open it after founding a colony and for the end turn dialog's units
+     * in one, and a click on our colony opens it. The Browser UI pulls it
+     * again as the colony changes (ClientMain.colony). There is no Swing
+     * panel to return.
+     */
     @Override
     public FreeColPanel showColonyPanel(Colony colony, Unit unit) {
-        unasked("showColonyPanel");
-        return super.showColonyPanel(colony, unit);
+        if (colony != null) this.ui.show("colony", colonyJson(colony));
+        return null;
     }
+
+    /** The colony as the colony panel shows it (ColonyJson). */
+    String colonyJson(Colony colony) {
+        return ColonyJson.of(colony, getClientOptions()
+            .getInteger(ClientOptions.MIN_NUMBER_FOR_DISPLAYING_GOODS));
+    }
+
+    // Panels with no Browser UI yet: the base GUI drops them silently, and
+    // they are reported as the dialogs above are.
 
     @Override
     public FreeColPanel showEuropePanel() {
