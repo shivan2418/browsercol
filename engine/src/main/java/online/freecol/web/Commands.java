@@ -8,6 +8,11 @@ import net.sf.freecol.client.control.InGameController;
 import net.sf.freecol.client.gui.GUI;
 import net.sf.freecol.common.model.Colony;
 import net.sf.freecol.common.model.Direction;
+import net.sf.freecol.common.model.FreeColGameObject;
+import net.sf.freecol.common.model.GoodsType;
+import net.sf.freecol.common.model.StringTemplate;
+import net.sf.freecol.common.model.UnitLocation.NoAddReason;
+import net.sf.freecol.common.model.WorkLocation;
 import net.sf.freecol.common.model.PathNode;
 import net.sf.freecol.common.model.Player;
 import net.sf.freecol.common.model.Tile;
@@ -207,6 +212,73 @@ public final class Commands {
     /** Found a colony with the active unit (BuildColonyAction). */
     public boolean buildColony() {
         return igc().buildColony(gui().getActiveUnit());
+    }
+
+    /**
+     * Put a colonist to work at a building or on a colony tile, as dropping
+     * its label there in ColonyPanel does: the controller claims the tile
+     * if needed, the unit takes the work the location suits it for best,
+     * and a location that cannot take it is explained, as Swing explains it.
+     *
+     * @param unitId The id of one of our units, in the colony or beside it.
+     * @param locationId The id of the building or colony tile.
+     * @return True if the unit now works there.
+     */
+    public boolean work(String unitId, String locationId) {
+        final Unit unit = object(unitId, Unit.class);
+        final WorkLocation wl = object(locationId, WorkLocation.class);
+        final Player player = this.client.getMyPlayer();
+        if (unit == null || wl == null || !player.owns(unit)
+            || wl.getColony() == null || !player.owns(wl.getColony())) return false;
+        if (unit.getLocation() == wl) return false;
+        final NoAddReason reason = wl.getNoAddReason(unit);
+        if (reason != NoAddReason.NONE && reason != NoAddReason.CLAIM_REQUIRED) {
+            gui().showInformationPanel(wl, StringTemplate.template(reason.getDescriptionKey()));
+            return false;
+        }
+        final GoodsType workType = wl.getWorkFor(unit);
+        igc().work(unit, wl);
+        if (unit.getLocation() != wl) return false;
+        // The server may have changed the unit's work, as it may upgrade it.
+        if (workType != null && workType != unit.getWorkType()) {
+            igc().changeWorkType(unit, workType);
+        }
+        return true;
+    }
+
+    /**
+     * Put a colonist outside the colony, on its tile (the outside colony
+     * panel, as ColonyPanel.OutsideColonyPanel.add does).
+     *
+     * @param unitId The id of one of our units working in a colony.
+     * @return True if the unit is now on the colony's tile.
+     */
+    public boolean putOutsideColony(String unitId) {
+        final Unit unit = object(unitId, Unit.class);
+        if (unit == null || !this.client.getMyPlayer().owns(unit)
+            || !(unit.getLocation() instanceof WorkLocation)) return false;
+        return igc().putOutsideColony(unit);
+    }
+
+    /**
+     * Change what a colonist produces where it works.
+     *
+     * @param unitId The id of one of our units working in a colony.
+     * @param goodsTypeId The id of the goods type to produce.
+     * @return True if the unit now produces it.
+     */
+    public boolean changeWorkType(String unitId, String goodsTypeId) {
+        final Unit unit = object(unitId, Unit.class);
+        final GoodsType type = this.client.getGame().getSpecification()
+            .getGoodsType(goodsTypeId);
+        if (unit == null || type == null || !this.client.getMyPlayer().owns(unit)
+            || !(unit.getLocation() instanceof WorkLocation)) return false;
+        return igc().changeWorkType(unit, type);
+    }
+
+    /** The game object with this id, if it is of the class. */
+    private <T extends FreeColGameObject> T object(String id, Class<T> type) {
+        return this.client.getGame().getFreeColGameObject(id, type);
     }
 
     /**
