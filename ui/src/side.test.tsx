@@ -21,29 +21,14 @@ const saving = () => ({
 });
 
 describe('the side panel', () => {
-  it('shows FreeCol’s status line, and the turn below it', () => {
-    const statusLine = 'Score: 0    ✧    Gold: 1000    ✧    Tax: 0%    ✧    Year: Spring 1493';
-    render(
-      <Side
-        turn="5 (AI playing)"
-        statusLine={statusLine}
-        info=""
-        unasked={[]}
-        status=""
-        orders={[]}
-        run={() => {}}
-        {...saving()}
-      />,
-    );
-    expect(screen.getByText('Score: 0 ✧ Gold: 1000 ✧ Tax: 0% ✧ Year: Spring 1493').textContent).toBe(statusLine);
+  it('shows the turn', () => {
+    render(<Side turn="5 (AI playing)" info="" unasked={[]} status="" orders={[]} run={() => {}} {...saving()} />);
     expect(screen.getByText('5 (AI playing)').id).toBe('turn');
   });
 
   it('runs a button’s command', () => {
     const ran: Command[] = [];
-    render(
-      <Side turn="1" statusLine="" info="" unasked={[]} status="" orders={[]} run={(c) => ran.push(c)} {...saving()} />,
-    );
+    render(<Side turn="1" info="" unasked={[]} status="" orders={[]} run={(c) => ran.push(c)} {...saving()} />);
     fireEvent.click(screen.getByRole('button', { name: 'Build colony (B)' }));
     fireEvent.click(screen.getByRole('button', { name: 'End turn (Enter)' }));
     fireEvent.click(screen.getByRole('button', { name: 'Declare independence' }));
@@ -55,7 +40,7 @@ describe('the side panel', () => {
     render(
       <Side
         turn="1"
-        statusLine=""
+
         info=""
         unasked={[]}
         status=""
@@ -82,7 +67,7 @@ describe('the side panel', () => {
     render(
       <Side
         turn="1"
-        statusLine=""
+
         info=""
         unasked={[]}
         status=""
@@ -97,7 +82,7 @@ describe('the side panel', () => {
   });
 
   it('disables every order while no unit is active', () => {
-    render(<Side turn="1" statusLine="" info="" unasked={[]} status="" orders={[]} run={() => {}} {...saving()} />);
+    render(<Side turn="1" info="" unasked={[]} status="" orders={[]} run={() => {}} {...saving()} />);
     for (const name of [
       'Fortify (F)',
       'Sentry (S)',
@@ -115,7 +100,7 @@ describe('the side panel', () => {
     render(
       <Side
         turn="1"
-        statusLine=""
+
         info=""
         unasked={['showDumpCargoDialog', 'showWarehouseDialog', 'showDumpCargoDialog']}
         status=""
@@ -131,7 +116,7 @@ describe('the side panel', () => {
   });
 
   it('lists nothing while every dialog was asked', () => {
-    render(<Side turn="1" statusLine="" info="" unasked={[]} status="" orders={[]} run={() => {}} {...saving()} />);
+    render(<Side turn="1" info="" unasked={[]} status="" orders={[]} run={() => {}} {...saving()} />);
     expect(screen.queryByRole('list')).toBeNull();
   });
 
@@ -142,7 +127,7 @@ describe('the side panel', () => {
     render(
       <Side
         turn="1"
-        statusLine=""
+
         info=""
         unasked={[]}
         status=""
@@ -164,7 +149,7 @@ describe('the side panel', () => {
     render(
       <Side
         turn="1"
-        statusLine=""
+
         info=""
         unasked={[]}
         status=""
@@ -195,7 +180,7 @@ describe('the side panel', () => {
     render(
       <Side
         turn="1"
-        statusLine=""
+
         info=""
         unasked={[]}
         status=""
@@ -211,7 +196,7 @@ describe('the side panel', () => {
   });
 
   it('says so when there are no saves', () => {
-    render(<Side turn="1" statusLine="" info="" unasked={[]} status="" orders={[]} run={() => {}} {...saving()} />);
+    render(<Side turn="1" info="" unasked={[]} status="" orders={[]} run={() => {}} {...saving()} />);
     expect(screen.getByText('No saved games')).toBeTruthy();
   });
 });

@@ -9,7 +9,7 @@ afterEach(cleanup);
 const side = (debug?: Parameters<typeof Side>[0]['debug']) => (
   <Side
     turn="1"
-    statusLine=""
+
     info=""
     unasked={[]}
     status=""

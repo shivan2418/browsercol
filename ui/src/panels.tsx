@@ -1,17 +1,17 @@
 // React components for the WebGUI's dialogs (dialogs.ts): the confirm,
 // choice, input, goods, end turn, pre-combat, negotiation and names questions and the information, error, event and message
-// panels. All text, button labels included, comes localized from the
+// panels, each in a window frame (frame.tsx). All text, button labels included, comes localized from the
 // Engine. Keys mean what they do in FreeCol's dialogs: Enter presses the
-// focused button, else takes the default option; Escape closes the dialog
-// as cancelled; a panel closes on either.
+// focused button, else takes the default option; Escape, or the frame's
+// close button, closes the dialog as cancelled; a panel closes on either key.
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import type { Dialog, Dialogs } from './dialogs';
+import { GoodsAmount, WindowFrame, type Art } from './frame';
 import type { GuiEvents, TradeItem, TradeOption } from './webgui';
 
-type At = [number, number];
+export type { Art };
 
-/** The URL of the art for the first of some resource keys the Tileset has, or null if it has none (yet). */
-export type Art = (keys: readonly string[]) => string | null;
+type At = [number, number];
 
 /** What the turn report's buttons do (ClientExports.reportGroupBy and the others). */
 export interface ReportButtons {
@@ -27,26 +27,43 @@ function Pic({ keys, art, className = 'pic' }: { keys: readonly string[]; art: A
 }
 
 /**
- * Answer Enter and Escape while the dialog is open, before anything else
- * on the page sees them. A key with no action is still kept from the page.
- * Enter on a button of the dialog is left to the button, as in Swing.
+ * Answer Enter while the dialog is open, before anything else on the page
+ * sees it; with no action it is still kept from the page. Enter on a button
+ * of the dialog is left to the button, as in Swing. Escape is the frame's.
  */
-function useKeys(enter: (() => void) | null, escape: () => void) {
-  const keys = useRef({ enter, escape });
-  keys.current = { enter, escape };
+function useEnter(enter: (() => void) | null) {
+  const act = useRef(enter);
+  act.current = enter;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target instanceof Element ? e.target : null;
-      if (e.key === 'Enter' && target?.matches('[role=dialog] button')) return;
-      const act = e.key === 'Enter' ? keys.current.enter : e.key === 'Escape' ? keys.current.escape : undefined;
-      if (act === undefined) return;
+      if (e.key !== 'Enter' || target?.matches('[role=dialog] button')) return;
       e.preventDefault();
       e.stopPropagation();
-      act?.();
+      act.current?.();
     };
     addEventListener('keydown', onKey, { capture: true });
     return () => removeEventListener('keydown', onKey, { capture: true });
   }, []);
+}
+
+/** The dialog's window: its title, if it has one, and what closing it (Escape, the close button) answers. */
+function Win({
+  d,
+  title = null,
+  close,
+  children,
+}: {
+  d: Dialog;
+  title?: string | null;
+  close: (() => void) | null;
+  children: ReactNode;
+}) {
+  return (
+    <WindowFrame className="dialog" aria-modal="true" data-kind={d.kind} title={title} close={close}>
+      {children}
+    </WindowFrame>
+  );
 }
 
 /** FreeCol's text, its line breaks kept. */
@@ -76,13 +93,12 @@ function Confirm({ d }: { d: Of<'confirm'> }) {
   const { ask } = d;
   const ok = () => d.done(true);
   const cancel = () => d.done(false);
-  useKeys(ask.defaultOk && ask.ok !== null ? ok : cancel, cancel);
+  useEnter(ask.defaultOk && ask.ok !== null ? ok : cancel);
   return (
-    <>
-      {ask.header !== null && <h2>{ask.header}</h2>}
+    <Win d={d} title={ask.header} close={cancel}>
       <Text text={ask.text} />
       <OkCancel ok={ask.ok} cancel={ask.cancel} onOk={ok} onCancel={cancel} />
-    </>
+    </Win>
   );
 }
 
@@ -94,9 +110,9 @@ function Choice({ d }: { d: Of<'choice'> }) {
   // Swing: Escape closes with the cancel item, else null; Enter takes the
   // default item, else the cancel button if there is one.
   const cancel = cancelItem >= 0 ? pick(cancelItem) : () => d.done(null);
-  useKeys(byDefault >= 0 ? pick(byDefault) : ask.cancel !== null ? cancel : null, cancel);
+  useEnter(byDefault >= 0 ? pick(byDefault) : ask.cancel !== null ? cancel : null);
   return (
-    <>
+    <Win d={d} close={cancel}>
       <Text text={ask.text} />
       <div className="choices">
         {ask.choices.map((c, i) => (
@@ -118,7 +134,7 @@ function Choice({ d }: { d: Of<'choice'> }) {
           </button>
         </div>
       )}
-    </>
+    </Win>
   );
 }
 
@@ -127,13 +143,13 @@ function Input({ d }: { d: Of<'input'> }) {
   const [value, setValue] = useState(ask.value ?? '');
   const ok = () => d.done(value);
   const cancel = () => d.done(null);
-  useKeys(ok, cancel);
+  useEnter(ok);
   return (
-    <>
+    <Win d={d} close={cancel}>
       <Text text={ask.text} />
       <input autoFocus value={value} onChange={(e) => setValue(e.target.value)} />
       <OkCancel ok={ask.ok} cancel={ask.cancel} onOk={ok} onCancel={cancel} />
-    </>
+    </Win>
   );
 }
 
@@ -143,7 +159,7 @@ function PreCombat({ d }: { d: Of<'preCombat'> }) {
   const ok = () => d.done(true);
   const cancel = () => d.done(false);
   // Swing's dialog has no default button; Enter takes the focused one only.
-  useKeys(null, cancel);
+  useEnter(null);
   const rows = Math.max(ask.offence.length, ask.defence.length);
   const cell = (side: { source: string; value: string }[], i: number) => (
     <>
@@ -152,7 +168,7 @@ function PreCombat({ d }: { d: Of<'preCombat'> }) {
     </>
   );
   return (
-    <>
+    <Win d={d} close={cancel}>
       <table className="modifiers">
         <thead>
           <tr>
@@ -178,7 +194,7 @@ function PreCombat({ d }: { d: Of<'preCombat'> }) {
         </tfoot>
       </table>
       <OkCancel ok={ask.ok} cancel={ask.cancel} onOk={ok} onCancel={cancel} />
-    </>
+    </Win>
   );
 }
 
@@ -187,10 +203,9 @@ function EndTurn({ d }: { d: Of<'endTurn'> }) {
   const { ask } = d;
   const ok = () => d.done({ status: 'ok' });
   const cancel = () => d.done({ status: 'cancel' });
-  useKeys(ask.ok !== null ? ok : cancel, cancel);
+  useEnter(ask.ok !== null ? ok : cancel);
   return (
-    <>
-      <h2>{ask.header}</h2>
+    <Win d={d} title={ask.header} close={cancel}>
       <Text text={ask.text} />
       <div className="choices waiting">
         {ask.units.map((u) => (
@@ -201,7 +216,7 @@ function EndTurn({ d }: { d: Of<'endTurn'> }) {
         ))}
       </div>
       <OkCancel ok={ask.ok} cancel={ask.cancel} onOk={ok} onCancel={cancel} />
-    </>
+    </Win>
   );
 }
 
@@ -210,9 +225,9 @@ function Names({ d }: { d: Of<'names'> }) {
   const [values, setValues] = useState(ask.fields.map((f) => f.value));
   const ok = () => d.done(values);
   const cancel = () => d.done(null);
-  useKeys(ok, cancel);
+  useEnter(ok);
   return (
-    <>
+    <Win d={d} close={cancel}>
       <Text text={ask.text} />
       {ask.fields.map((f, i) => (
         <label key={i} className="field">
@@ -225,11 +240,11 @@ function Names({ d }: { d: Of<'names'> }) {
         </label>
       ))}
       <OkCancel ok={ask.ok} cancel={ask.cancel} onOk={ok} onCancel={cancel} />
-    </>
+    </Win>
   );
 }
 
-function Goods({ d }: { d: Of<'goods'> }) {
+function Goods({ d, art }: { d: Of<'goods'>; art: Art }) {
   const { ask } = d;
   const [picked, setPicked] = useState<number[]>(() =>
     ask.goods.flatMap((g, i) => (g.checked ? [i] : [])).slice(0, ask.max),
@@ -239,9 +254,9 @@ function Goods({ d }: { d: Of<'goods'> }) {
     setPicked((p) => (p.includes(i) ? p.filter((x) => x !== i) : p.length < ask.max ? [...p, i] : p));
   const ok = () => d.done([...picked].sort((a, b) => a - b));
   const cancel = () => d.done(null);
-  useKeys(ok, cancel);
+  useEnter(ok);
   return (
-    <>
+    <Win d={d} close={cancel}>
       <Text text={ask.text} />
       <div className="lots">
         {ask.goods.map((g, i) => (
@@ -253,12 +268,12 @@ function Goods({ d }: { d: Of<'goods'> }) {
               onChange={() => toggle(i)}
             />
             <span className="name">{g.name}</span>
-            <span className="amount">{g.amount}</span>
+            <GoodsAmount icon={g.icon} name={g.name} amount={g.amount} art={art} />
           </label>
         ))}
       </div>
       <OkCancel ok={ask.ok} cancel={ask.cancel} onOk={ok} onCancel={cancel} />
-    </>
+    </Win>
   );
 }
 
@@ -331,8 +346,7 @@ function Negotiation({ d }: { d: Of<'negotiation'> }) {
   const reply = (status: 'accept' | 'propose' | 'reject') => () => d.done({ status, items });
   // Swing: Enter accepts if it can (a new offer cannot be, nor a changed one), else sends.
   const canAccept = ask.accept !== null && !changed;
-  const cancel = ask.cancel !== null ? reply('reject') : () => {};
-  useKeys(canAccept ? reply('accept') : reply('propose'), cancel);
+  useEnter(canAccept ? reply('accept') : reply('propose'));
   const given = items.filter((i) => i.side === 'offer');
   // A stance is traded by both; Swing lists it with what the other player gives.
   const taken = items.filter((i) => i.side !== 'offer');
@@ -364,8 +378,7 @@ function Negotiation({ d }: { d: Of<'negotiation'> }) {
     );
   };
   return (
-    <>
-      <h2>{ask.title}</h2>
+    <Win d={d} title={ask.title} close={ask.cancel !== null ? reply('reject') : null}>
       {ask.text !== null && <Text text={ask.text} />}
       {group('demand', ask.demand)}
       {group('offer', ask.offer)}
@@ -389,31 +402,40 @@ function Negotiation({ d }: { d: Of<'negotiation'> }) {
           </button>
         )}
       </div>
-    </>
+    </Win>
   );
 }
 
 /** A panel's body, then its close button. */
-function Panel({ d, children, ok }: { d: Dialog; children: ReactNode; ok: string }) {
+function Panel({
+  d,
+  title = null,
+  children,
+  ok,
+}: {
+  d: Dialog;
+  title?: string | null;
+  children: ReactNode;
+  ok: string;
+}) {
   const close = () => (d.done as () => void)();
-  useKeys(close, close);
+  useEnter(close);
   return (
-    <>
+    <Win d={d} title={title} close={close}>
       {children}
       <div className="buttons">
         <button data-answer="close" onClick={close}>
           {ok}
         </button>
       </div>
-    </>
+    </Win>
   );
 }
 
-/** An event panel's header, flavour image and footer. */
+/** An event panel's flavour image and footer; its header is the window's title. */
 function EventBody({ e, art }: { e: GuiEvents['eventPanel']; art: Art }) {
   return (
     <>
-      <h2>{e.header}</h2>
       {e.image && <Pic keys={[e.image]} art={art} className="flavour" />}
       {e.footer && <Text text={e.footer} />}
     </>
@@ -477,7 +499,6 @@ function MessageList({
   const { groupBy } = event;
   return (
     <>
-      {event.title && <h2>{event.title}</h2>}
       {groupBy && (
         <label className="field group-by">
           {groupBy.label}{' '}
@@ -548,7 +569,7 @@ function Body({ d, goTo, art, report }: { d: Dialog; goTo: (at: At) => void; art
     case 'input':
       return <Input d={d} />;
     case 'goods':
-      return <Goods d={d} />;
+      return <Goods d={d} art={art} />;
     case 'negotiation':
       return <Negotiation d={d} />;
     case 'names':
@@ -574,13 +595,13 @@ function Body({ d, goTo, art, report }: { d: Dialog; goTo: (at: At) => void; art
       );
     case 'eventPanel':
       return (
-        <Panel d={d} ok={d.event.ok}>
+        <Panel d={d} title={d.event.header} ok={d.event.ok}>
           <EventBody e={d.event} art={art} />
         </Panel>
       );
     case 'event':
       return (
-        <Panel d={d} ok={d.ask.ok}>
+        <Panel d={d} title={d.ask.header} ok={d.ask.ok}>
           <EventBody e={d.ask} art={art} />
         </Panel>
       );
@@ -607,7 +628,7 @@ function Body({ d, goTo, art, report }: { d: Dialog; goTo: (at: At) => void; art
       );
     case 'messages':
       return (
-        <Panel d={d} ok={d.event.ok}>
+        <Panel d={d} title={d.event.title} ok={d.event.ok}>
           <MessageList event={d.event} goTo={goTo} art={art} report={report} />
         </Panel>
       );
@@ -633,9 +654,7 @@ export function DialogHost({
   if (!d) return null;
   return (
     <div className="modal">
-      <div className="dialog" role="dialog" aria-modal="true" data-kind={d.kind} key={d.id}>
-        <Body d={d} goTo={goTo} art={art} report={report} />
-      </div>
+      <Body key={d.id} d={d} goTo={goTo} art={art} report={report} />
     </div>
   );
 }

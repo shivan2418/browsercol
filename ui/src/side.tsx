@@ -1,5 +1,5 @@
-// The side panel beside the map: FreeCol's status line (the score, the
-// gold, the tax and the year) and the turn, the command buttons, the info
+// The side panel beside the map, a debug scaffold (docs/adr/0004): the
+// turn, the command buttons, the info
 // panel (FreeCol's InfoPanel, as text), the dialogs the Browser UI cannot
 // show yet, the saved games and the page's status. main.tsx renders it again on each change.
 import { useRef } from 'react';
@@ -9,8 +9,6 @@ import type { SaveMeta } from './saves';
 
 export interface SideProps {
   turn: string;
-  /** FreeCol's status line: the score, the gold, the tax and the year. */
-  statusLine: string;
   /** The info panel's lines. */
   info: string;
   /** WebGUI dialogs with no Browser UI yet, by method, each time one was asked. */
@@ -73,7 +71,6 @@ const saveLine = (s: SaveMeta) =>
 
 export function Side({
   turn,
-  statusLine,
   info,
   unasked,
   status,
@@ -91,7 +88,6 @@ export function Side({
   const name = useRef<HTMLInputElement>(null);
   return (
     <>
-      <div id="statusLine">{statusLine}</div>
       <div>
         Turn: <span id="turn">{turn}</span>
       </div>

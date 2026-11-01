@@ -2,6 +2,9 @@ import { expect, test } from 'vite-plus/test';
 import html from '../index.html?raw';
 import css from './theme.css?raw';
 
+/** The components' sources, by file. */
+const components = import.meta.glob<string>('./*.tsx', { query: '?raw', import: 'default', eager: true });
+
 /** The custom properties each top-level block of theme.css sets, by its selector. */
 function palettes(): Map<string, Set<string>> {
   const blocks = new Map<string, Set<string>>();
@@ -24,5 +27,13 @@ test('index.html takes its colours from the tokens alone', () => {
   const style = html.slice(html.indexOf('<style>'), html.indexOf('</style>'));
   // Shadows may darken whatever is under them; any other colour belongs in theme.css.
   const literals = style.split('\n').filter((l) => /#[0-9a-f]{3,8}\b|rgb\(/i.test(l) && !/box-shadow/.test(l));
+  expect(literals).toEqual([]);
+});
+
+test('the components take their colours from the tokens alone', () => {
+  expect(Object.keys(components)).toContain('./frame.tsx');
+  const literals = Object.entries(components).flatMap(([file, src]) =>
+    src.split('\n').flatMap((l) => (/#[0-9a-f]{3,8}\b['";]|rgba?\(|hsla?\(/i.test(l) ? [`${file}: ${l.trim()}`] : [])),
+  );
   expect(literals).toEqual([]);
 });
