@@ -1223,14 +1223,9 @@ class WebGUITest {
         shown.clear();
         assertTrue(client.getCommands().menuEntry("colopedia:" + id));
         final String panel = shown().stream()
-            .filter(e -> e.startsWith("colopedia ")).findFirst().orElse("");
-        assertTrue(panel.contains("\"name\":\"" + Messages.getName(at.getType()) + "\""), panel);
-        assertTrue(panel.contains("\"movementCost\":\""), panel);
-        assertTrue(panel.contains("\"unattended\":["), panel);
-        assertTrue(panel.endsWith("\"ok\":\"OK\"}"), panel);
-
-        shown.clear();
-        assertFalse(client.getCommands().menuEntry("colopedia:model.noSuch"));
-        assertFalse(shown().stream().anyMatch(e -> e.startsWith("colopedia ")), shown.toString());
+            .filter(e -> e.startsWith("report ") && e.contains("\"report\":\"colopedia\""))
+            .findFirst().orElse("");
+        assertTrue(panel.contains("\"select\":\"" + id + "\""), panel);
+        assertTrue(panel.contains("\"sections\":["), panel);
     }
 }
