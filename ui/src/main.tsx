@@ -517,6 +517,8 @@ async function run() {
     recruit: (i: number) => exports.recruitUnit(i),
     train: (id: string) => exports.trainUnit(id),
     board: (unit: string, ship: string) => exports.boardShip(unit, ship),
+    buy: (goods: string, ship: string) => exports.buyGoods(ship, goods),
+    sell: (goods: string, ship: string) => exports.sellGoods(ship, goods),
     sail: (ship: string) => exports.sailToNewWorld(ship),
   });
   playWith(exports);

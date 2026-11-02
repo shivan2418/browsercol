@@ -505,6 +505,19 @@
       .europe .good[data-disabled] {
         opacity: 0.4;
       }
+      /* The market's goods and the cargo's stacks are buttons (they trade), but look as Swing's labels do. */
+      .europe button.good,
+      .europe button.chip {
+        background: none;
+        border: none;
+        padding: 0;
+        color: var(--ink);
+        cursor: pointer;
+      }
+      .europe button.good:hover,
+      .europe button.chip:hover {
+        outline: 1px solid var(--accent);
+      }
       .europe .price {
         font-variant-numeric: tabular-nums;
       }

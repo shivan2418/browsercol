@@ -11,6 +11,7 @@ import { ColonyPanel } from './colony-panel';
 import type { Dialog, Dialogs } from './dialogs';
 import { europeButtons } from './europe-client';
 import { GoodsAmount, WindowFrame, type Art } from './frame';
+import { draggableProps, dropTargetProps, type Item } from './moves';
 import { OptionEditor } from './option-editor';
 import { ReportPanel } from './reports';
 import type { EuropeUnit, GuiEvents, SettlementEntry, TradeItem, TradeOption, TradeRouteDraft } from './webgui';
@@ -888,19 +889,33 @@ function RoutesPanel({ d, art, routes }: { d: Of<'tradeRoutes'>; art: Art; route
 type Europe = GuiEvents['europe'];
 
 /** A unit or ship of Europe's panel, with its picture. */
-function UnitChip({ u, art, pick, on }: { u: EuropeUnit; art: Art; pick?: () => void; on?: boolean }) {
+function UnitChip({
+  u,
+  art,
+  pick,
+  on,
+  drag,
+}: {
+  u: EuropeUnit;
+  art: Art;
+  pick?: () => void;
+  on?: boolean;
+  /** Whether the unit can be dragged somewhere, as a dock's unit can board. */
+  drag?: boolean;
+}) {
   const inner = (
     <>
       <Pic keys={u.images} art={art} />
       <span className="name">{u.name}</span>
     </>
   );
+  const props = drag ? draggableProps({ kind: 'unit', id: u.id }) : {};
   return pick ? (
-    <button className="chip" data-unit={u.id} aria-pressed={on} onClick={pick}>
+    <button className="chip" data-unit={u.id} aria-pressed={on} onClick={pick} {...props}>
       {inner}
     </button>
   ) : (
-    <div className="chip" data-unit={u.id}>
+    <div className="chip" data-unit={u.id} {...props}>
       {inner}
     </div>
   );
@@ -910,6 +925,11 @@ function UnitChip({ u, art, pick, on }: { u: EuropeUnit; art: Art; pick?: () => 
  * Europe, arranged as EuropePanel arranges it: the ships sailing to America and to Europe, the
  * ships in port with the cargo of the one picked, the docks, and the market with each goods' sell/buy price
  * (MarketLabel's). The gold is beside the title.
+ *
+ * The market trades as it does in Swing: a goods of the market dropped on the cargo of a ship in port is
+ * bought, and a stack of that cargo dropped on the market is sold. Clicking does the same, and the Engine
+ * asks how much of it, as the select amount dialog does. A goods that is boycotted is dimmed, and says
+ * why.
  */
 function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
   const e: Europe = d.event;
@@ -936,16 +956,41 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
       </div>
     </section>
   );
-  const list = (heading: string, kind: string, units: EuropeUnit[], pick?: (u: EuropeUnit) => () => void) => (
+  const list = (
+    heading: string,
+    kind: string,
+    units: EuropeUnit[],
+    pick?: (u: EuropeUnit) => () => void,
+    drag?: boolean,
+  ) => (
     <section className="box" data-list={kind}>
       <h3>{heading}</h3>
       <div className="chips">
         {units.map((u) => (
-          <UnitChip key={u.id} u={u} art={art} pick={pick?.(u)} on={u.id === picked} />
+          <UnitChip key={u.id} u={u} art={art} pick={pick?.(u)} on={u.id === picked} drag={drag} />
         ))}
       </div>
     </section>
   );
+  /** What the market says of a goods type: whether it can be traded, and why not. */
+  const trade = new Map(e.market.map((g) => [g.id, g]));
+  /** Buy a goods of the market onto the ship in port. */
+  const buy = (goodsTypeId: string) => {
+    if (ship) europeButtons.buy(goodsTypeId, ship.id);
+  };
+  /** Sell a stack of the ship's cargo. */
+  const sell = (goodsTypeId: string) => {
+    if (ship) europeButtons.sell(goodsTypeId, ship.id);
+  };
+  /** What a drop on the cargo does: the market's goods are bought, a unit of the docks boards. */
+  const onCargo = (item: Item) => {
+    if (item.kind === 'goods' && item.from === 'market') buy(item.type);
+    else if (item.kind === 'unit' && ship) europeButtons.board(item.id, ship.id);
+  };
+  /** What a drop on the market does: a stack of the cargo is sold. */
+  const onMarket = (item: Item) => {
+    if (item.kind === 'goods' && item.from === 'cargo') sell(item.type);
+  };
   return (
     <Panel d={d} ok={e.ok}>
       <div className="europe-title">
@@ -994,28 +1039,81 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
         {list(e.headings.toAmerica, 'toAmerica', e.toAmerica)}
         {list(e.headings.toEurope, 'toEurope', e.toEurope)}
         {list(e.headings.inPort, 'inPort', e.inPort, (u) => () => setPicked(u.id))}
-        {list(e.headings.docks, 'docks', e.docks, ship ? (u) => () => europeButtons.board(u.id, ship.id) : undefined)}
-        <section className="box cargo" data-list="cargo">
+        {list(
+          e.headings.docks,
+          'docks',
+          e.docks,
+          ship ? (u) => () => europeButtons.board(u.id, ship.id) : undefined,
+          ship !== null,
+        )}
+        <section className="box cargo" data-list="cargo" {...(ship ? dropTargetProps('cargo', onCargo) : {})}>
           <h3>{e.headings.cargo}</h3>
           <div className="chips">
-            {ship?.cargo?.map((c) => (
-              <div className="chip" key={`${c.kind}/${c.id}`} data-cargo={c.kind}>
-                <Pic keys={c.images} art={art} />
-                <span className="name">{c.kind === 'goods' ? `${c.amount} ${c.name}` : c.name}</span>
-              </div>
-            ))}
+            {ship?.cargo?.map((c, i) => {
+              const goods = trade.get(c.id);
+              const sellable = c.kind === 'goods' && goods?.enabled === true;
+              const drag = draggableProps({ kind: 'goods', from: 'cargo', type: c.id, index: i, amount: c.amount });
+              const inner = (
+                <>
+                  <Pic keys={c.images} art={art} />
+                  <span className="name">{c.kind === 'goods' ? `${c.amount} ${c.name}` : c.name}</span>
+                </>
+              );
+              return sellable ? (
+                <button
+                  key={`${c.kind}/${c.id}`}
+                  className="chip"
+                  data-cargo={c.kind}
+                  title={c.name}
+                  onClick={() => sell(c.id)}
+                  {...drag}
+                >
+                  {inner}
+                </button>
+              ) : (
+                <div key={`${c.kind}/${c.id}`} className="chip" data-cargo={c.kind} title={goods?.reason ?? c.name}>
+                  {inner}
+                </div>
+              );
+            })}
           </div>
         </section>
-        <section className="box market" data-list="market">
+        <section className="box market" data-list="market" {...dropTargetProps('market', onMarket)}>
           <div className="goods">
-            {e.market.map((g) => (
-              <div className="good" key={g.id} data-goods={g.id} data-disabled={!g.enabled || undefined} title={g.name}>
-                <Pic keys={g.images} art={art} />
-                <span className="price">
-                  {g.sell}/{g.buy}
-                </span>
-              </div>
-            ))}
+            {e.market.map((g) => {
+              const buyable = ship !== null && g.enabled;
+              const drag = draggableProps({ kind: 'goods', from: 'market', type: g.id });
+              const inner = (
+                <>
+                  <Pic keys={g.images} art={art} />
+                  <span className="price">
+                    {g.sell}/{g.buy}
+                  </span>
+                </>
+              );
+              return buyable ? (
+                <button
+                  key={g.id}
+                  className="good"
+                  data-goods={g.id}
+                  title={g.name}
+                  onClick={() => buy(g.id)}
+                  {...drag}
+                >
+                  {inner}
+                </button>
+              ) : (
+                <div
+                  key={g.id}
+                  className="good"
+                  data-goods={g.id}
+                  data-disabled={!g.enabled || undefined}
+                  title={g.reason ?? g.name}
+                >
+                  {inner}
+                </div>
+              );
+            })}
           </div>
         </section>
       </div>
