@@ -29,6 +29,22 @@ export interface GuiEvents {
   error: { text: string; ok: string };
   eventPanel: { header: string; image: string | null; footer: string | null; ok: string };
   /**
+   * A tile, as FreeCol's TilePanel shows it: the title, its terrain image (keys, with the forest's over
+   * it), the lines it has (region, owner, settlement, defence bonus, movement cost) and what a colonist
+   * makes there (amount, and what an expert would make). colopedia is the button's label and type the
+   * tile type it opens.
+   */
+  tilePanel: {
+    title: string;
+    type: string;
+    keys: string[];
+    forest: string[] | null;
+    rows: { label: string; value: string }[];
+    production: (ColopediaGoods & { expert: number })[];
+    colopedia: string;
+    ok: string;
+  };
+  /**
    * The Colopedia's terrain entry, as TerrainDetailPanel shows a tile type: its image (keys, with the
    * forest's over it), the possible resources, movement cost, defence bonus, what it makes unattended
    * and with a colonist, and the description.

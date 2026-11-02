@@ -1145,8 +1145,8 @@ class CommandsTest {
         assertTrue(menu.contains("\"title\":"), menu);
         assertNotNull(entryWith(menu, "select:" + ship.getId()), menu);
         assertNotNull(entryWith(menu, "select:" + aboard.getId()), menu);
-        assertNotNull(entryWith(menu, "colopedia:" + at.getType().getId()),
-            "the tile's own line opens the Colopedia: " + menu);
+        assertNotNull(entryWith(menu, "tile:" + at.getX() + "," + at.getY()),
+            "the tile's own line opens its panel: " + menu);
         // One unit on the tile (the ship), so no "activate all", as in TilePopup.
         assertNull(entryWith(menu, "activateAll:"), menu);
         assertEquals("null", menus.tile(-1, -1), "off the map");

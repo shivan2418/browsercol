@@ -309,6 +309,7 @@ function renderSide() {
                 dialogs={dialogQueue}
                 goTo={(at) => dispatch({ k: 'focus', tile: null, at })}
                 art={art}
+                colopedia={(type) => menuClient?.menuEntry(`colopedia:${type}`)}
                 string={(key) => map.resources()?.string(key) ?? ''}
                 report={{
                   groupBy: (value) => reportButtons.groupBy(value),
@@ -414,6 +415,7 @@ const gui: GuiHandlers = {
     },
     eventPanel: (e) => dialogQueue.show('eventPanel', e),
     indianSettlement: (e) => dialogQueue.show('indianSettlement', e),
+    tilePanel: (e) => dialogQueue.show('tilePanel', e),
     colopedia: (e) => dialogQueue.replace('colopedia', e),
     highScores: (e) => dialogQueue.show('highScores', e),
     tradeRoutes: (e) => dialogQueue.replace('tradeRoutes', e),

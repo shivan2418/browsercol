@@ -384,6 +384,7 @@ public final class Commands {
      * <tr><td>cashin:unit</td><td>cash in a treasure train</td></tr>
      * <tr><td>clear:unit</td><td>clear the unit's orders</td></tr>
      * <tr><td>select:unit</td><td>make the unit the active one</td></tr>
+     * <tr><td>tile:x,y</td><td>show the tile's panel</td></tr>
      * <tr><td>activateAll:x,y</td><td>clear the orders of the tile's units and select the first</td></tr>
      * <tr><td>colony:id, settlement:id</td><td>open the settlement's panel</td></tr>
      * <tr><td>leaveTown:unit, leaveShip:unit, board:unit,ship</td><td>as the colony panel's moves</td></tr>
@@ -416,6 +417,7 @@ public final class Commands {
             return activateAll(Integer.parseInt(a[0]), Integer.parseInt(a[1]));
         case "colony": return showColony(rest);
         case "settlement": return showSettlement(rest);
+        case "tile": return showTile(Integer.parseInt(a[0]), Integer.parseInt(a[1]));
         case "colopedia": return showColopedia(rest);
         case "leaveTown": return putOutsideColony(rest);
         case "leaveShip": return leaveShip(rest);
@@ -499,6 +501,13 @@ public final class Commands {
     }
 
     /** Open the Colopedia on an entry; false if there is none of that id. */
+    private boolean showTile(int x, int y) {
+        final Tile tile = this.client.getGame().getMap().getTile(x, y);
+        if (tile == null || !tile.isExplored()) return false;
+        gui().showTilePanel(tile);
+        return true;
+    }
+
     private boolean showColopedia(String id) {
         if (this.client.getGame().getSpecification().getTileType(id) == null) return false;
         gui().showColopediaPanel(id);

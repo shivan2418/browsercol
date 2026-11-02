@@ -17,6 +17,7 @@ export type PanelKind =
   | 'error'
   | 'eventPanel'
   | 'indianSettlement'
+  | 'tilePanel'
   | 'colopedia'
   | 'messages'
   | 'highScores'

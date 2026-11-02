@@ -128,6 +128,7 @@ export function GoodsAmount({
   name,
   amount,
   change = false,
+  expert = null,
   art,
 }: {
   /** The goods icon's resource keys, best first (image.icon.model.goods.<id>, say). */
@@ -136,6 +137,8 @@ export function GoodsAmount({
   name: string;
   amount: number;
   change?: boolean;
+  /** What an expert would make, shown after a slash when it is more than the amount. */
+  expert?: number | null;
   art: Art;
 }) {
   const src = art(keys);
@@ -144,7 +147,7 @@ export function GoodsAmount({
   return (
     <span className="goods" data-sign={sign} title={name}>
       {src === null ? <span className="name">{name}</span> : <img src={src} alt={name} />}
-      <span className="amount">{text}</span>
+      <span className="amount">{expert !== null && expert > amount ? `${text}/${expert}` : text}</span>
     </span>
   );
 }
