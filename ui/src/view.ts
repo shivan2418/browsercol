@@ -99,6 +99,8 @@ export const toScreen = (v: ViewState, [mx, my]: [number, number]): [number, num
 /** Where a tile's centre shows in the viewport. */
 export const tileOnScreen = (v: ViewState, at: Tile) => toScreen(v, tileCentre(at));
 
+const sameTile = (a: Tile, b: Tile | null) => !!b && a[0] === b[0] && a[1] === b[1];
+
 /** Whether a tile's centre is in view. */
 function onScreen(v: ViewState, at: Tile) {
   const c = tileCentre(at);
@@ -172,8 +174,15 @@ function apply(v: ViewState, e: ViewEvent): ViewState {
     }
     case 'focus':
       return e.at ? { ...v, centre: tileCentre(e.at) } : v;
-    case 'map':
-      return { ...v, map: e.map };
+    case 'map': {
+      // The camera follows the active unit: when its map view puts it on a new tile, it moves there,
+      // and the view moves with it once it is out of view.
+      const at = e.map.active;
+      const moved = at && v.active && e.map.activeUnit?.id === v.active.unit && !sameTile(at, v.active.tile);
+      if (!moved) return { ...v, map: e.map };
+      const next = { ...v, map: e.map, active: { ...v.active!, tile: at } };
+      return onScreen(v, at) ? next : { ...next, centre: tileCentre(at) };
+    }
     case 'resize':
       return { ...v, viewport: [e.width, e.height] };
     case 'pan':
