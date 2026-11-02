@@ -528,9 +528,10 @@
         gap: 4px;
         color: var(--ink);
       }
+      /* The selected ship is sunken, as in FreeCol's EuropePanel, not outlined. */
       .europe button.chip[aria-pressed='true'] {
-        outline: 2px solid var(--accent);
-        outline-offset: -3px;
+        background: var(--box);
+        box-shadow: inset 2px 2px 3px rgb(0 0 0 / 45%);
       }
       .europe .goods {
         display: grid;
@@ -964,7 +965,9 @@
         border: 2px solid transparent;
       }
       .colony .ship[aria-pressed='true'] {
-        border-color: var(--accent);
+        background: var(--box);
+        border-color: var(--line);
+        box-shadow: inset 2px 2px 3px rgb(0 0 0 / 45%);
       }
       /* Moving colonists and goods (colony-panel.tsx): units and goods are dragged, or picked by a click; places take drops and clicks. */
       .colony [draggable='true'] {
