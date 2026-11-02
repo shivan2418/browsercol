@@ -231,9 +231,12 @@ final class Menus {
         final String id = unit.getId();
         final boolean atSea = unit.isAtSea();
         final UnitState state = unit.getState();
-        b.add("state:ACTIVE:" + id, text("activateUnit"), !atSea, false);
+        // FreeCol also offers "Activate unit" in Europe, where it only
+        // selects the unit on a map it is not on; "Clear orders" sets it
+        // active there, so the entry is left out.
         // Europe has nothing to fortify (QuickActionMenu.addCommandItems).
         if (!unit.isInEurope()) {
+            b.add("state:ACTIVE:" + id, text("activateUnit"), !atSea, false);
             b.add("state:FORTIFYING:" + id, text("fortify"),
                 unit.getMovesLeft() > 0 && state != UnitState.FORTIFIED
                     && state != UnitState.FORTIFYING, false);

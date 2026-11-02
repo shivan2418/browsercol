@@ -558,6 +558,7 @@ class SelectDestinationTest {
         final String orders = menus.unit(ship.getId());
         assertTrue(orders.contains("state:SENTRY:" + ship.getId()), orders);
         assertFalse(orders.contains("FORTIFYING"), "nothing to fortify in Europe: " + orders);
+        assertFalse(orders.contains("state:ACTIVE"), "nothing to activate in Europe: " + orders);
         amount = "5";
         assertTrue(client.getCommands().menuEntry("sell:" + ship.getId() + "," + cloth.getId()),
             "the menu's entry sells");
