@@ -509,13 +509,18 @@ async function play(page, url) {
     // A colonist cannot work on a tile another colonist works: the Engine explains it, and the
     // explanation shows over the colony panel, as Swing's does, with the colony panel on screen again
     // once it is closed. A panel queued behind the colony panel would show only after the player closed
-    // it, so the log must have the explanation while the panel is still open.
-    const logged = await page.evaluate(() => window.__dialogs.length);
-    await pickUp(unit(other), other);
-    await tile.locator('.hit').click();
-    await waitForDialog(logged, 'information: ', 'the refusal was not explained over the colony panel');
-    await panel.waitFor({ timeout: 10000 });
-    await unit(other).click();
+    // it, so the log must have the explanation while the panel is still open. With no tile to work there is
+    // no worked tile to refuse.
+    if (tile === null) {
+      console.log('  colony panel: no worked tile, so no refusal to check');
+    } else {
+      const logged = await page.evaluate(() => window.__dialogs.length);
+      await pickUp(unit(other), other);
+      await tile.locator('.hit').click();
+      await waitForDialog(logged, 'information: ', 'the refusal was not explained over the colony panel');
+      await panel.waitFor({ timeout: 10000 });
+      await unit(other).click();
+    }
 
     // Queue a building the colony can build, from the build queue; the panel must list it as queued. (What
     // the server's colony does with the queue, and paying for it, are CommandsTest's to check.)
