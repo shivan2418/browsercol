@@ -174,11 +174,24 @@ function useMovable(item: Item) {
  * A unit's image, naming its unit by id (data-unit), as the browser scripts look for it. With a ColonyMoves it
  * can be moved (useMovable).
  */
-function Unit({ u, art, className, children }: { u: UnitRef; art: Art; className?: string; children?: ReactNode }) {
+function Unit({
+  u,
+  art,
+  className,
+  children,
+  inert = false,
+}: {
+  u: UnitRef;
+  art: Art;
+  className?: string;
+  children?: ReactNode;
+  /** Something around the unit is what moves it and opens its menu (a tile), so it does neither itself. */
+  inert?: boolean;
+}) {
   const movable = useMovable({ kind: 'unit', id: u.id });
   const onContextMenu = useContextMenu((m) => m.unit(u.id));
   return (
-    <span className={className} data-unit={u.id} onContextMenu={onContextMenu} {...movable}>
+    <span className={className} data-unit={u.id} {...(inert ? undefined : { onContextMenu, ...movable })}>
       <Img keys={u.keys} art={art} className="unit" alt={u.name} />
       {children}
     </span>
@@ -268,7 +281,7 @@ function Tiles({ c, art }: { c: ColonyView; art: Art }) {
               {t.taken && <Img keys={TILE_TAKEN} art={art} className="taken" />}
               {t.natives && <Img keys={NATIVE_LAND} art={art} className="natives" />}
               {t.workers.map((u) => (
-                <Unit key={u.id} u={u} art={art} className="who" />
+                <Unit key={u.id} u={u} art={art} className="who" inert />
               ))}
               {t.production.length > 0 && (
                 <span className="made">
@@ -299,6 +312,20 @@ function TilePlace({
   const target = useTarget('tile', (item) => {
     if (item.kind === 'unit') moves?.work(item.id, t.id);
   });
+  // The whole tile carries the colonist working it, and opens its menu.
+  const worker = t.workers[0];
+  const hand = useContext(HandContext);
+  const movable = useMovable({ kind: 'unit', id: worker?.id ?? '' });
+  const onContextMenu = useContextMenu((m) => (worker ? m.unit(worker.id) : null));
+  const carry = worker ? { ...movable, onContextMenu } : undefined;
+  // A click picks the colonist up, unless something else is picked: then it is a click on the place.
+  const onClick =
+    worker && target && !t.centre
+      ? (e: MouseEvent) =>
+          hand.picked !== null && !same(hand.picked, { kind: 'unit', id: worker.id })
+            ? target.onClick()
+            : movable.onClick(e)
+      : undefined;
   return (
     <div
       className="tile"
@@ -308,6 +335,8 @@ function TilePlace({
       title={t.name}
       style={style}
       {...(t.centre ? undefined : target)}
+      {...carry}
+      {...(onClick ? { onClick } : undefined)}
     >
       {/* The diamond itself is what a drop or click lands on, as tiles overlap by their boxes. */}
       <span className="hit" />
