@@ -2783,9 +2783,13 @@ public final class InGameController extends FreeColClientHolder {
         final Tile tile = unit.getTile();
         if (tile == null) return false;
         if (!unit.canBuildColony()) {
+            // browser: the message names the unit with its label; upstream names
+            // it with Unit.getName(), which is null for every unit the player
+            // never renamed, so the message read "Your null can not build a
+            // colony." FreeCol names only ships, so most units had no name.
             showInformationPanel(unit, StringTemplate
                 .template("buildColony.badUnit")
-                .addName("%unit%", unit.getName()));
+                .addStringTemplate("%unit%", unit.getLabel()));
             return false;
         }
 
