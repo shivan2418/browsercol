@@ -9,6 +9,7 @@
 import { Application, Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import { resources, type ArtLayer, type Resources } from './resources';
 import { overlay, scene, srcId, type Direction, type MapView, type Op, type Src } from './tileset';
+import { MOVE_MS, blink, moves, slide, type Move } from './motion';
 import { H, W, activeUnitFacts, cursor, tileOrigin, toMap, type ViewState } from './view';
 
 export type { MapView } from './tileset';
@@ -101,8 +102,8 @@ interface TextStyle {
   plain?: boolean;
 }
 
-/** The map's layers: the scene, and the cursor and path over it. */
-type Layer = 0 | 1;
+/** The map's layers: the scene, the cursor and path over it, and the units that move or blink. */
+type Layer = 0 | 1 | 2;
 
 /** The screen's pixel ratio: how many device pixels a CSS pixel covers. */
 export const pixelRatio = (dpr: number | undefined): number => (dpr && dpr > 0 ? dpr : 1);
@@ -131,6 +132,8 @@ interface Pen {
   /** Text with a black outline, its top centred on (x, y) or starting there. */
   text(s: string, x: number, y: number, style: TextStyle, center: boolean): void;
   measure(s: string, style: TextStyle): number;
+  /** Move the third layer by (dx, dy) map pixels and fade it to `alpha`. */
+  actors(dx: number, dy: number, alpha: number): void;
   /** Show the map scaled by `scale`, then moved by (dx, dy). */
   show(dx: number, dy: number, scale: number): void;
   /** Make the canvas `width` by `height` CSS pixels; show() draws it again. */
@@ -186,7 +189,7 @@ async function pixiPen(host: HTMLElement, width: number, height: number): Promis
   };
   cssSize(width, height);
   const world = new Container();
-  const layers = [new Container(), new Container()];
+  const layers = [new Container(), new Container(), new Container()];
   world.addChild(...layers);
   app.stage.addChild(world);
   let layer = layers[0];
@@ -249,6 +252,10 @@ async function pixiPen(host: HTMLElement, width: number, height: number): Promis
       measurer.font = fontOf(style);
       return measurer.measureText(s).width;
     },
+    actors: (dx, dy, alpha) => {
+      layers[2].position.set(dx, dy);
+      layers[2].alpha = alpha;
+    },
     show: (dx, dy, scale) => {
       world.scale.set(scale);
       world.position.set(dx, dy);
@@ -278,7 +285,8 @@ function canvasPen(host: HTMLElement, width: number, height: number, background 
   host.append(canvas);
   const c = canvas.getContext('2d')!;
   // Canvas 2D has no scene graph: record the drawing and replay it to pan.
-  const layers: ((c: CanvasRenderingContext2D) => void)[][] = [[], []];
+  const layers: ((c: CanvasRenderingContext2D) => void)[][] = [[], [], []];
+  let actor = { dx: 0, dy: 0, alpha: 1 };
   let calls = layers[0];
   return {
     canvas,
@@ -358,6 +366,9 @@ function canvasPen(host: HTMLElement, width: number, height: number, background 
       c.font = fontOf(style);
       return c.measureText(s).width;
     },
+    actors: (dx, dy, alpha) => {
+      actor = { dx, dy, alpha };
+    },
     show: (dx, dy, scale) => {
       // The transform carries the pixel ratio, so the drawing code works in CSS pixels.
       c.setTransform(ratio, 0, 0, ratio, 0, 0);
@@ -365,7 +376,15 @@ function canvasPen(host: HTMLElement, width: number, height: number, background 
       if (background) c.fillRect(0, 0, width, height);
       else c.clearRect(0, 0, width, height);
       c.setTransform(scale * ratio, 0, 0, scale * ratio, dx * ratio, dy * ratio);
-      for (const layer of layers) for (const call of layer) call(c);
+      layers.forEach((layer, n) => {
+        c.save();
+        if (n === 2) {
+          c.translate(actor.dx, actor.dy);
+          c.globalAlpha = actor.alpha;
+        }
+        for (const call of layer) call(c);
+        c.restore();
+      });
     },
     resize: (w, h) => {
       ratio = screenRatio();
@@ -571,6 +590,11 @@ export function mapDrawer(
   let shown = '';
   /** The map last drawn, which drawTiles draws from. */
   let drawn: MapView | null = null;
+  /** The units sliding to their tiles now, and when they set off. */
+  let sliding: { moves: Move[]; since: number } | null = null;
+  /** The tiles whose unit is drawn in the actors' layer: the sliding units' and the active one's. */
+  let actorTiles = new Set<string>();
+  let frame = 0;
 
   async function init() {
     const art = (await (await fetch(artBase + manifest)).json()) as Art;
@@ -596,9 +620,24 @@ export function mapDrawer(
 
   const camera = () => {
     if (!pen || !view) return;
+    const now = performance.now();
+    // The active unit blinks, but not while it slides; a slide ends once its time is up.
+    if (sliding && now - sliding.since >= MOVE_MS) sliding = null;
+    if (sliding) {
+      const [dx, dy] = slide(sliding.moves[0], (now - sliding.since) / MOVE_MS);
+      pen.actors(dx, dy, 1);
+    } else {
+      pen.actors(0, 0, view.mode === 'units' && view.active ? blink(now) : 1);
+    }
     const z = view.zoom;
     pen.show(size[0] / 2 - view.centre[0] * z, size[1] / 2 - view.centre[1] * z, z);
   };
+
+  /** Every frame: the slide and the blink move on, and show the camera again. */
+  function tick() {
+    frame = requestAnimationFrame(tick);
+    if (sliding || (view?.mode === 'units' && view.active)) camera();
+  }
 
   /** Redraw the overlay if it changed, then move the camera. */
   async function showNow() {
@@ -613,10 +652,25 @@ export function mapDrawer(
   }
 
   async function drawNow(map: MapView) {
+    const before = drawn;
     drawn = map;
     if (!pen) await init();
-    await paint(pen!, 0, scene(map, res!), pics);
+    const moved = before ? moves(before.units, map.units) : [];
+    if (moved.length) sliding = { moves: moved, since: performance.now() };
+    actorTiles = new Set(moved.map((m) => m.to.join(',')));
+    if (map.active) actorTiles.add(map.active.join(','));
+    const ops = scene(map, res!);
+    const isActor = (op: Op) =>
+      (op.k === 'chip' || (op.k === 'image' && op.at === 'unit')) && actorTiles.has(`${op.x},${op.y}`);
+    await paint(
+      pen!,
+      0,
+      ops.filter((op) => !isActor(op)),
+      pics,
+    );
+    await paint(pen!, 2, ops.filter(isActor), pics);
     await showNow();
+    if (!frame) frame = requestAnimationFrame(tick);
   }
 
   return {
