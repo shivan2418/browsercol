@@ -385,7 +385,10 @@ function chosenShip(c: ColonyView) {
   return c.inPort.units.find((u) => u.id === pick) ?? c.inPort.units.find((u) => u.id === c.inPort.selected) ?? null;
 }
 
-/** WarehousePanel: the colony's goods; a stack of the chosen ship's cargo dropped here is unloaded. */
+/**
+ * WarehousePanel: the colony's goods; a stack of the chosen ship's cargo dropped here is unloaded. A stack can
+ * be moved onto the cargo unless it is empty.
+ */
 function Warehouse({ c, art }: { c: ColonyView; art: Art }) {
   const moves = useContext(ColonyActions);
   const target = useTarget((item) => {
@@ -402,16 +405,23 @@ function Warehouse({ c, art }: { c: ColonyView; art: Art }) {
       data-drop={target ? '' : undefined}
       {...target}
     >
-      {c.warehouse.goods.map((g) => (
-        <MovableGoods
-          key={g.type}
-          g={g}
-          art={art}
-          className="stored"
-          item={{ kind: 'goods', from: 'warehouse', type: g.type, ask: false }}
-          over={g.over}
-        />
-      ))}
+      {c.warehouse.goods.map((g) =>
+        // An empty stack shows, as Swing's does, but has nothing to load, so it cannot be moved.
+        g.amount === 0 ? (
+          <span key={g.type} className="stored" data-goods={g.type}>
+            <GoodsAmount keys={g.keys} name={g.name} amount={0} art={art} />
+          </span>
+        ) : (
+          <MovableGoods
+            key={g.type}
+            g={g}
+            art={art}
+            className="stored"
+            item={{ kind: 'goods', from: 'warehouse', type: g.type, ask: false }}
+            over={g.over}
+          />
+        ),
+      )}
     </Box>
   );
 }
