@@ -560,9 +560,9 @@ describe('the build queue in the colony panel', () => {
     ]);
   });
 
-  it('opens the warehouse dialog from the warehouse button', () => {
+  it('opens the warehouse dialog from the button beside the build queue button', () => {
     openQueue();
-    fireEvent.click(within(part('warehouse')).getByRole('button', { name: 'Warehouse' }));
+    fireEvent.click(within(part('queue')).getByRole('button', { name: 'Warehouse' }));
     expect(calls).toEqual([`warehouse colony:${n}`]);
   });
 

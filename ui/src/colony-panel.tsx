@@ -317,7 +317,13 @@ function TilePlace({
   const hand = useContext(HandContext);
   const movable = useMovable({ kind: 'unit', id: worker?.id ?? '' });
   const onContextMenu = useContextMenu((m) => (worker ? m.unit(worker.id) : null));
-  const carry = worker ? { ...movable, onContextMenu } : undefined;
+  // The drag shows the colonist, not the tile around it.
+  const onDragStart = (e: DragEvent) => {
+    movable.onDragStart(e);
+    const img = e.currentTarget.querySelector<HTMLElement>('.who .unit');
+    if (img) e.dataTransfer.setDragImage?.(img, img.offsetWidth / 2, img.offsetHeight / 2);
+  };
+  const carry = worker ? { ...movable, onContextMenu, onDragStart } : undefined;
   // A click picks the colonist up, unless something else is picked: then it is a click on the place.
   const onClick =
     worker && target && !t.centre
@@ -345,21 +351,41 @@ function TilePlace({
   );
 }
 
-/**
- * ColonyInPortPanel and ColonyCargoPanel: the ships in port, and what the chosen one carries. Units beside the
- * colony and the warehouse's goods dropped on the cargo go aboard the chosen ship.
- */
-function Port({ c, art }: { c: ColonyView; art: Art }) {
-  const moves = useContext(ColonyActions);
+/** ColonyInPortPanel: the ships in port, one of which is chosen. */
+function InPort({ c, art, choose }: { c: ColonyView; art: Art; choose: (id: string) => void }) {
   const menus = useContext(ContextMenuContext);
   const port = c.inPort;
-  // The choice is kept in chosen, which the warehouse reads too; this only draws it again.
-  const [, redraw] = useState(0);
   const ship = chosenShip(c);
-  const choose = (id: string) => {
-    chosen.set(c.id, id);
-    redraw((n) => n + 1);
-  };
+  return (
+    <Box caption={port.title} data-part="port" className="port">
+      {port.units.map((u) => (
+        <button
+          key={u.id}
+          className="ship"
+          data-unit={u.id}
+          aria-pressed={u.id === ship?.id}
+          title={u.name}
+          onClick={() => choose(u.id)}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            const menu = menus?.unit(u.id);
+            if (menu) menus!.show(menu, e.clientX, e.clientY);
+          }}
+        >
+          <Img keys={u.keys} art={art} className="unit" alt={u.name} />
+        </button>
+      ))}
+    </Box>
+  );
+}
+
+/**
+ * ColonyCargoPanel: what the chosen ship carries. Units beside the colony and the warehouse's goods dropped on
+ * it go aboard.
+ */
+function Cargo({ c, art }: { c: ColonyView; art: Art }) {
+  const moves = useContext(ColonyActions);
+  const ship = chosenShip(c);
   // Units beside the colony and colonists working in it board (CargoPanel accepts what the carrier can add).
   const boardable = new Set([...c.outside.units, ...workingIn(c)].map((u) => u.id));
   const target = useTarget('cargo', (item) => {
@@ -368,51 +394,30 @@ function Port({ c, art }: { c: ColonyView; art: Art }) {
     else if (item.kind === 'goods' && item.from === 'warehouse') moves.load(ship.id, item.type, item.ask ?? false);
   });
   return (
-    <>
-      <Box caption={port.title} data-part="port" className="port">
-        {port.units.map((u) => (
-          <button
-            key={u.id}
-            className="ship"
-            data-unit={u.id}
-            aria-pressed={u.id === ship?.id}
-            title={u.name}
-            onClick={() => choose(u.id)}
-            onContextMenu={(e) => {
-              e.preventDefault();
-              const menu = menus?.unit(u.id);
-              if (menu) menus!.show(menu, e.clientX, e.clientY);
-            }}
-          >
-            <Img keys={u.keys} art={art} className="unit" alt={u.name} />
-          </button>
-        ))}
-      </Box>
-      <Box
-        caption={ship ? ship.cargo.title : port.cargo}
-        data-part="cargo"
-        className="cargo"
-        data-ship={ship?.id}
-        data-drop={target && ship ? '' : undefined}
-        {...(ship ? target : undefined)}
-      >
-        {ship && (
-          <>
-            <Units units={ship.cargo.units} art={art} />
-            {ship.cargo.goods.map((g, i) => (
-              <MovableGoods
-                key={i}
-                g={g}
-                art={art}
-                at={ship.id}
-                className="made-goods"
-                item={{ kind: 'goods', from: 'cargo', type: g.type, index: i, amount: g.amount, ask: false }}
-              />
-            ))}
-          </>
-        )}
-      </Box>
-    </>
+    <Box
+      caption={ship ? ship.cargo.title : c.inPort.cargo}
+      data-part="cargo"
+      className="cargo"
+      data-ship={ship?.id}
+      data-drop={target && ship ? '' : undefined}
+      {...(ship ? target : undefined)}
+    >
+      {ship && (
+        <>
+          <Units units={ship.cargo.units} art={art} />
+          {ship.cargo.goods.map((g, i) => (
+            <MovableGoods
+              key={i}
+              g={g}
+              art={art}
+              at={ship.id}
+              className="made-goods"
+              item={{ kind: 'goods', from: 'cargo', type: g.type, index: i, amount: g.amount, ask: false }}
+            />
+          ))}
+        </>
+      )}
+    </Box>
   );
 }
 
@@ -442,9 +447,6 @@ function Warehouse({ c, art }: { c: ColonyView; art: Art }) {
       data-drop={target ? '' : undefined}
       {...target}
     >
-      <button className="settings" onClick={() => moves?.warehouse(c.id)}>
-        {c.warehouse.title}
-      </button>
       {c.warehouse.goods.map((g) => (
         <MovableGoods
           key={g.type}
@@ -562,6 +564,9 @@ function BuildQueue({ c, art }: { c: ColonyView; art: Art }) {
         <button className="toggle" aria-expanded={state.open} onClick={() => set({ ...state, open: !state.open })}>
           {q.title}
         </button>
+        <button className="settings" onClick={() => moves.warehouse(c.id)}>
+          {c.warehouse.title}
+        </button>
       </Part>
       {state.open && (
         <>
@@ -661,6 +666,12 @@ export function ColonyPanel({ colony: c, art }: { colony: ColonyView; art: Art }
     show(item);
   };
   // A unit that has left the colony, or been disbanded, or goods that are gone, are no longer picked.
+  // The ship chosen in port is kept in chosen; this draws the panel again as another is chosen.
+  const [, redraw] = useState(0);
+  const choose = (id: string) => {
+    chosen.set(c.id, id);
+    redraw((n) => n + 1);
+  };
   const here = picked !== null && isHere(c, picked);
   const hand: Hand = !moves
     ? NO_HAND
@@ -763,9 +774,10 @@ export function ColonyPanel({ colony: c, art }: { colony: ColonyView; art: Art }
             </Part>
             <BuildQueue c={c} art={art} />
             {hand.picked?.kind === 'unit' && <WorkChoice c={c} picked={hand.picked.id} art={art} />}
-            <Port c={c} art={art} />
+            <InPort c={c} art={art} choose={choose} />
           </div>
           <Outside c={c} art={art} />
+          <Cargo c={c} art={art} />
           <Warehouse c={c} art={art} />
         </div>
       </div>

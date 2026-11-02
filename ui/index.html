@@ -1016,22 +1016,36 @@
         gap: 6px;
         align-items: end;
       }
-      .colony .upper .port,
-      .colony .upper .cargo {
+      .colony .upper .port {
         width: 100%;
         box-sizing: border-box;
       }
-      .colony .outside,
-      .colony .warehouse {
-        grid-column: 1 / -1;
-      }
+      /* Units outside the colony and the cargo of the chosen ship share a line; the cargo sits under the right column. */
       .colony .outside {
+        grid-column: 1;
+        min-height: 52px;
+      }
+      .colony .cargo {
+        grid-column: 2;
         min-height: 52px;
       }
       .colony .warehouse {
-        flex-wrap: nowrap;
-        overflow-x: auto;
+        grid-column: 1 / -1;
         min-height: 0;
+        gap: 6px 14px;
+        justify-content: space-between;
+      }
+      /* The dialogs' goods grid (.dialog .goods) is not the colony's: a goods amount stays as wide as it is. */
+      .colony .goods {
+        display: inline-flex;
+        margin-top: 0;
+      }
+      /* The build queue button and the warehouse button side by side. */
+      .colony .queue {
+        display: flex;
+        gap: 6px;
+        justify-content: center;
+        padding-top: 6px;
       }
       .colony .ship {
         padding: 2px;
@@ -1174,7 +1188,6 @@
         border-color: var(--accent);
       }
       .colony .warehouse {
-        gap: 10px;
         align-items: center;
       }
       .colony .stored .goods {
