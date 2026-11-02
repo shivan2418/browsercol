@@ -829,10 +829,10 @@ async function play(page, url) {
     await page.waitForFunction((z) => window.fcView().zoom > z, before.zoom, { timeout: 5000 }).catch(() => {});
     const zoomed = await viewState();
     if (zoomed.zoom <= before.zoom) throw new Error(`the wheel did not zoom in: ${before.zoom} -> ${zoomed.zoom}`);
-    // Drag the map right, so it has room to scroll back at the right edge.
-    await page.mouse.down();
+    // Drag the map right with the middle button, the only one that pans, so it has room to scroll back at the right edge.
+    await page.mouse.down({ button: 'middle' });
     await page.mouse.move(cx + 150, cy + 100, { steps: 5 });
-    await page.mouse.up();
+    await page.mouse.up({ button: 'middle' });
     const dragged = await viewState();
     if (same(dragged.centre, zoomed.centre)) throw new Error('a drag did not scroll the map');
     // The right edge, which only the current viewport's width finds after a resize.
