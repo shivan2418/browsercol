@@ -17,6 +17,11 @@ Vite+, PixiJS) carries FreeCol's messages between them and draws the map.
 Everything runs in a Docker dev image through `./dev.sh`. Nothing is
 installed on the host.
 
+The `justfile` wraps the commands below (`just` lists its recipes). `just dev`
+starts Vite's dev server with hot reload at http://localhost:5173 (it builds
+first if `ui/generated/` is missing; rerun `just build` after Engine changes),
+and `just preview` serves the built `dist/` there.
+
 ```sh
 ./dev.sh ./build.sh                  # build dist/, the static site (add -Prelease for obfuscated modules)
 ./dev.sh -C engine gradle test       # JVM tests of the Engine
