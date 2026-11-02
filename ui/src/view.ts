@@ -4,7 +4,7 @@
 // views and the player's pans, zooms and pointer moves, and follows the
 // active unit as SwingGUI does. map.ts draws what it says.
 import type { GuiEvents, Id } from './webgui';
-import type { ActiveUnit, MapView } from './tileset';
+import type { ActiveUnit, MapView, PathStep } from './tileset';
 
 /** FreeCol's tiles: 128x64 diamonds in staggered rows, odd rows half a tile to the right. */
 export const W = 128;
@@ -36,6 +36,8 @@ export interface ViewState {
   mode: 'units' | 'terrain';
   /** The tile under the pointer. */
   hover: Tile | null;
+  /** The path the active unit would take to the tile the player holds the pointer on, drawn until release. */
+  preview: PathStep[] | null;
 }
 
 export type ViewEvent =
@@ -49,7 +51,9 @@ export type ViewEvent =
   /** Zoom levels in (+) or out (-), keeping the map under a viewport point still. */
   | { k: 'zoom'; steps: number; at: [number, number] }
   /** The pointer is over a tile, or off the map. */
-  | { k: 'hover'; at: Tile | null };
+  | { k: 'hover'; at: Tile | null }
+  /** The goto path under the held pointer, or none once it is released. */
+  | { k: 'preview'; path: PathStep[] | null };
 
 /** The zoom levels, as scales of FreeCol's 128x64 tiles. */
 export const ZOOMS = [0.25, 0.5, 0.75, 1, 1.5, 2];
@@ -63,6 +67,7 @@ export const initialView: ViewState = {
   selected: null,
   mode: 'units',
   hover: null,
+  preview: null,
 };
 
 /** The whole map's size in pixels at zoom 1. */
@@ -175,6 +180,8 @@ function apply(v: ViewState, e: ViewEvent): ViewState {
       return { ...v, centre: [v.centre[0] - e.dx / v.zoom, v.centre[1] - e.dy / v.zoom] };
     case 'hover':
       return { ...v, hover: e.at };
+    case 'preview':
+      return { ...v, preview: e.path };
     case 'zoom': {
       const level = ZOOMS.indexOf(v.zoom) + e.steps;
       const zoom = ZOOMS[Math.max(0, Math.min(ZOOMS.length - 1, level))];

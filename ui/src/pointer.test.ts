@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vite-plus/test';
-import { blockBrowserMenu, rightClickInput, wheelZoom } from './pointer';
+import { describe, expect, it, vi } from 'vite-plus/test';
+import { HOLD_MS, blockBrowserMenu, pointerInput, rightClickInput, wheelZoom } from './pointer';
+import { initialView } from './view';
 
 const PIXEL = 0;
 const LINE = 1;
@@ -73,5 +74,66 @@ describe('rightClickInput', () => {
     click(130, 90);
     expect(opened).toEqual([]);
     host.remove();
+  });
+});
+
+describe('pointerInput Go To', () => {
+  const setup = () => {
+    const host = document.createElement('div');
+    host.innerHTML = '<canvas></canvas>';
+    document.body.append(host);
+    const preview = vi.fn();
+    const go = vi.fn();
+    const dispatch = vi.fn();
+    const dragged = pointerInput(host, {
+      view: () => initialView,
+      dispatch,
+      tileAt: (px) => [Math.floor(px / 10), 0],
+      goto: { preview, go },
+    });
+    const press = (x: number) =>
+      host.dispatchEvent(new MouseEvent('pointerdown', { clientX: x, clientY: 0, button: 0 }));
+    const release = () => dispatchEvent(new MouseEvent('pointerup'));
+    return { preview, go, dispatch, dragged, press, release };
+  };
+
+  it('does not send the unit on a quick click', () => {
+    vi.useFakeTimers();
+    const { preview, go, press, release } = setup();
+    press(25);
+    vi.advanceTimersByTime(HOLD_MS - 50);
+    release();
+    vi.advanceTimersByTime(HOLD_MS);
+    expect(preview).not.toHaveBeenCalled();
+    expect(go).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  it('shows the path of a held press, and sends the unit on release', () => {
+    vi.useFakeTimers();
+    const { preview, go, dragged, press, release } = setup();
+    press(25);
+    vi.advanceTimersByTime(HOLD_MS);
+    expect(preview).toHaveBeenLastCalledWith([2, 0]);
+    dispatchEvent(new MouseEvent('pointermove', { clientX: 45, clientY: 0 }));
+    expect(preview).toHaveBeenLastCalledWith([4, 0]);
+    release();
+    expect(preview).toHaveBeenLastCalledWith(null);
+    expect(go).toHaveBeenCalledWith([4, 0]);
+    expect(dragged()).toBe(true);
+    vi.useRealTimers();
+  });
+
+  it('pans instead when the pointer moves before the hold', () => {
+    vi.useFakeTimers();
+    const { preview, go, dispatch, press, release } = setup();
+    press(25);
+    dispatchEvent(new MouseEvent('pointermove', { clientX: 60, clientY: 0 }));
+    vi.advanceTimersByTime(HOLD_MS);
+    release();
+    expect(dispatch).toHaveBeenCalledWith({ k: 'pan', dx: 35, dy: 0 });
+    expect(preview).not.toHaveBeenCalled();
+    expect(go).not.toHaveBeenCalled();
+    vi.useRealTimers();
   });
 });

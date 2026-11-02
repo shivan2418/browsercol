@@ -34,6 +34,7 @@ import { mapDrawer, type MapView } from './map';
 import { europeButtons } from './europe-client';
 import { DialogHost, type Art, type ReportButtons, type RouteButtons } from './panels';
 import { ReportContext, reportMenu, type ReportActions } from './reports';
+import type { PathStep } from './tileset';
 import { blockBrowserMenu, onCanvas, pointerInput, rightClickInput } from './pointer';
 import { ContextMenuContext, PopupMenu, parseMenu, type ContextMenus, type Popup } from './popup-menu';
 import { StartScreen } from './start-screen';
@@ -404,7 +405,21 @@ function drawMap(m: MapView) {
 }
 
 blockBrowserMenu(document);
-const dragged = pointerInput(mapHost, { view: () => view, dispatch, tileAt: (px, py) => map.tileAt(px, py) });
+/** The client Engine, once loaded: a held Go To asks it for the path and sends the unit. */
+let gotoClient: ClientExports | null = null;
+const dragged = pointerInput(mapHost, {
+  view: () => view,
+  dispatch,
+  tileAt: (px, py) => map.tileAt(px, py),
+  goto: {
+    preview: (tile) =>
+      dispatch({
+        k: 'preview',
+        path: tile && gotoClient ? (JSON.parse(gotoClient.pathTo(...tile)) as PathStep[] | null) : null,
+      }),
+    go: (tile) => gotoClient?.goTo(...tile),
+  },
+});
 
 /** Hook the player's input up to the client Engine's commands. */
 function playWith(client: ClientExports) {
@@ -413,6 +428,7 @@ function playWith(client: ClientExports) {
     else client[c.k]();
   };
   runCommand = run;
+  gotoClient = client;
   // The Game menu's entries that show the game's options (ShowGameOptionsAction, ShowDifficultyAction).
   menus.find((m) => m.name === 'Game')!.items = [
     { label: 'Show Game Options', run: () => run({ k: 'showGameOptions' }) },
