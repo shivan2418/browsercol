@@ -1,8 +1,9 @@
 // The reports of the Report menu (FreeCol's report panels, Reports.java), each in a window frame
 // (frame.tsx): the classic colony report, the labour report with its details, the compact labour report,
 // the military, naval and cargo reports (one view, Units), and the religion, education, exploration,
-// history, trade and production reports. A link in a report opens a colony's panel, Europe, a tile of
-// the map or a detail report; the report closes first, as only one dialog is open at a time.
+// history, trade, production and requirements reports. A link in a report opens a colony's panel,
+// Europe, a tile of the map or a detail report; the report closes first, as only one dialog is open at
+// a time.
 //
 // To add a report (#74 and the rest of #75): add its view to ReportView (webgui.ts), a body for it in
 // BODIES below, and an entry in REPORTS, which is the Report menu. The Engine side is Reports.java.
@@ -46,6 +47,7 @@ export const REPORTS: readonly { name: Exclude<ReportName, 'labourDetail'>; labe
   { name: 'history', label: 'History report' },
   { name: 'production', label: 'Production report' },
   { name: 'religion', label: 'Religion report' },
+  { name: 'requirements', label: 'Requirements report' },
   { name: 'trade', label: 'Trade report' },
 ];
 
@@ -596,6 +598,38 @@ function ProductionReport({ e, art, go }: { e: View<'production'>; art: Art; go:
   );
 }
 
+/** ReportRequirementsPanel: for each colony what it lacks, and which colonies could help. */
+function RequirementsReport({ e, go }: { e: View<'requirements'>; go: Links }) {
+  return (
+    <div className="requirements">
+      {e.colonies.map((c) => (
+        <section key={c.id} data-colony={c.id}>
+          <h3>
+            <Link go={() => go.colony(c.id)} data-link={c.id}>
+              {c.name}
+            </Link>
+          </h3>
+          {c.items.map((item, i) => (
+            <p key={i} data-item={i}>
+              {item.text}
+              {item.colonies.map((l, j) => (
+                <span key={l.id}>
+                  {j === 0 ? ' ' : ', '}
+                  <Link go={() => go.colony(l.id)} data-link={l.id}>
+                    {l.name}
+                  </Link>
+                  {l.info}
+                </span>
+              ))}
+            </p>
+          ))}
+          {c.met && <p className="muted">{c.met}</p>}
+        </section>
+      ))}
+    </div>
+  );
+}
+
 type Links = Pick<ReportActions, 'colony' | 'detail' | 'europe' | 'goTo'>;
 type Body<K extends ReportName> = (p: { e: View<K>; art: Art; go: Links }) => ReactNode;
 
@@ -614,6 +648,7 @@ const BODIES: { [K in ReportName]: Body<K> } = {
   history: HistoryReport,
   trade: TradeReport,
   production: ProductionReport,
+  requirements: RequirementsReport,
 };
 
 /**

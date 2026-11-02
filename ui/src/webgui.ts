@@ -726,6 +726,16 @@ export type ReportView =
         /** One for each goods above: the net production, and for each of its buildings the units in it (null: not built). */
         cells: { amount: number; buildings: (UnitRef[] | null)[] }[];
       }[];
+    })
+  | (ReportHead<'requirements'> & {
+      colonies: {
+        id: Id;
+        name: string;
+        /** The advice, a paragraph each; colonies are linked after the text, info being text after a name, such as "(3)". */
+        items: { text: string; colonies: { id: Id; name: string; info: string }[] }[];
+        /** What to say when there is no advice: the colony's requirements are met; null if there is advice. */
+        met: string | null;
+      }[];
     });
 
 /** The reports the menu opens and the Engine can send. */

@@ -75,6 +75,7 @@ describe('the Report menu', () => {
       'History report',
       'Production report',
       'Religion report',
+      'Requirements report',
       'Trade report',
     ]);
     fireEvent.click(within(menu).getByRole('menuitem', { name: 'Compact labour report' }));
@@ -496,5 +497,43 @@ describe('the production report', () => {
     expect(Array.from(document.querySelectorAll('thead th')).map((h) => h.textContent)).toEqual(['Colony', 'Hammers']);
     fireEvent.click(screen.getByRole('button', { name: 'Jamestown' }));
     expect(calls).toEqual(['colony colony:7']);
+  });
+});
+
+describe('the requirements report', () => {
+  const report: ReportView = {
+    ...head('requirements'),
+    colonies: [
+      {
+        id: 'colony:7',
+        name: 'Jamestown',
+        items: [
+          { text: 'Jamestown has no Expert Farmer.', colonies: [] },
+          {
+            text: 'Colonies with a surplus of food:',
+            colonies: [
+              { id: 'colony:8', name: 'Plymouth', info: ' (3)' },
+              { id: 'colony:9', name: 'Salem', info: ' (1)' },
+            ],
+          },
+        ],
+        met: null,
+      },
+      { id: 'colony:8', name: 'Plymouth', items: [], met: 'All requirements are met.' },
+    ],
+  };
+
+  it('lists the advice of a colony with the colonies it links, and says when there is none', () => {
+    const { box, calls } = host();
+    show(box, report);
+    const jamestown = document.querySelector('section[data-colony="colony:7"]') as HTMLElement;
+    expect(Array.from(jamestown.querySelectorAll('p')).map((p) => p.textContent)).toEqual([
+      'Jamestown has no Expert Farmer.',
+      'Colonies with a surplus of food: Plymouth (3), Salem (1)',
+    ]);
+    const plymouth = document.querySelector('section[data-colony="colony:8"]') as HTMLElement;
+    expect(plymouth.querySelector('p')?.textContent).toBe('All requirements are met.');
+    fireEvent.click(within(jamestown).getByRole('button', { name: 'Salem' }));
+    expect(calls).toEqual(['colony colony:9']);
   });
 });
