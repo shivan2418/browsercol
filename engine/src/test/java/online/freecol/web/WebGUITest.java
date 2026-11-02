@@ -1195,4 +1195,26 @@ class WebGUITest {
         assertTrue(panel.endsWith("\"ok\":\"OK\"}"), panel);
         assertFalse(shown().stream().anyMatch(e -> e.startsWith("unasked ")), shown.toString());
     }
+
+    /** The tile entry of the right-click menu opens the Colopedia on the tile's terrain. */
+    @Test
+    @Timeout(180)
+    void theColopediaOpensOnATerrainType() throws Exception {
+        final ClientEngine client = startGame();
+        final Tile at = client.getClient().getMyPlayer().getUnits()
+            .filter(Unit::isNaval).findFirst().get().getTile();
+        final String id = at.getType().getId();
+        shown.clear();
+        assertTrue(client.getCommands().menuEntry("colopedia:" + id));
+        final String panel = shown().stream()
+            .filter(e -> e.startsWith("colopedia ")).findFirst().orElse("");
+        assertTrue(panel.contains("\"name\":\"" + Messages.getName(at.getType()) + "\""), panel);
+        assertTrue(panel.contains("\"movementCost\":\""), panel);
+        assertTrue(panel.contains("\"unattended\":["), panel);
+        assertTrue(panel.endsWith("\"ok\":\"OK\"}"), panel);
+
+        shown.clear();
+        assertFalse(client.getCommands().menuEntry("colopedia:model.noSuch"));
+        assertFalse(shown().stream().anyMatch(e -> e.startsWith("colopedia ")), shown.toString());
+    }
 }

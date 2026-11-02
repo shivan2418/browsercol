@@ -416,6 +416,7 @@ public final class Commands {
             return activateAll(Integer.parseInt(a[0]), Integer.parseInt(a[1]));
         case "colony": return showColony(rest);
         case "settlement": return showSettlement(rest);
+        case "colopedia": return showColopedia(rest);
         case "leaveTown": return putOutsideColony(rest);
         case "leaveShip": return leaveShip(rest);
         case "board": return boardShip(a[0], a[1]);
@@ -494,6 +495,13 @@ public final class Commands {
             if (this.client.getMyPlayer().owns(u)) igc().clearOrders(u);
         }
         gui().changeView(tile.getFirstUnit(), false);
+        return true;
+    }
+
+    /** Open the Colopedia on an entry; false if there is none of that id. */
+    private boolean showColopedia(String id) {
+        if (Colopedia.terrain(this.client.getGame().getSpecification(), id) == null) return false;
+        gui().showColopediaPanel(id);
         return true;
     }
 

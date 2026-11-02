@@ -153,8 +153,8 @@ final class Menus {
             }
             b.gap();
         }
-        // The tile itself: a label, as the tile panel is not in the Browser UI.
-        b.add("none", text(tile.getLabel()), false, false);
+        // The tile itself: its label opens the Colopedia on its terrain, as TilePopup's does.
+        b.add("colopedia:" + tile.getType().getId(), text(tile.getLabel()));
         b.gap();
         for (Unit u : tile.getUnitList()) addUnit(b, u, !u.isDamaged(), false);
         if (tile.getUnitCount() > 1 && player.owns(tile.getFirstUnit())) {

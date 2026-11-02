@@ -1208,6 +1208,54 @@ function SettlementBody({
   );
 }
 
+/** The Colopedia's terrain entry as TerrainDetailPanel lays it out. */
+function TerrainBody({ e, art }: { e: GuiEvents['colopedia']; art: Art }) {
+  const goods = (list: GuiEvents['colopedia']['unattended']) => (
+    <dd>
+      {list.map((g) => (
+        <GoodsAmount key={g.type} keys={g.keys} name={g.name} amount={g.amount} art={art} />
+      ))}
+    </dd>
+  );
+  return (
+    <div className="terrain">
+      <h2>{e.name}</h2>
+      <dl>
+        <dt>{e.labels.terrainImage}</dt>
+        <dd className="terrain-image">
+          <Pic keys={e.keys} art={art} />
+          {e.forest && <Pic keys={e.forest} art={art} />}
+        </dd>
+        {e.resources.length > 0 && (
+          <>
+            <dt>{e.labels.resource}</dt>
+            <dd>
+              {e.resources.map((r) => (
+                <span className="entry" key={r.name}>
+                  <Pic keys={r.keys} art={art} />
+                  {r.name}
+                </span>
+              ))}
+            </dd>
+          </>
+        )}
+        <dt>{e.labels.movementCost}</dt>
+        <dd>{e.movementCost}</dd>
+        <dt>{e.labels.defenseBonus}</dt>
+        <dd>{e.defence}</dd>
+        <dt>{e.labels.unattended}</dt>
+        {goods(e.unattended)}
+        <dt>{e.labels.colonist}</dt>
+        {goods(e.colonist)}
+        <dt>{e.labels.description}</dt>
+        <dd>
+          <Text text={e.description} />
+        </dd>
+      </dl>
+    </div>
+  );
+}
+
 function Body({
   d,
   goTo,
@@ -1273,6 +1321,12 @@ function Body({
       return (
         <Panel d={d} title={d.event.header} ok={d.event.ok}>
           <EventBody e={d.event} art={art} />
+        </Panel>
+      );
+    case 'colopedia':
+      return (
+        <Panel d={d} ok={d.event.ok}>
+          <TerrainBody e={d.event} art={art} />
         </Panel>
       );
     case 'indianSettlement':

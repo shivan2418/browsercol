@@ -641,6 +641,48 @@ describe('the panels', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
+  describe('of the Colopedia', () => {
+    it('shows a terrain entry and closes with OK', () => {
+      const { box } = host();
+      const colopedia: GuiEvents['colopedia'] = {
+        name: 'Plains',
+        keys: ['image.tile.model.tile.plains.center'],
+        forest: null,
+        labels: {
+          terrainImage: 'Terrain image',
+          resource: 'Possible resource',
+          movementCost: 'Movement cost',
+          defenseBonus: 'Defense bonus',
+          unattended: 'Unattended production',
+          colonist: 'Colonist production',
+          description: 'Description',
+        },
+        movementCost: '1',
+        defence: 'None',
+        resources: [{ name: 'Minerals', keys: [] }],
+        unattended: [{ type: 'model.goods.food', name: 'Food', keys: [], amount: 2 }],
+        colonist: [{ type: 'model.goods.food', name: 'Food', keys: [], amount: 5 }],
+        description: 'Plains are large areas of land.',
+        ok: 'OK',
+      };
+      act(() => box.show('colopedia', colopedia));
+      expect(screen.getByRole('dialog').getAttribute('data-kind')).toBe('colopedia');
+      for (const text of [
+        'Plains',
+        'Movement cost',
+        'Defense bonus',
+        'None',
+        'Minerals',
+        'Plains are large areas of land.',
+      ]) {
+        screen.getByText(text);
+      }
+      expect(screen.getAllByTitle('Food')).toHaveLength(2);
+      fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+  });
+
   describe('of a native settlement', () => {
     const settlement = (more: Partial<GuiEvents['indianSettlement']> = {}): GuiEvents['indianSettlement'] => ({
       name: 'Cuzco',
