@@ -34,7 +34,8 @@ import { mapDrawer, type MapView } from './map';
 import { europeButtons } from './europe-client';
 import { DialogHost, type Art, type ReportButtons, type RouteButtons } from './panels';
 import { ReportContext, reportMenu, type ReportActions } from './reports';
-import { onCanvas, pointerInput } from './pointer';
+import { blockBrowserMenu, onCanvas, pointerInput, rightClickInput } from './pointer';
+import { ContextMenuContext, PopupMenu, parseMenu, type ContextMenus, type Popup } from './popup-menu';
 import { StartScreen } from './start-screen';
 import { presetJson, startOptions } from './start';
 import { fileNameOf, importSave } from './save-files';
@@ -192,6 +193,19 @@ function refreshColonies() {
     dialogQueue.replace('colony', JSON.parse(json) as GuiEvents['colony'], (c) => c.id === open.id);
   }
 }
+/** The right-click menu that is open, if any. */
+let popup: Popup | null = null;
+function showPopup(next: Popup | null) {
+  popup = next;
+  renderSide();
+}
+/** The Engine's right-click menus, once the client Engine has loaded (Menus.java). */
+let menuClient: ClientExports | null = null;
+const contextMenus: ContextMenus = {
+  unit: (id) => (menuClient ? parseMenu(menuClient.unitMenu(id)) : null),
+  goods: (location, type, amount) => (menuClient ? parseMenu(menuClient.goodsMenu(location, type, amount)) : null),
+  show: (menu, x, y) => showPopup({ menu, x, y }),
+};
 const sideRoot = createRoot(document.getElementById('side')!);
 function renderSide() {
   menuRoot.render(<MenuBar menus={menus} status={statusLine} />);
@@ -247,22 +261,25 @@ function renderSide() {
       />
       <ColonyTiles.Provider value={drawColonyTiles}>
         <ColonyActions.Provider value={colonyMoves}>
-          <ReportContext.Provider value={reportActions}>
-            <DialogHost
-              dialogs={dialogQueue}
-              goTo={(at) => dispatch({ k: 'focus', tile: null, at })}
-              art={art}
-              string={(key) => map.resources()?.string(key) ?? ''}
-              report={{
-                groupBy: (value) => reportButtons.groupBy(value),
-                filter: (index, shown) => reportButtons.filter(index, shown),
-                ignore: (index, ignore) => reportButtons.ignore(index, ignore),
-              }}
-              routes={{ save: (d) => routeButtons.save(d), remove: (id) => routeButtons.remove(id) }}
-            />
-          </ReportContext.Provider>
+          <ContextMenuContext.Provider value={contextMenus}>
+            <ReportContext.Provider value={reportActions}>
+              <DialogHost
+                dialogs={dialogQueue}
+                goTo={(at) => dispatch({ k: 'focus', tile: null, at })}
+                art={art}
+                string={(key) => map.resources()?.string(key) ?? ''}
+                report={{
+                  groupBy: (value) => reportButtons.groupBy(value),
+                  filter: (index, shown) => reportButtons.filter(index, shown),
+                  ignore: (index, ignore) => reportButtons.ignore(index, ignore),
+                }}
+                routes={{ save: (d) => routeButtons.save(d), remove: (id) => routeButtons.remove(id) }}
+              />
+            </ReportContext.Provider>
+          </ContextMenuContext.Provider>
         </ColonyActions.Provider>
       </ColonyTiles.Provider>
+      {popup && <PopupMenu popup={popup} run={(id) => menuClient?.menuEntry(id)} close={() => showPopup(null)} />}
     </>,
   );
 }
@@ -380,6 +397,7 @@ function drawMap(m: MapView) {
   if (!artReady) void drawn.then(() => map.resources() && ((artReady = true), renderSide()));
 }
 
+blockBrowserMenu(document);
 const dragged = pointerInput(mapHost, { view: () => view, dispatch, tileAt: (px, py) => map.tileAt(px, py) });
 
 /** Hook the player's input up to the client Engine's commands. */
@@ -403,6 +421,16 @@ function playWith(client: ClientExports) {
     e.preventDefault();
     run(c);
   });
+  menuClient = client;
+  // A right-click on a map tile opens its popup; a dialog over the map has the pointer instead.
+  rightClickInput(
+    mapHost,
+    (px, py) => map.tileAt(px, py),
+    (tile, x, y) => {
+      const menu = parseMenu(client.tileMenu(...tile));
+      showPopup(menu && { menu, x, y });
+    },
+  );
   mapHost.addEventListener('click', (e) => {
     const at = onCanvas(mapHost, e);
     const tile = at && !dragged() ? map.tileAt(...at) : null;
@@ -516,6 +544,8 @@ async function run() {
     recruit: (i: number) => exports.recruitUnit(i),
     train: (id: string) => exports.trainUnit(id),
     board: (unit: string, ship: string) => exports.boardShip(unit, ship),
+    buy: (goods: string, ship: string) => exports.buyGoods(ship, goods),
+    sell: (goods: string, ship: string) => exports.sellGoods(ship, goods),
     sail: (ship: string) => exports.sailToNewWorld(ship),
   });
   playWith(exports);

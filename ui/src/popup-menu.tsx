@@ -1,0 +1,108 @@
+// FreeCol's right-click menus (TilePopup, QuickActionMenu) in the Browser UI.
+// The Engine builds a menu's entries (Menus.java) and runs the one picked by
+// its id; this file draws a menu where the pointer was, closes it on Escape,
+// on a press elsewhere and once an entry has run, and gives the colony
+// panel's colonists and goods a right-click that opens theirs.
+import { useEscape } from './frame';
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from 'react';
+
+/** One entry: its id (the Engine runs it), its label, and how it is drawn (Menus.java). */
+export interface MenuEntry {
+  id: string;
+  label: string;
+  enabled: boolean;
+  /** A line above the entry. */
+  gap?: boolean;
+  /** Set under the entry above, as a ship's cargo is. */
+  indent?: boolean;
+}
+
+/** A menu as the Engine sends it. */
+export interface MenuData {
+  title: string;
+  entries: MenuEntry[];
+}
+
+/** A menu open on the page, at the pointer's place in the viewport. */
+export interface Popup {
+  menu: MenuData;
+  x: number;
+  y: number;
+}
+
+/** Read the Engine's menu JSON: "null" (no menu) is null. */
+export function parseMenu(json: string): MenuData | null {
+  return JSON.parse(json) as MenuData | null;
+}
+
+/** Keep a menu of this size, opened at a point, inside the viewport. */
+export function clampMenu(at: [number, number], size: [number, number], viewport: [number, number]): [number, number] {
+  return [Math.max(0, Math.min(at[0], viewport[0] - size[0])), Math.max(0, Math.min(at[1], viewport[1] - size[1]))];
+}
+
+/**
+ * The open menu. A pick closes it, then runs the entry; Escape (before any dialog sees it) and a press
+ * anywhere outside close it too.
+ */
+export function PopupMenu({ popup, run, close }: { popup: Popup; run: (id: string) => void; close: () => void }) {
+  const box = useRef<HTMLDivElement>(null);
+  const [at, setAt] = useState<[number, number]>([popup.x, popup.y]);
+  useLayoutEffect(() => {
+    const r = box.current?.getBoundingClientRect();
+    if (!r) return;
+    setAt(clampMenu([popup.x, popup.y], [r.width, r.height], [innerWidth, innerHeight]));
+  }, [popup]);
+  const closing = useRef(close);
+  closing.current = close;
+  useEffect(() => {
+    const away = (e: PointerEvent) => {
+      if (!(e.target instanceof Node && box.current?.contains(e.target))) closing.current();
+    };
+    addEventListener('pointerdown', away, { capture: true });
+    return () => removeEventListener('pointerdown', away, { capture: true });
+  }, []);
+  // Escape closes the menu first, and the dialog under it only the next time.
+  useEscape(close);
+  return (
+    <div className="popup" role="menu" aria-label={popup.menu.title} ref={box} style={{ left: at[0], top: at[1] }}>
+      {popup.menu.entries.map((e, i) => (
+        <button
+          key={i}
+          role="menuitem"
+          data-entry={e.id}
+          data-gap={e.gap || undefined}
+          data-indent={e.indent || undefined}
+          disabled={!e.enabled}
+          onClick={() => {
+            close();
+            run(e.id);
+          }}
+        >
+          {e.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** What the colony panel's right-clicks open: the Engine's menus, and where they show. */
+export interface ContextMenus {
+  /** The quick action menu of one of our colonists or ships, or null for none. */
+  unit(id: string): MenuData | null;
+  /** The quick action menu of goods in a colony (by id) or aboard a ship (by id). */
+  goods(location: string, type: string, amount: number): MenuData | null;
+  show(menu: MenuData, x: number, y: number): void;
+}
+/** Without it the panel's colonists and goods have no right-click menu. */
+export const ContextMenuContext = createContext<ContextMenus | null>(null);
+
+/** The handler that opens a menu on a right-click, or none when the page has no menus to give. */
+export function useContextMenu(get: (menus: ContextMenus) => MenuData | null) {
+  const menus = useContext(ContextMenuContext);
+  if (!menus) return undefined;
+  return (e: MouseEvent) => {
+    e.preventDefault();
+    const menu = get(menus);
+    if (menu) menus.show(menu, e.clientX, e.clientY);
+  };
+}

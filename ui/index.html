@@ -140,6 +140,47 @@
       .menubar [role='menu'] button {
         text-align: left;
       }
+      /* A right-click menu (src/popup-menu.tsx): at the pointer, over the map and every dialog. */
+      .popup {
+        position: fixed;
+        z-index: 100;
+        min-width: 12em;
+        max-width: 28em;
+        max-height: 90vh;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        padding: 2px;
+        background: var(--panel);
+        color: var(--ink);
+        border: 1px solid var(--line);
+        box-shadow: 0 4px 12px rgb(0 0 0 / 40%);
+        font-size: var(--fs-s);
+      }
+      .popup button {
+        text-align: left;
+        padding: 3px 10px;
+        background: transparent;
+        color: inherit;
+        border: 0;
+        font: inherit;
+        cursor: pointer;
+      }
+      .popup button:hover:enabled {
+        background: var(--btn);
+        color: var(--btn-ink);
+      }
+      .popup button:disabled {
+        color: var(--muted);
+        cursor: default;
+      }
+      .popup button[data-gap] {
+        border-top: 1px solid var(--line);
+      }
+      .popup button[data-indent] {
+        padding-left: 24px;
+        font-style: italic;
+      }
       .menubar .status {
         margin-left: auto;
         padding-right: 8px;
@@ -504,6 +545,19 @@
       }
       .europe .good[data-disabled] {
         opacity: 0.4;
+      }
+      /* The market's goods and the cargo's stacks are buttons (they trade), but look as Swing's labels do. */
+      .europe button.good,
+      .europe button.chip {
+        background: none;
+        border: none;
+        padding: 0;
+        color: var(--ink);
+        cursor: pointer;
+      }
+      .europe button.good:hover,
+      .europe button.chip:hover {
+        outline: 1px solid var(--accent);
       }
       .europe .price {
         font-variant-numeric: tabular-nums;

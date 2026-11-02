@@ -38,6 +38,8 @@ import {
 } from 'react';
 import { Box, GoodsAmount, type Art } from './frame';
 import { PANEL_KEYS } from './map-keys';
+import { accepts, draggableProps, dropTargetProps, same, type Item, type Place } from './moves';
+import { ContextMenuContext, useContextMenu } from './popup-menu';
 import type { Buildable, ColonyView, GoodsAmount as Goods, UnitRef } from './webgui';
 
 /** FreeCol's tile size, which the tiles of TilesPanel are laid out by. */
@@ -93,20 +95,10 @@ export interface ColonyMoves {
 export const ColonyActions = createContext<ColonyMoves | null>(null);
 
 /**
- * What is being moved: a unit, or goods of the warehouse or a stack of the chosen ship's cargo (the stack's
- * index and amount). ask: shift was held as it was picked up, so the Engine asks the amount.
+ * What is being moved: a unit, or goods of the warehouse or of a stack of the
+ * chosen ship's cargo (the stack's index and amount). ask: shift was held as
+ * it was picked up, so the Engine asks the amount.
  */
-type Item =
-  | { kind: 'unit'; id: string }
-  | { kind: 'goods'; from: 'warehouse'; type: string; ask: boolean }
-  | { kind: 'goods'; from: 'cargo'; type: string; index: number; amount: number; ask: boolean };
-
-/** The same thing, wherever it was picked up and however. */
-const same = (a: Item, b: Item) => {
-  if (a.kind === 'unit' || b.kind === 'unit') return a.kind === 'unit' && b.kind === 'unit' && a.id === b.id;
-  if (a.from !== b.from || a.type !== b.type) return false;
-  return a.from === 'warehouse' || b.from === 'warehouse' || a.index === b.index;
-};
 
 /** The colonist or goods being moved: picked by a click, or dragged. */
 interface Hand {
@@ -114,7 +106,7 @@ interface Hand {
   picked: Item | null;
   pick(item: Item | null): void;
   /** Where things can be dropped, with what a drop there does; null when the panel cannot move them. */
-  target(drop: (item: Item) => void): TargetProps | null;
+  target(place: Place, drop: (item: Item) => void): TargetProps | null;
 }
 interface TargetProps {
   onDragOver(e: DragEvent): void;
@@ -124,11 +116,8 @@ interface TargetProps {
 }
 const NO_HAND: Hand = { picked: null, pick() {}, target: () => null };
 const HandContext = createContext<Hand>(NO_HAND);
-/** What is being dragged: a drag's data cannot be read until it drops, and only by the page's own drag. */
-let dragging: Item | null = null;
 /** Whether shift was held on the last press on something movable, which a drag starts from. */
 let shiftPressed = false;
-const OVER = 'over-target';
 
 /** The ship chosen in port, per colony, so it stays chosen as the panel is shown again. */
 const chosen = new Map<string, string | null>();
@@ -162,18 +151,17 @@ function useMovable(item: Item) {
   const movable = hand !== NO_HAND;
   const picked = hand.picked !== null && same(hand.picked, item);
   const withShift = (shift: boolean): Item => (item.kind === 'goods' ? { ...item, ask: shift } : item);
+  const drag = draggableProps(item, (e) => withShift(shiftPressed || e.shiftKey));
   return {
     'data-picked': movable ? picked : undefined,
     draggable: movable || undefined,
     // As DragListener.mousePressed, shift on the press makes the drag partial.
     onMouseDown: (e: MouseEvent) => (shiftPressed = e.shiftKey),
     onDragStart: (e: DragEvent) => {
-      dragging = withShift(shiftPressed || e.shiftKey);
-      e.dataTransfer.setData('text/plain', item.kind === 'unit' ? item.id : item.type);
-      e.dataTransfer.effectAllowed = 'move';
+      drag.onDragStart(e);
       hand.pick(null);
     },
-    onDragEnd: () => (dragging = null),
+    onDragEnd: drag.onDragEnd,
     onClick: (e: MouseEvent) => {
       if (!movable || (hand.picked !== null && !picked)) return;
       e.stopPropagation();
@@ -188,8 +176,9 @@ function useMovable(item: Item) {
  */
 function Unit({ u, art, className, children }: { u: UnitRef; art: Art; className?: string; children?: ReactNode }) {
   const movable = useMovable({ kind: 'unit', id: u.id });
+  const onContextMenu = useContextMenu((m) => m.unit(u.id));
   return (
-    <span className={className} data-unit={u.id} {...movable}>
+    <span className={className} data-unit={u.id} onContextMenu={onContextMenu} {...movable}>
       <Img keys={u.keys} art={art} className="unit" alt={u.name} />
       {children}
     </span>
@@ -203,20 +192,30 @@ function Unit({ u, art, className, children }: { u: UnitRef; art: Art; className
 function MovableGoods({
   g,
   item,
+  at,
   art,
   className,
   over,
 }: {
   g: Goods;
   item: Item;
+  /** The id of the colony the goods are stored in, or of the ship they are aboard (for their menu). */
+  at: string;
   art: Art;
   className?: string;
   /** More than the warehouse holds (Swing's red). */
   over?: boolean;
 }) {
   const movable = useMovable(item);
+  const onContextMenu = useContextMenu((m) => (g.amount > 0 ? m.goods(at, g.type, g.amount) : null));
   return (
-    <span className={className} data-goods={g.type} data-over={over} {...(g.amount > 0 ? movable : {})}>
+    <span
+      className={className}
+      data-goods={g.type}
+      data-over={over}
+      onContextMenu={onContextMenu}
+      {...(g.amount > 0 ? movable : {})}
+    >
       <GoodsAmount keys={g.keys} name={g.name} amount={g.amount} art={art} />
     </span>
   );
@@ -225,8 +224,8 @@ function MovableGoods({
 const Units = ({ units, art }: { units: UnitRef[]; art: Art }) => units.map((u) => <Unit key={u.id} u={u} art={art} />);
 
 /** The props that make an element a place things go to, or none when the panel cannot move them. */
-function useTarget(drop: (item: Item) => void): TargetProps | null {
-  return useContext(HandContext).target(drop);
+function useTarget(place: Place, drop: (item: Item) => void): TargetProps | null {
+  return useContext(HandContext).target(place, drop);
 }
 
 /** A ProductionLabel: the shared goods amount, named by its type (data-goods); `more` follows the number. */
@@ -299,7 +298,9 @@ function TilePlace({
   children: ReactNode;
 }) {
   const moves = useContext(ColonyActions);
-  const target = useTarget((item) => item.kind === 'unit' && moves?.work(item.id, t.id));
+  const target = useTarget('tile', (item) => {
+    if (item.kind === 'unit') moves?.work(item.id, t.id);
+  });
   return (
     <div
       className="tile"
@@ -323,6 +324,7 @@ function TilePlace({
  */
 function Port({ c, art }: { c: ColonyView; art: Art }) {
   const moves = useContext(ColonyActions);
+  const menus = useContext(ContextMenuContext);
   const port = c.inPort;
   // The choice is kept in chosen, which the warehouse reads too; this only draws it again.
   const [, redraw] = useState(0);
@@ -333,10 +335,10 @@ function Port({ c, art }: { c: ColonyView; art: Art }) {
   };
   // Units beside the colony and colonists working in it board (CargoPanel accepts what the carrier can add).
   const boardable = new Set([...c.outside.units, ...workingIn(c)].map((u) => u.id));
-  const target = useTarget((item) => {
+  const target = useTarget('cargo', (item) => {
     if (!ship || !moves) return;
     if (item.kind === 'unit' && boardable.has(item.id)) moves.board(item.id, ship.id);
-    else if (item.kind === 'goods' && item.from === 'warehouse') moves.load(ship.id, item.type, item.ask);
+    else if (item.kind === 'goods' && item.from === 'warehouse') moves.load(ship.id, item.type, item.ask ?? false);
   });
   return (
     <>
@@ -349,6 +351,11 @@ function Port({ c, art }: { c: ColonyView; art: Art }) {
             aria-pressed={u.id === ship?.id}
             title={u.name}
             onClick={() => choose(u.id)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              const menu = menus?.unit(u.id);
+              if (menu) menus!.show(menu, e.clientX, e.clientY);
+            }}
           >
             <Img keys={u.keys} art={art} className="unit" alt={u.name} />
           </button>
@@ -370,6 +377,7 @@ function Port({ c, art }: { c: ColonyView; art: Art }) {
                 key={i}
                 g={g}
                 art={art}
+                at={ship.id}
                 className="made-goods"
                 item={{ kind: 'goods', from: 'cargo', type: g.type, index: i, amount: g.amount, ask: false }}
               />
@@ -393,10 +401,10 @@ function chosenShip(c: ColonyView) {
 /** WarehousePanel: the colony's goods; a stack of the chosen ship's cargo dropped here is unloaded. */
 function Warehouse({ c, art }: { c: ColonyView; art: Art }) {
   const moves = useContext(ColonyActions);
-  const target = useTarget((item) => {
+  const target = useTarget('warehouse', (item) => {
     const ship = chosenShip(c);
     if (ship && moves && item.kind === 'goods' && item.from === 'cargo') {
-      moves.unload(ship.id, item.type, item.amount, item.ask);
+      moves.unload(ship.id, item.type, item.amount ?? 0, item.ask ?? false);
     }
   });
   return (
@@ -415,6 +423,7 @@ function Warehouse({ c, art }: { c: ColonyView; art: Art }) {
           key={g.type}
           g={g}
           art={art}
+          at={c.id}
           className="stored"
           item={{ kind: 'goods', from: 'warehouse', type: g.type, ask: false }}
           over={g.over}
@@ -427,7 +436,9 @@ function Warehouse({ c, art }: { c: ColonyView; art: Art }) {
 /** A building that takes colonists. */
 function BuildingPlace({ b, children }: { b: ColonyView['buildings'][number]; children: ReactNode }) {
   const moves = useContext(ColonyActions);
-  const target = useTarget((item) => item.kind === 'unit' && b.id !== null && moves?.work(item.id, b.id));
+  const target = useTarget('building', (item) => {
+    if (item.kind === 'unit' && b.id !== null) moves?.work(item.id, b.id);
+  });
   return (
     <div className="building" data-building={b.id} data-drop={target ? '' : undefined} title={b.name} {...target}>
       {children}
@@ -442,7 +453,7 @@ function Outside({ c, art }: { c: ColonyView; art: Art }) {
   const aboard = new Set(c.inPort.units.flatMap((s) => s.cargo.units).map((u) => u.id));
   // A colonist working in the colony is put outside, and a unit aboard a ship goes ashore; one already
   // outside has nowhere to go.
-  const target = useTarget((item) => {
+  const target = useTarget('outside', (item) => {
     if (item.kind !== 'unit' || !moves) return;
     if (working.has(item.id)) moves.putOutside(item.id);
     else if (aboard.has(item.id)) moves.leaveShip(item.id);
@@ -591,6 +602,7 @@ function BuildQueue({ c, art }: { c: ColonyView; art: Art }) {
 function isHere(c: ColonyView, item: Item) {
   if (item.kind === 'unit') return JSON.stringify(c).includes(`"id":"${item.id}"`);
   if (item.from === 'warehouse') return c.warehouse.goods.some((g) => g.type === item.type && g.amount > 0);
+  if (item.index === undefined) return false;
   const g = chosenShip(c)?.cargo.goods[item.index];
   return g?.type === item.type && g.amount === item.amount;
 }
@@ -610,22 +622,10 @@ export function ColonyPanel({ colony: c, art }: { colony: ColonyView; art: Art }
     : {
         picked: here ? picked : null,
         pick: setPicked,
-        target: (drop) => ({
-          onDragOver: (e) => {
-            if (dragging === null) return;
-            e.preventDefault();
-            e.currentTarget.classList.add(OVER);
-          },
-          onDragLeave: (e) => e.currentTarget.classList.remove(OVER),
-          onDrop: (e) => {
-            e.preventDefault();
-            e.currentTarget.classList.remove(OVER);
-            const item = dragging;
-            dragging = null;
-            if (item !== null) drop(item);
-          },
+        target: (place, drop) => ({
+          ...dropTargetProps(place, drop),
           onClick: () => {
-            if (here && picked !== null) {
+            if (here && picked !== null && accepts(place, picked)) {
               setPicked(null);
               drop(picked);
             }

@@ -330,17 +330,37 @@ async function play(page, url) {
     return view();
   };
   /**
-   * Pick something up with a click, as a player does: the panel is shown
-   * again with each change, so a click can land as it is redrawn, and the
-   * click is repeated until the thing shows as picked.
+   * Pick a thing up in the colony panel: the panel is shown afresh as each change reaches the client, so a
+   * click can land as it is redrawn; a pick is clicked again until it shows picked.
    */
-  const pickUp = async (thing, what, modifiers = []) => {
+  const pickUp = async (thing, what) => {
     for (let i = 0; i < 5; i++) {
-      await thing.click({ modifiers });
+      await thing.click();
       if ((await thing.getAttribute('data-picked')) === 'true') return;
       await page.waitForTimeout(300);
     }
     throw new Error(`a click did not pick ${what}`);
+  };
+  /**
+   * Wait for a dialog in the log, which grows as the page answers the dialogs: the entries after the
+   * count are the ones that came since. Throws with them when the dialog does not come. The dialog is
+   * named by the start of its entry, e.g. "amount: ", for a page function cannot be given a function
+   * to match with.
+   */
+  const waitForDialog = async (logged, prefix, what, timeout = 10000) => {
+    const got = await page
+      .waitForFunction(([n, p]) => (window.__dialogs ?? []).slice(n).some((d) => d.startsWith(p)), [logged, prefix], {
+        timeout,
+      })
+      .then(() => true)
+      .catch((ex) => {
+        // Only a timeout means the dialog did not come; anything else is a fault in the page.
+        if (ex instanceof Error && /timeout/i.test(ex.message)) return false;
+        throw ex;
+      });
+    if (got) return;
+    const seen = await page.evaluate((n) => (window.__dialogs ?? []).slice(n), logged);
+    throw new Error(`${what}: ${JSON.stringify(seen)}`);
   };
   /**
    * Open the colony's panel and move colonists in it as a player would: the founder is dragged to a building,
@@ -418,6 +438,18 @@ async function play(page, url) {
     const hall = panel.locator('[data-building]').first();
     const onTile = await net();
 
+    // A right-click on the founder opens its quick action menu, with places to work; Escape closes the menu
+    // and leaves the colony panel open.
+    await unit(founder).click({ button: 'right' });
+    const popup = page.locator('.popup[role=menu]');
+    await popup.waitFor({ timeout: 10000 });
+    if ((await popup.locator('[data-entry^="work:"]').count()) === 0) {
+      throw new Error(`the founder's quick action menu has no place to work: ${await popup.innerText()}`);
+    }
+    await page.keyboard.press('Escape');
+    await popup.waitFor({ state: 'detached', timeout: 5000 });
+    if ((await panel.count()) !== 1) throw new Error('Escape closed the colony panel with the menu');
+
     if (tile !== null) {
       // Drag the founder from its tile into a building.
       await unit(founder).dragTo(hall);
@@ -473,6 +505,17 @@ async function play(page, url) {
     await unit(other).click();
     await outside.click();
     await within(outside, other);
+
+    // A colonist cannot work on a tile another colonist works: the Engine explains it, and the
+    // explanation shows over the colony panel, as Swing's does, with the colony panel on screen again
+    // once it is closed. A panel queued behind the colony panel would show only after the player closed
+    // it, so the log must have the explanation while the panel is still open.
+    const logged = await page.evaluate(() => window.__dialogs.length);
+    await pickUp(unit(other), other);
+    await tile.locator('.hit').click();
+    await waitForDialog(logged, 'information: ', 'the refusal was not explained over the colony panel');
+    await panel.waitFor({ timeout: 10000 });
+    await unit(other).click();
 
     // Queue a building the colony can build, from the build queue; the panel must list it as queued. (What
     // the server's colony does with the queue, and paying for it, are CommandsTest's to check.)
@@ -610,10 +653,7 @@ async function play(page, url) {
       .catch(() => {
         throw new Error(`the ship did not take ${goods} aboard`);
       });
-    const asked = await page.evaluate((n) => window.__dialogs.slice(n), before);
-    if (!asked.some((d) => d.startsWith('amount: '))) {
-      throw new Error(`loading with shift did not ask the amount: ${JSON.stringify(asked)}`);
-    }
+    await waitForDialog(before, 'amount: ', 'loading with shift did not ask the amount');
     // The passenger goes ashore again.
     await pickUp(cargo.locator(`[data-unit="${passenger}"]`), passenger);
     await putOn(outside, passenger);
@@ -805,6 +845,21 @@ async function play(page, url) {
     await page.mouse.click(box.x + px, box.y + py);
   };
 
+  /** A right-click on our colony's tile opens the tile popup with the colony in it; a click elsewhere closes it. */
+  const tilePopup = async (m, [x, y]) => {
+    const box = await page.locator('#map canvas').boundingBox();
+    const [px, py] = await page.evaluate(([x, y]) => window.fcReveal(x, y), [x, y]);
+    await page.mouse.click(box.x + px, box.y + py, { button: 'right' });
+    const popup = page.locator('.popup[role=menu]');
+    await popup.waitFor({ timeout: 10000 });
+    if ((await popup.locator('[data-entry^="colony:"]').count()) === 0) {
+      throw new Error(`the tile popup of the colony has no colony entry: ${await popup.innerText()}`);
+    }
+    await page.mouse.click(box.x + 5, box.y + box.height - 5);
+    await popup.waitFor({ state: 'detached', timeout: 5000 });
+    console.log('  tile popup: right-click opens the colony tile menu, a click elsewhere closes it');
+  };
+
   await page.goto(url);
   await waitForResult(page, 120000);
   let m = await view();
@@ -872,6 +927,7 @@ async function play(page, url) {
     throw new Error(`the colony panel did not show the founder ${founder}: ${JSON.stringify(seen)}`);
   }
   const note = await moveColonists(m, land, founder);
+  await tilePopup(m, land);
   m = await endTurn();
   if (!at(m.settlements, land)) throw new Error(`the colony at ${label(land)} is gone after the AI turn`);
 
@@ -907,18 +963,10 @@ async function play(page, url) {
     ['Trade report', 'Trade Advisor'],
   ]) {
     await noDialog(`opening the ${item}`);
-    const before = await page.evaluate(() => window.__dialogs.length);
+    const logged = await page.evaluate(() => window.__dialogs.length);
     await page.getByRole('menuitem', { name: 'Report', exact: true }).click();
     await page.getByRole('menuitem', { name: item, exact: true }).click();
-    const opened = await page
-      .waitForFunction(([n, t]) => window.__dialogs.slice(n).includes(`report: ${t}`), [before, title], {
-        timeout: 10000,
-      })
-      .catch(() => false);
-    if (!opened) {
-      const last = await page.evaluate(() => window.__dialogs.slice(-3));
-      throw new Error(`the ${item} did not open: ${JSON.stringify(last)}`);
-    }
+    await waitForDialog(logged, `report: ${title}`, `the ${item} did not open`);
     if (item === 'Colony report') {
       const named = await page.evaluate(
         (id) => window.__dialogUnits.some((d) => d.kind === 'report' && d.units.includes(id)),

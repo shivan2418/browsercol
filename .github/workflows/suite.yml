@@ -53,6 +53,10 @@ jobs:
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: DEV_VARIANT=web ./dev.sh node ui/scripts/debug.mjs
 
+      - name: Browser Europe
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: DEV_VARIANT=web ./dev.sh node ui/scripts/europe.mjs
+
       - name: Browser tileset
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: DEV_VARIANT=web ./dev.sh node ui/scripts/tileset.mjs

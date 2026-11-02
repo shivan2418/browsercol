@@ -58,6 +58,12 @@ final class SelectAmount {
                     break;
                 }
             }
+            // The default is more than every step, as a whole hold of goods
+            // is: it goes last, if it is within what is available.
+            if (defaultIndex < 0 && defaultAmount <= available) {
+                defaultIndex = values.size();
+                values.add(defaultAmount);
+            }
         }
         return new Choices(values,
             (defaultIndex < 0) ? null : values.get(defaultIndex));
