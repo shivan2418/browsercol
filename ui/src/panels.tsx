@@ -963,25 +963,43 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
   const [picked, setPicked] = useState(e.selected);
   const [shop, setShop] = useState<'recruit' | 'train' | 'purchase' | null>(null);
   const ship = e.inPort.find((u) => u.id === picked) ?? null;
-  const offers = (kind: 'train' | 'purchase') => (
-    <section className="box shop" data-shop={kind}>
-      <h3>{e[kind].heading}</h3>
-      <div className="chips">
-        {e[kind].units.map((o) => (
-          <button
-            key={o.id}
-            className="chip offer"
-            data-offer={o.id}
-            disabled={!o.enabled}
-            onClick={() => europeButtons.train(o.id)}
-          >
-            <Pic keys={o.images} art={art} />
-            <span className="name">{o.name}</span>
-            <span className="price">{o.priceLabel}</span>
-          </button>
-        ))}
-      </div>
-    </section>
+  const closeShop = () => setShop(null);
+  /** The recruit, train or purchase list: a popup over the panel, a card of one size for each unit. */
+  const shopPopup = (kind: 'recruit' | 'train' | 'purchase') => (
+    <div className="modal shop-modal">
+      <WindowFrame className="dialog shop-popup" data-shop={kind} title={e[kind].heading} close={closeShop}>
+        {kind === 'recruit' && <p className="text">{e.recruit.text}</p>}
+        <div className="cards">
+          {kind === 'recruit'
+            ? e.recruit.units.map((r) => (
+                <button
+                  key={r.index}
+                  className="card offer"
+                  data-recruit={r.index}
+                  disabled={!r.enabled}
+                  onClick={() => europeButtons.recruit(r.index)}
+                >
+                  <Pic keys={r.images} art={art} />
+                  <span className="name">{r.name}</span>
+                  <span className="price" />
+                </button>
+              ))
+            : e[kind].units.map((o) => (
+                <button
+                  key={o.id}
+                  className="card offer"
+                  data-offer={o.id}
+                  disabled={!o.enabled}
+                  onClick={() => europeButtons.train(o.id)}
+                >
+                  <Pic keys={o.images} art={art} />
+                  <span className="name">{o.name}</span>
+                  <span className="price">{o.priceLabel}</span>
+                </button>
+              ))}
+        </div>
+      </WindowFrame>
+    </div>
   );
   const list = (
     heading: string,
@@ -1053,27 +1071,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
           {e.buttons.sail}
         </button>
       </div>
-      {shop === 'recruit' && (
-        <section className="box shop" data-shop="recruit">
-          <h3>{e.recruit.heading}</h3>
-          <p className="text">{e.recruit.text}</p>
-          <div className="chips">
-            {e.recruit.units.map((r) => (
-              <button
-                key={r.index}
-                className="chip offer"
-                data-recruit={r.index}
-                disabled={!r.enabled}
-                onClick={() => europeButtons.recruit(r.index)}
-              >
-                <Pic keys={r.images} art={art} />
-                <span className="name">{r.name}</span>
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
-      {(shop === 'train' || shop === 'purchase') && offers(shop)}
+      {shop && shopPopup(shop)}
       <div className="europe">
         {list(e.headings.toAmerica, 'toAmerica', e.toAmerica, undefined, false, onSailing)}
         {list(e.headings.toEurope, 'toEurope', e.toEurope)}
