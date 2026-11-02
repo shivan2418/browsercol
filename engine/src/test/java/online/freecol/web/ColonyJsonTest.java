@@ -22,6 +22,7 @@ import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.model.Building;
 import net.sf.freecol.common.model.Colony;
 import net.sf.freecol.common.model.ColonyTile;
+import net.sf.freecol.common.model.Direction;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.GoodsType;
 import net.sf.freecol.common.model.Player;
@@ -103,6 +104,11 @@ class ColonyJsonTest {
             .collect(Collectors.toList());
     }
 
+    /** The colony panel's JSON, as the Browser UI is shown it. */
+    private static Map<String, Object> panel(Colony colony) {
+        return obj(JsonReader.read(ColonyJson.of(colony, 1)));
+    }
+
     /** The goods in a list of {type, amount}, as type to amount. */
     private static Map<String, Long> amounts(Object goods) {
         return list(goods).stream().map(ColonyJsonTest::obj)
@@ -157,8 +163,7 @@ class ColonyJsonTest {
         colony.addGoods(lumber, 150);
         colony.invalidateCache();
 
-        final String text = ColonyJson.of(colony, 1);
-        final Map<String, Object> json = obj(JsonReader.read(text));
+        final Map<String, Object> json = panel(colony);
 
         assertEquals(colony.getId(), json.get("id"));
         assertEquals("Jamestown", json.get("name"));
@@ -206,7 +211,7 @@ class ColonyJsonTest {
             spec.getBuildingType("model.building.blacksmithHouse"));
         smithy.upgrade();
         spec.setBoolean(GameOptions.ENABLE_UPKEEP, true);
-        final Map<String, Object> shop = list(obj(JsonReader.read(ColonyJson.of(colony, 1)))
+        final Map<String, Object> shop = list(panel(colony)
                 .get("buildings")).stream().map(ColonyJsonTest::obj)
             .filter(b -> smithy.getId().equals(b.get("id"))).findFirst().get();
         assertEquals("model.building.blacksmithShop", shop.get("type"));
@@ -242,7 +247,7 @@ class ColonyJsonTest {
                 .filter(b -> where.getId().equals(b.get("id"))).findFirst().get();
             assertTrue(ids(worked.get("workers")).contains(founder.getId()));
         }
-        final Tile north = land.getNeighbourOrNull(net.sf.freecol.common.model.Direction.N);
+        final Tile north = land.getNeighbourOrNull(Direction.N);
         assertEquals(List.of(0L, 0L), tiles.stream()
             .filter(t -> colony.getColonyTile(north).getId().equals(t.get("id")))
             .findFirst().get().get("pos"), "north is at the top, as in Swing");
@@ -267,7 +272,7 @@ class ColonyJsonTest {
         assertTrue(foodAfter < foodBefore, "the north tile's grain is the "
             + "colony's food, and it is gone: " + foodBefore + " -> "
             + foodAfter + "; another map seed?");
-        final Map<String, Object> taken = list(obj(JsonReader.read(ColonyJson.of(colony, 1)))
+        final Map<String, Object> taken = list(panel(colony)
                 .get("tiles")).stream().map(ColonyJsonTest::obj)
             .filter(t -> northJson.get("id").equals(t.get("id"))).findFirst().get();
         assertEquals(Boolean.TRUE, taken.get("taken"), "water, and no docks");
@@ -299,17 +304,18 @@ class ColonyJsonTest {
         // has it. The panel is drawn now, after the north tile turned to
         // water, so read the panel now too: the colony's food changed with
         // it, and the numbers the panel shows are the model's, now.
-        final Map<String, Long> net = amounts(obj(JsonReader.read(
-                    ColonyJson.of(colony, 1))).get("production"));
+        final Map<String, Long> netProduction = amounts(
+            panel(colony).get("production"));
         for (GoodsType type : spec.getGoodsTypeList()) {
             final int amount = colony.getAdjustedNetProductionOf(type);
             if (amount == 0) {
-                assertNull(net.get(type.getId()), type.getId());
+                assertNull(netProduction.get(type.getId()), type.getId());
             } else {
-                assertEquals((long)amount, net.get(type.getId()), type.getId());
+                assertEquals((long)amount, netProduction.get(type.getId()), type.getId());
             }
         }
-        assertTrue(net.get("model.goods.hammers") > 0, "hammers: " + net);
+        assertTrue(netProduction.get("model.goods.hammers") > 0,
+            "hammers: " + netProduction);
 
         // Population: the two colonists in it, and the share of rebels.
         final Map<String, Object> population = obj(json.get("population"));
@@ -334,7 +340,7 @@ class ColonyJsonTest {
         assertEquals(colony.getBuildQueue().stream().map(t -> t.getId())
             .collect(Collectors.toList()),
             queued.stream().map(q -> (String)q.get("type")).collect(Collectors.toList()));
-        final Map<String, Map<String, Object>> buildable = new java.util.LinkedHashMap<>();
+        final Map<String, Map<String, Object>> buildable = new LinkedHashMap<>();
         for (Object o : list(queue.get("buildings"))) buildable.put((String)obj(o).get("type"), obj(o));
         for (Object o : list(queue.get("units"))) buildable.put((String)obj(o).get("type"), obj(o));
         final Map<String, Object> open = buildable.values().stream()
