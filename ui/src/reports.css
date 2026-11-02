@@ -152,11 +152,13 @@
 }
 /* The religion and education reports: a heading for each kind or school, then its people. */
 .dialog .report .religion section,
-.dialog .report .education section {
+.dialog .report .education section,
+.dialog .report .requirements section {
   margin-bottom: 14px;
 }
 .dialog .report .religion h3,
-.dialog .report .education h3 {
+.dialog .report .education h3,
+.dialog .report .requirements h3 {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -259,4 +261,7 @@
   align-items: center;
   gap: 6px;
   margin-bottom: 10px;
+}
+.dialog .report .requirements p {
+  margin: 0 0 8px;
 }
