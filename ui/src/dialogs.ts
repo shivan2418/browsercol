@@ -59,6 +59,8 @@ export function dialogs(): Dialogs {
   const queue: Dialog[] = [];
   const listeners = new Set<() => void>();
   let nextId = 1;
+  /** The panels a dialog was put in front of: they were on screen. */
+  const covered = new Set<number>();
 
   const make = (kind: string, payload: unknown, key: 'ask' | 'event', settle: (a: unknown) => void): Dialog => {
     const id = nextId++;
@@ -66,6 +68,7 @@ export function dialogs(): Dialogs {
       const i = queue.findIndex((d) => d.id === id);
       if (i < 0) return;
       queue.splice(i, 1);
+      covered.delete(id);
       settle(a);
       for (const l of listeners) l();
     };
@@ -74,8 +77,6 @@ export function dialogs(): Dialogs {
   const changed = () => {
     for (const l of listeners) l();
   };
-  /** The panels a dialog was put in front of: they were on screen. */
-  const covered = new Set<number>();
   const add = (kind: string, payload: unknown, key: 'ask' | 'event', settle: (a: unknown) => void) => {
     // The first panel in the queue: the one on screen, or the one the dialogs at the head of the queue are over.
     const panel = queue.findIndex((d) => !('ask' in d));
@@ -95,7 +96,10 @@ export function dialogs(): Dialogs {
       // A new dialog id, so that the panel starts afresh rather than keeping what React held.
       if (i < 0) return add(kind, event, 'event', () => {});
       const next = make(kind, event, 'event', () => {});
-      if (covered.has(queue[i].id)) covered.add(next.id);
+      if (covered.has(queue[i].id)) {
+        covered.delete(queue[i].id);
+        covered.add(next.id);
+      }
       queue[i] = next;
       changed();
     },

@@ -33,6 +33,8 @@ describe('dialogs', () => {
   it('shows a question asked while a panel is on screen over it, and the panel again once it is answered', async () => {
     const d = dialogs();
     d.show('error', error);
+    d.show('error', { ...error, text: 'Later' });
+    // The newer panel is over the older one, as Swing's panels stack.
     const panel = d.current()!;
     const answer = d.ask('confirm', confirm);
     const asked = d.current()!;
@@ -46,7 +48,7 @@ describe('dialogs', () => {
     const next = d.current()!;
     expect(next.kind === 'confirm' && next.ask.text).toBe('Again?');
     if (next.kind === 'confirm') next.done(true);
-    expect(d.current()).toBe(panel);
+    expect(d.current(), 'the panel on screen is there again').toBe(panel);
   });
 
   it('shows a panel the Engine shows while a panel is on screen over it, and the panel again once it is closed', () => {
