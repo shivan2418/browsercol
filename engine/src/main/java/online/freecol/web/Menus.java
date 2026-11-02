@@ -104,7 +104,8 @@ final class Menus {
     String tile(int x, int y) {
         final Tile tile = this.client.getGame().getMap().getTile(x, y);
         final Player player = me();
-        if (tile == null || player == null) return "null";
+        // Nothing is known of an unexplored tile, and its label would give it away.
+        if (tile == null || player == null || !tile.isExplored()) return "null";
         final Builder b = new Builder();
         final Unit active = this.client.getGUI().getActiveUnit();
         final String at = x + "," + y;
