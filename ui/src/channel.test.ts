@@ -69,6 +69,8 @@ function fakeClient(scope: Scope, log: string[]): ClientExports {
     skipTurns: (rounds) => log.push(`client skip ${rounds}`),
     debugApplied: (answer) => log.push(`client applied ${answer}`),
     click: () => {},
+    goTo: () => {},
+    pathTo: () => 'null',
     move: () => {},
     nextUnit: () => {},
     buildColony: () => {},

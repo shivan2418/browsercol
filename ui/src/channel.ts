@@ -48,8 +48,12 @@ export interface ClientExports {
   // Player commands (Commands.java). Each returns at once and sends a "map"
   // event when done; the Engine runs them one at a time, and queues one that
   // comes while another runs.
-  /** Select our unit on a tile, or send the active unit there. */
+  /** Select our unit on a tile, or open the settlement there; with neither, nothing. */
   click(x: number, y: number): void;
+  /** Send the active unit to a tile along its best path. */
+  goTo(x: number, y: number): void;
+  /** The path the active unit would take to a tile, as JSON [x, y, turns] per step, or "null". */
+  pathTo(x: number, y: number): string;
   /** Move the active unit one step; a FreeCol Direction name, e.g. "NE". */
   move(direction: string): void;
   nextUnit(): void;
