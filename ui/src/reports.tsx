@@ -663,7 +663,11 @@ function RequirementsReport({ e, go }: { e: View<'requirements'>; go: Links }) {
 
 /** ColopediaPanel: a tree of the sections and their entries on the left, the chosen entry on the right. */
 function Colopedia({ e, art }: { e: View<'colopedia'>; art: Art }) {
-  const first = e.sections.find((s) => s.id === colopediaStart) ?? e.sections[0];
+  const [first] = useState(() => {
+    const start = e.sections.find((s) => s.id === colopediaStart) ?? e.sections[0];
+    colopediaStart = null; // used once: a later open without the menu starts at the top
+    return start;
+  });
   const [section, setSection] = useState(first?.id ?? '');
   const [chosen, setChosen] = useState<string | null>(first?.entries[0]?.id ?? null);
   const entry = e.sections.flatMap((s) => s.entries).find((x) => x.id === chosen);
