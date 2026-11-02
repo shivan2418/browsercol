@@ -22,6 +22,11 @@ const meta: Meta<typeof ColonyPanel> = {
       <ColonyActions.Provider value={noop}>
         <WindowFrame className="dialog" aria-modal="true" data-kind="colony" title="Jamestown" close={() => {}}>
           <Story />
+          {/* As Panel (panels.tsx) adds them below the colony. */}
+          <div className="buttons">
+            <button>Warehouse</button>
+            <button>OK</button>
+          </div>
         </WindowFrame>
       </ColonyActions.Provider>
     ),

@@ -827,17 +827,17 @@
       .colony .buildings {
         grid-column: 1;
         grid-row: 1;
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-        gap: 6px;
-        align-content: start;
+        /* The open ground: the buildings lie spread over all of it (scatter in colony-panel.tsx). */
+        position: relative;
+        align-self: stretch;
+        min-height: 560px;
       }
       .colony .building {
-        position: relative;
+        position: absolute;
+        width: 150px;
         height: 112px;
-        border: 1px solid var(--line);
+        transform: translate(-50%, -50%);
         border-radius: 3px;
-        background: var(--box);
         overflow: hidden;
       }
       .colony .building .name {
@@ -871,8 +871,7 @@
         font-weight: 700;
       }
       .colony .building.site {
-        background: none;
-        border-style: dashed;
+        opacity: 0.6;
       }
       .colony .upkeep {
         display: inline-flex;
@@ -1040,13 +1039,7 @@
         display: inline-flex;
         margin-top: 0;
       }
-      /* The build queue button and the warehouse button side by side. */
-      .colony .queue {
-        display: flex;
-        gap: 6px;
-        justify-content: center;
-        padding-top: 6px;
-      }
+
       .colony .ship {
         padding: 2px;
         background: none;
@@ -1096,9 +1089,9 @@
         pointer-events: auto;
       }
       /* The build queue (BuildQueuePanel): the queue, then what can be added, each listed with the goods it takes. */
-      .colony .queue {
-        width: 100%;
-        box-sizing: border-box;
+      /* What is being built opens the queue when clicked. */
+      .colony .construction[role='button'] {
+        cursor: pointer;
       }
       .colony {
         position: relative;

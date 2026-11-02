@@ -421,6 +421,22 @@ function Cargo({ c, art }: { c: ColonyView; art: Art }) {
   );
 }
 
+/**
+ * Where building i of n stands in the open ground left of the right column: one to a cell of a grid as wide as
+ * the ground is, each shifted by a fixed amount of its cell's slack, so they lie spread out, not in rows.
+ */
+function scatter(i: number, n: number): CSSProperties {
+  const cols = n > 16 ? 5 : 4;
+  const rows = Math.ceil(n / cols);
+  const col = i % cols;
+  // A fixed amount in [-0.5, 0.5) per building.
+  const jitter = (k: number) => ((Math.imul(i + 1, 2654435761 + k * 40503) >>> 0) % 1000) / 1000 - 0.5;
+  // Odd columns sit lower by a quarter cell, and each building moves by less than the slack its cell has.
+  const left = (col + 0.5 + jitter(0) * 0.16) / cols;
+  const top = (Math.floor(i / cols) + 0.5 + (col % 2) * 0.25 + jitter(1) * 0.12) / (rows + 0.25);
+  return { left: `${left * 100}%`, top: `${top * 100}%` };
+}
+
 /** The colonists working in the colony's buildings and on its tiles. */
 const workingIn = (c: ColonyView) => [...c.buildings.flatMap((b) => b.workers), ...c.tiles.flatMap((t) => t.workers)];
 
@@ -463,13 +479,28 @@ function Warehouse({ c, art }: { c: ColonyView; art: Art }) {
 }
 
 /** A building that takes colonists. */
-function BuildingPlace({ b, children }: { b: ColonyView['buildings'][number]; children: ReactNode }) {
+function BuildingPlace({
+  b,
+  style,
+  children,
+}: {
+  b: ColonyView['buildings'][number];
+  style: CSSProperties;
+  children: ReactNode;
+}) {
   const moves = useContext(ColonyActions);
   const target = useTarget('building', (item) => {
     if (item.kind === 'unit' && b.id !== null) moves?.work(item.id, b.id);
   });
   return (
-    <div className="building" data-building={b.id} data-drop={target ? '' : undefined} title={b.name} {...target}>
+    <div
+      className="building"
+      data-building={b.id}
+      data-drop={target ? '' : undefined}
+      title={b.name}
+      style={style}
+      {...target}
+    >
       {children}
     </div>
   );
@@ -538,8 +569,11 @@ function BuildableLabel({ b, art }: { b: Buildable; art: Art }) {
   );
 }
 
-/** BuildQueuePanel: edit the colony's build queue, and pay for the build. */
-function BuildQueue({ c, art }: { c: ColonyView; art: Art }) {
+/**
+ * BuildQueuePanel: edit the colony's build queue, and pay for the build. What the colony is building (the
+ * children) is the button that opens it.
+ */
+function BuildQueue({ c, art, children }: { c: ColonyView; art: Art; children: ReactNode }) {
   const moves = useContext(ColonyActions);
   const [state, setState] = useState(() => queues.get(c.id) ?? { open: false, all: false });
   const set = (s: { open: boolean; all: boolean }) => {
@@ -547,7 +581,7 @@ function BuildQueue({ c, art }: { c: ColonyView; art: Art }) {
     setState(s);
   };
   const q = c.queue;
-  if (!moves) return null;
+  if (!moves) return <Part part="construction">{children}</Part>;
   const ids = q.queue.map((b) => b.type);
   const move = (from: number, to: number) => {
     const next = [...ids];
@@ -560,14 +594,24 @@ function BuildQueue({ c, art }: { c: ColonyView; art: Art }) {
   ];
   return (
     <>
-      <Part part="queue">
-        <button className="toggle" aria-expanded={state.open} onClick={() => set({ ...state, open: !state.open })}>
-          {q.title}
-        </button>
-        <button className="settings" onClick={() => moves.warehouse(c.id)}>
-          {c.warehouse.title}
-        </button>
-      </Part>
+      <section
+        className="box construction"
+        data-part="construction"
+        role="button"
+        tabIndex={0}
+        aria-label={q.title}
+        title={q.title}
+        aria-expanded={state.open}
+        onClick={() => set({ ...state, open: !state.open })}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            set({ ...state, open: !state.open });
+          }
+        }}
+      >
+        {children}
+      </section>
       {state.open && (
         <>
           <div className="queue-backdrop" onClick={() => set({ ...state, open: false })} />
@@ -693,14 +737,15 @@ export function ColonyPanel({ colony: c, art }: { colony: ColonyView; art: Art }
       <div className="colony">
         <div className="cbody">
           <div className="buildings">
-            {c.buildings.map((b) =>
-              b.site ? (
+            {c.buildings.map((b, i) => {
+              const at = scatter(i, c.buildings.length);
+              return b.site ? (
                 // EmptyBuildingSite: the plot's image, nothing more.
-                <div key={b.type} className="building site" data-site={b.type} title={b.name}>
+                <div key={b.type} className="building site" data-site={b.type} title={b.name} style={at}>
                   <Img keys={b.keys} art={art} className="art" />
                 </div>
               ) : (
-                <BuildingPlace key={b.type} b={b}>
+                <BuildingPlace key={b.type} b={b} style={at}>
                   <span className="name">{b.name}</span>
                   <Img keys={b.keys} art={art} className="art" />
                   <span className="output">
@@ -726,8 +771,8 @@ export function ColonyPanel({ colony: c, art }: { colony: ColonyView; art: Art }
                     ))}
                   </span>
                 </BuildingPlace>
-              ),
-            )}
+              );
+            })}
           </div>
           <div className="upper">
             <Part part="population">
@@ -749,7 +794,7 @@ export function ColonyPanel({ colony: c, art }: { colony: ColonyView; art: Art }
                 <Made key={g.type} g={g} art={art} change />
               ))}
             </Part>
-            <Part part="construction">
+            <BuildQueue c={c} art={art}>
               {c.construction === null ? (
                 <span className="muted">{c.nothing}</span>
               ) : (
@@ -771,8 +816,7 @@ export function ColonyPanel({ colony: c, art }: { colony: ColonyView; art: Art }
                   </div>
                 </>
               )}
-            </Part>
-            <BuildQueue c={c} art={art} />
+            </BuildQueue>
             {hand.picked?.kind === 'unit' && <WorkChoice c={c} picked={hand.picked.id} art={art} />}
             <InPort c={c} art={art} choose={choose} />
           </div>
