@@ -22,6 +22,8 @@ export interface MenuActions {
   /** Zoom levels in (+) or out (-) about the map's centre. */
   zoom: (steps: number) => void;
   centreOnUnit: () => void;
+  /** Open the Preferences window. */
+  preferences: () => void;
 }
 
 const later = (label: string): Items[number] => ({ label, run: () => {}, disabled: true });
@@ -32,7 +34,7 @@ export function gameMenu(a: MenuActions): Items {
     { label: 'New', run: a.newGame },
     { label: 'Open', run: a.open },
     { label: 'Save', run: a.save, disabled: !a.ready },
-    later('Preferences'),
+    { label: 'Preferences', run: a.preferences },
     later('Reconnect'),
     cmd('Show Game Options', { k: 'showGameOptions' }),
     cmd('Show Difficulty Level', { k: 'showDifficulty' }),

@@ -64,6 +64,7 @@ export function slide(move: Move, t: number): [number, number] {
 }
 
 /** How opaque the active unit is `ms` into the blink. */
-export function blink(ms: number): number {
-  return (((ms % BLINK_MS) + BLINK_MS) % BLINK_MS) / BLINK_MS < SHOWN ? 1 : DIM;
+export function blink(ms: number, cycle = BLINK_MS): number {
+  if (cycle <= 0) return 1;
+  return (((ms % cycle) + cycle) % cycle) / cycle < SHOWN ? 1 : DIM;
 }
