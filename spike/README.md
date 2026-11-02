@@ -317,7 +317,7 @@ The other classes in that package:
 
 **Starting a game is a control message, not protocol.** The page posts `{k:'start'}` to the Worker, which creates the `FreeColServer`, the way upstream's `ConnectController` would in process. After that the client logs in and launches over the protocol.
 
-**7 more FreeCol files are patched at stage 2 (20 in total), and `GUI` since (21).** Each changed line is marked `browser:`; comment blocks are marked on their first line.
+**7 more FreeCol files are patched at stage 2 (20 in total), and `GUI`, `Market` and `MarketWas` since (23).** Each changed line is marked `browser:`; comment blocks are marked on their first line.
 
 | File | Why |
 |---|---|
@@ -329,6 +329,7 @@ The other classes in that package:
 | `FreeCol` (extended) | `quit` no longer calls `System.exit`. `fatal` no longer calls `Thread.dumpStack`. |
 | `GUI` (#14) | Dialog icons come from a `dialogIcon` hook instead of the `ImageLibrary`, which the WebGUI does not have. Its override carries the game object, so a question can name it. |
 | `FreeColXMLReader` (extended) | The `File` constructor no longer uses `toPath`. Every reader shares one Aalto factory (see 4 below). |
+| `Market`, `MarketWas` (#64) | The market's transaction listeners are taken as a list, not as an array: TeaVM makes an array of an interface type an `Object[]`, and the checkcast of `toArray`'s result then fails (see 7 below). |
 
 **New shims:**
 
