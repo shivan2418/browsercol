@@ -30,6 +30,10 @@ import net.sf.freecol.common.model.Unit;
  * <tr><td>disband</td><td>DisbandUnitAction</td><td>always</td></tr>
  * <tr><td>goto</td><td>GotoAction</td><td>no panel is showing, which in
  *     the Browser UI is always</td></tr>
+ * <tr><td>buildColony</td><td>BuildColonyAction</td>
+ *     <td>the unit can found a colony: Unit.canBuildColony says, which is
+ *         that it has moves left, its type can found one, and the player
+ *         is not a rebel without the game option</td></tr>
  * <tr><td>the tile improvements</td><td>ImprovementAction</td>
  *     <td>the unit may work its tile, and the improvement is allowed
  *         there</td></tr>
@@ -50,6 +54,9 @@ public final class UnitOrders {
      * tile the player clicks on the map, which is GotoTileAction.
      */
     public static final String GOTO = "goto";
+
+    /** Found a colony with the unit, as BuildColonyAction does. */
+    public static final String BUILD_COLONY = "buildColony";
 
     private UnitOrders() {}
 
@@ -78,6 +85,10 @@ public final class UnitOrders {
         // showing, and the Browser UI shows none. It asks where the unit
         // goes, and the destinations it may go to are the question's.
         orders.add(GOTO);
+        // BuildColonyAction: the unit must be able to found a colony.
+        if (unit.getTile() != null && unit.canBuildColony()) {
+            orders.add(BUILD_COLONY);
+        }
         // ImprovementAction: one for each improvement the rules have, named
         // as the action is, e.g. "road" for the road.
         final Tile tile = unit.getTile();

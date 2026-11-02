@@ -28,12 +28,22 @@ describe('the side panel', () => {
 
   it('runs a button’s command', () => {
     const ran: Command[] = [];
-    render(<Side turn="1" info="" unasked={[]} status="" orders={[]} run={(c) => ran.push(c)} {...saving()} />);
+    render(
+      <Side turn="1" info="" unasked={[]} status="" orders={['buildColony']} run={(c) => ran.push(c)} {...saving()} />,
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Build colony (B)' }));
     fireEvent.click(screen.getByRole('button', { name: 'End turn (Enter)' }));
     fireEvent.click(screen.getByRole('button', { name: 'Europe' }));
     fireEvent.click(screen.getByRole('button', { name: 'Declare independence' }));
     expect(ran).toEqual([{ k: 'buildColony' }, { k: 'endTurn' }, { k: 'showEurope' }, { k: 'declareIndependence' }]);
+  });
+
+  it('disables Build colony when the unit cannot found a colony', () => {
+    const props = { turn: '1', info: '', unasked: [], status: '', run: () => {}, ...saving() };
+    const { rerender } = render(<Side {...props} orders={['sentry']} />);
+    expect(button('Build colony (B)').disabled).toBe(true);
+    rerender(<Side {...props} orders={['sentry', 'buildColony']} />);
+    expect(button('Build colony (B)').disabled).toBe(false);
   });
 
   it('shows the trade route the active unit follows', () => {

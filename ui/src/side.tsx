@@ -40,7 +40,6 @@ export interface SideProps {
 /** The buttons, as the keys they stand for. */
 const BUTTONS: [string, Command][] = [
   ['Next unit (W)', { k: 'nextUnit' }],
-  ['Build colony (B)', { k: 'buildColony' }],
   ['End turn (Enter)', { k: 'endTurn' }],
   ['Europe', { k: 'showEurope' }],
   ['Declare independence', { k: 'declareIndependence' }],
@@ -52,6 +51,7 @@ const BUTTONS: [string, Command][] = [
  * order's name, as the Engine sends it, and the command it stands for.
  */
 const ORDERS: [string, string, Command][] = [
+  ['Build colony (B)', 'buildColony', { k: 'buildColony' }],
   ['Fortify (F)', 'fortify', { k: 'fortify' }],
   ['Sentry (S)', 'sentry', { k: 'sentry' }],
   ['Skip (Space)', 'skip', { k: 'skip' }],
