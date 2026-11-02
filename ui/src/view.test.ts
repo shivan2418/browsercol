@@ -234,6 +234,17 @@ describe("the map view's active unit", () => {
   };
   const active = play({ k: 'map', map: facts({ active: [1, 0], activeUnit: unit }) }, select);
 
+  it('follows the active unit to a tile out of view', () => {
+    const far = play(
+      { k: 'resize', width: 128, height: 64 },
+      select,
+      { k: 'map', map: facts({ active: [1, 0], activeUnit: unit }) },
+      { k: 'map', map: facts({ active: [3, 0], activeUnit: unit }) },
+    );
+    expect(far.active?.tile).toEqual([3, 0]);
+    expect(far.centre).toEqual([3 * 128 + 64, 32]);
+  });
+
   it('is the active unit, once a map view about it has come', () => {
     expect(activeUnitFacts(active)).toBe(unit);
     expect(activeUnitFacts(play(select))).toBeNull();
