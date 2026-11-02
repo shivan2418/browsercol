@@ -36,6 +36,16 @@ class SelectAmountTest {
     }
 
     @Test
+    void aDefaultMoreThanEveryStepGoesLast() {
+        // A whole hold of goods is more than the last step, and is suggested.
+        final SelectAmount.Choices c = SelectAmount.choices(200, 200);
+        assertEquals(List.of(20, 40, 50, 60, 80, 100, 200), c.values);
+        assertEquals(Integer.valueOf(200), c.selected);
+        // A default beyond what is available is not offered.
+        assertNull(SelectAmount.choices(30, 50).selected, "more than there is");
+    }
+
+    @Test
     void anAnswerIsTheAmountOrMinusOneForCancelOrNonsense() {
         assertEquals(25, SelectAmount.amount("25", 30));
         assertEquals(30, SelectAmount.amount(" 30 ", 30));
