@@ -1,5 +1,6 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from 'vite-plus/test';
-import { wheelZoom } from './pointer';
+import { blockBrowserMenu, wheelZoom } from './pointer';
 
 const PIXEL = 0;
 const LINE = 1;
@@ -18,5 +19,25 @@ describe('wheelZoom', () => {
   it("counts a line delta (Firefox's mouse wheel) as a step, however small", () => {
     expect(wheelZoom(0, { deltaY: -3, deltaMode: LINE })).toEqual({ steps: 1, rest: 0 });
     expect(wheelZoom(0, { deltaY: 1, deltaMode: LINE })).toEqual({ steps: -1, rest: 0 });
+  });
+});
+
+describe('blockBrowserMenu', () => {
+  const rightClick = (target: Element) => {
+    const e = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2 });
+    target.dispatchEvent(e);
+    return e.defaultPrevented;
+  };
+
+  it("keeps the browser's menu off the map and panels, but not off text fields", () => {
+    const page = document.createElement('div');
+    page.innerHTML = '<canvas></canvas><div class="panel"><span>Jamestown</span><input><textarea></textarea></div>';
+    document.body.append(page);
+    blockBrowserMenu(page);
+    expect(rightClick(page.querySelector('canvas')!)).toBe(true);
+    expect(rightClick(page.querySelector('span')!)).toBe(true);
+    expect(rightClick(page.querySelector('input')!)).toBe(false);
+    expect(rightClick(page.querySelector('textarea')!)).toBe(false);
+    page.remove();
   });
 });

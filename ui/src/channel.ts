@@ -46,7 +46,8 @@ export interface ClientExports {
   /** Answer a WebGUI question; null for a closed dialog. */
   answer(id: number, value: string | null): void;
   // Player commands (Commands.java). Each returns at once and sends a "map"
-  // event when done; input while one runs is dropped.
+  // event when done; the Engine runs them one at a time, and queues one that
+  // comes while another runs.
   /** Select our unit on a tile, or send the active unit there. */
   click(x: number, y: number): void;
   /** Move the active unit one step; a FreeCol Direction name, e.g. "NE". */
@@ -94,6 +95,8 @@ export interface ClientExports {
   setBuildQueue(colonyId: string, typeIds: string): void;
   /** Colony panel: pay for what the colony is building now (the player confirms the price). */
   payForBuilding(colonyId: string): void;
+  /** Colony panel: open the colony's warehouse dialog (the player sets the levels and the custom house exports). */
+  warehouse(colonyId: string): void;
   /** Send the active unit to a destination; the player is asked where. */
   selectDestination(): void;
   /** Open a report of the Report menu by name: colony, labour or compactLabour (Commands.showReport). */

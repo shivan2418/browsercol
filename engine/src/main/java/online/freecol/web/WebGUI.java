@@ -273,8 +273,9 @@ import net.sf.freecol.common.option.OptionGroup;
  * <tr><td>showNegotiationDialog</td>
  *     <td>non-modal: showFreeColPanel, with a handler</td>
  *     <td>defer</td></tr>
- * <tr><td>showWarehouseDialog (not asked yet)</td>
- *     <td>non-modal</td><td>defer, when asked</td></tr>
+ * <tr><td>showWarehouseDialog</td>
+ *     <td>non-modal: showFreeColPanel, with a handler</td>
+ *     <td>defer</td></tr>
  * <tr><td>modalConfirmDialog, modalChoiceDialog, modalInputDialog,
  *     showPreCombatDialog, showSelectDestinationDialog,
  *     showSelectAmountDialog, showSelectTributeAmountDialog,
@@ -1676,13 +1677,18 @@ public class WebGUI extends GUI {
             .toString()), most);
     }
 
-    // Not asked yet: reported, then the base GUI's default.
-
     @Override
     public void showWarehouseDialog(Colony colony,
                                     DialogHandler<Boolean> handler) {
-        unasked("showWarehouseDialog");
-        super.showWarehouseDialog(colony, handler);
+        final Commands commands = this.engine.getCommands();
+        defer("warehouse", () -> {
+                final String answer = this.questions.ask("warehouse", Warehouses.question(colony));
+                boolean saved = false;
+                if (answer != null) {
+                    saved = Warehouses.save(commands, colony, answer);
+                }
+                if (handler != null) handler.handle(saved);
+        });
     }
 
     /**
