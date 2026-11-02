@@ -460,72 +460,138 @@ final class Reports {
     private static final String[] CONCEPTS = {"taxes", "efficiency", "education",
         "fortification", "independence", "ref", "interventionForce"};
 
-    /** A message's text without its HTML: paragraphs and breaks become new lines, links their text. */
+    /**
+     * A message's text without its HTML: paragraphs and breaks become new
+     * lines and a link to an entry becomes {@code [[id|text]]}, which the
+     * Browser UI shows as a link.
+     */
     static String plain(String html) {
-        return html.replaceAll("(?i)</p>|<br\\s*/?>", "\n")
+        return html.replaceAll("(?is)<a\\s+href=\"http:///id/([^\"]+)\"[^>]*>(.*?)</a>", "[[$1|$2]]")
+            .replaceAll("(?i)</p>|<br\\s*/?>", "\n")
             .replaceAll("<[^>]*>", "")
-            .replace("&nbsp;", " ").replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
+            .replace("&nbsp;", " ").replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&")
             .replaceAll("\n{3,}", "\n\n").trim();
     }
 
-    private static Json fact(String labelKey, String value) {
-        return new Json().put("label", Messages.message(labelKey)).put("value", value);
-    }
-
-    private static Json entry(FreeColObject o, String name, String text, List<Json> facts) {
+    private static String array(List<Json> items) {
         final List<String> list = new ArrayList<>();
-        for (Json f : facts) list.add(f.toString());
-        return new Json().put("id", o.getId()).put("name", name)
-            .putRaw("keys", ObjectImages.json(o))
-            .put("text", text)
-            .putRaw("facts", Json.array(list));
+        for (Json j : items) list.add(j.toString());
+        return Json.array(list);
     }
 
-    private static String goodsText(List<AbstractGoods> goods) {
-        final List<String> parts = new ArrayList<>();
-        for (AbstractGoods g : goods) parts.add(g.getAmount() + " " + Messages.getName(g.getType()));
-        return String.join(", ", parts);
+    /** A fact of an entry: its label and value, and the entries it links to ({@link #ref}). */
+    private static Json fact(String labelKey, String value, List<Json> refs) {
+        return new Json().put("label", Messages.message(labelKey)).put("value", value)
+            .putRaw("refs", array(refs));
+    }
+
+    private static Json fact(String labelKey, String value) {
+        return fact(labelKey, value, List.of());
+    }
+
+    /** A link to an entry: {id, name, keys, note}; the note is e.g. an amount. */
+    private static Json ref(FreeColObject o, String note) {
+        return new Json().put("id", o.getId()).put("name", Messages.getName(o.getId()))
+            .putRaw("keys", ObjectImages.json(o)).put("note", note);
+    }
+
+    private static List<Json> goodsRefs(List<AbstractGoods> goods) {
+        final List<Json> refs = new ArrayList<>();
+        for (AbstractGoods g : goods) refs.add(ref(g.getType(), String.valueOf(g.getAmount())));
+        return refs;
+    }
+
+    private static Json entry(FreeColObject o, String group, List<Json> facts) {
+        return new Json().put("id", o.getId()).put("name", Messages.getName(o.getId()))
+            .put("group", group)
+            .putRaw("keys", ObjectImages.json(o))
+            .put("text", plain(Messages.getDescription(o.getId())))
+            .putRaw("facts", array(facts));
     }
 
     private static Json section(String id, List<Json> entries) {
-        final List<String> list = new ArrayList<>();
-        for (Json e : entries) list.add(e.toString());
         return new Json().put("id", id)
             .put("name", Messages.message("colopediaAction." + id + ".name"))
-            .putRaw("entries", Json.array(list));
+            .putRaw("entries", array(entries));
     }
 
-    /**
-     * The Colopedia (ColopediaPanel): {sections: [{id, name, entries: [{id,
-     * name, keys, text (the description, plain), facts: [{label, value}]}]}]},
-     * in FreeCol's order: terrain, resources, goods, units, buildings,
-     * fathers, nations, nationTypes and concepts. It is read from the
-     * specification and does not depend on the game.
-     */
-    static String colopedia(Specification spec) {
-        final List<Json> sections = new ArrayList<>();
+    private static String modifier(net.sf.freecol.common.model.Modifier m) {
+        final String n = (m.getValue() == (int)m.getValue()) ? String.valueOf((int)m.getValue())
+            : String.valueOf(m.getValue());
+        switch (m.getType()) {
+        case PERCENTAGE: return (m.getValue() > 0 ? "+" : "") + n + "%";
+        case MULTIPLICATIVE: return "×" + n;
+        default: return (m.getValue() > 0 ? "+" : "") + n;
+        }
+    }
 
-        final List<Json> terrain = new ArrayList<>();
+    private static List<Json> terrain(Specification spec) {
+        final List<Json> out = new ArrayList<>();
         for (TileType t : spec.getTileTypeList()) {
-            terrain.add(entry(t, Messages.getName(t), plain(Messages.getDescription(t)),
-                List.of(fact("colopedia.terrain.movementCost", String.valueOf(t.getBasicMoveCost() / 3)))));
+            final List<Json> facts = new ArrayList<>();
+            facts.add(fact("colopedia.terrain.movementCost", String.valueOf(t.getBasicMoveCost() / 3)));
+            final List<String> defence = new ArrayList<>();
+            t.getDefenceModifiers().forEach(m -> defence.add(modifier(m)));
+            facts.add(fact("colopedia.terrain.defenseBonus",
+                defence.isEmpty() ? Messages.message("none") : String.join(", ", defence)));
+            final List<Json> resources = new ArrayList<>();
+            for (ResourceType r : t.getResourceTypeValues()) resources.add(ref(r, null));
+            if (!resources.isEmpty()) facts.add(fact("colopedia.terrain.resource", "", resources));
+            final List<Json> unattended = new ArrayList<>();
+            t.getPossibleProduction(true).filter(AbstractGoods::isPositive)
+                .forEach(g -> unattended.add(ref(g.getType(), String.valueOf(g.getAmount()))));
+            if (!unattended.isEmpty()) facts.add(fact("colopedia.terrain.unattendedProduction", "", unattended));
+            final List<Json> colonist = new ArrayList<>();
+            t.getPossibleProduction(false).filter(AbstractGoods::isPositive)
+                .forEach(g -> colonist.add(ref(g.getType(), String.valueOf(g.getAmount()))));
+            if (!colonist.isEmpty()) facts.add(fact("colopedia.terrain.colonistProduction", "", colonist));
+            out.add(entry(t, null, facts));
         }
-        sections.add(section("terrain", terrain));
+        return out;
+    }
 
-        final List<Json> resources = new ArrayList<>();
+    private static GoodsType goodsOrNull(Specification spec, String id) {
+        for (GoodsType g : spec.getGoodsTypeList()) if (g.getId().equals(id)) return g;
+        return null;
+    }
+
+    private static List<Json> resources(Specification spec) {
+        final List<Json> out = new ArrayList<>();
         for (ResourceType r : spec.getResourceTypeList()) {
-            resources.add(entry(r, Messages.getName(r), plain(Messages.getDescription(r)), List.of()));
+            final List<Json> bonus = new ArrayList<>();
+            r.getModifiers().forEach(m -> {
+                final GoodsType g = goodsOrNull(spec, m.getId());
+                if (g != null) bonus.add(ref(g, modifier(m)));
+            });
+            out.add(entry(r, null, bonus.isEmpty() ? List.of()
+                : List.of(fact("colopedia.resource.bonusProduction", "", bonus))));
         }
-        sections.add(section("resources", resources));
+        return out;
+    }
 
-        final List<Json> goods = new ArrayList<>();
+    private static List<Json> goods(Specification spec) {
+        final List<Json> out = new ArrayList<>();
         for (GoodsType g : spec.getGoodsTypeList()) {
-            goods.add(entry(g, Messages.getName(g), plain(Messages.getDescription(g)),
-                g.isFarmed() ? List.of(fact("colopedia.goods.isFarmed", Messages.message("yes"))) : List.of()));
+            final List<Json> facts = new ArrayList<>();
+            if (g.isFarmed()) facts.add(fact("colopedia.goods.isFarmed", Messages.message("yes")));
+            if (g.getInputType() != null) {
+                facts.add(fact("colopedia.goods.madeFrom", "", List.of(ref(g.getInputType(), null))));
+            }
+            final List<Json> makes = new ArrayList<>();
+            for (GoodsType other : spec.getGoodsTypeList()) {
+                if (other.getInputType() == g) makes.add(ref(other, null));
+            }
+            if (!makes.isEmpty()) facts.add(fact("colopedia.goods.makes", "", makes));
+            if (g.isBreedable()) {
+                facts.add(fact("colopedia.goods.breedingNumber", String.valueOf(g.getBreedingNumber())));
+            }
+            out.add(entry(g, null, facts));
         }
-        sections.add(section("goods", goods));
+        return out;
+    }
 
-        final List<Json> units = new ArrayList<>();
+    private static List<Json> units(Specification spec) {
+        final List<Json> out = new ArrayList<>();
         for (UnitType u : spec.getUnitTypeList()) {
             final List<Json> facts = new ArrayList<>();
             facts.add(fact("colopedia.unit.offensivePower", String.valueOf((int)u.getOffence())));
@@ -535,13 +601,26 @@ final class Reports {
             if (u.getPrice() > 0) facts.add(fact("colopedia.unit.price", String.valueOf(u.getPrice())));
             if (u.getSkill() > 0) facts.add(fact("colopedia.unit.skill", String.valueOf(u.getSkill())));
             if (!u.getRequiredGoodsList().isEmpty()) {
-                facts.add(fact("colopedia.unit.goodsRequired", goodsText(u.getRequiredGoodsList())));
+                facts.add(fact("colopedia.unit.goodsRequired", "", goodsRefs(u.getRequiredGoodsList())));
             }
-            units.add(entry(u, Messages.getName(u), plain(Messages.getDescription(u)), facts));
+            if (u.getSkillTaught() != null && u.getSkillTaught() != u) {
+                facts.add(fact("colopedia.unit.school", "", List.of(ref(u.getSkillTaught(), null))));
+            }
+            final List<Json> teaches = new ArrayList<>();
+            for (BuildingType b : spec.getBuildingTypeList()) {
+                if (b.hasAbility(net.sf.freecol.common.model.Ability.TEACH)
+                    && b.getMinimumSkill() <= u.getSkill() && u.getSkill() <= b.getMaximumSkill()) {
+                    teaches.add(ref(b, null));
+                }
+            }
+            if (!teaches.isEmpty()) facts.add(fact("colopedia.unit.school", "", teaches));
+            out.add(entry(u, u.isNaval() ? Messages.message("model.ability.navalUnit.name") : "Land unit", facts));
         }
-        sections.add(section("units", units));
+        return out;
+    }
 
-        final List<Json> buildings = new ArrayList<>();
+    private static List<Json> buildings(Specification spec) {
+        final List<Json> out = new ArrayList<>();
         for (BuildingType b : spec.getBuildingTypeList()) {
             final List<Json> facts = new ArrayList<>();
             if (b.getRequiredPopulation() > 0) {
@@ -549,55 +628,111 @@ final class Reports {
                     .template("colopedia.buildings.requiredPopulation")
                     .addAmount("%number%", b.getRequiredPopulation()))));
             }
+            if (b.getUpgradesFrom() != null) {
+                facts.add(fact("colopedia.buildings.requires", "", List.of(ref(b.getUpgradesFrom(), null))));
+            }
             if (!b.getRequiredGoodsList().isEmpty()) {
-                facts.add(fact("colopedia.buildings.cost", goodsText(b.getRequiredGoodsList())));
+                facts.add(fact("colopedia.buildings.cost", "", goodsRefs(b.getRequiredGoodsList())));
+            }
+            final List<Json> made = new ArrayList<>();
+            for (net.sf.freecol.common.model.ProductionType pt : b.getAvailableProductionTypes(false)) {
+                for (AbstractGoods g : pt.getOutputList()) made.add(ref(g.getType(), String.valueOf(g.getAmount())));
+            }
+            if (!made.isEmpty()) facts.add(fact("colopedia.buildings.production", "", made));
+            if (b.getWorkPlaces() > 0) {
+                facts.add(fact("colopedia.buildings.workplaces", String.valueOf(b.getWorkPlaces())));
             }
             if (b.isAutomaticBuild()) {
                 facts.add(fact("colopedia.buildings.notes", Messages.message("colopedia.buildings.autoBuilt")));
             }
-            buildings.add(entry(b, Messages.getName(b), plain(Messages.getDescription(b)), facts));
+            out.add(entry(b, null, facts));
         }
-        sections.add(section("buildings", buildings));
+        return out;
+    }
 
-        final List<Json> fathers = new ArrayList<>();
+    private static List<Json> fathers(Specification spec) {
+        final List<Json> out = new ArrayList<>();
         for (FoundingFather f : spec.getFoundingFathers()) {
-            fathers.add(entry(f, Messages.getName(f), plain(Messages.getDescription(f)),
-                List.of(fact("colopedia.type", Messages.message(f.getTypeKey())))));
+            out.add(entry(f, null, List.of(fact("colopedia.type", Messages.message(f.getTypeKey())))));
         }
-        sections.add(section("fathers", fathers));
+        return out;
+    }
 
-        final List<Json> nations = new ArrayList<>();
+    private static List<Json> nations(Specification spec) {
+        final List<Json> out = new ArrayList<>();
         for (Nation n : spec.getNations()) {
-            nations.add(entry(n, Messages.getName(n), "",
-                List.of(fact("colopedia.nation.ruler", n.getRulerName()))));
+            final List<Json> facts = new ArrayList<>();
+            facts.add(fact("colopedia.nation.ruler", n.getRulerName()));
+            if (n.getType() != null) {
+                facts.add(fact("colopedia.nation.defaultAdvantage", "", List.of(ref(n.getType(), null))));
+            }
+            out.add(entry(n, null, facts));
         }
-        sections.add(section("nations", nations));
+        return out;
+    }
 
-        final List<Json> types = new ArrayList<>();
-        for (net.sf.freecol.common.model.NationType t : spec.getEuropeanNationTypes()) {
-            types.add(entry(t, Messages.getName(t), plain(Messages.getDescription(t)), List.of()));
+    private static List<Json> nationTypes(Specification spec) {
+        final List<Json> out = new ArrayList<>();
+        for (net.sf.freecol.common.model.EuropeanNationType t : spec.getEuropeanNationTypes()) {
+            final List<Json> start = new ArrayList<>();
+            for (net.sf.freecol.common.model.AbstractUnit a : t.getStartingUnits()) {
+                start.add(ref(a.getType(spec), String.valueOf(a.getNumber())));
+            }
+            out.add(entry(t, Messages.message("colopedia.europeanNationTypes"), start.isEmpty() ? List.of()
+                : List.of(fact("colopedia.nationType.units", "", start))));
         }
-        for (net.sf.freecol.common.model.NationType t : spec.getIndianNationTypes()) {
-            types.add(entry(t, Messages.getName(t), plain(Messages.getDescription(t)), List.of()));
+        for (net.sf.freecol.common.model.IndianNationType t : spec.getIndianNationTypes()) {
+            final List<Json> skills = new ArrayList<>();
+            for (net.sf.freecol.common.util.RandomChoice<UnitType> c : t.getSkills()) {
+                skills.add(ref(c.getObject(), null));
+            }
+            out.add(entry(t, Messages.message("colopedia.nativeNationTypes"), skills.isEmpty() ? List.of()
+                : List.of(fact("colopedia.nationType.skills", "", skills))));
         }
-        sections.add(section("nationTypes", types));
+        return out;
+    }
 
-        final List<Json> concepts = new ArrayList<>();
+    private static List<Json> concepts() {
+        final List<Json> out = new ArrayList<>();
         for (String c : CONCEPTS) {
             final String id = "colopedia.concepts." + c;
-            concepts.add(new Json().put("id", id).put("name", Messages.message(id + ".name"))
-                .putRaw("keys", "[]").put("text", plain(Messages.message(id + ".description")))
+            out.add(new Json().put("id", id).put("name", Messages.message(id + ".name"))
+                .put("group", (String)null).putRaw("keys", "[]")
+                .put("text", plain(Messages.message(id + ".description")))
                 .putRaw("facts", "[]"));
         }
-        sections.add(section("concepts", concepts));
+        return out;
+    }
 
-        final List<String> list = new ArrayList<>();
-        for (Json s : sections) list.add(s.toString());
+    /**
+     * The Colopedia (ColopediaPanel): {select (the entry to open on, or
+     * null), sections: [{id, name, entries: [{id, name, group (the
+     * sub-category's label or null), keys, text (the description, plain, with
+     * {@code [[id|text]]} for a link), facts: [{label, value, refs: [{id,
+     * name, keys, note}]}]}]}]}, in FreeCol's order: terrain, resources,
+     * goods, units, buildings, fathers, nations, nationTypes and concepts.
+     * It is read from the specification and does not depend on the game.
+     *
+     * @param spec The specification.
+     * @param select The id of the entry to open on, or null.
+     */
+    static String colopedia(Specification spec, String select) {
+        final List<Json> sections = new ArrayList<>();
+        sections.add(section("terrain", terrain(spec)));
+        sections.add(section("resources", resources(spec)));
+        sections.add(section("goods", goods(spec)));
+        sections.add(section("units", units(spec)));
+        sections.add(section("buildings", buildings(spec)));
+        sections.add(section("fathers", fathers(spec)));
+        sections.add(section("nations", nations(spec)));
+        sections.add(section("nationTypes", nationTypes(spec)));
+        sections.add(section("concepts", concepts()));
         return new Json().put("report", "colopedia")
             .put("title", Messages.message("colopedia"))
             .put("ok", Messages.message("ok"))
             .put("back", (String)null)
-            .putRaw("sections", Json.array(list)).toString();
+            .put("select", select)
+            .putRaw("sections", array(sections)).toString();
     }
 
     /** Where ReportLabourPanel counts a unit: its settlement, Europe, else its tile. */

@@ -1649,10 +1649,10 @@ public class WebGUI extends GUI {
         return null;
     }
 
-    /** {@inheritDoc} Shows the Colopedia ({@link Reports#colopedia}); the Browser UI chooses the entry. */
+    /** {@inheritDoc} Shows the Colopedia ({@link Reports#colopedia}); nodeId is the entry to open on. */
     @Override
     public FreeColPanel showColopediaPanel(String nodeId) {
-        this.ui.show("report", Reports.colopedia(getFreeColClient().getGame().getSpecification()));
+        this.ui.show("report", Reports.colopedia(getFreeColClient().getGame().getSpecification(), nodeId));
         return null;
     }
 
