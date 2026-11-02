@@ -536,6 +536,26 @@ describe('loading a ship in port in the colony panel', () => {
     expect(calls).toEqual(['load unit:9 model.goods.lumber', 'load unit:9 model.goods.lumber ask']);
   });
 
+  it('cannot move an empty stack of the warehouse, which it shows greyed', () => {
+    openPort({
+      inPort: port,
+      warehouse: {
+        ...jamestown.warehouse,
+        goods: [
+          { ...goods('lumber', 50), over: false },
+          { ...goods('cotton', 0), over: false },
+        ],
+      },
+    });
+    expect(stored('cotton').querySelector('[data-sign="zero"]')).not.toBeNull();
+    expect(stored('cotton').hasAttribute('draggable')).toBe(false);
+    drag(stored('cotton'), part('cargo'));
+    fireEvent.click(stored('cotton'));
+    expect(stored('cotton').dataset.picked).toBeUndefined();
+    fireEvent.click(part('cargo'));
+    expect(calls).toEqual([]);
+  });
+
   it('unloads the stack of cargo dragged into the warehouse, asking the amount on a shift-drag', () => {
     openPort();
     expect(stacks().map((g) => g.querySelector('.amount')?.textContent)).toEqual(['100', '30']);
