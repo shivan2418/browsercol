@@ -3,7 +3,8 @@
 // nation. The choices come from the ruleset's own specification and strings
 // in the data bundle (the one the Engine reads), so a ruleset with other
 // nations or levels shows those. The pick goes to the server Engine as a
-// GamePreset's JSON, the same way ?preset= does.
+// GamePreset's JSON, the same way ?preset= does. The map generator options
+// (#57) are options of the preset like the others.
 
 import { specificationGroup, type OptionGroup, type OptionValue } from './options';
 
@@ -36,6 +37,8 @@ export interface StartOptions {
     level: (id: string) => OptionGroup | null;
     /** The game options. */
     game: () => OptionGroup | null;
+    /** The map generator options: map size, land mass, rivers, mountains and so on. */
+    mapGenerator: () => OptionGroup | null;
   };
 }
 
@@ -113,6 +116,7 @@ export function startOptions(data: string[], rules: string, defaultLevel = 'mode
     level: (id: string) =>
       specificationGroup(data, rules, `optionGroup[id="difficultyLevels"] > optionGroup[id="${id}"]`),
     game: () => specificationGroup(data, rules, 'optionGroup[id="gameOptions"]'),
+    mapGenerator: () => specificationGroup(data, rules, 'optionGroup[id="mapGeneratorOptions"]'),
   };
   return { nations, levels, defaultLevel, groups };
 }
