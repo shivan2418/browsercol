@@ -31,6 +31,7 @@ import net.sf.freecol.common.model.Unit;
 import net.sf.freecol.common.model.UnitType;
 import net.sf.freecol.common.networking.ChangeSet;
 import net.sf.freecol.common.networking.ChangeSet.See;
+import net.sf.freecol.server.model.ServerBuilding;
 import net.sf.freecol.server.model.ServerColony;
 import net.sf.freecol.server.model.ServerGame;
 import net.sf.freecol.server.model.ServerUnit;
@@ -133,6 +134,14 @@ class ReportsTest {
 
     /** Our two colonies, as the client has them once the map is shown to it. */
     private List<Colony> twoColonies() throws Exception {
+        return twoColonies(false);
+    }
+
+    /**
+     * Our two colonies; with a school, the first has a schoolhouse and
+     * a master carpenter besides its founder, not yet teaching.
+     */
+    private List<Colony> twoColonies(boolean school) throws Exception {
         final Game game = server.getGame();
         final List<Tile> lands = game.getMap().getTileSet(t -> t.isLand()
                 && t.getUnitCount() == 0 && !t.hasSettlement() && t.getOwner() == null
@@ -143,6 +152,15 @@ class ReportsTest {
             .findFirst().get();
         final Colony one = found("Jamestown", first);
         final Colony two = found("Plymouth", second);
+        final Specification spec = game.getSpecification();
+        if (school) {
+            final Player us = game.getFreeColGameObject(me().getId(), Player.class);
+            one.addBuilding(new ServerBuilding(game, one,
+                spec.getBuildingType("model.building.schoolhouse")));
+            final Unit teacher = new ServerUnit(game, first, us,
+                spec.getUnitType("model.unit.masterCarpenter"));
+            teacher.setLocation(one);
+        }
         // A pioneer in the open, and the colonies reach the client with the map.
         server.debug("{\"action\":\"addUnit\",\"type\":\"model.unit.hardyPioneer\",\"x\":"
             + first.getX() + ",\"y\":" + first.getY() + "}");
@@ -159,7 +177,8 @@ class ReportsTest {
         }
         ((ServerGame)server.getGame()).sendTo(us, cs);
         eventually("the client has both colonies and their people", () -> me().getColonyList().size() == 2
-            && me().getColonyList().stream().allMatch(c -> c.getUnitCount() == 1));
+            && me().getColonyList().stream().allMatch(c -> c.getUnitCount()
+                == (school && c.getName().equals("Jamestown") ? 2 : 1)));
         return List.of(one, two);
     }
 
@@ -268,6 +287,105 @@ class ReportsTest {
 
     @Test
     @Timeout(240)
+    void theReligionReportShowsTheCrossesAndTheChurchOfEachColony() throws Exception {
+        twoColonies();
+        final Player us = me();
+
+        final Map<String, Object> report = obj(JsonReader.read(Reports.religion(us)));
+        assertEquals("religion", report.get("report"));
+        assertEquals("Religious Advisor", report.get("title"));
+        final Map<String, Object> crosses = objs(report.get("goods")).stream()
+            .filter(g -> "model.goods.crosses".equals(g.get("type"))).findFirst().get();
+        assertEquals("Crosses", crosses.get("name"));
+        assertEquals((long)us.getImmigration(), crosses.get("immigration"));
+        assertEquals((long)us.getImmigrationRequired(), crosses.get("required"));
+        assertEquals((long)us.getTotalImmigrationProduction(), crosses.get("production"));
+        // Each colony's church or town hall is the building that makes crosses.
+        final List<Map<String, Object>> rows = objs(crosses.get("colonies"));
+        assertEquals(List.of("Jamestown", "Plymouth"), rows.stream()
+            .map(r -> (String)r.get("name")).sorted().collect(Collectors.toList()));
+        for (Map<String, Object> row : rows) {
+            assertEquals(List.of("image.buildingicon.model.building.chapel"),
+                obj(row.get("building")).get("keys"));
+            assertTrue(list(row.get("workers")).isEmpty(), "nobody works the chapel yet");
+        }
+    }
+
+    @Test
+    @Timeout(240)
+    void theEducationReportShowsTheTeachersAndStudentsOfEachSchool() throws Exception {
+        twoColonies(true);
+        final Player us = me();
+
+        final Map<String, Object> report = obj(JsonReader.read(Reports.education(us)));
+        assertEquals("education", report.get("report"));
+        assertEquals("Potential teachers", obj(report.get("headers")).get("teachers"));
+        assertEquals("Potential students", obj(report.get("headers")).get("students"));
+        final List<Map<String, Object>> schools = objs(report.get("colonies"));
+        assertEquals(1, schools.size(), "only Jamestown has a school");
+        final Map<String, Object> school = schools.get(0);
+        assertEquals("Jamestown", school.get("name"));
+        assertEquals(List.of("image.buildingicon.model.building.schoolhouse"),
+            obj(school.get("building")).get("keys"));
+        assertEquals(List.of("Dutch Master Carpenter"), objs(school.get("teachers")).stream()
+            .map(t -> (String)t.get("name")).collect(Collectors.toList()));
+        final List<Map<String, Object>> students = objs(school.get("students"));
+        assertEquals(1, students.size(), "the founder could learn");
+        assertEquals("Dutch Free Colonist", students.get(0).get("name"));
+        assertTrue(((String)students.get(0).get("learns")).contains("Carpenter"),
+            (String)students.get(0).get("learns"));
+    }
+
+    @Test
+    @Timeout(240)
+    void theExplorationReportListsTheDiscoveredRegionsEarliestFirst() throws Exception {
+        final Player us = me();
+        final List<net.sf.freecol.common.model.Region> regions
+            = new ArrayList<>(us.getGame().getMap().getRegions());
+        assertTrue(regions.size() >= 2, "the map has regions");
+        regions.get(0).setDiscoveredIn(new net.sf.freecol.common.model.Turn(3));
+        regions.get(0).setDiscoveredBy(us);
+        regions.get(1).setDiscoveredIn(new net.sf.freecol.common.model.Turn(7));
+        regions.get(1).setDiscoveredBy(us);
+
+        final Map<String, Object> report = obj(JsonReader.read(Reports.exploration(us)));
+        assertEquals("exploration", report.get("report"));
+        assertEquals("Name of Region", obj(report.get("headers")).get("name"));
+        final List<Map<String, Object>> rows = objs(report.get("regions"));
+        assertTrue(rows.size() >= 2);
+        assertEquals(net.sf.freecol.common.i18n.Messages.message(
+            new net.sf.freecol.common.model.Turn(3).getLabel()), rows.get(0).get("turn"));
+        assertEquals(net.sf.freecol.common.i18n.Messages.message(
+            new net.sf.freecol.common.model.Turn(7).getLabel()), rows.get(1).get("turn"));
+        assertEquals(net.sf.freecol.common.i18n.Messages
+            .message(us.getCountryLabel()), rows.get(1).get("by"));
+        assertEquals(net.sf.freecol.common.i18n.Messages
+            .message(regions.get(0).getType().getNameKey()), rows.get(0).get("type"));
+        assertEquals((long)regions.get(0).getScoreValue(), rows.get(0).get("value"));
+    }
+
+    @Test
+    @Timeout(240)
+    void theHistoryReportListsThePlayersEventsInOrder() throws Exception {
+        final Player us = me();
+        us.addHistory(new net.sf.freecol.common.model.HistoryEvent(
+            new net.sf.freecol.common.model.Turn(2),
+            net.sf.freecol.common.model.HistoryEvent.HistoryEventType.FOUND_COLONY, us)
+            .addName("%colony%", "Jamestown"));
+
+        final Map<String, Object> report = obj(JsonReader.read(Reports.history(us)));
+        assertEquals("history", report.get("report"));
+        assertEquals("History Report", report.get("title"));
+        final List<Map<String, Object>> events = objs(report.get("events"));
+        assertEquals(us.getHistory().size(), events.size());
+        final Map<String, Object> last = events.get(events.size() - 1);
+        assertTrue(((String)last.get("text")).contains("Jamestown"), (String)last.get("text"));
+        assertEquals(net.sf.freecol.common.i18n.Messages.message(
+            new net.sf.freecol.common.model.Turn(2).getLabel()), last.get("turn"));
+    }
+
+    @Test
+    @Timeout(240)
     void theControllersReportCallsAndTheCommandsOpenTheReports() throws Exception {
         twoColonies();
         final Commands commands = client.getCommands();
@@ -277,20 +395,29 @@ class ReportsTest {
         gui.showReportColonyPanel();
         gui.showReportLabourPanel();
         gui.showCompactLabourReport();
-        assertEquals(List.of("colony", "labour", "compactLabour"), reports.stream()
+        gui.showReportReligiousPanel();
+        gui.showReportEducationPanel();
+        gui.showReportExplorationPanel();
+        gui.showReportHistoryPanel();
+        assertEquals(List.of("colony", "labour", "compactLabour", "religion", "education",
+                "exploration", "history"), reports.stream()
             .map(r -> (String)obj(JsonReader.read(r)).get("report")).collect(Collectors.toList()));
 
         reports.clear();
         assertTrue(commands.showReport("colony"));
         assertTrue(commands.showReport("labour"));
         assertTrue(commands.showReport("compactLabour"));
+        assertTrue(commands.showReport("religion"));
+        assertTrue(commands.showReport("education"));
+        assertTrue(commands.showReport("exploration"));
+        assertTrue(commands.showReport("history"));
         assertFalse(commands.showReport("nothing"));
         assertTrue(commands.showReportDetail("labourDetail", "model.unit.freeColonist"));
         assertTrue(commands.showReportDetail("compactLabour", "model.unit.freeColonist"));
         assertTrue(commands.showReportDetail("compactLabour", ""));
         assertFalse(commands.showReportDetail("labourDetail", ""));
-        assertEquals(List.of("colony", "labour", "compactLabour", "labourDetail",
-                "compactLabour", "compactLabour"),
+        assertEquals(List.of("colony", "labour", "compactLabour", "religion", "education",
+                "exploration", "history", "labourDetail", "compactLabour", "compactLabour"),
             reports.stream().map(r -> (String)obj(JsonReader.read(r)).get("report"))
                 .collect(Collectors.toList()));
 

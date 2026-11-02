@@ -20,8 +20,10 @@ import net.sf.freecol.common.model.Europe;
 import net.sf.freecol.common.model.FreeColObject;
 import net.sf.freecol.common.model.Goods;
 import net.sf.freecol.common.model.GoodsType;
+import net.sf.freecol.common.model.HistoryEvent;
 import net.sf.freecol.common.model.Location;
 import net.sf.freecol.common.model.Player;
+import net.sf.freecol.common.model.Region;
 import net.sf.freecol.common.model.Specification;
 import net.sf.freecol.common.model.StringTemplate;
 import net.sf.freecol.common.model.Tile;
@@ -35,12 +37,13 @@ import net.sf.freecol.common.model.WorkLocation;
  * the information of the Swing panels: the classic colony report
  * (ReportClassicColonyPanel), the labour report (ReportLabourPanel and
  * ReportLabourDetailPanel) and the compact labour report
- * (CompactLabourReport, on LabourData) and the military, naval and cargo
- * reports (ReportUnitPanel and its three subclasses). Every payload is one
- * object of the {@code report} event, told apart by its {@code report}
- * field: colony, labour, labourDetail, compactLabour, military, naval or
- * cargo. Each has title, ok (the button's
- * label) and back, the report the button returns to (or null).
+ * (CompactLabourReport, on LabourData), the military, naval and cargo
+ * reports (ReportUnitPanel and its three subclasses), and the religion,
+ * education, exploration and history reports. Every payload is one object
+ * of the {@code report} event, told apart by its {@code report} field:
+ * colony, labour, labourDetail, compactLabour, military, naval, cargo,
+ * religion, education, exploration or history. Each has title, ok (the
+ * button's label) and back, the report the button returns to (or null).
  *
  * <p>To add a report: write its builder here, giving it a new {@code report}
  * name; add its show method to the WebGUI (it sends the event) and its name
@@ -128,6 +131,142 @@ final class Reports {
         }
         return head("colony", "reportColonyAction", null)
             .putRaw("colonies", Json.array(colonies)).toString();
+    }
+
+    /** A building: {id, name, keys}. */
+    private static Json building(Building b) {
+        return new Json().put("id", b.getId())
+            .put("name", Messages.getName(b))
+            .putRaw("keys", ObjectImages.json(b.getType()));
+    }
+
+    /**
+     * The religion report (ReportReligiousPanel): for each kind of
+     * immigration goods {type, name, keys, immigration, required,
+     * production (all colonies' and Europe's), colonies: [{id, name,
+     * building ({id, name, keys}), workers (the units in it)}]}, the
+     * colonies whose building makes that goods.
+     */
+    static String religion(Player player) {
+        final Specification spec = player.getSpecification();
+        final List<String> kinds = new ArrayList<>();
+        for (GoodsType gt : spec.getImmigrationGoodsTypeList()) {
+            final List<String> colonies = new ArrayList<>();
+            for (Colony colony : player.getColonyList()) {
+                final List<WorkLocation> wls = colony.getWorkLocationsForProducing(gt);
+                final WorkLocation wl = wls.isEmpty() ? null : wls.get(0);
+                if (!(wl instanceof Building)) continue;
+                final Building b = (Building)wl;
+                colonies.add(new Json().put("id", colony.getId())
+                    .put("name", colony.getName())
+                    .putRaw("building", building(b).toString())
+                    .putRaw("workers", ColonyJson.unitList(b.getUnitList()))
+                    .toString());
+            }
+            kinds.add(ColonyJson.goods(gt, 0)
+                .put("immigration", player.getImmigration())
+                .put("required", player.getImmigrationRequired())
+                .put("production", player.getTotalImmigrationProduction())
+                .putRaw("colonies", Json.array(colonies))
+                .toString());
+        }
+        return head("religion", "reportReligionAction", null)
+            .putRaw("goods", Json.array(kinds)).toString();
+    }
+
+    /**
+     * The education report (ReportEducationPanel): {headers: {teachers,
+     * students}, colonies: [{id, name, building ({id, name, keys}), teachers
+     * (the units that could teach there, least skilled first), students
+     * (colonists who could learn from one of them, each with learns: what
+     * they would become)}]}, one entry for each school.
+     */
+    static String education(Player player) {
+        final List<String> colonies = new ArrayList<>();
+        for (Colony colony : player.getColonyList()) {
+            for (Building b : colony.getBuildings()) {
+                if (!b.canTeach()) continue;
+                final List<Unit> teachers = new ArrayList<>();
+                for (Unit u : colony.getUnitList()) if (b.canAdd(u)) teachers.add(u);
+                teachers.sort(Unit.increasingSkillComparator);
+                final List<String> students = new ArrayList<>();
+                for (Unit u : colony.getUnitList()) {
+                    Unit teacher = null;
+                    for (Unit t : teachers) {
+                        if (u.canBeStudent(t)) { teacher = t; break; }
+                    }
+                    if (teacher == null) continue;
+                    students.add(ColonyJson.unit(u).put("learns", Messages.message(
+                        StringTemplate.template("report.education.tooltip")
+                            .addNamed("%skill%", u.getTeachingType(teacher)))).toString());
+                }
+                colonies.add(new Json().put("id", colony.getId())
+                    .put("name", colony.getName())
+                    .putRaw("building", building(b).toString())
+                    .putRaw("teachers", ColonyJson.unitList(teachers))
+                    .putRaw("students", Json.array(students))
+                    .toString());
+            }
+        }
+        return head("education", "reportEducationAction", null)
+            .putRaw("headers", new Json()
+                .put("teachers", Messages.message("report.education.teachers"))
+                .put("students", Messages.message("report.education.students"))
+                .toString())
+            .putRaw("colonies", Json.array(colonies)).toString();
+    }
+
+    /**
+     * Discovered regions as ReportExplorationPanel sorts them: the earliest
+     * turn first (its comparator is reversed twice), the most valuable first
+     * within a turn.
+     */
+    private static final Comparator<Region> REGIONS
+        = Comparator.comparingInt((Region r) -> r.getDiscoveredIn().getNumber()).reversed()
+            .thenComparingInt(Region::getScoreValue).reversed();
+
+    /**
+     * The exploration report (ReportExplorationPanel): {headers: {name, type,
+     * discoveredIn, discoveredBy, value}, regions: [{name, type, turn, by,
+     * value}]}, the regions anyone has discovered.
+     */
+    static String exploration(Player player) {
+        final List<Region> found = new ArrayList<>();
+        for (Region r : player.getGame().getMap().getRegions()) {
+            if (r.getDiscoveredIn() != null) found.add(r);
+        }
+        found.sort(REGIONS);
+        final List<String> regions = new ArrayList<>();
+        for (Region r : found) {
+            regions.add(new Json().put("name", r.getName())
+                .put("type", Messages.message(r.getType().getNameKey()))
+                .put("turn", Messages.message(r.getDiscoveredIn().getLabel()))
+                .put("by", Messages.message(r.getDiscoveredBy().getCountryLabel()))
+                .put("value", r.getScoreValue()).toString());
+        }
+        return head("exploration", "reportExplorationAction", null)
+            .putRaw("headers", new Json()
+                .put("name", Messages.message("report.exploration.nameOfRegion"))
+                .put("type", Messages.message("report.exploration.typeOfRegion"))
+                .put("discoveredIn", Messages.message("report.exploration.discoveredIn"))
+                .put("discoveredBy", Messages.message("report.exploration.discoveredBy"))
+                .put("value", Messages.message("report.exploration.valueOfRegion"))
+                .toString())
+            .putRaw("regions", Json.array(regions)).toString();
+    }
+
+    /**
+     * The history report (ReportHistoryPanel): {events: [{turn, text}]},
+     * the player's history in the order it happened.
+     */
+    static String history(Player player) {
+        final List<String> events = new ArrayList<>();
+        for (HistoryEvent e : player.getHistory()) {
+            events.add(new Json().put("turn", Messages.message(e.getTurn().getLabel()))
+                .put("text", Messages.message(e)).toString());
+        }
+        return head("history", "reportHistoryAction", null)
+            .putRaw("events", Json.array(events)).toString();
     }
 
     /** Where ReportLabourPanel counts a unit: its settlement, Europe, else its tile. */

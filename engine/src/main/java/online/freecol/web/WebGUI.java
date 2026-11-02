@@ -206,7 +206,9 @@ import net.sf.freecol.common.option.OptionGroup;
  *         (FreeCol's reason), null if it was not</td></tr>
  * <tr><td>showReportColonyPanel, showReportLabourPanel,
  *     showReportLabourDetailPanel, showCompactLabourReport,
- *     showReportMilitaryPanel, showReportNavalPanel, showReportCargoPanel</td>
+ *     showReportMilitaryPanel, showReportNavalPanel, showReportCargoPanel,
+ *     showReportReligiousPanel, showReportEducationPanel,
+ *     showReportExplorationPanel, showReportHistoryPanel</td>
  *     <td>event report</td>
  *     <td>one of the reports {@link Reports} describes, told apart by its
  *         report field; a report that is open is replaced, so a link to a
@@ -1586,6 +1588,34 @@ public class WebGUI extends GUI {
         net.sf.freecol.client.gui.panel.report.LabourData.UnitData unitData) {
         this.ui.show("report", Reports.compactLabour(getFreeColClient(),
                                                      unitData.getUnitType()));
+        return null;
+    }
+
+    /** {@inheritDoc} Shows the religion report ({@link Reports#religion}). */
+    @Override
+    public FreeColPanel showReportReligiousPanel() {
+        this.ui.show("report", Reports.religion(getMyPlayer()));
+        return null;
+    }
+
+    /** {@inheritDoc} Shows the education report ({@link Reports#education}). */
+    @Override
+    public FreeColPanel showReportEducationPanel() {
+        this.ui.show("report", Reports.education(getMyPlayer()));
+        return null;
+    }
+
+    /** {@inheritDoc} Shows the exploration report ({@link Reports#exploration}). */
+    @Override
+    public FreeColPanel showReportExplorationPanel() {
+        this.ui.show("report", Reports.exploration(getMyPlayer()));
+        return null;
+    }
+
+    /** {@inheritDoc} Shows the history report ({@link Reports#history}). */
+    @Override
+    public FreeColPanel showReportHistoryPanel() {
+        this.ui.show("report", Reports.history(getMyPlayer()));
         return null;
     }
 
