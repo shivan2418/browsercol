@@ -157,6 +157,12 @@ const isFreeLand = (m, t) => {
   );
 };
 
+/** Land that a nation owns: native land, which the script does not found on. */
+function ownedLand(m, t) {
+  const type = typeAt(m, t);
+  return Boolean(type) && !WATER.test(type) && m.owners[t[1] * m.w + t[0]] !== '.';
+}
+
 /**
  * The free lands the ship can sail to, and how far they are: the land
  * beside the ship is one tile away, the land beside the sea tile next to it
@@ -164,13 +170,14 @@ const isFreeLand = (m, t) => {
  * ship has seen no more of the map yet, and the direction is the first step
  * of the shortest route to the land.
  */
-function freeLands(m, ship) {
+function freeLands(m, ship, visited = new Set()) {
   const dirs = Object.keys(DIRECTIONS);
   const lands = new Map();
   const first = new Map([[label(ship), null]]);
   const dist = new Map([[label(ship), 0]]);
   const queue = [ship];
   let west = null;
+  let coast = null;
   for (let i = 0; i < queue.length; i++) {
     const t = queue[i];
     const d = dist.get(label(t));
@@ -182,7 +189,14 @@ function freeLands(m, ship) {
         lands.set(key, { tile: n, dist: d + 1, dir: d === 0 ? dir : first.get(label(t)) });
       }
     }
-    if (i > 0 && (!west || t[0] < west[0])) west = t;
+    // Sea the ship has not been on yet: it is where more of the map may come into sight, and standing on
+    // the same two tiles over and over shows nothing new. The westmost one is nearest the unexplored west;
+    // the first found of its column is the nearest to the ship. Sea beside native land is the coast to
+    // follow, south as well as west, when no free land is in sight.
+    if (i > 0 && !visited.has(label(t))) {
+      if (!west || t[0] < west[0]) west = t;
+      if (!coast && dirs.some((dir) => ownedLand(m, neighbour(t, dir)))) coast = t;
+    }
     for (const dir of dirs) {
       const n = neighbour(t, dir);
       if (first.has(label(n)) || !WATER.test(typeAt(m, n) ?? '') || at(m.units, n) || at(m.settlements, n)) continue;
@@ -191,7 +205,8 @@ function freeLands(m, ship) {
       queue.push(n);
     }
   }
-  return { lands, west: west && { tile: west, dir: first.get(label(west)) } };
+  const sail = coast ?? west;
+  return { lands, west: sail && { tile: sail, dir: first.get(label(sail)) } };
 }
 
 /**
@@ -202,8 +217,8 @@ function freeLands(m, ship) {
  * the ship sails for the westmost sea it knows, where more of the map comes
  * into sight.
  */
-function bestLand(m, ship) {
-  const { lands, west } = freeLands(m, ship);
+function bestLand(m, ship, visited) {
+  const { lands, west } = freeLands(m, ship, visited);
   const all = [...lands.values()];
   if (!all.length) return west && { dir: west.dir, dist: Infinity };
   const nearest = all.reduce((a, b) => (b.dist < a.dist ? b : a));
@@ -884,12 +899,18 @@ async function play(page, url) {
   // Where the ship was last seen: the map names no active unit when the ship
   // is out of moves, and then it names no place either.
   let place = null;
+  const visited = new Set();
+  const trail = [];
   for (let turns = 0; !land;) {
-    const step = m.active && bestLand(m, m.active);
-    if (m.active) place = m.active;
+    if (m.active) {
+      place = m.active;
+      visited.add(label(m.active));
+      trail.push(`t${m.turn}@${label(m.active)}`);
+    }
+    const step = m.active && bestLand(m, m.active, visited);
     if (!step || !step.dir) {
       if (++turns > MAX_TURNS) {
-        throw new Error(`no land within ${MAX_TURNS} turns; the ship is at ${label(place)}`);
+        throw new Error(`no land within ${MAX_TURNS} turns; the ship is at ${label(place)}; trail ${trail.join(' ')}`);
       }
       m = await endTurn(true);
       continue;
