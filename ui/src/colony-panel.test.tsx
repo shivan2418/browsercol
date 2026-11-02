@@ -351,6 +351,7 @@ describe('moving colonists in the colony panel', () => {
     changeWork: (u, g) => calls.push(`change ${u} ${g}`),
     setQueue: (c, types) => calls.push(`queue ${c} ${types.join(',')}`),
     buy: (c) => calls.push(`buy ${c}`),
+    warehouse: (c) => calls.push(`warehouse ${c}`),
     board: (u, s) => calls.push(`board ${u} ${s}`),
     leaveShip: (u) => calls.push(`leave ${u}`),
     load: (s, g, a) => calls.push(`load ${s} ${g}${a ? ' ask' : ''}`),
@@ -467,6 +468,7 @@ describe('loading a ship in port in the colony panel', () => {
     changeWork: () => {},
     setQueue: () => {},
     buy: () => {},
+    warehouse: () => {},
     board: (u, s) => calls.push(`board ${u} ${s}`),
     leaveShip: (u) => calls.push(`leave ${u}`),
     load: (s, g, a) => calls.push(`load ${s} ${g}${a ? ' ask' : ''}`),
@@ -616,6 +618,7 @@ describe('the build queue in the colony panel', () => {
     changeWork: () => {},
     setQueue: (c, types) => calls.push(`queue ${c} ${types.join(',')}`),
     buy: (c) => calls.push(`buy ${c}`),
+    warehouse: (c) => calls.push(`warehouse ${c}`),
     board: () => {},
     leaveShip: () => {},
     load: () => {},
@@ -684,6 +687,12 @@ describe('the build queue in the colony panel', () => {
       `queue colony:${n} model.building.stockade,model.building.warehouse`,
       `queue colony:${n} model.building.stockade`,
     ]);
+  });
+
+  it('opens the warehouse dialog from the warehouse button', () => {
+    openQueue();
+    fireEvent.click(within(part('warehouse')).getByRole('button', { name: 'Warehouse' }));
+    expect(calls).toEqual([`warehouse colony:${n}`]);
   });
 
   it('buys the current build, when the colony can pay', () => {

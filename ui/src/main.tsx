@@ -146,6 +146,7 @@ const colonyMoves: ColonyMoves = {
   changeWork: (unit, goods) => colonyClient?.changeWorkType(unit, goods),
   setQueue: (colony, types) => colonyClient?.setBuildQueue(colony, types.join(',')),
   buy: (colony) => colonyClient?.payForBuilding(colony),
+  warehouse: (colony) => colonyClient?.warehouse(colony),
   board: (unit, ship) => colonyClient?.boardShip(unit, ship),
   leaveShip: (unit) => colonyClient?.leaveShip(unit),
   load: (ship, goods, ask) => colonyClient?.loadGoods(ship, goods, ask),
@@ -363,6 +364,7 @@ const gui: GuiHandlers = {
     preCombat: (q) => dialogQueue.ask('preCombat', q),
     negotiation: (q) => dialogQueue.ask('negotiation', q),
     names: (q) => dialogQueue.ask('names', q),
+    warehouse: (q) => dialogQueue.ask('warehouse', q),
   },
 };
 
