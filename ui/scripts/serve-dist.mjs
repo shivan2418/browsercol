@@ -16,8 +16,28 @@ const TYPES = {
   '.png': 'image/png',
 };
 
-/** Start serving; resolves to { url, dataFetches(), close() }. */
+/**
+ * A site already deployed (--url https://host/path/), tested as is: nothing is served, and the
+ * data bundle fetches are counted from the page's own requests, so call watch(page) on each page.
+ */
+function remoteSite(raw) {
+  let dataFetches = 0;
+  return {
+    url: raw.endsWith('/') ? raw : raw + '/',
+    watch: (page) =>
+      page.on('request', (r) => {
+        if (/\/assets\/data-[^/]*\.json$/.test(new URL(r.url()).pathname)) dataFetches++;
+      }),
+    dataFetches: () => dataFetches,
+    resetDataFetches: () => (dataFetches = 0),
+    close: () => {},
+  };
+}
+
+/** Start serving; resolves to { url, dataFetches(), close() }. With --url, the deployed site instead. */
 export async function serveDist() {
+  const i = process.argv.indexOf('--url');
+  if (i >= 0) return remoteSite(process.argv[i + 1]);
   let dataFetches = 0;
   const server = http.createServer((req, res) => {
     const name = decodeURIComponent(new URL(req.url, 'http://x').pathname);
