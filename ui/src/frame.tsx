@@ -129,7 +129,7 @@ export interface Menu {
   items: { label: string; run: () => void; disabled?: boolean }[];
 }
 
-/** FreeCol's menus (InGameMenuBar), in its order. Later tickets give them entries. */
+/** FreeCol's menus (InGameMenuBar), in its order; menus.ts and reports.tsx give them entries. */
 export const MENUS: readonly string[] = ['Game', 'View', 'Orders', 'Report', 'Colopedia'];
 
 /**
