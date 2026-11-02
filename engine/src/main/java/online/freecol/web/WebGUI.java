@@ -211,7 +211,8 @@ import net.sf.freecol.common.option.OptionGroup;
  *     showReportExplorationPanel, showReportHistoryPanel,
  *     showReportTradePanel, showReportProductionPanel,
  *     showReportRequirementsPanel, showReportForeignAffairPanel,
- *     showReportIndianPanel, showReportContinentalCongressPanel</td>
+ *     showReportIndianPanel, showReportContinentalCongressPanel,
+ *     showColopediaPanel</td>
  *     <td>event report</td>
  *     <td>one of the reports {@link Reports} describes, told apart by its
  *         report field; a report that is open is replaced, so a link to a
@@ -219,10 +220,6 @@ import net.sf.freecol.common.option.OptionGroup;
  * <tr><td>showTilePanel(Tile)</td><td>event tilePanel</td>
  *     <td>what {@link TileJson} describes (the right-click menu's tile
  *         entry); its Colopedia button opens the terrain entry</td></tr>
- * <tr><td>showColopediaPanel(String)</td><td>event colopedia</td>
- *     <td>the terrain entry {@link Colopedia} describes, for a tile type's
- *         id; no other entries yet, and an id that is not a tile type
- *         shows nothing</td></tr>
  * <tr><td>showIndianSettlementPanel</td><td>event indianSettlement</td>
  *     <td>{name, kind, tension, worthScouting, images, labels, missionary,
  *         skill, mostHated, wanted: [...], ok, tile, at}; as {@link SettlementJson}
@@ -1655,6 +1652,13 @@ public class WebGUI extends GUI {
         return null;
     }
 
+    /** {@inheritDoc} Shows the Colopedia ({@link Reports#colopedia}); nodeId is the entry to open on. */
+    @Override
+    public FreeColPanel showColopediaPanel(String nodeId) {
+        this.ui.show("report", Reports.colopedia(getFreeColClient().getGame().getSpecification(), nodeId));
+        return null;
+    }
+
     /** {@inheritDoc} Shows the foreign affairs report ({@link Reports#foreign}). */
     @Override
     public FreeColPanel showReportForeignAffairPanel() {
@@ -1771,14 +1775,6 @@ public class WebGUI extends GUI {
     @Override
     public FreeColPanel showTilePanel(Tile tile) {
         this.ui.show("tilePanel", TileJson.of(tile, getMyPlayer()));
-        return null;
-    }
-
-    @Override
-    public FreeColPanel showColopediaPanel(String nodeId) {
-        final String terrain = Colopedia.terrain(
-            getFreeColClient().getGame().getSpecification(), nodeId);
-        if (terrain != null) this.ui.show("colopedia", terrain);
         return null;
     }
 

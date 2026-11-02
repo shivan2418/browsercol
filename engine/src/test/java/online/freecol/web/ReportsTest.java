@@ -463,6 +463,46 @@ class ReportsTest {
 
     @Test
     @Timeout(240)
+    void theColopediaListsTheSpecificationInSectionsAndPlainText() throws Exception {
+        twoColonies();
+        final Map<String, Object> report = obj(JsonReader.read(
+            Reports.colopedia(me().getSpecification(), "model.unit.freeColonist")));
+        assertEquals("colopedia", report.get("report"));
+        assertEquals("Colopedia", report.get("title"));
+        assertEquals("model.unit.freeColonist", report.get("select"));
+        final List<Map<String, Object>> sections = objs(report.get("sections"));
+        assertEquals(List.of("terrain", "resources", "goods", "units", "buildings", "fathers",
+                "nations", "nationTypes", "concepts"),
+            sections.stream().map(x -> (String)x.get("id")).collect(Collectors.toList()));
+        for (Map<String, Object> section : sections) {
+            assertFalse(objs(section.get("entries")).isEmpty(), section.get("id") + " has entries");
+        }
+        final Map<String, Object> units = sections.get(3);
+        assertEquals("Units", units.get("name"));
+        final Map<String, Object> colonist = objs(units.get("entries")).stream()
+            .filter(e -> "model.unit.freeColonist".equals(e.get("id"))).findFirst().get();
+        assertEquals("Free Colonist", colonist.get("name"));
+        assertFalse(((String)colonist.get("text")).contains("<"), "the description has no HTML");
+        assertTrue(objs(colonist.get("facts")).stream()
+            .anyMatch(f -> "Movement:".equals(f.get("label")) && "1".equals(f.get("value"))));
+        assertEquals("Land unit", colonist.get("group"));
+        assertTrue(objs(units.get("entries")).stream().anyMatch(e -> "Naval unit".equals(e.get("group"))));
+        // A building's cost links to the goods it needs, and the terrain has production.
+        final Map<String, Object> carpenter = objs(sections.get(4).get("entries")).stream()
+            .filter(e -> "model.building.lumberMill".equals(e.get("id"))).findFirst().get();
+        assertTrue(objs(carpenter.get("facts")).stream().anyMatch(f -> "Cost".equals(f.get("label"))
+            && !objs(f.get("refs")).isEmpty()), "the cost links goods");
+        final Map<String, Object> education = objs(sections.get(8).get("entries")).stream()
+            .filter(e -> "Education".equals(e.get("name"))).findFirst().get();
+        assertTrue(((String)education.get("text")).contains("[[model.building.schoolhouse|"),
+            "a link in a description");
+        final Map<String, Object> concept = objs(sections.get(8).get("entries")).get(0);
+        assertEquals("Taxes", concept.get("name"));
+        assertFalse(((String)concept.get("text")).isEmpty());
+    }
+
+    @Test
+    @Timeout(240)
     void theRequirementsReportAdvisesEachColonyOrSaysItsRequirementsAreMet() throws Exception {
         twoColonies();
         final Player us = me();
@@ -627,13 +667,14 @@ class ReportsTest {
         assertTrue(commands.showReport("foreign"));
         assertTrue(commands.showReport("indian"));
         assertTrue(commands.showReport("congress"));
+        assertTrue(commands.showReport("colopedia"));
         assertFalse(commands.showReport("nothing"));
         assertTrue(commands.showReportDetail("labourDetail", "model.unit.freeColonist"));
         assertTrue(commands.showReportDetail("compactLabour", "model.unit.freeColonist"));
         assertTrue(commands.showReportDetail("compactLabour", ""));
         assertFalse(commands.showReportDetail("labourDetail", ""));
         assertEquals(List.of("colony", "labour", "compactLabour", "religion", "education",
-                "exploration", "history", "trade", "production", "requirements", "foreign", "indian", "congress", "labourDetail", "compactLabour", "compactLabour"),
+                "exploration", "history", "trade", "production", "requirements", "foreign", "indian", "congress", "colopedia", "labourDetail", "compactLabour", "compactLabour"),
             reports.stream().map(r -> (String)obj(JsonReader.read(r)).get("report"))
                 .collect(Collectors.toList()));
 
