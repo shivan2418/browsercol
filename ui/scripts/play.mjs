@@ -364,11 +364,9 @@ async function play(page, url) {
     await pickUp(unit(other), other);
     await tile.locator('.hit').click();
     const explained = await page
-      .waitForFunction(
-        (n) => window.__dialogs.slice(n).some((d) => d.startsWith('information: ')),
-        asked,
-        { timeout: 20000 },
-      )
+      .waitForFunction((n) => window.__dialogs.slice(n).some((d) => d.startsWith('information: ')), asked, {
+        timeout: 20000,
+      })
       .catch(() => false);
     if (!explained) {
       const seen = await page.evaluate(() => window.__dialogs.slice(-3));
