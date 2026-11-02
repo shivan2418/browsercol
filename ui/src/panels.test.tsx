@@ -1347,7 +1347,7 @@ describe('the Europe panel', () => {
           goTo={() => {}}
           art={art}
           report={{ groupBy() {}, filter() {}, ignore() {} }}
-          routes={{ save() {}, remove() {} }}
+          routes={{ save() {}, remove() {}, assign() {} }}
         />
       </ContextMenuContext.Provider>,
     );
