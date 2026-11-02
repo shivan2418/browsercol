@@ -150,3 +150,65 @@
 .dialog .report .compact-labour td[data-sign='loss'] {
   color: var(--bad);
 }
+/* The religion and education reports: a heading for each kind or school, then its people. */
+.dialog .report .religion section,
+.dialog .report .education section {
+  margin-bottom: 14px;
+}
+.dialog .report .religion h3,
+.dialog .report .education h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 4px;
+  color: var(--head);
+}
+.dialog .report .religion progress {
+  width: 18em;
+  margin-right: 8px;
+}
+.dialog .report .religion .places {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin-top: 6px;
+}
+.dialog .report .religion .place {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.dialog .report .education fieldset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 4px;
+  min-height: 44px;
+  margin: 0 0 6px;
+  border: 1px solid var(--line);
+}
+.dialog .report .education legend {
+  color: var(--muted);
+  font-size: var(--fs-s);
+}
+/* The exploration and history reports: plain tables. */
+.dialog .report .exploration,
+.dialog .report .history {
+  border-collapse: collapse;
+  width: 100%;
+}
+.dialog .report .exploration th,
+.dialog .report .exploration td,
+.dialog .report .history th,
+.dialog .report .history td {
+  padding: 2px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+.dialog .report .exploration .num {
+  text-align: right;
+}
+.dialog .report .history th {
+  white-space: nowrap;
+  font-weight: normal;
+  color: var(--muted);
+}
