@@ -705,6 +705,13 @@ async function play(page, url) {
     ['Military report', 'Military Advisor'],
     ['Naval report', 'Naval Advisor'],
     ['Cargo report', 'Cargo Report'],
+    ['Education report', 'Education Report'],
+    ['Exploration report', 'Exploration Report'],
+    ['History report', 'History Report'],
+    ['Production report', 'Production Report'],
+    ['Religion report', 'Religious Advisor'],
+    ['Requirements report', 'Requirements'],
+    ['Trade report', 'Trade Advisor'],
   ]) {
     await noDialog(`opening the ${item}`);
     const before = await page.evaluate(() => window.__dialogs.length);
