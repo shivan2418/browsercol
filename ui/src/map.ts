@@ -9,7 +9,7 @@
 import { Application, Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import { resources, type ArtLayer, type Resources } from './resources';
 import { overlay, scene, srcId, type Direction, type MapView, type Op, type Src } from './tileset';
-import { MOVE_MS, blink, moves, slide, type Move } from './motion';
+import { BLINK_MS, MOVE_MS, blink, moves, slide, type Move } from './motion';
 import { H, W, activeUnitFacts, cursor, tileOrigin, toMap, type ViewState } from './view';
 
 export type { MapView } from './tileset';
@@ -569,6 +569,8 @@ export function mapDrawer(
   /** Make the canvas `size` screen pixels, as its host's box changed; show() the resized view after. */
   resize(size: [number, number]): void;
   renderer(): string;
+  /** How long a slide takes (0: units jump), and a whole blink of the active unit (0: it stays shown). */
+  setMotion(moveMs: number, blinkMs: number): void;
   /** The tile under a pixel of the canvas, or null off the map or before the first draw. */
   tileAt(px: number, py: number): [number, number] | null;
   /** The resolver, once the art manifest has loaded. */
@@ -595,6 +597,8 @@ export function mapDrawer(
   /** The tiles whose unit is drawn in the actors' layer: the sliding units' and the active one's. */
   let actorTiles = new Set<string>();
   let frame = 0;
+  let moveMs = MOVE_MS;
+  let blinkMs = BLINK_MS;
 
   async function init() {
     const art = (await (await fetch(artBase + manifest)).json()) as Art;
@@ -622,12 +626,12 @@ export function mapDrawer(
     if (!pen || !view) return;
     const now = performance.now();
     // The active unit blinks, but not while it slides; a slide ends once its time is up.
-    if (sliding && now - sliding.since >= MOVE_MS) sliding = null;
+    if (sliding && now - sliding.since >= moveMs) sliding = null;
     if (sliding) {
-      const [dx, dy] = slide(sliding.moves[0], (now - sliding.since) / MOVE_MS);
+      const [dx, dy] = slide(sliding.moves[0], (now - sliding.since) / moveMs);
       pen.actors(dx, dy, 1);
     } else {
-      pen.actors(0, 0, view.mode === 'units' && view.active ? blink(now) : 1);
+      pen.actors(0, 0, view.mode === 'units' && view.active ? blink(now, blinkMs) : 1);
     }
     const z = view.zoom;
     pen.show(size[0] / 2 - view.centre[0] * z, size[1] / 2 - view.centre[1] * z, z);
@@ -656,7 +660,7 @@ export function mapDrawer(
     drawn = map;
     if (!pen) await init();
     const moved = before ? moves(before.units, map.units) : [];
-    if (moved.length) sliding = { moves: moved, since: performance.now() };
+    if (moved.length && moveMs > 0) sliding = { moves: moved, since: performance.now() };
     actorTiles = new Set(moved.map((m) => m.to.join(',')));
     if (map.active) actorTiles.add(map.active.join(','));
     const ops = scene(map, res!);
@@ -674,6 +678,10 @@ export function mapDrawer(
   }
 
   return {
+    setMotion(m, b) {
+      moveMs = m;
+      blinkMs = b;
+    },
     draw: (map) => (drawing = drawing.then(() => drawNow(map))),
     show: (v) => {
       view = v;

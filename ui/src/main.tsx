@@ -31,6 +31,8 @@ import { dialogs } from './dialogs';
 import { MENUS, MenuBar, type Menu } from './frame';
 import { gameMenu, ordersMenu, viewMenu, type MenuActions } from './menus';
 import { commandForKey, type Command } from './input';
+import { PreferencesDialog } from './prefs-dialog';
+import { blinkMs, loadPrefs, moveMs, savePrefs, type Prefs } from './prefs';
 import { mapDrawer, type MapView } from './map';
 import { europeButtons } from './europe-client';
 import { DialogHost, type Art, type ReportButtons, type RouteButtons } from './panels';
@@ -170,6 +172,10 @@ const reportActions: ReportActions = {
   europe: () => runCommand({ k: 'showEurope' }),
   goTo: (at) => dispatch({ k: 'focus', tile: null, at }),
 };
+/** The player's preferences, and whether their window is open. */
+let prefs: Prefs = loadPrefs();
+let prefsOpen = false;
+map.setMotion(moveMs(prefs), blinkMs(prefs));
 /** Whether the client Engine has loaded, so the menus' game commands work. */
 let menuReady = false;
 /** What the Game, Orders and View menus do (menus.ts). */
@@ -186,6 +192,10 @@ const menuActions = (): MenuActions => ({
   },
   save: () => saveGame(''),
   open: () => document.getElementById('saves')?.scrollIntoView({ block: 'nearest' }),
+  preferences: () => {
+    prefsOpen = true;
+    renderSide();
+  },
   zoom: (steps) => dispatch({ k: 'zoom', steps, at: [view.viewport[0] / 2, view.viewport[1] / 2] }),
   centreOnUnit: () => dispatch({ k: 'focus', tile: null, at: view.active?.tile ?? null }),
 });
@@ -315,6 +325,21 @@ function renderSide() {
           </ContextMenuContext.Provider>
         </ColonyActions.Provider>
       </ColonyTiles.Provider>
+      {prefsOpen && (
+        <PreferencesDialog
+          prefs={prefs}
+          change={(p) => {
+            prefs = p;
+            savePrefs(p);
+            map.setMotion(moveMs(p), blinkMs(p));
+            renderSide();
+          }}
+          close={() => {
+            prefsOpen = false;
+            renderSide();
+          }}
+        />
+      )}
       <TurnBanner notice={banner} />
       {popup && <PopupMenu popup={popup} run={(id) => menuClient?.menuEntry(id)} close={() => showPopup(null)} />}
     </>,
