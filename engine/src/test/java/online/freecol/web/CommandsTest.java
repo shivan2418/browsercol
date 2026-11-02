@@ -1117,4 +1117,135 @@ class CommandsTest {
         assertTrue(serverRoutes(player).isEmpty(), "the server has no route");
         assertTrue(player.getTradeRoutes().isEmpty(), "nor does the client");
     }
+
+    /** An entry's id in a menu's JSON, the first whose id starts with a prefix, else null. */
+    private static String entryWith(String menu, String prefix) {
+        final Matcher m = Pattern.compile("\"id\":\"(" + Pattern.quote(prefix) + "[^\"]*)\"").matcher(menu);
+        return m.find() ? m.group(1) : null;
+    }
+
+    @Test
+    @Timeout(180)
+    void aRightClickOnATileListsItsUnitsAndSelectsThePickedOne() throws Exception {
+        startGame();
+        final Commands commands = client.getCommands();
+        final Menus menus = client.getMenus();
+        final Player player = client.getClient().getMyPlayer();
+        final Unit ship = player.getUnits().filter(Unit::isNaval).findFirst().get();
+        final Unit aboard = ship.getUnitList().get(0);
+        select(commands, ship);
+        final Tile at = ship.getTile();
+
+        final String menu = menus.tile(at.getX(), at.getY());
+        assertTrue(menu.contains("\"title\":"), menu);
+        assertNotNull(entryWith(menu, "select:" + ship.getId()), menu);
+        assertNotNull(entryWith(menu, "select:" + aboard.getId()), menu);
+        assertTrue(menu.contains("\"id\":\"none\""), "the tile's own line: " + menu);
+        // One unit on the tile (the ship), so no "activate all", as in TilePopup.
+        assertNull(entryWith(menu, "activateAll:"), menu);
+        assertEquals("null", menus.tile(-1, -1), "off the map");
+
+        // Picking the passenger makes it the active unit.
+        assertTrue(commands.menuEntry("select:" + aboard.getId()));
+        assertSame(aboard, active());
+        assertFalse(commands.menuEntry("select:model.noSuch"));
+        assertFalse(commands.menuEntry("noSuchVerb:1"));
+    }
+
+    @Test
+    @Timeout(180)
+    void aRightClickOnANeighbouringTileOffersGoTo() throws Exception {
+        startGame();
+        final Commands commands = client.getCommands();
+        final Player player = client.getClient().getMyPlayer();
+        final Unit ship = player.getUnits().filter(Unit::isNaval).findFirst().get();
+        select(commands, ship);
+        final Tile from = ship.getTile();
+        Tile next = null;
+        for (Direction d : Direction.values()) {
+            final Tile n = from.getNeighbourOrNull(d);
+            if (n != null && n.isExplored() && !n.isLand() && n.getUnitCount() == 0) {
+                next = n;
+                break;
+            }
+        }
+        assertNotNull(next, "an explored sea neighbour");
+        final String menu = client.getMenus().tile(next.getX(), next.getY());
+        final String go = "goto:" + next.getX() + "," + next.getY();
+        assertEquals(go, entryWith(menu, "goto:"), menu);
+        assertNull(entryWith(menu, "state:"), "the unit is not on this tile: " + menu);
+        assertTrue(commands.menuEntry(go), "the ship sets off");
+        assertSame(next, ship.getTile());
+    }
+
+    @Test
+    @Timeout(180)
+    void aRightClickOnAColonistInTheColonyPanelPutsItToWork() throws Exception {
+        startGame();
+        final Commands commands = client.getCommands();
+        final Menus menus = client.getMenus();
+        final Colony serverColony = foundAColony(commands);
+        final Colony ours = client.getGame()
+            .getFreeColGameObject(serverColony.getId(), Colony.class);
+        final Unit colonist = ours.getUnitList().get(0);
+
+        // The colony tile's menu has the colony, and picking it opens the panel.
+        final String tileMenu = menus.tile(ours.getTile().getX(), ours.getTile().getY());
+        assertEquals("colony:" + ours.getId(), entryWith(tileMenu, "colony:"), tileMenu);
+        colonies.clear();
+        assertTrue(commands.menuEntry("colony:" + ours.getId()));
+        assertEquals(1, colonies.size(), colonies::toString);
+
+        // The colonist's quick action menu: where it may work, and leaving town.
+        final String menu = menus.unit(colonist.getId());
+        final String work = entryWith(menu, "work:" + colonist.getId() + ",");
+        assertNotNull(work, "a place to work: " + menu);
+        assertEquals("null", menus.unit("model.unit.noSuch"));
+
+        // Picking a work entry moves the colonist and sets what it makes.
+        final String[] a = work.substring("work:".length()).split(",");
+        final Unit onServer = serverUnit(colonist);
+        assertTrue(commands.menuEntry(work) || colonist.getLocation().getId().equals(a[1]),
+            "works: " + work);
+        assertEquals(a[1], colonist.getLocation().getId());
+        assertEquals(a[2], colonist.getWorkType().getId());
+        assertEquals(a[2], onServer.getWorkType().getId());
+
+        // Leaving town puts it outside.
+        final String after = menus.unit(colonist.getId());
+        final String leave = entryWith(after, "leaveTown:");
+        if (leave != null) {
+            assertTrue(commands.menuEntry(leave));
+            assertEquals(ours.getTile(), colonist.getLocation());
+        }
+    }
+
+    @Test
+    @Timeout(240)
+    void aRightClickOnGoodsLoadsThemOntoAShip() throws Exception {
+        startGame();
+        final Commands commands = client.getCommands();
+        final Colony serverColony = foundAColony(commands);
+        final Colony ours = client.getGame()
+            .getFreeColGameObject(serverColony.getId(), Colony.class);
+        final Player player = client.getClient().getMyPlayer();
+        final Unit ship = player.getUnits().filter(Unit::isNaval).findFirst().get();
+        select(commands, ship);
+        assertTrue(commands.move(client.getGame().getMap()
+            .getDirection(ship.getTile(), ours.getTile()).toString()), "into port");
+        final GoodsType food = client.getGame().getSpecification().getGoodsTypeList().stream()
+            .filter(g -> ours.getGoodsCount(g) > 0).findFirst().orElse(null);
+        assertNotNull(food, "the warehouse has goods");
+
+        final String menu = client.getMenus().goods(ours.getId(), food.getId(), ours.getGoodsCount(food));
+        final String load = entryWith(menu, "load:" + ship.getId());
+        assertNotNull(load, menu);
+        assertTrue(commands.menuEntry(load), "loads");
+        assertTrue(ship.getGoodsCount(food) > 0, "the ship has the goods");
+
+        final String back = client.getMenus().goods(ship.getId(), food.getId(), ship.getGoodsCount(food));
+        assertNotNull(entryWith(back, "unload:" + ship.getId()), back);
+        assertTrue(commands.menuEntry("unloadAll:" + ship.getId()), "unloads");
+        assertEquals(0, ship.getGoodsCount(food));
+    }
 }

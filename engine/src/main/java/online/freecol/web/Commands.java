@@ -351,6 +351,159 @@ public final class Commands {
         return igc().unloadCargo(new Goods(this.client.getGame(), ship, type, amount), false);
     }
 
+    /**
+     * Run the entry a player picked in a right-click menu ({@link Menus}):
+     * its id is a verb, then its arguments after a colon, separated by
+     * commas (or by a colon, for a unit state).
+     *
+     * <table>
+     * <caption>The verbs</caption>
+     * <tr><td>goto:x,y</td><td>send the active unit to the tile</td></tr>
+     * <tr><td>attack:x,y</td><td>the active unit attacks the adjacent tile</td></tr>
+     * <tr><td>europe:unit</td><td>send the unit to Europe</td></tr>
+     * <tr><td>state:STATE:unit</td><td>change the unit's state</td></tr>
+     * <tr><td>cashin:unit</td><td>cash in a treasure train</td></tr>
+     * <tr><td>clear:unit</td><td>clear the unit's orders</td></tr>
+     * <tr><td>select:unit</td><td>make the unit the active one</td></tr>
+     * <tr><td>activateAll:x,y</td><td>clear the orders of the tile's units and select the first</td></tr>
+     * <tr><td>colony:id, settlement:id</td><td>open the settlement's panel</td></tr>
+     * <tr><td>leaveTown:unit, leaveShip:unit, board:unit,ship</td><td>as the colony panel's moves</td></tr>
+     * <tr><td>work:unit,location,goods</td><td>put the colonist to work making the goods</td></tr>
+     * <tr><td>load:ship,goods, unload:ship,goods,amount, unloadAll:ship</td><td>move goods between a ship and the warehouse</td></tr>
+     * </table>
+     *
+     * @param entry The entry's id.
+     * @return True if it did something.
+     */
+    public boolean menuEntry(String entry) {
+        final int colon = entry.indexOf(':');
+        final String verb = colon < 0 ? entry : entry.substring(0, colon);
+        final String rest = colon < 0 ? "" : entry.substring(colon + 1);
+        final String[] a = rest.split(",");
+        switch (verb) {
+        case "goto": return goTo(Integer.parseInt(a[0]), Integer.parseInt(a[1]));
+        case "attack": return attack(Integer.parseInt(a[0]), Integer.parseInt(a[1]));
+        case "europe": return moveToEurope(rest);
+        case "state": {
+            final int c2 = rest.indexOf(':');
+            return changeState(rest.substring(c2 + 1),
+                Unit.UnitState.valueOf(rest.substring(0, c2)));
+        }
+        case "cashin": return cashIn(rest);
+        case "clear": return clearOrders(rest);
+        case "select": return selectUnit(rest);
+        case "activateAll":
+            return activateAll(Integer.parseInt(a[0]), Integer.parseInt(a[1]));
+        case "colony": return showColony(rest);
+        case "settlement": return showSettlement(rest);
+        case "leaveTown": return putOutsideColony(rest);
+        case "leaveShip": return leaveShip(rest);
+        case "board": return boardShip(a[0], a[1]);
+        case "work": return workAs(a[0], a[1], a[2]);
+        case "load": return loadGoods(a[0], a[1], false);
+        case "unload":
+            return unloadGoods(a[0], a[1], Integer.parseInt(a[2]), false);
+        case "unloadAll": return unloadAll(rest);
+        default: return false;
+        }
+    }
+
+    /** One of our units, by id, else null. */
+    private Unit ours(String unitId) {
+        final Unit unit = object(unitId, Unit.class);
+        return unit != null && this.client.getMyPlayer().owns(unit) ? unit : null;
+    }
+
+    /** The active unit attacks the adjacent tile, as the arrow key toward it does. */
+    private boolean attack(int x, int y) {
+        final Unit unit = gui().getActiveUnit();
+        final Tile target = tile(x, y);
+        if (unit == null || target == null || unit.getTile() == null
+            || !unit.getTile().isAdjacent(target)) return false;
+        return move(unit.getTile().getDirection(target).toString());
+    }
+
+    private boolean moveToEurope(String unitId) {
+        final Unit unit = ours(unitId);
+        if (unit == null || !unit.canMoveToHighSeas()) return false;
+        return igc().moveTo(unit, this.client.getMyPlayer().getEurope());
+    }
+
+    /** Change one of our units' state, as the menus' state entries do. */
+    private boolean changeState(String unitId, Unit.UnitState state) {
+        final Unit unit = ours(unitId);
+        if (unit == null) return false;
+        if (state == Unit.UnitState.ACTIVE) {
+            if (unit.getState() != Unit.UnitState.ACTIVE) {
+                igc().changeState(unit, state);
+            }
+            gui().changeView(unit, false);
+            return true;
+        }
+        return igc().changeState(unit, state);
+    }
+
+    private boolean cashIn(String unitId) {
+        final Unit unit = ours(unitId);
+        if (unit == null || !unit.canCarryTreasure()
+            || !unit.canCashInTreasureTrain()) return false;
+        return igc().checkCashInTreasureTrain(unit);
+    }
+
+    private boolean clearOrders(String unitId) {
+        final Unit unit = ours(unitId);
+        return unit != null && igc().clearOrders(unit);
+    }
+
+    /** Make one of our units the active one, as picking it in a tile popup does. */
+    private boolean selectUnit(String unitId) {
+        final Unit unit = ours(unitId);
+        if (unit == null) return false;
+        gui().changeView(unit, false);
+        return true;
+    }
+
+    /** TilePopup's "activate all units": clear the orders of the tile's units and select the first. */
+    private boolean activateAll(int x, int y) {
+        final Tile tile = tile(x, y);
+        if (tile == null || tile.isEmpty()
+            || !this.client.getMyPlayer().owns(tile.getFirstUnit())) return false;
+        for (Unit u : tile.getUnitList()) {
+            if (this.client.getMyPlayer().owns(u)) igc().clearOrders(u);
+        }
+        gui().changeView(tile.getFirstUnit(), false);
+        return true;
+    }
+
+    private boolean showSettlement(String id) {
+        final IndianSettlement is = object(id, IndianSettlement.class);
+        if (is == null) return false;
+        gui().showIndianSettlementPanel(is);
+        return true;
+    }
+
+    /** Put a colonist to work at a place making goods (QuickActionMenu's work entries). */
+    private boolean workAs(String unitId, String locationId, String goodsTypeId) {
+        final Unit unit = ours(unitId);
+        final GoodsType type = goodsType(goodsTypeId);
+        final WorkLocation wl = object(locationId, WorkLocation.class);
+        if (unit == null || type == null || wl == null) return false;
+        if (unit.getLocation() != wl && !work(unitId, locationId)) return false;
+        if (unit.getLocation() != wl) return false;
+        return unit.getWorkType() == type || igc().changeWorkType(unit, type);
+    }
+
+    /** Unload everything a ship in port carries into the warehouse. */
+    private boolean unloadAll(String shipId) {
+        final Unit ship = shipInPort(shipId);
+        if (ship == null) return false;
+        boolean any = false;
+        for (Goods g : new ArrayList<>(ship.getGoodsList())) {
+            any |= unloadGoods(shipId, g.getType().getId(), g.getAmount(), false);
+        }
+        return any;
+    }
+
     /** One of our carriers in one of our colonies, by id, else null. */
     private Unit shipInPort(String shipId) {
         final Unit ship = this.client.getMyPlayer()
