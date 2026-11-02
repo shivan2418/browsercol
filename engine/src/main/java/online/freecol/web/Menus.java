@@ -6,9 +6,11 @@ import java.util.List;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.model.Colony;
+import net.sf.freecol.common.model.Europe;
 import net.sf.freecol.common.model.Goods;
 import net.sf.freecol.common.model.GoodsType;
 import net.sf.freecol.common.model.IndianSettlement;
+import net.sf.freecol.common.model.Location;
 import net.sf.freecol.common.model.Player;
 import net.sf.freecol.common.model.Settlement;
 import net.sf.freecol.common.model.Specification;
@@ -188,9 +190,15 @@ final class Menus {
         final Unit unit = this.client.getGame().getFreeColGameObject(unitId, Unit.class);
         if (unit == null || player == null || !player.owns(unit)
             || unit.isDisposed()) return "null";
+        final Builder b = new Builder();
+        if (unit.isInEurope()) {
+            addOrders(b, unit);
+            b.gap();
+            addBoard(b, unit, player.getEurope());
+            return b.build(unitLabel(unit));
+        }
         final Colony colony = colonyOf(unit);
         if (colony == null) return "null";
-        final Builder b = new Builder();
         if (unit.isCarrier() && unit.hasCargo()) {
             b.add("unloadAll:" + unitId, text("unload"));
             b.gap();
@@ -224,9 +232,12 @@ final class Menus {
         final boolean atSea = unit.isAtSea();
         final UnitState state = unit.getState();
         b.add("state:ACTIVE:" + id, text("activateUnit"), !atSea, false);
-        b.add("state:FORTIFYING:" + id, text("fortify"),
-            unit.getMovesLeft() > 0 && state != UnitState.FORTIFIED
-                && state != UnitState.FORTIFYING, false);
+        // Europe has nothing to fortify (QuickActionMenu.addCommandItems).
+        if (!unit.isInEurope()) {
+            b.add("state:FORTIFYING:" + id, text("fortify"),
+                unit.getMovesLeft() > 0 && state != UnitState.FORTIFIED
+                    && state != UnitState.FORTIFYING, false);
+        }
         b.add("state:SENTRY:" + id, text("sentry"),
             state != UnitState.SENTRY && !atSea, false);
         b.add("clear:" + id, text("clearOrders"),
@@ -235,10 +246,11 @@ final class Menus {
         if (unit.canCarryTreasure() && unit.canCashInTreasureTrain()) {
             b.add("cashin:" + id, text("cashInTreasureTrain"));
         }
-        if (unit.getLocation() instanceof Unit) {
+        if (unit.getLocation() instanceof Unit && !unit.isInEurope()) {
             b.add("leaveShip:" + id, text("leaveShip"));
         }
-        if (unit.isCarrier()) {
+        // Cargo in Europe is sold from the goods menu, not unloaded.
+        if (unit.isCarrier() && !unit.isInEurope()) {
             b.add("unloadAll:" + id,
                 text(unit.getSettlement() != null ? "unload" : "dumpCargo"),
                 !atSea && unit.hasCargo(), false);
@@ -247,8 +259,13 @@ final class Menus {
 
     /** QuickActionMenu.addBoardItems: the ships here that can take the unit. */
     private static void addBoard(Builder b, Unit unit, Colony colony) {
+        addBoard(b, unit, colony.getTile());
+    }
+
+    /** The ships at a place (a tile, or Europe) that can take the unit. */
+    private static void addBoard(Builder b, Unit unit, Location at) {
         if (unit.isCarrier()) return;
-        for (Unit ship : colony.getTile().getUnitList()) {
+        for (Unit ship : at.getUnitList()) {
             if (!ship.isCarrier() || !ship.canCarryUnits() || !ship.canAdd(unit)
                 || unit.getLocation() == ship) continue;
             b.add("board:" + unit.getId() + "," + ship.getId(),
@@ -353,7 +370,8 @@ final class Menus {
      * warehouse load onto a ship in its port, and goods on a ship in port
      * unload into the warehouse.
      *
-     * @param locationId The id of the colony, or of the ship the goods are on.
+     * @param locationId The id of the colony, or of the ship the goods are on;
+     *     "europe" for the Europe panel's market.
      * @param goodsTypeId The goods type's id.
      * @param amount The amount in the stack the player clicked.
      * @return The menu as JSON; "null" if there is nothing to pick.
@@ -362,9 +380,9 @@ final class Menus {
         final Player player = me();
         final GoodsType type = this.client.getGame().getSpecification()
             .getGoodsType(goodsTypeId);
-        final Object where = this.client.getGame()
-            .getFreeColGameObject(locationId);
         if (type == null || player == null) return "null";
+        final Object where = "europe".equals(locationId) ? player.getEurope()
+            : this.client.getGame().getFreeColGameObject(locationId);
         final Builder b = new Builder();
         if (where instanceof Colony && player.owns((Colony)where)) {
             final Colony colony = (Colony)where;
@@ -378,9 +396,23 @@ final class Menus {
                         .addStringTemplate("%unit%",
                             ship.getLabel(Unit.UnitLabelType.NATIONAL))));
             }
+        } else if (where instanceof Europe && where == player.getEurope()) {
+            // The market's goods buy onto a ship in Europe (addMarketItems).
+            final Goods goods = new Goods(this.client.getGame(), null, type, amount);
+            for (Unit ship : player.getEurope().getUnitList()) {
+                if (!ship.isCarrier() || !ship.canCarryGoods()
+                    || !ship.canAdd(goods)) continue;
+                b.add("buy:" + ship.getId() + "," + goodsTypeId,
+                    text(StringTemplate.template("quickActionMenu.loadOnTo")
+                        .addStringTemplate("%unit%",
+                            ship.getLabel(Unit.UnitLabelType.NATIONAL))));
+            }
         } else if (where instanceof Unit && player.owns((Unit)where)) {
             final Unit ship = (Unit)where;
-            if (ship.getColony() != null) {
+            if (ship.isInEurope()) {
+                b.add("sell:" + ship.getId() + "," + goodsTypeId,
+                    text(player.canTrade(type) ? "unload" : "payArrears"));
+            } else if (ship.getColony() != null) {
                 b.add("unload:" + ship.getId() + "," + goodsTypeId + "," + amount,
                     text("unload"));
             }
