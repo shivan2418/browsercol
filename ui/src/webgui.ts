@@ -574,8 +574,39 @@ export interface TypeRef {
   keys: string[];
 }
 
+/** One kind of unit in a unit report, with how many: the tooltip is its description. */
+export interface UnitCount {
+  type: string;
+  name: string;
+  keys: string[];
+  count: number;
+  text: string;
+}
+
+/** The military, naval and cargo reports (ReportUnitPanel) share one view; `report` tells which. */
+type UnitsView<K extends 'military' | 'naval' | 'cargo'> = ReportHead<K> & {
+  forces: { name: string; units: UnitCount[] };
+  /** The king's expeditionary force, or null if it has nothing of this kind. */
+  ref: { name: string; units: UnitCount[] } | null;
+  /** The label of an empty place. */
+  none: string;
+  locations: {
+    label: string;
+    link: { kind: 'colony' | 'europe' | 'tile'; id: Id; at: [number, number] | null };
+    units: (UnitRef & {
+      text: string;
+      /** What a carrier holds. */
+      goods: GoodsAmount[];
+      cargo: UnitRef[];
+    })[];
+  }[];
+};
+
 /** The reports of Reports.java, as the Engine sends them. Adding a report adds a member here. */
 export type ReportView =
+  | UnitsView<'military'>
+  | UnitsView<'naval'>
+  | UnitsView<'cargo'>
   | (ReportHead<'colony'> & {
       colonies: {
         id: Id;
@@ -618,6 +649,92 @@ export type ReportView =
         link: { kind: 'unit' | 'colony' | 'europe'; id: string } | null;
         summary: { colonists: number; production: number; net: number; hasNet: boolean };
         rows: { unit: string | null; doing: string; count: number; production: number; counted: boolean }[];
+      }[];
+    })
+  | (ReportHead<'religion'> & {
+      /** Each kind of immigration goods (crosses): the player's store of it, what it needs, and the buildings that make it. */
+      goods: (GoodsAmount & {
+        immigration: number;
+        required: number;
+        production: number;
+        colonies: { id: Id; name: string; building: { id: Id; name: string; keys: string[] }; workers: UnitRef[] }[];
+      })[];
+    })
+  | (ReportHead<'education'> & {
+      /** The titles of the lists of teachers and students, localized. */
+      headers: { teachers: string; students: string };
+      /** One entry for each school; a student's learns is what it would become. */
+      colonies: {
+        id: Id;
+        name: string;
+        building: { id: Id; name: string; keys: string[] };
+        teachers: UnitRef[];
+        students: (UnitRef & { learns: string })[];
+      }[];
+    })
+  | (ReportHead<'exploration'> & {
+      /** The column headers, localized. */
+      headers: { name: string; type: string; discoveredIn: string; discoveredBy: string; value: string };
+      regions: { name: string; type: string; turn: string; by: string; value: number }[];
+    })
+  | (ReportHead<'history'> & { events: { turn: string; text: string }[] })
+  | (ReportHead<'trade'> & {
+      /** The storable goods, with the market's prices; every list of numbers below has one entry for each. */
+      goods: { type: string; name: string; keys: string[]; buy: number | null; sell: number | null }[];
+      labels: {
+        unitsSold: string;
+        beforeTaxes: string;
+        afterTaxes: string;
+        cargoUnits: string;
+        totalUnits: string;
+        totalDelta: string;
+        hasCustomHouse: string;
+      };
+      sold: number[];
+      beforeTaxes: number[];
+      afterTaxes: number[];
+      cargo: number[];
+      total: number[];
+      delta: number[];
+      colonies: {
+        id: Id;
+        name: string;
+        /** It has a custom house. */
+        export: boolean;
+        cells: {
+          amount: number;
+          production: number;
+          /** The level the goods are exported at, or null if they are not. */
+          exported: number | null;
+          /** Why the production is a problem, or null. */
+          warning: string | null;
+        }[];
+      }[];
+    })
+  | (ReportHead<'production'> & {
+      labels: { selectGoods: string; nothing: string; colony: string };
+      /** The goods that are not farmed, with the first level of each building that makes them. */
+      goods: {
+        type: string;
+        name: string;
+        keys: string[];
+        buildings: { id: string; name: string; keys: string[] }[];
+      }[];
+      colonies: {
+        id: Id;
+        name: string;
+        /** One for each goods above: the net production, and for each of its buildings the units in it (null: not built). */
+        cells: { amount: number; buildings: (UnitRef[] | null)[] }[];
+      }[];
+    })
+  | (ReportHead<'requirements'> & {
+      colonies: {
+        id: Id;
+        name: string;
+        /** The advice, a paragraph each; colonies are linked after the text, info being text after a name, such as "(3)". */
+        items: { text: string; colonies: { id: Id; name: string; info: string }[] }[];
+        /** What to say when there is no advice: the colony's requirements are met; null if there is advice. */
+        met: string | null;
       }[];
     });
 

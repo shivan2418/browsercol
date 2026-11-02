@@ -54,6 +54,23 @@ const options: StartOptions = {
         },
       ],
     }),
+    mapGenerator: () => ({
+      id: 'mapGeneratorOptions',
+      kind: 'group',
+      label: 'Map generator',
+      description: null,
+      children: [
+        {
+          id: 'model.option.mapWidth',
+          kind: 'integer',
+          label: 'Map width',
+          description: null,
+          value: 40,
+          min: 30,
+          max: 200,
+        },
+      ],
+    }),
     game: () => ({
       id: 'gameOptions',
       kind: 'group',
@@ -121,4 +138,14 @@ test('an option put back to the level’s own value is not sent, and another lev
   expect(price().value).toBe('40');
   fireEvent.click(document.querySelector('[data-start]')!);
   expect(started[0].options).toEqual({});
+});
+
+test('the map generator options are changed in the editor and sent as the preset’s options', () => {
+  const started = screenWith();
+  const width = () => screen.getByLabelText('Map width') as HTMLInputElement;
+  expect(width().value).toBe('40');
+  fireEvent.change(width(), { target: { value: '120' } });
+  expect(document.querySelector('[data-customize=map] summary')?.textContent).toContain('1 changed');
+  fireEvent.click(document.querySelector('[data-start]')!);
+  expect(started[0].options).toEqual({ 'model.option.mapWidth': 120 });
 });

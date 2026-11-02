@@ -63,7 +63,21 @@ describe('the Report menu', () => {
       within(menu)
         .getAllByRole('menuitem')
         .map((m) => m.textContent),
-    ).toEqual(['Colony report', 'Labour report', 'Compact labour report']);
+    ).toEqual([
+      'Colony report',
+      'Labour report',
+      'Compact labour report',
+      'Military report',
+      'Naval report',
+      'Cargo report',
+      'Education report',
+      'Exploration report',
+      'History report',
+      'Production report',
+      'Religion report',
+      'Requirements report',
+      'Trade report',
+    ]);
     fireEvent.click(within(menu).getByRole('menuitem', { name: 'Compact labour report' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Report' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Colony report' }));
@@ -207,5 +221,319 @@ describe('the compact labour report', () => {
     expect(screen.getByText('Expert Farmer')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'All Colonists' }));
     expect(calls).toEqual(['detail compactLabour ']);
+  });
+});
+
+describe('the military, naval and cargo reports', () => {
+  const unit = { ...colonist, text: 'Free Colonist', goods: [], cargo: [] };
+  const units = (report: 'military' | 'naval' | 'cargo'): ReportView => ({
+    ...head(report),
+    forces: {
+      name: 'English forces',
+      units: [
+        {
+          type: 'model.unit.freeColonist',
+          name: 'Free Colonist',
+          keys: colonist.keys,
+          count: 3,
+          text: '3 Free Colonist',
+        },
+      ],
+    },
+    ref: {
+      name: 'Royal Expeditionary Force',
+      units: [{ type: 'k', name: 'Regular', keys: [], count: 7, text: '7 Regulars' }],
+    },
+    none: 'none',
+    locations: [
+      {
+        label: 'Jamestown',
+        link: { kind: 'colony', id: 'colony:7', at: [1, 2] },
+        units: [
+          { ...unit, goods: [{ type: 'model.goods.food', name: 'Food', keys: [], amount: 50 }], cargo: [colonist] },
+        ],
+      },
+      { label: 'Plymouth', link: { kind: 'colony', id: 'colony:8', at: [5, 6] }, units: [] },
+      { label: 'Europe', link: { kind: 'europe', id: 'europe:1', at: null }, units: [] },
+      { label: 'Tile 3, 4', link: { kind: 'tile', id: 'tile:9', at: [3, 4] }, units: [] },
+    ],
+  });
+
+  it.each(['military', 'naval', 'cargo'] as const)(
+    "shows the %s report: forces, the king's, and each place",
+    (name) => {
+      const { box } = host();
+      show(box, units(name));
+      expect(screen.getByRole('dialog', { name: `Title ${name}` })).toBeTruthy();
+      expect(screen.getByText('English forces')).toBeTruthy();
+      expect(screen.getByText('Royal Expeditionary Force')).toBeTruthy();
+      expect(screen.getByText('7')).toBeTruthy();
+      expect(screen.getByText('3')).toBeTruthy();
+      expect(screen.getByText('50')).toBeTruthy();
+      expect(screen.getAllByText('none')).toHaveLength(3);
+    },
+  );
+
+  it('links each place to its colony, Europe or tile', () => {
+    const { box, calls } = host();
+    show(box, units('military'));
+    fireEvent.click(screen.getByRole('button', { name: 'Jamestown' }));
+    show(box, units('military'));
+    fireEvent.click(screen.getByRole('button', { name: 'Europe' }));
+    show(box, units('military'));
+    fireEvent.click(screen.getByRole('button', { name: 'Tile 3, 4' }));
+    expect(calls).toEqual(['colony colony:7', 'europe', 'goTo 3,4']);
+  });
+});
+
+describe('the religion report', () => {
+  const report: ReportView = {
+    ...head('religion'),
+    goods: [
+      {
+        type: 'model.goods.crosses',
+        name: 'Crosses',
+        keys: [],
+        amount: 0,
+        immigration: 12,
+        required: 40,
+        production: 3,
+        colonies: [
+          {
+            id: 'colony:7',
+            name: 'Jamestown',
+            building: { id: 'building:1', name: 'Chapel', keys: [] },
+            workers: [colonist],
+          },
+        ],
+      },
+    ],
+  };
+
+  it('shows the crosses so far and the buildings that make them, and a colony name opens its panel', () => {
+    const { box, calls } = host();
+    show(box, report);
+    const section = document.querySelector('[data-goods="model.goods.crosses"]') as HTMLElement;
+    expect(within(section).getByText('Crosses')).toBeTruthy();
+    expect(section.querySelector('progress')?.getAttribute('value')).toBe('12');
+    expect(section.querySelector('progress')?.getAttribute('max')).toBe('40');
+    expect(section.querySelector('[data-field="progress"]')?.textContent).toBe('12 / 40 (+3)');
+    expect(section.querySelector('[data-list="workers"] img')?.getAttribute('data-unit')).toBe('unit:1');
+    fireEvent.click(within(section).getByRole('button', { name: 'Jamestown' }));
+    expect(calls).toEqual(['colony colony:7']);
+  });
+});
+
+describe('the education report', () => {
+  const report: ReportView = {
+    ...head('education'),
+    headers: { teachers: 'Potential teachers', students: 'Potential students' },
+    colonies: [
+      {
+        id: 'colony:7',
+        name: 'Jamestown',
+        building: { id: 'building:2', name: 'Schoolhouse', keys: [] },
+        teachers: [{ ...colonist, id: 'unit:2' }],
+        students: [{ ...colonist, learns: 'Carpenter' }],
+      },
+    ],
+  };
+
+  it('lists the teachers and the students of a school, with what a student would learn', () => {
+    const { box, calls } = host();
+    show(box, report);
+    const teachers = document.querySelector('[data-list="teachers"]') as HTMLElement;
+    const students = document.querySelector('[data-list="students"]') as HTMLElement;
+    expect(within(teachers).getByText('Potential teachers')).toBeTruthy();
+    expect(teachers.querySelector('img')?.getAttribute('data-unit')).toBe('unit:2');
+    expect(within(students).getByText('Potential students')).toBeTruthy();
+    expect(students.querySelector('img')?.getAttribute('title')).toBe('Free Colonist: Carpenter');
+    fireEvent.click(screen.getByRole('button', { name: 'Jamestown' }));
+    expect(calls).toEqual(['colony colony:7']);
+  });
+});
+
+describe('the exploration report', () => {
+  it('has a row for each region discovered', () => {
+    const { box } = host();
+    show(box, {
+      ...head('exploration'),
+      headers: { name: 'Name', type: 'Type', discoveredIn: 'In', discoveredBy: 'By', value: 'Value' },
+      regions: [
+        { name: 'Bahamas', type: 'Lake', turn: 'Autumn 1492', by: 'Dutch', value: 20 },
+        { name: 'Yucatan', type: 'Land', turn: 'Spring 1493', by: 'Dutch', value: 35 },
+      ],
+    });
+    const rows = screen.getAllByRole('row').map((r) => Array.from(r.children).map((c) => c.textContent));
+    expect(rows).toEqual([
+      ['Name', 'Type', 'In', 'By', 'Value'],
+      ['Bahamas', 'Lake', 'Autumn 1492', 'Dutch', '20'],
+      ['Yucatan', 'Land', 'Spring 1493', 'Dutch', '35'],
+    ]);
+  });
+});
+
+describe('the history report', () => {
+  it('lists each event with its turn', () => {
+    const { box } = host();
+    show(box, {
+      ...head('history'),
+      events: [
+        { turn: 'Autumn 1492', text: 'You founded Jamestown.' },
+        { turn: 'Spring 1493', text: 'You declared independence.' },
+      ],
+    });
+    const rows = screen.getAllByRole('row').map((r) => Array.from(r.children).map((c) => c.textContent));
+    expect(rows).toEqual([
+      ['Autumn 1492', 'You founded Jamestown.'],
+      ['Spring 1493', 'You declared independence.'],
+    ]);
+  });
+});
+
+describe('the trade report', () => {
+  const report: ReportView = {
+    ...head('trade'),
+    goods: [
+      { type: 'model.goods.food', name: 'Food', keys: [], buy: 5, sell: 4 },
+      { type: 'model.goods.sugar', name: 'Sugar', keys: [], buy: 6, sell: 5 },
+    ],
+    labels: {
+      unitsSold: 'Units sold',
+      beforeTaxes: 'Before taxes',
+      afterTaxes: 'After taxes',
+      cargoUnits: 'In ships',
+      totalUnits: 'Total',
+      totalDelta: 'Change',
+      hasCustomHouse: '* has a custom house',
+    },
+    sold: [10, 0],
+    beforeTaxes: [40, 0],
+    afterTaxes: [36, 0],
+    cargo: [3, 1],
+    total: [50, 6],
+    delta: [4, -2],
+    colonies: [
+      {
+        id: 'colony:7',
+        name: 'Jamestown',
+        export: true,
+        cells: [
+          { amount: 40, production: 5, exported: 100, warning: null },
+          { amount: 2, production: -2, exported: null, warning: 'Sugar will run out' },
+        ],
+      },
+    ],
+  };
+
+  it('shows the totals by goods and a stock and net production for each colony', () => {
+    const { box, calls } = host();
+    show(box, report);
+    const text = (row: string) =>
+      Array.from(document.querySelector(`[data-row="${row}"]`)!.children).map((c) => c.textContent);
+    expect(text('unitsSold')).toEqual(['Units sold', '10', '0']);
+    expect(text('afterTaxes')).toEqual(['After taxes', '36', '0']);
+    expect(text('cargoUnits')).toEqual(['In ships', '3', '1']);
+    expect(text('totalUnits')).toEqual(['Total', '50', '6']);
+    expect(text('totalDelta')).toEqual(['Change', '+4', '-2']);
+    expect(Array.from(document.querySelectorAll('thead th')).map((h) => h.textContent)).toEqual(['4/5', '5/6']);
+    const row = document.querySelector('[data-colony="colony:7"]')!;
+    expect(Array.from(row.children).map((c) => c.textContent)).toEqual(['Jamestown*', '40+5', '2-2']);
+    expect(row.children[2].getAttribute('title')).toBe('Sugar will run out');
+    expect(row.children[1].getAttribute('title')).toBe('Food: exported at 100');
+    fireEvent.click(screen.getByRole('button', { name: 'Jamestown*' }));
+    expect(calls).toEqual(['colony colony:7']);
+  });
+});
+
+describe('the production report', () => {
+  const report: ReportView = {
+    ...head('production'),
+    labels: { selectGoods: 'Select goods', nothing: 'Nothing', colony: 'Colony' },
+    goods: [
+      {
+        type: 'model.goods.hammers',
+        name: 'Hammers',
+        keys: [],
+        buildings: [{ id: 'model.building.carpenterHouse', name: "Carpenter's House", keys: [] }],
+      },
+      {
+        type: 'model.goods.rum',
+        name: 'Rum',
+        keys: [],
+        buildings: [{ id: 'model.building.rumDistillerHouse', name: "Rum Distiller's House", keys: [] }],
+      },
+    ],
+    colonies: [
+      {
+        id: 'colony:7',
+        name: 'Jamestown',
+        cells: [
+          { amount: 3, buildings: [[colonist]] },
+          { amount: -1, buildings: [null] },
+        ],
+      },
+    ],
+  };
+
+  it('shows nothing until goods are picked, then each colony with the units in the buildings', () => {
+    const { box, calls } = host();
+    show(box, report);
+    expect(document.querySelector('table')).toBeNull();
+    fireEvent.change(screen.getByLabelText('Select goods 1'), { target: { value: '0' } });
+    fireEvent.change(screen.getByLabelText('Select goods 2'), { target: { value: '1' } });
+    const row = document.querySelector('[data-colony="colony:7"]')!;
+    expect(Array.from(row.children).map((c) => c.textContent)).toEqual(['Jamestown', '+3', '', '-1', '']);
+    expect(row.querySelector('[data-building="model.building.carpenterHouse"] img')?.getAttribute('data-unit')).toBe(
+      'unit:1',
+    );
+    expect(Array.from(document.querySelectorAll('thead th')).map((h) => h.textContent)).toEqual([
+      'Colony',
+      'Hammers',
+      'Rum',
+    ]);
+    // Back to Nothing, and the goods leave the table.
+    fireEvent.change(screen.getByLabelText('Select goods 2'), { target: { value: '' } });
+    expect(Array.from(document.querySelectorAll('thead th')).map((h) => h.textContent)).toEqual(['Colony', 'Hammers']);
+    fireEvent.click(screen.getByRole('button', { name: 'Jamestown' }));
+    expect(calls).toEqual(['colony colony:7']);
+  });
+});
+
+describe('the requirements report', () => {
+  const report: ReportView = {
+    ...head('requirements'),
+    colonies: [
+      {
+        id: 'colony:7',
+        name: 'Jamestown',
+        items: [
+          { text: 'Jamestown has no Expert Farmer.', colonies: [] },
+          {
+            text: 'Colonies with a surplus of food:',
+            colonies: [
+              { id: 'colony:8', name: 'Plymouth', info: ' (3)' },
+              { id: 'colony:9', name: 'Salem', info: ' (1)' },
+            ],
+          },
+        ],
+        met: null,
+      },
+      { id: 'colony:8', name: 'Plymouth', items: [], met: 'All requirements are met.' },
+    ],
+  };
+
+  it('lists the advice of a colony with the colonies it links, and says when there is none', () => {
+    const { box, calls } = host();
+    show(box, report);
+    const jamestown = document.querySelector('section[data-colony="colony:7"]') as HTMLElement;
+    expect(Array.from(jamestown.querySelectorAll('p')).map((p) => p.textContent)).toEqual([
+      'Jamestown has no Expert Farmer.',
+      'Colonies with a surplus of food: Plymouth (3), Salem (1)',
+    ]);
+    const plymouth = document.querySelector('section[data-colony="colony:8"]') as HTMLElement;
+    expect(plymouth.querySelector('p')?.textContent).toBe('All requirements are met.');
+    fireEvent.click(within(jamestown).getByRole('button', { name: 'Salem' }));
+    expect(calls).toEqual(['colony colony:9']);
   });
 });

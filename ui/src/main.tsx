@@ -464,7 +464,7 @@ async function run() {
           return show('running');
         case 'finished':
           await drawn; // let the last map land before reporting
-          return show('finished', { turn: detail });
+          return show('finished', { turn: detail, mapSize: view.map ? [view.map.w, view.map.h] : null });
         case 'failed':
           return show('failed', { error: detail });
         case 'saved': {

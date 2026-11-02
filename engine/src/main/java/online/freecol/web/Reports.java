@@ -1,7 +1,9 @@
 package online.freecol.web;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -9,17 +11,26 @@ import java.util.Map;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.client.gui.panel.report.LabourData;
 import net.sf.freecol.common.i18n.Messages;
+import net.sf.freecol.common.model.Ability;
+import net.sf.freecol.common.model.AbstractUnit;
 import net.sf.freecol.common.model.BuildableType;
 import net.sf.freecol.common.model.Building;
+import net.sf.freecol.common.model.BuildingType;
 import net.sf.freecol.common.model.Colony;
 import net.sf.freecol.common.model.Europe;
+import net.sf.freecol.common.model.ExportData;
 import net.sf.freecol.common.model.FreeColObject;
+import net.sf.freecol.common.model.Goods;
 import net.sf.freecol.common.model.GoodsType;
+import net.sf.freecol.common.model.HistoryEvent;
 import net.sf.freecol.common.model.Location;
+import net.sf.freecol.common.model.Market;
 import net.sf.freecol.common.model.Player;
+import net.sf.freecol.common.model.Region;
 import net.sf.freecol.common.model.Specification;
 import net.sf.freecol.common.model.StringTemplate;
 import net.sf.freecol.common.model.Tile;
+import net.sf.freecol.common.model.TypeCountMap;
 import net.sf.freecol.common.model.Unit;
 import net.sf.freecol.common.model.UnitType;
 import net.sf.freecol.common.model.WorkLocation;
@@ -30,10 +41,14 @@ import net.sf.freecol.common.model.WorkLocation;
  * the information of the Swing panels: the classic colony report
  * (ReportClassicColonyPanel), the labour report (ReportLabourPanel and
  * ReportLabourDetailPanel) and the compact labour report
- * (CompactLabourReport, on LabourData). Every payload is one object of the
- * {@code report} event, told apart by its {@code report} field: colony,
- * labour, labourDetail or compactLabour. Each has title, ok (the button's
- * label) and back, the report the button returns to (or null).
+ * (CompactLabourReport, on LabourData), the military, naval and cargo
+ * reports (ReportUnitPanel and its three subclasses), and the religion,
+ * education, exploration, history, trade, production and requirements
+ * reports. Every payload is one object of the {@code report} event, told
+ * apart by its {@code report} field: colony, labour, labourDetail,
+ * compactLabour, military, naval, cargo, religion, education, exploration,
+ * history, trade, production or requirements. Each has title, ok (the
+ * button's label) and back, the report the button returns to (or null).
  *
  * <p>To add a report: write its builder here, giving it a new {@code report}
  * name; add its show method to the WebGUI (it sends the event) and its name
@@ -121,6 +136,313 @@ final class Reports {
         }
         return head("colony", "reportColonyAction", null)
             .putRaw("colonies", Json.array(colonies)).toString();
+    }
+
+    /** A building: {id, name, keys}. */
+    private static Json building(Building b) {
+        return new Json().put("id", b.getId())
+            .put("name", Messages.getName(b))
+            .putRaw("keys", ObjectImages.json(b.getType()));
+    }
+
+    /**
+     * The religion report (ReportReligiousPanel): for each kind of
+     * immigration goods {type, name, keys, immigration, required,
+     * production (all colonies' and Europe's), colonies: [{id, name,
+     * building ({id, name, keys}), workers (the units in it)}]}, the
+     * colonies whose building makes that goods.
+     */
+    static String religion(Player player) {
+        final Specification spec = player.getSpecification();
+        final List<String> kinds = new ArrayList<>();
+        for (GoodsType gt : spec.getImmigrationGoodsTypeList()) {
+            final List<String> colonies = new ArrayList<>();
+            for (Colony colony : player.getColonyList()) {
+                final List<WorkLocation> wls = colony.getWorkLocationsForProducing(gt);
+                final WorkLocation wl = wls.isEmpty() ? null : wls.get(0);
+                if (!(wl instanceof Building)) continue;
+                final Building b = (Building)wl;
+                colonies.add(new Json().put("id", colony.getId())
+                    .put("name", colony.getName())
+                    .putRaw("building", building(b).toString())
+                    .putRaw("workers", ColonyJson.unitList(b.getUnitList()))
+                    .toString());
+            }
+            kinds.add(ColonyJson.goods(gt, 0)
+                .put("immigration", player.getImmigration())
+                .put("required", player.getImmigrationRequired())
+                .put("production", player.getTotalImmigrationProduction())
+                .putRaw("colonies", Json.array(colonies))
+                .toString());
+        }
+        return head("religion", "reportReligionAction", null)
+            .putRaw("goods", Json.array(kinds)).toString();
+    }
+
+    /**
+     * The education report (ReportEducationPanel): {headers: {teachers,
+     * students}, colonies: [{id, name, building ({id, name, keys}), teachers
+     * (the units that could teach there, least skilled first), students
+     * (colonists who could learn from one of them, each with learns: what
+     * they would become)}]}, one entry for each school.
+     */
+    static String education(Player player) {
+        final List<String> colonies = new ArrayList<>();
+        for (Colony colony : player.getColonyList()) {
+            for (Building b : colony.getBuildings()) {
+                if (!b.canTeach()) continue;
+                final List<Unit> teachers = new ArrayList<>();
+                for (Unit u : colony.getUnitList()) if (b.canAdd(u)) teachers.add(u);
+                teachers.sort(Unit.increasingSkillComparator);
+                final List<String> students = new ArrayList<>();
+                for (Unit u : colony.getUnitList()) {
+                    Unit teacher = null;
+                    for (Unit t : teachers) {
+                        if (u.canBeStudent(t)) { teacher = t; break; }
+                    }
+                    if (teacher == null) continue;
+                    students.add(ColonyJson.unit(u).put("learns", Messages.message(
+                        StringTemplate.template("report.education.tooltip")
+                            .addNamed("%skill%", u.getTeachingType(teacher)))).toString());
+                }
+                colonies.add(new Json().put("id", colony.getId())
+                    .put("name", colony.getName())
+                    .putRaw("building", building(b).toString())
+                    .putRaw("teachers", ColonyJson.unitList(teachers))
+                    .putRaw("students", Json.array(students))
+                    .toString());
+            }
+        }
+        return head("education", "reportEducationAction", null)
+            .putRaw("headers", new Json()
+                .put("teachers", Messages.message("report.education.teachers"))
+                .put("students", Messages.message("report.education.students"))
+                .toString())
+            .putRaw("colonies", Json.array(colonies)).toString();
+    }
+
+    /**
+     * Discovered regions as ReportExplorationPanel sorts them: the earliest
+     * turn first (its comparator is reversed twice), the most valuable first
+     * within a turn.
+     */
+    private static final Comparator<Region> REGIONS
+        = Comparator.comparingInt((Region r) -> r.getDiscoveredIn().getNumber()).reversed()
+            .thenComparingInt(Region::getScoreValue).reversed();
+
+    /**
+     * The exploration report (ReportExplorationPanel): {headers: {name, type,
+     * discoveredIn, discoveredBy, value}, regions: [{name, type, turn, by,
+     * value}]}, the regions anyone has discovered.
+     */
+    static String exploration(Player player) {
+        final List<Region> found = new ArrayList<>();
+        for (Region r : player.getGame().getMap().getRegions()) {
+            if (r.getDiscoveredIn() != null) found.add(r);
+        }
+        found.sort(REGIONS);
+        final List<String> regions = new ArrayList<>();
+        for (Region r : found) {
+            regions.add(new Json().put("name", r.getName())
+                .put("type", Messages.message(r.getType().getNameKey()))
+                .put("turn", Messages.message(r.getDiscoveredIn().getLabel()))
+                .put("by", Messages.message(r.getDiscoveredBy().getCountryLabel()))
+                .put("value", r.getScoreValue()).toString());
+        }
+        return head("exploration", "reportExplorationAction", null)
+            .putRaw("headers", new Json()
+                .put("name", Messages.message("report.exploration.nameOfRegion"))
+                .put("type", Messages.message("report.exploration.typeOfRegion"))
+                .put("discoveredIn", Messages.message("report.exploration.discoveredIn"))
+                .put("discoveredBy", Messages.message("report.exploration.discoveredBy"))
+                .put("value", Messages.message("report.exploration.valueOfRegion"))
+                .toString())
+            .putRaw("regions", Json.array(regions)).toString();
+    }
+
+    /**
+     * The history report (ReportHistoryPanel): {events: [{turn, text}]},
+     * the player's history in the order it happened.
+     */
+    static String history(Player player) {
+        final List<String> events = new ArrayList<>();
+        for (HistoryEvent e : player.getHistory()) {
+            events.add(new Json().put("turn", Messages.message(e.getTurn().getLabel()))
+                .put("text", Messages.message(e)).toString());
+        }
+        return head("history", "reportHistoryAction", null)
+            .putRaw("events", Json.array(events)).toString();
+    }
+
+    /**
+     * The trade report (ReportTradePanel): {goods: [{type, name, keys, buy,
+     * sell (the market's prices, or null)}] (the storable goods, whose
+     * order every list below follows), labels: {unitsSold, beforeTaxes,
+     * afterTaxes, cargoUnits, totalUnits, totalDelta, hasCustomHouse},
+     * sold, beforeTaxes, afterTaxes (what the player has sold and earned of
+     * each), cargo (in the player's ships), total (in ships and colonies),
+     * delta (the colonies' net production), colonies: [{id, name, export
+     * (it has a custom house), cells: [{amount (in store), production (net),
+     * exported (the level it is exported at, or null), warning (why its
+     * production is a problem, or null)}]}]}.
+     */
+    static String trade(Player player) {
+        final Specification spec = player.getSpecification();
+        final List<GoodsType> storable = spec.getStorableGoodsTypeList();
+        final Market market = player.getMarket();
+        final TypeCountMap<GoodsType> total = new TypeCountMap<>();
+        final TypeCountMap<GoodsType> delta = new TypeCountMap<>();
+        final TypeCountMap<GoodsType> cargo = new TypeCountMap<>();
+        for (Unit unit : player.getUnitSet()) {
+            if (!unit.isCarrier()) continue;
+            for (Goods g : unit.getCompactGoodsList()) {
+                cargo.incrementCount(g.getType(), g.getAmount());
+                total.incrementCount(g.getType(), g.getAmount());
+            }
+        }
+        final List<String> colonies = new ArrayList<>();
+        for (Colony colony : player.getColonyList()) {
+            // The production is cached; the report is read after the server's updates.
+            colony.invalidateCache();
+            for (GoodsType gt : spec.getGoodsTypeList()) {
+                delta.incrementCount(gt, colony.getNetProductionOf(gt));
+            }
+            for (Goods g : colony.getCompactGoodsList()) {
+                total.incrementCount(g.getType(), g.getAmount());
+            }
+            final List<String> cells = new ArrayList<>();
+            for (GoodsType gt : storable) {
+                final ExportData ed = colony.getExportData(gt);
+                final List<String> warnings = new ArrayList<>();
+                for (StringTemplate w : colony.getProductionWarnings(gt)) {
+                    warnings.add(Messages.message(w));
+                }
+                cells.add(new Json().put("amount", colony.getGoodsCount(gt))
+                    .put("production", colony.getNetProductionOf(gt))
+                    .putRaw("exported", ed.getExported()
+                        ? String.valueOf(ed.getExportLevel()) : "null")
+                    .put("warning", warnings.isEmpty() ? null : String.join(" ", warnings))
+                    .toString());
+            }
+            colonies.add(new Json().put("id", colony.getId())
+                .put("name", colony.getName())
+                .put("export", colony.hasAbility(Ability.EXPORT))
+                .putRaw("cells", Json.array(cells)).toString());
+        }
+        final List<String> goods = new ArrayList<>();
+        final List<String> sold = new ArrayList<>();
+        final List<String> before = new ArrayList<>();
+        final List<String> after = new ArrayList<>();
+        final List<String> cargos = new ArrayList<>();
+        final List<String> totals = new ArrayList<>();
+        final List<String> deltas = new ArrayList<>();
+        for (GoodsType gt : storable) {
+            goods.add(new Json().put("type", gt.getId())
+                .put("name", Messages.getName(gt))
+                .putRaw("keys", ObjectImages.json(gt))
+                .putRaw("buy", (market == null) ? "null"
+                    : String.valueOf(market.getCostToBuy(gt)))
+                .putRaw("sell", (market == null) ? "null"
+                    : String.valueOf(market.getPaidForSale(gt)))
+                .toString());
+            sold.add(String.valueOf(player.getSales(gt)));
+            before.add(String.valueOf(player.getIncomeBeforeTaxes(gt)));
+            after.add(String.valueOf(player.getIncomeAfterTaxes(gt)));
+            cargos.add(String.valueOf(cargo.getCount(gt)));
+            totals.add(String.valueOf(total.getCount(gt)));
+            deltas.add(String.valueOf(delta.getCount(gt)));
+        }
+        return head("trade", "reportTradeAction", null)
+            .putRaw("goods", Json.array(goods))
+            .putRaw("labels", new Json()
+                .put("unitsSold", Messages.message("report.trade.unitsSold"))
+                .put("beforeTaxes", Messages.message("report.trade.beforeTaxes"))
+                .put("afterTaxes", Messages.message("report.trade.afterTaxes"))
+                .put("cargoUnits", Messages.message("report.trade.cargoUnits"))
+                .put("totalUnits", Messages.message("report.trade.totalUnits"))
+                .put("totalDelta", Messages.message("report.trade.totalDelta"))
+                .put("hasCustomHouse", Messages.message("report.trade.hasCustomHouse"))
+                .toString())
+            .putRaw("sold", Json.array(sold))
+            .putRaw("beforeTaxes", Json.array(before))
+            .putRaw("afterTaxes", Json.array(after))
+            .putRaw("cargo", Json.array(cargos))
+            .putRaw("total", Json.array(totals))
+            .putRaw("delta", Json.array(deltas))
+            .putRaw("colonies", Json.array(colonies)).toString();
+    }
+
+    /**
+     * The production report (ReportProductionPanel): {labels: {selectGoods,
+     * nothing, colony}, goods: [{type, name, keys, buildings: [{id, name,
+     * keys}]}] (the goods that are not farmed, and the first level of each
+     * building that makes them or has a modifier for them), colonies: [{id,
+     * name, cells: [{amount (the colony's net production), buildings:
+     * [workers or null, one for each building above: the units in the
+     * colony's building, null if it has none]}]}], one cell for each goods
+     * above}. The player picks the goods to show; the Browser UI does that.
+     */
+    static String production(Player player) {
+        final Specification spec = player.getSpecification();
+        final List<GoodsType> kinds = new ArrayList<>();
+        final List<List<BuildingType>> makers = new ArrayList<>();
+        final List<String> goods = new ArrayList<>();
+        for (GoodsType gt : spec.getGoodsTypeList()) {
+            if (gt.isFarmed()) continue;
+            final List<BuildingType> bts = new ArrayList<>();
+            for (BuildingType bt : spec.getBuildingTypeList()) {
+                if (gt == bt.getProducedGoodsType() || bt.hasModifier(gt.getId())) {
+                    final BuildingType first = bt.getFirstLevel();
+                    if (!bts.contains(first)) bts.add(first);
+                }
+            }
+            kinds.add(gt);
+            makers.add(bts);
+            final List<String> buildings = new ArrayList<>();
+            for (BuildingType bt : bts) {
+                buildings.add(new Json().put("id", bt.getId())
+                    .put("name", Messages.getName(bt))
+                    .putRaw("keys", ObjectImages.json(bt)).toString());
+            }
+            goods.add(new Json().put("type", gt.getId())
+                .put("name", Messages.getName(gt))
+                .putRaw("keys", ObjectImages.json(gt))
+                .putRaw("buildings", Json.array(buildings)).toString());
+        }
+        final List<String> colonies = new ArrayList<>();
+        for (Colony colony : player.getColonyList()) {
+            colony.invalidateCache();
+            final List<String> cells = new ArrayList<>();
+            for (int i = 0; i < kinds.size(); i++) {
+                final List<String> in = new ArrayList<>();
+                for (BuildingType bt : makers.get(i)) {
+                    final Building b = colony.getBuilding(bt);
+                    in.add((b == null) ? "null" : ColonyJson.unitList(b.getUnitList()));
+                }
+                cells.add(new Json().put("amount", colony.getNetProductionOf(kinds.get(i)))
+                    .putRaw("buildings", Json.array(in)).toString());
+            }
+            colonies.add(new Json().put("id", colony.getId())
+                .put("name", colony.getName())
+                .putRaw("cells", Json.array(cells)).toString());
+        }
+        return head("production", "reportProductionAction", null)
+            .putRaw("labels", new Json()
+                .put("selectGoods", Messages.message("report.production.selectGoods"))
+                .put("nothing", Messages.message("nothing"))
+                .put("colony", Messages.message("Colony"))
+                .toString())
+            .putRaw("goods", Json.array(goods))
+            .putRaw("colonies", Json.array(colonies)).toString();
+    }
+
+    /**
+     * The requirements report (ReportRequirementsPanel), as {@link
+     * Requirements} describes: {colonies: [{id, name, items, met}]}.
+     */
+    static String requirements(Player player) {
+        return head("requirements", "reportRequirementsAction", null)
+            .putRaw("colonies", Requirements.of(player)).toString();
     }
 
     /** Where ReportLabourPanel counts a unit: its settlement, Europe, else its tile. */
@@ -357,5 +679,128 @@ final class Reports {
                               boolean counted) {
         return new Json().put("unit", unit).put("doing", doing).put("count", count)
             .put("production", production).put("counted", counted).toString();
+    }
+
+    /** Whether a unit is in the unit report of this kind (isReportable of the three panels). */
+    private static boolean reportable(String kind, Unit u) {
+        switch (kind) {
+        case "military":
+            return !u.isNaval() && (u.hasAbility(Ability.EXPERT_SOLDIER) || u.isOffensiveUnit());
+        case "naval": return u.isNaval();
+        default: return u.isCarrier() || u.canCarryTreasure();
+        }
+    }
+
+    /** Whether a REF unit is in the unit report of this kind (isReportableREF). */
+    private static boolean reportableREF(String kind, AbstractUnit au, Specification spec) {
+        switch (kind) {
+        case "military": return !au.getType(spec).isNaval();
+        case "naval": return au.getType(spec).isNaval();
+        default: return false;
+        }
+    }
+
+    private static final Comparator<AbstractUnit> MOST_COMMON
+        = Comparator.comparingInt(AbstractUnit::getNumber).reversed();
+
+    /** An abstract unit: {type, name, keys, count, text}, the text being its tooltip. */
+    private static String abstractUnit(AbstractUnit au, Specification spec) {
+        final UnitType t = au.getType(spec);
+        return new Json().put("type", t.getId()).put("name", Messages.getName(t))
+            .putRaw("keys", "[" + Json.quote(ObjectImages.unitKey(t, au.getRoleId())) + "]")
+            .put("count", au.getNumber()).put("text", au.getDescription()).toString();
+    }
+
+    /**
+     * The military, naval or cargo report (ReportUnitPanel): {forces:
+     * {name, units: [{type, name, keys, count, text}]} (the player's
+     * reportable units, most common first), ref: the same for the king's
+     * expeditionary force, or null, locations: [{label, link, units}]}.
+     * Locations are colonies, Europe and then the rest by id; the military
+     * report lists every colony, the others only places with units. A
+     * location's link is {kind: colony, europe or tile, id, at}, and each
+     * unit {id, name, keys, text, goods: [{type, name, keys, amount}],
+     * cargo: [{id, name, keys}]} (what a carrier holds).
+     */
+    static String units(FreeColClient client, String kind) {
+        final Player player = client.getMyPlayer();
+        final Specification spec = player.getSpecification();
+        final Map<Location, List<Unit>> where = new HashMap<>();
+        final List<AbstractUnit> forces = new ArrayList<>();
+        for (Unit u : player.getUnitSet()) {
+            if (!reportable(kind, u)) continue;
+            where.computeIfAbsent(u.getLocation().up(), l -> new ArrayList<>()).add(u);
+            AbstractUnit found = null;
+            for (AbstractUnit au : forces) {
+                if (AbstractUnit.matcher(u).test(au)) { found = au; break; }
+            }
+            if (found == null) forces.add(new AbstractUnit(u.getType(), u.getRole().getId(), 1));
+            else found.addToNumber(1);
+        }
+        forces.sort(MOST_COMMON);
+        final List<AbstractUnit> refUnits = new ArrayList<>();
+        final List<AbstractUnit> all = player.getREFUnits();
+        if (all != null) {
+            for (AbstractUnit au : all) {
+                if (reportableREF(kind, au, spec)) refUnits.add(au);
+            }
+            refUnits.sort(MOST_COMMON);
+        }
+
+        final List<Location> order = new ArrayList<>();
+        for (Location l : where.keySet()) {
+            if (!(l instanceof Colony || l instanceof Europe)) order.add(l);
+        }
+        order.sort(Comparator.comparing(Location::getId));
+        if (player.getEurope() != null) order.add(0, player.getEurope());
+        order.addAll(0, player.getSortedColonies(client.getClientOptions().getColonyComparator()));
+
+        final List<String> places = new ArrayList<>();
+        for (Location l : order) {
+            final List<Unit> present = new ArrayList<>(where.getOrDefault(l, Collections.<Unit>emptyList()));
+            if (present.isEmpty() && !kind.equals("military")) continue;
+            present.sort(Unit.typeRoleComparator);
+            final Tile tile = l.getTile();
+            final List<String> units = new ArrayList<>();
+            for (Unit u : present) {
+                final List<String> goods = new ArrayList<>();
+                final List<String> cargo = new ArrayList<>();
+                if (u.isCarrier()) {
+                    for (Goods g : u.getGoodsList()) {
+                        goods.add(ColonyJson.goods(g.getType(), g.getAmount()).toString());
+                    }
+                    for (Unit c : u.getUnitList()) cargo.add(ColonyJson.unit(c).toString());
+                }
+                final String destination = (u.getDestination() == null) ? ""
+                    : "\n" + Messages.message(u.getDestinationLabel());
+                units.add(ColonyJson.unit(u)
+                    .put("text", Messages.message(u.getLabel()) + destination)
+                    .putRaw("goods", Json.array(goods))
+                    .putRaw("cargo", Json.array(cargo)).toString());
+            }
+            final String linkKind = (l instanceof Colony) ? "colony"
+                : (l instanceof Europe) ? "europe" : "tile";
+            places.add(new Json().put("label", Messages.message(l.getLocationLabelFor(player)))
+                .putRaw("link", new Json().put("kind", linkKind).put("id", l.getId())
+                    .putRaw("at", (l instanceof Europe) ? "null" : MapJson.xy(tile)).toString())
+                .putRaw("units", Json.array(units)).toString());
+        }
+
+        final List<String> mine = new ArrayList<>();
+        for (AbstractUnit au : forces) {
+            if (au.getNumber() > 0) mine.add(abstractUnit(au, spec));
+        }
+        final List<String> theirs = new ArrayList<>();
+        for (AbstractUnit au : refUnits) theirs.add(abstractUnit(au, spec));
+        return head(kind, "report" + Character.toUpperCase(kind.charAt(0)) + kind.substring(1) + "Action", null)
+            .putRaw("forces", new Json()
+                .put("name", Messages.message(player.getForcesLabel()))
+                .putRaw("units", Json.array(mine)).toString())
+            .putRaw("ref", theirs.isEmpty() ? "null" : new Json()
+                .put("name", Messages.getName(player.getNation().getREFNation()))
+                .putRaw("units", Json.array(theirs)).toString())
+            .put("none", Messages.message("none"))
+            .putRaw("locations", Json.array(places))
+            .toString();
     }
 }
