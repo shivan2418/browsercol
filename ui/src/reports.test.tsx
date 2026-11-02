@@ -70,9 +70,12 @@ describe('the Report menu', () => {
       'Military report',
       'Naval report',
       'Cargo report',
+      'Continental Congress report',
       'Education report',
       'Exploration report',
+      'Foreign affairs report',
       'History report',
+      'Native affairs report',
       'Production report',
       'Religion report',
       'Requirements report',
@@ -535,5 +538,148 @@ describe('the requirements report', () => {
     expect(plymouth.querySelector('p')?.textContent).toBe('All requirements are met.');
     fireEvent.click(within(jamestown).getByRole('button', { name: 'Salem' }));
     expect(calls).toEqual(['colony colony:9']);
+  });
+});
+
+describe('the foreign affairs report', () => {
+  const labels = {
+    stance: 'Stance',
+    colonies: 'Colonies',
+    units: 'Units',
+    military: 'Military',
+    naval: 'Naval',
+    gold: 'Gold',
+    fathers: 'Founding Fathers',
+    tax: 'Tax',
+    sol: 'Sons of Liberty',
+  };
+  const nation = { stance: 'Peace', colonies: 3, units: 12, military: 5, naval: 2, gold: 400, keys: [] };
+  const report: ReportView = {
+    ...head('foreign'),
+    labels,
+    notice: 'Some figures are estimates.',
+    nations: [
+      { id: 'p:1', name: 'England', ...nation, fathers: 4, tax: 20, sol: 35 },
+      { id: 'p:2', name: 'France', ...nation, fathers: null, tax: null, sol: null },
+    ],
+  };
+
+  it('shows what is known of each nation, and leaves out what we have not learnt', () => {
+    const { box } = host();
+    show(box, report);
+    const fields = (id: string) =>
+      Array.from(document.querySelectorAll(`section[data-nation="${id}"] [data-field]`)).map((f) => f.textContent);
+    expect(fields('p:1')).toEqual([
+      'StancePeace',
+      'Colonies3',
+      'Units12',
+      'Military5',
+      'Naval2',
+      'Gold400',
+      'Founding Fathers4',
+      'Tax20%',
+      'Sons of Liberty35%',
+    ]);
+    expect(fields('p:2')).toEqual(['StancePeace', 'Colonies3', 'Units12', 'Military5', 'Naval2', 'Gold400']);
+    expect(screen.getByText('Some figures are estimates.')).toBeTruthy();
+  });
+});
+
+describe('the native affairs report', () => {
+  const report: ReportView = {
+    ...head('indian'),
+    labels: {
+      chieftain: 'Chieftain',
+      kind: 'Settlements',
+      settlements: 'Number',
+      tension: 'Tension',
+      none: 'No known settlements.',
+      columns: ['Settlement', 'Mission', 'Tension', 'Skill', 'Most hated', 'Trade'],
+    },
+    tribes: [
+      {
+        id: 'p:9',
+        name: 'Inca',
+        keys: [],
+        chieftain: 'Huayna',
+        kind: 'City',
+        settlements: '1 / 4',
+        tension: 'Content (Peace)',
+        rows: [
+          {
+            id: 'tile:5',
+            at: [5, 6],
+            name: 'Cuzco*',
+            mission: { text: 'Jesuit Missionary', keys: [] },
+            alarm: 'Wary',
+            skill: { text: 'Free Colonist', keys: ['image.unit.model.unit.freeColonist'] },
+            hated: 'Dutch',
+            wanted: [{ text: 'Food', keys: null }],
+          },
+        ],
+      },
+      {
+        id: 'p:10',
+        name: 'Aztec',
+        keys: [],
+        chieftain: 'Montezuma',
+        kind: 'City',
+        settlements: '0 / ?',
+        tension: 'Happy (Peace)',
+        rows: [],
+      },
+    ],
+  };
+
+  it('shows each tribe and its settlements, and a settlement links to its tile', () => {
+    const { box, calls } = host();
+    show(box, report);
+    const inca = document.querySelector('section[data-tribe="p:9"]') as HTMLElement;
+    expect(inca.querySelector('[data-field="settlements"]')?.textContent).toBe('Number1 / 4');
+    expect(inca.querySelector('[data-cell="skill"] img')?.getAttribute('src')).toBe('art/colonist.png');
+    expect(inca.querySelector('[data-cell="wanted"]')?.textContent).toBe('Food');
+    expect(inca.querySelector('[data-cell="hated"]')?.textContent).toBe('Dutch');
+    const aztec = document.querySelector('section[data-tribe="p:10"]') as HTMLElement;
+    expect(aztec.textContent).toContain('No known settlements.');
+    expect(aztec.querySelector('table')).toBeNull();
+    fireEvent.click(within(inca).getByRole('button', { name: 'Cuzco*' }));
+    expect(calls).toEqual(['goTo 5,6']);
+  });
+});
+
+describe('the Continental Congress report', () => {
+  const father = { description: 'Wise', keys: [], kind: 'Political', turn: null };
+  const report: ReportView = {
+    ...head('congress'),
+    labels: { recruiting: 'Recruiting', none: 'None' },
+    current: {
+      id: 'f:2',
+      name: 'Jefferson',
+      description: 'Wise',
+      keys: [],
+      cost: 100,
+      liberty: 40,
+      production: [{ type: 'model.goods.bells', name: 'Bells', keys: [], amount: 6 }],
+    },
+    fathers: [
+      { id: 'f:1', name: 'Franklin', ...father, state: 'elected', status: 'Elected in 1500', turn: '1500' },
+      { id: 'f:2', name: 'Jefferson', ...father, state: 'recruiting', status: 'Recruiting' },
+      { id: 'f:3', name: 'Paine', ...father, state: 'available', status: 'Available' },
+    ],
+  };
+
+  it('shows the father being recruited and every father with its state', () => {
+    const { box } = host();
+    show(box, report);
+    expect(document.querySelector('[data-current="f:2"] [data-field="progress"]')?.textContent).toBe('40 / 100');
+    const state = (id: string) => document.querySelector(`[data-father="${id}"]`)?.getAttribute('data-state');
+    expect([state('f:1'), state('f:2'), state('f:3')]).toEqual(['elected', 'recruiting', 'available']);
+    expect(document.querySelector('[data-father="f:1"] [data-field="status"]')?.textContent).toBe('Elected in 1500');
+  });
+
+  it('says so when no father is being recruited', () => {
+    const { box } = host();
+    show(box, { ...report, current: null });
+    expect(document.querySelector('[data-section="recruiting"]')?.textContent).toContain('None');
   });
 });

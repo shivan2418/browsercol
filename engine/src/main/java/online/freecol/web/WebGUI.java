@@ -210,7 +210,8 @@ import net.sf.freecol.common.option.OptionGroup;
  *     showReportReligiousPanel, showReportEducationPanel,
  *     showReportExplorationPanel, showReportHistoryPanel,
  *     showReportTradePanel, showReportProductionPanel,
- *     showReportRequirementsPanel</td>
+ *     showReportRequirementsPanel, showReportForeignAffairPanel,
+ *     showReportIndianPanel, showReportContinentalCongressPanel</td>
  *     <td>event report</td>
  *     <td>one of the reports {@link Reports} describes, told apart by its
  *         report field; a report that is open is replaced, so a link to a
@@ -1633,6 +1634,27 @@ public class WebGUI extends GUI {
     @Override
     public FreeColPanel showReportRequirementsPanel() {
         this.ui.show("report", Reports.requirements(getMyPlayer()));
+        return null;
+    }
+
+    /** {@inheritDoc} Shows the foreign affairs report ({@link Reports#foreign}). */
+    @Override
+    public FreeColPanel showReportForeignAffairPanel() {
+        this.ui.show("report", Reports.foreign(getFreeColClient()));
+        return null;
+    }
+
+    /** {@inheritDoc} Shows the native affairs report ({@link Reports#indian}). */
+    @Override
+    public FreeColPanel showReportIndianPanel() {
+        this.ui.show("report", Reports.indian(getFreeColClient()));
+        return null;
+    }
+
+    /** {@inheritDoc} Shows the Continental Congress report ({@link Reports#congress}). */
+    @Override
+    public FreeColPanel showReportContinentalCongressPanel() {
+        this.ui.show("report", Reports.congress(getMyPlayer()));
         return null;
     }
 

@@ -496,6 +496,99 @@ class ReportsTest {
 
     @Test
     @Timeout(240)
+    void theForeignAffairsReportShowsEachEuropeanNationAndHidesWhatWeHaveNotLearnt() throws Exception {
+        twoColonies();
+        final Player us = me();
+
+        final Map<String, Object> report = obj(JsonReader.read(Reports.foreign(client.getClient())));
+        assertEquals("foreign", report.get("report"));
+        final List<Map<String, Object>> nations = objs(report.get("nations"));
+        final List<Player> europeans = us.getGame().getLiveEuropeanPlayerList();
+        assertTrue(europeans.size() > 1);
+        assertEquals(europeans.stream().map(Player::getId).sorted().collect(Collectors.toList()),
+            nations.stream().map(n -> (String)n.get("id")).sorted().collect(Collectors.toList()));
+        for (Map<String, Object> n : nations) {
+            final boolean ours = n.get("id").equals(us.getId());
+            // Ours is known in full; another's founding fathers, tax and Sons of Liberty are not.
+            assertEquals(!ours, n.get("fathers") == null);
+            assertEquals(!ours, n.get("tax") == null);
+            assertEquals(!ours, n.get("sol") == null);
+            assertNotNull(n.get("stance"));
+            assertFalse(list(n.get("keys")).isEmpty());
+            if (ours) {
+                assertEquals(2.0, ((Number)n.get("colonies")).doubleValue());
+                assertEquals(us.getGold(), ((Number)n.get("gold")).intValue());
+            }
+        }
+        assertEquals("Stance", obj(report.get("labels")).get("stance"));
+        assertFalse(((String)report.get("notice")).isEmpty());
+    }
+
+    @Test
+    @Timeout(240)
+    void theNativeAffairsReportListsOnlyContactedTribesAndHidesWhatWeHaveNotVisited() throws Exception {
+        twoColonies();
+        final Player us = me();
+        final List<Player> tribes = us.getGame().getLiveNativePlayerList();
+        assertFalse(tribes.isEmpty());
+        // Before contact nothing is shown.
+        assertTrue(objs(obj(JsonReader.read(Reports.indian(client.getClient()))).get("tribes")).isEmpty());
+
+        final Player tribe = tribes.stream().filter(p -> !p.getIndianSettlementList().isEmpty())
+            .findFirst().get();
+        Player.makeContact(us, tribe);
+        final Map<String, Object> report = obj(JsonReader.read(Reports.indian(client.getClient())));
+        assertEquals("indian", report.get("report"));
+        final List<Map<String, Object>> shown = objs(report.get("tribes"));
+        assertEquals(List.of(tribe.getId()), shown.stream().map(t -> (String)t.get("id")).collect(Collectors.toList()));
+        final Map<String, Object> t = shown.get(0);
+        assertEquals(tribe.getName(), t.get("chieftain"));
+        assertTrue(((String)t.get("settlements")).startsWith(tribe.getIndianSettlementList().size() + " / "));
+        final List<Map<String, Object>> rows = objs(t.get("rows"));
+        assertEquals(tribe.getIndianSettlementList().size(), rows.size());
+        // The capital comes first, and nothing has been visited: no skill is known.
+        for (Map<String, Object> row : rows) {
+            assertNull(obj(row.get("skill")).get("keys"));
+            assertEquals(1, list(row.get("wanted")).size());
+            assertEquals(2, list(row.get("at")).size());
+        }
+        final List<net.sf.freecol.common.model.IndianSettlement> known = tribe.getIndianSettlementList();
+        if (known.stream().anyMatch(net.sf.freecol.common.model.IndianSettlement::isCapital)) {
+            assertTrue(((String)rows.get(0).get("name")).contains("*"));
+        }
+        assertEquals(6, list(obj(report.get("labels")).get("columns")).size());
+    }
+
+    @Test
+    @Timeout(240)
+    void theContinentalCongressReportListsEveryFatherAndTheOneBeingRecruited() throws Exception {
+        twoColonies();
+        final Player us = me();
+        final Specification spec = us.getSpecification();
+
+        Map<String, Object> report = obj(JsonReader.read(Reports.congress(us)));
+        assertEquals("congress", report.get("report"));
+        assertEquals(spec.getFoundingFathers().size(), list(report.get("fathers")).size());
+        assertTrue(objs(report.get("fathers")).stream().allMatch(f -> f.get("state").equals("available")));
+        assertNull(report.get("current"));
+
+        final net.sf.freecol.common.model.FoundingFather first = spec.getFoundingFathers().get(0);
+        final net.sf.freecol.common.model.FoundingFather second = spec.getFoundingFathers().get(1);
+        us.addFather(first);
+        us.setCurrentFather(second);
+        report = obj(JsonReader.read(Reports.congress(us)));
+        final Map<String, String> states = new java.util.HashMap<>();
+        for (Map<String, Object> f : objs(report.get("fathers"))) states.put((String)f.get("id"), (String)f.get("state"));
+        assertEquals("elected", states.get(first.getId()));
+        assertEquals("recruiting", states.get(second.getId()));
+        final Map<String, Object> current = obj(report.get("current"));
+        assertEquals(second.getId(), current.get("id"));
+        assertEquals(us.getTotalFoundingFatherCost(), ((Number)current.get("cost")).intValue());
+        assertFalse(list(current.get("production")).isEmpty());
+    }
+
+    @Test
+    @Timeout(240)
     void theControllersReportCallsAndTheCommandsOpenTheReports() throws Exception {
         twoColonies();
         final Commands commands = client.getCommands();
@@ -512,8 +605,12 @@ class ReportsTest {
         gui.showReportTradePanel();
         gui.showReportProductionPanel();
         gui.showReportRequirementsPanel();
+        gui.showReportForeignAffairPanel();
+        gui.showReportIndianPanel();
+        gui.showReportContinentalCongressPanel();
         assertEquals(List.of("colony", "labour", "compactLabour", "religion", "education",
-                "exploration", "history", "trade", "production", "requirements"), reports.stream()
+                "exploration", "history", "trade", "production", "requirements",
+                "foreign", "indian", "congress"), reports.stream()
             .map(r -> (String)obj(JsonReader.read(r)).get("report")).collect(Collectors.toList()));
 
         reports.clear();
@@ -527,13 +624,16 @@ class ReportsTest {
         assertTrue(commands.showReport("trade"));
         assertTrue(commands.showReport("production"));
         assertTrue(commands.showReport("requirements"));
+        assertTrue(commands.showReport("foreign"));
+        assertTrue(commands.showReport("indian"));
+        assertTrue(commands.showReport("congress"));
         assertFalse(commands.showReport("nothing"));
         assertTrue(commands.showReportDetail("labourDetail", "model.unit.freeColonist"));
         assertTrue(commands.showReportDetail("compactLabour", "model.unit.freeColonist"));
         assertTrue(commands.showReportDetail("compactLabour", ""));
         assertFalse(commands.showReportDetail("labourDetail", ""));
         assertEquals(List.of("colony", "labour", "compactLabour", "religion", "education",
-                "exploration", "history", "trade", "production", "requirements", "labourDetail", "compactLabour", "compactLabour"),
+                "exploration", "history", "trade", "production", "requirements", "foreign", "indian", "congress", "labourDetail", "compactLabour", "compactLabour"),
             reports.stream().map(r -> (String)obj(JsonReader.read(r)).get("report"))
                 .collect(Collectors.toList()));
 

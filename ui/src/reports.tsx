@@ -42,9 +42,12 @@ export const REPORTS: readonly { name: Exclude<ReportName, 'labourDetail'>; labe
   { name: 'military', label: 'Military report' },
   { name: 'naval', label: 'Naval report' },
   { name: 'cargo', label: 'Cargo report' },
+  { name: 'congress', label: 'Continental Congress report' },
   { name: 'education', label: 'Education report' },
   { name: 'exploration', label: 'Exploration report' },
+  { name: 'foreign', label: 'Foreign affairs report' },
   { name: 'history', label: 'History report' },
+  { name: 'indian', label: 'Native affairs report' },
   { name: 'production', label: 'Production report' },
   { name: 'religion', label: 'Religion report' },
   { name: 'requirements', label: 'Requirements report' },
@@ -630,6 +633,168 @@ function RequirementsReport({ e, go }: { e: View<'requirements'>; go: Links }) {
   );
 }
 
+/** ReportForeignAffairPanel: each nation's stance, size and strength; what we have not learnt of it is left out. */
+function ForeignReport({ e, art }: { e: View<'foreign'>; art: Art }) {
+  const l = e.labels;
+  return (
+    <div className="foreign">
+      {e.nations.map((n) => (
+        <section key={n.id} data-nation={n.id}>
+          <h3>
+            <Img keys={n.keys} art={art} title={n.name} />
+            {n.name}
+          </h3>
+          <dl>
+            {(
+              [
+                ['stance', l.stance, n.stance, ''],
+                ['colonies', l.colonies, n.colonies, ''],
+                ['units', l.units, n.units, ''],
+                ['military', l.military, n.military, ''],
+                ['naval', l.naval, n.naval, ''],
+                ['gold', l.gold, n.gold, ''],
+                ['fathers', l.fathers, n.fathers, ''],
+                ['tax', l.tax, n.tax, '%'],
+                ['sol', l.sol, n.sol, '%'],
+              ] as const
+            )
+              .filter(([, , v]) => v !== null)
+              .map(([field, label, v, unit]) => (
+                <div key={field} data-field={field}>
+                  <dt>{label}</dt>
+                  <dd>
+                    {v}
+                    {unit}
+                  </dd>
+                </div>
+              ))}
+          </dl>
+        </section>
+      ))}
+      <p className="muted" data-field="notice">
+        {e.notice}
+      </p>
+    </div>
+  );
+}
+
+/** A label with its image, when it has one. */
+function Tagged({ x, art }: { x: { text: string; keys: string[] | null }; art: Art }) {
+  return x.keys && art(x.keys) ? <Img keys={x.keys} art={art} title={x.text} /> : <span>{x.text}</span>;
+}
+
+/** ReportIndianPanel: each contacted tribe, and a row for each settlement we know of. */
+function IndianReport({ e, art, go }: { e: View<'indian'>; art: Art; go: Links }) {
+  const l = e.labels;
+  return (
+    <div className="indian">
+      {e.tribes.map((t) => (
+        <section key={t.id} data-tribe={t.id}>
+          <h3>
+            <Img keys={t.keys} art={art} title={t.kind} />
+            {t.name}
+          </h3>
+          <dl>
+            {(
+              [
+                ['chieftain', l.chieftain, t.chieftain],
+                ['kind', l.kind, t.kind],
+                ['settlements', l.settlements, t.settlements],
+                ['tension', l.tension, t.tension],
+              ] as const
+            ).map(([field, label, v]) => (
+              <div key={field} data-field={field}>
+                <dt>{label}</dt>
+                <dd>{v}</dd>
+              </div>
+            ))}
+          </dl>
+          {t.rows.length === 0 ? (
+            <p className="muted">{l.none}</p>
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  {l.columns.map((c) => (
+                    <th key={c}>{c}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {t.rows.map((r) => (
+                  <tr key={r.id} data-settlement={r.id}>
+                    <td>
+                      <Link go={() => go.goTo(r.at)} data-link={r.id}>
+                        {r.name}
+                      </Link>
+                    </td>
+                    <td data-cell="mission">
+                      {r.mission && <Img keys={r.mission.keys} art={art} title={r.mission.text} />}
+                    </td>
+                    <td data-cell="alarm">{r.alarm}</td>
+                    <td data-cell="skill">
+                      <Tagged x={r.skill} art={art} />
+                    </td>
+                    <td data-cell="hated">{r.hated}</td>
+                    <td data-cell="wanted">
+                      {r.wanted.map((w, i) => (
+                        <Tagged key={i} x={w} art={art} />
+                      ))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </section>
+      ))}
+    </div>
+  );
+}
+
+/** ReportContinentalCongressPanel: the father being recruited, then every father by kind. */
+function CongressReport({ e, art }: { e: View<'congress'>; art: Art }) {
+  const kinds = [...new Set(e.fathers.map((f) => f.kind))];
+  return (
+    <div className="congress">
+      <section data-section="recruiting">
+        <h3>{e.labels.recruiting}</h3>
+        {e.current ? (
+          <div data-current={e.current.id}>
+            <Img keys={e.current.keys} art={art} title={e.current.description} />
+            <span>{e.current.name}</span>
+            <progress value={Math.min(e.current.liberty, e.current.cost)} max={e.current.cost} />
+            <span className="muted" data-field="progress">
+              {e.current.liberty} / {e.current.cost}
+            </span>
+            {e.current.production.map((g) => (
+              <GoodsAmount key={g.type} keys={g.keys} name={g.name} amount={g.amount} art={art} />
+            ))}
+          </div>
+        ) : (
+          <p className="muted">{e.labels.none}</p>
+        )}
+      </section>
+      {kinds.map((kind) => (
+        <section key={kind} data-kind={kind}>
+          <h3>{kind}</h3>
+          {e.fathers
+            .filter((f) => f.kind === kind)
+            .map((f) => (
+              <div key={f.id} className="row" data-father={f.id} data-state={f.state}>
+                <Img keys={f.keys} art={art} title={f.description} dim={f.state !== 'elected'} />
+                <span title={f.description}>{f.name}</span>
+                <span className="muted" data-field="status">
+                  {f.status}
+                </span>
+              </div>
+            ))}
+        </section>
+      ))}
+    </div>
+  );
+}
+
 type Links = Pick<ReportActions, 'colony' | 'detail' | 'europe' | 'goTo'>;
 type Body<K extends ReportName> = (p: { e: View<K>; art: Art; go: Links }) => ReactNode;
 
@@ -649,6 +814,9 @@ const BODIES: { [K in ReportName]: Body<K> } = {
   trade: TradeReport,
   production: ProductionReport,
   requirements: RequirementsReport,
+  foreign: ForeignReport,
+  indian: IndianReport,
+  congress: CongressReport,
 };
 
 /**
