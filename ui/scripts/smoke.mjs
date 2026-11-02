@@ -30,6 +30,8 @@ const NATIONS = [
 ];
 
 const LAND_PRICE = 'model.option.landPriceFactor';
+const MAP_WIDTH = 'model.option.mapWidth';
+const MAP_HEIGHT = 'model.option.mapHeight';
 
 /** Pick on the start screen (nothing picked keeps what it shows first) and start the game. */
 async function startFromScreen(page, nation, level, edits = false) {
@@ -42,6 +44,10 @@ async function startFromScreen(page, nation, level, edits = false) {
     await page.fill(`[data-customize=difficulty] [data-option="${LAND_PRICE}"] input`, '123');
     await page.click('[data-customize=game] summary');
     await page.click('[data-customize=game] [data-option="model.option.fogOfWar"] input');
+    // The map generator options: a smaller map than Classic's 40x100.
+    await page.click('[data-customize=map] summary');
+    await page.fill(`[data-customize=map] [data-option="${MAP_WIDTH}"] input`, '30');
+    await page.fill(`[data-customize=map] [data-option="${MAP_HEIGHT}"] input`, '40');
   }
   await page.click('[data-start]');
 }
@@ -78,7 +84,9 @@ for (const name of browsers) {
             r.nation === nation &&
             sent.difficulty === level &&
             (nation !== 'model.nation.french' ||
-              (sent.options?.[LAND_PRICE] === 123 && sent.options?.['model.option.fogOfWar'] === false))
+              (sent.options?.[LAND_PRICE] === 123 &&
+                sent.options?.['model.option.fogOfWar'] === false &&
+                r.mapSize?.join('x') === '30x40'))
             ? `${nation.split('.').pop()} ok`
             : `${nation} FAILED (${r.status}${r.error ? ': ' + r.error : ''}, player ${r.nation}, sent ${r.choice})`,
         );

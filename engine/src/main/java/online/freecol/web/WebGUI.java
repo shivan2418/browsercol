@@ -205,7 +205,12 @@ import net.sf.freecol.common.option.OptionGroup;
  *         is open is replaced. error is why the last change was refused
  *         (FreeCol's reason), null if it was not</td></tr>
  * <tr><td>showReportColonyPanel, showReportLabourPanel,
- *     showReportLabourDetailPanel, showCompactLabourReport</td>
+ *     showReportLabourDetailPanel, showCompactLabourReport,
+ *     showReportMilitaryPanel, showReportNavalPanel, showReportCargoPanel,
+ *     showReportReligiousPanel, showReportEducationPanel,
+ *     showReportExplorationPanel, showReportHistoryPanel,
+ *     showReportTradePanel, showReportProductionPanel,
+ *     showReportRequirementsPanel</td>
  *     <td>event report</td>
  *     <td>one of the reports {@link Reports} describes, told apart by its
  *         report field; a report that is open is replaced, so a link to a
@@ -1551,6 +1556,27 @@ public class WebGUI extends GUI {
         return null;
     }
 
+    /** {@inheritDoc} Shows the military report ({@link Reports#units}). */
+    @Override
+    public FreeColPanel showReportMilitaryPanel() {
+        this.ui.show("report", Reports.units(getFreeColClient(), "military"));
+        return null;
+    }
+
+    /** {@inheritDoc} Shows the naval report ({@link Reports#units}). */
+    @Override
+    public FreeColPanel showReportNavalPanel() {
+        this.ui.show("report", Reports.units(getFreeColClient(), "naval"));
+        return null;
+    }
+
+    /** {@inheritDoc} Shows the cargo report ({@link Reports#units}). */
+    @Override
+    public FreeColPanel showReportCargoPanel() {
+        this.ui.show("report", Reports.units(getFreeColClient(), "cargo"));
+        return null;
+    }
+
     /** {@inheritDoc} Shows the compact labour report ({@link Reports#compactLabour}). */
     @Override
     public FreeColPanel showCompactLabourReport() {
@@ -1564,6 +1590,55 @@ public class WebGUI extends GUI {
         net.sf.freecol.client.gui.panel.report.LabourData.UnitData unitData) {
         this.ui.show("report", Reports.compactLabour(getFreeColClient(),
                                                      unitData.getUnitType()));
+        return null;
+    }
+
+    /** {@inheritDoc} Shows the religion report ({@link Reports#religion}). */
+    @Override
+    public FreeColPanel showReportReligiousPanel() {
+        this.ui.show("report", Reports.religion(getMyPlayer()));
+        return null;
+    }
+
+    /** {@inheritDoc} Shows the education report ({@link Reports#education}). */
+    @Override
+    public FreeColPanel showReportEducationPanel() {
+        this.ui.show("report", Reports.education(getMyPlayer()));
+        return null;
+    }
+
+    /** {@inheritDoc} Shows the exploration report ({@link Reports#exploration}). */
+    @Override
+    public FreeColPanel showReportExplorationPanel() {
+        this.ui.show("report", Reports.exploration(getMyPlayer()));
+        return null;
+    }
+
+    /** {@inheritDoc} Shows the trade report ({@link Reports#trade}). */
+    @Override
+    public FreeColPanel showReportTradePanel() {
+        this.ui.show("report", Reports.trade(getMyPlayer()));
+        return null;
+    }
+
+    /** {@inheritDoc} Shows the production report ({@link Reports#production}). */
+    @Override
+    public FreeColPanel showReportProductionPanel() {
+        this.ui.show("report", Reports.production(getMyPlayer()));
+        return null;
+    }
+
+    /** {@inheritDoc} Shows the requirements report ({@link Reports#requirements}). */
+    @Override
+    public FreeColPanel showReportRequirementsPanel() {
+        this.ui.show("report", Reports.requirements(getMyPlayer()));
+        return null;
+    }
+
+    /** {@inheritDoc} Shows the history report ({@link Reports#history}). */
+    @Override
+    public FreeColPanel showReportHistoryPanel() {
+        this.ui.show("report", Reports.history(getMyPlayer()));
         return null;
     }
 
