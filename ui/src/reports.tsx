@@ -1,13 +1,13 @@
 // The reports of the Report menu (FreeCol's report panels, Reports.java), each in a window frame
 // (frame.tsx): the classic colony report, the labour report with its details, the compact labour report,
-// the military, naval and cargo reports (one view, Units), and the religion, education, exploration and
-// history reports. A link in a report opens a colony's panel, Europe, a tile of the map or a detail
-// report; the report closes first, as only one dialog is open at a time.
+// the military, naval and cargo reports (one view, Units), and the religion, education, exploration,
+// history, trade and production reports. A link in a report opens a colony's panel, Europe, a tile of
+// the map or a detail report; the report closes first, as only one dialog is open at a time.
 //
 // To add a report (#74 and the rest of #75): add its view to ReportView (webgui.ts), a body for it in
 // BODIES below, and an entry in REPORTS, which is the Report menu. The Engine side is Reports.java.
 import './reports.css';
-import { createContext, useContext, type ReactNode } from 'react';
+import { createContext, useContext, useState, type ReactNode } from 'react';
 import type { Dialog } from './dialogs';
 import { GoodsAmount, WindowFrame, type Art, type Menu } from './frame';
 import type { ReportName, ReportView, UnitCount } from './webgui';
@@ -44,7 +44,9 @@ export const REPORTS: readonly { name: Exclude<ReportName, 'labourDetail'>; labe
   { name: 'education', label: 'Education report' },
   { name: 'exploration', label: 'Exploration report' },
   { name: 'history', label: 'History report' },
+  { name: 'production', label: 'Production report' },
   { name: 'religion', label: 'Religion report' },
+  { name: 'trade', label: 'Trade report' },
 ];
 
 /** The Report menu's items, each opening its report. */
@@ -440,6 +442,160 @@ function HistoryReport({ e }: { e: View<'history'> }) {
   );
 }
 
+const signed = (n: number) => (n > 0 ? `+${n}` : String(n));
+
+/** ReportTradePanel: the market, what was sold, and what each colony stores and makes, for every storable goods. */
+function TradeReport({ e, art, go }: { e: View<'trade'>; art: Art; go: Links }) {
+  const totals: [keyof typeof e.labels, number[], boolean][] = [
+    ['unitsSold', e.sold, false],
+    ['beforeTaxes', e.beforeTaxes, false],
+    ['afterTaxes', e.afterTaxes, false],
+    ['cargoUnits', e.cargo, false],
+  ];
+  const number = (n: number, sign = false, key?: string) => (
+    <td key={key} className="num" data-sign={n < 0 ? 'loss' : undefined}>
+      {sign ? signed(n) : n}
+    </td>
+  );
+  return (
+    <table className="trade">
+      <thead>
+        <tr>
+          <td />
+          {e.goods.map((g) => (
+            <th key={g.type} scope="col" data-goods={g.type} title={g.name}>
+              <Img keys={g.keys} art={art} title={g.name} />
+              {g.sell !== null && g.buy !== null && <span className="prices">{`${g.sell}/${g.buy}`}</span>}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {totals.map(([label, values]) => (
+          <tr key={label} data-row={label}>
+            <th scope="row">{e.labels[label]}</th>
+            {values.map((n, i) => number(n, false, e.goods[i].type))}
+          </tr>
+        ))}
+        {e.colonies.map((c) => (
+          <tr key={c.id} data-colony={c.id}>
+            <th scope="row">
+              <Link go={() => go.colony(c.id)} data-link={c.id}>
+                {c.export ? `${c.name}*` : c.name}
+              </Link>
+            </th>
+            {c.cells.map((cell, i) => (
+              <td
+                key={e.goods[i].type}
+                className="num cell"
+                data-sign={cell.production < 0 ? 'loss' : undefined}
+                data-warn={cell.warning ? '' : undefined}
+                title={
+                  cell.warning ??
+                  (cell.exported !== null ? `${e.goods[i].name}: exported at ${cell.exported}` : undefined)
+                }
+              >
+                <span className="stock" data-exported={cell.exported !== null ? '' : undefined}>
+                  {cell.amount}
+                </span>
+                <span className="net">{signed(cell.production)}</span>
+              </td>
+            ))}
+          </tr>
+        ))}
+        <tr data-row="totalUnits">
+          <th scope="row">{e.labels.totalUnits}</th>
+          {e.total.map((n, i) => number(n, false, e.goods[i].type))}
+        </tr>
+        <tr data-row="totalDelta">
+          <th scope="row">{e.labels.totalDelta}</th>
+          {e.delta.map((n, i) => number(n, true, e.goods[i].type))}
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colSpan={e.goods.length + 1} className="muted">
+            {e.labels.hasCustomHouse}
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+  );
+}
+
+/** How many goods the production report compares at once (ReportProductionPanel's boxes). */
+const PICKS = 4;
+
+/** ReportProductionPanel: pick up to four goods, and see each colony's output and the buildings that make it. */
+function ProductionReport({ e, art, go }: { e: View<'production'>; art: Art; go: Links }) {
+  const [picks, setPicks] = useState<string[]>(() => Array(PICKS).fill(''));
+  const chosen = picks.flatMap((p) => (p === '' ? [] : [Number(p)]));
+  return (
+    <div className="production">
+      <div className="picks">
+        <span>{e.labels.selectGoods}</span>
+        {picks.map((p, i) => (
+          <select
+            key={i}
+            aria-label={`${e.labels.selectGoods} ${i + 1}`}
+            value={p}
+            onChange={(ev) => setPicks(picks.map((q, j) => (j === i ? ev.target.value : q)))}
+          >
+            <option value="">{e.labels.nothing}</option>
+            {e.goods.map((g, k) => (
+              <option key={g.type} value={k}>
+                {g.name}
+              </option>
+            ))}
+          </select>
+        ))}
+      </div>
+      {chosen.length > 0 && (
+        <table className="production-table">
+          <thead>
+            <tr>
+              <th scope="col">{e.labels.colony}</th>
+              {chosen.map((k) => (
+                <th key={k} scope="colgroup" colSpan={1 + e.goods[k].buildings.length} data-goods={e.goods[k].type}>
+                  <Img keys={e.goods[k].keys} art={art} title={e.goods[k].name} />
+                  {e.goods[k].name}
+                  {e.goods[k].buildings.map((b) => (
+                    <Img key={b.id} keys={b.keys} art={art} title={b.name} />
+                  ))}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {e.colonies.map((c) => (
+              <tr key={c.id} data-colony={c.id}>
+                <th scope="row">
+                  <Link go={() => go.colony(c.id)} data-link={c.id}>
+                    {c.name}
+                  </Link>
+                </th>
+                {chosen.flatMap((k) => [
+                  <td key={`${k}.amount`} className="num" data-sign={c.cells[k].amount < 0 ? 'loss' : undefined}>
+                    <Img keys={e.goods[k].keys} art={art} title={e.goods[k].name} />
+                    {signed(c.cells[k].amount)}
+                  </td>,
+                  ...c.cells[k].buildings.map((units, b) => (
+                    <td key={`${k}.${b}`} data-building={e.goods[k].buildings[b].id}>
+                      {units?.map((u) => (
+                        <Img key={u.id} keys={u.keys} art={art} title={u.name} unit={u.id} />
+                      ))}
+                    </td>
+                  )),
+                ])}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
 type Links = Pick<ReportActions, 'colony' | 'detail' | 'europe' | 'goTo'>;
 type Body<K extends ReportName> = (p: { e: View<K>; art: Art; go: Links }) => ReactNode;
 
@@ -456,6 +612,8 @@ const BODIES: { [K in ReportName]: Body<K> } = {
   education: EducationReport,
   exploration: ExplorationReport,
   history: HistoryReport,
+  trade: TradeReport,
+  production: ProductionReport,
 };
 
 /**

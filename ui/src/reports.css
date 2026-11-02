@@ -212,3 +212,51 @@
   font-weight: normal;
   color: var(--muted);
 }
+/* The trade report: goods across the top, a row of stock and net production for each colony. */
+.dialog .report .trade,
+.dialog .report .production-table {
+  border-collapse: collapse;
+}
+.dialog .report .trade th,
+.dialog .report .trade td,
+.dialog .report .production-table th,
+.dialog .report .production-table td {
+  padding: 2px 6px;
+  border: 1px solid var(--line);
+  text-align: left;
+}
+.dialog .report .trade td.num,
+.dialog .report .production-table td.num {
+  text-align: right;
+}
+.dialog .report .trade td[data-sign='loss'],
+.dialog .report .production-table td[data-sign='loss'] {
+  color: var(--bad);
+}
+.dialog .report .trade td[data-warn] .net {
+  color: var(--bad);
+}
+.dialog .report .trade .cell {
+  white-space: nowrap;
+}
+.dialog .report .trade .cell .net {
+  display: block;
+  color: var(--muted);
+  font-size: var(--fs-s);
+}
+.dialog .report .trade .stock[data-exported] {
+  text-decoration: underline;
+}
+.dialog .report .trade .prices {
+  display: block;
+  color: var(--muted);
+  font-size: var(--fs-s);
+}
+/* The production report: the goods pickers above a table of colonies. */
+.dialog .report .production .picks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+}

@@ -677,7 +677,56 @@ export type ReportView =
       headers: { name: string; type: string; discoveredIn: string; discoveredBy: string; value: string };
       regions: { name: string; type: string; turn: string; by: string; value: number }[];
     })
-  | (ReportHead<'history'> & { events: { turn: string; text: string }[] });
+  | (ReportHead<'history'> & { events: { turn: string; text: string }[] })
+  | (ReportHead<'trade'> & {
+      /** The storable goods, with the market's prices; every list of numbers below has one entry for each. */
+      goods: { type: string; name: string; keys: string[]; buy: number | null; sell: number | null }[];
+      labels: {
+        unitsSold: string;
+        beforeTaxes: string;
+        afterTaxes: string;
+        cargoUnits: string;
+        totalUnits: string;
+        totalDelta: string;
+        hasCustomHouse: string;
+      };
+      sold: number[];
+      beforeTaxes: number[];
+      afterTaxes: number[];
+      cargo: number[];
+      total: number[];
+      delta: number[];
+      colonies: {
+        id: Id;
+        name: string;
+        /** It has a custom house. */
+        export: boolean;
+        cells: {
+          amount: number;
+          production: number;
+          /** The level the goods are exported at, or null if they are not. */
+          exported: number | null;
+          /** Why the production is a problem, or null. */
+          warning: string | null;
+        }[];
+      }[];
+    })
+  | (ReportHead<'production'> & {
+      labels: { selectGoods: string; nothing: string; colony: string };
+      /** The goods that are not farmed, with the first level of each building that makes them. */
+      goods: {
+        type: string;
+        name: string;
+        keys: string[];
+        buildings: { id: string; name: string; keys: string[] }[];
+      }[];
+      colonies: {
+        id: Id;
+        name: string;
+        /** One for each goods above: the net production, and for each of its buildings the units in it (null: not built). */
+        cells: { amount: number; buildings: (UnitRef[] | null)[] }[];
+      }[];
+    });
 
 /** The reports the menu opens and the Engine can send. */
 export type ReportName = ReportView['report'];

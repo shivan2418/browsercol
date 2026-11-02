@@ -73,7 +73,9 @@ describe('the Report menu', () => {
       'Education report',
       'Exploration report',
       'History report',
+      'Production report',
       'Religion report',
+      'Trade report',
     ]);
     fireEvent.click(within(menu).getByRole('menuitem', { name: 'Compact labour report' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Report' }));
@@ -385,5 +387,114 @@ describe('the history report', () => {
       ['Autumn 1492', 'You founded Jamestown.'],
       ['Spring 1493', 'You declared independence.'],
     ]);
+  });
+});
+
+describe('the trade report', () => {
+  const report: ReportView = {
+    ...head('trade'),
+    goods: [
+      { type: 'model.goods.food', name: 'Food', keys: [], buy: 5, sell: 4 },
+      { type: 'model.goods.sugar', name: 'Sugar', keys: [], buy: 6, sell: 5 },
+    ],
+    labels: {
+      unitsSold: 'Units sold',
+      beforeTaxes: 'Before taxes',
+      afterTaxes: 'After taxes',
+      cargoUnits: 'In ships',
+      totalUnits: 'Total',
+      totalDelta: 'Change',
+      hasCustomHouse: '* has a custom house',
+    },
+    sold: [10, 0],
+    beforeTaxes: [40, 0],
+    afterTaxes: [36, 0],
+    cargo: [3, 1],
+    total: [50, 6],
+    delta: [4, -2],
+    colonies: [
+      {
+        id: 'colony:7',
+        name: 'Jamestown',
+        export: true,
+        cells: [
+          { amount: 40, production: 5, exported: 100, warning: null },
+          { amount: 2, production: -2, exported: null, warning: 'Sugar will run out' },
+        ],
+      },
+    ],
+  };
+
+  it('shows the totals by goods and a stock and net production for each colony', () => {
+    const { box, calls } = host();
+    show(box, report);
+    const text = (row: string) =>
+      Array.from(document.querySelector(`[data-row="${row}"]`)!.children).map((c) => c.textContent);
+    expect(text('unitsSold')).toEqual(['Units sold', '10', '0']);
+    expect(text('afterTaxes')).toEqual(['After taxes', '36', '0']);
+    expect(text('cargoUnits')).toEqual(['In ships', '3', '1']);
+    expect(text('totalUnits')).toEqual(['Total', '50', '6']);
+    expect(text('totalDelta')).toEqual(['Change', '+4', '-2']);
+    expect(Array.from(document.querySelectorAll('thead th')).map((h) => h.textContent)).toEqual(['4/5', '5/6']);
+    const row = document.querySelector('[data-colony="colony:7"]')!;
+    expect(Array.from(row.children).map((c) => c.textContent)).toEqual(['Jamestown*', '40+5', '2-2']);
+    expect(row.children[2].getAttribute('title')).toBe('Sugar will run out');
+    expect(row.children[1].getAttribute('title')).toBe('Food: exported at 100');
+    fireEvent.click(screen.getByRole('button', { name: 'Jamestown*' }));
+    expect(calls).toEqual(['colony colony:7']);
+  });
+});
+
+describe('the production report', () => {
+  const report: ReportView = {
+    ...head('production'),
+    labels: { selectGoods: 'Select goods', nothing: 'Nothing', colony: 'Colony' },
+    goods: [
+      {
+        type: 'model.goods.hammers',
+        name: 'Hammers',
+        keys: [],
+        buildings: [{ id: 'model.building.carpenterHouse', name: "Carpenter's House", keys: [] }],
+      },
+      {
+        type: 'model.goods.rum',
+        name: 'Rum',
+        keys: [],
+        buildings: [{ id: 'model.building.rumDistillerHouse', name: "Rum Distiller's House", keys: [] }],
+      },
+    ],
+    colonies: [
+      {
+        id: 'colony:7',
+        name: 'Jamestown',
+        cells: [
+          { amount: 3, buildings: [[colonist]] },
+          { amount: -1, buildings: [null] },
+        ],
+      },
+    ],
+  };
+
+  it('shows nothing until goods are picked, then each colony with the units in the buildings', () => {
+    const { box, calls } = host();
+    show(box, report);
+    expect(document.querySelector('table')).toBeNull();
+    fireEvent.change(screen.getByLabelText('Select goods 1'), { target: { value: '0' } });
+    fireEvent.change(screen.getByLabelText('Select goods 2'), { target: { value: '1' } });
+    const row = document.querySelector('[data-colony="colony:7"]')!;
+    expect(Array.from(row.children).map((c) => c.textContent)).toEqual(['Jamestown', '+3', '', '-1', '']);
+    expect(row.querySelector('[data-building="model.building.carpenterHouse"] img')?.getAttribute('data-unit')).toBe(
+      'unit:1',
+    );
+    expect(Array.from(document.querySelectorAll('thead th')).map((h) => h.textContent)).toEqual([
+      'Colony',
+      'Hammers',
+      'Rum',
+    ]);
+    // Back to Nothing, and the goods leave the table.
+    fireEvent.change(screen.getByLabelText('Select goods 2'), { target: { value: '' } });
+    expect(Array.from(document.querySelectorAll('thead th')).map((h) => h.textContent)).toEqual(['Colony', 'Hammers']);
+    fireEvent.click(screen.getByRole('button', { name: 'Jamestown' }));
+    expect(calls).toEqual(['colony colony:7']);
   });
 });
