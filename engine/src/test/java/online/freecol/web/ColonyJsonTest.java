@@ -355,4 +355,50 @@ class ColonyJsonTest {
         final Map<String, Object> buy = obj(queue.get("buy"));
         assertEquals((long)colony.getPriceForBuilding(), buy.get("price"));
     }
+
+    /**
+     * The founder works where the colony needs it: on one of its tiles, or in
+     * the town hall, which makes bells, when the colony has no tile to work.
+     * A colony on a tile with a lost city rumour claims no land around it,
+     * and one with nothing but water around it has no land to work, so the
+     * founder ends up in the town hall. The colony panel shows it there, and
+     * play.mjs puts it to work on a tile itself when FreeCol does not.
+     */
+    @Test
+    @Timeout(120)
+    void theFounderWorksTheTownHallWhenTheColonyHasNoTileToWork() throws Exception {
+        startGame();
+        final Game game = server.getGame();
+        final Specification spec = game.getSpecification();
+        final Player us = game.getFreeColGameObject(
+            client.getClient().getMyPlayer().getId(), Player.class);
+        // A tile of land with water all around it: no tile of the colony can
+        // be worked, as a colony without land to claim has none.
+        final Tile land = game.getMap().getTileSet(t -> t.isLand() && !t.hasSettlement()
+                && t.getOwner() == null && t.getUnitCount() == 0).stream().findFirst().get();
+        for (Tile around : land.getSurroundingTiles(1)) {
+            if (around.isLand()) around.changeType(spec.getTileType("model.tile.ocean"));
+        }
+        final Colony colony = new ServerColony(game, us, "Jamestown", land);
+        us.addSettlement(colony);
+        colony.placeSettlement(true);
+        final Unit founder = new ServerUnit(game, land, us, spec.getDefaultUnitType(us));
+        founder.setLocation(colony);
+
+        // The founder works in the town hall, as no tile of the colony can be
+        // worked, and the panel shows it there.
+        assertTrue(founder.getLocation() instanceof Building,
+            () -> "the founder works in a building: " + founder.getLocation());
+        assertEquals("model.building.townHall",
+            ((Building)founder.getLocation()).getType().getId());
+        final Map<String, Object> json = obj(JsonReader.read(ColonyJson.of(colony, 0)));
+        final Map<String, Object> hall = list(json.get("buildings")).stream()
+            .map(ColonyJsonTest::obj)
+            .filter(b -> "model.building.townHall".equals(b.get("type"))).findFirst().get();
+        assertEquals(List.of(founder.getId()), ids(hall.get("workers")));
+        // And no tile of the colony has the founder working on it.
+        assertTrue(list(json.get("tiles")).stream().map(ColonyJsonTest::obj)
+            .noneMatch(t -> !ids(t.get("workers")).isEmpty()),
+            "the founder works on no tile");
+    }
 }

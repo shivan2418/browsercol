@@ -81,6 +81,9 @@ const WATER = /ocean|highSeas|lake/i;
 // rules), where a lone founder starves on the next turn, or that cannot be
 // settled at all.
 const BARREN = /arctic|desert|scrubForest|mountains/;
+// The arctic is the only land with no work for a colonist: every other land
+// has a production a colonist can make.
+const NO_WORK = /arctic/i;
 // FreeCol's grey for a fortified unit (MapJson draws it in that colour).
 const FORTIFIED = 0x808080;
 
@@ -100,8 +103,29 @@ function typeAt(m, [x, y]) {
 }
 
 /**
+ * A tile the colony's colonists can work: land that is not the arctic, and
+ * nobody's, so that the colony claims it when it is founded. FreeCol puts
+ * the founder to work on the best of the colony's tiles, and in the town
+ * hall (which makes bells) when the colony has none.
+ */
+const isWorkable = (m, t) => {
+  const type = typeAt(m, t);
+  return (
+    type && !WATER.test(type) && !NO_WORK.test(type) && m.owners[t[1] * m.w + t[0]] === '.' && !at(m.settlements, t)
+  );
+};
+
+/**
+ * Whether a colony founded on the tile would have a tile for its colonists
+ * to work: FreeCol puts the founder in the town hall when it has none.
+ */
+const hasWork = (m, t) => Object.keys(DIRECTIONS).some((d) => isWorkable(m, neighbour(t, d)));
+
+/**
  * Land to found on: explored, not water or barren, nobody's (so founding
- * needs no land claim), and with no settlement or unit on it.
+ * needs no land claim), and with no settlement or unit on it. The colony
+ * must have a tile for its colonists to work, or FreeCol puts the founder in
+ * the town hall instead of on a tile.
  */
 const isFreeLand = (m, t) => {
   const type = typeAt(m, t);
@@ -111,7 +135,8 @@ const isFreeLand = (m, t) => {
     !BARREN.test(type) &&
     m.owners[t[1] * m.w + t[0]] === '.' &&
     !at(m.settlements, t) &&
-    !at(m.units, t)
+    !at(m.units, t) &&
+    hasWork(m, t)
   );
 };
 
@@ -256,6 +281,19 @@ async function play(page, url) {
     return view();
   };
   /**
+   * Pick something up with a click, as a player does: the panel is shown
+   * again with each change, so a click can land as it is redrawn, and the
+   * click is repeated until the thing shows as picked.
+   */
+  const pickUp = async (thing, what, modifiers = []) => {
+    for (let i = 0; i < 5; i++) {
+      await thing.click({ modifiers });
+      if ((await thing.getAttribute('data-picked')) === 'true') return;
+      await page.waitForTimeout(300);
+    }
+    throw new Error(`a click did not pick ${what}`);
+  };
+  /**
    * Open the colony's panel and move colonists in it as a player would: the founder is dragged to a building,
    * clicked back to its tile, given other work, and a colonist outside is put to work and out again, and a building is queued. After each
    * move the panel must show the colonist in its new place, and the net production must have changed.
@@ -279,46 +317,84 @@ async function play(page, url) {
         });
       return net();
     };
-    const tileId = await unit(founder).evaluate((e) => e.closest('[data-tile]')?.dataset.tile ?? null);
-    if (!tileId) throw new Error(`the founder ${founder} does not start on a tile of the colony panel`);
-    const tile = panel.locator(`[data-tile="${tileId}"]`);
+    // Where the founder is in the panel: on a tile, in a building, or outside the colony. FreeCol puts
+    // the founder to work on the colony's best tile, and in the town hall when the colony has none.
+    const start = await unit(founder).evaluate((e) => {
+      const tile = e.closest('[data-tile]');
+      if (tile) return { tile: tile.dataset.tile };
+      const building = e.closest('[data-building]');
+      if (building) return { place: `the ${building.getAttribute('title') ?? 'building'}` };
+      return { place: e.closest('[data-part]')?.dataset.part === 'outside' ? 'outside the colony' : 'nowhere' };
+    });
+    let tileId = start.tile ?? null;
+    if (!tileId) {
+      // The colony has no tile for the founder to work (a colony on a tile
+      // with a lost city rumour claims no land, and one with no land to
+      // claim has none), so FreeCol put it in the town hall. The script puts
+      // it to work on a tile itself, as a player would: the panel's tiles
+      // that are not taken, the centre excepted, which is where it can work.
+      for (const id of await panel
+        .locator('[data-tile][data-drop]:not(:has(img.taken))')
+        .evaluateAll((es) => es.map((e) => e.dataset.tile))) {
+        const place = panel.locator(`[data-tile="${id}"]`);
+        await pickUp(unit(founder), founder);
+        await place.locator('.hit').click();
+        if (
+          await within(place, founder, 10000).then(
+            () => true,
+            () => false,
+          )
+        ) {
+          tileId = id;
+          break;
+        }
+      }
+      if (!tileId) {
+        console.log(
+          `  colony panel: the colony has no tile to work, so the founder ${founder} stays in ${start.place}`,
+        );
+      }
+    }
+    const tile = tileId === null ? null : panel.locator(`[data-tile="${tileId}"]`);
     const hall = panel.locator('[data-building]').first();
     const onTile = await net();
 
-    // Drag the founder from its tile into a building.
-    await unit(founder).dragTo(hall);
-    await within(hall, founder);
-    const inHall = await changed(onTile, 'the founder was dragged into a building');
-    if ((await tile.locator(`[data-unit="${founder}"]`).count()) > 0) {
-      throw new Error('the founder is on its tile and in the building');
-    }
+    if (tile !== null) {
+      // Drag the founder from its tile into a building.
+      await unit(founder).dragTo(hall);
+      await within(hall, founder);
+      const inHall = await changed(onTile, 'the founder was dragged into a building');
+      if ((await tile.locator(`[data-unit="${founder}"]`).count()) > 0) {
+        throw new Error('the founder is on its tile and in the building');
+      }
 
-    // Click it, then its tile: back to work there.
-    await unit(founder).click();
-    if ((await unit(founder).getAttribute('data-picked')) !== 'true')
-      throw new Error('a click did not pick the founder');
-    await tile.locator('.hit').click();
-    await within(tile, founder);
-    await changed(inHall, 'the founder was clicked back to its tile');
+      // Click it, then its tile: back to work there.
+      await unit(founder).click();
+      if ((await unit(founder).getAttribute('data-picked')) !== 'true')
+        throw new Error('a click did not pick the founder');
+      await tile.locator('.hit').click();
+      await within(tile, founder);
+      await changed(inHall, 'the founder was clicked back to its tile');
 
-    // Change what it makes, when the tile offers another.
-    await unit(founder).click();
-    const others = panel.locator('[data-part=work] button[aria-pressed=false]');
-    if ((await others.count()) > 0) {
-      const goods = await others.first().getAttribute('data-goods');
-      await others.first().click();
-      await panel
-        .locator(`[data-part=work] button[data-goods="${goods}"][aria-pressed=true]`)
-        .waitFor({ timeout: 20000 });
-      // The tile makes it now. (The net production would do, but it moves twice when a colonist returns to work.)
-      await tile
-        .locator(`[data-goods="${goods}"]`)
-        .waitFor({ timeout: 20000 })
-        .catch(() => {
-          throw new Error(`the tile did not show ${goods} after the founder was set to make it`);
-        });
+      // Change what it makes, when the tile offers another.
+      await unit(founder).click();
+      const others = panel.locator('[data-part=work] button[aria-pressed=false]');
+      if ((await others.count()) > 0) {
+        const goods = await others.first().getAttribute('data-goods');
+        await others.first().click();
+        await panel
+          .locator(`[data-part=work] button[data-goods="${goods}"][aria-pressed=true]`)
+          .waitFor({ timeout: 20000 });
+        // The tile makes it now. (The net production would do, but it moves twice when a colonist returns to work.)
+        await tile
+          .locator(`[data-goods="${goods}"]`)
+          .waitFor({ timeout: 20000 })
+          .catch(() => {
+            throw new Error(`the tile did not show ${goods} after the founder was set to make it`);
+          });
+      }
+      await unit(founder).click();
     }
-    await unit(founder).click();
 
     // A colonist outside the colony goes to work, and out again.
     const outside = panel.locator('[data-part=outside]');
@@ -363,7 +439,11 @@ async function play(page, url) {
     await page.evaluate(() => (window.__hold = null));
     await panel.locator('[data-answer=close]').click();
     await noDialog('closing the colony panel');
-    console.log(`  colony panel: moved ${founder} and ${other}`);
+    console.log(
+      tile === null
+        ? `  colony panel: moved ${other} to work and out again`
+        : `  colony panel: moved ${founder} and ${other}`,
+    );
   };
   /**
    * Sail the ship from the sea into the colony and load it in the colony panel as a player would: a unit
@@ -397,15 +477,7 @@ async function play(page, url) {
     const warehouse = panel.locator('[data-part=warehouse]');
 
     // The panel is shown afresh as each change reaches the client, so a click can land as it is redrawn:
-    // a pick is clicked again until it shows picked, and a place until nothing is.
-    const pickUp = async (thing, what) => {
-      for (let i = 0; i < 5; i++) {
-        await thing.click();
-        if ((await thing.getAttribute('data-picked')) === 'true') return;
-        await page.waitForTimeout(300);
-      }
-      throw new Error(`a click did not pick ${what}`);
-    };
+    // a place is clicked again until nothing is picked.
     // The Engine runs the commands one at a time, so a put waits for its command's closing map before
     // the next one goes.
     const putOn = async (place, what) => {
@@ -693,7 +765,9 @@ async function play(page, url) {
   for (let turns = 0; !land;) {
     const step = m.active && nextStep(m, m.active);
     if (!step) {
-      if (++turns > MAX_TURNS) throw new Error(`no land within ${MAX_TURNS} turns; the ship is at ${label(m.active)}`);
+      if (++turns > MAX_TURNS) {
+        throw new Error(`no land with a tile to work within ${MAX_TURNS} turns; the ship is at ${label(m.active)}`);
+      }
       m = await endTurn();
       continue;
     }
@@ -703,7 +777,9 @@ async function play(page, url) {
     if (step.shore && at(m.units, step.shore)) land = step.shore;
     else if (same(m.active, ship)) {
       // The ship could not move: out of moves or blocked.
-      if (++turns > MAX_TURNS) throw new Error(`no land within ${MAX_TURNS} turns; the ship is at ${label(ship)}`);
+      if (++turns > MAX_TURNS) {
+        throw new Error(`no land with a tile to work within ${MAX_TURNS} turns; the ship is at ${label(ship)}`);
+      }
       m = await endTurn();
     }
   }
