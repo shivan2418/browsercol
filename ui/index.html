@@ -754,10 +754,12 @@
         width: min(1180px, 96vw);
         max-height: 94vh;
       }
+      /* Buildings fill the left; the right column holds the population, tiles, production, construction and port; units outside and the warehouse run along the bottom. */
       .colony .cbody {
         display: grid;
-        grid-template-columns: 1fr 1fr 400px;
+        grid-template-columns: 1fr 400px;
         gap: 6px;
+        align-items: start;
       }
       /* The parts FreeCol gives no caption: no room above for one. */
       .colony .population,
@@ -778,7 +780,8 @@
         height: 48px;
       }
       .colony .population {
-        grid-column: 1 / span 2;
+        width: 100%;
+        box-sizing: border-box;
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -788,16 +791,16 @@
         height: 32px;
       }
       .colony .buildings {
-        grid-column: 1 / span 2;
-        grid-row: 2 / span 2;
+        grid-column: 1;
+        grid-row: 1;
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
         gap: 6px;
         align-content: start;
       }
       .colony .building {
         position: relative;
-        height: 128px;
+        height: 112px;
         border: 1px solid var(--line);
         border-radius: 3px;
         background: var(--box);
@@ -858,8 +861,8 @@
         border: 1px dashed var(--line);
       }
       .colony .upper {
-        grid-column: 3;
-        grid-row: 1 / span 2;
+        grid-column: 2;
+        grid-row: 1;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -979,15 +982,22 @@
         gap: 6px;
         align-items: end;
       }
-      .colony .port {
-        grid-column: 1;
-      }
-      .colony .cargo {
-        grid-column: 2 / -1;
+      .colony .upper .port,
+      .colony .upper .cargo {
+        width: 100%;
+        box-sizing: border-box;
       }
       .colony .outside,
       .colony .warehouse {
         grid-column: 1 / -1;
+      }
+      .colony .outside {
+        min-height: 52px;
+      }
+      .colony .warehouse {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        min-height: 0;
       }
       .colony .ship {
         padding: 2px;
@@ -1039,13 +1049,39 @@
       }
       /* The build queue (BuildQueuePanel): the queue, then what can be added, each listed with the goods it takes. */
       .colony .queue {
-        grid-column: 1 / -1;
+        width: 100%;
+        box-sizing: border-box;
+      }
+      .colony .queue-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 20;
+        background: color-mix(in srgb, var(--ink) 35%, transparent);
       }
       .colony .queue-body {
+        position: fixed;
+        z-index: 21;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        width: min(900px, 92vw);
+        max-height: 86vh;
+        overflow-y: auto;
+        box-sizing: border-box;
+        padding: 16px;
+        background: var(--panel);
+        color: var(--ink);
+        border: 2px solid var(--line);
+        border-radius: 4px;
+        box-shadow: 0 8px 30px color-mix(in srgb, var(--ink) 50%, transparent);
         display: grid;
         grid-template-columns: repeat(3, 1fr);
         gap: 8px;
-        margin-top: 6px;
+      }
+      .colony .queue-close {
+        position: absolute;
+        right: 6px;
+        top: 6px;
       }
       .colony .queue-body ol,
       .colony .queue-body ul {
@@ -1083,7 +1119,8 @@
       }
       /* The picked colonist's other work: the goods it could make where it works. */
       .colony .work {
-        grid-column: 1 / -1;
+        width: 100%;
+        box-sizing: border-box;
         display: flex;
         gap: 6px;
         align-items: center;
