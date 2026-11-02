@@ -386,6 +386,83 @@ class ReportsTest {
 
     @Test
     @Timeout(240)
+    void theTradeReportCountsEachStorableGoodsInTheShipsAndColonies() throws Exception {
+        twoColonies();
+        final Player us = me();
+        final var spec = us.getSpecification();
+        // Some food in the store of one colony, and a sale to the market.
+        final Colony jamestown = us.getColonyList().stream()
+            .filter(c -> c.getName().equals("Jamestown")).findFirst().get();
+        final var food = spec.getGoodsType("model.goods.food");
+        jamestown.addGoods(food, 7);
+
+        final Map<String, Object> report = obj(JsonReader.read(Reports.trade(us)));
+        assertEquals("trade", report.get("report"));
+        assertEquals("Trade Advisor", report.get("title"));
+        assertEquals("Units bought or sold", obj(report.get("labels")).get("unitsSold"));
+        final List<Map<String, Object>> goods = objs(report.get("goods"));
+        assertEquals(spec.getStorableGoodsTypeList().stream().map(g -> g.getId())
+            .collect(Collectors.toList()),
+            goods.stream().map(g -> (String)g.get("type")).collect(Collectors.toList()));
+        final int at = spec.getStorableGoodsTypeList().indexOf(food);
+        assertEquals((long)us.getMarket().getCostToBuy(food), goods.get(at).get("buy"));
+        assertEquals((long)us.getMarket().getPaidForSale(food), goods.get(at).get("sell"));
+        for (String column : List.of("sold", "beforeTaxes", "afterTaxes", "cargo", "total", "delta")) {
+            assertEquals(goods.size(), list(report.get(column)).size(), column);
+        }
+        assertEquals((long)us.getSales(food), list(report.get("sold")).get(at));
+        final long inColonies = us.getColonyList().stream().mapToLong(c -> c.getGoodsCount(food)).sum();
+        assertTrue((Long)list(report.get("total")).get(at) >= inColonies);
+        assertTrue(inColonies >= 7);
+        assertEquals((long)us.getColonyList().stream()
+            .mapToInt(c -> c.getNetProductionOf(food)).sum(), list(report.get("delta")).get(at));
+        final List<Map<String, Object>> rows = objs(report.get("colonies"));
+        assertEquals(List.of("Jamestown", "Plymouth"), rows.stream()
+            .map(r -> (String)r.get("name")).sorted().collect(Collectors.toList()));
+        final Map<String, Object> row = rows.stream()
+            .filter(r -> r.get("name").equals("Jamestown")).findFirst().get();
+        assertEquals(goods.size(), list(row.get("cells")).size());
+        final Map<String, Object> cell = obj(list(row.get("cells")).get(at));
+        assertEquals((long)jamestown.getGoodsCount(food), cell.get("amount"));
+        assertEquals((long)jamestown.getNetProductionOf(food), cell.get("production"));
+        assertEquals(Boolean.FALSE, row.get("export"));
+    }
+
+    @Test
+    @Timeout(240)
+    void theProductionReportShowsEachColonysOutputAndTheBuildingsThatMakeIt() throws Exception {
+        twoColonies();
+        final Player us = me();
+        final var spec = us.getSpecification();
+
+        final Map<String, Object> report = obj(JsonReader.read(Reports.production(us)));
+        assertEquals("production", report.get("report"));
+        assertEquals("Production Report", report.get("title"));
+        assertEquals("Colony", obj(report.get("labels")).get("colony"));
+        assertEquals("Nothing", obj(report.get("labels")).get("nothing"));
+        final List<Map<String, Object>> goods = objs(report.get("goods"));
+        assertTrue(goods.stream().noneMatch(g ->
+                spec.getGoodsType((String)g.get("type")).isFarmed()), "farmed goods are left out");
+        final int hammers = goods.stream().map(g -> g.get("type")).collect(Collectors.toList())
+            .indexOf("model.goods.hammers");
+        assertTrue(hammers >= 0);
+        assertEquals(List.of("model.building.carpenterHouse"), objs(goods.get(hammers).get("buildings"))
+            .stream().map(b -> (String)b.get("id")).collect(Collectors.toList()));
+        for (Map<String, Object> row : objs(report.get("colonies"))) {
+            final Colony ours = us.getColonyList().stream()
+                .filter(c -> c.getId().equals(row.get("id"))).findFirst().get();
+            final List<Map<String, Object>> cells = objs(row.get("cells"));
+            assertEquals(goods.size(), cells.size());
+            final Map<String, Object> cell = cells.get(hammers);
+            assertEquals((long)ours.getNetProductionOf(spec.getGoodsType("model.goods.hammers")),
+                cell.get("amount"));
+            // A colony has a carpenter's house, with nobody in it yet.
+            assertTrue(list(cell.get("buildings")).get(0) instanceof List, "its carpenter's house");
+        }
+    }
+
+    @Test
+    @Timeout(240)
     void theControllersReportCallsAndTheCommandsOpenTheReports() throws Exception {
         twoColonies();
         final Commands commands = client.getCommands();
@@ -399,8 +476,10 @@ class ReportsTest {
         gui.showReportEducationPanel();
         gui.showReportExplorationPanel();
         gui.showReportHistoryPanel();
+        gui.showReportTradePanel();
+        gui.showReportProductionPanel();
         assertEquals(List.of("colony", "labour", "compactLabour", "religion", "education",
-                "exploration", "history"), reports.stream()
+                "exploration", "history", "trade", "production"), reports.stream()
             .map(r -> (String)obj(JsonReader.read(r)).get("report")).collect(Collectors.toList()));
 
         reports.clear();
@@ -411,13 +490,15 @@ class ReportsTest {
         assertTrue(commands.showReport("education"));
         assertTrue(commands.showReport("exploration"));
         assertTrue(commands.showReport("history"));
+        assertTrue(commands.showReport("trade"));
+        assertTrue(commands.showReport("production"));
         assertFalse(commands.showReport("nothing"));
         assertTrue(commands.showReportDetail("labourDetail", "model.unit.freeColonist"));
         assertTrue(commands.showReportDetail("compactLabour", "model.unit.freeColonist"));
         assertTrue(commands.showReportDetail("compactLabour", ""));
         assertFalse(commands.showReportDetail("labourDetail", ""));
         assertEquals(List.of("colony", "labour", "compactLabour", "religion", "education",
-                "exploration", "history", "labourDetail", "compactLabour", "compactLabour"),
+                "exploration", "history", "trade", "production", "labourDetail", "compactLabour", "compactLabour"),
             reports.stream().map(r -> (String)obj(JsonReader.read(r)).get("report"))
                 .collect(Collectors.toList()));
 

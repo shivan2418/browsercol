@@ -539,8 +539,8 @@ public final class Commands {
 
     /**
      * Open a report of the Report menu, as its action does: colony, labour,
-     * compactLabour, military, naval, cargo, religion, education, exploration
-     * or history. {@link Reports} says how to add one.
+     * compactLabour, military, naval, cargo, religion, education, exploration,
+     * history, trade or production. {@link Reports} says how to add one.
      *
      * @param name The report's name.
      * @return True if there is such a report.
@@ -557,6 +557,8 @@ public final class Commands {
         case "education": gui().showReportEducationPanel(); return true;
         case "exploration": gui().showReportExplorationPanel(); return true;
         case "history": gui().showReportHistoryPanel(); return true;
+        case "trade": gui().showReportTradePanel(); return true;
+        case "production": gui().showReportProductionPanel(); return true;
         default: return false;
         }
     }

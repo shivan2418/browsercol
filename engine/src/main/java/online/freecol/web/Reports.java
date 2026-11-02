@@ -11,22 +11,26 @@ import java.util.Map;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.client.gui.panel.report.LabourData;
 import net.sf.freecol.common.i18n.Messages;
-import net.sf.freecol.common.model.AbstractUnit;
 import net.sf.freecol.common.model.Ability;
+import net.sf.freecol.common.model.AbstractUnit;
 import net.sf.freecol.common.model.BuildableType;
 import net.sf.freecol.common.model.Building;
+import net.sf.freecol.common.model.BuildingType;
 import net.sf.freecol.common.model.Colony;
 import net.sf.freecol.common.model.Europe;
+import net.sf.freecol.common.model.ExportData;
 import net.sf.freecol.common.model.FreeColObject;
 import net.sf.freecol.common.model.Goods;
 import net.sf.freecol.common.model.GoodsType;
 import net.sf.freecol.common.model.HistoryEvent;
 import net.sf.freecol.common.model.Location;
+import net.sf.freecol.common.model.Market;
 import net.sf.freecol.common.model.Player;
 import net.sf.freecol.common.model.Region;
 import net.sf.freecol.common.model.Specification;
 import net.sf.freecol.common.model.StringTemplate;
 import net.sf.freecol.common.model.Tile;
+import net.sf.freecol.common.model.TypeCountMap;
 import net.sf.freecol.common.model.Unit;
 import net.sf.freecol.common.model.UnitType;
 import net.sf.freecol.common.model.WorkLocation;
@@ -39,11 +43,12 @@ import net.sf.freecol.common.model.WorkLocation;
  * ReportLabourDetailPanel) and the compact labour report
  * (CompactLabourReport, on LabourData), the military, naval and cargo
  * reports (ReportUnitPanel and its three subclasses), and the religion,
- * education, exploration and history reports. Every payload is one object
- * of the {@code report} event, told apart by its {@code report} field:
- * colony, labour, labourDetail, compactLabour, military, naval, cargo,
- * religion, education, exploration or history. Each has title, ok (the
- * button's label) and back, the report the button returns to (or null).
+ * education, exploration, history, trade and production reports. Every
+ * payload is one object of the {@code report} event, told apart by its
+ * {@code report} field: colony, labour, labourDetail, compactLabour,
+ * military, naval, cargo, religion, education, exploration, history, trade
+ * or production. Each has title, ok (the button's label) and back, the
+ * report the button returns to (or null).
  *
  * <p>To add a report: write its builder here, giving it a new {@code report}
  * name; add its show method to the WebGUI (it sends the event) and its name
@@ -267,6 +272,168 @@ final class Reports {
         }
         return head("history", "reportHistoryAction", null)
             .putRaw("events", Json.array(events)).toString();
+    }
+
+    /**
+     * The trade report (ReportTradePanel): {goods: [{type, name, keys, buy,
+     * sell (the market's prices, or null)}] (the storable goods, whose
+     * order every list below follows), labels: {unitsSold, beforeTaxes,
+     * afterTaxes, cargoUnits, totalUnits, totalDelta, hasCustomHouse},
+     * sold, beforeTaxes, afterTaxes (what the player has sold and earned of
+     * each), cargo (in the player's ships), total (in ships and colonies),
+     * delta (the colonies' net production), colonies: [{id, name, export
+     * (it has a custom house), cells: [{amount (in store), production (net),
+     * exported (the level it is exported at, or null), warning (why its
+     * production is a problem, or null)}]}]}.
+     */
+    static String trade(Player player) {
+        final Specification spec = player.getSpecification();
+        final List<GoodsType> storable = spec.getStorableGoodsTypeList();
+        final Market market = player.getMarket();
+        final TypeCountMap<GoodsType> total = new TypeCountMap<>();
+        final TypeCountMap<GoodsType> delta = new TypeCountMap<>();
+        final TypeCountMap<GoodsType> cargo = new TypeCountMap<>();
+        for (Unit unit : player.getUnitSet()) {
+            if (!unit.isCarrier()) continue;
+            for (Goods g : unit.getCompactGoodsList()) {
+                cargo.incrementCount(g.getType(), g.getAmount());
+                total.incrementCount(g.getType(), g.getAmount());
+            }
+        }
+        final List<String> colonies = new ArrayList<>();
+        for (Colony colony : player.getColonyList()) {
+            // The production is cached; the report is read after the server's updates.
+            colony.invalidateCache();
+            for (GoodsType gt : spec.getGoodsTypeList()) {
+                delta.incrementCount(gt, colony.getNetProductionOf(gt));
+            }
+            for (Goods g : colony.getCompactGoodsList()) {
+                total.incrementCount(g.getType(), g.getAmount());
+            }
+            final List<String> cells = new ArrayList<>();
+            for (GoodsType gt : storable) {
+                final ExportData ed = colony.getExportData(gt);
+                final List<String> warnings = new ArrayList<>();
+                for (StringTemplate w : colony.getProductionWarnings(gt)) {
+                    warnings.add(Messages.message(w));
+                }
+                cells.add(new Json().put("amount", colony.getGoodsCount(gt))
+                    .put("production", colony.getNetProductionOf(gt))
+                    .putRaw("exported", ed.getExported()
+                        ? String.valueOf(ed.getExportLevel()) : "null")
+                    .put("warning", warnings.isEmpty() ? null : String.join(" ", warnings))
+                    .toString());
+            }
+            colonies.add(new Json().put("id", colony.getId())
+                .put("name", colony.getName())
+                .put("export", colony.hasAbility(Ability.EXPORT))
+                .putRaw("cells", Json.array(cells)).toString());
+        }
+        final List<String> goods = new ArrayList<>();
+        final List<String> sold = new ArrayList<>();
+        final List<String> before = new ArrayList<>();
+        final List<String> after = new ArrayList<>();
+        final List<String> cargos = new ArrayList<>();
+        final List<String> totals = new ArrayList<>();
+        final List<String> deltas = new ArrayList<>();
+        for (GoodsType gt : storable) {
+            goods.add(new Json().put("type", gt.getId())
+                .put("name", Messages.getName(gt))
+                .putRaw("keys", ObjectImages.json(gt))
+                .putRaw("buy", (market == null) ? "null"
+                    : String.valueOf(market.getCostToBuy(gt)))
+                .putRaw("sell", (market == null) ? "null"
+                    : String.valueOf(market.getPaidForSale(gt)))
+                .toString());
+            sold.add(String.valueOf(player.getSales(gt)));
+            before.add(String.valueOf(player.getIncomeBeforeTaxes(gt)));
+            after.add(String.valueOf(player.getIncomeAfterTaxes(gt)));
+            cargos.add(String.valueOf(cargo.getCount(gt)));
+            totals.add(String.valueOf(total.getCount(gt)));
+            deltas.add(String.valueOf(delta.getCount(gt)));
+        }
+        return head("trade", "reportTradeAction", null)
+            .putRaw("goods", Json.array(goods))
+            .putRaw("labels", new Json()
+                .put("unitsSold", Messages.message("report.trade.unitsSold"))
+                .put("beforeTaxes", Messages.message("report.trade.beforeTaxes"))
+                .put("afterTaxes", Messages.message("report.trade.afterTaxes"))
+                .put("cargoUnits", Messages.message("report.trade.cargoUnits"))
+                .put("totalUnits", Messages.message("report.trade.totalUnits"))
+                .put("totalDelta", Messages.message("report.trade.totalDelta"))
+                .put("hasCustomHouse", Messages.message("report.trade.hasCustomHouse"))
+                .toString())
+            .putRaw("sold", Json.array(sold))
+            .putRaw("beforeTaxes", Json.array(before))
+            .putRaw("afterTaxes", Json.array(after))
+            .putRaw("cargo", Json.array(cargos))
+            .putRaw("total", Json.array(totals))
+            .putRaw("delta", Json.array(deltas))
+            .putRaw("colonies", Json.array(colonies)).toString();
+    }
+
+    /**
+     * The production report (ReportProductionPanel): {labels: {selectGoods,
+     * nothing, colony}, goods: [{type, name, keys, buildings: [{id, name,
+     * keys}]}] (the goods that are not farmed, and the first level of each
+     * building that makes them or has a modifier for them), colonies: [{id,
+     * name, cells: [{amount (the colony's net production), buildings:
+     * [workers or null, one for each building above: the units in the
+     * colony's building, null if it has none]}]}], one cell for each goods
+     * above}. The player picks the goods to show; the Browser UI does that.
+     */
+    static String production(Player player) {
+        final Specification spec = player.getSpecification();
+        final List<GoodsType> kinds = new ArrayList<>();
+        final List<List<BuildingType>> makers = new ArrayList<>();
+        final List<String> goods = new ArrayList<>();
+        for (GoodsType gt : spec.getGoodsTypeList()) {
+            if (gt.isFarmed()) continue;
+            final List<BuildingType> bts = new ArrayList<>();
+            for (BuildingType bt : spec.getBuildingTypeList()) {
+                if (gt == bt.getProducedGoodsType() || bt.hasModifier(gt.getId())) {
+                    final BuildingType first = bt.getFirstLevel();
+                    if (!bts.contains(first)) bts.add(first);
+                }
+            }
+            kinds.add(gt);
+            makers.add(bts);
+            final List<String> buildings = new ArrayList<>();
+            for (BuildingType bt : bts) {
+                buildings.add(new Json().put("id", bt.getId())
+                    .put("name", Messages.getName(bt))
+                    .putRaw("keys", ObjectImages.json(bt)).toString());
+            }
+            goods.add(new Json().put("type", gt.getId())
+                .put("name", Messages.getName(gt))
+                .putRaw("keys", ObjectImages.json(gt))
+                .putRaw("buildings", Json.array(buildings)).toString());
+        }
+        final List<String> colonies = new ArrayList<>();
+        for (Colony colony : player.getColonyList()) {
+            colony.invalidateCache();
+            final List<String> cells = new ArrayList<>();
+            for (int i = 0; i < kinds.size(); i++) {
+                final List<String> in = new ArrayList<>();
+                for (BuildingType bt : makers.get(i)) {
+                    final Building b = colony.getBuilding(bt);
+                    in.add((b == null) ? "null" : ColonyJson.unitList(b.getUnitList()));
+                }
+                cells.add(new Json().put("amount", colony.getNetProductionOf(kinds.get(i)))
+                    .putRaw("buildings", Json.array(in)).toString());
+            }
+            colonies.add(new Json().put("id", colony.getId())
+                .put("name", colony.getName())
+                .putRaw("cells", Json.array(cells)).toString());
+        }
+        return head("production", "reportProductionAction", null)
+            .putRaw("labels", new Json()
+                .put("selectGoods", Messages.message("report.production.selectGoods"))
+                .put("nothing", Messages.message("nothing"))
+                .put("colony", Messages.message("Colony"))
+                .toString())
+            .putRaw("goods", Json.array(goods))
+            .putRaw("colonies", Json.array(colonies)).toString();
     }
 
     /** Where ReportLabourPanel counts a unit: its settlement, Europe, else its tile. */
