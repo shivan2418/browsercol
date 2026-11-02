@@ -683,3 +683,45 @@ describe('the Continental Congress report', () => {
     expect(document.querySelector('[data-section="recruiting"]')?.textContent).toContain('None');
   });
 });
+
+describe('the colopedia', () => {
+  const report: ReportView = {
+    ...head('colopedia'),
+    sections: [
+      {
+        id: 'units',
+        name: 'Units',
+        entries: [
+          {
+            id: 'u:1',
+            name: 'Free Colonist',
+            keys: [],
+            text: 'A settler.\nHe farms.',
+            facts: [{ label: 'Movement:', value: '1' }],
+          },
+          { id: 'u:2', name: 'Soldier', keys: [], text: 'Fights.', facts: [] },
+        ],
+      },
+      {
+        id: 'goods',
+        name: 'Goods',
+        entries: [{ id: 'g:1', name: 'Food', keys: [], text: 'Eaten.', facts: [] }],
+      },
+    ],
+  };
+
+  it('shows the first section open and its entry, and a click on another entry or section changes the page', () => {
+    const { box } = host();
+    show(box, report);
+    const detail = () => document.querySelector('.colopedia .detail') as HTMLElement;
+    expect(detail().querySelector('h3')?.textContent).toBe('Free Colonist');
+    expect(detail().textContent).toContain('Movement:1');
+    expect(Array.from(detail().querySelectorAll('p')).map((p) => p.textContent)).toEqual(['A settler.', 'He farms.']);
+    fireEvent.click(
+      within(document.querySelector('.colopedia') as HTMLElement).getByRole('button', { name: 'Soldier' }),
+    );
+    expect(detail().querySelector('h3')?.textContent).toBe('Soldier');
+    fireEvent.click(within(document.querySelector('.colopedia') as HTMLElement).getByRole('button', { name: /Goods/ }));
+    expect(detail().querySelector('h3')?.textContent).toBe('Food');
+  });
+});

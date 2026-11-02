@@ -211,7 +211,8 @@ import net.sf.freecol.common.option.OptionGroup;
  *     showReportExplorationPanel, showReportHistoryPanel,
  *     showReportTradePanel, showReportProductionPanel,
  *     showReportRequirementsPanel, showReportForeignAffairPanel,
- *     showReportIndianPanel, showReportContinentalCongressPanel</td>
+ *     showReportIndianPanel, showReportContinentalCongressPanel,
+ *     showColopediaPanel</td>
  *     <td>event report</td>
  *     <td>one of the reports {@link Reports} describes, told apart by its
  *         report field; a report that is open is replaced, so a link to a
@@ -1645,6 +1646,13 @@ public class WebGUI extends GUI {
     @Override
     public FreeColPanel showReportRequirementsPanel() {
         this.ui.show("report", Reports.requirements(getMyPlayer()));
+        return null;
+    }
+
+    /** {@inheritDoc} Shows the Colopedia ({@link Reports#colopedia}); the Browser UI chooses the entry. */
+    @Override
+    public FreeColPanel showColopediaPanel(String nodeId) {
+        this.ui.show("report", Reports.colopedia(getFreeColClient().getGame().getSpecification()));
         return null;
     }
 

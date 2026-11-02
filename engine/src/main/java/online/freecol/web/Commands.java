@@ -878,7 +878,7 @@ public final class Commands {
      * Open a report of the Report menu, as its action does: colony, labour,
      * compactLabour, military, naval, cargo, religion, education, exploration,
      * history, trade, production, requirements, foreign, indian or
-     * congress. {@link Reports} says how to
+     * congress, or colopedia. {@link Reports} says how to
      * add one.
      *
      * @param name The report's name.
@@ -902,6 +902,7 @@ public final class Commands {
         case "foreign": gui().showReportForeignAffairPanel(); return true;
         case "indian": gui().showReportIndianPanel(); return true;
         case "congress": gui().showReportContinentalCongressPanel(); return true;
+        case "colopedia": gui().showColopediaPanel(null); return true;
         default: return false;
         }
     }
