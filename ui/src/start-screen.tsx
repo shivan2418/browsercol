@@ -5,7 +5,8 @@
 // on each nation's radio button, [data-difficulty] on the level's select and
 // [data-start] on the Start button. The level's options and the game options
 // open in the option editor (#56) under [data-customize=difficulty] and
-// [data-customize=game]; what the player changes goes to the Engine in the
+// [data-customize=game]; the map generator's options (#57) under
+// [data-customize=map]; what the player changes goes to the Engine in the
 // preset's options.
 import { useMemo, useState } from 'react';
 import { OptionEditor } from './option-editor';
@@ -57,13 +58,15 @@ export function StartScreen({ options, start }: { options: StartOptions; start: 
   const [gameEdits, setGameEdits] = useState<Record<string, OptionValue>>({});
   const levelGroup = useMemo(() => options.groups.level(difficulty), [options, difficulty]);
   const gameGroup = useMemo(() => options.groups.game(), [options]);
+  const mapGroup = useMemo(() => options.groups.mapGenerator(), [options]);
+  const [mapEdits, setMapEdits] = useState<Record<string, OptionValue>>({});
   return (
     <div className="start" data-testid="start">
       <form
         className="start-window"
         onSubmit={(e) => {
           e.preventDefault();
-          start({ nation, difficulty, options: { ...gameEdits, ...levelEdits } });
+          start({ nation, difficulty, options: { ...mapEdits, ...gameEdits, ...levelEdits } });
         }}
       >
         <h1>FreeCol Online</h1>
@@ -128,6 +131,12 @@ export function StartScreen({ options, start }: { options: StartOptions; start: 
               edits={gameEdits}
               setEdits={setGameEdits}
             />
+          </fieldset>
+        )}
+        {mapGroup && (
+          <fieldset>
+            <legend>Map</legend>
+            <Customize kind="map" summary="Show map options" group={mapGroup} edits={mapEdits} setEdits={setMapEdits} />
           </fieldset>
         )}
         <div className="buttons">
