@@ -77,6 +77,8 @@ class CommandsTest {
     private volatile String names = null;
     /** What the fake Browser UI answers to the select amount dialog. */
     private volatile String amount = null;
+    /** The warehouse dialog's answer. */
+    private volatile String warehouse = null;
 
     /** The trade routes panels the fake Browser UI was shown. */
     private final List<String> routePanels = Collections.synchronizedList(new ArrayList<>());
@@ -223,6 +225,7 @@ class CommandsTest {
                     ui.execute(() -> {
                             String answer = kind.equals("names") ? names
                                 : kind.equals("amount") ? amount
+                                : kind.equals("warehouse") ? warehouse
                                 : accept(kind, json);
                             asked.add(kind + " " + json + " -> " + answer);
                             client.answer(id, answer);
@@ -550,6 +553,50 @@ class CommandsTest {
         assertEquals(0, serverColony.getPriceForBuilding());
         assertEquals(gold - price, us.getGold());
         assertEquals(0, ours.getPriceForBuilding());
+    }
+
+    @Test
+    @Timeout(180)
+    void theHumanSetsTheColonysExportLevelsInTheWarehouseDialog() throws Exception {
+        startGame();
+        final Commands commands = client.getCommands();
+        final Colony serverColony = foundAColony(commands);
+        final Colony ours = client.getGame()
+            .getFreeColGameObject(serverColony.getId(), Colony.class);
+        final GoodsType cloth = client.getGame().getSpecification().getGoodsType("model.goods.cloth");
+        final String id = ours.getId();
+
+        // An export level reaches the server's export data.
+        assertFalse(serverColony.getExportData(cloth).getExportLevel() == 77);
+        assertTrue(commands.setGoodsLevels(id, cloth.getId(), false, 10, 90, -1, 77));
+        awaitTrue(() -> serverColony.getExportData(cloth).getExportLevel() == 77, "export level");
+        assertEquals(10, serverColony.getExportData(cloth).getLowLevel());
+        assertEquals(90, serverColony.getExportData(cloth).getHighLevel());
+
+        // Without a custom house the goods cannot be exported; levels out of range are refused.
+        assertFalse(ours.hasAbility(net.sf.freecol.common.model.Ability.EXPORT));
+        assertFalse(commands.setGoodsLevels(id, cloth.getId(), true, 10, 90, -1, 77), "no custom house");
+        assertFalse(commands.setGoodsLevels(id, cloth.getId(), false, 101, 90, -1, 77), "low");
+        assertFalse(commands.setGoodsLevels(id, cloth.getId(), false, 10, 90, -1, 100000), "export");
+        assertFalse(commands.setGoodsLevels(id, "model.goods.noSuch", false, 10, 90, -1, 1), "unknown");
+        assertEquals(77, serverColony.getExportData(cloth).getExportLevel());
+
+        // The dialog: asked with every storable goods, saving only what changed.
+        warehouse = cloth.getId() + "\tfalse\t20\t80\t-1\t55\n";
+        asked.clear();
+        assertTrue(commands.warehouse(id));
+        awaitTrue(() -> !asked.isEmpty(), "the dialog is asked");
+        assertTrue(lastAsked().startsWith("warehouse {\"title\":\"Warehouse\""), lastAsked());
+        assertTrue(lastAsked().contains("\"type\":\"" + cloth.getId() + "\""), lastAsked());
+        awaitTrue(() -> serverColony.getExportData(cloth).getExportLevel() == 55, "saved");
+        assertEquals(20, serverColony.getExportData(cloth).getLowLevel());
+
+        // Cancelled, nothing changes.
+        warehouse = null;
+        assertTrue(commands.warehouse(id));
+        awaitTrue(() -> asked.size() == 2, "asked again");
+        assertEquals(55, serverColony.getExportData(cloth).getExportLevel());
+        assertFalse(commands.warehouse("nonsense"));
     }
 
     /** Wait until a condition holds, as the server's changes reach the client. */

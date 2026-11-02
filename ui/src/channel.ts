@@ -95,6 +95,8 @@ export interface ClientExports {
   setBuildQueue(colonyId: string, typeIds: string): void;
   /** Colony panel: pay for what the colony is building now (the player confirms the price). */
   payForBuilding(colonyId: string): void;
+  /** Colony panel: open the colony's warehouse dialog (the player sets the levels and the custom house exports). */
+  warehouse(colonyId: string): void;
   /** Send the active unit to a destination; the player is asked where. */
   selectDestination(): void;
   /** Open a report of the Report menu by name: colony, labour or compactLabour (Commands.showReport). */

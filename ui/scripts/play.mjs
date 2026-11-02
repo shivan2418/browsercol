@@ -509,6 +509,20 @@ async function play(page, url) {
       .catch(() => {
         throw new Error(`the ship did not unload ${goods}`);
       });
+    // The warehouse button opens the warehouse dialog: an export level set there is there when it is reopened.
+    const warehouseDialog = page.locator('[role=dialog][data-kind=warehouse]');
+    const exportLevel = warehouseDialog.locator('fieldset input[aria-label$=" export"]').first();
+    for (const level of ['37', '38']) {
+      await warehouse.locator('button.settings').click();
+      await warehouseDialog.waitFor({ timeout: 10000 });
+      if (level === '38' && (await exportLevel.inputValue()) !== '37') {
+        throw new Error('the warehouse dialog did not keep the export level set before');
+      }
+      await exportLevel.fill(level);
+      await warehouseDialog.locator('[data-answer=ok]').click();
+      await warehouseDialog.waitFor({ state: 'detached', timeout: 10000 });
+    }
+    console.log('  colony panel: the warehouse dialog sets an export level');
     await page.evaluate(() => (window.__hold = null));
     await panel.locator('[data-answer=close]').click();
     await noDialog('closing the colony panel after loading the ship');

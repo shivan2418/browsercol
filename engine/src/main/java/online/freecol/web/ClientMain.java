@@ -394,6 +394,12 @@ public final class ClientMain {
             typeIds.isEmpty() ? List.of() : List.of(typeIds.split(","))));
     }
 
+    /** Open a colony's warehouse dialog. */
+    @JSExport
+    public static void warehouse(String colonyId) {
+        command("warehouse", () -> engine.getCommands().warehouse(colonyId));
+    }
+
     /** Pay for what a colony is building now. */
     @JSExport
     public static void payForBuilding(String colonyId) {

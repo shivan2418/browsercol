@@ -78,6 +78,8 @@ export interface ColonyMoves {
   setQueue(colony: string, types: string[]): void;
   /** Pay for what the colony is building now. */
   buy(colony: string): void;
+  /** Open the colony's warehouse dialog. */
+  warehouse(colony: string): void;
   /** Put a unit beside the colony aboard a ship in port. */
   board(unit: string, ship: string): void;
   /** Take a unit off a ship in port. */
@@ -405,6 +407,9 @@ function Warehouse({ c, art }: { c: ColonyView; art: Art }) {
       data-drop={target ? '' : undefined}
       {...target}
     >
+      <button className="settings" onClick={() => moves?.warehouse(c.id)}>
+        {c.warehouse.title}
+      </button>
       {c.warehouse.goods.map((g) => (
         <MovableGoods
           key={g.type}

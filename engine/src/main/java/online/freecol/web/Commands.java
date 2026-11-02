@@ -6,9 +6,11 @@ import java.util.List;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.client.control.InGameController;
 import net.sf.freecol.client.gui.GUI;
+import net.sf.freecol.common.model.Ability;
 import net.sf.freecol.common.model.BuildableType;
 import net.sf.freecol.common.model.Colony;
 import net.sf.freecol.common.model.Direction;
+import net.sf.freecol.common.model.ExportData;
 import net.sf.freecol.common.model.FreeColGameObject;
 import net.sf.freecol.common.model.Goods;
 import net.sf.freecol.common.model.GoodsContainer;
@@ -512,6 +514,58 @@ public final class Commands {
         final Colony colony = object(colonyId, Colony.class);
         if (colony == null || !this.client.getMyPlayer().owns(colony)) return false;
         return igc().payForBuilding(colony);
+    }
+
+    /**
+     * Set a colony's export data for one goods type, as the warehouse dialog
+     * saves it, and send it to the server. The levels are the dialog's: the
+     * low and high warnings 0 to 100 (percent of the capacity), the import
+     * and export levels up to the warehouse's capacity (300 for goods that
+     * ignore it). Only a colony with a custom house can export. A colony
+     * with the enhanced trade routes option off has no import level, which
+     * stays as it is.
+     *
+     * @param colonyId The id of one of our colonies.
+     * @param goodsTypeId The id of a storable goods type.
+     * @param exported Whether the goods are exported.
+     * @param low The low level warning, in percent.
+     * @param high The high level warning, in percent.
+     * @param importLevel The import level, or -1 to leave it.
+     * @param exportLevel The export level.
+     * @return True if the server has the levels.
+     */
+    public boolean setGoodsLevels(String colonyId, String goodsTypeId, boolean exported,
+                                  int low, int high, int importLevel, int exportLevel) {
+        final Colony colony = object(colonyId, Colony.class);
+        final GoodsType type = this.client.getGame().getSpecification().getGoodsType(goodsTypeId);
+        if (colony == null || type == null || !this.client.getMyPlayer().owns(colony)
+            || !type.isStorable()) return false;
+        final int max = type.limitIgnored() ? 300 : colony.getWarehouseCapacity();
+        if (low < 0 || low > 100 || high < 0 || high > 100
+            || exportLevel < 0 || exportLevel > max
+            || importLevel < -1 || importLevel > max) return false;
+        if (exported && !colony.hasAbility(Ability.EXPORT)) return false;
+        final ExportData data = colony.getExportData(type);
+        data.setExported(exported);
+        data.setLowLevel(low);
+        data.setHighLevel(high);
+        if (importLevel >= 0) data.setImportLevel(importLevel);
+        data.setExportLevel(exportLevel);
+        return igc().setGoodsLevels(colony, type);
+    }
+
+    /**
+     * Open the warehouse dialog of one of our colonies (the colony panel's
+     * warehouse button).
+     *
+     * @param colonyId The id of one of our colonies.
+     * @return True if the dialog was opened.
+     */
+    public boolean warehouse(String colonyId) {
+        final Colony colony = object(colonyId, Colony.class);
+        if (colony == null || !this.client.getMyPlayer().owns(colony)) return false;
+        gui().showWarehouseDialog(colony, updated -> {});
+        return true;
     }
 
     /** The game object with this id, if it is of the class. */

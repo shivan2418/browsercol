@@ -307,6 +307,66 @@ function Names({ d }: { d: Of<'names'> }) {
   );
 }
 
+/** WarehouseDialog: a row of levels for each goods; OK sends all of them, the Engine saves what changed. */
+function Warehouse({ d, art }: { d: Of<'warehouse'>; art: Art }) {
+  const { ask } = d;
+  const [rows, setRows] = useState(ask.goods);
+  const set = (i: number, change: Partial<(typeof rows)[number]>) =>
+    setRows(rows.map((r, j) => (j === i ? { ...r, ...change } : r)));
+  const num = (v: string, max: number) => Math.max(0, Math.min(max, Math.trunc(Number(v)) || 0));
+  const ok = () =>
+    d.done(
+      rows.map((r) => ({
+        type: r.type,
+        exported: r.exported,
+        low: r.low,
+        high: r.high,
+        import: r.import,
+        export: r.export,
+      })),
+    );
+  const cancel = () => d.done(null);
+  useEnter(ok);
+  const level = (i: number, field: 'low' | 'high' | 'import' | 'export', max: number, tip: string) => (
+    <input
+      type="number"
+      min={0}
+      max={max}
+      aria-label={`${rows[i].name} ${field}`}
+      title={tip}
+      value={rows[i][field] ?? 0}
+      onChange={(e) => set(i, { [field]: num(e.target.value, max) })}
+    />
+  );
+  return (
+    <Win d={d} title={ask.title} close={cancel}>
+      <div className="warehouse-goods">
+        {rows.map((g, i) => (
+          <fieldset key={g.type} data-goods={g.type}>
+            <legend>{g.name}</legend>
+            <GoodsAmount keys={g.keys} name={g.name} amount={g.amount} art={art} />
+            {level(i, 'low', 100, ask.tips.low)}
+            {level(i, 'high', 100, ask.tips.high)}
+            {g.import !== null && level(i, 'import', g.max, ask.tips.import)}
+            <label title={ask.tips.exported}>
+              <input
+                type="checkbox"
+                aria-label={`${g.name} ${ask.export}`}
+                checked={g.exported}
+                disabled={!ask.canExport}
+                onChange={(e) => set(i, { exported: e.target.checked })}
+              />
+              {ask.export}
+            </label>
+            {level(i, 'export', g.max, ask.tips.export)}
+          </fieldset>
+        ))}
+      </div>
+      <OkCancel ok={ask.ok} cancel={ask.cancel} onOk={ok} onCancel={cancel} />
+    </Win>
+  );
+}
+
 function Goods({ d, art }: { d: Of<'goods'>; art: Art }) {
   const { ask } = d;
   const [picked, setPicked] = useState<number[]>(() =>
@@ -1042,6 +1102,8 @@ function Body({
       return <Amount d={d} art={art} />;
     case 'goods':
       return <Goods d={d} art={art} />;
+    case 'warehouse':
+      return <Warehouse d={d} art={art} />;
     case 'negotiation':
       return <Negotiation d={d} />;
     case 'names':
