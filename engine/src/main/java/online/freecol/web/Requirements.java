@@ -6,6 +6,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.model.AbstractGoods;
@@ -107,7 +108,7 @@ final class Requirements {
             }
         }
         for (Building building : colony.getBuildings()) {
-            for (AbstractGoods output : building.getOutputs().collect(java.util.stream.Collectors.toList())) {
+            for (AbstractGoods output : building.getOutputs().collect(Collectors.toList())) {
                 final GoodsType goodsType = output.getType();
                 final UnitType expert = this.spec.getExpertForProducing(goodsType);
                 if (goodsType != null && expert != null
@@ -122,7 +123,7 @@ final class Requirements {
                 final ProductionInfo info = building.getProductionInfo();
                 if (goodsType != null && info != null && !info.atMaximumProduction()
                     && productionWarning.add(goodsType)) {
-                    for (AbstractGoods in : building.getInputs().collect(java.util.stream.Collectors.toList())) {
+                    for (AbstractGoods in : building.getInputs().collect(Collectors.toList())) {
                         productionWarning(items, colony, goodsType, in.getType());
                     }
                 }
