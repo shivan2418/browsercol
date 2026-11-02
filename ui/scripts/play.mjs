@@ -84,6 +84,10 @@ const BARREN = /arctic|desert|scrubForest|mountains/;
 // The arctic is the only land with no work for a colonist: every other land
 // has a production a colonist can make.
 const NO_WORK = /arctic/i;
+// How much farther the ship may sail for land whose colony has a tile to
+// work than for any land at all, in tiles: the crossing is long, and the
+// script puts the founder to work itself when the colony has one.
+const MAX_DETOUR = 12;
 // FreeCol's grey for a fortified unit (MapJson draws it in that colour).
 const FORTIFIED = 0x808080;
 
@@ -103,15 +107,30 @@ function typeAt(m, [x, y]) {
 }
 
 /**
- * A tile the colony's colonists can work: land that is not the arctic, and
- * nobody's, so that the colony claims it when it is founded. FreeCol puts
- * the founder to work on the best of the colony's tiles, and in the town
- * hall (which makes bells) when the colony has none.
+ * Whether the tile has a lost city rumour, as the map shows it when the tile
+ * is seen: a rumour cannot be claimed, so a colony cannot work the tile.
+ */
+const hasRumour = (m, t) =>
+  m.items.some(([x, y, , , image]) => x === t[0] && y === t[1] && /lostCityRumour/.test(image));
+
+/**
+ * A tile the colony's colonists can work: land that is not the arctic (the
+ * only land with no work for a colonist), and nobody's and empty, so that
+ * the colony claims it when it is founded, and without a lost city rumour,
+ * which cannot be claimed. FreeCol puts the founder to work on the best of
+ * the colony's tiles, and in the town hall (which makes bells) when the
+ * colony has none.
  */
 const isWorkable = (m, t) => {
   const type = typeAt(m, t);
   return (
-    type && !WATER.test(type) && !NO_WORK.test(type) && m.owners[t[1] * m.w + t[0]] === '.' && !at(m.settlements, t)
+    type &&
+    !WATER.test(type) &&
+    !NO_WORK.test(type) &&
+    m.owners[t[1] * m.w + t[0]] === '.' &&
+    !at(m.settlements, t) &&
+    !at(m.units, t) &&
+    !hasRumour(m, t)
   );
 };
 
@@ -123,9 +142,9 @@ const hasWork = (m, t) => Object.keys(DIRECTIONS).some((d) => isWorkable(m, neig
 
 /**
  * Land to found on: explored, not water or barren, nobody's (so founding
- * needs no land claim), and with no settlement or unit on it. The colony
- * must have a tile for its colonists to work, or FreeCol puts the founder in
- * the town hall instead of on a tile.
+ * needs no land claim), and with no settlement or unit on it. A tile with a
+ * lost city rumour is no land to found on either: FreeCol refuses to found
+ * a colony on it.
  */
 const isFreeLand = (m, t) => {
   const type = typeAt(m, t);
@@ -136,35 +155,65 @@ const isFreeLand = (m, t) => {
     m.owners[t[1] * m.w + t[0]] === '.' &&
     !at(m.settlements, t) &&
     !at(m.units, t) &&
-    hasWork(m, t)
+    !hasRumour(m, t)
   );
 };
 
 /**
- * The ship's next step: the direction of free land beside it, or the first
- * step of the shortest route over explored, empty sea to a tile beside free
- * land, or failing that to the westmost explored sea, where more of the
- * map comes into sight. Null if the ship can go nowhere.
+ * The free lands the ship can sail to, and how far they are: the land
+ * beside the ship is one tile away, the land beside the sea tile next to it
+ * two, and so on. The search follows the explored, empty sea only, as the
+ * ship has seen no more of the map yet, and the direction is the first step
+ * of the shortest route to the land.
  */
-function nextStep(m, ship) {
+function freeLands(m, ship) {
   const dirs = Object.keys(DIRECTIONS);
-  const shore = dirs.find((d) => isFreeLand(m, neighbour(ship, d)));
-  if (shore) return { dir: shore, shore: neighbour(ship, shore) };
+  const lands = new Map();
   const first = new Map([[label(ship), null]]);
+  const dist = new Map([[label(ship), 0]]);
   const queue = [ship];
   let west = null;
   for (let i = 0; i < queue.length; i++) {
     const t = queue[i];
-    if (i > 0 && dirs.some((d) => isFreeLand(m, neighbour(t, d)))) return { dir: first.get(label(t)) };
+    const d = dist.get(label(t));
+    for (const dir of dirs) {
+      const n = neighbour(t, dir);
+      if (!isFreeLand(m, n)) continue;
+      const key = label(n);
+      if (!lands.has(key)) {
+        lands.set(key, { tile: n, dist: d + 1, dir: d === 0 ? dir : first.get(label(t)) });
+      }
+    }
     if (i > 0 && (!west || t[0] < west[0])) west = t;
-    for (const d of dirs) {
-      const n = neighbour(t, d);
+    for (const dir of dirs) {
+      const n = neighbour(t, dir);
       if (first.has(label(n)) || !WATER.test(typeAt(m, n) ?? '') || at(m.units, n) || at(m.settlements, n)) continue;
-      first.set(label(n), first.get(label(t)) ?? d);
+      first.set(label(n), first.get(label(t)) ?? dir);
+      dist.set(label(n), d + 1);
       queue.push(n);
     }
   }
-  return west && { dir: first.get(label(west)) };
+  return { lands, west: west && { tile: west, dir: first.get(label(west)) } };
+}
+
+/**
+ * The land the ship should sail to: the nearest free land whose colony has
+ * a tile to work, so that FreeCol puts the founder on a tile and not in the
+ * town hall. When that land is much farther off than the nearest free land,
+ * the ship takes the nearer one: the crossing is long, and the script puts
+ * the founder to work itself when the colony has a tile to work. When no
+ * land is in sight, the ship sails for the westmost sea it knows, where more
+ * of the map comes into sight.
+ */
+function bestLand(m, ship) {
+  const { lands, west } = freeLands(m, ship);
+  const all = [...lands.values()];
+  if (!all.length) return west && { dir: west.dir, dist: Infinity };
+  const nearest = all.reduce((a, b) => (b.dist < a.dist ? b : a));
+  const good = all.filter((l) => hasWork(m, l.tile));
+  if (!good.length) return nearest;
+  const best = good.reduce((a, b) => (b.dist < a.dist ? b : a));
+  return best.dist <= nearest.dist + MAX_DETOUR ? best : nearest;
 }
 
 /** How long each screenshot of a dialog took, for the report. */
@@ -273,11 +322,16 @@ async function play(page, url) {
     await page.waitForFunction((n) => window.__maps > n, n, { timeout: 60000 });
     return view();
   };
-  const endTurn = async () => {
+  const endTurn = async (expectUnit = false) => {
     const turn = (await view()).turn;
     await noDialog('ending the turn');
     await page.keyboard.press('Enter');
     await page.waitForFunction((t) => window.__map.turn !== t && window.__map.ourTurn, turn, { timeout: 120000 });
+    // The client picks the unit to play with, which the map names when it comes: the map of the new
+    // turn may come first, with no unit yet, and the script must not spend its turns on that.
+    if (expectUnit) {
+      await page.waitForFunction(() => window.__map.active, null, { timeout: 10000 }).catch(() => {});
+    }
     return view();
   };
   /**
@@ -761,26 +815,35 @@ async function play(page, url) {
   await zoomAndScroll();
 
   // Sail toward land until it is beside the ship, then move onto it to land.
+  // The ship sails for the nearest land whose colony has a tile to work, so
+  // that FreeCol puts the founder on a tile and not in the town hall, unless
+  // that land is much farther off than the nearest land, which it takes
+  // then: the crossing is long, and the script puts the founder to work
+  // itself when the colony has a tile to work.
   let land = null;
+  // Where the ship was last seen: the map names no active unit when the ship
+  // is out of moves, and then it names no place either.
+  let place = null;
   for (let turns = 0; !land;) {
-    const step = m.active && nextStep(m, m.active);
-    if (!step) {
+    const step = m.active && bestLand(m, m.active);
+    if (m.active) place = m.active;
+    if (!step || !step.dir) {
       if (++turns > MAX_TURNS) {
-        throw new Error(`no land with a tile to work within ${MAX_TURNS} turns; the ship is at ${label(m.active)}`);
+        throw new Error(`no land within ${MAX_TURNS} turns; the ship is at ${label(place)}`);
       }
-      m = await endTurn();
+      m = await endTurn(true);
       continue;
     }
     const ship = m.active;
     m = await act(() => page.keyboard.press(KEYS[step.dir]));
     if (m.activeUnit) await following(m, 'after a move');
-    if (step.shore && at(m.units, step.shore)) land = step.shore;
+    if (step.tile && at(m.units, step.tile)) land = step.tile;
     else if (same(m.active, ship)) {
       // The ship could not move: out of moves or blocked.
       if (++turns > MAX_TURNS) {
-        throw new Error(`no land with a tile to work within ${MAX_TURNS} turns; the ship is at ${label(ship)}`);
+        throw new Error(`no land within ${MAX_TURNS} turns; the ship is at ${label(ship)}`);
       }
-      m = await endTurn();
+      m = await endTurn(true);
     }
   }
 
