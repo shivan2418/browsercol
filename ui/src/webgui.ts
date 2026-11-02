@@ -129,7 +129,17 @@ export interface GuiEvents {
     inPort: EuropeUnit[];
     docks: EuropeUnit[];
     selected: Id | null;
-    market: { id: Id; name: string; images: string[]; sell: number; buy: number; enabled: boolean }[];
+    market: {
+      id: Id;
+      name: string;
+      images: string[];
+      sell: number;
+      buy: number;
+      /** Whether the goods can be traded at all; false when it is boycotted. */
+      enabled: boolean;
+      /** Why it cannot be traded, as FreeCol says it; null when it can. */
+      reason: string | null;
+    }[];
     buttons: { train: string; purchase: string; recruit: string; sail: string };
     /** The docks' recruit pool at one price (RecruitPanel); index is what recruiting sends. */
     recruit: {
