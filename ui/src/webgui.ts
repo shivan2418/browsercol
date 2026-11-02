@@ -650,7 +650,34 @@ export type ReportView =
         summary: { colonists: number; production: number; net: number; hasNet: boolean };
         rows: { unit: string | null; doing: string; count: number; production: number; counted: boolean }[];
       }[];
-    });
+    })
+  | (ReportHead<'religion'> & {
+      /** Each kind of immigration goods (crosses): the player's store of it, what it needs, and the buildings that make it. */
+      goods: (GoodsAmount & {
+        immigration: number;
+        required: number;
+        production: number;
+        colonies: { id: Id; name: string; building: { id: Id; name: string; keys: string[] }; workers: UnitRef[] }[];
+      })[];
+    })
+  | (ReportHead<'education'> & {
+      /** The titles of the lists of teachers and students, localized. */
+      headers: { teachers: string; students: string };
+      /** One entry for each school; a student's learns is what it would become. */
+      colonies: {
+        id: Id;
+        name: string;
+        building: { id: Id; name: string; keys: string[] };
+        teachers: UnitRef[];
+        students: (UnitRef & { learns: string })[];
+      }[];
+    })
+  | (ReportHead<'exploration'> & {
+      /** The column headers, localized. */
+      headers: { name: string; type: string; discoveredIn: string; discoveredBy: string; value: string };
+      regions: { name: string; type: string; turn: string; by: string; value: number }[];
+    })
+  | (ReportHead<'history'> & { events: { turn: string; text: string }[] });
 
 /** The reports the menu opens and the Engine can send. */
 export type ReportName = ReportView['report'];

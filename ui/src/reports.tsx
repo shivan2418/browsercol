@@ -1,10 +1,11 @@
 // The reports of the Report menu (FreeCol's report panels, Reports.java), each in a window frame
 // (frame.tsx): the classic colony report, the labour report with its details, the compact labour report,
-// and the military, naval and cargo reports (one view, Units). A link in a report opens a colony's panel,
-// Europe, a tile of the map or a detail report; the report closes first, as only one dialog is open at a time.
+// the military, naval and cargo reports (one view, Units), and the religion, education, exploration and
+// history reports. A link in a report opens a colony's panel, Europe, a tile of the map or a detail
+// report; the report closes first, as only one dialog is open at a time.
 //
-// To add a report (#74, #75): add its view to ReportView (webgui.ts), a body for it in BODIES below,
-// and an entry in REPORTS, which is the Report menu. The Engine side is Reports.java.
+// To add a report (#74 and the rest of #75): add its view to ReportView (webgui.ts), a body for it in
+// BODIES below, and an entry in REPORTS, which is the Report menu. The Engine side is Reports.java.
 import './reports.css';
 import { createContext, useContext, type ReactNode } from 'react';
 import type { Dialog } from './dialogs';
@@ -40,6 +41,10 @@ export const REPORTS: readonly { name: Exclude<ReportName, 'labourDetail'>; labe
   { name: 'military', label: 'Military report' },
   { name: 'naval', label: 'Naval report' },
   { name: 'cargo', label: 'Cargo report' },
+  { name: 'education', label: 'Education report' },
+  { name: 'exploration', label: 'Exploration report' },
+  { name: 'history', label: 'History report' },
+  { name: 'religion', label: 'Religion report' },
 ];
 
 /** The Report menu's items, each opening its report. */
@@ -321,6 +326,120 @@ function Units({ e, art, go }: { e: View<'military' | 'naval' | 'cargo'>; art: A
   );
 }
 
+/** ReportReligiousPanel: the progress of each kind of immigration goods, and the buildings that make it. */
+function ReligionReport({ e, art, go }: { e: View<'religion'>; art: Art; go: Links }) {
+  return (
+    <div className="religion">
+      {e.goods.map((g) => (
+        <section key={g.type} data-goods={g.type}>
+          <h3>
+            <Img keys={g.keys} art={art} title={g.name} />
+            {g.name}
+          </h3>
+          <progress
+            value={Math.min(g.immigration, g.required)}
+            max={g.required}
+            title={`${g.immigration} / ${g.required}, ${g.production > 0 ? '+' : ''}${g.production} a turn`}
+          />
+          <span className="muted" data-field="progress">
+            {g.immigration} / {g.required} ({g.production > 0 ? '+' : ''}
+            {g.production})
+          </span>
+          <div className="places">
+            {g.colonies.map((c) => (
+              <div key={c.id} className="place" data-colony={c.id}>
+                <Link go={() => go.colony(c.id)} data-link={c.id}>
+                  {c.name}
+                </Link>
+                <Img keys={c.building.keys} art={art} title={c.building.name} />
+                <span className="row" data-list="workers">
+                  {c.workers.map((u) => (
+                    <Img key={u.id} keys={u.keys} art={art} title={u.name} unit={u.id} />
+                  ))}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+/** ReportEducationPanel: for each school its building, the colonists who could teach in it and those who could learn. */
+function EducationReport({ e, art, go }: { e: View<'education'>; art: Art; go: Links }) {
+  return (
+    <div className="education">
+      {e.colonies.map((c, i) => (
+        <section key={`${c.id}.${i}`} data-colony={c.id}>
+          <h3>
+            <Link go={() => go.colony(c.id)} data-link={c.id}>
+              {c.name}
+            </Link>
+            <Img keys={c.building.keys} art={art} title={c.building.name} />
+          </h3>
+          <fieldset data-list="teachers">
+            <legend>{e.headers.teachers}</legend>
+            {c.teachers.map((u) => (
+              <Img key={u.id} keys={u.keys} art={art} title={u.name} unit={u.id} />
+            ))}
+          </fieldset>
+          <fieldset data-list="students">
+            <legend>{e.headers.students}</legend>
+            {c.students.map((u) => (
+              <Img key={u.id} keys={u.keys} art={art} title={`${u.name}: ${u.learns}`} unit={u.id} />
+            ))}
+          </fieldset>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+/** ReportExplorationPanel: the regions that have been discovered, by whom and when. */
+function ExplorationReport({ e }: { e: View<'exploration'> }) {
+  return (
+    <table className="exploration">
+      <thead>
+        <tr>
+          <th scope="col">{e.headers.name}</th>
+          <th scope="col">{e.headers.type}</th>
+          <th scope="col">{e.headers.discoveredIn}</th>
+          <th scope="col">{e.headers.discoveredBy}</th>
+          <th scope="col">{e.headers.value}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {e.regions.map((r, i) => (
+          <tr key={i}>
+            <td>{r.name}</td>
+            <td>{r.type}</td>
+            <td>{r.turn}</td>
+            <td>{r.by}</td>
+            <td className="num">{r.value}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+/** ReportHistoryPanel: what has happened to the player, turn by turn. */
+function HistoryReport({ e }: { e: View<'history'> }) {
+  return (
+    <table className="history">
+      <tbody>
+        {e.events.map((h, i) => (
+          <tr key={i}>
+            <th scope="row">{h.turn}</th>
+            <td>{h.text}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 type Links = Pick<ReportActions, 'colony' | 'detail' | 'europe' | 'goTo'>;
 type Body<K extends ReportName> = (p: { e: View<K>; art: Art; go: Links }) => ReactNode;
 
@@ -333,6 +452,10 @@ const BODIES: { [K in ReportName]: Body<K> } = {
   military: Units,
   naval: Units,
   cargo: Units,
+  religion: ReligionReport,
+  education: EducationReport,
+  exploration: ExplorationReport,
+  history: HistoryReport,
 };
 
 /**

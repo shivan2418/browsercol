@@ -70,6 +70,10 @@ describe('the Report menu', () => {
       'Military report',
       'Naval report',
       'Cargo report',
+      'Education report',
+      'Exploration report',
+      'History report',
+      'Religion report',
     ]);
     fireEvent.click(within(menu).getByRole('menuitem', { name: 'Compact labour report' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Report' }));
@@ -276,5 +280,110 @@ describe('the military, naval and cargo reports', () => {
     show(box, units('military'));
     fireEvent.click(screen.getByRole('button', { name: 'Tile 3, 4' }));
     expect(calls).toEqual(['colony colony:7', 'europe', 'goTo 3,4']);
+  });
+});
+
+describe('the religion report', () => {
+  const report: ReportView = {
+    ...head('religion'),
+    goods: [
+      {
+        type: 'model.goods.crosses',
+        name: 'Crosses',
+        keys: [],
+        amount: 0,
+        immigration: 12,
+        required: 40,
+        production: 3,
+        colonies: [
+          {
+            id: 'colony:7',
+            name: 'Jamestown',
+            building: { id: 'building:1', name: 'Chapel', keys: [] },
+            workers: [colonist],
+          },
+        ],
+      },
+    ],
+  };
+
+  it('shows the crosses so far and the buildings that make them, and a colony name opens its panel', () => {
+    const { box, calls } = host();
+    show(box, report);
+    const section = document.querySelector('[data-goods="model.goods.crosses"]') as HTMLElement;
+    expect(within(section).getByText('Crosses')).toBeTruthy();
+    expect(section.querySelector('progress')?.getAttribute('value')).toBe('12');
+    expect(section.querySelector('progress')?.getAttribute('max')).toBe('40');
+    expect(section.querySelector('[data-field="progress"]')?.textContent).toBe('12 / 40 (+3)');
+    expect(section.querySelector('[data-list="workers"] img')?.getAttribute('data-unit')).toBe('unit:1');
+    fireEvent.click(within(section).getByRole('button', { name: 'Jamestown' }));
+    expect(calls).toEqual(['colony colony:7']);
+  });
+});
+
+describe('the education report', () => {
+  const report: ReportView = {
+    ...head('education'),
+    headers: { teachers: 'Potential teachers', students: 'Potential students' },
+    colonies: [
+      {
+        id: 'colony:7',
+        name: 'Jamestown',
+        building: { id: 'building:2', name: 'Schoolhouse', keys: [] },
+        teachers: [{ ...colonist, id: 'unit:2' }],
+        students: [{ ...colonist, learns: 'Carpenter' }],
+      },
+    ],
+  };
+
+  it('lists the teachers and the students of a school, with what a student would learn', () => {
+    const { box, calls } = host();
+    show(box, report);
+    const teachers = document.querySelector('[data-list="teachers"]') as HTMLElement;
+    const students = document.querySelector('[data-list="students"]') as HTMLElement;
+    expect(within(teachers).getByText('Potential teachers')).toBeTruthy();
+    expect(teachers.querySelector('img')?.getAttribute('data-unit')).toBe('unit:2');
+    expect(within(students).getByText('Potential students')).toBeTruthy();
+    expect(students.querySelector('img')?.getAttribute('title')).toBe('Free Colonist: Carpenter');
+    fireEvent.click(screen.getByRole('button', { name: 'Jamestown' }));
+    expect(calls).toEqual(['colony colony:7']);
+  });
+});
+
+describe('the exploration report', () => {
+  it('has a row for each region discovered', () => {
+    const { box } = host();
+    show(box, {
+      ...head('exploration'),
+      headers: { name: 'Name', type: 'Type', discoveredIn: 'In', discoveredBy: 'By', value: 'Value' },
+      regions: [
+        { name: 'Bahamas', type: 'Lake', turn: 'Autumn 1492', by: 'Dutch', value: 20 },
+        { name: 'Yucatan', type: 'Land', turn: 'Spring 1493', by: 'Dutch', value: 35 },
+      ],
+    });
+    const rows = screen.getAllByRole('row').map((r) => Array.from(r.children).map((c) => c.textContent));
+    expect(rows).toEqual([
+      ['Name', 'Type', 'In', 'By', 'Value'],
+      ['Bahamas', 'Lake', 'Autumn 1492', 'Dutch', '20'],
+      ['Yucatan', 'Land', 'Spring 1493', 'Dutch', '35'],
+    ]);
+  });
+});
+
+describe('the history report', () => {
+  it('lists each event with its turn', () => {
+    const { box } = host();
+    show(box, {
+      ...head('history'),
+      events: [
+        { turn: 'Autumn 1492', text: 'You founded Jamestown.' },
+        { turn: 'Spring 1493', text: 'You declared independence.' },
+      ],
+    });
+    const rows = screen.getAllByRole('row').map((r) => Array.from(r.children).map((c) => c.textContent));
+    expect(rows).toEqual([
+      ['Autumn 1492', 'You founded Jamestown.'],
+      ['Spring 1493', 'You declared independence.'],
+    ]);
   });
 });
