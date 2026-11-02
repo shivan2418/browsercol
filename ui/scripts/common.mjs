@@ -52,6 +52,15 @@ process.stderr.write = (chunk, ...rest) => {
 };
 
 /**
+ * Firefox draws the map on the Canvas 2D fallback (?renderer=canvas2d): in CI
+ * its content process died with SIGSEGV next to FEATURE_FAILURE_WEBGL_EXHAUSTED_DRIVERS
+ * (#31), software GL in a container being the suspect. Chromium keeps covering
+ * PixiJS. FC_FIREFOX_WEBGL=1 gives Firefox WebGL back.
+ */
+const canvas2d = (url) =>
+  /[?&]renderer=/.test(url) ? url : url + (url.includes('?') ? '&' : '?') + 'renderer=canvas2d';
+
+/**
  * Launches a browser that remembers how it dies (#31, #40): Playwright's log
  * of the browser process is kept, and the browser's disconnect noted, for
  * diagnose(). Without this a closed browser shows only "Target page, context
@@ -64,6 +73,15 @@ export async function launchBrowser(name) {
   browser.on('disconnected', () => closing.has(browser) || note(`${name} browser disconnected`));
   const close = browser.close.bind(browser);
   browser.close = (...args) => (closing.add(browser), close(...args));
+  if (name === 'firefox' && !process.env.FC_FIREFOX_WEBGL) {
+    const newPage = browser.newPage.bind(browser);
+    browser.newPage = async (...args) => {
+      const page = await newPage(...args);
+      const goto = page.goto.bind(page);
+      page.goto = (url, ...rest) => goto(canvas2d(url), ...rest);
+      return page;
+    };
+  }
   return browser;
 }
 
