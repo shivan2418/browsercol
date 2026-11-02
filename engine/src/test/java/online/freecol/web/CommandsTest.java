@@ -65,6 +65,9 @@ class CommandsTest {
     /** The colony panels the WebGUI showed, as their JSON. */
     private final List<String> colonies = Collections.synchronizedList(new ArrayList<>());
 
+    /** The information panels the WebGUI showed, as their JSON. */
+    private final List<String> informationPanels = Collections.synchronizedList(new ArrayList<>());
+
     /** The questions the fake Browser UI answered, with its answers. */
     private final List<String> asked = Collections.synchronizedList(new ArrayList<>());
 
@@ -156,6 +159,13 @@ class CommandsTest {
         return sb.toString();
     }
 
+    /** The text of a JSON payload, as the Browser UI reads it. */
+    private static String textOf(String json) {
+        final Matcher t = TEXT.matcher(json);
+        assertTrue(t.find(), () -> "the payload has a text: " + json);
+        return unescape(t.group(1));
+    }
+
     /** Start a Classic game with no autoplay and return once it is our turn. */
     private void startGame() throws Exception {
         for (long seed = FIRST_SEED; seed < FIRST_SEED + MAX_SEEDS; seed++) {
@@ -207,6 +217,7 @@ class CommandsTest {
                 public void show(String kind, String json) {
                     if (kind.equals("colony")) colonies.add(json);
                     if (kind.equals("tradeRoutes")) routePanels.add(json);
+                    if (kind.equals("information")) informationPanels.add(json);
                 }
                 public void ask(int id, String kind, String json) {
                     ui.execute(() -> {
@@ -376,6 +387,43 @@ class CommandsTest {
         assertTrue(commands.click(colony.getTile().getX(), colony.getTile().getY()));
         assertEquals(1, colonies.size(), colonies::toString);
         assertTrue(colonies.get(0).startsWith("{\"id\":\"" + colony.getId() + "\""));
+    }
+
+    /**
+     * A unit that cannot found a colony is told so by name: the message
+     * names the unit's type, and not "null", as it does for a unit the
+     * player never renamed.
+     */
+    @Test
+    @Timeout(240)
+    void theHumanIsToldWhichUnitCannotFoundAColony() throws Exception {
+        startGame();
+        final Commands commands = client.getCommands();
+        final Unit colonist = landAColonist(commands);
+
+        // The colonist has used its moves landing, so it cannot found a
+        // colony yet, and the Browser UI is told which unit cannot.
+        assertFalse(colonist.canBuildColony(), "the colonist cannot found a colony");
+        final String typeName = Messages.message(StringTemplate
+            .template(Messages.nameKey(colonist.getType().getId()))
+            .addAmount("%number%", 1));
+        informationPanels.clear();
+        select(commands, colonist);
+        assertFalse(commands.buildColony(), "the colonist founds no colony");
+
+        // The message is the rules' own sentence, with the colonist's
+        // type where the unit goes, and not "null".
+        assertEquals(1, informationPanels.size(), informationPanels::toString);
+        final String text = textOf(informationPanels.get(0));
+        final String sentence = Messages.message("buildColony.badUnit");
+        assertTrue(sentence.contains("%unit%"), () -> "the rules' sentence: " + sentence);
+        final int at = sentence.indexOf("%unit%");
+        assertTrue(text.startsWith(sentence.substring(0, at))
+                   && text.endsWith(sentence.substring(at + "%unit%".length())),
+            () -> "the message is the rules' own: " + text);
+        assertTrue(text.contains(typeName),
+            () -> "the message names the colonist's type: " + text);
+        assertFalse(text.contains("null"), () -> "the message does not say null: " + text);
     }
 
     @Test
@@ -608,9 +656,30 @@ class CommandsTest {
      * Sail to land, put a colonist ashore and found a colony, through the
      * commands, then end the turn.
      *
+     * @param commands The commands to play through.
      * @return The server's colony.
      */
     private Colony foundAColony(Commands commands) throws Exception {
+        final Unit colonist = landAColonist(commands);
+        final Tile land = colonist.getTile();
+        if (!colonist.canBuildColony()) endTurnAndWait(commands);
+
+        select(commands, colonist);
+        assertTrue(commands.buildColony(), "colony founded");
+        endTurnAndWait(commands);
+
+        return server.getGame().getMap()
+            .getTile(land.getX(), land.getY()).getColony();
+    }
+
+    /**
+     * Sail to land and put a colonist ashore, through the commands, as
+     * {@link #foundAColony} does before it founds one.
+     *
+     * @param commands The commands to play through.
+     * @return The colonist, on the land it landed on.
+     */
+    private Unit landAColonist(Commands commands) throws Exception {
         final Player player = client.getClient().getMyPlayer();
         final Map map = client.getGame().getMap();
         final Unit ship = player.getUnits().filter(Unit::isNaval).findFirst().get();
@@ -651,14 +720,8 @@ class CommandsTest {
         Direction toLand = map.getDirection(sea, land);
         assertTrue(commands.move(toLand.toString()), "the colonist lands");
         assertSame(land, colonist.getTile());
-        if (!colonist.canBuildColony()) endTurnAndWait(commands);
 
-        select(commands, colonist);
-        assertTrue(commands.buildColony(), "colony founded");
-        endTurnAndWait(commands);
-
-        return server.getGame().getMap()
-            .getTile(land.getX(), land.getY()).getColony();
+        return colonist;
     }
 
     /** Make the share of rebels in a colony what is wanted, on the client and the server. */
