@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { dialogs } from './dialogs';
 import { ColonyActions, ColonyTiles, type ColonyMoves, type DrawTiles } from './colony-panel';
 import { DialogHost, type Art } from './panels';
+import { ContextMenuContext, type ContextMenus } from './popup-menu';
 import type { ColonyView } from './webgui';
 
 afterEach(cleanup);
@@ -707,5 +708,68 @@ describe('the build queue in the colony panel', () => {
     cleanup();
     openQueue({ queue: { ...jamestown.queue, queue: [], buy: null } });
     expect(screen.queryByRole('button', { name: /Buy/ })).toBeNull();
+  });
+});
+
+describe('right-clicking in the colony panel', () => {
+  const asked: string[] = [];
+  const shown: string[] = [];
+  const menu = { title: 'Menu', entries: [{ id: 'x', label: 'X', enabled: true }] };
+  const menus: ContextMenus = {
+    unit: (id) => (asked.push(`unit ${id}`), id === 'unit:3' ? null : menu),
+    goods: (at, type, amount) => (asked.push(`goods ${at} ${type} ${amount}`), menu),
+    show: (m, x, y) => shown.push(`${m.title} ${x},${y}`),
+  };
+  const caravel = {
+    id: 'unit:9',
+    name: 'Caravel',
+    keys: ['image.unit.model.unit.caravel'],
+    cargo: { title: 'Caravel', units: [], goods: [goods('cloth', 100)] },
+  };
+  function open(provide: boolean) {
+    asked.length = shown.length = 0;
+    const box = dialogs();
+    const host = (
+      <DialogHost
+        dialogs={box}
+        goTo={() => {}}
+        art={art}
+        report={{ groupBy() {}, filter() {}, ignore() {} }}
+        routes={{ save() {}, remove() {} }}
+      />
+    );
+    render(provide ? <ContextMenuContext.Provider value={menus}>{host}</ContextMenuContext.Provider> : host);
+    act(() =>
+      box.show('colony', {
+        ...jamestown,
+        id: 'colony:500',
+        inPort: { ...jamestown.inPort, units: [caravel], selected: caravel.id },
+      }),
+    );
+  }
+  const rightClick = (el: Element) => fireEvent.contextMenu(el, { clientX: 70, clientY: 80 });
+
+  it("asks the Engine for a colonist's, a ship's and goods' menu and shows it at the pointer", () => {
+    open(true);
+    rightClick(document.querySelector('[data-unit="unit:3"]')!);
+    expect(shown).toEqual([]);
+    rightClick(document.querySelector('[data-unit="unit:2"]')!);
+    rightClick(document.querySelector('button.ship[data-unit="unit:9"]')!);
+    rightClick(document.querySelector('[data-part="warehouse"] [data-goods="model.goods.lumber"]')!);
+    rightClick(document.querySelector('[data-part="cargo"] [data-goods="model.goods.cloth"]')!);
+    expect(asked).toEqual([
+      'unit unit:3',
+      'unit unit:2',
+      'unit unit:9',
+      'goods colony:500 model.goods.lumber 150',
+      'goods unit:9 model.goods.cloth 100',
+    ]);
+    expect(shown).toEqual(['Menu 70,80', 'Menu 70,80', 'Menu 70,80', 'Menu 70,80']);
+  });
+
+  it('keeps the browser menu off, and opens none, without the Engine', () => {
+    open(false);
+    expect(rightClick(document.querySelector('[data-unit="unit:2"]')!)).toBe(true);
+    expect(shown).toEqual([]);
   });
 });

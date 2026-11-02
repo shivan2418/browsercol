@@ -30,7 +30,7 @@ import net.sf.freecol.common.model.UnitType;
  * {title, gold, goldLabel, ok, headings: {toAmerica, toEurope, inPort,
  *  docks, cargo}, toAmerica: [unit], toEurope: [unit], inPort: [unit],
  *  docks: [unit], selected: the id of the ship whose cargo shows first
- *  (or null), market: [{id, name, images, sell, buy, enabled}],
+ *  (or null), market: [{id, name, images, sell, buy, enabled, reason}],
  *  buttons: {train, purchase, recruit, sail},
  *  recruit: {heading, text, price, units: [{index, name, images,
  *  enabled}]}, train: {heading, units: [offer]},
@@ -44,7 +44,7 @@ import net.sf.freecol.common.model.UnitType;
  * and EuropeanDocksPanel. The market's {@code sell} is what Europe pays
  * and {@code buy} what it asks (MarketLabel's "sell/buy"), in the
  * specification's storable order; {@code enabled} is false for goods that
- * are boycotted.
+ * are boycotted, and {@code reason} says why, as FreeCol says it.
  *
  * The recruit, train and purchase lists are those of FreeCol's RecruitPanel,
  * TrainPanel and PurchasePanel: the docks' recruitable units at one price,
@@ -252,13 +252,17 @@ final class EuropeJson {
         final List<String> goods = new ArrayList<>();
         for (GoodsType type : player.getGame().getSpecification()
                  .getStorableGoodsTypeList()) {
+            final boolean tradeable = player.canTrade(type);
             goods.add(new Json()
                 .put("id", type.getId())
                 .put("name", Messages.getName(type))
                 .putRaw("images", ObjectImages.json(type))
                 .put("sell", market.getPaidForSale(type))
                 .put("buy", market.getCostToBuy(type))
-                .put("enabled", player.canTrade(type)).toString());
+                .put("enabled", tradeable)
+                .put("reason", tradeable ? null
+                    : Messages.message(Boycotts.reason(player, type)))
+                .toString());
         }
         return Json.array(goods);
     }

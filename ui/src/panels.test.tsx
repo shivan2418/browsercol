@@ -1151,8 +1151,16 @@ describe('the Europe panel', () => {
       ],
     },
     market: [
-      { id: 'model.goods.food', name: 'Food', images: [], sell: 1, buy: 2, enabled: true },
-      { id: 'model.goods.rum', name: 'Rum', images: [], sell: 5, buy: 6, enabled: false },
+      { id: 'model.goods.food', name: 'Food', images: [], sell: 1, buy: 2, enabled: true, reason: null },
+      {
+        id: 'model.goods.rum',
+        name: 'Rum',
+        images: [],
+        sell: 5,
+        buy: 6,
+        enabled: false,
+        reason: 'The Crown is boycotting these goods until you have paid your tax arrears of 100 gold.',
+      },
     ],
   };
   /** The names in one of the panel's lists. */
@@ -1233,6 +1241,68 @@ describe('the Europe panel', () => {
     expect((screen.getByRole('button', { name: 'Set sail' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
+  it('buys a goods of the market onto the ship in port, and sells its cargo', () => {
+    const calls: string[] = [];
+    Object.assign(europeButtons, {
+      buy: (g: string, s: string) => calls.push(`buy ${g} ${s}`),
+      sell: (g: string, s: string) => calls.push(`sell ${g} ${s}`),
+    });
+    const { box } = host();
+    act(() => box.show('europe', europe));
+    // The market's goods are bought onto the picked ship.
+    fireEvent.click(document.querySelector('[data-goods="model.goods.food"]')!);
+    expect(calls).toEqual(['buy model.goods.food unit:1']);
+    // A stack of the cargo is sold.
+    fireEvent.click(document.querySelector('[data-cargo="goods"]')!);
+    expect(calls).toEqual(['buy model.goods.food unit:1', 'sell model.goods.food unit:1']);
+  });
+
+  it('does not trade a boycotted goods, and says why', () => {
+    const calls: string[] = [];
+    Object.assign(europeButtons, {
+      buy: (g: string, s: string) => calls.push(`buy ${g} ${s}`),
+      sell: (g: string, s: string) => calls.push(`sell ${g} ${s}`),
+    });
+    const { box } = host();
+    act(() => box.show('europe', europe));
+    const rum = document.querySelector('[data-goods="model.goods.rum"]')!;
+    expect(rum.hasAttribute('data-disabled')).toBe(true);
+    expect(rum.getAttribute('title')).toBe(
+      'The Crown is boycotting these goods until you have paid your tax arrears of 100 gold.',
+    );
+    fireEvent.click(rum);
+    expect(calls).toEqual([]);
+  });
+
+  it('trades nothing with no ship in port', () => {
+    const calls: string[] = [];
+    Object.assign(europeButtons, {
+      buy: (g: string, s: string) => calls.push(`buy ${g} ${s}`),
+    });
+    const { box } = host();
+    act(() => box.show('europe', { ...europe, inPort: [], selected: null }));
+    // The market's goods are not buttons then, so there is nothing to click.
+    expect(document.querySelector('[data-goods="model.goods.food"]')?.tagName).toBe('DIV');
+    expect(calls).toEqual([]);
+  });
+
+  it('buys the market’s goods dropped on the cargo, and sells the cargo dropped on the market', () => {
+    const calls: string[] = [];
+    Object.assign(europeButtons, {
+      buy: (g: string, s: string) => calls.push(`buy ${g} ${s}`),
+      sell: (g: string, s: string) => calls.push(`sell ${g} ${s}`),
+    });
+    const { box } = host();
+    act(() => box.show('europe', europe));
+    const dataTransfer = { setData() {}, effectAllowed: '' };
+    fireEvent.dragStart(document.querySelector('[data-goods="model.goods.food"]')!, { dataTransfer });
+    fireEvent.drop(document.querySelector('[data-list=cargo]')!, { dataTransfer });
+    expect(calls).toEqual(['buy model.goods.food unit:1']);
+    fireEvent.dragStart(document.querySelector('[data-cargo="goods"]')!, { dataTransfer });
+    fireEvent.drop(document.querySelector('[data-list=market]')!, { dataTransfer });
+    expect(calls).toEqual(['buy model.goods.food unit:1', 'sell model.goods.food unit:1']);
+  });
+
   it('closes on the button and Escape, and a second panel replaces the open one', () => {
     const { box } = host();
     act(() => box.show('europe', europe));
@@ -1301,6 +1371,8 @@ describe('the options panel', () => {
     act(() =>
       box.replace('options', { ...options, kind: 'difficulty', title: 'Difficulty' }, (o) => o.kind === 'difficulty'),
     );
-    expect(box.shown('options').map((o) => o.kind)).toEqual(['game', 'difficulty']);
+    // The difficulty panel is over the game options panel, which is still there: a panel the Engine
+    // shows while another is on screen goes over it.
+    expect(box.shown('options').map((o) => o.kind)).toEqual(['difficulty', 'game']);
   });
 });

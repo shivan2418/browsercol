@@ -317,7 +317,7 @@ The other classes in that package:
 
 **Starting a game is a control message, not protocol.** The page posts `{k:'start'}` to the Worker, which creates the `FreeColServer`, the way upstream's `ConnectController` would in process. After that the client logs in and launches over the protocol.
 
-**7 more FreeCol files are patched at stage 2 (20 in total), and `GUI` since (21).** Each changed line is marked `browser:`; comment blocks are marked on their first line.
+**7 more FreeCol files are patched at stage 2 (20 in total), and `GUI`, `Market` and `MarketWas` since (23).** Each changed line is marked `browser:`; comment blocks are marked on their first line.
 
 | File | Why |
 |---|---|
@@ -329,6 +329,7 @@ The other classes in that package:
 | `FreeCol` (extended) | `quit` no longer calls `System.exit`. `fatal` no longer calls `Thread.dumpStack`. |
 | `GUI` (#14) | Dialog icons come from a `dialogIcon` hook instead of the `ImageLibrary`, which the WebGUI does not have. Its override carries the game object, so a question can name it. |
 | `FreeColXMLReader` (extended) | The `File` constructor no longer uses `toPath`. Every reader shares one Aalto factory (see 4 below). |
+| `Market`, `MarketWas` (#64) | The market's transaction listeners are taken as a list, not as an array: TeaVM makes an array of an interface type an `Object[]`, and the checkcast of `toArray`'s result then fails (see 7 below). |
 
 **New shims:**
 
@@ -351,10 +352,12 @@ The other classes in that package:
    Sharing one factory keeps the names alive. Afterwards 27 of 27 Firefox runs finished. This TeaVM bug is worth reporting upstream; a pool shim was not possible, because TeaVM's compiler refers to the pool's internals.
 5. **The base `GUI` silently drops `invokeNowOrLater` and `invokeNowOrWait`.** `WebGUI` runs them at once.
 6. **Firefox headless has no WebGL,** and PixiJS 8 has no canvas renderer, so in Firefox the page falls back to Canvas 2D. Every result records which renderer it used.
+7. **An array of an interface type is not an array of that interface.** `Market.getTransactionListener()` returns `transactionListeners.toArray(new TransactionListener[0])`, and the checkcast of that result failed with a `ClassCastException` in the browser, where the client controller fires the changes of a market trade at once (see 5). The market's listeners are now taken as a list (`Market.getTransactionListeners()`), which the browser can use. The `TPropertyChangeSupport` shim makes one too (`TPropertyChangeListener[]`), and has not failed so far.
 
 ## Open
 
 - **Why rounds take 2-6x longer in browsers than in Node.**
 - **Firefox's module compile time:** more than 1 s per module.
 - **The `Class.forName` gap:** a TeaVM issue, or our policy?
+- **Arrays of an interface type:** a TeaVM issue to report upstream?
 - **Branded desktop Chrome and Firefox** with a visible window and a GPU, rather than headless.

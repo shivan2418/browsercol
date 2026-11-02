@@ -290,6 +290,18 @@ public final class ClientMain {
         command("boardShip", () -> engine.getCommands().boardShip(unitId, shipId));
     }
 
+    /** Europe panel: buy goods of a type onto a ship in port, by ids. */
+    @JSExport
+    public static void buyGoods(String shipId, String goodsTypeId) {
+        command("buyGoods", () -> engine.getCommands().buyGoods(shipId, goodsTypeId));
+    }
+
+    /** Europe panel: sell a ship's cargo in Europe, by ids. */
+    @JSExport
+    public static void sellGoods(String shipId, String goodsTypeId) {
+        command("sellGoods", () -> engine.getCommands().sellGoods(shipId, goodsTypeId));
+    }
+
     /** Europe panel: send a ship in port to the New World, by id. */
     @JSExport
     public static void sailToNewWorld(String shipId) {
@@ -432,6 +444,34 @@ public final class ClientMain {
     @JSExport
     public static void showColony(String id) {
         command("showColony", () -> engine.getCommands().showColony(id));
+    }
+
+    /**
+     * The menu for a right-click on a tile (Menus.tile).
+     *
+     * @return The menu's JSON, or "null" for none.
+     */
+    @JSExport
+    public static String tileMenu(int x, int y) {
+        return engine.getMenus().tile(x, y);
+    }
+
+    /** The quick action menu of one of our colonists or ships (Menus.unit), as JSON or "null". */
+    @JSExport
+    public static String unitMenu(String unitId) {
+        return engine.getMenus().unit(unitId);
+    }
+
+    /** The quick action menu of goods in a colony or on a ship (Menus.goods), as JSON or "null". */
+    @JSExport
+    public static String goodsMenu(String locationId, String goodsTypeId, int amount) {
+        return engine.getMenus().goods(locationId, goodsTypeId, amount);
+    }
+
+    /** Run the entry picked in a menu (Commands.menuEntry). */
+    @JSExport
+    public static void menuEntry(String id) {
+        command("menuEntry", () -> engine.getCommands().menuEntry(id));
     }
 
     /** Open the trade routes panel (TradeRouteAction). */

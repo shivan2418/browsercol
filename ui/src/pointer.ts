@@ -35,6 +35,38 @@ export function onCanvas(host: HTMLElement, e: { clientX: number; clientY: numbe
   return [e.clientX - r.left, e.clientY - r.top];
 }
 
+/**
+ * Whether a right-click on a target keeps the browser's context menu: only in
+ * a text field, where it cuts and pastes. Everywhere else the right button
+ * belongs to the game.
+ */
+export function keepsBrowserMenu(target: EventTarget | null): boolean {
+  return target instanceof Element && !!target.closest('input, textarea');
+}
+
+/** Keep the browser's context menu off the page, except in text fields (keepsBrowserMenu). */
+export function blockBrowserMenu(page: EventTarget): void {
+  page.addEventListener('contextmenu', (e) => {
+    if (!keepsBrowserMenu(e.target)) e.preventDefault();
+  });
+}
+
+/**
+ * A right-click on a tile of the map in a host asks for that tile's menu, at the pointer
+ * (FreeCol's TilePopup); off the map or off any tile it does nothing.
+ */
+export function rightClickInput(
+  host: HTMLElement,
+  tileAt: (px: number, py: number) => Tile | null,
+  open: (tile: Tile, x: number, y: number) => void,
+): void {
+  host.addEventListener('contextmenu', (e) => {
+    const at = onCanvas(host, e);
+    const tile = at && tileAt(...at);
+    if (tile) open(tile, e.clientX, e.clientY);
+  });
+}
+
 export interface PointerDeps {
   view: () => ViewState;
   dispatch: (e: ViewEvent) => void;

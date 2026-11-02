@@ -45,6 +45,7 @@ public final class ClientEngine {
     private final Listener listener;
     private final FreeColClient client;
     private final Commands commands;
+    private final Menus menus;
     private WebGUI gui = null;
     private volatile PostMessageConnection connection = null;
 
@@ -69,6 +70,7 @@ public final class ClientEngine {
         };
         this.client = new FreeColClient(fcc -> this.gui = new WebGUI(fcc, this, ui));
         this.commands = new Commands(this.client);
+        this.menus = new Menus(this.client);
     }
 
     /**
@@ -156,6 +158,11 @@ public final class ClientEngine {
     /** What the human player can do on their turn. */
     public Commands getCommands() {
         return this.commands;
+    }
+
+    /** The right-click menus' entries. */
+    Menus getMenus() {
+        return this.menus;
     }
 
     /** Group the turn report by this, as the group by client option. */
