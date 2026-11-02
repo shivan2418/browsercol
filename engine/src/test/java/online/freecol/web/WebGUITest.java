@@ -76,6 +76,15 @@ class WebGUITest {
     /** The server Engine of the game startGame started. */
     private ServerEngine server;
 
+    /**
+     * What the fake Browser UI saw, as a copy: the client thread appends to
+     * shown while the tests read it, and a synchronized list's stream is
+     * not locked, so the live list must not be streamed.
+     */
+    private List<String> shown() {
+        return new ArrayList<>(shown);
+    }
+
     /** Wait for a deferred dialog's handler to have answered n times. */
     private static void awaitCount(List<?> got, int n) throws Exception {
         for (int i = 0; i < 3000 && got.size() < n; i++) Thread.sleep(10);
@@ -164,7 +173,7 @@ class WebGUITest {
         assertEquals(List.of("refresh {}",
                 "information {\"text\":\"" + Messages.message("info.enterSomeText")
                 + "\",\"object\":null,\"tile\":null,\"at\":null,\"images\":[],\"ok\":\"OK\"}"),
-            shown.stream().filter(e -> !e.startsWith("messages ")).collect(Collectors.toList()));
+            shown().stream().filter(e -> !e.startsWith("messages ")).collect(Collectors.toList()));
     }
 
     @Test
@@ -175,7 +184,7 @@ class WebGUITest {
         shown.clear();
         gui.updateMenuBar();
         assertEquals(List.of("refresh {}"),
-            shown.stream().filter(e -> !e.startsWith("messages ")).collect(Collectors.toList()));
+            shown().stream().filter(e -> !e.startsWith("messages ")).collect(Collectors.toList()));
     }
 
     @Test
@@ -189,7 +198,7 @@ class WebGUITest {
             + at.getX() + "," + at.getY() + "]";
 
         // reconnectGUI, as SwingGUI's: the active unit, then the focus on it.
-        final List<String> view = shown.stream()
+        final List<String> view = shown().stream()
             .filter(e -> e.startsWith("activeUnit ") || e.startsWith("focus "))
             .collect(Collectors.toList());
         final int start = view.indexOf("activeUnit {\"unit\":\"" + active.getId() + "\"," + where
@@ -205,7 +214,7 @@ class WebGUITest {
         final String there = "\"tile\":\"" + other.getId() + "\",\"at\":[1,2]";
         assertEquals(List.of("selectedTile {" + there + "}", "focus {" + there + "}",
                 "activeUnit {\"unit\":null,\"tile\":null,\"at\":null,\"force\":false,\"orders\":[]}"),
-            shown.stream().filter(e -> !e.startsWith("messages ")).collect(Collectors.toList()));
+            shown().stream().filter(e -> !e.startsWith("messages ")).collect(Collectors.toList()));
     }
 
     @Test
@@ -243,7 +252,7 @@ class WebGUITest {
     @SuppressWarnings("unchecked")
     private List<Map<String, Object>> messageEvents() {
         final List<Map<String, Object>> events = new ArrayList<>();
-        for (String e : new ArrayList<>(shown)) {
+        for (String e : shown()) {
             if (e.startsWith("messages ")) {
                 final Map<String, Object> event
                     = (Map<String, Object>)JsonReader.read(e.substring("messages ".length()));
@@ -542,7 +551,7 @@ class WebGUITest {
         final int before = asked.size();
         answer = "select\n" + other.getId();
         gui.showEndTurnDialog(List.of(active, other));
-        while (shown.stream().noneMatch(e -> e.startsWith("activeUnit {\"unit\":\""
+        while (shown().stream().noneMatch(e -> e.startsWith("activeUnit {\"unit\":\""
                 + other.getId() + "\""))) Thread.sleep(10);
         assertEquals(other, gui.getActiveUnit());
         assertEquals(before + 1, asked.size());
@@ -618,7 +627,7 @@ class WebGUITest {
         shown.clear();
         gui.showWarehouseDialog(null, got::add);
         assertEquals(List.of("unasked {\"method\":\"showWarehouseDialog\"}"),
-            shown.stream().filter(e -> !e.startsWith("messages ")).collect(Collectors.toList()));
+            shown().stream().filter(e -> !e.startsWith("messages ")).collect(Collectors.toList()));
         assertTrue(asked.isEmpty(), asked.toString());
     }
 
@@ -644,7 +653,7 @@ class WebGUITest {
             + "\",\"keys\":[\"image.icon.model.goods.furs\"],\"values\":[20,40,45],"
             + "\"value\":40,\"max\":45,\"ok\":\"" + Messages.message("ok")
             + "\",\"cancel\":\"" + Messages.message("cancel") + "\"}", question);
-        assertFalse(shown.stream().anyMatch(e -> e.startsWith("unasked ")), shown.toString());
+        assertFalse(shown().stream().anyMatch(e -> e.startsWith("unasked ")), shown.toString());
 
         answer = null;
         assertEquals(-1, gui.showSelectAmountDialog(furs, 45, 40, false), "closed");
@@ -677,7 +686,7 @@ class WebGUITest {
                 "showClientOptionsDialog", "showEditOptionDialog",
                 "showEditSettlementDialog", "showFindSettlementPanel").stream()
                 .map(m -> "unasked {\"method\":\"" + m + "\"}").collect(Collectors.toList()),
-            shown.stream().filter(e -> !e.startsWith("messages ")).collect(Collectors.toList()));
+            shown().stream().filter(e -> !e.startsWith("messages ")).collect(Collectors.toList()));
         assertTrue(asked.isEmpty(), asked.toString());
     }
 
@@ -697,7 +706,7 @@ class WebGUITest {
         shown.clear();
         gui.showDifficultyDialog();
         gui.showGameOptionsDialog(false, null);
-        final List<String> events = shown.stream().filter(e -> e.startsWith("options "))
+        final List<String> events = shown().stream().filter(e -> e.startsWith("options "))
             .collect(Collectors.toList());
         assertEquals(2, events.size(), shown.toString());
         final Map<String, Object> difficulty
@@ -757,7 +766,7 @@ class WebGUITest {
 
         shown.clear();
         assertNull(gui.showEuropePanel());
-        final List<String> events = shown.stream().filter(e -> e.startsWith("europe "))
+        final List<String> events = shown().stream().filter(e -> e.startsWith("europe "))
             .collect(Collectors.toList());
         assertEquals(1, events.size(), shown.toString());
         final Map<String, Object> panel
@@ -844,10 +853,8 @@ class WebGUITest {
     }
 
     private boolean tutorial() {
-        synchronized (shown) {
-            return shown.stream().anyMatch(e -> e.startsWith("messages ")
-                                           && e.contains("Try building a Colony"));
-        }
+        return shown().stream().anyMatch(e -> e.startsWith("messages ")
+                                       && e.contains("Try building a Colony"));
     }
 
     @Test
@@ -961,12 +968,10 @@ class WebGUITest {
         boolean replied = false;
         while (!replied && System.currentTimeMillis() < end) {
             Thread.sleep(50);
-            synchronized (shown) {
-                replied = shown.stream().anyMatch(e -> e.startsWith("information ")
-                    && e.contains(Messages.message(StringTemplate
-                        .template("diplomacy.offerRejected")
-                        .addStringTemplate("%nation%", ai.getNationLabel()))));
-            }
+            replied = shown().stream().anyMatch(e -> e.startsWith("information ")
+                && e.contains(Messages.message(StringTemplate
+                    .template("diplomacy.offerRejected")
+                    .addStringTemplate("%nation%", ai.getNationLabel()))));
             replied |= asked.size() > 1 && asked.get(1).startsWith("negotiation {");
             replied |= me.getStance(ai) == Stance.PEACE;
         }
@@ -1194,7 +1199,7 @@ class WebGUITest {
 
         shown.clear();
         assertTrue(client.getCommands().click(at.getX(), at.getY()));
-        final String panel = shown.stream()
+        final String panel = shown().stream()
             .filter(e -> e.startsWith("indianSettlement ")).findFirst().orElse("");
         final net.sf.freecol.common.model.IndianSettlement is = at.getIndianSettlement();
         assertTrue(panel.contains("\"tile\":\"" + at.getId() + "\",\"at\":["
@@ -1202,6 +1207,6 @@ class WebGUITest {
         assertTrue(panel.contains(Messages.message(is.getLocationLabelFor(
                 client.getClient().getMyPlayer()))), panel);
         assertTrue(panel.endsWith("\"ok\":\"OK\"}"), panel);
-        assertFalse(shown.stream().anyMatch(e -> e.startsWith("unasked ")), shown.toString());
+        assertFalse(shown().stream().anyMatch(e -> e.startsWith("unasked ")), shown.toString());
     }
 }
