@@ -370,7 +370,7 @@ async function play(page, url) {
   const moveColonists = async (m, land, founder) => {
     await noDialog('opening the colony panel');
     await page.evaluate(() => (window.__hold = 'colony'));
-    await act(() => hold(m, land));
+    await act(() => click(m, land));
     const panel = page.locator('[role=dialog][data-kind=colony]');
     await panel.waitFor({ timeout: 10000 });
     const net = () => panel.locator('[data-part=net]').innerText();
@@ -554,7 +554,7 @@ async function play(page, url) {
    * Next turn the ship sails back out to sea. What the server does with the cargo is CommandsTest's to check.
    */
   const loadShip = async (m, land, sea) => {
-    m = await act(() => hold(m, sea));
+    m = await act(() => click(m, sea));
     if (!same(m.active, sea)) throw new Error(`clicking ${label(sea)} selected ${label(m.active)}`);
     const shipId = m.activeUnit.id;
     const dirs = Object.keys(DIRECTIONS);
@@ -568,7 +568,7 @@ async function play(page, url) {
 
     await noDialog('opening the colony panel to load the ship');
     await page.evaluate(() => (window.__hold = 'colony'));
-    await act(() => hold(m, land));
+    await act(() => click(m, land));
     const panel = page.locator('[role=dialog][data-kind=colony]');
     await panel.waitFor({ timeout: 10000 });
     const cargo = panel.locator(`[data-part=cargo][data-ship="${shipId}"]`);
@@ -850,16 +850,6 @@ async function play(page, url) {
     await page.mouse.click(box.x + px, box.y + py);
   };
 
-  /** The Go To order: hold the pointer on a tile until the path shows, then let go. */
-  const hold = async (m, [x, y]) => {
-    const box = await page.locator('#map canvas').boundingBox();
-    const [px, py] = await page.evaluate(([x, y]) => window.fcReveal(x, y), [x, y]);
-    await page.mouse.move(box.x + px, box.y + py);
-    await page.mouse.down();
-    await page.waitForTimeout(600);
-    await page.mouse.up();
-  };
-
   /** A right-click on our colony's tile opens the tile popup with the colony in it; a click elsewhere closes it. */
   const tilePopup = async (m, [x, y]) => {
     const box = await page.locator('#map canvas').boundingBox();
@@ -923,7 +913,7 @@ async function play(page, url) {
 
   // The landed units have no moves left: next turn, select one and build.
   m = await endTurn();
-  m = await act(() => hold(m, land));
+  m = await act(() => click(m, land));
   if (!same(m.active, land)) throw new Error(`clicking ${label(land)} selected ${label(m.active)}`);
   await following(m, 'after selecting a unit');
   const founder = m.activeUnit.id;
