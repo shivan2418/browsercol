@@ -194,7 +194,10 @@ function Unit({ u, art, className, children }: { u: UnitRef; art: Art; className
   );
 }
 
-/** Goods of the warehouse, or a stack of the chosen ship's cargo, named by type (data-goods); they can be moved. */
+/**
+ * Goods of the warehouse, or a stack of the chosen ship's cargo, named by type (data-goods); they can be moved,
+ * unless there are none. WarehousePanel shows an empty stack too, greyed by GoodsLabel; it has nothing to load.
+ */
 function MovableGoods({
   g,
   item,
@@ -211,7 +214,7 @@ function MovableGoods({
 }) {
   const movable = useMovable(item);
   return (
-    <span className={className} data-goods={g.type} data-over={over} {...movable}>
+    <span className={className} data-goods={g.type} data-over={over} {...(g.amount > 0 ? movable : {})}>
       <GoodsAmount keys={g.keys} name={g.name} amount={g.amount} art={art} />
     </span>
   );
@@ -385,10 +388,7 @@ function chosenShip(c: ColonyView) {
   return c.inPort.units.find((u) => u.id === pick) ?? c.inPort.units.find((u) => u.id === c.inPort.selected) ?? null;
 }
 
-/**
- * WarehousePanel: the colony's goods; a stack of the chosen ship's cargo dropped here is unloaded. A stack can
- * be moved onto the cargo unless it is empty.
- */
+/** WarehousePanel: the colony's goods; a stack of the chosen ship's cargo dropped here is unloaded. */
 function Warehouse({ c, art }: { c: ColonyView; art: Art }) {
   const moves = useContext(ColonyActions);
   const target = useTarget((item) => {
@@ -405,23 +405,16 @@ function Warehouse({ c, art }: { c: ColonyView; art: Art }) {
       data-drop={target ? '' : undefined}
       {...target}
     >
-      {c.warehouse.goods.map((g) =>
-        // An empty stack shows, as Swing's does, but has nothing to load, so it cannot be moved.
-        g.amount === 0 ? (
-          <span key={g.type} className="stored" data-goods={g.type}>
-            <GoodsAmount keys={g.keys} name={g.name} amount={0} art={art} />
-          </span>
-        ) : (
-          <MovableGoods
-            key={g.type}
-            g={g}
-            art={art}
-            className="stored"
-            item={{ kind: 'goods', from: 'warehouse', type: g.type, ask: false }}
-            over={g.over}
-          />
-        ),
-      )}
+      {c.warehouse.goods.map((g) => (
+        <MovableGoods
+          key={g.type}
+          g={g}
+          art={art}
+          className="stored"
+          item={{ kind: 'goods', from: 'warehouse', type: g.type, ask: false }}
+          over={g.over}
+        />
+      ))}
     </Box>
   );
 }
@@ -592,7 +585,7 @@ function BuildQueue({ c, art }: { c: ColonyView; art: Art }) {
 /** Whether what was picked is still where it was picked up. */
 function isHere(c: ColonyView, item: Item) {
   if (item.kind === 'unit') return JSON.stringify(c).includes(`"id":"${item.id}"`);
-  if (item.from === 'warehouse') return c.warehouse.goods.some((g) => g.type === item.type);
+  if (item.from === 'warehouse') return c.warehouse.goods.some((g) => g.type === item.type && g.amount > 0);
   const g = chosenShip(c)?.cargo.goods[item.index];
   return g?.type === item.type && g.amount === item.amount;
 }

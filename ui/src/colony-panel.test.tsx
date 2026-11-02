@@ -556,6 +556,23 @@ describe('loading a ship in port in the colony panel', () => {
     expect(calls).toEqual([]);
   });
 
+  it('puts down goods picked from the warehouse when it has none of them left', () => {
+    const box = openPort();
+    fireEvent.click(stored('lumber'));
+    act(() =>
+      box.replace(
+        'colony',
+        {
+          ...box.shown('colony')[0],
+          warehouse: { ...jamestown.warehouse, goods: [{ ...goods('lumber', 0), over: false }] },
+        },
+        () => true,
+      ),
+    );
+    fireEvent.click(part('cargo'));
+    expect(calls).toEqual([]);
+  });
+
   it('unloads the stack of cargo dragged into the warehouse, asking the amount on a shift-drag', () => {
     openPort();
     expect(stacks().map((g) => g.querySelector('.amount')?.textContent)).toEqual(['100', '30']);
