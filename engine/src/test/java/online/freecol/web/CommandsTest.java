@@ -408,6 +408,8 @@ class CommandsTest {
         // The colonist has used its moves landing, so it cannot found a
         // colony yet, and the Browser UI is told which unit cannot.
         assertFalse(colonist.canBuildColony(), "the colonist cannot found a colony");
+        assertFalse(UnitOrders.valid(client.getClient().getMyPlayer(), colonist).contains("buildColony"),
+                    "so the order is not offered");
         final String typeName = Messages.message(StringTemplate
             .template(Messages.nameKey(colonist.getType().getId()))
             .addAmount("%number%", 1));
@@ -714,6 +716,8 @@ class CommandsTest {
         final Tile land = colonist.getTile();
         if (!colonist.canBuildColony()) endTurnAndWait(commands);
 
+        assertTrue(UnitOrders.valid(client.getClient().getMyPlayer(), colonist).contains("buildColony"),
+                   "a colonist with moves left is offered the order");
         select(commands, colonist);
         assertTrue(commands.buildColony(), "colony founded");
         endTurnAndWait(commands);
@@ -944,9 +948,9 @@ class CommandsTest {
         assertTrue(orders.contains("road"), () -> "the pioneer builds a road: " + orders);
         assertFalse(orders.contains("clearForest"),
                     () -> "there is no forest to clear: " + orders);
-        assertEquals(List.of("fortify", "sentry", "skip", "disband", "goto"),
+        assertEquals(List.of("fortify", "sentry", "skip", "disband", "goto", "buildColony"),
                      UnitOrders.valid(player, soldier),
-                     "a soldier cannot work its tile");
+                     "a soldier can found a colony, but cannot work its tile");
 
         // Plow: the pioneer works the tile, and the plow is on it when
         // the work is done.
