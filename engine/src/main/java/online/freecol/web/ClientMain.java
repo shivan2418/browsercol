@@ -446,6 +446,34 @@ public final class ClientMain {
         command("showColony", () -> engine.getCommands().showColony(id));
     }
 
+    /**
+     * The menu for a right-click on a tile (Menus.tile).
+     *
+     * @return The menu's JSON, or "null" for none.
+     */
+    @JSExport
+    public static String tileMenu(int x, int y) {
+        return engine.getMenus().tile(x, y);
+    }
+
+    /** The quick action menu of one of our colonists or ships (Menus.unit), as JSON or "null". */
+    @JSExport
+    public static String unitMenu(String unitId) {
+        return engine.getMenus().unit(unitId);
+    }
+
+    /** The quick action menu of goods in a colony or on a ship (Menus.goods), as JSON or "null". */
+    @JSExport
+    public static String goodsMenu(String locationId, String goodsTypeId, int amount) {
+        return engine.getMenus().goods(locationId, goodsTypeId, amount);
+    }
+
+    /** Run the entry picked in a menu (Commands.menuEntry). */
+    @JSExport
+    public static void menuEntry(String id) {
+        command("menuEntry", () -> engine.getCommands().menuEntry(id));
+    }
+
     /** Open the trade routes panel (TradeRouteAction). */
     @JSExport
     public static void tradeRoutes() {
