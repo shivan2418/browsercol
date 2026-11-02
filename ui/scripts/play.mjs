@@ -332,6 +332,27 @@ async function play(page, url) {
     await page.waitForFunction((n) => window.__maps > n, n, { timeout: 60000 });
     return view();
   };
+  /**
+   * Click a tile to select the unit on it. The view scrolls when the client picks the unit to play with, and a
+   * click aimed before the scroll lands on the tile that was at that pixel; so when another unit is selected,
+   * the tile is revealed and clicked again, up to three times.
+   */
+  const select = async (m, tile) => {
+    for (let attempt = 1; ; attempt++) {
+      const n = await page.evaluate(() => window.__maps);
+      await noDialog('a click');
+      await click(m, tile);
+      await page
+        .waitForFunction(
+          ([n, [x, y]]) => window.__maps > n && window.__map.active?.[0] === x && window.__map.active?.[1] === y,
+          [n, tile],
+          { timeout: attempt < 3 ? 3000 : 60000 },
+        )
+        .catch(() => {});
+      m = await view();
+      if (same(m.active, tile) || attempt === 3) return m;
+    }
+  };
   const endTurn = async (expectUnit = false) => {
     const turn = (await view()).turn;
     await noDialog('ending the turn');
@@ -569,7 +590,7 @@ async function play(page, url) {
    * Next turn the ship sails back out to sea. What the server does with the cargo is CommandsTest's to check.
    */
   const loadShip = async (m, land, sea) => {
-    m = await act(() => click(m, sea));
+    m = await select(m, sea);
     if (!same(m.active, sea)) throw new Error(`clicking ${label(sea)} selected ${label(m.active)}`);
     const shipId = m.activeUnit.id;
     const dirs = Object.keys(DIRECTIONS);
@@ -934,7 +955,7 @@ async function play(page, url) {
 
   // The landed units have no moves left: next turn, select one and build.
   m = await endTurn();
-  m = await act(() => click(m, land));
+  m = await select(m, land);
   if (!same(m.active, land)) throw new Error(`clicking ${label(land)} selected ${label(m.active)}`);
   await following(m, 'after selecting a unit');
   const founder = m.activeUnit.id;
@@ -1007,7 +1028,7 @@ async function play(page, url) {
   // The ship is at sea again: select it and fortify it, as a player would.
   // The side panel's Fortify button follows the Engine's orders, and the
   // ship is drawn in grey once its turn has ended.
-  m = await act(() => click(m, shipTile));
+  m = await select(m, shipTile);
   if (!same(m.active, shipTile)) throw new Error(`clicking ${label(shipTile)} selected ${label(m.active)}`);
   await following(m, 'after selecting the ship');
   const fortify = page.locator('button[data-command=fortify]');
@@ -1022,7 +1043,7 @@ async function play(page, url) {
   // The Go To order, as GotoAction binds it: the player must be asked
   // where the ship sails. Where it goes is CommandsTest's to check. The ship
   // is the active unit again, as it was when it was fortified.
-  m = await act(() => click(m, shipTile));
+  m = await select(m, shipTile);
   if (!same(m.active, shipTile)) throw new Error(`clicking ${label(shipTile)} selected ${label(m.active)}`);
   await following(m, 'after selecting the ship for the Go To order');
   await act(() => page.keyboard.press('h'));
