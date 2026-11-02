@@ -9,7 +9,9 @@ import java.util.Deque;
  * that comes while another runs waits for it, instead of being lost.
  *
  * The commands run on a thread of their own, so the page's input never waits
- * for a command to finish. The queue is busy while a command runs or waits.
+ * for a command to finish. It is the Engine's own thread, not the Worker's:
+ * the Engine still runs on the page's main thread, as ADR-0002 has it.
+ * The queue is busy while a command runs or waits.
  */
 public final class CommandQueue {
 
@@ -64,9 +66,13 @@ public final class CommandQueue {
             synchronized (this) {
                 run = waiting.poll();
                 if (run == null) {
-                    // Nothing is left: the queue is idle.
+                    // Nothing is left: the queue is idle, and the owner is
+                    // told, so that it can send the map a refresh asked for.
+                    // The lock keeps a command from starting until that is
+                    // done, and so keeps the map out of the middle of one.
                     running = false;
-                    break;
+                    onIdle.run();
+                    return;
                 }
             }
             try {
@@ -75,13 +81,6 @@ public final class CommandQueue {
                 // A command that fails must not stop the ones after it.
                 ex.printStackTrace();
             }
-        }
-        try {
-            onIdle.run();
-        } catch (Throwable ex) {
-            // The queue is idle either way: a failure here must not stop the
-            // commands that come after it.
-            ex.printStackTrace();
         }
     }
 }

@@ -426,7 +426,7 @@ async function play(page, url) {
      * it (#98). The drags are dispatched together, so that both commands reach the Engine before either
      * of them has run.
      */
-    const dropBoth = async (unitId, goodsType) => {
+    const dropBoth = async (unitId, goodsType, shipId) => {
       await page.evaluate(
         ([unit, goods, ship]) => {
           // The panel reads the shift key as the thing is pressed, and shift as it is dragged.
@@ -470,7 +470,7 @@ async function play(page, url) {
       .evaluateAll((es) => es.find((e) => Number(e.querySelector('.amount')?.textContent) > 0)?.dataset.goods ?? null);
     if (!goods) throw new Error('the colony has no goods in its warehouse to load');
     const before = await page.evaluate(() => window.__dialogs.length);
-    await dropBoth(passenger, goods);
+    await dropBoth(passenger, goods, shipId);
     await cargo
       .locator(`[data-unit="${passenger}"]`)
       .waitFor({ timeout: 20000 })
