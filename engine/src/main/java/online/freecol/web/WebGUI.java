@@ -216,10 +216,13 @@ import net.sf.freecol.common.option.OptionGroup;
  *     <td>one of the reports {@link Reports} describes, told apart by its
  *         report field; a report that is open is replaced, so a link to a
  *         detail report opens it in place</td></tr>
+ * <tr><td>showTilePanel(Tile)</td><td>event tilePanel</td>
+ *     <td>what {@link TileJson} describes (the right-click menu's tile
+ *         entry); its Colopedia button opens the terrain entry</td></tr>
  * <tr><td>showColopediaPanel(String)</td><td>event colopedia</td>
  *     <td>the terrain entry {@link Colopedia} describes, for a tile type's
- *         id (the right-click menu's tile entry); no other entries yet,
- *         and an id that is not a tile type shows nothing</td></tr>
+ *         id; no other entries yet, and an id that is not a tile type
+ *         shows nothing</td></tr>
  * <tr><td>showIndianSettlementPanel</td><td>event indianSettlement</td>
  *     <td>{name, kind, tension, worthScouting, images, labels, missionary,
  *         skill, mostHated, wanted: [...], ok, tile, at}; as {@link SettlementJson}
@@ -1762,6 +1765,12 @@ public class WebGUI extends GUI {
         final Player player = getMyPlayer();
         if (player == null || player.getEurope() == null) return null;
         this.ui.show("europe", EuropeJson.of(player, this.activeUnit));
+        return null;
+    }
+
+    @Override
+    public FreeColPanel showTilePanel(Tile tile) {
+        this.ui.show("tilePanel", TileJson.of(tile, getMyPlayer()));
         return null;
     }
 

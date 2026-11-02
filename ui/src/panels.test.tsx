@@ -641,6 +641,50 @@ describe('the panels', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
+  describe('of a tile', () => {
+    it('shows the tile, shows what an expert makes, and opens the Colopedia on its type', () => {
+      const box = dialogs();
+      const opened: string[] = [];
+      render(
+        <DialogHost
+          dialogs={box}
+          goTo={() => {}}
+          art={art}
+          report={{ groupBy: () => {}, filter: () => {}, ignore: () => {} }}
+          routes={{ save: () => {}, remove: () => {}, assign: () => {} }}
+          colopedia={(type) => opened.push(type)}
+        />,
+      );
+      act(() =>
+        box.show('tilePanel', {
+          title: 'Hills (15, 50)',
+          type: 'model.tile.hills',
+          keys: [],
+          forest: null,
+          rows: [
+            { label: 'Owner:', value: 'Aztec' },
+            { label: 'Movement cost:', value: '2' },
+          ],
+          production: [
+            { type: 'model.goods.food', name: 'Food', keys: [], amount: 2, expert: 4 },
+            { type: 'model.goods.ore', name: 'Ore', keys: [], amount: 4, expert: 4 },
+          ],
+          colopedia: 'Colopedia',
+          ok: 'OK',
+        }),
+      );
+      expect(screen.getByRole('dialog').getAttribute('data-kind')).toBe('tilePanel');
+      screen.getByText('Hills (15, 50)');
+      screen.getByText('Aztec');
+      screen.getByText('2/4');
+      screen.getByText('4');
+      fireEvent.click(screen.getByRole('button', { name: 'Colopedia' }));
+      expect(opened).toEqual(['model.tile.hills']);
+      fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+  });
+
   describe('of the Colopedia', () => {
     it('shows a terrain entry and closes with OK', () => {
       const { box } = host();

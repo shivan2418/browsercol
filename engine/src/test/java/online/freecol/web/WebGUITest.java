@@ -1199,6 +1199,22 @@ class WebGUITest {
     /** The tile entry of the right-click menu opens the Colopedia on the tile's terrain. */
     @Test
     @Timeout(180)
+    void theTileEntryShowsTheTilePanel() throws Exception {
+        final ClientEngine client = startGame();
+        final Tile at = client.getClient().getMyPlayer().getUnits()
+            .filter(Unit::isNaval).findFirst().get().getTile();
+        shown.clear();
+        assertTrue(client.getCommands().menuEntry("tile:" + at.getX() + "," + at.getY()));
+        final String panel = shown().stream()
+            .filter(e -> e.startsWith("tilePanel ")).findFirst().orElse("");
+        assertTrue(panel.contains("\"type\":\"" + at.getType().getId() + "\""), panel);
+        assertTrue(panel.contains("\"rows\":["), panel);
+        assertTrue(panel.contains("\"production\":["), panel);
+        assertTrue(panel.endsWith("\"ok\":\"OK\"}"), panel);
+    }
+
+    @Test
+    @Timeout(180)
     void theColopediaOpensOnATerrainType() throws Exception {
         final ClientEngine client = startGame();
         final Tile at = client.getClient().getMyPlayer().getUnits()

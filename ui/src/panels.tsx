@@ -539,11 +539,14 @@ function Panel({
   title = null,
   children,
   ok,
+  extra = null,
 }: {
   d: Dialog;
   title?: string | null;
   children: ReactNode;
   ok: string;
+  /** A second button beside OK. */
+  extra?: { label: string; run: () => void } | null;
 }) {
   const close = () => (d.done as () => void)();
   useEnter(close);
@@ -551,6 +554,7 @@ function Panel({
     <Win d={d} title={title} close={close}>
       {children}
       <div className="buttons">
+        {extra && <button onClick={extra.run}>{extra.label}</button>}
         <button data-answer="close" onClick={close}>
           {ok}
         </button>
@@ -1208,6 +1212,32 @@ function SettlementBody({
   );
 }
 
+/** A tile as TilePanel lays it out, with a button to the Colopedia's entry on its terrain. */
+function TileBody({ e, art }: { e: GuiEvents['tilePanel']; art: Art }) {
+  return (
+    <div className="tile-panel">
+      <h2>{e.title}</h2>
+      <div className="terrain-image">
+        <Pic keys={e.keys} art={art} />
+        {e.forest && <Pic keys={e.forest} art={art} />}
+      </div>
+      <dl>
+        {e.rows.map((r) => (
+          <Fragment key={r.label}>
+            <dt>{r.label}</dt>
+            <dd>{r.value}</dd>
+          </Fragment>
+        ))}
+      </dl>
+      <div className="production">
+        {e.production.map((g) => (
+          <GoodsAmount key={g.type} keys={g.keys} name={g.name} amount={g.amount} expert={g.expert} art={art} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** The Colopedia's terrain entry as TerrainDetailPanel lays it out. */
 function TerrainBody({ e, art }: { e: GuiEvents['colopedia']; art: Art }) {
   const goods = (list: GuiEvents['colopedia']['unattended']) => (
@@ -1263,10 +1293,12 @@ function Body({
   string,
   report,
   routes,
+  colopedia,
 }: {
   d: Dialog;
   goTo: (at: At) => void;
   art: Art;
+  colopedia: (type: string) => void;
   string: (key: string) => string;
   report: ReportButtons;
   routes: RouteButtons;
@@ -1321,6 +1353,12 @@ function Body({
       return (
         <Panel d={d} title={d.event.header} ok={d.event.ok}>
           <EventBody e={d.event} art={art} />
+        </Panel>
+      );
+    case 'tilePanel':
+      return (
+        <Panel d={d} ok={d.event.ok} extra={{ label: d.event.colopedia, run: () => colopedia(d.event.type) }}>
+          <TileBody e={d.event} art={art} />
         </Panel>
       );
     case 'colopedia':
@@ -1391,10 +1429,13 @@ export function DialogHost({
   string = (key) => key,
   report,
   routes,
+  colopedia = () => {},
 }: {
   dialogs: Dialogs;
   goTo: (at: At) => void;
   art: Art;
+  /** Open the Colopedia on a tile type. */
+  colopedia?: (type: string) => void;
   /** A string resource of the Tileset. */
   string?: (key: string) => string;
   report: ReportButtons;
@@ -1405,8 +1446,28 @@ export function DialogHost({
   if (!d) return null;
   return (
     <div className="modal">
-      {under && <Body key={under.id} d={under} goTo={goTo} art={art} string={string} report={report} routes={routes} />}
-      <Body key={d.id} d={d} goTo={goTo} art={art} string={string} report={report} routes={routes} />
+      {under && (
+        <Body
+          key={under.id}
+          d={under}
+          goTo={goTo}
+          art={art}
+          string={string}
+          report={report}
+          routes={routes}
+          colopedia={colopedia}
+        />
+      )}
+      <Body
+        key={d.id}
+        d={d}
+        goTo={goTo}
+        art={art}
+        string={string}
+        report={report}
+        routes={routes}
+        colopedia={colopedia}
+      />
     </div>
   );
 }
