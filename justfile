@@ -14,9 +14,9 @@ install:
 build *args:
     ./dev.sh ./build.sh {{args}}
 
-# Vite dev server with hot reload at http://localhost:5173 (builds once if ui/generated/ is missing)
+# Vite dev server with hot reload at http://localhost:5173 (builds first if ui/generated/ is missing or older than the Engine's Java)
 dev:
-    [ -f ui/generated/client.wasm ] || just build
+    [ -f ui/generated/client.wasm ] && [ -z "$(find engine/src engine/patches engine/*.gradle* -newer ui/generated/client.wasm -type f -print -quit 2>/dev/null)" ] || just build
     DEV_PORT={{port}} ./dev.sh -C ui npx vp dev --host 0.0.0.0 --port {{port}} --strictPort
 
 # Serve the built dist/ at http://localhost:5173
