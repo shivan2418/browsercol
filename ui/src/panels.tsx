@@ -7,7 +7,7 @@
 // the default option; Escape, or the frame's close button, closes the
 // dialog as cancelled; a panel closes on either key.
 import { Fragment, useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { ColonyPanel } from './colony-panel';
+import { ColonyActions, ColonyPanel } from './colony-panel';
 import type { Dialog, Dialogs } from './dialogs';
 import { europeButtons } from './europe-client';
 import { GoodsAmount, WindowFrame, type Art } from './frame';
@@ -15,7 +15,15 @@ import { draggableProps, dropTargetProps, type Item } from './moves';
 import { ContextMenuContext, contextMenuHandler, useContextMenu } from './popup-menu';
 import { OptionEditor } from './option-editor';
 import { ReportPanel } from './reports';
-import type { EuropeUnit, GuiEvents, SettlementEntry, TradeItem, TradeOption, TradeRouteDraft } from './webgui';
+import type {
+  ColonyView,
+  EuropeUnit,
+  GuiEvents,
+  SettlementEntry,
+  TradeItem,
+  TradeOption,
+  TradeRouteDraft,
+} from './webgui';
 
 export type { Art };
 
@@ -534,6 +542,21 @@ function Negotiation({ d }: { d: Of<'negotiation'> }) {
 }
 
 /** A panel's body, then its close button. */
+/** The colony panel; its warehouse button is beside the OK button, at the bottom right. */
+function ColonyDialog({ d, e, art }: { d: Dialog; e: ColonyView; art: Art }) {
+  const moves = useContext(ColonyActions);
+  return (
+    <Panel
+      d={d}
+      title={e.name}
+      ok={e.ok}
+      extra={moves ? { label: e.warehouse.title, run: () => moves.warehouse(e.id) } : null}
+    >
+      <ColonyPanel colony={e} art={art} />
+    </Panel>
+  );
+}
+
 function Panel({
   d,
   title = null,
@@ -1407,11 +1430,7 @@ function Body({
     case 'report':
       return <ReportPanel d={d} e={d.event} art={art} />;
     case 'colony':
-      return (
-        <Panel d={d} title={d.event.name} ok={d.event.ok}>
-          <ColonyPanel colony={d.event} art={art} />
-        </Panel>
-      );
+      return <ColonyDialog d={d} e={d.event} art={art} />;
   }
 }
 

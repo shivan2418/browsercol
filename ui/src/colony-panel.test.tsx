@@ -511,7 +511,7 @@ describe('the build queue in the colony panel', () => {
       </ColonyActions.Provider>,
     );
     act(() => box.show('colony', { ...jamestown, id: `colony:${++n}`, ...colony }));
-    fireEvent.click(within(part('queue')).getByRole('button', { name: 'Build Queue' }));
+    fireEvent.click(part('construction'));
     return box;
   }
   const withQueue = (queue: ColonyView['queue']['queue']) => ({ queue: { ...jamestown.queue, queue } });
@@ -558,12 +558,6 @@ describe('the build queue in the colony panel', () => {
       `queue colony:${n} model.building.stockade,model.building.warehouse`,
       `queue colony:${n} model.building.stockade`,
     ]);
-  });
-
-  it('opens the warehouse dialog from the button beside the build queue button', () => {
-    openQueue();
-    fireEvent.click(within(part('queue')).getByRole('button', { name: 'Warehouse' }));
-    expect(calls).toEqual([`warehouse colony:${n}`]);
   });
 
   it('buys the current build, when the colony can pay', () => {

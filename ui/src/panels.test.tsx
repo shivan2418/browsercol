@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vite-plus/test';
+import { ColonyActions, type ColonyMoves } from './colony-panel';
+import { jamestown } from './colony-fixture';
 import { dialogs } from './dialogs';
 import { europeButtons } from './europe-client';
 import { ContextMenuContext, type ContextMenus } from './popup-menu';
@@ -974,6 +976,25 @@ describe('the names dialog', () => {
     const escaped = ask(box, 'names', q);
     key('Escape');
     expect(await escaped).toBeNull();
+  });
+});
+
+describe('the colony dialog', () => {
+  it('has the warehouse button beside OK, at the bottom right', () => {
+    const calls: string[] = [];
+    const moves = new Proxy({}, { get: (_, k) => (id: string) => calls.push(`${String(k)} ${id}`) }) as ColonyMoves;
+    const box = dialogs();
+    render(
+      <ColonyActions.Provider value={moves}>
+        <DialogHost dialogs={box} goTo={() => {}} art={art} report={{} as ReportButtons} routes={{} as RouteButtons} />
+      </ColonyActions.Provider>,
+    );
+    act(() => box.show('colony', jamestown));
+    const buttons = screen.getByRole('button', { name: jamestown.warehouse.title }).parentElement!;
+    expect(buttons.className).toBe('buttons');
+    expect(buttons.querySelector('[data-answer="close"]')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: jamestown.warehouse.title }));
+    expect(calls).toEqual([`warehouse ${jamestown.id}`]);
   });
 });
 
