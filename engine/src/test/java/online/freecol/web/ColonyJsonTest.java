@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
@@ -41,6 +42,15 @@ import net.sf.freecol.server.model.ServerUnit;
  */
 class ColonyJsonTest {
 
+    /**
+     * The map seed the test plays on. Fixed, so that a run can be
+     * reproduced, as in {@link CommandsTest}. On this map the colony's
+     * north tile grows grain, and a colony stores grain as food, so
+     * the food the colony produces changes when that tile turns to
+     * water. Another seed needs one whose north tile grows food.
+     */
+    private static final long MAP_SEED = 4;
+
     private final ExecutorService toClient = Executors.newSingleThreadExecutor();
     private final ExecutorService toServer = Executors.newSingleThreadExecutor();
 
@@ -72,7 +82,8 @@ class ColonyJsonTest {
                     client.answer(id, null);
                 }
             });
-        server.startGame("classic");
+        server.startGame("classic", new GamePreset(null, null, null,
+            MAP_SEED, new LinkedHashMap<>()));
         assertTrue(client.startGame(0), "login");
         ourTurn.await();
     }
@@ -245,7 +256,17 @@ class ColonyJsonTest {
                     || Boolean.TRUE.equals(t.get("natives"))), "free tiles");
         // Water cannot be worked without docks: TileViewer draws the tile
         // taken image over it. (Another player's land only needs a claim.)
+        // The north tile grows grain, and a colony stores grain as food, so
+        // the food the colony produces drops when the tile turns to water.
+        // The map seed is picked for that, so this is the case the panel's
+        // numbers have to follow.
+        final GoodsType food = spec.getGoodsType("model.goods.food");
+        final int foodBefore = colony.getAdjustedNetProductionOf(food);
         north.changeType(spec.getTileType("model.tile.ocean"));
+        final int foodAfter = colony.getAdjustedNetProductionOf(food);
+        assertTrue(foodAfter < foodBefore, "the north tile's grain is the "
+            + "colony's food, and it is gone: " + foodBefore + " -> "
+            + foodAfter + "; another map seed?");
         final Map<String, Object> taken = list(obj(JsonReader.read(ColonyJson.of(colony, 1)))
                 .get("tiles")).stream().map(ColonyJsonTest::obj)
             .filter(t -> northJson.get("id").equals(t.get("id"))).findFirst().get();
@@ -274,8 +295,12 @@ class ColonyJsonTest {
         assertEquals(Boolean.TRUE, stored.get("over"), "150 lumber is more than the warehouse holds");
         assertEquals(List.of("image.icon.model.goods.lumber"), stored.get("keys"));
 
-        // Net production per goods type, the non-zero ones, as the model has it.
-        final Map<String, Long> net = amounts(json.get("production"));
+        // Net production per goods type, the non-zero ones, as the model
+        // has it. The panel is drawn now, after the north tile turned to
+        // water, so read the panel now too: the colony's food changed with
+        // it, and the numbers the panel shows are the model's, now.
+        final Map<String, Long> net = amounts(obj(JsonReader.read(
+                    ColonyJson.of(colony, 1))).get("production"));
         for (GoodsType type : spec.getGoodsTypeList()) {
             final int amount = colony.getAdjustedNetProductionOf(type);
             if (amount == 0) {
