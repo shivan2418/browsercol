@@ -269,15 +269,21 @@ async function play(page, url) {
   };
   /**
    * Wait for a dialog in the log, which grows as the page answers the dialogs: the entries after the
-   * count are the ones that came since. Throws with them when the dialog does not come.
+   * count are the ones that came since. Throws with them when the dialog does not come. The dialog is
+   * named by the start of its entry, e.g. "amount: ", for a page function cannot be given a function
+   * to match with.
    */
-  const waitForDialog = async (logged, match, what, timeout = 10000) => {
+  const waitForDialog = async (logged, prefix, what, timeout = 10000) => {
     const got = await page
-      .waitForFunction(([n, m]) => (window.__dialogs ?? []).slice(n).some((d) => m(d)), [logged, match], {
+      .waitForFunction(([n, p]) => (window.__dialogs ?? []).slice(n).some((d) => d.startsWith(p)), [logged, prefix], {
         timeout,
       })
       .then(() => true)
-      .catch(() => false);
+      .catch((ex) => {
+        // Only a timeout means the dialog did not come; anything else is a fault in the page.
+        if (ex instanceof Error && /timeout/i.test(ex.message)) return false;
+        throw ex;
+      });
     if (got) return;
     const seen = await page.evaluate((n) => (window.__dialogs ?? []).slice(n), logged);
     throw new Error(`${what}: ${JSON.stringify(seen)}`);
@@ -380,11 +386,7 @@ async function play(page, url) {
     const logged = await page.evaluate(() => window.__dialogs.length);
     await pickUp(unit(other), other);
     await tile.locator('.hit').click();
-    await waitForDialog(
-      logged,
-      (d) => d.startsWith('information: '),
-      'the refusal was not explained over the colony panel',
-    );
+    await waitForDialog(logged, 'information: ', 'the refusal was not explained over the colony panel');
     await panel.waitFor({ timeout: 10000 });
     await unit(other).click();
 
@@ -516,7 +518,7 @@ async function play(page, url) {
       .catch(() => {
         throw new Error(`the ship did not take ${goods} aboard`);
       });
-    await waitForDialog(before, (d) => d.startsWith('amount: '), 'loading with shift did not ask the amount');
+    await waitForDialog(before, 'amount: ', 'loading with shift did not ask the amount');
     // The passenger goes ashore again.
     await pickUp(cargo.locator(`[data-unit="${passenger}"]`), passenger);
     await putOn(outside, passenger);
@@ -800,7 +802,7 @@ async function play(page, url) {
     const logged = await page.evaluate(() => window.__dialogs.length);
     await page.getByRole('menuitem', { name: 'Report', exact: true }).click();
     await page.getByRole('menuitem', { name: item, exact: true }).click();
-    await waitForDialog(logged, (d) => d === `report: ${title}`, `the ${item} did not open`);
+    await waitForDialog(logged, `report: ${title}`, `the ${item} did not open`);
     if (item === 'Colony report') {
       const named = await page.evaluate(
         (id) => window.__dialogUnits.some((d) => d.kind === 'report' && d.units.includes(id)),
