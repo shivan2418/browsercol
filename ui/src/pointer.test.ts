@@ -91,8 +91,8 @@ describe('pointerInput Go To', () => {
       tileAt: (px) => [Math.floor(px / 10), 0],
       goto: { preview, go },
     });
-    const press = (x: number) =>
-      host.dispatchEvent(new MouseEvent('pointerdown', { clientX: x, clientY: 0, button: 0 }));
+    const press = (x: number, button = 0) =>
+      host.dispatchEvent(new MouseEvent('pointerdown', { clientX: x, clientY: 0, button }));
     const release = () => dispatchEvent(new MouseEvent('pointerup'));
     return { preview, go, dispatch, dragged, press, release };
   };
@@ -124,10 +124,23 @@ describe('pointerInput Go To', () => {
     vi.useRealTimers();
   });
 
-  it('pans instead when the pointer moves before the hold', () => {
+  it('pans only with the middle button, never the left', () => {
     vi.useFakeTimers();
     const { preview, go, dispatch, press, release } = setup();
     press(25);
+    dispatchEvent(new MouseEvent('pointermove', { clientX: 60, clientY: 0 }));
+    release();
+    expect(dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ k: 'pan' }));
+    vi.advanceTimersByTime(HOLD_MS);
+    expect(preview).not.toHaveBeenCalled();
+    expect(go).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  it('pans with the middle button and does not start a Go To', () => {
+    vi.useFakeTimers();
+    const { preview, go, dispatch, press, release } = setup();
+    press(25, 1);
     dispatchEvent(new MouseEvent('pointermove', { clientX: 60, clientY: 0 }));
     vi.advanceTimersByTime(HOLD_MS);
     release();
