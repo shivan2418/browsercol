@@ -830,7 +830,8 @@ public final class Commands {
     /**
      * Open a report of the Report menu, as its action does: colony, labour,
      * compactLabour, military, naval, cargo, religion, education, exploration,
-     * history, trade, production or requirements. {@link Reports} says how to
+     * history, trade, production, requirements, foreign, indian or
+     * congress. {@link Reports} says how to
      * add one.
      *
      * @param name The report's name.
@@ -851,6 +852,9 @@ public final class Commands {
         case "trade": gui().showReportTradePanel(); return true;
         case "production": gui().showReportProductionPanel(); return true;
         case "requirements": gui().showReportRequirementsPanel(); return true;
+        case "foreign": gui().showReportForeignAffairPanel(); return true;
+        case "indian": gui().showReportIndianPanel(); return true;
+        case "congress": gui().showReportContinentalCongressPanel(); return true;
         default: return false;
         }
     }

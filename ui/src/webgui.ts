@@ -781,6 +781,96 @@ export type ReportView =
         /** What to say when there is no advice: the colony's requirements are met; null if there is advice. */
         met: string | null;
       }[];
+    })
+  | (ReportHead<'foreign'> & {
+      labels: {
+        stance: string;
+        colonies: string;
+        units: string;
+        military: string;
+        naval: string;
+        gold: string;
+        fathers: string;
+        tax: string;
+        sol: string;
+      };
+      /** The notice under the nations, localized. */
+      notice: string;
+      /** Each European nation the server summarises; fathers, tax and sol are null where we have not learnt them. */
+      nations: {
+        id: Id;
+        name: string;
+        keys: string[];
+        stance: string;
+        colonies: number;
+        units: number;
+        military: number;
+        naval: number;
+        gold: number;
+        fathers: number | null;
+        tax: number | null;
+        sol: number | null;
+      }[];
+    })
+  | (ReportHead<'indian'> & {
+      labels: {
+        chieftain: string;
+        kind: string;
+        settlements: string;
+        tension: string;
+        /** What to say of a tribe with no known settlement. */
+        none: string;
+        /** The settlement table's headings. */
+        columns: string[];
+      };
+      /** Each tribe we have contacted. */
+      tribes: {
+        id: Id;
+        name: string;
+        keys: string[];
+        chieftain: string;
+        kind: string;
+        /** "known / all", the all being "?" when the server did not say. */
+        settlements: string;
+        tension: string;
+        rows: {
+          /** The settlement's tile. */
+          id: Id;
+          /** Where the settlement is, for the link. */
+          at: [number, number];
+          name: string;
+          mission: { text: string; keys: string[] } | null;
+          alarm: string;
+          /** The skill taught, with its image once visited. */
+          skill: { text: string; keys: string[] | null };
+          hated: string;
+          wanted: { text: string; keys: string[] | null }[];
+        }[];
+      }[];
+    })
+  | (ReportHead<'congress'> & {
+      labels: { recruiting: string; none: string };
+      /** The father being recruited, with the liberty progress; null if none. */
+      current: {
+        id: Id;
+        name: string;
+        description: string;
+        keys: string[];
+        cost: number;
+        liberty: number;
+        production: { type: string; name: string; keys: string[]; amount: number }[];
+      } | null;
+      /** Every father, grouped by kind. */
+      fathers: {
+        id: Id;
+        name: string;
+        description: string;
+        keys: string[];
+        kind: string;
+        state: 'elected' | 'recruiting' | 'available';
+        status: string;
+        turn: string | null;
+      }[];
     });
 
 /** The reports the menu opens and the Engine can send. */

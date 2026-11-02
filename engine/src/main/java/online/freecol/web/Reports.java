@@ -21,17 +21,22 @@ import net.sf.freecol.common.model.Europe;
 import net.sf.freecol.common.model.ExportData;
 import net.sf.freecol.common.model.FreeColObject;
 import net.sf.freecol.common.model.Goods;
+import net.sf.freecol.common.model.FoundingFather;
 import net.sf.freecol.common.model.GoodsType;
 import net.sf.freecol.common.model.HistoryEvent;
+import net.sf.freecol.common.model.IndianSettlement;
 import net.sf.freecol.common.model.Location;
 import net.sf.freecol.common.model.Market;
+import net.sf.freecol.common.model.NationSummary;
 import net.sf.freecol.common.model.Player;
 import net.sf.freecol.common.model.Region;
+import net.sf.freecol.common.model.SettlementType;
 import net.sf.freecol.common.model.Specification;
 import net.sf.freecol.common.model.StringTemplate;
 import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.TypeCountMap;
 import net.sf.freecol.common.model.Unit;
+import net.sf.freecol.common.model.Turn;
 import net.sf.freecol.common.model.UnitType;
 import net.sf.freecol.common.model.WorkLocation;
 
@@ -44,10 +49,11 @@ import net.sf.freecol.common.model.WorkLocation;
  * (CompactLabourReport, on LabourData), the military, naval and cargo
  * reports (ReportUnitPanel and its three subclasses), and the religion,
  * education, exploration, history, trade, production and requirements
- * reports. Every payload is one object of the {@code report} event, told
+ * reports, and the foreign affairs, native and Continental Congress reports. Every payload is one object of the {@code report} event, told
  * apart by its {@code report} field: colony, labour, labourDetail,
  * compactLabour, military, naval, cargo, religion, education, exploration,
- * history, trade, production or requirements. Each has title, ok (the
+ * history, trade, production, requirements, foreign, indian or congress.
+ * Each has title, ok (the
  * button's label) and back, the report the button returns to (or null).
  *
  * <p>To add a report: write its builder here, giving it a new {@code report}
@@ -802,5 +808,205 @@ final class Reports {
             .put("none", Messages.message("none"))
             .putRaw("locations", Json.array(places))
             .toString();
+    }
+
+    /** A game object's image keys, with a name: {id, name, keys}. */
+    private static Json named(String id, String name, FreeColObject display) {
+        return new Json().put("id", id).put("name", name)
+            .putRaw("keys", ObjectImages.json(display));
+    }
+
+    /**
+     * The foreign affairs report (ReportForeignAffairPanel): {labels,
+     * notice, nations: [{id, name, keys, stance, colonies, units, military,
+     * naval, gold, fathers, tax, sol}]} for each European nation the
+     * server gives a summary of (as the panel skips the rest). The
+     * fathers, tax and sol are null where the summary gives -1: what we
+     * have not learnt of the nation.
+     */
+    static String foreign(FreeColClient client) {
+        final Player player = client.getMyPlayer();
+        final List<String> nations = new ArrayList<>();
+        for (Player enemy : player.getGame().getLiveEuropeanPlayerList()) {
+            final NationSummary ns = client.getInGameController().nationSummary(enemy);
+            if (ns == null) continue;
+            nations.add(new Json().put("id", enemy.getId())
+                .put("name", Messages.message(enemy.getCountryLabel()))
+                .putRaw("keys", ObjectImages.json(enemy.getNation()))
+                .put("stance", Messages.message(ns.getStance().getNameKey()))
+                .put("colonies", ns.getNumberOfSettlements())
+                .put("units", ns.getNumberOfUnits())
+                .put("military", ns.getMilitaryStrength())
+                .put("naval", ns.getNavalStrength())
+                .put("gold", ns.getGold())
+                .putRaw("fathers", optional(ns.getFoundingFathers()))
+                .putRaw("tax", optional(ns.getTax()))
+                .putRaw("sol", optional(ns.getSoL()))
+                .toString());
+        }
+        return head("foreign", "reportForeignAction", null)
+            .putRaw("labels", new Json()
+                .put("stance", Messages.message("report.foreignAffair.stance"))
+                .put("colonies", Messages.message("report.foreignAffair.numberOfColonies"))
+                .put("units", Messages.message("report.foreignAffair.numberOfUnits"))
+                .put("military", Messages.message("report.foreignAffair.militaryStrength"))
+                .put("naval", Messages.message("report.foreignAffair.navalStrength"))
+                .put("gold", Messages.message("gold"))
+                .put("fathers", Messages.message("report.foreignAffair.congress"))
+                .put("tax", Messages.message("tax"))
+                .put("sol", Messages.message("report.foreignAffair.sonsOfLiberty"))
+                .toString())
+            .put("notice", Messages.message("report.foreignAffair.notice"))
+            .putRaw("nations", Json.array(nations)).toString();
+    }
+
+    /** A summary figure the panel shows only when it is not negative. */
+    private static String optional(int n) {
+        return (n >= 0) ? Integer.toString(n) : "null";
+    }
+
+    /** A label and its image keys: {text, keys} (keys null for text only). */
+    private static String labelled(String text, FreeColObject display) {
+        return new Json().put("text", text)
+            .putRaw("keys", (display == null) ? "null" : ObjectImages.json(display))
+            .toString();
+    }
+
+    /**
+     * The native affairs report (ReportIndianPanel): {labels, none, tribes:
+     * [{id, name, keys (the capital's settlement), chieftain, kind,
+     * settlements ("known / all"), tension, rows: [{id (the tile), at, name,
+     * mission (the missionary's label and image, or null), alarm, skill
+     * ({text, keys}), hated, wanted ([{text, keys}])}]}]} for each live
+     * tribe we have contacted; a tribe with no known settlement has no
+     * rows. A settlement's skill and wanted goods are shown only once it is
+     * visited, as the panel does.
+     */
+    static String indian(FreeColClient client) {
+        final Player player = client.getMyPlayer();
+        final List<String> tribes = new ArrayList<>();
+        for (Player opponent : player.getGame().getLiveNativePlayerList()) {
+            if (!player.hasContacted(opponent)) continue;
+            final NationSummary ns = client.getInGameController().nationSummary(opponent);
+            final List<IndianSettlement> known = opponent.getIndianSettlementList();
+            final List<IndianSettlement> ordered = new ArrayList<>();
+            for (IndianSettlement is : known) {
+                if (is.isCapital()) ordered.add(0, is); else ordered.add(is);
+            }
+            final List<String> rows = new ArrayList<>();
+            for (IndianSettlement is : ordered) {
+                final boolean visited = is.hasVisited(player);
+                final boolean contacted = is.hasContacted(player);
+                String name = Messages.message(is.getLocationLabelFor(player));
+                if (is.getTile().isExplored() && is.isCapital()) name += "*";
+                if (is.worthScouting(player)) name += "$";
+                final Unit missionary = is.getMissionary();
+                final UnitType skill = is.getLearnableSkill();
+                final List<String> wanted = new ArrayList<>();
+                final int n = visited ? is.getWantedGoodsCount() : 1;
+                for (int i = 0; i < n; i++) {
+                    final GoodsType gt = visited ? is.getWantedGoods(i) : null;
+                    wanted.add(labelled(Messages.message(is.getWantedGoodsLabel(i, player).get(0)), gt));
+                }
+                rows.add(new Json().put("id", is.getTile().getId())
+                    .putRaw("at", MapJson.xy(is.getTile()))
+                    .put("name", name)
+                    .putRaw("mission", (missionary == null) ? "null"
+                        : labelled(Messages.message(missionary.getLabel(Unit.UnitLabelType.NATIONAL)),
+                            missionary.getType()))
+                    .put("alarm", Messages.message(StringTemplate.key(is.getAlarmLevelKey(player))))
+                    .putRaw("skill", labelled(Messages.message(is.getLearnableSkillLabel(visited)),
+                        (visited && skill != null) ? skill : null))
+                    .put("hated", Messages.message(is.getMostHatedLabel(contacted)))
+                    .putRaw("wanted", Json.array(wanted))
+                    .toString());
+            }
+            final SettlementType capital = opponent.getNationType().getCapitalType();
+            tribes.add(new Json().put("id", opponent.getId())
+                .put("name", Messages.message(opponent.getNationLabel()))
+                .putRaw("keys", Json.array(List.of(Json.quote("image.tileitem." + capital.getId()))))
+                .put("chieftain", opponent.getName())
+                .put("kind", Messages.getName(capital))
+                .put("settlements", known.size() + " / "
+                    + ((ns == null) ? "?" : String.valueOf(ns.getNumberOfSettlements())))
+                .put("tension", Messages.message(StringTemplate.template("report.indian.tensionStance")
+                    .addNamed("%tension%", opponent.getTension(player))
+                    .addNamed("%stance%", opponent.getStance(player))))
+                .putRaw("rows", Json.array(rows))
+                .toString());
+        }
+        return head("indian", "reportIndianAction", null)
+            .putRaw("labels", new Json()
+                .put("chieftain", Messages.message("report.indian.chieftain"))
+                .put("kind", Messages.message("report.indian.typeOfSettlements"))
+                .put("settlements", Messages.message("report.indian.numberOfSettlements"))
+                .put("tension", Messages.message("report.indian.tribeTension"))
+                .put("none", Messages.message("report.indian.noKnownSettlements"))
+                .putRaw("columns", Json.array(List.of(
+                    Json.quote(Messages.message("settlement")),
+                    Json.quote(Messages.message("mission")),
+                    Json.quote(Messages.message("report.indian.tension")),
+                    Json.quote(Messages.message("skillTaught")),
+                    Json.quote(Messages.message("report.indian.mostHated")),
+                    Json.quote(Messages.message("report.indian.tradeInterests")))))
+                .toString())
+            .putRaw("tribes", Json.array(tribes)).toString();
+    }
+
+    /**
+     * The Continental Congress report (ReportContinentalCongressPanel):
+     * {labels, current, fathers}. Current is the father being recruited,
+     * with its liberty progress ({id, name, description, keys, cost,
+     * liberty, production: [{type, name, keys, amount}]}), or null. Each of
+     * the fathers is {id, name, description, keys, kind (the type's name),
+     * state: elected, recruiting or available, status (localized), turn
+     * (when elected, or null)}, grouped by kind in the specification's order.
+     */
+    static String congress(Player player) {
+        final Specification spec = player.getSpecification();
+        final FoundingFather now = player.getCurrentFather();
+        final java.util.Map<String, Turn> elected = player.getElectionTurns();
+        final List<String> libertyGoods = new ArrayList<>();
+        for (GoodsType gt : spec.getLibertyGoodsTypeList()) {
+            int total = 0;
+            for (Colony c : player.getColonyList()) total += c.getNetProductionOf(gt);
+            libertyGoods.add(ColonyJson.goods(gt, total).toString());
+        }
+        final List<String> fathers = new ArrayList<>();
+        for (FoundingFather.FoundingFatherType type : FoundingFather.FoundingFatherType.values()) {
+            for (FoundingFather f : spec.getFoundingFathers()) {
+                if (f.getType() != type) continue;
+                final boolean has = player.hasFather(f);
+                final Turn turn = has ? elected.get(Messages.nameKey(f)) : null;
+                final String state = has ? "elected" : (f == now) ? "recruiting" : "available";
+                final String status = (turn != null)
+                    ? Messages.message(StringTemplate.template("report.continentalCongress.elected")
+                        .addStringTemplate("%turn%", turn.getLabel()))
+                    : Messages.message((f == now) ? "report.continentalCongress.recruiting"
+                        : "report.continentalCongress.available");
+                fathers.add(new Json().put("id", f.getId())
+                    .put("name", Messages.getName(f))
+                    .put("description", Messages.getDescription(f))
+                    .putRaw("keys", Json.array(List.of(Json.quote("image.flavor." + f.getId()))))
+                    .put("kind", Messages.message(type.getTypeKey()))
+                    .put("state", state)
+                    .put("status", status)
+                    .putRaw("turn", (turn == null) ? "null" : Json.quote(Messages.message(turn.getLabel())))
+                    .toString());
+            }
+        }
+        return head("congress", "reportCongressAction", null)
+            .putRaw("labels", new Json()
+                .put("recruiting", Messages.message("report.continentalCongress.recruiting"))
+                .put("none", Messages.message("report.continentalCongress.none"))
+                .toString())
+            .putRaw("current", (now == null) ? "null" : new Json().put("id", now.getId())
+                .put("name", Messages.getName(now))
+                .put("description", Messages.getDescription(now))
+                .putRaw("keys", Json.array(List.of(Json.quote("image.flavor." + now.getId()))))
+                .put("cost", player.getTotalFoundingFatherCost())
+                .put("liberty", player.getLiberty())
+                .putRaw("production", Json.array(libertyGoods)).toString())
+            .putRaw("fathers", Json.array(fathers)).toString();
     }
 }
