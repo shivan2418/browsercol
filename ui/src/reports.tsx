@@ -8,7 +8,7 @@
 // To add a report: add its view to ReportView (webgui.ts), a body for it in BODIES below, and an entry
 // in REPORTS, which is the Report menu. The Engine side is Reports.java.
 import './reports.css';
-import { createContext, useContext, useState, type ReactNode } from 'react';
+import { Fragment, createContext, useContext, useState, type ReactNode } from 'react';
 import type { Dialog } from './dialogs';
 import { GoodsAmount, WindowFrame, type Art, type Menu } from './frame';
 import type { ReportName, ReportView, UnitCount } from './webgui';
@@ -661,16 +661,45 @@ function RequirementsReport({ e, go }: { e: View<'requirements'>; go: Links }) {
   );
 }
 
-/** ColopediaPanel: a tree of the sections and their entries on the left, the chosen entry on the right. */
+/** A description with its [[id|text]] links as buttons that go to the entry. */
+function Linked({ text, go }: { text: string; go: (id: string) => void }) {
+  const parts = text.split(/\[\[([^|\]]+)\|([^\]]*)\]\]/);
+  return (
+    <>
+      {parts.map((part, i) =>
+        i % 3 === 0 ? (
+          part
+        ) : i % 3 === 1 ? (
+          <Link key={i} go={() => go(part)} data-link={part}>
+            {parts[i + 1]}
+          </Link>
+        ) : null,
+      )}
+    </>
+  );
+}
+
+/**
+ * ColopediaPanel: a tree of the sections and their entries (under a heading for each sub-category) on the
+ * left, the chosen entry on the right. A link in a fact or a description goes to its entry.
+ */
 function Colopedia({ e, art }: { e: View<'colopedia'>; art: Art }) {
-  const [first] = useState(() => {
-    const start = e.sections.find((s) => s.id === colopediaStart) ?? e.sections[0];
+  const where = (id: string | null) => e.sections.find((s) => s.entries.some((x) => x.id === id));
+  const [start] = useState(() => {
+    const wanted = e.select ?? null;
+    const section = where(wanted) ?? e.sections.find((s) => s.id === colopediaStart) ?? e.sections[0];
     colopediaStart = null; // used once: a later open without the menu starts at the top
-    return start;
+    return { section: section?.id ?? '', entry: where(wanted) ? wanted : (section?.entries[0]?.id ?? null) };
   });
-  const [section, setSection] = useState(first?.id ?? '');
-  const [chosen, setChosen] = useState<string | null>(first?.entries[0]?.id ?? null);
+  const [section, setSection] = useState(start.section);
+  const [chosen, setChosen] = useState<string | null>(start.entry);
   const entry = e.sections.flatMap((s) => s.entries).find((x) => x.id === chosen);
+  const go = (id: string) => {
+    const s = where(id);
+    if (!s) return;
+    setSection(s.id);
+    setChosen(id);
+  };
   return (
     <div className="colopedia">
       <ul className="tree" role="tree">
@@ -688,13 +717,20 @@ function Colopedia({ e, art }: { e: View<'colopedia'>; art: Art }) {
             </button>
             {section === s.id && (
               <ul role="group">
-                {s.entries.map((x) => (
-                  <li key={x.id} role="treeitem" aria-selected={chosen === x.id} data-entry={x.id}>
-                    <button onClick={() => setChosen(x.id)}>
-                      <Img keys={x.keys} art={art} />
-                      {x.name}
-                    </button>
-                  </li>
+                {s.entries.map((x, i) => (
+                  <Fragment key={x.id}>
+                    {x.group !== null && x.group !== s.entries[i - 1]?.group && (
+                      <li role="presentation" className="group">
+                        {x.group}
+                      </li>
+                    )}
+                    <li role="treeitem" aria-selected={chosen === x.id} data-entry={x.id}>
+                      <button onClick={() => setChosen(x.id)}>
+                        <Img keys={x.keys} art={art} />
+                        {x.name}
+                      </button>
+                    </li>
+                  </Fragment>
                 ))}
               </ul>
             )}
@@ -707,10 +743,21 @@ function Colopedia({ e, art }: { e: View<'colopedia'>; art: Art }) {
             <h3>{entry.name}</h3>
             <Img keys={entry.keys} art={art} title={entry.name} />
             <dl>
-              {entry.facts.map((f) => (
-                <div key={f.label}>
+              {entry.facts.map((f, i) => (
+                <div key={i}>
                   <dt>{f.label}</dt>
-                  <dd>{f.value}</dd>
+                  <dd>
+                    {f.value}
+                    {f.refs.map((r) => (
+                      <span key={r.id} className="ref">
+                        <Img keys={r.keys} art={art} />
+                        <Link go={() => go(r.id)} data-link={r.id}>
+                          {r.name}
+                        </Link>
+                        {r.note !== null && ` (${r.note})`}
+                      </span>
+                    ))}
+                  </dd>
                 </div>
               ))}
             </dl>
@@ -718,7 +765,9 @@ function Colopedia({ e, art }: { e: View<'colopedia'>; art: Art }) {
               .split('\n')
               .filter(Boolean)
               .map((p, i) => (
-                <p key={i}>{p}</p>
+                <p key={i}>
+                  <Linked text={p} go={go} />
+                </p>
               ))}
           </>
         )}

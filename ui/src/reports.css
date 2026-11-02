@@ -316,3 +316,17 @@
 .dialog .report .colopedia .detail dd {
   margin: 0;
 }
+.dialog .report .colopedia .tree .group {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: var(--fs-s);
+}
+.dialog .report .colopedia .detail .ref {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-right: 10px;
+}
+.dialog .report .colopedia .detail .ref img {
+  height: 20px;
+}

@@ -654,7 +654,9 @@ type UnitsView<K extends 'military' | 'naval' | 'cargo'> = ReportHead<K> & {
 /** The reports of Reports.java, as the Engine sends them. Adding a report adds a member here. */
 export type ReportView =
   | (ReportHead<'colopedia'> & {
-      sections: { id: string; name: string; entries: ColopediaEntry[] }[];
+      /** The entry to open on (a deep link), or null. */
+      select: string | null;
+      sections: ColopediaSection[];
     })
   | UnitsView<'military'>
   | UnitsView<'naval'>
@@ -880,13 +882,32 @@ export type ReportView =
       }[];
     });
 
-/** One entry of the Colopedia: a plain-text description and labelled facts, with the image keys of its icon. */
-export interface ColopediaEntry {
+/** A link from a Colopedia fact to an entry: its image, name and a note such as an amount. */
+export interface ColopediaRef {
   id: string;
   name: string;
   keys: string[];
+  note: string | null;
+}
+
+/**
+ * One entry of the Colopedia: a plain-text description (where [[id|text]] is a link to another entry),
+ * labelled facts whose value may be followed by links, the image keys of its icon, and the sub-category
+ * (group) it is listed under, if any.
+ */
+export interface ColopediaEntry {
+  id: string;
+  name: string;
+  group: string | null;
+  keys: string[];
   text: string;
-  facts: { label: string; value: string }[];
+  facts: { label: string; value: string; refs: ColopediaRef[] }[];
+}
+
+export interface ColopediaSection {
+  id: string;
+  name: string;
+  entries: ColopediaEntry[];
 }
 
 /** The reports the menu opens and the Engine can send. */
