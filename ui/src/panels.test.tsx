@@ -885,6 +885,65 @@ describe('the names dialog', () => {
   });
 });
 
+describe('the warehouse dialog', () => {
+  const q: GuiQuestions['warehouse']['ask'] = {
+    title: 'Warehouse',
+    ok: 'OK',
+    cancel: 'Cancel',
+    export: 'Export',
+    canExport: true,
+    tips: { low: 'Low', high: 'High', import: 'Import', export: 'Export above', exported: 'Whether' },
+    goods: [
+      {
+        type: 'model.goods.food',
+        name: 'Food',
+        keys: [],
+        amount: 5,
+        exported: false,
+        low: 10,
+        high: 90,
+        import: 20,
+        export: 50,
+        max: 100,
+      },
+      {
+        type: 'model.goods.rum',
+        name: 'Rum',
+        keys: [],
+        amount: 0,
+        exported: false,
+        low: 0,
+        high: 100,
+        import: null,
+        export: 0,
+        max: 300,
+      },
+    ],
+  };
+
+  it('answers every goods with the levels as edited', async () => {
+    const { box } = host();
+    const edited = ask(box, 'warehouse', q);
+    fireEvent.change(screen.getByLabelText('Food export'), { target: { value: '75' } });
+    fireEvent.click(screen.getByLabelText('Food Export'));
+    fireEvent.change(screen.getByLabelText('Rum high'), { target: { value: '500' } });
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    expect(await edited).toEqual([
+      { type: 'model.goods.food', exported: true, low: 10, high: 90, import: 20, export: 75 },
+      { type: 'model.goods.rum', exported: false, low: 0, high: 100, import: null, export: 0 },
+    ]);
+    expect(screen.queryByLabelText('Rum import')).toBeNull();
+  });
+
+  it('cannot export without a custom house, and answers null on cancel', async () => {
+    const { box } = host();
+    const later = ask(box, 'warehouse', { ...q, canExport: false });
+    expect((screen.getByLabelText('Food Export') as HTMLInputElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(await later).toBeNull();
+  });
+});
+
 describe('the trade routes panel', () => {
   const routes = (more: Partial<GuiEvents['tradeRoutes']> = {}): GuiEvents['tradeRoutes'] => ({
     title: 'Trade Routes',

@@ -102,6 +102,28 @@ const question = {
     tile: 'tile:3',
     object: 'unit:9',
   },
+  warehouse: {
+    title: 'Warehouse',
+    ok: 'OK',
+    cancel: 'Cancel',
+    export: 'Export',
+    canExport: true,
+    tips: { low: 'Low', high: 'High', import: 'Import', export: 'Export above', exported: 'Whether' },
+    goods: [
+      {
+        type: 'model.goods.food',
+        name: 'Food',
+        keys: [],
+        amount: 5,
+        exported: true,
+        low: 10,
+        high: 90,
+        import: null,
+        export: 50,
+        max: 100,
+      },
+    ],
+  },
   names: {
     text: 'Declare?',
     fields: [
@@ -128,6 +150,7 @@ describe('webGui', () => {
           goods: (q) => (asked.push(q), [1, 0]),
           negotiation: (q) => (asked.push(q), { status: 'propose', items: [q.items[0]] }),
           names: (q) => (asked.push(q), [q.fields[0].value, 'Newland']),
+          warehouse: (q) => (asked.push(q), [{ ...q.goods[0], import: null, export: 60 }]),
           endTurn: (q) => (asked.push(q), { status: 'select', unit: q.units[0].id }),
           preCombat: (q) => (asked.push(q), false),
           amount: (q) => (asked.push(q), 35),
@@ -147,6 +170,7 @@ describe('webGui', () => {
       [8, 'preCombat'],
       [9, 'event'],
       [10, 'amount'],
+      [11, 'warehouse'],
     ] as const) {
       const arrived = a.next();
       gui.fcAsk(id, kind, JSON.stringify(question[kind]));
@@ -165,6 +189,7 @@ describe('webGui', () => {
       question.preCombat,
       question.event,
       question.amount,
+      question.warehouse,
     ]);
     expect(a.got).toEqual([
       [1, 'true'],
@@ -177,6 +202,7 @@ describe('webGui', () => {
       [8, 'false'],
       [9, 'closed'],
       [10, '35'],
+      [11, 'model.goods.food\ttrue\t10\t90\t-1\t60'],
     ]);
   });
 
@@ -195,6 +221,7 @@ describe('webGui', () => {
         goods: () => null,
         negotiation: () => null,
         names: () => null,
+        warehouse: () => null,
         endTurn: () => null,
         preCombat: () => false,
         amount: () => null,
@@ -234,6 +261,7 @@ describe('webGui', () => {
           goods: () => null,
           negotiation: () => null,
           names: () => null,
+          warehouse: () => null,
           endTurn: () => null,
           preCombat: () => false,
           amount: () => null,

@@ -448,6 +448,36 @@ export interface GuiQuestions {
     };
     answer: { status: 'accept' | 'propose' | 'reject'; items: TradeItem[] } | null;
   };
+  /**
+   * FreeCol's warehouse dialog: for each storable goods the levels that warn of too little or too much stock,
+   * the level below which it is imported (null unless the enhanced trade routes option is on), whether it is
+   * exported (only with a custom house) and the level above which. max is the most a level may be.
+   */
+  warehouse: {
+    ask: {
+      title: string;
+      ok: string | null;
+      cancel: string | null;
+      /** The export check box's label. */
+      export: string;
+      canExport: boolean;
+      tips: { low: string; high: string; import: string; export: string; exported: string };
+      goods: {
+        type: Id;
+        name: string;
+        keys: string[];
+        amount: number;
+        exported: boolean;
+        low: number;
+        high: number;
+        import: number | null;
+        export: number;
+        max: number;
+      }[];
+    };
+    /** The settings of every goods, as they stand when OK is pressed; null for a closed dialog. */
+    answer: { type: Id; exported: boolean; low: number; high: number; import: number | null; export: number }[] | null;
+  };
   /** Text fields, each with its label and a suggestion (the new nation's names). */
   names: {
     ask: { text: string; fields: { label: string; value: string }[]; ok: string | null; cancel: string | null };
@@ -521,6 +551,11 @@ const encode: { [K in keyof GuiQuestions]: (answer: GuiQuestions[K]['answer']) =
           a.status,
           ...(a.status === 'propose' ? a.items.map((i) => [i.kind, i.side ?? '', i.key, i.amount].join('\t')) : []),
         ].join('\n'),
+  // A line for each goods, its fields separated by tabs; -1 is no import level (Warehouses.java).
+  warehouse: (a) =>
+    a === null
+      ? null
+      : a.map((g) => [g.type, g.exported, g.low, g.high, g.import ?? -1, g.export].join('\t')).join('\n'),
   // Java splits the answer at the line break, which a text field never holds.
   names: (a) => (a === null ? null : a.join('\n')),
 };

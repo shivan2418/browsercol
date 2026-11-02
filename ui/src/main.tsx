@@ -34,7 +34,7 @@ import { mapDrawer, type MapView } from './map';
 import { europeButtons } from './europe-client';
 import { DialogHost, type Art, type ReportButtons, type RouteButtons } from './panels';
 import { ReportContext, reportMenu, type ReportActions } from './reports';
-import { onCanvas, pointerInput } from './pointer';
+import { blockBrowserMenu, onCanvas, pointerInput } from './pointer';
 import { StartScreen } from './start-screen';
 import { presetJson, startOptions } from './start';
 import { fileNameOf, importSave } from './save-files';
@@ -146,6 +146,7 @@ const colonyMoves: ColonyMoves = {
   changeWork: (unit, goods) => colonyClient?.changeWorkType(unit, goods),
   setQueue: (colony, types) => colonyClient?.setBuildQueue(colony, types.join(',')),
   buy: (colony) => colonyClient?.payForBuilding(colony),
+  warehouse: (colony) => colonyClient?.warehouse(colony),
   board: (unit, ship) => colonyClient?.boardShip(unit, ship),
   leaveShip: (unit) => colonyClient?.leaveShip(unit),
   load: (ship, goods, ask) => colonyClient?.loadGoods(ship, goods, ask),
@@ -363,6 +364,7 @@ const gui: GuiHandlers = {
     preCombat: (q) => dialogQueue.ask('preCombat', q),
     negotiation: (q) => dialogQueue.ask('negotiation', q),
     names: (q) => dialogQueue.ask('names', q),
+    warehouse: (q) => dialogQueue.ask('warehouse', q),
   },
 };
 
@@ -378,6 +380,7 @@ function drawMap(m: MapView) {
   if (!artReady) void drawn.then(() => map.resources() && ((artReady = true), renderSide()));
 }
 
+blockBrowserMenu(document);
 const dragged = pointerInput(mapHost, { view: () => view, dispatch, tileAt: (px, py) => map.tileAt(px, py) });
 
 /** Hook the player's input up to the client Engine's commands. */

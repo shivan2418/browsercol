@@ -617,20 +617,6 @@ class WebGUITest {
         assertEquals(Boolean.TRUE, await(got));
     }
 
-    @Test
-    @Timeout(120)
-    void aDialogWithNoBrowserUIYetIsReportedAndGetsTheDefault() throws Exception {
-        final ClientEngine client = startGame();
-        final GUI gui = client.getClient().getGUI();
-        final java.util.List<Boolean> got = Collections.synchronizedList(new ArrayList<>());
-
-        shown.clear();
-        gui.showWarehouseDialog(null, got::add);
-        assertEquals(List.of("unasked {\"method\":\"showWarehouseDialog\"}"),
-            shown().stream().filter(e -> !e.startsWith("messages ")).collect(Collectors.toList()));
-        assertTrue(asked.isEmpty(), asked.toString());
-    }
-
     /**
      * The select amount dialog asks for an amount of goods, offering the
      * amounts SelectGoodsAmountDialog lists, and returns the one chosen,
