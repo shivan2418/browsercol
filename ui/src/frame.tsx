@@ -4,7 +4,15 @@
 // menu bar over the map with the status line. Panels build on these rather
 // than on markup of their own. Their colours come from the tokens in
 // theme.css, through the classes index.html styles.
-import { useEffect, useId, useRef, useState, type HTMLAttributes, type ReactNode } from 'react';
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type HTMLAttributes,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from 'react';
 
 /** The URL of the art for the first of some resource keys the Tileset has, or null if it has none (yet). */
 export type Art = (keys: readonly string[]) => string | null;
@@ -53,14 +61,32 @@ export function useEscape(close: (() => void) | null) {
 export function WindowFrame({ title, close, children, className, ...rest }: FrameProps) {
   useEscape(close);
   const titleId = useId();
+  const [shift, setShift] = useState({ x: 0, y: 0 });
+  // Drag the window by its title bar (not by the close button).
+  const drag = (e: ReactPointerEvent<HTMLElement>) => {
+    if (e.button !== 0 || (e.target instanceof Element && e.target.closest('button'))) return;
+    const bar = e.currentTarget;
+    const from = { x: e.clientX - shift.x, y: e.clientY - shift.y };
+    bar.setPointerCapture?.(e.pointerId);
+    const move = (m: globalThis.PointerEvent) => setShift({ x: m.clientX - from.x, y: m.clientY - from.y });
+    const up = () => {
+      bar.removeEventListener('pointermove', move);
+      bar.removeEventListener('pointerup', up);
+      bar.removeEventListener('pointercancel', up);
+    };
+    bar.addEventListener('pointermove', move);
+    bar.addEventListener('pointerup', up);
+    bar.addEventListener('pointercancel', up);
+  };
   return (
     <section
       role="dialog"
       aria-labelledby={title ? titleId : undefined}
       className={className ? `frame ${className}` : 'frame'}
       {...rest}
+      style={{ ...rest.style, transform: shift.x || shift.y ? `translate(${shift.x}px, ${shift.y}px)` : undefined }}
     >
-      <div className="title">
+      <div className="title" onPointerDown={drag} style={{ cursor: 'move', touchAction: 'none' }}>
         {title && <h2 id={titleId}>{title}</h2>}
         {close && (
           <button className="close" aria-label="Close" title="Close (Esc)" onClick={close}>
