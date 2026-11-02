@@ -97,6 +97,8 @@ interface TextStyle {
   size: number;
   bold?: boolean;
   italic?: boolean;
+  /** Black outline round the glyphs; off for text on a chip, whose own border frames it. */
+  plain?: boolean;
 }
 
 /** The map's layers: the scene, and the cursor and path over it. */
@@ -237,7 +239,7 @@ async function pixiPen(host: HTMLElement, width: number, height: number): Promis
           fontWeight: style.bold ? 'bold' : 'normal',
           fontStyle: style.italic ? 'italic' : 'normal',
           fill: style.color,
-          stroke: { color: 0x000000, width: 2 },
+          stroke: style.plain ? undefined : { color: 0x000000, width: 2 },
         },
       });
       t.position.set(center ? x - t.width / 2 : x, y);
@@ -344,9 +346,11 @@ function canvasPen(host: HTMLElement, width: number, height: number, background 
         c.font = fontOf(style);
         c.textAlign = center ? 'center' : 'left';
         c.textBaseline = 'top';
-        c.lineWidth = 2;
-        c.strokeStyle = '#000';
-        c.strokeText(s, x, y);
+        if (!style.plain) {
+          c.lineWidth = 2;
+          c.strokeStyle = '#000';
+          c.strokeText(s, x, y);
+        }
         c.fillStyle = css(style.color);
         c.fillText(s, x, y);
       }),
@@ -421,7 +425,7 @@ function roadPath(dirs: Direction[], p: PathSink) {
   }
 }
 
-const CHIP: TextStyle = { color: 0, font: 'sans-serif', size: 10, bold: true };
+const CHIP: TextStyle = { color: 0, font: 'sans-serif', size: 10, bold: true, plain: true };
 const NAME: TextStyle = { color: 0, font: 'serif', size: 13 };
 /** TileViewer's fonts: simple-bold-tiny, and simple-bold+italic-smaller to emphasise. */
 const POPULATION: TextStyle = { color: 0, font: 'sans-serif', size: 12, bold: true };
