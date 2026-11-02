@@ -61,6 +61,10 @@ export interface ClientExports {
   trainUnit(unitTypeId: string): void;
   /** Europe and colony panels: put a unit aboard a ship beside it, by ids. */
   boardShip(unitId: string, shipId: string): void;
+  /** Europe panel: buy goods of a type onto a ship in port, by ids; the player is asked how much. */
+  buyGoods(shipId: string, goodsTypeId: string): void;
+  /** Europe panel: sell a ship's cargo in Europe, by ids; the player is asked how much of it. */
+  sellGoods(shipId: string, goodsTypeId: string): void;
   /** Colony panel: take a unit off a ship in port, by id. */
   leaveShip(unitId: string): void;
   /** Colony panel: load goods of a type from the warehouse onto a ship in port; ask asks the amount. */

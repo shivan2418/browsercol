@@ -16,6 +16,7 @@ import net.sf.freecol.common.model.Goods;
 import net.sf.freecol.common.model.GoodsContainer;
 import net.sf.freecol.common.model.GoodsType;
 import net.sf.freecol.common.model.IndianSettlement;
+import net.sf.freecol.common.model.Market;
 import net.sf.freecol.common.model.StringTemplate;
 import net.sf.freecol.common.model.UnitLocation.NoAddReason;
 import net.sf.freecol.common.model.WorkLocation;
@@ -205,6 +206,81 @@ public final class Commands {
     }
 
     /**
+     * Buy goods in Europe onto a ship in port, as the market's goods dropped
+     * on the cargo does (MarketLabel.addCargo): the player is asked how much
+     * through the select amount dialog, and the most is what the ship has
+     * room for and the gold buys at the market's price. A boycotted goods
+     * cannot be bought, and the player is told why. The Europe panel is
+     * sent again.
+     *
+     * @param shipId The id of one of our ships in Europe.
+     * @param goodsTypeId The id of the goods type.
+     * @return True if goods were bought.
+     */
+    public boolean buyGoods(String shipId, String goodsTypeId) {
+        final Unit ship = shipInEurope(shipId);
+        final GoodsType type = goodsType(goodsTypeId);
+        if (ship == null || type == null) return false;
+        final Player player = this.client.getMyPlayer();
+        if (!player.canTrade(type)) {
+            // The Crown is boycotting this goods: the player is asked to pay
+            // the arrears, as Swing does, and the goods is not traded.
+            igc().payArrears(type);
+            gui().showEuropePanel();
+            return false;
+        }
+        final int loadable = ship.getLoadableAmount(type);
+        if (loadable <= 0) return false;
+        final Market market = player.getMarket();
+        final int price = market.getCostToBuy(type);
+        final int most = (price <= 0) ? 0 : Math.min(loadable, player.getGold() / price);
+        if (most <= 0) {
+            gui().showInformationPanel(null, StringTemplate.template("info.notEnoughGold"));
+            gui().showEuropePanel();
+            return false;
+        }
+        // Paying, the dialog limits the amount to what the gold buys.
+        final int amount = gui().showSelectAmountDialog(type, loadable, most, true);
+        if (amount <= 0) return false;
+        final boolean done = igc().buyGoods(type, amount, ship);
+        gui().showEuropePanel();
+        return done;
+    }
+
+    /**
+     * Sell a ship's cargo in Europe, as a stack of the cargo dropped on the
+     * market does (EuropePanel's MarketPanel): the player is asked how much
+     * of the stack to sell through the select amount dialog. A boycotted
+     * goods cannot be sold, and the player is told why. The Europe panel is
+     * sent again.
+     *
+     * @param shipId The id of one of our ships in Europe.
+     * @param goodsTypeId The id of the goods type.
+     * @return True if goods were sold.
+     */
+    public boolean sellGoods(String shipId, String goodsTypeId) {
+        final Unit ship = shipInEurope(shipId);
+        final GoodsType type = goodsType(goodsTypeId);
+        if (ship == null || type == null) return false;
+        final int aboard = ship.getGoodsCount(type);
+        if (aboard <= 0) return false;
+        final Player player = this.client.getMyPlayer();
+        if (!player.canTrade(type)) {
+            // The Crown is boycotting this goods: the player is asked to pay
+            // the arrears, as Swing does, and the goods is not sold.
+            igc().payArrears(type);
+            gui().showEuropePanel();
+            return false;
+        }
+        final int amount = gui().showSelectAmountDialog(type, aboard, aboard, false);
+        if (amount <= 0) return false;
+        final boolean done = igc().sellGoods(
+            new Goods(this.client.getGame(), ship, type, amount));
+        gui().showEuropePanel();
+        return done;
+    }
+
+    /**
      * Load goods of a type from a colony's warehouse onto a ship in its
      * port, as dropping the warehouse's goods on the colony panel's cargo
      * does (DefaultTransferHandler.importGoods, GoodsLabel.addCargo): a
@@ -280,6 +356,13 @@ public final class Commands {
         final Unit ship = this.client.getMyPlayer()
             .getOurFreeColGameObject(shipId, Unit.class);
         return (ship == null || !ship.isCarrier() || ship.getColony() == null) ? null : ship;
+    }
+
+    /** One of our carriers in Europe, by id, else null. */
+    private Unit shipInEurope(String shipId) {
+        final Unit ship = this.client.getMyPlayer()
+            .getOurFreeColGameObject(shipId, Unit.class);
+        return (ship == null || !ship.isCarrier() || !ship.isInEurope()) ? null : ship;
     }
 
     /** The goods type with this id, else null. */
