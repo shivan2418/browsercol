@@ -404,7 +404,7 @@ public final class ClientMain {
         command("endTurn", () -> engine.getCommands().endTurn());
     }
 
-    /** Open a report of the Report menu: colony, labour or compactLabour (Commands.showReport). */
+    /** Open a report of the Report menu: colony, labour, compactLabour, military, naval or cargo (Commands.showReport). */
     @JSExport
     public static void report(String name) {
         command("report", () -> engine.getCommands().showReport(name));

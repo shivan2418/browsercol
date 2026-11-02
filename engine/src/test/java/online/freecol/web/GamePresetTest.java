@@ -169,6 +169,33 @@ class GamePresetTest {
         assertNotEquals(123, plain.getSpecification().getInteger("model.option.landPriceFactor"));
     }
 
+    /** What the start screen's map options send: the map size picked is the size generated. */
+    @Test
+    @Timeout(300)
+    void aSmallerAndALargerMapSizeGiveMapsOfThoseSizes() throws Exception {
+        Game small = play("{ \"options\": { \"model.option.mapWidth\": 30,"
+            + " \"model.option.mapHeight\": 40 } }");
+        Game large = play("{ \"options\": { \"model.option.mapWidth\": 100,"
+            + " \"model.option.mapHeight\": 120, \"model.option.landMass\": 40 } }");
+        assertEquals(30, small.getMap().getWidth());
+        assertEquals(40, small.getMap().getHeight());
+        assertEquals(100, large.getMap().getWidth());
+        assertEquals(120, large.getMap().getHeight());
+    }
+
+    @Test
+    void theMapGeneratorDefaultsAreFreeColsClassicOnes() throws Exception {
+        Messages.loadMessageBundle(java.util.Locale.US);
+        FreeColRules.loadRules();
+        Specification spec = FreeCol.loadSpecification(
+            FreeColRules.getFreeColRulesFile("classic"), null, "model.difficulty.medium");
+        assertEquals(40, spec.getInteger("model.option.mapWidth"));
+        assertEquals(100, spec.getInteger("model.option.mapHeight"));
+        assertEquals(25, spec.getInteger("model.option.landMass"));
+        assertEquals(15, spec.getInteger("model.option.riverNumber"));
+        assertEquals(10, spec.getInteger("model.option.mountainNumber"));
+    }
+
     @Test
     @Timeout(180)
     void anotherSeedGivesAnotherMap()throws Exception {
