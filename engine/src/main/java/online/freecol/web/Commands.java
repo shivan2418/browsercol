@@ -540,7 +540,7 @@ public final class Commands {
         final GoodsType type = this.client.getGame().getSpecification().getGoodsType(goodsTypeId);
         if (colony == null || type == null || !this.client.getMyPlayer().owns(colony)
             || !type.isStorable()) return false;
-        final int max = type.limitIgnored() ? 300 : colony.getWarehouseCapacity();
+        final int max = Warehouses.maxLevel(colony, type);
         if (low < 0 || low > 100 || high < 0 || high > 100
             || exportLevel < 0 || exportLevel > max
             || importLevel < -1 || importLevel > max) return false;

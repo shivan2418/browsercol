@@ -892,7 +892,6 @@ describe('the warehouse dialog', () => {
     cancel: 'Cancel',
     export: 'Export',
     canExport: true,
-    enhanced: true,
     tips: { low: 'Low', high: 'High', import: 'Import', export: 'Export above', exported: 'Whether' },
     goods: [
       {
