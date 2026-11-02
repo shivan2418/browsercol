@@ -268,9 +268,7 @@ function Tiles({ c, art }: { c: ColonyView; art: Art }) {
               {t.taken && <Img keys={TILE_TAKEN} art={art} className="taken" />}
               {t.natives && <Img keys={NATIVE_LAND} art={art} className="natives" />}
               {t.workers.map((u) => (
-                <Unit key={u.id} u={u} art={art} className="who">
-                  {u.occupation && <span className="chip">{u.occupation}</span>}
-                </Unit>
+                <Unit key={u.id} u={u} art={art} className="who" />
               ))}
               {t.production.length > 0 && (
                 <span className="made">
