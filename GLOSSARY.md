@@ -43,3 +43,7 @@ _Avoid_: new game dialog, lobby
 **Option editor**:
 The one Browser UI editor for FreeCol option groups (a difficulty level, the game options): editable on the Start screen, where changes go to the Engine in the preset, read-only during play (FreeCol's DifficultyDialog and GameOptionsDialog).
 _Avoid_: settings panel, options dialog
+
+**Command**:
+One thing the player asks the Engine to do on their turn (a move, a colonist put to work, a ship loaded), as `Commands.java` has them. The Engine runs the commands one at a time, and a command that comes while another runs waits its turn.
+_Avoid_: action, order, request

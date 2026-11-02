@@ -23,8 +23,11 @@ import net.sf.freecol.common.model.Unit;
 public final class ClientMain {
 
     private static ClientEngine engine;
-    /** A player command is running; input meanwhile is dropped. */
-    private static final AtomicBoolean busy = new AtomicBoolean(false);
+    /**
+     * The player's commands: one at a time, in the order they came. A command
+     * that comes while another runs waits its turn, instead of being lost.
+     */
+    private static final CommandQueue commands = new CommandQueue(ClientMain::queueIdle);
     /** A refresh came while a command ran: the map must go out again after it. */
     private static final AtomicBoolean refreshPending = new AtomicBoolean(false);
 
@@ -72,7 +75,7 @@ public final class ClientMain {
                                 // A new active unit or a refresh, e.g. when
                                 // play comes back with or without one.
                                 if ("activeUnit".equals(kind) || "refresh".equals(kind)) {
-                                    if (busy.get()) {
+                                    if (commands.busy()) {
                                         // A command runs: its own map event
                                         // follows, and covers this one.
                                         refreshPending.set(true);
@@ -170,15 +173,15 @@ public final class ClientMain {
 
     /**
      * Run a player command off the page's event loop, then send the map.
-     * Input that arrives while one runs is dropped.
+     * A command that comes while another runs waits its turn, and runs after
+     * it.
      *
      * The map goes out once, after the command: the page reads a map as
      * the end of a command, and a map from the middle of one would show it
      * a state the command has left behind.
      */
     private static void command(String name, Runnable run) {
-        if (!busy.compareAndSet(false, true)) return;
-        new Thread(() -> {
+        commands.add(() -> {
                 try {
                     run.run();
                     // The map after the command covers any refresh that came
@@ -188,13 +191,16 @@ public final class ClientMain {
                 } catch (Throwable ex) {
                     ex.printStackTrace();
                     event("commandFailed", name + ": " + ex);
-                } finally {
-                    busy.set(false);
-                    // A refresh that came after the command's map: send the
-                    // map again, as it may be newer.
-                    if (refreshPending.getAndSet(false)) event("map", mapJson());
                 }
-        }, "web-" + name).start();
+        });
+    }
+
+    /**
+     * The commands are done: a refresh that came after the last command's map
+     * asked for the map again, as it may be newer.
+     */
+    private static void queueIdle() {
+        if (refreshPending.getAndSet(false)) event("map", mapJson());
     }
 
     /**

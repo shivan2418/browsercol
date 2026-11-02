@@ -46,7 +46,8 @@ export interface ClientExports {
   /** Answer a WebGUI question; null for a closed dialog. */
   answer(id: number, value: string | null): void;
   // Player commands (Commands.java). Each returns at once and sends a "map"
-  // event when done; input while one runs is dropped.
+  // event when done; the Engine runs them one at a time, and queues one that
+  // comes while another runs.
   /** Select our unit on a tile, or send the active unit there. */
   click(x: number, y: number): void;
   /** Move the active unit one step; a FreeCol Direction name, e.g. "NE". */

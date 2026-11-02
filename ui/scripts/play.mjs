@@ -6,6 +6,9 @@
 // opens and must show the founder), the ship fortifies and the turn ends;
 // the colony must still be there when the AI hands play back. The Go To
 // order then asks where the ship sails, which the page must ask the player.
+// The colony panel's two quick drops, a unit and goods aboard the ship in
+// one turn, must both land: the Engine runs the commands one at a time, and
+// queues the one that comes while another runs.
 // The page's dialogs are answered as scripts/dialogs.mjs says, and every
 // question the controllers ask must reach one: a dialog with no Browser UI yet fails the run. Along the way
 // the map's view must follow the active unit, its cursor and the info panel
@@ -395,16 +398,16 @@ async function play(page, url) {
 
     // The panel is shown afresh as each change reaches the client, so a click can land as it is redrawn:
     // a pick is clicked again until it shows picked, and a place until nothing is.
-    const pickUp = async (thing, what, modifiers = []) => {
+    const pickUp = async (thing, what) => {
       for (let i = 0; i < 5; i++) {
-        await thing.click({ modifiers });
+        await thing.click();
         if ((await thing.getAttribute('data-picked')) === 'true') return;
         await page.waitForTimeout(300);
       }
       throw new Error(`a click did not pick ${what}`);
     };
-    // The Engine runs one command at a time and drops one sent while another runs, so a put waits for its
-    // command's closing map.
+    // The Engine runs the commands one at a time, so a put waits for its command's closing map before
+    // the next one goes.
     const putOn = async (place, what) => {
       const n = await page.evaluate(() => window.__maps);
       for (let i = 0; i < 5; i++) {
@@ -417,36 +420,63 @@ async function play(page, url) {
       }
       throw new Error(`a click did not put ${what} down`);
     };
+    /**
+     * Drag a unit and goods of the warehouse onto the ship's cargo in one turn, as a player in a hurry
+     * does: the second command comes while the first runs, so the Engine must queue it rather than lose
+     * it (#98). The drags are dispatched together, so that both commands reach the Engine before either
+     * of them has run.
+     */
+    const dropBoth = async (unitId, goodsType) => {
+      await page.evaluate(
+        ([unit, goods, ship]) => {
+          // The panel reads the shift key as the thing is pressed, and shift as it is dragged.
+          const press = (el, shift) =>
+            el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, shiftKey: shift }));
+          const drag = (el, shift) =>
+            el.dispatchEvent(
+              new DragEvent('dragstart', {
+                bubbles: true,
+                cancelable: true,
+                shiftKey: shift,
+                dataTransfer: new DataTransfer(),
+              }),
+            );
+          const drop = (el) =>
+            el.dispatchEvent(
+              new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: new DataTransfer() }),
+            );
+          const one = document.querySelector(`[data-part=outside] [data-unit="${unit}"]`);
+          const two = document.querySelector(`[data-part=warehouse] [data-goods="${goods}"]`);
+          const place = document.querySelector(`[data-part=cargo][data-ship="${ship}"]`);
+          if (!one || !two || !place) throw new Error('the colony panel does not show what to drop');
+          press(one, false);
+          drag(one, false);
+          drop(place);
+          press(two, true);
+          drag(two, true);
+          drop(place);
+        },
+        [unitId, goodsType, shipId],
+      );
+    };
 
-    // A unit beside the colony boards, by clicks, and goes ashore again.
+    // A unit beside the colony and goods of the warehouse go aboard in one turn, and both must land: the
+    // second command comes while the first runs. The goods are shift-picked, so the amount is asked.
+    // The warehouse lists goods from the display threshold up, which can be none at all.
     const passenger = await outside.locator('[data-unit]').first().getAttribute('data-unit');
     if (!passenger) throw new Error('no unit beside the colony to board the ship');
-    await pickUp(outside.locator(`[data-unit="${passenger}"]`), passenger);
-    await putOn(cargo, passenger);
+    const goods = await warehouse
+      .locator('[data-goods]')
+      .evaluateAll((es) => es.find((e) => Number(e.querySelector('.amount')?.textContent) > 0)?.dataset.goods ?? null);
+    if (!goods) throw new Error('the colony has no goods in its warehouse to load');
+    const before = await page.evaluate(() => window.__dialogs.length);
+    await dropBoth(passenger, goods);
     await cargo
       .locator(`[data-unit="${passenger}"]`)
       .waitFor({ timeout: 20000 })
       .catch(() => {
         throw new Error(`the unit ${passenger} did not board the ship`);
       });
-    await pickUp(cargo.locator(`[data-unit="${passenger}"]`), passenger);
-    await putOn(outside, passenger);
-    await outside
-      .locator(`[data-unit="${passenger}"]`)
-      .waitFor({ timeout: 20000 })
-      .catch(() => {
-        throw new Error(`the unit ${passenger} did not leave the ship`);
-      });
-
-    // Goods of the warehouse, shift-picked: the amount is asked, and they go aboard; then ashore again.
-    // The warehouse lists goods from the display threshold up, which can be none at all.
-    const goods = await warehouse
-      .locator('[data-goods]')
-      .evaluateAll((es) => es.find((e) => Number(e.querySelector('.amount')?.textContent) > 0)?.dataset.goods ?? null);
-    if (!goods) throw new Error('the colony has no goods in its warehouse to load');
-    const before = await page.evaluate(() => window.__dialogs.length);
-    await pickUp(warehouse.locator(`[data-goods="${goods}"]`), goods, ['Shift']);
-    await putOn(cargo, goods);
     await cargo
       .locator(`[data-goods="${goods}"]`)
       .first()
@@ -458,6 +488,16 @@ async function play(page, url) {
     if (!asked.some((d) => d.startsWith('amount: '))) {
       throw new Error(`loading with shift did not ask the amount: ${JSON.stringify(asked)}`);
     }
+    // The passenger goes ashore again.
+    await pickUp(cargo.locator(`[data-unit="${passenger}"]`), passenger);
+    await putOn(outside, passenger);
+    await outside
+      .locator(`[data-unit="${passenger}"]`)
+      .waitFor({ timeout: 20000 })
+      .catch(() => {
+        throw new Error(`the unit ${passenger} did not leave the ship`);
+      });
+    // The goods come ashore again.
     await pickUp(cargo.locator(`[data-goods="${goods}"]`).first(), goods);
     await putOn(warehouse, goods);
     await page
