@@ -361,6 +361,13 @@ class ReportsTest {
         assertFalse(ships.contains(dragoon.getId()));
         assertEquals(us.getUnits().filter(Unit::isNaval).count(), ships.size());
 
+        // Load the ship on the client's copy: food and a pioneer.
+        final Unit ourShip = us.getGame().getFreeColGameObject(galleon.getId(), Unit.class);
+        ourShip.getGoodsContainer().addGoods(us.getSpecification().getGoodsType("model.goods.food"), 40);
+        final Unit passenger = us.getUnits().filter(u -> u.getType().getId().equals("model.unit.hardyPioneer"))
+            .findFirst().get();
+        passenger.setLocation(ourShip);
+
         // Cargo: the carriers, with what they carry.
         final Map<String, Object> cargo = obj(JsonReader.read(Reports.units(client.getClient(), "cargo")));
         assertEquals("cargo", cargo.get("report"));
@@ -369,6 +376,12 @@ class ReportsTest {
         for (Map<String, Object> p : objs(cargo.get("locations"))) carriers.addAll(objs(p.get("units")));
         assertTrue(carriers.stream().anyMatch(u -> galleon.getId().equals(u.get("id"))));
         assertFalse(carriers.stream().anyMatch(u -> dragoon.getId().equals(u.get("id"))));
+        final Map<String, Object> loaded = carriers.stream()
+            .filter(u -> galleon.getId().equals(u.get("id"))).findFirst().get();
+        assertEquals(List.of(passenger.getId()), ids(loaded.get("cargo")));
+        assertEquals("model.goods.food", objs(loaded.get("goods")).get(0).get("type"));
+        assertEquals(40L, objs(loaded.get("goods")).get(0).get("amount"));
+        assertTrue(((String)loaded.get("text")).contains("Galleon"));
         for (Map<String, Object> c : carriers) {
             final Unit u = me().getGame().getFreeColGameObject((String)c.get("id"), Unit.class);
             assertEquals(u.getUnitList().stream().map(Unit::getId).collect(Collectors.toList()),
