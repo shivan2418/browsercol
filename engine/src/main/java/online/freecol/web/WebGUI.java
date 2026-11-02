@@ -205,7 +205,8 @@ import net.sf.freecol.common.option.OptionGroup;
  *         is open is replaced. error is why the last change was refused
  *         (FreeCol's reason), null if it was not</td></tr>
  * <tr><td>showReportColonyPanel, showReportLabourPanel,
- *     showReportLabourDetailPanel, showCompactLabourReport</td>
+ *     showReportLabourDetailPanel, showCompactLabourReport,
+ *     showReportMilitaryPanel, showReportNavalPanel, showReportCargoPanel</td>
  *     <td>event report</td>
  *     <td>one of the reports {@link Reports} describes, told apart by its
  *         report field; a report that is open is replaced, so a link to a
@@ -1548,6 +1549,27 @@ public class WebGUI extends GUI {
         net.sf.freecol.common.model.TypeCountMap<net.sf.freecol.common.model.UnitType> unitCount,
         List<Colony> colonies) {
         this.ui.show("report", Reports.labourDetail(getMyPlayer(), unitType));
+        return null;
+    }
+
+    /** {@inheritDoc} Shows the military report ({@link Reports#units}). */
+    @Override
+    public FreeColPanel showReportMilitaryPanel() {
+        this.ui.show("report", Reports.units(getFreeColClient(), "military"));
+        return null;
+    }
+
+    /** {@inheritDoc} Shows the naval report ({@link Reports#units}). */
+    @Override
+    public FreeColPanel showReportNavalPanel() {
+        this.ui.show("report", Reports.units(getFreeColClient(), "naval"));
+        return null;
+    }
+
+    /** {@inheritDoc} Shows the cargo report ({@link Reports#units}). */
+    @Override
+    public FreeColPanel showReportCargoPanel() {
+        this.ui.show("report", Reports.units(getFreeColClient(), "cargo"));
         return null;
     }
 

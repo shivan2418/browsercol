@@ -63,7 +63,14 @@ describe('the Report menu', () => {
       within(menu)
         .getAllByRole('menuitem')
         .map((m) => m.textContent),
-    ).toEqual(['Colony report', 'Labour report', 'Compact labour report']);
+    ).toEqual([
+      'Colony report',
+      'Labour report',
+      'Compact labour report',
+      'Military report',
+      'Naval report',
+      'Cargo report',
+    ]);
     fireEvent.click(within(menu).getByRole('menuitem', { name: 'Compact labour report' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Report' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Colony report' }));
@@ -207,5 +214,67 @@ describe('the compact labour report', () => {
     expect(screen.getByText('Expert Farmer')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'All Colonists' }));
     expect(calls).toEqual(['detail compactLabour ']);
+  });
+});
+
+describe('the military, naval and cargo reports', () => {
+  const unit = { ...colonist, text: 'Free Colonist', goods: [], cargo: [] };
+  const units = (report: 'military' | 'naval' | 'cargo'): ReportView => ({
+    ...head(report),
+    forces: {
+      name: 'English forces',
+      units: [
+        {
+          type: 'model.unit.freeColonist',
+          name: 'Free Colonist',
+          keys: colonist.keys,
+          count: 3,
+          text: '3 Free Colonist',
+        },
+      ],
+    },
+    ref: {
+      name: 'Royal Expeditionary Force',
+      units: [{ type: 'k', name: 'Regular', keys: [], count: 7, text: '7 Regulars' }],
+    },
+    none: 'none',
+    locations: [
+      {
+        label: 'Jamestown',
+        link: { kind: 'colony', id: 'colony:7', at: [1, 2] },
+        units: [
+          { ...unit, goods: [{ type: 'model.goods.food', name: 'Food', keys: [], amount: 50 }], cargo: [colonist] },
+        ],
+      },
+      { label: 'Plymouth', link: { kind: 'colony', id: 'colony:8', at: [5, 6] }, units: [] },
+      { label: 'Europe', link: { kind: 'europe', id: 'europe:1', at: null }, units: [] },
+      { label: 'Tile 3, 4', link: { kind: 'tile', id: 'tile:9', at: [3, 4] }, units: [] },
+    ],
+  });
+
+  it.each(['military', 'naval', 'cargo'] as const)(
+    "shows the %s report: forces, the king's, and each place",
+    (name) => {
+      const { box } = host();
+      show(box, units(name));
+      expect(screen.getByRole('dialog', { name: `Title ${name}` })).toBeTruthy();
+      expect(screen.getByText('English forces')).toBeTruthy();
+      expect(screen.getByText('Royal Expeditionary Force')).toBeTruthy();
+      expect(screen.getByText('7')).toBeTruthy();
+      expect(screen.getByText('3')).toBeTruthy();
+      expect(screen.getByText('50')).toBeTruthy();
+      expect(screen.getAllByText('none')).toHaveLength(3);
+    },
+  );
+
+  it('links each place to its colony, Europe or tile', () => {
+    const { box, calls } = host();
+    show(box, units('military'));
+    fireEvent.click(screen.getByRole('button', { name: 'Jamestown' }));
+    show(box, units('military'));
+    fireEvent.click(screen.getByRole('button', { name: 'Europe' }));
+    show(box, units('military'));
+    fireEvent.click(screen.getByRole('button', { name: 'Tile 3, 4' }));
+    expect(calls).toEqual(['colony colony:7', 'europe', 'goTo 3,4']);
   });
 });

@@ -1,9 +1,9 @@
 // The reports of the Report menu (FreeCol's report panels, Reports.java), each in a window frame
-// (frame.tsx): the classic colony report, the labour report with its details, and the compact labour
-// report. A link in a report opens a colony's panel, Europe, a tile of the map or a detail report; the
-// report closes first, as only one dialog is open at a time.
+// (frame.tsx): the classic colony report, the labour report with its details, the compact labour report,
+// and the military, naval and cargo reports (one view, Units). A link in a report opens a colony's panel,
+// Europe, a tile of the map or a detail report; the report closes first, as only one dialog is open at a time.
 //
-// To add a report (#73 to #75): add its view to ReportView (webgui.ts), a body for it in BODIES below,
+// To add a report (#74, #75): add its view to ReportView (webgui.ts), a body for it in BODIES below,
 // and an entry in REPORTS, which is the Report menu. The Engine side is Reports.java.
 import './reports.css';
 import { createContext, useContext, type ReactNode } from 'react';
@@ -37,6 +37,9 @@ export const REPORTS: readonly { name: Exclude<ReportName, 'labourDetail'>; labe
   { name: 'colony', label: 'Colony report' },
   { name: 'labour', label: 'Labour report' },
   { name: 'compactLabour', label: 'Compact labour report' },
+  { name: 'military', label: 'Military report' },
+  { name: 'naval', label: 'Naval report' },
+  { name: 'cargo', label: 'Cargo report' },
 ];
 
 /** The Report menu's items, each opening its report. */
@@ -267,6 +270,57 @@ function CompactLabour({ e, art, go }: { e: View<'compactLabour'>; art: Art; go:
   );
 }
 
+/** ReportUnitPanel: the force by kind (the king's too), then the units place by place. */
+function Units({ e, art, go }: { e: View<'military' | 'naval' | 'cargo'>; art: Art; go: Links }) {
+  const force = (f: { name: string; units: View<'military'>['forces']['units'] }, which: string) => (
+    <section data-force={which}>
+      <h3>{f.name}</h3>
+      <div className="row">
+        {f.units.map((u) => (
+          <span key={`${u.type}${u.keys[0]}`} className="made" title={u.text} data-type={u.type}>
+            <Img keys={u.keys} art={art} title={u.name} />
+            <span className="stock">{u.count}</span>
+          </span>
+        ))}
+      </div>
+    </section>
+  );
+  return (
+    <div className="unit-report">
+      {e.ref && force(e.ref, 'ref')}
+      {force(e.forces, 'ours')}
+      {e.locations.map((p) => (
+        <section key={p.link.id} data-place={p.link.id}>
+          <h3>
+            <Link
+              data-link={p.link.id}
+              go={() => {
+                if (p.link.kind === 'colony') go.colony(p.link.id);
+                else if (p.link.kind === 'europe') go.europe();
+                else if (p.link.at) go.goTo(p.link.at);
+              }}
+            >
+              {p.label}
+            </Link>
+          </h3>
+          {p.units.length === 0 && <span className="muted">{e.none}</span>}
+          {p.units.map((u) => (
+            <div key={u.id} className="row" data-list="unit">
+              <Img keys={u.keys} art={art} title={u.text} unit={u.id} />
+              {u.goods.map((g) => (
+                <GoodsAmount key={g.type} keys={g.keys} name={g.name} amount={g.amount} art={art} />
+              ))}
+              {u.cargo.map((c) => (
+                <Img key={c.id} keys={c.keys} art={art} title={c.name} unit={c.id} />
+              ))}
+            </div>
+          ))}
+        </section>
+      ))}
+    </div>
+  );
+}
+
 type Links = Pick<ReportActions, 'colony' | 'detail' | 'europe' | 'goTo'>;
 type Body<K extends ReportName> = (p: { e: View<K>; art: Art; go: Links }) => ReactNode;
 
@@ -276,6 +330,9 @@ const BODIES: { [K in ReportName]: Body<K> } = {
   labour: LabourReport,
   labourDetail: LabourDetail,
   compactLabour: CompactLabour,
+  military: Units,
+  naval: Units,
+  cargo: Units,
 };
 
 /**

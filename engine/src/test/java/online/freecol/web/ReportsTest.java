@@ -302,4 +302,97 @@ class ReportsTest {
         assertTrue(colonies.get(0).startsWith("{\"id\":\"" + ours.getId() + "\""));
         assertFalse(commands.showColony("nothing"));
     }
+
+    /** Add a unit of a type to the server, in a colony or at sea on its own, and sync it to the client. */
+    private Unit give(String type, Tile tile) throws Exception {
+        final Game game = server.getGame();
+        final Player us = game.getFreeColGameObject(me().getId(), Player.class);
+        final Unit u = new ServerUnit(game, tile, us, game.getSpecification().getUnitType(type));
+        final ChangeSet cs = new ChangeSet();
+        cs.add(See.only(us), tile);
+        cs.add(See.only(us), u);
+        ((ServerGame)game).sendTo(us, cs);
+        eventually("the client has " + u.getId(), () -> me().getGame().getFreeColGameObject(u.getId(), Unit.class) != null);
+        return u;
+    }
+
+    private static List<String> ids(Object units) {
+        return objs(units).stream().map(u -> (String)u.get("id")).collect(Collectors.toList());
+    }
+
+    @Test
+    @Timeout(240)
+    void theMilitaryNavalAndCargoReportsListTheForcesAndWhereTheyAre() throws Exception {
+        final List<Colony> served = twoColonies();
+        final Player us = me();
+        final Tile home = served.get(0).getTile();
+        final Unit dragoon = give("model.unit.kingsRegular", home);
+        final Unit galleon = give("model.unit.galleon", home);
+
+        // Military: every colony is listed, the soldier is in the one it stands in.
+        final Map<String, Object> military = obj(JsonReader.read(Reports.units(client.getClient(), "military")));
+        assertEquals("military", military.get("report"));
+        assertEquals("Military Advisor", military.get("title"));
+        assertNull(military.get("back"));
+        final List<Map<String, Object>> places = objs(military.get("locations"));
+        assertTrue(places.stream().anyMatch(p -> "Plymouth".equals(p.get("label"))), "a colony with no soldiers");
+        final Map<String, Object> here = places.stream()
+            .filter(p -> "Jamestown".equals(p.get("label"))).findFirst().get();
+        assertEquals("colony", obj(here.get("link")).get("kind"));
+        assertTrue(ids(here.get("units")).contains(dragoon.getId()), "the soldier is in its colony");
+        assertFalse(ids(here.get("units")).contains(galleon.getId()), "a ship is not military");
+        final long soldiers = us.getUnits().filter(u -> !u.isNaval()
+            && (u.hasAbility(net.sf.freecol.common.model.Ability.EXPERT_SOLDIER) || u.isOffensiveUnit())).count();
+        assertEquals(soldiers, objs(obj(military.get("forces")).get("units")).stream()
+            .mapToLong(u -> (Long)u.get("count")).sum());
+        assertTrue(objs(obj(military.get("forces")).get("units")).stream()
+            .anyMatch(u -> "model.unit.kingsRegular".equals(u.get("type"))));
+
+        // Naval: the ship only, and no empty places.
+        final Map<String, Object> naval = obj(JsonReader.read(Reports.units(client.getClient(), "naval")));
+        assertEquals("naval", naval.get("report"));
+        assertEquals("Naval Advisor", naval.get("title"));
+        final List<String> ships = new ArrayList<>();
+        for (Map<String, Object> p : objs(naval.get("locations"))) {
+            assertFalse(objs(p.get("units")).isEmpty());
+            ships.addAll(ids(p.get("units")));
+        }
+        assertTrue(ships.contains(galleon.getId()));
+        assertFalse(ships.contains(dragoon.getId()));
+        assertEquals(us.getUnits().filter(Unit::isNaval).count(), ships.size());
+
+        // Cargo: the carriers, with what they carry.
+        final Map<String, Object> cargo = obj(JsonReader.read(Reports.units(client.getClient(), "cargo")));
+        assertEquals("cargo", cargo.get("report"));
+        assertEquals("Cargo Report", cargo.get("title"));
+        final List<Map<String, Object>> carriers = new ArrayList<>();
+        for (Map<String, Object> p : objs(cargo.get("locations"))) carriers.addAll(objs(p.get("units")));
+        assertTrue(carriers.stream().anyMatch(u -> galleon.getId().equals(u.get("id"))));
+        assertFalse(carriers.stream().anyMatch(u -> dragoon.getId().equals(u.get("id"))));
+        for (Map<String, Object> c : carriers) {
+            final Unit u = me().getGame().getFreeColGameObject((String)c.get("id"), Unit.class);
+            assertEquals(u.getUnitList().stream().map(Unit::getId).collect(Collectors.toList()),
+                ids(c.get("cargo")), "what the carrier holds");
+            assertEquals(u.getGoodsList().size(), list(c.get("goods")).size());
+            assertFalse(list(c.get("keys")).isEmpty());
+        }
+    }
+
+    @Test
+    @Timeout(240)
+    void theControllersCallsAndTheCommandsOpenTheUnitReports() throws Exception {
+        twoColonies();
+        final Commands commands = client.getCommands();
+        final var gui = client.getClient().getGUI();
+
+        reports.clear();
+        gui.showReportMilitaryPanel();
+        gui.showReportNavalPanel();
+        gui.showReportCargoPanel();
+        assertTrue(commands.showReport("military"));
+        assertTrue(commands.showReport("naval"));
+        assertTrue(commands.showReport("cargo"));
+        assertEquals(List.of("military", "naval", "cargo", "military", "naval", "cargo"), reports.stream()
+            .map(r -> (String)obj(JsonReader.read(r)).get("report")).collect(Collectors.toList()));
+    }
 }
