@@ -49,12 +49,13 @@ import net.sf.freecol.common.model.WorkLocation;
  * (CompactLabourReport, on LabourData), the military, naval and cargo
  * reports (ReportUnitPanel and its three subclasses), and the religion,
  * education, exploration, history, trade, production and requirements
- * reports, and the foreign affairs, native and Continental Congress reports. Every payload is one object of the {@code report} event, told
- * apart by its {@code report} field: colony, labour, labourDetail,
- * compactLabour, military, naval, cargo, religion, education, exploration,
- * history, trade, production, requirements, foreign, indian or congress.
- * Each has title, ok (the
- * button's label) and back, the report the button returns to (or null).
+ * reports, and the foreign affairs, native (indian) and Continental
+ * Congress reports. Every payload is one object of the {@code report}
+ * event, told apart by its {@code report} field: colony, labour,
+ * labourDetail, compactLabour, military, naval, cargo, religion,
+ * education, exploration, history, trade, production, requirements,
+ * foreign, indian or congress. Each has title, ok (the button's label)
+ * and back, the report the button returns to (or null).
  *
  * <p>To add a report: write its builder here, giving it a new {@code report}
  * name; add its show method to the WebGUI (it sends the event) and its name
@@ -810,12 +811,6 @@ final class Reports {
             .toString();
     }
 
-    /** A game object's image keys, with a name: {id, name, keys}. */
-    private static Json named(String id, String name, FreeColObject display) {
-        return new Json().put("id", id).put("name", name)
-            .putRaw("keys", ObjectImages.json(display));
-    }
-
     /**
      * The foreign affairs report (ReportForeignAffairPanel): {labels,
      * notice, nations: [{id, name, keys, stance, colonies, units, military,
@@ -965,7 +960,7 @@ final class Reports {
     static String congress(Player player) {
         final Specification spec = player.getSpecification();
         final FoundingFather now = player.getCurrentFather();
-        final java.util.Map<String, Turn> elected = player.getElectionTurns();
+        final Map<String, Turn> elected = player.getElectionTurns();
         final List<String> libertyGoods = new ArrayList<>();
         for (GoodsType gt : spec.getLibertyGoodsTypeList()) {
             int total = 0;
