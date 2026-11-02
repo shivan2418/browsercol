@@ -34,24 +34,33 @@ export const ReportContext = createContext<ReportActions>({
   goTo: none,
 });
 
-/** The Report menu's entries, in order: the report's name, which Commands.showReport knows, and its label. */
-export const REPORTS: readonly { name: Exclude<ReportName, 'labourDetail' | 'colopedia'>; label: string }[] = [
-  { name: 'colony', label: 'Colony report' },
-  { name: 'labour', label: 'Labour report' },
+/**
+ * The Report menu's entries, in order: the report's name, which Commands.showReport knows, its label, and
+ * its hotkey. FreeCol's reports sit on F keys, which a browser keeps for itself, so each is Shift with
+ * its F key; the five FreeCol has on Shift+F (cargo, education, exploration, history, production) would
+ * then meet the report on the plain F key, so those take Ctrl+Shift. See report-keys.ts.
+ */
+export const REPORTS: readonly {
+  name: Exclude<ReportName, 'labourDetail' | 'colopedia'>;
+  label: string;
+  key?: string;
+}[] = [
+  { name: 'colony', label: 'Colony report', key: 'Shift+F3' },
+  { name: 'labour', label: 'Labour report', key: 'Shift+F2' },
   { name: 'compactLabour', label: 'Compact labour report' },
-  { name: 'military', label: 'Military report' },
-  { name: 'naval', label: 'Naval report' },
-  { name: 'cargo', label: 'Cargo report' },
-  { name: 'congress', label: 'Continental Congress report' },
-  { name: 'education', label: 'Education report' },
-  { name: 'exploration', label: 'Exploration report' },
-  { name: 'foreign', label: 'Foreign affairs report' },
-  { name: 'history', label: 'History report' },
-  { name: 'indian', label: 'Native affairs report' },
-  { name: 'production', label: 'Production report' },
-  { name: 'religion', label: 'Religion report' },
-  { name: 'requirements', label: 'Requirements report' },
-  { name: 'trade', label: 'Trade report' },
+  { name: 'military', label: 'Military report', key: 'Shift+F7' },
+  { name: 'naval', label: 'Naval report', key: 'Shift+F8' },
+  { name: 'cargo', label: 'Cargo report', key: 'Ctrl+Shift+F1' },
+  { name: 'congress', label: 'Continental Congress report', key: 'Shift+F6' },
+  { name: 'education', label: 'Education report', key: 'Ctrl+Shift+F5' },
+  { name: 'exploration', label: 'Exploration report', key: 'Ctrl+Shift+F2' },
+  { name: 'foreign', label: 'Foreign affairs report', key: 'Shift+F4' },
+  { name: 'history', label: 'History report', key: 'Ctrl+Shift+F3' },
+  { name: 'indian', label: 'Native affairs report', key: 'Shift+F5' },
+  { name: 'production', label: 'Production report', key: 'Ctrl+Shift+F4' },
+  { name: 'religion', label: 'Religion report', key: 'Shift+F1' },
+  { name: 'requirements', label: 'Requirements report', key: 'Shift+F12' },
+  { name: 'trade', label: 'Trade report', key: 'Shift+F9' },
 ];
 
 /** The section the Colopedia opens on, set by the Colopedia menu before it asks for the report. */
@@ -84,7 +93,7 @@ export const colopediaMenu = (open: ReportActions['open']): Menu['items'] =>
 
 /** The Report menu's items, each opening its report. */
 export const reportMenu = (open: ReportActions['open']): Menu['items'] =>
-  REPORTS.map((r) => ({ label: r.label, run: () => open(r.name) }));
+  REPORTS.map((r) => ({ label: r.label, hint: r.key, run: () => open(r.name) }));
 
 type View<K extends ReportName> = Extract<ReportView, { report: K }>;
 

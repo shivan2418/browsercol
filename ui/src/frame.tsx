@@ -155,7 +155,7 @@ export function GoodsAmount({
 /** A menu of the menu bar: its name and its entries, which may be none yet. */
 export interface Menu {
   name: string;
-  items: { label: string; run: () => void; disabled?: boolean }[];
+  items: { label: string; run: () => void; disabled?: boolean; /** Its hotkey, as shown beside it. */ hint?: string }[];
 }
 
 /** FreeCol's menus (InGameMenuBar), in its order; menus.ts and reports.tsx give them entries. */
@@ -213,6 +213,7 @@ export function MenuBar({ menus, status }: { menus: Menu[]; status: string }) {
                     }}
                   >
                     {item.label}
+                    {item.hint && <kbd className="hint">{item.hint}</kbd>}
                   </button>
                 ))}
               </div>
