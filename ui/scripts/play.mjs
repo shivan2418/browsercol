@@ -85,9 +85,10 @@ const BARREN = /arctic|desert|scrubForest|mountains/;
 // has a production a colonist can make.
 const NO_WORK = /arctic/i;
 // How much farther the ship may sail for land whose colony has a tile to
-// work than for any land at all, in tiles: the crossing is long, and the
-// script puts the founder to work itself when the colony has one.
-const MAX_DETOUR = 12;
+// work than for the nearest land, in tiles: only a short detour, as the ship
+// has a budget of turns to find land, and the script puts the founder to
+// work itself when the colony has a tile to work.
+const MAX_DETOUR = 2;
 // FreeCol's grey for a fortified unit (MapJson draws it in that colour).
 const FORTIFIED = 0x808080;
 
@@ -142,9 +143,7 @@ const hasWork = (m, t) => Object.keys(DIRECTIONS).some((d) => isWorkable(m, neig
 
 /**
  * Land to found on: explored, not water or barren, nobody's (so founding
- * needs no land claim), and with no settlement or unit on it. A tile with a
- * lost city rumour is no land to found on either: FreeCol refuses to found
- * a colony on it.
+ * needs no land claim), and with no settlement or unit on it.
  */
 const isFreeLand = (m, t) => {
   const type = typeAt(m, t);
@@ -154,8 +153,7 @@ const isFreeLand = (m, t) => {
     !BARREN.test(type) &&
     m.owners[t[1] * m.w + t[0]] === '.' &&
     !at(m.settlements, t) &&
-    !at(m.units, t) &&
-    !hasRumour(m, t)
+    !at(m.units, t)
   );
 };
 
@@ -197,23 +195,20 @@ function freeLands(m, ship) {
 }
 
 /**
- * The land the ship should sail to: the nearest free land whose colony has
- * a tile to work, so that FreeCol puts the founder on a tile and not in the
- * town hall. When that land is much farther off than the nearest free land,
- * the ship takes the nearer one: the crossing is long, and the script puts
- * the founder to work itself when the colony has a tile to work. When no
- * land is in sight, the ship sails for the westmost sea it knows, where more
- * of the map comes into sight.
+ * The land the ship should sail to: the nearest free land, or, when one a
+ * colony has a tile to work on lies at most MAX_DETOUR tiles farther, that
+ * one, so that FreeCol puts the founder on a tile and not in the town hall.
+ * The preference never costs more than the detour. When no land is in sight,
+ * the ship sails for the westmost sea it knows, where more of the map comes
+ * into sight.
  */
 function bestLand(m, ship) {
   const { lands, west } = freeLands(m, ship);
   const all = [...lands.values()];
   if (!all.length) return west && { dir: west.dir, dist: Infinity };
   const nearest = all.reduce((a, b) => (b.dist < a.dist ? b : a));
-  const good = all.filter((l) => hasWork(m, l.tile));
-  if (!good.length) return nearest;
-  const best = good.reduce((a, b) => (b.dist < a.dist ? b : a));
-  return best.dist <= nearest.dist + MAX_DETOUR ? best : nearest;
+  const good = all.filter((l) => l.dist <= nearest.dist + MAX_DETOUR && !hasRumour(m, l.tile) && hasWork(m, l.tile));
+  return good.length ? good.reduce((a, b) => (b.dist < a.dist ? b : a)) : nearest;
 }
 
 /** How long each screenshot of a dialog took, for the report. */
@@ -394,9 +389,10 @@ async function play(page, url) {
       // would: the panel's tiles that are not taken (the centre excepted, it
       // takes no colonist) and not native land, whose claim is a price to
       // pay.
-      for (const id of await panel
+      const free = await panel
         .locator('[data-tile][data-drop]:not(:has(img.taken)):not(:has(img.natives))')
-        .evaluateAll((es) => es.map((e) => e.dataset.tile))) {
+        .evaluateAll((es) => es.map((e) => e.dataset.tile));
+      for (const id of free) {
         const place = panel.locator(`[data-tile="${id}"]`);
         await pickUp(unit(founder), founder);
         await place.locator('.hit').click();
@@ -404,6 +400,13 @@ async function play(page, url) {
           tileId = id;
           break;
         }
+      }
+      // The panel shows a tile the founder could work (it is not drawn taken, and is not native land), and
+      // none took it: a click to a tile is broken, and that must not pass as a colony with no tile to work.
+      if (!tileId && free.length > 0) {
+        throw new Error(
+          `the founder ${founder} is in ${start.place}, and no click put it on any of the panel's tiles it could work: ${free.join(', ')}`,
+        );
       }
       if (!tileId) {
         console.log(
