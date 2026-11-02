@@ -15,12 +15,16 @@ function actions(over: Partial<MenuActions> = {}) {
     zoom: (n) => log.push(`zoom ${n}`),
     centreOnUnit: () => log.push('centre'),
     preferences: () => log.push('prefs'),
+    modes: { grid: false, borders: true, names: false },
+    toggleMode: (m) => log.push(`mode ${m}`),
+    fullScreen: false,
+    toggleFullScreen: () => log.push('fullScreen'),
     ...over,
   };
   return { a, log };
 }
 const labels = (items: { label: string }[]) => items.map((i) => i.label);
-const find = (items: { label: string; run: () => void; disabled?: boolean }[], label: string) =>
+const find = (items: { label: string; run: () => void; disabled?: boolean; checked?: boolean }[], label: string) =>
   items.find((i) => i.label === label)!;
 
 describe('the Game menu', () => {
@@ -91,7 +95,7 @@ describe('the Orders menu', () => {
 });
 
 describe('the View menu', () => {
-  it('zooms, centres and opens Europe; the display modes wait', () => {
+  it('zooms, centres, opens Europe and switches the display modes', () => {
     const { a, log } = actions({ hasActiveUnit: true });
     const items = viewMenu(a);
     expect(labels(items)).toEqual([
@@ -108,13 +112,19 @@ describe('the View menu', () => {
     find(items, 'Zoom Out').run();
     find(items, 'Center on Active Unit').run();
     find(items, 'Europe').run();
-    expect(log).toEqual(['zoom 1', 'zoom -1', 'centre', 'showEurope']);
-    expect(items.filter((i) => i.disabled).map((i) => i.label)).toEqual([
-      'Show Map Grid',
-      'Show Borders',
-      'Show Tile Names',
-      'Full Screen',
+    for (const l of ['Show Map Grid', 'Show Borders', 'Show Tile Names', 'Full Screen']) find(items, l).run();
+    expect(log).toEqual([
+      'zoom 1',
+      'zoom -1',
+      'centre',
+      'showEurope',
+      'mode grid',
+      'mode borders',
+      'mode names',
+      'fullScreen',
     ]);
+    expect(items.filter((i) => i.disabled)).toEqual([]);
+    expect(items.filter((i) => i.checked).map((i) => i.label)).toEqual(['Show Borders']);
   });
 
   it('disables centring without an active unit', () => {

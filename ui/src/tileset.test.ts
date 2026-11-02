@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { resources } from './resources';
-import { overlay, scene, type Chips, type MapView, type Op } from './tileset';
+import { overlay, scene, viewModeOps, type Chips, type MapView, type Op } from './tileset';
 
 // A 2x4 corner of a map. FreeCol stores the diamond grid as staggered rows,
 // odd rows half a tile to the right, so from (1,0) the plains at (0,1),
@@ -340,5 +340,38 @@ describe('overlay', () => {
       { k: 'pathMark', x: 1, y: 0, turns: 0 },
       { k: 'pathMark', x: 1, y: 2, turns: 3 },
     ]);
+  });
+});
+
+describe('viewModeOps', () => {
+  const owned = { ...map, owners: 'A.' + '..' + '..' + '..', players: [{ name: 'Dutch', rgb: 0xff8800 }] };
+  const all = { grid: true, borders: true, names: true };
+
+  it('adds nothing with every switch off', () => {
+    expect(viewModeOps(owned, { grid: false, borders: false, names: false })).toEqual([]);
+  });
+
+  it('outlines every tile for the grid', () => {
+    expect(viewModeOps(map, { grid: true, borders: false, names: false })).toHaveLength(8);
+  });
+
+  it('names the explored tiles by type', () => {
+    const ops = viewModeOps(map, { grid: false, borders: false, names: true });
+    expect(ops).toHaveLength(7);
+    expect(ops[0]).toEqual({ k: 'tileName', x: 0, y: 0, name: 'Plains' });
+  });
+
+  it('draws the sides of an owned tile that face another owner or the edge', () => {
+    const ops = viewModeOps(owned, { grid: false, borders: true, names: false });
+    expect(ops).toEqual([{ k: 'border', x: 0, y: 0, sides: ['NE', 'SE', 'SW', 'NW'], rgb: 0xff8800 }]);
+    expect(viewModeOps(owned, all).filter((o) => o.k === 'border')).toHaveLength(1);
+  });
+
+  it('draws no border between tiles of one owner', () => {
+    const both = { ...owned, owners: 'AA' + 'A.' + '..' + '..' };
+    const border = viewModeOps(both, { grid: false, borders: true, names: false }).find(
+      (o) => o.k === 'border' && o.x === 0 && o.y === 0,
+    );
+    expect(border).toMatchObject({ sides: ['NE', 'SW', 'NW'] });
   });
 });

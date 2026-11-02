@@ -4,7 +4,7 @@
 // views and the player's pans, zooms and pointer moves, and follows the
 // active unit as SwingGUI does. map.ts draws what it says.
 import type { GuiEvents, Id } from './webgui';
-import type { ActiveUnit, MapView, PathStep } from './tileset';
+import { NO_MODES, type ActiveUnit, type MapView, type PathStep, type ViewModes } from './tileset';
 
 /** FreeCol's tiles: 128x64 diamonds in staggered rows, odd rows half a tile to the right. */
 export const W = 128;
@@ -34,6 +34,8 @@ export interface ViewState {
   selected: Tile | null;
   /** SwingGUI's view modes: moving units, or looking at a tile (terrain). */
   mode: 'units' | 'terrain';
+  /** The View menu's switches: the map grid, the borders and the tiles' names. */
+  modes: ViewModes;
   /** The tile under the pointer. */
   hover: Tile | null;
   /** The path the active unit would take to the tile the player holds the pointer on, drawn until release. */
@@ -50,6 +52,8 @@ export type ViewEvent =
   | { k: 'pan'; dx: number; dy: number }
   /** Zoom levels in (+) or out (-), keeping the map under a viewport point still. */
   | { k: 'zoom'; steps: number; at: [number, number] }
+  /** The player switched the grid, the borders or the tile names on or off. */
+  | { k: 'toggle'; mode: keyof ViewModes }
   /** The pointer is over a tile, or off the map. */
   | { k: 'hover'; at: Tile | null }
   /** The goto path under the held pointer, or none once it is released. */
@@ -66,6 +70,7 @@ export const initialView: ViewState = {
   active: null,
   selected: null,
   mode: 'units',
+  modes: NO_MODES,
   hover: null,
   preview: null,
 };
@@ -187,6 +192,8 @@ function apply(v: ViewState, e: ViewEvent): ViewState {
       return { ...v, viewport: [e.width, e.height] };
     case 'pan':
       return { ...v, centre: [v.centre[0] - e.dx / v.zoom, v.centre[1] - e.dy / v.zoom] };
+    case 'toggle':
+      return { ...v, modes: { ...v.modes, [e.mode]: !v.modes[e.mode] } };
     case 'hover':
       return { ...v, hover: e.at };
     case 'preview':

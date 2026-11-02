@@ -147,7 +147,13 @@ export type Op =
   /** A step of the active unit's path, centre to centre: green, or yellow if it ends on a later turn. */
   | { k: 'pathLine'; x: number; y: number; to: [number, number]; turns: number }
   /** A path step's mark in the tile's centre, with the turns to get there if any. */
-  | { k: 'pathMark'; x: number; y: number; turns: number };
+  | { k: 'pathMark'; x: number; y: number; turns: number }
+  /** The View menu's map grid: the tile's outline. */
+  | { k: 'grid'; x: number; y: number }
+  /** The View menu's borders: the sides of an owned tile (NE, SE, SW, NW) that face another owner, in the owner's colour. */
+  | { k: 'border'; x: number; y: number; sides: Direction[]; rgb: number }
+  /** The View menu's tile names: the tile type's name in the tile's centre. */
+  | { k: 'tileName'; x: number; y: number; name: string };
 
 export type Direction = 'N' | 'NE' | 'E' | 'SE' | 'S' | 'SW' | 'W' | 'NW';
 
@@ -537,6 +543,48 @@ export function overlay(cursor: Cursor | null, path: PathStep[] | null, res: Res
     if (from && to) ops.push({ k: 'pathLine', x: from[0], y: from[1], to: [to[0], to[1]], turns: to[2] });
   }
   for (const step of path) if (step) ops.push({ k: 'pathMark', x: step[0], y: step[1], turns: step[2] });
+  return ops;
+}
+
+/** The View menu's display switches. */
+export interface ViewModes {
+  grid: boolean;
+  borders: boolean;
+  names: boolean;
+}
+
+export const NO_MODES: ViewModes = { grid: false, borders: false, names: false };
+
+/** What the View menu's switches add to the map: the grid, the borders between owners, the tiles' names. */
+export function viewModeOps(
+  map: Pick<MapView, 'w' | 'h' | 'types' | 'tiles' | 'owners' | 'players'>,
+  modes: ViewModes,
+): Op[] {
+  const ops: Op[] = [];
+  if (!modes.grid && !modes.borders && !modes.names) return ops;
+  const { w, h } = map;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = y * w + x;
+      if (modes.grid) ops.push({ k: 'grid', x, y });
+      if (modes.borders) {
+        const owner = map.players[map.owners.charCodeAt(i) - 65];
+        if (owner) {
+          const sides = LONG_SIDES.filter((d) => {
+            const s = STEPS[d];
+            const [nx, ny] = y % 2 ? [x + s[0], y + s[1]] : [x + s[2], y + s[3]];
+            const other = nx >= 0 && ny >= 0 && nx < w && ny < h ? map.owners.charCodeAt(ny * w + nx) : Number.NaN;
+            return other !== map.owners.charCodeAt(i);
+          });
+          if (sides.length) ops.push({ k: 'border', x, y, sides, rgb: owner.rgb });
+        }
+      }
+      if (modes.names) {
+        const type = map.types[map.tiles.charCodeAt(i) - 65];
+        if (type) ops.push({ k: 'tileName', x, y, name: type.name });
+      }
+    }
+  }
   return ops;
 }
 
