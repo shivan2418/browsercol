@@ -574,8 +574,39 @@ export interface TypeRef {
   keys: string[];
 }
 
+/** One kind of unit in a unit report, with how many: the tooltip is its description. */
+export interface UnitCount {
+  type: string;
+  name: string;
+  keys: string[];
+  count: number;
+  text: string;
+}
+
+/** The military, naval and cargo reports (ReportUnitPanel) share one view; `report` tells which. */
+type UnitsView<K extends 'military' | 'naval' | 'cargo'> = ReportHead<K> & {
+  forces: { name: string; units: UnitCount[] };
+  /** The king's expeditionary force, or null if it has nothing of this kind. */
+  ref: { name: string; units: UnitCount[] } | null;
+  /** The label of an empty place. */
+  none: string;
+  locations: {
+    label: string;
+    link: { kind: 'colony' | 'europe' | 'tile'; id: Id; at: [number, number] | null };
+    units: (UnitRef & {
+      text: string;
+      /** What a carrier holds. */
+      goods: GoodsAmount[];
+      cargo: UnitRef[];
+    })[];
+  }[];
+};
+
 /** The reports of Reports.java, as the Engine sends them. Adding a report adds a member here. */
 export type ReportView =
+  | UnitsView<'military'>
+  | UnitsView<'naval'>
+  | UnitsView<'cargo'>
   | (ReportHead<'colony'> & {
       colonies: {
         id: Id;

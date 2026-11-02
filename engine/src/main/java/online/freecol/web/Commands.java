@@ -538,8 +538,8 @@ public final class Commands {
     }
 
     /**
-     * Open a report of the Report menu, as its action does: colony, labour
-     * or compactLabour. {@link Reports} says how to add one.
+     * Open a report of the Report menu, as its action does: colony, labour,
+     * compactLabour, military, naval or cargo. {@link Reports} says how to add one.
      *
      * @param name The report's name.
      * @return True if there is such a report.
@@ -549,6 +549,9 @@ public final class Commands {
         case "colony": gui().showReportColonyPanel(); return true;
         case "labour": gui().showReportLabourPanel(); return true;
         case "compactLabour": gui().showCompactLabourReport(); return true;
+        case "military": gui().showReportMilitaryPanel(); return true;
+        case "naval": gui().showReportNavalPanel(); return true;
+        case "cargo": gui().showReportCargoPanel(); return true;
         default: return false;
         }
     }

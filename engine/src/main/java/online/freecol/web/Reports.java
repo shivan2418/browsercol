@@ -1,7 +1,9 @@
 package online.freecol.web;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -9,11 +11,14 @@ import java.util.Map;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.client.gui.panel.report.LabourData;
 import net.sf.freecol.common.i18n.Messages;
+import net.sf.freecol.common.model.AbstractUnit;
+import net.sf.freecol.common.model.Ability;
 import net.sf.freecol.common.model.BuildableType;
 import net.sf.freecol.common.model.Building;
 import net.sf.freecol.common.model.Colony;
 import net.sf.freecol.common.model.Europe;
 import net.sf.freecol.common.model.FreeColObject;
+import net.sf.freecol.common.model.Goods;
 import net.sf.freecol.common.model.GoodsType;
 import net.sf.freecol.common.model.Location;
 import net.sf.freecol.common.model.Player;
@@ -30,9 +35,11 @@ import net.sf.freecol.common.model.WorkLocation;
  * the information of the Swing panels: the classic colony report
  * (ReportClassicColonyPanel), the labour report (ReportLabourPanel and
  * ReportLabourDetailPanel) and the compact labour report
- * (CompactLabourReport, on LabourData). Every payload is one object of the
- * {@code report} event, told apart by its {@code report} field: colony,
- * labour, labourDetail or compactLabour. Each has title, ok (the button's
+ * (CompactLabourReport, on LabourData) and the military, naval and cargo
+ * reports (ReportUnitPanel and its three subclasses). Every payload is one
+ * object of the {@code report} event, told apart by its {@code report}
+ * field: colony, labour, labourDetail, compactLabour, military, naval or
+ * cargo. Each has title, ok (the button's
  * label) and back, the report the button returns to (or null).
  *
  * <p>To add a report: write its builder here, giving it a new {@code report}
@@ -357,5 +364,131 @@ final class Reports {
                               boolean counted) {
         return new Json().put("unit", unit).put("doing", doing).put("count", count)
             .put("production", production).put("counted", counted).toString();
+    }
+
+    /** The kinds of unit report, the {@code report} field of each, and the title key of its window. */
+    static final List<String> UNIT_REPORTS = List.of("military", "naval", "cargo");
+
+    /** Whether a unit is in the unit report of this kind (isReportable of the three panels). */
+    private static boolean reportable(String kind, Unit u) {
+        switch (kind) {
+        case "military":
+            return !u.isNaval() && (u.hasAbility(Ability.EXPERT_SOLDIER) || u.isOffensiveUnit());
+        case "naval": return u.isNaval();
+        default: return u.isCarrier() || u.canCarryTreasure();
+        }
+    }
+
+    /** Whether a REF unit is in the unit report of this kind (isReportableREF). */
+    private static boolean reportableREF(String kind, AbstractUnit au, Specification spec) {
+        switch (kind) {
+        case "military": return !au.getType(spec).isNaval();
+        case "naval": return au.getType(spec).isNaval();
+        default: return false;
+        }
+    }
+
+    private static final Comparator<AbstractUnit> MOST_COMMON
+        = Comparator.comparingInt(AbstractUnit::getNumber).reversed();
+
+    /** An abstract unit: {type, name, keys, count, text}, the text being its tooltip. */
+    private static String abstractUnit(AbstractUnit au, Specification spec) {
+        final UnitType t = au.getType(spec);
+        return new Json().put("type", t.getId()).put("name", Messages.getName(t))
+            .putRaw("keys", "[" + Json.quote(ObjectImages.unitKey(t, au.getRoleId())) + "]")
+            .put("count", au.getNumber()).put("text", au.getDescription()).toString();
+    }
+
+    /**
+     * The military, naval or cargo report (ReportUnitPanel): {forces:
+     * {name, units: [{type, name, keys, count, text}]} (the player's
+     * reportable units, most common first), ref: the same for the king's
+     * expeditionary force, or null, locations: [{label, link, units}]}.
+     * Locations are colonies, Europe and then the rest by id; the military
+     * report lists every colony, the others only places with units. A
+     * location's link is {kind: colony, europe or tile, id, at}, and each
+     * unit {id, name, keys, text, goods: [{type, name, keys, amount}],
+     * cargo: [{id, name, keys}]} (what a carrier holds).
+     */
+    static String units(FreeColClient client, String kind) {
+        final Player player = client.getMyPlayer();
+        final Specification spec = player.getSpecification();
+        final Map<Location, List<Unit>> where = new HashMap<>();
+        final List<AbstractUnit> forces = new ArrayList<>();
+        for (Unit u : player.getUnitSet()) {
+            if (!reportable(kind, u)) continue;
+            where.computeIfAbsent(u.getLocation().up(), l -> new ArrayList<>()).add(u);
+            AbstractUnit found = null;
+            for (AbstractUnit au : forces) {
+                if (AbstractUnit.matcher(u).test(au)) { found = au; break; }
+            }
+            if (found == null) forces.add(new AbstractUnit(u.getType(), u.getRole().getId(), 1));
+            else found.addToNumber(1);
+        }
+        forces.sort(MOST_COMMON);
+        final List<AbstractUnit> refUnits = new ArrayList<>();
+        final List<AbstractUnit> all = player.getREFUnits();
+        if (all != null) {
+            for (AbstractUnit au : all) {
+                if (reportableREF(kind, au, spec)) refUnits.add(au);
+            }
+            refUnits.sort(MOST_COMMON);
+        }
+
+        final List<Location> order = new ArrayList<>();
+        for (Location l : where.keySet()) {
+            if (!(l instanceof Colony || l instanceof Europe)) order.add(l);
+        }
+        order.sort(Comparator.comparing(Location::getId));
+        if (player.getEurope() != null) order.add(0, player.getEurope());
+        order.addAll(0, player.getSortedColonies(client.getClientOptions().getColonyComparator()));
+
+        final List<String> places = new ArrayList<>();
+        for (Location l : order) {
+            final List<Unit> present = new ArrayList<>(where.getOrDefault(l, Collections.<Unit>emptyList()));
+            if (present.isEmpty() && !kind.equals("military")) continue;
+            present.sort(Unit.typeRoleComparator);
+            final Tile tile = l.getTile();
+            final List<String> units = new ArrayList<>();
+            for (Unit u : present) {
+                final List<String> goods = new ArrayList<>();
+                final List<String> cargo = new ArrayList<>();
+                if (u.isCarrier()) {
+                    for (Goods g : u.getGoodsList()) {
+                        goods.add(ColonyJson.goods(g.getType(), g.getAmount()).toString());
+                    }
+                    for (Unit c : u.getUnitList()) cargo.add(ColonyJson.unit(c).toString());
+                }
+                final String destination = (u.getDestination() == null) ? ""
+                    : "\n" + Messages.message(u.getDestinationLabel());
+                units.add(ColonyJson.unit(u)
+                    .put("text", Messages.message(u.getLabel()) + destination)
+                    .putRaw("goods", Json.array(goods))
+                    .putRaw("cargo", Json.array(cargo)).toString());
+            }
+            final String linkKind = (l instanceof Colony) ? "colony"
+                : (l instanceof Europe) ? "europe" : "tile";
+            places.add(new Json().put("label", Messages.message(l.getLocationLabelFor(player)))
+                .putRaw("link", new Json().put("kind", linkKind).put("id", l.getId())
+                    .putRaw("at", (l instanceof Europe) ? "null" : MapJson.xy(tile)).toString())
+                .putRaw("units", Json.array(units)).toString());
+        }
+
+        final List<String> mine = new ArrayList<>();
+        for (AbstractUnit au : forces) {
+            if (au.getNumber() > 0) mine.add(abstractUnit(au, spec));
+        }
+        final List<String> theirs = new ArrayList<>();
+        for (AbstractUnit au : refUnits) theirs.add(abstractUnit(au, spec));
+        return head(kind, "report" + Character.toUpperCase(kind.charAt(0)) + kind.substring(1) + "Action", null)
+            .putRaw("forces", new Json()
+                .put("name", Messages.message(player.getForcesLabel()))
+                .putRaw("units", Json.array(mine)).toString())
+            .putRaw("ref", theirs.isEmpty() ? "null" : new Json()
+                .put("name", Messages.getName(player.getNation().getREFNation()))
+                .putRaw("units", Json.array(theirs)).toString())
+            .put("none", Messages.message("none"))
+            .putRaw("locations", Json.array(places))
+            .toString();
     }
 }
