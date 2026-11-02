@@ -34,7 +34,7 @@ import { mapDrawer, type MapView } from './map';
 import { europeButtons } from './europe-client';
 import { DialogHost, type Art, type ReportButtons, type RouteButtons } from './panels';
 import { ReportContext, reportMenu, type ReportActions } from './reports';
-import { onCanvas, pointerInput } from './pointer';
+import { blockBrowserMenu, onCanvas, pointerInput } from './pointer';
 import { StartScreen } from './start-screen';
 import { presetJson, startOptions } from './start';
 import { fileNameOf, importSave } from './save-files';
@@ -380,6 +380,7 @@ function drawMap(m: MapView) {
   if (!artReady) void drawn.then(() => map.resources() && ((artReady = true), renderSide()));
 }
 
+blockBrowserMenu(document);
 const dragged = pointerInput(mapHost, { view: () => view, dispatch, tileAt: (px, py) => map.tileAt(px, py) });
 
 /** Hook the player's input up to the client Engine's commands. */
