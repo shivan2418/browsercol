@@ -4,7 +4,8 @@ import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { dialogs } from './dialogs';
 import { MENUS, MenuBar, type Art } from './frame';
 import { DialogHost } from './panels';
-import { ReportContext, reportMenu, type ReportActions } from './reports';
+import { ReportContext, REPORTS, reportMenu, type ReportActions } from './reports';
+import { reportForKey } from './report-keys';
 import type { GuiEvents, ReportName, ReportView } from './webgui';
 
 afterEach(cleanup);
@@ -62,7 +63,7 @@ describe('the Report menu', () => {
     expect(
       within(menu)
         .getAllByRole('menuitem')
-        .map((m) => m.textContent),
+        .map((m) => m.firstChild?.textContent),
     ).toEqual([
       'Colony report',
       'Labour report',
@@ -81,9 +82,10 @@ describe('the Report menu', () => {
       'Requirements report',
       'Trade report',
     ]);
-    fireEvent.click(within(menu).getByRole('menuitem', { name: 'Compact labour report' }));
+    fireEvent.click(within(menu).getByRole('menuitem', { name: /^Compact labour report/ }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Report' }));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Colony report' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /^Colony report/ }));
+    expect(within(menu).getByRole('menuitem', { name: /^Religion report/ }).textContent).toContain('Shift+F1');
     expect(opened).toEqual(['compactLabour', 'colony']);
   });
 });
@@ -681,5 +683,28 @@ describe('the Continental Congress report', () => {
     const { box } = host();
     show(box, { ...report, current: null });
     expect(document.querySelector('[data-section="recruiting"]')?.textContent).toContain('None');
+  });
+});
+
+describe('report hotkeys', () => {
+  const press = (code: string, mods: { shiftKey?: boolean; ctrlKey?: boolean; altKey?: boolean } = {}) =>
+    reportForKey({ code, shiftKey: false, ctrlKey: false, altKey: false, metaKey: false, ...mods });
+
+  it("opens FreeCol's plain F-key reports on Shift+F, and its Shift+F reports on Ctrl+Shift+F", () => {
+    expect(press('F1', { shiftKey: true })).toBe('religion');
+    expect(press('F3', { shiftKey: true })).toBe('colony');
+    expect(press('F1', { shiftKey: true, ctrlKey: true })).toBe('cargo');
+    expect(press('F4', { shiftKey: true, ctrlKey: true })).toBe('production');
+  });
+
+  it('leaves the plain F keys and other modifiers to the browser', () => {
+    expect(press('F3')).toBeNull();
+    expect(press('F3', { shiftKey: true, altKey: true })).toBeNull();
+    expect(press('KeyB', { shiftKey: true })).toBeNull();
+  });
+
+  it('gives every hotkey to one report only', () => {
+    const keys = REPORTS.flatMap((r) => (r.key ? [r.key] : []));
+    expect(new Set(keys).size).toBe(keys.length);
   });
 });

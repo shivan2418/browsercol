@@ -140,6 +140,13 @@
       .menubar [role='menu'] button {
         text-align: left;
       }
+      /* An entry's hotkey, at the right of its label. */
+      .menubar [role='menu'] .hint {
+        float: right;
+        margin-left: 1.5em;
+        font: inherit;
+        opacity: 0.65;
+      }
       /* A right-click menu (src/popup-menu.tsx): at the pointer, over the map and every dialog. */
       .popup {
         position: fixed;

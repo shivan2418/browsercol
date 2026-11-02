@@ -36,6 +36,7 @@ import { blinkMs, loadPrefs, moveMs, savePrefs, type Prefs } from './prefs';
 import { mapDrawer, type MapView } from './map';
 import { europeButtons } from './europe-client';
 import { DialogHost, type Art, type ReportButtons, type RouteButtons } from './panels';
+import { reportForKey } from './report-keys';
 import { ReportContext, reportMenu, type ReportActions } from './reports';
 import type { PathStep } from './tileset';
 import { blockBrowserMenu, onCanvas, pointerInput, rightClickInput } from './pointer';
@@ -495,6 +496,13 @@ function playWith(client: ClientExports) {
   renderSide();
   addEventListener('keydown', (e) => {
     // An open dialog has the keys (panels.tsx).
+    // A report's hotkey (Shift+F3, ...) opens it over another report, but not over another dialog.
+    const report = reportForKey(e);
+    if (report && !e.repeat && [undefined, 'report'].includes(dialogQueue.current()?.kind)) {
+      e.preventDefault();
+      reportActions.open(report);
+      return;
+    }
     if (e.altKey || e.ctrlKey || e.metaKey || dialogQueue.current()) return;
     const c = commandForKey(e);
     if (!c) return;
