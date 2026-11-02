@@ -29,6 +29,32 @@ export interface GuiEvents {
   error: { text: string; ok: string };
   eventPanel: { header: string; image: string | null; footer: string | null; ok: string };
   /**
+   * The Colopedia's terrain entry, as TerrainDetailPanel shows a tile type: its image (keys, with the
+   * forest's over it), the possible resources, movement cost, defence bonus, what it makes unattended
+   * and with a colonist, and the description.
+   */
+  colopedia: {
+    name: string;
+    keys: string[];
+    forest: string[] | null;
+    labels: {
+      terrainImage: string;
+      resource: string;
+      movementCost: string;
+      defenseBonus: string;
+      unattended: string;
+      colonist: string;
+      description: string;
+    };
+    movementCost: string;
+    defence: string;
+    resources: { name: string; keys: string[] }[];
+    unattended: ColopediaGoods[];
+    colonist: ColopediaGoods[];
+    description: string;
+    ok: string;
+  };
+  /**
    * A native settlement, as FreeCol's IndianSettlementPanel shows it to the player, with only what the
    * player has learned: an entry whose images are empty has no icon. The skill and wanted goods are
    * known after a visit, the most hated nation after contact. wanted[0] is the highly wanted goods and
@@ -327,6 +353,14 @@ export interface EuropeUnit {
 }
 
 /** A text with the resource keys of its icon, best first. */
+/** Goods of a type and how much a terrain makes of them. */
+export interface ColopediaGoods {
+  type: Id;
+  name: string;
+  keys: string[];
+  amount: number;
+}
+
 export interface SettlementEntry {
   text: string;
   images: string[];

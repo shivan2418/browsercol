@@ -389,6 +389,7 @@ const gui: GuiHandlers = {
     },
     eventPanel: (e) => dialogQueue.show('eventPanel', e),
     indianSettlement: (e) => dialogQueue.show('indianSettlement', e),
+    colopedia: (e) => dialogQueue.replace('colopedia', e),
     highScores: (e) => dialogQueue.show('highScores', e),
     tradeRoutes: (e) => dialogQueue.replace('tradeRoutes', e),
     europe: (e) => dialogQueue.replace('europe', e),
