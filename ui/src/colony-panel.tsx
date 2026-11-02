@@ -20,7 +20,7 @@
 // move a hold's worth, or the stack; with shift held as they are picked up,
 // FreeCol's partial drag, the Engine asks the amount.
 //
-// The build queue (BuildQueuePanel) opens under the construction: the queue
+// The build queue (BuildQueuePanel) opens as a popup from the construction: the queue
 // with buttons to move or remove each item, then what the colony can build
 // to add at the end, the rest (with FreeCol's reasons) behind the show all
 // box, and the buy button. Every edit goes to the Engine, which sets the queue
@@ -562,64 +562,80 @@ function BuildQueue({ c, art }: { c: ColonyView; art: Art }) {
         {q.title}
       </button>
       {state.open && (
-        <div className="queue-body">
-          <Box caption={q.title} data-part="queued" className="queued">
-            <ol>
-              {q.queue.map((b, i) => (
-                <li key={`${b.type}:${i}`} data-queued={b.type} data-locked={b.reason !== null || undefined}>
-                  <BuildableLabel b={b} art={art} />
-                  <button disabled={i === 0} aria-label="up" title="up" onClick={() => move(i, i - 1)}>
-                    ↑
-                  </button>
-                  <button disabled={i === ids.length - 1} aria-label="down" title="down" onClick={() => move(i, i + 1)}>
-                    ↓
-                  </button>
-                  <button
-                    aria-label="remove"
-                    title="remove"
-                    onClick={() =>
-                      moves.setQueue(
-                        c.id,
-                        ids.filter((_, j) => j !== i),
-                      )
-                    }
-                  >
-                    ✕
-                  </button>
-                </li>
-              ))}
-            </ol>
-          </Box>
-          {lists.map(({ part, title, items }) => (
-            <Box key={part} caption={title} data-part={part} className="can-build">
-              <ul>
-                {items
-                  .filter((b) => state.all || b.reason === null)
-                  .map((b) => (
-                    <li key={b.type} data-buildable={b.type} data-locked={b.reason !== null || undefined}>
-                      <button
-                        disabled={b.reason !== null}
-                        title={b.reason ?? b.name}
-                        onClick={() => moves.setQueue(c.id, [...ids, b.type])}
-                      >
-                        <BuildableLabel b={b} art={art} />
-                      </button>
-                    </li>
-                  ))}
-              </ul>
-            </Box>
-          ))}
-          <label className="show-all">
-            <input type="checkbox" checked={state.all} onChange={(e) => set({ ...state, all: e.target.checked })} />
-            {q.showAll}
-          </label>
-          {q.buy && (
-            <button className="buy" disabled={!q.buy.enabled} onClick={() => moves.buy(c.id)}>
-              {q.buy.label}
-              <span className="muted">{` (${q.buy.price})`}</span>
+        <>
+          <div className="queue-backdrop" onClick={() => set({ ...state, open: false })} />
+          <div className="queue-body" role="dialog" aria-label={q.title}>
+            <button
+              className="queue-close"
+              aria-label="close"
+              title="close"
+              onClick={() => set({ ...state, open: false })}
+            >
+              ✕
             </button>
-          )}
-        </div>
+            <Box caption={q.title} data-part="queued" className="queued">
+              <ol>
+                {q.queue.map((b, i) => (
+                  <li key={`${b.type}:${i}`} data-queued={b.type} data-locked={b.reason !== null || undefined}>
+                    <BuildableLabel b={b} art={art} />
+                    <button disabled={i === 0} aria-label="up" title="up" onClick={() => move(i, i - 1)}>
+                      ↑
+                    </button>
+                    <button
+                      disabled={i === ids.length - 1}
+                      aria-label="down"
+                      title="down"
+                      onClick={() => move(i, i + 1)}
+                    >
+                      ↓
+                    </button>
+                    <button
+                      aria-label="remove"
+                      title="remove"
+                      onClick={() =>
+                        moves.setQueue(
+                          c.id,
+                          ids.filter((_, j) => j !== i),
+                        )
+                      }
+                    >
+                      ✕
+                    </button>
+                  </li>
+                ))}
+              </ol>
+            </Box>
+            {lists.map(({ part, title, items }) => (
+              <Box key={part} caption={title} data-part={part} className="can-build">
+                <ul>
+                  {items
+                    .filter((b) => state.all || b.reason === null)
+                    .map((b) => (
+                      <li key={b.type} data-buildable={b.type} data-locked={b.reason !== null || undefined}>
+                        <button
+                          disabled={b.reason !== null}
+                          title={b.reason ?? b.name}
+                          onClick={() => moves.setQueue(c.id, [...ids, b.type])}
+                        >
+                          <BuildableLabel b={b} art={art} />
+                        </button>
+                      </li>
+                    ))}
+                </ul>
+              </Box>
+            ))}
+            <label className="show-all">
+              <input type="checkbox" checked={state.all} onChange={(e) => set({ ...state, all: e.target.checked })} />
+              {q.showAll}
+            </label>
+            {q.buy && (
+              <button className="buy" disabled={!q.buy.enabled} onClick={() => moves.buy(c.id)}>
+                {q.buy.label}
+                <span className="muted">{` (${q.buy.price})`}</span>
+              </button>
+            )}
+          </div>
+        </>
       )}
     </Part>
   );
@@ -663,19 +679,6 @@ export function ColonyPanel({ colony: c, art }: { colony: ColonyView; art: Art }
     <HandContext.Provider value={hand}>
       <div className="colony">
         <div className="cbody">
-          <Part part="population">
-            <Img keys={p.rebelShield} art={art} className="shield" />
-            <span>
-              {p.rebels} <b>{`${p.rebelPercent}%`}</b>
-            </span>
-            <span>
-              {p.total} <span className="muted">{p.bonus}</span>
-            </span>
-            <span>
-              {p.royalists} <b>{`${100 - p.rebelPercent}%`}</b>
-            </span>
-            <Img keys={p.royalistShield} art={art} className="shield" />
-          </Part>
           <div className="buildings">
             {c.buildings.map((b) =>
               b.site ? (
@@ -714,6 +717,19 @@ export function ColonyPanel({ colony: c, art }: { colony: ColonyView; art: Art }
             )}
           </div>
           <div className="upper">
+            <Part part="population">
+              <Img keys={p.rebelShield} art={art} className="shield" />
+              <span>
+                {p.rebels} <b>{`${p.rebelPercent}%`}</b>
+              </span>
+              <span>
+                {p.total} <span className="muted">{p.bonus}</span>
+              </span>
+              <span>
+                {p.royalists} <b>{`${100 - p.rebelPercent}%`}</b>
+              </span>
+              <Img keys={p.royalistShield} art={art} className="shield" />
+            </Part>
             <Tiles c={c} art={art} />
             <Part part="net">
               {c.production.map((g) => (
@@ -743,10 +759,10 @@ export function ColonyPanel({ colony: c, art }: { colony: ColonyView; art: Art }
                 </>
               )}
             </Part>
+            <BuildQueue c={c} art={art} />
+            {hand.picked?.kind === 'unit' && <WorkChoice c={c} picked={hand.picked.id} art={art} />}
+            <Port c={c} art={art} />
           </div>
-          <BuildQueue c={c} art={art} />
-          {hand.picked?.kind === 'unit' && <WorkChoice c={c} picked={hand.picked.id} art={art} />}
-          <Port c={c} art={art} />
           <Outside c={c} art={art} />
           <Warehouse c={c} art={art} />
         </div>
