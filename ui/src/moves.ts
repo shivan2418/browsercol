@@ -20,7 +20,7 @@ export type Item =
   | { kind: 'goods'; from: GoodsFrom; type: string; index?: number; amount?: number; ask?: boolean };
 
 /** The places a thing can be dropped on. */
-export type Place = 'tile' | 'building' | 'outside' | 'cargo' | 'warehouse' | 'market';
+export type Place = 'tile' | 'building' | 'outside' | 'cargo' | 'warehouse' | 'market' | 'sailing';
 
 /** What each place takes: a unit, and the goods it takes and where they come from. */
 const takes: Record<Place, { unit: boolean; from: readonly GoodsFrom[] }> = {
@@ -32,6 +32,8 @@ const takes: Record<Place, { unit: boolean; from: readonly GoodsFrom[] }> = {
   // A warehouse takes a ship's cargo (unloaded), and the market sells it.
   warehouse: { unit: false, from: ['cargo'] },
   market: { unit: false, from: ['cargo'] },
+  // The ships sailing to America take a ship of the port (the panel checks that it is one).
+  sailing: { unit: true, from: [] },
 };
 
 /**
