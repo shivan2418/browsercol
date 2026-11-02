@@ -265,6 +265,21 @@ async function play(page, url) {
     throw new Error(`a click did not pick ${what}`);
   };
   /**
+   * Wait for a dialog in the log, which grows as the page answers the dialogs: the entries after the
+   * count are the ones that came since. Throws with them when the dialog does not come.
+   */
+  const waitForDialog = async (logged, match, what, timeout = 10000) => {
+    const got = await page
+      .waitForFunction(([n, m]) => (window.__dialogs ?? []).slice(n).some((d) => m(d)), [logged, match], {
+        timeout,
+      })
+      .then(() => true)
+      .catch(() => false);
+    if (got) return;
+    const seen = await page.evaluate((n) => (window.__dialogs ?? []).slice(n), logged);
+    throw new Error(`${what}: ${JSON.stringify(seen)}`);
+  };
+  /**
    * Open the colony's panel and move colonists in it as a player would: the founder is dragged to a building,
    * clicked back to its tile, given other work, and a colonist outside is put to work and out again, and a building is queued. After each
    * move the panel must show the colonist in its new place, and the net production must have changed. A colonist put where it cannot work is
@@ -360,18 +375,14 @@ async function play(page, url) {
     // explanation shows over the colony panel, as Swing's does, with the colony panel on screen again
     // once it is closed. A panel queued behind the colony panel would show only after the player closed
     // it, so the log must have the explanation while the panel is still open.
-    const asked = await page.evaluate(() => window.__dialogs.length);
+    const logged = await page.evaluate(() => window.__dialogs.length);
     await pickUp(unit(other), other);
     await tile.locator('.hit').click();
-    const explained = await page
-      .waitForFunction((n) => window.__dialogs.slice(n).some((d) => d.startsWith('information: ')), asked, {
-        timeout: 20000,
-      })
-      .catch(() => false);
-    if (!explained) {
-      const seen = await page.evaluate(() => window.__dialogs.slice(-3));
-      throw new Error(`the refusal was not explained over the colony panel: ${JSON.stringify(seen)}`);
-    }
+    await waitForDialog(
+      logged,
+      (d) => d.startsWith('information: '),
+      'the refusal was not explained over the colony panel',
+    );
     await panel.waitFor({ timeout: 10000 });
     await unit(other).click();
 
@@ -466,7 +477,7 @@ async function play(page, url) {
       .locator('[data-goods]')
       .evaluateAll((es) => es.find((e) => Number(e.querySelector('.amount')?.textContent) > 0)?.dataset.goods ?? null);
     if (!goods) throw new Error('the colony has no goods in its warehouse to load');
-    const before = await page.evaluate(() => window.__dialogs.length);
+    const logged = await page.evaluate(() => window.__dialogs.length);
     await pickUp(warehouse.locator(`[data-goods="${goods}"]`), goods, ['Shift']);
     await putOn(cargo, goods);
     await cargo
@@ -476,10 +487,7 @@ async function play(page, url) {
       .catch(() => {
         throw new Error(`the ship did not take ${goods} aboard`);
       });
-    const asked = await page.evaluate((n) => window.__dialogs.slice(n), before);
-    if (!asked.some((d) => d.startsWith('amount: '))) {
-      throw new Error(`loading with shift did not ask the amount: ${JSON.stringify(asked)}`);
-    }
+    await waitForDialog(logged, (d) => d.startsWith('amount: '), 'loading with shift did not ask the amount');
     await pickUp(cargo.locator(`[data-goods="${goods}"]`).first(), goods);
     await putOn(warehouse, goods);
     await page
@@ -736,18 +744,10 @@ async function play(page, url) {
     ['Trade report', 'Trade Advisor'],
   ]) {
     await noDialog(`opening the ${item}`);
-    const before = await page.evaluate(() => window.__dialogs.length);
+    const logged = await page.evaluate(() => window.__dialogs.length);
     await page.getByRole('menuitem', { name: 'Report', exact: true }).click();
     await page.getByRole('menuitem', { name: item, exact: true }).click();
-    const opened = await page
-      .waitForFunction(([n, t]) => window.__dialogs.slice(n).includes(`report: ${t}`), [before, title], {
-        timeout: 10000,
-      })
-      .catch(() => false);
-    if (!opened) {
-      const last = await page.evaluate(() => window.__dialogs.slice(-3));
-      throw new Error(`the ${item} did not open: ${JSON.stringify(last)}`);
-    }
+    await waitForDialog(logged, (d) => d === `report: ${title}`, `the ${item} did not open`);
     if (item === 'Colony report') {
       const named = await page.evaluate(
         (id) => window.__dialogUnits.some((d) => d.kind === 'report' && d.units.includes(id)),
