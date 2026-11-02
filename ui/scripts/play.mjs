@@ -361,6 +361,12 @@ async function play(page, url) {
     const net = () => panel.locator('[data-part=net]').innerText();
     const unit = (id) => panel.locator(`[data-unit="${id}"]`).first();
     const within = (place, id, timeout = 20000) => place.locator(`[data-unit="${id}"]`).waitFor({ timeout });
+    /** Whether the unit is in the place, as the panel is shown again after a change. */
+    const landed = async (place, id, timeout = 20000) =>
+      within(place, id, timeout).then(
+        () => true,
+        () => false,
+      );
     const changed = async (than, what) => {
       await page
         .waitForFunction((old) => document.querySelector('[data-part=net]')?.innerText !== old, than, {
@@ -382,23 +388,19 @@ async function play(page, url) {
     });
     let tileId = start.tile ?? null;
     if (!tileId) {
-      // The colony has no tile for the founder to work (a colony on a tile
-      // with a lost city rumour claims no land, and one with no land to
-      // claim has none), so FreeCol put it in the town hall. The script puts
-      // it to work on a tile itself, as a player would: the panel's tiles
-      // that are not taken, the centre excepted, which is where it can work.
+      // The colony has no tile for the founder to work (its tiles are water,
+      // or the arctic, or land nobody may claim), so FreeCol put it in the
+      // town hall. The script puts it to work on a tile itself, as a player
+      // would: the panel's tiles that are not taken (the centre excepted, it
+      // takes no colonist) and not native land, whose claim is a price to
+      // pay.
       for (const id of await panel
-        .locator('[data-tile][data-drop]:not(:has(img.taken))')
+        .locator('[data-tile][data-drop]:not(:has(img.taken)):not(:has(img.natives))')
         .evaluateAll((es) => es.map((e) => e.dataset.tile))) {
         const place = panel.locator(`[data-tile="${id}"]`);
         await pickUp(unit(founder), founder);
         await place.locator('.hit').click();
-        if (
-          await within(place, founder, 10000).then(
-            () => true,
-            () => false,
-          )
-        ) {
+        if (await landed(place, founder, 10000)) {
           tileId = id;
           break;
         }
@@ -423,9 +425,7 @@ async function play(page, url) {
       }
 
       // Click it, then its tile: back to work there.
-      await unit(founder).click();
-      if ((await unit(founder).getAttribute('data-picked')) !== 'true')
-        throw new Error('a click did not pick the founder');
+      await pickUp(unit(founder), founder);
       await tile.locator('.hit').click();
       await within(tile, founder);
       await changed(inHall, 'the founder was clicked back to its tile');
@@ -460,12 +460,7 @@ async function play(page, url) {
       // The units outside are at the foot of a panel taller than the window, so this goes by clicks, not a drag.
       await unit(id).click();
       await hall.click();
-      if (
-        await within(hall, id, 8000).then(
-          () => true,
-          () => false,
-        )
-      ) {
+      if (await landed(hall, id, 8000)) {
         other = id;
         break;
       }
@@ -498,6 +493,8 @@ async function play(page, url) {
         ? `  colony panel: moved ${other} to work and out again`
         : `  colony panel: moved ${founder} and ${other}`,
     );
+    // What the run's summary says when the founder had no tile to work.
+    return tile === null ? `the colony has no tile to work, so the founder ${founder} stayed in ${start.place}` : '';
   };
   /**
    * Sail the ship from the sea into the colony and load it in the colony panel as a player would: a unit
@@ -871,7 +868,7 @@ async function play(page, url) {
     const seen = await page.evaluate(() => window.__dialogUnits);
     throw new Error(`the colony panel did not show the founder ${founder}: ${JSON.stringify(seen)}`);
   }
-  await moveColonists(m, land, founder);
+  const note = await moveColonists(m, land, founder);
   m = await endTurn();
   if (!at(m.settlements, land)) throw new Error(`the colony at ${label(land)} is gone after the AI turn`);
 
@@ -1084,7 +1081,7 @@ async function play(page, url) {
       message('Nothing to show.', 'DEFAULT', []),
     ],
   });
-  return { land, turn: m.turn };
+  return { land, turn: m.turn, note };
 }
 
 const server = await serveDist();
@@ -1128,6 +1125,7 @@ for (const name of browsers) {
   console.log(
     `${name} ${browser.version()}: ` +
       (result.error ? `failed: ${result.error}` : `colony at ${label(result.land)}, play back on turn ${result.turn}`) +
+      (result.note ? `, ${result.note}` : '') +
       `, ${((Date.now() - t) / 1000).toFixed(1)} s` +
       `\n  dialogs: ${dialogs.join(' | ')}` +
       (shotTimes.length ? `\n  screenshots: ${shotTimes.join(' | ')}` : '') +

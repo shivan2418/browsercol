@@ -359,10 +359,11 @@ class ColonyJsonTest {
     /**
      * The founder works where the colony needs it: on one of its tiles, or in
      * the town hall, which makes bells, when the colony has no tile to work.
-     * A colony on a tile with a lost city rumour claims no land around it,
-     * and one with nothing but water around it has no land to work, so the
-     * founder ends up in the town hall. The colony panel shows it there, and
-     * play.mjs puts it to work on a tile itself when FreeCol does not.
+     * A colony with nothing but water around it has no tile to work, and
+     * neither has one founded on a tile with a lost city rumour, which
+     * claims no land around it. The colony panel shows the founder in the
+     * town hall, and play.mjs puts it to work on a tile itself when FreeCol
+     * does not.
      */
     @Test
     @Timeout(120)
