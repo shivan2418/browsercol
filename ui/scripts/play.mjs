@@ -253,9 +253,22 @@ async function play(page, url) {
     return view();
   };
   /**
+   * Pick a thing up in the colony panel: the panel is shown afresh as each change reaches the client, so a
+   * click can land as it is redrawn; a pick is clicked again until it shows picked.
+   */
+  const pickUp = async (thing, what, modifiers = []) => {
+    for (let i = 0; i < 5; i++) {
+      await thing.click({ modifiers });
+      if ((await thing.getAttribute('data-picked')) === 'true') return;
+      await page.waitForTimeout(300);
+    }
+    throw new Error(`a click did not pick ${what}`);
+  };
+  /**
    * Open the colony's panel and move colonists in it as a player would: the founder is dragged to a building,
    * clicked back to its tile, given other work, and a colonist outside is put to work and out again, and a building is queued. After each
-   * move the panel must show the colonist in its new place, and the net production must have changed.
+   * move the panel must show the colonist in its new place, and the net production must have changed. A colonist put where it cannot work is
+   * told so over the panel.
    */
   const moveColonists = async (m, land, founder) => {
     await noDialog('opening the colony panel');
@@ -343,6 +356,27 @@ async function play(page, url) {
     await outside.click();
     await within(outside, other);
 
+    // A colonist cannot work on a tile another colonist works: the Engine explains it, and the
+    // explanation shows over the colony panel, as Swing's does, with the colony panel on screen again
+    // once it is closed. A panel queued behind the colony panel would show only after the player closed
+    // it, so the log must have the explanation while the panel is still open.
+    const asked = await page.evaluate(() => window.__dialogs.length);
+    await pickUp(unit(other), other);
+    await tile.locator('.hit').click();
+    const explained = await page
+      .waitForFunction(
+        (n) => window.__dialogs.slice(n).some((d) => d.startsWith('information: ')),
+        asked,
+        { timeout: 20000 },
+      )
+      .catch(() => false);
+    if (!explained) {
+      const seen = await page.evaluate(() => window.__dialogs.slice(-3));
+      throw new Error(`the refusal was not explained over the colony panel: ${JSON.stringify(seen)}`);
+    }
+    await panel.waitFor({ timeout: 10000 });
+    await unit(other).click();
+
     // Queue a building the colony can build, from the build queue; the panel must list it as queued. (What
     // the server's colony does with the queue, and paying for it, are CommandsTest's to check.)
     await panel.locator('[data-part=queue] button.toggle').click();
@@ -393,16 +427,6 @@ async function play(page, url) {
     const outside = panel.locator('[data-part=outside]');
     const warehouse = panel.locator('[data-part=warehouse]');
 
-    // The panel is shown afresh as each change reaches the client, so a click can land as it is redrawn:
-    // a pick is clicked again until it shows picked, and a place until nothing is.
-    const pickUp = async (thing, what, modifiers = []) => {
-      for (let i = 0; i < 5; i++) {
-        await thing.click({ modifiers });
-        if ((await thing.getAttribute('data-picked')) === 'true') return;
-        await page.waitForTimeout(300);
-      }
-      throw new Error(`a click did not pick ${what}`);
-    };
     // The Engine runs one command at a time and drops one sent while another runs, so a put waits for its
     // command's closing map.
     const putOn = async (place, what) => {
