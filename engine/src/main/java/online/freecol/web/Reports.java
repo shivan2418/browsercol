@@ -366,9 +366,6 @@ final class Reports {
             .put("production", production).put("counted", counted).toString();
     }
 
-    /** The kinds of unit report, the {@code report} field of each, and the title key of its window. */
-    static final List<String> UNIT_REPORTS = List.of("military", "naval", "cargo");
-
     /** Whether a unit is in the unit report of this kind (isReportable of the three panels). */
     private static boolean reportable(String kind, Unit u) {
         switch (kind) {

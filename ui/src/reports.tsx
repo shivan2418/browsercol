@@ -9,7 +9,7 @@ import './reports.css';
 import { createContext, useContext, type ReactNode } from 'react';
 import type { Dialog } from './dialogs';
 import { GoodsAmount, WindowFrame, type Art, type Menu } from './frame';
-import type { ReportName, ReportView } from './webgui';
+import type { ReportName, ReportView, UnitCount } from './webgui';
 
 /** What a link in a report does (ClientExports.report, reportDetail and showColony, and the page's). */
 export interface ReportActions {
@@ -272,7 +272,7 @@ function CompactLabour({ e, art, go }: { e: View<'compactLabour'>; art: Art; go:
 
 /** ReportUnitPanel: the force by kind (the king's too), then the units place by place. */
 function Units({ e, art, go }: { e: View<'military' | 'naval' | 'cargo'>; art: Art; go: Links }) {
-  const force = (f: { name: string; units: View<'military'>['forces']['units'] }, which: string) => (
+  const force = (f: { name: string; units: UnitCount[] }, which: string) => (
     <section data-force={which}>
       <h3>{f.name}</h3>
       <div className="row">
