@@ -195,6 +195,11 @@ final class MapJson {
         } catch (RuntimeException e) {
             return "null";
         }
+        return path(path);
+    }
+
+    /** A path as [x, y, turns] per step, or "null" for none. */
+    static String path(PathNode path) {
         if (path == null) return "null";
         final List<String> nodes = new ArrayList<>();
         for (PathNode p = path; p != null; p = p.next) {
