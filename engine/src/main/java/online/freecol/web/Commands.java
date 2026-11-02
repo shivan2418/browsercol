@@ -500,7 +500,7 @@ public final class Commands {
 
     /** Open the Colopedia on an entry; false if there is none of that id. */
     private boolean showColopedia(String id) {
-        if (Colopedia.terrain(this.client.getGame().getSpecification(), id) == null) return false;
+        if (this.client.getGame().getSpecification().getTileType(id) == null) return false;
         gui().showColopediaPanel(id);
         return true;
     }
