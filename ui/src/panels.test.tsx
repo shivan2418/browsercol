@@ -1263,6 +1263,24 @@ describe('the Europe panel', () => {
     expect(calls).toEqual(['board unit:4 unit:1', 'sail unit:2']);
   });
 
+  it('sends a ship in port to America when it is dropped on the ships sailing there', () => {
+    const calls: string[] = [];
+    Object.assign(europeButtons, {
+      board: (u: string, s: string) => calls.push(`board ${u} ${s}`),
+      sail: (s: string) => calls.push(`sail ${s}`),
+    });
+    const { box } = host();
+    act(() => box.show('europe', europe));
+    const dataTransfer = { setData() {}, effectAllowed: '' };
+    // A unit of the docks is no ship: dropped there, it does nothing.
+    fireEvent.dragStart(screen.getByRole('button', { name: 'Expert Farmer' }), { dataTransfer });
+    fireEvent.drop(document.querySelector('[data-list=toAmerica]')!, { dataTransfer });
+    expect(calls).toEqual([]);
+    fireEvent.dragStart(screen.getByRole('button', { name: 'Galleon' }), { dataTransfer });
+    fireEvent.drop(document.querySelector('[data-list=toAmerica]')!, { dataTransfer });
+    expect(calls).toEqual(['sail unit:2']);
+  });
+
   it('has nothing to sail with no ship in port', () => {
     const { box } = host();
     act(() => box.show('europe', { ...europe, inPort: [], selected: null }));

@@ -985,8 +985,9 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
     units: EuropeUnit[],
     pick?: (u: EuropeUnit) => () => void,
     drag?: boolean,
+    drop?: (item: Item) => void,
   ) => (
-    <section className="box" data-list={kind}>
+    <section className="box" data-list={kind} {...(drop ? dropTargetProps('sailing', drop) : {})}>
       <h3>{heading}</h3>
       <div className="chips">
         {units.map((u) => (
@@ -1016,6 +1017,10 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
   const onCargo = (item: Item) => {
     if (item.kind === 'goods' && item.from === 'market') buy(item.type);
     else if (item.kind === 'unit' && ship) europeButtons.board(item.id, ship.id);
+  };
+  /** What a drop on the ships sailing to America does: a ship in port is sent, as the Sail button does. */
+  const onSailing = (item: Item) => {
+    if (item.kind === 'unit' && e.inPort.some((u) => u.id === item.id)) europeButtons.sail(item.id);
   };
   /** What a drop on the market does: a stack of the cargo is sold. */
   const onMarket = (item: Item) => {
@@ -1066,9 +1071,9 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
       )}
       {(shop === 'train' || shop === 'purchase') && offers(shop)}
       <div className="europe">
-        {list(e.headings.toAmerica, 'toAmerica', e.toAmerica)}
+        {list(e.headings.toAmerica, 'toAmerica', e.toAmerica, undefined, false, onSailing)}
         {list(e.headings.toEurope, 'toEurope', e.toEurope)}
-        {list(e.headings.inPort, 'inPort', e.inPort, (u) => () => setPicked(u.id))}
+        {list(e.headings.inPort, 'inPort', e.inPort, (u) => () => setPicked(u.id), true)}
         {list(
           e.headings.docks,
           'docks',

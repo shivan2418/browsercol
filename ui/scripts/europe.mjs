@@ -109,6 +109,18 @@ for (const name of browsers) {
     const afterSell = await gold(page);
     check(`${name}: selling ${goodName} pays the gold`, afterSell > afterBuy, `${afterBuy} -> ${afterSell}`);
 
+    // Drag the ship onto the ships sailing to America: it sets sail.
+    await panel.locator('[data-list=inPort] [data-unit]').first().dragTo(panel.locator('[data-list=toAmerica]'));
+    const sailing = await panel
+      .locator('[data-list=toAmerica] [data-unit]')
+      .first()
+      .waitFor({ timeout: 60_000 })
+      .then(
+        () => true,
+        () => false,
+      );
+    check(`${name}: dragging the ship to America sends it sailing`, sailing);
+
     check(`${name}: no page errors`, errors.length === 0, errors.join('; '));
   } catch (ex) {
     check(`${name}: trading in Europe`, false, await diagnose(ex));
