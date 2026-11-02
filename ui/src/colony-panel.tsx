@@ -39,6 +39,7 @@ import {
 import { Box, GoodsAmount, type Art } from './frame';
 import { PANEL_KEYS } from './map-keys';
 import { accepts, draggableProps, dropTargetProps, same, type Item, type Place } from './moves';
+import { ContextMenuContext, useContextMenu } from './popup-menu';
 import type { Buildable, ColonyView, GoodsAmount as Goods, UnitRef } from './webgui';
 
 /** FreeCol's tile size, which the tiles of TilesPanel are laid out by. */
@@ -175,8 +176,9 @@ function useMovable(item: Item) {
  */
 function Unit({ u, art, className, children }: { u: UnitRef; art: Art; className?: string; children?: ReactNode }) {
   const movable = useMovable({ kind: 'unit', id: u.id });
+  const onContextMenu = useContextMenu((m) => m.unit(u.id));
   return (
-    <span className={className} data-unit={u.id} {...movable}>
+    <span className={className} data-unit={u.id} onContextMenu={onContextMenu} {...movable}>
       <Img keys={u.keys} art={art} className="unit" alt={u.name} />
       {children}
     </span>
@@ -190,20 +192,30 @@ function Unit({ u, art, className, children }: { u: UnitRef; art: Art; className
 function MovableGoods({
   g,
   item,
+  at,
   art,
   className,
   over,
 }: {
   g: Goods;
   item: Item;
+  /** The id of the colony the goods are stored in, or of the ship they are aboard (for their menu). */
+  at: string;
   art: Art;
   className?: string;
   /** More than the warehouse holds (Swing's red). */
   over?: boolean;
 }) {
   const movable = useMovable(item);
+  const onContextMenu = useContextMenu((m) => (g.amount > 0 ? m.goods(at, g.type, g.amount) : null));
   return (
-    <span className={className} data-goods={g.type} data-over={over} {...(g.amount > 0 ? movable : {})}>
+    <span
+      className={className}
+      data-goods={g.type}
+      data-over={over}
+      onContextMenu={onContextMenu}
+      {...(g.amount > 0 ? movable : {})}
+    >
       <GoodsAmount keys={g.keys} name={g.name} amount={g.amount} art={art} />
     </span>
   );
@@ -312,6 +324,7 @@ function TilePlace({
  */
 function Port({ c, art }: { c: ColonyView; art: Art }) {
   const moves = useContext(ColonyActions);
+  const menus = useContext(ContextMenuContext);
   const port = c.inPort;
   // The choice is kept in chosen, which the warehouse reads too; this only draws it again.
   const [, redraw] = useState(0);
@@ -338,6 +351,11 @@ function Port({ c, art }: { c: ColonyView; art: Art }) {
             aria-pressed={u.id === ship?.id}
             title={u.name}
             onClick={() => choose(u.id)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              const menu = menus?.unit(u.id);
+              if (menu) menus!.show(menu, e.clientX, e.clientY);
+            }}
           >
             <Img keys={u.keys} art={art} className="unit" alt={u.name} />
           </button>
@@ -359,6 +377,7 @@ function Port({ c, art }: { c: ColonyView; art: Art }) {
                 key={i}
                 g={g}
                 art={art}
+                at={ship.id}
                 className="made-goods"
                 item={{ kind: 'goods', from: 'cargo', type: g.type, index: i, amount: g.amount, ask: false }}
               />
@@ -404,6 +423,7 @@ function Warehouse({ c, art }: { c: ColonyView; art: Art }) {
           key={g.type}
           g={g}
           art={art}
+          at={c.id}
           className="stored"
           item={{ kind: 'goods', from: 'warehouse', type: g.type, ask: false }}
           over={g.over}

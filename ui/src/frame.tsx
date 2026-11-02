@@ -21,14 +21,13 @@ type FrameProps = {
 } & Omit<HTMLAttributes<HTMLElement>, 'title' | 'children'>;
 
 /**
- * A window: a title bar in the menu bar's colours, with the panel's name and
- * a close button, over the panel's body. Escape closes it too, before
- * anything else on the page sees the key.
+ * Close the newest thing on screen that takes Escape (a window, a right-click menu) with Escape, before
+ * anything else on the page sees the key; the others under it wait. Null: Escape does nothing here, and
+ * is kept from what is under it.
  */
-export function WindowFrame({ title, close, children, className, ...rest }: FrameProps) {
+export function useEscape(close: (() => void) | null) {
   const closing = useRef(close);
   closing.current = close;
-  const titleId = useId();
   useEffect(() => {
     const me = {};
     frames.push(me);
@@ -44,6 +43,16 @@ export function WindowFrame({ title, close, children, className, ...rest }: Fram
       removeEventListener('keydown', onKey, { capture: true });
     };
   }, []);
+}
+
+/**
+ * A window: a title bar in the menu bar's colours, with the panel's name and
+ * a close button, over the panel's body. Escape closes it too, before
+ * anything else on the page sees the key.
+ */
+export function WindowFrame({ title, close, children, className, ...rest }: FrameProps) {
+  useEscape(close);
+  const titleId = useId();
   return (
     <section
       role="dialog"

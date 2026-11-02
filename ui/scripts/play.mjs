@@ -318,6 +318,18 @@ async function play(page, url) {
     const hall = panel.locator('[data-building]').first();
     const onTile = await net();
 
+    // A right-click on the founder opens its quick action menu, with places to work; Escape closes the menu
+    // and leaves the colony panel open.
+    await unit(founder).click({ button: 'right' });
+    const popup = page.locator('.popup[role=menu]');
+    await popup.waitFor({ timeout: 10000 });
+    if ((await popup.locator('[data-entry^="work:"]').count()) === 0) {
+      throw new Error(`the founder's quick action menu has no place to work: ${await popup.innerText()}`);
+    }
+    await page.keyboard.press('Escape');
+    await popup.waitFor({ state: 'detached', timeout: 5000 });
+    if ((await panel.count()) !== 1) throw new Error('Escape closed the colony panel with the menu');
+
     // Drag the founder from its tile into a building.
     await unit(founder).dragTo(hall);
     await within(hall, founder);
@@ -710,6 +722,21 @@ async function play(page, url) {
     await page.mouse.click(box.x + px, box.y + py);
   };
 
+  /** A right-click on our colony's tile opens the tile popup with the colony in it; a click elsewhere closes it. */
+  const tilePopup = async (m, [x, y]) => {
+    const box = await page.locator('#map canvas').boundingBox();
+    const [px, py] = await page.evaluate(([x, y]) => window.fcReveal(x, y), [x, y]);
+    await page.mouse.click(box.x + px, box.y + py, { button: 'right' });
+    const popup = page.locator('.popup[role=menu]');
+    await popup.waitFor({ timeout: 10000 });
+    if ((await popup.locator('[data-entry^="colony:"]').count()) === 0) {
+      throw new Error(`the tile popup of the colony has no colony entry: ${await popup.innerText()}`);
+    }
+    await page.mouse.click(box.x + 5, box.y + box.height - 5);
+    await popup.waitFor({ state: 'detached', timeout: 5000 });
+    console.log('  tile popup: right-click opens the colony tile menu, a click elsewhere closes it');
+  };
+
   await page.goto(url);
   await waitForResult(page, 120000);
   let m = await view();
@@ -764,6 +791,7 @@ async function play(page, url) {
     throw new Error(`the colony panel did not show the founder ${founder}: ${JSON.stringify(seen)}`);
   }
   await moveColonists(m, land, founder);
+  await tilePopup(m, land);
   m = await endTurn();
   if (!at(m.settlements, land)) throw new Error(`the colony at ${label(land)} is gone after the AI turn`);
 
