@@ -3,6 +3,7 @@ import { dialogs } from './dialogs';
 
 const confirm = { text: 'Disband?', ok: 'Yes', cancel: 'No', defaultOk: false, tile: null, object: null, header: null };
 const error = { text: 'Oops', ok: 'OK' };
+const information = { text: 'No room there', object: null, tile: null, at: null, images: [], ok: 'OK' };
 
 describe('dialogs', () => {
   it('shows one dialog at a time, in the order they came', async () => {
@@ -33,7 +34,6 @@ describe('dialogs', () => {
     const d = dialogs();
     d.show('error', error);
     const panel = d.current()!;
-    d.show('error', { ...error, text: 'Later' });
     const answer = d.ask('confirm', confirm);
     const asked = d.current()!;
     expect(asked.kind).toBe('confirm');
@@ -46,6 +46,35 @@ describe('dialogs', () => {
     const next = d.current()!;
     expect(next.kind === 'confirm' && next.ask.text).toBe('Again?');
     if (next.kind === 'confirm') next.done(true);
+    expect(d.current()).toBe(panel);
+  });
+
+  it('shows a panel the Engine shows while a panel is on screen over it, and the panel again once it is closed', () => {
+    const d = dialogs();
+    d.show('error', error);
+    const panel = d.current()!;
+    d.show('information', information);
+    const over = d.current()!;
+    expect(over.kind, 'the explanation is over the panel it answers').toBe('information');
+    if (over.kind !== 'information') return;
+    over.done();
+    expect(d.current(), 'the panel is on screen again').toBe(panel);
+  });
+
+  it('shows a panel the Engine shows while a question is on screen behind the question', () => {
+    const d = dialogs();
+    d.show('error', error);
+    const panel = d.current()!;
+    void d.ask('confirm', confirm);
+    d.show('information', information);
+    const asked = d.current()!;
+    expect(asked.kind, 'the question is still on screen').toBe('confirm');
+    if (asked.kind !== 'confirm') return;
+    asked.done(false);
+    const over = d.current()!;
+    expect(over.kind, 'the explanation is over the panel it answers').toBe('information');
+    if (over.kind !== 'information') return;
+    over.done();
     expect(d.current()).toBe(panel);
   });
 

@@ -1242,6 +1242,8 @@ describe('the options panel', () => {
     act(() =>
       box.replace('options', { ...options, kind: 'difficulty', title: 'Difficulty' }, (o) => o.kind === 'difficulty'),
     );
-    expect(box.shown('options').map((o) => o.kind)).toEqual(['game', 'difficulty']);
+    // The difficulty panel is over the game options panel, which is still there: a panel the Engine
+    // shows while another is on screen goes over it.
+    expect(box.shown('options').map((o) => o.kind)).toEqual(['difficulty', 'game']);
   });
 });
