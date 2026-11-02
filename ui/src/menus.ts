@@ -2,6 +2,7 @@
 // An entry the Browser UI can't do yet is disabled, not left out, so the menus match FreeCol's layout.
 import type { Menu } from './frame';
 import type { Command } from './input';
+import type { ViewModes } from './tileset';
 
 type Items = Menu['items'];
 
@@ -24,6 +25,12 @@ export interface MenuActions {
   centreOnUnit: () => void;
   /** Open the Preferences window. */
   preferences: () => void;
+  /** Which of the grid, borders and tile names are on. */
+  modes: ViewModes;
+  toggleMode: (mode: keyof ViewModes) => void;
+  /** Whether the page is full screen, and a switch for it. */
+  fullScreen: boolean;
+  toggleFullScreen: () => void;
 }
 
 const later = (label: string): Items[number] => ({ label, run: () => {}, disabled: true });
@@ -74,9 +81,9 @@ export function viewMenu(a: MenuActions): Items {
     { label: 'Zoom Out', run: () => a.zoom(-1) },
     { label: 'Center on Active Unit', run: a.centreOnUnit, disabled: !a.hasActiveUnit },
     { label: 'Europe', run: () => a.run({ k: 'showEurope' }), disabled: !a.ready },
-    later('Show Map Grid'),
-    later('Show Borders'),
-    later('Show Tile Names'),
-    later('Full Screen'),
+    { label: 'Show Map Grid', run: () => a.toggleMode('grid'), checked: a.modes.grid },
+    { label: 'Show Borders', run: () => a.toggleMode('borders'), checked: a.modes.borders },
+    { label: 'Show Tile Names', run: () => a.toggleMode('names'), checked: a.modes.names },
+    { label: 'Full Screen', run: a.toggleFullScreen, checked: a.fullScreen },
   ];
 }

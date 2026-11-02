@@ -199,6 +199,18 @@ const menuActions = (): MenuActions => ({
   },
   zoom: (steps) => dispatch({ k: 'zoom', steps, at: [view.viewport[0] / 2, view.viewport[1] / 2] }),
   centreOnUnit: () => dispatch({ k: 'focus', tile: null, at: view.active?.tile ?? null }),
+  modes: view.modes,
+  toggleMode: (mode) => {
+    dispatch({ k: 'toggle', mode });
+    renderSide();
+  },
+  fullScreen: document.fullscreenElement !== null,
+  toggleFullScreen: () => {
+    // The browser may refuse (no gesture, or not allowed); the menu follows fullscreenchange.
+    void (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()).catch(
+      () => {},
+    );
+  },
 });
 /** The menus, with the entries each has now. */
 const currentMenus = (): Menu[] => {
@@ -250,6 +262,7 @@ const contextMenus: ContextMenus = {
   goods: (location, type, amount) => (menuClient ? parseMenu(menuClient.goodsMenu(location, type, amount)) : null),
   show: (menu, x, y) => showPopup({ menu, x, y }),
 };
+document.addEventListener('fullscreenchange', () => renderSide());
 const sideRoot = createRoot(document.getElementById('side')!);
 function renderSide() {
   menuRoot.render(<MenuBar menus={currentMenus()} status={statusLine} />);

@@ -8,7 +8,17 @@
 // the cursor and the active unit's path drawn over it.
 import { Application, Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import { resources, type ArtLayer, type Resources } from './resources';
-import { overlay, scene, srcId, type Direction, type MapView, type Op, type Src } from './tileset';
+import {
+  overlay,
+  scene,
+  srcId,
+  viewModeOps,
+  type ViewModes,
+  type Direction,
+  type MapView,
+  type Op,
+  type Src,
+} from './tileset';
 import { BLINK_MS, MOVE_MS, blink, moves, slide, type Move } from './motion';
 import { H, W, activeUnitFacts, cursor, tileOrigin, toMap, type ViewState } from './view';
 
@@ -454,6 +464,14 @@ function roadPath(dirs: Direction[], p: PathSink) {
   }
 }
 
+/** The diamond's sides, by the neighbour they face. */
+const SIDES: Record<'NE' | 'SE' | 'SW' | 'NW', [[number, number], [number, number]]> = {
+  NE: [CORNERS.N, CORNERS.E],
+  SE: [CORNERS.E, CORNERS.S],
+  SW: [CORNERS.S, CORNERS.W],
+  NW: [CORNERS.W, CORNERS.N],
+};
+
 /** How long the fog takes to fade from a tile that came into view, as a multiple of a slide's time. */
 const FOG_FADE_SLIDES = 2;
 
@@ -553,6 +571,23 @@ async function paint(pen: Pen, layer: Layer, ops: Op[], pics: ReturnType<typeof 
         pen.line(ox + W / 2, oy + H / 2, tx + W / 2, ty + H / 2, pathColor(op.turns), 5, 0.5);
         return;
       }
+      case 'grid':
+        return pen.road(ox, oy, 0x000000, (p) => {
+          p.moveTo(W / 2, 0);
+          p.lineTo(W, H / 2);
+          p.lineTo(W / 2, H);
+          p.lineTo(0, H / 2);
+          p.lineTo(W / 2, 0);
+        });
+      case 'border':
+        for (const d of op.sides) {
+          const [a, b] = SIDES[d as 'NE' | 'SE' | 'SW' | 'NW'];
+          pen.line(ox + a[0], oy + a[1], ox + b[0], oy + b[1], op.rgb, 4, 0.8);
+        }
+        return;
+      case 'tileName':
+        pen.text(op.name, ox + W / 2, oy + H / 2 - NAME.size / 2, { ...NAME, size: 11 }, true);
+        return;
       case 'pathMark':
         pen.circle(ox + W / 2, oy + H / 2, 10, pathColor(op.turns), 0x000000, 0.5);
         if (op.turns > 0) pen.text(String(op.turns), ox + W / 2, oy + H / 2 - PATH_TURNS.size / 2, PATH_TURNS, true);
@@ -638,6 +673,25 @@ export function mapDrawer(
   /** The overlay's operations for a view: its cursor, and the path if the map view is about its active unit. */
   const overlayOf = (v: ViewState) => overlay(cursor(v), v.preview ?? activeUnitFacts(v)?.path ?? null, res!);
 
+  /** The View menu's ops, kept until the map or the switches change: a whole map of them is dear to compare. */
+  let modeCache: { map: ViewState['map']; modes: ViewModes; ops: Op[]; id: number } = {
+    map: null,
+    modes: { grid: false, borders: false, names: false },
+    ops: [],
+    id: 0,
+  };
+  const modeOpsOf = (v: ViewState) => {
+    const c = modeCache;
+    if (
+      c.map === v.map &&
+      c.modes.grid === v.modes.grid &&
+      c.modes.borders === v.modes.borders &&
+      c.modes.names === v.modes.names
+    )
+      return c;
+    return (modeCache = { map: v.map, modes: v.modes, ops: v.map ? viewModeOps(v.map, v.modes) : [], id: c.id + 1 });
+  };
+
   const camera = () => {
     if (!pen || !view) return;
     const now = performance.now();
@@ -664,11 +718,12 @@ export function mapDrawer(
   /** Redraw the overlay if it changed, then move the camera. */
   async function showNow() {
     if (!pen || !view) return;
+    const modes = modeOpsOf(view);
     const ops = overlayOf(view);
-    const key = JSON.stringify(ops);
+    const key = `${modes.id}|${JSON.stringify(ops)}`;
     if (key !== shown) {
       shown = key;
-      await paint(pen, 1, ops, pics);
+      await paint(pen, 1, [...modes.ops, ...ops], pics);
     }
     camera();
   }

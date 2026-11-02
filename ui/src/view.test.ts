@@ -275,3 +275,11 @@ describe('edge scrolling', () => {
     expect(edgeScroll([630, 240], [1280, 960])).toEqual([0, 0]);
   });
 });
+
+describe('view modes', () => {
+  it('switch the grid, borders and tile names on and off one by one', () => {
+    const on = reduce(initialView, { k: 'toggle', mode: 'grid' });
+    expect(on.modes).toEqual({ grid: true, borders: false, names: false });
+    expect(reduce(on, { k: 'toggle', mode: 'grid' }).modes).toEqual(initialView.modes);
+  });
+});

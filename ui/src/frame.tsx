@@ -155,7 +155,13 @@ export function GoodsAmount({
 /** A menu of the menu bar: its name and its entries, which may be none yet. */
 export interface Menu {
   name: string;
-  items: { label: string; run: () => void; disabled?: boolean; /** Its hotkey, as shown beside it. */ hint?: string }[];
+  items: {
+    label: string;
+    run: () => void;
+    disabled?: boolean;
+    /** A switch, shown ticked when on. */ checked?: boolean;
+    /** Its hotkey, as shown beside it. */ hint?: string;
+  }[];
 }
 
 /** FreeCol's menus (InGameMenuBar), in its order; menus.ts and reports.tsx give them entries. */
@@ -204,14 +210,16 @@ export function MenuBar({ menus, status }: { menus: Menu[]; status: string }) {
               <div role="menu" aria-label={m.name}>
                 {m.items.map((item) => (
                   <button
-                    role="menuitem"
+                    role={item.checked === undefined ? 'menuitem' : 'menuitemcheckbox'}
                     key={item.label}
                     disabled={item.disabled}
+                    aria-checked={item.checked}
                     onClick={() => {
                       setOpen(null);
                       item.run();
                     }}
                   >
+                    {item.checked !== undefined && <span className="tick">{item.checked ? '✓' : ''}</span>}
                     {item.label}
                     {item.hint && <kbd className="hint">{item.hint}</kbd>}
                   </button>
