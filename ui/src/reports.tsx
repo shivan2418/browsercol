@@ -5,8 +5,8 @@
 // Europe, a tile of the map or a detail report; the report closes first, as only one dialog is open at
 // a time.
 //
-// To add a report (#74 and the rest of #75): add its view to ReportView (webgui.ts), a body for it in
-// BODIES below, and an entry in REPORTS, which is the Report menu. The Engine side is Reports.java.
+// To add a report: add its view to ReportView (webgui.ts), a body for it in BODIES below, and an entry
+// in REPORTS, which is the Report menu. The Engine side is Reports.java.
 import './reports.css';
 import { createContext, useContext, useState, type ReactNode } from 'react';
 import type { Dialog } from './dialogs';
