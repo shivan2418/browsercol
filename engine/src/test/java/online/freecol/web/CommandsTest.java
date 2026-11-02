@@ -1248,4 +1248,65 @@ class CommandsTest {
         assertTrue(commands.menuEntry("unloadAll:" + ship.getId()), "unloads");
         assertEquals(0, ship.getGoodsCount(food));
     }
+
+    /**
+     * A ship is assigned to a route between the colony and Europe: it
+     * loads at the colony, sails on its own turns, and the route is
+     * shown for it and dropped again on request.
+     */
+    @Test
+    @Timeout(300)
+    void aShipFollowsItsTradeRoute() throws Exception {
+        startGame();
+        final Commands commands = client.getCommands();
+        final Player player = client.getClient().getMyPlayer();
+        final Colony serverColony = foundAColony(commands);
+        final Colony ours = client.getGame()
+            .getFreeColGameObject(serverColony.getId(), Colony.class);
+        final Unit ship = player.getUnits().filter(Unit::isNaval).findFirst().get();
+        final Unit serverShip = serverUnit(ship);
+        select(commands, ship);
+        assertTrue(commands.move(client.getGame().getMap()
+            .getDirection(ship.getTile(), ours.getTile()).toString()), "into port");
+        final GoodsType cloth = client.getGame().getSpecification().getGoodsType("model.goods.cloth");
+        client.debugApplied(server.debug("{\"action\":\"addGoods\",\"type\":\"model.goods.cloth\","
+            + "\"amount\":100,\"x\":" + ours.getTile().getX() + ",\"y\":" + ours.getTile().getY() + "}"));
+        awaitTrue(() -> ours.getGoodsCount(cloth) == 100, "the colony has the cloth");
+
+        assertNull(commands.saveTradeRoute(null, "Cloth run", true,
+            List.of(serverColony.getId(), player.getEurope().getId()),
+            List.of(List.of(cloth.getId()), List.of())), "the route is saved");
+        final String routeId = serverRoutes(player).get(0).getId();
+
+        assertFalse(commands.assignTradeRoute(ship.getId(), "tradeRoute:none"), "no such route");
+        assertTrue(commands.assignTradeRoute(ship.getId(), routeId), "assigned");
+        assertEquals(routeId, serverShip.getTradeRoute().getId(), "the server has it");
+        assertSame(player.getTradeRoutes().get(0), ship.getTradeRoute(), "so does the client");
+        assertEquals(1, serverRoutes(player).get(0).getAssignedUnits().size());
+
+        // The ship follows the route as turns pass: the cloth leaves the colony.
+        int turns = 0;
+        while (serverColony.getGoodsCount(cloth) == 100) {
+            endTurnAndWait(commands);
+            assertTrue(++turns < 4, "the ship loads within 4 turns");
+        }
+        assertTrue(serverShip.getGoodsCount(cloth) > 0, "the ship took the cloth");
+        assertEquals(100, serverShip.getGoodsCount(cloth) + serverColony.getGoodsCount(cloth));
+        // ... and sails to Europe, where it is sold.
+        turns = 0;
+        while (!serverShip.isInEurope()) {
+            endTurnAndWait(commands);
+            assertTrue(++turns < 14, "the ship reaches Europe within 14 turns");
+        }
+        turns = 0;
+        while (serverShip.getGoodsCount(cloth) > 0) {
+            endTurnAndWait(commands);
+            assertTrue(++turns < 4, "the cloth is sold in Europe within 4 turns");
+        }
+
+        // Dropped.
+        assertTrue(commands.assignTradeRoute(ship.getId(), null), "dropped");
+        assertNull(serverShip.getTradeRoute());
+        assertNull(ship.getTradeRoute());
+    }
 }

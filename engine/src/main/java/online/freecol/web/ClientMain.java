@@ -505,6 +505,13 @@ public final class ClientMain {
         });
     }
 
+    /** Assign a unit to a trade route; an empty route id drops its route. */
+    @JSExport
+    public static void assignTradeRoute(String unitId, String routeId) {
+        command("assignTradeRoute", () -> engine.getCommands()
+                .assignTradeRoute(unitId, routeId.isEmpty() ? null : routeId));
+    }
+
     /** Delete a trade route, by its id. */
     @JSExport
     public static void deleteTradeRoute(String id) {

@@ -29,7 +29,7 @@ function host() {
         goTo={() => {}}
         art={art}
         report={{ groupBy: () => {}, filter: () => {}, ignore: () => {} }}
-        routes={{ save: () => {}, remove: () => {} }}
+        routes={{ save: () => {}, remove: () => {}, assign: () => {} }}
       />
     </ReportContext.Provider>,
   );

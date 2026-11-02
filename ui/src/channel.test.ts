@@ -110,6 +110,7 @@ function fakeClient(scope: Scope, log: string[]): ClientExports {
     showColony: () => {},
     saveTradeRoute: () => {},
     deleteTradeRoute: () => {},
+    assignTradeRoute: () => {},
     reportGroupBy: () => {},
     reportFilter: () => {},
     reportIgnore: () => {},

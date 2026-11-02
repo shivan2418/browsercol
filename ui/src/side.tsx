@@ -17,6 +17,8 @@ export interface SideProps {
   status: string;
   /** The orders the active unit can take now, by name, as the Engine says. */
   orders: string[];
+  /** The name of the trade route the active unit follows, if it follows one. */
+  route?: string | null;
   /** The saved games, newest first. */
   saves: SaveMeta[];
   /** What happened to the last save, load or delete; empty for nothing yet. */
@@ -77,6 +79,7 @@ export function Side({
   unasked,
   status,
   orders,
+  route,
   saves,
   saveNote,
   run,
@@ -107,6 +110,11 @@ export function Side({
           </button>
         ))}
       </div>
+      {route && (
+        <div id="unit-route">
+          Trade route: <span>{route}</span>
+        </div>
+      )}
       <div>
         Click a unit to select it, click a tile to go there. Arrows or numpad move. Drag, or rest the pointer at an
         edge, to scroll; the wheel zooms.

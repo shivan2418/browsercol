@@ -49,9 +49,14 @@ function host() {
   };
   const saved: TradeRouteDraft[] = [];
   const removed: string[] = [];
-  const routes: RouteButtons = { save: (d) => saved.push(d), remove: (id) => removed.push(id) };
+  const assigned: string[] = [];
+  const routes: RouteButtons = {
+    save: (d) => saved.push(d),
+    remove: (id) => removed.push(id),
+    assign: (unit, route) => assigned.push(`${unit} ${route}`),
+  };
   render(<DialogHost dialogs={box} goTo={(at) => went.push(at)} art={art} report={report} routes={routes} />);
-  return { box, went, pressed, saved, removed };
+  return { box, went, pressed, saved, removed, assigned };
 }
 
 type Message = GuiEvents['messages']['messages'][number];
@@ -947,6 +952,9 @@ describe('the warehouse dialog', () => {
 describe('the trade routes panel', () => {
   const routes = (more: Partial<GuiEvents['tradeRoutes']> = {}): GuiEvents['tradeRoutes'] => ({
     title: 'Trade Routes',
+    unit: null,
+    assign: 'Assign Trade Route',
+    unassign: 'Drop Trade Route',
     routes: [
       {
         id: 'tradeRoute:1',
@@ -983,6 +991,25 @@ describe('the trade routes panel', () => {
     ...more,
   });
   const press = (name: string | RegExp) => act(() => void fireEvent.click(screen.getByRole('button', { name })));
+
+  it('assigns the picked route to the unit it was opened for, and drops it again', () => {
+    const { box, assigned } = host();
+    act(() => box.replace('tradeRoutes', routes({ unit: { id: 'unit:9', name: 'Caravel', route: null } })));
+    expect((screen.getByRole('button', { name: 'Assign Trade Route' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: 'Drop Trade Route' }) as HTMLButtonElement).disabled).toBe(true);
+    press('Fur run (2)');
+    press('Assign Trade Route');
+    expect(assigned).toEqual(['unit:9 tradeRoute:1']);
+    act(() => box.replace('tradeRoutes', routes({ unit: { id: 'unit:9', name: 'Caravel', route: 'tradeRoute:1' } })));
+    press('Drop Trade Route');
+    expect(assigned).toEqual(['unit:9 tradeRoute:1', 'unit:9 null']);
+  });
+
+  it('has no assign buttons when it was not opened for a unit', () => {
+    const { box } = host();
+    act(() => box.replace('tradeRoutes', routes()));
+    expect(screen.queryByRole('button', { name: 'Assign Trade Route' })).toBeNull();
+  });
 
   it('lists the routes with the units that follow them, and deletes the picked one', () => {
     const { box, removed } = host();

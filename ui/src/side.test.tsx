@@ -36,6 +36,15 @@ describe('the side panel', () => {
     expect(ran).toEqual([{ k: 'buildColony' }, { k: 'endTurn' }, { k: 'showEurope' }, { k: 'declareIndependence' }]);
   });
 
+  it('shows the trade route the active unit follows', () => {
+    const { rerender } = render(
+      <Side turn="1" info="" unasked={[]} status="" orders={[]} route="Fur run" run={() => {}} {...saving()} />,
+    );
+    expect(screen.getByText('Fur run')).toBeTruthy();
+    rerender(<Side turn="1" info="" unasked={[]} status="" orders={[]} route={null} run={() => {}} {...saving()} />);
+    expect(screen.queryByText('Fur run')).toBeNull();
+  });
+
   it('enables the orders the active unit can take, and disables the rest', () => {
     const ran: Command[] = [];
     render(

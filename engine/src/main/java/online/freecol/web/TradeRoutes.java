@@ -31,9 +31,11 @@ final class TradeRoutes {
      *
      * @param client The client.
      * @param error The reason the last change was refused, or null.
+     * @param unit The unit the panel was opened for, to assign a route to, or null.
      * @return The JSON of the {@code tradeRoutes} event.
      */
-    static String json(FreeColClient client, String error) {
+    static String json(FreeColClient client, String error,
+                       net.sf.freecol.common.model.Unit unit) {
         final Player player = client.getMyPlayer();
         final List<String> routes = new ArrayList<>();
         for (TradeRoute tr : sorted(player)) {
@@ -67,8 +69,19 @@ final class TradeRoutes {
                 .put("icon", "image.icon." + gt.getId())
                 .toString());
         }
+        final String forUnit = (unit == null || unit.isDisposed()) ? null
+            : new Json()
+                .put("id", unit.getId())
+                .put("name", Messages.message(
+                         unit.getLabel(net.sf.freecol.common.model.Unit.UnitLabelType.NATIONAL)))
+                .put("route", (unit.getTradeRoute() == null) ? null
+                                                              : unit.getTradeRoute().getId())
+                .toString();
         return new Json()
             .put("title", Messages.message("tradeRoutePanel.name"))
+            .putRaw("unit", (forUnit == null) ? "null" : forUnit)
+            .put("assign", Messages.message("assignTradeRoute"))
+            .put("unassign", Messages.message("tradeRoutePanel.deassignRoute"))
             .putRaw("routes", Json.array(routes))
             .putRaw("places", Json.array(places))
             .putRaw("goods", Json.array(goods))

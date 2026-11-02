@@ -31,6 +31,8 @@ export interface ReportButtons {
 export interface RouteButtons {
   save: (draft: TradeRouteDraft) => void;
   remove: (id: string) => void;
+  /** Make a unit follow a route, or with null stop following one (ClientExports.assignTradeRoute). */
+  assign: (unit: string, route: string | null) => void;
 }
 
 /** An image of a game object or event, if the Tileset has one. */
@@ -872,6 +874,24 @@ function RoutesPanel({ d, art, routes }: { d: Of<'tradeRoutes'>; art: Art; route
         <button data-answer="new" onClick={() => setEditing(blank)}>
           {e.newRoute}
         </button>
+        {e.unit && (
+          <>
+            <button
+              data-answer="assign"
+              disabled={!route || route.id === e.unit.route}
+              onClick={() => route && e.unit && routes.assign(e.unit.id, route.id)}
+            >
+              {e.assign}
+            </button>
+            <button
+              data-answer="unassign"
+              disabled={e.unit.route === null}
+              onClick={() => e.unit && routes.assign(e.unit.id, null)}
+            >
+              {e.unassign}
+            </button>
+          </>
+        )}
         <button data-answer="edit" disabled={!route} onClick={() => route && setEditing(edit(route))}>
           {e.editRoute}
         </button>
