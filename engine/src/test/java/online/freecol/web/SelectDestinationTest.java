@@ -58,6 +58,8 @@ class SelectDestinationTest {
 
     /** The label of the destination the fake Browser UI picks. */
     private volatile String wanted = null;
+    /** What the fake Browser UI answers to the select amount dialog. */
+    private volatile String amount = null;
 
     private ServerEngine server;
     private ClientEngine client;
@@ -72,7 +74,8 @@ class SelectDestinationTest {
     /**
      * The fake Browser UI picks the destination it is told to, closes the
      * dialog when there is none to pick, and accepts every confirmation
-     * but the one that would sail to Europe on its own.
+     * but the one that would sail to Europe on its own. The Crown's
+     * arrears are not paid: the boycott stands.
      */
     private String answer(String kind, String json) {
         switch (kind) {
@@ -85,7 +88,10 @@ class SelectDestinationTest {
         case "endTurn":
             return "ok";
         case "confirm":
+            if (json.contains("boycotting these goods")) return "false";
             return json.contains("high seas") ? "false" : "true";
+        case "amount":
+            return amount;
         default:
             return null;
         }
@@ -484,5 +490,119 @@ class SelectDestinationTest {
             "the server has the ship where it was");
         assertNull(serverShip(ship).getDestination(),
             "the server has the ship with no destination");
+    }
+
+    /**
+     * The player buys goods in Europe onto the ship in port and sells them
+     * again: the gold and the ship's cargo follow, on the server. A
+     * boycotted goods cannot be traded, and the panel says why.
+     */
+    @Test
+    @Timeout(300)
+    void goodsAreBoughtAndSoldInEurope() throws Exception {
+        startGame();
+        final Player player = client.getClient().getMyPlayer();
+        final Player serverPlayer = server.getGame()
+            .getFreeColGameObject(player.getId(), Player.class);
+        final Unit ship = ship();
+        sailToEurope(ship);
+        // A purse for the shopping.
+        client.debugApplied(server.debug("{\"action\":\"addGold\",\"amount\":5000}"));
+        awaitGold(serverPlayer.getGold());
+
+        final GoodsType cloth = client.getGame().getSpecification()
+            .getGoodsType("model.goods.cloth");
+        final int price = serverPlayer.getMarket().getCostToBuy(cloth);
+        assertEquals(player.getMarket().getCostToBuy(cloth), price,
+            "the client and the server have the same price");
+        assertTrue(price > 0, "the market has a price for cloth");
+
+        // Buy: the player is asked how much, and the most is what the gold
+        // buys and the ship has room for.
+        final int most = Math.min(ship.getLoadableAmount(cloth),
+                                  player.getGold() / price);
+        int gold = serverPlayer.getGold();
+        amount = "20";
+        assertTrue(client.getCommands().buyGoods(ship.getId(), cloth.getId()),
+            "goods are bought");
+        assertTrue(lastQuestion("amount").contains("\"max\":" + most + ","),
+            lastQuestion("amount"));
+        assertEquals(20, serverShip(ship).getGoodsCount(cloth),
+            "the ship has the cloth");
+        assertEquals(20, ship.getGoodsCount(cloth), "and the client knows it");
+        assertEquals(gold - 20 * price, serverPlayer.getGold(), "the gold is spent");
+        awaitGold(gold - 20 * price);
+
+        // Sell: the player is asked how much of the stack to sell, and gets
+        // the market's price for it, less the tax (none yet).
+        final int sellPrice = serverPlayer.getMarket().getPaidForSale(cloth);
+        gold = serverPlayer.getGold();
+        amount = "10";
+        assertTrue(client.getCommands().sellGoods(ship.getId(), cloth.getId()),
+            "goods are sold");
+        assertTrue(lastQuestion("amount").contains("\"max\":20,"),
+            lastQuestion("amount"));
+        assertEquals(10, serverShip(ship).getGoodsCount(cloth), "the cloth is sold");
+        assertEquals(10, ship.getGoodsCount(cloth), "and the client knows it");
+        assertEquals(gold + 10 * sellPrice, serverPlayer.getGold(),
+            "the gold is paid");
+        awaitGold(gold + 10 * sellPrice);
+
+        // The Europe panel shows the cargo of the ship in port.
+        java.util.Map<String, Object> panel = europePanel(player);
+        assertEquals(10, cargoOf(panel, ship.getId(), cloth.getId()),
+            "the panel lists the cargo");
+
+        // A boycotted goods cannot be traded, and the panel says why.
+        serverPlayer.getMarket().setArrears(cloth, 100);
+        player.getMarket().setArrears(cloth, 100);
+        assertFalse(player.canTrade(cloth), "the cloth is boycotted");
+        panel = europePanel(player);
+        final java.util.Map<String, Object> entry = marketOf(panel).stream()
+            .filter(g -> cloth.getId().equals(g.get("id"))).findFirst().get();
+        assertEquals(false, entry.get("enabled"), "the goods cannot be traded");
+        assertEquals(Messages.message(Boycotts.reason(player, cloth)),
+            entry.get("reason"), "the panel says why");
+
+        // The trade is refused: the player is asked to pay the arrears, and
+        // the fake Browser UI does not.
+        amount = null;
+        gold = serverPlayer.getGold();
+        assertFalse(client.getCommands().buyGoods(ship.getId(), cloth.getId()),
+            "a boycotted goods cannot be bought");
+        assertTrue(lastQuestion("confirm").contains("boycotting these goods"),
+            "the player is asked to pay the arrears");
+        assertFalse(client.getCommands().sellGoods(ship.getId(), cloth.getId()),
+            "a boycotted goods cannot be sold");
+        assertEquals(10, serverShip(ship).getGoodsCount(cloth),
+            "nothing bought or sold");
+        assertEquals(gold, serverPlayer.getGold(), "nothing paid");
+    }
+
+    /**
+     * The amount of a goods type in the cargo of a ship, as the Europe panel
+     * shows it.
+     *
+     * @param panel The Europe panel.
+     * @param shipId The id of the ship.
+     * @param goodsId The id of the goods type.
+     * @return The amount, or 0 for none.
+     */
+    @SuppressWarnings("unchecked")
+    private static int cargoOf(java.util.Map<String, Object> panel, String shipId,
+                               String goodsId) {
+        for (Object o : (List<Object>)panel.get("inPort")) {
+            final java.util.Map<String, Object> unit
+                = (java.util.Map<String, Object>)o;
+            if (!shipId.equals(unit.get("id"))) continue;
+            for (Object c : (List<Object>)unit.get("cargo")) {
+                final java.util.Map<String, Object> cargo
+                    = (java.util.Map<String, Object>)c;
+                if (goodsId.equals(cargo.get("id"))) {
+                    return ((Number)cargo.get("amount")).intValue();
+                }
+            }
+        }
+        return 0;
     }
 }

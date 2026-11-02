@@ -290,6 +290,18 @@ public final class ClientMain {
         command("boardShip", () -> engine.getCommands().boardShip(unitId, shipId));
     }
 
+    /** Europe panel: buy goods of a type onto a ship in port, by ids. */
+    @JSExport
+    public static void buyGoods(String shipId, String goodsTypeId) {
+        command("buyGoods", () -> engine.getCommands().buyGoods(shipId, goodsTypeId));
+    }
+
+    /** Europe panel: sell a ship's cargo in Europe, by ids. */
+    @JSExport
+    public static void sellGoods(String shipId, String goodsTypeId) {
+        command("sellGoods", () -> engine.getCommands().sellGoods(shipId, goodsTypeId));
+    }
+
     /** Europe panel: send a ship in port to the New World, by id. */
     @JSExport
     public static void sailToNewWorld(String shipId) {
