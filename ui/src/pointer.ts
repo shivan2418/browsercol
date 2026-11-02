@@ -83,10 +83,12 @@ export interface PointerDeps {
   };
 }
 
-/** Move the view with the pointer on the map in a host. Returns whether the last click was a drag. */
+/** Move the view with the middle button on the map in a host. Returns whether the last click was a drag. */
 export function pointerInput(host: HTMLElement, { view, dispatch, tileAt, goto }: PointerDeps): () => boolean {
   let wheel = 0;
   let from: [number, number] | null = null;
+  /** Whether the press in progress is the middle button, the only one that pans. */
+  let panning = false;
   let moved = 0;
   /** The tile the Go To order is held on, once the hold has shown its path. */
   let holding: Tile | null = null;
@@ -98,6 +100,8 @@ export function pointerInput(host: HTMLElement, { view, dispatch, tileAt, goto }
   };
   host.addEventListener('pointerdown', (e) => {
     from = [e.clientX, e.clientY];
+    panning = e.button === 1;
+    if (panning) e.preventDefault();
     moved = 0;
     heldFor = false;
     clearTimeout(holdTimer);
@@ -123,7 +127,7 @@ export function pointerInput(host: HTMLElement, { view, dispatch, tileAt, goto }
     const [dx, dy] = [e.clientX - from[0], e.clientY - from[1]];
     moved += Math.abs(dx) + Math.abs(dy);
     from = [e.clientX, e.clientY];
-    dispatch({ k: 'pan', dx, dy });
+    if (panning) dispatch({ k: 'pan', dx, dy });
   });
   addEventListener('pointerup', () => {
     clearTimeout(holdTimer);
