@@ -6,7 +6,8 @@
 // unless every browser finishes the game, fetching the data bundle once.
 // The page's dialogs are answered as scripts/dialogs.mjs says.
 // Run in the web image:
-//   DEV_VARIANT=web ./dev.sh node ui/scripts/smoke.mjs [--browsers chromium,firefox] [--autoplay N] [--query preset=NAME]
+//   DEV_VARIANT=web ./dev.sh node ui/scripts/smoke.mjs [--browsers chromium,firefox] [--autoplay N] [--query preset=NAME] [--url https://deployed.site/path/]
+import fs from 'node:fs';
 import path from 'node:path';
 import { browserNames, collectPageErrors, diagnose, launchBrowser, opt, waitForResult } from './common.mjs';
 import { answerDialogs } from './dialogs.mjs';
@@ -58,6 +59,7 @@ for (const name of browsers) {
   const page = await browser.newPage();
   await answerDialogs(page);
   const errors = collectPageErrors(page);
+  server.watch?.(page);
   server.resetDataFetches();
   const t = Date.now();
   let result;
@@ -65,6 +67,7 @@ for (const name of browsers) {
     await page.goto(url);
     if (screen) await startFromScreen(page);
     result = await waitForResult(page, timeout);
+    fs.mkdirSync(path.join(dist, '../.cache'), { recursive: true });
     await page.screenshot({ path: path.join(dist, `../.cache/smoke-${name}.png`) });
   } catch (ex) {
     result = { status: 'failed', error: await diagnose(ex) };

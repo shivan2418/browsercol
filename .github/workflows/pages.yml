@@ -1,0 +1,67 @@
+# Builds dist/ and deploys it to GitHub Pages on a push to main (or by hand),
+# then runs the smoke script against the deployed URL.
+# One-time setup: Settings > Pages > Source: "GitHub Actions" (needs the repo
+# public, or a plan with private Pages).
+name: Pages
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clone upstream FreeCol at the pinned commit
+        run: ./freecol.sh
+
+      - name: Build dist/
+        run: ./dev.sh ./build.sh -Prelease
+
+      - name: First-load size
+        run: |
+          # Transfer size of what a first load fetches: every file but the
+          # test Tileset and the debug presets, gzipped as Pages serves it.
+          cd dist
+          total=$(find . -type f ! -path './art/test*' ! -path './presets/*' -print0 | xargs -0 -n1 sh -c 'gzip -9c "$0" | wc -c' | awk '{s+=$1} END {print s}')
+          raw=$(du -sb . | cut -f1)
+          echo "first load (gzip): $((total/1024/1024)) MB; dist raw: $((raw/1024/1024)) MB" | tee -a "$GITHUB_STEP_SUMMARY"
+          [ "$total" -lt $((30*1024*1024)) ] || { echo "over the 30 MB budget" >&2; exit 1; }
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+  smoke:
+    needs: deploy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Smoke against the Pages URL
+        run: DEV_VARIANT=web ./dev.sh node ui/scripts/smoke.mjs --url "${{ needs.deploy.outputs.page_url }}"
