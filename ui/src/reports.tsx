@@ -8,7 +8,7 @@
 // To add a report: add its view to ReportView (webgui.ts), a body for it in BODIES below, and an entry
 // in REPORTS, which is the Report menu. The Engine side is Reports.java.
 import './reports.css';
-import { createContext, useContext, useState, type ReactNode } from 'react';
+import { Fragment, createContext, useContext, useState, type ReactNode } from 'react';
 import type { Dialog } from './dialogs';
 import { GoodsAmount, WindowFrame, type Art, type Menu } from './frame';
 import type { ReportName, ReportView, UnitCount } from './webgui';
@@ -35,7 +35,7 @@ export const ReportContext = createContext<ReportActions>({
 });
 
 /** The Report menu's entries, in order: the report's name, which Commands.showReport knows, and its label. */
-export const REPORTS: readonly { name: Exclude<ReportName, 'labourDetail'>; label: string }[] = [
+export const REPORTS: readonly { name: Exclude<ReportName, 'labourDetail' | 'colopedia'>; label: string }[] = [
   { name: 'colony', label: 'Colony report' },
   { name: 'labour', label: 'Labour report' },
   { name: 'compactLabour', label: 'Compact labour report' },
@@ -53,6 +53,34 @@ export const REPORTS: readonly { name: Exclude<ReportName, 'labourDetail'>; labe
   { name: 'requirements', label: 'Requirements report' },
   { name: 'trade', label: 'Trade report' },
 ];
+
+/** The section the Colopedia opens on, set by the Colopedia menu before it asks for the report. */
+let colopediaStart: string | null = null;
+export const startColopediaAt = (section: string | null) => {
+  colopediaStart = section;
+};
+
+/** The Colopedia menu's entries, FreeCol's sections: each opens the Colopedia on it. */
+export const COLOPEDIA_SECTIONS: readonly { id: string; label: string }[] = [
+  { id: 'terrain', label: 'Terrain Types' },
+  { id: 'resources', label: 'Bonus Resources' },
+  { id: 'goods', label: 'Goods' },
+  { id: 'units', label: 'Units' },
+  { id: 'buildings', label: 'Buildings' },
+  { id: 'fathers', label: 'Founding Fathers' },
+  { id: 'nations', label: 'Nations' },
+  { id: 'nationTypes', label: 'National Advantages' },
+  { id: 'concepts', label: 'Concepts' },
+];
+
+export const colopediaMenu = (open: ReportActions['open']): Menu['items'] =>
+  COLOPEDIA_SECTIONS.map((s) => ({
+    label: s.label,
+    run: () => {
+      startColopediaAt(s.id);
+      open('colopedia');
+    },
+  }));
 
 /** The Report menu's items, each opening its report. */
 export const reportMenu = (open: ReportActions['open']): Menu['items'] =>
@@ -633,6 +661,121 @@ function RequirementsReport({ e, go }: { e: View<'requirements'>; go: Links }) {
   );
 }
 
+/** A description with its [[id|text]] links as buttons that go to the entry. */
+function Linked({ text, go }: { text: string; go: (id: string) => void }) {
+  const parts = text.split(/\[\[([^|\]]+)\|([^\]]*)\]\]/);
+  return (
+    <>
+      {parts.map((part, i) =>
+        i % 3 === 0 ? (
+          part
+        ) : i % 3 === 1 ? (
+          <Link key={i} go={() => go(part)} data-link={part}>
+            {parts[i + 1]}
+          </Link>
+        ) : null,
+      )}
+    </>
+  );
+}
+
+/**
+ * ColopediaPanel: a tree of the sections and their entries (under a heading for each sub-category) on the
+ * left, the chosen entry on the right. A link in a fact or a description goes to its entry.
+ */
+function Colopedia({ e, art }: { e: View<'colopedia'>; art: Art }) {
+  const where = (id: string | null) => e.sections.find((s) => s.entries.some((x) => x.id === id));
+  const [start] = useState(() => {
+    const wanted = e.select ?? null;
+    const section = where(wanted) ?? e.sections.find((s) => s.id === colopediaStart) ?? e.sections[0];
+    colopediaStart = null; // used once: a later open without the menu starts at the top
+    return { section: section?.id ?? '', entry: where(wanted) ? wanted : (section?.entries[0]?.id ?? null) };
+  });
+  const [section, setSection] = useState(start.section);
+  const [chosen, setChosen] = useState<string | null>(start.entry);
+  const entry = e.sections.flatMap((s) => s.entries).find((x) => x.id === chosen);
+  const go = (id: string) => {
+    const s = where(id);
+    if (!s) return;
+    setSection(s.id);
+    setChosen(id);
+  };
+  return (
+    <div className="colopedia">
+      <ul className="tree" role="tree">
+        {e.sections.map((s) => (
+          <li key={s.id} role="treeitem" aria-expanded={section === s.id} data-section={s.id}>
+            <button
+              data-node="section"
+              onClick={() => {
+                setSection(s.id);
+                setChosen(s.entries[0]?.id ?? null);
+              }}
+            >
+              {section === s.id ? '▾ ' : '▸ '}
+              {s.name}
+            </button>
+            {section === s.id && (
+              <ul role="group">
+                {s.entries.map((x, i) => (
+                  <Fragment key={x.id}>
+                    {x.group !== null && x.group !== s.entries[i - 1]?.group && (
+                      <li role="presentation" className="group">
+                        {x.group}
+                      </li>
+                    )}
+                    <li role="treeitem" aria-selected={chosen === x.id} data-entry={x.id}>
+                      <button onClick={() => setChosen(x.id)}>
+                        <Img keys={x.keys} art={art} />
+                        {x.name}
+                      </button>
+                    </li>
+                  </Fragment>
+                ))}
+              </ul>
+            )}
+          </li>
+        ))}
+      </ul>
+      <article className="detail">
+        {entry && (
+          <>
+            <h3>{entry.name}</h3>
+            <Img keys={entry.keys} art={art} title={entry.name} />
+            <dl>
+              {entry.facts.map((f, i) => (
+                <div key={i}>
+                  <dt>{f.label}</dt>
+                  <dd>
+                    {f.value}
+                    {f.refs.map((r) => (
+                      <span key={r.id} className="ref">
+                        <Img keys={r.keys} art={art} />
+                        <Link go={() => go(r.id)} data-link={r.id}>
+                          {r.name}
+                        </Link>
+                        {r.note !== null && ` (${r.note})`}
+                      </span>
+                    ))}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+            {entry.text
+              .split('\n')
+              .filter(Boolean)
+              .map((p, i) => (
+                <p key={i}>
+                  <Linked text={p} go={go} />
+                </p>
+              ))}
+          </>
+        )}
+      </article>
+    </div>
+  );
+}
+
 /** ReportForeignAffairPanel: each nation's stance, size and strength; what we have not learnt of it is left out. */
 function ForeignReport({ e, art }: { e: View<'foreign'>; art: Art }) {
   const l = e.labels;
@@ -817,6 +960,7 @@ const BODIES: { [K in ReportName]: Body<K> } = {
   foreign: ForeignReport,
   indian: IndianReport,
   congress: CongressReport,
+  colopedia: Colopedia,
 };
 
 /**

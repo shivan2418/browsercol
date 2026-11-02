@@ -683,3 +683,65 @@ describe('the Continental Congress report', () => {
     expect(document.querySelector('[data-section="recruiting"]')?.textContent).toContain('None');
   });
 });
+
+describe('the colopedia', () => {
+  const report: ReportView = {
+    ...head('colopedia'),
+    select: null,
+    sections: [
+      {
+        id: 'units',
+        name: 'Units',
+        entries: [
+          {
+            id: 'u:1',
+            name: 'Free Colonist',
+            group: 'Land unit',
+            keys: [],
+            text: 'A settler.\nHe farms, see [[g:1|food]].',
+            facts: [
+              { label: 'Movement:', value: '1', refs: [] },
+              { label: 'Goods required:', value: '', refs: [{ id: 'g:1', name: 'Food', keys: [], note: '50' }] },
+            ],
+          },
+          { id: 'u:2', name: 'Caravel', group: 'Naval unit', keys: [], text: 'Sails.', facts: [] },
+        ],
+      },
+      {
+        id: 'goods',
+        name: 'Goods',
+        entries: [{ id: 'g:1', name: 'Food', group: null, keys: [], text: 'Eaten.', facts: [] }],
+      },
+    ],
+  };
+  const tree = () => within(document.querySelector('.colopedia') as HTMLElement);
+  const detail = () => document.querySelector('.colopedia .detail') as HTMLElement;
+
+  it('shows the first entry with its facts and groups the tree under sub-category headings', () => {
+    const { box } = host();
+    show(box, report);
+    expect(detail().querySelector('h3')?.textContent).toBe('Free Colonist');
+    expect(detail().textContent).toContain('Movement:1');
+    expect(detail().textContent).toContain('Food (50)');
+    expect(Array.from(document.querySelectorAll('.tree .group')).map((g) => g.textContent)).toEqual([
+      'Land unit',
+      'Naval unit',
+    ]);
+    fireEvent.click(tree().getByRole('button', { name: 'Caravel' }));
+    expect(detail().querySelector('h3')?.textContent).toBe('Caravel');
+  });
+
+  it('goes to an entry from a link in a fact or a description, even in another section', () => {
+    const { box } = host();
+    show(box, report);
+    fireEvent.click(within(detail()).getByRole('button', { name: 'food' }));
+    expect(detail().querySelector('h3')?.textContent).toBe('Food');
+    expect(document.querySelector('[data-section="goods"]')?.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('opens on the entry it is told to', () => {
+    const { box } = host();
+    show(box, { ...report, select: 'g:1' });
+    expect(detail().querySelector('h3')?.textContent).toBe('Food');
+  });
+});

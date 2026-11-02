@@ -36,7 +36,7 @@ import { blinkMs, loadPrefs, moveMs, savePrefs, type Prefs } from './prefs';
 import { mapDrawer, type MapView } from './map';
 import { europeButtons } from './europe-client';
 import { DialogHost, type Art, type ReportButtons, type RouteButtons } from './panels';
-import { ReportContext, reportMenu, type ReportActions } from './reports';
+import { ReportContext, colopediaMenu, reportMenu, type ReportActions } from './reports';
 import type { PathStep } from './tileset';
 import { blockBrowserMenu, onCanvas, pointerInput, rightClickInput } from './pointer';
 import { ContextMenuContext, PopupMenu, parseMenu, type ContextMenus, type Popup } from './popup-menu';
@@ -207,6 +207,7 @@ const currentMenus = (): Menu[] => {
     View: viewMenu(a),
     Orders: ordersMenu(a),
     Report: reportMenu(reportActions.open),
+    Colopedia: colopediaMenu(reportActions.open),
   };
   return MENUS.map((name) => ({ name, items: items[name] ?? [] }));
 };
