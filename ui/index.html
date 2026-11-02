@@ -181,6 +181,23 @@
         padding-left: 24px;
         font-style: italic;
       }
+      /* The turn change banner (src/turn-banner.tsx), over the top of the map. */
+      .turn-banner {
+        position: fixed;
+        top: 48px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 5;
+        padding: 6px 18px;
+        background: var(--menubar);
+        color: var(--menubar-ink);
+        border: 2px solid var(--line);
+        font: var(--fs-h) / 1.4 var(--font);
+        pointer-events: none;
+      }
+      .turn-banner.ai {
+        font-style: italic;
+      }
       .menubar .status {
         margin-left: auto;
         padding-right: 8px;

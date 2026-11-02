@@ -41,6 +41,7 @@ import { presetJson, startOptions } from './start';
 import { fileNameOf, importSave } from './save-files';
 import { idbSaveStore, type SaveMeta } from './saves';
 import { Side, type SideProps } from './side';
+import { TurnBanner, turnNotice, type TurnFacts, type TurnNotice } from './turn-banner';
 import { loadModule } from './teavm';
 import { cursor, initialView, panel, reduce, tileOnScreen, W, type ViewEvent, type ViewState } from './view';
 import type { GuiEvents, GuiHandlers } from './webgui';
@@ -156,6 +157,9 @@ const colonyMoves: ColonyMoves = {
 };
 /** FreeCol's status line: the score, the gold, the tax and the year. */
 let statusLine = '';
+/** The turn the last map was of, and the banner over the map about it (turn-banner.tsx). */
+let lastTurn: TurnFacts | null = null;
+let banner: TurnNotice | null = null;
 /** What the links in a report do, once the client Engine has loaded. */
 const reportActions: ReportActions = {
   open: (name) => colonyClient?.report(name),
@@ -284,6 +288,7 @@ function renderSide() {
           </ContextMenuContext.Provider>
         </ColonyActions.Provider>
       </ColonyTiles.Provider>
+      <TurnBanner notice={banner} />
       {popup && <PopupMenu popup={popup} run={(id) => menuClient?.menuEntry(id)} close={() => showPopup(null)} />}
     </>,
   );
@@ -395,6 +400,9 @@ function drawMap(m: MapView) {
   nation = m.nation;
   side.turn = `${m.turn}${m.ourTurn ? '' : ' (AI playing)'}`;
   statusLine = m.statusLine;
+  // A new turn's notice stays through the maps of its turn; the AI's goes when play comes back.
+  banner = turnNotice(lastTurn, m) ?? (banner?.kind === 'new' && m.ourTurn ? banner : null);
+  lastTurn = m;
   renderSide();
   dispatch({ k: 'map', map: m });
   pullColonies();

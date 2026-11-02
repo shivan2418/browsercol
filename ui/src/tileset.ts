@@ -20,6 +20,8 @@ export interface MapView {
   w: number;
   h: number;
   turn: string;
+  /** The season and year of the turn, e.g. Spring 1493. */
+  turnLabel: string;
   ourTurn: boolean;
   /** The id of the player's nation, e.g. model.nation.dutch. */
   nation: string;

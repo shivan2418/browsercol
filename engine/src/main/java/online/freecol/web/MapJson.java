@@ -34,7 +34,8 @@ import net.sf.freecol.common.util.Utils;
  * which keys exist, this sends the candidates, most specific first, and the
  * Browser UI takes the first its Tileset has. Fields:
  * <ul>
- * <li>w, h, turn, ourTurn, nation, statusLine, nation being the id of
+ * <li>w, h, turn, turnLabel (the season and year, e.g. Spring 1493),
+ *     ourTurn, nation, statusLine, nation being the id of
  *     the player's nation (e.g. model.nation.dutch) and the last being
  *     FreeCol's status line, as InGameMenuBar paints it: the score, gold,
  *     tax and year;
@@ -126,6 +127,7 @@ final class MapJson {
         final Tile at = (active == null) ? null : active.getTile();
         return new Json().put("w", w).put("h", h)
             .put("turn", String.valueOf(game.getTurn()))
+            .put("turnLabel", Messages.message(game.getTurn().getLabel()))
             .put("ourTurn", player == game.getCurrentPlayer())
             .put("nation", player.getNationId())
             .put("statusLine", statusLine(game, player))

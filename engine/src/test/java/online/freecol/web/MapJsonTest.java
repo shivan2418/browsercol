@@ -168,6 +168,8 @@ class MapJsonTest {
             .replace("|", "\u2727");
         final String statusLine = field(MapJson.of(game, us, null), "statusLine");
         assertEquals(Json.quote(expected), statusLine);
+        assertEquals(Json.quote(Messages.message(game.getTurn().getLabel())),
+            field(MapJson.of(game, us, null), "turnLabel"));
         assertTrue(statusLine.contains("Gold: " + us.getGold()),
             "the gold is in the line: " + statusLine);
         assertTrue(statusLine.contains("Year: "), "the year is in the line: "
