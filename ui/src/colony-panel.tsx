@@ -557,10 +557,12 @@ function BuildQueue({ c, art }: { c: ColonyView; art: Art }) {
     { part: 'units', title: q.unitsTitle, items: q.units },
   ];
   return (
-    <Part part="queue">
-      <button className="toggle" aria-expanded={state.open} onClick={() => set({ ...state, open: !state.open })}>
-        {q.title}
-      </button>
+    <>
+      <Part part="queue">
+        <button className="toggle" aria-expanded={state.open} onClick={() => set({ ...state, open: !state.open })}>
+          {q.title}
+        </button>
+      </Part>
       {state.open && (
         <>
           <div className="queue-backdrop" onClick={() => set({ ...state, open: false })} />
@@ -637,7 +639,7 @@ function BuildQueue({ c, art }: { c: ColonyView; art: Art }) {
           </div>
         </>
       )}
-    </Part>
+    </>
   );
 }
 
