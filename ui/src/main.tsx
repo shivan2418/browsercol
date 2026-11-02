@@ -33,7 +33,7 @@ import { commandForKey, type Command } from './input';
 import { mapDrawer, type MapView } from './map';
 import { europeButtons } from './europe-client';
 import { DialogHost, type Art, type ReportButtons, type RouteButtons } from './panels';
-import { ReportContext, reportMenu, type ReportActions } from './reports';
+import { ReportContext, colopediaMenu, reportMenu, type ReportActions } from './reports';
 import type { PathStep } from './tileset';
 import { blockBrowserMenu, onCanvas, pointerInput, rightClickInput } from './pointer';
 import { ContextMenuContext, PopupMenu, parseMenu, type ContextMenus, type Popup } from './popup-menu';
@@ -168,7 +168,8 @@ const reportActions: ReportActions = {
 /** The menus: Report opens each of the reports. */
 const menus: Menu[] = MENUS.map((name) => ({
   name,
-  items: name === 'Report' ? reportMenu(reportActions.open) : [],
+  items:
+    name === 'Report' ? reportMenu(reportActions.open) : name === 'Colopedia' ? colopediaMenu(reportActions.open) : [],
 }));
 const menuRoot = createRoot(document.getElementById('menubar')!);
 /** Our colony as the colony panel shows it, once the client Engine has loaded (ClientExports.colony). */

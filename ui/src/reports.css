@@ -265,3 +265,54 @@
 .dialog .report .requirements p {
   margin: 0 0 8px;
 }
+/* The Colopedia: the tree of sections beside the chosen entry. */
+.dialog .report .colopedia {
+  display: flex;
+  gap: 12px;
+  min-height: 320px;
+  max-height: 60vh;
+}
+.dialog .report .colopedia ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.dialog .report .colopedia .tree {
+  flex: 0 0 220px;
+  overflow-y: auto;
+}
+.dialog .report .colopedia .tree ul ul {
+  padding-left: 14px;
+}
+.dialog .report .colopedia .tree button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+}
+.dialog .report .colopedia .tree [aria-selected='true'] > button {
+  font-weight: bold;
+  color: var(--accent, inherit);
+}
+.dialog .report .colopedia .tree img {
+  height: 24px;
+}
+.dialog .report .colopedia .detail {
+  flex: 1;
+  overflow-y: auto;
+}
+.dialog .report .colopedia .detail dl div {
+  display: flex;
+  gap: 8px;
+}
+.dialog .report .colopedia .detail dt {
+  color: var(--muted);
+}
+.dialog .report .colopedia .detail dd {
+  margin: 0;
+}

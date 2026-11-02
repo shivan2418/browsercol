@@ -35,7 +35,7 @@ export const ReportContext = createContext<ReportActions>({
 });
 
 /** The Report menu's entries, in order: the report's name, which Commands.showReport knows, and its label. */
-export const REPORTS: readonly { name: Exclude<ReportName, 'labourDetail'>; label: string }[] = [
+export const REPORTS: readonly { name: Exclude<ReportName, 'labourDetail' | 'colopedia'>; label: string }[] = [
   { name: 'colony', label: 'Colony report' },
   { name: 'labour', label: 'Labour report' },
   { name: 'compactLabour', label: 'Compact labour report' },
@@ -53,6 +53,34 @@ export const REPORTS: readonly { name: Exclude<ReportName, 'labourDetail'>; labe
   { name: 'requirements', label: 'Requirements report' },
   { name: 'trade', label: 'Trade report' },
 ];
+
+/** The section the Colopedia opens on, set by the Colopedia menu before it asks for the report. */
+let colopediaStart: string | null = null;
+export const startColopediaAt = (section: string | null) => {
+  colopediaStart = section;
+};
+
+/** The Colopedia menu's entries, FreeCol's sections: each opens the Colopedia on it. */
+export const COLOPEDIA_SECTIONS: readonly { id: string; label: string }[] = [
+  { id: 'terrain', label: 'Terrain Types' },
+  { id: 'resources', label: 'Bonus Resources' },
+  { id: 'goods', label: 'Goods' },
+  { id: 'units', label: 'Units' },
+  { id: 'buildings', label: 'Buildings' },
+  { id: 'fathers', label: 'Founding Fathers' },
+  { id: 'nations', label: 'Nations' },
+  { id: 'nationTypes', label: 'National Advantages' },
+  { id: 'concepts', label: 'Concepts' },
+];
+
+export const colopediaMenu = (open: ReportActions['open']): Menu['items'] =>
+  COLOPEDIA_SECTIONS.map((s) => ({
+    label: s.label,
+    run: () => {
+      startColopediaAt(s.id);
+      open('colopedia');
+    },
+  }));
 
 /** The Report menu's items, each opening its report. */
 export const reportMenu = (open: ReportActions['open']): Menu['items'] =>
@@ -633,6 +661,68 @@ function RequirementsReport({ e, go }: { e: View<'requirements'>; go: Links }) {
   );
 }
 
+/** ColopediaPanel: a tree of the sections and their entries on the left, the chosen entry on the right. */
+function Colopedia({ e, art }: { e: View<'colopedia'>; art: Art }) {
+  const first = e.sections.find((s) => s.id === colopediaStart) ?? e.sections[0];
+  const [section, setSection] = useState(first?.id ?? '');
+  const [chosen, setChosen] = useState<string | null>(first?.entries[0]?.id ?? null);
+  const entry = e.sections.flatMap((s) => s.entries).find((x) => x.id === chosen);
+  return (
+    <div className="colopedia">
+      <ul className="tree" role="tree">
+        {e.sections.map((s) => (
+          <li key={s.id} role="treeitem" aria-expanded={section === s.id} data-section={s.id}>
+            <button
+              data-node="section"
+              onClick={() => {
+                setSection(s.id);
+                setChosen(s.entries[0]?.id ?? null);
+              }}
+            >
+              {section === s.id ? '▾ ' : '▸ '}
+              {s.name}
+            </button>
+            {section === s.id && (
+              <ul role="group">
+                {s.entries.map((x) => (
+                  <li key={x.id} role="treeitem" aria-selected={chosen === x.id} data-entry={x.id}>
+                    <button onClick={() => setChosen(x.id)}>
+                      <Img keys={x.keys} art={art} />
+                      {x.name}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </li>
+        ))}
+      </ul>
+      <article className="detail">
+        {entry && (
+          <>
+            <h3>{entry.name}</h3>
+            <Img keys={entry.keys} art={art} title={entry.name} />
+            <dl>
+              {entry.facts.map((f) => (
+                <div key={f.label}>
+                  <dt>{f.label}</dt>
+                  <dd>{f.value}</dd>
+                </div>
+              ))}
+            </dl>
+            {entry.text
+              .split('\n')
+              .filter(Boolean)
+              .map((p, i) => (
+                <p key={i}>{p}</p>
+              ))}
+          </>
+        )}
+      </article>
+    </div>
+  );
+}
+
 /** ReportForeignAffairPanel: each nation's stance, size and strength; what we have not learnt of it is left out. */
 function ForeignReport({ e, art }: { e: View<'foreign'>; art: Art }) {
   const l = e.labels;
@@ -817,6 +907,7 @@ const BODIES: { [K in ReportName]: Body<K> } = {
   foreign: ForeignReport,
   indian: IndianReport,
   congress: CongressReport,
+  colopedia: Colopedia,
 };
 
 /**

@@ -653,6 +653,9 @@ type UnitsView<K extends 'military' | 'naval' | 'cargo'> = ReportHead<K> & {
 
 /** The reports of Reports.java, as the Engine sends them. Adding a report adds a member here. */
 export type ReportView =
+  | (ReportHead<'colopedia'> & {
+      sections: { id: string; name: string; entries: ColopediaEntry[] }[];
+    })
   | UnitsView<'military'>
   | UnitsView<'naval'>
   | UnitsView<'cargo'>
@@ -876,6 +879,15 @@ export type ReportView =
         turn: string | null;
       }[];
     });
+
+/** One entry of the Colopedia: a plain-text description and labelled facts, with the image keys of its icon. */
+export interface ColopediaEntry {
+  id: string;
+  name: string;
+  keys: string[];
+  text: string;
+  facts: { label: string; value: string }[];
+}
 
 /** The reports the menu opens and the Engine can send. */
 export type ReportName = ReportView['report'];
