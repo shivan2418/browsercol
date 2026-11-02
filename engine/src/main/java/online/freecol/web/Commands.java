@@ -823,8 +823,33 @@ public final class Commands {
 
     /** Open the trade routes panel (TradeRouteAction). */
     public boolean tradeRoutes() {
-        gui().showTradeRoutePanel(null);
+        gui().showTradeRoutePanel(gui().getActiveUnit());
         return true;
+    }
+
+    /**
+     * Assign a ship or wagon train to a trade route, or take it off its
+     * route, as TradeRoutePanel does for the unit it was opened for. A unit
+     * already on a route is asked about first. The unit follows the route
+     * when its turn comes, loading and unloading as the route says.
+     *
+     * @param unitId The id of the unit.
+     * @param routeId The id of the route, or null to drop its route.
+     * @return True if the unit now has that route.
+     */
+    public boolean assignTradeRoute(String unitId, String routeId) {
+        final Unit unit = this.client.getMyPlayer()
+            .getOurFreeColGameObject(unitId, Unit.class);
+        final TradeRoute route = (routeId == null) ? null : route(routeId);
+        if (unit == null || !unit.isCarrier() || (routeId != null && route == null)) {
+            return false;
+        }
+        final boolean done = igc().assignTradeRoute(unit, route);
+        if (gui() instanceof WebGUI) {
+            ((WebGUI)gui()).refreshActiveUnit();
+        }
+        refused(null);
+        return done;
     }
 
     /**

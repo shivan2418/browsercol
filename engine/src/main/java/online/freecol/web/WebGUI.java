@@ -746,6 +746,8 @@ public class WebGUI extends GUI {
                 (this.activeUnit == null) ? null : this.activeUnit.getTile())
             .put("force", force)
             .putRaw("orders", Json.array(orders))
+            .put("route", (this.activeUnit == null || this.activeUnit.getTradeRoute() == null)
+                 ? null : this.activeUnit.getTradeRoute().getName())
             .toString());
     }
 
@@ -1506,12 +1508,21 @@ public class WebGUI extends GUI {
      * Show the player's trade routes, as TradeRoutePanel does: event
      * tradeRoutes, which replaces the panel if it is open.
      *
-     * @param unit The unit that would be assigned a route; not yet used.
+     * @param unit The unit that would be assigned a route, or null.
      */
     @Override
     public FreeColPanel showTradeRoutePanel(Unit unit) {
+        this.routeUnit = unit;
         showTradeRoutes(null);
         return null;
+    }
+
+    /** The unit the trade routes panel was opened for, or null. */
+    private Unit routeUnit;
+
+    /** Send the active unit event again, as its trade route has changed. */
+    void refreshActiveUnit() {
+        showActiveUnit(false);
     }
 
     /**
@@ -1521,7 +1532,7 @@ public class WebGUI extends GUI {
      */
     void showTradeRoutes(String error) {
         this.ui.show("tradeRoutes",
-                     TradeRoutes.json(getFreeColClient(), error));
+                     TradeRoutes.json(getFreeColClient(), error, this.routeUnit));
     }
 
     /**

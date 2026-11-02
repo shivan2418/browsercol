@@ -97,6 +97,7 @@ const side: Omit<SideProps, 'run' | 'save' | 'load' | 'remove' | 'exportSave' | 
   unasked: [],
   status: 'starting...',
   orders: [],
+  route: null,
   saves: [],
   saveNote: '',
 };
@@ -128,7 +129,7 @@ let saveGame: (name: string) => void = () => {};
 /** The turn report's buttons, once the client Engine has loaded. */
 let reportButtons: ReportButtons = { groupBy: () => {}, filter: () => {}, ignore: () => {} };
 /** The trade routes panel's buttons, once the client Engine has loaded. */
-let routeButtons: RouteButtons = { save: () => {}, remove: () => {} };
+let routeButtons: RouteButtons = { save: () => {}, remove: () => {}, assign: () => {} };
 /** The art of the first resource key the Tileset has, as a URL to show in a dialog, once its manifest has loaded. */
 let artReady = false;
 const art: Art = (keys) => {
@@ -273,7 +274,11 @@ function renderSide() {
                   filter: (index, shown) => reportButtons.filter(index, shown),
                   ignore: (index, ignore) => reportButtons.ignore(index, ignore),
                 }}
-                routes={{ save: (d) => routeButtons.save(d), remove: (id) => routeButtons.remove(id) }}
+                routes={{
+                  save: (d) => routeButtons.save(d),
+                  remove: (id) => routeButtons.remove(id),
+                  assign: (unit, route) => routeButtons.assign(unit, route),
+                }}
               />
             </ReportContext.Provider>
           </ContextMenuContext.Provider>
@@ -340,6 +345,7 @@ const gui: GuiHandlers = {
     activeUnit: (e) => {
       // The Engine says which orders the active unit can take now.
       side.orders = e.orders;
+      side.route = e.route;
       dispatch({ k: 'activeUnit', ...e });
     },
     selectedTile: (e) => dispatch({ k: 'selectedTile', ...e }),
@@ -539,6 +545,7 @@ async function run() {
   routeButtons = {
     save: (d) => exports.saveTradeRoute(JSON.stringify(d)),
     remove: (id) => exports.deleteTradeRoute(id),
+    assign: (unit, route) => exports.assignTradeRoute(unit, route ?? ''),
   };
   Object.assign(europeButtons, {
     recruit: (i: number) => exports.recruitUnit(i),

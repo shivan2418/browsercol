@@ -19,7 +19,7 @@ import type { OptionGroup } from './options';
 export interface GuiEvents {
   refresh: Record<string, never>;
   /** force: after a move, SwingGUI keeps the selection and refocuses only if the unit is out of view. */
-  activeUnit: { unit: Id | null; force: boolean; orders: string[] } & TileRef;
+  activeUnit: { unit: Id | null; force: boolean; orders: string[]; route: string | null } & TileRef;
   /** Terrain mode: a tile is selected; the active unit is kept. */
   selectedTile: TileRef;
   /** Centre the map on a tile. */
@@ -97,6 +97,10 @@ export interface GuiEvents {
   tradeRoutes: {
     title: string;
     routes: TradeRoute[];
+    /** The unit the panel was opened for, to assign a route to: its id, name and route (an id), or null. */
+    unit: { id: Id; name: string; route: Id | null } | null;
+    assign: string;
+    unassign: string;
     places: { id: Id; label: string }[];
     goods: { id: string; name: string; icon: string }[];
     error: string | null;

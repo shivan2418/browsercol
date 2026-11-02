@@ -188,7 +188,7 @@ function open(colony: ColonyView = jamestown, drawTiles: DrawTiles | null = null
         goTo={() => {}}
         art={art}
         report={{ groupBy() {}, filter() {}, ignore() {} }}
-        routes={{ save() {}, remove() {} }}
+        routes={{ save() {}, remove() {}, assign() {} }}
       />
     </ColonyTiles.Provider>,
   );
@@ -370,7 +370,7 @@ describe('moving colonists in the colony panel', () => {
           goTo={() => {}}
           art={art}
           report={{ groupBy() {}, filter() {}, ignore() {} }}
-          routes={{ save() {}, remove() {} }}
+          routes={{ save() {}, remove() {}, assign() {} }}
         />
       </ColonyActions.Provider>,
     );
@@ -497,7 +497,7 @@ describe('loading a ship in port in the colony panel', () => {
           goTo={() => {}}
           art={art}
           report={{ groupBy() {}, filter() {}, ignore() {} }}
-          routes={{ save() {}, remove() {} }}
+          routes={{ save() {}, remove() {}, assign() {} }}
         />
       </ColonyActions.Provider>,
     );
@@ -636,7 +636,7 @@ describe('the build queue in the colony panel', () => {
           goTo={() => {}}
           art={art}
           report={{ groupBy() {}, filter() {}, ignore() {} }}
-          routes={{ save() {}, remove() {} }}
+          routes={{ save() {}, remove() {}, assign() {} }}
         />
       </ColonyActions.Provider>,
     );
