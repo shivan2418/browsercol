@@ -89,6 +89,14 @@ export interface ClientExports {
   plow(): void;
   clearForest(): void;
   road(): void;
+  /** The right-click menu of a map tile, as JSON (Menus.tile), or "null" for none. */
+  tileMenu(x: number, y: number): string;
+  /** The quick action menu of one of our colonists or ships in a colony (Menus.unit), as JSON or "null". */
+  unitMenu(unitId: string): string;
+  /** The quick action menu of goods in a colony or aboard a ship in port (Menus.goods), as JSON or "null". */
+  goodsMenu(locationId: string, goodsTypeId: string, amount: number): string;
+  /** Run the entry picked in a menu, by its id (Commands.menuEntry). */
+  menuEntry(id: string): void;
   /** Colony panel: put a colonist to work at a building or colony tile, by ids. */
   work(unitId: string, locationId: string): void;
   /** Colony panel: put a colonist outside the colony. */

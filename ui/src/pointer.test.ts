@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vite-plus/test';
-import { blockBrowserMenu, wheelZoom } from './pointer';
+import { blockBrowserMenu, rightClickInput, wheelZoom } from './pointer';
 
 const PIXEL = 0;
 const LINE = 1;
@@ -39,5 +39,39 @@ describe('blockBrowserMenu', () => {
     expect(rightClick(page.querySelector('input')!)).toBe(false);
     expect(rightClick(page.querySelector('textarea')!)).toBe(false);
     page.remove();
+  });
+});
+
+describe('rightClickInput', () => {
+  const setup = (tileAt: (px: number, py: number) => [number, number] | null) => {
+    const host = document.createElement('div');
+    host.innerHTML = '<canvas></canvas>';
+    document.body.append(host);
+    host.querySelector('canvas')!.getBoundingClientRect = () => ({ left: 100, top: 50 }) as DOMRect;
+    const opened: unknown[] = [];
+    rightClickInput(host, tileAt, (tile, x, y) => opened.push([tile, x, y]));
+    const click = (x: number, y: number) =>
+      host
+        .querySelector('canvas')!
+        .dispatchEvent(
+          new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: x, clientY: y }),
+        );
+    return { host, opened, click };
+  };
+
+  it("opens the menu of the tile under the pointer, at the pointer's place on the page", () => {
+    const seen: unknown[] = [];
+    const { host, opened, click } = setup((px, py) => (seen.push([px, py]), [3, 4]));
+    click(130, 90);
+    expect(seen).toEqual([[30, 40]]);
+    expect(opened).toEqual([[[3, 4], 130, 90]]);
+    host.remove();
+  });
+
+  it('does nothing off the map', () => {
+    const { host, opened, click } = setup(() => null);
+    click(130, 90);
+    expect(opened).toEqual([]);
+    host.remove();
   });
 });
