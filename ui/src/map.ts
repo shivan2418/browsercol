@@ -102,8 +102,8 @@ interface TextStyle {
   plain?: boolean;
 }
 
-/** The map's layers: the scene, the cursor and path over it, and the units that move or blink. */
-type Layer = 0 | 1 | 2;
+/** The map's layers: the scene, the cursor and path over it, the units that move or blink, and the fog being lifted. */
+type Layer = 0 | 1 | 2 | 3;
 
 /** The screen's pixel ratio: how many device pixels a CSS pixel covers. */
 export const pixelRatio = (dpr: number | undefined): number => (dpr && dpr > 0 ? dpr : 1);
@@ -134,6 +134,8 @@ interface Pen {
   measure(s: string, style: TextStyle): number;
   /** Move the third layer by (dx, dy) map pixels and fade it to `alpha`. */
   actors(dx: number, dy: number, alpha: number): void;
+  /** Fade the fourth layer, the fog being lifted, to `alpha`. */
+  fade(alpha: number): void;
   /** Show the map scaled by `scale`, then moved by (dx, dy). */
   show(dx: number, dy: number, scale: number): void;
   /** Make the canvas `width` by `height` CSS pixels; show() draws it again. */
@@ -189,7 +191,7 @@ async function pixiPen(host: HTMLElement, width: number, height: number): Promis
   };
   cssSize(width, height);
   const world = new Container();
-  const layers = [new Container(), new Container(), new Container()];
+  const layers = [new Container(), new Container(), new Container(), new Container()];
   world.addChild(...layers);
   app.stage.addChild(world);
   let layer = layers[0];
@@ -256,6 +258,9 @@ async function pixiPen(host: HTMLElement, width: number, height: number): Promis
       layers[2].position.set(dx, dy);
       layers[2].alpha = alpha;
     },
+    fade: (alpha) => {
+      layers[3].alpha = alpha;
+    },
     show: (dx, dy, scale) => {
       world.scale.set(scale);
       world.position.set(dx, dy);
@@ -285,7 +290,8 @@ function canvasPen(host: HTMLElement, width: number, height: number, background 
   host.append(canvas);
   const c = canvas.getContext('2d')!;
   // Canvas 2D has no scene graph: record the drawing and replay it to pan.
-  const layers: ((c: CanvasRenderingContext2D) => void)[][] = [[], [], []];
+  const layers: ((c: CanvasRenderingContext2D) => void)[][] = [[], [], [], []];
+  let fog = 1;
   let actor = { dx: 0, dy: 0, alpha: 1 };
   let calls = layers[0];
   return {
@@ -369,6 +375,9 @@ function canvasPen(host: HTMLElement, width: number, height: number, background 
     actors: (dx, dy, alpha) => {
       actor = { dx, dy, alpha };
     },
+    fade: (alpha) => {
+      fog = alpha;
+    },
     show: (dx, dy, scale) => {
       // The transform carries the pixel ratio, so the drawing code works in CSS pixels.
       c.setTransform(ratio, 0, 0, ratio, 0, 0);
@@ -382,6 +391,7 @@ function canvasPen(host: HTMLElement, width: number, height: number, background 
           c.translate(actor.dx, actor.dy);
           c.globalAlpha = actor.alpha;
         }
+        if (n === 3) c.globalAlpha = fog;
         for (const call of layer) call(c);
         c.restore();
       });
@@ -443,6 +453,9 @@ function roadPath(dirs: Direction[], p: PathSink) {
     }
   }
 }
+
+/** How long the fog takes to fade from a tile that came into view, in milliseconds. */
+const FOG_FADE_MS = 600;
 
 const CHIP: TextStyle = { color: 0, font: 'sans-serif', size: 10, bold: true, plain: true };
 const NAME: TextStyle = { color: 0, font: 'serif', size: 13 };
@@ -596,6 +609,9 @@ export function mapDrawer(
   let sliding: { moves: Move[]; since: number } | null = null;
   /** The tiles whose unit is drawn in the actors' layer: the sliding units' and the active one's. */
   let actorTiles = new Set<string>();
+  /** The tiles drawn fogged last time, and the fog being lifted off some of them since `since`. */
+  let fogTiles = new Set<string>();
+  let lifting: { since: number } | null = null;
   let frame = 0;
   let moveMs = MOVE_MS;
   let blinkMs = BLINK_MS;
@@ -633,6 +649,8 @@ export function mapDrawer(
     } else {
       pen.actors(0, 0, view.mode === 'units' && view.active ? blink(now, blinkMs) : 1);
     }
+    if (lifting && now - lifting.since >= FOG_FADE_MS) lifting = null;
+    pen.fade(lifting ? 1 - (now - lifting.since) / FOG_FADE_MS : 0);
     const z = view.zoom;
     pen.show(size[0] / 2 - view.centre[0] * z, size[1] / 2 - view.centre[1] * z, z);
   };
@@ -640,7 +658,7 @@ export function mapDrawer(
   /** Every frame: the slide and the blink move on, and show the camera again. */
   function tick() {
     frame = requestAnimationFrame(tick);
-    if (sliding || (view?.mode === 'units' && view.active)) camera();
+    if (sliding || lifting || (view?.mode === 'units' && view.active)) camera();
   }
 
   /** Redraw the overlay if it changed, then move the camera. */
@@ -673,6 +691,21 @@ export function mapDrawer(
       pics,
     );
     await paint(pen!, 2, ops.filter(isActor), pics);
+    // Fog that went from a tile since the last draw fades out over it, rather than vanishing.
+    const fog = ops.filter((op) => op.k === 'fog');
+    const now = new Set(fog.map((op) => `${op.x},${op.y}`));
+    const lifted = before ? [...fogTiles].filter((t) => !now.has(t)) : [];
+    fogTiles = now;
+    await paint(
+      pen!,
+      3,
+      lifted.map((t) => {
+        const [x, y] = t.split(',').map(Number);
+        return { k: 'fog', x, y } as Op;
+      }),
+      pics,
+    );
+    lifting = lifted.length ? { since: performance.now() } : null;
     await showNow();
     if (!frame) frame = requestAnimationFrame(tick);
   }
