@@ -588,7 +588,7 @@ export function mapDrawer(
   }
 
   /** The overlay's operations for a view: its cursor, and the path if the map view is about its active unit. */
-  const overlayOf = (v: ViewState) => overlay(cursor(v), activeUnitFacts(v)?.path ?? null, res!);
+  const overlayOf = (v: ViewState) => overlay(cursor(v), v.preview ?? activeUnitFacts(v)?.path ?? null, res!);
 
   const camera = () => {
     if (!pen || !view) return;

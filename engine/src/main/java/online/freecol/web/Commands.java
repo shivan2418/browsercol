@@ -59,12 +59,13 @@ public final class Commands {
      * Click a tile: on a native settlement, show its panel; on our colony,
      * open its panel, as SwingGUI.clickAt does. Elsewhere select our next
      * unit there, units aboard a carrier
-     * included, so repeated clicks cycle through a stack. With none, send
-     * the active unit there.
+     * included, so repeated clicks cycle through a stack. With none, do
+     * nothing: sending the active unit there is {@link #goTo}, which the
+     * Browser UI asks for by holding the pointer on the tile.
      *
      * @param x The tile's x.
      * @param y The tile's y.
-     * @return True if a panel opened or a unit was selected or set off.
+     * @return True if a panel opened or a unit was selected.
      */
     public boolean click(int x, int y) {
         final Tile tile = tile(x, y);
@@ -86,7 +87,7 @@ public final class Commands {
             ours.add(u);
             for (Unit aboard : u.getUnitList()) ours.add(aboard);
         }
-        if (ours.isEmpty()) return goTo(x, y);
+        if (ours.isEmpty()) return false;
         final int i = ours.indexOf(gui().getActiveUnit());
         gui().changeView(ours.get((i + 1) % ours.size()), false);
         return true;
@@ -122,6 +123,24 @@ public final class Commands {
         if (unit == null || tile == null || unit.getTile() == tile) return false;
         final PathNode path = unit.findPath(tile);
         return path != null && igc().goToTile(unit, path);
+    }
+
+    /**
+     * The path the active unit would take to a tile, as goTo would send it.
+     *
+     * @param x The tile's x.
+     * @param y The tile's y.
+     * @return The path as MapJson.path gives it; "null" for none.
+     */
+    public String pathTo(int x, int y) {
+        final Unit unit = gui().getActiveUnit();
+        final Tile tile = tile(x, y);
+        if (unit == null || tile == null || unit.getTile() == tile) return "null";
+        try {
+            return MapJson.path(unit.findPath(tile));
+        } catch (RuntimeException e) {
+            return "null";
+        }
     }
 
     /** Show the Europe panel (EuropeAction). */

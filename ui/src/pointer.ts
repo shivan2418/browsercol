@@ -13,6 +13,9 @@ const WHEEL_STEP = 40;
 /** Pixels the pointer moves between press and release that make a click a drag. */
 const DRAG_PIXELS = 4;
 
+/** Milliseconds the pointer rests on a tile, button down, before it shows where the active unit would go. */
+export const HOLD_MS = 400;
+
 /** WheelEvent.DOM_DELTA_PIXEL, which tests have no WheelEvent for. */
 const DELTA_PIXEL = 0;
 
@@ -72,25 +75,72 @@ export interface PointerDeps {
   dispatch: (e: ViewEvent) => void;
   /** The tile at a pixel on the map canvas, or null off the map. */
   tileAt: (px: number, py: number) => Tile | null;
+  /** The Go To order: holding the pointer on a tile shows the way there (preview), and releasing it sets off (go). */
+  goto?: {
+    /** Show the path to a tile, or clear it with null. */
+    preview: (tile: Tile | null) => void;
+    go: (tile: Tile) => void;
+  };
 }
 
 /** Move the view with the pointer on the map in a host. Returns whether the last click was a drag. */
-export function pointerInput(host: HTMLElement, { view, dispatch, tileAt }: PointerDeps): () => boolean {
+export function pointerInput(host: HTMLElement, { view, dispatch, tileAt, goto }: PointerDeps): () => boolean {
   let wheel = 0;
   let from: [number, number] | null = null;
   let moved = 0;
+  /** The tile the Go To order is held on, once the hold has shown its path. */
+  let holding: Tile | null = null;
+  let holdTimer: ReturnType<typeof setTimeout> | undefined;
+  let heldFor = false;
+  const tileUnder = (e: { clientX: number; clientY: number }) => {
+    const at = onCanvas(host, e);
+    return at && tileAt(...at);
+  };
   host.addEventListener('pointerdown', (e) => {
     from = [e.clientX, e.clientY];
     moved = 0;
+    heldFor = false;
+    clearTimeout(holdTimer);
+    if (!goto || e.button !== 0) return;
+    // A press that stays put long enough starts the Go To order; moving first makes it a drag.
+    holdTimer = setTimeout(() => {
+      if (!from || moved > DRAG_PIXELS) return;
+      holding = tileUnder(e);
+      heldFor = true;
+      if (holding) goto.preview(holding);
+    }, HOLD_MS);
   });
   addEventListener('pointermove', (e) => {
     if (!from) return;
+    if (heldFor) {
+      const tile = tileUnder(e);
+      if (tile && (tile[0] !== holding?.[0] || tile[1] !== holding?.[1])) {
+        holding = tile;
+        goto?.preview(tile);
+      }
+      return;
+    }
     const [dx, dy] = [e.clientX - from[0], e.clientY - from[1]];
     moved += Math.abs(dx) + Math.abs(dy);
     from = [e.clientX, e.clientY];
     dispatch({ k: 'pan', dx, dy });
   });
-  addEventListener('pointerup', () => (from = null));
+  addEventListener('pointerup', () => {
+    clearTimeout(holdTimer);
+    from = null;
+    if (heldFor && holding) {
+      goto?.preview(null);
+      goto?.go(holding);
+    }
+    holding = null;
+  });
+  addEventListener('pointercancel', () => {
+    clearTimeout(holdTimer);
+    from = null;
+    if (holding) goto?.preview(null);
+    holding = null;
+    heldFor = false;
+  });
   host.addEventListener(
     'wheel',
     (e) => {
@@ -125,5 +175,5 @@ export function pointerInput(host: HTMLElement, { view, dispatch, tileAt }: Poin
     requestAnimationFrame(scroll);
   };
   requestAnimationFrame(scroll);
-  return () => moved > DRAG_PIXELS;
+  return () => moved > DRAG_PIXELS || heldFor;
 }

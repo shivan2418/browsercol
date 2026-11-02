@@ -243,6 +243,18 @@ public final class ClientMain {
         command("click", () -> engine.getCommands().click(x, y));
     }
 
+    /** Send the active unit to a tile along its best path. */
+    @JSExport
+    public static void goTo(int x, int y) {
+        command("goTo", () -> engine.getCommands().goTo(x, y));
+    }
+
+    /** The path the active unit would take to a tile, as JSON [x, y, turns] per step, or "null". */
+    @JSExport
+    public static String pathTo(int x, int y) {
+        return engine.getCommands().pathTo(x, y);
+    }
+
     /** Move the active unit one step; a Direction name, e.g. "NE". */
     @JSExport
     public static void move(String direction) {
