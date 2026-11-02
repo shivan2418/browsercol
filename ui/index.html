@@ -1052,20 +1052,23 @@
         width: 100%;
         box-sizing: border-box;
       }
+      .colony {
+        position: relative;
+      }
       .colony .queue-backdrop {
-        position: fixed;
+        position: absolute;
         inset: 0;
         z-index: 20;
         background: color-mix(in srgb, var(--ink) 35%, transparent);
       }
       .colony .queue-body {
-        position: fixed;
+        position: absolute;
         z-index: 21;
         left: 50%;
-        top: 50%;
-        transform: translate(-50%, -50%);
-        width: min(900px, 92vw);
-        max-height: 86vh;
+        top: 40px;
+        transform: translateX(-50%);
+        width: min(900px, 96%);
+        max-height: 80vh;
         overflow-y: auto;
         box-sizing: border-box;
         padding: 16px;
@@ -1075,10 +1078,14 @@
         border-radius: 4px;
         box-shadow: 0 8px 30px color-mix(in srgb, var(--ink) 50%, transparent);
         display: grid;
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 8px;
       }
+      .colony .queue-body .queued {
+        grid-column: 1 / -1;
+      }
       .colony .queue-close {
+        z-index: 1;
         position: absolute;
         right: 6px;
         top: 6px;
