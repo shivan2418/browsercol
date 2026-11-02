@@ -983,6 +983,14 @@
         outline: 2px solid var(--accent);
         outline-offset: 1px;
       }
+      /* A picked tile is its colonist's: outline the colonist, not the tile's box. */
+      .colony .tile[data-picked='true'] {
+        outline: none;
+      }
+      .colony .tile[data-picked='true'] .who {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+      }
       .colony .over-target:not(.tile) {
         outline: 2px dashed var(--accent);
       }

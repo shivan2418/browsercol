@@ -398,11 +398,28 @@ describe('moving colonists in the colony panel', () => {
 
   it('puts a dragged colonist to work in a building or on a tile, or outside the colony', () => {
     openMovable();
-    expect(unit('unit:1').getAttribute('draggable')).toBe('true');
+    expect(tileHit('colonyTile:21').getAttribute('draggable')).toBe('true');
     drag('unit:1', building('building:1'));
     drag('unit:2', tileHit('colonyTile:00'));
     drag('unit:1', part('outside'));
     expect(calls).toEqual(['work unit:1 building:1', 'work unit:2 colonyTile:00', 'outside unit:1']);
+  });
+
+  it('lets a colonist be picked up from anywhere on its tile', () => {
+    openMovable();
+    const tile = tileHit('colonyTile:21');
+    expect(tile.getAttribute('draggable')).toBe('true');
+    expect(unit('unit:1').getAttribute('draggable')).toBeNull();
+    const dataTransfer = { setData() {}, effectAllowed: '' };
+    fireEvent.dragStart(tile, { dataTransfer });
+    fireEvent.dragOver(building('building:1'), { dataTransfer });
+    fireEvent.drop(building('building:1'), { dataTransfer });
+    fireEvent.dragEnd(tile, { dataTransfer });
+    expect(calls).toEqual(['work unit:1 building:1']);
+    // A tile with no one on it carries nothing, and a click on the tile picks its colonist.
+    expect(tileHit('colonyTile:00').getAttribute('draggable')).toBeNull();
+    fireEvent.click(tile);
+    expect(tile.dataset.picked).toBe('true');
   });
 
   it('puts a colonist outside only if it works in the colony, and gives the centre tile none', () => {
