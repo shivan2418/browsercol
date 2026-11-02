@@ -59,8 +59,10 @@ describe('dialogs', () => {
     const over = d.current()!;
     expect(over.kind, 'the explanation is over the panel it answers').toBe('information');
     if (over.kind !== 'information') return;
+    expect(d.under(), 'the panel stays on screen under it').toBe(panel);
     over.done();
     expect(d.current(), 'the panel is on screen again').toBe(panel);
+    expect(d.under()).toBeNull();
   });
 
   it('shows a panel the Engine shows while a question is on screen behind the question', () => {

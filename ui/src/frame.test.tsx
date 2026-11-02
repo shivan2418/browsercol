@@ -48,6 +48,25 @@ describe('the window frame', () => {
     screen.getByRole('dialog');
   });
 
+  it('moves with its title bar dragged, and not with its close button', () => {
+    render(
+      <WindowFrame title="Colony" close={() => {}}>
+        body
+      </WindowFrame>,
+    );
+    const frame = screen.getByRole('dialog');
+    const bar = frame.querySelector('.title')!;
+    fireEvent.pointerDown(bar, { button: 0, clientX: 10, clientY: 10, pointerId: 1 });
+    fireEvent.pointerMove(bar, { clientX: 60, clientY: 40, pointerId: 1 });
+    expect(frame.style.transform).toBe('translate(50px, 30px)');
+    fireEvent.pointerUp(bar, { pointerId: 1 });
+    fireEvent.pointerMove(bar, { clientX: 200, clientY: 200, pointerId: 1 });
+    expect(frame.style.transform, 'it stays where it was dropped').toBe('translate(50px, 30px)');
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Close' }), { button: 0, clientX: 0, clientY: 0 });
+    fireEvent.pointerMove(bar, { clientX: 300, clientY: 300 });
+    expect(frame.style.transform).toBe('translate(50px, 30px)');
+  });
+
   it('gives Escape to the newest frame only', () => {
     const closed: string[] = [];
     const { rerender } = render(

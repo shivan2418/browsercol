@@ -290,10 +290,14 @@
       .modal {
         position: fixed;
         inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        display: grid;
+        place-items: center;
         background: var(--backdrop);
+      }
+      /* A dialog over a panel sits in the same place, on top of it. */
+      .modal > * {
+        grid-area: 1 / 1;
+        max-width: 100%;
       }
       .dialog {
         max-width: 36em;

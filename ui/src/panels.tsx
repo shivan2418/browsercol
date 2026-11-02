@@ -1401,9 +1401,11 @@ export function DialogHost({
   routes: RouteButtons;
 }) {
   const d = useSyncExternalStore(dialogs.subscribe, dialogs.current);
+  const under = useSyncExternalStore(dialogs.subscribe, dialogs.under);
   if (!d) return null;
   return (
     <div className="modal">
+      {under && <Body key={under.id} d={under} goTo={goTo} art={art} string={string} report={report} routes={routes} />}
       <Body key={d.id} d={d} goTo={goTo} art={art} string={string} report={report} routes={routes} />
     </div>
   );

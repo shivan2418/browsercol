@@ -52,6 +52,8 @@ export interface Dialogs {
   shown: <K extends PanelKind>(kind: K) => GuiEvents[K][];
   /** The dialog on screen, or null. */
   current: () => Dialog | null;
+  /** The panel the dialog on screen is over, which stays on screen under it, or null. */
+  under: () => Dialog | null;
   /** Called whenever the dialog on screen changes; returns an unsubscribe. */
   subscribe: (listener: () => void) => () => void;
 }
@@ -107,6 +109,10 @@ export function dialogs(): Dialogs {
     shown: <K extends PanelKind>(kind: K) =>
       queue.flatMap((d) => (d.kind === kind ? [(d as unknown as { event: GuiEvents[K] }).event] : [])),
     current: () => queue[0] ?? null,
+    under: () => {
+      // A panel is covered while a dialog is in front of it; it is behind the head of the queue.
+      return queue.slice(1).find((d) => covered.has(d.id)) ?? null;
+    },
     subscribe: (listener) => {
       listeners.add(listener);
       return () => listeners.delete(listener);
