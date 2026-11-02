@@ -42,6 +42,7 @@ import net.sf.freecol.common.model.StringTemplate;
 import net.sf.freecol.common.model.TileImprovementType;
 import net.sf.freecol.common.model.TradeRoute;
 import net.sf.freecol.common.model.Unit;
+import net.sf.freecol.server.model.ServerColony;
 import net.sf.freecol.common.model.UnitLocation;
 
 
@@ -1308,5 +1309,72 @@ class CommandsTest {
         assertTrue(commands.assignTradeRoute(ship.getId(), null), "dropped");
         assertNull(serverShip.getTradeRoute());
         assertNull(ship.getTradeRoute());
+    }
+
+    /**
+     * A ship on a route between two colonies loads at the first and
+     * unloads into the second.
+     */
+    @Test
+    @Timeout(300)
+    void aShipCarriesGoodsBetweenTwoColonies() throws Exception {
+        startGame();
+        final Commands commands = client.getCommands();
+        final Player player = client.getClient().getMyPlayer();
+        final Colony colonyA = foundAColony(commands);
+        final Colony oursA = client.getGame()
+            .getFreeColGameObject(colonyA.getId(), Colony.class);
+
+        // The second colony is put on the map directly: a coastal tile well away
+        // from the first, so the cloth is seen on the ship before it arrives.
+        final Game game = server.getGame();
+        final Player us = game.getFreeColGameObject(player.getId(), Player.class);
+        final Tile at = colonyA.getTile();
+        final Tile land = game.getMap().getTileSet(t -> t.isLand() && !t.hasSettlement()
+                && t.getUnitCount() == 0 && t.getOwner() == null
+                && t.getDistanceTo(at) >= 9 && t.getDistanceTo(at) <= 16
+                && t.getSurroundingTiles(1, 1).stream().anyMatch(n -> !n.isLand()))
+            .stream().min(Comparator.comparingInt(t -> t.getDistanceTo(at))).get();
+        final Colony colonyB = new ServerColony(game, us, "Tradeville", land);
+        land.setSettlement(colonyB);
+        client.debugApplied(server.debug("{\"action\":\"revealMap\"}"));
+        awaitTrue(() -> client.getGame().getMap().getTile(land.getX(), land.getY())
+            .getColony() != null, "the client has the second colony");
+
+        final Unit ship = player.getUnits().filter(Unit::isNaval).findFirst().get();
+        final Unit serverShip = serverUnit(ship);
+        select(commands, ship);
+        assertTrue(commands.move(client.getGame().getMap()
+            .getDirection(ship.getTile(), oursA.getTile()).toString()), "into port");
+        final GoodsType cloth = game.getSpecification().getGoodsType("model.goods.cloth");
+        client.debugApplied(server.debug("{\"action\":\"addGoods\",\"type\":\"model.goods.cloth\","
+            + "\"amount\":100,\"x\":" + at.getX() + ",\"y\":" + at.getY() + "}"));
+        awaitTrue(() -> oursA.getGoodsCount(cloth) == 100, "colony A has the cloth");
+        assertEquals(0, colonyB.getGoodsCount(cloth), "colony B has none");
+
+        assertNull(commands.saveTradeRoute(null, "Cloth ferry", true,
+            List.of(colonyA.getId(), colonyB.getId()),
+            List.of(List.of(cloth.getId()), List.of())), "the route is saved");
+        final String routeId = serverRoutes(player).get(0).getId();
+        assertTrue(commands.assignTradeRoute(ship.getId(), routeId), "assigned");
+
+        // The cloth leaves A and rides on the ship.
+        int turns = 0;
+        while (colonyA.getGoodsCount(cloth) == 100) {
+            endTurnAndWait(commands);
+            assertTrue(++turns < 4, "the ship loads within 4 turns");
+        }
+        assertTrue(serverShip.getGoodsCount(cloth) > 0, "the ship took the cloth");
+        assertEquals(100, serverShip.getGoodsCount(cloth) + colonyA.getGoodsCount(cloth));
+        // ... and arrives in B's warehouse.
+        turns = 0;
+        while (colonyB.getGoodsCount(cloth) == 0) {
+            endTurnAndWait(commands);
+            assertTrue(++turns < 14, "the cloth reaches colony B within 14 turns");
+        }
+        assertEquals(0, serverShip.getGoodsCount(cloth), "the ship is empty");
+        assertTrue(colonyB.getGoodsCount(cloth) > 0, "B's warehouse has the cloth");
+        assertEquals(100, colonyB.getGoodsCount(cloth) + colonyA.getGoodsCount(cloth),
+            "no cloth was lost");
     }
 }
