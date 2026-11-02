@@ -548,9 +548,24 @@ class SelectDestinationTest {
             "the gold is paid");
         awaitGold(gold + 10 * sellPrice);
 
+        // The right-click menus of the Europe panel: the market's goods buy
+        // onto the ship, its cargo sells, and the ship has orders to give.
+        final Menus menus = client.getMenus();
+        final String market = menus.goods("europe", cloth.getId(), 100);
+        assertTrue(market.contains("\"id\":\"buy:" + ship.getId() + "," + cloth.getId() + "\""), market);
+        final String cargo = menus.goods(ship.getId(), cloth.getId(), 20);
+        assertTrue(cargo.contains("\"id\":\"sell:" + ship.getId() + "," + cloth.getId() + "\""), cargo);
+        final String orders = menus.unit(ship.getId());
+        assertTrue(orders.contains("state:SENTRY:" + ship.getId()), orders);
+        assertFalse(orders.contains("FORTIFYING"), "nothing to fortify in Europe: " + orders);
+        amount = "5";
+        assertTrue(client.getCommands().menuEntry("sell:" + ship.getId() + "," + cloth.getId()),
+            "the menu's entry sells");
+        assertEquals(5, ship.getGoodsCount(cloth));
+
         // The Europe panel shows the cargo of the ship in port.
         java.util.Map<String, Object> panel = europePanel(player);
-        assertEquals(10, cargoOf(panel, ship.getId(), cloth.getId()),
+        assertEquals(5, cargoOf(panel, ship.getId(), cloth.getId()),
             "the panel lists the cargo");
 
         // A boycotted goods cannot be traded, and the panel says why.
@@ -574,7 +589,7 @@ class SelectDestinationTest {
             "the player is asked to pay the arrears");
         assertFalse(client.getCommands().sellGoods(ship.getId(), cloth.getId()),
             "a boycotted goods cannot be sold");
-        assertEquals(10, serverShip(ship).getGoodsCount(cloth),
+        assertEquals(5, serverShip(ship).getGoodsCount(cloth),
             "nothing bought or sold");
         assertEquals(gold, serverPlayer.getGold(), "nothing paid");
     }

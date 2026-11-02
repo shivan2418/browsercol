@@ -98,7 +98,11 @@ export const ContextMenuContext = createContext<ContextMenus | null>(null);
 
 /** The handler that opens a menu on a right-click, or none when the page has no menus to give. */
 export function useContextMenu(get: (menus: ContextMenus) => MenuData | null) {
-  const menus = useContext(ContextMenuContext);
+  return contextMenuHandler(useContext(ContextMenuContext), get);
+}
+
+/** The same handler, for a panel that makes one per item of a list (a hook cannot be called in a loop). */
+export function contextMenuHandler(menus: ContextMenus | null, get: (menus: ContextMenus) => MenuData | null) {
   if (!menus) return undefined;
   return (e: MouseEvent) => {
     e.preventDefault();

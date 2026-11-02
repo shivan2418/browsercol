@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { dialogs } from './dialogs';
 import { europeButtons } from './europe-client';
+import { ContextMenuContext, type ContextMenus } from './popup-menu';
 import { DialogHost, type Art, type ReportButtons, type RouteButtons } from './panels';
 import type { Choice, EuropeUnit, GuiEvents, GuiQuestions, TradeRouteDraft } from './webgui';
 
@@ -1328,6 +1329,47 @@ describe('the Europe panel', () => {
     fireEvent.dragStart(document.querySelector('[data-cargo="goods"]')!, { dataTransfer });
     fireEvent.drop(document.querySelector('[data-list=market]')!, { dataTransfer });
     expect(calls).toEqual(['buy model.goods.food unit:1', 'sell model.goods.food unit:1']);
+  });
+
+  it('opens the Engine’s quick-action menu on a right-click of a ship, a docked unit, cargo and the market', () => {
+    const asked: string[] = [];
+    const shown: string[] = [];
+    const menus: ContextMenus = {
+      unit: (id) => (asked.push(`unit ${id}`), { title: id, entries: [] }),
+      goods: (at, type, amount) => (asked.push(`goods ${at} ${type} ${amount}`), { title: type, entries: [] }),
+      show: (m, x, y) => shown.push(`${m.title} ${x},${y}`),
+    };
+    const box = dialogs();
+    render(
+      <ContextMenuContext.Provider value={menus}>
+        <DialogHost
+          dialogs={box}
+          goTo={() => {}}
+          art={art}
+          report={{ groupBy() {}, filter() {}, ignore() {} }}
+          routes={{ save() {}, remove() {} }}
+        />
+      </ContextMenuContext.Provider>,
+    );
+    act(() => box.show('europe', europe));
+    const click = (selector: string) =>
+      fireEvent.contextMenu(document.querySelector(selector)!, { clientX: 5, clientY: 6 });
+    click('[data-list=toAmerica] [data-unit="unit:3"]');
+    click('[data-list=inPort] [data-unit="unit:1"]');
+    click('[data-list=docks] [data-unit="unit:4"]');
+    click('[data-list=cargo] [data-cargo="goods"]');
+    click('[data-list=market] [data-goods="model.goods.rum"]');
+    fireEvent.click(screen.getByRole('button', { name: 'Galleon' }));
+    click('[data-list=cargo] [data-cargo="unit"]');
+    expect(asked).toEqual([
+      'unit unit:3',
+      'unit unit:1',
+      'unit unit:4',
+      'goods unit:1 model.goods.food 50',
+      'goods europe model.goods.rum 100',
+      'unit unit:9',
+    ]);
+    expect(shown).toHaveLength(6);
   });
 
   it('closes on the button and Escape, and a second panel replaces the open one', () => {

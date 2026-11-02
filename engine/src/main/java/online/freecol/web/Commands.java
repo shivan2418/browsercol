@@ -369,6 +369,7 @@ public final class Commands {
      * <tr><td>colony:id, settlement:id</td><td>open the settlement's panel</td></tr>
      * <tr><td>leaveTown:unit, leaveShip:unit, board:unit,ship</td><td>as the colony panel's moves</td></tr>
      * <tr><td>work:unit,location,goods</td><td>put the colonist to work making the goods</td></tr>
+     * <tr><td>buy:ship,goods, sell:ship,goods</td><td>trade goods between a ship in Europe and the market</td></tr>
      * <tr><td>load:ship,goods, unload:ship,goods,amount, unloadAll:ship</td><td>move goods between a ship and the warehouse</td></tr>
      * </table>
      *
@@ -400,6 +401,8 @@ public final class Commands {
         case "leaveShip": return leaveShip(rest);
         case "board": return boardShip(a[0], a[1]);
         case "work": return workAs(a[0], a[1], a[2]);
+        case "buy": return buyGoods(a[0], a[1]);
+        case "sell": return sellGoods(a[0], a[1]);
         case "load": return loadGoods(a[0], a[1], false);
         case "unload":
             return unloadGoods(a[0], a[1], Integer.parseInt(a[2]), false);

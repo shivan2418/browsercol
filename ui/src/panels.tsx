@@ -6,12 +6,13 @@
 // they do in FreeCol's dialogs: Enter presses the focused button, else takes
 // the default option; Escape, or the frame's close button, closes the
 // dialog as cancelled; a panel closes on either key.
-import { Fragment, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { Fragment, useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { ColonyPanel } from './colony-panel';
 import type { Dialog, Dialogs } from './dialogs';
 import { europeButtons } from './europe-client';
 import { GoodsAmount, WindowFrame, type Art } from './frame';
 import { draggableProps, dropTargetProps, type Item } from './moves';
+import { ContextMenuContext, contextMenuHandler, useContextMenu } from './popup-menu';
 import { OptionEditor } from './option-editor';
 import { ReportPanel } from './reports';
 import type { EuropeUnit, GuiEvents, SettlementEntry, TradeItem, TradeOption, TradeRouteDraft } from './webgui';
@@ -930,12 +931,13 @@ function UnitChip({
     </>
   );
   const props = drag ? draggableProps({ kind: 'unit', id: u.id }) : {};
+  const onContextMenu = useContextMenu((m) => m.unit(u.id));
   return pick ? (
-    <button className="chip" data-unit={u.id} aria-pressed={on} onClick={pick} {...props}>
+    <button className="chip" data-unit={u.id} aria-pressed={on} onClick={pick} onContextMenu={onContextMenu} {...props}>
       {inner}
     </button>
   ) : (
-    <div className="chip" data-unit={u.id} {...props}>
+    <div className="chip" data-unit={u.id} onContextMenu={onContextMenu} {...props}>
       {inner}
     </div>
   );
@@ -953,6 +955,7 @@ function UnitChip({
  */
 function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
   const e: Europe = d.event;
+  const menus = useContext(ContextMenuContext);
   const [picked, setPicked] = useState(e.selected);
   const [shop, setShop] = useState<'recruit' | 'train' | 'purchase' | null>(null);
   const ship = e.inPort.find((u) => u.id === picked) ?? null;
@@ -1002,6 +1005,13 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
   const sell = (goodsTypeId: string) => {
     if (ship) europeButtons.sell(goodsTypeId, ship.id);
   };
+  /** The right-click menu of a ship's cargo: a unit's own, or goods' sale. */
+  const cargoMenu = (c: { kind: 'unit' | 'goods'; id: string; amount: number }) =>
+    contextMenuHandler(menus, (m) =>
+      c.kind === 'unit' ? m.unit(c.id) : ship ? m.goods(ship.id, c.id, c.amount) : null,
+    );
+  /** The right-click menu of the market's goods: buying onto a ship in port. */
+  const marketMenu = (goodsTypeId: string) => contextMenuHandler(menus, (m) => m.goods('europe', goodsTypeId, 100));
   /** What a drop on the cargo does: the market's goods are bought, a unit of the docks boards. */
   const onCargo = (item: Item) => {
     if (item.kind === 'goods' && item.from === 'market') buy(item.type);
@@ -1086,12 +1096,19 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
                   data-cargo={c.kind}
                   title={c.name}
                   onClick={() => sell(c.id)}
+                  onContextMenu={cargoMenu(c)}
                   {...drag}
                 >
                   {inner}
                 </button>
               ) : (
-                <div key={`${c.kind}/${c.id}`} className="chip" data-cargo={c.kind} title={goods?.reason ?? c.name}>
+                <div
+                  key={`${c.kind}/${c.id}`}
+                  className="chip"
+                  data-cargo={c.kind}
+                  title={goods?.reason ?? c.name}
+                  onContextMenu={cargoMenu(c)}
+                >
                   {inner}
                 </div>
               );
@@ -1118,6 +1135,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
                   data-goods={g.id}
                   title={g.name}
                   onClick={() => buy(g.id)}
+                  onContextMenu={marketMenu(g.id)}
                   {...drag}
                 >
                   {inner}
@@ -1129,6 +1147,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
                   data-goods={g.id}
                   data-disabled={!g.enabled || undefined}
                   title={g.reason ?? g.name}
+                  onContextMenu={marketMenu(g.id)}
                 >
                   {inner}
                 </div>
