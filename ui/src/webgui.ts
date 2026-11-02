@@ -352,7 +352,6 @@ export interface EuropeUnit {
   cargo?: { kind: 'unit' | 'goods'; id: Id; name: string; images: string[]; amount: number }[];
 }
 
-/** A text with the resource keys of its icon, best first. */
 /** Goods of a type and how much a terrain makes of them. */
 export interface ColopediaGoods {
   type: Id;
@@ -361,6 +360,7 @@ export interface ColopediaGoods {
   amount: number;
 }
 
+/** A text with the resource keys of its icon, best first. */
 export interface SettlementEntry {
   text: string;
   images: string[];
