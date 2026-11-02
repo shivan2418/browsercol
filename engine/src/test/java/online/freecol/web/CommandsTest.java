@@ -571,6 +571,8 @@ class CommandsTest {
         assertTrue(commands.setGoodsLevels(id, cloth.getId(), false, 10, 90, -1, 77));
         awaitTrue(() -> serverColony.getExportData(cloth).getExportLevel() == 77, "export level");
         assertEquals(10, serverColony.getExportData(cloth).getLowLevel());
+        assertTrue(commands.setGoodsLevels(id, cloth.getId(), false, 10, 90, 33, 77));
+        awaitTrue(() -> serverColony.getExportData(cloth).getImportLevel() == 33, "import level");
         assertEquals(90, serverColony.getExportData(cloth).getHighLevel());
 
         // Without a custom house the goods cannot be exported; levels out of range are refused.

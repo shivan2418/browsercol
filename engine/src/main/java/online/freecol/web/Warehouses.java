@@ -15,7 +15,7 @@ import net.sf.freecol.common.option.GameOptions;
  * What WarehouseDialog knows of a colony's custom house settings, without
  * Swing: the question the Browser UI shows, and saving its answer.
  *
- * The question is {title, ok, cancel, export, canExport, enhanced, tips:
+ * The question is {title, ok, cancel, export, canExport, tips:
  * {low, high, import, export}, goods: [{type, name, keys, amount, exported,
  * low, high, import, export, max}]}. import is null unless the enhanced
  * trade routes option is on; max is what the import and export levels may
@@ -26,6 +26,11 @@ import net.sf.freecol.common.option.GameOptions;
 final class Warehouses {
 
     private Warehouses() {}
+
+    /** The most an import or export level may be: the capacity, or 300 for goods that ignore it. */
+    static int maxLevel(Colony colony, GoodsType type) {
+        return type.limitIgnored() ? 300 : colony.getWarehouseCapacity();
+    }
 
     static String question(Colony colony) {
         final boolean enhanced = colony.getSpecification()
@@ -44,7 +49,7 @@ final class Warehouses {
                 .putRaw("import", enhanced
                     ? String.valueOf(data.getEffectiveImportLevel(capacity)) : "null")
                 .put("export", data.getExportLevel())
-                .put("max", type.limitIgnored() ? 300 : capacity)
+                .put("max", maxLevel(colony, type))
                 .toString());
         }
         return new Json().put("title", Messages.message("warehouseDialog.name"))
@@ -52,7 +57,6 @@ final class Warehouses {
             .put("cancel", Messages.message("cancel"))
             .put("export", Messages.message("warehouseDialog.export"))
             .put("canExport", colony.hasAbility(Ability.EXPORT))
-            .put("enhanced", enhanced)
             .putRaw("tips", new Json()
                 .put("low", Messages.message("warehouseDialog.lowLevel.shortDescription"))
                 .put("high", Messages.message("warehouseDialog.highLevel.shortDescription"))

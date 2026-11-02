@@ -461,7 +461,6 @@ export interface GuiQuestions {
       /** The export check box's label. */
       export: string;
       canExport: boolean;
-      enhanced: boolean;
       tips: { low: string; high: string; import: string; export: string; exported: string };
       goods: {
         type: Id;
