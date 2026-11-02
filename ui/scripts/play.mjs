@@ -380,7 +380,11 @@ async function play(page, url) {
     const logged = await page.evaluate(() => window.__dialogs.length);
     await pickUp(unit(other), other);
     await tile.locator('.hit').click();
-    await waitForDialog(logged, (d) => d.startsWith('information: '), 'the refusal was not explained over the colony panel');
+    await waitForDialog(
+      logged,
+      (d) => d.startsWith('information: '),
+      'the refusal was not explained over the colony panel',
+    );
     await panel.waitFor({ timeout: 10000 });
     await unit(other).click();
 
