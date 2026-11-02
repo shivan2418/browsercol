@@ -29,6 +29,7 @@ import { debugMessage, debugMode, describeAnswer, type DebugRequest } from './de
 import { ColonyActions, ColonyTiles, type ColonyMoves, type DrawTiles } from './colony-panel';
 import { dialogs } from './dialogs';
 import { MENUS, MenuBar, type Menu } from './frame';
+import { gameMenu, ordersMenu, viewMenu, type MenuActions } from './menus';
 import { commandForKey, type Command } from './input';
 import { mapDrawer, type MapView } from './map';
 import { europeButtons } from './europe-client';
@@ -168,11 +169,36 @@ const reportActions: ReportActions = {
   europe: () => runCommand({ k: 'showEurope' }),
   goTo: (at) => dispatch({ k: 'focus', tile: null, at }),
 };
-/** The menus: Report opens each of the reports. */
-const menus: Menu[] = MENUS.map((name) => ({
-  name,
-  items: name === 'Report' ? reportMenu(reportActions.open) : [],
-}));
+/** Whether the client Engine has loaded, so the menus' game commands work. */
+let menuReady = false;
+/** What the Game, Orders and View menus do (menus.ts). */
+const menuActions = (): MenuActions => ({
+  ready: menuReady,
+  orders: side.orders,
+  hasActiveUnit: view.active !== null,
+  run: (c) => runCommand(c),
+  newGame: () => {
+    // A new page shows the start screen again.
+    const next = new URLSearchParams();
+    if (tileset) next.set('tileset', tileset);
+    location.search = next.toString();
+  },
+  save: () => saveGame(''),
+  open: () => document.getElementById('saves')?.scrollIntoView({ block: 'nearest' }),
+  zoom: (steps) => dispatch({ k: 'zoom', steps, at: [view.viewport[0] / 2, view.viewport[1] / 2] }),
+  centreOnUnit: () => dispatch({ k: 'focus', tile: null, at: view.active?.tile ?? null }),
+});
+/** The menus, with the entries each has now. */
+const currentMenus = (): Menu[] => {
+  const a = menuActions();
+  const items: Record<string, Menu['items']> = {
+    Game: gameMenu(a),
+    View: viewMenu(a),
+    Orders: ordersMenu(a),
+    Report: reportMenu(reportActions.open),
+  };
+  return MENUS.map((name) => ({ name, items: items[name] ?? [] }));
+};
 const menuRoot = createRoot(document.getElementById('menubar')!);
 /** Our colony as the colony panel shows it, once the client Engine has loaded (ClientExports.colony). */
 let colonyNow: (id: string) => string = () => 'null';
@@ -213,7 +239,7 @@ const contextMenus: ContextMenus = {
 };
 const sideRoot = createRoot(document.getElementById('side')!);
 function renderSide() {
-  menuRoot.render(<MenuBar menus={menus} status={statusLine} />);
+  menuRoot.render(<MenuBar menus={currentMenus()} status={statusLine} />);
   sideRoot.render(
     <>
       <Side
@@ -421,11 +447,7 @@ function playWith(client: ClientExports) {
     else client[c.k]();
   };
   runCommand = run;
-  // The Game menu's entries that show the game's options (ShowGameOptionsAction, ShowDifficultyAction).
-  menus.find((m) => m.name === 'Game')!.items = [
-    { label: 'Show Game Options', run: () => run({ k: 'showGameOptions' }) },
-    { label: 'Show Difficulty Level', run: () => run({ k: 'showDifficulty' }) },
-  ];
+  menuReady = true;
   renderSide();
   addEventListener('keydown', (e) => {
     // An open dialog has the keys (panels.tsx).
