@@ -454,8 +454,8 @@ function roadPath(dirs: Direction[], p: PathSink) {
   }
 }
 
-/** How long the fog takes to fade from a tile that came into view, in milliseconds. */
-const FOG_FADE_MS = 600;
+/** How long the fog takes to fade from a tile that came into view, as a multiple of a slide's time. */
+const FOG_FADE_SLIDES = 2;
 
 const CHIP: TextStyle = { color: 0, font: 'sans-serif', size: 10, bold: true, plain: true };
 const NAME: TextStyle = { color: 0, font: 'serif', size: 13 };
@@ -649,8 +649,8 @@ export function mapDrawer(
     } else {
       pen.actors(0, 0, view.mode === 'units' && view.active ? blink(now, blinkMs) : 1);
     }
-    if (lifting && now - lifting.since >= FOG_FADE_MS) lifting = null;
-    pen.fade(lifting ? 1 - (now - lifting.since) / FOG_FADE_MS : 0);
+    if (lifting && now - lifting.since >= moveMs * FOG_FADE_SLIDES) lifting = null;
+    pen.fade(lifting ? 1 - (now - lifting.since) / (moveMs * FOG_FADE_SLIDES) : 0);
     const z = view.zoom;
     pen.show(size[0] / 2 - view.centre[0] * z, size[1] / 2 - view.centre[1] * z, z);
   };
@@ -705,7 +705,7 @@ export function mapDrawer(
       }),
       pics,
     );
-    lifting = lifted.length ? { since: performance.now() } : null;
+    lifting = lifted.length && moveMs > 0 ? { since: performance.now() } : null;
     await showNow();
     if (!frame) frame = requestAnimationFrame(tick);
   }
