@@ -463,6 +463,39 @@ class ReportsTest {
 
     @Test
     @Timeout(240)
+    void theRequirementsReportAdvisesEachColonyOrSaysItsRequirementsAreMet() throws Exception {
+        twoColonies();
+        final Player us = me();
+
+        final Map<String, Object> report = obj(JsonReader.read(Reports.requirements(us)));
+        assertEquals("requirements", report.get("report"));
+        assertEquals("Requirements", report.get("title"));
+        final List<Map<String, Object>> rows = objs(report.get("colonies"));
+        assertEquals(List.of("Jamestown", "Plymouth"), rows.stream()
+            .map(r -> (String)r.get("name")).sorted().collect(Collectors.toList()));
+        for (Map<String, Object> row : rows) {
+            final Colony ours = us.getColonyList().stream()
+                .filter(c -> c.getId().equals(row.get("id"))).findFirst().get();
+            final List<Map<String, Object>> items = objs(row.get("items"));
+            // One or the other, as in Swing: advice, or that nothing is needed.
+            assertEquals(items.isEmpty(), row.get("met") != null);
+            // The founder works a tile with no expert in the colony: Swing says so.
+            final Unit worker = ours.getUnitList().get(0);
+            if (worker.getWorkType() != null && ours.getColonyTiles().stream()
+                    .anyMatch(ct -> ct.getUnitList().contains(worker))
+                && ours.getUnitList().stream().noneMatch(u -> u.getType()
+                    == us.getSpecification().getExpertForProducing(worker.getWorkType()))) {
+                final String expert = net.sf.freecol.common.i18n.Messages.getName(
+                    us.getSpecification().getExpertForProducing(worker.getWorkType()));
+                assertTrue(items.stream().anyMatch(i -> ((String)i.get("text")).contains(expert)
+                        && ((String)i.get("text")).contains((String)row.get("name"))),
+                    "no " + expert + " in " + row.get("name") + ": " + items);
+            }
+        }
+    }
+
+    @Test
+    @Timeout(240)
     void theControllersReportCallsAndTheCommandsOpenTheReports() throws Exception {
         twoColonies();
         final Commands commands = client.getCommands();
@@ -478,8 +511,9 @@ class ReportsTest {
         gui.showReportHistoryPanel();
         gui.showReportTradePanel();
         gui.showReportProductionPanel();
+        gui.showReportRequirementsPanel();
         assertEquals(List.of("colony", "labour", "compactLabour", "religion", "education",
-                "exploration", "history", "trade", "production"), reports.stream()
+                "exploration", "history", "trade", "production", "requirements"), reports.stream()
             .map(r -> (String)obj(JsonReader.read(r)).get("report")).collect(Collectors.toList()));
 
         reports.clear();
@@ -492,13 +526,14 @@ class ReportsTest {
         assertTrue(commands.showReport("history"));
         assertTrue(commands.showReport("trade"));
         assertTrue(commands.showReport("production"));
+        assertTrue(commands.showReport("requirements"));
         assertFalse(commands.showReport("nothing"));
         assertTrue(commands.showReportDetail("labourDetail", "model.unit.freeColonist"));
         assertTrue(commands.showReportDetail("compactLabour", "model.unit.freeColonist"));
         assertTrue(commands.showReportDetail("compactLabour", ""));
         assertFalse(commands.showReportDetail("labourDetail", ""));
         assertEquals(List.of("colony", "labour", "compactLabour", "religion", "education",
-                "exploration", "history", "trade", "production", "labourDetail", "compactLabour", "compactLabour"),
+                "exploration", "history", "trade", "production", "requirements", "labourDetail", "compactLabour", "compactLabour"),
             reports.stream().map(r -> (String)obj(JsonReader.read(r)).get("report"))
                 .collect(Collectors.toList()));
 

@@ -43,12 +43,12 @@ import net.sf.freecol.common.model.WorkLocation;
  * ReportLabourDetailPanel) and the compact labour report
  * (CompactLabourReport, on LabourData), the military, naval and cargo
  * reports (ReportUnitPanel and its three subclasses), and the religion,
- * education, exploration, history, trade and production reports. Every
- * payload is one object of the {@code report} event, told apart by its
- * {@code report} field: colony, labour, labourDetail, compactLabour,
- * military, naval, cargo, religion, education, exploration, history, trade
- * or production. Each has title, ok (the button's label) and back, the
- * report the button returns to (or null).
+ * education, exploration, history, trade, production and requirements
+ * reports. Every payload is one object of the {@code report} event, told
+ * apart by its {@code report} field: colony, labour, labourDetail,
+ * compactLabour, military, naval, cargo, religion, education, exploration,
+ * history, trade, production or requirements. Each has title, ok (the
+ * button's label) and back, the report the button returns to (or null).
  *
  * <p>To add a report: write its builder here, giving it a new {@code report}
  * name; add its show method to the WebGUI (it sends the event) and its name
@@ -434,6 +434,15 @@ final class Reports {
                 .toString())
             .putRaw("goods", Json.array(goods))
             .putRaw("colonies", Json.array(colonies)).toString();
+    }
+
+    /**
+     * The requirements report (ReportRequirementsPanel), as {@link
+     * Requirements} describes: {colonies: [{id, name, items, met}]}.
+     */
+    static String requirements(Player player) {
+        return head("requirements", "reportRequirementsAction", null)
+            .putRaw("colonies", Requirements.of(player)).toString();
     }
 
     /** Where ReportLabourPanel counts a unit: its settlement, Europe, else its tile. */
