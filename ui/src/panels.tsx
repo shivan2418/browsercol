@@ -568,13 +568,16 @@ function PanelButtons({
   ok,
   close,
   extra = null,
+  lead = null,
 }: {
   ok: string;
   close: () => void;
   extra?: { label: string; run: () => void } | null;
+  lead?: ReactNode;
 }) {
   return (
     <div className="buttons">
+      {lead}
       {extra && <button onClick={extra.run}>{extra.label}</button>}
       <button data-answer="close" onClick={close}>
         {ok}
@@ -589,6 +592,7 @@ function Panel({
   children,
   ok,
   extra = null,
+  lead = null,
 }: {
   d: Dialog;
   title?: string | null;
@@ -596,13 +600,15 @@ function Panel({
   ok: string;
   /** A second button beside OK. */
   extra?: { label: string; run: () => void } | null;
+  /** Buttons at the left of the footer, with OK alone at the right. */
+  lead?: ReactNode;
 }) {
   const close = () => (d.done as () => void)();
   useEnter(close);
   return (
     <Win d={d} title={title} close={close}>
       {children}
-      <PanelButtons ok={ok} close={close} extra={extra} />
+      <PanelButtons ok={ok} close={close} extra={extra} lead={lead} />
     </Win>
   );
 }
@@ -984,11 +990,11 @@ function UnitChip({
   const props = drag ? draggableProps({ kind: 'unit', id: u.id }) : {};
   const onContextMenu = useContextMenu((m) => m.unit(u.id));
   return pick ? (
-    <button className="chip" data-unit={u.id} aria-pressed={on} onClick={pick} onContextMenu={onContextMenu} {...props}>
+    <button className="chip" data-unit={u.id} title={u.name} aria-pressed={on} onClick={pick} onContextMenu={onContextMenu} {...props}>
       {inner}
     </button>
   ) : (
-    <div className="chip" data-unit={u.id} onContextMenu={onContextMenu} {...props}>
+    <div className="chip" data-unit={u.id} title={u.name} onContextMenu={onContextMenu} {...props}>
       {inner}
     </div>
   );
@@ -1102,31 +1108,34 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
   const onMarket = (item: Item) => {
     if (item.kind === 'goods' && item.from === 'cargo') sell(item.type, item.ask === true);
   };
+  const footer = (
+    <>
+      {(['recruit', 'train', 'purchase'] as const).map((kind) => (
+        <button
+          key={kind}
+          data-europe={kind}
+          aria-pressed={shop === kind}
+          onClick={() => setShop(shop === kind ? null : kind)}
+        >
+          {e.buttons[kind]}
+        </button>
+      ))}
+      <button data-europe="sail" disabled={!ship} onClick={() => ship && europeButtons.sail(ship.id)}>
+        {e.buttons.sail}
+      </button>
+    </>
+  );
   return (
-    <Panel d={d} ok={e.ok}>
+    <Panel d={d} ok={e.ok} lead={footer}>
       <div className="europe-title">
         <h2>{e.title}</h2>
         <span className="gold">
           {e.goldLabel}: <b data-gold>{e.gold}</b>
         </span>
       </div>
-      <div className="europe-buttons">
-        {(['recruit', 'train', 'purchase'] as const).map((kind) => (
-          <button
-            key={kind}
-            data-europe={kind}
-            aria-pressed={shop === kind}
-            onClick={() => setShop(shop === kind ? null : kind)}
-          >
-            {e.buttons[kind]}
-          </button>
-        ))}
-        <button data-europe="sail" disabled={!ship} onClick={() => ship && europeButtons.sail(ship.id)}>
-          {e.buttons.sail}
-        </button>
-      </div>
       {shop && shopPopup(shop)}
       <div className="europe-body">
+      <div className="europe-top">
       <div className="europe">
         {list(e.headings.toAmerica, 'toAmerica', e.toAmerica, undefined, false, onSailing)}
         {list(e.headings.toEurope, 'toEurope', e.toEurope)}
@@ -1153,7 +1162,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
               const inner = (
                 <>
                   <Pic keys={c.images} art={art} />
-                  <span className="name">{c.kind === 'goods' ? `${c.amount} ${c.name}` : c.name}</span>
+                  {c.kind === 'goods' && <span className="name">{c.amount}</span>}
                 </>
               );
               return sellable ? (
@@ -1176,46 +1185,6 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
                   title={goods?.reason ?? c.name}
                   onContextMenu={cargoMenu(c)}
                   {...(c.kind === 'unit' ? drag : {})}
-                >
-                  {inner}
-                </div>
-              );
-            })}
-          </div>
-        </section>
-        <section className="box market" data-list="market" {...dropTargetProps('market', onMarket)}>
-          <div className="goods">
-            {e.market.map((g) => {
-              const buyable = ship !== null && g.enabled;
-              const drag = goodsDrag({ kind: 'goods', from: 'market', type: g.id });
-              const inner = (
-                <>
-                  <Pic keys={g.images} art={art} />
-                  <span className="price">
-                    {g.sell}/{g.buy}
-                  </span>
-                </>
-              );
-              return buyable ? (
-                <button
-                  key={g.id}
-                  className="good"
-                  data-goods={g.id}
-                  title={g.name}
-                  onClick={() => buy(g.id)}
-                  onContextMenu={marketMenu(g.id)}
-                  {...drag}
-                >
-                  {inner}
-                </button>
-              ) : (
-                <div
-                  key={g.id}
-                  className="good"
-                  data-goods={g.id}
-                  data-disabled={!g.enabled || undefined}
-                  title={g.reason ?? g.name}
-                  onContextMenu={marketMenu(g.id)}
                 >
                   {inner}
                 </div>
@@ -1254,6 +1223,47 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
           </tbody>
         </table>
       </aside>
+      </div>
+      <section className="box market" data-list="market" {...dropTargetProps('market', onMarket)}>
+        <div className="goods">
+          {e.market.map((g) => {
+            const buyable = ship !== null && g.enabled;
+            const drag = goodsDrag({ kind: 'goods', from: 'market', type: g.id });
+            const inner = (
+              <>
+                <Pic keys={g.images} art={art} />
+                <span className="price">
+                  {g.sell}/{g.buy}
+                </span>
+              </>
+            );
+            return buyable ? (
+              <button
+                key={g.id}
+                className="good"
+                data-goods={g.id}
+                title={g.name}
+                onClick={() => buy(g.id)}
+                onContextMenu={marketMenu(g.id)}
+                {...drag}
+              >
+                {inner}
+              </button>
+            ) : (
+              <div
+                key={g.id}
+                className="good"
+                data-goods={g.id}
+                data-disabled={!g.enabled || undefined}
+                title={g.reason ?? g.name}
+                onContextMenu={marketMenu(g.id)}
+              >
+                {inner}
+              </div>
+            );
+          })}
+        </div>
+      </section>
       </div>
     </Panel>
   );
