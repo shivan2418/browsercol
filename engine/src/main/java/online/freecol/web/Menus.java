@@ -201,21 +201,31 @@ final class Menus {
             b.gap();
             addBoard(b, unit, player.getEurope());
             addRoles(b, unit);
+            addClearSpeciality(b, unit);
             return b.build(unitLabel(unit));
         }
         final Colony colony = colonyOf(unit);
         if (colony == null) return "null";
         if (unit.isCarrier() && unit.hasCargo()) {
-            b.add("unloadAll:" + unitId, text("unload"));
+            // The cargo, as QuickActionMenu.addCarrierItems lists it.
+            b.add("none", text("cargoOnCarrier"), false, false);
+            for (Unit aboard : unit.getUnitList()) {
+                b.add("none", unitLabel(aboard), false, true);
+            }
+            for (Goods g : unit.getGoodsList()) {
+                b.add("none", text(g.getLabel(true)), false, true);
+            }
             b.gap();
         }
         if (!unit.isCarrier() && unit.isInColony()) {
             addWork(b, unit, colony);
+            addEducation(b, unit, colony);
             if (colony.canReducePopulation()) {
                 b.add("leaveTown:" + unitId, text("quickActionMenu.leaveTown"));
                 addBoard(b, unit, colony);
                 b.gap();
                 addRoles(b, unit);
+                addClearSpeciality(b, unit);
                 return b.build(unitLabel(unit));
             }
         }
@@ -223,7 +233,52 @@ final class Menus {
         b.gap();
         addBoard(b, unit, colony);
         addRoles(b, unit);
+        addClearSpeciality(b, unit);
         return b.build(unitLabel(unit));
+    }
+
+    /** QuickActionMenu's "clear speciality", unless the unit works where it would no longer fit. */
+    private void addClearSpeciality(Builder b, Unit unit) {
+        final net.sf.freecol.common.model.UnitTypeChange uc =
+            unit.getUnitChange(net.sf.freecol.common.model.UnitChangeType.CLEAR_SKILL);
+        if (uc == null) return;
+        b.gap();
+        final boolean fits = !(unit.getLocation() instanceof net.sf.freecol.common.model.Building)
+            || ((net.sf.freecol.common.model.Building)unit.getLocation()).canAddType(uc.to);
+        b.add("clearSpeciality:" + unit.getId(),
+            text(StringTemplate.template("quickActionMenu.clearSpeciality")), fits, false);
+    }
+
+    /** QuickActionMenu.addEducationItems: the teachers that may take the unit, and its own lessons. */
+    private void addEducation(Builder b, Unit unit, Colony colony) {
+        boolean any = false;
+        if (unit.getSpecification().getBoolean(
+                net.sf.freecol.common.option.GameOptions.ALLOW_STUDENT_SELECTION)) {
+            for (Unit teacher : colony.getTeachers().collect(java.util.stream.Collectors.toList())) {
+                if (!unit.canBeStudent(teacher) || !teacher.isInColony()) continue;
+                final String name = Messages.getName(teacher.getType());
+                final String progress = " (" + teacher.getTurnsOfTraining() + "/"
+                    + teacher.getNeededTurnsOfTraining() + ")";
+                if (teacher.getStudent() == unit) {
+                    b.add("none", text(StringTemplate.template("quickActionMenu.apprentice")
+                        .addName("%unit%", name)) + ":" + progress, false, false);
+                } else {
+                    b.add("assign:" + unit.getId() + "," + teacher.getId(),
+                        text(StringTemplate.template("quickActionMenu.assignToTeacher")
+                            .addName("%unit%", name))
+                        + (teacher.getStudent() != null ? progress : ""));
+                }
+                any = true;
+            }
+        }
+        if (unit.getStudent() != null) {
+            b.add("none", text(StringTemplate.template("quickActionMenu.teaching")
+                .addName("%unit%", Messages.getName(unit.getStudent().getType())))
+                + ": " + unit.getTurnsOfTraining() + "/" + unit.getNeededTurnsOfTraining(),
+                false, false);
+            any = true;
+        }
+        if (any) b.gap();
     }
 
     /**
