@@ -12,6 +12,11 @@ import net.sf.freecol.common.model.GoodsType;
 import net.sf.freecol.common.model.IndianSettlement;
 import net.sf.freecol.common.model.Location;
 import net.sf.freecol.common.model.Player;
+import net.sf.freecol.common.model.Role;
+import net.sf.freecol.common.model.AbstractGoods;
+import net.sf.freecol.common.model.UnitLocation;
+import net.sf.freecol.common.model.Ability;
+import net.sf.freecol.common.FreeColException;
 import net.sf.freecol.common.model.Settlement;
 import net.sf.freecol.common.model.Specification;
 import net.sf.freecol.common.model.StringTemplate;
@@ -209,13 +214,65 @@ final class Menus {
                 b.add("leaveTown:" + unitId, text("quickActionMenu.leaveTown"));
                 addBoard(b, unit, colony);
                 b.gap();
+                addRoles(b, unit);
                 return b.build(unitLabel(unit));
             }
         }
         addOrders(b, unit);
         b.gap();
         addBoard(b, unit, colony);
+        addRoles(b, unit);
         return b.build(unitLabel(unit));
+    }
+
+    /**
+     * QuickActionMenu.addRoleItems: the roles (tools, soldier, dragoon...) the unit can take in
+     * the colony or Europe, each with as many of its goods as can be had and paid for.
+     */
+    private void addRoles(Builder b, Unit unit) {
+        if (!unit.hasAbility(Ability.CAN_BE_EQUIPPED)) return;
+        final Player player = me();
+        final UnitLocation at = unit.isInEurope() ? player.getEurope() : unit.getSettlement();
+        if (at == null) return;
+        final Role role = unit.getRole();
+        final int roleCount = unit.getRoleCount();
+        boolean any = false;
+        for (Role r : unit.getAvailableRoles(null).collect(java.util.stream.Collectors.toList())) {
+            if (r == role) continue;
+            int count = 0;
+            int price = 0;
+            if (r.isDefaultRole()) {
+                count = 0;
+            } else {
+                boolean found = false;
+                for (int n = r.getMaximumCount(); n > 0 && !found; n--) {
+                    try {
+                        final int p = at.priceGoods(unit.getGoodsDifference(r, n));
+                        if (player.checkGold(p)) {
+                            count = n;
+                            price = p;
+                            found = true;
+                        }
+                    } catch (FreeColException fce) {
+                        continue;
+                    }
+                }
+                if (!found) continue;
+            }
+            String key = "model.role.change." + r.getSuffix();
+            if (!Messages.containsKey(key)) {
+                key = "model.role.change." + role.getSuffix() + "." + r.getSuffix();
+            }
+            String label = text(key);
+            if (price != 0) {
+                label += " (" + text(StringTemplate.template("goldAmount")
+                    .addAmount("%amount%", Math.abs(price)))
+                    + (price < 0 ? " (" + text("income") + "))" : ")");
+            }
+            if (!any) b.gap();
+            any = true;
+            b.add("role:" + unit.getId() + "," + r.getId() + "," + count, label);
+        }
     }
 
     /** The colony a unit is in or on the tile of, else null. */
