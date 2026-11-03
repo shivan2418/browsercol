@@ -308,6 +308,7 @@
       }
       /* A dialog over a panel sits in the same place, on top of it. */
       .modal > * {
+        position: relative;
         grid-area: 1 / 1;
         max-width: 100%;
       }
@@ -1100,6 +1101,8 @@
       }
       .colony {
         position: relative;
+        /* Keep the tiles' and queue's z-indexes inside the panel, so a dialog over it stays on top. */
+        isolation: isolate;
       }
       .colony .queue-backdrop {
         position: absolute;
