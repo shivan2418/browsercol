@@ -545,9 +545,22 @@
         vertical-align: middle;
       }
       /* Europe (src/panels.tsx), as EuropePanel lays it out: the ships, the docks and cargo, the market. */
+      /* Europe is a screen of its own, as in FreeCol: it fills the whole window. */
+      .modal:has(> .dialog[data-kind='europe']) {
+        background: var(--panel);
+      }
       .dialog[data-kind='europe'] {
-        width: min(72em, 96vw);
+        box-sizing: border-box;
+        width: 100vw;
+        height: 100vh;
         max-width: none;
+        max-height: none;
+        border: 0;
+        box-shadow: none;
+      }
+      .dialog[data-kind='europe'] > .body {
+        display: flex;
+        flex-direction: column;
       }
       .europe-title {
         display: flex;
@@ -557,7 +570,9 @@
       .europe-body {
         display: flex;
         gap: 8px;
-        align-items: flex-start;
+        align-items: stretch;
+        flex: 1;
+        min-height: 0;
       }
       .europe-body > .europe {
         flex: 1;
@@ -586,7 +601,9 @@
       .europe {
         display: grid;
         grid-template-columns: 1fr 1fr;
+        grid-template-rows: auto auto auto 1fr;
         gap: 8px;
+        overflow: auto;
       }
       .europe .box {
         background: var(--box);
