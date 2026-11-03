@@ -760,8 +760,10 @@ export function mapDrawer(
     const before = drawn;
     drawn = map;
     if (!pen) await init();
-    // Units that moved as the turn turned (orders carried out, the AI playing) jump: only the player's own moves slide.
-    const moved = before && before.turn === map.turn ? moves(before.units, map.units) : [];
+    // Only the player's own moves slide: the active unit stepping off its tile during their turn. Orders carried out
+    // as the turn turns, and the AI playing, jump.
+    const mine = before && before.turn === map.turn && before.ourTurn && map.ourTurn ? before.active : null;
+    const moved = mine ? moves(before!.units, map.units).filter((m) => m.from.join() === mine.join()) : [];
     if (moved.length && moveMs > 0) sliding = { moves: moved, since: performance.now() };
     actorTiles = new Set(moved.map((m) => m.to.join(',')));
     if (map.active) actorTiles.add(map.active.join(','));
