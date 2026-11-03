@@ -20,8 +20,11 @@ if [[ "${1:-}" == "-C" ]]; then workdir="/work/$2"; shift 2; fi
 if [[ -n "${FREECOL_SANDBOX:-}" ]]; then
   cd "$repo${workdir#/work}" && exec "$@"
 fi
-if ! docker image inspect "$image" >/dev/null 2>&1 || [[ "${DEV_REBUILD:-}" == 1 ]]; then
-  docker build -q -t "$image" -f "$repo/docker/$dockerfile" "$repo/docker" >/dev/null
+# The image is rebuilt when it is missing, when DEV_REBUILD=1, or when its Dockerfile changed since it was built.
+sum=$(sha256sum "$repo/docker/$dockerfile" | cut -c1-16)
+if ! docker image inspect "$image" >/dev/null 2>&1 || [[ "${DEV_REBUILD:-}" == 1 ]] \
+  || [[ "$(docker image inspect -f '{{index .Config.Labels "dockerfile"}}' "$image" 2>/dev/null)" != "$sum" ]]; then
+  docker build -q -t "$image" --label "dockerfile=$sum" -f "$repo/docker/$dockerfile" "$repo/docker" >/dev/null
 fi
 tty=(); [[ -t 0 && -t 1 ]] && tty=(-it)
 ports=(); [[ -n "${DEV_PORT:-}" ]] && ports=(-p "127.0.0.1:$DEV_PORT:$DEV_PORT")
