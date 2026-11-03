@@ -702,13 +702,23 @@
         color: var(--ink);
         border-radius: 4px;
       }
-      /* The selected ship is sunken, as in FreeCol's EuropePanel, not outlined. */
-      .europe button.chip[aria-pressed='true'] {
-        background: var(--box);
+      /*
+       * What is picked (a ship, or goods in the colony) takes a tint of the accent colour. Everything that can be
+       * picked has the same 4px of room on every side, so the tint never sits tight against the content.
+       */
+      .europe button.chip,
+      .colony .ship,
+      .colony [data-picked] {
+        padding: 4px;
         border: none;
+        border-radius: 4px;
+        box-sizing: border-box;
+      }
+      .europe button.chip[aria-pressed='true'] {
+        background: color-mix(in srgb, var(--accent) 20%, transparent);
         outline: none;
         font-weight: normal;
-        box-shadow: inset 2px 2px 3px rgb(0 0 0 / 45%);
+        box-shadow: none;
       }
       .europe-body .goods {
         display: grid;
@@ -730,7 +740,6 @@
       .europe button.chip {
         background: none;
         border: none;
-        padding: 0;
         color: var(--ink);
         cursor: pointer;
       }
@@ -749,10 +758,11 @@
       .europe .chip[draggable='true']:hover,
       .europe button.chip:hover,
       .europe button.chip:focus-visible {
-        border: none;
         outline: none;
-        background: var(--box);
-        box-shadow: inset 2px 2px 3px rgb(0 0 0 / 45%);
+        background: color-mix(in srgb, var(--accent) 10%, transparent);
+      }
+      .europe button.chip[aria-pressed='true']:hover {
+        background: color-mix(in srgb, var(--accent) 20%, transparent);
       }
       .europe-body .price {
         font-variant-numeric: tabular-nums;
@@ -1163,22 +1173,20 @@
       }
 
       .colony .ship {
-        padding: 2px;
         background: none;
-        border: 2px solid transparent;
       }
-      .colony .ship[aria-pressed='true'] {
-        background: var(--box);
-        border-color: var(--line);
-        box-shadow: inset 2px 2px 3px rgb(0 0 0 / 45%);
+      .colony .ship img {
+        display: block;
+      }
+      .colony .ship[aria-pressed='true'],
+      .colony [data-picked='true'] {
+        background: color-mix(in srgb, var(--accent) 20%, transparent);
+        outline: none;
+        font-weight: inherit;
       }
       /* Moving colonists and goods (colony-panel.tsx): units and goods are dragged, or picked by a click; places take drops and clicks. */
       .colony [draggable='true'] {
         cursor: grab;
-      }
-      .colony [data-picked='true'] {
-        outline: 2px solid var(--accent);
-        outline-offset: 1px;
       }
       .colony .over-target:not(.tile) {
         outline: 2px dashed var(--accent);
