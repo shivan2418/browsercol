@@ -990,7 +990,15 @@ function UnitChip({
   const props = drag ? draggableProps({ kind: 'unit', id: u.id }) : {};
   const onContextMenu = useContextMenu((m) => m.unit(u.id));
   return pick ? (
-    <button className="chip" data-unit={u.id} title={u.name} aria-pressed={on} onClick={pick} onContextMenu={onContextMenu} {...props}>
+    <button
+      className="chip"
+      data-unit={u.id}
+      title={u.name}
+      aria-pressed={on}
+      onClick={pick}
+      onContextMenu={onContextMenu}
+      {...props}
+    >
       {inner}
     </button>
   ) : (
@@ -1135,56 +1143,128 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
       </div>
       {shop && shopPopup(shop)}
       <div className="europe-body">
-      <div className="europe-top">
-      <div className="europe">
-        {list(e.headings.toAmerica, 'toAmerica', e.toAmerica, undefined, false, onSailing)}
-        {list(e.headings.toEurope, 'toEurope', e.toEurope)}
-        {list(e.headings.inPort, 'inPort', e.inPort, (u) => () => setPicked(u.id), true)}
-        {list(
-          e.headings.docks,
-          'docks',
-          e.docks,
-          ship ? (u) => () => europeButtons.board(u.id, ship.id) : undefined,
-          ship !== null,
-          onDocks,
-          'docks',
-        )}
-        <section className="box cargo" data-list="cargo" {...(ship ? dropTargetProps('cargo', onCargo) : {})}>
-          <h3>{e.headings.cargo}</h3>
-          <div className="chips">
-            {ship?.cargo?.map((c, i) => {
-              const goods = trade.get(c.id);
-              const sellable = c.kind === 'goods' && goods?.enabled === true;
-              const drag =
-                c.kind === 'unit'
-                  ? draggableProps({ kind: 'unit', id: c.id })
-                  : goodsDrag({ kind: 'goods', from: 'cargo', type: c.id, index: i, amount: c.amount });
+        <div className="europe-top">
+          <div className="europe">
+            {list(e.headings.toAmerica, 'toAmerica', e.toAmerica, undefined, false, onSailing)}
+            {list(e.headings.toEurope, 'toEurope', e.toEurope)}
+            {list(e.headings.inPort, 'inPort', e.inPort, (u) => () => setPicked(u.id), true)}
+            {list(
+              e.headings.docks,
+              'docks',
+              e.docks,
+              ship ? (u) => () => europeButtons.board(u.id, ship.id) : undefined,
+              ship !== null,
+              onDocks,
+              'docks',
+            )}
+            <section className="box cargo" data-list="cargo" {...(ship ? dropTargetProps('cargo', onCargo) : {})}>
+              <h3>{e.headings.cargo}</h3>
+              <div className="chips">
+                {ship?.cargo?.map((c, i) => {
+                  const goods = trade.get(c.id);
+                  const sellable = c.kind === 'goods' && goods?.enabled === true;
+                  const drag =
+                    c.kind === 'unit'
+                      ? draggableProps({ kind: 'unit', id: c.id })
+                      : goodsDrag({ kind: 'goods', from: 'cargo', type: c.id, index: i, amount: c.amount });
+                  const inner = (
+                    <>
+                      <Pic keys={c.images} art={art} />
+                      {c.kind === 'goods' && <span className="name">{c.amount}</span>}
+                    </>
+                  );
+                  return sellable ? (
+                    <button
+                      key={`${c.kind}/${c.id}`}
+                      className="chip"
+                      data-cargo={c.kind}
+                      title={c.name}
+                      onClick={() => sell(c.id)}
+                      onContextMenu={cargoMenu(c)}
+                      {...drag}
+                    >
+                      {inner}
+                    </button>
+                  ) : (
+                    <div
+                      key={`${c.kind}/${c.id}`}
+                      className="chip"
+                      data-cargo={c.kind}
+                      title={goods?.reason ?? c.name}
+                      onContextMenu={cargoMenu(c)}
+                      {...(c.kind === 'unit' ? drag : {})}
+                    >
+                      {inner}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          </div>
+          <aside className="europe-tally" data-tally>
+            <h3>{e.tally.heading}</h3>
+            <p className="tax">
+              {e.tally.taxLabel}: <b data-tax>{e.tally.tax}%</b>
+            </p>
+            <table>
+              <thead>
+                <tr>
+                  <th />
+                  <th>{e.tally.unitsSold}</th>
+                  <th>{e.tally.beforeTaxes}</th>
+                  <th>{e.tally.afterTaxes}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {e.market
+                  .filter((g) => g.sold > 0 || g.beforeTaxes !== 0 || g.afterTaxes !== 0)
+                  .map((g) => (
+                    <tr key={g.id} data-tally-goods={g.id}>
+                      <td title={g.name}>
+                        <Pic keys={g.images} art={art} />
+                      </td>
+                      <td>{g.sold}</td>
+                      <td>{g.beforeTaxes}</td>
+                      <td>{g.afterTaxes}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </aside>
+        </div>
+        <section className="box market" data-list="market" {...dropTargetProps('market', onMarket)}>
+          <div className="goods">
+            {e.market.map((g) => {
+              const buyable = ship !== null && g.enabled;
+              const drag = goodsDrag({ kind: 'goods', from: 'market', type: g.id });
               const inner = (
                 <>
-                  <Pic keys={c.images} art={art} />
-                  {c.kind === 'goods' && <span className="name">{c.amount}</span>}
+                  <Pic keys={g.images} art={art} />
+                  <span className="price">
+                    {g.sell}/{g.buy}
+                  </span>
                 </>
               );
-              return sellable ? (
+              return buyable ? (
                 <button
-                  key={`${c.kind}/${c.id}`}
-                  className="chip"
-                  data-cargo={c.kind}
-                  title={c.name}
-                  onClick={() => sell(c.id)}
-                  onContextMenu={cargoMenu(c)}
+                  key={g.id}
+                  className="good"
+                  data-goods={g.id}
+                  title={g.name}
+                  onClick={() => buy(g.id)}
+                  onContextMenu={marketMenu(g.id)}
                   {...drag}
                 >
                   {inner}
                 </button>
               ) : (
                 <div
-                  key={`${c.kind}/${c.id}`}
-                  className="chip"
-                  data-cargo={c.kind}
-                  title={goods?.reason ?? c.name}
-                  onContextMenu={cargoMenu(c)}
-                  {...(c.kind === 'unit' ? drag : {})}
+                  key={g.id}
+                  className="good"
+                  data-goods={g.id}
+                  data-disabled={!g.enabled || undefined}
+                  title={g.reason ?? g.name}
+                  onContextMenu={marketMenu(g.id)}
                 >
                   {inner}
                 </div>
@@ -1192,78 +1272,6 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
             })}
           </div>
         </section>
-      </div>
-      <aside className="europe-tally" data-tally>
-        <h3>{e.tally.heading}</h3>
-        <p className="tax">
-          {e.tally.taxLabel}: <b data-tax>{e.tally.tax}%</b>
-        </p>
-        <table>
-          <thead>
-            <tr>
-              <th />
-              <th>{e.tally.unitsSold}</th>
-              <th>{e.tally.beforeTaxes}</th>
-              <th>{e.tally.afterTaxes}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {e.market
-              .filter((g) => g.sold > 0 || g.beforeTaxes !== 0 || g.afterTaxes !== 0)
-              .map((g) => (
-                <tr key={g.id} data-tally-goods={g.id}>
-                  <td title={g.name}>
-                    <Pic keys={g.images} art={art} />
-                  </td>
-                  <td>{g.sold}</td>
-                  <td>{g.beforeTaxes}</td>
-                  <td>{g.afterTaxes}</td>
-                </tr>
-              ))}
-          </tbody>
-        </table>
-      </aside>
-      </div>
-      <section className="box market" data-list="market" {...dropTargetProps('market', onMarket)}>
-        <div className="goods">
-          {e.market.map((g) => {
-            const buyable = ship !== null && g.enabled;
-            const drag = goodsDrag({ kind: 'goods', from: 'market', type: g.id });
-            const inner = (
-              <>
-                <Pic keys={g.images} art={art} />
-                <span className="price">
-                  {g.sell}/{g.buy}
-                </span>
-              </>
-            );
-            return buyable ? (
-              <button
-                key={g.id}
-                className="good"
-                data-goods={g.id}
-                title={g.name}
-                onClick={() => buy(g.id)}
-                onContextMenu={marketMenu(g.id)}
-                {...drag}
-              >
-                {inner}
-              </button>
-            ) : (
-              <div
-                key={g.id}
-                className="good"
-                data-goods={g.id}
-                data-disabled={!g.enabled || undefined}
-                title={g.reason ?? g.name}
-                onContextMenu={marketMenu(g.id)}
-              >
-                {inner}
-              </div>
-            );
-          })}
-        </div>
-      </section>
       </div>
     </Panel>
   );

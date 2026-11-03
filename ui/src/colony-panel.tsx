@@ -714,13 +714,7 @@ export function ColonyPanel({ colony: c, art, footer }: { colony: ColonyView; ar
                   <span className="name">{b.name}</span>
                   <Img keys={b.keys} art={art} className="art" />
                   <span className="output">
-                    {b.production && (
-                      <Made
-                        g={b.production}
-                        art={art}
-                        max={b.production.max}
-                      />
-                    )}
+                    {b.production && <Made g={b.production} art={art} max={b.production.max} />}
                     {b.upkeep !== null && (
                       // BuildingPanel's UpkeepLabel: the coin, with the upkeep.
                       <span className="upkeep" title={String(b.upkeep)}>

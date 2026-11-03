@@ -27,7 +27,14 @@ export interface Prefs {
   autoEndTurn: boolean;
 }
 
-export const DEFAULTS: Prefs = { activeStyle: 'online', animation: 'normal', blink: 'normal', dimUnfocused: true, tutorial: true, autoEndTurn: false };
+export const DEFAULTS: Prefs = {
+  activeStyle: 'online',
+  animation: 'normal',
+  blink: 'normal',
+  dimUnfocused: true,
+  tutorial: true,
+  autoEndTurn: false,
+};
 
 /** A slide's length in milliseconds; 0 moves the unit at once. */
 const MOVE: Record<Speed, number> = { off: 0, slow: 600, normal: 300, fast: 150 };
