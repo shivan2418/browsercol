@@ -241,12 +241,11 @@ function useTarget(place: Place, drop: (item: Item) => void): TargetProps | null
   return useContext(HandContext).target(place, drop);
 }
 
-/** A ProductionLabel: the shared goods amount, named by its type (data-goods); `more` follows the number. */
-function Made({ g, art, change = false, more }: { g: Goods; art: Art; change?: boolean; more?: string }) {
+/** A ProductionLabel: the shared goods amount, named by its type (data-goods); `max` is what an expert would make. */
+function Made({ g, art, change = false, max }: { g: Goods; art: Art; change?: boolean; max?: number }) {
   return (
     <span className="made-goods" data-goods={g.type}>
-      <GoodsAmount keys={g.keys} name={g.name} amount={g.amount} change={change} art={art} />
-      {more}
+      <GoodsAmount keys={g.keys} name={g.name} amount={g.amount} change={change} art={art} icons expert={max ?? null} />
     </span>
   );
 }
@@ -753,7 +752,7 @@ export function ColonyPanel({ colony: c, art, footer }: { colony: ColonyView; ar
                       <Made
                         g={b.production}
                         art={art}
-                        more={b.production.max > b.production.amount ? `/${b.production.max}` : undefined}
+                        max={b.production.max}
                       />
                     )}
                     {b.upkeep !== null && (
