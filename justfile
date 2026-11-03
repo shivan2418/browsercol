@@ -14,10 +14,15 @@ install:
 build *args:
     ./dev.sh ./build.sh {{args}}
 
-# Vite dev server with hot reload at http://localhost:5173 (builds first if ui/generated/ is missing or older than the Engine's Java)
+# Vite dev server with hot reload at the first free port from 5173 up, so worktrees can each run one (builds first if ui/generated/ is missing or older than the Engine's Java)
 dev:
+    #!/usr/bin/env bash
+    set -euo pipefail
     [ -f ui/generated/client.wasm ] && [ -z "$(find engine/src engine/patches engine/*.gradle* -newer ui/generated/client.wasm -type f -print -quit 2>/dev/null)" ] || just build
-    DEV_PORT={{port}} ./dev.sh -C ui npx vp dev --host 0.0.0.0 --port {{port}} --strictPort
+    port={{port}}
+    while (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null; do port=$((port + 1)); done
+    echo "Dev server: http://localhost:$port"
+    DEV_PORT=$port ./dev.sh -C ui npx vp dev --host 0.0.0.0 --port "$port" --strictPort
 
 # Serve the built dist/ at http://localhost:5173
 preview:
