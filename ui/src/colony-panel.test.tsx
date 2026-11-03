@@ -93,8 +93,10 @@ describe('the colony panel', () => {
     expect([at('colonyTile:11').style.left, at('colonyTile:11').style.top]).toEqual(['128px', '64px']);
     expect([at('colonyTile:21').style.left, at('colonyTile:21').style.top]).toEqual(['64px', '96px']);
     expect(within(at('colonyTile:21')).getByAltText('Dutch Free Colonist')).toBeTruthy();
-    expect(at('colonyTile:21').querySelector('[data-goods="model.goods.grain"]')?.textContent).toBe('3');
-    expect(at('colonyTile:11').querySelector('[data-goods="model.goods.cotton"]')?.textContent).toBe('2');
+    expect(at('colonyTile:21').querySelectorAll('[data-goods="model.goods.grain"] .pile > *')).toHaveLength(3);
+    expect(at('colonyTile:11').querySelectorAll('[data-goods="model.goods.cotton"] .pile > *')).toHaveLength(2);
+    // Up to 7 an amount is only icons, with no number.
+    expect(at('colonyTile:11').querySelector('[data-goods="model.goods.cotton"] .amount')).toBeNull();
     expect(at('colonyTile:22').dataset.ours).toBe('false');
     // TileViewer.displayColonyTile: the tile taken image, native land, and a worker with no occupation chip.
     expect(at('colonyTile:22').querySelector('img.taken')?.getAttribute('src')).toBe('art/taken.png');
@@ -121,7 +123,8 @@ describe('the colony panel', () => {
   it('shows the net production, the warehouse, the units outside and the build', () => {
     open();
     const net = part('net');
-    expect(net.querySelector('[data-goods="model.goods.food"]')?.textContent).toBe('+4');
+    expect(net.querySelectorAll('[data-goods="model.goods.food"] .pile > *')).toHaveLength(4);
+    expect(net.querySelector('[data-goods="model.goods.food"] .amount')).toBeNull();
     expect(net.querySelector('[data-goods="model.goods.lumber"]')?.textContent).toBe('\u22123');
     const lumber = part('warehouse').querySelector<HTMLElement>('[data-goods="model.goods.lumber"]')!;
     expect(lumber.textContent).toBe('150');

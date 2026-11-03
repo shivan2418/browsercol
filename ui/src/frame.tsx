@@ -130,6 +130,7 @@ export function GoodsAmount({
   change = false,
   expert = null,
   art,
+  icons = false,
 }: {
   /** The goods icon's resource keys, best first (image.icon.model.goods.<id>, say). */
   keys: readonly string[];
@@ -140,10 +141,40 @@ export function GoodsAmount({
   /** What an expert would make, shown after a slash when it is more than the amount. */
   expert?: number | null;
   art: Art;
+  /**
+   * Draw it as FreeCol's ProductionLabel does: an icon for each of the amount (up to 7, overlapping), the
+   * number only for a loss, for more than 7, or when `expert` says more is possible.
+   */
+  icons?: boolean;
 }) {
   const src = art(keys);
   const sign = amount === 0 ? 'zero' : !change ? undefined : amount > 0 ? 'gain' : 'loss';
   const text = amount < 0 ? `−${-amount}` : change && amount > 0 ? `+${amount}` : String(amount);
+  if (icons) {
+    // ProductionLabel: horses stack poorly, so one icon; the icons overlap by the icon's width over their count.
+    const max = name === 'Horses' || keys.some((k) => k.endsWith('.horses')) ? 1 : 7;
+    const n = Math.max(1, Math.min(Math.abs(amount), max));
+    const step = 24 / (Math.abs(amount) <= max ? Math.max(1, Math.abs(amount)) : 16);
+    const number = amount < 0 || amount > max || (expert !== null && expert > amount);
+    return (
+      <span className="goods" data-sign={sign} title={name}>
+        <span className="pile" style={{ width: step * (n - 1) + 24 }}>
+          {Array.from({ length: n }, (_, i) =>
+            src === null ? (
+              i === 0 && (
+                <span key={i} className="name">
+                  {name}
+                </span>
+              )
+            ) : (
+              <img key={i} src={src} alt={i === 0 ? name : ''} style={{ left: step * i }} />
+            ),
+          )}
+        </span>
+        {number && <span className="amount">{expert !== null && expert > amount ? `${text}/${expert}` : text}</span>}
+      </span>
+    );
+  }
   return (
     <span className="goods" data-sign={sign} title={name}>
       {src === null ? <span className="name">{name}</span> : <img src={src} alt={name} />}
