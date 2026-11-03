@@ -59,8 +59,15 @@ describe('the debug menu', () => {
   it('asks for each action', () => {
     const asked: DebugRequest[] = [];
     const skipped: number[] = [];
+    let resets = 0;
     render(
-      side({ at: [3, 4], note: 'Done: addGold', request: (r) => asked.push(r), skipTurns: (n) => skipped.push(n) }),
+      side({
+        at: [3, 4],
+        note: 'Done: addGold',
+        request: (r) => asked.push(r),
+        skipTurns: (n) => skipped.push(n),
+        resetSave: () => resets++,
+      }),
     );
     fireEvent.click(screen.getByRole('button', { name: 'Reveal map' }));
     fireEvent.click(screen.getByRole('button', { name: 'Hide map' }));
@@ -79,12 +86,14 @@ describe('the debug menu', () => {
       { action: 'addUnit', type: 'model.unit.freeColonist', x: 3, y: 4 },
       { action: 'addGoods', type: 'model.goods.food', amount: 25, x: 3, y: 4 },
     ]);
+    fireEvent.click(screen.getByRole('button', { name: 'Reset save (new game)' }));
     expect(skipped).toEqual([7]);
+    expect(resets).toBe(1);
     expect(screen.getByText('Done: addGold').id).toBe('debug-note');
   });
 
   it('cannot put a unit or goods where no tile is selected', () => {
-    render(side({ at: null, note: '', request: () => {}, skipTurns: () => {} }));
+    render(side({ at: null, note: '', request: () => {}, skipTurns: () => {}, resetSave: () => {} }));
     expect((screen.getByRole('button', { name: 'Add unit' }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByRole('button', { name: 'Add goods to colony' }) as HTMLButtonElement).disabled).toBe(true);
   });
