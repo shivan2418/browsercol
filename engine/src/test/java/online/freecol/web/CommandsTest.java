@@ -1217,6 +1217,13 @@ class CommandsTest {
         assertEquals(a[2], colonist.getWorkType().getId());
         assertEquals(a[2], onServer.getWorkType().getId());
 
+        // Any role it can take (tools, a soldier...) is offered, and picking one equips the colonist.
+        final String role = entryWith(menus.unit(colonist.getId()), "role:" + colonist.getId() + ",");
+        if (role != null) {
+            assertTrue(commands.menuEntry(role), "takes the role: " + role);
+            assertEquals(role.split(",")[1], colonist.getRole().getId());
+        }
+
         // Leaving town puts it outside.
         final String after = menus.unit(colonist.getId());
         final String leave = entryWith(after, "leaveTown:");

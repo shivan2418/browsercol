@@ -459,6 +459,7 @@ public final class Commands {
         case "leaveShip": return leaveShip(rest);
         case "board": return boardShip(a[0], a[1]);
         case "work": return workAs(a[0], a[1], a[2]);
+        case "role": return takeRole(a[0], a[1], Integer.parseInt(a[2]));
         case "buy": return buyGoods(a[0], a[1]);
         case "sell": return sellGoods(a[0], a[1]);
         case "load": return loadGoods(a[0], a[1], false);
@@ -555,6 +556,16 @@ public final class Commands {
         if (is == null) return false;
         gui().showIndianSettlementPanel(is);
         return true;
+    }
+
+    /** Equip a unit for a role (QuickActionMenu's role entries). */
+    private boolean takeRole(String unitId, String roleId, int count) {
+        final Unit unit = ours(unitId);
+        if (unit == null) return false;
+        for (net.sf.freecol.common.model.Role r : unit.getAvailableRoles(null).collect(java.util.stream.Collectors.toList())) {
+            if (r.getId().equals(roleId)) return igc().equipUnitForRole(unit, r, count);
+        }
+        return false;
     }
 
     /** Put a colonist to work at a place making goods (QuickActionMenu's work entries). */
