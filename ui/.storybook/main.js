@@ -11,6 +11,8 @@ const pageStyles = [
 const config = {
   stories: ['../src/**/*.stories.tsx'],
   framework: '@storybook/react-vite',
+  // The game's art, as the site serves it.
+  staticDirs: ['../generated/public'],
   previewHead: (head) => `${head}\n${pageStyles}`,
   // The site's relative base breaks Storybook's virtual module URLs.
   viteFinal: (config) => ({ ...config, base: '/' }),
