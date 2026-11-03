@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, createEvent, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, createEvent, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { ColonyActions, type ColonyMoves } from './colony-panel';
 import { jamestown } from './colony-fixture';
@@ -1362,11 +1362,13 @@ describe('the Europe panel', () => {
   it('shows the cargo of the selected ship, and of another when it is picked', () => {
     const { box } = host();
     act(() => box.show('europe', europe));
+    // The market and the trade advisor name Food too, so look in the cargo box only.
+    const cargo = () => within(document.querySelector<HTMLElement>('[data-list=cargo]')!);
     expect(names('cargo')).toEqual(['50']);
-    expect(screen.getByTitle('Food')).toBeTruthy();
+    expect(cargo().getByTitle('Food')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Galleon' }));
     expect(names('cargo')).toEqual([]);
-    expect(screen.getByTitle('Free Colonist')).toBeTruthy();
+    expect(cargo().getByTitle('Free Colonist')).toBeTruthy();
   });
 
   it('recruits, trains and buys from the lists its buttons open, and offers what is too dear dimmed', () => {
