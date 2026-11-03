@@ -114,7 +114,7 @@ interface TextStyle {
   plain?: boolean;
 }
 
-/** The map's layers: the scene, the cursor and path over it, the units that move or blink, and the fog being lifted. */
+/** The map's layers: the scene, the cursor and path over it, the units that move or blink, and the cover being lifted off ground just explored. */
 type Layer = 0 | 1 | 2 | 3 | 4;
 /** The order the layers are stacked in, bottom first: the unit cursor (4) lies between the overlay and the units. */
 const STACK: readonly Layer[] = [0, 1, 4, 2, 3];
@@ -150,7 +150,7 @@ interface Pen {
   actors(dx: number, dy: number, alpha: number): void;
   /** Fade the fifth layer, FreeCol's blinking unit cursor, to `alpha`. */
   marker(alpha: number): void;
-  /** Fade the fourth layer, the fog being lifted, to `alpha`. */
+  /** Fade the fourth layer, the cover being lifted off ground just explored, to `alpha`. */
   fade(alpha: number): void;
   /** Show the map scaled by `scale`, then moved by (dx, dy). */
   show(dx: number, dy: number, scale: number): void;
@@ -487,8 +487,8 @@ const SIDES: Record<'NE' | 'SE' | 'SW' | 'NW', [[number, number], [number, numbe
   NW: [CORNERS.W, CORNERS.N],
 };
 
-/** How long the fog takes to fade from a tile that came into view, as a multiple of a slide's time. */
-const FOG_FADE_SLIDES = 2;
+/** How long the black takes to fade from a tile just explored, as a multiple of a slide's time. */
+const EXPLORE_FADE_SLIDES = 1;
 
 const CHIP: TextStyle = { color: 0, font: 'sans-serif', size: 10, bold: true, plain: true };
 const NAME: TextStyle = { color: 0, font: 'serif', size: 13 };
@@ -662,8 +662,10 @@ export function mapDrawer(
   let sliding: { moves: Move[]; since: number } | null = null;
   /** The tiles whose unit is drawn in the actors' layer: the sliding units' and the active one's. */
   let actorTiles = new Set<string>();
-  /** The tiles drawn fogged last time, and the fog being lifted off some of them since `since`. */
-  let fogTiles = new Set<string>();
+  /** The tiles explored last time, and the black being lifted off some newly explored since `since`. */
+  let exploredTiles = new Set<string>();
+  /** The scene drawn last time. */
+  let lastOps: Op[] = [];
   let lifting: { since: number } | null = null;
   let frame = 0;
   let moveMs = MOVE_MS;
@@ -756,7 +758,8 @@ export function mapDrawer(
     const before = drawn;
     drawn = map;
     if (!pen) await init();
-    const moved = before ? moves(before.units, map.units) : [];
+    // Units that moved as the turn turned (orders carried out, the AI playing) jump: only the player's own moves slide.
+    const moved = before && before.turn === map.turn ? moves(before.units, map.units) : [];
     if (moved.length && moveMs > 0) sliding = { moves: moved, since: performance.now() };
     actorTiles = new Set(moved.map((m) => m.to.join(',')));
     if (map.active) actorTiles.add(map.active.join(','));
@@ -770,21 +773,24 @@ export function mapDrawer(
       pics,
     );
     await paint(pen!, 2, ops.filter(isActor), pics);
-    // Fog that went from a tile since the last draw fades out over it, rather than vanishing.
-    const fog = ops.filter((op) => op.k === 'fog');
-    const now = new Set(fog.map((op) => `${op.x},${op.y}`));
-    const lifted = before ? [...fogTiles].filter((t) => !now.has(t)) : [];
-    fogTiles = now;
-    await paint(
-      pen!,
-      3,
-      lifted.map((t) => {
-        const [x, y] = t.split(',').map(Number);
-        return { k: 'fog', x, y } as Op;
-      }),
-      pics,
-    );
-    lifting = lifted.length && moveMs > 0 ? { since: performance.now() } : null;
+    // Ground that was explored since the last draw fades in out of the black, rather than appearing.
+    const known = new Set<string>();
+    const fresh = new Set<string>();
+    for (let i = 0; i < map.tiles.length; i++) {
+      if (map.tiles[i] === '.') continue;
+      const t = `${i % map.w},${Math.floor(i / map.w)}`;
+      known.add(t);
+      if (before && !exploredTiles.has(t)) fresh.add(t);
+    }
+    exploredTiles = known;
+    // What fades is the unexplored tile's own picture, so the ground shows through from under it.
+    const covers = lastOps.filter((op) => op.k === 'image' && fresh.has(`${op.x},${op.y}`));
+    lastOps = ops;
+    // A redraw that explores nothing more (the server often sends several maps in a row) leaves a fade under way alone.
+    if (covers.length) {
+      await paint(pen!, 3, covers, pics);
+      lifting = moveMs > 0 ? { since: performance.now() } : null;
+    }
     await showNow();
     if (!frame) frame = requestAnimationFrame(tick);
   }
