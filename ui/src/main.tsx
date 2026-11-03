@@ -542,6 +542,13 @@ function playWith(client: ClientExports) {
       return;
     }
     if (e.altKey || e.ctrlKey || e.metaKey || dialogQueue.current()) return;
+    // Zoom is the browser's own: + and - step the map about its centre, as the View menu does.
+    const zoom = e.key === '+' || e.key === '=' ? 1 : e.key === '-' ? -1 : 0;
+    if (zoom) {
+      e.preventDefault();
+      menuActions().zoom(zoom);
+      return;
+    }
     const c = commandForKey(e);
     if (!c) return;
     e.preventDefault();
