@@ -76,6 +76,17 @@ export function PreferencesDialog({
             onChange={(blink) => change({ ...prefs, blink })}
           />
           <label
+            data-pref="autoEndTurn"
+            style={{ display: 'flex', gap: 12, justifyContent: 'space-between', margin: '6px 0' }}
+          >
+            End the turn automatically when no unit is left to move
+            <input
+              type="checkbox"
+              checked={prefs.autoEndTurn}
+              onChange={(e) => change({ ...prefs, autoEndTurn: e.target.checked })}
+            />
+          </label>
+          <label
             data-pref="tutorial"
             style={{ display: 'flex', gap: 12, justifyContent: 'space-between', margin: '6px 0' }}
           >

@@ -23,9 +23,11 @@ export interface Prefs {
   dimUnfocused: boolean;
   /** Whether the tutorial messages (hints such as how to build a colony) are shown. */
   tutorial: boolean;
+  /** Whether the turn ends by itself once no unit is left to move. */
+  autoEndTurn: boolean;
 }
 
-export const DEFAULTS: Prefs = { activeStyle: 'online', animation: 'normal', blink: 'normal', dimUnfocused: true, tutorial: true };
+export const DEFAULTS: Prefs = { activeStyle: 'online', animation: 'normal', blink: 'normal', dimUnfocused: true, tutorial: true, autoEndTurn: false };
 
 /** A slide's length in milliseconds; 0 moves the unit at once. */
 const MOVE: Record<Speed, number> = { off: 0, slow: 600, normal: 300, fast: 150 };
@@ -56,6 +58,7 @@ export function parsePrefs(text: string | null): Prefs {
       blink: speed(o.blink, DEFAULTS.blink),
       dimUnfocused: typeof o.dimUnfocused === 'boolean' ? o.dimUnfocused : DEFAULTS.dimUnfocused,
       tutorial: typeof o.tutorial === 'boolean' ? o.tutorial : DEFAULTS.tutorial,
+      autoEndTurn: typeof o.autoEndTurn === 'boolean' ? o.autoEndTurn : DEFAULTS.autoEndTurn,
     };
   } catch {
     return { ...DEFAULTS };

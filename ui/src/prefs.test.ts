@@ -26,6 +26,11 @@ describe('prefs', () => {
     expect(parsePrefs('{"tutorial":false}').tutorial).toBe(false);
   });
 
+  it('keeps auto end turn off unless stored on', () => {
+    expect(parsePrefs(null).autoEndTurn).toBe(false);
+    expect(parsePrefs('{"autoEndTurn":true}').autoEndTurn).toBe(true);
+  });
+
   it('maps speeds to durations, with off as 0', () => {
     expect(moveMs({ ...DEFAULTS, animation: 'off', blink: 'off' })).toBe(0);
     expect(moveMs({ ...DEFAULTS, animation: 'fast', blink: 'off' })).toBeLessThan(moveMs(DEFAULTS));
