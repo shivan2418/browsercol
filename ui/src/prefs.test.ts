@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { blinkMs, DEFAULTS, moveMs, parsePrefs } from './prefs';
+import { blinkMs, DEFAULTS, moveMs, parsePrefs, visibleMessages } from './prefs';
 import { blink } from './motion';
 
 describe('prefs', () => {
@@ -11,6 +11,19 @@ describe('prefs', () => {
       blink: 'slow',
     });
     expect(parsePrefs('{"activeStyle":"freecol"}').activeStyle).toBe('freecol');
+  });
+
+  it('reads the grey-out option, on unless stored off', () => {
+    expect(parsePrefs(null).dimUnfocused).toBe(true);
+    expect(parsePrefs('{"dimUnfocused":false}').dimUnfocused).toBe(false);
+    expect(parsePrefs('{"dimUnfocused":"no"}').dimUnfocused).toBe(true);
+  });
+
+  it('drops tutorial messages unless the option is on', () => {
+    const ms = [{ type: 'TUTORIAL' }, { type: 'WARNING' }];
+    expect(visibleMessages(DEFAULTS, ms)).toHaveLength(2);
+    expect(visibleMessages({ ...DEFAULTS, tutorial: false }, ms)).toEqual([{ type: 'WARNING' }]);
+    expect(parsePrefs('{"tutorial":false}').tutorial).toBe(false);
   });
 
   it('maps speeds to durations, with off as 0', () => {
