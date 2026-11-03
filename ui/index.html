@@ -561,25 +561,41 @@
       .dialog[data-kind='europe'] > .body {
         display: flex;
         flex-direction: column;
+        flex: 1;
       }
+      /* As Swing's EuropePanel: the name centred, the lists and the sales above the market, the buttons below. */
       .europe-title {
+        position: relative;
         display: flex;
-        justify-content: space-between;
+        justify-content: center;
         align-items: baseline;
       }
+      .europe-title .gold {
+        position: absolute;
+        right: 0;
+      }
       .europe-body {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        flex: 1;
+        min-height: 0;
+      }
+      .europe-top {
         display: flex;
         gap: 8px;
         align-items: stretch;
         flex: 1;
         min-height: 0;
       }
-      .europe-body > .europe {
+      .europe-top > .europe {
         flex: 1;
         min-width: 0;
       }
       .europe-tally {
-        flex: none;
+        flex: 0 0 25%;
+        box-sizing: border-box;
+        overflow: auto;
         background: var(--box);
         border: 1px solid var(--line);
         padding: 4px 8px;
@@ -598,10 +614,14 @@
       .europe-tally img {
         vertical-align: middle;
       }
+      /* A unit of Europe's lists is its picture alone; the name is its tooltip. */
+      .europe .chip[data-unit] .name {
+        display: none;
+      }
       .europe {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        grid-template-rows: auto auto auto 1fr;
+        grid-template-rows: minmax(auto, 1fr) minmax(auto, 1fr) minmax(auto, 1fr);
         gap: 8px;
         overflow: auto;
       }
@@ -617,15 +637,19 @@
       .europe [data-list='docks'] {
         grid-row: span 2;
       }
-      .europe .market {
-        grid-column: 1 / -1;
+      .europe-body > .market {
+        background: var(--box);
+        border: 1px solid var(--line);
+        padding: 8px;
       }
-      .europe-buttons {
-        display: flex;
-        gap: 6px;
-        margin: 6px 0;
+      /* Europe's footer: its buttons at the left, Close alone at the right. */
+      .dialog[data-kind='europe'] .buttons {
+        justify-content: flex-start;
       }
-      .europe-buttons button[aria-pressed='true'] {
+      .dialog[data-kind='europe'] .buttons [data-answer='close'] {
+        margin-left: auto;
+      }
+      .dialog[data-kind='europe'] .buttons button[aria-pressed='true'] {
         outline: 2px solid var(--accent);
         outline-offset: -3px;
       }
@@ -686,22 +710,23 @@
         font-weight: normal;
         box-shadow: inset 2px 2px 3px rgb(0 0 0 / 45%);
       }
-      .europe .goods {
+      .europe-body .goods {
         display: grid;
         grid-template-columns: repeat(8, 1fr);
         gap: 4px 8px;
       }
-      .europe .good {
+      .europe-body .good {
         display: flex;
-        flex-direction: column;
+        justify-content: center;
         align-items: center;
-        text-align: center;
+        gap: 6px;
+        white-space: nowrap;
       }
-      .europe .good[data-disabled] {
+      .europe-body .good[data-disabled] {
         opacity: 0.4;
       }
       /* The market's goods and the cargo's stacks are buttons (they trade), but look as Swing's labels do. */
-      .europe button.good,
+      .europe-body button.good,
       .europe button.chip {
         background: none;
         border: none;
@@ -709,7 +734,7 @@
         color: var(--ink);
         cursor: pointer;
       }
-      .europe button.good:hover {
+      .europe-body button.good:hover {
         outline: 1px solid var(--accent);
       }
       /* Dragging by the icon or the name drags the chip: the picture is not a drag of its own. */
@@ -729,7 +754,7 @@
         background: var(--box);
         box-shadow: inset 2px 2px 3px rgb(0 0 0 / 45%);
       }
-      .europe .price {
+      .europe-body .price {
         font-variant-numeric: tabular-nums;
       }
       /* The start screen (src/start-screen.tsx): a window of its own over the page, until a game starts. */

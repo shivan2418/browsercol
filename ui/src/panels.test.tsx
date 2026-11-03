@@ -1362,9 +1362,11 @@ describe('the Europe panel', () => {
   it('shows the cargo of the selected ship, and of another when it is picked', () => {
     const { box } = host();
     act(() => box.show('europe', europe));
-    expect(names('cargo')).toEqual(['50 Food']);
+    expect(names('cargo')).toEqual(['50']);
+    expect(screen.getByTitle('Food')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Galleon' }));
-    expect(names('cargo')).toEqual(['Free Colonist']);
+    expect(names('cargo')).toEqual([]);
+    expect(screen.getByTitle('Free Colonist')).toBeTruthy();
   });
 
   it('recruits, trains and buys from the lists its buttons open, and offers what is too dear dimmed', () => {
