@@ -701,7 +701,7 @@ function isHere(c: ColonyView, item: Item) {
   return g?.type === item.type && g.amount === item.amount;
 }
 
-export function ColonyPanel({ colony: c, art }: { colony: ColonyView; art: Art }) {
+export function ColonyPanel({ colony: c, art, footer }: { colony: ColonyView; art: Art; footer?: ReactNode }) {
   const p = c.population;
   const moves = useContext(ColonyActions);
   const [picked, show] = useState<Item | null>(() => picks.get(c.id) ?? null);
@@ -819,6 +819,7 @@ export function ColonyPanel({ colony: c, art }: { colony: ColonyView; art: Art }
             </BuildQueue>
             {hand.picked?.kind === 'unit' && <WorkChoice c={c} picked={hand.picked.id} art={art} />}
             <InPort c={c} art={art} choose={choose} />
+            {footer}
           </div>
           <Outside c={c} art={art} />
           <Cargo c={c} art={art} />

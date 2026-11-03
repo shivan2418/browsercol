@@ -541,19 +541,45 @@ function Negotiation({ d }: { d: Of<'negotiation'> }) {
   );
 }
 
-/** A panel's body, then its close button. */
-/** The colony panel; its warehouse button is beside the OK button, at the bottom right. */
+/** The colony panel; its warehouse and OK buttons sit in the right column, under the ships in port. */
 function ColonyDialog({ d, e, art }: { d: Dialog; e: ColonyView; art: Art }) {
   const moves = useContext(ColonyActions);
+  const close = () => (d.done as () => void)();
+  useEnter(close);
   return (
-    <Panel
-      d={d}
-      title={e.name}
-      ok={e.ok}
-      extra={moves ? { label: e.warehouse.title, run: () => moves.warehouse(e.id) } : null}
-    >
-      <ColonyPanel colony={e} art={art} />
-    </Panel>
+    <Win d={d} title={e.name} close={close}>
+      <ColonyPanel
+        colony={e}
+        art={art}
+        footer={
+          <PanelButtons
+            ok={e.ok}
+            close={close}
+            extra={moves ? { label: e.warehouse.title, run: () => moves.warehouse(e.id) } : null}
+          />
+        }
+      />
+    </Win>
+  );
+}
+
+/** A panel's close button, with an optional second button beside it. */
+function PanelButtons({
+  ok,
+  close,
+  extra = null,
+}: {
+  ok: string;
+  close: () => void;
+  extra?: { label: string; run: () => void } | null;
+}) {
+  return (
+    <div className="buttons">
+      {extra && <button onClick={extra.run}>{extra.label}</button>}
+      <button data-answer="close" onClick={close}>
+        {ok}
+      </button>
+    </div>
   );
 }
 
@@ -576,12 +602,7 @@ function Panel({
   return (
     <Win d={d} title={title} close={close}>
       {children}
-      <div className="buttons">
-        {extra && <button onClick={extra.run}>{extra.label}</button>}
-        <button data-answer="close" onClick={close}>
-          {ok}
-        </button>
-      </div>
+      <PanelButtons ok={ok} close={close} extra={extra} />
     </Win>
   );
 }
