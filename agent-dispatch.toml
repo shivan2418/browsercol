@@ -13,8 +13,8 @@ mode = "providers"
 threat = "accidents"
 image = "freecol-online-agent" # docker/agent.Dockerfile: the dev image plus Chromium and Firefox
 workdir = "/work"
-# Share the Gradle and npm caches so each job does not download everything again.
-mounts = [".cache/gradle:/work/.cache/gradle", ".cache/npm:/work/.cache/npm"]
+# Share the Gradle and pnpm caches so each job does not download everything again.
+mounts = [".cache/gradle:/work/.cache/gradle", ".cache/pnpm-store:/work/.cache/pnpm-store"]
 env = { FREECOL_SANDBOX = "1" }  # dev.sh runs commands directly
 busy_pattern = "gradle|java|node"
 shm_size = "1g"  # browsers crash on Docker's default 64 MB /dev/shm

@@ -28,5 +28,5 @@ mkdir -p "$gen/public/presets"
 cp ui/presets/*.json "$gen/public/presets/"
 
 cd ui
-npm ci --no-audit --no-fund
-npx vp build
+pnpm install --frozen-lockfile
+pnpm exec vp build

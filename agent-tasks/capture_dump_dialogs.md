@@ -48,8 +48,8 @@ Done when:
   naval battle.
 - UI tests: the handler encodes the picked indexes, null on close, and
   the dialog stops at `max`.
-- `./dev.sh -C engine gradle test`, `./dev.sh -C ui npx vp check` and
-  `./dev.sh -C ui npx vp test` pass.
+- `./dev.sh -C engine gradle test`, `./dev.sh -C ui pnpm exec vp check` and
+  `./dev.sh -C ui pnpm exec vp test` pass.
 - Commits: one for the Engine side, one for the Browser UI, e.g.
   `WebGUI: ask the capture goods and dump cargo dialogs (#51)`.
 

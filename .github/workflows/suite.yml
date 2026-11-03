@@ -23,7 +23,7 @@ jobs:
         run: ./dev.sh -C engine gradle --console=plain test
 
       # Later steps run even if an earlier one failed, to report every
-      # failure in one run; those after the build need its dist/ and npm ci.
+      # failure in one run; those after the build need its dist/ and pnpm install.
       - name: Build dist/
         id: build
         if: ${{ !cancelled() }}
@@ -31,11 +31,11 @@ jobs:
 
       - name: vp check
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        run: ./dev.sh -C ui npx vp check
+        run: ./dev.sh -C ui pnpm exec vp check
 
       - name: vp test
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        run: ./dev.sh -C ui npx vp test
+        run: ./dev.sh -C ui pnpm exec vp test
 
       - name: Browser smoke
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
