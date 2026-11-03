@@ -706,7 +706,7 @@
        * What is picked (a ship, or goods in the colony) takes a tint of the accent colour. Everything that can be
        * picked has the same 4px of room on every side, so the tint never sits tight against the content.
        */
-      .europe button.chip,
+      .europe [data-list='inPort'] button.chip,
       .colony .ship,
       .colony [data-picked] {
         padding: 4px;
@@ -714,7 +714,7 @@
         border-radius: 4px;
         box-sizing: border-box;
       }
-      .europe button.chip[aria-pressed='true'] {
+      .europe [data-list='inPort'] button.chip[aria-pressed='true'] {
         background: color-mix(in srgb, var(--accent) 20%, transparent);
         outline: none;
         font-weight: normal;
@@ -740,11 +740,17 @@
       .europe button.chip {
         background: none;
         border: none;
+        padding: 0;
         color: var(--ink);
         cursor: pointer;
       }
-      .europe-body button.good:hover {
-        outline: 1px solid var(--accent);
+      /* Goods are traded by a click, not picked: they only show they can be clicked, never in the accent colour. */
+      .europe-body button.good:hover,
+      .europe .chip[draggable='true']:hover,
+      .europe button.chip:hover {
+        background: var(--box);
+        border-radius: 4px;
+        outline: none;
       }
       /* Dragging by the icon or the name drags the chip: the picture is not a drag of its own. */
       .europe .chip img,
@@ -755,13 +761,12 @@
       .europe .chip[draggable='true'] {
         cursor: grab;
       }
-      .europe .chip[draggable='true']:hover,
-      .europe button.chip:hover,
-      .europe button.chip:focus-visible {
+      .europe [data-list='inPort'] button.chip:hover,
+      .europe [data-list='inPort'] button.chip:focus-visible {
         outline: none;
         background: color-mix(in srgb, var(--accent) 10%, transparent);
       }
-      .europe button.chip[aria-pressed='true']:hover {
+      .europe [data-list='inPort'] button.chip[aria-pressed='true']:hover {
         background: color-mix(in srgb, var(--accent) 20%, transparent);
       }
       .europe-body .price {
