@@ -29,6 +29,11 @@ preview:
     [ -f dist/index.html ] || just build
     DEV_PORT={{port}} ./dev.sh -C ui npx vp preview --host 0.0.0.0 --port {{port}} --strictPort
 
+# Storybook at http://localhost:6006, with the game's own art (builds first if ui/generated/ has none)
+storybook:
+    [ -d ui/generated/public/art ] || just build
+    DEV_PORT=6006 ./dev.sh -C ui npx storybook dev -p 6006 --host 0.0.0.0 --no-open
+
 # JVM tests of the Engine
 test-engine *args:
     ./dev.sh -C engine gradle test {{args}}
