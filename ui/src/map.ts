@@ -495,8 +495,8 @@ const NAME: TextStyle = { color: 0, font: 'serif', size: 13 };
 /** TileViewer's fonts: simple-bold-tiny, and simple-bold+italic-smaller to emphasise. */
 const POPULATION: TextStyle = { color: 0, font: 'sans-serif', size: 12, bold: true };
 const POPULATION_EMPH: TextStyle = { ...POPULATION, size: 14, italic: true };
-/** The turns on a path mark, in black: the stroke is black too. */
-const PATH_TURNS: TextStyle = { color: 0x000000, font: 'sans-serif', size: 12 };
+/** The turns on a path mark, in black with no outline: a black stroke would only fatten them. */
+const PATH_TURNS: TextStyle = { color: 0x000000, font: 'sans-serif', size: 12, plain: true };
 /** Green for this turn's steps, yellow for later turns'. */
 const pathColor = (turns: number) => (turns > 0 ? 0xffff00 : 0x00ff00);
 
