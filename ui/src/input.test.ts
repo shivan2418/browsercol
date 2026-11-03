@@ -44,6 +44,13 @@ describe('commandForKey', () => {
   it('asks where the active unit goes, as GotoAction does', () => {
     expect(key('h', 'KeyH')).toEqual({ k: 'selectDestination' });
     expect(key('H', 'KeyH')).toEqual({ k: 'selectDestination' });
+    expect(key('g', 'KeyG')).toEqual({ k: 'selectDestination' });
+    expect(key('G', 'KeyG')).toEqual({ k: 'selectDestination' });
+  });
+
+  it('shows Europe, as EuropeAction does', () => {
+    expect(key('e', 'KeyE')).toEqual({ k: 'showEurope' });
+    expect(key('E', 'KeyE')).toEqual({ k: 'showEurope' });
   });
 
   it('ignores other keys', () => {
