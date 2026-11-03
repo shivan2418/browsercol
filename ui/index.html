@@ -530,11 +530,11 @@
         gap: 4px;
         margin-top: 8px;
       }
+      /* A pick never changes the room a thing takes: colour, outline (drawn inside) and shadow only, never weight, padding, border width or margin. */
       .dialog button[aria-pressed='true'] {
         border-color: var(--accent);
         outline: 2px solid var(--accent);
         outline-offset: -3px;
-        font-weight: bold;
       }
       .dialog .error {
         color: var(--bad);
@@ -717,7 +717,6 @@
       .europe [data-list='inPort'] button.chip[aria-pressed='true'] {
         background: color-mix(in srgb, var(--accent) 20%, transparent);
         outline: none;
-        font-weight: normal;
         box-shadow: none;
       }
       .europe-body .goods {
@@ -1187,7 +1186,6 @@
       .colony [data-picked='true'] {
         background: color-mix(in srgb, var(--accent) 20%, transparent);
         outline: none;
-        font-weight: inherit;
       }
       /* Moving colonists and goods (colony-panel.tsx): units and goods are dragged, or picked by a click; places take drops and clicks. */
       .colony [draggable='true'] {
