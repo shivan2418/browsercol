@@ -44,37 +44,39 @@ export function PreferencesDialog({
   close: () => void;
 }) {
   return (
-    <WindowFrame title="Preferences" close={close} id="preferences">
-      <Box caption="Display">
-        <SpeedRow
-          name="animation"
-          label="Unit move animation"
-          value={prefs.animation}
-          onChange={(animation) => change({ ...prefs, animation })}
-        />
-        <label
-          data-pref="activeStyle"
-          style={{ display: 'flex', gap: 12, justifyContent: 'space-between', margin: '6px 0' }}
-        >
-          Active unit shown by
-          <select
-            value={prefs.activeStyle}
-            onChange={(e) => change({ ...prefs, activeStyle: e.target.value as ActiveStyle })}
+    <div className="modal">
+      <WindowFrame title="Preferences" close={close} id="preferences">
+        <Box caption="Display">
+          <SpeedRow
+            name="animation"
+            label="Unit move animation"
+            value={prefs.animation}
+            onChange={(animation) => change({ ...prefs, animation })}
+          />
+          <label
+            data-pref="activeStyle"
+            style={{ display: 'flex', gap: 12, justifyContent: 'space-between', margin: '6px 0' }}
           >
-            {ACTIVE_STYLES.map((a) => (
-              <option key={a} value={a}>
-                {STYLE_LABEL[a]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <SpeedRow
-          name="blink"
-          label="Blink speed"
-          value={prefs.blink}
-          onChange={(blink) => change({ ...prefs, blink })}
-        />
-      </Box>
-    </WindowFrame>
+            Active unit shown by
+            <select
+              value={prefs.activeStyle}
+              onChange={(e) => change({ ...prefs, activeStyle: e.target.value as ActiveStyle })}
+            >
+              {ACTIVE_STYLES.map((a) => (
+                <option key={a} value={a}>
+                  {STYLE_LABEL[a]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <SpeedRow
+            name="blink"
+            label="Blink speed"
+            value={prefs.blink}
+            onChange={(blink) => change({ ...prefs, blink })}
+          />
+        </Box>
+      </WindowFrame>
+    </div>
   );
 }
