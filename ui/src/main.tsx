@@ -33,7 +33,7 @@ import { MENUS, MenuBar, type Menu } from './frame';
 import { gameMenu, ordersMenu, viewMenu, type MenuActions } from './menus';
 import { commandForKey, type Command } from './input';
 import { PreferencesDialog } from './prefs-dialog';
-import { blinkMs, loadPrefs, moveMs, savePrefs, type Prefs } from './prefs';
+import { blinkMs, loadPrefs, moveMs, savePrefs, visibleMessages, type Prefs } from './prefs';
 import { mapDrawer, type MapView } from './map';
 import { europeButtons } from './europe-client';
 import { DialogHost, type Art, type ReportButtons, type RouteButtons } from './panels';
@@ -190,6 +190,7 @@ const reportActions: ReportActions = {
 let prefs: Prefs = loadPrefs();
 let prefsOpen = false;
 map.setMotion(moveMs(prefs), blinkMs(prefs), prefs.activeStyle);
+document.body.dataset.dimUnfocused = String(prefs.dimUnfocused);
 /** Whether the client Engine has loaded, so the menus' game commands work. */
 let menuReady = false;
 /** What the Game, Orders and View menus do (menus.ts). */
@@ -361,6 +362,7 @@ function renderSide() {
             prefs = p;
             savePrefs(p);
             map.setMotion(moveMs(p), blinkMs(p), p.activeStyle);
+            document.body.dataset.dimUnfocused = String(p.dimUnfocused);
             renderSide();
           }}
           close={() => {
@@ -451,7 +453,8 @@ const gui: GuiHandlers = {
     options: (e) => dialogQueue.replace('options', e, (open) => open.kind === e.kind),
     // A report that is open is replaced: a link in it opens a detail in its place.
     report: (e) => dialogQueue.replace('report', e),
-    messages: (e) => {
+    messages: (raw) => {
+      const e = { ...raw, messages: visibleMessages(prefs, raw.messages) };
       if (e.regrouped) dialogQueue.replace('messages', e, (open) => open.title === e.title);
       else if (e.messages.length > 0) dialogQueue.show('messages', e);
     },

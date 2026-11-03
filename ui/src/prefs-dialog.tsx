@@ -75,6 +75,28 @@ export function PreferencesDialog({
             value={prefs.blink}
             onChange={(blink) => change({ ...prefs, blink })}
           />
+          <label
+            data-pref="tutorial"
+            style={{ display: 'flex', gap: 12, justifyContent: 'space-between', margin: '6px 0' }}
+          >
+            Show tutorial messages
+            <input
+              type="checkbox"
+              checked={prefs.tutorial}
+              onChange={(e) => change({ ...prefs, tutorial: e.target.checked })}
+            />
+          </label>
+          <label
+            data-pref="dimUnfocused"
+            style={{ display: 'flex', gap: 12, justifyContent: 'space-between', margin: '6px 0' }}
+          >
+            Grey out the window when it is not focused
+            <input
+              type="checkbox"
+              checked={prefs.dimUnfocused}
+              onChange={(e) => change({ ...prefs, dimUnfocused: e.target.checked })}
+            />
+          </label>
         </Box>
       </WindowFrame>
     </div>

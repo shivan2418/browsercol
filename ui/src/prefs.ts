@@ -19,9 +19,13 @@ export interface Prefs {
   animation: Speed;
   /** How fast the active unit blinks. */
   blink: Speed;
+  /** Whether a faint grey wash covers the window while it lacks keyboard focus. */
+  dimUnfocused: boolean;
+  /** Whether the tutorial messages (hints such as how to build a colony) are shown. */
+  tutorial: boolean;
 }
 
-export const DEFAULTS: Prefs = { activeStyle: 'online', animation: 'normal', blink: 'normal' };
+export const DEFAULTS: Prefs = { activeStyle: 'online', animation: 'normal', blink: 'normal', dimUnfocused: true, tutorial: true };
 
 /** A slide's length in milliseconds; 0 moves the unit at once. */
 const MOVE: Record<Speed, number> = { off: 0, slow: 600, normal: 300, fast: 150 };
@@ -30,6 +34,11 @@ const BLINK: Record<Speed, number> = { off: 0, slow: 2400, normal: 1400, fast: 7
 
 export const moveMs = (p: Prefs): number => MOVE[p.animation];
 export const blinkMs = (p: Prefs): number => BLINK[p.blink];
+
+/** The messages the player sees: tutorial ones are dropped when the tutorial option is off. */
+export function visibleMessages<T extends { type: string }>(p: Prefs, messages: T[]): T[] {
+  return p.tutorial ? messages : messages.filter((m) => m.type.toUpperCase() !== 'TUTORIAL');
+}
 
 const KEY = 'freecol.prefs';
 
@@ -45,6 +54,8 @@ export function parsePrefs(text: string | null): Prefs {
         : DEFAULTS.activeStyle,
       animation: speed(o.animation, DEFAULTS.animation),
       blink: speed(o.blink, DEFAULTS.blink),
+      dimUnfocused: typeof o.dimUnfocused === 'boolean' ? o.dimUnfocused : DEFAULTS.dimUnfocused,
+      tutorial: typeof o.tutorial === 'boolean' ? o.tutorial : DEFAULTS.tutorial,
     };
   } catch {
     return { ...DEFAULTS };

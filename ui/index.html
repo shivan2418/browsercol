@@ -1212,3 +1212,29 @@
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
+      /* A faint grey wash while the window lacks keyboard focus, so it is
+         obvious that keys will not reach the game. */
+      body::after {
+        content: '';
+        position: fixed;
+        inset: 0;
+        background: rgba(128, 128, 128, 0.18);
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.15s;
+        z-index: 100000;
+      }
+      body[data-dim-unfocused='true'][data-unfocused='true']::after {
+        opacity: 1;
+      }
+    <script>
+      (() => {
+        const sync = () => {
+          document.body.dataset.unfocused = String(!document.hasFocus());
+        };
+        window.addEventListener('focus', sync);
+        window.addEventListener('blur', sync);
+        document.addEventListener('visibilitychange', sync);
+        sync();
+      })();
+    </script>
