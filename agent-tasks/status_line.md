@@ -41,8 +41,8 @@ Done when:
 - WebGUITest (or wherever WebGUI events are tested): `updateMenuBar()`
   sends a `refresh` event.
 - side.test.tsx: the side panel shows the status line it is given.
-- `./dev.sh -C engine gradle test`, `./dev.sh -C ui npx vp check`,
-  `./dev.sh -C ui npx vp test` pass; run smoke.mjs and play.mjs once
+- `./dev.sh -C engine gradle test`, `./dev.sh -C ui pnpm exec vp check`,
+  `./dev.sh -C ui pnpm exec vp test` pass; run smoke.mjs and play.mjs once
   (they read the turn) and say what they printed.
 - Commits: one for the Engine, one for the Browser UI, e.g.
   `MapJson: send FreeCol's status line (#80)`.

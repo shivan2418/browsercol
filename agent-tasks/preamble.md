@@ -13,7 +13,7 @@ Rules:
   through ./dev.sh, as README.md's "Commands" shows: `./dev.sh ./build.sh`
   builds both Engine modules and dist/, `./dev.sh -C engine gradle test`,
   and for the Browser UI `./dev.sh -C ui npm ci` once, then
-  `./dev.sh -C ui npx vp test` and `./dev.sh -C ui npx vp check`. Tools
+  `./dev.sh -C ui pnpm exec vp test` and `./dev.sh -C ui npx vp check`. Tools
   you need that the image lacks go in a gitignored directory under .cache/
   of your clone.
 - The image has Chromium and Firefox, so run the browser scripts as
@@ -35,8 +35,8 @@ Rules:
 - Do not merge, rebase onto, or push any other branch.
 - While working, test only what you touch. Before your final commit run,
   once, the checks for the side you changed: Engine `./dev.sh -C engine
-  gradle test`; Browser UI `./dev.sh -C ui npx vp check` and
-  `./dev.sh -C ui npx vp test`. The commit hook runs <check>.
+  gradle test`; Browser UI `./dev.sh -C ui pnpm exec vp check` and
+  `./dev.sh -C ui pnpm exec vp test`. The commit hook runs <check>.
 - Make sure the tests you rely on actually ran (not skipped, not 0.00s).
 - Update the project's status docs if your work changes what they say.
   Leave the backlog and the grade sheet alone: the coordinator keeps them.

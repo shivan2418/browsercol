@@ -6,9 +6,9 @@ port := "5173"
 _default:
     @just --list
 
-# Install the UI's npm packages (once, and after package-lock.json changes)
+# Install the UI's packages (once, and after pnpm-lock.yaml changes)
 install:
-    ./dev.sh -C ui npm ci --no-audit --no-fund
+    ./dev.sh -C ui pnpm install --frozen-lockfile
 
 # Build dist/, the static site (`just build -Prelease` for obfuscated modules)
 build *args:
@@ -22,17 +22,17 @@ dev:
     port={{port}}
     while (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null; do port=$((port + 1)); done
     echo "Dev server: http://localhost:$port"
-    DEV_PORT=$port ./dev.sh -C ui npx vp dev --host 0.0.0.0 --port "$port" --strictPort
+    DEV_PORT=$port ./dev.sh -C ui pnpm exec vp dev --host 0.0.0.0 --port "$port" --strictPort
 
 # Serve the built dist/ at http://localhost:5173
 preview:
     [ -f dist/index.html ] || just build
-    DEV_PORT={{port}} ./dev.sh -C ui npx vp preview --host 0.0.0.0 --port {{port}} --strictPort
+    DEV_PORT={{port}} ./dev.sh -C ui pnpm exec vp preview --host 0.0.0.0 --port {{port}} --strictPort
 
 # Storybook at http://localhost:6006, with the game's own art (builds first if ui/generated/ has none)
 storybook:
     [ -d ui/generated/public/art ] || just build
-    DEV_PORT=6006 ./dev.sh -C ui npx storybook dev -p 6006 --host 0.0.0.0 --no-open
+    DEV_PORT=6006 ./dev.sh -C ui pnpm exec storybook dev -p 6006 --host 0.0.0.0 --no-open
 
 # JVM tests of the Engine
 test-engine *args:
@@ -40,11 +40,11 @@ test-engine *args:
 
 # UI tests
 test-ui *args:
-    ./dev.sh -C ui npx vp test {{args}}
+    ./dev.sh -C ui pnpm exec vp test {{args}}
 
 # Format, lint and type check
 check:
-    ./dev.sh -C ui npx vp check
+    ./dev.sh -C ui pnpm exec vp check
 
 # The fast checks a ticket PR needs: Engine tests, vp check, vp test
 fast: test-engine check test-ui

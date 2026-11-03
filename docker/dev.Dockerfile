@@ -14,6 +14,11 @@ RUN curl -fsSL https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-li
   | tar -xJ -C /opt \
  && ln -s /opt/node-v${NODE_VERSION}-linux-x64/bin/* /usr/local/bin/
 
+# pnpm, at the version ui/package.json's packageManager pins, through Node's Corepack.
+ENV COREPACK_HOME=/work/.cache/corepack
+RUN corepack enable pnpm --install-directory /usr/local/bin
+
 ENV GRADLE_USER_HOME=/work/.cache/gradle \
-    npm_config_cache=/work/.cache/npm
+    npm_config_cache=/work/.cache/npm \
+    npm_config_store_dir=/work/.cache/pnpm-store
 WORKDIR /work

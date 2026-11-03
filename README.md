@@ -25,9 +25,9 @@ and `just preview` serves the built `dist/` there.
 ```sh
 ./dev.sh ./build.sh                  # build dist/, the static site (add -Prelease for obfuscated modules)
 ./dev.sh -C engine gradle test       # JVM tests of the Engine
-./dev.sh -C ui npm ci                # once, before the UI commands below
-./dev.sh -C ui npx vp test           # UI tests
-./dev.sh -C ui npx vp check          # format, lint and type check; a lint warning fails it
+./dev.sh -C ui pnpm install --frozen-lockfile                # once, before the UI commands below
+./dev.sh -C ui pnpm exec vp test           # UI tests
+./dev.sh -C ui pnpm exec vp check          # format, lint and type check; a lint warning fails it
 DEV_VARIANT=web ./dev.sh node ui/scripts/smoke.mjs   # play dist/ in Chromium and Firefox
 DEV_VARIANT=web ./dev.sh node ui/scripts/play.mjs    # land, found a colony, end the turn in both
 DEV_VARIANT=web ./dev.sh node ui/scripts/saves.mjs   # save, reload, export, delete, import, load the save and play on in both

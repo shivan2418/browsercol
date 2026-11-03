@@ -1,4 +1,4 @@
-Issue #36 (lint-warning item, folded in from #39): `./dev.sh -C ui npx vp check` passes but prints lint warnings on
+Issue #36 (lint-warning item, folded in from #39): `./dev.sh -C ui pnpm exec vp check` passes but prints lint warnings on
 every run, so a new warning is easy to miss.
 
 Known warnings (run `vp check` first and fix every one it prints, these or
