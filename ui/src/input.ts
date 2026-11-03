@@ -59,8 +59,6 @@ const BY_KEY: Record<string, Command> = {
   // The Europe view, as EuropeAction binds it.
   e: { k: 'showEurope' },
   E: { k: 'showEurope' },
-  g: { k: 'selectDestination' },
-  G: { k: 'selectDestination' },
 };
 
 // Numpad keys by code, the same with Num Lock on or off.

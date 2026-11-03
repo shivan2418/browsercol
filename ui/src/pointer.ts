@@ -83,6 +83,69 @@ export interface PointerDeps {
   };
 }
 
+/**
+ * Go To from the keyboard: G starts choosing a destination, the path to the tile under the pointer shows and
+ * follows it, and a click on the map sets off. Escape or G again cancels. `active` says whether keys may start it
+ * (no dialog open, a unit to move).
+ */
+export function gotoKeyInput(
+  host: HTMLElement,
+  tileAt: (px: number, py: number) => Tile | null,
+  goto: NonNullable<PointerDeps['goto']>,
+  active: () => boolean,
+): void {
+  let pointer: { clientX: number; clientY: number } | null = null;
+  let holding: Tile | null = null;
+  let choosing = false;
+  const tileUnder = () => {
+    const at = pointer && onCanvas(host, pointer);
+    return at && tileAt(...at);
+  };
+  const show = () => {
+    const tile = tileUnder();
+    if (tile && (tile[0] !== holding?.[0] || tile[1] !== holding?.[1])) {
+      holding = tile;
+      goto.preview(tile);
+    }
+  };
+  const stop = () => {
+    if (choosing) goto.preview(null);
+    choosing = false;
+    holding = null;
+    host.style.cursor = '';
+  };
+  addEventListener('pointermove', (e) => {
+    pointer = e;
+    if (choosing) show();
+  });
+  addEventListener('keydown', (e) => {
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    if (choosing && e.key === 'Escape') {
+      e.preventDefault();
+      stop();
+    } else if (e.key.toLowerCase() === 'g' && !e.repeat && (choosing || active())) {
+      e.preventDefault();
+      if (choosing) return stop();
+      choosing = true;
+      host.style.cursor = 'crosshair';
+      show();
+    }
+  });
+  // The click that picks the tile is the Go To's, not a tile click.
+  host.addEventListener(
+    'click',
+    (e) => {
+      if (!choosing) return;
+      e.stopImmediatePropagation();
+      const tile = tileUnder() ?? holding;
+      stop();
+      if (tile) goto.go(tile);
+    },
+    true,
+  );
+  addEventListener('blur', stop);
+}
+
 /** Move the view with the middle button on the map in a host. Returns whether the last click was a drag. */
 export function pointerInput(host: HTMLElement, { view, dispatch, tileAt, goto }: PointerDeps): () => boolean {
   let wheel = 0;
