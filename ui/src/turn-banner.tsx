@@ -37,7 +37,11 @@ export function TurnBanner({ notice }: { notice: TurnNotice | null }) {
   }, [notice]);
   if (!notice || notice === hidden) return null;
   return (
-    <div role="status" className={`turn-banner ${notice.kind}`}>
+    <div
+      role="status"
+      className={`turn-banner ${notice.kind}`}
+      style={notice.kind === 'new' ? { animationDuration: `${NEW_TURN_MS}ms` } : undefined}
+    >
       {notice.text}
     </div>
   );

@@ -207,6 +207,19 @@
         font: var(--fs-h) / 1.4 var(--font);
         pointer-events: none;
       }
+      /* A new turn's banner stays solid, then fades out over its last stretch; its length is set inline. */
+      .turn-banner.new {
+        animation: turn-banner-fade linear forwards;
+      }
+      @keyframes turn-banner-fade {
+        0%,
+        70% {
+          opacity: 1;
+        }
+        100% {
+          opacity: 0;
+        }
+      }
       .turn-banner.ai {
         font-style: italic;
       }
