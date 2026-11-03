@@ -211,17 +211,22 @@ public final class Commands {
 
     /**
      * Take a unit off a ship in a colony's port, onto the colony's tile
-     * (dragging it out of the colony panel's cargo, UnitLabel.removeCargo).
+     * (dragging it out of the colony panel's cargo, UnitLabel.removeCargo),
+     * or off a ship in Europe, onto the docks (a drop on the Europe panel's
+     * docks), after which the Europe panel is sent again.
      *
-     * @param unitId The id of one of our units aboard a ship in a colony.
+     * @param unitId The id of one of our units aboard a ship in a colony or Europe.
      * @return True if the unit left the ship.
      */
     public boolean leaveShip(String unitId) {
         final Unit unit = this.client.getMyPlayer()
             .getOurFreeColGameObject(unitId, Unit.class);
-        if (unit == null || !unit.isOnCarrier()
-            || unit.getCarrier().getColony() == null) return false;
-        return igc().leaveShip(unit);
+        if (unit == null || !unit.isOnCarrier()) return false;
+        final Unit ship = unit.getCarrier();
+        if (ship.getColony() == null && !ship.isInEurope()) return false;
+        final boolean done = igc().leaveShip(unit);
+        if (ship.isInEurope()) gui().showEuropePanel();
+        return done;
     }
 
     /**
@@ -237,6 +242,21 @@ public final class Commands {
      * @return True if goods were bought.
      */
     public boolean buyGoods(String shipId, String goodsTypeId) {
+        return buyGoods(shipId, goodsTypeId, true);
+    }
+
+    /**
+     * Buy goods in Europe onto a ship in port, as {@link #buyGoods(String,
+     * String)} does, but asking the amount only when {@code ask}: otherwise
+     * the most the ship has room for and the gold buys is bought (a plain
+     * drag of the market's goods; shift asks).
+     *
+     * @param shipId The id of one of our ships in Europe.
+     * @param goodsTypeId The id of the goods type.
+     * @param ask Whether to ask the amount.
+     * @return True if goods were bought.
+     */
+    public boolean buyGoods(String shipId, String goodsTypeId, boolean ask) {
         final Unit ship = shipInEurope(shipId);
         final GoodsType type = goodsType(goodsTypeId);
         if (ship == null || type == null) return false;
@@ -259,7 +279,8 @@ public final class Commands {
             return false;
         }
         // Paying, the dialog limits the amount to what the gold buys.
-        final int amount = gui().showSelectAmountDialog(type, loadable, most, true);
+        final int amount = ask
+            ? gui().showSelectAmountDialog(type, loadable, most, true) : most;
         if (amount <= 0) return false;
         final boolean done = igc().buyGoods(type, amount, ship);
         gui().showEuropePanel();
@@ -278,6 +299,20 @@ public final class Commands {
      * @return True if goods were sold.
      */
     public boolean sellGoods(String shipId, String goodsTypeId) {
+        return sellGoods(shipId, goodsTypeId, true);
+    }
+
+    /**
+     * Sell a ship's cargo in Europe, as {@link #sellGoods(String, String)}
+     * does, but asking the amount only when {@code ask}: otherwise the whole
+     * stack is sold (a plain drag of the cargo; shift asks).
+     *
+     * @param shipId The id of one of our ships in Europe.
+     * @param goodsTypeId The id of the goods type.
+     * @param ask Whether to ask the amount.
+     * @return True if goods were sold.
+     */
+    public boolean sellGoods(String shipId, String goodsTypeId, boolean ask) {
         final Unit ship = shipInEurope(shipId);
         final GoodsType type = goodsType(goodsTypeId);
         if (ship == null || type == null) return false;
@@ -291,7 +326,8 @@ public final class Commands {
             gui().showEuropePanel();
             return false;
         }
-        final int amount = gui().showSelectAmountDialog(type, aboard, aboard, false);
+        final int amount = ask
+            ? gui().showSelectAmountDialog(type, aboard, aboard, false) : aboard;
         if (amount <= 0) return false;
         final boolean done = igc().sellGoods(
             new Goods(this.client.getGame(), ship, type, amount));

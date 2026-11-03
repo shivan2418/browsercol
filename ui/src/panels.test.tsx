@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, createEvent, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { ColonyActions, type ColonyMoves } from './colony-panel';
 import { jamestown } from './colony-fixture';
@@ -1235,6 +1235,14 @@ describe('the Europe panel', () => {
     title: 'Europe',
     gold: 1234,
     goldLabel: 'Gold',
+    tally: {
+      heading: 'Trade Advisor',
+      tax: 20,
+      taxLabel: 'Tax',
+      unitsSold: 'Units bought or sold',
+      beforeTaxes: 'Income before taxes',
+      afterTaxes: 'Income after taxes',
+    },
     ok: 'Close',
     headings: {
       toAmerica: 'Sailing to America',
@@ -1286,7 +1294,18 @@ describe('the Europe panel', () => {
       ],
     },
     market: [
-      { id: 'model.goods.food', name: 'Food', images: [], sell: 1, buy: 2, enabled: true, reason: null },
+      {
+        id: 'model.goods.food',
+        name: 'Food',
+        images: [],
+        sell: 1,
+        buy: 2,
+        enabled: true,
+        reason: null,
+        sold: 40,
+        beforeTaxes: 100,
+        afterTaxes: 80,
+      },
       {
         id: 'model.goods.rum',
         name: 'Rum',
@@ -1295,6 +1314,9 @@ describe('the Europe panel', () => {
         buy: 6,
         enabled: false,
         reason: 'The Crown is boycotting these goods until you have paid your tax arrears of 100 gold.',
+        sold: 0,
+        beforeTaxes: 0,
+        afterTaxes: 0,
       },
     ],
   };
@@ -1324,6 +1346,17 @@ describe('the Europe panel', () => {
     ]);
     // The art of the unit's key is shown.
     expect(document.querySelector('[data-list=toAmerica] img')?.getAttribute('src')).toBe('art/caravel.png');
+  });
+
+  it('tallies in a sidebar the tax and what has been sold and earned of each goods traded', () => {
+    const { box } = host();
+    act(() => box.show('europe', europe));
+    expect(document.querySelector('[data-tax]')?.textContent).toBe('20%');
+    const rows = [...document.querySelectorAll('[data-tally-goods]')].map((r) => [
+      r.getAttribute('data-tally-goods'),
+      ...[...r.querySelectorAll('td')].slice(1).map((c) => c.textContent),
+    ]);
+    expect(rows).toEqual([['model.goods.food', '40', '100', '80']]);
   });
 
   it('shows the cargo of the selected ship, and of another when it is picked', () => {
@@ -1397,24 +1430,24 @@ describe('the Europe panel', () => {
   it('buys a goods of the market onto the ship in port, and sells its cargo', () => {
     const calls: string[] = [];
     Object.assign(europeButtons, {
-      buy: (g: string, s: string) => calls.push(`buy ${g} ${s}`),
-      sell: (g: string, s: string) => calls.push(`sell ${g} ${s}`),
+      buy: (g: string, s: string, ask: boolean) => calls.push(`buy ${g} ${s} ${ask}`),
+      sell: (g: string, s: string, ask: boolean) => calls.push(`sell ${g} ${s} ${ask}`),
     });
     const { box } = host();
     act(() => box.show('europe', europe));
     // The market's goods are bought onto the picked ship.
     fireEvent.click(document.querySelector('[data-goods="model.goods.food"]')!);
-    expect(calls).toEqual(['buy model.goods.food unit:1']);
+    expect(calls).toEqual(['buy model.goods.food unit:1 true']);
     // A stack of the cargo is sold.
     fireEvent.click(document.querySelector('[data-cargo="goods"]')!);
-    expect(calls).toEqual(['buy model.goods.food unit:1', 'sell model.goods.food unit:1']);
+    expect(calls).toEqual(['buy model.goods.food unit:1 true', 'sell model.goods.food unit:1 true']);
   });
 
   it('does not trade a boycotted goods, and says why', () => {
     const calls: string[] = [];
     Object.assign(europeButtons, {
-      buy: (g: string, s: string) => calls.push(`buy ${g} ${s}`),
-      sell: (g: string, s: string) => calls.push(`sell ${g} ${s}`),
+      buy: (g: string, s: string, ask: boolean) => calls.push(`buy ${g} ${s} ${ask}`),
+      sell: (g: string, s: string, ask: boolean) => calls.push(`sell ${g} ${s} ${ask}`),
     });
     const { box } = host();
     act(() => box.show('europe', europe));
@@ -1430,7 +1463,7 @@ describe('the Europe panel', () => {
   it('trades nothing with no ship in port', () => {
     const calls: string[] = [];
     Object.assign(europeButtons, {
-      buy: (g: string, s: string) => calls.push(`buy ${g} ${s}`),
+      buy: (g: string, s: string, ask: boolean) => calls.push(`buy ${g} ${s} ${ask}`),
     });
     const { box } = host();
     act(() => box.show('europe', { ...europe, inPort: [], selected: null }));
@@ -1439,21 +1472,33 @@ describe('the Europe panel', () => {
     expect(calls).toEqual([]);
   });
 
-  it('buys the market’s goods dropped on the cargo, and sells the cargo dropped on the market', () => {
+  it('buys the market’s goods dropped on the cargo, and sells the cargo dropped on the market, all of it unless shift asks', () => {
     const calls: string[] = [];
     Object.assign(europeButtons, {
-      buy: (g: string, s: string) => calls.push(`buy ${g} ${s}`),
-      sell: (g: string, s: string) => calls.push(`sell ${g} ${s}`),
+      buy: (g: string, s: string, ask: boolean) => calls.push(`buy ${g} ${s} ${ask}`),
+      sell: (g: string, s: string, ask: boolean) => calls.push(`sell ${g} ${s} ${ask}`),
     });
     const { box } = host();
     act(() => box.show('europe', europe));
     const dataTransfer = { setData() {}, effectAllowed: '' };
     fireEvent.dragStart(document.querySelector('[data-goods="model.goods.food"]')!, { dataTransfer });
     fireEvent.drop(document.querySelector('[data-list=cargo]')!, { dataTransfer });
-    expect(calls).toEqual(['buy model.goods.food unit:1']);
+    expect(calls).toEqual(['buy model.goods.food unit:1 false']);
     fireEvent.dragStart(document.querySelector('[data-cargo="goods"]')!, { dataTransfer });
     fireEvent.drop(document.querySelector('[data-list=market]')!, { dataTransfer });
-    expect(calls).toEqual(['buy model.goods.food unit:1', 'sell model.goods.food unit:1']);
+    expect(calls).toEqual(['buy model.goods.food unit:1 false', 'sell model.goods.food unit:1 false']);
+    // Shift held as the drag starts has the Engine ask how many (jsdom's drag event has no shiftKey to set).
+    const dragWithShift = (el: Element, dt: object) => {
+      const ev = createEvent.dragStart(el, { dataTransfer: dt });
+      Object.defineProperty(ev, 'shiftKey', { value: true });
+      fireEvent(el, ev);
+    };
+    calls.length = 0;
+    dragWithShift(document.querySelector('[data-goods="model.goods.food"]')!, dataTransfer);
+    fireEvent.drop(document.querySelector('[data-list=cargo]')!, { dataTransfer });
+    dragWithShift(document.querySelector('[data-cargo="goods"]')!, dataTransfer);
+    fireEvent.drop(document.querySelector('[data-list=market]')!, { dataTransfer });
+    expect(calls).toEqual(['buy model.goods.food unit:1 true', 'sell model.goods.food unit:1 true']);
   });
 
   it('opens the Engine’s quick-action menu on a right-click of a ship, a docked unit, cargo and the market', () => {
