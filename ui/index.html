@@ -1023,11 +1023,14 @@
       .colony .tile .who .unit {
         height: 40px;
       }
+      /* The yield is held in front of the colonist, over their waist. */
       .colony .tile .made {
         position: absolute;
-        left: 0;
-        right: 0;
-        top: 4px;
+        left: 50%;
+        top: calc(50% + 4px);
+        transform: translate(-50%, -50%);
+        z-index: 3;
+        pointer-events: none;
         display: flex;
         justify-content: center;
         gap: 2px;
