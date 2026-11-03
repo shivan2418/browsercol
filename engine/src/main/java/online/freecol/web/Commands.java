@@ -457,6 +457,8 @@ public final class Commands {
         case "colopedia": return showColopedia(rest);
         case "leaveTown": return putOutsideColony(rest);
         case "leaveShip": return leaveShip(rest);
+        case "clearSpeciality": return clearSpeciality(rest);
+        case "assign": return assignTeacher(a[0], a[1]);
         case "board": return boardShip(a[0], a[1]);
         case "work": return workAs(a[0], a[1], a[2]);
         case "role": return takeRole(a[0], a[1], Integer.parseInt(a[2]));
@@ -556,6 +558,19 @@ public final class Commands {
         if (is == null) return false;
         gui().showIndianSettlementPanel(is);
         return true;
+    }
+
+    /** Make a colonist an ordinary one again (QuickActionMenu's "clear speciality"). */
+    private boolean clearSpeciality(String unitId) {
+        final Unit unit = ours(unitId);
+        return unit != null && igc().clearSpeciality(unit);
+    }
+
+    /** Put a colonist to school under a teacher (QuickActionMenu's "assign to teacher"). */
+    private boolean assignTeacher(String studentId, String teacherId) {
+        final Unit student = ours(studentId);
+        final Unit teacher = ours(teacherId);
+        return student != null && teacher != null && igc().assignTeacher(student, teacher);
     }
 
     /** Equip a unit for a role (QuickActionMenu's role entries). */

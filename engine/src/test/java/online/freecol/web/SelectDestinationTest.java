@@ -562,14 +562,14 @@ class SelectDestinationTest {
         awaitGold(serverPlayer.getGold());
 
         // The right-click menus of the Europe panel: the market's goods buy
-        // onto the ship, its cargo sells, and the ship has orders to give.
+        // onto the ship, its cargo sells, and the ship has no field orders to give.
         final Menus menus = client.getMenus();
         final String market = menus.goods("europe", cloth.getId(), 100);
         assertTrue(market.contains("\"id\":\"buy:" + ship.getId() + "," + cloth.getId() + "\""), market);
         final String cargo = menus.goods(ship.getId(), cloth.getId(), 20);
         assertTrue(cargo.contains("\"id\":\"sell:" + ship.getId() + "," + cloth.getId() + "\""), cargo);
         final String orders = menus.unit(ship.getId());
-        assertTrue(orders.contains("state:SENTRY:" + ship.getId()), orders);
+        assertFalse(orders.contains("SENTRY"), "nothing to sentry in Europe: " + orders);
         assertFalse(orders.contains("FORTIFYING"), "nothing to fortify in Europe: " + orders);
         assertFalse(orders.contains("state:ACTIVE"), "nothing to activate in Europe: " + orders);
         amount = "5";
