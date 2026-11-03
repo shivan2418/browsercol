@@ -1,8 +1,13 @@
 // The Preferences window of the Game menu: the animation and blink speeds.
 import { Box, WindowFrame } from './frame';
-import { SPEEDS, type Prefs, type Speed } from './prefs';
+import { ACTIVE_STYLES, SPEEDS, type ActiveStyle, type Prefs, type Speed } from './prefs';
 
 const LABEL: Record<Speed, string> = { off: 'Off', slow: 'Slow', normal: 'Normal', fast: 'Fast' };
+
+const STYLE_LABEL: Record<ActiveStyle, string> = {
+  freecol: 'FreeCol: blinking chevron',
+  online: 'FreeCol Online: blinking unit',
+};
 
 function SpeedRow({
   name,
@@ -47,9 +52,25 @@ export function PreferencesDialog({
           value={prefs.animation}
           onChange={(animation) => change({ ...prefs, animation })}
         />
+        <label
+          data-pref="activeStyle"
+          style={{ display: 'flex', gap: 12, justifyContent: 'space-between', margin: '6px 0' }}
+        >
+          Active unit shown by
+          <select
+            value={prefs.activeStyle}
+            onChange={(e) => change({ ...prefs, activeStyle: e.target.value as ActiveStyle })}
+          >
+            {ACTIVE_STYLES.map((a) => (
+              <option key={a} value={a}>
+                {STYLE_LABEL[a]}
+              </option>
+            ))}
+          </select>
+        </label>
         <SpeedRow
           name="blink"
-          label="Active unit blink"
+          label="Blink speed"
           value={prefs.blink}
           onChange={(blink) => change({ ...prefs, blink })}
         />

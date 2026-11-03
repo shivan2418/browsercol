@@ -5,14 +5,23 @@
 export type Speed = 'off' | 'slow' | 'normal' | 'fast';
 export const SPEEDS: readonly Speed[] = ['off', 'slow', 'normal', 'fast'];
 
+/**
+ * How the active unit shows: FreeCol's own, a blinking cursor (the green chevron) over a steady unit, or
+ * FreeCol Online's, the whole unit blinking, Civilization I style, with no chevron.
+ */
+export type ActiveStyle = 'freecol' | 'online';
+export const ACTIVE_STYLES: readonly ActiveStyle[] = ['freecol', 'online'];
+
 export interface Prefs {
+  /** What blinks for the active unit; the blink speed applies to either. */
+  activeStyle: ActiveStyle;
   /** How fast a unit slides to its new tile. */
   animation: Speed;
   /** How fast the active unit blinks. */
   blink: Speed;
 }
 
-export const DEFAULTS: Prefs = { animation: 'normal', blink: 'normal' };
+export const DEFAULTS: Prefs = { activeStyle: 'online', animation: 'normal', blink: 'normal' };
 
 /** A slide's length in milliseconds; 0 moves the unit at once. */
 const MOVE: Record<Speed, number> = { off: 0, slow: 600, normal: 300, fast: 150 };
@@ -30,7 +39,13 @@ const speed = (v: unknown, fallback: Speed): Speed => (SPEEDS.includes(v as Spee
 export function parsePrefs(text: string | null): Prefs {
   try {
     const o = (text ? JSON.parse(text) : {}) as Record<string, unknown>;
-    return { animation: speed(o.animation, DEFAULTS.animation), blink: speed(o.blink, DEFAULTS.blink) };
+    return {
+      activeStyle: ACTIVE_STYLES.includes(o.activeStyle as ActiveStyle)
+        ? (o.activeStyle as ActiveStyle)
+        : DEFAULTS.activeStyle,
+      animation: speed(o.animation, DEFAULTS.animation),
+      blink: speed(o.blink, DEFAULTS.blink),
+    };
   } catch {
     return { ...DEFAULTS };
   }

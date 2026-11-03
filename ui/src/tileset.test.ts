@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { resources } from './resources';
-import { overlay, scene, viewModeOps, type Chips, type MapView, type Op } from './tileset';
+import { isUnitMarker, overlay, scene, viewModeOps, type Chips, type MapView, type Op } from './tileset';
 
 // A 2x4 corner of a map. FreeCol stores the diamond grid as staggered rows,
 // odd rows half a tile to the right, so from (1,0) the plains at (0,1),
@@ -306,9 +306,22 @@ describe('native settlement chips', () => {
 });
 
 describe('overlay', () => {
+  it('marks only the unit cursor, which blinks apart from the path', () => {
+    const ops = overlay(
+      { at: [1, 0], kind: 'unit' },
+      [
+        [1, 0, 0],
+        [1, 1, 0],
+      ],
+      tileset,
+    );
+    expect(ops.filter(isUnitMarker)).toHaveLength(1);
+    expect(overlay({ at: [0, 1], kind: 'tile' }, null, tileset).some(isUnitMarker)).toBe(false);
+  });
+
   it("draws MapViewer's cursor for the view mode, centred on its tile", () => {
     expect(overlay({ at: [1, 0], kind: 'unit' }, null, tileset)).toEqual([
-      { k: 'image', x: 1, y: 0, src: art('unitSelect'), at: 'center' },
+      { k: 'image', x: 1, y: 0, src: art('unitSelect'), at: 'center', marker: true },
     ]);
     expect(overlay({ at: [0, 1], kind: 'tile' }, null, tileset)).toEqual([
       { k: 'image', x: 0, y: 1, src: art('tileSelect'), at: 'center' },
