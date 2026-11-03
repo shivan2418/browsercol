@@ -176,7 +176,14 @@ export interface GuiEvents {
     docks: EuropeUnit[];
     selected: Id | null;
     /** The sidebar's labels and the Crown's tax rate in percent. */
-    tally: { heading: string; tax: number; taxLabel: string; unitsSold: string; beforeTaxes: string; afterTaxes: string };
+    tally: {
+      heading: string;
+      tax: number;
+      taxLabel: string;
+      unitsSold: string;
+      beforeTaxes: string;
+      afterTaxes: string;
+    };
     market: {
       id: Id;
       name: string;
