@@ -548,6 +548,19 @@ class SelectDestinationTest {
             "the gold is paid");
         awaitGold(gold + 10 * sellPrice);
 
+        // Not asking (a plain drag): the dialog would give nothing, yet all
+        // of the stack is sold.
+        amount = null;
+        assertTrue(client.getCommands().sellGoods(ship.getId(), cloth.getId(), false),
+            "the whole stack is sold without asking");
+        assertEquals(0, serverShip(ship).getGoodsCount(cloth), "all the cloth is sold");
+        // Put the ten back, asked, for what follows.
+        amount = "10";
+        assertTrue(client.getCommands().buyGoods(ship.getId(), cloth.getId(), true),
+            "the ten are bought again");
+        assertEquals(10, serverShip(ship).getGoodsCount(cloth), "ten again");
+        awaitGold(serverPlayer.getGold());
+
         // The right-click menus of the Europe panel: the market's goods buy
         // onto the ship, its cargo sells, and the ship has orders to give.
         final Menus menus = client.getMenus();

@@ -30,7 +30,11 @@ import net.sf.freecol.common.model.UnitType;
  * {title, gold, goldLabel, ok, headings: {toAmerica, toEurope, inPort,
  *  docks, cargo}, toAmerica: [unit], toEurope: [unit], inPort: [unit],
  *  docks: [unit], selected: the id of the ship whose cargo shows first
- *  (or null), market: [{id, name, images, sell, buy, enabled, reason}],
+ *  (or null), tally: {heading, tax, taxLabel, unitsSold, beforeTaxes,
+ *  afterTaxes} (the sidebar's labels and the tax rate in percent),
+ *  market: [{id, name, images, sell, buy, enabled, reason, sold,
+ *  beforeTaxes, afterTaxes}] (the last three being what the player has
+ *  sold of the goods and earned from it, as the trade report says),
  *  buttons: {train, purchase, recruit, sail},
  *  recruit: {heading, text, price, units: [{index, name, images,
  *  enabled}]}, train: {heading, units: [offer]},
@@ -96,6 +100,14 @@ final class EuropeJson {
             .put("title", Messages.getName(europe))
             .put("gold", player.getGold())
             .put("goldLabel", Messages.message("gold"))
+            .putRaw("tally", new Json()
+                .put("heading", Messages.message("reportTradeAction.name"))
+                .put("tax", player.getTax())
+                .put("taxLabel", Messages.message("tax"))
+                .put("unitsSold", Messages.message("report.trade.unitsSold"))
+                .put("beforeTaxes", Messages.message("report.trade.beforeTaxes"))
+                .put("afterTaxes", Messages.message("report.trade.afterTaxes"))
+                .toString())
             .put("ok", Messages.message("close"))
             .putRaw("headings", new Json()
                 .put("toAmerica", Messages.message("sailingToAmerica"))
@@ -260,6 +272,9 @@ final class EuropeJson {
                 .put("sell", market.getPaidForSale(type))
                 .put("buy", market.getCostToBuy(type))
                 .put("enabled", tradeable)
+                .put("sold", player.getSales(type))
+                .put("beforeTaxes", player.getIncomeBeforeTaxes(type))
+                .put("afterTaxes", player.getIncomeAfterTaxes(type))
                 .put("reason", tradeable ? null
                     : Messages.message(Boycotts.reason(player, type)))
                 .toString());

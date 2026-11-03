@@ -11,7 +11,7 @@ import { ColonyActions, ColonyPanel } from './colony-panel';
 import type { Dialog, Dialogs } from './dialogs';
 import { europeButtons } from './europe-client';
 import { GoodsAmount, WindowFrame, type Art } from './frame';
-import { draggableProps, dropTargetProps, type Item } from './moves';
+import { draggableProps, dropTargetProps, type Item, type Place } from './moves';
 import { ContextMenuContext, contextMenuHandler, useContextMenu } from './popup-menu';
 import { OptionEditor } from './option-editor';
 import { ReportPanel } from './reports';
@@ -957,6 +957,9 @@ function RoutesPanel({ d, art, routes }: { d: Of<'tradeRoutes'>; art: Art; route
 
 type Europe = GuiEvents['europe'];
 
+/** Goods dragged in Europe move whole; shift held at the start of the drag has the Engine ask how many. */
+const goodsDrag = (item: Item) => draggableProps(item, (e) => ({ ...item, ask: e.shiftKey }) as Item);
+
 /** A unit or ship of Europe's panel, with its picture. */
 function UnitChip({
   u,
@@ -1052,8 +1055,9 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
     pick?: (u: EuropeUnit) => () => void,
     drag?: boolean,
     drop?: (item: Item) => void,
+    place: Place = 'sailing',
   ) => (
-    <section className="box" data-list={kind} {...(drop ? dropTargetProps('sailing', drop) : {})}>
+    <section className="box" data-list={kind} {...(drop ? dropTargetProps(place, drop) : {})}>
       <h3>{heading}</h3>
       <div className="chips">
         {units.map((u) => (
@@ -1065,12 +1069,12 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
   /** What the market says of a goods type: whether it can be traded, and why not. */
   const trade = new Map(e.market.map((g) => [g.id, g]));
   /** Buy a goods of the market onto the ship in port. */
-  const buy = (goodsTypeId: string) => {
-    if (ship) europeButtons.buy(goodsTypeId, ship.id);
+  const buy = (goodsTypeId: string, ask = true) => {
+    if (ship) europeButtons.buy(goodsTypeId, ship.id, ask);
   };
   /** Sell a stack of the ship's cargo. */
-  const sell = (goodsTypeId: string) => {
-    if (ship) europeButtons.sell(goodsTypeId, ship.id);
+  const sell = (goodsTypeId: string, ask = true) => {
+    if (ship) europeButtons.sell(goodsTypeId, ship.id, ask);
   };
   /** The right-click menu of a ship's cargo: a unit's own, or goods' sale. */
   const cargoMenu = (c: { kind: 'unit' | 'goods'; id: string; amount: number }) =>
@@ -1081,8 +1085,14 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
   const marketMenu = (goodsTypeId: string) => contextMenuHandler(menus, (m) => m.goods('europe', goodsTypeId, 100));
   /** What a drop on the cargo does: the market's goods are bought, a unit of the docks boards. */
   const onCargo = (item: Item) => {
-    if (item.kind === 'goods' && item.from === 'market') buy(item.type);
+    if (item.kind === 'goods' && item.from === 'market') buy(item.type, item.ask === true);
     else if (item.kind === 'unit' && ship) europeButtons.board(item.id, ship.id);
+  };
+  /** What a drop on the docks does: a unit aboard the ship comes ashore. */
+  const onDocks = (item: Item) => {
+    if (item.kind === 'unit' && ship?.cargo?.some((c) => c.kind === 'unit' && c.id === item.id)) {
+      europeButtons.leave(item.id);
+    }
   };
   /** What a drop on the ships sailing to America does: a ship in port is sent, as the Sail button does. */
   const onSailing = (item: Item) => {
@@ -1090,7 +1100,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
   };
   /** What a drop on the market does: a stack of the cargo is sold. */
   const onMarket = (item: Item) => {
-    if (item.kind === 'goods' && item.from === 'cargo') sell(item.type);
+    if (item.kind === 'goods' && item.from === 'cargo') sell(item.type, item.ask === true);
   };
   return (
     <Panel d={d} ok={e.ok}>
@@ -1116,6 +1126,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
         </button>
       </div>
       {shop && shopPopup(shop)}
+      <div className="europe-body">
       <div className="europe">
         {list(e.headings.toAmerica, 'toAmerica', e.toAmerica, undefined, false, onSailing)}
         {list(e.headings.toEurope, 'toEurope', e.toEurope)}
@@ -1126,6 +1137,8 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
           e.docks,
           ship ? (u) => () => europeButtons.board(u.id, ship.id) : undefined,
           ship !== null,
+          onDocks,
+          'docks',
         )}
         <section className="box cargo" data-list="cargo" {...(ship ? dropTargetProps('cargo', onCargo) : {})}>
           <h3>{e.headings.cargo}</h3>
@@ -1133,7 +1146,10 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
             {ship?.cargo?.map((c, i) => {
               const goods = trade.get(c.id);
               const sellable = c.kind === 'goods' && goods?.enabled === true;
-              const drag = draggableProps({ kind: 'goods', from: 'cargo', type: c.id, index: i, amount: c.amount });
+              const drag =
+                c.kind === 'unit'
+                  ? draggableProps({ kind: 'unit', id: c.id })
+                  : goodsDrag({ kind: 'goods', from: 'cargo', type: c.id, index: i, amount: c.amount });
               const inner = (
                 <>
                   <Pic keys={c.images} art={art} />
@@ -1159,6 +1175,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
                   data-cargo={c.kind}
                   title={goods?.reason ?? c.name}
                   onContextMenu={cargoMenu(c)}
+                  {...(c.kind === 'unit' ? drag : {})}
                 >
                   {inner}
                 </div>
@@ -1170,7 +1187,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
           <div className="goods">
             {e.market.map((g) => {
               const buyable = ship !== null && g.enabled;
-              const drag = draggableProps({ kind: 'goods', from: 'market', type: g.id });
+              const drag = goodsDrag({ kind: 'goods', from: 'market', type: g.id });
               const inner = (
                 <>
                   <Pic keys={g.images} art={art} />
@@ -1206,6 +1223,37 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
             })}
           </div>
         </section>
+      </div>
+      <aside className="europe-tally" data-tally>
+        <h3>{e.tally.heading}</h3>
+        <p className="tax">
+          {e.tally.taxLabel}: <b data-tax>{e.tally.tax}%</b>
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th />
+              <th>{e.tally.unitsSold}</th>
+              <th>{e.tally.beforeTaxes}</th>
+              <th>{e.tally.afterTaxes}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {e.market
+              .filter((g) => g.sold > 0 || g.beforeTaxes !== 0 || g.afterTaxes !== 0)
+              .map((g) => (
+                <tr key={g.id} data-tally-goods={g.id}>
+                  <td title={g.name}>
+                    <Pic keys={g.images} art={art} />
+                  </td>
+                  <td>{g.sold}</td>
+                  <td>{g.beforeTaxes}</td>
+                  <td>{g.afterTaxes}</td>
+                </tr>
+              ))}
+          </tbody>
+        </table>
+      </aside>
       </div>
     </Panel>
   );

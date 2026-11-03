@@ -546,13 +546,42 @@
       }
       /* Europe (src/panels.tsx), as EuropePanel lays it out: the ships, the docks and cargo, the market. */
       .dialog[data-kind='europe'] {
-        width: min(60em, 94vw);
+        width: min(72em, 96vw);
         max-width: none;
       }
       .europe-title {
         display: flex;
         justify-content: space-between;
         align-items: baseline;
+      }
+      .europe-body {
+        display: flex;
+        gap: 8px;
+        align-items: flex-start;
+      }
+      .europe-body > .europe {
+        flex: 1;
+        min-width: 0;
+      }
+      .europe-tally {
+        flex: none;
+        background: var(--box);
+        border: 1px solid var(--line);
+        padding: 4px 8px;
+      }
+      .europe-tally h3 {
+        margin: 0 0 4px;
+      }
+      .europe-tally .tax {
+        margin: 0 0 4px;
+      }
+      .europe-tally td,
+      .europe-tally th {
+        text-align: right;
+        padding: 1px 4px;
+      }
+      .europe-tally img {
+        vertical-align: middle;
       }
       .europe {
         display: grid;
@@ -630,10 +659,14 @@
         align-items: center;
         gap: 4px;
         color: var(--ink);
+        border-radius: 4px;
       }
       /* The selected ship is sunken, as in FreeCol's EuropePanel, not outlined. */
       .europe button.chip[aria-pressed='true'] {
         background: var(--box);
+        border: none;
+        outline: none;
+        font-weight: normal;
         box-shadow: inset 2px 2px 3px rgb(0 0 0 / 45%);
       }
       .europe .goods {
@@ -659,9 +692,25 @@
         color: var(--ink);
         cursor: pointer;
       }
-      .europe button.good:hover,
-      .europe button.chip:hover {
+      .europe button.good:hover {
         outline: 1px solid var(--accent);
+      }
+      /* Dragging by the icon or the name drags the chip: the picture is not a drag of its own. */
+      .europe .chip img,
+      .europe .chip .name {
+        pointer-events: none;
+        user-select: none;
+      }
+      .europe .chip[draggable='true'] {
+        cursor: grab;
+      }
+      .europe .chip[draggable='true']:hover,
+      .europe button.chip:hover,
+      .europe button.chip:focus-visible {
+        border: none;
+        outline: none;
+        background: var(--box);
+        box-shadow: inset 2px 2px 3px rgb(0 0 0 / 45%);
       }
       .europe .price {
         font-variant-numeric: tabular-nums;
@@ -967,7 +1016,7 @@
       /* TileViewer: the worker smaller, a quarter of the way in, without a chip. */
       .colony .tile .who {
         position: absolute;
-        left: 50%;
+        left: 32px;
         top: 50%;
         transform: translate(-50%, -50%);
       }
@@ -1219,17 +1268,6 @@
       .colony .stored[data-over='true'] .goods {
         color: var(--bad);
       }
-    </style>
-  </head>
-  <body>
-    <div id="game">
-      <div id="menubar"></div>
-      <div id="map"></div>
-    </div>
-    <div id="side"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
-</html>
       /* A faint grey wash while the window lacks keyboard focus, so it is
          obvious that keys will not reach the game. */
       body::after {
@@ -1245,6 +1283,14 @@
       body[data-dim-unfocused='true'][data-unfocused='true']::after {
         opacity: 1;
       }
+    </style>
+  </head>
+  <body>
+    <div id="game">
+      <div id="menubar"></div>
+      <div id="map"></div>
+    </div>
+    <div id="side"></div>
     <script>
       (() => {
         const sync = () => {
@@ -1256,3 +1302,6 @@
         sync();
       })();
     </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

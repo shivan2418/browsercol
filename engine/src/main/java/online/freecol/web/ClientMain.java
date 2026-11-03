@@ -302,16 +302,16 @@ public final class ClientMain {
         command("boardShip", () -> engine.getCommands().boardShip(unitId, shipId));
     }
 
-    /** Europe panel: buy goods of a type onto a ship in port, by ids. */
+    /** Europe panel: buy goods of a type onto a ship in port, by ids; ask asks the amount, else the most. */
     @JSExport
-    public static void buyGoods(String shipId, String goodsTypeId) {
-        command("buyGoods", () -> engine.getCommands().buyGoods(shipId, goodsTypeId));
+    public static void buyGoods(String shipId, String goodsTypeId, boolean ask) {
+        command("buyGoods", () -> engine.getCommands().buyGoods(shipId, goodsTypeId, ask));
     }
 
-    /** Europe panel: sell a ship's cargo in Europe, by ids. */
+    /** Europe panel: sell a ship's cargo in Europe, by ids; ask asks the amount, else all of it. */
     @JSExport
-    public static void sellGoods(String shipId, String goodsTypeId) {
-        command("sellGoods", () -> engine.getCommands().sellGoods(shipId, goodsTypeId));
+    public static void sellGoods(String shipId, String goodsTypeId, boolean ask) {
+        command("sellGoods", () -> engine.getCommands().sellGoods(shipId, goodsTypeId, ask));
     }
 
     /** Europe panel: send a ship in port to the New World, by id. */
