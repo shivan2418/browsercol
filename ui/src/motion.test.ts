@@ -26,6 +26,10 @@ describe('moves', () => {
     expect(moves([unit(3, 2)], [unit(7, 2)])).toEqual([]);
   });
 
+  it('follows a unit whose chip changed with the step', () => {
+    expect(moves([unit(3, 2)], [{ ...unit(4, 2), chip: 'Done' }])).toEqual([{ from: [3, 2], to: [4, 2] }]);
+  });
+
   it('does not take a different unit for the mover', () => {
     expect(moves([unit(3, 2)], [unit(4, 2, 'soldier')])).toEqual([]);
   });

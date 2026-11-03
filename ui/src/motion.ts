@@ -18,7 +18,8 @@ const SHOWN = 0.6;
 /** How faint the active unit gets in the dark half of the blink. */
 const DIM = 0.15;
 
-const identity = (u: Unit) => `${u.keys[0] ?? ''}|${u.rgb}|${u.chip}`;
+// The chip is left out: it is the occupation label, which changes with the step (a land unit with its moves spent).
+const identity = (u: Unit) => `${u.keys[0] ?? ''}|${u.rgb}`;
 const at = (u: { x: number; y: number }) => `${u.x},${u.y}`;
 
 /** Whether two tiles are neighbours, by the distance between their centres. */
@@ -31,8 +32,8 @@ function adjacent(a: [number, number], b: [number, number]): boolean {
 
 /**
  * The units that moved to a neighbouring tile between two draws. The map
- * view carries no unit ids, so a unit is what it looks like (its images,
- * owner and chip): one that left a tile and one that looks the same on a
+ * view carries no unit ids, so a unit is what it looks like (its image
+ * and owner): one that left a tile and one that looks the same on a
  * neighbouring tile that did not have it before are the same unit.
  */
 export function moves(before: Unit[], after: Unit[]): Move[] {
