@@ -128,7 +128,7 @@ export type Step = { draw: Src; alpha?: number; scale?: number } | { mask: Src }
 export type Anchor = 'tile' | 'bottom' | 'center' | 'large' | 'unit';
 
 export type Op =
-  | { k: 'image'; x: number; y: number; src: Src; at: Anchor; dim?: true; fade?: true }
+  | { k: 'image'; x: number; y: number; src: Src; at: Anchor; dim?: true; fade?: true; marker?: true }
   /** FreeCol's fog of war: 20% black over the tile's diamond. */
   | { k: 'fog'; x: number; y: number }
   /** A road to the neighbours with roads (RoadPainter), in color.map.road. */
@@ -535,7 +535,15 @@ export function scene(map: MapView, res: Resources): Op[] {
 export function overlay(cursor: Cursor | null, path: PathStep[] | null, res: Resources): Op[] {
   const ops: Op[] = [];
   const src = cursor && res.path(cursor.kind === 'unit' ? `${TILE}unitSelect` : `${TILE}tileSelect`);
-  if (cursor && src) ops.push({ k: 'image', x: cursor.at[0], y: cursor.at[1], src, at: 'center' });
+  if (cursor && src)
+    ops.push({
+      k: 'image',
+      x: cursor.at[0],
+      y: cursor.at[1],
+      src,
+      at: 'center',
+      ...(cursor.kind === 'unit' ? { marker: true as const } : {}),
+    });
   // displayPath draws nothing for a path of one step, and no line through a step off the map.
   if (!path || path.length < 2) return ops;
   for (let i = 1; i < path.length; i++) {
@@ -545,6 +553,12 @@ export function overlay(cursor: Cursor | null, path: PathStep[] | null, res: Res
   for (const step of path) if (step) ops.push({ k: 'pathMark', x: step[0], y: step[1], turns: step[2] });
   return ops;
 }
+
+/**
+ * The operations of an overlay that blink with the active unit in FreeCol's style: the unit cursor.
+ * They are drawn on a layer of their own, between the overlay and the units.
+ */
+export const isUnitMarker = (op: Op): boolean => op.k === 'image' && op.marker === true;
 
 /** The View menu's display switches. */
 export interface ViewModes {

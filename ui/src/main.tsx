@@ -189,7 +189,7 @@ const reportActions: ReportActions = {
 /** The player's preferences, and whether their window is open. */
 let prefs: Prefs = loadPrefs();
 let prefsOpen = false;
-map.setMotion(moveMs(prefs), blinkMs(prefs));
+map.setMotion(moveMs(prefs), blinkMs(prefs), prefs.activeStyle);
 /** Whether the client Engine has loaded, so the menus' game commands work. */
 let menuReady = false;
 /** What the Game, Orders and View menus do (menus.ts). */
@@ -360,7 +360,7 @@ function renderSide() {
           change={(p) => {
             prefs = p;
             savePrefs(p);
-            map.setMotion(moveMs(p), blinkMs(p));
+            map.setMotion(moveMs(p), blinkMs(p), p.activeStyle);
             renderSide();
           }}
           close={() => {

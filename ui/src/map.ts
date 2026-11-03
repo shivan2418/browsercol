@@ -9,6 +9,7 @@
 import { Application, Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import { resources, type ArtLayer, type Resources } from './resources';
 import {
+  isUnitMarker,
   overlay,
   scene,
   srcId,
@@ -19,6 +20,7 @@ import {
   type Op,
   type Src,
 } from './tileset';
+import type { ActiveStyle } from './prefs';
 import { BLINK_MS, MOVE_MS, blink, moves, slide, type Move } from './motion';
 import { H, W, activeUnitFacts, cursor, tileOrigin, toMap, type ViewState } from './view';
 
@@ -113,7 +115,9 @@ interface TextStyle {
 }
 
 /** The map's layers: the scene, the cursor and path over it, the units that move or blink, and the fog being lifted. */
-type Layer = 0 | 1 | 2 | 3;
+type Layer = 0 | 1 | 2 | 3 | 4;
+/** The order the layers are stacked in, bottom first: the unit cursor (4) lies between the overlay and the units. */
+const STACK: readonly Layer[] = [0, 1, 4, 2, 3];
 
 /** The screen's pixel ratio: how many device pixels a CSS pixel covers. */
 export const pixelRatio = (dpr: number | undefined): number => (dpr && dpr > 0 ? dpr : 1);
@@ -144,6 +148,8 @@ interface Pen {
   measure(s: string, style: TextStyle): number;
   /** Move the third layer by (dx, dy) map pixels and fade it to `alpha`. */
   actors(dx: number, dy: number, alpha: number): void;
+  /** Fade the fifth layer, FreeCol's blinking unit cursor, to `alpha`. */
+  marker(alpha: number): void;
   /** Fade the fourth layer, the fog being lifted, to `alpha`. */
   fade(alpha: number): void;
   /** Show the map scaled by `scale`, then moved by (dx, dy). */
@@ -201,8 +207,8 @@ async function pixiPen(host: HTMLElement, width: number, height: number): Promis
   };
   cssSize(width, height);
   const world = new Container();
-  const layers = [new Container(), new Container(), new Container(), new Container()];
-  world.addChild(...layers);
+  const layers = [new Container(), new Container(), new Container(), new Container(), new Container()];
+  world.addChild(...STACK.map((n) => layers[n]));
   app.stage.addChild(world);
   let layer = layers[0];
   const textures = new WeakMap<Picture, Texture>();
@@ -271,6 +277,9 @@ async function pixiPen(host: HTMLElement, width: number, height: number): Promis
     fade: (alpha) => {
       layers[3].alpha = alpha;
     },
+    marker: (alpha) => {
+      layers[4].alpha = alpha;
+    },
     show: (dx, dy, scale) => {
       world.scale.set(scale);
       world.position.set(dx, dy);
@@ -300,8 +309,9 @@ function canvasPen(host: HTMLElement, width: number, height: number, background 
   host.append(canvas);
   const c = canvas.getContext('2d')!;
   // Canvas 2D has no scene graph: record the drawing and replay it to pan.
-  const layers: ((c: CanvasRenderingContext2D) => void)[][] = [[], [], [], []];
+  const layers: ((c: CanvasRenderingContext2D) => void)[][] = [[], [], [], [], []];
   let fog = 1;
+  let mark = 1;
   let actor = { dx: 0, dy: 0, alpha: 1 };
   let calls = layers[0];
   return {
@@ -388,6 +398,9 @@ function canvasPen(host: HTMLElement, width: number, height: number, background 
     fade: (alpha) => {
       fog = alpha;
     },
+    marker: (alpha) => {
+      mark = alpha;
+    },
     show: (dx, dy, scale) => {
       // The transform carries the pixel ratio, so the drawing code works in CSS pixels.
       c.setTransform(ratio, 0, 0, ratio, 0, 0);
@@ -395,13 +408,15 @@ function canvasPen(host: HTMLElement, width: number, height: number, background 
       if (background) c.fillRect(0, 0, width, height);
       else c.clearRect(0, 0, width, height);
       c.setTransform(scale * ratio, 0, 0, scale * ratio, dx * ratio, dy * ratio);
-      layers.forEach((layer, n) => {
+      STACK.forEach((n) => {
+        const layer = layers[n];
         c.save();
         if (n === 2) {
           c.translate(actor.dx, actor.dy);
           c.globalAlpha = actor.alpha;
         }
         if (n === 3) c.globalAlpha = fog;
+        if (n === 4) c.globalAlpha = mark;
         for (const call of layer) call(c);
         c.restore();
       });
@@ -617,8 +632,11 @@ export function mapDrawer(
   /** Make the canvas `size` screen pixels, as its host's box changed; show() the resized view after. */
   resize(size: [number, number]): void;
   renderer(): string;
-  /** How long a slide takes (0: units jump), and a whole blink of the active unit (0: it stays shown). */
-  setMotion(moveMs: number, blinkMs: number): void;
+  /**
+   * How long a slide takes (0: units jump), a whole blink of the active unit (0: it stays shown), and what
+   * blinks: FreeCol's cursor over a steady unit, or the unit itself.
+   */
+  setMotion(moveMs: number, blinkMs: number, style: ActiveStyle): void;
   /** The tile under a pixel of the canvas, or null off the map or before the first draw. */
   tileAt(px: number, py: number): [number, number] | null;
   /** The resolver, once the art manifest has loaded. */
@@ -650,6 +668,7 @@ export function mapDrawer(
   let frame = 0;
   let moveMs = MOVE_MS;
   let blinkMs = BLINK_MS;
+  let activeStyle: ActiveStyle = 'online';
 
   async function init() {
     const art = (await (await fetch(artBase + manifest)).json()) as Art;
@@ -697,12 +716,16 @@ export function mapDrawer(
     const now = performance.now();
     // The active unit blinks, but not while it slides; a slide ends once its time is up.
     if (sliding && now - sliding.since >= moveMs) sliding = null;
+    // What blinks is the unit cursor in FreeCol's style, else the unit; with blinking off the cursor stays, as the only mark.
+    const cursorBlinks = activeStyle === 'freecol' || blinkMs <= 0;
+    const alpha = !sliding && view.mode === 'units' && view.active ? blink(now, blinkMs) : 1;
     if (sliding) {
       const [dx, dy] = slide(sliding.moves[0], (now - sliding.since) / moveMs);
       pen.actors(dx, dy, 1);
     } else {
-      pen.actors(0, 0, view.mode === 'units' && view.active ? blink(now, blinkMs) : 1);
+      pen.actors(0, 0, cursorBlinks ? 1 : alpha);
     }
+    pen.marker(cursorBlinks ? alpha : 0);
     if (lifting && now - lifting.since >= moveMs * FOG_FADE_SLIDES) lifting = null;
     pen.fade(lifting ? 1 - (now - lifting.since) / (moveMs * FOG_FADE_SLIDES) : 0);
     const z = view.zoom;
@@ -723,7 +746,8 @@ export function mapDrawer(
     const key = `${modes.id}|${JSON.stringify(ops)}`;
     if (key !== shown) {
       shown = key;
-      await paint(pen, 1, [...modes.ops, ...ops], pics);
+      await paint(pen, 1, [...modes.ops, ...ops.filter((op) => !isUnitMarker(op))], pics);
+      await paint(pen, 4, ops.filter(isUnitMarker), pics);
     }
     camera();
   }
@@ -766,9 +790,10 @@ export function mapDrawer(
   }
 
   return {
-    setMotion(m, b) {
+    setMotion(m, b, style) {
       moveMs = m;
       blinkMs = b;
+      activeStyle = style;
     },
     draw: (map) => (drawing = drawing.then(() => drawNow(map))),
     show: (v) => {
