@@ -1138,14 +1138,6 @@
         outline: 2px solid var(--accent);
         outline-offset: 1px;
       }
-      /* A picked tile is its colonist's: outline the colonist, not the tile's box. */
-      .colony .tile[data-picked='true'] {
-        outline: none;
-      }
-      .colony .tile[data-picked='true'] .who {
-        outline: 2px solid var(--accent);
-        outline-offset: 1px;
-      }
       .colony .over-target:not(.tile) {
         outline: 2px dashed var(--accent);
       }
@@ -1246,21 +1238,6 @@
       .colony .queue-body .show-all,
       .colony .queue-body .buy {
         grid-column: 1 / -1;
-      }
-      /* The picked colonist's other work: the goods it could make where it works. */
-      .colony .work {
-        width: 100%;
-        box-sizing: border-box;
-        display: flex;
-        gap: 6px;
-        align-items: center;
-      }
-      .colony .choice {
-        padding: 2px 4px;
-        border: 2px solid transparent;
-      }
-      .colony .choice[aria-pressed='true'] {
-        border-color: var(--accent);
       }
       .colony .warehouse {
         align-items: center;

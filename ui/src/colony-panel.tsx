@@ -8,9 +8,8 @@
 // goods amounts the shared GoodsAmount (frame.tsx).
 //
 // Colonists move as in FreeCol: drag one onto a building, a tile or the box
-// of units outside the colony. Clicking works too: click a colonist to pick
-// it (again to put it down), then the place it goes to. A picked colonist
-// that works somewhere offers the other goods it could make there. The moves
+// of units outside the colony; a click on one does nothing, and its menu
+// has where it may work. Goods are picked by a click. The moves
 // go to the client Engine's controller (ColonyMoves, Commands.java); the
 // panel is shown again as they change the colony.
 //
@@ -153,7 +152,8 @@ function useMovable(item: Item) {
   const withShift = (shift: boolean): Item => (item.kind === 'goods' ? { ...item, ask: shift } : item);
   const drag = draggableProps(item, (e) => withShift(shiftPressed || e.shiftKey));
   return {
-    'data-picked': movable ? picked : undefined,
+    // Only goods are picked by a click: a colonist is moved by a drag or its menu, and has no pick to show.
+    'data-picked': movable && item.kind === 'goods' ? picked : undefined,
     draggable: movable || undefined,
     // As DragListener.mousePressed, shift on the press makes the drag partial.
     onMouseDown: (e: MouseEvent) => (shiftPressed = e.shiftKey),
@@ -163,7 +163,7 @@ function useMovable(item: Item) {
     },
     onDragEnd: drag.onDragEnd,
     onClick: (e: MouseEvent) => {
-      if (!movable || (hand.picked !== null && !picked)) return;
+      if (!movable || item.kind === 'unit' || (hand.picked !== null && !picked)) return;
       e.stopPropagation();
       hand.pick(picked ? null : withShift(e.shiftKey));
     },
@@ -313,7 +313,6 @@ function TilePlace({
   });
   // The whole tile carries the colonist working it, and opens its menu.
   const worker = t.workers[0];
-  const hand = useContext(HandContext);
   const movable = useMovable({ kind: 'unit', id: worker?.id ?? '' });
   const onContextMenu = useContextMenu((m) => (worker ? m.unit(worker.id) : null));
   // The drag shows the colonist, not the tile around it.
@@ -323,14 +322,6 @@ function TilePlace({
     if (img) e.dataTransfer.setDragImage?.(img, img.offsetWidth / 2, img.offsetHeight / 2);
   };
   const carry = worker ? { ...movable, onContextMenu, onDragStart } : undefined;
-  // A click picks the colonist up, unless something else is picked: then it is a click on the place.
-  const onClick =
-    worker && target && !t.centre
-      ? (e: MouseEvent) =>
-          hand.picked !== null && !same(hand.picked, { kind: 'unit', id: worker.id })
-            ? target.onClick()
-            : movable.onClick(e)
-      : undefined;
   return (
     <div
       className="tile"
@@ -341,7 +332,6 @@ function TilePlace({
       style={style}
       {...(t.centre ? undefined : target)}
       {...carry}
-      {...(onClick ? { onClick } : undefined)}
     >
       {/* The diamond itself is what a drop or click lands on, as tiles overlap by their boxes. */}
       <span className="hit" />
@@ -527,30 +517,6 @@ function Outside({ c, art }: { c: ColonyView; art: Art }) {
     >
       <Units units={c.outside.units} art={art} />
     </Box>
-  );
-}
-
-/** What the picked colonist makes where it works, and the other goods it could make there. */
-function WorkChoice({ c, picked, art }: { c: ColonyView; picked: string; art: Art }) {
-  const moves = useContext(ColonyActions);
-  const u = workingIn(c).find((w) => w.id === picked);
-  if (!moves || !u?.choices || u.choices.length < 2) return null;
-  return (
-    <Part part="work">
-      <Unit u={u} art={art} />
-      {u.choices.map((g) => (
-        <button
-          key={g.type}
-          className="choice"
-          data-goods={g.type}
-          aria-pressed={g.type === u.work}
-          title={g.name}
-          onClick={() => moves.changeWork(u.id, g.type)}
-        >
-          <GoodsAmount keys={g.keys} name={g.name} amount={g.amount} art={art} />
-        </button>
-      ))}
-    </Part>
   );
 }
 
@@ -816,7 +782,6 @@ export function ColonyPanel({ colony: c, art, footer }: { colony: ColonyView; ar
                 </>
               )}
             </BuildQueue>
-            {hand.picked?.kind === 'unit' && <WorkChoice c={c} picked={hand.picked.id} art={art} />}
             <InPort c={c} art={art} choose={choose} />
             {footer}
           </div>
