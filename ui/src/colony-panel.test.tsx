@@ -272,10 +272,8 @@ describe('moving colonists in the colony panel', () => {
     fireEvent.drop(building('building:1'), { dataTransfer });
     fireEvent.dragEnd(tile, { dataTransfer });
     expect(calls).toEqual(['work unit:1 building:1']);
-    // A tile with no one on it carries nothing, and a click on the tile picks its colonist.
+    // A tile with no one on it carries nothing.
     expect(tileHit('colonyTile:00').getAttribute('draggable')).toBeNull();
-    fireEvent.click(tile);
-    expect(tile.dataset.picked).toBe('true');
   });
 
   it('puts a colonist outside only if it works in the colony, and gives the centre tile none', () => {
@@ -287,48 +285,12 @@ describe('moving colonists in the colony panel', () => {
     expect(calls).toEqual(['work unit:3 colonyTile:21']);
   });
 
-  it('moves a colonist picked by a click to the place clicked next', () => {
+  it('picks no colonist by a click, so nothing is outlined and no row of goods opens', () => {
     openMovable();
-    fireEvent.click(unit('unit:2'));
-    expect(unit('unit:2').dataset.picked).toBe('true');
+    for (const el of [unit('unit:1'), unit('unit:2'), tileHit('colonyTile:21')]) fireEvent.click(el);
+    expect(document.querySelector('[data-picked=true]')).toBeNull();
+    expect(part('work')).toBeNull();
     fireEvent.click(tileHit('colonyTile:00'));
-    expect(calls).toEqual(['work unit:2 colonyTile:00']);
-    expect(unit('unit:2').dataset.picked).toBe('false');
-    // Clicking a place with nothing picked does nothing, and a second click on a unit puts it down.
-    fireEvent.click(building('building:1'));
-    fireEvent.click(unit('unit:3'));
-    fireEvent.click(unit('unit:3'));
-    fireEvent.click(building('building:1'));
-    expect(calls).toHaveLength(1);
-  });
-
-  it('offers the picked colonist the other goods it could make where it works', () => {
-    const box = openMovable();
-    expect(part('work')).toBeNull();
-    fireEvent.click(unit('unit:1'));
-    // The colony is shown again as it changes, with the colonist still picked.
-    act(() => box.replace('colony', box.shown('colony')[0], () => true));
-    const work = part('work');
-    expect(work.querySelector('[data-goods="model.goods.grain"]')?.getAttribute('aria-pressed')).toBe('true');
-    fireEvent.click(work.querySelector('[data-goods="model.goods.cotton"]')!);
-    expect(calls).toEqual(['change unit:1 model.goods.cotton']);
-    // One with nothing else to make has no choice to offer.
-    fireEvent.click(unit('unit:1'));
-    fireEvent.click(unit('unit:2'));
-    expect(part('work')).toBeNull();
-  });
-
-  it('puts a colonist down when it has left the colony', () => {
-    const box = openMovable();
-    fireEvent.click(unit('unit:2'));
-    act(() =>
-      box.replace(
-        'colony',
-        { ...box.shown('colony')[0], buildings: jamestown.buildings.map((b) => ({ ...b, workers: [] })) },
-        () => true,
-      ),
-    );
-    expect(unit('unit:2')).toBeNull();
     fireEvent.click(building('building:1'));
     expect(calls).toEqual([]);
   });

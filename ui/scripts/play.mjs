@@ -450,8 +450,7 @@ async function play(page, url) {
         .evaluateAll((es) => es.map((e) => e.dataset.tile));
       for (const id of free) {
         const place = panel.locator(`[data-tile="${id}"]`);
-        await pickUp(unit(founder), founder);
-        await place.locator('.hit').click();
+        await unit(founder).dragTo(place.locator('.hit'));
         if (await landed(place, founder, 10000)) {
           tileId = id;
           break;
@@ -461,7 +460,7 @@ async function play(page, url) {
       // none took it: a click to a tile is broken, and that must not pass as a colony with no tile to work.
       if (!tileId && free.length > 0) {
         throw new Error(
-          `the founder ${founder} is in ${start.place}, and no click put it on any of the panel's tiles it could work: ${free.join(', ')}`,
+          `the founder ${founder} is in ${start.place}, and no drag put it on any of the panel's tiles it could work: ${free.join(', ')}`,
         );
       }
       if (!tileId) {
@@ -495,21 +494,20 @@ async function play(page, url) {
         throw new Error('the founder is on its tile and in the building');
       }
 
-      // Click it, then its tile: back to work there.
-      await pickUp(unit(founder), founder);
-      await tile.locator('.hit').click();
+      // Drag it back to its tile: back to work there.
+      await unit(founder).dragTo(tile.locator('.hit'));
       await within(tile, founder);
-      await changed(inHall, 'the founder was clicked back to its tile');
+      await changed(inHall, 'the founder was dragged back to its tile');
 
-      // Change what it makes, when the tile offers another.
-      await unit(founder).click();
-      const others = panel.locator('[data-part=work] button[aria-pressed=false]');
-      if ((await others.count()) > 0) {
-        const goods = await others.first().getAttribute('data-goods');
-        await others.first().click();
-        await panel
-          .locator(`[data-part=work] button[data-goods="${goods}"][aria-pressed=true]`)
-          .waitFor({ timeout: 20000 });
+      // Its menu changes what it makes, when the tile offers another.
+      await unit(founder).click({ button: 'right' });
+      const menu = page.locator('.popup[role=menu]');
+      await menu.waitFor({ timeout: 10000 });
+      const work = menu.locator(`[data-entry^="work:${founder},${tileId},"]`);
+      if ((await work.count()) > 0) {
+        const entry = await work.first().getAttribute('data-entry');
+        const goods = entry.split(',')[2];
+        await work.first().click();
         // The tile makes it now. (The net production would do, but it moves twice when a colonist returns to work.)
         await tile
           .locator(`[data-goods="${goods}"]`)
@@ -517,8 +515,9 @@ async function play(page, url) {
           .catch(() => {
             throw new Error(`the tile did not show ${goods} after the founder was set to make it`);
           });
+      } else {
+        await page.keyboard.press('Escape');
       }
-      await unit(founder).click();
     }
 
     // A colonist outside the colony goes to work, and out again.
@@ -528,9 +527,7 @@ async function play(page, url) {
     // Not every unit left on the colony's tile can work in a building (a soldier cannot): the first that can does.
     let other = null;
     for (const id of waiting) {
-      // The units outside are at the foot of a panel taller than the window, so this goes by clicks, not a drag.
-      await unit(id).click();
-      await hall.click();
+      await unit(id).dragTo(hall);
       if (await landed(hall, id, 8000)) {
         other = id;
         break;
@@ -538,8 +535,7 @@ async function play(page, url) {
     }
     if (other === null) throw new Error(`no colonist outside could be put to work in a building: ${waiting}`);
     await changed(before, 'a colonist outside was put to work in a building');
-    await unit(other).click();
-    await outside.click();
+    await unit(other).dragTo(outside);
     await within(outside, other);
 
     // A colonist cannot work on a tile another colonist works: the Engine explains it, and the
@@ -551,11 +547,9 @@ async function play(page, url) {
       console.log('  colony panel: no worked tile, so no refusal to check');
     } else {
       const logged = await page.evaluate(() => window.__dialogs.length);
-      await pickUp(unit(other), other);
-      await tile.locator('.hit').click();
+      await unit(other).dragTo(tile.locator('.hit'));
       await waitForDialog(logged, 'information: ', 'the refusal was not explained over the colony panel');
       await panel.waitFor({ timeout: 10000 });
-      await unit(other).click();
     }
 
     // Queue a building the colony can build, from the build queue; the panel must list it as queued. (What
@@ -696,8 +690,7 @@ async function play(page, url) {
       });
     await waitForDialog(before, 'amount: ', 'loading with shift did not ask the amount');
     // The passenger goes ashore again.
-    await pickUp(cargo.locator(`[data-unit="${passenger}"]`), passenger);
-    await putOn(outside, passenger);
+    await cargo.locator(`[data-unit="${passenger}"]`).dragTo(outside);
     await outside
       .locator(`[data-unit="${passenger}"]`)
       .waitFor({ timeout: 20000 })
