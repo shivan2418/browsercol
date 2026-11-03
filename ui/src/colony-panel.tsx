@@ -628,7 +628,6 @@ function BuildQueue({ c, art, children }: { c: ColonyView; art: Art; children: R
               <ol>
                 {q.queue.map((b, i) => (
                   <li key={`${b.type}:${i}`} data-queued={b.type} data-locked={b.reason !== null || undefined}>
-                    <BuildableLabel b={b} art={art} />
                     <button disabled={i === 0} aria-label="up" title="up" onClick={() => move(i, i - 1)}>
                       ↑
                     </button>
@@ -652,6 +651,7 @@ function BuildQueue({ c, art, children }: { c: ColonyView; art: Art; children: R
                     >
                       ✕
                     </button>
+                    <BuildableLabel b={b} art={art} />
                   </li>
                 ))}
               </ol>
