@@ -299,11 +299,14 @@ final class Menus {
                 unit.getMovesLeft() > 0 && state != UnitState.FORTIFIED
                     && state != UnitState.FORTIFYING, false);
         }
-        b.add("state:SENTRY:" + id, text("sentry"),
-            state != UnitState.SENTRY && !atSea, false);
-        b.add("clear:" + id, text("clearOrders"),
-            (state != UnitState.ACTIVE || unit.getTradeRoute() != null) && !atSea,
-            false);
+        // Europe has nothing to sentry or clear either.
+        if (!unit.isInEurope()) {
+            b.add("state:SENTRY:" + id, text("sentry"),
+                state != UnitState.SENTRY && !atSea, false);
+            b.add("clear:" + id, text("clearOrders"),
+                (state != UnitState.ACTIVE || unit.getTradeRoute() != null) && !atSea,
+                false);
+        }
         if (unit.canCarryTreasure() && unit.canCashInTreasureTrain()) {
             b.add("cashin:" + id, text("cashInTreasureTrain"));
         }
