@@ -726,8 +726,8 @@ export function mapDrawer(
       pen.actors(0, 0, cursorBlinks ? 1 : alpha);
     }
     pen.marker(cursorBlinks ? alpha : 0);
-    if (lifting && now - lifting.since >= moveMs * FOG_FADE_SLIDES) lifting = null;
-    pen.fade(lifting ? 1 - (now - lifting.since) / (moveMs * FOG_FADE_SLIDES) : 0);
+    if (lifting && now - lifting.since >= moveMs * EXPLORE_FADE_SLIDES) lifting = null;
+    pen.fade(lifting ? 1 - (now - lifting.since) / (moveMs * EXPLORE_FADE_SLIDES) : 0);
     const z = view.zoom;
     pen.show(size[0] / 2 - view.centre[0] * z, size[1] / 2 - view.centre[1] * z, z);
   };
