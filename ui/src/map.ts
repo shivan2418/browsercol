@@ -658,6 +658,8 @@ export function mapDrawer(
   let shown = '';
   /** The map last drawn, which drawTiles draws from. */
   let drawn: MapView | null = null;
+  /** What redraws each open drawTiles canvas from the scene of a new map. */
+  const panels = new Set<(ops: Op[]) => void>();
   /** The units sliding to their tiles now, and when they set off. */
   let sliding: { moves: Move[]; since: number } | null = null;
   /** The tiles whose unit is drawn in the actors' layer: the sliding units' and the active one's. */
@@ -764,6 +766,7 @@ export function mapDrawer(
     actorTiles = new Set(moved.map((m) => m.to.join(',')));
     if (map.active) actorTiles.add(map.active.join(','));
     const ops = scene(map, res!);
+    panels.forEach((render) => render(ops));
     const isActor = (op: Op) =>
       (op.k === 'chip' || (op.k === 'image' && op.at === 'unit')) && actorTiles.has(`${op.x},${op.y}`);
     await paint(
@@ -820,18 +823,24 @@ export function mapDrawer(
     },
     resources: () => res,
     drawTiles: (host, centre, tiles, top) => {
-      const map = drawn;
-      const r = res;
-      if (!map || !r) return () => {};
       const pen = canvasPen(host, 3 * W, 3 * H + top, false);
       const keep = new Set(tiles.map(([x, y]) => `${x},${y}`));
-      // The tiles' terrain, items, roads and settlement; not the units, chips, fog or labels the map adds.
-      const ops = scene(map, r).filter(
-        (op) => keep.has(`${op.x},${op.y}`) && ((op.k === 'image' && op.at !== 'unit') || op.k === 'road'),
-      );
       const [cx, cy] = tileOrigin(...centre);
-      void paint(pen, 0, ops, pics).then(() => pen.show(W - cx, H + top - cy, 1));
-      return () => pen.canvas.remove();
+      // The tiles' terrain, items, roads and settlement; not the units, chips, fog or labels the map adds.
+      const render = (all: Op[]) => {
+        const ops = all.filter(
+          (op) => keep.has(`${op.x},${op.y}`) && ((op.k === 'image' && op.at !== 'unit') || op.k === 'road'),
+        );
+        void paint(pen, 0, ops, pics).then(() => pen.show(W - cx, H + top - cy, 1));
+      };
+      // Drawn from the map last drawn, and again with each map after it: a colony just founded is not in the one
+      // drawn before the panel opened.
+      if (drawn && res) render(scene(drawn, res));
+      panels.add(render);
+      return () => {
+        panels.delete(render);
+        pen.canvas.remove();
+      };
     },
   };
 }
