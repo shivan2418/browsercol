@@ -427,6 +427,8 @@ function show(status: string, extra: Record<string, unknown> = {}) {
   renderSide();
 }
 
+/** The turn the preference last ended by itself, so a second no-unit event in it does not end it twice. */
+let autoEnded: string | null = null;
 window.fcUnasked = [];
 const gui: GuiHandlers = {
   events: {
@@ -435,6 +437,11 @@ const gui: GuiHandlers = {
       side.orders = e.orders;
       side.route = e.route;
       dispatch({ k: 'activeUnit', ...e });
+      // No unit left to move: end the turn, once for each turn (FreeCol's auto end turn option).
+      if (e.unit === null && prefs.autoEndTurn && lastTurn?.ourTurn && autoEnded !== lastTurn.turn) {
+        autoEnded = lastTurn.turn;
+        runCommand({ k: 'endTurn' });
+      }
     },
     selectedTile: (e) => dispatch({ k: 'selectedTile', ...e }),
     focus: (e) => dispatch({ k: 'focus', ...e }),
