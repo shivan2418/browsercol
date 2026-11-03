@@ -91,9 +91,14 @@ The side panel also saves the game under a name and lists the saved games
 in the browser's IndexedDB, written by the Worker, and the Worker asks the
 browser to keep them (`navigator.storage.persist()`). A save is FreeCol's own
 zipped `.fsg` with the active unit, so a loaded game continues at the same
-turn with the same unit active; Load reloads the page on `?load=ID`. Autosave
-is off: the browser client has no in-process server, so FreeCol's autosave
-never runs.
+turn with the same unit active; Load reloads the page on `?load=ID`. FreeCol's
+own autosave never runs (the browser client has no in-process server), so the
+page autosaves instead: 1.5 s after the last change on the player's turn it
+saves into one slot named "Autosave", replacing the last. Under `just dev` a
+reload (a rebuild, say) resumes that autosave; `?new` starts afresh, and
+`?resume` resumes in a built site too. The debug panel's "Reset save" deletes
+the autosave and starts a new game; an autosave the Engine can no longer read
+is dropped the same way.
 Export downloads the stored `.fsg` unchanged, and "Import a .fsg" adds one
 to the list: the turn, year and nation come from the file's `savegame.xml`
 (`ui/src/fsg.ts`, read in the page; a file that is not a FreeCol save is

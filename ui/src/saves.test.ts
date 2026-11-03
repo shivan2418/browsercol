@@ -1,6 +1,17 @@
-import { describe, expect, it } from 'vite-plus/test';
+import { describe, expect, it, vi } from 'vite-plus/test';
 import { fakeSaveStore } from './fake-saves';
-import { defaultSaveName, keepSaves, newestFirst, newSave, type SavedInfo, type SaveMeta } from './saves';
+import {
+  AUTOSAVE_NAME,
+  debounced,
+  defaultSaveName,
+  dropOlderAutosaves,
+  keepSaves,
+  latestAutosave,
+  newestFirst,
+  newSave,
+  type SavedInfo,
+  type SaveMeta,
+} from './saves';
 
 const info: SavedInfo = { turn: 12, year: 1503, nation: 'Dutch', owner: 'Ana' };
 
@@ -54,5 +65,49 @@ describe('persistent storage', () => {
         },
       }),
     ).toBe(false);
+  });
+});
+
+describe('autosave', () => {
+  const info = { turn: 3, year: 1494, nation: 'Dutch' };
+  const put = (store: ReturnType<typeof fakeSaveStore>, name: string) =>
+    store.put(newSave({ ...info, owner: 'me' }, name, Date.now()), new Uint8Array([1]));
+
+  it('finds the newest autosave among other saves', async () => {
+    const store = fakeSaveStore();
+    await put(store, AUTOSAVE_NAME);
+    await put(store, 'Mine');
+    const last = await put(store, AUTOSAVE_NAME);
+    await put(store, 'Other');
+    expect((await latestAutosave(store))?.id).toBe(last.id);
+  });
+
+  it('is null with no autosave', async () => {
+    const store = fakeSaveStore();
+    await put(store, 'Mine');
+    expect(await latestAutosave(store)).toBeNull();
+  });
+
+  it('drops older autosaves and keeps the named saves', async () => {
+    const store = fakeSaveStore();
+    await put(store, AUTOSAVE_NAME);
+    const mine = await put(store, 'Mine');
+    const kept = await put(store, AUTOSAVE_NAME);
+    await dropOlderAutosaves(store, kept);
+    expect((await store.list()).map((m) => m.id)).toEqual([kept.id, mine.id].sort((a, b) => b - a));
+  });
+
+  it('debounces a burst into one call', () => {
+    vi.useFakeTimers();
+    const fire = vi.fn();
+    const poke = debounced(fire, 100);
+    poke();
+    vi.advanceTimersByTime(50);
+    poke();
+    vi.advanceTimersByTime(99);
+    expect(fire).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(fire).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
   });
 });

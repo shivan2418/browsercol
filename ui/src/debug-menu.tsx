@@ -10,9 +10,11 @@ export interface DebugMenuProps {
   request: (r: DebugRequest) => void;
   /** Skip this many turns with the AI playing. */
   skipTurns: (n: number) => void;
+  /** Delete the autosave and start a new game. */
+  resetSave: () => void;
 }
 
-export function DebugMenu({ at, note, request, skipTurns }: DebugMenuProps) {
+export function DebugMenu({ at, note, request, skipTurns, resetSave }: DebugMenuProps) {
   const [gold, setGold] = useState('1000');
   const [unit, setUnit] = useState(UNIT_TYPES[0]);
   const [goods, setGoods] = useState(GOODS_TYPES[0]);
@@ -67,6 +69,11 @@ export function DebugMenu({ at, note, request, skipTurns }: DebugMenuProps) {
         <input aria-label="Turns" size={4} value={turns} onChange={(e) => setTurns(e.target.value)} />
         <button data-debug="skip" onClick={() => skipTurns(num(turns))}>
           Skip turns (AI plays)
+        </button>
+      </div>
+      <div>
+        <button data-debug="resetSave" onClick={resetSave}>
+          Reset save (new game)
         </button>
       </div>
       <datalist id="debug-units">

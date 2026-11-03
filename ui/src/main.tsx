@@ -12,6 +12,7 @@
 //   ?autoplay=N  rounds the human auto-ends its turn first (debug; default 0)
 //   ?rules=ID    the ruleset (default classic)
 //   ?load=ID     continue the saved game with this id, in place of a new game
+//   (dev server) the page resumes the autosave; ?new starts afresh, ?resume resumes in a built site too
 //   ?debug       the debug menu: reveal the map, add gold, units and goods, skip turns, show the AI's view
 //   ?skipstart   no start screen: start a game with FreeCol's defaults (debug; the browser scripts use it)
 //   ?preset=NAME start straight away from presets/NAME.json (or a URL ending .json): a
@@ -44,7 +45,15 @@ import { ContextMenuContext, PopupMenu, parseMenu, type ContextMenus, type Popup
 import { StartScreen } from './start-screen';
 import { presetJson, startOptions } from './start';
 import { fileNameOf, importSave } from './save-files';
-import { idbSaveStore, type SaveMeta } from './saves';
+import {
+  AUTOSAVE_NAME,
+  debounced,
+  dropOlderAutosaves,
+  idbSaveStore,
+  isAutosave,
+  latestAutosave,
+  type SaveMeta,
+} from './saves';
 import { Side, type SideProps } from './side';
 import { TurnBanner, turnNotice, type TurnFacts, type TurnNotice } from './turn-banner';
 import { loadModule } from './teavm';
@@ -71,10 +80,12 @@ declare global {
 const params = new URLSearchParams(location.search);
 const autoplay = Number(params.get('autoplay') ?? '0');
 const rules = params.get('rules') ?? 'classic';
-const loadId = params.has('load') ? Number(params.get('load')) : undefined;
+let loadId = params.has('load') ? Number(params.get('load')) : undefined;
+/** The page picked up the autosave by itself, so a load that fails drops it rather than leave the page stuck. */
+let resumed = false;
 const preset = params.get('preset');
 /** No start screen: a debug start, a loaded game, or ?skipstart. */
-const skipStart = params.has('skipstart') || params.has('preset') || loadId !== undefined;
+let skipStart = params.has('skipstart') || params.has('preset') || loadId !== undefined;
 const debug = debugMode(params);
 const tileset = params.get('tileset');
 const theme = params.get('theme');
@@ -132,6 +143,8 @@ function download(bytes: Uint8Array, fileName: string) {
   setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 let saveGame: (name: string) => void = () => {};
+/** Schedule an autosave (set once the client Engine has loaded). */
+let autosaveSoon: () => void = () => {};
 /** The turn report's buttons, once the client Engine has loaded. */
 let reportButtons: ReportButtons = { groupBy: () => {}, filter: () => {}, ignore: () => {} };
 /** The trade routes panel's buttons, once the client Engine has loaded. */
@@ -272,7 +285,7 @@ function renderSide() {
         {...side}
         debug={
           debug
-            ? { at: cursor(view)?.at ?? null, note: debugNote, request: debugRequest, skipTurns: debugSkip }
+            ? { at: cursor(view)?.at ?? null, note: debugNote, request: debugRequest, skipTurns: debugSkip, resetSave }
             : undefined
         }
         run={(c) => runCommand(c)}
@@ -473,6 +486,7 @@ function drawMap(m: MapView) {
   // A new turn's notice stays through the maps of its turn; the AI's goes when play comes back.
   banner = turnNotice(lastTurn, m) ?? (banner?.kind === 'new' && m.ourTurn ? banner : null);
   lastTurn = m;
+  if (m.ourTurn) autosaveSoon();
   renderSide();
   dispatch({ k: 'map', map: m });
   pullColonies();
@@ -567,7 +581,39 @@ function chooseGame(data: string[]): Promise<string> {
   });
 }
 
+/** Delete the autosaves and reload on a new game: the page's own load and new parameters go. */
+function resetSave() {
+  autosaveSoon = () => {}; // no autosave of the game being thrown away
+  const next = new URLSearchParams(location.search);
+  next.delete('load');
+  next.delete('new');
+  store
+    .list()
+    .then((all) => Promise.all(all.filter(isAutosave).map((m) => store.remove(m.id))))
+    .catch(console.warn)
+    .finally(() => {
+      location.search = next.toString();
+    });
+}
+
+/** Wait for the player to stop changing things for this long before autosaving. */
+const AUTOSAVE_MS = 1500;
+/** Whether this page is a fresh start the autosave may replace: not a debug start, not a scripted run. */
+const mayResume = !params.has('new') && !params.has('skipstart') && !params.has('preset') && autoplay === 0;
+
 async function run() {
+  if (loadId === undefined && mayResume && (import.meta.env.DEV || params.has('resume'))) {
+    try {
+      const auto = await latestAutosave(store);
+      if (auto) {
+        loadId = auto.id;
+        skipStart = true;
+        resumed = true;
+      }
+    } catch (ex) {
+      console.warn('no autosave to resume:', ex);
+    }
+  }
   const data = (await (await fetch(dataUrl)).json()) as string[];
   const chosen = skipStart ? '' : await chooseGame(data);
   choice = chosen;
@@ -601,6 +647,10 @@ async function run() {
           return show('failed', { error: detail });
         case 'saved': {
           const meta = JSON.parse(detail) as SaveMeta;
+          if (isAutosave(meta)) {
+            // One slot: the new autosave replaces the old ones, quietly.
+            return void dropOlderAutosaves(store, meta).catch(console.warn).finally(listSaves);
+          }
           side.saveNote = `Saved: ${meta.name}`;
           return listSaves();
         }
@@ -608,6 +658,11 @@ async function run() {
           side.saveNote = `Save failed: ${detail}`;
           return renderSide();
         case 'loadFailed':
+          if (resumed && loadId !== undefined) {
+            // An autosave the Engine can no longer read (it changed under it): drop it and start afresh.
+            console.warn('autosave would not load, starting afresh:', detail);
+            return resetSave();
+          }
           return show('failed', { error: detail });
         case 'debug':
           debugNote = describeAnswer(detail);
@@ -626,6 +681,14 @@ async function run() {
     renderSide();
     const m: ToWorker = { k: 'save', active: exports.activeUnitId(), name };
     worker.postMessage(m);
+  };
+  // Autosave a moment after the player's last change, so a reload (a dev rebuild, say) loses nothing.
+  const autosave = debounced(() => {
+    if (!lastTurn?.ourTurn) return;
+    worker.postMessage({ k: 'save', active: exports.activeUnitId(), name: AUTOSAVE_NAME } satisfies ToWorker);
+  }, AUTOSAVE_MS);
+  autosaveSoon = () => {
+    if (autoplay === 0) autosave();
   };
   colonyNow = (id) => exports.colony(id);
   colonyClient = exports;

@@ -133,3 +133,30 @@ export async function keepSaves(storage: Pick<StorageManager, 'persist'> | undef
     return false;
   }
 }
+
+/** The name of the autosave: one slot, replaced each time, so it never fills the list. */
+export const AUTOSAVE_NAME = 'Autosave';
+
+export const isAutosave = (m: Pick<SaveMeta, 'name'>): boolean => m.name === AUTOSAVE_NAME;
+
+/** The newest autosave, or null. */
+export async function latestAutosave(store: SaveStore): Promise<SaveMeta | null> {
+  return (await store.list()).find(isAutosave) ?? null;
+}
+
+/** Once `kept` is stored, drop every older autosave. */
+export async function dropOlderAutosaves(store: SaveStore, kept: SaveMeta): Promise<void> {
+  for (const m of await store.list()) if (isAutosave(m) && m.id !== kept.id) await store.remove(m.id);
+}
+
+/**
+ * Calls `fire` once, `ms` after the last call of the returned function: a
+ * burst of changes makes one autosave.
+ */
+export function debounced(fire: () => void, ms: number): () => void {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return () => {
+    clearTimeout(timer);
+    timer = setTimeout(fire, ms);
+  };
+}
