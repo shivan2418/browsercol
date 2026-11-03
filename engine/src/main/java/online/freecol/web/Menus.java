@@ -200,6 +200,7 @@ final class Menus {
             addOrders(b, unit);
             b.gap();
             addBoard(b, unit, player.getEurope());
+            addRoles(b, unit);
             return b.build(unitLabel(unit));
         }
         final Colony colony = colonyOf(unit);
