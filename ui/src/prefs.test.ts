@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import clientOptionsXml from '../../freecol/data/base/client-options.xml?raw';
 import freecolMessages from '../../freecol/data/strings/FreeColMessages.properties?raw';
+import germanMessages from '../../freecol/data/strings/FreeColMessages_de.properties?raw';
 import { describe, expect, it } from 'vite-plus/test';
 import {
   blinkMs,
@@ -19,6 +20,7 @@ import {
   visibleMessages,
 } from './prefs';
 import { blink } from './motion';
+import { LANGUAGE_OPTION } from './language';
 import { clientOptionsGroup, leaves } from './options';
 
 /** The data bundle's files the Preferences window reads, from FreeCol's own data. */
@@ -147,6 +149,27 @@ describe('prefs', () => {
     expect(minimapOptions(p)).toEqual({ borders: false, fog: false, background: 6, zoom: 5 });
     const shown = leaves(shownClientOptions(clientOptionsGroup(data)!)!);
     for (const id of Object.keys(p.freecol)) expect(shown.has(id), id).toBe(true);
+  });
+
+  it("offers FreeCol's translations as the language, read on reload, in the bundle's language", () => {
+    const withLanguages = [...data, 'data/strings/languages.json', '["de","pt_BR"]'];
+    const language = leaves(shownClientOptions(clientOptionsGroup(withLanguages)!)!).get(LANGUAGE_OPTION);
+    expect(language).toMatchObject({
+      kind: 'string',
+      label: 'Language (on reload)',
+      value: 'automatic',
+      choices: [
+        { value: 'automatic', label: 'Autodetect Language' },
+        { value: 'de', label: 'Deutsch' },
+        { value: 'en', label: 'English' },
+        { value: 'pt_BR', label: 'Português (Brasil)' },
+      ],
+    });
+
+    const german = [...withLanguages, 'data/strings/FreeColMessages_de.properties', germanMessages];
+    const shown = shownClientOptions(clientOptionsGroup(german)!)!;
+    expect(shown.children[0].label).toBe('Persönlich');
+    expect(leaves(shown).get(LANGUAGE_OPTION)?.label).toBe('Sprache (on reload)');
   });
 
   it('keeps the options the client Engine changed, where they differ from the defaults', () => {

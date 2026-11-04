@@ -50,6 +50,7 @@ import {
   uiZoom,
   type Prefs,
 } from './prefs';
+import { LANGUAGE_OPTION, languageName, languages, pickLanguage, translationFiles } from './language';
 import { clientOptionsGroup, leaves, type OptionGroup } from './options';
 import { mapDrawer, type MapView } from './map';
 import { europeButtons } from './europe-client';
@@ -851,6 +852,28 @@ function playWith(client: ClientExports) {
   });
 }
 
+/**
+ * The data bundle with the strings of the language the player picked (FreeCol's language option, read as
+ * the page loads), and that language's id. A translation that fails to load leaves the game in English.
+ */
+async function withLanguage(bundle: string[]): Promise<{ data: string[]; language: string }> {
+  const available = languages(bundle);
+  const language = pickLanguage(pageOption(prefsAtLoad, LANGUAGE_OPTION), available, navigator.languages);
+  try {
+    const files = await Promise.all(
+      translationFiles(language, available).map(async (path) => {
+        const res = await fetch(path);
+        if (!res.ok) throw new Error(`${path} gave ${res.status}`);
+        return [`data/${path}`, await res.text()];
+      }),
+    );
+    return { data: [...bundle, ...files.flat()], language };
+  } catch (ex) {
+    reportError(`FreeCol's text could not be loaded in ${languageName(language)}`, String(ex));
+    return { data: bundle, language: 'en' };
+  }
+}
+
 /** A preset's JSON: a bare name is presets/NAME.json of this build. */
 async function fetchPreset(name: string): Promise<string> {
   const url = name.endsWith('.json') ? name : `presets/${name}.json`;
@@ -913,7 +936,8 @@ async function run() {
       console.warn('no autosave to resume:', ex);
     }
   }
-  const data = (await (await fetch(dataUrl)).json()) as string[];
+  const bundle = (await (await fetch(dataUrl)).json()) as string[];
+  const { data, language } = await withLanguage(bundle);
   const clientOptions = clientOptionsGroup(data);
   if (clientOptions) {
     freecolOptions = shownClientOptions(clientOptions);
@@ -932,6 +956,7 @@ async function run() {
     worker,
     loadClient: () => loadModule<ClientExports>(runtimeUrl, clientUrl),
     data,
+    language,
     rules,
     load: loadId,
     preset: presetJson,

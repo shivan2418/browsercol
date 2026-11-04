@@ -5,6 +5,8 @@
 // ruleset's specification in the data bundle, as start.ts does. The
 // Preferences window reads FreeCol's client options from the bundle too.
 
+import { AUTOMATIC, languageName, languages, messageFiles } from './language';
+
 export type OptionValue = boolean | number | string;
 
 interface Base {
@@ -71,7 +73,7 @@ export function specificationGroup(data: string[], rules: string, selector: stri
   return xmlGroup(
     data,
     `rules/${rules}/specification.xml`,
-    ['strings/FreeColMessages.properties', `rules/${rules}/FreeColMessages.properties`],
+    [...messageFiles(data), `rules/${rules}/FreeColMessages.properties`],
     selector,
   );
 }
@@ -81,12 +83,7 @@ export function specificationGroup(data: string[], rules: string, selector: stri
  * their defaults. The hidden group of placements is left out.
  */
 export function clientOptionsGroup(data: string[]): OptionGroup | null {
-  return xmlGroup(
-    data,
-    'base/client-options.xml',
-    ['strings/FreeColMessages.properties'],
-    'optionGroup[id="clientOptions"]',
-  );
+  return xmlGroup(data, 'base/client-options.xml', messageFiles(data), 'optionGroup[id="clientOptions"]');
 }
 
 /** An option group of an options file in the data bundle, named by a selector, labelled from the strings files. */
@@ -156,6 +153,16 @@ function xmlGroup(data: string[], path: string, strings: string[], selector: str
       }
       case 'textOption':
         return { ...base, kind: 'text', value: value ?? '' };
+      case 'languageOption': {
+        // FreeCol's translations, by name, after automatic (LanguageOption.initializeLanguages).
+        const named = languages(data)
+          .map((v) => ({ value: v, label: languageName(v) }))
+          .sort((a, b) => a.label.localeCompare(b.label));
+        const automatic = say('clientOptions.gui.languageOption.autoDetectLanguage') ?? AUTOMATIC;
+        // The default, clientOptions.gui.languageOption.automatic, is FreeCol's automatic.
+        const v = value === null || value.endsWith(AUTOMATIC) ? AUTOMATIC : value;
+        return { ...base, kind: 'string', value: v, choices: [{ value: AUTOMATIC, label: automatic }, ...named] };
+      }
       default:
         return null;
     }

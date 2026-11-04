@@ -92,3 +92,40 @@ test("before the data loads, only FreeCol Online's own show", () => {
   expect([...container.querySelectorAll('[data-category]')].map((e) => e.textContent)).toEqual(['FreeCol Online']);
   expect(screen.getByText('Blink speed')).toBeTruthy();
 });
+
+test("the language's category says the Browser UI's own labels stay English", () => {
+  const personal: OptionGroup = {
+    ...freecol,
+    children: [
+      {
+        id: 'clientOptions.personal',
+        label: 'Personal',
+        description: null,
+        kind: 'group',
+        children: [
+          {
+            id: 'model.option.languageOption',
+            label: 'Language (on reload)',
+            description: null,
+            kind: 'string',
+            value: 'automatic',
+            choices: [
+              { value: 'automatic', label: 'Autodetect Language' },
+              { value: 'de', label: 'Deutsch' },
+            ],
+          },
+        ],
+      },
+      ...freecol.children,
+    ],
+  };
+  const { container } = render(
+    <PreferencesDialog prefs={DEFAULTS} freecol={personal} change={() => {}} close={() => {}} />,
+  );
+  fireEvent.click(container.querySelector<HTMLElement>('[data-category="clientOptions.personal"]')!);
+  expect(container.querySelector('[data-note="language"]')?.textContent).toMatch(
+    /FreeCol Online's own labels stay English/,
+  );
+  fireEvent.click(container.querySelector<HTMLElement>('[data-category="clientOptions.messages"]')!);
+  expect(container.querySelector('[data-note="language"]')).toBeNull();
+});

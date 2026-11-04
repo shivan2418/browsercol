@@ -2,6 +2,7 @@
 // such as how fast units slide and the active unit blinks, and those of
 // FreeCol's client options the browser follows. Kept in this browser's
 // localStorage.
+import { AUTOMATIC, LANGUAGE_OPTION } from './language';
 import type { MinimapOptions } from './minimap';
 import type { OptionGroup, OptionNode } from './options';
 import type { TileText, ViewModes } from './tileset';
@@ -68,13 +69,14 @@ export function visibleMessages<T extends { type: string }>(p: Prefs, messages: 
  * pixmaps and XRender, confirm save overwrite, as saves never overwrite; and the audio mixer, a Java Sound
  * device: the browser plays on the system's default output, as choosing another, setSinkId, works only in
  * Chromium); and those waiting on a feature, each with its issue: other players'
- * move animations (#149), terrain animations (#150), the language (#151), the compact colony report (#152),
+ * move animations (#149), terrain animations (#150), the compact colony report (#152),
  * the save game dialog (#153) and autosaves (#154), mods (#155), and the warehouse
  * defaults (#158).
  */
 export const FREECOL_OPTIONS: readonly string[] = [
   // Personal
   'model.option.playerName',
+  LANGUAGE_OPTION,
   // Display
   'model.option.displayScaling',
   'model.option.manualMainFontSize',
@@ -183,6 +185,8 @@ export const PAGE_OPTIONS = {
   'model.option.displayFogOfWar': false,
   /** How settlements are labelled: 0 none, 1 classic, 2 modern. */
   'model.option.displayColonyLabels': 1,
+  /** The language of FreeCol's own text, a translation's id (language.ts); automatic follows the browser. Read as the page loads. */
+  [LANGUAGE_OPTION]: AUTOMATIC as string,
   /** The compass rose at the map's top right; a click on it moves the active unit that way. */
   'model.option.displayCompassRose': false,
   /** The music's volume, as a percentage (sound.ts plays it). */
@@ -202,7 +206,7 @@ export const PAGE_OPTIONS = {
 type PageOption = keyof typeof PAGE_OPTIONS;
 
 /** The page options that take effect only when the page loads again, as FreeCol's need a restart. */
-export const ON_RELOAD: readonly string[] = ['model.option.useOpenGL', 'model.option.graphicsQuality'];
+export const ON_RELOAD: readonly string[] = ['model.option.useOpenGL', 'model.option.graphicsQuality', LANGUAGE_OPTION];
 
 /** How big the menus, panels and windows are drawn: the display scaling, 1 for automatic. */
 export const uiZoom = (p: Prefs): number => (pageOption(p, 'model.option.displayScaling') || 100) / 100;

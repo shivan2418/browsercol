@@ -1,6 +1,5 @@
 package online.freecol.web;
 
-import java.util.Locale;
 
 import net.sf.freecol.FreeCol;
 import net.sf.freecol.client.ClientOptions;
@@ -61,7 +60,7 @@ public final class ClientEngine {
         this.link = link;
         this.listener = listener;
         MessageReaders.install();
-        Messages.loadMessageBundle(Locale.US);
+        Messages.loadMessageBundle(Language.locale());
         UserServerAPI.connectionFactory = (name, host, port) -> {
             PostMessageConnection c = new PostMessageConnection(name, link::post);
             c.setAfterHandle(listener::updated);

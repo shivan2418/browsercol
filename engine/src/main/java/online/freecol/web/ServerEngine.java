@@ -9,7 +9,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 import net.sf.freecol.FreeCol;
@@ -80,7 +79,7 @@ public final class ServerEngine {
      */
     public void startGame(String rules, GamePreset preset) throws Exception {
         this.setup = preset.setup;
-        Messages.loadMessageBundle(Locale.US);
+        Messages.loadMessageBundle(Language.locale());
         FreeColRules.loadRules();
         final String id = (preset.rules != null) ? preset.rules : rules;
         if (FreeColRules.getFreeColRulesFile(id) == null) {
@@ -233,7 +232,7 @@ public final class ServerEngine {
      * @exception Exception if the savegame does not load.
      */
     public void loadGame(byte[] savegame) throws Exception {
-        Messages.loadMessageBundle(Locale.US);
+        Messages.loadMessageBundle(Language.locale());
         FreeColRules.loadRules();
         File file = savegameFile();
         try (OutputStream out = new FileOutputStream(file)) {

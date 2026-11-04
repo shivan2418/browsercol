@@ -53,6 +53,15 @@ public final class ClientMain {
     @JSBody(params = { "id", "kind", "json" }, script = "fcAsk(id, kind, json);")
     private static native void ask(int id, String kind, String json);
 
+    /**
+     * Set the language of FreeCol's text (Language.set), before main: the
+     * page has put that translation's strings in the data bundle.
+     */
+    @JSExport
+    public static void setLanguage(String id) {
+        Language.set(id);
+    }
+
     /** Load the data files, (path, text) pairs, and make the client. */
     public static void main(String[] args) {
         Failures.reportTo((what, detail) -> event("error", what + "\n" + detail));

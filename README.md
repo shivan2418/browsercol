@@ -51,7 +51,9 @@ which need those changes merged in. Then run the whole suite, e.g. by
 committing on a branch and running `./ci.sh`.
 
 `build.sh` builds both Engine modules in one Gradle run (`gradle modules`),
-bundles FreeCol's rules and strings into a data file, copies the map art
+bundles FreeCol's rules and English strings into a data file, copies
+FreeCol's translations to `strings/` (the page fetches the one the player's
+language option picks), copies the map art
 of the default Tileset (`ui/scripts/build-art.mjs`, which also prints the art
 budget) and runs `vp build` into `dist/`. Serve `dist/` from any static host. URLs are relative, so a
 sub-path such as GitHub Pages' `/<repo>/` works.

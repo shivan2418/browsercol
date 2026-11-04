@@ -2,7 +2,8 @@
 // GitHub Pages does, loads it in each browser and waits for window.fcResult.
 // The game starts from the start screen: the player picks a nation and a
 // difficulty level (the first run takes what the screen offers first), and
-// every Classic nation is then started in turn and must be the player's. Exits non-zero
+// every Classic nation is then started in turn and must be the player's, and a game in German
+// (FreeCol's language option) shows FreeCol's text in German. Exits non-zero
 // unless every browser finishes the game, fetching the data bundle once, and
 // plays sound: the start screen's introduction music and the nation's, which
 // the Engine asks for as the game starts.
@@ -112,20 +113,42 @@ for (const name of browsers) {
       }
     }
   }
+  // FreeCol's language option (#151): German strings on the start screen and from the client Engine.
+  let language = 'German ok';
+  if (screen) {
+    const german = await browser.newPage();
+    await answerDialogs(german);
+    try {
+      await german.addInitScript(() =>
+        localStorage.setItem('freecol.prefs', JSON.stringify({ freecol: { 'model.option.languageOption': 'de' } })),
+      );
+      await german.goto(`${server.url}?autoplay=0`);
+      await german.waitForSelector('[data-nation="model.nation.dutch"]', { timeout: 60000 });
+      const nation = await german.textContent('label:has([data-nation="model.nation.dutch"]) .name');
+      await german.click('[data-start]');
+      const r = await waitForResult(german, timeout);
+      const units = await german.textContent('body');
+      if (!nation.includes('Niederländisch') || r.status !== 'finished' || !units.includes('Niederländisch Soldat'))
+        language = `German FAILED (${r.status}${r.error ? ': ' + r.error : ''}, start screen ${nation})`;
+    } catch (ex) {
+      language = `German FAILED (${await diagnose(ex)})`;
+    }
+  }
   await browser.close();
   const ok =
     result.status === 'finished' &&
     result.rounds.length === Number(autoplay) &&
     fetches === 1 &&
     unheard.length === 0 &&
-    nations.every((n) => n.endsWith(' ok'));
+    nations.every((n) => n.endsWith(' ok')) &&
+    language.endsWith(' ok');
   failed ||= !ok;
   console.log(
     `${name} ${browser.version()}: ${result.status}${result.error ? ': ' + result.error : ''}, ` +
       `${result.rounds?.length ?? 0} rounds, turn ${result.turn ?? '-'}, renderer ${result.renderer ?? '-'}, ` +
       `data fetched ${fetches}x, ` +
       `sounds ${unheard.length ? 'MISSING ' + unheard.join(' ') : 'ok'} (${audio.size} files), ` +
-      (screen ? `start screen: ${nations.join(', ')}, ` : '') +
+      (screen ? `start screen: ${nations.join(', ')}, ${language}, ` : '') +
       `${((Date.now() - t) / 1000).toFixed(1)} s${errors.length ? ', page errors: ' + errors.join('; ') : ''}`,
   );
 }
