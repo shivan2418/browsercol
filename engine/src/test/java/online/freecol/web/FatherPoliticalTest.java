@@ -15,7 +15,6 @@ import java.util.function.BooleanSupplier;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
@@ -285,10 +284,6 @@ class FatherPoliticalTest {
 
     @Test
     @Timeout(240)
-    @Disabled("FreeCol bug: ServerPlayer.csAddFoundingFather adds Paine's bells modifier with its"
-        + " template value 0 and does not call recalculateBellsBonus, so the server, which makes"
-        + " the turn's bells, adds nothing for the tax until the tax next changes (or the game is"
-        + " reloaded); the client, rereading the player, shows the bonus at once")
     void paineRaisesTheServersBellsAsSoonAsHeJoins() throws Exception {
         final String id = paineAtTwentyPercent();
         final int at20 = (int)(6 * 1.2f) + 1;

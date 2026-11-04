@@ -1469,6 +1469,7 @@ public class Player extends FreeColGameObject implements Nameable {
     public void addFather(FoundingFather father) {
         foundingFathers.add(father);
         addFeatures(father);
+        recalculateBellsBonus(); // online: Paine's bonus is the tax from the turn he joins, not 0
         for (Colony c : getColonyList()) c.invalidateCache();
     }
 
