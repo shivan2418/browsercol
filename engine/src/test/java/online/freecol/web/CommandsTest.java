@@ -740,6 +740,13 @@ class CommandsTest {
         assertTrue(ok.getAsBoolean(), what);
     }
 
+    /** The questions of one kind asked so far, in order, as "kind json -> answer". */
+    private List<String> askedOf(String kind) {
+        synchronized (asked) {
+            return asked.stream().filter(q -> q.startsWith(kind + " ")).toList();
+        }
+    }
+
     /** The last question asked, as "kind json -> answer". */
     private String lastAsked() {
         return asked.get(asked.size() - 1);
@@ -939,8 +946,9 @@ class CommandsTest {
         names = null;
         assertFalse(commands.declareIndependence(), "cancelled");
         assertEquals(Player.PlayerType.COLONIAL, us.getPlayerType());
-        assertEquals(1, asked.size(), asked.toString());
-        assertTrue(asked.get(0).startsWith("names {"), asked.get(0));
+        // Count the names questions only: a question the end of the last
+        // turn brought can reach the fake Browser UI after the clear.
+        assertEquals(1, askedOf("names").size(), asked.toString());
 
         // Names left empty cancel too.
         names = "Free Test\n";
@@ -956,12 +964,18 @@ class CommandsTest {
         for (int i = 0; i < 3000 && us.getPlayerType() != Player.PlayerType.REBEL; i++) {
             Thread.sleep(10);
         }
-        assertEquals(2, asked.size(), asked.toString());
-        assertTrue(asked.get(0).startsWith("names {"), asked.get(0));
-        assertTrue(asked.get(0).contains("\"label\":\"" + Messages.message(
-            "confirmDeclarationDialog.enterNation") + "\""), asked.get(0));
-        assertTrue(asked.get(1).startsWith("confirm {"), asked.get(1));
-        assertTrue(asked.get(1).contains("\"cancel\":null"), asked.get(1));
+        // The names, then the declaration's resolution with only an ok.
+        final List<String> named = askedOf("names");
+        assertEquals(1, named.size(), asked.toString());
+        assertTrue(named.get(0).contains("\"label\":\"" + Messages.message(
+            "confirmDeclarationDialog.enterNation") + "\""), named.get(0));
+        final String text = Json.quote(Messages.message("declareIndependence.resolution"));
+        final List<String> resolution = askedOf("confirm").stream()
+            .filter(q -> q.contains(text)).toList();
+        assertEquals(1, resolution.size(), asked.toString());
+        assertTrue(resolution.get(0).contains("\"cancel\":null"), resolution.get(0));
+        assertTrue(asked.indexOf(named.get(0)) < asked.indexOf(resolution.get(0)),
+                   asked.toString());
         assertEquals(Player.PlayerType.REBEL, us.getPlayerType());
         assertEquals("Free Test", us.getIndependentNationName());
         assertEquals("United Test", us.getNewLandName());
