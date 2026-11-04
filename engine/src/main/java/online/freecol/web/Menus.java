@@ -278,6 +278,27 @@ final class Menus {
                 false, false);
             any = true;
         }
+        // The experience a colonist has gained at a job, and the chance it becomes an expert.
+        final int experience = unit.getExperience();
+        final GoodsType goods = unit.getExperienceType();
+        if (experience > 0 && goods != null) {
+            final Specification spec = unit.getSpecification();
+            final net.sf.freecol.common.model.UnitType expertType = spec.getExpertForProducing(goods);
+            final net.sf.freecol.common.model.UnitTypeChange uc = unit.getUnitChange(
+                net.sf.freecol.common.model.UnitChangeType.EXPERIENCE, expertType);
+            if (uc != null) {
+                final int max = unit.getType().getMaximumExperience();
+                b.add("none", text(StringTemplate.template("quickActionMenu.experience")
+                    .addName("%job%", text(goods.getWorkingAsKey())))
+                    + " " + experience + "/" + max, false, false);
+                if (unit.isInColony() && unit.getWorkType() == goods) {
+                    final float probability = uc.probability * experience / (float)max;
+                    b.add("none", text("quickActionMenu.upgrade") + " "
+                        + Math.round(probability) + "%", false, false);
+                }
+                any = true;
+            }
+        }
         if (any) b.gap();
     }
 

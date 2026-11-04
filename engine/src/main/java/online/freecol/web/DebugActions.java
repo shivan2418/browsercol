@@ -95,7 +95,7 @@ final class DebugActions {
         case "addColony": return addColony(r);
         case "addBuilding": return addBuilding(string(r, "type"), r);
         case "addUnit": return addUnit(string(r, "type"), at(r),
-            Boolean.TRUE.equals(r.get("inColony")));
+            Boolean.TRUE.equals(r.get("inColony")), r);
         case "addGoods": return addGoods(string(r, "type"), integer(r, "amount"), r);
         case "aiView": return aiView();
         default:
@@ -195,7 +195,7 @@ final class DebugActions {
      * DebugUtils.addNewUnitToTile, for the human player: a unit of the
      * type on the tile, or aboard a ship of theirs there with room for it.
      */
-    private String addUnit(String typeId, Tile tile, boolean inColony) {
+    private String addUnit(String typeId, Tile tile, boolean inColony, Map<?, ?> r) {
         ServerPlayer p = me();
         UnitType type = this.game.getSpecification().getUnitType(typeId);
         if (type == null) throw bad("unknown unit type \"" + typeId + "\"");
@@ -217,6 +217,15 @@ final class DebugActions {
             : inColony ? colony : tile, p, type);
         p.exploreForUnit(unit);
         unit.setMovesLeft(unit.getInitialMovesLeft());
+        // "experience" is what it has gained at "experienceGoods", or at what it works at.
+        if (r.get("experience") != null) {
+            final GoodsType gained = (r.get("experienceGoods") != null)
+                ? this.game.getSpecification().getGoodsType(string(r, "experienceGoods"))
+                : unit.getWorkType();
+            if (gained == null) throw bad("name the goods the experience is at, or use inColony");
+            unit.changeExperienceType(gained);
+            unit.setExperience(integer(r, "experience"));
+        }
         p.invalidateCanSeeTiles();
         ChangeSet cs = new ChangeSet();
         cs.add(See.perhaps(), tile);

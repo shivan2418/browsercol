@@ -95,6 +95,26 @@ class ScenarioTest {
     }
 
     @Test
+    @Timeout(240)
+    void aColonistsExperienceIsListedInItsMenu() throws Exception {
+        start("{\"seed\":1,\"setup\":["
+            + "{\"action\":\"addColony\"},"
+            + "{\"action\":\"addUnit\",\"type\":\"model.unit.freeColonist\",\"inColony\":true,"
+            + "\"experience\":60,\"experienceGoods\":\"model.goods.food\"}]}");
+        server.setup();
+        final Player us = client.getClient().getMyPlayer();
+        eventually("the client has the colony", () -> !us.getColonyList().isEmpty()
+            && us.getColonyList().get(0).getUnitCount() == 2);
+        final Colony colony = us.getColonyList().get(0);
+        final Unit worker = colony.getUnitList().stream().filter(u -> u.getExperience() > 0)
+            .findFirst().orElse(null);
+        org.junit.jupiter.api.Assertions.assertNotNull(worker, "a colonist with experience");
+        final String menu = client.getMenus().unit(worker.getId());
+        // The chance of an upgrade is listed only while it works at that job, which the rules decide.
+        assertTrue(menu.contains("Experience as a Farmer: 60/200"), menu);
+    }
+
+    @Test
     void aBadSetupIsRefusedWithItsReason() {
         final IllegalArgumentException ex = org.junit.jupiter.api.Assertions.assertThrows(
             IllegalArgumentException.class, () -> GamePreset.parse("{\"setup\":3}"));
