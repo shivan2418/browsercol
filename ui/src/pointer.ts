@@ -176,10 +176,11 @@ export function pointerInput(
     heldFor = false;
     clearTimeout(holdTimer);
     if (!goto || e.button !== 0) return;
-    // A press that stays put long enough starts the Go To order; moving first makes it a drag.
+    // A press held long enough starts the Go To order, on the tile the pointer is on by then: the left button
+    // does not pan, so a hand that wobbles or moves on before the hold is up still gets it.
     holdTimer = setTimeout(() => {
-      if (!from || moved > DRAG_PIXELS) return;
-      holding = tileUnder(e);
+      if (!from) return;
+      holding = tileUnder({ clientX: from[0], clientY: from[1] });
       heldFor = true;
       if (holding) goto.preview(holding);
     }, HOLD_MS);
