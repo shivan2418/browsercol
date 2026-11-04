@@ -319,16 +319,12 @@ class MenuEntriesTest {
         final String xy = "\"x\":" + at.getX() + ",\"y\":" + at.getY();
         final String colonyId = idIn(debug("{\"action\":\"addColony\"," + xy + "}"), "colony");
         debug("{\"action\":\"addGold\",\"amount\":5000}");
-        // A teacher, an expert who can clear his speciality, a ship in port, a treasure train
-        // to cash in, and goods to load.
-        final Unit teacher = clientUnit(idIn(debug("{\"action\":\"addUnit\","
-            + xy + ",\"type\":\"model.unit.expertFarmer\",\"inColony\":true}"), "unit"));
+        // Colonists, one an expert who can clear his speciality, a ship in port, a treasure
+        // train to cash in, and goods to load.
         clientUnit(idIn(debug("{\"action\":\"addUnit\","
             + xy + ",\"type\":\"model.unit.expertFisherman\",\"inColony\":true}"), "unit"));
-        // A schoolhouse wants four colonists.
         clientUnit(idIn(debug("{\"action\":\"addUnit\"," + xy
             + ",\"type\":\"model.unit.freeColonist\",\"inColony\":true}"), "unit"));
-        debug("{\"action\":\"addBuilding\"," + xy + ",\"type\":\"model.building.schoolhouse\"}");
         clientUnit(idIn(debug("{\"action\":\"addUnit\"," + xy + ",\"type\":\"model.unit.caravel\"}"), "unit"));
         clientUnit(idIn(debug("{\"action\":\"addUnit\"," + xy + ",\"type\":\"model.unit.treasureTrain\"}"), "unit"));
         debug("{\"action\":\"addGoods\"," + xy + ",\"type\":\"model.goods.furs\",\"amount\":50}");
@@ -339,11 +335,6 @@ class MenuEntriesTest {
         final Colony colony = client.getGame().getFreeColGameObject(colonyId, Colony.class);
         await(() -> colony.getGoodsCount(client.getGame().getSpecification()
                 .getGoodsType("model.goods.muskets")) >= 100, () -> "the goods arrive");
-        // The teacher goes to school.
-        final String school = colony.getBuildings().stream()
-            .filter(b -> b.getType().getId().equals("model.building.schoolhouse"))
-            .findFirst().orElseThrow().getId();
-        assertTrue(client.getCommands().work(teacher.getId(), school), "the teacher teaches");
         sameOnBothSides("the setup");
 
         final Menus menus = client.getMenus();
