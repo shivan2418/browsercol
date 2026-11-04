@@ -20,7 +20,8 @@ import net.sf.freecol.common.model.TradeRouteStop;
  * information of FreeCol's TradeRoutePanel (the routes, with how many
  * units follow each) and TradeRouteInputPanel (a route's name, silence,
  * and its stops with the goods to load at each, and the places a stop can
- * be at), and the editing of a route.
+ * be at, and the name a new route starts with), and the editing of a
+ * route.
  */
 final class TradeRoutes {
 
@@ -87,6 +88,8 @@ final class TradeRoutes {
             .putRaw("goods", Json.array(goods))
             .put("error", error)
             .put("newRoute", Messages.message("tradeRoutePanel.newRoute"))
+            // The name the server gives a new route, which TradeRouteInputPanel starts with.
+            .put("defaultName", player.getNameForTradeRoute())
             .put("editRoute", Messages.message("tradeRoutePanel.editRoute"))
             .put("deleteRoute", Messages.message("tradeRoutePanel.deleteRoute"))
             .put("nameLabel", Messages.message("tradeRouteInputPanel.nameLabel"))
