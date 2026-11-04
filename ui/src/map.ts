@@ -10,10 +10,12 @@ import { Application, Container, Graphics, Sprite, Text, Texture } from 'pixi.js
 import { resources, type ArtLayer, type Resources } from './resources';
 import {
   isUnitMarker,
+  NO_MODES,
   overlay,
   scene,
   srcId,
   viewModeOps,
+  type ColonyLabels,
   type ViewModes,
   type Direction,
   type MapView,
@@ -139,7 +141,7 @@ interface Pen {
   image(pic: Picture, x: number, y: number, dim: boolean): void;
   diamond(x: number, y: number, color: number, alpha: number): void;
   road(x: number, y: number, color: number, path: (p: PathSink) => void): void;
-  rect(x: number, y: number, w: number, h: number, color: number): void;
+  rect(x: number, y: number, w: number, h: number, color: number, alpha?: number): void;
   line(x1: number, y1: number, x2: number, y2: number, color: number, width?: number, alpha?: number): void;
   /** A filled circle of radius r with a 2-pixel outline. */
   circle(x: number, y: number, r: number, fill: number, outline: number, outlineAlpha: number): void;
@@ -247,8 +249,8 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
       path(offset(g, x, y));
       layer.addChild(g.stroke({ width: H / 32, color }));
     },
-    rect: (x, y, w, h, color) => {
-      layer.addChild(new Graphics().rect(x, y, w, h).fill(color));
+    rect: (x, y, w, h, color, alpha = 1) => {
+      layer.addChild(new Graphics().rect(x, y, w, h).fill({ color, alpha }));
     },
     line: (x1, y1, x2, y2, color, width = 1, alpha = 1) => {
       layer.addChild(new Graphics().moveTo(x1, y1).lineTo(x2, y2).stroke({ width, color, alpha, cap: 'round' }));
@@ -352,10 +354,12 @@ function canvasPen(host: HTMLElement, width: number, height: number, background 
         path(offset(c, x, y));
         c.stroke();
       }),
-    rect: (x, y, w, h, color) =>
+    rect: (x, y, w, h, color, alpha = 1) =>
       calls.push((c) => {
+        c.globalAlpha = alpha;
         c.fillStyle = css(color);
         c.fillRect(x, y, w, h);
+        c.globalAlpha = 1;
       }),
     line: (x1, y1, x2, y2, color, width = 1, alpha = 1) =>
       calls.push((c) => {
@@ -607,6 +611,71 @@ async function paint(pen: Pen, layer: Layer, ops: Op[], pics: ReturnType<typeof 
           pen.line(ox + a[0], oy + a[1], ox + b[0], oy + b[1], op.rgb, 4, 0.8);
         }
         return;
+      case 'modernLabel': {
+        // MapViewer.createLabel's paddings: 15 across, 10 down, 5 between lines; the boxes 3 apart.
+        const [hPad, vPad, linePad, spacing] = [15, 10, 5, 3];
+        const bg = shade(op.rgb);
+        const font: TextStyle = { ...NAME, plain: true, color: shade(op.fg) };
+        const styles = op.lines.map((_, i) => (i === 0 ? font : { ...font, size: 10 }));
+        const width = Math.max(...op.lines.map((l, i) => pen.measure(l, styles[i]))) + hPad;
+        const height = vPad + styles.reduce((h, s, i) => h + s.size + (i > 0 ? linePad : 0), 0);
+        const left = op.left;
+        const leftW = !left ? 0 : 'capital' in left ? height : pen.measure(left.text, font) + hPad;
+        let x = ox + W / 2 - width / 2 - (left ? leftW + spacing : 0);
+        const y = oy + H - height / 2;
+        if (left) {
+          pen.rect(x, y, leftW, height, bg, 0.5);
+          if ('capital' in left) {
+            // createCapitalLabel: a pentagram.
+            const r = (height - 10) / 2;
+            const at = (k: number): [number, number] => [
+              height / 2 + r * Math.cos(((-90 + 144 * k) * Math.PI) / 180),
+              height / 2 + r * Math.sin(((-90 + 144 * k) * Math.PI) / 180),
+            ];
+            pen.road(x, y, 0xffffff, (p) => {
+              p.moveTo(...at(0));
+              for (let k = 1; k <= 5; k++) p.lineTo(...at(k));
+            });
+          } else {
+            pen.text(left.text, x + leftW / 2, y + vPad / 2, left.italic ? { ...font, italic: true } : font, true);
+          }
+          x += leftW + spacing;
+        }
+        pen.rect(x, y, width, height, bg, 0.5);
+        let ty = y + vPad / 2;
+        op.lines.forEach((l, i) => {
+          pen.text(l, x + width / 2, ty, styles[i], true);
+          ty += styles[i].size + linePad;
+        });
+        const right = op.right;
+        if (right) {
+          x += width + spacing;
+          if ('mission' in right) {
+            // createReligiousMissionLabel: a cross on the missionary's colour, ringed for an expert.
+            const m = right.mission;
+            pen.rect(x, y, height, height, shade(m.rgb), 0.5);
+            const [cx, top, bottom, bar] = [x + height / 2, y + 5, y + height - 5, (height - 10) / 3];
+            pen.line(cx, top, cx, bottom, shade(m.fg), 2);
+            pen.line(cx - bar, top + bar, cx + bar, top + bar, shade(m.fg), 2);
+            if (m.expert) {
+              const r = height / 2 - 4;
+              pen.road(x, y, shade(m.fg), (p) => {
+                p.moveTo(height / 2 + r, height / 2);
+                for (let k = 1; k <= 24; k++)
+                  p.lineTo(
+                    height / 2 + r * Math.cos((k * Math.PI) / 12),
+                    height / 2 + r * Math.sin((k * Math.PI) / 12),
+                  );
+              });
+            }
+          } else {
+            const rw = pen.measure(right.text, font) + hPad;
+            pen.rect(x, y, rw, height, bg, 0.5);
+            pen.text(right.text, x + rw / 2, y + vPad / 2, font, true);
+          }
+        }
+        return;
+      }
       case 'tileName':
         pen.text(op.name, ox + W / 2, oy + H / 2 - NAME.size / 2, { ...NAME, size: 11 }, true);
         return;
@@ -646,6 +715,8 @@ export function mapDrawer(
    * blinks: FreeCol's cursor over a steady unit, or the unit itself.
    */
   setMotion(moveMs: number, blinkMs: number, style: ActiveStyle): void;
+  /** FreeCol's colony labels option; the map is drawn again when it changes. */
+  setColonyLabels(labels: ColonyLabels): void;
   /** The tile under a pixel of the canvas, or null off the map or before the first draw. */
   tileAt(px: number, py: number): [number, number] | null;
   /** The resolver, once the art manifest has loaded. */
@@ -680,6 +751,7 @@ export function mapDrawer(
   let lifting: { since: number } | null = null;
   let frame = 0;
   let moveMs = MOVE_MS;
+  let colonyLabels: ColonyLabels = 1;
   let blinkMs = BLINK_MS;
   let activeStyle: ActiveStyle = 'online';
 
@@ -708,7 +780,7 @@ export function mapDrawer(
   /** The View menu's ops, kept until the map or the switches change: a whole map of them is dear to compare. */
   let modeCache: { map: ViewState['map']; modes: ViewModes; ops: Op[]; id: number } = {
     map: null,
-    modes: { grid: false, borders: false, names: false },
+    modes: NO_MODES,
     ops: [],
     id: 0,
   };
@@ -718,7 +790,7 @@ export function mapDrawer(
       c.map === v.map &&
       c.modes.grid === v.modes.grid &&
       c.modes.borders === v.modes.borders &&
-      c.modes.names === v.modes.names
+      c.modes.tileText === v.modes.tileText
     )
       return c;
     return (modeCache = { map: v.map, modes: v.modes, ops: v.map ? viewModeOps(v.map, v.modes) : [], id: c.id + 1 });
@@ -776,7 +848,7 @@ export function mapDrawer(
     if (moved.length && moveMs > 0) sliding = { moves: moved, since: performance.now() };
     actorTiles = new Set(moved.map((m) => m.to.join(',')));
     if (map.active) actorTiles.add(map.active.join(','));
-    const ops = scene(map, res!);
+    const ops = scene(map, res!, colonyLabels);
     panels.forEach((render) => render(ops));
     const isActor = (op: Op) =>
       (op.k === 'chip' || (op.k === 'image' && op.at === 'unit')) && actorTiles.has(`${op.x},${op.y}`);
@@ -815,6 +887,12 @@ export function mapDrawer(
       blinkMs = b;
       activeStyle = style;
     },
+    setColonyLabels(labels) {
+      if (labels === colonyLabels) return;
+      colonyLabels = labels;
+      const again = drawn;
+      if (again) drawing = drawing.then(() => drawNow(again));
+    },
     draw: (map) => (drawing = drawing.then(() => drawNow(map))),
     show: (v) => {
       view = v;
@@ -846,7 +924,7 @@ export function mapDrawer(
       };
       // Drawn from the map last drawn, and again with each map after it: a colony just founded is not in the one
       // drawn before the panel opened.
-      if (drawn && res) render(scene(drawn, res));
+      if (drawn && res) render(scene(drawn, res, colonyLabels));
       panels.add(render);
       return () => {
         panels.delete(render);

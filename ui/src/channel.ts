@@ -139,6 +139,8 @@ export interface ClientExports {
   reportFilter(index: number, shown: boolean): void;
   /** Ignore a message, or stop. */
   reportIgnore(index: number, ignore: boolean): void;
+  /** Send the map again, as an option that changes it (display fog of war) asks. */
+  refreshMap(): void;
   /** FreeCol's client options that take a boolean or whole number, as JSON {id: value}. */
   clientOptionValues(): string;
   /** Set one of FreeCol's client options: "true", "false" or a whole number. Returns whether it took. */

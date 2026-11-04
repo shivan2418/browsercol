@@ -37,12 +37,12 @@ import {
   blinkMs,
   fromEngine,
   loadPrefs,
-  modeValue,
   moveMs,
   pageOption,
   savePrefs,
   shownClientOptions,
   startModes,
+  MODE_OPTIONS,
   visibleMessages,
   fontScale,
   uiZoom,
@@ -54,7 +54,7 @@ import { europeButtons } from './europe-client';
 import { DialogHost, type Art, type ReportButtons, type RouteButtons } from './panels';
 import { reportForKey } from './report-keys';
 import { ReportContext, colopediaMenu, reportMenu, type ReportActions } from './reports';
-import type { PathStep } from './tileset';
+import type { ColonyLabels, PathStep } from './tileset';
 import { blockBrowserMenu, gotoKeyInput, onCanvas, pointerInput, rightClickInput } from './pointer';
 import { ContextMenuContext, PopupMenu, parseMenu, type ContextMenus, type Popup } from './popup-menu';
 import { StartScreen } from './start-screen';
@@ -208,10 +208,35 @@ const reportActions: ReportActions = {
 /** The player's preferences, and whether their window is open. */
 let prefs: Prefs = prefsAtLoad;
 let prefsOpen = false;
+/**
+ * FreeCol's compass rose at the map's top right (CornerMapControls), shown by the display compass rose option:
+ * a click on it moves the active unit the way it points.
+ */
+const compass = document.createElement('img');
+compass.id = 'compass';
+compass.alt = 'Compass rose';
+compass.addEventListener('click', (e) => {
+  const r = compass.getBoundingClientRect();
+  // CornerMapControls: the angle from the centre, a quarter turn and a sixteenth on, in eighths from north.
+  let theta =
+    Math.atan2(e.clientY - r.top - r.height / 2, e.clientX - r.left - r.width / 2) + Math.PI / 2 + Math.PI / 8;
+  if (theta < 0) theta += 2 * Math.PI;
+  const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'] as const;
+  if (view.active) runCommand({ k: 'move', direction: directions[Math.floor(theta / (Math.PI / 4)) % 8] });
+});
+function showCompass(on: boolean) {
+  const src = on ? art(['image.skin.compass']) : null;
+  if (src) {
+    compass.src = src;
+    mapHost.append(compass);
+  } else compass.remove();
+}
 /** The preferences the page's look follows: motion, dimming, and FreeCol's display scaling and font size. */
 function applyLook(p: Prefs) {
   map.setMotion(moveMs(p), blinkMs(p), p.activeStyle);
   document.body.dataset.dimUnfocused = String(p.dimUnfocused);
+  map.setColonyLabels(pageOption(p, 'model.option.displayColonyLabels') as ColonyLabels);
+  showCompass(pageOption(p, 'model.option.displayCompassRose'));
   goodsIcons.max = pageOption(p, 'model.option.guiMaxNumberOfGoodsImages');
   goodsIcons.countFrom = pageOption(p, 'model.option.guiMinNumberToDisplayGoodsCount');
   const root = document.documentElement.style;
@@ -240,12 +265,16 @@ function setPrefs(p: Prefs) {
   prefs = p;
   savePrefs(p);
   applyLook(p);
-  pushFreecolOptions(Object.fromEntries(Object.entries(p.freecol).filter(([id, v]) => was.freecol[id] !== v)));
+  const changed = Object.fromEntries(Object.entries(p.freecol).filter(([id, v]) => was.freecol[id] !== v));
+  pushFreecolOptions(changed);
+  // The Engine's map says whether the fog of war shows.
+  if (MODE_OPTIONS.fog in changed) colonyClient?.refreshMap();
   // The View menu's modes follow their options.
   const modes = startModes(p);
-  for (const mode of ['grid', 'borders', 'names'] as const) {
+  for (const mode of ['grid', 'borders'] as const) {
     if (view.modes[mode] !== modes[mode]) dispatch({ k: 'toggle', mode });
   }
+  if (view.modes.tileText !== modes.tileText) dispatch({ k: 'tileText', text: modes.tileText });
   // The side panel is FreeCol Online's map controls.
   if (pageOption(p, 'model.option.displayMapControls') !== sidePanel) toggleSidePanel();
   renderSide();
@@ -323,11 +352,15 @@ const menuActions = (): MenuActions => ({
   zoom: (steps) => dispatch({ k: 'zoom', steps, at: [view.viewport[0] / 2, view.viewport[1] / 2] }),
   centreOnUnit: () => dispatch({ k: 'focus', tile: null, at: view.active?.tile ?? null }),
   modes: view.modes,
-  toggleMode: (mode) => {
-    // As FreeCol's display actions do, the mode is kept as its client option.
-    const [id, v] = modeValue(mode, !view.modes[mode]);
-    setPrefs({ ...prefs, freecol: { ...prefs.freecol, [id]: v } });
-  },
+  // As FreeCol's display actions do, each switch is kept as its client option.
+  toggleMode: (mode) => setPrefs({ ...prefs, freecol: { ...prefs.freecol, [MODE_OPTIONS[mode]]: !view.modes[mode] } }),
+  setTileText: (text) => setPrefs({ ...prefs, freecol: { ...prefs.freecol, [MODE_OPTIONS.tileText]: text } }),
+  fog: pageOption(prefs, 'model.option.displayFogOfWar'),
+  toggleFog: () =>
+    setPrefs({
+      ...prefs,
+      freecol: { ...prefs.freecol, [MODE_OPTIONS.fog]: !pageOption(prefs, 'model.option.displayFogOfWar') },
+    }),
   sidePanel,
   toggleSidePanel,
   fullScreen: document.fullscreenElement !== null,
@@ -613,7 +646,13 @@ function drawMap(m: MapView) {
   pullColonies();
   drawn = map.draw(m);
   // A dialog shown before the art manifest loaded has no images: draw it again once they can be had.
-  if (!artReady) void drawn.then(() => map.resources() && ((artReady = true), renderSide()));
+  if (!artReady)
+    void drawn.then(() => {
+      if (!map.resources()) return;
+      artReady = true;
+      showCompass(pageOption(prefs, 'model.option.displayCompassRose'));
+      renderSide();
+    });
 }
 
 blockBrowserMenu(document);

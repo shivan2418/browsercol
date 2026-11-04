@@ -63,7 +63,8 @@ import net.sf.freecol.common.util.Utils;
  *     (improvement images, drawn if the key exists);
  * <li>settlements: {x, y, keys, rgb, name as the player knows it,
  *     population or -1, bonus (production), sizeChange (preferred),
- *     chips, fg (the label text's rgb on the owner's colour), building
+ *     chips, fg (the label text's rgb on the owner's colour), own (the
+ *     player's own settlement), building
  *     (for the player's own colony, what it builds and in how many turns,
  *     as the modern colony labels show it, else null)}, chips being null for a colony and for a native settlement
  *     {capital, fg, mission: {rgb, expert} or null, alarm: {fg, worthScouting}
@@ -324,6 +325,7 @@ final class MapJson {
             .putRaw("keys", keys(keys))
             .put("rgb", rgb(s.getOwner()))
             .put("fg", foreground(rgb(s.getOwner())))
+            .put("own", s.getOwner() == player)
             .put("building", building)
             .put("name", Messages.message(s.getLocationLabelFor(player)))
             .put("population", population)

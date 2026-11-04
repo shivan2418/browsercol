@@ -8,7 +8,6 @@ import {
   FREECOL_OPTIONS,
   fontScale,
   fromEngine,
-  modeValue,
   moveMs,
   PAGE_OPTIONS,
   pageOption,
@@ -88,14 +87,12 @@ describe('prefs', () => {
     expect(pageOption(DEFAULTS, 'model.option.autoScroll')).toBe(true);
     const p = { ...DEFAULTS, freecol: { 'model.option.autoScroll': false, 'model.option.displayTileText': 1 } };
     expect(pageOption(p, 'model.option.autoScroll')).toBe(false);
-    expect(startModes(DEFAULTS)).toEqual({ grid: false, borders: false, names: false });
+    expect(startModes(DEFAULTS)).toEqual({ grid: false, borders: false, tileText: 0 });
     expect(startModes({ ...p, freecol: { ...p.freecol, 'model.option.displayGrid': true } })).toEqual({
       grid: true,
       borders: false,
-      names: true,
+      tileText: 1,
     });
-    expect(modeValue('names', true)).toEqual(['model.option.displayTileText', 1]);
-    expect(modeValue('borders', false)).toEqual(['model.option.displayBorders', false]);
   });
 
   it("sizes the UI by FreeCol's display scaling, and the text by its manual font size", () => {
@@ -118,7 +115,7 @@ describe('prefs', () => {
     const groups = shown.children[1].kind === 'group' ? shown.children[1].children.map((g) => g.label) : [];
     expect(groups).toEqual(['Main map', 'Map Controls', 'Messages', 'Warehouse Settings', 'Other']);
     const tileText = leaves(shown).get('model.option.displayTileText');
-    expect(tileText?.kind === 'select' && tileText.choices.map((c) => c.value)).toEqual([0, 1]);
+    expect(tileText?.kind === 'select' && tileText.choices.map((c) => c.value)).toEqual([0, 1, 2, 3]);
     // An option read only as the page loads says so.
     expect(leaves(shown).get('model.option.useOpenGL')?.label).toMatch(/\(on reload\)$/);
     expect(leaves(shown).get('model.option.autoScroll')?.label).not.toMatch(/reload/);

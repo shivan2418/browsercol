@@ -3,6 +3,7 @@
 // FreeCol's client options the browser follows. Kept in this browser's
 // localStorage.
 import type { OptionGroup, OptionNode } from './options';
+import type { TileText, ViewModes } from './tileset';
 
 /** A speed the player picks; each preference maps it to a duration. */
 export type Speed = 'off' | 'slow' | 'normal' | 'fast';
@@ -81,8 +82,11 @@ export const FREECOL_OPTIONS: readonly string[] = [
   'model.option.displayGrid',
   'model.option.displayBorders',
   'model.option.displayTileText',
+  'model.option.displayFogOfWar',
+  'model.option.displayColonyLabels',
   'model.option.unitLastMoveDelay',
   // Interface: map controls
+  'model.option.displayCompassRose',
   'model.option.displayMapControls',
   // Interface: messages
   'model.option.guiMessagesGroupBy',
@@ -155,8 +159,14 @@ export const PAGE_OPTIONS = {
   'model.option.displayGrid': false,
   /** The View menu's Show Borders, as the game starts. */
   'model.option.displayBorders': false,
-  /** The View menu's Show Tile Names, as the game starts: 0 nothing, 1 names (FreeCol's owners and regions are not drawn). */
+  /** The View menu's tile text, as the game starts: 0 nothing, 1 names, 2 owners, 3 regions. */
   'model.option.displayTileText': 0,
+  /** The View menu's Show Fog of War: the tiles out of sight greyed, if the game has fog of war. The Engine's map says. */
+  'model.option.displayFogOfWar': false,
+  /** How settlements are labelled: 0 none, 1 classic, 2 modern. */
+  'model.option.displayColonyLabels': 1,
+  /** The compass rose at the map's top right; a click on it moves the active unit that way. */
+  'model.option.displayCompassRose': false,
 };
 
 type PageOption = keyof typeof PAGE_OPTIONS;
@@ -177,22 +187,20 @@ export function pageOption<K extends PageOption>(p: Prefs, id: K): (typeof PAGE_
   return (typeof v === typeof PAGE_OPTIONS[id] ? v : PAGE_OPTIONS[id]) as (typeof PAGE_OPTIONS)[K];
 }
 
-/** The View menu's map modes, as the game starts. */
-export const startModes = (p: Prefs) => ({
+/** The View menu's map modes, as the options say. */
+export const startModes = (p: Prefs): ViewModes => ({
   grid: pageOption(p, 'model.option.displayGrid'),
   borders: pageOption(p, 'model.option.displayBorders'),
-  names: pageOption(p, 'model.option.displayTileText') === 1,
+  tileText: Math.max(0, Math.min(3, pageOption(p, 'model.option.displayTileText'))) as TileText,
 });
 
-/** The option values a View menu mode is kept as. */
-export function modeValue(mode: 'grid' | 'borders' | 'names', on: boolean): [string, FreeColValue] {
-  if (mode === 'grid') return ['model.option.displayGrid', on];
-  if (mode === 'borders') return ['model.option.displayBorders', on];
-  return ['model.option.displayTileText', on ? 1 : 0];
-}
-
-/** The tile text choices the map draws: nothing and names. */
-const TILE_TEXTS = new Set([0, 1]);
+/** The option a View menu switch is kept as, as FreeCol's display actions keep them. */
+export const MODE_OPTIONS = {
+  grid: 'model.option.displayGrid',
+  borders: 'model.option.displayBorders',
+  tileText: 'model.option.displayTileText',
+  fog: 'model.option.displayFogOfWar',
+} as const;
 
 /**
  * FreeCol's client option groups cut to FREECOL_OPTIONS, and empty groups dropped, as the Preferences
@@ -205,9 +213,6 @@ export function shownClientOptions(group: OptionNode): OptionGroup | null {
       return children.length > 0 ? { ...n, children } : null;
     }
     if (!FREECOL_OPTIONS.includes(n.id)) return null;
-    if (n.id === 'model.option.displayTileText' && n.kind === 'select') {
-      return { ...n, choices: n.choices.filter((c) => TILE_TEXTS.has(c.value)) };
-    }
     if (ON_RELOAD.includes(n.id)) return { ...n, label: `${n.label} (on reload)` };
     return n;
   };

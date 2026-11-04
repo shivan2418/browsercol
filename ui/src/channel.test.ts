@@ -120,6 +120,7 @@ function fakeClient(scope: Scope, log: string[]): ClientExports {
     reportGroupBy: () => {},
     clientOptionValues: () => '{}',
     setClientOption: () => true,
+    refreshMap: () => {},
     reportFilter: () => {},
     reportIgnore: () => {},
   };

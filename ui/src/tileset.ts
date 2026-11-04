@@ -32,6 +32,11 @@ export interface MapView {
   tiles: string;
   /** One character per tile: '1' if the player can see it now. */
   seen: string;
+  /** Whether the tiles the player cannot see are greyed: the game's fog of war and the display fog of war option. */
+  fog?: boolean;
+  /** One character per tile: 'A' + regionNames index, '.' if unexplored or in no region. */
+  regions?: string;
+  regionNames?: string[];
   /** One character per tile: 'A' + players index, '.' if unexplored or nobody's. */
   owners: string;
   /** The tile owners: the nation's name and colour. */
@@ -80,6 +85,12 @@ export interface Settlement {
   sizeChange: number;
   /** Null for colonies. */
   chips: Chips | null;
+  /** The label text's colour on the owner's colour (ImageLibrary.makeForegroundColor). */
+  fg?: number;
+  /** Whether it is the player's own. */
+  own?: boolean;
+  /** For the player's own colony, what it builds and in how many turns, as the modern labels show it. */
+  building?: string | null;
 }
 
 /** The unit MapViewer shows in front on a tile. */
@@ -144,6 +155,22 @@ export type Op =
   | { k: 'population'; x: number; y: number; population: number; color: number; emph?: true; dim?: true }
   /** A settlement's name below the tile, in the owner's colour. */
   | { k: 'label'; x: number; y: number; name: string; rgb: number; dim?: true }
+  /**
+   * MapViewer's modern settlement label, across the tile's bottom edge: the name (and what the player's colony
+   * builds) on the owner's colour at half alpha, with the population (italic when the colony would rather grow)
+   * or a capital's star on its left, and the production bonus or the mission's cross on its right.
+   */
+  | {
+      k: 'modernLabel';
+      x: number;
+      y: number;
+      lines: string[];
+      rgb: number;
+      fg: number;
+      left: { text: string; italic: boolean } | { capital: true } | null;
+      right: { text: string } | { mission: { rgb: number; fg: number; expert: boolean } } | null;
+      dim?: true;
+    }
   /** A step of the active unit's path, centre to centre: green, or yellow if it ends on a later turn. */
   | { k: 'pathLine'; x: number; y: number; to: [number, number]; turns: number }
   /** A path step's mark in the tile's centre, with the turns to get there if any. */
@@ -152,8 +179,11 @@ export type Op =
   | { k: 'grid'; x: number; y: number }
   /** The View menu's borders: the sides of an owned tile (NE, SE, SW, NW) that face another owner, in the owner's colour. */
   | { k: 'border'; x: number; y: number; sides: Direction[]; rgb: number }
-  /** The View menu's tile names: the tile type's name in the tile's centre. */
+  /** The tile text option: the tile type's name, its owner or its region, in the tile's centre. */
   | { k: 'tileName'; x: number; y: number; name: string };
+
+/** FreeCol's colony labels option: none, classic (the population in the settlement, the name below) or modern. */
+export type ColonyLabels = 0 | 1 | 2;
 
 export type Direction = 'N' | 'NE' | 'E' | 'SE' | 'S' | 'SW' | 'W' | 'NW';
 
@@ -213,7 +243,7 @@ const lower = (ds: Direction[]) =>
     .join('_');
 const terrainKey = (id: string) => `${TILE}${id}.center`;
 
-export function scene(map: MapView, res: Resources): Op[] {
+export function scene(map: MapView, res: Resources, colonyLabels: ColonyLabels = 1): Op[] {
   const { w, h } = map;
   const ops: Op[] = [];
 
@@ -232,7 +262,8 @@ export function scene(map: MapView, res: Resources): Op[] {
   const explored = (p: [number, number] | null) => !!p && typeAt(...p) !== null;
   /** Tile.isLand: unexplored tiles have no type, so are not land. */
   const land = (p: [number, number] | null) => !!p && !!typeAt(...p)?.land;
-  const seen = (x: number, y: number) => map.seen[index(x, y)] === '1';
+  /** Drawn as seen: in sight, or anywhere when the fog of war does not show. */
+  const seen = (x: number, y: number) => map.fog === false || map.seen[index(x, y)] === '1';
 
   const rivers = new Map<number, { magnitude: number; style: string; mask: string }>();
   for (const [x, y, magnitude, style, mask] of map.rivers) rivers.set(index(x, y), { magnitude, style, mask });
@@ -484,12 +515,14 @@ export function scene(map: MapView, res: Resources): Op[] {
     const key = s && first(s.keys);
     if (s && key) {
       ops.push({ k: 'image', x, y, src: res.path(key)!, at: 'large', ...dim });
-      // TileViewer.displaySettlementWithChipsOrPopulationNumber, classic labels.
+      // TileViewer.displaySettlementWithChipsOrPopulationNumber: the number with classic labels, the chips
+      // unless modern.
       const { rgb, population, bonus, sizeChange, chips } = s;
       const emph = sizeChange > 0 ? { emph: true as const } : {};
       const color = res.color(`${PRODUCTION_BONUS}${bonus}`);
-      if (population >= 0) ops.push({ k: 'population', x, y, population, color, ...emph, ...dim });
-      if (chips) ops.push({ k: 'chips', x, y, chips: nativeChips(rgb, chips), ...dim });
+      if (population >= 0 && colonyLabels === 1)
+        ops.push({ k: 'population', x, y, population, color, ...emph, ...dim });
+      if (chips && colonyLabels !== 2) ops.push({ k: 'chips', x, y, chips: nativeChips(rgb, chips), ...dim });
     }
   });
 
@@ -520,9 +553,40 @@ export function scene(map: MapView, res: Resources): Op[] {
     if (src) ops.push({ k: 'image', x, y, src, at: 'center' });
   });
 
-  for (const { x, y, rgb, name } of map.settlements) {
-    if (!explored([x, y])) continue;
-    ops.push({ k: 'label', x, y, name, rgb, ...(seen(x, y) ? {} : { dim: true as const }) });
+  for (const s of map.settlements) {
+    const { x, y, rgb, name } = s;
+    if (!explored([x, y]) || colonyLabels === 0) continue;
+    const dim = seen(x, y) ? {} : { dim: true as const };
+    if (colonyLabels === 1) {
+      ops.push({ k: 'label', x, y, name, rgb, ...dim });
+      continue;
+    }
+    // MapViewer.displaySettlementLabels, modern.
+    const own = s.building ? [s.building] : [];
+    const left =
+      s.population >= 0
+        ? { text: String(s.population), italic: s.sizeChange > 0 }
+        : s.chips?.capital
+          ? { capital: true as const }
+          : null;
+    const mission = s.chips?.mission;
+    const right =
+      s.population >= 0 && s.own && s.bonus !== 0
+        ? { text: s.bonus > 0 ? `+${s.bonus}` : String(s.bonus) }
+        : mission
+          ? { mission: { rgb: mission.rgb, fg: foregroundOf(mission.rgb), expert: mission.expert } }
+          : null;
+    ops.push({
+      k: 'modernLabel',
+      x,
+      y,
+      lines: [name, ...own],
+      rgb,
+      fg: s.fg ?? foregroundOf(rgb),
+      left,
+      right,
+      ...dim,
+    });
   }
   return ops;
 }
@@ -560,22 +624,29 @@ export function overlay(cursor: Cursor | null, path: PathStep[] | null, res: Res
  */
 export const isUnitMarker = (op: Op): boolean => op.k === 'image' && op.marker === true;
 
+/** ImageLibrary.makeForegroundColor: black on a light colour, white on a dark one. */
+export const foregroundOf = (rgb: number): number =>
+  ((rgb >> 16) & 0xff) * 0.3 + ((rgb >> 8) & 0xff) * 0.59 + (rgb & 0xff) * 0.11 >= 126 ? 0x000000 : 0xffffff;
+
+/** The tile text option (displayTileText): nothing, the tile type's name, its owner or its region. */
+export type TileText = 0 | 1 | 2 | 3;
+
 /** The View menu's display switches. */
 export interface ViewModes {
   grid: boolean;
   borders: boolean;
-  names: boolean;
+  tileText: TileText;
 }
 
-export const NO_MODES: ViewModes = { grid: false, borders: false, names: false };
+export const NO_MODES: ViewModes = { grid: false, borders: false, tileText: 0 };
 
 /** What the View menu's switches add to the map: the grid, the borders between owners, the tiles' names. */
 export function viewModeOps(
-  map: Pick<MapView, 'w' | 'h' | 'types' | 'tiles' | 'owners' | 'players'>,
+  map: Pick<MapView, 'w' | 'h' | 'types' | 'tiles' | 'owners' | 'players' | 'regions' | 'regionNames'>,
   modes: ViewModes,
 ): Op[] {
   const ops: Op[] = [];
-  if (!modes.grid && !modes.borders && !modes.names) return ops;
+  if (!modes.grid && !modes.borders && !modes.tileText) return ops;
   const { w, h } = map;
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
@@ -593,10 +664,16 @@ export function viewModeOps(
           if (sides.length) ops.push({ k: 'border', x, y, sides, rgb: owner.rgb });
         }
       }
-      if (modes.names) {
-        const type = map.types[map.tiles.charCodeAt(i) - 65];
-        if (type) ops.push({ k: 'tileName', x, y, name: type.name });
-      }
+      // TileViewer.displayOptionalTileText.
+      const name =
+        modes.tileText === 1
+          ? map.types[map.tiles.charCodeAt(i) - 65]?.name
+          : modes.tileText === 2
+            ? map.players[map.owners.charCodeAt(i) - 65]?.name
+            : modes.tileText === 3
+              ? map.regionNames?.[(map.regions?.charCodeAt(i) ?? 0) - 65]
+              : undefined;
+      if (name) ops.push({ k: 'tileName', x, y, name });
     }
   }
   return ops;

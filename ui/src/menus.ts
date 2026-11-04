@@ -2,7 +2,7 @@
 // An entry the Browser UI can't do yet is disabled, not left out, so the menus match FreeCol's layout.
 import type { Menu } from './frame';
 import type { Command } from './input';
-import type { ViewModes } from './tileset';
+import type { TileText, ViewModes } from './tileset';
 
 type Items = Menu['items'];
 
@@ -27,7 +27,12 @@ export interface MenuActions {
   preferences: () => void;
   /** Which of the grid, borders and tile names are on. */
   modes: ViewModes;
-  toggleMode: (mode: keyof ViewModes) => void;
+  toggleMode: (mode: 'grid' | 'borders') => void;
+  /** The tile text: nothing, names, owners or regions (FreeCol's Display tile text radio items). */
+  setTileText: (text: TileText) => void;
+  /** Whether the fog of war shows (FreeCol's Display Fog of War), and a switch for it. */
+  fog: boolean;
+  toggleFog: () => void;
   /** Whether the page is full screen, and a switch for it. */
   fullScreen: boolean;
   toggleFullScreen: () => void;
@@ -86,7 +91,22 @@ export function viewMenu(a: MenuActions): Items {
     { label: 'Europe', run: () => a.run({ k: 'showEurope' }), disabled: !a.ready },
     { label: 'Show Map Grid', run: () => a.toggleMode('grid'), checked: a.modes.grid },
     { label: 'Show Borders', run: () => a.toggleMode('borders'), checked: a.modes.borders },
-    { label: 'Show Tile Names', run: () => a.toggleMode('names'), checked: a.modes.names },
+    { label: 'Show Fog of War', run: a.toggleFog, checked: a.fog },
+    {
+      label: 'Show Tile Names',
+      run: () => a.setTileText(a.modes.tileText === 1 ? 0 : 1),
+      checked: a.modes.tileText === 1,
+    },
+    {
+      label: 'Show Tile Owners',
+      run: () => a.setTileText(a.modes.tileText === 2 ? 0 : 2),
+      checked: a.modes.tileText === 2,
+    },
+    {
+      label: 'Show Tile Regions',
+      run: () => a.setTileText(a.modes.tileText === 3 ? 0 : 3),
+      checked: a.modes.tileText === 3,
+    },
     { label: 'Show Side Panel', run: a.toggleSidePanel, checked: a.sidePanel, hint: 'Shift+F11' },
     { label: 'Full Screen', run: a.toggleFullScreen, checked: a.fullScreen },
   ];

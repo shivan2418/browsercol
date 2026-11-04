@@ -220,6 +220,34 @@ describe('colony labels', () => {
     expect(labels(at(scene(colony(0, 3), tileset), 0, 3)).map((op) => op.dim)).toEqual([undefined, undefined]);
   });
 
+  it('draws no fog nor dims when the fog of war does not show', () => {
+    const fogged = (m: MapView) => scene(m, tileset).filter((op) => op.k === 'fog' || ('dim' in op && op.dim));
+    expect(fogged(colony(1, 1)).length).toBeGreaterThan(0);
+    expect(fogged({ ...colony(1, 1), fog: false })).toEqual([]);
+  });
+
+  it('labels colonies as the colony labels option says: none, classic or modern', () => {
+    const kinds = (labels: 0 | 1 | 2) =>
+      at(scene(colony(0, 3, 2, 1), tileset, labels), 0, 3)
+        .map((op) => op.k)
+        .filter((k) => k === 'population' || k === 'label' || k === 'modernLabel');
+    expect(kinds(0)).toEqual([]);
+    expect(kinds(1)).toEqual(['population', 'label']);
+    expect(kinds(2)).toEqual(['modernLabel']);
+    const own = colony(0, 3, 2, 1);
+    own.settlements[0] = { ...own.settlements[0], own: true, building: 'Docks 3', fg: 0 };
+    expect(scene(own, tileset, 2).find((op) => op.k === 'modernLabel')).toEqual({
+      k: 'modernLabel',
+      x: 0,
+      y: 3,
+      lines: ['Jamestown', 'Docks 3'],
+      rgb: 0xff8000,
+      fg: 0,
+      left: { text: '3', italic: true },
+      right: { text: '+2' },
+    });
+  });
+
   it('emphasises the population when the colony would rather grow, whatever its bonus', () => {
     const population = (m: MapView) => scene(m, tileset).find((op) => op.k === 'population');
     expect(population(colony(0, 3, -1, 1))).toMatchObject({ color: 0xffc800, emph: true });
@@ -358,31 +386,45 @@ describe('overlay', () => {
 
 describe('viewModeOps', () => {
   const owned = { ...map, owners: 'A.' + '..' + '..' + '..', players: [{ name: 'Dutch', rgb: 0xff8800 }] };
-  const all = { grid: true, borders: true, names: true };
+  const all = { grid: true, borders: true, tileText: 1 as const };
 
   it('adds nothing with every switch off', () => {
-    expect(viewModeOps(owned, { grid: false, borders: false, names: false })).toEqual([]);
+    expect(viewModeOps(owned, { grid: false, borders: false, tileText: 0 })).toEqual([]);
   });
 
   it('outlines every tile for the grid', () => {
-    expect(viewModeOps(map, { grid: true, borders: false, names: false })).toHaveLength(8);
+    expect(viewModeOps(map, { grid: true, borders: false, tileText: 0 })).toHaveLength(8);
   });
 
   it('names the explored tiles by type', () => {
-    const ops = viewModeOps(map, { grid: false, borders: false, names: true });
+    const ops = viewModeOps(map, { grid: false, borders: false, tileText: 1 });
     expect(ops).toHaveLength(7);
     expect(ops[0]).toEqual({ k: 'tileName', x: 0, y: 0, name: 'Plains' });
   });
 
+  it("names the tiles' owners or regions, as the tile text option says", () => {
+    const owners = viewModeOps(owned, { grid: false, borders: false, tileText: 2 });
+    expect(owners).toEqual([{ k: 'tileName', x: 0, y: 0, name: 'Dutch' }]);
+    const regioned = { ...map, regions: 'AA' + 'AB' + '.B' + '..', regionNames: ['New Holland', 'Atlantic'] };
+    const regions = viewModeOps(regioned, { grid: false, borders: false, tileText: 3 });
+    expect(regions.map((o) => (o.k === 'tileName' ? o.name : ''))).toEqual([
+      'New Holland',
+      'New Holland',
+      'New Holland',
+      'Atlantic',
+      'Atlantic',
+    ]);
+  });
+
   it('draws the sides of an owned tile that face another owner or the edge', () => {
-    const ops = viewModeOps(owned, { grid: false, borders: true, names: false });
+    const ops = viewModeOps(owned, { grid: false, borders: true, tileText: 0 });
     expect(ops).toEqual([{ k: 'border', x: 0, y: 0, sides: ['NE', 'SE', 'SW', 'NW'], rgb: 0xff8800 }]);
     expect(viewModeOps(owned, all).filter((o) => o.k === 'border')).toHaveLength(1);
   });
 
   it('draws no border between tiles of one owner', () => {
     const both = { ...owned, owners: 'AA' + 'A.' + '..' + '..' };
-    const border = viewModeOps(both, { grid: false, borders: true, names: false }).find(
+    const border = viewModeOps(both, { grid: false, borders: true, tileText: 0 }).find(
       (o) => o.k === 'border' && o.x === 0 && o.y === 0,
     );
     expect(border).toMatchObject({ sides: ['NE', 'SW', 'NW'] });
