@@ -151,6 +151,8 @@
         top: 100%;
         left: 0;
         z-index: 10;
+        /* As wide as its longest entry and hotkey, not the menu-bar button it hangs from. */
+        width: max-content;
         min-width: 12em;
         display: flex;
         flex-direction: column;
@@ -162,6 +164,7 @@
       }
       .menubar [role='menu'] button {
         text-align: left;
+        white-space: nowrap;
       }
       /* An entry's hotkey, at the right of its label. */
       .menubar [role='menu'] .hint {
