@@ -23,13 +23,19 @@ describe('turnNotice', () => {
 describe('shownNotice', () => {
   const fresh = { kind: 'new', text: 'Turn 4, Spring 1493' } as const;
   it('tells the player to end the turn once no unit is left to move in it', () => {
-    expect(shownNotice(fresh, mine('4'), '4')).toBe(DONE_NOTICE);
+    expect(shownNotice(fresh, mine('4'), mine('4'))).toBe(DONE_NOTICE);
     expect(DONE_NOTICE.text).toContain('Press Enter to end the turn');
   });
+  it('tells it at the start of a turn with no unit to move, heard before the map of the turn', () => {
+    expect(shownNotice(fresh, mine('4'), mine('3', false))).toBe(DONE_NOTICE);
+    expect(shownNotice(fresh, mine('4'), mine('4', false))).toBe(DONE_NOTICE);
+    expect(shownNotice(null, mine('1'), null)).toBe(DONE_NOTICE);
+  });
   it('keeps the turn notice while a unit can move, in another turn, or while the others move', () => {
-    expect(shownNotice(fresh, mine('4'), null)).toBe(fresh);
-    expect(shownNotice(fresh, mine('5'), '4')).toBe(fresh);
-    expect(shownNotice(null, mine('4', false), '4')).toBeNull();
+    expect(shownNotice(fresh, mine('4'), undefined)).toBe(fresh);
+    expect(shownNotice(fresh, mine('5'), mine('4'))).toBe(fresh);
+    expect(shownNotice(null, mine('4', false), mine('4'))).toBeNull();
+    expect(shownNotice(null, mine('4', false), mine('3', false))).toBeNull();
   });
 });
 
