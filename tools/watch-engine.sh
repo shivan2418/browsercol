@@ -15,10 +15,10 @@ while sleep 1; do
   sleep 0.5
   echo "watch-engine: sources changed, rebuilding"
   start=$SECONDS
-  # A daemon, unlike the one-off builds (gradle.properties): it lives as long
-  # as the dev server's container, and a warm one rebuilds some 15% faster.
-  if gradle -p engine --daemon --console=plain -q modules && tools/copy-modules.sh; then
-    echo "watch-engine: Engine rebuilt in $((SECONDS - start))s; the page reloads"
+  # No daemon: an idle one keeps the shared Gradle cache locked, and Gradle in
+  # another container (the pre-commit hook, the tests) cannot ask it to let go.
+  if gradle -p engine --console=plain -q modules && tools/copy-modules.sh; then
+    echo "watch-engine: Engine rebuilt in $((SECONDS - start))s"
   else
     echo "watch-engine: the Engine build failed; the page keeps the last good modules" >&2
   fi
