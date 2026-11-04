@@ -1,7 +1,7 @@
 // The Game, Orders and View menus of the menu bar, with FreeCol's entries in its order (InGameMenuBar).
 // An entry the Browser UI can't do yet is disabled, not left out, so the menus match FreeCol's layout.
 import type { Menu } from './frame';
-import type { Command } from './input';
+import { orderOf, type Command } from './input';
 import type { TileText, ViewModes } from './tileset';
 
 type Items = Menu['items'];
@@ -62,23 +62,23 @@ export function gameMenu(a: MenuActions): Items {
 
 export function ordersMenu(a: MenuActions): Items {
   /** An order of the active unit: enabled when the Engine lists it for the unit. */
-  const order = (label: string, name: string, c: Command): Items[number] => ({
+  const order = (label: string, c: Command): Items[number] => ({
     label,
     run: () => a.run(c),
-    disabled: !a.ready || !a.orders.includes(name),
+    disabled: !a.ready || !a.orders.includes(orderOf(c) ?? ''),
   });
   return [
-    order('Build Colony', 'buildColony', { k: 'buildColony' }),
-    order('Fortify', 'fortify', { k: 'fortify' }),
-    order('Sentry', 'sentry', { k: 'sentry' }),
-    order('Skip', 'skip', { k: 'skip' }),
+    order('Build Colony', { k: 'buildColony' }),
+    order('Fortify', { k: 'fortify' }),
+    order('Sentry', { k: 'sentry' }),
+    order('Skip', { k: 'skip' }),
     later('Clear Orders'),
-    order('Plow', 'plow', { k: 'plow' }),
-    order('Clear Forest', 'clearForest', { k: 'clearForest' }),
-    order('Build Road', 'road', { k: 'road' }),
-    order('Go To', 'goto', { k: 'selectDestination' }),
+    order('Plow', { k: 'plow' }),
+    order('Clear Forest', { k: 'clearForest' }),
+    order('Build Road', { k: 'road' }),
+    order('Go To', { k: 'selectDestination' }),
     { label: 'Trade Routes', run: () => a.run({ k: 'tradeRoutes' }), disabled: !a.ready },
-    order('Disband Unit', 'disband', { k: 'disband' }),
+    order('Disband Unit', { k: 'disband' }),
   ];
 }
 

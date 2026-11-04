@@ -4,7 +4,7 @@
 // show yet, the saved games and the page's status. main.tsx renders it again on each change.
 import { useRef } from 'react';
 import { DebugMenu, type DebugMenuProps } from './debug-menu';
-import type { Command } from './input';
+import { orderOf, type Command } from './input';
 import type { SaveMeta } from './saves';
 
 export interface SideProps {
@@ -47,19 +47,19 @@ const BUTTONS: [string, Command][] = [
 ];
 
 /**
- * The standing orders, with the keys the Swing client binds them to: the
- * order's name, as the Engine sends it, and the command it stands for.
+ * The standing orders, with the keys the Swing client binds them to, and
+ * the command each stands for; the Engine names the order (input.ts orderOf).
  */
-const ORDERS: [string, string, Command][] = [
-  ['Build colony (B)', 'buildColony', { k: 'buildColony' }],
-  ['Fortify (F)', 'fortify', { k: 'fortify' }],
-  ['Sentry (S)', 'sentry', { k: 'sentry' }],
-  ['Skip (Space)', 'skip', { k: 'skip' }],
-  ['Disband (D)', 'disband', { k: 'disband' }],
-  ['Plow (P)', 'plow', { k: 'plow' }],
-  ['Clear forest (C)', 'clearForest', { k: 'clearForest' }],
-  ['Road (R)', 'road', { k: 'road' }],
-  ['Go to (H)', 'goto', { k: 'selectDestination' }],
+const ORDERS: [string, Command][] = [
+  ['Build colony (B)', { k: 'buildColony' }],
+  ['Fortify (F)', { k: 'fortify' }],
+  ['Sentry (S)', { k: 'sentry' }],
+  ['Skip (Space)', { k: 'skip' }],
+  ['Disband (D)', { k: 'disband' }],
+  ['Plow (P)', { k: 'plow' }],
+  ['Clear forest (C)', { k: 'clearForest' }],
+  ['Road (R)', { k: 'road' }],
+  ['Go to (H)', { k: 'selectDestination' }],
 ];
 
 /** How many times each item is in a list, in first-seen order. */
@@ -104,8 +104,8 @@ export function Side({
         ))}
       </div>
       <div>
-        {ORDERS.map(([label, name, c]) => (
-          <button key={c.k} data-command={c.k} disabled={!orders.includes(name)} onClick={() => run(c)}>
+        {ORDERS.map(([label, c]) => (
+          <button key={c.k} data-command={c.k} disabled={!orders.includes(orderOf(c) ?? '')} onClick={() => run(c)}>
             {label}
           </button>
         ))}
