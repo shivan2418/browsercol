@@ -471,6 +471,12 @@ public final class ClientMain {
         command("warehouse", () -> engine.getCommands().warehouse(colonyId));
     }
 
+    /** Close a colony's panel, asking first whether to abandon an empty colony (Commands.closeColonyPanel). */
+    @JSExport
+    public static void closeColonyPanel(String colonyId) {
+        command("closeColonyPanel", () -> engine.getCommands().closeColonyPanel(colonyId));
+    }
+
     /** Pay for what a colony is building now. */
     @JSExport
     public static void payForBuilding(String colonyId) {

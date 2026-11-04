@@ -642,7 +642,8 @@ function Negotiation({ d }: { d: Of<'negotiation'> }) {
 /** The colony panel; its warehouse and OK buttons sit in the right column, under the ships in port. */
 function ColonyDialog({ d, e, art }: { d: Dialog; e: ColonyView; art: Art }) {
   const moves = useContext(ColonyActions);
-  const close = () => (d.done as () => void)();
+  // With the means to move, the Engine closes the panel, once the player may (Commands.closeColonyPanel).
+  const close = moves ? () => moves.close(e.id) : () => (d.done as () => void)();
   useEnter(close);
   return (
     <Win d={d} title={e.name} close={close}>

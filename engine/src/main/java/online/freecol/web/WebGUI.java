@@ -210,6 +210,9 @@ import net.sf.freecol.common.option.OptionGroup;
  * <tr><td>showColonyPanel</td><td>event colony</td>
  *     <td>the colony, as {@link ColonyJson} describes it; null for no
  *         colony sends nothing</td></tr>
+ * <tr><td>closeColonyPanel (Commands.closeColonyPanel)</td>
+ *     <td>event closeColony</td>
+ *     <td>{id}: the colony whose panel the player may now close</td></tr>
  * <tr><td>showTradeRoutePanel, and each change of a route</td>
  *     <td>event tradeRoutes</td>
  *     <td>{title, routes: [{id, name, silent, units, stops: [{place, label,
@@ -1807,6 +1810,14 @@ public class WebGUI extends GUI {
     public FreeColPanel showColonyPanel(Colony colony, Unit unit) {
         if (colony != null) this.ui.show("colony", colonyJson(colony));
         return null;
+    }
+
+    /**
+     * Close the colony panel of a colony, as ColonyPanel.closeColonyPanel
+     * removes it once the player may leave it (Commands.closeColonyPanel).
+     */
+    void closeColonyPanel(String colonyId) {
+        this.ui.show("closeColony", new Json().put("id", colonyId).toString());
     }
 
     /** The colony as the colony panel shows it (ColonyJson). */

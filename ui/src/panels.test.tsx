@@ -1057,6 +1057,27 @@ describe('the colony dialog', () => {
     fireEvent.click(screen.getByRole('button', { name: jamestown.warehouse.title }));
     expect(calls).toEqual([`warehouse ${jamestown.id}`]);
   });
+
+  it('leaves closing to the Engine, which may ask first, and closes once it says so', () => {
+    const calls: string[] = [];
+    const moves = new Proxy({}, { get: (_, k) => (id: string) => calls.push(`${String(k)} ${id}`) }) as ColonyMoves;
+    const box = dialogs();
+    render(
+      <ColonyActions.Provider value={moves}>
+        <DialogHost dialogs={box} goTo={() => {}} art={art} report={{} as ReportButtons} routes={{} as RouteButtons} />
+      </ColonyActions.Provider>,
+    );
+    act(() => box.show('colony', jamestown));
+    fireEvent.click(document.querySelector('[data-answer="close"]')!);
+    key('Escape');
+    expect(calls).toEqual([`close ${jamestown.id}`, `close ${jamestown.id}`]);
+    expect(box.shown('colony')).toHaveLength(1);
+    act(() => box.remove('colony', (open) => open.id === 'colony:other'));
+    expect(box.shown('colony')).toHaveLength(1);
+    act(() => box.remove('colony', (open) => open.id === jamestown.id));
+    expect(box.shown('colony')).toEqual([]);
+    expect(box.current()).toBeNull();
+  });
 });
 
 describe('the warehouse dialog', () => {

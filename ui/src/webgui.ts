@@ -142,6 +142,8 @@ export interface GuiEvents {
   };
   /** A colony, as FreeCol's colony panel shows it (ColonyJson.java). */
   colony: ColonyView;
+  /** The colony panel of this colony may close: the player closed it, and said yes if asked (Commands.closeColonyPanel). */
+  closeColony: { id: string };
   /**
    * The player's trade routes (TradeRoutePanel), each with its stops, the goods loaded at each, and how many
    * units follow it, with the places a stop can be at and the goods that can be loaded (TradeRouteInputPanel).

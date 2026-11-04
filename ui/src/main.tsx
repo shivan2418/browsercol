@@ -238,6 +238,8 @@ const colonyMoves: ColonyMoves = {
   setQueue: (colony, types) => colonyClient?.setBuildQueue(colony, types.join(',')),
   buy: (colony) => colonyClient?.payForBuilding(colony),
   warehouse: (colony) => colonyClient?.warehouse(colony),
+  close: (colony) =>
+    colonyClient ? colonyClient.closeColonyPanel(colony) : dialogQueue.remove('colony', (open) => open.id === colony),
   board: (unit, ship) => colonyClient?.boardShip(unit, ship),
   leaveShip: (unit) => colonyClient?.leaveShip(unit),
   load: (ship, goods, ask) => colonyClient?.loadGoods(ship, goods, ask),
@@ -755,6 +757,7 @@ const gui: GuiHandlers = {
     },
     // A colony already open or queued is shown again in its place, else it opens.
     colony: (e) => dialogQueue.replace('colony', e, (open) => open.id === e.id),
+    closeColony: (e) => dialogQueue.remove('colony', (open) => open.id === e.id),
     unasked: (e) => {
       console.warn(`WebGUI: no dialog yet for ${e.method}; FreeCol's default was used`);
       side.unasked = [...side.unasked, e.method];
