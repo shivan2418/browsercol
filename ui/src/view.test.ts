@@ -55,6 +55,11 @@ describe('the view', () => {
     expect(play({ k: 'focus', tile: 'tile:3', at: [19, 39] }).centre).toEqual([2624 - 320, 1312 - 240]);
   });
 
+  it('centres on a map point, as a click on the minimap asks, but keeps the view on the map', () => {
+    expect(play({ k: 'centre', at: [1000, 600] }).centre).toEqual([1000, 600]);
+    expect(play({ k: 'centre', at: [0, 5000] }).centre).toEqual([320, 1312 - 240]);
+  });
+
   it('follows the active unit after a move, re-centring only once it leaves the view', () => {
     // After each move the controller calls changeView(unit, true): as in
     // SwingGUI, the cursor moves on, but the view and selection stay put

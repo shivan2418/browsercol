@@ -35,6 +35,41 @@
         min-width: 320px;
         display: flex;
         flex-direction: column;
+        position: relative;
+      }
+      /* FreeCol's minimap (src/minimap-panel.tsx), at the map's bottom-left as CornerMapControls puts it; one of the map controls. */
+      #minimap {
+        position: absolute;
+        left: 0;
+        bottom: 0;
+        display: flex;
+        gap: 6px;
+        padding: 6px;
+        background: var(--panel);
+        border: 2px solid var(--line);
+        border-width: 2px 2px 0 0;
+        border-radius: 0 6px 0 0;
+      }
+      body[data-side-panel='hidden'] #minimap {
+        display: none;
+      }
+      #minimap canvas {
+        display: block;
+        border: 1px solid var(--line);
+        cursor: crosshair;
+      }
+      .minimap-buttons {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 4px;
+      }
+      .minimap-buttons button {
+        padding: 2px 6px;
+        min-width: 28px;
+      }
+      .minimap-buttons button[aria-pressed='false'] {
+        opacity: 0.6;
       }
       /* main.tsx sizes the map's canvas to this box. */
       #map {
@@ -1513,6 +1548,7 @@
     <div id="stage">
       <div id="game">
         <div id="map"></div>
+        <div id="minimap-host"></div>
       </div>
       <div id="side"></div>
     </div>

@@ -52,6 +52,8 @@ export type ViewEvent =
   | { k: 'resize'; width: number; height: number }
   /** The player dragged the map, or scrolled at its edge, by screen pixels. */
   | { k: 'pan'; dx: number; dy: number }
+  /** Centre on a map point at zoom 1: the player clicked or dragged on the minimap. */
+  | { k: 'centre'; at: [number, number] }
   /** Zoom levels in (+) or out (-), keeping the map under a viewport point still. */
   | { k: 'zoom'; steps: number; at: [number, number] }
   /** The player switched the grid, the borders or the tile names on or off. */
@@ -197,6 +199,8 @@ function apply(v: ViewState, e: ViewEvent): ViewState {
       return { ...v, viewport: [e.width, e.height] };
     case 'pan':
       return { ...v, centre: [v.centre[0] - e.dx / v.zoom, v.centre[1] - e.dy / v.zoom] };
+    case 'centre':
+      return { ...v, centre: e.at };
     case 'toggle':
       return { ...v, modes: { ...v.modes, [e.mode]: !v.modes[e.mode] } };
     case 'tileText':

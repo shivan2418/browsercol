@@ -38,6 +38,7 @@ import {
   blinkMs,
   fromEngine,
   loadPrefs,
+  minimapOptions,
   moveMs,
   pageOption,
   savePrefs,
@@ -72,6 +73,7 @@ import {
   latestAutosave,
   type SaveMeta,
 } from './saves';
+import { MinimapPanel } from './minimap-panel';
 import { Side, type SideProps } from './side';
 import { shownNotice, TurnBanner, turnNotice, type TurnFacts, type TurnNotice } from './turn-banner';
 import { ErrorBanner, addError, engineError, type GameError } from './errors';
@@ -359,6 +361,7 @@ function setPrefs(p: Prefs) {
   // The side panel is FreeCol Online's map controls.
   if (pageOption(p, 'model.option.displayMapControls') !== sidePanel) toggleSidePanel();
   renderSide();
+  renderMinimap();
 }
 /** Keep FreeCol's client options as the client Engine has them now: the turn report's buttons change some. */
 function pullFreecolOptions() {
@@ -612,6 +615,23 @@ function dispatch(e: ViewEvent) {
   view = reduce(view, e);
   map.show(view);
   showPanel();
+  renderMinimap();
+}
+/** The last map view, which the minimap draws whole. */
+let lastMap: MapView | null = null;
+const minimapRoot = createRoot(document.getElementById('minimap-host')!);
+/** FreeCol's minimap at the map's bottom-left: one of the map controls, shown with the side panel. */
+function renderMinimap() {
+  minimapRoot.render(
+    <MinimapPanel
+      map={lastMap}
+      res={map.resources()}
+      view={view}
+      options={minimapOptions(prefs)}
+      centre={(at) => dispatch({ k: 'centre', at })}
+      setOption={(id, value) => setPrefs({ ...prefs, freecol: { ...prefs.freecol, [id]: value } })}
+    />,
+  );
 }
 /** The size the map was last given, to skip the ResizeObserver's calls that change nothing. */
 let mapGiven: [number, number] = [0, 0];
@@ -629,7 +649,12 @@ window.fcReveal = (x, y) => {
   const [px, py] = tileOnScreen(view, [x, y]);
   const margin = W * view.zoom;
   const [vw, vh] = view.viewport;
-  if (px < margin || py < margin || px > vw - margin || py > vh - margin) {
+  // A tile under the minimap, at the map's bottom-left, is out of reach too.
+  const minimap = document.getElementById('minimap')?.getBoundingClientRect();
+  const host = mapHost.getBoundingClientRect();
+  const underMinimap =
+    !!minimap && minimap.width > 0 && px < minimap.right - host.left + margin && py > minimap.top - host.top - margin;
+  if (px < margin || py < margin || px > vw - margin || py > vh - margin || underMinimap) {
     dispatch({ k: 'focus', tile: null, at: [x, y] });
   }
   return tileOnScreen(view, [x, y]);
@@ -736,6 +761,7 @@ function drawMap(m: MapView) {
   lastTurn = m;
   if (m.ourTurn) autosaveSoon();
   renderSide();
+  lastMap = m;
   dispatch({ k: 'map', map: m });
   pullColonies();
   drawn = map.draw(m);
@@ -746,6 +772,7 @@ function drawMap(m: MapView) {
       artReady = true;
       showCompass(pageOption(prefs, 'model.option.displayCompassRose'));
       renderSide();
+      renderMinimap();
     });
 }
 

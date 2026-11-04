@@ -180,7 +180,7 @@ describe('the map keys', () => {
 });
 
 describe('the panel keys', () => {
-  it('are the art of what a message is about, of the event panel, the colony panel and the fathers, and nothing else', () => {
+  it('are the art of what a message is about, of the event panel, the colony panel, the fathers and the minimap, and nothing else', () => {
     for (const key of [
       'image.icon.coin',
       'image.icon.model.goods.food',
@@ -189,6 +189,9 @@ describe('the panel keys', () => {
       'image.flavor.event.firstLanding',
       'image.flavor.event.discoverPacific',
       'image.flavor.model.foundingFather.adamSmith',
+      'color.economic.MiniMap.model.tile.plains',
+      'color.politics.MiniMap.model.tile.ocean',
+      'color.border.MiniMap',
     ]) {
       expect(isPanelKey(key), key).toBe(true);
       expect(isMapKey(key), `the map does not draw ${key}`).toBe(false);
@@ -206,9 +209,16 @@ describe('the panel keys', () => {
   });
 
   it('are each a family or key of the lists, which the art build ships with the map keys', () => {
-    expect(Object.keys(PANEL_KEY_FAMILIES)).toEqual(['goods', 'building', 'nation', 'father']);
+    expect(Object.keys(PANEL_KEY_FAMILIES)).toEqual([
+      'goods',
+      'building',
+      'nation',
+      'father',
+      'minimapEconomic',
+      'minimapPolitics',
+    ]);
     expect(EVENT_KEYS).toHaveLength(2);
-    expect(Object.keys(PANEL_KEYS)).toEqual(['coin', 'compass']);
+    expect(Object.keys(PANEL_KEYS)).toEqual(['coin', 'compass', 'minimapBorder']);
     expect(isArtKey('image.unit.model.unit.caravel')).toBe(true);
   });
 });
