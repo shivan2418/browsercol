@@ -1,13 +1,31 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vite-plus/test';
-import { Box, GoodsAmount, MENUS, MenuBar, WindowFrame, type Art } from './frame';
+import { Box, GoodsAmount, MENUS, MenuBar, WindowFrame, framePlaces, goodsIcons, type Art } from './frame';
 
 afterEach(cleanup);
 
 const key = (k: string) => act(() => void fireEvent.keyDown(window, { key: k }));
 
 describe('the window frame', () => {
+  it('opens where it was left, by its kind, when the remember panel positions option is on', () => {
+    framePlaces.places = { colony: { x: 40, y: -20 } };
+    const frame = () => screen.getByRole('dialog', { name: 'Jamestown' }) as HTMLElement;
+    const open = () =>
+      render(
+        <WindowFrame title="Jamestown" close={() => {}} data-kind="colony">
+          body
+        </WindowFrame>,
+      );
+    open();
+    expect(frame().style.transform).toBe('');
+    cleanup();
+    framePlaces.remember = true;
+    open();
+    expect(frame().style.transform).toBe('translate(40px, -20px)');
+    framePlaces.remember = false;
+  });
+
   it('has the panel’s name in its title bar, over its body', () => {
     render(
       <WindowFrame title="Jamestown" close={() => {}}>
@@ -127,6 +145,28 @@ describe('the goods amount', () => {
     expect(g.querySelector('img')?.getAttribute('alt')).toBe('Food');
     expect(g.textContent).toBe('40');
     expect(g.dataset.sign).toBeUndefined();
+  });
+
+  it("draws icons and the number as FreeCol's goods image options say", () => {
+    const pile = (amount: number) => {
+      const { container } = render(
+        <GoodsAmount keys={['image.icon.model.goods.food']} name="Food" amount={amount} art={art} icons />,
+      );
+      const g = container.lastElementChild as HTMLElement;
+      return [g.querySelectorAll('.pile img').length, g.querySelector('.amount')?.textContent ?? null];
+    };
+    expect([pile(6), pile(7), pile(9)]).toEqual([
+      [6, null],
+      [7, '7'],
+      [7, '9'],
+    ]);
+    Object.assign(goodsIcons, { max: 3, countFrom: 5 });
+    expect([pile(2), pile(4), pile(5)]).toEqual([
+      [2, null],
+      [3, '4'],
+      [3, '5'],
+    ]);
+    Object.assign(goodsIcons, { max: 7, countFrom: 7 });
   });
 
   it('marks a gain, a loss and a zero', () => {

@@ -103,6 +103,9 @@ class WebGUITest {
         ui.shutdownNow();
     }
 
+    /** The player name client option to log in with, or null for FreeCol's default. */
+    private String playerName = null;
+
     /** Start a Classic game and return the client once it is our turn. */
     private ClientEngine startGame() throws Exception {
         final CountDownLatch ourTurn = new CountDownLatch(1);
@@ -132,6 +135,7 @@ class WebGUITest {
                 }
             });
         this.server.startGame("classic");
+        if (this.playerName != null) client[0].setClientOption(ClientOptions.NAME, this.playerName);
         assertTrue(client[0].startGame(0), "login");
         ourTurn.await();
         return client[0];
@@ -408,7 +412,7 @@ class WebGUITest {
         assertEquals(true, values.get(ClientOptions.SHOW_PRECOMBAT), "a boolean, nested in its group");
         assertEquals(0L, values.get(ClientOptions.INDIAN_DEMAND_RESPONSE), "a select option");
         assertEquals(0L, values.get(ClientOptions.MIN_NUMBER_FOR_DISPLAYING_GOODS), "an integer");
-        assertFalse(values.containsKey(ClientOptions.AUTO_SAVE_PREFIX), "text is left out");
+        assertEquals("Autosave", values.get(ClientOptions.AUTO_SAVE_PREFIX), "a text option");
 
         assertTrue(client.setClientOption(ClientOptions.SHOW_PRECOMBAT, "false"));
         assertFalse(options.getBoolean(ClientOptions.SHOW_PRECOMBAT));
@@ -426,12 +430,22 @@ class WebGUITest {
         assertFalse(client.setClientOption(ClientOptions.INDIAN_DEMAND_RESPONSE, "7"));
         assertFalse(client.setClientOption(ClientOptions.MIN_NUMBER_FOR_DISPLAYING_GOODS, "101"));
         assertFalse(client.setClientOption(ClientOptions.MIN_NUMBER_FOR_DISPLAYING_GOODS, "x"));
-        assertFalse(client.setClientOption(ClientOptions.AUTO_SAVE_PREFIX, "1"));
+        assertTrue(client.setClientOption(ClientOptions.AUTO_SAVE_PREFIX, "Auto"));
+        assertEquals("Auto", options.getText(ClientOptions.AUTO_SAVE_PREFIX));
+        assertFalse(client.setClientOption(ClientOptions.USER_MODS, "x"), "a list of mods is not set");
         assertFalse(client.setClientOption("model.option.noSuchOption", "true"));
         assertFalse(options.getBoolean(ClientOptions.SHOW_PRECOMBAT));
         assertEquals(ClientOptions.INDIAN_DEMAND_RESPONSE_REJECT,
             options.getInteger(ClientOptions.INDIAN_DEMAND_RESPONSE));
         assertEquals(40, options.getInteger(ClientOptions.MIN_NUMBER_FOR_DISPLAYING_GOODS));
+    }
+
+    @Test
+    @Timeout(120)
+    void aNewGameIsPlayedUnderThePlayerNameOption() throws Exception {
+        this.playerName = "Peter Stuyvesant";
+        final ClientEngine client = startGame();
+        assertEquals("Peter Stuyvesant", client.getClient().getMyPlayer().getName());
     }
 
     @Test

@@ -3,6 +3,7 @@ package online.freecol.web;
 import java.util.Locale;
 
 import net.sf.freecol.FreeCol;
+import net.sf.freecol.client.ClientOptions;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.client.networking.UserServerAPI;
 import net.sf.freecol.common.i18n.Messages;
@@ -95,8 +96,13 @@ public final class ClientEngine {
      */
     public boolean startGame(int rounds, String name) {
         this.roundsWanted = rounds;
+        // A new game: the player name option, as NewPanel fills it in, or FreeCol's default.
+        final String option = this.client.getClientOptions().getText(ClientOptions.NAME);
+        if (name == null || name.isEmpty()) {
+            name = (option == null || option.isEmpty()) ? FreeCol.getName() : option;
+        }
         if (!this.client.getConnectController()
-            .requestLogin((name == null || name.isEmpty()) ? FreeCol.getName() : name,
+            .requestLogin(name,
                 null, "worker", -1)) return false;
         // What StartGamePanel's start button does in a single-player game.
         if (!this.client.isInGame()) {

@@ -115,7 +115,7 @@ final class OptionsJson {
     }
 
     /**
-     * The values of a group's boolean, integer and select options, by id,
+     * The values of a group's boolean, integer, select and text options, by id,
      * nested groups included: {@code {id: value}}.
      *
      * @param group The group.
@@ -135,6 +135,8 @@ final class OptionsJson {
                 out.put(o.getId(), ((BooleanOption)o).getValue());
             } else if (o instanceof IntegerOption) { // and select and range options
                 out.put(o.getId(), ((IntegerOption)o).getValue());
+            } else if (o instanceof TextOption) {
+                out.put(o.getId(), ((TextOption)o).getValue());
             }
         }
     }
@@ -145,11 +147,15 @@ final class OptionsJson {
      *
      * @param group The group.
      * @param id The option's id.
-     * @param value "true" or "false", or a whole number.
+     * @param value "true" or "false", a whole number, or a text option's text.
      * @return True if the group has such an option and the value fits it.
      */
     static boolean set(OptionGroup group, String id, String value) {
         final Option<?> o = group.getOption(id);
+        if (o instanceof TextOption) {
+            ((TextOption)o).setValue(value);
+            return true;
+        }
         if (o instanceof BooleanOption) {
             if (!"true".equals(value) && !"false".equals(value)) return false;
             ((BooleanOption)o).setValue(Boolean.valueOf(value));

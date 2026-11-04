@@ -29,7 +29,7 @@ import { startPage, type ClientExports, type Scope, type ToWorker } from './chan
 import { debugMessage, debugMode, describeAnswer, type DebugRequest } from './debug';
 import { ColonyActions, ColonyTiles, type ColonyMoves, type DrawTiles } from './colony-panel';
 import { dialogs } from './dialogs';
-import { MENUS, MenuBar, goodsIcons, type Menu } from './frame';
+import { MENUS, MenuBar, framePlaces, goodsIcons, type Menu } from './frame';
 import { gameMenu, ordersMenu, viewMenu, type MenuActions } from './menus';
 import { commandForKey, type Command } from './input';
 import { PreferencesDialog } from './prefs-dialog';
@@ -231,12 +231,27 @@ function showCompass(on: boolean) {
     mapHost.append(compass);
   } else compass.remove();
 }
+// Where the player left each window, for FreeCol's remember panel positions option.
+const PLACES_KEY = 'freecol.panelPlaces';
+try {
+  framePlaces.places = JSON.parse(localStorage.getItem(PLACES_KEY) ?? '{}') as typeof framePlaces.places;
+} catch {
+  // None kept.
+}
+framePlaces.saved = () => {
+  try {
+    localStorage.setItem(PLACES_KEY, JSON.stringify(framePlaces.places));
+  } catch {
+    // They last until the page closes.
+  }
+};
 /** The preferences the page's look follows: motion, dimming, and FreeCol's display scaling and font size. */
 function applyLook(p: Prefs) {
   map.setMotion(moveMs(p), blinkMs(p), p.activeStyle);
   document.body.dataset.dimUnfocused = String(p.dimUnfocused);
   map.setColonyLabels(pageOption(p, 'model.option.displayColonyLabels') as ColonyLabels);
   showCompass(pageOption(p, 'model.option.displayCompassRose'));
+  framePlaces.remember = pageOption(p, 'model.option.rememberPanelPositions');
   goodsIcons.max = pageOption(p, 'model.option.guiMaxNumberOfGoodsImages');
   goodsIcons.countFrom = pageOption(p, 'model.option.guiMinNumberToDisplayGoodsCount');
   const root = document.documentElement.style;
