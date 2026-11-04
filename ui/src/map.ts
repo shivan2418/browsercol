@@ -301,9 +301,9 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
   };
 }
 
-function canvasPen(host: HTMLElement, width: number, height: number, background = true): Pen {
+function canvasPen(host: HTMLElement, width: number, height: number, background = true, quality = 20): Pen {
   const canvas = document.createElement('canvas');
-  let ratio = screenRatio();
+  let ratio = ratioAt(quality);
   /** The canvas's backing store at the pixel ratio, its CSS size in CSS pixels. */
   const setSize = (w: number, h: number) => {
     width = w;
@@ -433,7 +433,7 @@ function canvasPen(host: HTMLElement, width: number, height: number, background 
       });
     },
     resize: (w, h) => {
-      ratio = screenRatio();
+      ratio = ratioAt(quality);
       setSize(w, h);
     },
   };
@@ -766,7 +766,7 @@ export function mapDrawer(
       p = await pixiPen(host, ...startSize, quality);
       renderer = 'pixi';
     } catch (ex) {
-      p = canvasPen(host, ...startSize);
+      p = canvasPen(host, ...startSize, true, quality);
       renderer = `canvas2d (pixi failed: ${ex instanceof Error ? ex.message : String(ex)})`;
     }
     // The window may have changed while PixiJS started.
