@@ -38,7 +38,8 @@ import net.sf.freecol.common.option.GameOptions;
  *     background; a kind not built yet is an empty plot (site true, id
  *     null). production is what BuildingPanel shows, {type, name, keys,
  *     amount, max}, or null; upkeep its UpkeepLabel's number, or null when
- *     the upkeep game option is off or the building has none;
+ *     the upkeep game option is off or the building has none; tip what
+ *     BuildingToolTip shows, see {@link #tip};
  * <li>tiles: the 3x3 of TilesPanel, {id, pos ([x, y] in TilesPanel's
  *     grid: north at [0, 0], south at [2, 2]), at (the tile on the map),
  *     name, terrain (keys), forest (keys, or null), centre, ours (the
@@ -156,6 +157,7 @@ final class ColonyJson {
                     .putRaw("workers", "[]")
                     .putRaw("production", "null")
                     .putRaw("upkeep", "null")
+                    .putRaw("tip", "null")
                     .toString());
                 continue;
             }
@@ -170,6 +172,7 @@ final class ColonyJson {
                 .putRaw("production", buildingProduction(colony, b))
                 .putRaw("upkeep", (upkeep && type.getUpkeep() > 0)
                     ? String.valueOf(type.getUpkeep()) : "null")
+                .putRaw("tip", tip(colony, b))
                 .toString());
         }
         return Json.array(out);
@@ -194,6 +197,69 @@ final class ColonyJson {
         final int max = info.getMaximumProduction().isEmpty() ? output.getAmount()
             : info.getMaximumProduction().get(0).getAmount();
         return goods(output.getType(), output.getAmount()).put("max", max).toString();
+    }
+
+    /**
+     * BuildingToolTip: the input and the output, each {type, name, keys,
+     * amount, max}, max being what it could be were nothing short (both
+     * null when the building makes nothing, as Swing leaves that row
+     * empty; input null when the building takes none); the workers Swing
+     * lists, each a unit with made (the goods it makes, or null), progress
+     * ("turns/needed", or null) and student (a unit, or null); and
+     * breeding, the breeding note, or null.
+     */
+    private static String tip(Colony colony, Building b) {
+        final ProductionInfo info = b.getProductionInfo();
+        final AbstractGoods made = (info == null || info.getProduction().isEmpty())
+            ? null : info.getProduction().get(0);
+        final AbstractGoods used = (info == null || info.getConsumption().isEmpty())
+            ? null : info.getConsumption().get(0);
+        String output = "null";
+        String input = "null";
+        if (made != null && made.getAmount() > 0) {
+            output = withMax(made, info.getMaximumProduction());
+            if (used != null) input = withMax(used, info.getMaximumConsumption());
+        }
+        final AbstractGoods first = b.getOutputs().findFirst().orElse(null);
+        final GoodsType outputType = (first == null) ? null : first.getType();
+        final List<String> workers = new ArrayList<>();
+        if (outputType != null) {
+            for (Unit u : b.getUnitList()) {
+                final int amount = b.getUnitProduction(u, outputType);
+                if (amount > 0) {
+                    workers.add(unit(u).putRaw("made", goods(outputType, amount).toString())
+                        .putRaw("progress", "null")
+                        .putRaw("student", "null").toString());
+                }
+            }
+        } else if (b.canTeach()) {
+            for (Unit u : b.getUnitList()) {
+                final Unit student = u.getStudent();
+                workers.add(unit(u).putRaw("made", "null")
+                    .put("progress", (student == null) ? null
+                        : u.getTurnsOfTraining() + "/" + u.getNeededTurnsOfTraining())
+                    .putRaw("student", (student == null) ? "null" : unit(student).toString())
+                    .toString());
+            }
+        }
+        final int breed = (outputType == null || !outputType.isBreedable()) ? -1
+            : outputType.getBreedingNumber();
+        final String breeding = (breed > colony.getGoodsCount(outputType))
+            ? Messages.message(StringTemplate.template("buildingToolTip.breeding")
+                .addAmount("%number%", breed).addNamed("%goods%", outputType))
+            : null;
+        return new Json().putRaw("input", input).putRaw("output", output)
+            .putRaw("workers", Json.array(workers)).put("breeding", breeding)
+            .toString();
+    }
+
+    /** A ProductionLabel's goods: the amount, and the most of the list's same goods (else the amount). */
+    private static String withMax(AbstractGoods ag, List<AbstractGoods> maxima) {
+        int max = ag.getAmount();
+        for (AbstractGoods m : maxima) {
+            if (m.getType() == ag.getType()) max = m.getAmount();
+        }
+        return goods(ag.getType(), ag.getAmount()).put("max", max).toString();
     }
 
     /** TilesPanel's grid: Swing's tiles[x][y], from the colony tile. */

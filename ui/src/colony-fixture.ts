@@ -53,6 +53,7 @@ export const jamestown: ColonyView = {
       workers: [],
       production: { ...goods('bells', 1), max: 1 },
       upkeep: null,
+      tip: { input: null, output: { ...goods('bells', 1), max: 1 }, workers: [], breeding: null },
     },
     {
       id: 'building:2',
@@ -64,6 +65,13 @@ export const jamestown: ColonyView = {
       workers: [colonist('unit:2')],
       production: { ...goods('hammers', 3), max: 6 },
       upkeep: 5,
+      // Short of lumber: 3 of the 6 it needs.
+      tip: {
+        input: { ...goods('lumber', 3), max: 6 },
+        output: { ...goods('hammers', 3), max: 6 },
+        workers: [{ ...colonist('unit:2'), made: goods('hammers', 3), progress: null, student: null }],
+        breeding: null,
+      },
     },
     {
       id: null,
@@ -75,6 +83,7 @@ export const jamestown: ColonyView = {
       workers: [],
       production: null,
       upkeep: null,
+      tip: null,
     },
   ],
   tiles: [

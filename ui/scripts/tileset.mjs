@@ -66,6 +66,7 @@ const colony = {
       workers: [],
       production: null,
       upkeep: null,
+      tip: { input: null, output: null, workers: [], breeding: null },
     },
   ],
   tiles: [],

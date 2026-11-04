@@ -1285,6 +1285,58 @@
         align-items: center;
         font-weight: 700;
       }
+      /* BuildingToolTip, put on the page beside the building the pointer is over. */
+      .building-tip {
+        position: fixed;
+        z-index: 1001;
+        max-width: 280px;
+        padding: 10px 14px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        background: var(--box);
+        color: var(--ink);
+        border: 1px solid var(--line);
+        border-radius: 3px;
+        box-shadow: 0 2px 8px var(--backdrop);
+        pointer-events: none;
+      }
+      .building-tip .tip-name {
+        font-size: var(--fs-s);
+      }
+      .building-tip .tip-production {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .building-tip .art {
+        height: 70px;
+      }
+      .building-tip .tip-workers {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: end;
+        gap: 8px;
+      }
+      .building-tip .tip-worker {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+      }
+      .building-tip .unit,
+      .building-tip .placeholder {
+        height: 40px;
+      }
+      .building-tip .unit.student {
+        height: 28px;
+      }
+      .building-tip .breeding {
+        margin: 0;
+        font-size: var(--fs-s);
+        text-align: center;
+      }
       .colony .building.site {
         opacity: 0.6;
       }
