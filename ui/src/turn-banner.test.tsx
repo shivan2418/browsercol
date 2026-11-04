@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, cleanup, render } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { NEW_TURN_MS, TurnBanner, turnNotice, type TurnFacts } from './turn-banner';
 
 const mine = (turn: string, ourTurn = true): TurnFacts => ({ turn, turnLabel: 'Spring 1493', ourTurn });
