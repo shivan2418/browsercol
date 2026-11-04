@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -24,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
 import net.sf.freecol.client.FreeColClient;
+import net.sf.freecol.client.ClientOptions;
 import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.model.BuildableType;
 import net.sf.freecol.common.model.Building;
@@ -44,6 +46,7 @@ import net.sf.freecol.common.model.TradeRoute;
 import net.sf.freecol.common.model.Unit;
 import net.sf.freecol.server.model.ServerColony;
 import net.sf.freecol.common.model.UnitLocation;
+import net.sf.freecol.common.model.WorkLocation;
 
 
 /**
@@ -66,6 +69,8 @@ class CommandsTest {
     /** The colony panels the WebGUI showed, as their JSON. */
     private final List<String> colonies = Collections.synchronizedList(new ArrayList<>());
 
+    /** The reports the WebGUI showed, as their JSON. */
+    private final List<String> reports = Collections.synchronizedList(new ArrayList<>());
     /** The information panels the WebGUI showed, as their JSON. */
     private final List<String> informationPanels = Collections.synchronizedList(new ArrayList<>());
 
@@ -221,6 +226,7 @@ class CommandsTest {
                     if (kind.equals("colony")) colonies.add(json);
                     if (kind.equals("tradeRoutes")) routePanels.add(json);
                     if (kind.equals("information")) informationPanels.add(json);
+                    if (kind.equals("report")) reports.add(json);
                 }
                 public void ask(int id, String kind, String json) {
                     ui.execute(() -> {
@@ -486,6 +492,65 @@ class CommandsTest {
         assertFalse(commands.putOutsideColony(colonist.getId()), "already outside");
         assertTrue(commands.work(colonist.getId(), hall.getId()), "back to work from outside");
         assertEquals(hall.getId(), onServer.getLocation().getId());
+    }
+
+    @Test
+    @Timeout(180)
+    void aColonistPutOnAPoorerTileIsToldOfTheBestOne() throws Exception {
+        startGame();
+        final Commands commands = client.getCommands();
+        final Colony serverColony = foundAColony(commands);
+        final Colony ours = client.getGame()
+            .getFreeColGameObject(serverColony.getId(), Colony.class);
+        final Unit colonist = ours.getUnitList().get(0);
+        final ClientOptions options = client.getClient().getClientOptions();
+        final List<ColonyTile> tiles = ours.getColonyTiles().stream()
+            .filter(t -> t.getNoAddReason(colonist) == UnitLocation.NoAddReason.NONE)
+            .collect(Collectors.toList());
+
+        // ColonyPanel's warning, once for each better tile in a row.
+        informationPanels.clear();
+        WorkLocation warned = null;
+        int warnings = 0;
+        for (ColonyTile t : tiles) {
+            final int before = informationPanels.size();
+            if (!commands.work(colonist.getId(), t.getId())) continue;
+            final GoodsType made = colonist.getWorkType();
+            final WorkLocation best = (made == null) ? null : ours.getWorkLocationFor(colonist, made);
+            final boolean poorer = best != null && best != t
+                && t.getPotentialProduction(made, colonist.getType())
+                    < best.getPotentialProduction(made, colonist.getType());
+            if (poorer && best != warned) {
+                warned = best;
+                warnings++;
+                assertEquals(before + 1, informationPanels.size(), "warned on " + t);
+                final String text = textOf(informationPanels.get(before));
+                assertTrue(text.contains(Messages.getName(made)), text);
+            } else {
+                assertEquals(before, informationPanels.size(), "no warning on " + t);
+            }
+        }
+        assertTrue(warnings > 0, "some tile is poorer than the best");
+
+        // The option off: no warnings.
+        options.setBoolean(ClientOptions.SHOW_NOT_BEST_TILE, false);
+        informationPanels.clear();
+        for (ColonyTile t : tiles) commands.work(colonist.getId(), t.getId());
+        assertEquals(List.of(), informationPanels);
+    }
+
+    @Test
+    @Timeout(180)
+    void theLabourReportIsTheKindTheClientOptionSays() throws Exception {
+        startGame();
+        final Commands commands = client.getCommands();
+        final ClientOptions options = client.getClient().getClientOptions();
+        reports.clear();
+        assertTrue(commands.showReport("labour"));
+        assertTrue(reports.get(0).contains("\"report\":\"labour\""), reports.get(0));
+        options.setInteger(ClientOptions.LABOUR_REPORT, ClientOptions.LABOUR_REPORT_COMPACT);
+        assertTrue(commands.showReport("labour"));
+        assertTrue(reports.get(1).contains("\"report\":\"compactLabour\""), reports.get(1));
     }
 
     @Test
