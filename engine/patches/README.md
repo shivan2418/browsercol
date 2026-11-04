@@ -40,6 +40,7 @@ drops a message, a server request, model state or a callback.
 | `Utils`, `Nation`, `SetColorMessage`, `ChatMessage` | `Utils.getRGB` replaces `Color.getRGB`. | platform |
 | `common/io/*`, `HighScore`, `Messages`, `Specification` | `FileInputStream` replaces `File.toPath`; Aalto factories; no indenting; no POSIX modes; zip entries read whole. | platform |
 | `common/i18n/Messages.java` | `FileChooser.*` keys no longer go to Swing's `UIManager`. | Swing |
+| `common/i18n/Messages.java` | English descriptions the rules do not bear out are replaced (`CLARIFIED`): Brebeuf's. | online |
 | `common/model/Market.java`, `MarketWas.java` | Listeners as a list, not an array. | platform |
 | `common/model/TradeRoute.java` | `copyIn` keeps `silent`. | upstream bug fix |
 | `common/option/AudioMixerOption.java`, `common/sound/SoundPlayer.java` | No mixers. | platform |
