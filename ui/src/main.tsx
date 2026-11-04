@@ -33,7 +33,20 @@ import { MENUS, MenuBar, type Menu } from './frame';
 import { gameMenu, ordersMenu, viewMenu, type MenuActions } from './menus';
 import { commandForKey, type Command } from './input';
 import { PreferencesDialog } from './prefs-dialog';
-import { blinkMs, loadPrefs, moveMs, savePrefs, visibleMessages, type Prefs } from './prefs';
+import {
+  blinkMs,
+  fromEngine,
+  loadPrefs,
+  modeValue,
+  moveMs,
+  pageOption,
+  savePrefs,
+  shownClientOptions,
+  startModes,
+  visibleMessages,
+  type Prefs,
+} from './prefs';
+import { clientOptionsGroup, leaves, type OptionGroup } from './options';
 import { mapDrawer, type MapView } from './map';
 import { europeButtons } from './europe-client';
 import { DialogHost, type Art, type ReportButtons, type RouteButtons } from './panels';
@@ -191,6 +204,38 @@ let prefs: Prefs = loadPrefs();
 let prefsOpen = false;
 map.setMotion(moveMs(prefs), blinkMs(prefs), prefs.activeStyle);
 document.body.dataset.dimUnfocused = String(prefs.dimUnfocused);
+/** FreeCol's client options as the Preferences window shows them, and their defaults, once the data has loaded. */
+let freecolOptions: OptionGroup | null = null;
+let freecolDefaults = new Map<string, unknown>();
+/** Tell the client Engine FreeCol's client options as the player set them. */
+function pushFreecolOptions(values: Prefs['freecol']) {
+  for (const [id, v] of Object.entries(values)) colonyClient?.setClientOption(id, String(v));
+}
+/** Change the preferences: keep them, and make the page and the client Engine follow. */
+function setPrefs(p: Prefs) {
+  const was = prefs;
+  prefs = p;
+  savePrefs(p);
+  map.setMotion(moveMs(p), blinkMs(p), p.activeStyle);
+  document.body.dataset.dimUnfocused = String(p.dimUnfocused);
+  pushFreecolOptions(Object.fromEntries(Object.entries(p.freecol).filter(([id, v]) => was.freecol[id] !== v)));
+  // The View menu's modes follow their options.
+  const modes = startModes(p);
+  for (const mode of ['grid', 'borders', 'names'] as const) {
+    if (view.modes[mode] !== modes[mode]) dispatch({ k: 'toggle', mode });
+  }
+  renderSide();
+}
+/** Keep FreeCol's client options as the client Engine has them now: the turn report's buttons change some. */
+function pullFreecolOptions() {
+  if (!colonyClient) return;
+  const engine = JSON.parse(colonyClient.clientOptionValues()) as Record<string, unknown>;
+  const freecol = fromEngine(prefs, engine, freecolDefaults);
+  if (JSON.stringify(freecol) !== JSON.stringify(prefs.freecol)) {
+    prefs = { ...prefs, freecol };
+    savePrefs(prefs);
+  }
+}
 /** Whether the side panel is shown: the player's choice, kept for the next visit. */
 const SIDE_PANEL_KEY = 'freecol.sidePanel';
 let sidePanel = (() => {
@@ -236,8 +281,9 @@ const menuActions = (): MenuActions => ({
   centreOnUnit: () => dispatch({ k: 'focus', tile: null, at: view.active?.tile ?? null }),
   modes: view.modes,
   toggleMode: (mode) => {
-    dispatch({ k: 'toggle', mode });
-    renderSide();
+    // As FreeCol's display actions do, the mode is kept as its client option.
+    const [id, v] = modeValue(mode, !view.modes[mode]);
+    setPrefs({ ...prefs, freecol: { ...prefs.freecol, [id]: v } });
   },
   sidePanel,
   toggleSidePanel,
@@ -381,13 +427,8 @@ function renderSide() {
       {prefsOpen && (
         <PreferencesDialog
           prefs={prefs}
-          change={(p) => {
-            prefs = p;
-            savePrefs(p);
-            map.setMotion(moveMs(p), blinkMs(p), p.activeStyle);
-            document.body.dataset.dimUnfocused = String(p.dimUnfocused);
-            renderSide();
-          }}
+          freecol={freecolOptions}
+          change={setPrefs}
           close={() => {
             prefsOpen = false;
             renderSide();
@@ -402,7 +443,7 @@ function renderSide() {
   );
 }
 
-let view = initialView;
+let view: ViewState = { ...initialView, modes: startModes(prefs) };
 function dispatch(e: ViewEvent) {
   view = reduce(view, e);
   map.show(view);
@@ -468,7 +509,7 @@ const gui: GuiHandlers = {
         runCommand({ k: 'endTurn' });
       }
     },
-    selectedTile: (e) => dispatch({ k: 'selectedTile', ...e }),
+    selectedTile: (e) => dispatch({ k: 'selectedTile', ...e, always: pageOption(prefs, 'model.option.alwaysCenter') }),
     focus: (e) => dispatch({ k: 'focus', ...e }),
     information: (e) => dialogQueue.show('information', e),
     error: (e) => {
@@ -546,6 +587,7 @@ const dragged = pointerInput(mapHost, {
   dispatch,
   tileAt: (px, py) => map.tileAt(px, py),
   goto: gotoDeps,
+  edgeScrolls: () => pageOption(prefs, 'model.option.autoScroll'),
 });
 gotoKeyInput(
   mapHost,
@@ -664,6 +706,11 @@ async function run() {
     }
   }
   const data = (await (await fetch(dataUrl)).json()) as string[];
+  const clientOptions = clientOptionsGroup(data);
+  if (clientOptions) {
+    freecolOptions = shownClientOptions(clientOptions);
+    freecolDefaults = new Map([...leaves(clientOptions)].map(([id, o]) => [id, o.value]));
+  }
   const chosen = skipStart ? '' : await chooseGame(data);
   choice = chosen;
   const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
@@ -741,13 +788,20 @@ async function run() {
   };
   colonyNow = (id) => exports.colony(id);
   colonyClient = exports;
+  pushFreecolOptions(prefs.freecol);
   debugRequest = (r) => worker.postMessage(debugMessage(r));
   debugSkip = (n) => {
     if (n > 0) exports.skipTurns(n);
   };
   reportButtons = {
-    groupBy: (value) => exports.reportGroupBy(value),
-    filter: (index, shown) => exports.reportFilter(index, shown),
+    groupBy: (value) => {
+      exports.reportGroupBy(value);
+      pullFreecolOptions();
+    },
+    filter: (index, shown) => {
+      exports.reportFilter(index, shown);
+      pullFreecolOptions();
+    },
     ignore: (index, ignore) => exports.reportIgnore(index, ignore),
   };
   routeButtons = {

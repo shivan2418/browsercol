@@ -44,7 +44,8 @@ export interface ViewState {
 
 export type ViewEvent =
   | ({ k: 'activeUnit' } & GuiEvents['activeUnit'])
-  | ({ k: 'selectedTile' } & GuiEvents['selectedTile'])
+  // always: FreeCol's always center option, a selected tile centred even when in view.
+  | ({ k: 'selectedTile'; always?: boolean } & GuiEvents['selectedTile'])
   | ({ k: 'focus' } & GuiEvents['focus'])
   | { k: 'map'; map: MapFacts }
   | { k: 'resize'; width: number; height: number }
@@ -173,9 +174,9 @@ function apply(v: ViewState, e: ViewEvent): ViewState {
       return { ...active, selected: e.at, centre: tileCentre(e.at) };
     }
     case 'selectedTile': {
-      // SwingGUI.changeView(Tile): refocus only if the tile is out of view.
+      // SwingGUI.changeView(Tile): refocus only if the tile is out of view, unless always centring.
       const selected = { ...v, mode: 'terrain' as const, selected: e.at };
-      return e.at && !onScreen(v, e.at) ? { ...selected, centre: tileCentre(e.at) } : selected;
+      return e.at && (e.always || !onScreen(v, e.at)) ? { ...selected, centre: tileCentre(e.at) } : selected;
     }
     case 'focus':
       return e.at ? { ...v, centre: tileCentre(e.at) } : v;

@@ -9,6 +9,10 @@ export default defineConfig({
     outDir: '../dist',
     emptyOutDir: true,
   },
+  server: {
+    // The UI's own files, and FreeCol's data, which some tests read as text (prefs.test.ts).
+    fs: { allow: ['.', '../freecol/data'] },
+  },
   worker: {
     format: 'es',
   },

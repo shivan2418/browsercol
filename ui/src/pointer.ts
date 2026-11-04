@@ -81,6 +81,8 @@ export interface PointerDeps {
     preview: (tile: Tile | null) => void;
     go: (tile: Tile) => void;
   };
+  /** Whether a pointer resting at the map's edge scrolls it (FreeCol's auto scroll option); always, if left out. */
+  edgeScrolls?: () => boolean;
 }
 
 /**
@@ -147,7 +149,10 @@ export function gotoKeyInput(
 }
 
 /** Move the view with the middle button on the map in a host. Returns whether the last click was a drag. */
-export function pointerInput(host: HTMLElement, { view, dispatch, tileAt, goto }: PointerDeps): () => boolean {
+export function pointerInput(
+  host: HTMLElement,
+  { view, dispatch, tileAt, goto, edgeScrolls = () => true }: PointerDeps,
+): () => boolean {
   let wheel = 0;
   let from: [number, number] | null = null;
   /** Whether the press in progress is the middle button, the only one that pans. */
@@ -235,7 +240,7 @@ export function pointerInput(host: HTMLElement, { view, dispatch, tileAt, goto }
     if (view().hover) dispatch({ k: 'hover', at: null });
   });
   const scroll = (now: number) => {
-    const [ex, ey] = pointer && !from ? edgeScroll(pointer, view().viewport) : [0, 0];
+    const [ex, ey] = pointer && !from && edgeScrolls() ? edgeScroll(pointer, view().viewport) : [0, 0];
     if (!ex && !ey) edgeSince = 0;
     else if (!edgeSince) edgeSince = now;
     else if (now - edgeSince >= EDGE_DELAY) dispatch({ k: 'pan', dx: ex * EDGE_SPEED, dy: ey * EDGE_SPEED });

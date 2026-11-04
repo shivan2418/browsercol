@@ -130,6 +130,10 @@ describe('the view', () => {
     expect(near.centre).toEqual(active.centre);
     // Off screen, it centres there.
     expect(reduce(active, { k: 'selectedTile', tile: 'tile:5', at: [15, 30] }).centre).toEqual([1984, 992]);
+    // With FreeCol's always center option, it centres there even on screen.
+    const centred = reduce(active, { k: 'selectedTile', tile: 'tile:4', at: [6, 12], always: true });
+    expect(centred.centre).toEqual(reduce(active, { k: 'focus', tile: null, at: [6, 12] }).centre);
+    expect(centred.centre).not.toEqual(active.centre);
 
     // End-turn mode: no active unit, no cursor.
     const ended = reduce(near, {
