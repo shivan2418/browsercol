@@ -437,7 +437,7 @@ class CommandsTest {
         // A ship never founds a colony, moves or not.
         final String shipText = cannotFoundMessage(commands, ship);
         assertTrue(shipText.contains(typeName(ship)), () -> "names the ship: " + shipText);
-        assertTrue(shipText.endsWith("Its type never founds a colony."),
+        assertTrue(shipText.endsWith("Units of its type never found colonies."),
             () -> "the message says the ship's type cannot: " + shipText);
 
         // A rebel founds no colony unless the game option says so; that is

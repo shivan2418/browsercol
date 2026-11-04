@@ -2775,11 +2775,11 @@ public final class InGameController extends FreeColClientHolder {
      * have no sentence for these, so they are English, as the Engine is.
      *
      * @param unit The {@code Unit} that cannot found a colony.
-     * @return The cause, as a sentence.
+     * @return The cause, as a sentence, or "" for a cause not known here.
      */
     private static String whyNoColony(Unit unit) {
         if (!unit.getType().canBuildColony()) {
-            return "Its type never founds a colony.";
+            return "Units of its type never found colonies.";
         }
         if (unit.getOwner().isRebel()
             && !unit.getSpecification().getBoolean(GameOptions.FOUND_COLONY_DURING_REBELLION)) {
@@ -2787,7 +2787,9 @@ public final class InGameController extends FreeColClientHolder {
                 + Messages.message(GameOptions.FOUND_COLONY_DURING_REBELLION + ".name")
                 + " is off.";
         }
-        return "It has no moves left this turn.";
+        if (unit.getMovesLeft() <= 0) return "It has no moves left this turn.";
+        // A cause Unit.canBuildColony has gained since: say none rather than the wrong one.
+        return "";
     }
 
     /**
@@ -2812,11 +2814,13 @@ public final class InGameController extends FreeColClientHolder {
             // The message then says why: upstream's Swing client never shows
             // it, as BuildColonyAction is disabled, but the player who meets
             // it should not have to guess which of the causes applies.
-            showInformationPanel(unit, StringTemplate.label(" ")
+            final StringTemplate message = StringTemplate.label(" ")
                 .addStringTemplate(StringTemplate
                     .template("buildColony.badUnit")
-                    .addStringTemplate("%unit%", unit.getLabel()))
-                .addName(whyNoColony(unit)));
+                    .addStringTemplate("%unit%", unit.getLabel()));
+            final String why = whyNoColony(unit);
+            if (!why.isEmpty()) message.addName(why);
+            showInformationPanel(unit, message);
             return false;
         }
 
