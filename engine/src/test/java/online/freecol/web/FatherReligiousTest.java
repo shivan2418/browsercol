@@ -244,7 +244,7 @@ class FatherReligiousTest {
 
     /** The recruit pool the Browser UI's Europe panel shows: its units' image keys. */
     private String recruitPanel() {
-        final Object top = JsonReader.read(EuropeJson.of(me(), null));
+        final Object top = JsonReader.read(EuropeJson.of(me(), null, java.util.List.of()));
         final Object recruit = ((java.util.Map<?, ?>)top).get("recruit");
         return String.valueOf(((java.util.Map<?, ?>)recruit).get("units"));
     }
