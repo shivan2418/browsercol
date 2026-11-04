@@ -143,7 +143,9 @@ gives the same map and starting units every time (FreeCol's own `--seed`
 only reseeds a loaded game, so the Engine seeds a new one itself). An
 unknown key, option, nation or difficulty, or a value the option does not
 take, fails the start with a message naming it. `england-large` and
-`dutch-small` ship. The browser scripts take page parameters:
+`dutch-small` ship, and `colony-school`. `ref-last-stand` is the end of the
+War of Independence: the Dutch have declared, and the King's last regular
+stands surrounded by their army; end the turn and the REF gives up. The browser scripts take page parameters:
 `DEV_VARIANT=web ./dev.sh node ui/scripts/smoke.mjs --query preset=dutch-small`
 and the same `--query` for `play.mjs`.
 

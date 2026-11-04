@@ -14,6 +14,8 @@ import net.sf.freecol.common.option.GameOptions;
 import net.sf.freecol.common.model.GoodsContainer;
 import net.sf.freecol.common.model.GoodsType;
 import net.sf.freecol.common.model.Player;
+import net.sf.freecol.common.model.Role;
+import net.sf.freecol.common.model.StringTemplate;
 import net.sf.freecol.common.model.Specification;
 import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.Unit;
@@ -47,7 +49,19 @@ import net.sf.freecol.server.model.ServerUnit;
  * { "action": "addGoods", "type": "model.goods.food", "amount": 100, "x": 3, "y": 4 }
  * { "action": "addGoods", "type": "model.goods.food", "amount": 20, "unit": "unit:123" }
  * { "action": "aiView" }
+ * { "action": "declareIndependence", "nation": "Free Dutch", "country": "New Holland" }
+ * { "action": "clearREF" }
+ * { "action": "addUnit", "type": "model.unit.kingsRegular", "role": "model.role.infantry",
+ *   "owner": "ref", "dx": 2, "dy": 0 }
+ * { "action": "addUnit", "type": "model.unit.artillery", "around": true }
  * </pre>
+ *
+ * A tile is named by "x" and "y", or by "dx" and "dy" from where the last
+ * colony or request was, or else is that tile. A unit is the human's, or,
+ * with "owner": "ref", their Royal Expeditionary Force's once they have
+ * declared; "role" equips it; "around" puts one on each land tile next to
+ * the tile that has no settlement and no other player's unit, instead of
+ * on the tile.
  *
  * Goods go to the colony on the tile, or to the unit with the id. Every
  * action answers with a JSON object naming it ("action"), so the Browser UI
@@ -98,9 +112,12 @@ final class DebugActions {
             Boolean.TRUE.equals(r.get("inColony")), r);
         case "addGoods": return addGoods(string(r, "type"), integer(r, "amount"), r);
         case "aiView": return aiView();
+        case "declareIndependence": return declareIndependence(r);
+        case "clearREF": return clearREF();
         default:
             throw bad("unknown action \"" + action + "\" (known: revealMap, addGold,"
-                + " addColony, addBuilding, addUnit, addGoods, aiView)");
+                + " addColony, addBuilding, addUnit, addGoods, aiView,"
+                + " declareIndependence, clearREF)");
         }
     }
 
@@ -132,6 +149,10 @@ final class DebugActions {
     private Tile at(Map<?, ?> r) {
         if (r.get("x") != null || r.get("y") != null) {
             this.focus = tile(integer(r, "x"), integer(r, "y"));
+        } else if (r.get("dx") != null || r.get("dy") != null) {
+            if (this.focus == null) throw bad("\"dx\" and \"dy\" count from a colony or tile named before");
+            this.focus = tile(this.focus.getX() + ((r.get("dx") == null) ? 0 : integer(r, "dx")),
+                              this.focus.getY() + ((r.get("dy") == null) ? 0 : integer(r, "dy")));
         }
         if (this.focus == null) throw bad("name a tile with \"x\" and \"y\"");
         return this.focus;
@@ -196,9 +217,41 @@ final class DebugActions {
      * type on the tile, or aboard a ship of theirs there with room for it.
      */
     private String addUnit(String typeId, Tile tile, boolean inColony, Map<?, ?> r) {
-        ServerPlayer p = me();
-        UnitType type = this.game.getSpecification().getUnitType(typeId);
+        final ServerPlayer p = owner(r);
+        final UnitType type = this.game.getSpecification().getUnitType(typeId);
         if (type == null) throw bad("unknown unit type \"" + typeId + "\"");
+        final Role role = (r.get("role") == null) ? type.getDefaultRole()
+            : this.game.getSpecification().getRole(string(r, "role"));
+        if (role == null) throw bad("unknown role \"" + r.get("role") + "\"");
+        if (!Boolean.TRUE.equals(r.get("around"))) {
+            final Unit unit = addUnit(p, type, role, tile, inColony, r);
+            return new Json().put("action", "addUnit").put("unit", unit.getId()).toString();
+        }
+        final List<String> ids = new ArrayList<>();
+        for (Tile t : tile.getSurroundingTiles(1, 1)) {
+            if (!t.isLand() || t.hasSettlement()
+                || t.getUnitList().stream().anyMatch(u -> u.getOwner() != p)) continue;
+            ids.add(addUnit(p, type, role, t, false, r).getId());
+        }
+        if (ids.isEmpty()) throw bad("no free land next to " + tile.getX() + "," + tile.getY());
+        // What stands in the middle, now in sight.
+        final ChangeSet cs = new ChangeSet();
+        cs.add(See.perhaps(), tile);
+        this.sGame.sendTo(me(), cs);
+        return new Json().put("action", "addUnit").putRaw("units",
+            "[" + String.join(",", ids.stream().map(Json::quote).toList()) + "]").toString();
+    }
+
+    /** The human, or with "owner": "ref" their REF once they have declared. */
+    private ServerPlayer owner(Map<?, ?> r) {
+        if (r.get("owner") == null) return me();
+        if (!"ref".equals(r.get("owner"))) throw bad("\"owner\" is \"ref\" or left out");
+        final ServerPlayer ref = (ServerPlayer)me().getREFPlayer();
+        if (!me().isRebel() || ref == null) throw bad("the REF comes once the human has declared independence");
+        return ref;
+    }
+
+    private Unit addUnit(ServerPlayer p, UnitType type, Role role, Tile tile, boolean inColony, Map<?, ?> r) {
         // A land unit at sea goes aboard a ship with room for it.
         Unit carrier = (tile.isLand() || type.isNaval()) ? null
             : tile.getUnitList().stream()
@@ -206,7 +259,7 @@ final class DebugActions {
                     && u.getSpaceLeft() >= type.getSpaceTaken())
                 .findFirst().orElse(null);
         if (!tile.isLand() && !type.isNaval() && carrier == null) {
-            throw bad("a land unit cannot be put at sea without a ship of yours with room");
+            throw bad("a land unit cannot be put at sea without a ship of its owner's with room");
         }
         // With inColony, a unit of a colony of ours joins it, to work, as a colonist who lives there.
         final Colony colony = tile.getColony();
@@ -214,7 +267,7 @@ final class DebugActions {
             throw bad("no colony of yours there to join");
         }
         ServerUnit unit = new ServerUnit(this.game, (carrier != null) ? carrier
-            : inColony ? colony : tile, p, type);
+            : inColony ? colony : tile, p, type, role);
         p.exploreForUnit(unit);
         unit.setMovesLeft(unit.getInitialMovesLeft());
         // "experience" is what it has gained at "experienceGoods", or at what it works at.
@@ -231,8 +284,45 @@ final class DebugActions {
         cs.add(See.perhaps(), tile);
         if (inColony) cs.add(See.only(p), colony);
         if (carrier != null) cs.add(See.only(p), carrier);
-        this.sGame.sendTo(p, cs);
-        return new Json().put("action", "addUnit").put("unit", unit.getId()).toString();
+        this.sGame.sendTo(me(), cs);
+        return unit;
+    }
+
+    /**
+     * The human declares independence as the server has them declare
+     * (InGameController.declareIndependence), whatever their rebels: the
+     * nation and country names default to the declaration dialog's.
+     */
+    private String declareIndependence(Map<?, ?> r) {
+        final ServerPlayer p = me();
+        if (p.getPlayerType() != Player.PlayerType.COLONIAL) throw bad("the human is not a colony");
+        final String nation = (r.get("nation") != null) ? string(r, "nation")
+            : Messages.message(StringTemplate.template("confirmDeclarationDialog.defaultNation")
+                .addStringTemplate("%nation%", p.getNationLabel()));
+        final String country = (r.get("country") != null) ? string(r, "country")
+            : Messages.message(StringTemplate.template("confirmDeclarationDialog.defaultCountry")
+                .addStringTemplate("%nation%", p.getNationLabel()));
+        this.sGame.sendTo(p, this.igc.declareIndependence(p, nation, country));
+        return new Json().put("action", "declareIndependence")
+            .put("ref", p.getREFPlayer().getId()).toString();
+    }
+
+    /**
+     * Every unit of the human's REF goes, wherever it is (in its Europe,
+     * aboard, on the map), so a scenario can give it only the units it names.
+     */
+    private String clearREF() {
+        final ServerPlayer ref = owner(Map.of("owner", "ref"));
+        final ChangeSet cs = new ChangeSet();
+        for (Unit u : new ArrayList<>(ref.getUnitSet())) {
+            if (u.isDisposed()) continue;
+            final Tile tile = u.getTile();
+            ((ServerUnit)u).csRemove(See.perhaps(), tile, cs);
+            if (tile != null) cs.add(See.perhaps(), tile);
+        }
+        ref.invalidateCanSeeTiles();
+        this.sGame.sendTo(me(), cs);
+        return new Json().put("action", "clearREF").toString();
     }
 
     /**
