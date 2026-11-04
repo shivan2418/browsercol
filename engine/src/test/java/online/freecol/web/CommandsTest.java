@@ -43,6 +43,7 @@ import net.sf.freecol.common.model.TileImprovement;
 import net.sf.freecol.common.model.StringTemplate;
 import net.sf.freecol.common.model.TileImprovementType;
 import net.sf.freecol.common.model.TradeRoute;
+import net.sf.freecol.common.model.LostCityRumour;
 import net.sf.freecol.common.model.Unit;
 import net.sf.freecol.server.model.ServerColony;
 import net.sf.freecol.common.model.UnitLocation;
@@ -537,6 +538,42 @@ class CommandsTest {
         informationPanels.clear();
         for (ColonyTile t : tiles) commands.work(colonist.getId(), t.getId());
         assertEquals(List.of(), informationPanels);
+    }
+
+    @Test
+    @Timeout(180)
+    void aColonistPutOnARumourTileIsToldOfTheRumourNotDocks() throws Exception {
+        startGame();
+        final Commands commands = client.getCommands();
+        final Colony serverColony = foundAColony(commands);
+        final Colony ours = client.getGame()
+            .getFreeColGameObject(serverColony.getId(), Colony.class);
+        final Unit colonist = ours.getUnitList().get(0);
+
+        // A land tile of the colony, unclaimed and with a rumour, on both sides.
+        final ColonyTile ct = ours.getColonyTiles().stream()
+            .filter(t -> !t.isColonyCenterTile() && t.getWorkTile().isLand() && t.isEmpty())
+            .findFirst().get();
+        final Tile serverTile = serverColony.getGame()
+            .getFreeColGameObject(ct.getWorkTile().getId(), Tile.class);
+        final LostCityRumour rumour = new LostCityRumour(serverTile.getGame(), serverTile);
+        serverTile.changeOwnership(null, null);
+        serverTile.addLostCityRumour(rumour);
+        // The client cannot make ids, so its copy takes the server's.
+        final Tile clientTile = ct.getWorkTile();
+        final LostCityRumour copy = new LostCityRumour(clientTile.getGame(), rumour.getId());
+        final java.lang.reflect.Field at = net.sf.freecol.common.model.TileItem.class.getDeclaredField("tile");
+        at.setAccessible(true);
+        at.set(copy, clientTile);
+        clientTile.changeOwnership(null, null);
+        clientTile.addLostCityRumour(copy);
+        assertEquals(UnitLocation.NoAddReason.MISSING_ABILITY, ct.getNoAddReason(colonist));
+
+        informationPanels.clear();
+        assertFalse(commands.work(colonist.getId(), ct.getId()), "the rumour tile is refused");
+        assertEquals(1, informationPanels.size());
+        final String text = textOf(informationPanels.get(0));
+        assertEquals(Messages.message("model.noClaimReason.rumour.description"), text);
     }
 
     @Test
