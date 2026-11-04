@@ -63,9 +63,12 @@ export function visibleMessages<T extends { type: string }>(p: Prefs, messages: 
  * FreeCol's client options (data/base/client-options.xml) the Preferences window shows, in FreeCol's
  * groups: those the browser follows. The client Engine follows most of them as FreeCol does; the page
  * follows PAGE_OPTIONS itself. Left out: those FreeCol Online's own preferences cover (move animation,
- * tutorial messages, auto end turn), and those for what the browser has not got or does its own way
- * (Swing's display and fonts, the minimap and map controls, fog of war, other units' animations,
- * modern colony labels, the colony report kinds, sound, mods, save files).
+ * tutorial messages, auto end turn); those a browser cannot follow (the full screen display mode, Java's
+ * pixmaps and XRender, the audio mixer, confirm save overwrite, as saves never overwrite); the minimap's
+ * default zoom; and those waiting on a feature, each with its issue: other players' move animations (#149),
+ * terrain animations (#150), the language (#151), the compact colony report (#152), the save game dialog
+ * (#153) and autosaves (#154), mods (#155), the minimap (#156), sound (#157), and the warehouse
+ * defaults (#158).
  */
 export const FREECOL_OPTIONS: readonly string[] = [
   // Personal
