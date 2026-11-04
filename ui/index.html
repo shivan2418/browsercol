@@ -719,18 +719,18 @@
         vertical-align: middle;
       }
       /* Europe (src/panels.tsx), as EuropePanel lays it out: the ships, the docks and cargo, the market. */
-      /* Europe is a screen of its own, as in FreeCol: it fills the whole window. */
-      .modal:has(> .dialog[data-kind='europe']) {
-        background: var(--panel);
+      /* Europe is a large window over the map. The top bar stays clear above its backdrop, as the gold is read there. */
+      body:has(.dialog[data-kind='europe']) #menubar {
+        position: relative;
+        z-index: 1;
+        pointer-events: none;
       }
       .dialog[data-kind='europe'] {
         box-sizing: border-box;
-        width: 100vw;
-        height: 100vh;
+        width: min(80em, 96vw);
+        height: min(52em, 88vh);
         max-width: none;
         max-height: none;
-        border: 0;
-        box-shadow: none;
       }
       .dialog[data-kind='europe'] > .body {
         display: flex;
@@ -739,14 +739,9 @@
       }
       /* As Swing's EuropePanel: the name centred, the lists and the sales above the market, the buttons below. */
       .europe-title {
-        position: relative;
         display: flex;
         justify-content: center;
         align-items: baseline;
-      }
-      .europe-title .gold {
-        position: absolute;
-        right: 0;
       }
       .europe-body {
         display: flex;

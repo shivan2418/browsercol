@@ -1374,8 +1374,6 @@ describe('the Europe panel', () => {
   });
   const europe: GuiEvents['europe'] = {
     title: 'Europe',
-    gold: 1234,
-    goldLabel: 'Gold',
     tally: {
       heading: 'Trade Advisor',
       tax: 20,
@@ -1465,11 +1463,10 @@ describe('the Europe panel', () => {
   const names = (list: string) =>
     [...document.querySelectorAll(`[data-list=${list}] .chip .name`)].map((n) => n.textContent);
 
-  it('lists the ships, the docks, the gold and every goods’ prices under FreeCol’s headings', () => {
+  it('lists the ships, the docks and every goods’ prices under FreeCol’s headings', () => {
     const { box } = host();
     act(() => box.show('europe', europe));
     expect(screen.getByRole('heading', { name: 'Europe' })).toBeTruthy();
-    expect(document.querySelector('[data-gold]')?.textContent).toBe('1234');
     expect(screen.getByRole('heading', { name: 'Sailing to America' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Sailing to Europe' })).toBeTruthy();
     expect(names('toAmerica')).toEqual(['Merchantman']);
@@ -1718,8 +1715,8 @@ describe('the Europe panel', () => {
     expect(box.current()).toBeNull();
 
     act(() => box.show('europe', europe));
-    act(() => box.replace('europe', { ...europe, gold: 99 }));
-    expect(document.querySelector('[data-gold]')?.textContent).toBe('99');
+    act(() => box.replace('europe', { ...europe, title: 'Europe again' }));
+    expect(screen.getByRole('heading', { name: 'Europe again' })).toBeTruthy();
     key('Escape');
     expect(box.current()).toBeNull();
   });

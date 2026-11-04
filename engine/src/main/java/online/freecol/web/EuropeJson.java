@@ -23,13 +23,13 @@ import net.sf.freecol.common.model.UnitType;
  * What FreeCol's EuropePanel shows, as the Browser UI's {@code europe}
  * event (WebGUI.showEuropePanel): the ships sailing to the New World and
  * to Europe, the ships in port, the units on the docks, the market's buy
- * and sell prices and the player's gold, and what the player can recruit,
- * train and buy there.
+ * and sell prices, and what the player can recruit, train and buy there.
+ * The player's gold is not here: the status line on the map shows it.
  *
  * <pre>
- * {title, gold, goldLabel, ok, headings: {toAmerica, toEurope, inPort,
- *  docks, cargo}, toAmerica: [unit], toEurope: [unit], inPort: [unit],
- *  docks: [unit], selected: the id of the ship whose cargo shows first
+ * {title, ok, headings: {toAmerica, toEurope, inPort, docks, cargo},
+ *  toAmerica: [unit], toEurope: [unit], inPort: [unit], docks: [unit],
+ *  selected: the id of the ship whose cargo shows first
  *  (or null), tally: {heading, tax, taxLabel, unitsSold, beforeTaxes,
  *  afterTaxes} (the sidebar's labels and the tax rate in percent),
  *  market: [{id, name, images, sell, buy, enabled, reason, sold,
@@ -98,8 +98,6 @@ final class EuropeJson {
 
         return new Json()
             .put("title", Messages.getName(europe))
-            .put("gold", player.getGold())
-            .put("goldLabel", Messages.message("gold"))
             .putRaw("tally", new Json()
                 .put("heading", Messages.message("reportTradeAction.name"))
                 .put("tax", player.getTax())

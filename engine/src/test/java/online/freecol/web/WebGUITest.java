@@ -875,7 +875,6 @@ class WebGUITest {
         final Map<String, Object> panel
             = (Map<String, Object>)JsonReader.read(events.get(0).substring("europe ".length()));
         assertEquals(Messages.getName(me.getEurope()), panel.get("title"));
-        assertEquals((long)me.getGold(), panel.get("gold"));
         assertEquals(Messages.message("close"), panel.get("ok"));
         final Map<String, Object> headings = (Map<String, Object>)panel.get("headings");
         assertEquals(Messages.message("sailingToAmerica"), headings.get("toAmerica"));

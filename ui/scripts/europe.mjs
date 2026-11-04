@@ -20,8 +20,18 @@ const check = (name, ok, detail = '') => {
   failed ||= !ok;
 };
 
-/** The gold the Europe panel shows. */
-const gold = (page) => page.$eval('[role=dialog][data-kind=europe] [data-gold]', (e) => Number(e.textContent));
+/** The gold the top bar's status line shows. */
+const gold = (page) => page.$eval('#statusLine', (e) => Number(/Gold: (\d+)/.exec(e.textContent)?.[1]));
+
+/** The gold once it is no longer the given amount: the map after a trade brings the status line up to date. */
+const goldAfter = async (page, from) => {
+  await page
+    .waitForFunction((g) => /Gold: (\d+)/.exec(document.querySelector('#statusLine').textContent)?.[1] != g, from, {
+      timeout: 60_000,
+    })
+    .catch(() => {});
+  return gold(page);
+};
 
 /** The ships of the Classic rules, which Europe sells (data/rules/classic). */
 const SHIPS = [
@@ -42,7 +52,7 @@ for (const name of browsers) {
     await page.waitForFunction(() => window.fcResult?.status === 'finished', null, { timeout });
 
     // A purse for the shopping, from the debug menu.
-    const purse = await page.$eval('#statusLine', (e) => Number(/Gold: (\d+)/.exec(e.textContent)?.[1]));
+    const purse = await gold(page);
     await page.fill('input[aria-label="Gold"]', '5000');
     await page.click('button[data-debug="gold"]');
     await page.waitForFunction(
@@ -72,6 +82,7 @@ for (const name of browsers) {
     }
     if (ship === null) throw new Error('Europe sells no ship to buy');
     const shipName = await ship.locator('.name').textContent();
+    const beforeShip = await gold(page);
     await ship.click();
     await panel
       .locator('[data-list=inPort] [data-unit]')
@@ -83,7 +94,7 @@ for (const name of browsers) {
 
     // Buy a goods of the market onto that ship: the amount dialog asks how
     // much, and the answerer keeps the amount it suggests.
-    const before = await gold(page);
+    const before = await goldAfter(page, beforeShip);
     const good = panel.locator('[data-list=market] [data-goods]').first();
     const goodName = await good.getAttribute('data-goods');
     await good.click();
@@ -94,7 +105,7 @@ for (const name of browsers) {
       .catch(() => {
         throw new Error(`buying ${goodName} did not put it aboard the ship`);
       });
-    const afterBuy = await gold(page);
+    const afterBuy = await goldAfter(page, before);
     check(`${name}: buying ${goodName} spends the gold`, afterBuy < before, `${before} -> ${afterBuy}`);
 
     // And sell it again: the cargo is empty and the gold is back.
@@ -106,7 +117,7 @@ for (const name of browsers) {
       .catch(() => {
         throw new Error(`selling ${goodName} did not take it off the ship`);
       });
-    const afterSell = await gold(page);
+    const afterSell = await goldAfter(page, afterBuy);
     check(`${name}: selling ${goodName} pays the gold`, afterSell > afterBuy, `${afterBuy} -> ${afterSell}`);
 
     // Drag the ship onto the ships sailing to America: it sets sail.

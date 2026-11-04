@@ -251,7 +251,7 @@ async function play(page, url) {
       },
     });
   });
-  /** The Europe panel, as the page draws it: its headings, its lists, its goods and its gold. */
+  /** The Europe panel, as the page draws it: its headings, its lists and its goods. */
   const europePanel = () =>
     page.evaluate(async () => {
       const d = document.querySelector('[role=dialog][data-kind=europe]');
@@ -278,7 +278,6 @@ async function play(page, url) {
           lists: [...d.querySelectorAll('[data-list]')].map((l) => l.dataset.list),
           goods: d.querySelectorAll('[data-goods]').length,
           prices: [...d.querySelectorAll('.price')].map((p) => p.textContent),
-          gold: Number(d.querySelector('[data-gold]')?.textContent),
         }
       );
     });
@@ -1105,10 +1104,8 @@ async function play(page, url) {
   if (!europe.headings[0] || europe.headings.length < 6 || !lists.every((l) => europe.lists.includes(l))) {
     throw new Error(`the Europe panel lacks FreeCol's headings or lists: ${JSON.stringify(europe)}`);
   }
-  // The gold is not compared with the status line: a first contact's gift can come after its last map.
-  // WebGUITest and SelectDestinationTest compare it with the model.
-  if (europe.goods < 10 || !europe.prices.every((p) => /^\d+\/\d+$/.test(p)) || !(europe.gold >= 0)) {
-    throw new Error(`the Europe panel's market or gold is wrong: ${JSON.stringify(europe)}`);
+  if (europe.goods < 10 || !europe.prices.every((p) => /^\d+\/\d+$/.test(p))) {
+    throw new Error(`the Europe panel's market is wrong: ${JSON.stringify(europe)}`);
   }
 
   // The Recruit, Train and Purchase buttons list what Europe sells, with prices; the Set sail button needs

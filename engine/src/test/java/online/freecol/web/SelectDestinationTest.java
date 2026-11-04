@@ -310,7 +310,6 @@ class SelectDestinationTest {
         assertEquals(List.of(ship.getId()), unitIds(panel, "inPort"));
         assertEquals(List.of(), unitIds(panel, "toEurope"));
         assertEquals(ship.getId(), panel.get("selected"));
-        assertEquals((long)player.getGold(), panel.get("gold"));
         // The market lists every storable goods type with its prices.
         final List<java.util.Map<String, Object>> market = marketOf(panel);
         final List<GoodsType> storable = client.getGame().getSpecification()
