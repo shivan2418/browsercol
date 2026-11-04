@@ -20,6 +20,15 @@ public final class WorkerMain {
     @JSBody(params = { "name", "detail" }, script = "fcServerEvent(name, detail);")
     private static native void event(String name, String detail);
 
+    /**
+     * Set the language of FreeCol's text (Language.set), before main: the
+     * page has put that translation's strings in the data bundle.
+     */
+    @JSExport
+    public static void setLanguage(String id) {
+        Language.set(id);
+    }
+
     /** Load the data files: (path, text) pairs. */
     public static void main(String[] args) {
         Failures.reportTo((what, detail) -> event("error", what + "\n" + detail));

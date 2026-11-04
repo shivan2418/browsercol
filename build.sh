@@ -18,7 +18,8 @@ cp "$src/server.wasm" "$src/client.wasm" "$gen/"
 cmp -s "$src/server.wasm-runtime.js" "$src/client.wasm-runtime.js" \
   || { echo "server and client TeaVM runtimes differ" >&2; exit 1; }
 cp "$src/client.wasm-runtime.js" "$gen/teavm-runtime.js"
-node ui/scripts/build-data.mjs freecol/data "$gen/data.json"
+# FreeCol's translations, served as strings/ and fetched as the player picks one.
+node ui/scripts/build-data.mjs freecol/data "$gen/data.json" "$gen/public/strings"
 # Map art, served as files under art/ (Vite's public dir), and the test
 # Tileset's manifest beside the default's (the page's ?tileset=test).
 node ui/scripts/build-art.mjs freecol/data "$gen/public/art"

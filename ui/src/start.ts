@@ -6,6 +6,7 @@
 // GamePreset's JSON, the same way ?preset= does. The map generator options
 // (#57) are options of the preset like the others.
 
+import { messageFiles } from './language';
 import { specificationGroup, type OptionGroup, type OptionValue } from './options';
 
 export interface NationChoice {
@@ -87,7 +88,7 @@ function css(color: string | null): string {
 export function startOptions(data: string[], rules: string, defaultLevel = 'model.difficulty.medium'): StartOptions {
   const spec = new DOMParser().parseFromString(file(data, `rules/${rules}/specification.xml`), 'application/xml');
   const text = new Map([
-    ...properties(file(data, 'strings/FreeColMessages.properties')),
+    ...messageFiles(data).flatMap((f) => [...properties(file(data, f))]),
     ...properties(file(data, `rules/${rules}/FreeColMessages.properties`)),
   ]);
   const say = (key: string, otherwise = '') => plain(text.get(key) ?? otherwise);

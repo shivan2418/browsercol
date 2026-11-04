@@ -13,6 +13,7 @@ type Scope = Record<string, any>;
 
 function fakeServer(scope: Scope, log: string[]): ServerExports {
   return {
+    setLanguage: (id) => log.push(`server language ${id}`),
     main: (args) => log.push(`server main ${args.length}`),
     startGame: (rules, preset) => {
       log.push(`server start ${rules} ${preset}`);
@@ -48,6 +49,7 @@ function fakeClient(scope: Scope, log: string[]): ClientExports {
   return {
     activeUnitId: () => 'unit:42',
     colony: () => 'null',
+    setLanguage: (id) => log.push(`client language ${id}`),
     main: (args) => {
       log.push(`client main ${args.length}`);
       queueMicrotask(() => scope.fcClientEvent('ready', ''));
@@ -159,6 +161,7 @@ describe('the Worker channel', () => {
         worker: page,
         loadClient: async () => fakeClient(pageScope, log),
         data,
+        language: 'de',
         rules: 'classic',
         preset: '{"seed":1}',
         autoplay: 3,
@@ -173,9 +176,12 @@ describe('the Worker channel', () => {
     await finished;
     page.close();
 
-    // The two modules load concurrently, so their mains may run in either order.
-    expect(log.slice(0, 2).sort()).toEqual(['client main 4', 'server main 4']);
-    expect(log.slice(2)).toEqual([
+    // The two modules load concurrently, so their mains may run in either order; each is told the
+    // language first.
+    const side = (who: string) => log.slice(0, 4).filter((l) => l.startsWith(who));
+    expect(side('server')).toEqual(['server language de', 'server main 4']);
+    expect(side('client')).toEqual(['client language de', 'client main 4']);
+    expect(log.slice(4)).toEqual([
       'server start classic {"seed":1}',
       'client start 3',
       'server connect',
@@ -200,6 +206,7 @@ describe('the Worker channel', () => {
       worker: page,
       loadClient: async () => fakeClient(pageScope, log),
       data: [],
+      language: 'en',
       rules: 'classic',
       load,
       autoplay: 0,
@@ -256,6 +263,7 @@ describe('the Worker channel', () => {
         worker: page,
         loadClient: async () => fakeClient(pageScope, log),
         data: [],
+        language: 'en',
         rules: 'classic',
         load: saved.id,
         autoplay: 3,
@@ -268,7 +276,7 @@ describe('the Worker channel', () => {
       }),
     );
     page.close();
-    expect(log.filter((l) => !l.endsWith(' main 0'))).toEqual([
+    expect(log.filter((l) => !l.endsWith(' main 0') && !l.includes(' language '))).toEqual([
       'server load 7,8,9',
       'client start 0 as Ana',
       'server connect',

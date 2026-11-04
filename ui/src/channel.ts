@@ -16,6 +16,8 @@ import { webGui, type GuiHandlers } from './webgui';
 
 /** Exports of the server module (online.freecol.web.WorkerMain). */
 export interface ServerExports {
+  /** The language of FreeCol's text, a translation's id (language.ts); called before main. */
+  setLanguage(id: string): void;
   main(args: string[]): void;
   /** `preset` is a GamePreset's JSON ("" for none); a bad one fails with a message. */
   startGame(rules: string, preset: string): void;
@@ -33,6 +35,8 @@ export interface ServerExports {
 
 /** Exports of the client module (online.freecol.web.ClientMain). */
 export interface ClientExports {
+  /** The language of FreeCol's text, a translation's id (language.ts); called before main. */
+  setLanguage(id: string): void;
   main(args: string[]): void;
   /** Log in as `name` (a loaded game's owner; empty for a new game) and play `rounds` rounds. */
   startGame(rounds: number, name: string): void;
@@ -148,7 +152,7 @@ export interface ClientExports {
 }
 
 export type ToWorker =
-  | { k: 'data'; data: string[] }
+  | { k: 'data'; data: string[]; language: string }
   | { k: 'start'; rules: string; preset: string }
   | { k: 'load'; id: number }
   | { k: 'save'; active: string; name: string }
@@ -215,8 +219,8 @@ export function serveWorker(
 
   let server: ServerExports | null = null;
   const queued: ToWorker[] = [];
-  let gotData: (data: string[]) => void;
-  const data = new Promise<string[]>((ok) => (gotData = ok));
+  let gotData: (m: { data: string[]; language: string }) => void;
+  const data = new Promise<{ data: string[]; language: string }>((ok) => (gotData = ok));
 
   const handle = (m: ToWorker) => {
     switch (m.k) {
@@ -244,15 +248,16 @@ export function serveWorker(
     }
   };
   listen<ToWorker>(endpoint, (m) => {
-    if (m.k === 'data') gotData(m.data);
+    if (m.k === 'data') gotData(m);
     else if (server) handle(m);
     else queued.push(m);
   });
 
   void (async () => {
     try {
-      const [exports, args] = await Promise.all([loadServer(), data]);
-      exports.main(args);
+      const [exports, bundle] = await Promise.all([loadServer(), data]);
+      exports.setLanguage(bundle.language);
+      exports.main(bundle.data);
       server = exports;
       for (const m of queued.splice(0)) handle(m);
     } catch (ex) {
@@ -264,8 +269,10 @@ export function serveWorker(
 export interface PageOptions {
   worker: Endpoint;
   loadClient: () => Promise<ClientExports>;
-  /** The data bundle: alternating "data/<path>" and file text. */
+  /** The data bundle: alternating "data/<path>" and file text, with the language's strings files. */
   data: string[];
+  /** The language of FreeCol's text, a translation's id (language.ts), for both Engines. */
+  language: string;
   rules: string;
   /** A saved game's id to load in place of a new game. */
   load?: number;
@@ -321,9 +328,10 @@ export function startPage(o: PageOptions): Promise<ClientExports> {
     o.onEvent(m.name, m.detail);
   });
 
-  send({ k: 'data', data: o.data });
+  send({ k: 'data', data: o.data, language: o.language });
   const loaded = o.loadClient().then((exports) => {
     client = exports;
+    client.setLanguage(o.language);
     client.main(o.data); // returns at once; 'ready' arrives as an event
     return exports;
   });

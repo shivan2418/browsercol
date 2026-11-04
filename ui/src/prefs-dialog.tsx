@@ -5,6 +5,7 @@
 // category's button, with its id.
 import { useState } from 'react';
 import { Box, WindowFrame } from './frame';
+import { LANGUAGE_OPTION } from './language';
 import { OptionEditor } from './option-editor';
 import type { OptionGroup } from './options';
 import { ACTIVE_STYLES, SPEEDS, type ActiveStyle, type Prefs, type Speed } from './prefs';
@@ -187,14 +188,22 @@ export function PreferencesDialog({
           <div className="prefs-detail">
             <Box caption={current.label} data-shown={current.id}>
               {current.options ? (
-                <OptionEditor
-                  root={current.options}
-                  editable
-                  values={prefs.freecol}
-                  onChange={(id, v) => {
-                    change({ ...prefs, freecol: { ...prefs.freecol, [id]: v } });
-                  }}
-                />
+                <>
+                  <OptionEditor
+                    root={current.options}
+                    editable
+                    values={prefs.freecol}
+                    onChange={(id, v) => {
+                      change({ ...prefs, freecol: { ...prefs.freecol, [id]: v } });
+                    }}
+                  />
+                  {current.options.children.some((o) => o.id === LANGUAGE_OPTION) && (
+                    <p data-note="language" className="prefs-note">
+                      The language is that of FreeCol's own text: messages, reports, names and the Colopedia. FreeCol
+                      Online's own labels stay English.
+                    </p>
+                  )}
+                </>
               ) : (
                 <OwnOptions prefs={prefs} change={change} />
               )}
