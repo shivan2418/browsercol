@@ -49,6 +49,8 @@ export interface Dialogs {
    * (any, by default), as the same panel shown differently; queue it if there is none.
    */
   replace: <K extends PanelKind>(kind: K, event: GuiEvents[K], same?: (open: GuiEvents[K]) => boolean) => void;
+  /** Close the panels of a kind that are queued or open and that `same` says to, as the player would. */
+  remove: <K extends PanelKind>(kind: K, same: (open: GuiEvents[K]) => boolean) => void;
   /** The events of the panels of a kind that are queued or open, in order. */
   shown: <K extends PanelKind>(kind: K) => GuiEvents[K][];
   /** The dialog on screen, or null. */
@@ -106,6 +108,11 @@ export function dialogs(): Dialogs {
       }
       queue[i] = next;
       changed();
+    },
+    remove: (kind, same) => {
+      for (const d of queue.filter((d) => d.kind === kind && same((d as unknown as { event: never }).event))) {
+        (d.done as () => void)();
+      }
     },
     shown: <K extends PanelKind>(kind: K) =>
       queue.flatMap((d) => (d.kind === kind ? [(d as unknown as { event: GuiEvents[K] }).event] : [])),

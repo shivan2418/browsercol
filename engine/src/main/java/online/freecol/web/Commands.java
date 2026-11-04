@@ -925,6 +925,48 @@ public final class Commands {
     }
 
     /**
+     * Close the colony panel (its close button), as
+     * ColonyPanel.closeColonyPanel does: a colony of ours with no colonist
+     * left asks whether to abandon it, and one with fewer colonists than
+     * what it builds now needs asks whether to close anyway. On no the
+     * panel stays open; otherwise the Browser UI is told to close it, and
+     * the colony is abandoned on yes (InGameController.closeColony).
+     *
+     * @param colonyId The id of the colony whose panel is closed.
+     * @return True if the panel was closed.
+     */
+    public boolean closeColonyPanel(String colonyId) {
+        final Colony colony = object(colonyId, Colony.class);
+        final Player player = this.client.getMyPlayer();
+        boolean abandon = false;
+        if (colony != null && player.owns(colony)) {
+            final BuildableType buildable;
+            if (colony.getUnitCount() == 0) {
+                final String key = (player.isRebel()
+                    && player.getNumberOfPorts() == 1
+                    && colony.isConnectedPort())
+                    ? "abandonColony.lastPort.text"
+                    : "abandonColony.text";
+                if (!gui().modalConfirmDialog(null, StringTemplate.key(key), colony,
+                        "abandonColony.yes", "abandonColony.no")) return false;
+                abandon = true;
+            } else if ((buildable = colony.getCurrentlyBuilding()) != null) {
+                final int required = buildable.getRequiredPopulation();
+                if (required > colony.getUnitCount()
+                    && !gui().modalConfirmDialog(null, StringTemplate
+                        .template("colonyPanel.reducePopulation")
+                            .addName("%colony%", colony.getName())
+                            .addAmount("%number%", required)
+                            .addNamed("%buildable%", buildable),
+                        colony, "ok", "cancel")) return false;
+            }
+        }
+        if (gui() instanceof WebGUI) ((WebGUI)gui()).closeColonyPanel(colonyId);
+        if (colony != null) igc().closeColony(colony, abandon);
+        return true;
+    }
+
+    /**
      * Set a colony's export data for one goods type, as the warehouse dialog
      * saves it, and send it to the server. The levels are the dialog's: the
      * low and high warnings 0 to 100 (percent of the capacity), the import

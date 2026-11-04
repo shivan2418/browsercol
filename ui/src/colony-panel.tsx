@@ -82,6 +82,8 @@ export interface ColonyMoves {
   buy(colony: string): void;
   /** Open the colony's warehouse dialog. */
   warehouse(colony: string): void;
+  /** Close the colony's panel; the Engine may ask first, as when the colony has no colonist left, and closes it (closeColony). */
+  close(colony: string): void;
   /** Put a unit beside the colony aboard a ship in port. */
   board(unit: string, ship: string): void;
   /** Take a unit off a ship in port. */

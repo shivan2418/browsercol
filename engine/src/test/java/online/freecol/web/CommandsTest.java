@@ -86,6 +86,11 @@ class CommandsTest {
     private volatile String amount = null;
     /** The warehouse dialog's answer. */
     private volatile String warehouse = null;
+    /** What the fake Browser UI answers to a confirm question, if not its usual answer. */
+    private volatile Boolean confirm = null;
+
+    /** The ids of the colonies whose panels the WebGUI closed. */
+    private final List<String> closedColonies = Collections.synchronizedList(new ArrayList<>());
 
     /** The trade routes panels the fake Browser UI was shown. */
     private final List<String> routePanels = Collections.synchronizedList(new ArrayList<>());
@@ -107,7 +112,8 @@ class CommandsTest {
      */
     private String accept(String kind, String json) {
         switch (kind) {
-        case "confirm": return String.valueOf(!json.contains("Europe"));
+        case "confirm":
+            return String.valueOf((confirm != null) ? confirm : !json.contains("Europe"));
         // The end turn dialog's ok ends the turn; the pre-combat dialog's attacks.
         case "endTurn": return "ok";
         case "preCombat": return "true";
@@ -228,6 +234,7 @@ class CommandsTest {
                     if (kind.equals("tradeRoutes")) routePanels.add(json);
                     if (kind.equals("information")) informationPanels.add(json);
                     if (kind.equals("report")) reports.add(json);
+                    if (kind.equals("closeColony")) closedColonies.add(json);
                 }
                 public void ask(int id, String kind, String json) {
                     ui.execute(() -> {
@@ -731,6 +738,66 @@ class CommandsTest {
         awaitTrue(() -> asked.size() == 2, "asked again");
         assertEquals(55, serverColony.getExportData(cloth).getExportLevel());
         assertFalse(commands.warehouse("nonsense"));
+    }
+
+    @Test
+    @Timeout(180)
+    void closingTheColonyPanelAsksToAbandonAnEmptyColony() throws Exception {
+        startGame();
+        final Commands commands = client.getCommands();
+        final Colony serverColony = foundAColony(commands);
+        final Colony ours = client.getGame()
+            .getFreeColGameObject(serverColony.getId(), Colony.class);
+        final String id = ours.getId();
+        final String closed = "{\"id\":\"" + id + "\"}";
+
+        // A colony that builds what its colonists can: the panel closes, nothing asked.
+        asked.clear();
+        assertTrue(commands.closeColonyPanel(id));
+        assertTrue(askedOf("confirm").isEmpty(), () -> "nothing asked: " + asked);
+        assertEquals(List.of(closed), closedColonies);
+
+        // Building what needs more colonists than it has: asked, and cancel keeps the panel.
+        final BuildableType big = ours.getSpecification().getBuildingTypeList().stream()
+            .filter(bt -> bt.getRequiredPopulation() > ours.getUnitCount())
+            .findFirst().orElseThrow();
+        final List<BuildableType> queue = new ArrayList<>(ours.getBuildQueue());
+        ours.setBuildQueue(List.of(big));
+        confirm = false;
+        assertFalse(commands.closeColonyPanel(id), "kept open");
+        assertEquals(1, closedColonies.size());
+        assertEquals(Messages.message(StringTemplate.template("colonyPanel.reducePopulation")
+                .addName("%colony%", ours.getName())
+                .addAmount("%number%", big.getRequiredPopulation())
+                .addNamed("%buildable%", big)),
+            textOf(lastAsked()));
+        confirm = true;
+        assertTrue(commands.closeColonyPanel(id), "closed on ok");
+        assertEquals(2, closedColonies.size());
+        ours.setBuildQueue(queue);
+
+        // The last colonist steps outside: closing asks to abandon the colony.
+        final Unit colonist = ours.getUnitList().get(0);
+        assertTrue(commands.putOutsideColony(colonist.getId()), "the last colonist leaves");
+        awaitTrue(() -> serverColony.getUnitCount() == 0, "the colony is empty");
+        asked.clear();
+        confirm = false;
+        assertFalse(commands.closeColonyPanel(id), "no keeps the panel");
+        assertEquals(2, closedColonies.size());
+        assertTrue(lastAsked().startsWith("confirm "), lastAsked());
+        assertEquals(Messages.message("abandonColony.text"), textOf(lastAsked()));
+        assertTrue(lastAsked().contains("\"ok\":\"" + Messages.message("abandonColony.yes") + "\""),
+                   lastAsked());
+        assertTrue(serverColony.getTile().hasSettlement(), "the colony stands");
+
+        // Yes abandons it: the panel closes and the colony is gone on both sides.
+        confirm = true;
+        assertTrue(commands.closeColonyPanel(id), "yes closes the panel");
+        assertEquals(List.of(closed, closed, closed), closedColonies);
+        final Tile tile = ours.getTile();
+        awaitTrue(() -> !serverColony.getTile().hasSettlement(), "abandoned on the server");
+        awaitTrue(() -> !tile.hasSettlement(), "abandoned on the client");
+        assertSame(tile, colonist.getTile(), "the colonist stays on the tile");
     }
 
     /** Wait until a condition holds, as the server's changes reach the client. */
