@@ -53,8 +53,10 @@ null action manager. Outside Swing classes, they are used in these places:
 
 - `GUI.playSound`, which the WebGUI overrides.
 - `PreGameController.startGame`, only when there is an audio playlist. The
-  browser has none, so if audio resources are ever bundled, this call will
-  throw a NullPointerException.
+  Engine has none: the Browser UI plays the audio itself, from files under
+  `audio/` that the Engine never sees (#157). If audio resources ever reach
+  the Engine's resource manager, this call will throw a
+  NullPointerException.
 - The map editor, which the browser does not reach.
 
 **Random state.** Desktop FreeCol saves the generator's state without
