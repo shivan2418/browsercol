@@ -124,6 +124,19 @@ describe('pointerInput Go To', () => {
     vi.useRealTimers();
   });
 
+  it('starts the Go To even when the pointer moves before the hold is up, on the tile it moved to', () => {
+    vi.useFakeTimers();
+    const { preview, go, press, release } = setup();
+    press(25);
+    dispatchEvent(new MouseEvent('pointermove', { clientX: 28, clientY: 2 }));
+    dispatchEvent(new MouseEvent('pointermove', { clientX: 36, clientY: 0 }));
+    vi.advanceTimersByTime(HOLD_MS);
+    expect(preview).toHaveBeenLastCalledWith([3, 0]);
+    release();
+    expect(go).toHaveBeenCalledWith([3, 0]);
+    vi.useRealTimers();
+  });
+
   it('pans only with the middle button, never the left', () => {
     vi.useFakeTimers();
     const { preview, go, dispatch, press, release } = setup();
