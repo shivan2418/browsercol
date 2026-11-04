@@ -61,6 +61,12 @@ function Pic({ keys, art, className = 'pic' }: { keys: readonly string[]; art: A
 }
 
 /**
+ * What marks the button Enter presses, `data-enter`, which the page lights up while no button of the dialog has
+ * the focus (index.html). Pass it where the button's action is the one given to useEnter.
+ */
+const enterMark = (on: boolean) => (on ? { 'data-enter': '' } : {});
+
+/**
  * Answer Enter while the dialog is open, before anything else on the page
  * sees it; with no action it is still kept from the page. Enter on a button
  * of the dialog is left to the button, as in Swing. Escape is the frame's.
@@ -116,16 +122,23 @@ const Text = ({ text }: { text: string }) => <p className="text">{text}</p>;
 type Of<K extends Dialog['kind']> = Extract<Dialog, { kind: K }>;
 
 /** The ok and cancel buttons of a question, each only if it has a label. */
-function OkCancel(p: { ok: string | null; cancel: string | null; onOk: () => void; onCancel: () => void }) {
+function OkCancel(p: {
+  ok: string | null;
+  cancel: string | null;
+  onOk: () => void;
+  onCancel: () => void;
+  /** The button Enter presses, if either. */
+  enter?: 'ok' | 'cancel' | null;
+}) {
   return (
     <div className="buttons">
       {p.ok !== null && (
-        <button data-answer="ok" onClick={p.onOk}>
+        <button data-answer="ok" {...enterMark(p.enter === 'ok')} onClick={p.onOk}>
           {p.ok}
         </button>
       )}
       {p.cancel !== null && (
-        <button data-answer="cancel" onClick={p.onCancel}>
+        <button data-answer="cancel" {...enterMark(p.enter === 'cancel')} onClick={p.onCancel}>
           {p.cancel}
         </button>
       )}
@@ -137,11 +150,12 @@ function Confirm({ d }: { d: Of<'confirm'> }) {
   const { ask } = d;
   const ok = () => d.done(true);
   const cancel = () => d.done(false);
-  useEnter(ask.defaultOk && ask.ok !== null ? ok : cancel);
+  const enter = ask.defaultOk && ask.ok !== null ? 'ok' : 'cancel';
+  useEnter(enter === 'ok' ? ok : cancel);
   return (
     <Win d={d} title={ask.header} close={cancel}>
       <Text text={ask.text} />
-      <OkCancel ok={ask.ok} cancel={ask.cancel} onOk={ok} onCancel={cancel} />
+      <OkCancel ok={ask.ok} cancel={ask.cancel} onOk={ok} onCancel={cancel} enter={enter} />
     </Win>
   );
 }
@@ -155,6 +169,9 @@ function Choice({ d }: { d: Of<'choice'> }) {
   // default item, else the cancel button if there is one.
   const cancel = cancelItem >= 0 ? pick(cancelItem) : () => d.done(null);
   useEnter(byDefault >= 0 ? pick(byDefault) : ask.cancel !== null ? cancel : null);
+  /** The item Enter picks; -1 for none, and for the cancel button when there is no cancel item. */
+  const enterItem = byDefault >= 0 ? byDefault : ask.cancel !== null ? cancelItem : -1;
+  const enterButton = byDefault < 0 && ask.cancel !== null && cancelItem < 0;
   return (
     <Win d={d} close={cancel}>
       <Text text={ask.text} />
@@ -165,6 +182,7 @@ function Choice({ d }: { d: Of<'choice'> }) {
             data-choice={i}
             disabled={!c.enabled}
             className={c.default ? 'default' : ''}
+            {...enterMark(i === enterItem)}
             onClick={pick(i)}
           >
             {c.text}
@@ -173,7 +191,7 @@ function Choice({ d }: { d: Of<'choice'> }) {
       </div>
       {ask.cancel !== null && (
         <div className="buttons">
-          <button data-answer="cancel" onClick={() => d.done(null)}>
+          <button data-answer="cancel" {...enterMark(enterButton)} onClick={() => d.done(null)}>
             {ask.cancel}
           </button>
         </div>
@@ -192,7 +210,7 @@ function Input({ d }: { d: Of<'input'> }) {
     <Win d={d} close={cancel}>
       <Text text={ask.text} />
       <input autoFocus value={value} onChange={(e) => setValue(e.target.value)} />
-      <OkCancel ok={ask.ok} cancel={ask.cancel} onOk={ok} onCancel={cancel} />
+      <OkCancel ok={ask.ok} cancel={ask.cancel} onOk={ok} onCancel={cancel} enter="ok" />
     </Win>
   );
 }
@@ -234,7 +252,7 @@ function Amount({ d, art }: { d: Of<'amount'>; art: Art }) {
       </div>
       <div className="buttons">
         {ask.ok !== null && (
-          <button data-answer="ok" disabled={!valid} onClick={ok}>
+          <button data-answer="ok" data-enter="" disabled={!valid} onClick={ok}>
             {ask.ok}
           </button>
         )}
@@ -310,7 +328,7 @@ function EndTurn({ d }: { d: Of<'endTurn'> }) {
           </button>
         ))}
       </div>
-      <OkCancel ok={ask.ok} cancel={ask.cancel} onOk={ok} onCancel={cancel} />
+      <OkCancel ok={ask.ok} cancel={ask.cancel} onOk={ok} onCancel={cancel} enter={ask.ok !== null ? 'ok' : 'cancel'} />
     </Win>
   );
 }
@@ -367,7 +385,7 @@ function Father({ d, art }: { d: Of<'father'>; art: Art }) {
         </div>
       )}
       <div className="buttons">
-        <button data-answer="ok" onClick={ok}>
+        <button data-answer="ok" data-enter="" onClick={ok}>
           {ask.ok}
         </button>
       </div>
@@ -394,7 +412,7 @@ function Names({ d }: { d: Of<'names'> }) {
           />
         </label>
       ))}
-      <OkCancel ok={ask.ok} cancel={ask.cancel} onOk={ok} onCancel={cancel} />
+      <OkCancel ok={ask.ok} cancel={ask.cancel} onOk={ok} onCancel={cancel} enter="ok" />
     </Win>
   );
 }
@@ -454,7 +472,7 @@ function Warehouse({ d, art }: { d: Of<'warehouse'>; art: Art }) {
           </fieldset>
         ))}
       </div>
-      <OkCancel ok={ask.ok} cancel={ask.cancel} onOk={ok} onCancel={cancel} />
+      <OkCancel ok={ask.ok} cancel={ask.cancel} onOk={ok} onCancel={cancel} enter="ok" />
     </Win>
   );
 }
@@ -487,7 +505,7 @@ function Goods({ d, art }: { d: Of<'goods'>; art: Art }) {
           </label>
         ))}
       </div>
-      <OkCancel ok={ask.ok} cancel={ask.cancel} onOk={ok} onCancel={cancel} />
+      <OkCancel ok={ask.ok} cancel={ask.cancel} onOk={ok} onCancel={cancel} enter="ok" />
     </Win>
   );
 }
@@ -603,11 +621,11 @@ function Negotiation({ d }: { d: Of<'negotiation'> }) {
         {taken.length > 0 && (given.length > 0 ? list(ask.exchange, taken) : list(ask.demand, taken))}
       </div>
       <div className="buttons">
-        <button data-answer="send" onClick={reply('propose')}>
+        <button data-answer="send" {...enterMark(!canAccept)} onClick={reply('propose')}>
           {ask.send}
         </button>
         {ask.accept !== null && (
-          <button data-answer="accept" disabled={changed} onClick={reply('accept')}>
+          <button data-answer="accept" {...enterMark(canAccept)} disabled={changed} onClick={reply('accept')}>
             {ask.accept}
           </button>
         )}
@@ -659,7 +677,7 @@ function PanelButtons({
     <div className="buttons">
       {lead}
       {extra && <button onClick={extra.run}>{extra.label}</button>}
-      <button data-answer="close" onClick={close}>
+      <button data-answer="close" data-enter="" onClick={close}>
         {ok}
       </button>
     </div>
@@ -1014,7 +1032,7 @@ function RouteEditor({
         ))}
       </div>
       <div className="buttons">
-        <button data-answer="ok" disabled={draft.name.trim() === ''} onClick={ok}>
+        <button data-answer="ok" data-enter="" disabled={draft.name.trim() === ''} onClick={ok}>
           {e.ok}
         </button>
         <button data-answer="cancel" onClick={cancel}>
@@ -1104,7 +1122,7 @@ function RoutesPanel({ d, art, routes }: { d: Of<'tradeRoutes'>; art: Art; route
         <button data-answer="delete" disabled={!route} onClick={() => route && routes.remove(route.id)}>
           {e.deleteRoute}
         </button>
-        <button data-answer="close" onClick={close}>
+        <button data-answer="close" data-enter="" onClick={close}>
           {e.ok}
         </button>
       </div>

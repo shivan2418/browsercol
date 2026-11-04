@@ -551,6 +551,13 @@
         outline: 2px solid var(--accent);
         outline-offset: -3px;
       }
+      /* The button Enter presses (panels.tsx's data-enter); with a button focused, Enter presses that one instead. */
+      .dialog:not(:has(button:focus)) button[data-enter]:not(:disabled) {
+        border-color: var(--accent);
+        box-shadow:
+          inset 0 0 0 1px var(--accent),
+          0 0 6px color-mix(in srgb, var(--accent) 45%, transparent);
+      }
       /* The choose founding father dialog: a tab per kind, then the open tab's father. */
       .dialog[data-kind='father'] {
         width: min(36em, 100vw - 32px);
