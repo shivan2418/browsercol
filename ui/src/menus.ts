@@ -31,6 +31,9 @@ export interface MenuActions {
   /** Whether the page is full screen, and a switch for it. */
   fullScreen: boolean;
   toggleFullScreen: () => void;
+  /** Whether the side panel (the debug scaffold beside the map) is shown, and a switch for it. */
+  sidePanel: boolean;
+  toggleSidePanel: () => void;
 }
 
 const later = (label: string): Items[number] => ({ label, run: () => {}, disabled: true });
@@ -84,6 +87,7 @@ export function viewMenu(a: MenuActions): Items {
     { label: 'Show Map Grid', run: () => a.toggleMode('grid'), checked: a.modes.grid },
     { label: 'Show Borders', run: () => a.toggleMode('borders'), checked: a.modes.borders },
     { label: 'Show Tile Names', run: () => a.toggleMode('names'), checked: a.modes.names },
+    { label: 'Show Side Panel', run: a.toggleSidePanel, checked: a.sidePanel },
     { label: 'Full Screen', run: a.toggleFullScreen, checked: a.fullScreen },
   ];
 }

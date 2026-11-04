@@ -19,6 +19,8 @@ function actions(over: Partial<MenuActions> = {}) {
     toggleMode: (m) => log.push(`mode ${m}`),
     fullScreen: false,
     toggleFullScreen: () => log.push('fullScreen'),
+    sidePanel: true,
+    toggleSidePanel: () => log.push('sidePanel'),
     ...over,
   };
   return { a, log };
@@ -106,13 +108,16 @@ describe('the View menu', () => {
       'Show Map Grid',
       'Show Borders',
       'Show Tile Names',
+      'Show Side Panel',
       'Full Screen',
     ]);
     find(items, 'Zoom In').run();
     find(items, 'Zoom Out').run();
     find(items, 'Center on Active Unit').run();
     find(items, 'Europe').run();
-    for (const l of ['Show Map Grid', 'Show Borders', 'Show Tile Names', 'Full Screen']) find(items, l).run();
+    for (const l of ['Show Map Grid', 'Show Borders', 'Show Tile Names', 'Show Side Panel', 'Full Screen']) {
+      find(items, l).run();
+    }
     expect(log).toEqual([
       'zoom 1',
       'zoom -1',
@@ -121,10 +126,11 @@ describe('the View menu', () => {
       'mode grid',
       'mode borders',
       'mode names',
+      'sidePanel',
       'fullScreen',
     ]);
     expect(items.filter((i) => i.disabled)).toEqual([]);
-    expect(items.filter((i) => i.checked).map((i) => i.label)).toEqual(['Show Borders']);
+    expect(items.filter((i) => i.checked).map((i) => i.label)).toEqual(['Show Borders', 'Show Side Panel']);
   });
 
   it('disables centring without an active unit', () => {

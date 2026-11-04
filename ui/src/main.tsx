@@ -191,6 +191,27 @@ let prefs: Prefs = loadPrefs();
 let prefsOpen = false;
 map.setMotion(moveMs(prefs), blinkMs(prefs), prefs.activeStyle);
 document.body.dataset.dimUnfocused = String(prefs.dimUnfocused);
+/** Whether the side panel is shown: the player's choice, kept for the next visit. */
+const SIDE_PANEL_KEY = 'freecol.sidePanel';
+let sidePanel = (() => {
+  try {
+    return localStorage.getItem(SIDE_PANEL_KEY) !== 'hidden';
+  } catch {
+    return true;
+  }
+})();
+document.body.dataset.sidePanel = sidePanel ? 'shown' : 'hidden';
+/** Show or hide the side panel; the map takes the room it leaves. */
+function toggleSidePanel() {
+  sidePanel = !sidePanel;
+  document.body.dataset.sidePanel = sidePanel ? 'shown' : 'hidden';
+  try {
+    localStorage.setItem(SIDE_PANEL_KEY, sidePanel ? 'shown' : 'hidden');
+  } catch {
+    // The choice just is not kept.
+  }
+  renderSide();
+}
 /** Whether the client Engine has loaded, so the menus' game commands work. */
 let menuReady = false;
 /** What the Game, Orders and View menus do (menus.ts). */
@@ -218,6 +239,8 @@ const menuActions = (): MenuActions => ({
     dispatch({ k: 'toggle', mode });
     renderSide();
   },
+  sidePanel,
+  toggleSidePanel,
   fullScreen: document.fullscreenElement !== null,
   toggleFullScreen: () => {
     // The browser may refuse (no gesture, or not allowed); the menu follows fullscreenchange.
