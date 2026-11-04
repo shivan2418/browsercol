@@ -24,6 +24,31 @@
       body[data-side-panel='hidden'] #side {
         display: none;
       }
+      /* The tab on the side panel's edge that folds it in and out (src/main.tsx). */
+      #side-tab {
+        position: fixed;
+        top: 50%;
+        right: 350px;
+        transform: translateY(-50%);
+        z-index: 5;
+        padding: 14px 3px;
+        border-radius: 4px 0 0 4px;
+        line-height: 1;
+        opacity: 0.7;
+      }
+      #side-tab:hover,
+      #side-tab:focus-visible {
+        opacity: 1;
+      }
+      #side-tab::before {
+        content: '\25B8';
+      }
+      body[data-side-panel='hidden'] #side-tab {
+        right: 0;
+      }
+      body[data-side-panel='hidden'] #side-tab::before {
+        content: '\25C2';
+      }
       #game {
         flex: 1;
         min-width: 320px;
@@ -1394,6 +1419,12 @@
       </div>
       <div id="side"></div>
     </div>
+    <button
+      id="side-tab"
+      type="button"
+      title="Fold the side panel in or out (Shift+F11)"
+      aria-label="Side panel"
+    ></button>
     <script>
       (() => {
         const sync = () => {
