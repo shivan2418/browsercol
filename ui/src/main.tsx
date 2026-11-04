@@ -312,7 +312,7 @@ framePlaces.saved = () => {
 /** The preferences the page's look follows: motion, dimming, and FreeCol's display scaling and font size. */
 function applyLook(p: Prefs) {
   map.setMotion(moveMs(p), blinkMs(p), p.activeStyle);
-  document.body.dataset.dimUnfocused = String(p.dimUnfocused);
+  document.body.dataset.dimUnfocused = p.dimUnfocused;
   map.setColonyLabels(pageOption(p, 'model.option.displayColonyLabels') as ColonyLabels);
   showCompass(pageOption(p, 'model.option.displayCompassRose'));
   framePlaces.remember = pageOption(p, 'model.option.rememberPanelPositions');

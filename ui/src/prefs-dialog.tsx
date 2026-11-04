@@ -8,9 +8,11 @@ import { Box, WindowFrame } from './frame';
 import { LANGUAGE_OPTION } from './language';
 import { OptionEditor } from './option-editor';
 import type { OptionGroup } from './options';
-import { ACTIVE_STYLES, MUTES, SPEEDS, type ActiveStyle, type Prefs, type Speed } from './prefs';
+import { ACTIVE_STYLES, DIMS, MUTES, SPEEDS, type ActiveStyle, type Dim, type Prefs, type Speed } from './prefs';
 
 const LABEL: Record<Speed, string> = { off: 'Off', slow: 'Slow', normal: 'Normal', fast: 'Fast' };
+
+const DIM_LABEL: Record<Dim, string> = { off: 'Off', light: 'Light', normal: 'Normal', heavy: 'Heavy' };
 
 const STYLE_LABEL: Record<ActiveStyle, string> = {
   freecol: 'FreeCol: blinking chevron',
@@ -155,11 +157,13 @@ function OwnOptions({ prefs, change }: { prefs: Prefs; change: (p: Prefs) => voi
         style={{ display: 'flex', gap: 12, justifyContent: 'space-between', margin: '6px 0' }}
       >
         Grey out the window when it is not focused
-        <input
-          type="checkbox"
-          checked={prefs.dimUnfocused}
-          onChange={(e) => change({ ...prefs, dimUnfocused: e.target.checked })}
-        />
+        <select value={prefs.dimUnfocused} onChange={(e) => change({ ...prefs, dimUnfocused: e.target.value as Dim })}>
+          {DIMS.map((d) => (
+            <option key={d} value={d}>
+              {DIM_LABEL[d]}
+            </option>
+          ))}
+        </select>
       </label>
     </>
   );
