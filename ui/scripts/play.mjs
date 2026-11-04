@@ -764,7 +764,7 @@ async function play(page, url) {
     }
   };
   /**
-   * The menu bar must span the top of the map, and the map canvas fill the window below it up to the side
+   * The menu bar must span the top of the window, and the map canvas fill the window below it up to the side
    * panel, which must reach the window's right edge.
    */
   const laidOut = async (what) => {
@@ -784,7 +784,7 @@ async function play(page, url) {
       const c = document.querySelector('#map canvas').getBoundingClientRect();
       const s = document.querySelector('#side').getBoundingClientRect();
       const m = document.querySelector('.menubar').getBoundingClientRect();
-      const bar = m.top === 0 && m.height > 0 && m.left === 0 && m.right === c.right;
+      const bar = m.top === 0 && m.height > 0 && m.left === 0 && m.right === innerWidth;
       return (
         bar &&
         c.left === 0 &&

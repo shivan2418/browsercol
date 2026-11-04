@@ -10,10 +10,20 @@
         background: var(--page);
         color: var(--ink);
         display: flex;
-        gap: 12px;
+        flex-direction: column;
         height: 100vh;
       }
-      /* The menu bar over the map, and the map below it in what the side panel leaves. */
+      /* The menu bar across the window, then the map and the side panel below it. */
+      #stage {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        gap: 12px;
+      }
+      /* The player may hide the side panel (View menu): the map takes its room. */
+      body[data-side-panel='hidden'] #side {
+        display: none;
+      }
       #game {
         flex: 1;
         min-width: 320px;
@@ -1326,11 +1336,13 @@
     </style>
   </head>
   <body>
-    <div id="game">
-      <div id="menubar"></div>
-      <div id="map"></div>
+    <div id="menubar"></div>
+    <div id="stage">
+      <div id="game">
+        <div id="map"></div>
+      </div>
+      <div id="side"></div>
     </div>
-    <div id="side"></div>
     <script>
       (() => {
         const sync = () => {
