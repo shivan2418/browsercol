@@ -16,8 +16,8 @@ if [[ -n "${FAKE:-}" ]]; then
   # Dummy payloads stand in for the wasm so transfer sizes are not zero.
   for m in server client; do head -c 200000 /dev/urandom > "$dist/$m.wasm"; done
 else
-  src="$repo/engine/build/generated/teavm/wasm-gc"
-  for m in server client; do cp "$src/$m.wasm" "$src/$m.wasm-runtime.js" "$dist/"; done
+  src="$repo/engine/build/generated/teavm"
+  for m in server client; do cp "$src/$m/$m.wasm" "$src/$m/$m.wasm-runtime.js" "$dist/"; done
 fi
 
 # PixiJS, served locally (ADR 0001: no runtime CDN). Cached under .cache.

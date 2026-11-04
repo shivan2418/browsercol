@@ -15,7 +15,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { Worker, isMainThread, parentPort } from 'node:worker_threads';
 
-const out = 'build/generated/teavm/wasm-gc';
+const out = 'build/generated/teavm';
 const data = '../freecol/data';
 const t0 = performance.now();
 const log = (s) => console.error(`[${isMainThread ? 'client' : 'server'} ${(performance.now() - t0).toFixed(0)}ms] ${s}`);
@@ -35,9 +35,9 @@ function dataArgs() {
 }
 
 async function load(name) {
-  createRequire(import.meta.url)(path.resolve(`${out}/${name}.wasm-runtime.js`));
+  createRequire(import.meta.url)(path.resolve(`${out}/${name}/${name}.wasm-runtime.js`));
   const t = performance.now();
-  const teavm = await globalThis.TeaVM.wasmGC.load(path.resolve(`${out}/${name}.wasm`));
+  const teavm = await globalThis.TeaVM.wasmGC.load(path.resolve(`${out}/${name}/${name}.wasm`));
   log(`${name}.wasm loaded in ${(performance.now() - t).toFixed(0)}ms`);
   return teavm.exports;
 }
