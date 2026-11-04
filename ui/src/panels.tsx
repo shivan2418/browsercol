@@ -21,7 +21,7 @@ import { ColonyActions, ColonyPanel } from './colony-panel';
 import type { Dialog, Dialogs } from './dialogs';
 import { europeButtons } from './europe-client';
 import { GoodsAmount, WindowFrame, type Art } from './frame';
-import { draggableProps, dropTargetProps, type Item, type Place } from './moves';
+import { draggableProps, dropTargetProps, OVER, type Item, type Place } from './moves';
 import { ContextMenuContext, contextMenuHandler, useContextMenu } from './popup-menu';
 import { OptionEditor } from './option-editor';
 import { ReportPanel } from './reports';
@@ -903,6 +903,7 @@ function RouteEditor({
   const drop = (before: number | null, ev: ReactDragEvent) => {
     ev.preventDefault();
     ev.stopPropagation();
+    ev.currentTarget.classList.remove(OVER);
     const moved = dragged.current;
     dragged.current = [];
     if (moved.length === 0) return;
@@ -914,22 +915,25 @@ function RouteEditor({
     setSel(moved.map((_, k) => head.length + k));
     setAnchor(head.length);
   };
-  const over = (ev: ReactDragEvent) => dragged.current.length > 0 && ev.preventDefault();
+  // The place a stop would drop on is marked, as the colony panel's are.
+  const over = (ev: ReactDragEvent) => {
+    if (dragged.current.length === 0) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    ev.currentTarget.classList.add(OVER);
+  };
+  const leave = (ev: ReactDragEvent) => ev.currentTarget.classList.remove(OVER);
   // A goods type the first selected stop loads is taken off every selected stop, else loaded at each.
   const toggle = (goods: string) => {
     if (stop === undefined) return;
     const off = stop.cargo.includes(goods);
     setDraft({
       ...draft,
-      stops: draft.stops.map((s, i) =>
-        !sel.includes(i)
-          ? s
-          : off
-            ? { ...s, cargo: s.cargo.filter((g) => g !== goods) }
-            : s.cargo.includes(goods)
-              ? s
-              : { ...s, cargo: [...s.cargo, goods] },
-      ),
+      stops: draft.stops.map((s, i) => {
+        if (!sel.includes(i)) return s;
+        if (off) return { ...s, cargo: s.cargo.filter((g) => g !== goods) };
+        return s.cargo.includes(goods) ? s : { ...s, cargo: [...s.cargo, goods] };
+      }),
     });
   };
   const goodsName = (id: string) => e.goods.find((g) => g.id === id);
@@ -952,7 +956,7 @@ function RouteEditor({
         />{' '}
         {e.silence}
       </label>
-      <div className="stops" onDragOver={over} onDrop={(ev) => drop(null, ev)}>
+      <div className="stops" onDragOver={over} onDragLeave={leave} onDrop={(ev) => drop(null, ev)}>
         {draft.stops.map((s, i) => (
           <button
             key={i}
@@ -963,6 +967,7 @@ function RouteEditor({
             onDragStart={(ev) => lift(i, ev)}
             onDragEnd={() => (dragged.current = [])}
             onDragOver={over}
+            onDragLeave={leave}
             onDrop={(ev) => drop(i, ev)}
           >
             <span className="name">{s.label}</span>
