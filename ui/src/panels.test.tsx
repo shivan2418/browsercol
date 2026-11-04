@@ -277,6 +277,59 @@ describe('the choice dialog', () => {
   });
 });
 
+describe('the choose founding father dialog', () => {
+  const father = (id: string, kind: string, name: string, description: string) => ({
+    id,
+    kind,
+    name,
+    description,
+    born: '1700-1790',
+    text: `The story of ${name}.`,
+    keys: [`image.flavor.${id}`],
+  });
+  const q: GuiQuestions['father']['ask'] = {
+    title: 'Nominate Founding Father',
+    ok: 'OK',
+    fathers: [
+      father('adamSmith', 'Trade', 'Adam Smith', 'Enables building of factories.'),
+      father('thomasJefferson', 'Political', 'Thomas Jefferson', 'Increases liberty bell production by 10%.'),
+      father('hernanCortes', 'Military', 'Hernan Cortes', 'Conquered settlements always yield treasure.'),
+    ],
+  };
+
+  it("has a tab per kind, shows what the open tab's father does, and nominates it", async () => {
+    const { box } = host();
+    const chosen = ask(box, 'father', q);
+    const tabs = screen.getAllByRole('tab');
+    expect(tabs.map((t) => t.textContent)).toEqual(['Trade', 'Political', 'Military']);
+    const panel = screen.getByRole('tabpanel');
+    within(panel).getByText('Enables building of factories.');
+    within(panel).getByText('[1700-1790] The story of Adam Smith.');
+
+    fireEvent.click(tabs[1]);
+    expect(tabs[1].getAttribute('aria-selected')).toBe('true');
+    within(screen.getByRole('tabpanel')).getByText('Increases liberty bell production by 10%.');
+    expect(screen.queryByText('Enables building of factories.')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    expect(await chosen).toBe(1);
+  });
+
+  it('moves between tabs with the arrow keys, nominates on Enter and postpones on Escape', async () => {
+    const { box } = host();
+    const chosen = ask(box, 'father', q);
+    const list = screen.getByRole('tablist');
+    act(() => void fireEvent.keyDown(list, { key: 'ArrowLeft' }));
+    within(screen.getByRole('tabpanel')).getByText('Hernan Cortes (Military)');
+    key('Enter');
+    expect(await chosen).toBe(2);
+
+    const closed = ask(box, 'father', q);
+    key('Escape');
+    expect(await closed).toBeNull();
+  });
+});
+
 describe('the input dialog', () => {
   const q = { text: 'Name the colony', value: 'Jamestown', ok: 'OK', cancel: 'Cancel', tile: null };
 
