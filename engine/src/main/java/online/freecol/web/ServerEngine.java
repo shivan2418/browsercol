@@ -7,7 +7,10 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import net.sf.freecol.FreeCol;
 import net.sf.freecol.common.i18n.Messages;
@@ -76,6 +79,7 @@ public final class ServerEngine {
      * @exception Exception if the rules or the server fail.
      */
     public void startGame(String rules, GamePreset preset) throws Exception {
+        this.setup = preset.setup;
         Messages.loadMessageBundle(Locale.US);
         FreeColRules.loadRules();
         final String id = (preset.rules != null) ? preset.rules : rules;
@@ -93,6 +97,26 @@ public final class ServerEngine {
         this.server = made;
     }
 
+    /** The preset's setup requests, until they have run. */
+    private List<Map<?, ?>> setup = new ArrayList<>();
+
+    /**
+     * Run the preset's setup requests, once the game has started and the
+     * human has joined: the scenario the preset describes.
+     *
+     * @return The answers, in order, each as {@link #debug} gives it.
+     * @exception IllegalArgumentException if a request is bad.
+     */
+    public List<String> setup() {
+        final List<String> answers = new ArrayList<>();
+        final DebugActions actions = new DebugActions(getGame(), human(),
+            this.server.getAIMain(), this.server.getInGameController());
+        final List<Map<?, ?>> requests = this.setup;
+        this.setup = new ArrayList<>();
+        for (Map<?, ?> r : requests) answers.add(actions.run(r));
+        return answers;
+    }
+
     /**
      * Run one of FreeCol's debug actions on the server's game, as the
      * Browser UI asks in debug mode; see {@link DebugActions} for the
@@ -103,7 +127,8 @@ public final class ServerEngine {
      * @exception IllegalArgumentException if the request is bad.
      */
     public String debug(String request) {
-        return new DebugActions(getGame(), human(), this.server.getAIMain()).run(request);
+        return new DebugActions(getGame(), human(), this.server.getAIMain(),
+            this.server.getInGameController()).run(request);
     }
 
     /**
