@@ -95,7 +95,7 @@ describe('the colony panel', () => {
     expect(within(at('colonyTile:21')).getByAltText('Dutch Free Colonist')).toBeTruthy();
     expect(at('colonyTile:21').querySelectorAll('[data-goods="model.goods.grain"] .pile > *')).toHaveLength(3);
     expect(at('colonyTile:11').querySelectorAll('[data-goods="model.goods.cotton"] .pile > *')).toHaveLength(2);
-    // Up to 7 an amount is only icons, with no number.
+    // Below 7 (ProductionLabel's display goods amounts at) an amount is only icons, with no number.
     expect(at('colonyTile:11').querySelector('[data-goods="model.goods.cotton"] .amount')).toBeNull();
     expect(at('colonyTile:22').dataset.ours).toBe('false');
     // TileViewer.displayColonyTile: the tile taken image, native land, and a worker with no occupation chip.

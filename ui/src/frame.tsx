@@ -54,6 +54,18 @@ export function useEscape(close: (() => void) | null) {
 }
 
 /**
+ * FreeCol's remember panel positions option: when on, a window dragged somewhere opens there again, by its
+ * id or its kind (Canvas's saved positions). The page sets `remember` from the Preferences, and keeps the
+ * places in `places`.
+ */
+export const framePlaces: {
+  remember: boolean;
+  places: Record<string, { x: number; y: number }>;
+  /** The places changed: keep them. */
+  saved: () => void;
+} = { remember: false, places: {}, saved: () => {} };
+
+/**
  * A window: a title bar in the menu bar's colours, with the panel's name and
  * a close button, over the panel's body. Escape closes it too, before
  * anything else on the page sees the key.
@@ -61,7 +73,12 @@ export function useEscape(close: (() => void) | null) {
 export function WindowFrame({ title, close, children, className, ...rest }: FrameProps) {
   useEscape(close);
   const titleId = useId();
-  const [shift, setShift] = useState({ x: 0, y: 0 });
+  const attrs = rest as Record<string, unknown>;
+  const placeKey =
+    typeof rest.id === 'string' ? rest.id : typeof attrs['data-kind'] === 'string' ? attrs['data-kind'] : null;
+  const [shift, setShift] = useState(
+    () => (framePlaces.remember && placeKey && framePlaces.places[placeKey]) || { x: 0, y: 0 },
+  );
   // Drag the window by its title bar (not by the close button).
   const drag = (e: ReactPointerEvent<HTMLElement>) => {
     if (e.button !== 0 || (e.target instanceof Element && e.target.closest('button'))) return;
@@ -69,7 +86,11 @@ export function WindowFrame({ title, close, children, className, ...rest }: Fram
     const from = { x: e.clientX - shift.x, y: e.clientY - shift.y };
     bar.setPointerCapture?.(e.pointerId);
     const move = (m: globalThis.PointerEvent) => setShift({ x: m.clientX - from.x, y: m.clientY - from.y });
-    const up = () => {
+    const up = (u: globalThis.PointerEvent) => {
+      if (framePlaces.remember && placeKey) {
+        framePlaces.places[placeKey] = { x: u.clientX - from.x, y: u.clientY - from.y };
+        framePlaces.saved();
+      }
       bar.removeEventListener('pointermove', move);
       bar.removeEventListener('pointerup', up);
       bar.removeEventListener('pointercancel', up);

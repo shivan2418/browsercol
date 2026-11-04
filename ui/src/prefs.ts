@@ -33,8 +33,8 @@ export interface Prefs {
   freecol: Record<string, FreeColValue>;
 }
 
-/** The value of one of FreeCol's boolean, integer or select client options. */
-export type FreeColValue = boolean | number;
+/** The value of one of FreeCol's boolean, integer, select or text client options. */
+export type FreeColValue = boolean | number | string;
 
 export const DEFAULTS: Prefs = {
   activeStyle: 'online',
@@ -68,6 +68,8 @@ export function visibleMessages<T extends { type: string }>(p: Prefs, messages: 
  * modern colony labels, the colony report kinds, sound, mods, save files).
  */
 export const FREECOL_OPTIONS: readonly string[] = [
+  // Personal
+  'model.option.playerName',
   // Display
   'model.option.displayScaling',
   'model.option.manualMainFontSize',
@@ -115,6 +117,7 @@ export const FREECOL_OPTIONS: readonly string[] = [
   // Interface: warehouse
   'model.option.stockAccountsForProduction',
   // Interface: other
+  'model.option.rememberPanelPositions',
   'model.option.disableGrayLayer',
   'model.option.autoloadEmigrants',
   'model.option.autoloadSentries',
@@ -149,6 +152,8 @@ export const PAGE_OPTIONS = {
   'model.option.autoScroll': true,
   /** The side panel, FreeCol Online's map controls, is shown (the View menu's Show Side Panel). */
   'model.option.displayMapControls': true,
+  /** A window dragged somewhere opens there again. */
+  'model.option.rememberPanelPositions': false,
   /** No "Other players are moving" banner over the map while the AI plays: FreeCol's grey end turn layer. */
   'model.option.disableGrayLayer': false,
   /** The amount of goods from which a ProductionLabel shows the number as well as the icons. */
@@ -220,12 +225,13 @@ export function shownClientOptions(group: OptionNode): OptionGroup | null {
   return out?.kind === 'group' ? out : null;
 }
 
-/** The stored FreeCol options: shown ones with a boolean or whole number value. */
+/** The stored FreeCol options: shown ones with a boolean, whole number or text value. */
 function freecolValues(v: unknown): Record<string, FreeColValue> {
   const out: Record<string, FreeColValue> = {};
   if (typeof v !== 'object' || v === null) return out;
   for (const [id, x] of Object.entries(v)) {
-    if (FREECOL_OPTIONS.includes(id) && (typeof x === 'boolean' || Number.isInteger(x))) out[id] = x as FreeColValue;
+    if (FREECOL_OPTIONS.includes(id) && (typeof x === 'boolean' || typeof x === 'string' || Number.isInteger(x)))
+      out[id] = x as FreeColValue;
   }
   return out;
 }
@@ -245,7 +251,7 @@ export function fromEngine(
   const out = { ...p.freecol };
   for (const id of FREECOL_OPTIONS) {
     const v = engine[id];
-    if (typeof v !== 'boolean' && typeof v !== 'number') continue;
+    if (typeof v !== 'boolean' && typeof v !== 'number' && typeof v !== 'string') continue;
     if (defaults.get(id) === v) delete out[id];
     else out[id] = v;
   }

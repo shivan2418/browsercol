@@ -74,12 +74,17 @@ describe('prefs', () => {
           'model.option.guiShowPreCombat': false,
           'model.option.indianDemandResponse': 2,
           'model.option.autoSavePrefix': 'x',
+          'model.option.playerName': 'Peter Stuyvesant',
           'model.option.colonyComparator': 1.5,
           'model.option.usePixmaps': false,
         },
       }),
     );
-    expect(p.freecol).toEqual({ 'model.option.guiShowPreCombat': false, 'model.option.indianDemandResponse': 2 });
+    expect(p.freecol).toEqual({
+      'model.option.guiShowPreCombat': false,
+      'model.option.indianDemandResponse': 2,
+      'model.option.playerName': 'Peter Stuyvesant',
+    });
     expect(parsePrefs('{"freecol":7}').freecol).toEqual({});
   });
 
@@ -111,8 +116,8 @@ describe('prefs', () => {
 
     const shown = shownClientOptions(all)!;
     expect([...leaves(shown).keys()].sort()).toEqual([...FREECOL_OPTIONS].sort());
-    expect(shown.children.map((g) => g.label)).toEqual(['Display', 'Interface']);
-    const groups = shown.children[1].kind === 'group' ? shown.children[1].children.map((g) => g.label) : [];
+    expect(shown.children.map((g) => g.label)).toEqual(['Personal', 'Display', 'Interface']);
+    const groups = shown.children[2].kind === 'group' ? shown.children[2].children.map((g) => g.label) : [];
     expect(groups).toEqual(['Main map', 'Map Controls', 'Messages', 'Warehouse Settings', 'Other']);
     const tileText = leaves(shown).get('model.option.displayTileText');
     expect(tileText?.kind === 'select' && tileText.choices.map((c) => c.value)).toEqual([0, 1, 2, 3]);

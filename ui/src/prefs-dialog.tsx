@@ -192,8 +192,7 @@ export function PreferencesDialog({
                   editable
                   values={prefs.freecol}
                   onChange={(id, v) => {
-                    if (typeof v === 'boolean' || typeof v === 'number')
-                      change({ ...prefs, freecol: { ...prefs.freecol, [id]: v } });
+                    change({ ...prefs, freecol: { ...prefs.freecol, [id]: v } });
                   }}
                 />
               ) : (
