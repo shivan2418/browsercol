@@ -16,7 +16,6 @@
       /* FreeCol's display scaling (Preferences): the menus, side panel and windows; the map has its own zoom. */
       #menubar,
       #side,
-      #side-tab,
       .modal > * {
         zoom: var(--ui-zoom, 1);
       }
@@ -30,31 +29,6 @@
       /* The player may hide the side panel (View menu): the map takes its room. */
       body[data-side-panel='hidden'] #side {
         display: none;
-      }
-      /* The tab on the side panel's edge that folds it in and out (src/main.tsx). */
-      #side-tab {
-        position: fixed;
-        top: 50%;
-        right: 350px;
-        transform: translateY(-50%);
-        z-index: 5;
-        padding: 14px 3px;
-        border-radius: 4px 0 0 4px;
-        line-height: 1;
-        opacity: 0.7;
-      }
-      #side-tab:hover,
-      #side-tab:focus-visible {
-        opacity: 1;
-      }
-      #side-tab::before {
-        content: '\25B8';
-      }
-      body[data-side-panel='hidden'] #side-tab {
-        right: 0;
-      }
-      body[data-side-panel='hidden'] #side-tab::before {
-        content: '\25C2';
       }
       #game {
         flex: 1;
@@ -1482,12 +1456,8 @@
       </div>
       <div id="side"></div>
     </div>
-    <button
-      id="side-tab"
-      type="button"
-      title="Fold the side panel in or out (Shift+F11)"
-      aria-label="Side panel"
-    ></button>
+    <!-- The windows, popup menus and banner (src/main.tsx), outside the side panel, which may be hidden. -->
+    <div id="overlays"></div>
     <script>
       (() => {
         const sync = () => {
