@@ -28,6 +28,8 @@ export interface SaveStore {
   /** A save's bytes, or null if there is no such save. */
   get(id: number): Promise<Uint8Array | null>;
   remove(id: number): Promise<void>;
+  /** Give a save another name; nothing if there is no such save. */
+  rename(id: number, name: string): Promise<void>;
 }
 
 /** What the Engine reports when it has saved (ServerEngine.saveInfo). */
@@ -122,6 +124,13 @@ export function idbSaveStore(factory: IDBFactory = indexedDB): SaveStore {
       tx.objectStore(BLOBS).delete(id);
       await committed(tx);
     },
+    async rename(id, name) {
+      const db = await open();
+      const tx = db.transaction(META, 'readwrite');
+      const meta = (await request(tx.objectStore(META).get(id))) as SaveMeta | undefined;
+      if (meta) tx.objectStore(META).put({ ...meta, name });
+      await committed(tx);
+    },
   };
 }
 
@@ -147,6 +156,77 @@ export async function latestAutosave(store: SaveStore): Promise<SaveMeta | null>
 /** Once `kept` is stored, drop every older autosave. */
 export async function dropOlderAutosaves(store: SaveStore, kept: SaveMeta): Promise<void> {
   for (const m of await store.list()) if (isAutosave(m) && m.id !== kept.id) await store.remove(m.id);
+}
+
+/**
+ * FreeCol's autosave client options (InGameController.autoSaveGame): as each of the player's turns
+ * begins, a last-turn save, the one before it kept as the before-last-turn save, and every `period`
+ * turns a turn autosave of its own. All are named `prefix-...`; the one-slot Autosave above is apart.
+ */
+export interface AutosaveOptions {
+  /** A turn autosave every this many turns; 0 makes none. */
+  period: number;
+  /** Days a turn autosave is kept; 0 keeps them. The last-turn saves are kept whatever their age. */
+  validity: number;
+  /** Delete the turn autosaves when a new game starts. */
+  deleteOnNewGame: boolean;
+  prefix: string;
+  lastTurn: string;
+  beforeLastTurn: string;
+}
+
+export const lastTurnSaveName = (o: AutosaveOptions): string => `${o.prefix}-${o.lastTurn}`;
+export const beforeLastTurnSaveName = (o: AutosaveOptions): string => `${o.prefix}-${o.beforeLastTurn}`;
+
+/** Whether a save is one of the turn autosaves, the last-turn saves among them. */
+export const isTurnAutosave = (o: AutosaveOptions, m: Pick<SaveMeta, 'name'>): boolean =>
+  m.name.startsWith(`${o.prefix}-`);
+
+/**
+ * The names of the saves to make as the player's turn begins: the last-turn save, and a turn
+ * autosave named for the turn on every `period`th turn.
+ *
+ * @param turnLabel The turn's season and year, e.g. Spring 1493.
+ */
+export function turnAutosaveNames(o: AutosaveOptions, turn: number, turnLabel: string): string[] {
+  const names = [lastTurnSaveName(o)];
+  if (o.period >= 1 && turn % o.period === 0) names.push(`${o.prefix}-${turnLabel}`);
+  return names;
+}
+
+/**
+ * Once a new last-turn save `kept` is stored: the older last-turn save becomes the before-last-turn
+ * save, and the older before-last-turn save goes.
+ */
+export async function shiftLastTurnSaves(store: SaveStore, o: AutosaveOptions, kept: SaveMeta): Promise<void> {
+  const last = lastTurnSaveName(o);
+  const before = beforeLastTurnSaveName(o);
+  if (last === before) return;
+  const all = await store.list();
+  for (const m of all) if (m.name === before) await store.remove(m.id);
+  // Newest first: the newest older one becomes before-last, any others go.
+  let shifted = false;
+  for (const m of all) {
+    if (m.name !== last || m.id === kept.id) continue;
+    if (shifted) await store.remove(m.id);
+    else await store.rename(m.id, before);
+    shifted = true;
+  }
+}
+
+/** Drop the turn autosaves older than `validity` days, but not the last-turn saves (removeOutdatedAutosaves). */
+export async function dropOutdatedAutosaves(store: SaveStore, o: AutosaveOptions, now: number): Promise<void> {
+  if (o.validity <= 0) return;
+  const keep = [lastTurnSaveName(o), beforeLastTurnSaveName(o)];
+  const oldest = now - o.validity * 24 * 60 * 60 * 1000;
+  for (const m of await store.list()) {
+    if (isTurnAutosave(o, m) && !keep.includes(m.name) && m.date < oldest) await store.remove(m.id);
+  }
+}
+
+/** Drop every turn autosave, as a new game starts with the delete option on (removeAutosaves). */
+export async function dropTurnAutosaves(store: SaveStore, o: AutosaveOptions): Promise<void> {
+  for (const m of await store.list()) if (isTurnAutosave(o, m)) await store.remove(m.id);
 }
 
 /**

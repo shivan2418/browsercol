@@ -4,6 +4,7 @@
 // localStorage.
 import { AUTOMATIC, LANGUAGE_OPTION } from './language';
 import type { MinimapOptions } from './minimap';
+import type { AutosaveOptions } from './saves';
 import type { OptionGroup, OptionNode } from './options';
 import { FONT_SETS, isFontSet, isPalette, PALETTES, type FontSet, type Palette } from './theme';
 import type { TileText, ViewModes } from './tileset';
@@ -87,7 +88,7 @@ export function visibleMessages<T extends { type: string }>(p: Prefs, messages: 
  * device: the browser plays on the system's default output, as choosing another, setSinkId, works only in
  * Chromium); and those waiting on a feature, each with its issue: other players'
  * move animations (#149), terrain animations (#150), the compact colony report (#152),
- * the save game dialog (#153) and autosaves (#154), mods (#155), and the warehouse
+ * the save game dialog (#153), mods (#155), and the warehouse
  * defaults (#158).
  */
 export const FREECOL_OPTIONS: readonly string[] = [
@@ -156,6 +157,13 @@ export const FREECOL_OPTIONS: readonly string[] = [
   'model.option.guiMaxNumberOfGoodsImages',
   'model.option.guiMinNumberToDisplayGoods',
   'model.option.colonyComparator',
+  // Saved games
+  'model.option.autosavePeriod',
+  'model.option.autosaveValidity',
+  'model.option.autosaveDelete',
+  'model.option.autoSavePrefix',
+  'model.option.lastTurnName',
+  'model.option.beforeLastTurnName',
   // Audio
   'model.option.musicVolume',
   'model.option.soundEffectsVolume',
@@ -218,12 +226,29 @@ export const PAGE_OPTIONS = {
   'model.option.miniMapToggleBorders': true,
   /** The colour round the map on the minimap: 0 black, 1 to 5 greys from dark to light, 6 light blue. */
   'model.option.color.background': 0,
+  /** A turn autosave every this many turns, as the player's turn begins; 0 makes none. */
+  'model.option.autosavePeriod': 1,
+  /** Days a turn autosave is kept, counted from when it was made; 0 keeps them. Read as the page loads. */
+  'model.option.autosaveValidity': 30,
+  /** Delete the turn autosaves when a new game starts. */
+  'model.option.autosaveDelete': false,
+  /** What the turn autosaves' names start with, before a dash. */
+  'model.option.autoSavePrefix': 'Autosave',
+  /** The name, after the prefix, of the save made as each of the player's turns begins. */
+  'model.option.lastTurnName': 'last-turn',
+  /** The name, after the prefix, the last turn's save takes when the next one replaces it. */
+  'model.option.beforeLastTurnName': 'before-last-turn',
 };
 
 type PageOption = keyof typeof PAGE_OPTIONS;
 
 /** The page options that take effect only when the page loads again, as FreeCol's need a restart. */
-export const ON_RELOAD: readonly string[] = ['model.option.useOpenGL', 'model.option.graphicsQuality', LANGUAGE_OPTION];
+export const ON_RELOAD: readonly string[] = [
+  'model.option.useOpenGL',
+  'model.option.graphicsQuality',
+  LANGUAGE_OPTION,
+  'model.option.autosaveValidity',
+];
 
 /** How big the menus, panels and windows are drawn: the display scaling, 1 for automatic. */
 export const uiZoom = (p: Prefs): number => (pageOption(p, 'model.option.displayScaling') || 100) / 100;
@@ -248,6 +273,16 @@ export const MUTES = {
 export const volumes = (p: Prefs): { music: number; effects: number } => ({
   music: p.muteMusic ? 0 : pageOption(p, 'model.option.musicVolume'),
   effects: p.muteEffects ? 0 : pageOption(p, 'model.option.soundEffectsVolume'),
+});
+
+/** The autosave options (saves.ts). */
+export const autosaveOptions = (p: Prefs): AutosaveOptions => ({
+  period: pageOption(p, 'model.option.autosavePeriod'),
+  validity: pageOption(p, 'model.option.autosaveValidity'),
+  deleteOnNewGame: pageOption(p, 'model.option.autosaveDelete'),
+  prefix: pageOption(p, 'model.option.autoSavePrefix'),
+  lastTurn: pageOption(p, 'model.option.lastTurnName'),
+  beforeLastTurn: pageOption(p, 'model.option.beforeLastTurnName'),
 });
 
 /** The View menu's map modes, as the options say. */

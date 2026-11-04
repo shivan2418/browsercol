@@ -19,5 +19,9 @@ export function fakeSaveStore(): SaveStore & { blobs: Map<number, Uint8Array> } 
       metas.delete(id);
       blobs.delete(id);
     },
+    rename: async (id, name) => {
+      const m = metas.get(id);
+      if (m) metas.set(id, { ...m, name });
+    },
   };
 }

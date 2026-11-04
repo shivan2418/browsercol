@@ -4,6 +4,7 @@ import freecolMessages from '../../freecol/data/strings/FreeColMessages.properti
 import germanMessages from '../../freecol/data/strings/FreeColMessages_de.properties?raw';
 import { describe, expect, it } from 'vite-plus/test';
 import {
+  autosaveOptions,
   blinkMs,
   DEFAULTS,
   FREECOL_OPTIONS,
@@ -95,7 +96,7 @@ describe('prefs', () => {
         freecol: {
           'model.option.guiShowPreCombat': false,
           'model.option.indianDemandResponse': 2,
-          'model.option.autoSavePrefix': 'x',
+          'model.option.confirmSaveOverwrite': true,
           'model.option.playerName': 'Peter Stuyvesant',
           'model.option.colonyComparator': 1.5,
           'model.option.usePixmaps': false,
@@ -138,9 +139,18 @@ describe('prefs', () => {
 
     const shown = shownClientOptions(all)!;
     expect([...leaves(shown).keys()].sort()).toEqual([...FREECOL_OPTIONS].sort());
-    expect(shown.children.map((g) => g.label)).toEqual(['Personal', 'Display', 'Interface', 'Audio']);
-    // Sound (#157): the volumes and the alert, but not the Java Sound mixer.
+    expect(shown.children.map((g) => g.label)).toEqual(['Personal', 'Display', 'Interface', 'Saved games', 'Audio']);
+    // Autosaves (#154), but not the confirm overwrite option: browser saves never overwrite.
     expect(shown.children[3].kind === 'group' && shown.children[3].children.map((o) => o.id)).toEqual([
+      'model.option.autosavePeriod',
+      'model.option.autosaveValidity',
+      'model.option.autosaveDelete',
+      'model.option.autoSavePrefix',
+      'model.option.lastTurnName',
+      'model.option.beforeLastTurnName',
+    ]);
+    // Sound (#157): the volumes and the alert, but not the Java Sound mixer.
+    expect(shown.children[4].kind === 'group' && shown.children[4].children.map((o) => o.id)).toEqual([
       'model.option.musicVolume',
       'model.option.soundEffectsVolume',
       'model.option.audioAlerts',
@@ -152,6 +162,26 @@ describe('prefs', () => {
     // An option read only as the page loads says so.
     expect(leaves(shown).get('model.option.useOpenGL')?.label).toMatch(/\(on reload\)$/);
     expect(leaves(shown).get('model.option.autoScroll')?.label).not.toMatch(/reload/);
+  });
+
+  it("reads the autosave options, by FreeCol's defaults unless set", () => {
+    expect(autosaveOptions(DEFAULTS)).toEqual({
+      period: 1,
+      validity: 30,
+      deleteOnNewGame: false,
+      prefix: 'Autosave',
+      lastTurn: 'last-turn',
+      beforeLastTurn: 'before-last-turn',
+    });
+    const p = {
+      ...DEFAULTS,
+      freecol: {
+        'model.option.autosavePeriod': 5,
+        'model.option.autoSavePrefix': 'Auto',
+        'model.option.autosaveDelete': true,
+      },
+    };
+    expect(autosaveOptions(p)).toMatchObject({ period: 5, prefix: 'Auto', deleteOnNewGame: true });
   });
 
   it("reads the minimap's options, by FreeCol's defaults unless set, and shows them", () => {

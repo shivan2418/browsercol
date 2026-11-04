@@ -51,6 +51,7 @@ import {
   fontScale,
   uiZoom,
   volumes,
+  autosaveOptions,
   type Prefs,
 } from './prefs';
 import { LANGUAGE_OPTION, languageName, languages, pickLanguage, translationFiles } from './language';
@@ -72,9 +73,15 @@ import {
   AUTOSAVE_NAME,
   debounced,
   dropOlderAutosaves,
+  dropOutdatedAutosaves,
+  dropTurnAutosaves,
   idbSaveStore,
   isAutosave,
+  isTurnAutosave,
+  lastTurnSaveName,
   latestAutosave,
+  shiftLastTurnSaves,
+  turnAutosaveNames,
   type SaveMeta,
 } from './saves';
 import { MinimapPanel } from './minimap-panel';
@@ -215,6 +222,26 @@ function download(bytes: Uint8Array, fileName: string) {
 let saveGame: (name: string) => void = () => {};
 /** Schedule an autosave (set once the client Engine has loaded). */
 let autosaveSoon: () => void = () => {};
+/** Saves asked for by name before the client Engine has loaded, made once it has. */
+const waitingSaves: string[] = [];
+/** Make a save with this name, quietly (set once the client Engine has loaded). */
+let saveNamed: (name: string) => void = (name) => void waitingSaves.push(name);
+/** The turn whose autosaves have been asked for, null before the first of the player's turns. */
+let autosavedTurn: number | null = null;
+/**
+ * FreeCol's autosaves as the player's turn begins (InGameController.autoSaveGame): the last-turn
+ * save, and a turn autosave every so many turns. Not for a loaded game's first turn, as FreeCol's
+ * newly loaded game makes none, nor for a scripted run's.
+ */
+function turnAutosave(m: MapView) {
+  if (!m.ourTurn || autoplay > 0) return;
+  const turn = Number(m.turn);
+  if (autosavedTurn === turn) return;
+  const first = autosavedTurn === null;
+  autosavedTurn = turn;
+  if ((first && loadId !== undefined) || !(turn > 0)) return;
+  for (const name of turnAutosaveNames(autosaveOptions(prefs), turn, m.turnLabel)) saveNamed(name);
+}
 /** The turn report's buttons, once the client Engine has loaded. */
 let reportButtons: ReportButtons = { groupBy: () => {}, filter: () => {}, ignore: () => {} };
 /** The trade routes panel's buttons, once the client Engine has loaded. */
@@ -792,6 +819,7 @@ function drawMap(m: MapView) {
   lastTurn = m;
   autoEndTurn();
   if (m.ourTurn) autosaveSoon();
+  turnAutosave(m);
   renderSide();
   lastMap = m;
   dispatch({ k: 'map', map: m });
@@ -1002,6 +1030,10 @@ async function run() {
         case 'gameStarted':
           // PreGameController.startGame: the default playlist plays whenever no other music does.
           void sound.then((s) => s?.startPlaylist());
+          // PreGameController.startGame: the delete autosaves option clears them as a new game starts.
+          if (loadId === undefined && autosaveOptions(prefs).deleteOnNewGame) {
+            void dropTurnAutosaves(store, autosaveOptions(prefs)).catch(console.warn).finally(listSaves);
+          }
           return drawMap(JSON.parse(detail) as MapView);
         case 'map':
           return drawMap(JSON.parse(detail) as MapView);
@@ -1021,6 +1053,13 @@ async function run() {
           if (isAutosave(meta)) {
             // One slot: the new autosave replaces the old ones, quietly.
             return void dropOlderAutosaves(store, meta).catch(console.warn).finally(listSaves);
+          }
+          const auto = autosaveOptions(prefs);
+          if (isTurnAutosave(auto, meta)) {
+            // Quietly too; a new last-turn save moves the old one to before-last-turn.
+            const shifted =
+              meta.name === lastTurnSaveName(auto) ? shiftLastTurnSaves(store, auto, meta) : Promise.resolve();
+            return void shifted.catch(console.warn).finally(listSaves);
           }
           side.saveNote = `Saved: ${meta.name}`;
           return listSaves();
@@ -1061,6 +1100,8 @@ async function run() {
   autosaveSoon = () => {
     if (autoplay === 0) autosave();
   };
+  saveNamed = (name) => worker.postMessage({ k: 'save', active: exports.activeUnitId(), name } satisfies ToWorker);
+  waitingSaves.splice(0).forEach(saveNamed);
   colonyNow = (id) => exports.colony(id);
   colonyClient = exports;
   pushFreecolOptions(prefs.freecol);
@@ -1096,6 +1137,7 @@ async function run() {
   playWith(exports);
 }
 
-listSaves();
+// FreeCol drops the outdated autosaves as it quits; the browser, as the page loads.
+dropOutdatedAutosaves(store, autosaveOptions(prefs), Date.now()).catch(console.warn).finally(listSaves);
 show('running');
 run().catch((ex) => show('failed', { error: String(ex) }));

@@ -101,6 +101,13 @@ reload (a rebuild, say) resumes that autosave; `?new` starts afresh, and
 `?resume` resumes in a built site too. The debug panel's "Reset save" deletes
 the autosave and starts a new game; an autosave the Engine can no longer read
 is dropped the same way.
+The page also makes FreeCol's own autosaves as each of the player's turns
+begins, by its Saved games options in Preferences: `Autosave-last-turn`, the
+one before it kept as `Autosave-before-last-turn`, and every N turns
+(autosave period) one named for the turn, e.g. `Autosave-Spring 1493`. Turn
+autosaves older than the validity in days go as the page loads, and all of
+them as a new game starts if "Delete autosaves files" is on. A loaded game's
+first turn and an `?autoplay` run make none.
 Export downloads the stored `.fsg` unchanged, and "Import a .fsg" adds one
 to the list: the turn, year and nation come from the file's `savegame.xml`
 (`ui/src/fsg.ts`, read in the page; a file that is not a FreeCol save is
