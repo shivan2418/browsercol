@@ -495,6 +495,17 @@ class SelectDestinationTest {
             "the unit boards");
         assertSame(serverShip(ship), server.getGame()
             .getFreeColGameObject(passenger, Unit.class).getLocation());
+        // Aboard, its menu takes it back onto the docks, as Swing's does,
+        // and the Europe panel is sent again.
+        final String leave = "leaveShip:" + passenger;
+        assertTrue(menus.unit(passenger).contains("\"id\":\"" + leave + "\""),
+            menus.unit(passenger));
+        shown.clear();
+        assertTrue(client.getCommands().menuEntry(leave), "goes ashore");
+        assertTrue(unitIds(parse(lastEurope()), "docks").contains(passenger),
+            "the panel has it on the docks: " + shown);
+        assertTrue(client.getCommands().boardShip(passenger, ship.getId()),
+            "the unit boards again");
         assertTrue(client.getCommands().sailToNewWorld(ship.getId()),
             "the loaded ship sails");
         assertFalse(serverShip(ship).isInEurope(), "the ship has left Europe");
