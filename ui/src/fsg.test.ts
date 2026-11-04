@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { zip } from './fsg-fixture';
 import { NotASave, readFsg, turnYear } from './fsg';
 
