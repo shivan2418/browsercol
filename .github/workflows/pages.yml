@@ -5,9 +5,11 @@
 name: Pages
 
 on:
+  # The push trigger is off while the repo is private (Pages needs a public
+  # repo or a plan with private Pages). Restore it to deploy on every push:
+  #   push:
+  #     branches: [main]
   workflow_dispatch:
-  push:
-    branches: [main]
 
 permissions:
   contents: read
