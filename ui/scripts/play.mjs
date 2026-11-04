@@ -324,6 +324,35 @@ async function play(page, url) {
       await new Promise((ok) => setTimeout(ok, 50));
     }
   };
+  /**
+   * Press a map key until the page takes it. The page drops a key while a dialog is queued, and the
+   * Engine can queue one (a message after a move) between noDialog's look at the page and the press,
+   * before React has drawn it: noDialog sees no dialog, and the key is lost (#111). The page marks a key
+   * it runs a command for with preventDefault, so a listener added after the page's own sees whether it
+   * did; a dialog on screen stops the key before then (and takes Enter as its answer), and the listener
+   * sees nothing.
+   */
+  const pressKey = async (name) => {
+    for (let attempt = 1; ; attempt++) {
+      await noDialog(`pressing ${name}`);
+      await page.evaluate(() => {
+        window.__keyTaken = null;
+        window.__keyListener = (e) => (window.__keyTaken = e.defaultPrevented);
+        addEventListener('keydown', window.__keyListener);
+      });
+      let taken = false;
+      try {
+        await page.keyboard.press(name);
+        // Playwright's press returns once the page has run its keydown listeners.
+        taken = await page.evaluate(() => window.__keyTaken === true);
+      } finally {
+        await page.evaluate(() => removeEventListener('keydown', window.__keyListener));
+      }
+      if (taken) return;
+      if (attempt === 5) throw new Error(`the page did not take ${name} after ${attempt} presses`);
+      console.log(`  the page did not take ${name}; pressed again`);
+    }
+  };
   /** Do something that ends with a new map view, and return that view. */
   const act = async (doIt) => {
     await noDialog('a command');
@@ -355,8 +384,7 @@ async function play(page, url) {
   };
   const endTurn = async (expectUnit = false) => {
     const turn = (await view()).turn;
-    await noDialog('ending the turn');
-    await page.keyboard.press('Enter');
+    await pressKey('Enter');
     await page.waitForFunction((t) => window.__map.turn !== t && window.__map.ourTurn, turn, { timeout: 120000 });
     // The client picks the unit to play with, which the map names when it comes: the map of the new
     // turn may come first, with no unit yet, and the script must not spend its turns on that.
@@ -602,7 +630,7 @@ async function play(page, url) {
     const dirs = Object.keys(DIRECTIONS);
     const into = dirs.find((d) => same(neighbour(sea, d), land));
     const out = dirs.find((d) => same(neighbour(land, d), sea));
-    m = await act(() => page.keyboard.press(KEYS[into]));
+    m = await act(() => pressKey(KEYS[into]));
     // The map names the unit in front on a tile only, so the ship is found gone from the sea.
     if (m.units.some((u) => u.id === shipId)) {
       throw new Error(`the ship ${shipId} did not sail into the colony at ${label(land)}`);
@@ -742,13 +770,13 @@ async function play(page, url) {
     // Back to sea, next turn: the panel's commands leave no unit active, and a new turn chooses one, from
     // which the ship is reached as the next unit with moves left.
     m = await endTurn();
-    for (let i = 0; i < 8 && m.activeUnit?.id !== shipId; i++) m = await act(() => page.keyboard.press('w'));
+    for (let i = 0; i < 8 && m.activeUnit?.id !== shipId; i++) m = await act(() => pressKey('w'));
     if (m.activeUnit?.id !== shipId) {
       throw new Error(
         `the ship ${shipId} could not be selected in the colony: active ${m.activeUnit?.id} at ${label(m.active)}`,
       );
     }
-    m = await act(() => page.keyboard.press(KEYS[out]));
+    m = await act(() => pressKey(KEYS[out]));
     if (!same(m.active, sea)) throw new Error(`the ship did not sail back to ${label(sea)}: at ${label(m.active)}`);
     console.log(`  colony panel: ${passenger} boarded the ship and left it, ${goods} loaded and unloaded`);
     return m;
@@ -942,7 +970,7 @@ async function play(page, url) {
       continue;
     }
     const ship = m.active;
-    m = await act(() => page.keyboard.press(KEYS[step.dir]));
+    m = await act(() => pressKey(KEYS[step.dir]));
     if (m.activeUnit) await following(m, 'after a move');
     if (step.tile && at(m.units, step.tile)) land = step.tile;
     else if (same(m.active, ship)) {
@@ -964,7 +992,7 @@ async function play(page, url) {
   if (!same(m.active, land)) throw new Error(`clicking ${label(land)} selected ${label(m.active)}`);
   await following(m, 'after selecting a unit');
   const founder = m.activeUnit.id;
-  m = await act(() => page.keyboard.press('b'));
+  m = await act(() => pressKey('b'));
   if (!at(m.settlements, land)) throw new Error(`no colony at ${label(land)}`);
   // The controller opens the colony panel after founding, with the founder working in the colony.
   const panelShowsFounder = await page
@@ -1039,7 +1067,7 @@ async function play(page, url) {
   await following(m, 'after selecting the ship');
   const fortify = page.locator('button[data-command=fortify]');
   if (await fortify.isDisabled()) throw new Error('the ship cannot be fortified');
-  m = await act(() => page.keyboard.press('f'));
+  m = await act(() => pressKey('f'));
   m = await endTurn();
   const ship = m.units.find((u) => u.x === shipTile[0] && u.y === shipTile[1]);
   if (!ship || ship.fg !== FORTIFIED) {
@@ -1052,7 +1080,7 @@ async function play(page, url) {
   m = await select(m, shipTile);
   if (!same(m.active, shipTile)) throw new Error(`clicking ${label(shipTile)} selected ${label(m.active)}`);
   await following(m, 'after selecting the ship for the Go To order');
-  await act(() => page.keyboard.press('h'));
+  await act(() => pressKey('h'));
   const asked = await page
     .waitForFunction(() => (window.__dialogs ?? []).some((d) => d.startsWith('choice: Select destination')), null, {
       timeout: 10000,
