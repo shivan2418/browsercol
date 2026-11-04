@@ -345,6 +345,7 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
   };
   cssSize(width, height);
   const world = new Container();
+  (window as unknown as Record<string, unknown>).__pixiDebug = { app, world }; // [DEBUG-c7e1]
   const layers = [new Container(), new Container(), new Container(), new Container(), new Container()];
   world.addChild(...STACK.map((n) => layers[n]));
   app.stage.addChild(world);
@@ -1018,13 +1019,13 @@ export function mapDrawer(
    * Draw the scene, with one unit on its own in the actors' layer: the sliding one, else the active one, to blink.
    * Nothing else is in that layer, so nothing else slides or blinks.
    */
-  async function paintScene(map: MapView, ops: Op[]) {
+  async function paintScene(map: MapView, ops: Op[], slide = sliding) {
     const unitAt = (tile: string) => (op: Op) =>
       (op.k === 'chip' || (op.k === 'image' && op.at === 'unit')) && `${op.x},${op.y}` === tile;
     let actors: Op[] = [];
     let rest = ops;
-    if (sliding) {
-      const { step, tiles } = sliding.path;
+    if (slide) {
+      const { step, tiles } = slide.path;
       const [x, y] = tiles[tiles.length - 1];
       const shown = map.units.find((u) => u.x === x && u.y === y);
       if (shown && shown.rgb === step.rgb && shown.keys.join() === step.keys.join()) {
@@ -1053,10 +1054,16 @@ export function mapDrawer(
     // What slides is what the Engine says the player's unit did, during their turn. A map with no steps (the server
     // often sends several in a row) leaves a slide under way alone.
     const way = map.ourTurn && moveMs > 0 ? path(moved) : null;
-    if (way) sliding = { path: way, since: performance.now(), ms: moveMs * (way.tiles.length - 1) };
     const ops = scene(map, res!, colonyLabels);
     panels.forEach((render) => render(ops));
-    await paintScene(map, ops);
+    // The slide starts once the actors' layer holds the unit on its new tile: offset before that, the layer
+    // still shows it on its old tile, and the offset would put it a tile further back, in a second place.
+    if (way) {
+      const ms = moveMs * (way.tiles.length - 1);
+      await paintScene(map, ops, { path: way, since: 0, ms });
+      sliding = { path: way, since: performance.now(), ms };
+      camera();
+    } else await paintScene(map, ops);
     // Ground that was explored since the last draw fades in out of the black, rather than appearing.
     const known = new Set<string>();
     const fresh = new Set<string>();
