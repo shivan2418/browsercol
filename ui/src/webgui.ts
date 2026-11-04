@@ -24,6 +24,16 @@ export interface GuiEvents {
   selectedTile: TileRef;
   /** Centre the map on a tile. */
   focus: TileRef;
+  /** One of the player's units stepped to the next tile, as it looks (a map view unit's look); the map that has it there follows. */
+  animateMove: {
+    unit: Id;
+    from: [number, number];
+    to: [number, number];
+    keys: string[];
+    rgb: number;
+    chip: string;
+    fg: number;
+  };
   /** ok: the close button's label, as for the other panels. The tile is the object's, if it has one. */
   information: { text: string; object: Id | null; images: string[]; ok: string } & TileRef;
   error: { text: string; ok: string };

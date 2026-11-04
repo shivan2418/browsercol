@@ -87,6 +87,10 @@ import net.sf.freecol.common.option.OptionGroup;
  * <tr><td>changeView(Tile)</td><td>event selectedTile</td>
  *     <td>{tile, at}; the active unit is kept</td></tr>
  * <tr><td>setFocus</td><td>event focus</td><td>{tile, at}</td></tr>
+ * <tr><td>animateUnitMove</td><td>event animateMove</td>
+ *     <td>{unit, from: [x, y], to: [x, y], keys, rgb, chip, fg}, for the
+ *         player's own units only; the look is {@link MapJson#look}'s. It
+ *         comes before the map that has the unit on its new tile</td></tr>
  * <tr><td>showInformationPanel(FreeColObject, StringTemplate)</td>
  *     <td>event information</td>
  *     <td>{text, object, tile, at, images, ok}; images are the resource
@@ -790,6 +794,25 @@ public class WebGUI extends GUI {
     @Override
     public void changeView(Tile tile) {
         this.ui.show("selectedTile", tile(new Json(), tile).toString());
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * The Browser UI slides the unit from tile to tile, as SwingGUI does,
+     * when the map that has it on its new tile comes. Only the player's own
+     * units are sent, as the page slides only the player's moves.
+     */
+    @Override
+    public void animateUnitMove(Unit unit, Tile srcTile, Tile dstTile) {
+        final Player player = getFreeColClient().getMyPlayer();
+        if (unit == null || srcTile == null || dstTile == null
+            || player == null || !player.owns(unit)) return;
+        this.ui.show("animateMove", MapJson.look(unit, player)
+            .put("unit", unit.getId())
+            .putRaw("from", MapJson.xy(srcTile))
+            .putRaw("to", MapJson.xy(dstTile))
+            .toString());
     }
 
     @Override

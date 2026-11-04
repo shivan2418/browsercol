@@ -223,6 +223,38 @@ class WebGUITest {
 
     @Test
     @Timeout(120)
+    void theActiveUnitsMoveIsSentToSlide() throws Exception {
+        final ClientEngine client = startGame();
+        final Unit unit = client.getClient().getGUI().getActiveUnit();
+        final Tile from = unit.getTile();
+        net.sf.freecol.common.model.Direction way = null;
+        for (net.sf.freecol.common.model.Direction d
+                 : net.sf.freecol.common.model.Direction.values()) {
+            if (unit.getMoveType(d) == Unit.MoveType.MOVE) { way = d; break; }
+        }
+        assertNotNull(way, "the active unit has somewhere to go");
+        final Tile to = from.getNeighbourOrNull(way);
+
+        shown.clear();
+        client.getClient().getInGameController().moveDirection(unit, way, false);
+        final String prefix = "animateMove ";
+        for (int i = 0; i < 200 && shown().stream().noneMatch(e -> e.startsWith(prefix)); i++) {
+            Thread.sleep(50);
+        }
+        final List<String> moves = shown().stream().filter(e -> e.startsWith(prefix))
+            .collect(Collectors.toList());
+        assertEquals(1, moves.size(), shown().toString());
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> move
+            = (Map<String, Object>)JsonReader.read(moves.get(0).substring(prefix.length()));
+        assertEquals(unit.getId(), move.get("unit"));
+        assertEquals(List.of((long)from.getX(), (long)from.getY()), move.get("from"));
+        assertEquals(List.of((long)to.getX(), (long)to.getY()), move.get("to"));
+        assertEquals(MapJson.unitKeys(unit), move.get("keys"));
+    }
+
+    @Test
+    @Timeout(120)
     void choiceAndInputAnswersBecomeWhatTheControllersExpect() throws Exception {
         final GUI gui = startGame().getClient().getGUI();
         final List<ChoiceItem<String>> choices = List.of(

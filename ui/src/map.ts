@@ -14,6 +14,7 @@ import {
   overlay,
   scene,
   srcId,
+  unitOps,
   viewModeOps,
   type ColonyLabels,
   type ViewModes,
@@ -23,7 +24,7 @@ import {
   type Src,
 } from './tileset';
 import type { ActiveStyle } from './prefs';
-import { BLINK_MS, MOVE_MS, blink, moves, slide, type Move } from './motion';
+import { BLINK_MS, MOVE_MS, blink, path, slide, type Path, type Step } from './motion';
 import { H, W, activeUnitFacts, cursor, tileOrigin, toMap, type ViewState } from './view';
 
 export type { MapView } from './tileset';
@@ -837,6 +838,8 @@ export function mapDrawer(
   quality = 20,
 ): {
   draw(map: MapView): Promise<void>;
+  /** A step the Engine says one of the player's units took; it slides when the next map is drawn. */
+  moved(step: Step): void;
   /** Show the view: where it is centred, its zoom, the cursor and the active unit's path. */
   show(view: ViewState): void;
   /** Make the canvas `size` screen pixels, as its host's box changed; show() the resized view after. */
@@ -872,10 +875,10 @@ export function mapDrawer(
   let drawn: MapView | null = null;
   /** What redraws each open drawTiles canvas from the scene of a new map. */
   const panels = new Set<(ops: Op[]) => void>();
-  /** The units sliding to their tiles now, and when they set off. */
-  let sliding: { moves: Move[]; since: number } | null = null;
-  /** The tiles whose unit is drawn in the actors' layer: the sliding units' and the active one's. */
-  let actorTiles = new Set<string>();
+  /** The steps the Engine told of since the last map was asked to be drawn. */
+  let steps: Step[] = [];
+  /** The unit sliding along its tiles now, when it set off, and how long it takes. */
+  let sliding: { path: Path; since: number; ms: number } | null = null;
   /** The tiles explored last time, and the black being lifted off some newly explored since `since`. */
   let exploredTiles = new Set<string>();
   /** The scene drawn last time. */
@@ -931,13 +934,17 @@ export function mapDrawer(
   const camera = () => {
     if (!pen || !view) return;
     const now = performance.now();
-    // The active unit blinks, but not while it slides; a slide ends once its time is up.
-    if (sliding && now - sliding.since >= moveMs) sliding = null;
+    // The active unit blinks, but not while a unit slides; a slide ends once its time is up, and the active unit
+    // goes back to the actors' layer to blink.
+    if (sliding && now - sliding.since >= sliding.ms) {
+      sliding = null;
+      drawing = drawing.then(() => (drawn ? paintScene(drawn, lastOps) : undefined));
+    }
     // What blinks is the unit cursor in FreeCol's style, else the unit; with blinking off the cursor stays, as the only mark.
     const cursorBlinks = activeStyle === 'freecol' || blinkMs <= 0;
     const alpha = !sliding && view.mode === 'units' && view.active ? blink(now, blinkMs) : 1;
     if (sliding) {
-      const [dx, dy] = slide(sliding.moves[0], (now - sliding.since) / moveMs);
+      const [dx, dy] = slide(sliding.path.tiles, (now - sliding.since) / sliding.ms);
       pen.actors(dx, dy, 1);
     } else {
       pen.actors(0, 0, cursorBlinks ? 1 : alpha);
@@ -969,28 +976,49 @@ export function mapDrawer(
     camera();
   }
 
-  async function drawNow(map: MapView) {
+  /**
+   * Draw the scene, with one unit on its own in the actors' layer: the sliding one, else the active one, to blink.
+   * Nothing else is in that layer, so nothing else slides or blinks.
+   */
+  async function paintScene(map: MapView, ops: Op[]) {
+    const unitAt = (tile: string) => (op: Op) =>
+      (op.k === 'chip' || (op.k === 'image' && op.at === 'unit')) && `${op.x},${op.y}` === tile;
+    let actors: Op[] = [];
+    let rest = ops;
+    if (sliding) {
+      const { step, tiles } = sliding.path;
+      const [x, y] = tiles[tiles.length - 1];
+      const shown = map.units.find((u) => u.x === x && u.y === y);
+      if (shown && shown.rgb === step.rgb && shown.keys.join() === step.keys.join()) {
+        const isActor = unitAt(`${x},${y}`);
+        actors = ops.filter(isActor);
+        rest = ops.filter((op) => !isActor(op));
+      } else {
+        // The tile shows another unit (the one that came went into a colony, onto a ship, or under a stronger unit):
+        // the one that came slides in on its own, over it, and is gone once there.
+        const { keys, rgb, chip, fg } = step;
+        actors = unitOps({ x, y, keys, rgb, chip, fg, stack: 1, fade: false }, res!);
+      }
+    } else if (map.active) {
+      const isActor = unitAt(map.active.join(','));
+      actors = ops.filter(isActor);
+      rest = ops.filter((op) => !isActor(op));
+    }
+    await paint(pen!, 0, rest, pics);
+    await paint(pen!, 2, actors, pics);
+  }
+
+  async function drawNow(map: MapView, moved: Step[]) {
     const before = drawn;
     drawn = map;
     if (!pen) await init();
-    // Only the player's own moves slide: the active unit stepping off its tile during their turn. Orders carried out
-    // as the turn turns, and the AI playing, jump.
-    const mine = before && before.turn === map.turn && before.ourTurn && map.ourTurn ? before.active : null;
-    const moved = mine ? moves(before!.units, map.units).filter((m) => m.from.join() === mine.join()) : [];
-    if (moved.length && moveMs > 0) sliding = { moves: moved, since: performance.now() };
-    actorTiles = new Set(moved.map((m) => m.to.join(',')));
-    if (map.active) actorTiles.add(map.active.join(','));
+    // What slides is what the Engine says the player's unit did, during their turn. A map with no steps (the server
+    // often sends several in a row) leaves a slide under way alone.
+    const way = map.ourTurn && moveMs > 0 ? path(moved) : null;
+    if (way) sliding = { path: way, since: performance.now(), ms: moveMs * (way.tiles.length - 1) };
     const ops = scene(map, res!, colonyLabels);
     panels.forEach((render) => render(ops));
-    const isActor = (op: Op) =>
-      (op.k === 'chip' || (op.k === 'image' && op.at === 'unit')) && actorTiles.has(`${op.x},${op.y}`);
-    await paint(
-      pen!,
-      0,
-      ops.filter((op) => !isActor(op)),
-      pics,
-    );
-    await paint(pen!, 2, ops.filter(isActor), pics);
+    await paintScene(map, ops);
     // Ground that was explored since the last draw fades in out of the black, rather than appearing.
     const known = new Set<string>();
     const fresh = new Set<string>();
@@ -1023,9 +1051,17 @@ export function mapDrawer(
       if (labels === colonyLabels) return;
       colonyLabels = labels;
       const again = drawn;
-      if (again) drawing = drawing.then(() => drawNow(again));
+      if (again) drawing = drawing.then(() => drawNow(again, []));
     },
-    draw: (map) => (drawing = drawing.then(() => drawNow(map))),
+    draw: (map) => {
+      // The steps belong to this map: they came before it, and those after it go with the next.
+      const moved = steps;
+      steps = [];
+      return (drawing = drawing.then(() => drawNow(map, moved)));
+    },
+    moved: (step) => {
+      steps.push(step);
+    },
     show: (v) => {
       view = v;
       // Pans and zooms move at once; a changed overlay waits its turn.
