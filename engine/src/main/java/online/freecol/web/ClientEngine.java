@@ -232,7 +232,12 @@ public final class ClientEngine {
         }
         this.lastEndedTurn = turn;
         this.roundStart = System.currentTimeMillis();
-        new Thread(() -> this.client.getInGameController().endTurn(false),
-                   "web-endTurn").start();
+        new Thread(() -> {
+                try {
+                    this.client.getInGameController().endTurn(false);
+                } catch (Throwable ex) {
+                    Failures.report("Ending turn " + turn, ex);
+                }
+        }, "web-endTurn").start();
     }
 }

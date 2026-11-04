@@ -198,7 +198,11 @@ export function serveWorker(
     bytes = Uint8Array.from(new Uint8Array(b.buffer, b.byteOffset, b.length)); // a copy: the Engine's memory moves on
   };
   scope.fcServerEvent = (name: string, detail: string) => {
-    if (name !== 'saved') return event(name, detail);
+    if (name !== 'saved') {
+      // The Engine could not save: that save's name is done with.
+      if (name === 'saveFailed') names.shift();
+      return event(name, detail);
+    }
     // The Engine has saved: keep the bytes with what the list shows, in one transaction.
     const mine = bytes;
     bytes = null;

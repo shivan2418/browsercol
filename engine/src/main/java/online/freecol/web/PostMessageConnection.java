@@ -168,6 +168,7 @@ public class PostMessageConnection extends Connection {
             tag = r.getLocalName();
         } catch (XMLStreamException ex) {
             logger.log(Level.WARNING, getName() + ": unreadable message: " + ex, ex);
+            Failures.report(getName() + ": unreadable message", ex);
             return;
         }
         try {
@@ -199,8 +200,9 @@ public class PostMessageConnection extends Connection {
                 handleOnThread(read(r), -1);
                 break;
             }
-        } catch (FreeColException|XMLStreamException ex) {
+        } catch (Throwable ex) {
             logger.log(Level.WARNING, getName() + ": failed to read " + tag + ": " + ex, ex);
+            Failures.report(getName() + ": reading " + tag + " failed", ex);
         } finally {
             r.close();
         }
@@ -242,9 +244,11 @@ public class PostMessageConnection extends Connection {
                     Message reply = handle(message);
                     sendMessage((replyId < 0) ? reply
                         : new ReplyMessage(replyId, reply));
-                } catch (Exception ex) {
+                } catch (Throwable ex) {
                     logger.log(Level.WARNING, getName() + ": handling "
                         + message.getType() + " failed: " + ex, ex);
+                    Failures.report(getName() + ": handling "
+                        + message.getType() + " failed", ex);
                 }
                 final Runnable after = this.afterHandle;
                 if (after != null) after.run();

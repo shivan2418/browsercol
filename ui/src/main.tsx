@@ -24,7 +24,7 @@ import clientUrl from '../generated/client.wasm?url';
 import dataUrl from '../generated/data.json?url';
 import runtimeUrl from '../generated/teavm-runtime.js?url';
 import { createPortal } from 'react-dom';
-import { createRoot } from 'react-dom/client';
+import { createRoot, type Root } from 'react-dom/client';
 import './theme.css';
 import { startPage, type ClientExports, type Scope, type ToWorker } from './channel';
 import { debugMessage, debugMode, describeAnswer, type DebugRequest } from './debug';
@@ -72,6 +72,7 @@ import {
 } from './saves';
 import { Side, type SideProps } from './side';
 import { TurnBanner, turnNotice, type TurnFacts, type TurnNotice } from './turn-banner';
+import { ErrorBanner, addError, engineError, type GameError } from './errors';
 import { loadModule } from './teavm';
 import { cursor, initialView, panel, reduce, tileOnScreen, W, type Tile, type ViewEvent, type ViewState } from './view';
 import type { GuiEvents, GuiHandlers } from './webgui';
@@ -90,8 +91,48 @@ declare global {
     };
     /** For scripts: the WebGUI dialogs that had no Browser UI, by method, each time one was asked. */
     fcUnasked?: string[];
+    /** For scripts: the errors the banner has shown (errors.tsx), dismissed or not. */
+    fcErrors?: GameError[];
   }
 }
+
+/** The errors on the banner (errors.tsx); the player dismisses them. */
+let errors: GameError[] = [];
+window.fcErrors = [];
+/**
+ * The banner's own root, made at the first error: it shows even when the page broke before its other roots
+ * were made, and a render error elsewhere on the page does not take it down nor render it again and again.
+ */
+let errorRoot: Root | null = null;
+function renderErrors() {
+  if (!errorRoot) {
+    const host = document.createElement('div');
+    host.id = 'errors';
+    document.body.append(host);
+    errorRoot = createRoot(host);
+  }
+  errorRoot.render(
+    <ErrorBanner
+      errors={errors}
+      dismiss={() => {
+        errors = [];
+        renderErrors();
+      }}
+    />,
+  );
+}
+/** Show an error on the banner, so a game that breaks does not break silently. */
+function reportError(title: string, detail: string) {
+  // scripts/common.mjs collects the errors by this prefix.
+  console.error(`Error banner: ${title}\n${detail}`);
+  errors = addError(errors, title, detail);
+  window.fcErrors = addError(window.fcErrors ?? [], title, detail);
+  renderErrors();
+}
+const describeError = (ex: unknown) => (ex instanceof Error ? (ex.stack ?? ex.message) : String(ex));
+// The page's own errors, which would otherwise show only in the console.
+addEventListener('error', (e) => reportError('The page hit an error', describeError(e.error ?? e.message)));
+addEventListener('unhandledrejection', (e) => reportError('The page hit an error', describeError(e.reason)));
 
 const params = new URLSearchParams(location.search);
 const autoplay = Number(params.get('autoplay') ?? '0');
@@ -586,6 +627,7 @@ function showPanel() {
 }
 
 function show(status: string, extra: Record<string, unknown> = {}) {
+  if (status === 'failed') reportError('The game could not go on', describeError(extra.error));
   const state = { status, rules, preset, choice, nation, autoplay, renderer: map.renderer(), rounds, ...extra };
   if (status !== 'running') window.fcResult = state;
   side.status = JSON.stringify(state, null, 1);
@@ -823,6 +865,11 @@ async function run() {
   const chosen = skipStart ? '' : await chooseGame(data);
   choice = chosen;
   const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
+  // An error the Worker does not catch, such as a trap in the server Engine, stops the game's server.
+  worker.addEventListener('error', (e) => reportError('The game server hit an error', e.message || 'unknown error'));
+  worker.addEventListener('messageerror', () =>
+    reportError('The game server sent a message the page could not read', ''),
+  );
   const presetJson = preset ? await fetchPreset(preset) : chosen;
   const client = startPage({
     worker,
@@ -835,6 +882,9 @@ async function run() {
     scope: globalThis as unknown as Scope,
     gui,
     onEvent: async (name, detail) => {
+      // A failure the game goes on after; one it does not ("failed", a load that fails) goes on the banner through show().
+      const failure = engineError(name, detail);
+      if (failure) reportError(failure.title, failure.detail);
       switch (name) {
         case 'gameStarted':
         case 'map':
@@ -876,7 +926,7 @@ async function run() {
           debugNote = `Failed: ${detail}`;
           return renderSide();
         case 'commandFailed':
-          return console.error('command failed:', detail);
+          return; // on the banner, above
       }
     },
   });
