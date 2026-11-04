@@ -55,7 +55,13 @@ export function MinimapPanel({ map, res, view, options, centre, setOption }: Min
     return c;
   }, [map, res, borders, fog, size, background]);
 
+  // The page passes a new view for every change, the hovered tile's too: the minimap is drawn again only when what
+  // it shows of the view moved.
+  const [cx, cy] = view.centre;
+  const [vw, vh] = view.viewport;
+  const { zoom } = view;
   useEffect(() => {
+    const view = { centre: [cx, cy] as [number, number], viewport: [vw, vh] as [number, number], zoom };
     const g = canvas.current?.getContext('2d');
     if (!g) return;
     const ratio = window.devicePixelRatio || 1;
@@ -73,7 +79,7 @@ export function MinimapPanel({ map, res, view, options, centre, setOption }: Min
       Math.round(visible[2]),
       Math.round(visible[3]),
     );
-  }, [image, view, size, background, res]);
+  }, [image, cx, cy, vw, vh, zoom, size, background, res]);
 
   if (!map) return null;
   const focus = (e: ReactPointerEvent<HTMLCanvasElement>) => {
