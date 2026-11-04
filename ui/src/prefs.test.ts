@@ -8,6 +8,7 @@ import {
   FREECOL_OPTIONS,
   fontScale,
   fromEngine,
+  minimapOptions,
   moveMs,
   PAGE_OPTIONS,
   pageOption,
@@ -130,6 +131,22 @@ describe('prefs', () => {
     // An option read only as the page loads says so.
     expect(leaves(shown).get('model.option.useOpenGL')?.label).toMatch(/\(on reload\)$/);
     expect(leaves(shown).get('model.option.autoScroll')?.label).not.toMatch(/reload/);
+  });
+
+  it("reads the minimap's options, by FreeCol's defaults unless set, and shows them", () => {
+    expect(minimapOptions(DEFAULTS)).toEqual({ borders: true, fog: true, background: 0, zoom: 2 });
+    const p = {
+      ...DEFAULTS,
+      freecol: {
+        'model.option.miniMapToggleBorders': false,
+        'model.option.miniMapToggleFogOfWar': false,
+        'model.option.color.background': 6,
+        'model.option.defaultZoomLevel': 5,
+      },
+    };
+    expect(minimapOptions(p)).toEqual({ borders: false, fog: false, background: 6, zoom: 5 });
+    const shown = leaves(shownClientOptions(clientOptionsGroup(data)!)!);
+    for (const id of Object.keys(p.freecol)) expect(shown.has(id), id).toBe(true);
   });
 
   it('keeps the options the client Engine changed, where they differ from the defaults', () => {
