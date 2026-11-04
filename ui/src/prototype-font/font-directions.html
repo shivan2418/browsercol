@@ -1,0 +1,324 @@
+<title>Game Font Directions</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<!-- PROTOTYPE (#166), throwaway: five font directions for the Browser UI on mock game screens.
+     The game itself will self-host the winner from dist/ (ADR 0001); this page loads them from Google Fonts only to compare. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=EB+Garamond:ital,wght@0,400;0,700;1,400&family=Fira+Sans:ital,wght@0,400;0,700;1,400&family=Goudy+Bookletter+1911&family=IM+Fell+English:ital@0;1&family=Noto+Sans:ital,wght@0,400;0,700;1,400&family=Noto+Serif:ital,wght@0,400;0,700;1,400&family=Source+Sans+3:ital,wght@0,400;0,700;1,400&display=swap">
+<style>
+  /* Layout: a control strip, then either the game screens in one direction or every direction side by side.
+     The game colours are the real tokens from ui/src/theme.css (parchment, and dark). */
+  :root {
+    --menubar: #3b2a17; --menubar-ink: #f3e6c4; --page: #1d4357; --panel: #e9dcb8; --box: #f4ead0;
+    --ink: #2a1c0c; --muted: #6e5634; --head: #5a3714; --line: #8c6c3c; --btn: #cdb27a; --btn-ink: #2a1c0c;
+    --accent: #8a2e12; --link: #1f4f8b; --good: #1f6b1f; --bad: #b01e10; --warn: #8a5a00;
+    /* The comparison page's own chrome, kept apart from the design under test. */
+    --ui-bg: #e7ebee; --ui-fg: #1b2228; --ui-muted: #56626c; --ui-chip: #ffffff; --ui-on: #1b2228; --ui-on-fg: #ffffff; --ui-line: #c3cbd2;
+    --fs: 15px; --fs-s: 13px; --fs-h: 17px;
+    --ui-font: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --menubar: #0b0b0c; --menubar-ink: #f2f2f2; --page: #111214; --panel: #16171a; --box: #202227;
+      --ink: #f1f1f1; --muted: #a9abb3; --head: #ffd60a; --line: #3d4049; --btn: #2c2f36; --btn-ink: #ffffff;
+      --accent: #ffd60a; --link: #8cc4ff; --good: #4ade80; --bad: #ff6b6b; --warn: #ffb020;
+      --ui-bg: #1f2429; --ui-fg: #e6eaee; --ui-muted: #9aa6b1; --ui-chip: #2a3138; --ui-on: #e6eaee; --ui-on-fg: #1b2228; --ui-line: #3a434c;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --menubar: #0b0b0c; --menubar-ink: #f2f2f2; --page: #111214; --panel: #16171a; --box: #202227;
+    --ink: #f1f1f1; --muted: #a9abb3; --head: #ffd60a; --line: #3d4049; --btn: #2c2f36; --btn-ink: #ffffff;
+    --accent: #ffd60a; --link: #8cc4ff; --good: #4ade80; --bad: #ff6b6b; --warn: #ffb020;
+    --ui-bg: #1f2429; --ui-fg: #e6eaee; --ui-muted: #9aa6b1; --ui-chip: #2a3138; --ui-on: #e6eaee; --ui-on-fg: #1b2228; --ui-line: #3a434c;
+    color-scheme: dark;
+  }
+  body { background: var(--page); color: var(--ink); font-family: var(--ui-font); }
+
+  /* ---------- comparison chrome ---------- */
+  body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--ui-bg); }
+  .bar {
+    position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+    background: var(--ui-bg); color: var(--ui-fg); border-bottom: 1px solid var(--ui-line);
+    padding-block: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+    display: grid; gap: 8px; font: 13px/1.4 var(--ui-font);
+  }
+  .bar h1 { margin: 0; font: 600 15px/1.3 var(--ui-font); text-wrap: balance; }
+  .bar h1 span { color: var(--ui-muted); font-weight: 400; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .row .lbl { color: var(--ui-muted); min-width: 4.5em; }
+  .chip {
+    font: inherit; color: var(--ui-fg); background: var(--ui-chip); border: 1px solid var(--ui-line);
+    border-radius: 999px; padding: 3px 11px; cursor: pointer;
+  }
+  .chip[aria-pressed="true"] { background: var(--ui-on); color: var(--ui-on-fg); border-color: var(--ui-on); }
+  .chip:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+  .about { color: var(--ui-muted); margin: 0; max-width: 70em; }
+  .about b { color: var(--ui-fg); font-weight: 600; }
+  .wrap { padding-block: 14px 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+  /* ---------- the game's look (index.html), with the font tokens under test ---------- */
+  .game { font: var(--fs-s) / 1.4 var(--font); color: var(--ink); }
+  .game h1, .game h2, .game h3, .game .cap { font-family: var(--font-head); }
+  .game .title h2 { font-family: var(--font-title); font-weight: var(--head-weight); }
+  .game .cap, .game h3 { font-weight: var(--head-weight); }
+  .menubar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 6px; min-height: 26px;
+    background: var(--menubar); color: var(--menubar-ink); font-size: 14px; border: 2px solid var(--line);
+  }
+  .menubar button { font: inherit; color: inherit; background: none; border: 0; padding: 3px 8px; }
+  .menubar .status { margin-left: auto; padding-right: 6px; font-variant-numeric: tabular-nums; }
+  .screens { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 430px), 1fr)); gap: 14px; margin-top: 14px; align-items: start; }
+  .frame {
+    display: flex; flex-direction: column; min-width: 0; background: var(--panel); color: var(--ink);
+    border: 2px solid var(--line); font: var(--fs) / 1.4 var(--font); box-shadow: 0 10px 40px rgb(0 0 0 / 35%);
+  }
+  .frame.wide { grid-column: 1 / -1; }
+  .frame > .title { display: flex; align-items: center; gap: 8px; min-height: 1.6em; padding: 2px 4px 2px 10px; background: var(--menubar); color: var(--menubar-ink); }
+  .frame > .title h2 { flex: 1; margin: 0; font-size: var(--fs); color: inherit; }
+  .frame > .title .x { padding: 0 6px; }
+  .frame > .body { padding: 12px 16px; display: grid; gap: 10px; min-width: 0; overflow-x: auto; }
+  .frame p { margin: 0; }
+  .frame h3 { margin: 0; font-size: var(--fs-h); color: var(--head); }
+  .box { position: relative; padding: 18px 6px 6px; background: var(--box); border: 1px solid var(--line); border-radius: 3px; min-width: 0; }
+  .box > .cap { position: absolute; top: 2px; left: 8px; font-size: 12px; color: var(--head); text-transform: uppercase; letter-spacing: 0.05em; }
+  .s, small { font-size: var(--fs-s); }
+  .muted { color: var(--muted); }
+  .num { font-variant-numeric: tabular-nums; }
+  .gain { color: var(--good); } .loss { color: var(--bad); } .warn { color: var(--warn); }
+  .buttons { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+  .buttons button, .tabs button {
+    font: inherit; color: var(--btn-ink); background: var(--btn); border: 1px solid var(--line); border-radius: 3px; padding: 3px 12px;
+  }
+  .buttons button.default { outline: 2px solid var(--accent); outline-offset: -1px; font-weight: 700; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 3px; }
+  .tabs button[aria-selected="true"] { background: var(--box); border-bottom-color: var(--box); font-weight: 700; }
+  a { color: var(--link); }
+
+  .nations { display: grid; gap: 2px; }
+  .nation { display: flex; gap: 8px; align-items: center; padding: 3px 6px; border: 1px solid transparent; }
+  .nation[data-sel] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+  .nation .sw { width: 14px; height: 14px; border: 1px solid var(--line); flex: none; }
+  .nation .name { flex: 1; font-weight: 700; }
+  .nation .type { color: var(--muted); font-size: var(--fs-s); }
+  .field { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .field select { font: inherit; padding: 2px 4px; }
+
+  .father { display: grid; grid-template-columns: 86px 1fr; gap: 10px; align-items: start; }
+  .portrait { aspect-ratio: 3 / 4; max-width: 100%; background: repeating-linear-gradient(135deg, var(--box) 0 6px, var(--panel) 6px 12px); border: 1px solid var(--line); display: grid; place-items: center; color: var(--muted); font-size: 11px; }
+
+  table { border-collapse: collapse; font-variant-numeric: tabular-nums; width: 100%; }
+  th, td { padding: 2px 6px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  thead th { font-weight: 700; color: var(--head); font-size: var(--fs-s); }
+  .tbl { overflow-x: auto; }
+
+  .goods { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 4px; }
+  .good { display: flex; justify-content: space-between; gap: 4px; padding: 2px 4px; border: 1px solid var(--line); background: var(--panel); font-size: var(--fs-s); }
+  .good b { font-weight: 400; }
+  .good .num { font-weight: 700; }
+  .market { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 4px; }
+  .price { text-align: center; padding: 3px 2px; border: 1px solid var(--line); background: var(--panel); font-size: var(--fs-s); }
+  .price .num { display: block; font-size: var(--fs); font-weight: 700; }
+  .units { display: flex; flex-wrap: wrap; gap: 6px; }
+  .unit { padding: 2px 8px; border: 1px solid var(--line); background: var(--panel); font-size: var(--fs-s); }
+  .banner { justify-self: center; padding: 6px 18px; background: var(--panel); border: 2px solid var(--line); font-family: var(--font-head); font-size: var(--fs-h); font-weight: var(--head-weight); }
+  .langs { display: grid; grid-template-columns: 3.2em 1fr; gap: 3px 10px; }
+  .langs b { color: var(--muted); font-weight: 400; font-size: var(--fs-s); }
+
+  /* side-by-side */
+  .compare { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 14px; align-items: start; }
+  .col { display: grid; gap: 10px; min-width: 0; }
+  .col .tag { font: 600 12px/1.3 var(--ui-font); color: var(--ui-fg); background: var(--ui-bg); border-radius: 4px; padding: 6px 8px; }
+  .col .tag span { display: block; font-weight: 400; color: var(--ui-muted); margin-top: 2px; }
+  .col .menubar { font-size: 13px; }
+  .alphabet { font-size: var(--fs-h); }
+  @media (prefers-reduced-motion: no-preference) { .chip { transition: background .15s, color .15s; } }
+</style>
+
+<header class="bar">
+  <h1>Bundled font for the game's text <span>#166 · prototype</span></h1>
+  <div class="row" role="group" aria-label="Font direction"><span class="lbl">Direction</span><span id="dirs" class="row"></span></div>
+  <div class="row">
+    <span class="lbl">View</span>
+    <button class="chip" id="v-one" aria-pressed="true">Game screens, one direction</button>
+    <button class="chip" id="v-all" aria-pressed="false">All directions side by side</button>
+    <span class="lbl" style="margin-left:12px">Theme</span>
+    <button class="chip" id="t-light">Parchment</button>
+    <button class="chip" id="t-dark">Dark</button>
+  </div>
+  <p class="about" id="about"></p>
+</header>
+
+<main class="wrap">
+  <section id="one" class="game"></section>
+  <section id="all" class="compare" hidden></section>
+</main>
+
+<script>
+const SYS = "'Segoe UI', 'Noto Sans', Ubuntu, Cantarell, system-ui, sans-serif";
+const f = (n, g = 'sans-serif') => `'${n}', ${g}`;
+// Bytes: woff2 from Fontsource, weights 400, 700 and 400 italic for the body face; the browser fetches a subset only when the page has its characters.
+const DIRS = [
+  { key: '0', name: 'Today (system fonts)', font: SYS, head: SYS, title: SYS, w: 700,
+    note: 'What ships now. Segoe UI on Windows, Noto Sans or Ubuntu on Linux, San Francisco on a Mac. The only option that looks different per OS.', kb: '0 KiB' },
+  { key: 'A', name: 'Noto Sans', font: f('Noto Sans'), head: f('Noto Sans'), title: f('Noto Sans'), w: 700,
+    note: 'One plain face for everything. The widest language cover (Latin, Cyrillic, Greek, Vietnamese). No period feel.', kb: '40 KiB Latin · +168 accented Latin · +90 Cyrillic' },
+  { key: 'B', name: 'EB Garamond + Source Sans 3', font: f('Source Sans 3'), head: f('EB Garamond', 'serif'), title: f('EB Garamond', 'serif'), w: 700,
+    note: 'A 16th-century book face for titles and headings, a compact sans for body text and numbers. Both cover Cyrillic and Greek.', kb: '94 KiB Latin · +214 accented Latin · +106 Cyrillic' },
+  { key: 'C', name: 'IM Fell English + Fira Sans', font: f('Fira Sans'), head: f('IM Fell English', 'serif'), title: f('IM Fell English', 'serif'), w: 400,
+    note: 'Titles in a scan of 17th-century printed type, slightly rough. One weight and Latin only, so Russian titles fall back to Fira Sans.', kb: '131 KiB Latin · +141 accented Latin · +89 Cyrillic' },
+  { key: 'D', name: 'Cinzel titles + Noto Sans', font: f('Noto Sans'), head: f('Noto Sans'), title: f('Cinzel', 'serif'), w: 700,
+    note: 'Roman inscription capitals on window titles only; everything else is Noto Sans. Cinzel has no lower case and no Cyrillic.', kb: '68 KiB Latin · +184 accented Latin · +90 Cyrillic' },
+  { key: 'E', name: 'Goudy Bookletter 1911 + Noto Serif', font: f('Noto Serif', 'serif'), head: f('Goudy Bookletter 1911', 'serif'), title: f('Goudy Bookletter 1911', 'serif'), w: 400,
+    note: 'All serif, the most old-book. Goudy is one weight and Latin only (Goudy itself is public domain); Noto Serif body covers Cyrillic and Greek.', kb: '70 KiB Latin · +188 accented Latin · +106 Cyrillic' },
+];
+const vars = (d) => `--font:${d.font};--font-head:${d.head};--font-title:${d.title};--head-weight:${d.w}`;
+
+const LANGS = [
+  ['en', 'When a colony with no standing soldiers is attacked, a colonist automatically takes up any stockpiled muskets and defends.'],
+  ['fr', 'Quand une colonie sans défense est attaquée, un colon prend automatiquement les armes (s’il y en a en réserve) et défend sa patrie avec bravoure.'],
+  ['de', 'Wenn eine Kolonie ohne Militäreinheiten angegriffen wird, ergreift ein Kolonist automatisch im Lager vorhandene Musketen und übernimmt die Verteidigung.'],
+  ['pl', 'Koloniści chwycą za broń, gdy zostanie zaatakowana osada pozbawiona garnizonu.'],
+  ['cs', 'Pokud je napadena kolonie bez vojenské ochrany, kolonisté automaticky vezmou uskladněné muškety a budou se bránit.'],
+  ['tr', 'Askerleri olmayan bir koloniye saldırıldığında, bir kolonist otomatik olarak istiflenmiş tüfekleri ve savunmaları üstlenir.'],
+  ['pt', 'Quando uma colônia é atacada sem ter soldados a postos, um colono automaticamente pegará armas e cavalos existentes e a defenderá.'],
+  ['ru', 'Если колония без военного гарнизона атакована, то колонист автоматически берет мушкет со склада и встает на защиту.'],
+  ['uk', 'Коли ворог атакує колонію без захисту, колоніст автоматично бере мушкет із запасів та захищається.'],
+  ['ja', 'ポール・リビア <span class="muted s">(no candidate covers this: system font)</span>'],
+  ['ar', 'بول ريفير <span class="muted s">(no candidate covers this: system font)</span>'],
+];
+
+const menubar = () => `<nav class="menubar"><span>${['Game','View','Orders','Report','Colopedia'].map(m => `<button>${m}</button>`).join('')}</span>
+  <span class="status">Score: 34 ✧ Gold: 1247 ✧ Tax: 7% ✧ Year: Spring 1612</span></nav>`;
+const frame = (title, body, cls = '') => `<article class="frame ${cls}"><div class="title"><h2>${title}</h2><span class="x">✕</span></div><div class="body">${body}</div></article>`;
+
+const startScreen = () => frame('New Game', `
+  <div class="box"><span class="cap">Nation</span><div class="nations">
+    <div class="nation" data-sel><span class="sw" style="background:#e8892b"></span><span class="name">Dutch</span><span class="type">Trade · Prices are more favourable</span></div>
+    <div class="nation"><span class="sw" style="background:#c21d1d"></span><span class="name">English</span><span class="type">Immigration · More religious unrest</span></div>
+    <div class="nation"><span class="sw" style="background:#2852b5"></span><span class="name">French</span><span class="type">Cooperation · Friendlier natives</span></div>
+    <div class="nation"><span class="sw" style="background:#e6c619"></span><span class="name">Spanish</span><span class="type">Conquest · +50% offence against natives</span></div>
+  </div></div>
+  <div class="field"><label for="dl">Difficulty</label><select id="dl"><option>Very easy</option><option>Easy</option><option selected>Medium</option><option>Hard</option></select>
+    <span class="s muted">Land price factor 100 · Map width 40</span></div>
+  <div class="buttons"><button>Quit</button><button class="default">Start Game</button></div>`);
+
+const fatherDialog = () => frame('Nominate Founding Father', `
+  <div class="tabs" role="tablist"><button aria-selected="true">Trade</button><button>Political</button><button>Military</button><button>Religious</button><button>Exploration</button></div>
+  <div class="box"><span class="cap">Trade</span><div class="father"><div class="portrait">portrait</div><div>
+    <h3>Adam Smith</h3><p class="s muted">1723–1790</p>
+    <p><b>Enables building of factories.</b></p>
+    <p class="s"><i>Better known as the Father of Modern Economics, Smith penned several texts pertaining to economic theory, including The Wealth of Nations, his most famous text.</i></p>
+  </div></div></div>
+  <div class="buttons"><button class="default">OK</button></div>`);
+
+const g = (n, a, d = '') => `<div class="good"><b>${n}</b><span class="num">${a}${d}</span></div>`;
+const gain = (x) => ` <span class="gain">+${x}</span>`, loss = (x) => ` <span class="loss">−${x}</span>`;
+const colony = () => frame('Jamestown', `
+  <p class="s">Size 4 · <span class="gain">Rebels 37%</span> · Royalists 63% · Production bonus 0 · <span class="muted">Building: Docks, 38/52 hammers, 3 turns</span></p>
+  <div class="box"><span class="cap">Buildings</span><div class="tbl"><table>
+    <thead><tr><th>Building</th><th>Workers</th><th>Produces</th><th>Net</th></tr></thead><tbody>
+    <tr><td>Town Hall</td><td>1</td><td>Bells 3</td><td class="gain">+4</td></tr>
+    <tr><td>Carpenter's House</td><td>1</td><td>Hammers 6</td><td class="gain">+6</td></tr>
+    <tr><td>Blacksmith's House</td><td>1</td><td>Tools 3</td><td class="loss">−3 ore</td></tr>
+    <tr><td>Tobacconist's House</td><td>0</td><td>Cigars 0</td><td>0</td></tr>
+    <tr><td>Chapel</td><td>0</td><td>Crosses 1</td><td class="gain">+1</td></tr>
+  </tbody></table></div></div>
+  <div class="box"><span class="cap">Warehouse · 100</span><div class="goods">
+    ${g('Food', 41, gain(4))}${g('Sugar', 12)}${g('Tobacco', 88, gain(6))}${g('Cotton', 24)}${g('Furs', 7, loss(2))}${g('Lumber', 52)}
+    ${g('Ore', 9, loss(3))}${g('Silver', 0)}${g('Horses', 26, gain(1))}${g('Rum', 0)}${g('Cigars', 0)}${g('Cloth', 0)}
+    ${g('Coats', 0)}${g('Trade goods', 0)}${g('Tools', 50, gain(3))}${g('Muskets', 20)}
+  </div></div>
+  <div class="buttons"><button>Warehouse</button><button class="default">OK</button></div>`);
+
+const p = (n, s, b) => `<div class="price">${n}<span class="num">${s}/${b}</span></div>`;
+const europe = () => frame('Europe', `
+  <div class="box"><span class="cap">Recruit · Train</span><div class="units">
+    <span class="unit">Free Colonist <b class="num">300</b></span><span class="unit">Petty Criminal <b class="num">300</b></span>
+    <span class="unit">Expert Farmer <b class="num">1100</b></span><span class="unit">Master Blacksmith <b class="num">1050</b></span>
+    <span class="unit">Veteran Soldier <b class="num">2000</b></span><span class="unit">Elder Statesman <b class="num">1900</b></span></div></div>
+  <div class="box"><span class="cap">In port · Caravel (2/2)</span><div class="units"><span class="unit">Tobacco 100</span><span class="unit">Furs 64</span></div></div>
+  <div class="box"><span class="cap">Market · sell/buy</span><div class="market">
+    ${p('Food',0,8)}${p('Sugar',3,5)}${p('Tobacco',5,7)}${p('Cotton',2,4)}${p('Furs',3,5)}${p('Lumber',1,2)}${p('Ore',5,6)}${p('Silver',19,20)}
+    ${p('Horses',1,2)}${p('Rum',10,11)}${p('Cigars',10,11)}${p('Cloth',10,11)}${p('Coats',10,11)}${p('Trade goods',1,2)}${p('Tools',1,2)}${p('Muskets',2,3)}
+  </div></div>
+  <p class="s muted">Tax 7%. Selling 100 Tobacco brings 465 after tax.</p>
+  <div class="buttons"><button>Recruit</button><button>Purchase</button><button>Train</button><button>Unload</button><button class="default">Sail to America</button></div>`, 'wide');
+
+const report = () => frame('Trade Report', `
+  <div class="tbl"><table>
+    <thead><tr><th></th><th>Food</th><th>Sugar</th><th>Tobacco</th><th>Cotton</th><th>Furs</th><th>Ore</th><th>Tools</th></tr>
+      <tr><th class="muted">sell/buy</th><th>0/8</th><th>3/5</th><th>5/7</th><th>2/4</th><th>3/5</th><th>5/6</th><th>1/2</th></tr></thead>
+    <tbody>
+      <tr><td>Units sold</td><td>0</td><td>40</td><td>300</td><td>0</td><td>164</td><td>0</td><td>0</td></tr>
+      <tr><td>Before taxes</td><td>0</td><td>120</td><td>1500</td><td>0</td><td>492</td><td>0</td><td>0</td></tr>
+      <tr><td>After taxes</td><td>0</td><td>111</td><td>1395</td><td>0</td><td>457</td><td>0</td><td>0</td></tr>
+      <tr><td>In ships</td><td>0</td><td>0</td><td>100</td><td>0</td><td>64</td><td>0</td><td>0</td></tr>
+      <tr><td>Total</td><td>81</td><td>12</td><td>188</td><td>24</td><td>71</td><td>9</td><td>50</td></tr>
+      <tr><td>Change</td><td class="gain">+7</td><td>0</td><td class="gain">+6</td><td>0</td><td class="loss">−2</td><td class="loss">−3</td><td class="gain">+3</td></tr>
+      <tr><td><a href="#">Jamestown</a>*</td><td>41+4</td><td>12</td><td>88+6</td><td>24</td><td>7−2</td><td class="warn" title="Ore will run out">9−3</td><td>50+3</td></tr>
+      <tr><td><a href="#">Plymouth</a></td><td>40+3</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+    </tbody></table></div>
+  <p class="s muted">* has a custom house</p>
+  <div class="buttons"><button class="default">OK</button></div>`);
+
+const languages = () => frame('Languages FreeCol ships', `
+  <div class="langs">${LANGS.map(([k, t]) => `<b>${k}</b><span>${t}</span>`).join('')}</div>`, 'wide');
+
+function renderOne(d) {
+  const el = document.getElementById('one');
+  el.setAttribute('style', vars(d));
+  el.innerHTML = menubar() + `<div class="screens">
+    <div class="banner" style="grid-column:1/-1">Spring 1612 · Your turn</div>
+    ${startScreen()}${fatherDialog()}${colony()}${report()}${europe()}${languages()}</div>`;
+}
+
+function renderAll() {
+  document.getElementById('all').innerHTML = DIRS.map(d => `<div class="col game" style="${vars(d)}">
+    <div class="tag">${d.key} · ${d.name}<span>${d.kb}</span></div>
+    ${menubar()}
+    ${frame('Nominate Founding Father', `
+      <h3>Adam Smith</h3>
+      <p>Enables building of factories. <i>Better known as the Father of Modern Economics.</i></p>
+      <p class="s muted">Small text (--fs-s): Jamestown has completed building Docks. Ore will run out in 3 turns.</p>
+      <div class="box"><span class="cap">Warehouse</span><table>
+        <tbody><tr><td>Tobacco</td><td>88</td><td class="gain">+6</td></tr><tr><td>Silver</td><td>1110</td><td class="loss">−11</td></tr><tr><td>Muskets</td><td>20</td><td>0</td></tr></tbody></table></div>
+      <p class="alphabet" style="font-family:var(--font-head);font-weight:var(--head-weight)">Hernando de Soto · 1612</p>
+      <p>Façade, Kolonist, Koloniści, muškety, Колонист</p>
+      <div class="buttons"><button>Cancel</button><button class="default">OK</button></div>`)}
+  </div>`).join('');
+}
+
+let state = { dir: 'B', view: 'one' };
+function sync() {
+  const d = DIRS.find(x => x.key === state.dir);
+  document.querySelectorAll('#dirs .chip').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.k === state.dir)));
+  document.getElementById('v-one').setAttribute('aria-pressed', String(state.view === 'one'));
+  document.getElementById('v-all').setAttribute('aria-pressed', String(state.view === 'all'));
+  document.getElementById('one').hidden = state.view !== 'one';
+  document.getElementById('all').hidden = state.view !== 'all';
+  document.getElementById('dirs').parentElement.hidden = state.view !== 'one';
+  document.getElementById('about').innerHTML = state.view === 'one'
+    ? `<b>${d.key} · ${d.name}.</b> ${d.note} <span>Download: ${d.kb}.</span>`
+    : 'Every direction on the same content. Byte counts are what the game would serve from dist/; a browser only fetches accented Latin or Cyrillic when the text needs them. Keys: ← → change direction, T flips the theme.';
+  renderOne(d);
+}
+document.getElementById('dirs').innerHTML = DIRS.map(d => `<button class="chip" data-k="${d.key}">${d.key} · ${d.name}</button>`).join('');
+document.getElementById('dirs').addEventListener('click', e => { const k = e.target.closest('[data-k]')?.dataset.k; if (k) { state.dir = k; sync(); } });
+document.getElementById('v-one').onclick = () => { state.view = 'one'; sync(); };
+document.getElementById('v-all').onclick = () => { state.view = 'all'; sync(); };
+const setTheme = (t) => { document.documentElement.dataset.theme = t; markTheme(); };
+const isDark = () => document.documentElement.dataset.theme ? document.documentElement.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+function markTheme() { document.getElementById('t-dark').setAttribute('aria-pressed', String(isDark())); document.getElementById('t-light').setAttribute('aria-pressed', String(!isDark())); }
+document.getElementById('t-light').onclick = () => setTheme('light');
+document.getElementById('t-dark').onclick = () => setTheme('dark');
+addEventListener('keydown', e => {
+  if (e.target.closest('input, select, textarea, [contenteditable]')) return;
+  const i = DIRS.findIndex(d => d.key === state.dir);
+  if (e.key === 'ArrowRight') { state.dir = DIRS[(i + 1) % DIRS.length].key; sync(); }
+  else if (e.key === 'ArrowLeft') { state.dir = DIRS[(i - 1 + DIRS.length) % DIRS.length].key; sync(); }
+  else if (e.key === 't' || e.key === 'T') setTheme(isDark() ? 'light' : 'dark');
+});
+renderAll(); sync(); markTheme();
+</script>
