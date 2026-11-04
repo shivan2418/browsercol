@@ -34,6 +34,8 @@ export interface GuiEvents {
     chip: string;
     fg: number;
   };
+  /** GUI.playSound: a sound's resource key, or null to stop the sound effect. */
+  sound: { key: string | null };
   /** ok: the close button's label, as for the other panels. The tile is the object's, if it has one. */
   information: { text: string; object: Id | null; images: string[]; ok: string } & TileRef;
   error: { text: string; ok: string };

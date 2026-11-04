@@ -64,10 +64,11 @@ export function visibleMessages<T extends { type: string }>(p: Prefs, messages: 
  * groups: those the browser follows. The client Engine follows most of them as FreeCol does; the page
  * follows PAGE_OPTIONS itself. Left out: those FreeCol Online's own preferences cover (move animation,
  * tutorial messages, auto end turn); those a browser cannot follow (the full screen display mode, Java's
- * pixmaps and XRender, the audio mixer, confirm save overwrite, as saves never overwrite); the minimap's
- * default zoom; and those waiting on a feature, each with its issue: other players' move animations (#149),
- * terrain animations (#150), the language (#151), the compact colony report (#152), the save game dialog
- * (#153) and autosaves (#154), mods (#155), the minimap (#156), sound (#157), and the warehouse
+ * pixmaps and XRender, confirm save overwrite, as saves never overwrite; and the audio mixer, a Java Sound
+ * device: the browser plays on the system's default output, as choosing another, setSinkId, works only in
+ * Chromium); the minimap's default zoom; and those waiting on a feature, each with its issue: other players'
+ * move animations (#149), terrain animations (#150), the language (#151), the compact colony report (#152),
+ * the save game dialog (#153) and autosaves (#154), mods (#155), the minimap (#156), and the warehouse
  * defaults (#158).
  */
 export const FREECOL_OPTIONS: readonly string[] = [
@@ -131,6 +132,10 @@ export const FREECOL_OPTIONS: readonly string[] = [
   'model.option.guiMaxNumberOfGoodsImages',
   'model.option.guiMinNumberToDisplayGoods',
   'model.option.colonyComparator',
+  // Audio
+  'model.option.musicVolume',
+  'model.option.soundEffectsVolume',
+  'model.option.audioAlerts',
 ];
 
 /** The FreeCol options the page follows, with FreeCol's defaults; the client Engine is told them too. */
@@ -175,6 +180,10 @@ export const PAGE_OPTIONS = {
   'model.option.displayColonyLabels': 1,
   /** The compass rose at the map's top right; a click on it moves the active unit that way. */
   'model.option.displayCompassRose': false,
+  /** The music's volume, as a percentage (sound.ts plays it). */
+  'model.option.musicVolume': 100,
+  /** The sound effects' volume, as a percentage. */
+  'model.option.soundEffectsVolume': 100,
 };
 
 type PageOption = keyof typeof PAGE_OPTIONS;

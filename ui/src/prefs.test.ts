@@ -116,7 +116,13 @@ describe('prefs', () => {
 
     const shown = shownClientOptions(all)!;
     expect([...leaves(shown).keys()].sort()).toEqual([...FREECOL_OPTIONS].sort());
-    expect(shown.children.map((g) => g.label)).toEqual(['Personal', 'Display', 'Interface']);
+    expect(shown.children.map((g) => g.label)).toEqual(['Personal', 'Display', 'Interface', 'Audio']);
+    // Sound (#157): the volumes and the alert, but not the Java Sound mixer.
+    expect(shown.children[3].kind === 'group' && shown.children[3].children.map((o) => o.id)).toEqual([
+      'model.option.musicVolume',
+      'model.option.soundEffectsVolume',
+      'model.option.audioAlerts',
+    ]);
     const groups = shown.children[2].kind === 'group' ? shown.children[2].children.map((g) => g.label) : [];
     expect(groups).toEqual(['Main map', 'Map Controls', 'Messages', 'Warehouse Settings', 'Other']);
     const tileText = leaves(shown).get('model.option.displayTileText');
