@@ -180,6 +180,22 @@ public final class ClientEngine {
         this.gui.reportIgnore(index, ignore);
     }
 
+    /** The values of FreeCol's client options, by id, as JSON ({@link OptionsJson#values}). */
+    public String clientOptionValues() {
+        return OptionsJson.values(this.client.getClientOptions()).toString();
+    }
+
+    /**
+     * Set one of FreeCol's client options, as the Preferences window does.
+     *
+     * @param id The option's id.
+     * @param value "true" or "false", or a whole number.
+     * @return True if there is such an option and the value fits it.
+     */
+    public boolean setClientOption(String id, String value) {
+        return OptionsJson.set(this.client.getClientOptions(), id, value);
+    }
+
     FreeColClient getClient() {
         return this.client;
     }
