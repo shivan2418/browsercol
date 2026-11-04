@@ -66,9 +66,13 @@ test {
     useJUnitPlatform()
     workingDir = freecol   // as for run: data/ is found relative to it
     jvmArgs '-Djava.awt.headless=true'
-    // Every test starts whole FreeCol games in this one JVM; Gradle's
-    // default 512 MB ran out once #80 added two more.
+    // Every test starts whole FreeCol games, and JUnit keeps each test's
+    // instance, with its game, until the JVM ends: Gradle's default 512 MB
+    // ran out once #80 added two more, and 2 GB once the founding father
+    // tests came. A fresh JVM every few test classes keeps the heap bounded
+    // however many tests there are.
     maxHeapSize = '2g'
+    forkEvery = 6
     systemProperty 'presets.dir', file('../ui/presets').absolutePath
     testLogging { events 'failed'; exceptionFormat 'full'; showStandardStreams = project.hasProperty('verbose') }
 }
