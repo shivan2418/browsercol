@@ -1,6 +1,5 @@
 package online.freecol.web;
 
-
 import net.sf.freecol.FreeCol;
 import net.sf.freecol.client.ClientOptions;
 import net.sf.freecol.client.FreeColClient;

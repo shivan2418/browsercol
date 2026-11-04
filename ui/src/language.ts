@@ -34,13 +34,14 @@ const ALIASES: Record<string, string> = {
   'zh-tw': 'zh-hant',
   'zh-hk': 'zh-hant',
   'zh-mo': 'zh-hant',
-  'zh-hant': 'zh-hant',
   'sr-cyrl': 'sr-ec',
+  no: 'nb_NO',
 };
 
 /**
  * The language to load: the player's pick or, for automatic, the first of the browser's languages
- * FreeCol has a translation for, by its whole tag and then by its language alone. English otherwise.
+ * FreeCol has a translation for, by its whole tag and then by its language alone. By language alone,
+ * a plain or country translation (zh_CN) comes before a script's or dialect's (zh-hant). English otherwise.
  *
  * @param chosen The option's value: a language id or AUTOMATIC.
  * @param available The ids there are strings for (languages()).
@@ -55,8 +56,10 @@ export function pickLanguage(chosen: string, available: readonly string[], brows
     const whole = available.find((id) => tag(id) === t);
     if (whole) return whole;
     const primary = t.split('-')[0];
-    const same = available.find((id) => tag(id).split('-')[0] === primary);
-    if (same) return same;
+    const same = available.filter((id) => tag(id).split('-')[0] === primary);
+    // FreeCol writes a country after '_' and a script or dialect after '-'.
+    const best = same.find((id) => !id.includes('-')) ?? same[0];
+    if (best) return best;
   }
   return 'en';
 }
@@ -73,7 +76,10 @@ export function translationFiles(id: string, available: readonly string[]): stri
   return [...(own ? [language] : []), id].map(stringsFile);
 }
 
-/** The strings files of the data bundle, English first and then any translation the page added. */
+/**
+ * The strings files of the data bundle, English first and then any translation the page added, shortest
+ * name first: a language's own file (pt) before its country's (pt_BR), as translationFiles orders them.
+ */
 export function messageFiles(data: string[]): string[] {
   const translations = data
     .filter((p, i) => i % 2 === 0 && p.startsWith('data/strings/FreeColMessages_'))

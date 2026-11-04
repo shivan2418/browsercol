@@ -12,7 +12,7 @@ import net.sf.freecol.common.i18n.Messages;
  */
 final class Language {
 
-    private static volatile Locale locale = Locale.US;
+    private static Locale locale = Locale.US;
 
     private Language() {}
 
