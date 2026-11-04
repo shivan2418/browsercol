@@ -22,6 +22,7 @@ import net.sf.freecol.common.model.Unit;
 import net.sf.freecol.common.networking.GameStateMessage;
 import net.sf.freecol.common.networking.VacantPlayersMessage;
 import net.sf.freecol.server.FreeColServer;
+import net.sf.freecol.server.model.Session;
 import net.sf.freecol.server.FreeColServer.ServerState;
 
 
@@ -91,6 +92,11 @@ public final class ServerEngine {
         // Everything the preset can get wrong fails here, before a server
         // is made.
         preset.applyTo(spec);
+        // FreeCol forgets the open sessions (a monarch's offer, a trade)
+        // only when it loads a game; a new one in the same Worker would
+        // otherwise meet the last game's, keyed by the same player ids, as
+        // a "Duplicate session" error.
+        Session.clearAll();
         FreeColServer made = new FreeColServer(false, true, spec, null, 0, "browser");
         preset.applyTo(made);
         this.server = made;

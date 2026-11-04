@@ -13,6 +13,7 @@ FreeCol's own bug tracker is on SourceForge
 | --- | --- | --- | --- | --- |
 | Thomas Paine's bells bonus stays 0 on the server from the turn he joins until the tax next changes or the game is reloaded; the client shows it at once. `Player.addFather` never calls `recalculateBellsBonus`. | `common/model/Player.java` (`addFather`) | #169 | [#2187](https://sourceforge.net/p/freecol/bugs/2187/) (2011, the same symptom, closed as fixed in 0.10.1) | Still in FreeCol's code at our pin and on its newer branches. Not yet reported again. |
 | A trade route's "silent" flag is lost when the server copies the route in (`TradeRoute.copyIn` skips it). | `common/model/TradeRoute.java` (`copyIn`) | #70 (348b3b0) | None found | Not reported. |
+| Open sessions (a monarch's offer, a trade) outlive their game: `Session`'s registry is static and FreeCol clears it only when it loads a saved game, so a new game in the same JVM that reaches the same session (same player ids) fails with "Duplicate session". Declaring independence opens one, the mercenary offer. | Not a patch: `ServerEngine.startGame` calls `Session.clearAll()` | Found while testing the War of Independence | None found | Not reported. |
 
 ## Known, not fixed
 
