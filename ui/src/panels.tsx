@@ -1,12 +1,21 @@
 // React components for the WebGUI's dialogs (dialogs.ts): the confirm,
-// choice, input, select amount, goods, end turn, pre-combat, negotiation and names
+// choice, input, select amount, goods, end turn, pre-combat, negotiation, names and founding father
 // questions and the information, error, event, native settlement, message and colony
 // (colony-panel.tsx) panels, each in a window frame (frame.tsx). All text,
 // button labels included, comes localized from the Engine. Keys mean what
 // they do in FreeCol's dialogs: Enter presses the focused button, else takes
 // the default option; Escape, or the frame's close button, closes the
 // dialog as cancelled; a panel closes on either key.
-import { Fragment, useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import {
+  Fragment,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+} from 'react';
 import { ColonyActions, ColonyPanel } from './colony-panel';
 import type { Dialog, Dialogs } from './dialogs';
 import { europeButtons } from './europe-client';
@@ -291,6 +300,66 @@ function EndTurn({ d }: { d: Of<'endTurn'> }) {
         ))}
       </div>
       <OkCancel ok={ask.ok} cancel={ask.cancel} onOk={ok} onCancel={cancel} />
+    </Win>
+  );
+}
+
+/**
+ * ChooseFoundingFatherDialog: a tab per father, named by its kind, and the open tab's father as
+ * FatherDetailPanel shows it: name and kind, portrait, what it does, then its years and story. OK nominates
+ * the open tab's father; closing postpones the choice.
+ */
+function Father({ d, art }: { d: Of<'father'>; art: Art }) {
+  const { ask } = d;
+  const [open, setOpen] = useState(0);
+  const f = ask.fathers[open];
+  const ok = () => d.done(open);
+  useEnter(ok);
+  const onKey = (e: ReactKeyboardEvent) => {
+    const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+    if (step === 0) return;
+    e.preventDefault();
+    const next = (open + step + ask.fathers.length) % ask.fathers.length;
+    setOpen(next);
+    (e.currentTarget.children[next] as HTMLElement | undefined)?.focus();
+  };
+  return (
+    <Win d={d} title={ask.title} close={() => d.done(null)}>
+      <div className="tabs" role="tablist" onKeyDown={onKey}>
+        {ask.fathers.map((t, i) => (
+          <button
+            key={t.id}
+            role="tab"
+            id={`father-tab-${i}`}
+            aria-selected={i === open}
+            aria-controls="father-detail"
+            tabIndex={i === open ? 0 : -1}
+            data-father={t.id}
+            onClick={() => setOpen(i)}
+          >
+            {t.kind}
+          </button>
+        ))}
+      </div>
+      {f && (
+        <div className="father" role="tabpanel" id="father-detail" aria-labelledby={`father-tab-${open}`}>
+          <h3>
+            {f.name} ({f.kind})
+          </h3>
+          <Pic keys={f.keys} art={art} className="portrait" />
+          <div className="about">
+            <p className="effect">{f.description}</p>
+            <p className="story">
+              [{f.born}] {f.text}
+            </p>
+          </div>
+        </div>
+      )}
+      <div className="buttons">
+        <button data-answer="ok" onClick={ok}>
+          {ask.ok}
+        </button>
+      </div>
     </Win>
   );
 }
@@ -1438,6 +1507,8 @@ function Body({
       return <Negotiation d={d} />;
     case 'names':
       return <Names d={d} />;
+    case 'father':
+      return <Father d={d} art={art} />;
     case 'endTurn':
       return <EndTurn d={d} />;
     case 'preCombat':

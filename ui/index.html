@@ -482,6 +482,54 @@
         outline: 2px solid var(--accent);
         outline-offset: -3px;
       }
+      /* The choose founding father dialog: a tab per kind, then the open tab's father. */
+      .dialog[data-kind='father'] {
+        width: min(36em, 100vw - 32px);
+      }
+      .dialog .tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2px;
+        border-bottom: 1px solid var(--line);
+      }
+      .dialog .tabs [role='tab'] {
+        border-bottom-left-radius: 0;
+        border-bottom-right-radius: 0;
+        margin-bottom: -1px;
+      }
+      .dialog .tabs [role='tab'][aria-selected='true'] {
+        background: color-mix(in srgb, var(--accent) 20%, transparent);
+        border-color: var(--accent);
+      }
+      .dialog .father {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 8px 16px;
+        align-items: start;
+        padding: 8px 0;
+        min-height: 18em;
+      }
+      .dialog .father h3 {
+        grid-column: 1 / -1;
+        text-align: center;
+      }
+      .dialog .father .portrait {
+        max-width: 160px;
+      }
+      .dialog .father p {
+        margin: 0 0 8px;
+      }
+      .dialog .father .story {
+        color: var(--muted);
+      }
+      @media (max-width: 480px) {
+        .dialog .father {
+          grid-template-columns: 1fr;
+        }
+        .dialog .father .portrait {
+          justify-self: center;
+        }
+      }
       .dialog .high-score dl {
         display: grid;
         grid-template-columns: auto 1fr;
