@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useRef, type PointerEvent as ReactPointerEvent } from 'react';
 import {
   BACKGROUNDS,
+  css,
   imageSize,
   MAX_ZOOM,
   MIN_ZOOM,
@@ -16,6 +17,7 @@ import {
   type MinimapOptions,
   type ViewBox,
 } from './minimap';
+import { PANEL_KEYS } from './map-keys';
 import type { Resources } from './resources';
 import type { MapView } from './tileset';
 
@@ -35,13 +37,11 @@ export interface MinimapProps {
   setOption: (id: string, value: boolean | number) => void;
 }
 
-const hex = (rgb: number) => `#${rgb.toString(16).padStart(6, '0')}`;
-
 export function MinimapPanel({ map, res, view, options, centre, setOption }: MinimapProps) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const size = tileSize(options.zoom);
   const background = BACKGROUNDS[options.background] ?? BACKGROUNDS[0];
-  const { borders, fog, zoom } = options;
+  const { borders, fog } = options;
   // The whole map drawn once per map view and options (MiniMap's prerendered image); the view only moves it.
   const image = useMemo(() => {
     if (!map || !res) return null;
@@ -51,21 +51,21 @@ export function MinimapPanel({ map, res, view, options, centre, setOption }: Min
     c.height = h;
     const g = c.getContext('2d');
     if (!g) return null;
-    paintMinimap(g, minimapTiles(map, res, { borders, fog, zoom, background: 0 }), size, [w, h], background);
+    paintMinimap(g, minimapTiles(map, res, { borders, fog }), size, [w, h], background);
     return c;
-  }, [map, res, borders, fog, zoom, size, background]);
+  }, [map, res, borders, fog, size, background]);
 
   useEffect(() => {
     const g = canvas.current?.getContext('2d');
     if (!g) return;
     const ratio = window.devicePixelRatio || 1;
     g.setTransform(ratio, 0, 0, ratio, 0, 0);
-    g.fillStyle = hex(background);
+    g.fillStyle = css(background);
     g.fillRect(0, 0, ...BOX);
     if (!image) return;
     const { image: at, visible } = placement(view, BOX, size);
     g.drawImage(image, Math.round(at[0]), Math.round(at[1]));
-    g.strokeStyle = hex(res?.color('color.border.MiniMap', 0xffffff) ?? 0xffffff);
+    g.strokeStyle = css(res?.color(PANEL_KEYS.minimapBorder, 0xffffff) ?? 0xffffff);
     g.lineWidth = 1;
     g.strokeRect(
       Math.round(visible[0]) + 0.5,
@@ -82,7 +82,7 @@ export function MinimapPanel({ map, res, view, options, centre, setOption }: Min
   };
   const ratio = typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1;
   return (
-    <div id="minimap" className="minimap">
+    <div id="minimap">
       <div className="minimap-buttons">
         <button
           title="Toggle the view between political and economic"
