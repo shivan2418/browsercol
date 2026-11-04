@@ -39,6 +39,15 @@ const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
 await answerDialogs(page);
 page.on('pageerror', (e) => console.log(`page error: ${e}`));
 
+// --quality N sets FreeCol's graphics quality before the page loads (below 20 draws without antialiasing).
+const quality = opt('quality', '');
+if (quality) {
+  await page.addInitScript((q) => {
+    if (!localStorage.getItem('freecol.prefs'))
+      localStorage.setItem('freecol.prefs', JSON.stringify({ freecol: { 'model.option.graphicsQuality': q } }));
+  }, Number(quality));
+}
+
 // Frame and long-task recorder, installed before the page's own scripts, and the
 // client Engine's last map view (as play.mjs keeps it) to tell when a turn is back.
 await page.addInitScript(() => {
@@ -54,10 +63,29 @@ await page.addInitScript(() => {
       };
     },
   });
-  w.__perf = { frames: [], long: [], draws: [], blits: [] };
+  w.__perf = { frames: [], long: [], draws: [], blits: [], uploads: [] };
+  // Each texture upload's time and size in pixels (a new sprite's, a text's).
+  for (const C of [w.WebGLRenderingContext, w.WebGL2RenderingContext]) {
+    for (const f of ['texImage2D', 'texSubImage2D']) {
+      const orig = C?.prototype[f];
+      if (!orig) continue;
+      C.prototype[f] = function (...a) {
+        const src = a.find((x) => x && typeof x === 'object' && 'width' in x);
+        const px = src
+          ? src.width * src.height
+          : typeof a[3] === 'number' && typeof a[4] === 'number'
+            ? a[3] * a[4]
+            : 0;
+        w.__perf.uploads.push([performance.now(), px]);
+        return orig.apply(this, a);
+      };
+    }
+  }
   // Each Canvas 2D drawImage's time (the minimap, the Canvas 2D map).
   const blit = w.CanvasRenderingContext2D.prototype.drawImage;
+  const skipMinimap = new URLSearchParams(location.search).has('perfnominimap');
   w.CanvasRenderingContext2D.prototype.drawImage = function (...a) {
+    if (skipMinimap && this.canvas.closest?.('#minimap')) return;
     w.__perf.blits.push(performance.now());
     return blit.apply(this, a);
   };
@@ -87,9 +115,16 @@ await page.addInitScript(() => {
 });
 
 const t0 = Date.now();
-await page.goto(`${server.url}?skipstart${query ? `&${query}` : ''}`);
+// --no-minimap skips the minimap's drawing, to see what it costs.
+const noMinimap = process.argv.includes('--no-minimap');
+await page.goto(`${server.url}?skipstart${noMinimap ? '&perfnominimap' : ''}${query ? `&${query}` : ''}`);
 await waitForResult(page, 180000);
 console.log(`chromium ${browser.version()}, game ready in ${((Date.now() - t0) / 1000).toFixed(1)} s`);
+// --dim-off turns the unfocused window's grey-out off, to see what its backdrop filter costs.
+if (process.argv.includes('--dim-off')) await page.evaluate(() => (document.body.dataset.dimUnfocused = 'off'));
+console.log(
+  `grey-out: ${await page.evaluate(() => `${document.body.dataset.dimUnfocused}, unfocused ${document.body.dataset.unfocused}`)}`,
+);
 const renderer = await page.evaluate(() => window.fcResult?.renderer);
 console.log(`renderer: ${renderer}`);
 const gl = await page.evaluate(() => {
@@ -182,6 +217,7 @@ await browser.close();
 server.close();
 
 // --- Frame times and long tasks per phase.
+const ups = (p) => rec.uploads.filter(([t]) => t >= p.start && t <= p.end);
 const draws = (p) => rec.draws.filter((t) => t >= p.start && t <= p.end);
 const pct = (xs, p) =>
   xs.length ? xs.toSorted((a, b) => a - b)[Math.min(xs.length - 1, Math.floor(xs.length * p))] : 0;
@@ -203,7 +239,8 @@ for (const p of phases) {
         .toFixed(0)
         .padStart(8)}` +
       ` ${String(draws(p).length).padStart(9)} ${String(new Set(draws(p).map((t) => Math.floor(t / 16.67))).size).padStart(13)}` +
-      ` ${String(rec.blits.filter((t) => t >= p.start && t <= p.end).length).padStart(10)}`,
+      ` ${String(rec.blits.filter((t) => t >= p.start && t <= p.end).length).padStart(10)}` +
+      ` ${String(ups(p).length).padStart(8)} ${(ups(p).reduce((a, [, px]) => a + px, 0) / 1e6).toFixed(1).padStart(11)}`,
   );
 }
 
