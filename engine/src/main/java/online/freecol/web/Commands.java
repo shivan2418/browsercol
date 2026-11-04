@@ -773,7 +773,7 @@ public final class Commands {
         if (unit.getLocation() == wl) return false;
         final NoAddReason reason = wl.getNoAddReason(unit);
         if (reason != NoAddReason.NONE && reason != NoAddReason.CLAIM_REQUIRED) {
-            gui().showInformationPanel(wl, StringTemplate.template(reason.getDescriptionKey()));
+            gui().showInformationPanel(wl, StringTemplate.template(noAddKey(wl, reason)));
             return false;
         }
         final GoodsType workType = wl.getWorkFor(unit);
@@ -785,6 +785,24 @@ public final class Commands {
         }
         warnIfNotBestTile(unit, wl);
         return true;
+    }
+
+    /**
+     * The message key that says why a location cannot take a unit.
+     * ColonyTile.getNoWorkReason folds a tile that cannot be claimed, such
+     * as one with a lost city rumour or unsettleable terrain, into
+     * MISSING_ABILITY, whose words are about docks; such a land tile is
+     * explained by why it cannot be claimed instead.
+     */
+    private String noAddKey(WorkLocation wl, NoAddReason reason) {
+        if (reason == NoAddReason.MISSING_ABILITY && wl instanceof ColonyTile) {
+            final Tile tile = ((ColonyTile)wl).getWorkTile();
+            if (tile.isLand() || wl.getColony().hasAbility(Ability.PRODUCE_IN_WATER)) {
+                final Player.NoClaimReason claim = wl.getOwner().canClaimForSettlementReason(tile);
+                if (claim != Player.NoClaimReason.NONE) return claim.getDescriptionKey();
+            }
+        }
+        return reason.getDescriptionKey();
     }
 
     /** The better work location last warned about, so a warning is not repeated (ColonyPanel.bestLocation). */
