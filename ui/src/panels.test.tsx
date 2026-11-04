@@ -11,6 +11,9 @@ import type { Choice, EuropeUnit, GuiEvents, GuiQuestions, TradeRouteDraft } fro
 
 afterEach(cleanup);
 
+/** The labels of the buttons marked as the one Enter presses. */
+const enterMarked = () => [...document.querySelectorAll('[data-enter]')].map((b) => b.textContent);
+
 const confirm: GuiQuestions['confirm']['ask'] = {
   text: 'Disband?',
   ok: 'Yes',
@@ -106,10 +109,12 @@ describe('the confirm dialog', () => {
   it('takes the default option on Enter and cancels on Escape', async () => {
     const { box } = host();
     const byDefault = ask(box, 'confirm', confirm);
+    expect(enterMarked()).toEqual(['No']);
     key('Enter');
     expect(await byDefault, 'cancel is the default').toBe(false);
 
     const ok = ask(box, 'confirm', { ...confirm, defaultOk: true });
+    expect(enterMarked()).toEqual(['Yes']);
     key('Enter');
     expect(await ok).toBe(true);
 
@@ -231,6 +236,7 @@ describe('the choice dialog', () => {
     const { box } = host();
     const q = { text: 'Meet the natives', cancel: 'Leave', tile: null, object: null, choices };
     const byDefault = ask(box, 'choice', q);
+    expect(enterMarked()).toEqual([choices[1].text]);
     key('Enter');
     expect(await byDefault).toBe(1);
 
@@ -247,6 +253,7 @@ describe('the choice dialog', () => {
     const { box } = host();
     const q = { text: 'Meet the natives', cancel: 'Leave', tile: null, object: null, choices: [item('Trade')] };
     const left = ask(box, 'choice', q);
+    expect(enterMarked()).toEqual(['Leave']);
     key('Enter');
     expect(await left).toBeNull();
   });
@@ -270,6 +277,7 @@ describe('the choice dialog', () => {
       object: null,
       choices: [item('A')],
     });
+    expect(enterMarked(), 'Enter does nothing, so nothing is marked').toEqual([]);
     key('Enter');
     screen.getByText('Who emigrates?');
     key('Escape');
