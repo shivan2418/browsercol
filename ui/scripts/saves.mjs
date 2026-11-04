@@ -4,7 +4,8 @@
 // save as a file, delete it, import the file again (a file that is not a save is
 // refused), check the export is byte for byte the import, load the save, check
 // it comes back at the saved turn with the saved active unit and the player's
-// turn, and play another turn. The page's autosaves sit in the list beside
+// turn, and play another turn. The turn autosaves FreeCol makes as each turn
+// begins are checked after the first turn. The page's autosaves sit in the list beside
 // the script's save, so the script finds its own row by name. Exits non-zero
 // unless every browser gets there. The page's dialogs are answered as scripts/dialogs.mjs says.
 // Run in the web image:
@@ -92,6 +93,29 @@ async function run(page, url, shot, browserName) {
   await noDialog();
   const active = (await view()).activeUnit?.id ?? null;
   if (!active) throw new Error('no active unit to save');
+  // FreeCol's autosaves as each of the player's turns began (#154): the last-turn save of this
+  // turn, the before-last-turn save of the first, and a turn autosave of each.
+  const autosaves = {
+    'Autosave-last-turn': played.turn,
+    'Autosave-before-last-turn': played.turn - 1,
+    [`Autosave-${played.turnLabel}`]: played.turn,
+  };
+  await page
+    .waitForFunction(
+      (want) =>
+        Object.entries(want).every(([n, t]) =>
+          [...document.querySelectorAll('#saves [data-save]')].some(
+            (r) => r.textContent?.startsWith(`${n} |`) && r.textContent.includes(`turn ${t} `),
+          ),
+        ),
+      autosaves,
+      { timeout: 30000 },
+    )
+    .catch(async () => {
+      throw new Error(
+        `the save list lacks the turn autosaves ${JSON.stringify(autosaves)}: ${JSON.stringify(await rows())}`,
+      );
+    });
 
   // 2. Save it.
   await page.fill('#save-name', SAVE_NAME);
