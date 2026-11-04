@@ -291,8 +291,9 @@
       .turn-banner.ai {
         font-style: italic;
       }
-      /* Every unit has moved: a smaller standing reminder to end the turn. */
-      .turn-banner.done {
+      /* Every unit has moved: a smaller standing reminder to end the turn; the AI's banner, which follows it, is as high. */
+      .turn-banner.done,
+      .turn-banner.ai {
         padding: 3px 12px;
         font-size: var(--fs-s);
       }
