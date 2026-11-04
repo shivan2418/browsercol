@@ -22,6 +22,7 @@ public final class WorkerMain {
 
     /** Load the data files: (path, text) pairs. */
     public static void main(String[] args) {
+        Failures.reportTo((what, detail) -> event("error", what + "\n" + detail));
         try {
             DataFiles.write(args);
         } catch (Exception ex) {
@@ -69,7 +70,7 @@ public final class WorkerMain {
                         + ",\"ms\":" + (System.currentTimeMillis() - t) + "}");
                 } catch (Throwable ex) {
                     ex.printStackTrace();
-                    event("failed", Failures.describe(ex));
+                    event("saveFailed", Failures.describe(ex));
                 }
         }, "web-saveGame").start();
     }

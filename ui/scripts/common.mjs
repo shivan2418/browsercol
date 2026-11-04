@@ -85,10 +85,23 @@ export async function launchBrowser(name) {
   return browser;
 }
 
-/** Collects the page's uncaught errors, as strings, into the returned array. */
+/** What the page logs for each error its banner shows (src/main.tsx, reportError). */
+const BANNER = 'Error banner: ';
+
+/**
+ * Collects the page's uncaught errors, and the Engine's and the Worker's errors its banner showed the player,
+ * as strings, into the returned array.
+ */
 export function collectPageErrors(page) {
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
+  page.on('console', (m) => {
+    const text = m.type() === 'error' ? m.text() : '';
+    // The page's own uncaught errors are on the banner too, but pageerror has them already.
+    if (text.startsWith(BANNER) && !text.startsWith(`${BANNER}The page hit an error`)) {
+      errors.push(text.slice(BANNER.length));
+    }
+  });
   page.on('crash', () => note('page crashed'));
   page.on('close', () => closing.has(page.context().browser()) || note('page closed'));
   return errors;

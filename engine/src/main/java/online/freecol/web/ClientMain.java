@@ -55,6 +55,7 @@ public final class ClientMain {
 
     /** Load the data files, (path, text) pairs, and make the client. */
     public static void main(String[] args) {
+        Failures.reportTo((what, detail) -> event("error", what + "\n" + detail));
         new Thread(() -> {
                 try {
                     DataFiles.write(args);
@@ -227,7 +228,7 @@ public final class ClientMain {
                     event("map", mapJson());
                 } catch (Throwable ex) {
                     ex.printStackTrace();
-                    event("commandFailed", name + ": " + ex);
+                    event("commandFailed", name + ": " + Failures.describe(ex));
                 }
         });
     }
@@ -252,7 +253,7 @@ public final class ClientMain {
                     engine.skipTurns(rounds);
                 } catch (Throwable ex) {
                     ex.printStackTrace();
-                    event("commandFailed", "skipTurns: " + ex);
+                    event("commandFailed", "skipTurns: " + Failures.describe(ex));
                 }
         }, "web-skipTurns").start();
     }
@@ -269,7 +270,7 @@ public final class ClientMain {
                     event("map", mapJson());
                 } catch (Throwable ex) {
                     ex.printStackTrace();
-                    event("commandFailed", "debug: " + ex);
+                    event("commandFailed", "debug: " + Failures.describe(ex));
                 }
         }, "web-debugApplied").start();
     }

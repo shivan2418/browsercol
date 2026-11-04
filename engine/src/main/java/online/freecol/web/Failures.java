@@ -2,6 +2,7 @@ package online.freecol.web;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.function.BiConsumer;
 
 
 /**
@@ -13,6 +14,34 @@ import java.io.StringWriter;
 final class Failures {
 
     private Failures() {}
+
+    /**
+     * Where {@link #report} sends a failure: (what failed, its
+     * description). ClientMain and WorkerMain send it to the page as an
+     * "error" event, which the Browser UI shows, so a game that breaks
+     * does not break silently. Nothing, until they set it (the JVM tests).
+     */
+    private static volatile BiConsumer<String, String> sink = (what, detail) -> {};
+
+    /** Send the failures {@link #report} is given to {@code to}. */
+    static void reportTo(BiConsumer<String, String> to) {
+        sink = to;
+    }
+
+    /**
+     * Report a failure the game goes on after, such as a message from the
+     * other end that could not be handled.
+     *
+     * @param what What failed, for the player.
+     * @param ex What went wrong.
+     */
+    static void report(String what, Throwable ex) {
+        try {
+            sink.accept(what, describe(ex));
+        } catch (Throwable ignored) {
+            // A report that cannot be sent must not break the caller as well.
+        }
+    }
 
     /**
      * @param ex What went wrong.

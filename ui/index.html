@@ -253,6 +253,51 @@
       .turn-banner.ai {
         font-style: italic;
       }
+      /* Errors the player must see (src/errors.tsx), over everything, until dismissed. */
+      .error-banner {
+        position: fixed;
+        top: 48px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1000;
+        width: min(40em, calc(100vw - 32px));
+        max-height: calc(100vh - 96px);
+        overflow: auto;
+        box-sizing: border-box;
+        padding: 10px 14px;
+        background: var(--panel);
+        color: var(--ink);
+        border: 2px solid var(--bad);
+        box-shadow: 0 10px 40px rgb(0 0 0 / 45%);
+        font: var(--fs) / 1.4 var(--font);
+      }
+      .error-banner h2 {
+        margin: 0 0 4px;
+        font-size: var(--fs-h);
+        color: var(--bad);
+      }
+      .error-banner p {
+        margin: 0 0 8px;
+      }
+      .error-banner ul {
+        margin: 0 0 8px;
+        padding-left: 1.2em;
+      }
+      .error-banner pre {
+        max-height: 12em;
+        overflow: auto;
+        margin: 4px 0;
+        padding: 6px;
+        background: var(--box);
+        font: var(--fs-s) / 1.3 var(--font-mono);
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+      .error-banner .buttons {
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+      }
       .menubar .status {
         margin-left: auto;
         padding-right: 8px;
