@@ -1161,6 +1161,17 @@ class CommandsTest {
         final String furs = "model.goods.furs";
         final String rum = "model.goods.rum";
         assertTrue(serverRoutes(player).isEmpty(), "no routes to begin with");
+        // A new route is offered FreeCol's default name, one no route has.
+        assertTrue(commands.tradeRoutes());
+        assertTrue(routePanels.get(routePanels.size() - 1)
+                       .contains("\"defaultName\":\"New Trade Route\""),
+                   "the first new route's name");
+        assertNull(commands.saveTradeRoute(null, "New Trade Route", false,
+            List.of(europe, home), List.of(List.of(tools), List.of(furs))));
+        assertTrue(routePanels.get(routePanels.size() - 1)
+                       .contains("\"defaultName\":\"New Trade Route1\""),
+                   "the next name is free");
+        assertTrue(commands.deleteTradeRoute(serverRoutes(player).get(0).getId()));
 
         // A new route: the server has it, with its stops and what they load.
         assertNull(commands.saveTradeRoute(null, "Fur run", false,

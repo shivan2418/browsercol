@@ -1139,6 +1139,7 @@ describe('the trade routes panel', () => {
     ],
     error: null,
     newRoute: 'New Trade Route',
+    defaultName: 'Trade route 2',
     editRoute: 'Edit Trade Route',
     deleteRoute: 'Delete Trade Route',
     nameLabel: 'Name',
@@ -1187,7 +1188,9 @@ describe('the trade routes panel', () => {
     const { box, saved } = host();
     act(() => box.replace('tradeRoutes', routes()));
     press('New Trade Route');
-    // Nothing to save without a name.
+    // It starts with the name the server would give it; nothing to save without a name.
+    expect((screen.getByRole('textbox') as HTMLInputElement).value).toBe('Trade route 2');
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: ' ' } });
     expect((screen.getByRole('button', { name: 'OK' }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Tool run' } });
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'europe:1' } });
@@ -1229,6 +1232,91 @@ describe('the trade routes panel', () => {
         stops: [{ place: 'colony:7', cargo: ['model.goods.furs', 'model.goods.tools'] }],
       },
     ]);
+  });
+
+  const stopAt = (i: number) => document.querySelector(`[data-stop="${i}"]`) as HTMLElement;
+  const picked = () =>
+    [...document.querySelectorAll('[data-stop]')].map((b) => b.getAttribute('aria-pressed') === 'true');
+  const threeStops = () => {
+    const { box, saved } = host();
+    act(() =>
+      box.replace(
+        'tradeRoutes',
+        routes({
+          routes: [
+            {
+              id: 'tradeRoute:1',
+              name: 'Fur run',
+              silent: false,
+              units: 0,
+              stops: [
+                { place: 'europe:1', label: 'Europe', cargo: ['model.goods.tools'] },
+                { place: 'colony:7', label: 'New Amsterdam', cargo: ['model.goods.furs'] },
+                { place: 'colony:8', label: 'Jamestown', cargo: [] },
+              ],
+            },
+          ],
+        }),
+      ),
+    );
+    press('Fur run');
+    press('Edit Trade Route');
+    return saved;
+  };
+  const placesOf = (saved: { stops: { place: string }[] }[]) => saved[0].stops.map((s) => s.place);
+
+  it('selects several stops with ctrl or shift, and removes them together', () => {
+    const saved = threeStops();
+    expect(picked()).toEqual([true, false, false]);
+    act(() => void fireEvent.click(stopAt(2), { ctrlKey: true }));
+    expect(picked()).toEqual([true, false, true]);
+    act(() => void fireEvent.click(stopAt(0), { metaKey: true }));
+    expect(picked()).toEqual([false, false, true]);
+    // Shift selects from the stop last clicked to this one.
+    act(() => void fireEvent.click(stopAt(2), { shiftKey: true }));
+    expect(picked()).toEqual([true, true, true]);
+    act(() => void fireEvent.click(stopAt(1)));
+    expect(picked()).toEqual([false, true, false]);
+    act(() => void fireEvent.click(stopAt(0), { ctrlKey: true }));
+    press('Remove stop');
+    // As Swing's, the stop under the last one removed is selected next.
+    expect(picked()).toEqual([true]);
+    press('OK');
+    expect(placesOf(saved)).toEqual(['colony:8']);
+  });
+
+  it('loads and unloads goods at every selected stop, as the first of them shows', () => {
+    const saved = threeStops();
+    act(() => void fireEvent.click(stopAt(1), { ctrlKey: true }));
+    act(() => void fireEvent.click(stopAt(2), { ctrlKey: true }));
+    // The first selected stop loads tools: pressing Tools takes them off every selected stop.
+    expect(screen.getByRole('button', { name: 'Tools' }).getAttribute('aria-pressed')).toBe('true');
+    press('Tools');
+    // None loads furs now as the first shows it; pressing Furs loads them at all three, once.
+    press(/^Furs$/);
+    press('OK');
+    expect(saved[0].stops.map((s) => s.cargo)).toEqual([
+      ['model.goods.furs'],
+      ['model.goods.furs'],
+      ['model.goods.furs'],
+    ]);
+  });
+
+  it('drags the selected stops before the stop they are dropped on, or to the end', () => {
+    const saved = threeStops();
+    const dataTransfer = { setData() {}, effectAllowed: '' };
+    act(() => void fireEvent.click(stopAt(1), { ctrlKey: true }));
+    // Europe and New Amsterdam go to the end.
+    act(() => void fireEvent.dragStart(stopAt(0), { dataTransfer }));
+    act(() => void fireEvent.drop(document.querySelector('.stops')!, { dataTransfer }));
+    expect(picked()).toEqual([false, true, true]);
+    // An unselected stop dragged goes alone: Jamestown before New Amsterdam (now second).
+    act(() => void fireEvent.dragStart(stopAt(0), { dataTransfer }));
+    act(() => void fireEvent.drop(stopAt(2), { dataTransfer }));
+    expect(picked()).toEqual([false, true, false]);
+    press('OK');
+    expect(placesOf(saved)).toEqual(['europe:1', 'colony:8', 'colony:7']);
+    expect(saved[0].stops[2].cargo).toEqual(['model.goods.furs']);
   });
 
   it('adds Europe and every colony for all colonies', () => {

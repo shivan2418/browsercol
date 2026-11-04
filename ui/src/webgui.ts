@@ -159,6 +159,8 @@ export interface GuiEvents {
     goods: { id: string; name: string; icon: string }[];
     error: string | null;
     newRoute: string;
+    /** The name the server would give a new route (Player.getNameForTradeRoute), which the editor starts with. */
+    defaultName: string;
     editRoute: string;
     deleteRoute: string;
     nameLabel: string;

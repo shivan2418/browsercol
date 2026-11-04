@@ -13,6 +13,7 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
+  type DragEvent as ReactDragEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from 'react';
@@ -831,8 +832,9 @@ type Draft = Omit<TradeRouteDraft, 'stops'> & { stops: Stop[] };
 let refused: Draft | null = null;
 
 /**
- * FreeCol's trade route input panel: a route's name, its stops (a stop is selected to remove it or to say
- * which goods it loads), where to add one, and silence. Saving leaves the panel to the Engine, which sends
+ * FreeCol's trade route input panel: a route's name, its stops (stops are selected, several with ctrl or
+ * shift, to remove them, to say which goods they load, or to drag them elsewhere in the route), where to add
+ * one, and silence. Saving leaves the panel to the Engine, which sends
  * the routes again.
  */
 function RouteEditor({
@@ -849,36 +851,87 @@ function RouteEditor({
   cancel: () => void;
 }) {
   const [draft, setDraft] = useState(start);
-  const [at, setAt] = useState<number | null>(start.stops.length > 0 ? 0 : null);
+  // The selected stops, in order, as Swing's multi-select list has them; shift selects from the anchor.
+  const [sel, setSel] = useState<number[]>(start.stops.length > 0 ? [0] : []);
+  const [anchor, setAnchor] = useState(0);
   const [place, setPlace] = useState('');
   const ok = () => draft.name.trim() !== '' && save(draft);
   useEnter(ok);
-  const stop = at === null ? undefined : draft.stops[at];
+  // The goods shown are the first selected stop's, as Swing's cargo panel shows them.
+  const stop = sel.length === 0 ? undefined : draft.stops[sel[0]];
   const label = (id: string) => e.places.find((p) => p.id === id)?.label ?? id;
+  const pick = (i: number, ev: { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }) => {
+    if (ev.shiftKey) {
+      const [lo, hi] = anchor < i ? [anchor, i] : [i, anchor];
+      setSel(draft.stops.map((_, j) => j).filter((j) => j >= lo && j <= hi));
+      return;
+    }
+    setAnchor(i);
+    if (ev.ctrlKey || ev.metaKey) {
+      setSel(sel.includes(i) ? sel.filter((j) => j !== i) : [...sel, i].sort((a, b) => a - b));
+    } else {
+      setSel([i]);
+    }
+  };
   const add = () => {
-    // As Swing's: after the selected stop, with the goods it loads; all colonies means Europe and every colony.
+    // As Swing's: after the last selected stop, with the goods the first loads; all colonies means Europe and every colony.
     const ids = place === '' ? e.places.map((p) => p.id) : [place];
     const made = ids.map((id) => ({ place: id, label: label(id), cargo: [...(stop?.cargo ?? [])] }));
-    const where = at === null ? draft.stops.length : at + 1;
+    const where = sel.length === 0 ? draft.stops.length : sel[sel.length - 1] + 1;
     setDraft({ ...draft, stops: [...draft.stops.slice(0, where), ...made, ...draft.stops.slice(where)] });
-    setAt(where + made.length - 1);
+    setSel([where + made.length - 1]);
+    setAnchor(where + made.length - 1);
   };
   const remove = () => {
-    if (at === null) return;
-    const stops = draft.stops.filter((_, i) => i !== at);
+    if (sel.length === 0) return;
+    const stops = draft.stops.filter((_, i) => !sel.includes(i));
     setDraft({ ...draft, stops });
-    setAt(stops.length === 0 ? null : Math.min(at, stops.length - 1));
+    // As Swing's, the stop under the last one removed is selected, so the player can go on removing.
+    const next = Math.min(sel[sel.length - 1] - sel.length + 1, stops.length - 1);
+    setSel(stops.length === 0 ? [] : [next]);
+    setAnchor(Math.max(next, 0));
   };
-  const toggle = (goods: string) =>
-    at !== null &&
+  // The stops being dragged: the selection when a selected stop is picked up, else that stop alone.
+  const dragged = useRef<number[]>([]);
+  const lift = (i: number, ev: ReactDragEvent) => {
+    dragged.current = sel.includes(i) ? sel : [i];
+    setSel(dragged.current);
+    ev.dataTransfer.setData('text/plain', draft.stops[i].label);
+    ev.dataTransfer.effectAllowed = 'move';
+  };
+  // As Swing's: the dragged stops go before the stop they are dropped on, or to the end, and stay selected.
+  const drop = (before: number | null, ev: ReactDragEvent) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const moved = dragged.current;
+    dragged.current = [];
+    if (moved.length === 0) return;
+    const end = before ?? draft.stops.length;
+    const rest = (from: number, to: number) => draft.stops.slice(from, to).filter((_, k) => !moved.includes(from + k));
+    const head = rest(0, end);
+    const stops = [...head, ...moved.map((i) => draft.stops[i]), ...rest(end, draft.stops.length)];
+    setDraft({ ...draft, stops });
+    setSel(moved.map((_, k) => head.length + k));
+    setAnchor(head.length);
+  };
+  const over = (ev: ReactDragEvent) => dragged.current.length > 0 && ev.preventDefault();
+  // A goods type the first selected stop loads is taken off every selected stop, else loaded at each.
+  const toggle = (goods: string) => {
+    if (stop === undefined) return;
+    const off = stop.cargo.includes(goods);
     setDraft({
       ...draft,
       stops: draft.stops.map((s, i) =>
-        i !== at
+        !sel.includes(i)
           ? s
-          : { ...s, cargo: s.cargo.includes(goods) ? s.cargo.filter((g) => g !== goods) : [...s.cargo, goods] },
+          : off
+            ? { ...s, cargo: s.cargo.filter((g) => g !== goods) }
+            : s.cargo.includes(goods)
+              ? s
+              : { ...s, cargo: [...s.cargo, goods] },
       ),
     });
+  };
   const goodsName = (id: string) => e.goods.find((g) => g.id === id);
   return (
     <>
@@ -899,9 +952,19 @@ function RouteEditor({
         />{' '}
         {e.silence}
       </label>
-      <div className="stops">
+      <div className="stops" onDragOver={over} onDrop={(ev) => drop(null, ev)}>
         {draft.stops.map((s, i) => (
-          <button key={i} data-stop={i} aria-pressed={i === at} onClick={() => setAt(i)}>
+          <button
+            key={i}
+            data-stop={i}
+            aria-pressed={sel.includes(i)}
+            onClick={(ev) => pick(i, ev)}
+            draggable
+            onDragStart={(ev) => lift(i, ev)}
+            onDragEnd={() => (dragged.current = [])}
+            onDragOver={over}
+            onDrop={(ev) => drop(i, ev)}
+          >
             <span className="name">{s.label}</span>
             {s.cargo.map((g) => (
               <span key={g} className="cargo">
@@ -927,7 +990,7 @@ function RouteEditor({
         <button data-answer="addStop" onClick={add}>
           {e.addStop}
         </button>
-        <button data-answer="removeStop" disabled={at === null} onClick={remove}>
+        <button data-answer="removeStop" disabled={sel.length === 0} onClick={remove}>
           {e.removeStop}
         </button>
       </div>
@@ -965,7 +1028,8 @@ function RoutesPanel({ d, art, routes }: { d: Of<'tradeRoutes'>; art: Art; route
   const [picked, setPicked] = useState<string | null>(null);
   const close = () => d.done();
   const route = e.routes.find((r) => r.id === picked);
-  const blank: Draft = { id: null, name: '', silent: false, stops: [] };
+  // As TradeRoutePanel's, a new route has the name the server gives it until the player changes it.
+  const blank: Draft = { id: null, name: e.defaultName, silent: false, stops: [] };
   const edit = (r: Routes['routes'][number]): Draft => ({
     id: r.id,
     name: r.name,
