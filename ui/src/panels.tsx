@@ -1115,7 +1115,14 @@ function RoutesPanel({ d, art, routes }: { d: Of<'tradeRoutes'>; art: Art; route
 type Europe = GuiEvents['europe'];
 
 /** Goods dragged in Europe move whole; shift held at the start of the drag has the Engine ask how many. */
-const goodsDrag = (item: Item) => draggableProps(item, (e) => ({ ...item, ask: e.shiftKey }) as Item);
+const goodsDrag = (item: Item) => {
+  const props = draggableProps(item, (e) => ({ ...item, ask: e.shiftKey }) as Item);
+  // The drag shows the goods alone, not the price or amount beside them.
+  const onDragStart = (e: ReactDragEvent<HTMLElement>) => {
+    props.onDragStart(e);
+    const img = e.currentTarget.querySelector<HTMLElement>('img');
+    if (img) e.dataTransfer.setDragImage?.(img, img.offsetWidth / 2, img.offsetHeight / 2);
+  };
 
 /** A unit or ship of Europe's panel, with its picture. */
 function UnitChip({
