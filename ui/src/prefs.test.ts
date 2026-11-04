@@ -116,7 +116,7 @@ describe('prefs', () => {
     expect([...leaves(shown).keys()].sort()).toEqual([...FREECOL_OPTIONS].sort());
     expect(shown.children.map((g) => g.label)).toEqual(['Display', 'Interface']);
     const groups = shown.children[1].kind === 'group' ? shown.children[1].children.map((g) => g.label) : [];
-    expect(groups).toEqual(['Main map', 'Messages', 'Warehouse Settings', 'Other']);
+    expect(groups).toEqual(['Main map', 'Map Controls', 'Messages', 'Warehouse Settings', 'Other']);
     const tileText = leaves(shown).get('model.option.displayTileText');
     expect(tileText?.kind === 'select' && tileText.choices.map((c) => c.value)).toEqual([0, 1]);
     // An option read only as the page loads says so.

@@ -75,11 +75,15 @@ export const FREECOL_OPTIONS: readonly string[] = [
   'model.option.graphicsQuality',
   // Interface: main map
   'model.option.alwaysCenter',
+  'model.option.jumpToActiveUnit',
+  'model.option.mapScrollOnDrag',
   'model.option.autoScroll',
   'model.option.displayGrid',
   'model.option.displayBorders',
   'model.option.displayTileText',
   'model.option.unitLastMoveDelay',
+  // Interface: map controls
+  'model.option.displayMapControls',
   // Interface: messages
   'model.option.guiMessagesGroupBy',
   'model.option.guiShowBuildingCompleted',
@@ -107,11 +111,14 @@ export const FREECOL_OPTIONS: readonly string[] = [
   // Interface: warehouse
   'model.option.stockAccountsForProduction',
   // Interface: other
+  'model.option.disableGrayLayer',
   'model.option.autoloadEmigrants',
   'model.option.autoloadSentries',
   'model.option.showEndTurnDialog',
   'model.option.indianDemandResponse',
   'model.option.unloadOverflowResponse',
+  'model.option.guiMinNumberToDisplayGoodsCount',
+  'model.option.guiMaxNumberOfGoodsImages',
   'model.option.guiMinNumberToDisplayGoods',
   'model.option.colonyComparator',
 ];
@@ -130,8 +137,20 @@ export const PAGE_OPTIONS = {
   'model.option.graphicsQuality': 20,
   /** SwingGUI.changeView(Tile): a selected tile is always centred, not only when out of view. */
   'model.option.alwaysCenter': false,
+  /** A newly active unit is centred, not only when out of view (FreeCol never reads it; the browser does). */
+  'model.option.jumpToActiveUnit': true,
+  /** The map scrolls at its edge while the Go To order is held, as FreeCol's does while a unit is dragged. */
+  'model.option.mapScrollOnDrag': true,
   /** A pointer resting at the map's edge scrolls it. */
   'model.option.autoScroll': true,
+  /** The side panel, FreeCol Online's map controls, is shown (the View menu's Show Side Panel). */
+  'model.option.displayMapControls': true,
+  /** No "Other players are moving" banner over the map while the AI plays: FreeCol's grey end turn layer. */
+  'model.option.disableGrayLayer': false,
+  /** The amount of goods from which a ProductionLabel shows the number as well as the icons. */
+  'model.option.guiMinNumberToDisplayGoodsCount': 7,
+  /** The most goods icons a ProductionLabel draws. */
+  'model.option.guiMaxNumberOfGoodsImages': 7,
   /** The View menu's Show Map Grid, as the game starts. */
   'model.option.displayGrid': false,
   /** The View menu's Show Borders, as the game starts. */
