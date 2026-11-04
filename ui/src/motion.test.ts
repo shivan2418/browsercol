@@ -1,44 +1,64 @@
 import { describe, expect, it } from 'vite-plus/test';
-import { BLINK_MS, blink, moves, slide } from './motion';
-import type { Unit } from './tileset';
+import { BLINK_MS, blink, path, slide, type Step } from './motion';
 
-const unit = (x: number, y: number, key = 'colonist'): Unit => ({
-  x,
-  y,
-  keys: [key],
+const step = (from: [number, number], to: [number, number], unit = 'unit:1'): Step => ({
+  unit,
+  from,
+  to,
+  keys: ['colonist'],
   rgb: 1,
   chip: 'F',
   fg: 0,
-  stack: 1,
-  fade: false,
 });
 
-describe('moves', () => {
-  it('finds a unit that went to a neighbouring tile', () => {
-    expect(moves([unit(3, 2)], [unit(4, 2)])).toEqual([{ from: [3, 2], to: [4, 2] }]);
-    // Odd rows sit half a tile to the right: (3,2) and (3,3) are neighbours.
-    expect(moves([unit(3, 2)], [unit(3, 3)])).toEqual([{ from: [3, 2], to: [3, 3] }]);
+describe('path', () => {
+  it("joins one unit's steps into the tiles it goes through", () => {
+    expect(path([step([3, 2], [4, 2]), step([4, 2], [5, 2])])?.tiles).toEqual([
+      [3, 2],
+      [4, 2],
+      [5, 2],
+    ]);
   });
 
-  it('ignores units that stayed, appeared or jumped far', () => {
-    expect(moves([unit(3, 2)], [unit(3, 2)])).toEqual([]);
-    expect(moves([], [unit(4, 2)])).toEqual([]);
-    expect(moves([unit(3, 2)], [unit(7, 2)])).toEqual([]);
-  });
-
-  it('follows a unit whose chip changed with the step', () => {
-    expect(moves([unit(3, 2)], [{ ...unit(4, 2), chip: 'Done' }])).toEqual([{ from: [3, 2], to: [4, 2] }]);
-  });
-
-  it('does not take a different unit for the mover', () => {
-    expect(moves([unit(3, 2)], [unit(4, 2, 'soldier')])).toEqual([]);
+  it('slides nothing when there are no steps, several units moved, or the steps do not follow on', () => {
+    expect(path([])).toBeNull();
+    expect(path([step([3, 2], [4, 2]), step([7, 7], [8, 7], 'unit:2')])).toBeNull();
+    expect(path([step([3, 2], [4, 2]), step([6, 2], [7, 2])])).toBeNull();
   });
 });
 
 describe('slide', () => {
   it('starts a tile back and ends on the tile', () => {
-    expect(slide({ from: [3, 2], to: [4, 2] }, 0)).toEqual([-128, 0]);
-    expect(slide({ from: [3, 2], to: [4, 2] }, 1).map(Math.abs)).toEqual([0, 0]);
+    expect(
+      slide(
+        [
+          [3, 2],
+          [4, 2],
+        ],
+        0,
+      ),
+    ).toEqual([-128, 0]);
+    expect(
+      slide(
+        [
+          [3, 2],
+          [4, 2],
+        ],
+        1,
+      ).map(Math.abs),
+    ).toEqual([0, 0]);
+  });
+
+  it('goes a step in each share of the time along a longer path', () => {
+    const tiles: [number, number][] = [
+      [3, 2],
+      [4, 2],
+      [5, 2],
+    ];
+    expect(slide(tiles, 0)).toEqual([-256, 0]);
+    expect(slide(tiles, 0.5)).toEqual([-128, 0]);
+    expect(slide(tiles, 0.75)).toEqual([-64, 0]);
+    expect(slide(tiles, 1).map(Math.abs)).toEqual([0, 0]);
   });
 });
 

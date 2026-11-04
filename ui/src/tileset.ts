@@ -243,6 +243,16 @@ const lower = (ds: Direction[]) =>
     .join('_');
 const terrainKey = (id: string) => `${TILE}${id}.center`;
 
+/** What draws a unit on its tile: its image, the first of its keys the art has, then its occupation chip. */
+export function unitOps(u: Unit, res: Resources): Op[] {
+  const { x, y, rgb, chip, fg, stack, fade } = u;
+  const key = u.keys.find((k) => res.has(k));
+  const ops: Op[] = [];
+  if (key) ops.push({ k: 'image', x, y, src: res.path(key)!, at: 'unit', ...(fade ? { fade: true as const } : {}) });
+  ops.push({ k: 'chip', x, y, text: chip, bg: rgb, fg, stack });
+  return ops;
+}
+
 export function scene(map: MapView, res: Resources, colonyLabels: ColonyLabels = 1): Op[] {
   const { w, h } = map;
   const ops: Op[] = [];
@@ -541,11 +551,7 @@ export function scene(map: MapView, res: Resources, colonyLabels: ColonyLabels =
     return chips;
   }
 
-  for (const { x, y, keys, rgb, chip, fg, stack, fade } of map.units) {
-    const key = first(keys);
-    if (key) ops.push({ k: 'image', x, y, src: res.path(key)!, at: 'unit', ...(fade ? { fade: true as const } : {}) });
-    ops.push({ k: 'chip', x, y, text: chip, bg: rgb, fg, stack });
-  }
+  for (const u of map.units) ops.push(...unitOps(u, res));
 
   each((x, y) => {
     const type = typeAt(x, y);
