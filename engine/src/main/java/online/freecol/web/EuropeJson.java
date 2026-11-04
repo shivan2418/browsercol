@@ -30,11 +30,9 @@ import net.sf.freecol.common.model.UnitType;
  * {title, ok, headings: {toAmerica, toEurope, inPort, docks, cargo},
  *  toAmerica: [unit], toEurope: [unit], inPort: [unit], docks: [unit],
  *  selected: the id of the ship whose cargo shows first
- *  (or null), tally: {heading, tax, taxLabel, unitsSold, beforeTaxes,
- *  afterTaxes} (the sidebar's labels and the tax rate in percent),
- *  market: [{id, name, images, sell, buy, enabled, reason, sold,
- *  beforeTaxes, afterTaxes}] (the last three being what the player has
- *  sold of the goods and earned from it, as the trade report says),
+ *  (or null), log: {heading, entries: [[line]]} (the purchases and
+ *  sales of the turn, oldest first, each the lines SalesLog words),
+ *  market: [{id, name, images, sell, buy, enabled, reason}],
  *  buttons: {train, purchase, recruit, sail},
  *  recruit: {heading, text, price, units: [{index, name, images,
  *  enabled}]}, train: {heading, units: [offer]},
@@ -65,8 +63,9 @@ final class EuropeJson {
      * @param player A player with a Europe.
      * @param active The active unit, whose cargo shows if it is a ship
      *     in port; may be null.
+     * @param log The entries of the turn's sales log (SalesLog.entries).
      */
-    static String of(Player player, Unit active) {
+    static String of(Player player, Unit active, List<List<String>> log) {
         final Europe europe = player.getEurope();
         final Map map = europe.getGame().getMap();
         final List<Unit> inPort = new ArrayList<>();
@@ -98,14 +97,7 @@ final class EuropeJson {
 
         return new Json()
             .put("title", Messages.getName(europe))
-            .putRaw("tally", new Json()
-                .put("heading", Messages.message("reportTradeAction.name"))
-                .put("tax", player.getTax())
-                .put("taxLabel", Messages.message("tax"))
-                .put("unitsSold", Messages.message("report.trade.unitsSold"))
-                .put("beforeTaxes", Messages.message("report.trade.beforeTaxes"))
-                .put("afterTaxes", Messages.message("report.trade.afterTaxes"))
-                .toString())
+            .putRaw("log", log(log))
             .put("ok", Messages.message("close"))
             .putRaw("headings", new Json()
                 .put("toAmerica", Messages.message("sailingToAmerica"))
@@ -251,6 +243,16 @@ final class EuropeJson {
         return json.toString();
     }
 
+    /** EuropePanel's transaction log, bordered "sales". */
+    private static String log(List<List<String>> log) {
+        final List<String> entries = new ArrayList<>();
+        for (List<String> lines : log) entries.add(quoted(lines));
+        return new Json()
+            .put("heading", Messages.message("sales"))
+            .putRaw("entries", Json.array(entries))
+            .toString();
+    }
+
     private static String quoted(List<String> keys) {
         final List<String> q = new ArrayList<>();
         for (String k : keys) q.add(Json.quote(k));
@@ -270,9 +272,6 @@ final class EuropeJson {
                 .put("sell", market.getPaidForSale(type))
                 .put("buy", market.getCostToBuy(type))
                 .put("enabled", tradeable)
-                .put("sold", player.getSales(type))
-                .put("beforeTaxes", player.getIncomeBeforeTaxes(type))
-                .put("afterTaxes", player.getIncomeAfterTaxes(type))
                 .put("reason", tradeable ? null
                     : Messages.message(Boycotts.reason(player, type)))
                 .toString());

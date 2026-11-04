@@ -114,7 +114,8 @@ import net.sf.freecol.common.option.OptionGroup;
  *         ones ReportHighScoresPanel shows below its headline</td></tr>
  * <tr><td>showEuropePanel</td><td>event europe</td>
  *     <td>what {@link EuropeJson} describes: the ships sailing, in port
- *         and their cargo, the docks, the market's prices and the gold.
+ *         and their cargo, the docks, the market's prices and the
+ *         purchases and sales of the turn.
  *         Shown when the player asks (the Europe button, EuropeAction),
  *         when the end turn dialog picks a unit in Europe, and when
  *         the messages of a turn tell of a ship's arrival in Europe
@@ -347,6 +348,8 @@ public class WebGUI extends GUI {
     private final AtomicBoolean endTurnDialogOpen = new AtomicBoolean(false);
     /** The orders last sent with the active unit event. */
     private List<String> lastOrders = new ArrayList<>();
+    /** The purchases and sales of the turn in Europe. */
+    private final SalesLog salesLog = new SalesLog();
 
 
     public WebGUI(FreeColClient freeColClient, ClientEngine engine, BrowserUI ui) {
@@ -720,11 +723,13 @@ public class WebGUI extends GUI {
             changeView((Unit)null, false);
         }
         if (tile != null) setFocus(tile);
+        this.salesLog.listen(getMyPlayer());
         this.engine.gameStarted();
     }
 
     @Override
     public void refresh() {
+        this.salesLog.listen(getMyPlayer());
         this.engine.checkTurn();
         sendRefresh();
     }
@@ -1838,7 +1843,9 @@ public class WebGUI extends GUI {
     public FreeColPanel showEuropePanel() {
         final Player player = getMyPlayer();
         if (player == null || player.getEurope() == null) return null;
-        this.ui.show("europe", EuropeJson.of(player, this.activeUnit));
+        this.salesLog.listen(player);
+        this.ui.show("europe", EuropeJson.of(player, this.activeUnit,
+                                             this.salesLog.entries()));
         return null;
     }
 

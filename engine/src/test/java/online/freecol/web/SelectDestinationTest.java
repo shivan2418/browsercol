@@ -207,7 +207,7 @@ class SelectDestinationTest {
 
     /** The Europe panel as the client describes it now. */
     private java.util.Map<String, Object> europePanel(Player player) {
-        return parse(EuropeJson.of(player, active()));
+        return parse(EuropeJson.of(player, active(), List.of()));
     }
 
     @SuppressWarnings("unchecked")
@@ -583,6 +583,13 @@ class SelectDestinationTest {
         assertEquals(20, ship.getGoodsCount(cloth), "and the client knows it");
         assertEquals(gold - 20 * price, serverPlayer.getGold(), "the gold is spent");
         awaitGold(gold - 20 * price);
+        // The sales log of the next Europe panel has the purchase.
+        List<List<String>> log = logOf(parse(lastEurope()));
+        assertEquals(1, log.size(), "one entry: " + log);
+        assertTrue(log.get(0).get(0).contains("20")
+            && log.get(0).get(0).contains(Messages.getName(cloth)),
+            "the purchase of 20 cloth: " + log);
+        assertEquals(2, log.get(0).size(), "what and the price: " + log);
 
         // Sell: the player is asked how much of the stack to sell, and gets
         // the market's price for it, less the tax (none yet).
@@ -598,6 +605,13 @@ class SelectDestinationTest {
         assertEquals(gold + 10 * sellPrice, serverPlayer.getGold(),
             "the gold is paid");
         awaitGold(gold + 10 * sellPrice);
+        // And then the sale, after the purchase, with the tax and net.
+        log = logOf(parse(lastEurope()));
+        assertEquals(2, log.size(), "two entries: " + log);
+        assertTrue(log.get(1).get(0).contains("10")
+            && log.get(1).get(0).contains(Messages.getName(cloth)),
+            "the sale of 10 cloth: " + log);
+        assertEquals(4, log.get(1).size(), "what, price, tax and net: " + log);
 
         // Not asking (a plain drag): the dialog would give nothing, yet all
         // of the stack is sold.
@@ -627,6 +641,9 @@ class SelectDestinationTest {
         assertTrue(client.getCommands().menuEntry("sell:" + ship.getId() + "," + cloth.getId()),
             "the menu's entry sells");
         assertEquals(5, ship.getGoodsCount(cloth));
+        // The drag's sale, the purchase again and the menu's sale are logged.
+        assertEquals(5, logOf(parse(lastEurope())).size(),
+            "five trades this turn: " + lastEurope());
 
         // The Europe panel shows the cargo of the ship in port.
         java.util.Map<String, Object> panel = europePanel(player);
@@ -657,6 +674,28 @@ class SelectDestinationTest {
         assertEquals(5, serverShip(ship).getGoodsCount(cloth),
             "nothing bought or sold");
         assertEquals(gold, serverPlayer.getGold(), "nothing paid");
+        assertEquals(5, logOf(parse(lastEurope())).size(),
+            "a refused trade is not logged: " + lastEurope());
+
+        // A new turn starts with an empty log.
+        endTurnAndWait();
+        shown.clear();
+        client.getClient().getGUI().showEuropePanel();
+        assertEquals(List.of(), logOf(parse(lastEurope())),
+            "the log is cleared on a new turn");
+    }
+
+    /** The entries of a Europe panel's sales log, each its lines. */
+    @SuppressWarnings("unchecked")
+    private static List<List<String>> logOf(java.util.Map<String, Object> panel) {
+        final java.util.Map<String, Object> log
+            = (java.util.Map<String, Object>)panel.get("log");
+        assertEquals("Sales", log.get("heading"));
+        final List<List<String>> entries = new ArrayList<>();
+        for (Object e : (List<Object>)log.get("entries")) {
+            entries.add((List<String>)e);
+        }
+        return entries;
     }
 
     /**

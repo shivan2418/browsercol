@@ -764,7 +764,8 @@
         flex: 1;
         min-width: 0;
       }
-      .europe-tally {
+      /* The turn's purchases and sales (EuropePanel's transaction log), newest last; it scrolls when long. */
+      .europe-log {
         flex: 0 0 25%;
         box-sizing: border-box;
         overflow: auto;
@@ -772,19 +773,17 @@
         border: 1px solid var(--line);
         padding: 4px 8px;
       }
-      .europe-tally h3 {
+      .europe-log h3 {
         margin: 0 0 4px;
       }
-      .europe-tally .tax {
-        margin: 0 0 4px;
+      .europe-log .entry + .entry {
+        margin-top: 8px;
       }
-      .europe-tally td,
-      .europe-tally th {
-        text-align: right;
-        padding: 1px 4px;
-      }
-      .europe-tally img {
-        vertical-align: middle;
+      .europe-log .line {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        font-variant-numeric: tabular-nums;
       }
       /* A unit of Europe's lists is its picture alone; the name is its tooltip. */
       .europe .chip[data-unit] .name {

@@ -1403,13 +1403,12 @@ describe('the Europe panel', () => {
   });
   const europe: GuiEvents['europe'] = {
     title: 'Europe',
-    tally: {
-      heading: 'Trade Advisor',
-      tax: 20,
-      taxLabel: 'Tax',
-      unitsSold: 'Units bought or sold',
-      beforeTaxes: 'Income before taxes',
-      afterTaxes: 'Income after taxes',
+    log: {
+      heading: 'Sales',
+      entries: [
+        ['Purchase 20 Cloth @3', 'Price:\t60'],
+        ['Sell 10 Cloth @2', 'Price:\t20', '-10%:\t2', 'Net:\t18'],
+      ],
     },
     ok: 'Close',
     headings: {
@@ -1470,9 +1469,6 @@ describe('the Europe panel', () => {
         buy: 2,
         enabled: true,
         reason: null,
-        sold: 40,
-        beforeTaxes: 100,
-        afterTaxes: 80,
       },
       {
         id: 'model.goods.rum',
@@ -1482,9 +1478,6 @@ describe('the Europe panel', () => {
         buy: 6,
         enabled: false,
         reason: 'The Crown is boycotting these goods until you have paid your tax arrears of 100 gold.',
-        sold: 0,
-        beforeTaxes: 0,
-        afterTaxes: 0,
       },
     ],
   };
@@ -1528,21 +1521,37 @@ describe('the Europe panel', () => {
     expect(box.current()).toBeNull();
   });
 
-  it('tallies in a sidebar the tax and what has been sold and earned of each goods traded', () => {
+  /** The sales log's entries as shown: each its lines, a label and its amount joined by a space. */
+  const logEntries = () =>
+    [...document.querySelectorAll('[data-log] [data-entry]')].map((e) =>
+      [...e.querySelectorAll('[data-line]')].map((l) =>
+        [...l.querySelectorAll('span')].map((s) => s.textContent).join(' '),
+      ),
+    );
+
+  it('logs in a sidebar the purchases and sales of the turn, newest last, under FreeCol’s heading', () => {
     const { box } = host();
     act(() => box.show('europe', europe));
-    expect(document.querySelector('[data-tax]')?.textContent).toBe('20%');
-    const rows = [...document.querySelectorAll('[data-tally-goods]')].map((r) => [
-      r.getAttribute('data-tally-goods'),
-      ...[...r.querySelectorAll('td')].slice(1).map((c) => c.textContent),
+    const log = document.querySelector<HTMLElement>('[data-log]')!;
+    expect(within(log).getByRole('heading', { name: 'Sales' })).toBeTruthy();
+    expect(logEntries()).toEqual([
+      ['Purchase 20 Cloth @3', 'Price: 60'],
+      ['Sell 10 Cloth @2', 'Price: 20', '-10%: 2', 'Net: 18'],
     ]);
-    expect(rows).toEqual([['model.goods.food', '40', '100', '80']]);
+  });
+
+  it('shows the sales log empty, with its heading, when nothing was traded this turn', () => {
+    const { box } = host();
+    act(() => box.show('europe', { ...europe, log: { heading: 'Sales', entries: [] } }));
+    const log = document.querySelector<HTMLElement>('[data-log]')!;
+    expect(within(log).getByRole('heading', { name: 'Sales' })).toBeTruthy();
+    expect(logEntries()).toEqual([]);
   });
 
   it('shows the cargo of the selected ship, and of another when it is picked', () => {
     const { box } = host();
     act(() => box.show('europe', europe));
-    // The market and the trade advisor name Food too, so look in the cargo box only.
+    // The market names Food too, so look in the cargo box only.
     const cargo = () => within(document.querySelector<HTMLElement>('[data-list=cargo]')!);
     expect(names('cargo')).toEqual(['50']);
     expect(cargo().getByTitle('Food')).toBeTruthy();
