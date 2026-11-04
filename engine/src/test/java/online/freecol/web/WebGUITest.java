@@ -182,6 +182,36 @@ class WebGUITest {
 
     @Test
     @Timeout(120)
+    void soundsGoToTheBrowserUIAsTheirResourceKeys() throws Exception {
+        final GUI gui = startGame().getClient().getGUI();
+
+        shown.clear();
+        gui.playSound("sound.event.loadCargo");
+        gui.playSound(null);
+        assertEquals(List.of("sound {\"key\":\"sound.event.loadCargo\"}", "sound {\"key\":null}"),
+            shown().stream().filter(e -> e.startsWith("sound ")).collect(Collectors.toList()));
+    }
+
+    @Test
+    @Timeout(120)
+    void anInformationPanelPlaysTheAlertSoundWhenAudioAlertsAreOn() throws Exception {
+        final FreeColClient client = startGame().getClient();
+        final GUI gui = client.getGUI();
+        final List<String> kinds = new ArrayList<>();
+
+        shown.clear();
+        gui.showInformationPanel("info.enterSomeText");
+        client.getClientOptions().setBoolean(ClientOptions.AUDIO_ALERTS, true);
+        gui.showInformationPanel("info.enterSomeText");
+        for (String e : shown()) {
+            if (e.startsWith("sound ") || e.startsWith("information ")) kinds.add(e.substring(0, e.indexOf(" {")));
+        }
+        assertEquals(List.of("information", "sound", "information"), kinds);
+        assertTrue(shown().contains("sound {\"key\":\"sound.event.alertSound\"}"), shown().toString());
+    }
+
+    @Test
+    @Timeout(120)
     void theMenuBarUpdateSendsARefresh() throws Exception {
         final GUI gui = startGame().getClient().getGUI();
 
