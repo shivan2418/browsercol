@@ -1,5 +1,8 @@
-// The player's preferences (the Game menu's Preferences): how fast units slide
-// and the active unit blinks. Kept in this browser's localStorage.
+// The player's preferences (the Game menu's Preferences): FreeCol Online's own,
+// such as how fast units slide and the active unit blinks, and those of
+// FreeCol's client options the browser follows. Kept in this browser's
+// localStorage.
+import type { OptionGroup, OptionNode } from './options';
 
 /** A speed the player picks; each preference maps it to a duration. */
 export type Speed = 'off' | 'slow' | 'normal' | 'fast';
@@ -25,7 +28,12 @@ export interface Prefs {
   tutorial: boolean;
   /** Whether the turn ends by itself once no unit is left to move. */
   autoEndTurn: boolean;
+  /** FreeCol's client options the player changed, by id (FREECOL_OPTIONS); the others keep FreeCol's default. */
+  freecol: Record<string, FreeColValue>;
 }
+
+/** The value of one of FreeCol's boolean, integer or select client options. */
+export type FreeColValue = boolean | number;
 
 export const DEFAULTS: Prefs = {
   activeStyle: 'online',
@@ -34,6 +42,7 @@ export const DEFAULTS: Prefs = {
   dimUnfocused: true,
   tutorial: true,
   autoEndTurn: false,
+  freecol: {},
 };
 
 /** A slide's length in milliseconds; 0 moves the unit at once. */
@@ -47,6 +56,149 @@ export const blinkMs = (p: Prefs): number => BLINK[p.blink];
 /** The messages the player sees: tutorial ones are dropped when the tutorial option is off. */
 export function visibleMessages<T extends { type: string }>(p: Prefs, messages: T[]): T[] {
   return p.tutorial ? messages : messages.filter((m) => m.type.toUpperCase() !== 'TUTORIAL');
+}
+
+/**
+ * FreeCol's client options (data/base/client-options.xml) the Preferences window shows, in FreeCol's
+ * groups: those the browser follows. The client Engine follows most of them as FreeCol does; the page
+ * follows PAGE_OPTIONS itself. Left out: those FreeCol Online's own preferences cover (move animation,
+ * tutorial messages, auto end turn), and those for what the browser has not got or does its own way
+ * (Swing's display and fonts, the minimap and map controls, fog of war, other units' animations,
+ * modern colony labels, the colony report kinds, sound, mods, save files).
+ */
+export const FREECOL_OPTIONS: readonly string[] = [
+  // Interface: main map
+  'model.option.alwaysCenter',
+  'model.option.autoScroll',
+  'model.option.displayGrid',
+  'model.option.displayBorders',
+  'model.option.displayTileText',
+  'model.option.unitLastMoveDelay',
+  // Interface: messages
+  'model.option.guiMessagesGroupBy',
+  'model.option.guiShowBuildingCompleted',
+  'model.option.guiShowCombatResult',
+  'model.option.guiShowDemands',
+  'model.option.guiShowDisasters',
+  'model.option.guiShowForeignDiplomacy',
+  'model.option.guiShowGifts',
+  'model.option.guiShowGoodsMovement',
+  'model.option.guiShowGovernmentEfficiency',
+  'model.option.guiShowMarketPrices',
+  'model.option.guiShowMissingGoods',
+  'model.option.guiShowSonsOfLiberty',
+  'model.option.guiShowUnitAdded',
+  'model.option.guiShowUnitArrived',
+  'model.option.guiShowUnitDemoted',
+  'model.option.guiShowUnitImproved',
+  'model.option.guiShowUnitLost',
+  'model.option.guiShowUnitRepaired',
+  'model.option.guiShowWarehouseCapacity',
+  'model.option.guiShowWarning',
+  'model.option.guiShowColonyWarnings',
+  'model.option.guiShowPreCombat',
+  'model.option.guiShowRegionNaming',
+  // Interface: warehouse
+  'model.option.stockAccountsForProduction',
+  // Interface: other
+  'model.option.autoloadEmigrants',
+  'model.option.autoloadSentries',
+  'model.option.showEndTurnDialog',
+  'model.option.indianDemandResponse',
+  'model.option.unloadOverflowResponse',
+  'model.option.guiMinNumberToDisplayGoods',
+  'model.option.colonyComparator',
+];
+
+/** The FreeCol options the page follows, with FreeCol's defaults; the client Engine is told them too. */
+export const PAGE_OPTIONS = {
+  /** SwingGUI.changeView(Tile): a selected tile is always centred, not only when out of view. */
+  'model.option.alwaysCenter': false,
+  /** A pointer resting at the map's edge scrolls it. */
+  'model.option.autoScroll': true,
+  /** The View menu's Show Map Grid, as the game starts. */
+  'model.option.displayGrid': false,
+  /** The View menu's Show Borders, as the game starts. */
+  'model.option.displayBorders': false,
+  /** The View menu's Show Tile Names, as the game starts: 0 nothing, 1 names (FreeCol's owners and regions are not drawn). */
+  'model.option.displayTileText': 0,
+};
+
+type PageOption = keyof typeof PAGE_OPTIONS;
+
+/** A FreeCol option the page follows, as the player set it or by FreeCol's default. */
+export function pageOption<K extends PageOption>(p: Prefs, id: K): (typeof PAGE_OPTIONS)[K] {
+  const v = p.freecol[id];
+  return (typeof v === typeof PAGE_OPTIONS[id] ? v : PAGE_OPTIONS[id]) as (typeof PAGE_OPTIONS)[K];
+}
+
+/** The View menu's map modes, as the game starts. */
+export const startModes = (p: Prefs) => ({
+  grid: pageOption(p, 'model.option.displayGrid'),
+  borders: pageOption(p, 'model.option.displayBorders'),
+  names: pageOption(p, 'model.option.displayTileText') === 1,
+});
+
+/** The option values a View menu mode is kept as. */
+export function modeValue(mode: 'grid' | 'borders' | 'names', on: boolean): [string, FreeColValue] {
+  if (mode === 'grid') return ['model.option.displayGrid', on];
+  if (mode === 'borders') return ['model.option.displayBorders', on];
+  return ['model.option.displayTileText', on ? 1 : 0];
+}
+
+/** The tile text choices the map draws: nothing and names. */
+const TILE_TEXTS = new Set([0, 1]);
+
+/**
+ * FreeCol's client option groups cut to FREECOL_OPTIONS, and empty groups dropped, as the Preferences
+ * window shows them. Null if nothing is left.
+ */
+export function shownClientOptions(group: OptionNode): OptionGroup | null {
+  const cut = (n: OptionNode): OptionNode | null => {
+    if (n.kind === 'group') {
+      const children = n.children.flatMap((c) => cut(c) ?? []);
+      return children.length > 0 ? { ...n, children } : null;
+    }
+    if (!FREECOL_OPTIONS.includes(n.id)) return null;
+    if (n.id === 'model.option.displayTileText' && n.kind === 'select') {
+      return { ...n, choices: n.choices.filter((c) => TILE_TEXTS.has(c.value)) };
+    }
+    return n;
+  };
+  const out = cut(group);
+  return out?.kind === 'group' ? out : null;
+}
+
+/** The stored FreeCol options: shown ones with a boolean or whole number value. */
+function freecolValues(v: unknown): Record<string, FreeColValue> {
+  const out: Record<string, FreeColValue> = {};
+  if (typeof v !== 'object' || v === null) return out;
+  for (const [id, x] of Object.entries(v)) {
+    if (FREECOL_OPTIONS.includes(id) && (typeof x === 'boolean' || Number.isInteger(x))) out[id] = x as FreeColValue;
+  }
+  return out;
+}
+
+/**
+ * The FreeCol options as the client Engine has them now (the turn report's buttons change some), kept
+ * where they differ from FreeCol's defaults.
+ *
+ * @param engine The Engine's values by id (ClientExports.clientOptionValues).
+ * @param defaults FreeCol's defaults by id.
+ */
+export function fromEngine(
+  p: Prefs,
+  engine: Record<string, unknown>,
+  defaults: Map<string, unknown>,
+): Record<string, FreeColValue> {
+  const out = { ...p.freecol };
+  for (const id of FREECOL_OPTIONS) {
+    const v = engine[id];
+    if (typeof v !== 'boolean' && typeof v !== 'number') continue;
+    if (defaults.get(id) === v) delete out[id];
+    else out[id] = v;
+  }
+  return out;
 }
 
 const KEY = 'freecol.prefs';
@@ -66,6 +218,7 @@ export function parsePrefs(text: string | null): Prefs {
       dimUnfocused: typeof o.dimUnfocused === 'boolean' ? o.dimUnfocused : DEFAULTS.dimUnfocused,
       tutorial: typeof o.tutorial === 'boolean' ? o.tutorial : DEFAULTS.tutorial,
       autoEndTurn: typeof o.autoEndTurn === 'boolean' ? o.autoEndTurn : DEFAULTS.autoEndTurn,
+      freecol: freecolValues(o.freecol),
     };
   } catch {
     return { ...DEFAULTS };

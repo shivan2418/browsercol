@@ -118,6 +118,8 @@ function fakeClient(scope: Scope, log: string[]): ClientExports {
     deleteTradeRoute: () => {},
     assignTradeRoute: () => {},
     reportGroupBy: () => {},
+    clientOptionValues: () => '{}',
+    setClientOption: () => true,
     reportFilter: () => {},
     reportIgnore: () => {},
   };
