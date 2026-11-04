@@ -85,15 +85,25 @@ function Win({
   d,
   title = null,
   close,
+  closeKeys,
   children,
 }: {
   d: Dialog;
   title?: string | null;
   close: (() => void) | null;
+  /** Keys that close the window as Escape does (frame.tsx). */
+  closeKeys?: readonly string[];
   children: ReactNode;
 }) {
   return (
-    <WindowFrame className="dialog" aria-modal="true" data-kind={d.kind} title={title} close={close}>
+    <WindowFrame
+      className="dialog"
+      aria-modal="true"
+      data-kind={d.kind}
+      title={title}
+      close={close}
+      closeKeys={closeKeys}
+    >
       {children}
     </WindowFrame>
   );
@@ -662,6 +672,7 @@ function Panel({
   ok,
   extra = null,
   lead = null,
+  closeKeys,
 }: {
   d: Dialog;
   title?: string | null;
@@ -671,11 +682,13 @@ function Panel({
   extra?: { label: string; run: () => void } | null;
   /** Buttons at the left of the footer, with OK alone at the right. */
   lead?: ReactNode;
+  /** Keys that close the panel as Escape does (frame.tsx). */
+  closeKeys?: readonly string[];
 }) {
   const close = () => (d.done as () => void)();
   useEnter(close);
   return (
-    <Win d={d} title={title} close={close}>
+    <Win d={d} title={title} close={close} closeKeys={closeKeys}>
       {children}
       <PanelButtons ok={ok} close={close} extra={extra} lead={lead} />
     </Win>
@@ -1087,6 +1100,9 @@ function UnitChip({
  * asks how much of it, as the select amount dialog does. A goods that is boycotted is dimmed, and says
  * why.
  */
+/** The key that opens Europe (input.ts) closes it too. */
+const EUROPE_KEYS = ['e'] as const;
+
 function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
   const e: Europe = d.event;
   const menus = useContext(ContextMenuContext);
@@ -1203,7 +1219,8 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
     </>
   );
   return (
-    <Panel d={d} ok={e.ok} lead={footer}>
+    // E, which opened Europe from the map, closes it again (not while a shop popup or a question is over it).
+    <Panel d={d} ok={e.ok} lead={footer} closeKeys={EUROPE_KEYS}>
       <div className="europe-title">
         <h2>{e.title}</h2>
         <span className="gold">

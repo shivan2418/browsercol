@@ -25,22 +25,27 @@ type FrameProps = {
   title: string | null;
   /** What the close button and Escape do; null for a window that cannot be closed (Escape then does nothing). */
   close: (() => void) | null;
+  /** Letter keys that close the window too, as Escape does: E for Europe, the key that opened it. */
+  closeKeys?: readonly string[];
   children: ReactNode;
 } & Omit<HTMLAttributes<HTMLElement>, 'title' | 'children'>;
 
 /**
  * Close the newest thing on screen that takes Escape (a window, a right-click menu) with Escape, before
  * anything else on the page sees the key; the others under it wait. Null: Escape does nothing here, and
- * is kept from what is under it.
+ * is kept from what is under it. `keys` (letters, either case) close it as Escape does, but not while the
+ * player types in a field or holds a modifier.
  */
-export function useEscape(close: (() => void) | null) {
+export function useEscape(close: (() => void) | null, keys: readonly string[] = []) {
   const closing = useRef(close);
   closing.current = close;
+  const closeKeys = useRef(keys);
+  closeKeys.current = keys;
   useEffect(() => {
     const me = {};
     frames.push(me);
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape' || frames.at(-1) !== me) return;
+      if (frames.at(-1) !== me || !(e.key === 'Escape' || isCloseKey(e, closeKeys.current))) return;
       e.preventDefault();
       e.stopPropagation();
       closing.current?.();
@@ -51,6 +56,14 @@ export function useEscape(close: (() => void) | null) {
       removeEventListener('keydown', onKey, { capture: true });
     };
   }, []);
+}
+
+/** Whether a key press is one of a window's close keys: no modifier, and not typed into a field. */
+function isCloseKey(e: KeyboardEvent, keys: readonly string[]): boolean {
+  if (e.altKey || e.ctrlKey || e.metaKey || e.repeat) return false;
+  const target = e.target instanceof Element ? e.target : null;
+  if (target?.matches('input, textarea, select, [contenteditable]')) return false;
+  return keys.some((k) => k.toLowerCase() === e.key.toLowerCase());
 }
 
 /**
@@ -70,8 +83,8 @@ export const framePlaces: {
  * a close button, over the panel's body. Escape closes it too, before
  * anything else on the page sees the key.
  */
-export function WindowFrame({ title, close, children, className, ...rest }: FrameProps) {
-  useEscape(close);
+export function WindowFrame({ title, close, closeKeys, children, className, ...rest }: FrameProps) {
+  useEscape(close, closeKeys);
   const titleId = useId();
   const attrs = rest as Record<string, unknown>;
   const placeKey =

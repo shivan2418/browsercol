@@ -1401,6 +1401,19 @@ describe('the Europe panel', () => {
     expect(document.querySelector('[data-list=toAmerica] img')?.getAttribute('src')).toBe('art/caravel.png');
   });
 
+  it('closes on E, the key that opened it, but not while a shop list is open over it', () => {
+    const { box } = host();
+    act(() => box.show('europe', europe));
+    fireEvent.click(screen.getByRole('button', { name: 'Recruit' }));
+    key('e');
+    expect(box.current()?.kind).toBe('europe');
+    expect(document.querySelector('[data-shop=recruit]')).toBeTruthy();
+    key('Escape');
+    expect(document.querySelector('[data-shop]')).toBeNull();
+    key('E');
+    expect(box.current()).toBeNull();
+  });
+
   it('tallies in a sidebar the tax and what has been sold and earned of each goods traded', () => {
     const { box } = host();
     act(() => box.show('europe', europe));
