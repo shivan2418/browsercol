@@ -616,11 +616,17 @@ public final class Commands {
         return unit.getWorkType() == type || igc().changeWorkType(unit, type);
     }
 
-    /** Unload everything a ship in port carries into the warehouse. */
+    /**
+     * Unload everything a ship in port carries, as InGameController.unload
+     * does in a colony: the units go ashore and the goods into the warehouse.
+     */
     private boolean unloadAll(String shipId) {
         final Unit ship = shipInPort(shipId);
         if (ship == null) return false;
         boolean any = false;
+        for (Unit u : new ArrayList<>(ship.getUnitList())) {
+            any |= igc().leaveShip(u);
+        }
         for (Goods g : new ArrayList<>(ship.getGoodsList())) {
             any |= unloadGoods(shipId, g.getType().getId(), g.getAmount(), false);
         }
