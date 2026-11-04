@@ -18,6 +18,10 @@ export const SPEEDS: readonly Speed[] = ['off', 'slow', 'normal', 'fast'];
 export type ActiveStyle = 'freecol' | 'online';
 export const ACTIVE_STYLES: readonly ActiveStyle[] = ['freecol', 'online'];
 
+/** How strongly the window greys out while it lacks keyboard focus. */
+export type Dim = 'off' | 'light' | 'normal' | 'heavy';
+export const DIMS: readonly Dim[] = ['off', 'light', 'normal', 'heavy'];
+
 export interface Prefs {
   /** What blinks for the active unit; the blink speed applies to either. */
   activeStyle: ActiveStyle;
@@ -25,8 +29,8 @@ export interface Prefs {
   animation: Speed;
   /** How fast the active unit blinks. */
   blink: Speed;
-  /** Whether a faint grey wash covers the window while it lacks keyboard focus. */
-  dimUnfocused: boolean;
+  /** How strong a grey wash covers the window while it lacks keyboard focus. */
+  dimUnfocused: Dim;
   /** Whether the tutorial messages (hints such as how to build a colony) are shown. */
   tutorial: boolean;
   /** Whether the turn ends by itself once no unit is left to move. */
@@ -46,7 +50,7 @@ export const DEFAULTS: Prefs = {
   activeStyle: 'online',
   animation: 'normal',
   blink: 'normal',
-  dimUnfocused: true,
+  dimUnfocused: 'normal',
   tutorial: true,
   autoEndTurn: false,
   muteMusic: false,
@@ -317,6 +321,9 @@ const KEY = 'freecol.prefs';
 
 const speed = (v: unknown, fallback: Speed): Speed => (SPEEDS.includes(v as Speed) ? (v as Speed) : fallback);
 
+/** The grey-out strength; the old on/off switch reads as normal or off. */
+const dim = (v: unknown): Dim => (DIMS.includes(v as Dim) ? (v as Dim) : v === false ? 'off' : DEFAULTS.dimUnfocused);
+
 /** Parse stored text; anything missing or odd falls back to the defaults. */
 export function parsePrefs(text: string | null): Prefs {
   try {
@@ -327,7 +334,7 @@ export function parsePrefs(text: string | null): Prefs {
         : DEFAULTS.activeStyle,
       animation: speed(o.animation, DEFAULTS.animation),
       blink: speed(o.blink, DEFAULTS.blink),
-      dimUnfocused: typeof o.dimUnfocused === 'boolean' ? o.dimUnfocused : DEFAULTS.dimUnfocused,
+      dimUnfocused: dim(o.dimUnfocused),
       tutorial: typeof o.tutorial === 'boolean' ? o.tutorial : DEFAULTS.tutorial,
       autoEndTurn: typeof o.autoEndTurn === 'boolean' ? o.autoEndTurn : DEFAULTS.autoEndTurn,
       muteMusic: typeof o.muteMusic === 'boolean' ? o.muteMusic : DEFAULTS.muteMusic,

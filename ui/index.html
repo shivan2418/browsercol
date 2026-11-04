@@ -1549,19 +1549,30 @@
       .colony .stored[data-over='true'] .goods {
         color: var(--bad);
       }
-      /* A faint grey wash while the window lacks keyboard focus, so it is
-         obvious that keys will not reach the game. */
+      /* A grey wash while the window lacks keyboard focus, so it is obvious
+         that keys will not reach the game; its strength is a preference
+         (data-dim-unfocused: off, light, normal or heavy). */
       body::after {
         content: '';
         position: fixed;
         inset: 0;
-        background: rgba(128, 128, 128, 0.18);
         pointer-events: none;
         opacity: 0;
         transition: opacity 0.15s;
         z-index: 100000;
       }
-      body[data-dim-unfocused='true'][data-unfocused='true']::after {
+      body[data-dim-unfocused='light']::after {
+        background: rgba(128, 128, 128, 0.18);
+      }
+      body[data-dim-unfocused='normal']::after {
+        background: rgba(128, 128, 128, 0.32);
+        backdrop-filter: grayscale(0.5);
+      }
+      body[data-dim-unfocused='heavy']::after {
+        background: rgba(128, 128, 128, 0.5);
+        backdrop-filter: grayscale(1);
+      }
+      body:not([data-dim-unfocused='off'])[data-unfocused='true']::after {
         opacity: 1;
       }
     </style>

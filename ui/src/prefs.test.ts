@@ -51,10 +51,14 @@ describe('prefs', () => {
     expect(parsePrefs('{"muteMusic":true,"muteEffects":"x"}')).toMatchObject({ muteMusic: true, muteEffects: false });
   });
 
-  it('reads the grey-out option, on unless stored off', () => {
-    expect(parsePrefs(null).dimUnfocused).toBe(true);
-    expect(parsePrefs('{"dimUnfocused":false}').dimUnfocused).toBe(false);
-    expect(parsePrefs('{"dimUnfocused":"no"}').dimUnfocused).toBe(true);
+  it('reads the grey-out strength, normal unless stored otherwise', () => {
+    expect(parsePrefs(null).dimUnfocused).toBe('normal');
+    expect(parsePrefs('{"dimUnfocused":"heavy"}').dimUnfocused).toBe('heavy');
+    expect(parsePrefs('{"dimUnfocused":"off"}').dimUnfocused).toBe('off');
+    expect(parsePrefs('{"dimUnfocused":"no"}').dimUnfocused).toBe('normal');
+    // The old on/off switch.
+    expect(parsePrefs('{"dimUnfocused":false}').dimUnfocused).toBe('off');
+    expect(parsePrefs('{"dimUnfocused":true}').dimUnfocused).toBe('normal');
   });
 
   it('drops tutorial messages unless the option is on', () => {
