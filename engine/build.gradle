@@ -92,6 +92,13 @@ teavm {
         // -Pout=<name>: the module file name, e.g. server or client with
         // -Pmain=online.freecol.web.WorkerMain or ClientMain.
         targetFileName = "${project.findProperty('out') ?: 'engine'}.wasm"
+        // A named module gets a folder of its own. Each module's nested build
+        // keeps its own task history, and on a build with none Gradle deletes
+        // what it takes for stale output in the task's folder: in a shared
+        // one, the first client build removed the server's files (#165).
+        if (project.hasProperty('out')) {
+            relativePathInOutputDir = project.property('out') as String
+        }
         obfuscated = release
     }
 }
@@ -99,7 +106,7 @@ teavm {
 // The two browser modules in one invocation: `gradle modules` (add
 // -Prelease for obfuscated builds). The TeaVM plugin builds one main class
 // per run, so each module is a nested build with its own -Pmain and -Pout.
-// Both land in build/generated/teavm/wasm-gc.
+// Each lands in build/generated/teavm/<module>, e.g. teavm/server.
 ['server': 'online.freecol.web.WorkerMain', 'client': 'online.freecol.web.ClientMain'].each { out, main ->
     tasks.register("${out}Module", GradleBuild) {
         buildName = "engine-${out}"
