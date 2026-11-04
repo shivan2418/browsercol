@@ -140,8 +140,9 @@ describe('prefs', () => {
     const shown = shownClientOptions(all)!;
     expect([...leaves(shown).keys()].sort()).toEqual([...FREECOL_OPTIONS].sort());
     expect(shown.children.map((g) => g.label)).toEqual(['Personal', 'Display', 'Interface', 'Saved games', 'Audio']);
-    // Autosaves (#154), but not the confirm overwrite option: browser saves never overwrite.
+    // The save game dialog (#153) and autosaves (#154), but not the confirm overwrite option: browser saves never overwrite.
     expect(shown.children[3].kind === 'group' && shown.children[3].children.map((o) => o.id)).toEqual([
+      'model.option.showSavegameSettings',
       'model.option.autosavePeriod',
       'model.option.autosaveValidity',
       'model.option.autosaveDelete',
