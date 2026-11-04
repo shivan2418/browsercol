@@ -29,11 +29,20 @@ export function turnNotice(prev: TurnFacts | null, next: TurnFacts): TurnNotice 
 export const DONE_NOTICE: TurnNotice = { kind: 'done', text: 'All units have moved. Press Enter to end the turn.' };
 
 /**
- * The notice to show: the turn's own, unless it is our turn and no unit is left to move in it (`idleTurn`,
- * the turn the Engine last said so in), when the player is told to end the turn.
+ * Whether no unit is left to move in the turn of the last map. `heard` is the map the Engine said no unit
+ * is active after (null for the start of the game), or undefined when a unit is active. The Engine says it
+ * before the map of a new turn (its active unit event comes first), so a "no unit" heard while the others
+ * moved counts for our turn that follows; one heard in our own turn counts for that turn only, as at the
+ * end of a turn it is ending.
  */
-export function shownNotice(banner: TurnNotice | null, last: TurnFacts | null, idleTurn: string | null) {
-  return last?.ourTurn && idleTurn === last.turn ? DONE_NOTICE : banner;
+export function isIdle(heard: TurnFacts | null | undefined, last: TurnFacts | null) {
+  if (heard === undefined || !last?.ourTurn) return false;
+  return !heard?.ourTurn || heard.turn === last.turn;
+}
+
+/** The notice to show: the turn's own, unless no unit is left to move in our turn, when the player is told to end it. */
+export function shownNotice(banner: TurnNotice | null, last: TurnFacts | null, heard: TurnFacts | null | undefined) {
+  return isIdle(heard, last) ? DONE_NOTICE : banner;
 }
 
 /** How long the new turn notice stays, in milliseconds. */

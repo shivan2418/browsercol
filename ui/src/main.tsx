@@ -79,7 +79,7 @@ import {
 } from './saves';
 import { MinimapPanel } from './minimap-panel';
 import { Side, type SideProps } from './side';
-import { shownNotice, TurnBanner, turnNotice, type TurnFacts, type TurnNotice } from './turn-banner';
+import { isIdle, shownNotice, TurnBanner, turnNotice, type TurnFacts, type TurnNotice } from './turn-banner';
 import { ErrorBanner, addError, engineError, type GameError } from './errors';
 import { loadModule } from './teavm';
 import { applyTheme } from './theme';
@@ -248,8 +248,8 @@ let statusLine = '';
 /** The turn the last map was of, and the banner over the map about it (turn-banner.tsx). */
 let lastTurn: TurnFacts | null = null;
 let banner: TurnNotice | null = null;
-/** The turn in which the Engine last said no unit is left to move, so the banner says to end it. */
-let idleTurn: string | null = null;
+/** The map the Engine last said no unit is left to move after, undefined while one is active (isIdle in turn-banner.tsx). */
+let noUnitHeard: TurnFacts | null | undefined;
 /** What the links in a report do, once the client Engine has loaded. */
 const reportActions: ReportActions = {
   open: (name) => colonyClient?.report(name),
@@ -621,7 +621,7 @@ function renderSide() {
               }}
             />
           )}
-          {createPortal(<TurnBanner notice={shownNotice(banner, lastTurn, idleTurn)} />, gameBox)}
+          {createPortal(<TurnBanner notice={shownNotice(banner, lastTurn, noUnitHeard)} />, gameBox)}
           {popup && (
             <PopupMenu popup={popup} run={(id) => menuClient?.menuEntry(id)} close={() => showPopup(null)} art={art} />
           )}
@@ -707,6 +707,16 @@ function show(status: string, extra: Record<string, unknown> = {}) {
 
 /** The turn the preference last ended by itself, so a second no-unit event in it does not end it twice. */
 let autoEnded: string | null = null;
+/**
+ * No unit left to move: end the turn, once for each turn (FreeCol's auto end turn option). Called after the
+ * active unit event and after each map, since at the start of a turn the Engine says there is no unit before
+ * the map says it is our turn.
+ */
+function autoEndTurn() {
+  if (!prefs.autoEndTurn || !lastTurn || !isIdle(noUnitHeard, lastTurn) || autoEnded === lastTurn.turn) return;
+  autoEnded = lastTurn.turn;
+  runCommand({ k: 'endTurn' });
+}
 window.fcUnasked = [];
 const gui: GuiHandlers = {
   events: {
@@ -715,13 +725,9 @@ const gui: GuiHandlers = {
       side.orders = e.orders;
       side.route = e.route;
       dispatch({ k: 'activeUnit', ...e, jump: pageOption(prefs, 'model.option.jumpToActiveUnit') });
-      idleTurn = e.unit === null && lastTurn?.ourTurn ? lastTurn.turn : null;
+      noUnitHeard = e.unit === null ? lastTurn : undefined;
       renderSide();
-      // No unit left to move: end the turn, once for each turn (FreeCol's auto end turn option).
-      if (e.unit === null && prefs.autoEndTurn && lastTurn?.ourTurn && autoEnded !== lastTurn.turn) {
-        autoEnded = lastTurn.turn;
-        runCommand({ k: 'endTurn' });
-      }
+      autoEndTurn();
     },
     selectedTile: (e) => dispatch({ k: 'selectedTile', ...e, always: pageOption(prefs, 'model.option.alwaysCenter') }),
     focus: (e) => dispatch({ k: 'focus', ...e }),
@@ -781,6 +787,7 @@ function drawMap(m: MapView) {
   // FreeCol's disable end turn background option: no banner while the others move.
   if (banner?.kind === 'ai' && pageOption(prefs, 'model.option.disableGrayLayer')) banner = null;
   lastTurn = m;
+  autoEndTurn();
   if (m.ourTurn) autosaveSoon();
   renderSide();
   lastMap = m;
