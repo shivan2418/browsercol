@@ -245,6 +245,19 @@ export interface GoodsAmount {
   amount: number;
 }
 
+/**
+ * What FreeCol's BuildingToolTip shows of a building: the input and the output, each with the most it could be
+ * were nothing short (both null when the building makes nothing, as Swing leaves that row empty; input null when
+ * it takes none), the workers Swing lists, and the breeding note.
+ */
+export interface BuildingTip {
+  input: (GoodsAmount & { max: number }) | null;
+  output: (GoodsAmount & { max: number }) | null;
+  /** A worker with what it makes, or a teacher (made null) with its training turns ("2/4") and its student. */
+  workers: (UnitRef & { made: GoodsAmount | null; progress: string | null; student: UnitRef | null })[];
+  breeding: string | null;
+}
+
 /** A unit, with the resource keys of its image, best first. */
 export interface UnitRef {
   id: Id;
@@ -288,6 +301,8 @@ export interface ColonyView {
     production: (GoodsAmount & { max: number }) | null;
     /** The upkeep, when the game has upkeep and the building costs some; else null. */
     upkeep: number | null;
+    /** BuildingToolTip: null for an empty plot. */
+    tip: BuildingTip | null;
   }[];
   /** The 3x3 tiles, pos being the place in Swing's TilesPanel grid: north [0, 0], the centre [1, 1], south [2, 2]. */
   tiles: {

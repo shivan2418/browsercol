@@ -198,6 +198,54 @@ class ColonyJsonTest {
                     "image.buildingicon.model.building.townHall").equals(b.get("keys"))),
             "the town hall is there");
         assertNull(carpentry.get("upkeep"), "Classic has no building upkeep");
+        // The tooltip, as BuildingToolTip: lumber in, hammers out, the
+        // carpenter with what they make, nothing short.
+        final Map<String, Object> carpentryTip = obj(carpentry.get("tip"));
+        assertEquals("model.goods.lumber", obj(carpentryTip.get("input")).get("type"));
+        assertEquals(obj(carpentryTip.get("input")).get("amount"),
+            obj(carpentryTip.get("input")).get("max"));
+        assertEquals(hammers.get("amount"), obj(carpentryTip.get("output")).get("amount"));
+        assertEquals(List.of(carpenter.getId()), ids(carpentryTip.get("workers")));
+        assertEquals((long)carpentersHouse.getUnitProduction(carpenter, spec.getGoodsType("model.goods.hammers")),
+            obj(obj(list(carpentryTip.get("workers")).get(0)).get("made")).get("amount"));
+        assertNull(carpentryTip.get("breeding"));
+        // A building short of its input: a tobacconist with one tobacco
+        // makes one cigar of the three they could, and the label and the
+        // tooltip say so.
+        final Building tobacconist = colony.getBuilding(
+            spec.getBuildingType("model.building.tobacconistHouse"));
+        final Unit roller = new ServerUnit(game, land, us, spec.getDefaultUnitType(us));
+        roller.setLocation(tobacconist);
+        roller.changeWorkType(spec.getGoodsType("model.goods.cigars"));
+        colony.addGoods(spec.getGoodsType("model.goods.tobacco"), 1);
+        colony.invalidateCache();
+        final Map<String, Object> shortOf = list(panel(colony).get("buildings")).stream()
+            .map(ColonyJsonTest::obj)
+            .filter(b -> tobacconist.getId().equals(b.get("id"))).findFirst().get();
+        final Map<String, Object> cigars = obj(shortOf.get("production"));
+        assertTrue((Long)cigars.get("amount") < (Long)cigars.get("max"),
+            "short of tobacco, the label shows made/max: " + cigars);
+        final Map<String, Object> shortTip = obj(shortOf.get("tip"));
+        final Map<String, Object> tobaccoIn = obj(shortTip.get("input"));
+        assertEquals("model.goods.tobacco", tobaccoIn.get("type"));
+        assertTrue((Long)tobaccoIn.get("amount") < (Long)tobaccoIn.get("max"),
+            "the tooltip shows the tobacco used against the tobacco needed: " + tobaccoIn);
+        assertEquals(cigars.get("max"), obj(shortTip.get("output")).get("max"));
+        // With no tobacco at all the tobacconist makes nothing, and Swing's
+        // tooltip leaves the production row empty.
+        colony.removeGoods(spec.getGoodsType("model.goods.tobacco"));
+        colony.invalidateCache();
+        final Map<String, Object> none = list(panel(colony).get("buildings")).stream()
+            .map(ColonyJsonTest::obj)
+            .filter(b -> tobacconist.getId().equals(b.get("id"))).findFirst().get();
+        assertNull(none.get("production"));
+        assertNull(obj(none.get("tip")).get("input"));
+        assertNull(obj(none.get("tip")).get("output"));
+        // Its worker is still listed with the cigars they would make.
+        final Map<String, Object> rolls = obj(list(obj(none.get("tip")).get("workers")).get(0));
+        assertEquals(roller.getId(), rolls.get("id"));
+        assertEquals("model.goods.cigars", obj(rolls.get("made")).get("type"));
+        roller.setLocation(land);
         // Where a building is not built yet, an empty plot, as BuildingsPanel
         // shows: a new colony has no schoolhouse.
         final Map<String, Object> school = buildings.stream()

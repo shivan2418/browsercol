@@ -35,11 +35,12 @@ import {
   type MouseEvent,
   type ReactNode,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { Box, GoodsAmount, type Art } from './frame';
 import { PANEL_KEYS } from './map-keys';
 import { accepts, draggableProps, dropTargetProps, same, type Item, type Place } from './moves';
 import { ContextMenuContext, useContextMenu } from './popup-menu';
-import type { Buildable, ColonyView, GoodsAmount as Goods, UnitRef } from './webgui';
+import type { Buildable, BuildingTip, ColonyView, GoodsAmount as Goods, UnitRef } from './webgui';
 
 /** FreeCol's tile size, which the tiles of TilesPanel are laid out by. */
 const TILE_W = 128;
@@ -467,13 +468,15 @@ function Warehouse({ c, art }: { c: ColonyView; art: Art }) {
   );
 }
 
-/** A building that takes colonists. */
+/** A building that takes colonists; with the pointer over it, its tooltip. */
 function BuildingPlace({
   b,
+  art,
   style,
   children,
 }: {
   b: ColonyView['buildings'][number];
+  art: Art;
   style: CSSProperties;
   children: ReactNode;
 }) {
@@ -481,19 +484,99 @@ function BuildingPlace({
   const target = useTarget('building', (item) => {
     if (item.kind === 'unit' && b.id !== null) moves?.work(item.id, b.id);
   });
+  const [over, setOver] = useState<DOMRect | null>(null);
   return (
     <div
       className="building"
       data-building={b.id}
       data-drop={target ? '' : undefined}
-      title={b.name}
+      aria-label={b.name}
       style={style}
+      onMouseEnter={(e) => setOver(e.currentTarget.getBoundingClientRect())}
+      onMouseLeave={() => setOver(null)}
+      onMouseDown={() => setOver(null)}
       {...target}
     >
       {children}
+      {over && b.tip && <BuildingTipBox b={b} tip={b.tip} art={art} at={over} />}
     </div>
   );
 }
+
+/** The widest a building's tooltip is laid out for, to put it left of the building when the right has no room. */
+const TIP_W = 280;
+
+/**
+ * BuildingToolTip: the building's name; the input and the output, each against what it could be when the input
+ * runs short (a building that makes nothing leaves the row empty, as Swing does); the building; each worker with
+ * what they make, or a teacher with their student; a placeholder per empty place; and the breeding note.
+ */
+function BuildingTipBox({
+  b,
+  tip,
+  art,
+  at,
+}: {
+  b: ColonyView['buildings'][number];
+  tip: BuildingTip;
+  art: Art;
+  at: DOMRect;
+}) {
+  const left = at.right + 8 + TIP_W <= window.innerWidth ? at.right + 8 : Math.max(8, at.left - 8 - TIP_W);
+  const { input, output } = tip;
+  return createPortal(
+    <div className="building-tip" role="tooltip" data-tip={b.id} style={{ left, top: Math.max(8, at.top) }}>
+      <b className="tip-name">{b.name}</b>
+      {output && (
+        <div className="tip-production">
+          {input && (
+            // Swing's input label: against what is needed, or only the icon when the building takes none this turn.
+            <span className="tip-input" data-goods={input.type}>
+              <GoodsAmount
+                keys={input.keys}
+                name={input.name}
+                amount={input.amount}
+                expert={input.amount > 0 ? input.max : null}
+                art={art}
+                icons
+              />
+            </span>
+          )}
+          {input && <span className="arrow">→</span>}
+          <span className="tip-output" data-goods={output.type}>
+            <GoodsAmount
+              keys={output.keys}
+              name={output.name}
+              amount={output.amount}
+              expert={output.max}
+              art={art}
+              icons
+            />
+          </span>
+        </div>
+      )}
+      <Img keys={b.keys} art={art} className="art" />
+      <div className="tip-workers">
+        {tip.workers.map((w) => (
+          <span key={w.id} className="tip-worker" data-unit={w.id}>
+            <Img keys={w.keys} art={art} className="unit" alt={w.name} />
+            {w.made && <GoodsAmount keys={w.made.keys} name={w.made.name} amount={w.made.amount} art={art} icons />}
+            {w.progress !== null && <span className="progress">{w.progress}</span>}
+            {w.student && <Img keys={w.student.keys} art={art} className="unit student" alt={w.student.name} />}
+          </span>
+        ))}
+        {Array.from({ length: Math.max(0, b.capacity - b.workers.length) }, (_, i) => (
+          <Img key={i} keys={[PLACEHOLDER]} art={art} className="placeholder" />
+        ))}
+      </div>
+      {tip.breeding && <p className="breeding">{tip.breeding}</p>}
+    </div>,
+    document.body,
+  );
+}
+
+/** BuildingToolTip's empty place: image.unit.placeholder. */
+const PLACEHOLDER = 'image.unit.placeholder';
 
 /** OutsideColonyPanel: the units on the colony's tile, and where a colonist working in the colony is put. */
 function Outside({ c, art }: { c: ColonyView; art: Art }) {
@@ -710,7 +793,7 @@ export function ColonyPanel({ colony: c, art, footer }: { colony: ColonyView; ar
                   <Img keys={b.keys} art={art} className="art" />
                 </div>
               ) : (
-                <BuildingPlace key={b.type} b={b} style={at}>
+                <BuildingPlace key={b.type} b={b} art={art} style={at}>
                   <span className="name">{b.name}</span>
                   <Img keys={b.keys} art={art} className="art" />
                   <span className="output">

@@ -26,6 +26,7 @@ const files: Record<string, string> = {
   'image.tile.tileTaken': 'art/taken.png',
   'image.tileitem.nativeLand': 'art/native.png',
   'image.unit.model.unit.caravel': 'art/caravel.png',
+  'image.unit.placeholder': 'art/placeholder.png',
 };
 const art: Art = (keys) => {
   const key = keys.find((k) => k in files);
@@ -63,7 +64,7 @@ describe('the colony panel', () => {
 
   it('shows each building with its workers and production, its icon from the Tileset', () => {
     open();
-    const carpenter = screen.getByTitle("Carpenter's house");
+    const carpenter = screen.getByLabelText("Carpenter's house");
     expect(carpenter.querySelector('img.art')?.getAttribute('src')).toBe('art/test-carpenter.png');
     expect(within(carpenter).getByAltText('Dutch Free Colonist').getAttribute('src')).toBe('art/colonist.png');
     expect(carpenter.querySelector('[data-unit="unit:2"]')).toBeTruthy();
@@ -73,7 +74,50 @@ describe('the colony panel', () => {
     const upkeep = carpenter.querySelector('.upkeep')!;
     expect(upkeep.textContent).toBe('5');
     expect(upkeep.querySelector('img')?.getAttribute('src')).toBe('art/coin.png');
-    expect(screen.getByTitle('Town Hall').querySelector('.upkeep')).toBeNull();
+    expect(screen.getByLabelText('Town Hall').querySelector('.upkeep')).toBeNull();
+  });
+
+  it("shows a building's tooltip while the pointer is over it: what it uses and makes against what it could", () => {
+    open();
+    const carpenter = screen.getByLabelText("Carpenter's house");
+    expect(screen.queryByRole('tooltip')).toBeNull();
+    fireEvent.mouseEnter(carpenter);
+    const tip = screen.getByRole('tooltip');
+    expect(within(tip).getByText("Carpenter's house")).toBeTruthy();
+    // BuildingToolTip: short of lumber, 3 of the 6 needed go in and 3 of 6 hammers come out.
+    expect(tip.querySelector('.tip-input')?.textContent).toBe('3/6');
+    expect(tip.querySelector('.tip-input img')?.getAttribute('src')).toBe('art/lumber.png');
+    expect(tip.querySelector('.tip-output')?.textContent).toBe('3/6');
+    expect(tip.querySelector('img.art')?.getAttribute('src')).toBe('art/test-carpenter.png');
+    // The worker with what they make, and an empty place for each of the other two.
+    const worker = tip.querySelector('[data-unit="unit:2"]')!;
+    expect(within(worker as HTMLElement).getByAltText('Dutch Free Colonist')).toBeTruthy();
+    expect(worker.querySelectorAll('.pile img')).toHaveLength(3);
+    expect(tip.querySelectorAll('img.placeholder')).toHaveLength(2);
+    fireEvent.mouseLeave(carpenter);
+    expect(screen.queryByRole('tooltip')).toBeNull();
+  });
+
+  it('leaves the production row out of the tooltip of a building that makes nothing', () => {
+    const idle: ColonyView = {
+      ...jamestown,
+      buildings: jamestown.buildings.map((b) =>
+        b.id === 'building:2'
+          ? {
+              ...b,
+              production: null,
+              tip: { ...b.tip!, input: null, output: null, breeding: 'You need at least 2 horses to breed horses.' },
+            }
+          : b,
+      ),
+    };
+    open(idle);
+    fireEvent.mouseEnter(screen.getByLabelText("Carpenter's house"));
+    const tip = screen.getByRole('tooltip');
+    expect(tip.querySelector('.tip-production')).toBeNull();
+    // The worker is still listed with what they would make.
+    expect(tip.querySelector('[data-unit="unit:2"] [title="Hammers"]')).toBeTruthy();
+    expect(within(tip).getByText('You need at least 2 horses to breed horses.')).toBeTruthy();
   });
 
   it('shows an empty plot where a kind of building is not built yet', () => {
