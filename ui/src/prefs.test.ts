@@ -6,6 +6,7 @@ import {
   blinkMs,
   DEFAULTS,
   FREECOL_OPTIONS,
+  fontScale,
   fromEngine,
   modeValue,
   moveMs,
@@ -14,6 +15,7 @@ import {
   parsePrefs,
   shownClientOptions,
   startModes,
+  uiZoom,
   visibleMessages,
 } from './prefs';
 import { blink } from './motion';
@@ -74,7 +76,7 @@ describe('prefs', () => {
           'model.option.indianDemandResponse': 2,
           'model.option.autoSavePrefix': 'x',
           'model.option.colonyComparator': 1.5,
-          'model.option.useOpenGL': false,
+          'model.option.usePixmaps': false,
         },
       }),
     );
@@ -96,6 +98,14 @@ describe('prefs', () => {
     expect(modeValue('borders', false)).toEqual(['model.option.displayBorders', false]);
   });
 
+  it("sizes the UI by FreeCol's display scaling, and the text by its manual font size", () => {
+    const at = (freecol: Record<string, boolean | number>) => ({ ...DEFAULTS, freecol });
+    expect(uiZoom(DEFAULTS)).toBe(1);
+    expect(uiZoom(at({ 'model.option.displayScaling': 150 }))).toBe(1.5);
+    expect(fontScale(at({ 'model.option.mainFontSize': 18 }))).toBe(1);
+    expect(fontScale(at({ 'model.option.mainFontSize': 18, 'model.option.manualMainFontSize': true }))).toBe(1.5);
+  });
+
   it("shows FreeCol's options that the browser follows, in FreeCol's groups", () => {
     const all = clientOptionsGroup(data)!;
     const options = leaves(all);
@@ -104,11 +114,14 @@ describe('prefs', () => {
 
     const shown = shownClientOptions(all)!;
     expect([...leaves(shown).keys()].sort()).toEqual([...FREECOL_OPTIONS].sort());
-    expect(shown.children.map((g) => g.label)).toEqual(['Interface']);
-    const groups = shown.children[0].kind === 'group' ? shown.children[0].children.map((g) => g.label) : [];
+    expect(shown.children.map((g) => g.label)).toEqual(['Display', 'Interface']);
+    const groups = shown.children[1].kind === 'group' ? shown.children[1].children.map((g) => g.label) : [];
     expect(groups).toEqual(['Main map', 'Messages', 'Warehouse Settings', 'Other']);
     const tileText = leaves(shown).get('model.option.displayTileText');
     expect(tileText?.kind === 'select' && tileText.choices.map((c) => c.value)).toEqual([0, 1]);
+    // An option read only as the page loads says so.
+    expect(leaves(shown).get('model.option.useOpenGL')?.label).toMatch(/\(on reload\)$/);
+    expect(leaves(shown).get('model.option.autoScroll')?.label).not.toMatch(/reload/);
   });
 
   it('keeps the options the client Engine changed, where they differ from the defaults', () => {
@@ -120,7 +133,7 @@ describe('prefs', () => {
     expect(
       fromEngine(
         p,
-        { 'model.option.guiMessagesGroupBy': 1, 'model.option.guiShowWarning': true, 'model.option.useOpenGL': false },
+        { 'model.option.guiMessagesGroupBy': 1, 'model.option.guiShowWarning': true, 'model.option.usePixmaps': false },
         defaults,
       ),
     ).toEqual({ 'model.option.guiMessagesGroupBy': 1 });
