@@ -119,6 +119,24 @@ public class Messages {
      */
     private static final Map<String, Selector> tagMap = new HashMap<>();
 
+    /**
+     * online: English descriptions that FreeCol's rules do not bear out,
+     * worded to say what the rules do. They replace FreeColMessages'
+     * English text; a translation keeps its own.
+     *
+     * Brebeuf gives missionaries the expert missionary ability, which
+     * doubles a mission's calming of the natives and helps in denouncing
+     * (ServerPlayer, InGameController.denounceMission), but conversion
+     * goes by the missionary's unit type (ServerIndianSettlement
+     * .csStartTurn), so a colonist does not convert as a Jesuit does.
+     */
+    private static final Map<String, String> CLARIFIED = Map.of(
+        "model.foundingFather.fatherJeanDeBrebeuf.description",
+        "All missionaries count as expert missionaries: their missions calm"
+        + " the natives twice as much, and they are better at denouncing"
+        + " other missions and at withstanding denunciation. They do not"
+        + " convert natives any faster.");
+
 
     // Message bundle initialization
 
@@ -181,6 +199,8 @@ public class Messages {
                     + f.getPath() + ": " + ioe.getMessage());
             }
         }
+        // online: English text that says what the rules do (CLARIFIED); a translation keeps its own.
+        if ("en".equals(loc.getLanguage())) messageBundle.putAll(CLARIFIED);
 
         List<String> filenames
             = FreeColDirectories.getMessageFileNameList(locale);

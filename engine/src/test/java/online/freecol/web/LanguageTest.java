@@ -1,6 +1,8 @@
 package online.freecol.web;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Locale;
 
@@ -55,5 +57,16 @@ class LanguageTest {
     void englishIsTheDefault() throws Exception {
         new ServerEngine(xml -> {}).startGame("classic");
         assertEquals("Language", Messages.message("model.option.languageOption.name"));
+    }
+
+    @Test
+    void brebeufsDescriptionSaysWhatHeDoes() throws Exception {
+        new ServerEngine(xml -> {}).startGame("classic");
+        final String text = Messages.message("model.foundingFather.fatherJeanDeBrebeuf.description");
+        assertTrue(text.contains("do not convert natives any faster"), text);
+        Language.set("de");
+        new ServerEngine(xml -> {}).startGame("classic");
+        assertFalse(Messages.message("model.foundingFather.fatherJeanDeBrebeuf.description")
+            .contains("convert natives"), "a translation keeps its own text");
     }
 }
