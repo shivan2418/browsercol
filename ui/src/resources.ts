@@ -8,7 +8,7 @@
 // (StringResource, e.g. chip texts) and urn:color: values (ColorResource)
 // are kept.
 
-/** One resources.properties and the directory its paths are relative to. */
+/** One resources.properties (of art or audio) and the directory its paths are relative to. */
 export interface ArtLayer {
   dir: string;
   props: string;
@@ -206,4 +206,48 @@ export function javaRandomInt(seed: number, bound: number): number {
     const val = bits % bound;
     if (bits - val + (bound - 1) < 2 ** 31) return val;
   }
+}
+
+/** A sound's resource key's file, relative to the audio directory, and whether it plays as music. */
+export interface Sound {
+  file: string;
+  music: boolean;
+}
+
+/** What build-audio.mjs writes as audio.json. */
+export interface AudioManifest {
+  sounds: Record<string, Sound>;
+  /** The default playlist's files, in name order. */
+  playlist: string[];
+}
+
+const AUDIO = /\.(ogg|wav|mp3|flac)$/i;
+const PLAYLIST = 'sound.music.playlist.default';
+
+/**
+ * The sounds of resources.properties layers (sound.event.loadCargo=resources/sound/event/load.ogg), with
+ * KEY.type="music" for those GUI.playSound plays on the music player, and the default playlist from the
+ * directory sound.music.playlist.default names. Each sound's resource key is resolved from the layers, later layers overriding earlier ones key by key, as
+ * FreeCol's ResourceManager does. A key whose file is missing is left out, as FreeCol plays nothing for it.
+ *
+ * @param files The audio files there are, each under its layer's directory.
+ */
+export function audioManifest(layers: ArtLayer[], files: string[]): AudioManifest {
+  const have = new Set(files);
+  const paths = new Map<string, string>();
+  const music = new Map<string, boolean>();
+  for (const { dir, props } of layers) {
+    for (const [key, value] of parseProperties(props)) {
+      if (!key.startsWith('sound.')) continue;
+      if (key.endsWith('.type')) music.set(key.slice(0, -'.type'.length), value === '"music"');
+      else paths.set(key, `${dir}/${value}`);
+    }
+  }
+  const sounds: Record<string, Sound> = {};
+  for (const [key, file] of paths) {
+    if (have.has(file) && AUDIO.test(file)) sounds[key] = { file, music: music.get(key) ?? false };
+  }
+  const list = paths.get(PLAYLIST);
+  const playlist = list ? files.filter((f) => f.startsWith(`${list}/`) && AUDIO.test(f)).sort() : [];
+  return { sounds, playlist };
 }

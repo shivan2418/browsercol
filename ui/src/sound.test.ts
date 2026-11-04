@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
-import { audioManifest, soundPlayer } from './sound';
+import { audioManifest } from './resources';
+import { soundPlayer } from './sound';
 
 // Layers as FreeCol loads them: data/base, then the "default" TC.
 const base = {
@@ -34,7 +35,7 @@ const files = [
 describe('audioManifest', () => {
   const m = audioManifest([base, tc], files);
 
-  it('resolves each sound key to its file, music where FreeCol types it so', () => {
+  it("resolves each sound's resource key to its file, music where FreeCol types it so", () => {
     expect(m.sounds).toEqual({
       'sound.intro.general': { file: 'base/resources/sound/intro.ogg', music: true },
       'sound.intro.model.nation.dutch': { file: 'default/resources/sound/intro/generic.ogg', music: true },
@@ -158,6 +159,14 @@ describe('soundPlayer', () => {
     gesture();
     // The effect is stale by then and is dropped; the music starts.
     expect(playing()).toEqual(['audio/base/resources/sound/intro.ogg']);
+  });
+
+  it('shuffles the playlist afresh after other music interrupts it, as SoundPlayer.stop clears its queue', () => {
+    const { player, made, playing } = setup();
+    player.startPlaylist(); // tailwind, with founders still to come
+    player.play('sound.intro.general');
+    made[0].end();
+    expect(playing()).toEqual(['audio/default/resources/music/default/tailwind.ogg']);
   });
 
   it('starts the playlist at once when no music is playing', () => {

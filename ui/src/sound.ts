@@ -1,50 +1,7 @@
-// FreeCol's music and sound effects in the browser. FreeCol's resources.properties name each sound key's
-// file (sound.event.loadCargo=resources/sound/event/load.ogg), with KEY.type="music" for those GUI.playSound
-// plays on the music player rather than the effects player, and sound.music.playlist.default names the
-// directory of the music played when nothing else is (SoundPlayer's default playlist).
-import { parseProperties, type ArtLayer } from './resources.ts';
-
-/** A sound key's file, relative to the audio directory, and whether it plays as music. */
-export interface Sound {
-  file: string;
-  music: boolean;
-}
-
-/** What build-audio.mjs writes as audio.json. */
-export interface AudioManifest {
-  sounds: Record<string, Sound>;
-  /** The default playlist's files, in name order. */
-  playlist: string[];
-}
-
-const AUDIO = /\.(ogg|wav|mp3|flac)$/i;
-const PLAYLIST = 'sound.music.playlist.default';
-
-/**
- * The sound keys of resources.properties layers, later layers overriding earlier ones key by key, as
- * FreeCol's ResourceManager does. A key whose file is missing is left out, as FreeCol plays nothing for it.
- *
- * @param files The audio files there are, each under its layer's directory.
- */
-export function audioManifest(layers: ArtLayer[], files: string[]): AudioManifest {
-  const have = new Set(files);
-  const paths = new Map<string, string>();
-  const music = new Map<string, boolean>();
-  for (const { dir, props } of layers) {
-    for (const [key, value] of parseProperties(props)) {
-      if (!key.startsWith('sound.')) continue;
-      if (key.endsWith('.type')) music.set(key.slice(0, -'.type'.length), value === '"music"');
-      else paths.set(key, `${dir}/${value}`);
-    }
-  }
-  const sounds: Record<string, Sound> = {};
-  for (const [key, file] of paths) {
-    if (have.has(file) && AUDIO.test(file)) sounds[key] = { file, music: music.get(key) ?? false };
-  }
-  const list = paths.get(PLAYLIST);
-  const playlist = list ? files.filter((f) => f.startsWith(`${list}/`) && AUDIO.test(f)).sort() : [];
-  return { sounds, playlist };
-}
+// FreeCol's music and sound effects in the browser, played by resource key as SoundController plays them:
+// music on one player, sound effects on another, and the default playlist whenever no other music plays.
+// The keys resolve through the audio manifest (resources.ts, audioManifest).
+import type { AudioManifest } from './resources';
 
 /** The part of an <audio> element the player uses. */
 export interface AudioLike {
@@ -122,8 +79,10 @@ export function soundPlayer(manifest: AudioManifest, deps: SoundPlayerDeps): Sou
       if (key === null) return effects.pause();
       const sound = manifest.sounds[key];
       if (!sound) return;
-      if (sound.music) startMusic(sound.file);
-      else start(effects, sound.file).catch(() => {});
+      if (sound.music) {
+        queue = []; // SoundPlayer.stop: the playlist starts afresh after this music
+        startMusic(sound.file);
+      } else start(effects, sound.file).catch(() => {});
     },
     setVolumes(v) {
       music.volume = amplitude(v.music);

@@ -58,7 +58,8 @@ import { ReportContext, colopediaMenu, reportMenu, type ReportActions } from './
 import type { ColonyLabels, PathStep } from './tileset';
 import { blockBrowserMenu, gotoKeyInput, onCanvas, pointerInput, rightClickInput } from './pointer';
 import { ContextMenuContext, PopupMenu, parseMenu, type ContextMenus, type Popup } from './popup-menu';
-import { soundPlayer, type AudioManifest } from './sound';
+import type { AudioManifest } from './resources';
+import { soundPlayer } from './sound';
 import { StartScreen } from './start-screen';
 import { presetJson, startOptions } from './start';
 import { fileNameOf, importSave } from './save-files';
