@@ -6,7 +6,7 @@
 // diamonds in staggered rows, odd rows half a tile to the right. It shows
 // the part of the map, at the zoom, that the view state (view.ts) says, with
 // the cursor and the active unit's path drawn over it.
-import { Application, Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
+import { AlphaFilter, Application, Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import { resources, type ArtLayer, type Resources } from './resources';
 import {
   isUnitMarker,
@@ -143,6 +143,8 @@ interface Pen {
   road(x: number, y: number, color: number, path: (p: PathSink) => void): void;
   rect(x: number, y: number, w: number, h: number, color: number, alpha?: number): void;
   line(x1: number, y1: number, x2: number, y2: number, color: number, width?: number, alpha?: number): void;
+  /** Polylines with rounded corners, stroked as one shape so their overlaps don't darken. */
+  outline(paths: Polyline[], color: number, width: number, alpha: number): void;
   /** A filled circle of radius r with a 2-pixel outline. */
   circle(x: number, y: number, r: number, fill: number, outline: number, outlineAlpha: number): void;
   /** Text with a black outline, its top centred on (x, y) or starting there. */
@@ -158,6 +160,106 @@ interface Pen {
   show(dx: number, dy: number, scale: number): void;
   /** Make the canvas `width` by `height` CSS pixels; show() draws it again. */
   resize(width: number, height: number): void;
+}
+
+/** Points in map pixels; a closed one ends where it starts, without repeating the first point. */
+export interface Polyline {
+  pts: [number, number][];
+  closed: boolean;
+}
+
+/** How far back from a corner a border's rounding starts, as a share of the shorter side at it. */
+const BORDER_ROUNDING = 0.35;
+
+/** A polyline whose corners are cut by quadratic curves, BORDER_ROUNDING of the way along each side. */
+function roundedPath(p: PathSink, { pts, closed }: Polyline) {
+  const n = pts.length;
+  if (n < 2) return;
+  const toward = (a: [number, number], b: [number, number], t: number): [number, number] => [
+    a[0] + (b[0] - a[0]) * t,
+    a[1] + (b[1] - a[1]) * t,
+  ];
+  const corner = (i: number) => {
+    const [prev, at, next] = [pts[(i + n - 1) % n], pts[i], pts[(i + 1) % n]];
+    return { at, from: toward(at, prev, BORDER_ROUNDING), to: toward(at, next, BORDER_ROUNDING) };
+  };
+  if (closed) {
+    const first = corner(0);
+    p.moveTo(...first.to);
+    for (let i = 1; i <= n; i++) {
+      const c = i === n ? first : corner(i);
+      p.lineTo(...c.from);
+      p.quadTo(...c.at, ...c.to);
+    }
+  } else {
+    p.moveTo(...pts[0]);
+    for (let i = 1; i < n - 1; i++) {
+      const c = corner(i);
+      p.lineTo(...c.from);
+      p.quadTo(...c.at, ...c.to);
+    }
+    p.lineTo(...pts[n - 1]);
+  }
+}
+
+/**
+ * Join the owners' border sides into polylines, one list per colour: a side meeting another at a
+ * corner continues into it, so a border is one stroke rather than a row of sides with dots where
+ * their round ends overlap.
+ */
+export function borderPaths(ops: { x: number; y: number; sides: string[]; rgb: number }[]): Map<number, Polyline[]> {
+  const byColor = new Map<number, [string, string][]>();
+  const points = new Map<string, [number, number]>();
+  const key = (x: number, y: number) => {
+    const k = `${x},${y}`;
+    points.set(k, [x, y]);
+    return k;
+  };
+  for (const op of ops) {
+    const [ox, oy] = tileOrigin(op.x, op.y);
+    let segs = byColor.get(op.rgb);
+    if (!segs) byColor.set(op.rgb, (segs = []));
+    for (const d of op.sides) {
+      const [a, b] = SIDES[d as 'NE' | 'SE' | 'SW' | 'NW'];
+      segs.push([key(ox + a[0], oy + a[1]), key(ox + b[0], oy + b[1])]);
+    }
+  }
+  const out = new Map<number, Polyline[]>();
+  for (const [rgb, segs] of byColor) {
+    const at = new Map<string, number[]>();
+    segs.forEach(([a, b], i) => {
+      for (const k of [a, b]) {
+        const l = at.get(k);
+        if (l) l.push(i);
+        else at.set(k, [i]);
+      }
+    });
+    const used = segs.map(() => false);
+    const free = (k: string) => (at.get(k) ?? []).filter((i) => !used[i]);
+    const walk = (start: string): Polyline => {
+      const keys = [start];
+      let end = start;
+      for (;;) {
+        const next = free(end)[0];
+        if (next === undefined) break;
+        used[next] = true;
+        const [a, b] = segs[next];
+        end = a === end ? b : a;
+        keys.push(end);
+      }
+      const closed = keys.length > 2 && end === start;
+      if (closed) keys.pop();
+      return { pts: keys.map((k) => points.get(k)!), closed };
+    };
+    const paths: Polyline[] = [];
+    // Open ends first (an odd count of sides meets there), so each open border is one polyline.
+    for (const [k, l] of at) if (l.length % 2) while (free(k).length) paths.push(walk(k));
+    segs.forEach(([a], i) => {
+      if (!used[i]) paths.push(walk(a));
+    });
+    out.set(rgb, paths);
+  }
+  return out;
 }
 
 interface PathSink {
@@ -254,6 +356,17 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
     },
     line: (x1, y1, x2, y2, color, width = 1, alpha = 1) => {
       layer.addChild(new Graphics().moveTo(x1, y1).lineTo(x2, y2).stroke({ width, color, alpha, cap: 'round' }));
+    },
+    outline: (paths, color, width, alpha) => {
+      const g = new Graphics();
+      for (const path of paths) {
+        roundedPath(offset(g, 0, 0), path);
+        if (path.closed) g.closePath();
+      }
+      // Stroked opaque and faded as a whole: a stroke's own overlaps would otherwise blend twice.
+      g.stroke({ width, color, cap: 'round', join: 'round' });
+      g.filters = [new AlphaFilter({ alpha })];
+      layer.addChild(g);
     },
     circle: (x, y, r, fill, outline, outlineAlpha) => {
       layer.addChild(
@@ -373,6 +486,23 @@ function canvasPen(host: HTMLElement, width: number, height: number, background 
         c.stroke();
         c.globalAlpha = 1;
         c.lineCap = 'butt';
+      }),
+    outline: (paths, color, width, alpha) =>
+      calls.push((c) => {
+        c.globalAlpha = alpha;
+        c.strokeStyle = css(color);
+        c.lineWidth = width;
+        c.lineCap = 'round';
+        c.lineJoin = 'round';
+        c.beginPath();
+        for (const path of paths) {
+          roundedPath(offset(c, 0, 0), path);
+          if (path.closed) c.closePath();
+        }
+        c.stroke();
+        c.globalAlpha = 1;
+        c.lineCap = 'butt';
+        c.lineJoin = 'miter';
       }),
     circle: (x, y, r, fill, outline, outlineAlpha) =>
       calls.push((c) => {
@@ -529,6 +659,7 @@ async function paint(pen: Pen, layer: Layer, ops: Op[], pics: ReturnType<typeof 
     return cw;
   };
   pen.begin(layer);
+  const firstBorder = ops.findIndex((o) => o.k === 'border');
   ops.forEach((op, i) => {
     const [ox, oy] = tileOrigin(op.x, op.y);
     const shade = (c: number) => ('dim' in op && op.dim ? fogged(c) : c);
@@ -606,9 +737,10 @@ async function paint(pen: Pen, layer: Layer, ops: Op[], pics: ReturnType<typeof 
           p.lineTo(W / 2, 0);
         });
       case 'border':
-        for (const d of op.sides) {
-          const [a, b] = SIDES[d as 'NE' | 'SE' | 'SW' | 'NW'];
-          pen.line(ox + a[0], oy + a[1], ox + b[0], oy + b[1], op.rgb, 4, 0.8);
+        // All the borders at once, at the first: joined up, they have no seams at the tiles' corners.
+        if (i === firstBorder) {
+          const borders = ops.filter((o): o is Extract<Op, { k: 'border' }> => o.k === 'border');
+          for (const [rgb, paths] of borderPaths(borders)) pen.outline(paths, rgb, 4, 0.8);
         }
         return;
       case 'modernLabel': {
