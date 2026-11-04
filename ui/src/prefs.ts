@@ -67,6 +67,12 @@ export function visibleMessages<T extends { type: string }>(p: Prefs, messages: 
  * modern colony labels, the colony report kinds, sound, mods, save files).
  */
 export const FREECOL_OPTIONS: readonly string[] = [
+  // Display
+  'model.option.displayScaling',
+  'model.option.manualMainFontSize',
+  'model.option.mainFontSize',
+  'model.option.useOpenGL',
+  'model.option.graphicsQuality',
   // Interface: main map
   'model.option.alwaysCenter',
   'model.option.autoScroll',
@@ -112,6 +118,16 @@ export const FREECOL_OPTIONS: readonly string[] = [
 
 /** The FreeCol options the page follows, with FreeCol's defaults; the client Engine is told them too. */
 export const PAGE_OPTIONS = {
+  /** The size of the menus, side panel and windows, as a percentage; 0 is automatic, 100%. The map has its own zoom. */
+  'model.option.displayScaling': 0,
+  /** Whether mainFontSize sets the text size, rather than the display scaling. */
+  'model.option.manualMainFontSize': false,
+  /** The main text size, FreeCol's 12 being FreeCol Online's own. */
+  'model.option.mainFontSize': 12,
+  /** Draw the map with WebGL (PixiJS), rather than the Canvas 2D fallback. Read as the page loads. */
+  'model.option.useOpenGL': true,
+  /** 0 lowest: no antialiasing, one pixel per CSS pixel; 10 low: no antialiasing; 20 and up as now. Read as the page loads. */
+  'model.option.graphicsQuality': 20,
   /** SwingGUI.changeView(Tile): a selected tile is always centred, not only when out of view. */
   'model.option.alwaysCenter': false,
   /** A pointer resting at the map's edge scrolls it. */
@@ -125,6 +141,16 @@ export const PAGE_OPTIONS = {
 };
 
 type PageOption = keyof typeof PAGE_OPTIONS;
+
+/** The page options that take effect only when the page loads again, as FreeCol's need a restart. */
+export const ON_RELOAD: readonly string[] = ['model.option.useOpenGL', 'model.option.graphicsQuality'];
+
+/** How big the menus, panels and windows are drawn: the display scaling, 1 for automatic. */
+export const uiZoom = (p: Prefs): number => (pageOption(p, 'model.option.displayScaling') || 100) / 100;
+
+/** How much bigger than FreeCol Online's own the text is: the manual font size over FreeCol's 12. */
+export const fontScale = (p: Prefs): number =>
+  pageOption(p, 'model.option.manualMainFontSize') ? pageOption(p, 'model.option.mainFontSize') / 12 : 1;
 
 /** A FreeCol option the page follows, as the player set it or by FreeCol's default. */
 export function pageOption<K extends PageOption>(p: Prefs, id: K): (typeof PAGE_OPTIONS)[K] {
@@ -163,6 +189,7 @@ export function shownClientOptions(group: OptionNode): OptionGroup | null {
     if (n.id === 'model.option.displayTileText' && n.kind === 'select') {
       return { ...n, choices: n.choices.filter((c) => TILE_TEXTS.has(c.value)) };
     }
+    if (ON_RELOAD.includes(n.id)) return { ...n, label: `${n.label} (on reload)` };
     return n;
   };
   const out = cut(group);

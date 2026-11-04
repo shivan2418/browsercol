@@ -13,6 +13,13 @@
         flex-direction: column;
         height: 100vh;
       }
+      /* FreeCol's display scaling (Preferences): the menus, side panel and windows; the map has its own zoom. */
+      #menubar,
+      #side,
+      #side-tab,
+      .modal > * {
+        zoom: var(--ui-zoom, 1);
+      }
       /* The menu bar across the window, then the map and the side panel below it. */
       #stage {
         flex: 1;

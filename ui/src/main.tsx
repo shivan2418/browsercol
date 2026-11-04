@@ -44,6 +44,8 @@ import {
   shownClientOptions,
   startModes,
   visibleMessages,
+  fontScale,
+  uiZoom,
   type Prefs,
 } from './prefs';
 import { clientOptionsGroup, leaves, type OptionGroup } from './options';
@@ -106,12 +108,16 @@ if (theme) document.documentElement.dataset.theme = theme;
 const mapHost = document.getElementById('map')!;
 /** The map's size: its host's box, which the page's CSS gives what the side panel leaves. */
 const mapSize = (): [number, number] => [mapHost.clientWidth, mapHost.clientHeight];
+/** The preferences as the page loads: some are read only then. */
+const prefsAtLoad = loadPrefs();
 const map = mapDrawer(
   mapHost,
   mapSize(),
   'art/',
   tileset ? `${tileset}.json` : undefined,
-  params.get('renderer') === 'canvas2d',
+  // FreeCol's Enable OpenGL option off draws with Canvas 2D, as ?renderer=canvas2d does.
+  params.get('renderer') === 'canvas2d' || !pageOption(prefsAtLoad, 'model.option.useOpenGL'),
+  pageOption(prefsAtLoad, 'model.option.graphicsQuality'),
 );
 const rounds: string[] = [];
 window.fcRounds = rounds;
@@ -200,10 +206,25 @@ const reportActions: ReportActions = {
   goTo: (at) => dispatch({ k: 'focus', tile: null, at }),
 };
 /** The player's preferences, and whether their window is open. */
-let prefs: Prefs = loadPrefs();
+let prefs: Prefs = prefsAtLoad;
 let prefsOpen = false;
-map.setMotion(moveMs(prefs), blinkMs(prefs), prefs.activeStyle);
-document.body.dataset.dimUnfocused = String(prefs.dimUnfocused);
+/** The preferences the page's look follows: motion, dimming, and FreeCol's display scaling and font size. */
+function applyLook(p: Prefs) {
+  map.setMotion(moveMs(p), blinkMs(p), p.activeStyle);
+  document.body.dataset.dimUnfocused = String(p.dimUnfocused);
+  const root = document.documentElement.style;
+  root.setProperty('--ui-zoom', String(uiZoom(p)));
+  const f = fontScale(p);
+  if (f === 1) for (const t of ['--fs', '--fs-s', '--fs-h']) root.removeProperty(t);
+  else
+    for (const [t, px] of [
+      ['--fs', 15],
+      ['--fs-s', 13],
+      ['--fs-h', 17],
+    ] as const)
+      root.setProperty(t, `${Math.round(px * f)}px`);
+}
+applyLook(prefs);
 /** FreeCol's client options as the Preferences window shows them, and their defaults, once the data has loaded. */
 let freecolOptions: OptionGroup | null = null;
 let freecolDefaults = new Map<string, unknown>();
@@ -216,8 +237,7 @@ function setPrefs(p: Prefs) {
   const was = prefs;
   prefs = p;
   savePrefs(p);
-  map.setMotion(moveMs(p), blinkMs(p), p.activeStyle);
-  document.body.dataset.dimUnfocused = String(p.dimUnfocused);
+  applyLook(p);
   pushFreecolOptions(Object.fromEntries(Object.entries(p.freecol).filter(([id, v]) => was.freecol[id] !== v)));
   // The View menu's modes follow their options.
   const modes = startModes(p);

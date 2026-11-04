@@ -183,7 +183,13 @@ function offset(
 
 const fontOf = (s: TextStyle) => `${s.italic ? 'italic ' : ''}${s.bold ? 'bold ' : ''}${s.size}px ${s.font}`;
 
-async function pixiPen(host: HTMLElement, width: number, height: number): Promise<Pen> {
+/**
+ * The canvas's pixels per CSS pixel at FreeCol's graphics quality: the screen's at normal and above,
+ * one at the lowest.
+ */
+const ratioAt = (quality: number): number => (quality <= 0 ? 1 : screenRatio());
+
+async function pixiPen(host: HTMLElement, width: number, height: number, quality: number): Promise<Pen> {
   const app = new Application();
   // The canvas's backing store is at the screen's pixel ratio, so the map is
   // sharp on a HiDPI screen; autoDensity keeps its CSS size the host's box.
@@ -191,8 +197,9 @@ async function pixiPen(host: HTMLElement, width: number, height: number): Promis
     width,
     height,
     background: 0x000000,
-    antialias: true,
-    resolution: screenRatio(),
+    // FreeCol's graphics quality: low and lowest draw without antialiasing.
+    antialias: quality >= 20,
+    resolution: ratioAt(quality),
     autoDensity: true,
   });
   host.append(app.canvas);
@@ -286,7 +293,7 @@ async function pixiPen(host: HTMLElement, width: number, height: number): Promis
     },
     // resize() takes CSS pixels: the renderer keeps its own resolution.
     resize: (w, h) => {
-      app.renderer.resize(w, h, screenRatio());
+      app.renderer.resize(w, h, ratioAt(quality));
       cssSize(w, h);
     },
   };
@@ -625,6 +632,8 @@ export function mapDrawer(
   manifest = 'art.json',
   /** Skip PixiJS and draw with Canvas 2D, the fallback, to test it. */
   canvas2d = false,
+  /** FreeCol's graphics quality option: 0 lowest, 10 low, 20 normal, up to 40. */
+  quality = 20,
 ): {
   draw(map: MapView): Promise<void>;
   /** Show the view: where it is centred, its zoom, the cursor and the active unit's path. */
@@ -682,7 +691,7 @@ export function mapDrawer(
     let p: Pen;
     try {
       if (canvas2d) throw new Error('asked for canvas2d');
-      p = await pixiPen(host, ...startSize);
+      p = await pixiPen(host, ...startSize, quality);
       renderer = 'pixi';
     } catch (ex) {
       p = canvasPen(host, ...startSize);
