@@ -43,6 +43,12 @@ describe('prefs', () => {
     expect(parsePrefs('{"activeStyle":"freecol"}').activeStyle).toBe('freecol');
   });
 
+  it('reads the palette and the font set, parchment and the default set unless stored otherwise', () => {
+    expect(parsePrefs(null)).toMatchObject({ palette: 'parchment', fonts: 'cinzel-noto' });
+    expect(parsePrefs('{"palette":"dark","fonts":"comic"}')).toMatchObject({ palette: 'dark', fonts: 'cinzel-noto' });
+    expect(parsePrefs('{"palette":"neon"}').palette).toBe('parchment');
+  });
+
   it('mutes the music and the sound effects apart, keeping their volumes', () => {
     const p = { ...DEFAULTS, freecol: { 'model.option.musicVolume': 40, 'model.option.soundEffectsVolume': 70 } };
     expect(volumes(p)).toEqual({ music: 40, effects: 70 });

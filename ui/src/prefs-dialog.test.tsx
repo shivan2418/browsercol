@@ -93,6 +93,19 @@ test("before the data loads, only FreeCol Online's own show", () => {
   expect(screen.getByText('Blink speed')).toBeTruthy();
 });
 
+test("the colours and the fonts are among FreeCol Online's own, and a pick changes them", () => {
+  const changed: Prefs[] = [];
+  const { container } = render(
+    <PreferencesDialog prefs={DEFAULTS} freecol={null} change={(p) => changed.push(p)} close={() => {}} />,
+  );
+  const colours = container.querySelector<HTMLSelectElement>('[data-pref="palette"] select')!;
+  expect([...colours.options].map((o) => o.textContent)).toEqual(['Parchment', 'Dark']);
+  fireEvent.change(colours, { target: { value: 'dark' } });
+  expect(changed.at(-1)).toEqual({ ...DEFAULTS, palette: 'dark' });
+  const fonts = container.querySelector<HTMLSelectElement>('[data-pref="fonts"] select')!;
+  expect(fonts.value).toBe('cinzel-noto');
+});
+
 test("the language's category says the Browser UI's own labels stay English", () => {
   const personal: OptionGroup = {
     ...freecol,

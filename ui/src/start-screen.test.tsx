@@ -160,6 +160,8 @@ test('links the source and opens the credits, which name the CC BY authors', () 
   const credits = screen.getByRole('dialog', { name: 'About FreeCol Online' });
   expect(credits.textContent).toContain('Alexander Zhelanov');
   expect(credits.textContent).toContain('CC BY 4.0');
+  expect(credits.querySelector('a[href$="OFL.txt"]')?.textContent).toBe('SIL OFL 1.1');
+  expect(credits.textContent).toContain('Cinzel font');
   fireEvent.click(screen.getByRole('button', { name: 'Close' }));
   expect(screen.queryByRole('dialog', { name: 'About FreeCol Online' })).toBeNull();
 });

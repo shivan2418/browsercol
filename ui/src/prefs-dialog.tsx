@@ -9,6 +9,7 @@ import { LANGUAGE_OPTION } from './language';
 import { OptionEditor } from './option-editor';
 import type { OptionGroup } from './options';
 import { ACTIVE_STYLES, DIMS, MUTES, SPEEDS, type ActiveStyle, type Dim, type Prefs, type Speed } from './prefs';
+import { FONT_SETS, PALETTES, type FontSet, type Palette } from './theme';
 
 const LABEL: Record<Speed, string> = { off: 'Off', slow: 'Slow', normal: 'Normal', fast: 'Fast' };
 
@@ -161,6 +162,26 @@ function OwnOptions({ prefs, change }: { prefs: Prefs; change: (p: Prefs) => voi
           {DIMS.map((d) => (
             <option key={d} value={d}>
               {DIM_LABEL[d]}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label data-pref="palette" style={{ display: 'flex', gap: 12, justifyContent: 'space-between', margin: '6px 0' }}>
+        Colours
+        <select value={prefs.palette} onChange={(e) => change({ ...prefs, palette: e.target.value as Palette })}>
+          {PALETTES.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label data-pref="fonts" style={{ display: 'flex', gap: 12, justifyContent: 'space-between', margin: '6px 0' }}>
+        Fonts
+        <select value={prefs.fonts} onChange={(e) => change({ ...prefs, fonts: e.target.value as FontSet })}>
+          {FONT_SETS.map((f) => (
+            <option key={f.id} value={f.id}>
+              {f.label}
             </option>
           ))}
         </select>
