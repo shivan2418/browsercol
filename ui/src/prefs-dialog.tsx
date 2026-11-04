@@ -200,7 +200,7 @@ export function PreferencesDialog({
                   {current.options.children.some((o) => o.id === LANGUAGE_OPTION) && (
                     <p data-note="language" className="prefs-note">
                       The language is that of FreeCol's own text: messages, reports, names and the Colopedia. FreeCol
-                      Online's own labels stay English.
+                      Online's own labels stay English. Autodetect follows the browser's language.
                     </p>
                   )}
                 </>

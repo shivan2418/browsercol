@@ -8,6 +8,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import net.sf.freecol.common.i18n.Messages;
+import net.sf.freecol.common.model.Game;
 
 
 /** The language option: the Engines load FreeCol's translation the page names. */
@@ -23,6 +24,23 @@ class LanguageTest {
     void theServerEngineSpeaksTheChosenLanguage() throws Exception {
         Language.set("de");
         new ServerEngine(xml -> {}).startGame("classic");
+        assertEquals("Sprache", Messages.message("model.option.languageOption.name"));
+    }
+
+    @Test
+    void theClientEngineSpeaksTheChosenLanguage() {
+        Language.set("de");
+        new ClientEngine(new ClientEngine.ServerLink() {
+                public void connect() {}
+                public void post(String xml) {}
+            }, new ClientEngine.Listener() {
+                public void gameStarted(Game game) {}
+                public void roundDone(int round, long millis) {}
+                public void finished(Game game) {}
+            }, new WebGUI.BrowserUI() {
+                public void show(String kind, String json) {}
+                public void ask(int id, String kind, String json) {}
+            });
         assertEquals("Sprache", Messages.message("model.option.languageOption.name"));
     }
 

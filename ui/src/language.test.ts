@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { languageName, pickLanguage, translationFiles } from './language';
 
-/** Some of the translations FreeCol ships, as their files name them. */
-const available = ['en', 'de', 'en_GB', 'es_ES', 'pt_BR', 'pt_PT', 'zh_CN', 'zh-hant', 'be-tarask', 'sr-ec'];
+/** Some of the translations FreeCol ships, as their files name them, in the bundle's order: English, then sorted. */
+const available = [
+  'en',
+  ...['de', 'en_GB', 'es_ES', 'pt_BR', 'pt_PT', 'zh_CN', 'zh-hant', 'be-tarask', 'sr-ec'].sort(),
+];
 
 describe('pickLanguage', () => {
   it('keeps a language the player picked', () => {
@@ -15,6 +18,12 @@ describe('pickLanguage', () => {
     expect(pickLanguage('automatic', available, ['en-GB'])).toBe('en_GB');
     expect(pickLanguage('automatic', available, ['es'])).toBe('es_ES');
     expect(pickLanguage('automatic', available, ['zh-TW'])).toBe('zh-hant');
+    // By language alone, a country's translation comes before a script's or a dialect's.
+    expect(pickLanguage('automatic', available, ['zh'])).toBe('zh_CN');
+    expect(pickLanguage('automatic', available, ['zh-SG'])).toBe('zh_CN');
+    expect(pickLanguage('automatic', available, ['zh-Hans'])).toBe('zh_CN');
+    expect(pickLanguage('automatic', available, ['be'])).toBe('be-tarask');
+    expect(pickLanguage('automatic', [...available, 'nb_NO'], ['no'])).toBe('nb_NO');
   });
 
   it('is English when the browser asks for none of them, or the pick is unknown', () => {
