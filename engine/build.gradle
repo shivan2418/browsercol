@@ -89,16 +89,16 @@ teavm {
                                : org.teavm.gradle.api.OptimizationLevel.BALANCED
     }
     wasmGC {
-        // -Pout=<name>: the module file name, e.g. server or client with
-        // -Pmain=online.freecol.web.WorkerMain or ClientMain.
-        targetFileName = "${project.findProperty('out') ?: 'engine'}.wasm"
-        // A named module gets a folder of its own. Each module's nested build
-        // keeps its own task history, and on a build with none Gradle deletes
-        // what it takes for stale output in the task's folder: in a shared
-        // one, the first client build removed the server's files (#165).
-        if (project.hasProperty('out')) {
-            relativePathInOutputDir = project.property('out') as String
-        }
+        // -Pout=<name>: the module's name, e.g. server or client with
+        // -Pmain=online.freecol.web.WorkerMain or ClientMain. It names the
+        // file and gives the module a folder of its own. Each module's nested
+        // build keeps its own task history, and on a build with none Gradle
+        // deletes what it takes for stale output in the task's folder: in a
+        // shared one, the first client build removed the server's files
+        // (#165). Without -Pout, engine.wasm lands in the default wasm-gc.
+        def module = project.findProperty('out') as String
+        targetFileName = "${module ?: 'engine'}.wasm"
+        if (module) relativePathInOutputDir = module
         obfuscated = release
     }
 }
