@@ -41,8 +41,6 @@ const goods: [string, string, string, number, number, boolean?][] = [
 
 export const europe: GuiEvents['europe'] = {
   title: 'Europe',
-  gold: 1234,
-  goldLabel: 'Gold',
   tally: {
     heading: 'Trade Advisor',
     tax: 20,

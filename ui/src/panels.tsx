@@ -1123,6 +1123,8 @@ const goodsDrag = (item: Item) => {
     const img = e.currentTarget.querySelector<HTMLElement>('img');
     if (img) e.dataTransfer.setDragImage?.(img, img.offsetWidth / 2, img.offsetHeight / 2);
   };
+  return { ...props, onDragStart };
+};
 
 /** A unit or ship of Europe's panel, with its picture. */
 function UnitChip({
@@ -1299,9 +1301,6 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
     <Panel d={d} ok={e.ok} lead={footer} closeKeys={EUROPE_KEYS}>
       <div className="europe-title">
         <h2>{e.title}</h2>
-        <span className="gold">
-          {e.goldLabel}: <b data-gold>{e.gold}</b>
-        </span>
       </div>
       {shop && shopPopup(shop)}
       <div className="europe-body">

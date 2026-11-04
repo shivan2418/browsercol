@@ -174,14 +174,12 @@ export interface GuiEvents {
   };
   /**
    * Europe, as FreeCol's EuropePanel shows it (the player recruits, trains and buys units there): the ships sailing each way, the ships in port,
-   * the units on the docks, the market and the gold. Texts are localized; images are resource keys, best
+   * the units on the docks and the market; the gold is the status line's. Texts are localized; images are resource keys, best
    * first. Market prices: sell is what Europe pays, buy what it asks. selected is the ship in port whose
    * cargo shows first.
    */
   europe: {
     title: string;
-    gold: number;
-    goldLabel: string;
     ok: string;
     headings: { toAmerica: string; toEurope: string; inPort: string; docks: string; cargo: string };
     toAmerica: EuropeUnit[];
