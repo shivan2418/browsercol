@@ -149,3 +149,17 @@ test('the map generator options are changed in the editor and sent as the preset
   fireEvent.click(document.querySelector('[data-start]')!);
   expect(started[0].options).toEqual({ 'model.option.mapWidth': 120 });
 });
+
+test('links the source and opens the credits, which name the CC BY authors', () => {
+  render(<StartScreen options={options} start={() => {}} />);
+  expect(screen.getByRole('link', { name: 'Source code' }).getAttribute('href')).toBe(
+    'https://github.com/shivan2418/freecol-online',
+  );
+  expect(screen.queryByRole('dialog', { name: 'About FreeCol Online' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Credits' }));
+  const credits = screen.getByRole('dialog', { name: 'About FreeCol Online' });
+  expect(credits.textContent).toContain('Alexander Zhelanov');
+  expect(credits.textContent).toContain('CC BY 4.0');
+  fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+  expect(screen.queryByRole('dialog', { name: 'About FreeCol Online' })).toBeNull();
+});

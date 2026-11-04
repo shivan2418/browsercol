@@ -31,6 +31,7 @@ import { debugMessage, debugMode, describeAnswer, type DebugRequest } from './de
 import { ColonyActions, ColonyTiles, type ColonyMoves, type DrawTiles } from './colony-panel';
 import { dialogs } from './dialogs';
 import { MENUS, MenuBar, framePlaces, goodsIcons, type Menu } from './frame';
+import { CreditsDialog } from './credits';
 import { gameMenu, ordersMenu, viewMenu, type MenuActions } from './menus';
 import { commandForKey, type Command } from './input';
 import { PreferencesDialog } from './prefs-dialog';
@@ -258,6 +259,8 @@ const reportActions: ReportActions = {
 /** The player's preferences, and whether their window is open. */
 let prefs: Prefs = prefsAtLoad;
 let prefsOpen = false;
+/** Whether the credits window (credits.tsx) is open. */
+let creditsOpen = false;
 /** FreeCol's music and sound effects, served under audio/ (build-audio.mjs); null if the manifest is missing. */
 const sound = fetch('audio/audio.json')
   .then((res) => (res.ok ? (res.json() as Promise<AudioManifest>) : Promise.reject(new Error(`${res.status}`))))
@@ -459,7 +462,16 @@ const currentMenus = (): Menu[] => {
     View: viewMenu(a),
     Orders: ordersMenu(a),
     Report: reportMenu(reportActions.open),
-    Colopedia: colopediaMenu(reportActions.open),
+    Colopedia: [
+      ...colopediaMenu(reportActions.open),
+      {
+        label: 'About FreeCol Online',
+        run: () => {
+          creditsOpen = true;
+          renderSide();
+        },
+      },
+    ],
   };
   return MENUS.map((name) => ({ name, items: items[name] ?? [] }));
 };
@@ -594,6 +606,14 @@ function renderSide() {
               change={setPrefs}
               close={() => {
                 prefsOpen = false;
+                renderSide();
+              }}
+            />
+          )}
+          {creditsOpen && (
+            <CreditsDialog
+              close={() => {
+                creditsOpen = false;
                 renderSide();
               }}
             />
