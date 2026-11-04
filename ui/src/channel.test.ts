@@ -136,6 +136,7 @@ const sayYes: GuiHandlers = {
     goods: () => null,
     negotiation: () => null,
     names: () => null,
+    father: () => null,
     warehouse: () => null,
     endTurn: () => null,
     preCombat: () => false,

@@ -133,6 +133,21 @@ const question = {
     ok: 'Liberty',
     cancel: 'Later',
   },
+  father: {
+    title: 'Nominate Founding Father',
+    ok: 'OK',
+    fathers: [
+      {
+        id: 'model.foundingFather.adamSmith',
+        kind: 'Trade',
+        name: 'Adam Smith',
+        description: 'Enables building of factories.',
+        born: '1723-1790',
+        text: 'Father of Modern Economics.',
+        keys: ['image.flavor.model.foundingFather.adamSmith'],
+      },
+    ],
+  },
 };
 
 describe('webGui', () => {
@@ -154,6 +169,7 @@ describe('webGui', () => {
           endTurn: (q) => (asked.push(q), { status: 'select', unit: q.units[0].id }),
           preCombat: (q) => (asked.push(q), false),
           amount: (q) => (asked.push(q), 35),
+          father: (q) => (asked.push(q), 0),
         },
       },
       a.answer,
@@ -171,6 +187,7 @@ describe('webGui', () => {
       [9, 'event'],
       [10, 'amount'],
       [11, 'warehouse'],
+      [12, 'father'],
     ] as const) {
       const arrived = a.next();
       gui.fcAsk(id, kind, JSON.stringify(question[kind]));
@@ -190,6 +207,7 @@ describe('webGui', () => {
       question.event,
       question.amount,
       question.warehouse,
+      question.father,
     ]);
     expect(a.got).toEqual([
       [1, 'true'],
@@ -203,6 +221,7 @@ describe('webGui', () => {
       [9, 'closed'],
       [10, '35'],
       [11, 'model.goods.food\ttrue\t10\t90\t-1\t60'],
+      [12, '0'],
     ]);
   });
 
@@ -221,6 +240,7 @@ describe('webGui', () => {
         goods: () => null,
         negotiation: () => null,
         names: () => null,
+        father: () => null,
         warehouse: () => null,
         endTurn: () => null,
         preCombat: () => false,
@@ -261,6 +281,7 @@ describe('webGui', () => {
           goods: () => null,
           negotiation: () => null,
           names: () => null,
+          father: () => null,
           warehouse: () => null,
           endTurn: () => null,
           preCombat: () => false,
