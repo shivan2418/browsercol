@@ -14,7 +14,7 @@ install:
 build *args:
     ./dev.sh ./build.sh {{args}}
 
-# Vite dev server with hot reload at the first free port from 5173 up, so worktrees can each run one (builds first if ui/generated/ is missing or older than the Engine's Java)
+# Vite dev server with hot reload at the first free port from 5173 up, so worktrees can each run one (builds first if ui/generated/ is missing or older than the Engine's Java; rebuilds the Engine and reloads the page when its Java changes)
 dev:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -22,7 +22,7 @@ dev:
     port={{port}}
     while (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null; do port=$((port + 1)); done
     echo "Dev server: http://localhost:$port"
-    DEV_PORT=$port ./dev.sh -C ui pnpm exec vp dev --host 0.0.0.0 --port "$port" --strictPort
+    DEV_PORT=$port ./dev.sh bash -c 'tools/watch-engine.sh & cd ui && exec pnpm exec vp dev --host 0.0.0.0 --port "$1" --strictPort' _ "$port"
 
 # Serve the built dist/ at http://localhost:5173
 preview:
