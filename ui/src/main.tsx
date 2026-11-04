@@ -19,13 +19,14 @@
 //                preset sets the nation, difficulty, options and map seed (debug)
 //   ?tileset=ID  a Tileset built beside the default, art/<ID>.json (e.g. test)
 //   ?renderer=canvas2d  draw with the Canvas 2D fallback, not PixiJS (debug)
-//   ?theme=dark  the dark palette of theme.css, in place of parchment
+//   ?theme=dark  the dark palette of theme.css, whatever the player picked in Preferences
 import clientUrl from '../generated/client.wasm?url';
 import dataUrl from '../generated/data.json?url';
 import runtimeUrl from '../generated/teavm-runtime.js?url';
 import { createPortal } from 'react-dom';
 import { createRoot, type Root } from 'react-dom/client';
 import './theme.css';
+import './fonts.css';
 import { startPage, type ClientExports, type Scope, type ToWorker } from './channel';
 import { debugMessage, debugMode, describeAnswer, type DebugRequest } from './debug';
 import { ColonyActions, ColonyTiles, type ColonyMoves, type DrawTiles } from './colony-panel';
@@ -81,6 +82,7 @@ import { Side, type SideProps } from './side';
 import { shownNotice, TurnBanner, turnNotice, type TurnFacts, type TurnNotice } from './turn-banner';
 import { ErrorBanner, addError, engineError, type GameError } from './errors';
 import { loadModule } from './teavm';
+import { applyTheme } from './theme';
 import { cursor, initialView, panel, reduce, tileOnScreen, W, type Tile, type ViewEvent, type ViewState } from './view';
 import type { GuiEvents, GuiHandlers } from './webgui';
 
@@ -152,8 +154,8 @@ const preset = params.get('preset');
 let skipStart = params.has('skipstart') || params.has('preset') || loadId !== undefined;
 const debug = debugMode(params);
 const tileset = params.get('tileset');
-const theme = params.get('theme');
-if (theme) document.documentElement.dataset.theme = theme;
+/** A palette named in the URL, over the player's own. */
+const urlPalette = params.get('theme');
 const mapHost = document.getElementById('map')!;
 /** The map's size: its host's box, which the page's CSS gives what the side panel leaves. */
 const mapSize = (): [number, number] => [mapHost.clientWidth, mapHost.clientHeight];
@@ -312,8 +314,9 @@ framePlaces.saved = () => {
     // They last until the page closes.
   }
 };
-/** The preferences the page's look follows: motion, dimming, and FreeCol's display scaling and font size. */
+/** The preferences the page's look follows: the theme, motion, dimming, and FreeCol's display scaling and font size. */
 function applyLook(p: Prefs) {
+  applyTheme(document.documentElement, p.palette, p.fonts, urlPalette);
   map.setMotion(moveMs(p), blinkMs(p), p.activeStyle);
   document.body.dataset.dimUnfocused = p.dimUnfocused;
   map.setColonyLabels(pageOption(p, 'model.option.displayColonyLabels') as ColonyLabels);

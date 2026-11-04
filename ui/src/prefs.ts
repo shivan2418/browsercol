@@ -5,6 +5,7 @@
 import { AUTOMATIC, LANGUAGE_OPTION } from './language';
 import type { MinimapOptions } from './minimap';
 import type { OptionGroup, OptionNode } from './options';
+import { FONT_SETS, isFontSet, isPalette, PALETTES, type FontSet, type Palette } from './theme';
 import type { TileText, ViewModes } from './tileset';
 
 /** A speed the player picks; each preference maps it to a duration. */
@@ -35,6 +36,10 @@ export interface Prefs {
   tutorial: boolean;
   /** Whether the turn ends by itself once no unit is left to move. */
   autoEndTurn: boolean;
+  /** The colours of menus, panels and windows (theme.css). */
+  palette: Palette;
+  /** The fonts of their text (fonts.css). */
+  fonts: FontSet;
   /** Whether the music is muted, whatever its volume option says. */
   muteMusic: boolean;
   /** Whether the sound effects are muted, whatever their volume option says. */
@@ -53,6 +58,8 @@ export const DEFAULTS: Prefs = {
   dimUnfocused: 'normal',
   tutorial: true,
   autoEndTurn: false,
+  palette: PALETTES[0].id,
+  fonts: FONT_SETS[0].id,
   muteMusic: false,
   muteEffects: false,
   freecol: {},
@@ -337,6 +344,8 @@ export function parsePrefs(text: string | null): Prefs {
       dimUnfocused: dim(o.dimUnfocused),
       tutorial: typeof o.tutorial === 'boolean' ? o.tutorial : DEFAULTS.tutorial,
       autoEndTurn: typeof o.autoEndTurn === 'boolean' ? o.autoEndTurn : DEFAULTS.autoEndTurn,
+      palette: isPalette(o.palette) ? o.palette : DEFAULTS.palette,
+      fonts: isFontSet(o.fonts) ? o.fonts : DEFAULTS.fonts,
       muteMusic: typeof o.muteMusic === 'boolean' ? o.muteMusic : DEFAULTS.muteMusic,
       muteEffects: typeof o.muteEffects === 'boolean' ? o.muteEffects : DEFAULTS.muteEffects,
       freecol: freecolValues(o.freecol),

@@ -14,3 +14,11 @@ The prototype that settled this is on branch `prototype/48-look` (#48), as look 
 - A new panel copies the layout of its Swing counterpart, so read FreeCol's source for it rather than design one.
 - No colour literal outside `theme.css`. `theme.test.ts` checks that `index.html` uses tokens only and that every palette sets every token.
 - Today's right-hand side panel is a debug scaffold, not part of this look.
+
+## Fonts (#166)
+
+The text uses a bundled font set rather than the system's fonts, so the game looks the same on Windows, Mac and Linux. The default set is Cinzel, Roman inscription capitals, on window title bars, and Noto Sans for everything else, body text and numbers included. The fonts are OFL-licensed woff2 subsets served from our own `dist/` (ADR 0001), declared in `ui/src/fonts.css` as two tokens, `--font` and `--font-title`. The palette and the font set together are the player's theme: both are in Preferences (`theme.ts`), and a new font set is one more `:root[data-fonts=…]` block plus an entry in `FONT_SETS`. The prototype that settled this is on branch `prototype/166-font`, as direction D.
+
+- No font family outside `fonts.css` and `--font-mono`; panels use the tokens.
+- A bundled font is credited in `credits.tsx` and ships its licence text beside its files.
+- Rejected for the default: Noto Sans alone (no period feel), and EB Garamond, IM Fell English or Goudy Bookletter 1911 for headings (heavier, and the last two have no Cyrillic). They remain candidates for further font sets.

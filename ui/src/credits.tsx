@@ -4,6 +4,9 @@
 // Opened from the start screen and from the Colopedia menu (FreeCol's About entry sits there too).
 import type { ReactNode } from 'react';
 import { WindowFrame } from './frame';
+// The fonts' licence texts, shipped in dist/ with the fonts (fonts.css).
+import cinzelOfl from './fonts/cinzel/OFL.txt?url';
+import notoSansOfl from './fonts/noto-sans/OFL.txt?url';
 
 export const SOURCE_URL = 'https://github.com/shivan2418/freecol-online';
 export const FREECOL_URL = 'https://github.com/FreeCol/freecol';
@@ -64,6 +67,18 @@ export const ASSET_CREDITS: readonly Credit[] = [
     what: 'Map backgrounds and report images',
     who: 'David Rumsey Map Collection',
     source: 'https://www.davidrumsey.com',
+  },
+  {
+    what: 'Noto Sans font',
+    who: 'The Noto Project Authors',
+    licence: { name: 'SIL OFL 1.1', url: notoSansOfl },
+    source: 'https://github.com/notofonts/latin-greek-cyrillic',
+  },
+  {
+    what: 'Cinzel font',
+    who: 'The Cinzel Project Authors (Natanael Gama)',
+    licence: { name: 'SIL OFL 1.1', url: cinzelOfl },
+    source: 'https://github.com/NDISCOVER/Cinzel',
   },
   { what: 'ShadowedBlack font', who: 'Paul Lloyd' },
   {
@@ -151,7 +166,7 @@ export function CreditsDialog({ close }: { close: () => void }) {
               FreeCol: <Link href={FREECOL_URL}>{FREECOL_URL}</Link>
             </li>
           </ul>
-          <h3>Art, music and sounds</h3>
+          <h3>Art, fonts, music and sounds</h3>
           <p>
             Most of FreeCol’s art, music and sounds are by the FreeCol Team under the GPL v2. These are by others, or
             under other licences:
