@@ -68,8 +68,7 @@ export function ordersMenu(a: MenuActions): Items {
     disabled: !a.ready || !a.orders.includes(name),
   });
   return [
-    // The Engine's order list has no colony entry; the Engine refuses a unit that can't found one.
-    { label: 'Build Colony', run: () => a.run({ k: 'buildColony' }), disabled: !a.ready || !a.hasActiveUnit },
+    order('Build Colony', 'buildColony', { k: 'buildColony' }),
     order('Fortify', 'fortify', { k: 'fortify' }),
     order('Sentry', 'sentry', { k: 'sentry' }),
     order('Skip', 'skip', { k: 'skip' }),
