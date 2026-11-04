@@ -4,8 +4,9 @@
 // save as a file, delete it, import the file again (a file that is not a save is
 // refused), check the export is byte for byte the import, load the save, check
 // it comes back at the saved turn with the saved active unit and the player's
-// turn, and play another turn. Exits non-zero unless every browser
-// gets there. The page's dialogs are answered as scripts/dialogs.mjs says.
+// turn, and play another turn. The page's autosaves sit in the list beside
+// the script's save, so the script finds its own row by name. Exits non-zero
+// unless every browser gets there. The page's dialogs are answered as scripts/dialogs.mjs says.
 // Run in the web image:
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/saves.mjs [--browsers chromium,firefox] [--keep-export DIR]
 // --keep-export copies each browser's exported .fsg to DIR (for tools/desktop-check.sh).
@@ -59,6 +60,30 @@ async function run(page, url, shot, browserName) {
   };
   const rows = () =>
     page.evaluate(() => [...document.querySelectorAll('#saves [data-save]')].map((r) => r.textContent ?? ''));
+  /** The rows of the script's own save, not the autosaves: their ids and text. */
+  const ownRows = () =>
+    page.evaluate(
+      (n) =>
+        [...document.querySelectorAll('#saves [data-save]')]
+          .map((r) => ({ id: r.getAttribute('data-save'), text: r.textContent ?? '' }))
+          .filter((r) => r.text.startsWith(`${n} |`)),
+      SAVE_NAME,
+    );
+  /** The one row of the script's save; throws, with the whole list, if there is not exactly one. */
+  const ownRow = async (what) => {
+    const own = await ownRows();
+    if (own.length !== 1) throw new Error(`${what}: ${JSON.stringify(await rows())}`);
+    return own[0];
+  };
+  /** Wait until the list shows `count` rows of the script's save. */
+  const waitOwn = (count) =>
+    page.waitForFunction(
+      ([n, c]) =>
+        [...document.querySelectorAll('#saves [data-save]')].filter((r) => r.textContent?.startsWith(`${n} |`))
+          .length === c,
+      [SAVE_NAME, count],
+      { timeout: 10000 },
+    );
 
   // 1. A new game, one turn played.
   await page.goto(url);
@@ -74,43 +99,37 @@ async function run(page, url, shot, browserName) {
   await page.waitForFunction((n) => document.querySelector('#save-note')?.textContent === `Saved: ${n}`, SAVE_NAME, {
     timeout: 60000,
   });
-  const [row] = await rows();
-  if (!row?.startsWith(`${SAVE_NAME} |`) || !row.includes(`turn ${played.turn}`)) {
-    throw new Error(`the save list does not show the save: ${JSON.stringify(row)}`);
+  await waitOwn(1);
+  const row = await ownRow('the save list does not show the save once');
+  if (!row.text.includes(`turn ${played.turn}`)) {
+    throw new Error(`the save list does not show the save: ${JSON.stringify(row.text)}`);
   }
 
   // 3. Reload: a new game starts, and the save is still listed.
   await page.goto(url);
   await finished();
-  await page.waitForFunction(() => document.querySelectorAll('#saves [data-save]').length > 0, null, {
-    timeout: 10000,
-  });
-  const listed = await rows();
-  if (listed.length !== 1 || !listed[0].startsWith(`${SAVE_NAME} |`)) {
-    throw new Error(`the save list after a reload: ${JSON.stringify(listed)}`);
-  }
+  await waitOwn(1);
+  const listed = await ownRow('the save list after a reload');
   const fresh = await view();
   if (fresh.turn === played.turn) throw new Error('the reloaded page is not a new game');
 
   // 4. Export it, delete it, import the file, and refuse a file that is no save.
-  const exportOne = async () => {
+  const exportOne = async (id) => {
     const [download] = await Promise.all([
       page.waitForEvent('download'),
-      page.click('#saves [data-save] [data-export]'),
+      page.click(`#saves [data-save="${id}"] [data-export]`),
     ]);
     const file = path.join(tmp, download.suggestedFilename());
     await download.saveAs(file);
     return { file, name: download.suggestedFilename(), bytes: fs.readFileSync(file) };
   };
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'saves-'));
-  const exported = await exportOne();
+  const exported = await exportOne(listed.id);
   if (exported.name !== `${SAVE_NAME}.fsg` || exported.bytes.subarray(0, 2).toString() !== 'PK') {
     throw new Error(`the export is ${exported.name}, ${exported.bytes.length} bytes, not a zip named for the save`);
   }
-  await page.click('#saves [data-save] [data-delete]');
-  await page.waitForFunction(() => document.querySelectorAll('#saves [data-save]').length === 0, null, {
-    timeout: 10000,
-  });
+  await page.click(`#saves [data-save="${listed.id}"] [data-delete]`);
+  await waitOwn(0);
   const junk = path.join(tmp, 'junk.fsg');
   fs.writeFileSync(junk, 'this is not a save');
   await page.setInputFiles('#import-file', junk);
@@ -121,16 +140,17 @@ async function run(page, url, shot, browserName) {
       timeout: 10000,
     },
   );
-  if ((await rows()).length !== 0) throw new Error('a file that is no save was imported');
+  if ((await ownRows()).length !== 0) throw new Error('a file that is no save was imported');
   await page.setInputFiles('#import-file', exported.file);
   await page.waitForFunction((n) => document.querySelector('#save-note')?.textContent === `Imported: ${n}`, SAVE_NAME, {
     timeout: 10000,
   });
-  const [imported] = await rows();
-  if (!imported?.startsWith(`${SAVE_NAME} |`) || !imported.includes(`turn ${played.turn}`)) {
-    throw new Error(`the save list does not show the import with its turn: ${JSON.stringify(imported)}`);
+  await waitOwn(1);
+  const imported = await ownRow('the save list does not show the import once');
+  if (!imported.text.includes(`turn ${played.turn}`)) {
+    throw new Error(`the save list does not show the import with its turn: ${JSON.stringify(imported.text)}`);
   }
-  const again = await exportOne();
+  const again = await exportOne(imported.id);
   if (!again.bytes.equals(exported.bytes)) throw new Error('the imported save exports as different bytes');
   if (keepExport) {
     fs.mkdirSync(keepExport, { recursive: true });
@@ -140,7 +160,7 @@ async function run(page, url, shot, browserName) {
 
   // 5. Load it: the page reloads on the saved game.
   await noDialog();
-  await Promise.all([page.waitForURL(/[?&]load=\d+/), page.click('#saves [data-save] [data-load]')]);
+  await Promise.all([page.waitForURL(/[?&]load=\d+/), page.click(`#saves [data-save="${imported.id}"] [data-load]`)]);
   await finished();
   const loaded = await view();
   if (loaded.turn !== played.turn || !loaded.ourTurn || loaded.activeUnit?.id !== active) {
