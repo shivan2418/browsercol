@@ -116,6 +116,30 @@ class ScenarioTest {
         assertTrue(menu.contains("\"icon\":\"image.icon.model.goods.cigars\""), menu);
     }
 
+    /**
+     * A session left open in one game (here the mercenaries the monarch
+     * offers when a player declares) does not block the next game, whose
+     * players have the same ids.
+     */
+    @Test
+    @Timeout(240)
+    void aNewGameForgetsTheLastGamesOpenSessions() throws Exception {
+        start("{\"seed\":1}");
+        final String id = client.getClient().getMyPlayer().getId();
+        new net.sf.freecol.server.model.MonarchSession(server.getGame().getFreeColGameObject(id,
+                net.sf.freecol.server.model.ServerPlayer.class),
+            net.sf.freecol.common.model.Monarch.MonarchAction.HESSIAN_MERCENARIES,
+            new java.util.ArrayList<>(), 100).register();
+
+        start("{\"seed\":1}");
+        assertEquals(id, client.getClient().getMyPlayer().getId(), "the same player id");
+        // The same offer in the new game.
+        new net.sf.freecol.server.model.MonarchSession(server.getGame().getFreeColGameObject(id,
+                net.sf.freecol.server.model.ServerPlayer.class),
+            net.sf.freecol.common.model.Monarch.MonarchAction.HESSIAN_MERCENARIES,
+            new java.util.ArrayList<>(), 100).register();
+    }
+
     @Test
     void aBadSetupIsRefusedWithItsReason() {
         final IllegalArgumentException ex = org.junit.jupiter.api.Assertions.assertThrows(
