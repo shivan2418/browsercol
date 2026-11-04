@@ -25,6 +25,12 @@ public final class ClientMain {
 
     private static ClientEngine engine;
     /**
+     * Client options the page set before the engine was made: the page sets
+     * the player's as the module loads, and the engine comes later, on its
+     * own thread. They are set on the engine once it is made.
+     */
+    private static final java.util.Map<String, String> earlyOptions = new java.util.LinkedHashMap<>();
+    /**
      * The player's commands: one at a time, in the order they came. A command
      * that comes while another runs waits its turn, instead of being lost.
      */
@@ -89,6 +95,12 @@ public final class ClientMain {
                                 ClientMain.ask(id, kind, json);
                             }
                         });
+                    synchronized (earlyOptions) {
+                        for (java.util.Map.Entry<String, String> e : earlyOptions.entrySet()) {
+                            engine.setClientOption(e.getKey(), e.getValue());
+                        }
+                        earlyOptions.clear();
+                    }
                     event("ready", "");
                 } catch (Throwable ex) {
                     ex.printStackTrace();
@@ -169,19 +181,25 @@ public final class ClientMain {
     /** The values of FreeCol's client options, by id, as JSON (ClientEngine.clientOptionValues). */
     @JSExport
     public static String clientOptionValues() {
-        return engine.clientOptionValues();
+        return (engine == null) ? "{}" : engine.clientOptionValues();
     }
 
     /** Set one of FreeCol's client options: "true", "false" or a whole number. Returns whether it took. */
     @JSExport
     public static boolean setClientOption(String id, String value) {
+        synchronized (earlyOptions) {
+            if (engine == null) {
+                earlyOptions.put(id, value);
+                return true;
+            }
+        }
         return engine.setClientOption(id, value);
     }
 
     /** Send the map again, as an option that changes it (display fog of war) asks. */
     @JSExport
     public static void refreshMap() {
-        command("refreshMap", () -> {});
+        if (engine != null && engine.getGame() != null) command("refreshMap", () -> {});
     }
 
     /** Ignore the turn report's message at an index, or stop ignoring it. */
