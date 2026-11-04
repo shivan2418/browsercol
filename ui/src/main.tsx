@@ -505,6 +505,8 @@ document.addEventListener('fullscreenchange', () => renderSide());
 const sideRoot = createRoot(document.getElementById('side')!);
 /** The layer of the windows over the page, outside the side panel. */
 const overlays = document.getElementById('overlays')!;
+/** The map's box, over which the turn banner is centred, clear of the side panel. */
+const gameBox = document.getElementById('game')!;
 function renderSide() {
   menuRoot.render(<MenuBar menus={currentMenus()} status={statusLine} />);
   sideRoot.render(
@@ -596,7 +598,7 @@ function renderSide() {
               }}
             />
           )}
-          <TurnBanner notice={shownNotice(banner, lastTurn, idleTurn)} />
+          {createPortal(<TurnBanner notice={shownNotice(banner, lastTurn, idleTurn)} />, gameBox)}
           {popup && (
             <PopupMenu popup={popup} run={(id) => menuClient?.menuEntry(id)} close={() => showPopup(null)} art={art} />
           )}

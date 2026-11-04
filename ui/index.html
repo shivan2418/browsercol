@@ -261,10 +261,10 @@
         padding-left: 24px;
         font-style: italic;
       }
-      /* The turn change banner (src/turn-banner.tsx), over the top of the map. */
+      /* The turn change banner (src/turn-banner.tsx), over the top of the map, centred on the map, not the window. */
       .turn-banner {
-        position: fixed;
-        top: 48px;
+        position: absolute;
+        top: 16px;
         left: 50%;
         transform: translateX(-50%);
         z-index: 5;
@@ -1593,7 +1593,7 @@
       </div>
       <div id="side"></div>
     </div>
-    <!-- The windows, popup menus and banner (src/main.tsx), outside the side panel, which may be hidden. -->
+    <!-- The windows and popup menus (src/main.tsx), outside the side panel, which may be hidden. -->
     <div id="overlays"></div>
     <script>
       (() => {
