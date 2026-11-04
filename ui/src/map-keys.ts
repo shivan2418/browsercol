@@ -69,6 +69,8 @@ export const PANEL_KEY_FAMILIES = {
 export const PANEL_KEYS = {
   /** The coin of a building's upkeep in the colony panel (ImageLibrary.ICON_COIN). */
   coin: 'image.icon.coin',
+  /** The compass rose over the map (ImageLibrary.getCompassRose), when the display compass rose option is on. */
+  compass: 'image.skin.compass',
 } as const;
 
 /**

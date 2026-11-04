@@ -206,7 +206,7 @@ describe('the panel keys', () => {
   it('are each a family or key of the lists, which the art build ships with the map keys', () => {
     expect(Object.keys(PANEL_KEY_FAMILIES)).toEqual(['goods', 'building', 'nation']);
     expect(EVENT_KEYS).toHaveLength(2);
-    expect(Object.keys(PANEL_KEYS)).toEqual(['coin']);
+    expect(Object.keys(PANEL_KEYS)).toEqual(['coin', 'compass']);
     expect(isArtKey('image.unit.model.unit.caravel')).toBe(true);
   });
 });

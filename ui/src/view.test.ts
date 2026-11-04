@@ -300,7 +300,8 @@ describe('edge scrolling', () => {
 describe('view modes', () => {
   it('switch the grid, borders and tile names on and off one by one', () => {
     const on = reduce(initialView, { k: 'toggle', mode: 'grid' });
-    expect(on.modes).toEqual({ grid: true, borders: false, names: false });
+    expect(on.modes).toEqual({ grid: true, borders: false, tileText: 0 });
     expect(reduce(on, { k: 'toggle', mode: 'grid' }).modes).toEqual(initialView.modes);
+    expect(reduce(on, { k: 'tileText', text: 3 }).modes).toEqual({ grid: true, borders: false, tileText: 3 });
   });
 });

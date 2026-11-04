@@ -15,8 +15,11 @@ function actions(over: Partial<MenuActions> = {}) {
     zoom: (n) => log.push(`zoom ${n}`),
     centreOnUnit: () => log.push('centre'),
     preferences: () => log.push('prefs'),
-    modes: { grid: false, borders: true, names: false },
+    modes: { grid: false, borders: true, tileText: 0 },
     toggleMode: (m) => log.push(`mode ${m}`),
+    setTileText: (t) => log.push(`tileText ${t}`),
+    fog: false,
+    toggleFog: () => log.push('fog'),
     fullScreen: false,
     toggleFullScreen: () => log.push('fullScreen'),
     sidePanel: true,
@@ -107,7 +110,10 @@ describe('the View menu', () => {
       'Europe',
       'Show Map Grid',
       'Show Borders',
+      'Show Fog of War',
       'Show Tile Names',
+      'Show Tile Owners',
+      'Show Tile Regions',
       'Show Side Panel',
       'Full Screen',
     ]);
@@ -115,7 +121,16 @@ describe('the View menu', () => {
     find(items, 'Zoom Out').run();
     find(items, 'Center on Active Unit').run();
     find(items, 'Europe').run();
-    for (const l of ['Show Map Grid', 'Show Borders', 'Show Tile Names', 'Show Side Panel', 'Full Screen']) {
+    for (const l of [
+      'Show Map Grid',
+      'Show Borders',
+      'Show Fog of War',
+      'Show Tile Names',
+      'Show Tile Owners',
+      'Show Tile Regions',
+      'Show Side Panel',
+      'Full Screen',
+    ]) {
       find(items, l).run();
     }
     expect(log).toEqual([
@@ -125,12 +140,24 @@ describe('the View menu', () => {
       'showEurope',
       'mode grid',
       'mode borders',
-      'mode names',
+      'fog',
+      'tileText 1',
+      'tileText 2',
+      'tileText 3',
       'sidePanel',
       'fullScreen',
     ]);
     expect(items.filter((i) => i.disabled)).toEqual([]);
     expect(items.filter((i) => i.checked).map((i) => i.label)).toEqual(['Show Borders', 'Show Side Panel']);
+  });
+
+  it('shows one tile text at a time, and a second pick of it turns it off', () => {
+    const { a, log } = actions({ modes: { grid: false, borders: false, tileText: 2 } });
+    const items = viewMenu(a);
+    expect(items.filter((i) => i.checked).map((i) => i.label)).toEqual(['Show Tile Owners', 'Show Side Panel']);
+    find(items, 'Show Tile Owners').run();
+    find(items, 'Show Tile Regions').run();
+    expect(log).toEqual(['tileText 0', 'tileText 3']);
   });
 
   it('disables centring without an active unit', () => {
