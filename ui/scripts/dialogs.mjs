@@ -65,6 +65,7 @@ export async function answerDialogs(page, shot = null) {
         input: () => pick('[data-answer=ok]'),
         amount: () => pick('[data-answer=ok]'),
         goods: () => pick('[data-answer=ok]'),
+        father: () => pick('[data-answer=ok]'),
         endTurn: () => pick('[data-answer=ok]'),
         preCombat: () => pick('[data-answer=ok]'),
         negotiation: () => pick('[data-answer=cancel]') || pick('[data-answer=send]'),
