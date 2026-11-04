@@ -71,7 +71,7 @@ import {
   type SaveMeta,
 } from './saves';
 import { Side, type SideProps } from './side';
-import { TurnBanner, turnNotice, type TurnFacts, type TurnNotice } from './turn-banner';
+import { shownNotice, TurnBanner, turnNotice, type TurnFacts, type TurnNotice } from './turn-banner';
 import { ErrorBanner, addError, engineError, type GameError } from './errors';
 import { loadModule } from './teavm';
 import { cursor, initialView, panel, reduce, tileOnScreen, W, type Tile, type ViewEvent, type ViewState } from './view';
@@ -239,6 +239,8 @@ let statusLine = '';
 /** The turn the last map was of, and the banner over the map about it (turn-banner.tsx). */
 let lastTurn: TurnFacts | null = null;
 let banner: TurnNotice | null = null;
+/** The turn in which the Engine last said no unit is left to move, so the banner says to end it. */
+let idleTurn: string | null = null;
 /** What the links in a report do, once the client Engine has loaded. */
 const reportActions: ReportActions = {
   open: (name) => colonyClient?.report(name),
@@ -572,7 +574,7 @@ function renderSide() {
               }}
             />
           )}
-          <TurnBanner notice={banner} />
+          <TurnBanner notice={shownNotice(banner, lastTurn, idleTurn)} />
           {popup && (
             <PopupMenu popup={popup} run={(id) => menuClient?.menuEntry(id)} close={() => showPopup(null)} art={art} />
           )}
@@ -644,6 +646,8 @@ const gui: GuiHandlers = {
       side.orders = e.orders;
       side.route = e.route;
       dispatch({ k: 'activeUnit', ...e, jump: pageOption(prefs, 'model.option.jumpToActiveUnit') });
+      idleTurn = e.unit === null && lastTurn?.ourTurn ? lastTurn.turn : null;
+      renderSide();
       // No unit left to move: end the turn, once for each turn (FreeCol's auto end turn option).
       if (e.unit === null && prefs.autoEndTurn && lastTurn?.ourTurn && autoEnded !== lastTurn.turn) {
         autoEnded = lastTurn.turn;
