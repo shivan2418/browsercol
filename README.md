@@ -152,3 +152,13 @@ version 2 or (at your option) any later version, the same terms as FreeCol
 itself; see `LICENSE`. FreeCol's art, music and sounds keep their own
 licences (mostly GPL v2, some CC BY or CC BY-SA), listed in the README next
 to each file under `freecol/data/`.
+
+## Credits
+
+FreeCol is by the FreeCol Team (https://github.com/FreeCol/freecol); this
+is an unofficial port. The game's music is by Alexander Zhelanov and Stian
+Grenborgen (CC BY 4.0), and some art comes from OpenGameArt, 0 A.D. and the
+David Rumsey Map Collection under CC BY, CC BY-SA or CC0. The full list,
+with links, is in the game's About window (Colopedia menu, or Credits on the
+start screen), kept in `ui/src/credits.tsx`. The Browser UI uses TeaVM
+(Apache 2.0), PixiJS and React (MIT).

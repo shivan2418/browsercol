@@ -9,6 +9,7 @@
 // [data-customize=map]; what the player changes goes to the Engine in the
 // preset's options.
 import { useMemo, useState } from 'react';
+import { CreditsDialog, SourceLinks } from './credits';
 import { OptionEditor } from './option-editor';
 import { leaves, type OptionGroup, type OptionValue } from './options';
 import type { StartChoice, StartOptions } from './start';
@@ -60,6 +61,7 @@ export function StartScreen({ options, start }: { options: StartOptions; start: 
   const gameGroup = useMemo(() => options.groups.game(), [options]);
   const mapGroup = useMemo(() => options.groups.mapGenerator(), [options]);
   const [mapEdits, setMapEdits] = useState<Record<string, OptionValue>>({});
+  const [credits, setCredits] = useState(false);
   return (
     <div className="start" data-testid="start">
       <form
@@ -145,6 +147,8 @@ export function StartScreen({ options, start }: { options: StartOptions; start: 
           </button>
         </div>
       </form>
+      <SourceLinks credits={() => setCredits(true)} />
+      {credits && <CreditsDialog close={() => setCredits(false)} />}
     </div>
   );
 }
