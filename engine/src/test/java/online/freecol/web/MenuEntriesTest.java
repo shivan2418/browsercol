@@ -79,6 +79,9 @@ class MenuEntriesTest {
         toClient.shutdownNow();
         toServer.shutdownNow();
         ui.shutdownNow();
+        // JUnit keeps each test's instance to the end of the run: let its game go.
+        server = null;
+        client = null;
     }
 
     /**
