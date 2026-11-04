@@ -642,6 +642,7 @@ const gui: GuiHandlers = {
     preCombat: (q) => dialogQueue.ask('preCombat', q),
     negotiation: (q) => dialogQueue.ask('negotiation', q),
     names: (q) => dialogQueue.ask('names', q),
+    father: (q) => dialogQueue.ask('father', q),
     warehouse: (q) => dialogQueue.ask('warehouse', q),
   },
 };

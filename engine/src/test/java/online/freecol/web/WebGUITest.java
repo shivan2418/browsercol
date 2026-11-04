@@ -542,8 +542,14 @@ class WebGUITest {
         gui.showChooseFoundingFatherDialog(ffs, got::complete);
         assertEquals(ffs.get(1), await(got));
         question = asked.get(asked.size() - 1);
-        assertTrue(question.startsWith("choice {"), question);
-        assertTrue(question.contains(Messages.getName(ffs.get(1))), question);
+        assertTrue(question.startsWith("father {"), question);
+        assertTrue(question.contains("\"name\":\"" + Messages.getName(ffs.get(1)) + "\""), question);
+        assertTrue(question.contains("\"description\":\""
+            + Messages.getDescription(ffs.get(1)) + "\""), question);
+        assertTrue(question.contains("\"kind\":\""
+            + Messages.message(ffs.get(1).getTypeKey()) + "\""), question);
+        assertTrue(question.contains("\"born\":\"" + Messages.message(
+            ffs.get(1).getId() + ".birthAndDeath") + "\""), question);
         answer = null;
         got = new CompletableFuture<>();
         gui.showChooseFoundingFatherDialog(ffs, got::complete);

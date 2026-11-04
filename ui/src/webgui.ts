@@ -555,6 +555,27 @@ export interface GuiQuestions {
     /** The settings of every goods, as they stand when OK is pressed; null for a closed dialog. */
     answer: { type: Id; exported: boolean; low: number; high: number; import: number | null; export: number }[] | null;
   };
+  /**
+   * FreeCol's choose founding father dialog: a tab per father offered, named by its kind (trade, political...),
+   * showing its portrait, what it does, its years and its story. OK nominates the open tab's father.
+   */
+  father: {
+    ask: {
+      title: string;
+      ok: string;
+      fathers: {
+        id: Id;
+        kind: string;
+        name: string;
+        description: string;
+        born: string;
+        text: string;
+        keys: string[];
+      }[];
+    };
+    /** The index of the father chosen, null for a closed dialog (which postpones the choice). */
+    answer: number | null;
+  };
   /** Text fields, each with its label and a suggestion (the new nation's names). */
   names: {
     ask: { text: string; fields: { label: string; value: string }[]; ok: string | null; cancel: string | null };
@@ -616,6 +637,7 @@ const encode: { [K in keyof GuiQuestions]: (answer: GuiQuestions[K]['answer']) =
   preCombat: (a) => String(a),
   choice: (a) => (a === null ? null : String(a)),
   input: (a) => a,
+  father: (a) => (a === null ? null : String(a)),
   amount: (a) => (a === null ? null : String(a)),
   goods: (a) => (a === null ? null : JSON.stringify(a)),
   // Java splits the answer at the line break, after the word.
