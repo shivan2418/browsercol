@@ -9,7 +9,7 @@
   },
   "setup": [
     { "action": "addColony" },
-    { "action": "addUnit", "type": "model.unit.freeColonist", "inColony": true },
+    { "action": "addUnit", "type": "model.unit.freeColonist", "inColony": true, "experience": 60, "experienceGoods": "model.goods.food" },
     { "action": "addUnit", "type": "model.unit.masterCarpenter", "inColony": true },
     { "action": "addUnit", "type": "model.unit.freeColonist", "inColony": true },
     { "action": "addBuilding", "type": "model.building.schoolhouse" },
