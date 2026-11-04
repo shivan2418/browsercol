@@ -345,7 +345,6 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
   };
   cssSize(width, height);
   const world = new Container();
-  (window as unknown as Record<string, unknown>).__pixiDebug = { app, world }; // [DEBUG-c7e1]
   const layers = [new Container(), new Container(), new Container(), new Container(), new Container()];
   world.addChild(...STACK.map((n) => layers[n]));
   app.stage.addChild(world);
