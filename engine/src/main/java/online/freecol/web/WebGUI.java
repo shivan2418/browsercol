@@ -67,7 +67,10 @@ import net.sf.freecol.common.option.OptionGroup;
  * <tr><th>GUI method</th><th>Sends</th><th>Payload; answer</th></tr>
  * <tr><td>invokeNowOrLater, invokeNowOrWait</td><td>nothing</td>
  *     <td>runs the task at once</td></tr>
- * <tr><td>playSound</td><td>nothing</td><td>no audio</td></tr>
+ * <tr><td>playSound</td><td>event sound</td>
+ *     <td>{key}: the sound's resource key, null to stop the sound effect;
+ *         the Browser UI plays it as GUI.playSound would, on the music
+ *         player if its .type is "music"</td></tr>
  * <tr><td>reconnectGUI</td><td>events activeUnit or selectedTile, focus</td>
  *     <td>as SwingGUI: the active unit, else the fallback tile, then the
  *         focus on its tile; tells the ClientEngine the game started</td></tr>
@@ -94,7 +97,9 @@ import net.sf.freecol.common.option.OptionGroup;
  * <tr><td>showInformationPanel(FreeColObject, StringTemplate)</td>
  *     <td>event information</td>
  *     <td>{text, object, tile, at, images, ok}; images are the resource
- *         keys of the object's image, best first, as ImageLibrary shows it</td></tr>
+ *         keys of the object's image, best first, as ImageLibrary shows it.
+ *         As SwingGUI, first the alert sound if the audio alerts option
+ *         is on</td></tr>
  * <tr><td>showErrorPanel(String, Runnable)</td><td>event error</td>
  *     <td>{text, ok}</td></tr>
  * <tr><td>showEventPanel(String, String, String)</td><td>event eventPanel</td>
@@ -693,7 +698,7 @@ public class WebGUI extends GUI {
 
     @Override
     public void playSound(String sound) {
-        // No audio in the browser slice.
+        this.ui.show("sound", new Json().put("key", sound).toString());
     }
 
     @Override
@@ -839,6 +844,9 @@ public class WebGUI extends GUI {
     @Override
     public FreeColPanel showInformationPanel(FreeColObject displayObject,
                                              StringTemplate template) {
+        if (getClientOptions().getBoolean(ClientOptions.AUDIO_ALERTS)) {
+            playSound("sound.event.alertSound");
+        }
         this.ui.show("information", tile(new Json()
             .put("text", Messages.message(template))
             .put("object", id(displayObject)), tileOf(displayObject))
