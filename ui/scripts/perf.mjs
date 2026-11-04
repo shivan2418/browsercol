@@ -82,9 +82,11 @@ await page.addInitScript(() => {
     }
   }
   // Each Canvas 2D drawImage's time (the minimap, the Canvas 2D map).
-  const blit = w.CanvasRenderingContext2D.prototype.drawImage;
+  // Taken with Reflect.get, as the wrapper calls it with its own `this`.
+  const ctx2d = w.CanvasRenderingContext2D.prototype;
+  const blit = Reflect.get(ctx2d, 'drawImage');
   const skipMinimap = new URLSearchParams(location.search).has('perfnominimap');
-  w.CanvasRenderingContext2D.prototype.drawImage = function (...a) {
+  ctx2d.drawImage = function (...a) {
     if (skipMinimap && this.canvas.closest?.('#minimap')) return;
     w.__perf.blits.push(performance.now());
     return blit.apply(this, a);
@@ -295,7 +297,7 @@ for (const p of phases) {
   const cells = watched.map((k) => {
     // Tasks nest (a task run inside another's), so the busy time is the union of their spans.
     const spans = events
-      .filter((e) => e.ph === 'X' && e.dur && `${e.pid}:${e.tid}` === k && /RunTask$/.test(e.name))
+      .filter((e) => e.ph === 'X' && e.dur && `${e.pid}:${e.tid}` === k && e.name.endsWith('RunTask'))
       .map((e) => [Math.max(e.ts, lo), Math.min(e.ts + e.dur, hi)])
       .filter(([a, b]) => b > a)
       .sort((a, b) => a[0] - b[0]);
