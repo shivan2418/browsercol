@@ -23,6 +23,7 @@
 import clientUrl from '../generated/client.wasm?url';
 import dataUrl from '../generated/data.json?url';
 import runtimeUrl from '../generated/teavm-runtime.js?url';
+import { createPortal } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import './theme.css';
 import { startPage, type ClientExports, type Scope, type ToWorker } from './channel';
@@ -333,8 +334,7 @@ function toggleSidePanel() {
   }
   renderSide();
 }
-// The fold-in tab on the panel's edge, and Shift+F11, show or hide it too.
-document.getElementById('side-tab')?.addEventListener('click', toggleSidePanel);
+// Shift+F11 shows or hides it too.
 addEventListener(
   'keydown',
   (e) => {
@@ -438,6 +438,8 @@ const contextMenus: ContextMenus = {
 };
 document.addEventListener('fullscreenchange', () => renderSide());
 const sideRoot = createRoot(document.getElementById('side')!);
+/** The layer of the windows over the page, outside the side panel. */
+const overlays = document.getElementById('overlays')!;
 function renderSide() {
   menuRoot.render(<MenuBar menus={currentMenus()} status={statusLine} />);
   sideRoot.render(
@@ -490,45 +492,51 @@ function renderSide() {
             .finally(listSaves);
         }}
       />
-      <ColonyTiles.Provider value={drawColonyTiles}>
-        <ColonyActions.Provider value={colonyMoves}>
-          <ContextMenuContext.Provider value={contextMenus}>
-            <ReportContext.Provider value={reportActions}>
-              <DialogHost
-                dialogs={dialogQueue}
-                goTo={(at) => dispatch({ k: 'focus', tile: null, at })}
-                art={art}
-                colopedia={(type) => menuClient?.menuEntry(`colopedia:${type}`)}
-                string={(key) => map.resources()?.string(key) ?? ''}
-                report={{
-                  groupBy: (value) => reportButtons.groupBy(value),
-                  filter: (index, shown) => reportButtons.filter(index, shown),
-                  ignore: (index, ignore) => reportButtons.ignore(index, ignore),
-                }}
-                routes={{
-                  save: (d) => routeButtons.save(d),
-                  remove: (id) => routeButtons.remove(id),
-                  assign: (unit, route) => routeButtons.assign(unit, route),
-                }}
-              />
-            </ReportContext.Provider>
-          </ContextMenuContext.Provider>
-        </ColonyActions.Provider>
-      </ColonyTiles.Provider>
-      {prefsOpen && (
-        <PreferencesDialog
-          prefs={prefs}
-          freecol={freecolOptions}
-          change={setPrefs}
-          close={() => {
-            prefsOpen = false;
-            renderSide();
-          }}
-        />
-      )}
-      <TurnBanner notice={banner} />
-      {popup && (
-        <PopupMenu popup={popup} run={(id) => menuClient?.menuEntry(id)} close={() => showPopup(null)} art={art} />
+      {/* The windows, popup and banner go in their own layer: hiding the side panel must not hide them. */}
+      {createPortal(
+        <>
+          <ColonyTiles.Provider value={drawColonyTiles}>
+            <ColonyActions.Provider value={colonyMoves}>
+              <ContextMenuContext.Provider value={contextMenus}>
+                <ReportContext.Provider value={reportActions}>
+                  <DialogHost
+                    dialogs={dialogQueue}
+                    goTo={(at) => dispatch({ k: 'focus', tile: null, at })}
+                    art={art}
+                    colopedia={(type) => menuClient?.menuEntry(`colopedia:${type}`)}
+                    string={(key) => map.resources()?.string(key) ?? ''}
+                    report={{
+                      groupBy: (value) => reportButtons.groupBy(value),
+                      filter: (index, shown) => reportButtons.filter(index, shown),
+                      ignore: (index, ignore) => reportButtons.ignore(index, ignore),
+                    }}
+                    routes={{
+                      save: (d) => routeButtons.save(d),
+                      remove: (id) => routeButtons.remove(id),
+                      assign: (unit, route) => routeButtons.assign(unit, route),
+                    }}
+                  />
+                </ReportContext.Provider>
+              </ContextMenuContext.Provider>
+            </ColonyActions.Provider>
+          </ColonyTiles.Provider>
+          {prefsOpen && (
+            <PreferencesDialog
+              prefs={prefs}
+              freecol={freecolOptions}
+              change={setPrefs}
+              close={() => {
+                prefsOpen = false;
+                renderSide();
+              }}
+            />
+          )}
+          <TurnBanner notice={banner} />
+          {popup && (
+            <PopupMenu popup={popup} run={(id) => menuClient?.menuEntry(id)} close={() => showPopup(null)} art={art} />
+          )}
+        </>,
+        overlays,
       )}
     </>,
   );
