@@ -115,6 +115,73 @@ final class OptionsJson {
     }
 
     /**
+     * The values of a group's boolean, integer and select options, by id,
+     * nested groups included: {@code {id: value}}.
+     *
+     * @param group The group.
+     * @return The JSON object.
+     */
+    static Json values(OptionGroup group) {
+        final Json out = new Json();
+        addValues(out, group);
+        return out;
+    }
+
+    private static void addValues(Json out, OptionGroup group) {
+        for (Option<?> o : group.getOptions()) {
+            if (o instanceof OptionGroup) {
+                addValues(out, (OptionGroup)o);
+            } else if (o instanceof BooleanOption) {
+                out.put(o.getId(), ((BooleanOption)o).getValue());
+            } else if (o instanceof IntegerOption) { // and select and range options
+                out.put(o.getId(), ((IntegerOption)o).getValue());
+            }
+        }
+    }
+
+    /**
+     * Set a boolean, integer or select option of a group, as the options
+     * dialog does when the player changes it.
+     *
+     * @param group The group.
+     * @param id The option's id.
+     * @param value "true" or "false", or a whole number.
+     * @return True if the group has such an option and the value fits it.
+     */
+    static boolean set(OptionGroup group, String id, String value) {
+        final Option<?> o = group.getOption(id);
+        if (o instanceof BooleanOption) {
+            if (!"true".equals(value) && !"false".equals(value)) return false;
+            ((BooleanOption)o).setValue(Boolean.valueOf(value));
+            return true;
+        }
+        if (o instanceof SelectOption) {
+            final int n;
+            try {
+                n = Integer.parseInt(value);
+            } catch (NumberFormatException e) {
+                return false;
+            }
+            if (!((SelectOption)o).getItemValues().containsKey(n)) return false;
+            ((SelectOption)o).setValue(n);
+            return true;
+        }
+        if (o instanceof IntegerOption) {
+            final IntegerOption i = (IntegerOption)o;
+            final int n;
+            try {
+                n = Integer.parseInt(value);
+            } catch (NumberFormatException e) {
+                return false;
+            }
+            if (n < i.getMinimumValue() || n > i.getMaximumValue()) return false;
+            i.setValue(n);
+            return true;
+        }
+        return false;
+    }
+
+    /**
      * The payload of the options event.
      *
      * @param kind "difficulty" or "game".

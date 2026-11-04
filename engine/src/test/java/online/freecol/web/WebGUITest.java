@@ -401,6 +401,41 @@ class WebGUITest {
 
     @Test
     @Timeout(120)
+    void thePreferencesWindowReadsAndSetsTheClientOptions() throws Exception {
+        final ClientEngine client = startGame();
+        final ClientOptions options = client.getClient().getClientOptions();
+        final Map<?, ?> values = (Map<?, ?>)JsonReader.read(client.clientOptionValues());
+        assertEquals(true, values.get(ClientOptions.SHOW_PRECOMBAT), "a boolean, nested in its group");
+        assertEquals(0L, values.get(ClientOptions.INDIAN_DEMAND_RESPONSE), "a select option");
+        assertEquals(0L, values.get(ClientOptions.MIN_NUMBER_FOR_DISPLAYING_GOODS), "an integer");
+        assertFalse(values.containsKey(ClientOptions.AUTO_SAVE_PREFIX), "text is left out");
+
+        assertTrue(client.setClientOption(ClientOptions.SHOW_PRECOMBAT, "false"));
+        assertFalse(options.getBoolean(ClientOptions.SHOW_PRECOMBAT));
+        assertTrue(client.setClientOption(ClientOptions.INDIAN_DEMAND_RESPONSE,
+            String.valueOf(ClientOptions.INDIAN_DEMAND_RESPONSE_REJECT)));
+        assertEquals(ClientOptions.INDIAN_DEMAND_RESPONSE_REJECT,
+            options.getInteger(ClientOptions.INDIAN_DEMAND_RESPONSE));
+        assertTrue(client.setClientOption(ClientOptions.MIN_NUMBER_FOR_DISPLAYING_GOODS, "40"));
+        assertEquals(40, options.getInteger(ClientOptions.MIN_NUMBER_FOR_DISPLAYING_GOODS));
+        assertEquals(false, ((Map<?, ?>)JsonReader.read(client.clientOptionValues()))
+            .get(ClientOptions.SHOW_PRECOMBAT), "the values follow");
+
+        // A value that does not fit is refused and changes nothing.
+        assertFalse(client.setClientOption(ClientOptions.SHOW_PRECOMBAT, "yes"));
+        assertFalse(client.setClientOption(ClientOptions.INDIAN_DEMAND_RESPONSE, "7"));
+        assertFalse(client.setClientOption(ClientOptions.MIN_NUMBER_FOR_DISPLAYING_GOODS, "101"));
+        assertFalse(client.setClientOption(ClientOptions.MIN_NUMBER_FOR_DISPLAYING_GOODS, "x"));
+        assertFalse(client.setClientOption(ClientOptions.AUTO_SAVE_PREFIX, "1"));
+        assertFalse(client.setClientOption("model.option.noSuchOption", "true"));
+        assertFalse(options.getBoolean(ClientOptions.SHOW_PRECOMBAT));
+        assertEquals(ClientOptions.INDIAN_DEMAND_RESPONSE_REJECT,
+            options.getInteger(ClientOptions.INDIAN_DEMAND_RESPONSE));
+        assertEquals(40, options.getInteger(ClientOptions.MIN_NUMBER_FOR_DISPLAYING_GOODS));
+    }
+
+    @Test
+    @Timeout(120)
     void theTurnReportsButtonsFilterAndIgnoreMessages() throws Exception {
         final ClientEngine client = startGame();
         final WebGUI gui = (WebGUI)client.getClient().getGUI();

@@ -165,6 +165,18 @@ public final class ClientMain {
         engine.reportFilter(index, shown);
     }
 
+    /** The values of FreeCol's client options, by id, as JSON (ClientEngine.clientOptionValues). */
+    @JSExport
+    public static String clientOptionValues() {
+        return engine.clientOptionValues();
+    }
+
+    /** Set one of FreeCol's client options: "true", "false" or a whole number. Returns whether it took. */
+    @JSExport
+    public static boolean setClientOption(String id, String value) {
+        return engine.setClientOption(id, value);
+    }
+
     /** Ignore the turn report's message at an index, or stop ignoring it. */
     @JSExport
     public static void reportIgnore(int index, boolean ignore) {
