@@ -195,6 +195,16 @@ class SelectDestinationTest {
         return (java.util.Map<String, Object>)JsonReader.read(json);
     }
 
+    /** The JSON of the last Europe panel the WebGUI sent; fails if none. */
+    private String lastEurope() {
+        String found = null;
+        for (String e : new ArrayList<>(shown)) {
+            if (e.startsWith("europe ")) found = e.substring("europe ".length());
+        }
+        assertNotNull(found, "no Europe panel was sent: " + shown);
+        return found;
+    }
+
     /** The Europe panel as the client describes it now. */
     private java.util.Map<String, Object> europePanel(Player player) {
         return parse(EuropeJson.of(player, active()));
@@ -426,6 +436,37 @@ class SelectDestinationTest {
         awaitGold(gold - recruitPrice);
         panel = europePanel(player);
         assertEquals(docks + 1, unitIds(panel, "docks").size());
+
+        // The recruit's menu commissions it as a missionary, free in
+        // Europe, and the Europe panel is sent again with its new picture.
+        final List<String> before = new ArrayList<>(unitIds(europePanel(player), "docks"));
+        final String recruitId = before.stream()
+            .filter(id -> client.getGame().getFreeColGameObject(id, Unit.class)
+                .getRole().isDefaultRole())
+            .findFirst().orElseThrow();
+        final Unit dressed = client.getGame().getFreeColGameObject(recruitId, Unit.class);
+        final Menus menus = client.getMenus();
+        final String commission = "role:" + recruitId + ",model.role.missionary,1";
+        assertTrue(menus.unit(recruitId).contains("\"id\":\"" + commission + "\""),
+            menus.unit(recruitId));
+        shown.clear();
+        assertTrue(client.getCommands().menuEntry(commission), "commissioned");
+        assertEquals("model.role.missionary", server.getGame()
+            .getFreeColGameObject(recruitId, Unit.class).getRole().getId());
+        assertEquals("model.role.missionary", dressed.getRole().getId(),
+            "the client knows it");
+        String missionaryKey = "image.unit." + dressed.getType().getId() + ".missionary";
+        assertTrue(lastEurope().contains(missionaryKey),
+            "the panel is sent again with the missionary's picture: " + shown);
+        // ... and cancelling the commission makes it a colonist again.
+        final String cancel = "role:" + recruitId + ",model.role.default,0";
+        assertTrue(menus.unit(recruitId).contains("\"id\":\"" + cancel + "\""),
+            menus.unit(recruitId));
+        shown.clear();
+        assertTrue(client.getCommands().menuEntry(cancel), "commission cancelled");
+        assertTrue(dressed.getRole().isDefaultRole());
+        assertFalse(lastEurope().contains(missionaryKey),
+            "the panel is sent again without it: " + shown);
 
         // Train a specialist.
         final String trained = offers(panel, "train").keySet().iterator().next();

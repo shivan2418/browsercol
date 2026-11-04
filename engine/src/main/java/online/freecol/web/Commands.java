@@ -562,10 +562,24 @@ public final class Commands {
         return true;
     }
 
-    /** Make a colonist an ordinary one again (QuickActionMenu's "clear speciality"). */
+    /**
+     * Make a colonist an ordinary one again (QuickActionMenu's "clear
+     * speciality"). In Europe the panel is sent again, for the new picture.
+     */
     private boolean clearSpeciality(String unitId) {
         final Unit unit = ours(unitId);
-        return unit != null && igc().clearSpeciality(unit);
+        if (unit == null) return false;
+        final boolean done = igc().clearSpeciality(unit);
+        europeAgain(unit);
+        return done;
+    }
+
+    /**
+     * Send the Europe panel again after a change to a unit there: the colony
+     * panels follow every command's map, but the Europe panel only this.
+     */
+    private void europeAgain(Unit unit) {
+        if (unit.isInEurope()) gui().showEuropePanel();
     }
 
     /** Put a colonist to school under a teacher (QuickActionMenu's "assign to teacher"). */
@@ -575,12 +589,18 @@ public final class Commands {
         return student != null && teacher != null && igc().assignTeacher(student, teacher);
     }
 
-    /** Equip a unit for a role (QuickActionMenu's role entries). */
+    /**
+     * Equip a unit for a role (QuickActionMenu's role entries). In Europe the
+     * panel is sent again, for the unit's new picture and the gold paid.
+     */
     private boolean takeRole(String unitId, String roleId, int count) {
         final Unit unit = ours(unitId);
         if (unit == null) return false;
         for (net.sf.freecol.common.model.Role r : unit.getAvailableRoles(null).collect(java.util.stream.Collectors.toList())) {
-            if (r.getId().equals(roleId)) return igc().equipUnitForRole(unit, r, count);
+            if (!r.getId().equals(roleId)) continue;
+            final boolean done = igc().equipUnitForRole(unit, r, count);
+            europeAgain(unit);
+            return done;
         }
         return false;
     }
