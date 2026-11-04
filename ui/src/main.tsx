@@ -257,6 +257,17 @@ function toggleSidePanel() {
   }
   renderSide();
 }
+// The fold-in tab on the panel's edge, and Shift+F11, show or hide it too.
+document.getElementById('side-tab')?.addEventListener('click', toggleSidePanel);
+addEventListener(
+  'keydown',
+  (e) => {
+    if (e.key !== 'F11' || !e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return;
+    e.preventDefault();
+    toggleSidePanel();
+  },
+  { capture: true },
+);
 /** Whether the client Engine has loaded, so the menus' game commands work. */
 let menuReady = false;
 /** What the Game, Orders and View menus do (menus.ts). */

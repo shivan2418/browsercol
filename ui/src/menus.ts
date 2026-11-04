@@ -87,7 +87,7 @@ export function viewMenu(a: MenuActions): Items {
     { label: 'Show Map Grid', run: () => a.toggleMode('grid'), checked: a.modes.grid },
     { label: 'Show Borders', run: () => a.toggleMode('borders'), checked: a.modes.borders },
     { label: 'Show Tile Names', run: () => a.toggleMode('names'), checked: a.modes.names },
-    { label: 'Show Side Panel', run: a.toggleSidePanel, checked: a.sidePanel },
+    { label: 'Show Side Panel', run: a.toggleSidePanel, checked: a.sidePanel, hint: 'Shift+F11' },
     { label: 'Full Screen', run: a.toggleFullScreen, checked: a.fullScreen },
   ];
 }
