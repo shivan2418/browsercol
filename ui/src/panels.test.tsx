@@ -1579,6 +1579,17 @@ describe('the Europe panel', () => {
     expect(calls).toEqual(['sail unit:2']);
   });
 
+  it('drags a goods of the market by its picture alone, without its prices', () => {
+    const { box } = host();
+    const market = europe.market.map((g) => ({ ...g, images: ['image.unit.model.unit.caravel'] }));
+    act(() => box.show('europe', { ...europe, market }));
+    const shown: Element[] = [];
+    const dataTransfer = { setData() {}, effectAllowed: '', setDragImage: (el: Element) => shown.push(el) };
+    const good = document.querySelector('[data-goods="model.goods.food"]')!;
+    fireEvent.dragStart(good, { dataTransfer });
+    expect(shown).toEqual([good.querySelector('img')]);
+  });
+
   it('has nothing to sail with no ship in port', () => {
     const { box } = host();
     act(() => box.show('europe', { ...europe, inPort: [], selected: null }));
