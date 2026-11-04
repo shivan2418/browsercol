@@ -32,8 +32,14 @@ import net.sf.freecol.server.generator.SimpleMapGenerator;
  *   "difficulty": "model.difficulty.medium",
  *   "nation": "model.nation.england",
  *   "seed": 42,
- *   "options": { "model.option.mapWidth": 200, "model.option.fogOfWar": false } }
+ *   "options": { "model.option.mapWidth": 200, "model.option.fogOfWar": false },
+ *   "setup": [ { "action": "addColony" },
+ *              { "action": "addBuilding", "type": "model.building.schoolhouse" } ] }
  * </pre>
+ *
+ * The {@code setup} is a scenario: debug requests ({@link DebugActions}) the
+ * Engine runs, in order, once the game has started ({@link ServerEngine#setup}).
+ * A request with no x and y acts where the last colony or request was.
  *
  * Every key is optional. An unknown key, option or id fails with a message
  * naming it; nothing falls back to a default silently.
@@ -56,9 +62,21 @@ public final class GamePreset {
     public final Long seed;
     /** Option id to value: a Boolean, Long or String. */
     public final Map<String, Object> options;
+    /**
+     * The debug requests (see {@link DebugActions}) that set up the game
+     * state once the game has started, in order: a scenario.
+     */
+    public final List<Map<?, ?>> setup;
 
     public GamePreset(String rules, String difficulty, String nation,
                       Long seed, Map<String, Object> options) {
+        this(rules, difficulty, nation, seed, options, new ArrayList<>());
+    }
+
+    public GamePreset(String rules, String difficulty, String nation,
+                      Long seed, Map<String, Object> options,
+                      List<Map<?, ?>> setup) {
+        this.setup = new ArrayList<>(setup);
         this.rules = rules;
         this.difficulty = difficulty;
         this.nation = nation;
@@ -85,6 +103,7 @@ public final class GamePreset {
         String rules = null, difficulty = null, nation = null;
         Long seed = null;
         Map<String, Object> options = new LinkedHashMap<>();
+        List<Map<?, ?>> setup = new ArrayList<>();
         for (Map.Entry<?, ?> e : ((Map<?, ?>)top).entrySet()) {
             String key = (String)e.getKey();
             Object v = e.getValue();
@@ -101,12 +120,21 @@ public final class GamePreset {
                     options.put((String)oe.getKey(), oe.getValue());
                 }
                 break;
+            case "setup":
+                if (!(v instanceof List)) {
+                    throw bad("\"setup\" is a list of debug requests");
+                }
+                for (Object o : (List<?>)v) {
+                    if (!(o instanceof Map)) throw bad("a \"setup\" request is an object");
+                    setup.add((Map<?, ?>)o);
+                }
+                break;
             default:
                 throw bad("unknown key \"" + key
-                    + "\" (known: rules, difficulty, nation, seed, options)");
+                    + "\" (known: rules, difficulty, nation, seed, options, setup)");
             }
         }
-        return new GamePreset(rules, difficulty, nation, seed, options);
+        return new GamePreset(rules, difficulty, nation, seed, options, setup);
     }
 
     private static String string(String key, Object v) {

@@ -7,6 +7,7 @@ import java.util.Set;
 
 import net.sf.freecol.common.debug.FreeColDebugger;
 import net.sf.freecol.common.i18n.Messages;
+import net.sf.freecol.common.model.BuildingType;
 import net.sf.freecol.common.model.Colony;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.option.GameOptions;
@@ -20,6 +21,7 @@ import net.sf.freecol.common.model.UnitType;
 import net.sf.freecol.common.networking.ChangeSet;
 import net.sf.freecol.common.networking.ChangeSet.See;
 import net.sf.freecol.server.ai.AIMain;
+import net.sf.freecol.server.control.InGameController;
 import net.sf.freecol.server.ai.AIUnit;
 import net.sf.freecol.server.ai.mission.Mission;
 import net.sf.freecol.server.ai.mission.TransportMission;
@@ -58,13 +60,18 @@ final class DebugActions {
     private final ServerGame sGame;
     private final Player human;
     private final AIMain aiMain;
+    private final InGameController igc;
+    /** The tile the last colony or request named: where a request with no x and y acts. */
+    private Tile focus = null;
 
     /**
      * @param game The server's game.
      * @param human The human player, or null if there is none.
      * @param aiMain The server's AI, to show what it plans.
+     * @param igc The server's in-game controller, to found colonies as it does.
      */
-    DebugActions(Game game, Player human, AIMain aiMain) {
+    DebugActions(Game game, Player human, AIMain aiMain, InGameController igc) {
+        this.igc = igc;
         this.game = game;
         this.sGame = (ServerGame)game;
         this.human = human;
@@ -75,18 +82,25 @@ final class DebugActions {
     String run(String request) {
         Object top = JsonReader.read(request);
         if (!(top instanceof Map)) throw bad("a request is a JSON object");
-        Map<?, ?> r = (Map<?, ?>)top;
+        return run((Map<?, ?>)top);
+    }
+
+    /** Run a request already read. */
+    String run(Map<?, ?> r) {
         Object action = r.get("action");
         if (!(action instanceof String)) throw bad("a request has an \"action\"");
         switch ((String)action) {
         case "revealMap": return revealMap(!Boolean.FALSE.equals(r.get("reveal")));
         case "addGold": return addGold(integer(r, "amount"));
-        case "addUnit": return addUnit(string(r, "type"), integer(r, "x"), integer(r, "y"));
+        case "addColony": return addColony(r);
+        case "addBuilding": return addBuilding(string(r, "type"), r);
+        case "addUnit": return addUnit(string(r, "type"), at(r),
+            Boolean.TRUE.equals(r.get("inColony")));
         case "addGoods": return addGoods(string(r, "type"), integer(r, "amount"), r);
         case "aiView": return aiView();
         default:
             throw bad("unknown action \"" + action + "\" (known: revealMap, addGold,"
-                + " addUnit, addGoods, aiView)");
+                + " addColony, addBuilding, addUnit, addGoods, aiView)");
         }
     }
 
@@ -109,6 +123,18 @@ final class DebugActions {
     private ServerPlayer me() {
         if (this.human == null) throw bad("there is no human player");
         return (ServerPlayer)this.human;
+    }
+
+    /**
+     * The tile a request names by x and y, else the one the last colony or
+     * request named.
+     */
+    private Tile at(Map<?, ?> r) {
+        if (r.get("x") != null || r.get("y") != null) {
+            this.focus = tile(integer(r, "x"), integer(r, "y"));
+        }
+        if (this.focus == null) throw bad("name a tile with \"x\" and \"y\"");
+        return this.focus;
     }
 
     private Tile tile(int x, int y) {
@@ -169,11 +195,10 @@ final class DebugActions {
      * DebugUtils.addNewUnitToTile, for the human player: a unit of the
      * type on the tile, or aboard a ship of theirs there with room for it.
      */
-    private String addUnit(String typeId, int x, int y) {
+    private String addUnit(String typeId, Tile tile, boolean inColony) {
         ServerPlayer p = me();
         UnitType type = this.game.getSpecification().getUnitType(typeId);
         if (type == null) throw bad("unknown unit type \"" + typeId + "\"");
-        Tile tile = tile(x, y);
         // A land unit at sea goes aboard a ship with room for it.
         Unit carrier = (tile.isLand() || type.isNaval()) ? null
             : tile.getUnitList().stream()
@@ -183,15 +208,83 @@ final class DebugActions {
         if (!tile.isLand() && !type.isNaval() && carrier == null) {
             throw bad("a land unit cannot be put at sea without a ship of yours with room");
         }
-        ServerUnit unit = new ServerUnit(this.game, (carrier != null) ? carrier : tile, p, type);
+        // With inColony, a unit of a colony of ours joins it, to work, as a colonist who lives there.
+        final Colony colony = tile.getColony();
+        if (inColony && (colony == null || colony.getOwner() != p)) {
+            throw bad("no colony of yours there to join");
+        }
+        ServerUnit unit = new ServerUnit(this.game, (carrier != null) ? carrier
+            : inColony ? colony : tile, p, type);
         p.exploreForUnit(unit);
         unit.setMovesLeft(unit.getInitialMovesLeft());
         p.invalidateCanSeeTiles();
         ChangeSet cs = new ChangeSet();
         cs.add(See.perhaps(), tile);
+        if (inColony) cs.add(See.only(p), colony);
         if (carrier != null) cs.add(See.only(p), carrier);
         this.sGame.sendTo(p, cs);
         return new Json().put("action", "addUnit").put("unit", unit.getId()).toString();
+    }
+
+    /**
+     * A colony of the human player, founded as a colonist's Build Colony
+     * does: on the tile, or, with no x and y, on the nearest land the
+     * human's first unit could found one on. The colonist is new, and is
+     * the colony's one unit; later requests with no x and y act there.
+     */
+    private String addColony(Map<?, ?> r) {
+        final ServerPlayer p = me();
+        Tile tile = null;
+        if (r.get("x") != null || r.get("y") != null) {
+            tile = tile(integer(r, "x"), integer(r, "y"));
+        } else {
+            final Tile from = p.getUnits().filter(u -> u.getTile() != null)
+                .map(Unit::getTile).findFirst().orElse(null);
+            if (from == null) throw bad("the human has no unit to look from");
+            int best = Integer.MAX_VALUE;
+            for (int x = 0; x < this.game.getMap().getWidth(); x++) {
+                for (int y = 0; y < this.game.getMap().getHeight(); y++) {
+                    final Tile t = this.game.getMap().getTile(x, y);
+                    if (t == null || !t.isLand() || !p.canClaimToFoundSettlement(t)) continue;
+                    final int d = this.game.getMap().getDistance(from, t);
+                    if (d < best) {
+                        best = d;
+                        tile = t;
+                    }
+                }
+            }
+            if (tile == null) throw bad("no land to found a colony on");
+        }
+        if (!p.canClaimToFoundSettlement(tile)) {
+            throw bad("a colony cannot be founded at " + tile.getX() + "," + tile.getY());
+        }
+        final UnitType type = this.game.getSpecification().getUnitType("model.unit.freeColonist");
+        final ServerUnit founder = new ServerUnit(this.game, tile, p, type);
+        founder.setMovesLeft(founder.getInitialMovesLeft());
+        p.exploreForUnit(founder);
+        final ChangeSet cs = this.igc.buildSettlement(p, founder, Player.ASSIGN_SETTLEMENT_NAME);
+        cs.add(See.only(p), tile);
+        this.sGame.sendTo(p, cs);
+        this.focus = tile;
+        return new Json().put("action", "addColony").put("colony", tile.getColony().getId()).toString();
+    }
+
+    /**
+     * A building in the colony on the tile, as one that is free to build
+     * (ServerColony.csFreeBuilding): the upgrade of one it has replaces it.
+     */
+    private String addBuilding(String typeId, Map<?, ?> r) {
+        final ServerPlayer p = me();
+        final BuildingType type = this.game.getSpecification().getBuildingType(typeId);
+        if (type == null) throw bad("unknown building type \"" + typeId + "\"");
+        final Colony colony = at(r).getColony();
+        if (colony == null || colony.getOwner() != p) throw bad("no colony of yours there");
+        if (!colony.canBuild(type)) throw bad("the colony cannot build " + typeId);
+        final ChangeSet cs = new ChangeSet();
+        ((net.sf.freecol.server.model.ServerColony)colony).csFreeBuilding(type, cs);
+        cs.add(See.only(p), colony);
+        this.sGame.sendTo(p, cs);
+        return new Json().put("action", "addBuilding").toString();
     }
 
     /**
@@ -212,7 +305,7 @@ final class DebugActions {
             gc = unit.getGoodsContainer();
             cs.add(See.only(p), unit);
         } else {
-            Colony colony = tile(integer(r, "x"), integer(r, "y")).getColony();
+            Colony colony = at(r).getColony();
             if (colony == null) throw bad("no colony there");
             gc = colony.getGoodsContainer();
             cs.add(See.only(p), colony);

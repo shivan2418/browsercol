@@ -114,6 +114,22 @@ public final class WorkerMain {
         }, "web-debug").start();
     }
 
+    /**
+     * Run the preset's setup requests (ServerEngine.setup), once the game
+     * has started, reporting "debug" with each answer, or "debugFailed".
+     */
+    @JSExport
+    public static void setup() {
+        new Thread(() -> {
+                try {
+                    for (String answer : engine.setup()) event("debug", answer);
+                } catch (Throwable ex) {
+                    ex.printStackTrace();
+                    event("debugFailed", String.valueOf(ex.getMessage()));
+                }
+        }, "web-setup").start();
+    }
+
     @JSExport
     public static void connect() {
         engine.connect();

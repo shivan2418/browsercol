@@ -1,0 +1,22 @@
+{
+  "difficulty": "model.difficulty.veryEasy",
+  "nation": "model.nation.dutch",
+  "seed": 1,
+  "options": {
+    "model.option.mapWidth": 40,
+    "model.option.mapHeight": 60,
+    "model.option.fogOfWar": false
+  },
+  "setup": [
+    { "action": "addColony" },
+    { "action": "addUnit", "type": "model.unit.freeColonist", "inColony": true },
+    { "action": "addUnit", "type": "model.unit.masterCarpenter", "inColony": true },
+    { "action": "addUnit", "type": "model.unit.freeColonist", "inColony": true },
+    { "action": "addBuilding", "type": "model.building.schoolhouse" },
+    { "action": "addUnit", "type": "model.unit.freeColonist" },
+    { "action": "addGoods", "type": "model.goods.tools", "amount": 100 },
+    { "action": "addGoods", "type": "model.goods.muskets", "amount": 100 },
+    { "action": "addGoods", "type": "model.goods.horses", "amount": 100 },
+    { "action": "addGold", "amount": 2000 }
+  ]
+}

@@ -32,6 +32,10 @@ function fakeServer(scope: Scope, log: string[]): ServerExports {
       log.push(`server debug ${request}`);
       scope.fcServerEvent('debug', '{"action":"addGold"}');
     },
+    setup: () => {
+      log.push('server setup');
+      scope.fcServerEvent('debug', '{"action":"addColony"}');
+    },
     loadGame: (bytes) => {
       log.push(`server load ${[...bytes].join(',')}`);
       scope.fcServerEvent('owner', 'Ana');
@@ -204,7 +208,7 @@ describe('the Worker channel', () => {
     });
     const seen = (name: string) =>
       new Promise<void>((done) => (events.some(([n]) => n === name) ? done() : waiting.push([name, done])));
-    return { page, store, log, events, exports, seen };
+    return { page, store, log, events, exports, seen, pageScope };
   }
 
   it('saves the game with the active unit into the store, and tells the page', async () => {
@@ -279,6 +283,25 @@ describe('the Worker channel', () => {
     t.page.close();
     expect(t.log).toContain('server debug {"action":"addGold","amount":5}');
     expect(t.log).toContain('client applied {"action":"addGold"}');
+  });
+
+  it("asks the server Engine for the preset's setup once, when a new game has started", async () => {
+    const t = joined();
+    await t.seen('started');
+    t.pageScope.fcClientEvent('gameStarted', '{}');
+    t.pageScope.fcClientEvent('gameStarted', '{}');
+    await t.seen('debug');
+    t.page.close();
+    expect(t.log.filter((l) => l === 'server setup')).toHaveLength(1);
+  });
+
+  it('does not run the setup for a loaded game', async () => {
+    const t = joined(99);
+    await t.seen('loadFailed');
+    t.pageScope.fcClientEvent('gameStarted', '{}');
+    await new Promise((done) => setTimeout(done, 20));
+    t.page.close();
+    expect(t.log).not.toContain('server setup');
   });
 
   it('reports a save that is not there', async () => {

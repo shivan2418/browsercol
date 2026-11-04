@@ -25,6 +25,8 @@ export interface ServerExports {
   loadGame(savegame: Int8Array): void;
   /** Run a debug action (DebugActions.java); a "debug" or "debugFailed" event follows. */
   debug(request: string): void;
+  /** Run the preset's setup requests; "debug" events follow, or "debugFailed". */
+  setup(): void;
   connect(): void;
   receive(xml: string): void;
 }
@@ -145,6 +147,7 @@ export type ToWorker =
   | { k: 'load'; id: number }
   | { k: 'save'; active: string; name: string }
   | { k: 'debug'; request: string }
+  | { k: 'setup' }
   | { k: 'connect' }
   | { k: 'fc'; xml: string };
 
@@ -222,6 +225,8 @@ export function serveWorker(
           .catch((ex: unknown) => event('loadFailed', describe(ex)));
       case 'debug':
         return server!.debug(m.request);
+      case 'setup':
+        return server!.setup();
       case 'connect':
         return server!.connect();
       case 'fc':
@@ -274,6 +279,7 @@ export interface PageOptions {
 export function startPage(o: PageOptions): Promise<ClientExports> {
   const send = (m: ToWorker) => o.worker.postMessage(m);
   let client: ClientExports | null = null;
+  let setupAsked = false;
 
   // Globals ClientMain calls.
   o.scope.fcToServer = (xml: string) => send({ k: 'fc', xml });
@@ -281,6 +287,11 @@ export function startPage(o: PageOptions): Promise<ClientExports> {
   o.scope.fcClientEvent = (name: string, detail: string) => {
     if (name === 'ready')
       send(o.load === undefined ? { k: 'start', rules: o.rules, preset: o.preset ?? '' } : { k: 'load', id: o.load });
+    // A new game's preset may set up the game state, once the game has started.
+    if (name === 'gameStarted' && o.load === undefined && !setupAsked) {
+      setupAsked = true;
+      send({ k: 'setup' });
+    }
     o.onEvent(name, detail);
   };
   Object.assign(
