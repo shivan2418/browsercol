@@ -1,6 +1,7 @@
 {
   "name": "freecol-online-ui",
   "private": true,
+  "license": "GPL-2.0-or-later",
   "type": "module",
   "scripts": {
     "test": "vp test",
