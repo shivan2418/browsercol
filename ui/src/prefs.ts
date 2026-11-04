@@ -2,6 +2,7 @@
 // such as how fast units slide and the active unit blinks, and those of
 // FreeCol's client options the browser follows. Kept in this browser's
 // localStorage.
+import type { MinimapOptions } from './minimap';
 import type { OptionGroup, OptionNode } from './options';
 import type { TileText, ViewModes } from './tileset';
 
@@ -66,9 +67,9 @@ export function visibleMessages<T extends { type: string }>(p: Prefs, messages: 
  * tutorial messages, auto end turn); those a browser cannot follow (the full screen display mode, Java's
  * pixmaps and XRender, confirm save overwrite, as saves never overwrite; and the audio mixer, a Java Sound
  * device: the browser plays on the system's default output, as choosing another, setSinkId, works only in
- * Chromium); the minimap's default zoom; and those waiting on a feature, each with its issue: other players'
+ * Chromium); and those waiting on a feature, each with its issue: other players'
  * move animations (#149), terrain animations (#150), the language (#151), the compact colony report (#152),
- * the save game dialog (#153) and autosaves (#154), mods (#155), the minimap (#156), and the warehouse
+ * the save game dialog (#153) and autosaves (#154), mods (#155), and the warehouse
  * defaults (#158).
  */
 export const FREECOL_OPTIONS: readonly string[] = [
@@ -81,6 +82,7 @@ export const FREECOL_OPTIONS: readonly string[] = [
   'model.option.useOpenGL',
   'model.option.graphicsQuality',
   // Interface: main map
+  'model.option.defaultZoomLevel',
   'model.option.alwaysCenter',
   'model.option.jumpToActiveUnit',
   'model.option.mapScrollOnDrag',
@@ -94,6 +96,9 @@ export const FREECOL_OPTIONS: readonly string[] = [
   // Interface: map controls
   'model.option.displayCompassRose',
   'model.option.displayMapControls',
+  'model.option.miniMapToggleFogOfWar',
+  'model.option.miniMapToggleBorders',
+  'model.option.color.background',
   // Interface: messages
   'model.option.guiMessagesGroupBy',
   'model.option.guiShowBuildingCompleted',
@@ -158,7 +163,7 @@ export const PAGE_OPTIONS = {
   'model.option.mapScrollOnDrag': true,
   /** A pointer resting at the map's edge scrolls it. */
   'model.option.autoScroll': true,
-  /** The side panel, FreeCol Online's map controls, is shown (the View menu's Show Side Panel). */
+  /** The map controls are shown: the side panel and the minimap (the View menu's Show Side Panel). */
   'model.option.displayMapControls': true,
   /** A window dragged somewhere opens there again. */
   'model.option.rememberPanelPositions': false,
@@ -184,6 +189,14 @@ export const PAGE_OPTIONS = {
   'model.option.musicVolume': 100,
   /** The sound effects' volume, as a percentage. */
   'model.option.soundEffectsVolume': 100,
+  /** The minimap's tile size, 4 pixels a level; its zoom buttons change it, as MiniMap.setZoomOption does. */
+  'model.option.defaultZoomLevel': 2,
+  /** The minimap greys the tiles out of sight. */
+  'model.option.miniMapToggleFogOfWar': true,
+  /** The minimap shows political colours with the owners over them, rather than economic ones. */
+  'model.option.miniMapToggleBorders': true,
+  /** The colour round the map on the minimap: 0 black, 1 to 5 greys from dark to light, 6 light blue. */
+  'model.option.color.background': 0,
 };
 
 type PageOption = keyof typeof PAGE_OPTIONS;
@@ -209,6 +222,14 @@ export const startModes = (p: Prefs): ViewModes => ({
   grid: pageOption(p, 'model.option.displayGrid'),
   borders: pageOption(p, 'model.option.displayBorders'),
   tileText: Math.max(0, Math.min(3, pageOption(p, 'model.option.displayTileText'))) as TileText,
+});
+
+/** The minimap's options. */
+export const minimapOptions = (p: Prefs): MinimapOptions => ({
+  borders: pageOption(p, 'model.option.miniMapToggleBorders'),
+  fog: pageOption(p, 'model.option.miniMapToggleFogOfWar'),
+  background: pageOption(p, 'model.option.color.background'),
+  zoom: pageOption(p, 'model.option.defaultZoomLevel'),
 });
 
 /** The option a View menu switch is kept as, as FreeCol's display actions keep them. */

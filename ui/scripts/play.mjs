@@ -928,7 +928,8 @@ async function play(page, url) {
     if ((await popup.locator('[data-entry^="colony:"]').count()) === 0) {
       throw new Error(`the tile popup of the colony has no colony entry: ${await popup.innerText()}`);
     }
-    await page.mouse.click(box.x + 5, box.y + box.height - 5);
+    // The map's top-left corner: the minimap is at its bottom-left.
+    await page.mouse.click(box.x + 5, box.y + 5);
     await popup.waitFor({ state: 'detached', timeout: 5000 });
     console.log('  tile popup: right-click opens the colony tile menu, a click elsewhere closes it');
   };
