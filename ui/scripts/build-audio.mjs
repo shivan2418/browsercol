@@ -1,5 +1,5 @@
 // Copies FreeCol's music and sound effects into the site and writes the
-// manifest the Browser UI's sound player loads (sound.ts): each sound key's
+// manifest the Browser UI's sound player loads (sound.ts): each sound's
 // file, whether it plays as music, and the default playlist. The layers are
 // data/base and the "default" TC, as for the art. Files are fetched only
 // when played, so the budget is the site's size, not a download: it prints
@@ -7,7 +7,7 @@
 // Usage: node build-audio.mjs <freecol/data> <out dir>
 import fs from 'node:fs';
 import path from 'node:path';
-import { audioManifest } from '../src/sound.ts';
+import { audioManifest } from '../src/resources.ts';
 
 const [dataDir, outDir] = process.argv.slice(2);
 if (!dataDir || !outDir) {
