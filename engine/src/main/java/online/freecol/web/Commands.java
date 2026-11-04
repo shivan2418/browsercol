@@ -3,12 +3,14 @@ package online.freecol.web;
 import java.util.ArrayList;
 import java.util.List;
 
+import net.sf.freecol.client.ClientOptions;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.client.control.InGameController;
 import net.sf.freecol.client.gui.GUI;
 import net.sf.freecol.common.model.Ability;
 import net.sf.freecol.common.model.BuildableType;
 import net.sf.freecol.common.model.Colony;
+import net.sf.freecol.common.model.ColonyTile;
 import net.sf.freecol.common.model.Direction;
 import net.sf.freecol.common.model.ExportData;
 import net.sf.freecol.common.model.FreeColGameObject;
@@ -781,7 +783,32 @@ public final class Commands {
         if (workType != null && workType != unit.getWorkType()) {
             igc().changeWorkType(unit, workType);
         }
+        warnIfNotBestTile(unit, wl);
         return true;
+    }
+
+    /** The better work location last warned about, so a warning is not repeated (ColonyPanel.bestLocation). */
+    private WorkLocation lastBest = null;
+
+    /**
+     * Warn when a colonist put on a colony tile would make more of its goods
+     * on another, as ColonyPanel's tile does when the not best tile client
+     * option is on.
+     */
+    private void warnIfNotBestTile(Unit unit, WorkLocation wl) {
+        final GoodsType workType = unit.getWorkType();
+        if (!(wl instanceof ColonyTile) || workType == null
+            || !this.client.getClientOptions().getBoolean(ClientOptions.SHOW_NOT_BEST_TILE)) return;
+        final WorkLocation best = wl.getColony().getWorkLocationFor(unit, workType);
+        if (best == null || best == wl
+            || wl.getPotentialProduction(workType, unit.getType())
+                >= best.getPotentialProduction(workType, unit.getType())) return;
+        if (best == this.lastBest) return;
+        this.lastBest = best;
+        gui().showInformationPanel(best, StringTemplate.template("colonyPanel.notBestTile")
+            .addStringTemplate("%unit%", unit.getLabel(Unit.UnitLabelType.NATIONAL))
+            .addNamed("%goods%", workType)
+            .addStringTemplate("%tile%", best.getLabel()));
     }
 
     /**
@@ -966,7 +993,15 @@ public final class Commands {
     public boolean showReport(String name) {
         switch (name) {
         case "colony": gui().showReportColonyPanel(); return true;
-        case "labour": gui().showReportLabourPanel(); return true;
+        case "labour":
+            // ReportLabourAction: the classic or the compact report, as the client option says.
+            if (this.client.getClientOptions().getInteger(ClientOptions.LABOUR_REPORT)
+                == ClientOptions.LABOUR_REPORT_CLASSIC) {
+                gui().showReportLabourPanel();
+            } else {
+                gui().showCompactLabourReport();
+            }
+            return true;
         case "compactLabour": gui().showCompactLabourReport(); return true;
         case "military": gui().showReportMilitaryPanel(); return true;
         case "naval": gui().showReportNavalPanel(); return true;
