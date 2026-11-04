@@ -372,7 +372,9 @@ function renderSide() {
         />
       )}
       <TurnBanner notice={banner} />
-      {popup && <PopupMenu popup={popup} run={(id) => menuClient?.menuEntry(id)} close={() => showPopup(null)} />}
+      {popup && (
+        <PopupMenu popup={popup} run={(id) => menuClient?.menuEntry(id)} close={() => showPopup(null)} art={art} />
+      )}
     </>,
   );
 }

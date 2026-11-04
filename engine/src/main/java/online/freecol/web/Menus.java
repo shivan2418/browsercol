@@ -33,7 +33,8 @@ import net.sf.freecol.common.model.WorkLocation;
  * the colony panel. {@link Commands#menuEntry} runs the one the player
  * picks.
  *
- * A menu is {title, entries: [{id, label, enabled, gap, indent}]}. An
+ * A menu is {title, entries: [{id, label, enabled, gap, indent, icon}]}; icon is a
+ * resource key drawn before the label. An
  * entry's id says what it does, as {@code verb} or {@code verb:argument,...}
  * (see {@link Commands#menuEntry}); gap puts a line above the entry, and
  * indent sets it under the unit above, as TilePopup does for a carrier's
@@ -64,8 +65,14 @@ final class Menus {
         }
 
         void add(String id, String label, boolean enabled, boolean indent) {
+            add(id, label, enabled, indent, null);
+        }
+
+        /** An entry with an icon, by its resource key, drawn before the label. */
+        void add(String id, String label, boolean enabled, boolean indent, String icon) {
             final Json e = new Json().put("id", id).put("label", label)
                 .put("enabled", enabled);
+            if (icon != null) e.put("icon", icon);
             if (this.gap) e.put("gap", true);
             if (indent) e.put("indent", true);
             this.gap = false;
@@ -474,7 +481,7 @@ final class Menus {
             if (w.claim) t.addStringTemplate("%claim%", w.where.getClaimTemplate());
             else t.addName("%claim%", "");
             b.add("work:" + unit.getId() + "," + w.where.getId() + ","
-                + w.type.getId(), text(t));
+                + w.type.getId(), text(t), true, false, "image.icon." + w.type.getId());
         }
         if (!all.isEmpty()) b.gap();
     }

@@ -112,6 +112,8 @@ class ScenarioTest {
         final String menu = client.getMenus().unit(worker.getId());
         // The chance of an upgrade is listed only while it works at that job, which the rules decide.
         assertTrue(menu.contains("Experience as a Farmer: 60/200"), menu);
+        // Each work entry carries the icon of the goods it makes.
+        assertTrue(menu.contains("\"icon\":\"image.icon.model.goods.cigars\""), menu);
     }
 
     @Test

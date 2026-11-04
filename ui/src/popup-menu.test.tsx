@@ -46,6 +46,22 @@ describe('PopupMenu', () => {
     expect((screen.getByRole('menuitem', { name: 'Plains' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
+  it("draws an entry's icon before its label, when the art has it", () => {
+    const work: Popup = {
+      menu: {
+        title: 'Farmer',
+        entries: [{ id: 'work:1', label: 'Work as Farmer', enabled: true, icon: 'image.icon.goods' }],
+      },
+      x: 0,
+      y: 0,
+    };
+    const art = (keys: readonly string[]) => (keys[0] === 'image.icon.goods' ? 'art/grain.png' : null);
+    render(<PopupMenu popup={work} run={() => {}} close={() => {}} art={art} />);
+    const item = screen.getByRole('menuitem', { name: 'Work as Farmer' });
+    expect(item.firstElementChild?.getAttribute('src')).toBe('art/grain.png');
+    expect(item.firstChild).toBe(item.querySelector('img'));
+  });
+
   it('closes, then runs the entry that was picked', () => {
     const log: string[] = [];
     render(<PopupMenu popup={popup} run={(id) => log.push(`run ${id}`)} close={() => log.push('close')} />);
