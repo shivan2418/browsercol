@@ -457,9 +457,8 @@ async function play(page, url) {
       );
     const changed = async (than, what) => {
       await page
-        .waitForFunction(([old, read]) => new Function(`return (${read})()`)() !== old, [than, netOf.toString()], {
-          timeout: 20000,
-        })
+        // netOf runs in the page as its source, in a string expression.
+        .waitForFunction(`(${netOf.toString()})() !== ${JSON.stringify(than)}`, null, { timeout: 20000 })
         .catch(() => {
           throw new Error(`the net production did not change after ${what}`);
         });
