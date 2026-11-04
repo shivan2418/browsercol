@@ -63,7 +63,17 @@ export const PANEL_KEY_FAMILIES = {
   building: 'image.buildingicon.',
   /** A nation, which is what a player shows: image.miscicon.model.nation.<id> */
   nation: 'image.miscicon.model.nation.',
+  /**
+   * A founding father's portrait, which the choose founding father dialog and the Continental Congress
+   * report show: image.flavor.model.foundingFather.<id>. Not the picture of a kind of father (FATHER_KINDS).
+   */
+  father: 'image.flavor.model.foundingFather.',
 } as const;
+
+/** The kinds of founding father, whose pictures share the portraits' family but no panel shows. */
+const FATHER_KINDS = ['trade', 'exploration', 'military', 'political', 'religious'].map(
+  (kind) => PANEL_KEY_FAMILIES.father + kind,
+);
 
 /** The resource keys that stand alone that a panel shows. */
 export const PANEL_KEYS = {
@@ -81,9 +91,9 @@ export const EVENT_KEYS = ['image.flavor.event.firstLanding', 'image.flavor.even
 
 /** Whether a panel shows the resource with this key. */
 export const isPanelKey = (key: string) =>
+  (!FATHER_KINDS.includes(key) && Object.values(PANEL_KEY_FAMILIES).some((prefix) => key.startsWith(prefix))) ||
   (EVENT_KEYS as readonly string[]).includes(key) ||
-  Object.values(PANEL_KEYS).some((k) => k === key) ||
-  Object.values(PANEL_KEY_FAMILIES).some((prefix) => key.startsWith(prefix));
+  Object.values(PANEL_KEYS).some((k) => k === key);
 
 /** Whether the art build ships the resource with this key. */
 export const isArtKey = (key: string) => isMapKey(key) || isPanelKey(key);
