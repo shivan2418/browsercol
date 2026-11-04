@@ -393,7 +393,8 @@ final class Menus {
         if (unit.canCarryTreasure() && unit.canCashInTreasureTrain()) {
             b.add("cashin:" + id, text("cashInTreasureTrain"));
         }
-        if (unit.getLocation() instanceof Unit && !unit.isInEurope()) {
+        // Aboard a ship in Europe it goes ashore onto the docks.
+        if (unit.getLocation() instanceof Unit) {
             b.add("leaveShip:" + id, text("leaveShip"));
         }
         // Cargo in Europe is sold from the goods menu, not unloaded.
