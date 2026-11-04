@@ -189,15 +189,11 @@ export interface GuiEvents {
     inPort: EuropeUnit[];
     docks: EuropeUnit[];
     selected: Id | null;
-    /** The sidebar's labels and the Crown's tax rate in percent. */
-    tally: {
-      heading: string;
-      tax: number;
-      taxLabel: string;
-      unitsSold: string;
-      beforeTaxes: string;
-      afterTaxes: string;
-    };
+    /**
+     * The purchases and sales of this turn, oldest first, as FreeCol's transaction log words them: each entry is its lines
+     * (what was traded at what price, the total, and for a sale the tax and the net). Empty on a new turn.
+     */
+    log: { heading: string; entries: string[][] };
     market: {
       id: Id;
       name: string;
@@ -208,10 +204,6 @@ export interface GuiEvents {
       enabled: boolean;
       /** Why it cannot be traded, as FreeCol says it; null when it can. */
       reason: string | null;
-      /** What the player has sold of it, and earned from it before and after taxes. */
-      sold: number;
-      beforeTaxes: number;
-      afterTaxes: number;
     }[];
     buttons: { train: string; purchase: string; recruit: string; sail: string };
     /** The docks' recruit pool at one price (RecruitPanel); index is what recruiting sends. */

@@ -1205,6 +1205,13 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
   const menus = useContext(ContextMenuContext);
   const [picked, setPicked] = useState(e.selected);
   const [shop, setShop] = useState<'recruit' | 'train' | 'purchase' | null>(null);
+  // The sales log keeps its newest entry, the last, in view.
+  const logRef = useRef<HTMLElement>(null);
+  const logCount = e.log.entries.length;
+  useEffect(() => {
+    const log = logRef.current;
+    if (log) log.scrollTop = log.scrollHeight;
+  }, [logCount]);
   const ship = e.inPort.find((u) => u.id === picked) ?? null;
   const closeShop = () => setShop(null);
   /** The recruit, train or purchase list: a popup over the panel, a card of one size for each unit. */
@@ -1381,35 +1388,20 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
               </div>
             </section>
           </div>
-          <aside className="europe-tally" data-tally>
-            <h3>{e.tally.heading}</h3>
-            <p className="tax">
-              {e.tally.taxLabel}: <b data-tax>{e.tally.tax}%</b>
-            </p>
-            <table>
-              <thead>
-                <tr>
-                  <th />
-                  <th>{e.tally.unitsSold}</th>
-                  <th>{e.tally.beforeTaxes}</th>
-                  <th>{e.tally.afterTaxes}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {e.market
-                  .filter((g) => g.sold > 0 || g.beforeTaxes !== 0 || g.afterTaxes !== 0)
-                  .map((g) => (
-                    <tr key={g.id} data-tally-goods={g.id}>
-                      <td title={g.name}>
-                        <Pic keys={g.images} art={art} />
-                      </td>
-                      <td>{g.sold}</td>
-                      <td>{g.beforeTaxes}</td>
-                      <td>{g.afterTaxes}</td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
+          <aside className="europe-log" data-log ref={logRef}>
+            <h3>{e.log.heading}</h3>
+            {e.log.entries.map((lines, i) => (
+              // FreeCol's lines tab a label from its amount ("Price:\t200"): the amount goes right.
+              <div key={i} className="entry" data-entry>
+                {lines.map((line, j) => (
+                  <div key={j} className="line" data-line>
+                    {line.split('\t').map((part, k) => (
+                      <span key={k}>{part}</span>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            ))}
           </aside>
         </div>
         <section className="box market" data-list="market" {...dropTargetProps('market', onMarket)}>

@@ -41,13 +41,12 @@ const goods: [string, string, string, number, number, boolean?][] = [
 
 export const europe: GuiEvents['europe'] = {
   title: 'Europe',
-  tally: {
-    heading: 'Trade Advisor',
-    tax: 20,
-    taxLabel: 'Tax',
-    unitsSold: 'Units bought or sold',
-    beforeTaxes: 'Income before taxes',
-    afterTaxes: 'Income after taxes',
+  log: {
+    heading: 'Sales',
+    entries: [
+      ['Purchase 100 Tools @2', 'Price:\t200'],
+      ['Sell 100 Furs @4', 'Price:\t400', '-20%:\t80', 'Net:\t320'],
+    ],
   },
   ok: 'Close',
   headings: {
@@ -127,8 +126,5 @@ export const europe: GuiEvents['europe'] = {
     buy,
     enabled: !boycotted,
     reason: boycotted ? 'The Crown is boycotting these goods until you have paid your tax arrears of 100 gold.' : null,
-    sold: id === 'food' || id === 'tools' ? 40 : 0,
-    beforeTaxes: id === 'food' || id === 'tools' ? 100 : 0,
-    afterTaxes: id === 'food' || id === 'tools' ? 80 : 0,
   })),
 };
