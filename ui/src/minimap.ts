@@ -4,6 +4,7 @@
 // with the owners over them or economic ones (miniMapToggleBorders), grey the
 // tiles out of sight (miniMapToggleFogOfWar), the colour round the map
 // (color.background) and the tile size (defaultZoomLevel).
+import { PANEL_KEY_FAMILIES } from './map-keys';
 import type { Resources } from './resources';
 import type { MapView } from './tileset';
 import { W } from './view';
@@ -21,7 +22,8 @@ export interface MinimapOptions {
 
 /**
  * The colours of the color.background option, in its order: black, very dark grey, dark grey, grey, light
- * grey, very light grey and light blue, as FreeCol's MiniMapChangeBackgroundAction had them.
+ * grey, very light grey and light blue, as FreeCol's MiniMapChangeBackgroundAction.interpretIndex had them when
+ * the option came in (FreeCol commit 7f937048f). Today's MiniMap no longer reads the option.
  */
 export const BACKGROUNDS: readonly number[] = [0x000000, 0x303030, 0x606060, 0x808080, 0xb0b0b0, 0xe0e0e0, 0xc8c8ff];
 
@@ -52,8 +54,12 @@ export interface MiniTile {
 }
 
 /** The explored tiles as MiniMap.paintEntireMinimap paints them, row by row. */
-export function minimapTiles(m: MapView, res: Pick<Resources, 'color'>, o: MinimapOptions): MiniTile[] {
-  const family = o.borders ? 'color.politics.MiniMap.' : 'color.economic.MiniMap.';
+export function minimapTiles(
+  m: MapView,
+  res: Pick<Resources, 'color'>,
+  o: Pick<MinimapOptions, 'borders' | 'fog'>,
+): MiniTile[] {
+  const family = o.borders ? PANEL_KEY_FAMILIES.minimapPolitics : PANEL_KEY_FAMILIES.minimapEconomic;
   const fills = m.types.map((t) => res.color(family + t.id));
   const at = (x: number, y: number) => y * m.w + x;
   const settlements = new Map(m.settlements.map((s) => [at(s.x, s.y), s.rgb]));
@@ -106,7 +112,9 @@ export const pointAt = (
   [px, py]: [number, number],
 ): [number, number] => [v.centre[0] + ((px - box[0] / 2) * W) / size, v.centre[1] + ((py - box[1] / 2) * W) / size];
 
-const css = (rgb: number, alpha = 1) => `rgba(${(rgb >> 16) & 255}, ${(rgb >> 8) & 255}, ${rgb & 255}, ${alpha})`;
+/** A 0xRRGGBB colour, and an alpha, as CSS. */
+export const css = (rgb: number, alpha = 1) =>
+  `rgba(${(rgb >> 16) & 255}, ${(rgb >> 8) & 255}, ${rgb & 255}, ${alpha})`;
 
 /** Paint the whole map's image, as MiniMap.paintEntireMinimap: diamonds, markers and fog over the background. */
 export function paintMinimap(

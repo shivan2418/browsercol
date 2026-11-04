@@ -358,7 +358,7 @@ function setPrefs(p: Prefs) {
     if (view.modes[mode] !== modes[mode]) dispatch({ k: 'toggle', mode });
   }
   if (view.modes.tileText !== modes.tileText) dispatch({ k: 'tileText', text: modes.tileText });
-  // The side panel is FreeCol Online's map controls.
+  // The side panel and the minimap are FreeCol Online's map controls.
   if (pageOption(p, 'model.option.displayMapControls') !== sidePanel) toggleSidePanel();
   renderSide();
   renderMinimap();
