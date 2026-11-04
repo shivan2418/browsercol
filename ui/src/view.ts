@@ -43,7 +43,8 @@ export interface ViewState {
 }
 
 export type ViewEvent =
-  | ({ k: 'activeUnit' } & GuiEvents['activeUnit'])
+  // jump: FreeCol's jump to active unit option; off, the view moves only for a unit out of it.
+  | ({ k: 'activeUnit'; jump?: boolean } & GuiEvents['activeUnit'])
   // always: FreeCol's always center option, a selected tile centred even when in view.
   | ({ k: 'selectedTile'; always?: boolean } & GuiEvents['selectedTile'])
   | ({ k: 'focus' } & GuiEvents['focus'])
@@ -171,6 +172,8 @@ function apply(v: ViewState, e: ViewEvent): ViewState {
       const active = { ...v, active: { unit: e.unit, tile: e.at }, mode: 'units' as const };
       if (!e.at) return active;
       if (e.force) return onScreen(v, e.at) ? active : { ...active, centre: tileCentre(e.at) };
+      if (e.jump === false)
+        return { ...active, selected: e.at, ...(onScreen(v, e.at) ? {} : { centre: tileCentre(e.at) }) };
       return { ...active, selected: e.at, centre: tileCentre(e.at) };
     }
     case 'selectedTile': {

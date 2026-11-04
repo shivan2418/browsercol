@@ -122,6 +122,23 @@ describe('the view', () => {
     });
     expect(cursor(active)).toEqual({ at: [5, 11], kind: 'unit' });
 
+    // With FreeCol's jump to active unit option off, a next unit in view leaves the view where it is.
+    const next: ViewEvent = {
+      k: 'activeUnit',
+      unit: 'unit:8',
+      tile: 'tile:4',
+      at: [6, 12],
+      force: false,
+      orders: [],
+      route: null,
+    };
+    const stays = reduce(active, { ...next, jump: false });
+    expect(stays.centre).toEqual(active.centre);
+    expect(cursor(stays)).toEqual({ at: [6, 12], kind: 'unit' });
+    expect(reduce(active, next).centre).not.toEqual(active.centre);
+    // Out of view, it still moves there.
+    expect(reduce(active, { ...next, at: [15, 30], jump: false }).centre).toEqual([1984, 992]);
+
     // No units left to move: changeView(fallback tile) selects a tile and
     // keeps the active unit. On screen, the view stays where it is.
     const near = reduce(active, { k: 'selectedTile', tile: 'tile:4', at: [6, 12] });

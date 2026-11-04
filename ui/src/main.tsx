@@ -29,7 +29,7 @@ import { startPage, type ClientExports, type Scope, type ToWorker } from './chan
 import { debugMessage, debugMode, describeAnswer, type DebugRequest } from './debug';
 import { ColonyActions, ColonyTiles, type ColonyMoves, type DrawTiles } from './colony-panel';
 import { dialogs } from './dialogs';
-import { MENUS, MenuBar, type Menu } from './frame';
+import { MENUS, MenuBar, goodsIcons, type Menu } from './frame';
 import { gameMenu, ordersMenu, viewMenu, type MenuActions } from './menus';
 import { commandForKey, type Command } from './input';
 import { PreferencesDialog } from './prefs-dialog';
@@ -212,6 +212,8 @@ let prefsOpen = false;
 function applyLook(p: Prefs) {
   map.setMotion(moveMs(p), blinkMs(p), p.activeStyle);
   document.body.dataset.dimUnfocused = String(p.dimUnfocused);
+  goodsIcons.max = pageOption(p, 'model.option.guiMaxNumberOfGoodsImages');
+  goodsIcons.countFrom = pageOption(p, 'model.option.guiMinNumberToDisplayGoodsCount');
   const root = document.documentElement.style;
   root.setProperty('--ui-zoom', String(uiZoom(p)));
   const f = fontScale(p);
@@ -244,6 +246,8 @@ function setPrefs(p: Prefs) {
   for (const mode of ['grid', 'borders', 'names'] as const) {
     if (view.modes[mode] !== modes[mode]) dispatch({ k: 'toggle', mode });
   }
+  // The side panel is FreeCol Online's map controls.
+  if (pageOption(p, 'model.option.displayMapControls') !== sidePanel) toggleSidePanel();
   renderSide();
 }
 /** Keep FreeCol's client options as the client Engine has them now: the turn report's buttons change some. */
@@ -259,6 +263,9 @@ function pullFreecolOptions() {
 /** Whether the side panel is shown: the player's choice, kept for the next visit. */
 const SIDE_PANEL_KEY = 'freecol.sidePanel';
 let sidePanel = (() => {
+  // FreeCol's display map controls option, once the player has set it, says.
+  const option = prefs.freecol['model.option.displayMapControls'];
+  if (typeof option === 'boolean') return option;
   try {
     return localStorage.getItem(SIDE_PANEL_KEY) !== 'hidden';
   } catch {
@@ -274,6 +281,11 @@ function toggleSidePanel() {
     localStorage.setItem(SIDE_PANEL_KEY, sidePanel ? 'shown' : 'hidden');
   } catch {
     // The choice just is not kept.
+  }
+  if (pageOption(prefs, 'model.option.displayMapControls') !== sidePanel) {
+    prefs = { ...prefs, freecol: { ...prefs.freecol, 'model.option.displayMapControls': sidePanel } };
+    savePrefs(prefs);
+    colonyClient?.setClientOption('model.option.displayMapControls', String(sidePanel));
   }
   renderSide();
 }
@@ -533,7 +545,7 @@ const gui: GuiHandlers = {
       // The Engine says which orders the active unit can take now.
       side.orders = e.orders;
       side.route = e.route;
-      dispatch({ k: 'activeUnit', ...e });
+      dispatch({ k: 'activeUnit', ...e, jump: pageOption(prefs, 'model.option.jumpToActiveUnit') });
       // No unit left to move: end the turn, once for each turn (FreeCol's auto end turn option).
       if (e.unit === null && prefs.autoEndTurn && lastTurn?.ourTurn && autoEnded !== lastTurn.turn) {
         autoEnded = lastTurn.turn;
@@ -592,6 +604,8 @@ function drawMap(m: MapView) {
   statusLine = m.statusLine;
   // A new turn's notice stays through the maps of its turn; the AI's goes when play comes back.
   banner = turnNotice(lastTurn, m) ?? (banner?.kind === 'new' && m.ourTurn ? banner : null);
+  // FreeCol's disable end turn background option: no banner while the others move.
+  if (banner?.kind === 'ai' && pageOption(prefs, 'model.option.disableGrayLayer')) banner = null;
   lastTurn = m;
   if (m.ourTurn) autosaveSoon();
   renderSide();
@@ -619,6 +633,7 @@ const dragged = pointerInput(mapHost, {
   tileAt: (px, py) => map.tileAt(px, py),
   goto: gotoDeps,
   edgeScrolls: () => pageOption(prefs, 'model.option.autoScroll'),
+  dragScrolls: () => pageOption(prefs, 'model.option.mapScrollOnDrag'),
 });
 gotoKeyInput(
   mapHost,

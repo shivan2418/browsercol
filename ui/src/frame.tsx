@@ -123,6 +123,13 @@ export function Box({
  * zero is greyed out. With no art for the key, the goods' name stands in
  * for the icon.
  */
+/**
+ * FreeCol's goods images options, as ProductionLabel reads them: the most icons drawn for an amount
+ * (guiMaxNumberOfGoodsImages), and the amount from which the number shows too
+ * (guiMinNumberToDisplayGoodsCount). The page sets them from the Preferences.
+ */
+export const goodsIcons = { max: 7, countFrom: 7 };
+
 export function GoodsAmount({
   keys,
   name,
@@ -152,10 +159,10 @@ export function GoodsAmount({
   const text = amount < 0 ? `−${-amount}` : change && amount > 0 ? `+${amount}` : String(amount);
   if (icons) {
     // ProductionLabel: horses stack poorly, so one icon; the icons overlap by the icon's width over their count.
-    const max = name === 'Horses' || keys.some((k) => k.endsWith('.horses')) ? 1 : 7;
+    const max = name === 'Horses' || keys.some((k) => k.endsWith('.horses')) ? 1 : goodsIcons.max;
     const n = Math.max(1, Math.min(Math.abs(amount), max));
     const step = 24 / (Math.abs(amount) <= max ? Math.max(1, Math.abs(amount)) : 16);
-    const number = amount < 0 || amount > max || (expert !== null && expert > amount);
+    const number = amount < 0 || amount >= goodsIcons.countFrom || amount > max || (expert !== null && expert > amount);
     return (
       <span className="goods" data-sign={sign} title={name}>
         <span className="pile" style={{ width: step * (n - 1) + 24 }}>
