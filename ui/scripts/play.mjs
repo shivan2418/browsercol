@@ -409,7 +409,16 @@ async function play(page, url) {
     await act(() => click(m, land));
     const panel = page.locator('[role=dialog][data-kind=colony]');
     await panel.waitFor({ timeout: 10000 });
-    const net = () => panel.locator('[data-part=net]').innerText();
+    // The net production is drawn as icons, one for each of the amount, and text only for a loss or a large
+    // amount, so its text alone is empty for a small one: the state is each goods with its icons and text.
+    const netOf = () =>
+      [...document.querySelectorAll('[data-part=net] .made-goods')]
+        .map(
+          (e) =>
+            `${e.dataset.goods}:${e.querySelectorAll('img, .name').length}:${e.querySelector('.amount')?.textContent ?? ''}`,
+        )
+        .join(' ');
+    const net = () => page.evaluate(netOf);
     const unit = (id) => panel.locator(`[data-unit="${id}"]`).first();
     const within = (place, id, timeout = 20000) => place.locator(`[data-unit="${id}"]`).waitFor({ timeout });
     /** Whether the unit is in the place, as the panel is shown again after a change. */
@@ -420,7 +429,7 @@ async function play(page, url) {
       );
     const changed = async (than, what) => {
       await page
-        .waitForFunction((old) => document.querySelector('[data-part=net]')?.innerText !== old, than, {
+        .waitForFunction(([old, read]) => new Function(`return (${read})()`)() !== old, [than, netOf.toString()], {
           timeout: 20000,
         })
         .catch(() => {
@@ -547,14 +556,15 @@ async function play(page, url) {
       console.log('  colony panel: no worked tile, so no refusal to check');
     } else {
       const logged = await page.evaluate(() => window.__dialogs.length);
-      await unit(other).dragTo(tile.locator('.hit'));
+      // The colonist working the tile is drawn over its diamond, so the drop is forced onto it, as a player's lands on whatever is there.
+      await unit(other).dragTo(tile.locator('.hit'), { force: true });
       await waitForDialog(logged, 'information: ', 'the refusal was not explained over the colony panel');
       await panel.waitFor({ timeout: 10000 });
     }
 
     // Queue a building the colony can build, from the build queue; the panel must list it as queued. (What
     // the server's colony does with the queue, and paying for it, are CommandsTest's to check.)
-    await panel.locator('[data-part=queue] button.toggle').click();
+    await panel.locator('[data-part=construction]').click();
     const addable = panel.locator('[data-part=buildings] [data-buildable] button:not([disabled])');
     if ((await addable.count()) > 0) {
       const type = await addable.first().evaluate((e) => e.closest('[data-buildable]').dataset.buildable);
@@ -566,6 +576,8 @@ async function play(page, url) {
           throw new Error(`the build queue did not show ${type} after it was added`);
         });
     }
+    // The queue's popup covers the panel until it is closed.
+    await panel.locator('button.queue-close').click();
     await page.evaluate(() => (window.__hold = null));
     await panel.locator('[data-answer=close]').click();
     await noDialog('closing the colony panel');
@@ -713,7 +725,7 @@ async function play(page, url) {
     const warehouseDialog = page.locator('[role=dialog][data-kind=warehouse]');
     const exportLevel = warehouseDialog.locator('fieldset input[aria-label$=" export"]').first();
     for (const level of ['37', '38']) {
-      await warehouse.locator('button.settings').click();
+      await panel.locator('.buttons button:not([data-answer])').click();
       await warehouseDialog.waitFor({ timeout: 10000 });
       if (level === '38' && (await exportLevel.inputValue()) !== '37') {
         throw new Error('the warehouse dialog did not keep the export level set before');
@@ -1005,7 +1017,8 @@ async function play(page, url) {
     await noDialog(`opening the ${item}`);
     const logged = await page.evaluate(() => window.__dialogs.length);
     await page.getByRole('menuitem', { name: 'Report', exact: true }).click();
-    await page.getByRole('menuitem', { name: item, exact: true }).click();
+    // The entry's name ends with its hotkey hint, when it has one.
+    await page.getByRole('menuitem', { name: new RegExp(`^${item}( (Ctrl\\+)?(Shift\\+)?F\\d+)?$`) }).click();
     await waitForDialog(logged, `report: ${title}`, `the ${item} did not open`);
     if (item === 'Colony report') {
       const named = await page.evaluate(

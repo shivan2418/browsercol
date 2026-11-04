@@ -1,16 +1,19 @@
-// What moved between two draws of the map, and how the moving and the active
-// unit look at a moment: the slide of a unit to the next tile, as FreeCol
-// animates a move, and the slow blink of the active unit.
-import { tileOrigin, W } from './view';
-import type { Unit } from './tileset';
+// How the moving and the active unit look at a moment: the slide of a unit
+// along the tiles the Engine says it stepped to, as FreeCol animates a move,
+// and the slow blink of the active unit.
+import { tileOrigin } from './view';
+import type { GuiEvents } from './webgui';
 
-/** A unit that went from one tile to the next. */
-export interface Move {
-  from: [number, number];
-  to: [number, number];
+/** A step of one of the player's units to the next tile, as the Engine tells of it (WebGUI.animateUnitMove). */
+export type Step = GuiEvents['animateMove'];
+
+/** A unit's slide across the map: the tiles it goes through, the first the one it set off from. */
+export interface Path {
+  step: Step;
+  tiles: [number, number][];
 }
 
-/** How long a unit takes to slide to the next tile, in milliseconds. */
+/** How long a unit takes to slide to the next tile, in milliseconds: a step. */
 export const MOVE_MS = 300;
 /** The active unit's blink: a whole cycle, and how much of it the unit is shown. */
 export const BLINK_MS = 1400;
@@ -18,50 +21,35 @@ const SHOWN = 0.6;
 /** How faint the active unit gets in the dark half of the blink. */
 const DIM = 0.15;
 
-// The chip is left out: it is the occupation label, which changes with the step (a land unit with its moves spent).
-const identity = (u: Unit) => `${u.keys[0] ?? ''}|${u.rgb}`;
-const at = (u: { x: number; y: number }) => `${u.x},${u.y}`;
-
-/** Whether two tiles are neighbours, by the distance between their centres. */
-function adjacent(a: [number, number], b: [number, number]): boolean {
-  const [ax, ay] = tileOrigin(...a);
-  const [bx, by] = tileOrigin(...b);
-  const d = Math.hypot(ax - bx, ay - by);
-  return d > 0 && d <= W + 1;
+/**
+ * What slides for the steps the Engine told of between two maps: one unit's
+ * steps, joined into a path. Several units moving at once (orders carried out
+ * as the turn turns) jump, as do steps that do not follow on from each other.
+ */
+export function path(steps: Step[]): Path | null {
+  if (!steps.length || steps.some((s) => s.unit !== steps[0].unit)) return null;
+  const tiles: [number, number][] = [steps[0].from];
+  for (const s of steps) {
+    if (s.from.join() !== tiles[tiles.length - 1].join()) return null;
+    tiles.push(s.to);
+  }
+  return { step: steps[steps.length - 1], tiles };
 }
 
 /**
- * The units that moved to a neighbouring tile between two draws. The map
- * view carries no unit ids, so a unit is what it looks like (its image
- * and owner): one that left a tile and one that looks the same on a
- * neighbouring tile that did not have it before are the same unit.
+ * Where a sliding unit is `t` (0 to 1) of the way along its tiles, each step
+ * taking as long, as the pixels it is short of the last tile.
  */
-export function moves(before: Unit[], after: Unit[]): Move[] {
-  const count = (units: Unit[]) => {
-    const m = new Map<string, number>();
-    for (const u of units) m.set(`${at(u)}|${identity(u)}`, (m.get(`${at(u)}|${identity(u)}`) ?? 0) + 1);
-    return m;
-  };
-  const was = count(before);
-  const now = count(after);
-  const left = before.filter((u) => !(now.get(`${at(u)}|${identity(u)}`) ?? 0));
-  const arrived = after.filter((u) => !(was.get(`${at(u)}|${identity(u)}`) ?? 0));
-  const out: Move[] = [];
-  for (const to of arrived) {
-    const i = left.findIndex((f) => identity(f) === identity(to) && adjacent([f.x, f.y], [to.x, to.y]));
-    if (i < 0) continue;
-    const [from] = left.splice(i, 1);
-    out.push({ from: [from.x, from.y], to: [to.x, to.y] });
-  }
-  return out;
-}
-
-/** Where a sliding unit is `t` (0 to 1) of the way, as the pixels it is short of its tile. */
-export function slide(move: Move, t: number): [number, number] {
-  const [fx, fy] = tileOrigin(...move.from);
-  const [tx, ty] = tileOrigin(...move.to);
-  const left = 1 - Math.min(1, Math.max(0, t));
-  return [(fx - tx) * left, (fy - ty) * left];
+export function slide(tiles: [number, number][], t: number): [number, number] {
+  const [ex, ey] = tileOrigin(...tiles[tiles.length - 1]);
+  const steps = tiles.length - 1;
+  if (steps < 1) return [0, 0];
+  const along = Math.min(1, Math.max(0, t)) * steps;
+  const i = Math.min(steps - 1, Math.floor(along));
+  const [fx, fy] = tileOrigin(...tiles[i]);
+  const [tx, ty] = tileOrigin(...tiles[i + 1]);
+  const f = along - i;
+  return [fx + (tx - fx) * f - ex, fy + (ty - fy) * f - ey];
 }
 
 /** How opaque the active unit is `ms` into the blink. */

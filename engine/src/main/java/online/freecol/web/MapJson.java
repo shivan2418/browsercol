@@ -394,6 +394,20 @@ final class MapJson {
             .put("fade", fade).toString();
     }
 
+    /**
+     * How a unit looks on the map, without its tile: {keys, rgb, chip, fg},
+     * as {@link #unit} draws it, for the Browser UI to draw a unit that
+     * slides between tiles.
+     */
+    static Json look(Unit u, Player player) {
+        final int rgb = rgb(u.getOwner());
+        return new Json().putRaw("keys", keys(unitKeys(u)))
+            .put("rgb", rgb)
+            .put("chip", Messages.message(u.getOccupationLabel(player, false)))
+            .put("fg", (u.getState() == Unit.UnitState.FORTIFIED) ? 0x808080
+                 : foreground(rgb));
+    }
+
     /** ImageLibrary.getUnitTypeImageKey's candidates. */
     static List<String> unitKeys(Unit u) {
         final String roleId = u.getRole().getId();

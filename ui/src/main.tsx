@@ -656,6 +656,7 @@ const gui: GuiHandlers = {
     },
     selectedTile: (e) => dispatch({ k: 'selectedTile', ...e, always: pageOption(prefs, 'model.option.alwaysCenter') }),
     focus: (e) => dispatch({ k: 'focus', ...e }),
+    animateMove: (e) => map.moved(e),
     information: (e) => dialogQueue.show('information', e),
     error: (e) => {
       console.error(e.text);
