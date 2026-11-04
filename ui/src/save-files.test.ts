@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { fakeSaveStore } from './fake-saves';
 import { zip } from './fsg-fixture';
 import { fileNameOf, importSave } from './save-files';

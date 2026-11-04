@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import clientOptionsXml from '../../freecol/data/base/client-options.xml?raw';
 import freecolMessages from '../../freecol/data/strings/FreeColMessages.properties?raw';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import {
   blinkMs,
   DEFAULTS,

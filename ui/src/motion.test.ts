@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { BLINK_MS, blink, moves, slide } from './motion';
 import type { Unit } from './tileset';
 
