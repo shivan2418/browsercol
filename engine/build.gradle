@@ -104,6 +104,9 @@ teavm {
     tasks.register("${out}Module", GradleBuild) {
         buildName = "engine-${out}"
         tasks = ['generateWasmGC', 'copyWasmGCRuntime']
+        // Each module keeps its own task history: in a shared one, the other
+        // module's -Pmain counts as a change, and every build compiles both.
+        startParameter.projectCacheDir = file(".gradle/module-${out}")
         startParameter.projectProperties = [main: main, out: out] +
             (release ? [release: 'true'] : [:]) +
             ['teavmVersion', 'teavmRepo'].findAll { project.hasProperty(it) }
