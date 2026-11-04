@@ -3,7 +3,7 @@
 // its id; this file draws a menu where the pointer was, closes it on Escape,
 // on a press elsewhere and once an entry has run, and gives the colony
 // panel's colonists and goods a right-click that opens theirs.
-import { useEscape } from './frame';
+import { useEscape, type Art } from './frame';
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from 'react';
 
 /** One entry: its id (the Engine runs it), its label, and how it is drawn (Menus.java). */
@@ -15,6 +15,8 @@ export interface MenuEntry {
   gap?: boolean;
   /** Set under the entry above, as a ship's cargo is. */
   indent?: boolean;
+  /** A resource key for an icon drawn before the label, as a work entry's goods. */
+  icon?: string;
 }
 
 /** A menu as the Engine sends it. */
@@ -44,7 +46,17 @@ export function clampMenu(at: [number, number], size: [number, number], viewport
  * The open menu. A pick closes it, then runs the entry; Escape (before any dialog sees it) and a press
  * anywhere outside close it too.
  */
-export function PopupMenu({ popup, run, close }: { popup: Popup; run: (id: string) => void; close: () => void }) {
+export function PopupMenu({
+  popup,
+  run,
+  close,
+  art,
+}: {
+  popup: Popup;
+  run: (id: string) => void;
+  close: () => void;
+  art?: Art;
+}) {
   const box = useRef<HTMLDivElement>(null);
   const [at, setAt] = useState<[number, number]>([popup.x, popup.y]);
   useLayoutEffect(() => {
@@ -78,6 +90,7 @@ export function PopupMenu({ popup, run, close }: { popup: Popup; run: (id: strin
             run(e.id);
           }}
         >
+          {e.icon && art?.([e.icon]) && <img className="icon" src={art([e.icon])!} alt="" />}
           {e.label}
         </button>
       ))}
