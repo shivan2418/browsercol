@@ -9,7 +9,7 @@
 import { AlphaFilter, Application, Container, Culler, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import { resources, type ArtLayer, type Resources } from './resources';
 import {
-  isUnitMarker,
+  isCursorMarker,
   NO_MODES,
   overlay,
   scene,
@@ -979,8 +979,10 @@ export function mapDrawer(
       drawing = drawing.then(() => (drawn ? paintScene(drawn, lastOps) : undefined));
     }
     // What blinks is the unit cursor in FreeCol's style, else the unit; with blinking off the cursor stays, as the only mark.
-    const cursorBlinks = activeStyle === 'freecol' || blinkMs <= 0;
-    const alpha = !sliding && view.mode === 'units' && view.active ? blink(now, blinkMs) : 1;
+    // The tile cursor, shown when no unit is left to move, blinks on its own.
+    const tileCursor = view.mode === 'terrain' && !!view.selected;
+    const cursorBlinks = activeStyle === 'freecol' || blinkMs <= 0 || tileCursor;
+    const alpha = !sliding && ((view.mode === 'units' && view.active) || tileCursor) ? blink(now, blinkMs) : 1;
     if (sliding) {
       const [dx, dy] = slide(sliding.path.tiles, (now - sliding.since) / sliding.ms);
       pen.actors(dx, dy, 1);
@@ -997,7 +999,8 @@ export function mapDrawer(
   /** Every frame: the slide and the blink move on, and show the camera again. */
   function tick() {
     frame = requestAnimationFrame(tick);
-    if (sliding || lifting || (view?.mode === 'units' && view.active)) camera();
+    if (sliding || lifting || (view?.mode === 'units' && view.active) || (view?.mode === 'terrain' && view.selected))
+      camera();
   }
 
   /** Redraw the overlay if it changed, then move the camera. */
@@ -1008,8 +1011,8 @@ export function mapDrawer(
     const key = `${modes.id}|${JSON.stringify(ops)}`;
     if (key !== shown) {
       shown = key;
-      await paint(pen, 1, [...modes.ops, ...ops.filter((op) => !isUnitMarker(op))], pics);
-      await paint(pen, 4, ops.filter(isUnitMarker), pics);
+      await paint(pen, 1, [...modes.ops, ...ops.filter((op) => !isCursorMarker(op))], pics);
+      await paint(pen, 4, ops.filter(isCursorMarker), pics);
     }
     camera();
   }

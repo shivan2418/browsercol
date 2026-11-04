@@ -612,7 +612,7 @@ export function overlay(cursor: Cursor | null, path: PathStep[] | null, res: Res
       y: cursor.at[1],
       src,
       at: 'center',
-      ...(cursor.kind === 'unit' ? { marker: true as const } : {}),
+      marker: true,
     });
   // displayPath draws nothing for a path of one step, and no line through a step off the map.
   if (!path || path.length < 2) return ops;
@@ -625,10 +625,11 @@ export function overlay(cursor: Cursor | null, path: PathStep[] | null, res: Res
 }
 
 /**
- * The operations of an overlay that blink with the active unit in FreeCol's style: the unit cursor.
+ * The operations of an overlay that blink: the cursor. The unit cursor blinks with the active unit in FreeCol's
+ * style; the tile cursor, shown when no unit is left to move, always blinks, so the player sees where they are.
  * They are drawn on a layer of their own, between the overlay and the units.
  */
-export const isUnitMarker = (op: Op): boolean => op.k === 'image' && op.marker === true;
+export const isCursorMarker = (op: Op): boolean => op.k === 'image' && op.marker === true;
 
 /** ImageLibrary.makeForegroundColor: black on a light colour, white on a dark one. */
 export const foregroundOf = (rgb: number): number =>
