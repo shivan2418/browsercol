@@ -6,6 +6,10 @@ import java.util.List;
 
 import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.model.Ability;
+import net.sf.freecol.common.model.BuildableType;
+import net.sf.freecol.common.option.GameOptions;
+import net.sf.freecol.common.model.Region;
+import net.sf.freecol.common.model.Turn;
 import net.sf.freecol.common.model.Colony;
 import net.sf.freecol.common.model.FreeColGameObject;
 import net.sf.freecol.common.model.Game;
@@ -45,6 +49,12 @@ import net.sf.freecol.common.util.Utils;
  *     unexplored or nobody's;
  * <li>players: {name (the nation), rgb} per tile owner, indexed by owners;
  * <li>seen: one character per tile, '1' if the player can see it now;
+ * <li>fog: whether the map greys the tiles the player cannot see, as
+ *     MapViewer does with the game's fog of war and the display fog of war
+ *     client option on;
+ * <li>regions: one character per tile, 'A' + regionNames index, '.' if
+ *     unexplored or in no region; regionNames: the regions' names, as the
+ *     tile text option's regions show them;
  * <li>rivers: [x, y, magnitude, style, forest mask], the style's digits
  *     being the magnitudes toward NE, SE, SW, NW;
  * <li>roads: [x, y, zIndex] per complete road;
@@ -53,7 +63,9 @@ import net.sf.freecol.common.util.Utils;
  *     (improvement images, drawn if the key exists);
  * <li>settlements: {x, y, keys, rgb, name as the player knows it,
  *     population or -1, bonus (production), sizeChange (preferred),
- *     chips}, chips being null for a colony and for a native settlement
+ *     chips, fg (the label text's rgb on the owner's colour), building
+ *     (for the player's own colony, what it builds and in how many turns,
+ *     as the modern colony labels show it, else null)}, chips being null for a colony and for a native settlement
  *     {capital, fg, mission: {rgb, expert} or null, alarm: {fg, worthScouting}
  *     or null}, what ImageLibrary's settlement, mission and alarm chips
  *     show;
@@ -73,7 +85,19 @@ final class MapJson {
     private MapJson() {}
 
     static String of(Game game, Player player, Unit active) {
+        return of(game, player, active, true);
+    }
+
+    /**
+     * The map, with the fog of war shown or not.
+     *
+     * @param fogShown The display fog of war client option.
+     */
+    static String of(Game game, Player player, Unit active, boolean fogShown) {
+        final boolean fog = fogShown && game.getSpecification().getBoolean(GameOptions.FOG_OF_WAR);
         final Map map = game.getMap();
+        final StringBuilder regions = new StringBuilder(map.getWidth() * map.getHeight());
+        final List<Region> regionList = new ArrayList<>();
         final int w = map.getWidth(), h = map.getHeight();
         final List<TileType> types = new ArrayList<>();
         final StringBuilder tiles = new StringBuilder(w * h);
@@ -91,7 +115,16 @@ final class MapJson {
                 if (type == null) {
                     tiles.append('.');
                     owners.append('.');
+                    regions.append('.');
                     continue;
+                }
+                final Region region = t.getRegion();
+                if (region == null) {
+                    regions.append('.');
+                } else {
+                    int r = regionList.indexOf(region);
+                    if (r < 0) { r = regionList.size(); regionList.add(region); }
+                    regions.append((char)('A' + r));
                 }
                 final Player owner = t.getOwner();
                 if (owner == null) {
@@ -108,7 +141,7 @@ final class MapJson {
                 final Settlement s = t.getSettlement();
                 if (s != null) settlements.add(settlement(s, player));
                 final Unit u = unitInFront(t, active);
-                if (u != null) units.add(unit(u, player));
+                if (u != null) units.add(unit(u, player, fog));
             }
         }
         final List<String> typeJson = new ArrayList<>();
@@ -124,6 +157,8 @@ final class MapJson {
                 .put("name", Messages.message(p.getNationLabel()))
                 .put("rgb", rgb(p)).toString());
         }
+        final List<String> regionNames = new ArrayList<>();
+        for (Region r : regionList) regionNames.add(Json.quote(Messages.message(r.getLabel())));
         final Tile at = (active == null) ? null : active.getTile();
         return new Json().put("w", w).put("h", h)
             .put("turn", String.valueOf(game.getTurn()))
@@ -134,6 +169,9 @@ final class MapJson {
             .putRaw("types", Json.array(typeJson))
             .put("tiles", tiles.toString())
             .put("seen", seen.toString())
+            .put("fog", fog)
+            .put("regions", regions.toString())
+            .putRaw("regionNames", Json.array(regionNames))
             .put("owners", owners.toString())
             .putRaw("players", Json.array(playerJson))
             .putRaw("rivers", Json.array(rivers))
@@ -265,6 +303,7 @@ final class MapJson {
 
     private static String settlement(Settlement s, Player player) {
         int population = -1, bonus = 0, sizeChange = 0;
+        String building = null;
         String chips = "null";
         final List<String> keys = settlementKeys(s);
         if (s instanceof Colony) {
@@ -272,6 +311,11 @@ final class MapJson {
             population = colony.getApparentUnitCount();
             bonus = colony.getProductionBonus();
             sizeChange = colony.getPreferredSizeChange();
+            final BuildableType buildable = colony.getCurrentlyBuilding();
+            if (buildable != null && colony.getOwner() == player) {
+                building = Messages.getName(buildable) + " "
+                    + Turn.getTurnsText(colony.getTurnsToComplete(buildable));
+            }
         } else if (s instanceof IndianSettlement) {
             chips = chips((IndianSettlement)s, player);
         }
@@ -279,6 +323,8 @@ final class MapJson {
         return new Json().put("x", t.getX()).put("y", t.getY())
             .putRaw("keys", keys(keys))
             .put("rgb", rgb(s.getOwner()))
+            .put("fg", foreground(rgb(s.getOwner())))
+            .put("building", building)
             .put("name", Messages.message(s.getLocationLabelFor(player)))
             .put("population", population)
             .put("bonus", bonus)
@@ -329,10 +375,10 @@ final class MapJson {
     }
 
     /** MapViewer.displayUnit's image keys, chip and stack count. */
-    private static String unit(Unit u, Player player) {
+    private static String unit(Unit u, Player player, boolean fog) {
         final Tile t = u.getTile();
         final boolean fade = u.getState() == Unit.UnitState.SENTRY
-            || !player.canSee(t);
+            || (fog && !player.canSee(t));
         final int rgb = rgb(u.getOwner());
         final int fg = (u.getState() == Unit.UnitState.FORTIFIED) ? 0x808080
             : foreground(rgb);
