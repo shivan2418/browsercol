@@ -144,3 +144,11 @@ Worker as requests (`engine/.../DebugActions.java`), because `DebugUtils`
 reaches into the server's game from the client, which the browser cannot do.
 `DEV_VARIANT=web ./dev.sh node ui/scripts/debug.mjs` checks them in the
 built site.
+
+## Licence
+
+FreeCol Online is free software under the GNU General Public License,
+version 2 or (at your option) any later version, the same terms as FreeCol
+itself; see `LICENSE`. FreeCol's art, music and sounds keep their own
+licences (mostly GPL v2, some CC BY or CC BY-SA), listed in the README next
+to each file under `freecol/data/`.
