@@ -3,7 +3,8 @@
 Each file here replaces the upstream FreeCol file at the same path, at the
 commit pinned in the repo root's `freecol.sha` (see the repo root's
 `freecol.sh`). Mark every changed line with `// browser:` and say why. An
-upstream bug fix is marked `// online:` instead.
+upstream bug fix is marked `// online:` instead, and gets a row in
+`docs/upstream-fixes.md`, the log of FreeCol bugs we fix.
 
 ## The rule: keep the game behaviour around a Swing call
 
@@ -45,6 +46,7 @@ drops a message, a server request, model state or a callback.
 | `common/model/TradeRoute.java` | `copyIn` keeps `silent`. | upstream bug fix |
 | `common/option/AudioMixerOption.java`, `common/sound/SoundPlayer.java` | No mixers. | platform |
 | `common/model/Player.java` | A stack trace without `Thread.dumpStack`. | platform |
+| `common/model/Player.java` | `addFather` sets Paine's bells bonus to the tax at once (#169). | upstream bug fix |
 
 "Platform" means the change works around TeaVM, Swing, `javax.sound` or the
 lack of a local file system, and the game plays the same.
