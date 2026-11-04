@@ -886,7 +886,8 @@
       /* The option editor (src/option-editor.tsx), on the start screen and in the in-game panel. */
       .options .box {
         margin: 6px 0;
-        padding: 4px 8px;
+        /* The top leaves room for the caption (.box > .cap). */
+        padding: 18px 8px 4px;
         background: var(--box);
         border: 1px solid var(--line);
       }
