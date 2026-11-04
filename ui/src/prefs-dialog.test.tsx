@@ -129,3 +129,60 @@ test("the language's category says the Browser UI's own labels stay English", ()
   fireEvent.click(container.querySelector<HTMLElement>('[data-category="clientOptions.messages"]')!);
   expect(container.querySelector('[data-note="language"]')).toBeNull();
 });
+
+test('each volume is a slider with a mute button beside it, and muting leaves the volume as it was', () => {
+  const audio: OptionGroup = {
+    ...freecol,
+    children: [
+      {
+        id: 'clientOptions.audio',
+        label: 'Audio',
+        description: null,
+        kind: 'group',
+        children: [
+          {
+            id: 'model.option.musicVolume',
+            label: 'Music volume',
+            description: null,
+            kind: 'percentage',
+            value: 100,
+            min: 0,
+            max: 100,
+          },
+          {
+            id: 'model.option.soundEffectsVolume',
+            label: 'Sound effects volume',
+            description: null,
+            kind: 'percentage',
+            value: 100,
+            min: 0,
+            max: 100,
+          },
+          { id: 'model.option.audioAlerts', label: 'Audio alerts', description: null, kind: 'boolean', value: true },
+        ],
+      },
+    ],
+  };
+  const changes: Prefs[] = [];
+  const prefs = { ...DEFAULTS, muteEffects: true, freecol: { 'model.option.musicVolume': 60 } };
+  const { container } = render(
+    <PreferencesDialog prefs={prefs} freecol={audio} change={(p) => changes.push(p)} close={() => {}} />,
+  );
+  fireEvent.click(container.querySelector<HTMLElement>('[data-category="clientOptions.audio"]')!);
+  expect(screen.getByLabelText<HTMLInputElement>('Music volume').type).toBe('range');
+  expect(container.querySelectorAll('[data-mute]')).toHaveLength(2);
+  const music = container.querySelector<HTMLElement>('[data-mute="muteMusic"]')!;
+  const effects = container.querySelector<HTMLElement>('[data-mute="muteEffects"]')!;
+  expect(music.getAttribute('aria-pressed')).toBe('false');
+  expect(effects.getAttribute('aria-pressed')).toBe('true');
+  fireEvent.click(music);
+  expect(changes.at(-1)).toMatchObject({
+    muteMusic: true,
+    muteEffects: true,
+    freecol: { 'model.option.musicVolume': 60 },
+  });
+  fireEvent.click(effects);
+  expect(changes.at(-1)).toMatchObject({ muteMusic: false, muteEffects: false });
+  fireEvent.change(screen.getByLabelText('Sound effects volume'), { target: { value: '25' } });
+  expect(changes.at(-1)?.freecol).toEqual({ 'model.option.musicVolume': 60, 'model.option.soundEffectsVolume': 25 });
+});

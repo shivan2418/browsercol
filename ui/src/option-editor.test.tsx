@@ -89,6 +89,13 @@ test('each option type edits', () => {
   ]);
 });
 
+test('a percentage is a slider with its value beside it', () => {
+  editor(true, { 'o.gift': 30 });
+  const gift = screen.getByLabelText<HTMLInputElement>('Gift probability');
+  expect(gift.type).toBe('range');
+  expect(document.querySelector('[data-option="o.gift"] output')?.textContent).toBe('30%');
+});
+
 test('a number out of range or not whole is marked invalid and not passed on', () => {
   const changes = editor();
   const turns = screen.getByLabelText('Turns to sail');
