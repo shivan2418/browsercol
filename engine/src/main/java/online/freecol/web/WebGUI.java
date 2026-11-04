@@ -153,7 +153,11 @@ import net.sf.freecol.common.option.OptionGroup;
  *         cancel</td></tr>
  * <tr><td>showDeclarationPanel (defers)</td><td>question confirm</td>
  *     <td>{text, ok} with no cancel; the callback runs when it is closed</td></tr>
- * <tr><td>showChooseFoundingFatherDialog, showEmigrationDialog (defer)</td>
+ * <tr><td>showChooseFoundingFatherDialog (defers)</td><td>question father</td>
+ *     <td>{title, ok, fathers: [{id, kind, name, description, born, text,
+ *         keys}]}, a tab per father as ChooseFoundingFatherDialog has; the
+ *         chosen index, else null, which postpones the choice</td></tr>
+ * <tr><td>showEmigrationDialog (defers)</td>
  *     <td>question choice</td><td>as modalChoiceDialog, no cancel</td></tr>
  * <tr><td>showSelectDestinationDialog</td><td>question choice</td>
  *     <td>as modalChoiceDialog, one choice per destination, as
@@ -1035,22 +1039,46 @@ public class WebGUI extends GUI {
     /**
      * {@inheritDoc}
      *
-     * Defers. One item per father, as Swing's tabs; there is no cancel,
-     * and a closed dialog postpones the choice, as the controller expects.
+     * Defers. Asks "father", as Swing's tabbed dialog: a tab per father,
+     * named by its kind, showing its portrait, what it does and its story
+     * (FatherDetailPanel). There is no cancel, and a closed dialog
+     * postpones the choice, as the controller expects.
      */
     @Override
     public void showChooseFoundingFatherDialog(List<FoundingFather> ffs,
                                                DialogHandler<FoundingFather> handler) {
-        List<ChoiceItem<FoundingFather>> choices = new ArrayList<>();
+        defer("showChooseFoundingFatherDialog",
+              () -> handler.handle(chooseFather(ffs)));
+    }
+
+    /** Asks for one of the fathers; null when closed. */
+    private FoundingFather chooseFather(List<FoundingFather> ffs) {
+        if (ffs.isEmpty()) return null;
+        List<String> fathers = new ArrayList<>();
         for (FoundingFather ff : ffs) {
-            choices.add(new ChoiceItem<>(Messages.getName(ff) + " ("
-                    + Messages.message(ff.getTypeKey()) + ")", ff));
+            fathers.add(new Json()
+                .put("id", ff.getId())
+                .put("kind", Messages.message(ff.getTypeKey()))
+                .put("name", Messages.getName(ff))
+                .put("description", Messages.getDescription(ff))
+                .put("born", Messages.message(ff.getId() + ".birthAndDeath"))
+                .put("text", Messages.message(ff.getId() + ".text"))
+                .putRaw("keys", Json.array(List.of(
+                    Json.quote("image.flavor." + ff.getId()))))
+                .toString());
         }
-        if (!choices.isEmpty()) choices.get(0).defaultOption();
-        defer("showChooseFoundingFatherDialog", () -> handler.handle(
-            modalChoiceDialog(
-                StringTemplate.key("chooseFoundingFatherDialog.title"),
-                null, choices)));
+        final String answer = this.questions.ask("father", new Json()
+            .put("title", label("chooseFoundingFatherDialog.title"))
+            .put("ok", label("ok"))
+            .putRaw("fathers", Json.array(fathers))
+            .toString());
+        int i;
+        try {
+            i = (answer == null) ? -1 : Integer.parseInt(answer);
+        } catch (NumberFormatException nfe) {
+            i = -1;
+        }
+        return (i < 0 || i >= ffs.size()) ? null : ffs.get(i);
     }
 
     /**
