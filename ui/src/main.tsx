@@ -58,6 +58,7 @@ import { ReportContext, colopediaMenu, reportMenu, type ReportActions } from './
 import type { ColonyLabels, PathStep } from './tileset';
 import { blockBrowserMenu, gotoKeyInput, onCanvas, pointerInput, rightClickInput } from './pointer';
 import { ContextMenuContext, PopupMenu, parseMenu, type ContextMenus, type Popup } from './popup-menu';
+import { soundPlayer, type AudioManifest } from './sound';
 import { StartScreen } from './start-screen';
 import { presetJson, startOptions } from './start';
 import { fileNameOf, importSave } from './save-files';
@@ -252,6 +253,25 @@ const reportActions: ReportActions = {
 /** The player's preferences, and whether their window is open. */
 let prefs: Prefs = prefsAtLoad;
 let prefsOpen = false;
+/** The music and sound effects volume options. */
+const volumes = (p: Prefs) => ({
+  music: pageOption(p, 'model.option.musicVolume'),
+  effects: pageOption(p, 'model.option.soundEffectsVolume'),
+});
+/** FreeCol's music and sound effects, served under audio/ (build-audio.mjs); null if the manifest is missing. */
+const sound = fetch('audio/audio.json')
+  .then((res) => (res.ok ? (res.json() as Promise<AudioManifest>) : Promise.reject(new Error(`${res.status}`))))
+  .then((manifest) => {
+    const player = soundPlayer(manifest, { base: 'audio/' });
+    player.setVolumes(volumes(prefs));
+    return player;
+  })
+  .catch((ex: unknown) => {
+    console.warn('no sound: audio/audio.json gave', ex);
+    return null;
+  });
+/** GUI.playSound: play a sound by its resource key, or stop the sound effect; in order, once the manifest is in. */
+const playSound = (key: string | null) => void sound.then((s) => s?.play(key));
 /**
  * FreeCol's compass rose at the map's top right (CornerMapControls), shown by the display compass rose option:
  * a click on it moves the active unit the way it points.
@@ -324,6 +344,7 @@ function setPrefs(p: Prefs) {
   prefs = p;
   savePrefs(p);
   applyLook(p);
+  void sound.then((s) => s?.setVolumes(volumes(p)));
   const changed = Object.fromEntries(Object.entries(p.freecol).filter(([id, v]) => was.freecol[id] !== v));
   pushFreecolOptions(changed);
   // The Engine's map says whether the fog of war shows.
@@ -657,6 +678,7 @@ const gui: GuiHandlers = {
     selectedTile: (e) => dispatch({ k: 'selectedTile', ...e, always: pageOption(prefs, 'model.option.alwaysCenter') }),
     focus: (e) => dispatch({ k: 'focus', ...e }),
     animateMove: (e) => map.moved(e),
+    sound: (e) => playSound(e.key),
     information: (e) => dialogQueue.show('information', e),
     error: (e) => {
       console.error(e.text);
@@ -814,6 +836,8 @@ function chooseGame(data: string[]): Promise<string> {
   const host = document.createElement('div');
   document.body.append(host);
   const root = createRoot(host);
+  // FreeCol's main panel plays the introduction music.
+  playSound('sound.intro.general');
   return new Promise((done) => {
     root.render(
       <StartScreen
@@ -892,6 +916,9 @@ async function run() {
       if (failure) reportError(failure.title, failure.detail);
       switch (name) {
         case 'gameStarted':
+          // PreGameController.startGame: the default playlist plays whenever no other music does.
+          void sound.then((s) => s?.startPlaylist());
+          return drawMap(JSON.parse(detail) as MapView);
         case 'map':
           return drawMap(JSON.parse(detail) as MapView);
         case 'updated':

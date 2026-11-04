@@ -3,7 +3,9 @@
 // The game starts from the start screen: the player picks a nation and a
 // difficulty level (the first run takes what the screen offers first), and
 // every Classic nation is then started in turn and must be the player's. Exits non-zero
-// unless every browser finishes the game, fetching the data bundle once.
+// unless every browser finishes the game, fetching the data bundle once, and
+// plays sound: the start screen's introduction music and the nation's, which
+// the Engine asks for as the game starts.
 // The page's dialogs are answered as scripts/dialogs.mjs says.
 // Run in the web image:
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/smoke.mjs [--browsers chromium,firefox] [--autoplay N] [--query preset=NAME] [--url https://deployed.site/path/]
@@ -61,6 +63,13 @@ for (const name of browsers) {
   const errors = collectPageErrors(page);
   server.watch?.(page);
   server.resetDataFetches();
+  /** The audio files the page asked for, under audio/. */
+  const audio = new Set();
+  const onRequest = (r) => {
+    const m = /\/audio\/(.+\.ogg)$/.exec(r.url());
+    if (m) audio.add(m[1]);
+  };
+  page.on('request', onRequest);
   const t = Date.now();
   let result;
   try {
@@ -73,6 +82,11 @@ for (const name of browsers) {
     result = { status: 'failed', error: await diagnose(ex) };
   }
   const fetches = server.dataFetches();
+  page.off('request', onRequest);
+  const sounds = screen
+    ? ['base/resources/sound/intro.ogg', 'default/resources/sound/intro/generic.ogg']
+    : ['default/resources/sound/intro/generic.ogg'];
+  const unheard = sounds.filter((f) => !audio.has(f));
   // Each Classic nation, started from the start screen with a difficulty level, is the player's.
   const nations = [];
   if (screen) {
@@ -103,12 +117,14 @@ for (const name of browsers) {
     result.status === 'finished' &&
     result.rounds.length === Number(autoplay) &&
     fetches === 1 &&
+    unheard.length === 0 &&
     nations.every((n) => n.endsWith(' ok'));
   failed ||= !ok;
   console.log(
     `${name} ${browser.version()}: ${result.status}${result.error ? ': ' + result.error : ''}, ` +
       `${result.rounds?.length ?? 0} rounds, turn ${result.turn ?? '-'}, renderer ${result.renderer ?? '-'}, ` +
       `data fetched ${fetches}x, ` +
+      `sounds ${unheard.length ? 'MISSING ' + unheard.join(' ') : 'ok'} (${audio.size} files), ` +
       (screen ? `start screen: ${nations.join(', ')}, ` : '') +
       `${((Date.now() - t) / 1000).toFixed(1)} s${errors.length ? ', page errors: ' + errors.join('; ') : ''}`,
   );
