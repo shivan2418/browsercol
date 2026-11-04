@@ -18,6 +18,7 @@ import {
   startModes,
   uiZoom,
   visibleMessages,
+  volumes,
 } from './prefs';
 import { blink } from './motion';
 import { LANGUAGE_OPTION } from './language';
@@ -40,6 +41,14 @@ describe('prefs', () => {
       blink: 'slow',
     });
     expect(parsePrefs('{"activeStyle":"freecol"}').activeStyle).toBe('freecol');
+  });
+
+  it('mutes the music and the sound effects apart, keeping their volumes', () => {
+    const p = { ...DEFAULTS, freecol: { 'model.option.musicVolume': 40, 'model.option.soundEffectsVolume': 70 } };
+    expect(volumes(p)).toEqual({ music: 40, effects: 70 });
+    expect(volumes({ ...p, muteMusic: true })).toEqual({ music: 0, effects: 70 });
+    expect(volumes({ ...p, muteEffects: true })).toEqual({ music: 40, effects: 0 });
+    expect(parsePrefs('{"muteMusic":true,"muteEffects":"x"}')).toMatchObject({ muteMusic: true, muteEffects: false });
   });
 
   it('reads the grey-out option, on unless stored off', () => {

@@ -2,13 +2,13 @@
 // tree of categories on the left, and the options of the one picked on the right. FreeCol Online's own
 // preferences, such as the animation and blink speeds, are the first category; FreeCol's client options
 // the browser follows come after it, in FreeCol's groups. Hooks for tests: [data-category] on a
-// category's button, with its id.
+// category's button, with its id; [data-mute] on a volume's mute button, with the preference it sets.
 import { useState } from 'react';
 import { Box, WindowFrame } from './frame';
 import { LANGUAGE_OPTION } from './language';
 import { OptionEditor } from './option-editor';
 import type { OptionGroup } from './options';
-import { ACTIVE_STYLES, SPEEDS, type ActiveStyle, type Prefs, type Speed } from './prefs';
+import { ACTIVE_STYLES, MUTES, SPEEDS, type ActiveStyle, type Prefs, type Speed } from './prefs';
 
 const LABEL: Record<Speed, string> = { off: 'Off', slow: 'Slow', normal: 'Normal', fast: 'Fast' };
 
@@ -75,6 +75,25 @@ export function categories(freecol: OptionGroup | null): Category[] {
   };
   if (freecol) walk(freecol, 0);
   return out;
+}
+
+/** The mute button beside a volume option's slider; muting keeps the volume for when it is unmuted. */
+function MuteButton({ id, prefs, change }: { id: string; prefs: Prefs; change: (p: Prefs) => void }) {
+  if (!(id in MUTES)) return null;
+  const key = MUTES[id as keyof typeof MUTES];
+  const muted = prefs[key];
+  return (
+    <button
+      type="button"
+      className="mute"
+      data-mute={key}
+      aria-pressed={muted}
+      title={muted ? 'Unmute' : 'Mute'}
+      onClick={() => change({ ...prefs, [key]: !muted })}
+    >
+      {muted ? 'Muted' : 'Mute'}
+    </button>
+  );
 }
 
 /** FreeCol Online's own preferences. */
@@ -196,6 +215,7 @@ export function PreferencesDialog({
                     onChange={(id, v) => {
                       change({ ...prefs, freecol: { ...prefs.freecol, [id]: v } });
                     }}
+                    after={(id) => <MuteButton id={id} prefs={prefs} change={change} />}
                   />
                   {current.options.children.some((o) => o.id === LANGUAGE_OPTION) && (
                     <p data-note="language" className="prefs-note">

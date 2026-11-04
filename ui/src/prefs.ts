@@ -31,6 +31,10 @@ export interface Prefs {
   tutorial: boolean;
   /** Whether the turn ends by itself once no unit is left to move. */
   autoEndTurn: boolean;
+  /** Whether the music is muted, whatever its volume option says. */
+  muteMusic: boolean;
+  /** Whether the sound effects are muted, whatever their volume option says. */
+  muteEffects: boolean;
   /** FreeCol's client options the player changed, by id (FREECOL_OPTIONS); the others keep FreeCol's default. */
   freecol: Record<string, FreeColValue>;
 }
@@ -45,6 +49,8 @@ export const DEFAULTS: Prefs = {
   dimUnfocused: true,
   tutorial: true,
   autoEndTurn: false,
+  muteMusic: false,
+  muteEffects: false,
   freecol: {},
 };
 
@@ -221,6 +227,18 @@ export function pageOption<K extends PageOption>(p: Prefs, id: K): (typeof PAGE_
   return (typeof v === typeof PAGE_OPTIONS[id] ? v : PAGE_OPTIONS[id]) as (typeof PAGE_OPTIONS)[K];
 }
 
+/** The mute preference that silences each volume option, shown as a button beside its slider. */
+export const MUTES = {
+  'model.option.musicVolume': 'muteMusic',
+  'model.option.soundEffectsVolume': 'muteEffects',
+} as const;
+
+/** The music and sound effects volumes, as percentages: the volume options, or 0 when muted. */
+export const volumes = (p: Prefs): { music: number; effects: number } => ({
+  music: p.muteMusic ? 0 : pageOption(p, 'model.option.musicVolume'),
+  effects: p.muteEffects ? 0 : pageOption(p, 'model.option.soundEffectsVolume'),
+});
+
 /** The View menu's map modes, as the options say. */
 export const startModes = (p: Prefs): ViewModes => ({
   grid: pageOption(p, 'model.option.displayGrid'),
@@ -312,6 +330,8 @@ export function parsePrefs(text: string | null): Prefs {
       dimUnfocused: typeof o.dimUnfocused === 'boolean' ? o.dimUnfocused : DEFAULTS.dimUnfocused,
       tutorial: typeof o.tutorial === 'boolean' ? o.tutorial : DEFAULTS.tutorial,
       autoEndTurn: typeof o.autoEndTurn === 'boolean' ? o.autoEndTurn : DEFAULTS.autoEndTurn,
+      muteMusic: typeof o.muteMusic === 'boolean' ? o.muteMusic : DEFAULTS.muteMusic,
+      muteEffects: typeof o.muteEffects === 'boolean' ? o.muteEffects : DEFAULTS.muteEffects,
       freecol: freecolValues(o.freecol),
     };
   } catch {

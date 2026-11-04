@@ -48,6 +48,7 @@ import {
   visibleMessages,
   fontScale,
   uiZoom,
+  volumes,
   type Prefs,
 } from './prefs';
 import { LANGUAGE_OPTION, languageName, languages, pickLanguage, translationFiles } from './language';
@@ -257,11 +258,6 @@ const reportActions: ReportActions = {
 /** The player's preferences, and whether their window is open. */
 let prefs: Prefs = prefsAtLoad;
 let prefsOpen = false;
-/** The music and sound effects volume options. */
-const volumes = (p: Prefs) => ({
-  music: pageOption(p, 'model.option.musicVolume'),
-  effects: pageOption(p, 'model.option.soundEffectsVolume'),
-});
 /** FreeCol's music and sound effects, served under audio/ (build-audio.mjs); null if the manifest is missing. */
 const sound = fetch('audio/audio.json')
   .then((res) => (res.ok ? (res.json() as Promise<AudioManifest>) : Promise.reject(new Error(`${res.status}`))))

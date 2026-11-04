@@ -3,8 +3,9 @@
 // screen, where the player may change options before the game starts, and by
 // the in-game panel, where the same groups are read-only. Hooks for the browser
 // scripts: [data-option] on a row, with the option's id, and the control
-// inside it; [data-group] on a group's box.
-import { useState } from 'react';
+// inside it; [data-group] on a group's box. A percentage option is a slider,
+// as FreeCol's PercentageOptionUI is.
+import { useState, type ReactNode } from 'react';
 import { Box } from './frame';
 import type { OptionNode, OptionValue } from './options';
 
@@ -16,6 +17,8 @@ interface Props {
   values?: Record<string, OptionValue>;
   /** The player changed an option. */
   onChange?: (id: string, value: OptionValue) => void;
+  /** Anything to show after an option's control, such as a mute button beside a volume, by option id. */
+  after?: (id: string) => ReactNode;
 }
 
 /** A whole number field: a value out of range or not a number is shown as invalid and not passed on. */
@@ -67,6 +70,7 @@ function Row({
   editable,
   values,
   onChange,
+  after,
 }: { node: Exclude<OptionNode, { kind: 'group' }> } & Omit<Props, 'root'>) {
   const set = (v: OptionValue) => onChange?.(node.id, v);
   const value = values?.[node.id] ?? node.value;
@@ -85,19 +89,32 @@ function Row({
       );
       break;
     case 'integer':
+      control = (
+        <NumberField
+          value={Number(value)}
+          min={node.min}
+          max={node.max}
+          disabled={disabled}
+          label={node.label}
+          onChange={set}
+        />
+      );
+      break;
     case 'percentage':
       control = (
-        <>
-          <NumberField
-            value={Number(value)}
+        <span className="slider">
+          <input
+            type="range"
+            aria-label={node.label}
             min={node.min}
             max={node.max}
+            step={1}
             disabled={disabled}
-            label={node.label}
-            onChange={set}
+            value={Number(value)}
+            onChange={(e) => set(Number(e.target.value))}
           />
-          {node.kind === 'percentage' && <span className="unit">%</span>}
-        </>
+          <output>{Number(value)}%</output>
+        </span>
       );
       break;
     case 'select':
@@ -152,6 +169,7 @@ function Row({
     >
       <span className="name">{node.label}</span>
       {control}
+      {after?.(node.id)}
     </div>
   );
 }
