@@ -6,7 +6,7 @@
 // diamonds in staggered rows, odd rows half a tile to the right. It shows
 // the part of the map, at the zoom, that the view state (view.ts) says, with
 // the cursor and the active unit's path drawn over it.
-import { AlphaFilter, Application, Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
+import { AlphaFilter, Application, Container, Culler, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import { resources, type ArtLayer, type Resources } from './resources';
 import {
   isUnitMarker,
@@ -306,8 +306,34 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
     antialias: quality >= 20,
     resolution: ratioAt(quality),
     autoDensity: true,
+    // No render loop: the map is drawn only when something on it changed (see redraw).
+    autoStart: false,
   });
+  app.ticker.stop();
+  // The page handles the pointer itself (pointer.ts): PixiJS need not hit-test the map's objects on every move.
+  app.stage.eventMode = 'none';
+  app.stage.interactiveChildren = false;
   host.append(app.canvas);
+  let queued = 0;
+  /** Draw the map at the next frame, once however many changes come before it; what lies off the screen is skipped. */
+  const redraw = () => {
+    queued ||= requestAnimationFrame(() => {
+      queued = 0;
+      Culler.shared.cull(app.stage, app.renderer.screen, false);
+      app.render();
+    });
+  };
+  /** Add an object to the layer being drawn, culled when off the screen. */
+  const add = (o: Container) => {
+    o.cullable = true;
+    layer.addChild(o);
+    redraw();
+  };
+  /** The camera, the actors' offset and the layers' alphas last drawn: setting them again draws nothing. */
+  let shown = '';
+  let actorsAt = '';
+  let markerAlpha = -1;
+  let fadeAlpha = -1;
   /**
    * The canvas's CSS size: the host's box, in CSS pixels. PixiJS rounds its
    * own to whole device pixels and leaves it alone when the backing store
@@ -335,28 +361,27 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
     begin: (n) => {
       layer = layers[n];
       for (const child of layer.removeChildren()) child.destroy();
+      redraw();
     },
     image: (pic, x, y, dim) => {
       const s = new Sprite(texture(pic));
       s.position.set(x, y);
       if (dim) s.tint = 0xcccccc;
-      layer.addChild(s);
+      add(s);
     },
     diamond: (x, y, color, alpha) => {
-      layer.addChild(
-        new Graphics().poly([x + W / 2, y, x + W, y + H / 2, x + W / 2, y + H, x, y + H / 2]).fill({ color, alpha }),
-      );
+      add(new Graphics().poly([x + W / 2, y, x + W, y + H / 2, x + W / 2, y + H, x, y + H / 2]).fill({ color, alpha }));
     },
     road: (x, y, color, path) => {
       const g = new Graphics();
       path(offset(g, x, y));
-      layer.addChild(g.stroke({ width: H / 32, color }));
+      add(g.stroke({ width: H / 32, color }));
     },
     rect: (x, y, w, h, color, alpha = 1) => {
-      layer.addChild(new Graphics().rect(x, y, w, h).fill({ color, alpha }));
+      add(new Graphics().rect(x, y, w, h).fill({ color, alpha }));
     },
     line: (x1, y1, x2, y2, color, width = 1, alpha = 1) => {
-      layer.addChild(new Graphics().moveTo(x1, y1).lineTo(x2, y2).stroke({ width, color, alpha, cap: 'round' }));
+      add(new Graphics().moveTo(x1, y1).lineTo(x2, y2).stroke({ width, color, alpha, cap: 'round' }));
     },
     outline: (paths, color, width, alpha) => {
       const g = new Graphics();
@@ -367,12 +392,10 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
       // Stroked opaque and faded as a whole: a stroke's own overlaps would otherwise blend twice.
       g.stroke({ width, color, cap: 'round', join: 'round' });
       g.filters = [new AlphaFilter({ alpha })];
-      layer.addChild(g);
+      add(g);
     },
     circle: (x, y, r, fill, outline, outlineAlpha) => {
-      layer.addChild(
-        new Graphics().circle(x, y, r).fill(fill).stroke({ width: 2, color: outline, alpha: outlineAlpha }),
-      );
+      add(new Graphics().circle(x, y, r).fill(fill).stroke({ width: 2, color: outline, alpha: outlineAlpha }));
     },
     text: (s, x, y, style, center) => {
       const t = new Text({
@@ -387,30 +410,45 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
         },
       });
       t.position.set(center ? x - t.width / 2 : x, y);
-      layer.addChild(t);
+      add(t);
     },
     measure: (s, style) => {
       measurer.font = fontOf(style);
       return measurer.measureText(s).width;
     },
     actors: (dx, dy, alpha) => {
+      const key = `${dx},${dy},${alpha}`;
+      if (key === actorsAt) return;
+      actorsAt = key;
       layers[2].position.set(dx, dy);
       layers[2].alpha = alpha;
+      redraw();
     },
     fade: (alpha) => {
+      if (alpha === fadeAlpha) return;
+      fadeAlpha = alpha;
       layers[3].alpha = alpha;
+      redraw();
     },
     marker: (alpha) => {
+      if (alpha === markerAlpha) return;
+      markerAlpha = alpha;
       layers[4].alpha = alpha;
+      redraw();
     },
     show: (dx, dy, scale) => {
+      const key = `${dx},${dy},${scale}`;
+      if (key === shown) return;
+      shown = key;
       world.scale.set(scale);
       world.position.set(dx, dy);
+      redraw();
     },
     // resize() takes CSS pixels: the renderer keeps its own resolution.
     resize: (w, h) => {
       app.renderer.resize(w, h, ratioAt(quality));
       cssSize(w, h);
+      redraw();
     },
   };
 }
