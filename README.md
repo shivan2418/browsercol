@@ -108,6 +108,11 @@ one before it kept as `Autosave-before-last-turn`, and every N turns
 autosaves older than the validity in days go as the page loads, and all of
 them as a new game starts if "Delete autosaves files" is on. A loaded game's
 first turn and an `?autoplay` run make none.
+With the "Save game dialog" option at Always, loading a save first shows
+FreeCol's Loading Save game window: single player is the one choice, the
+multiplayer ones shown unavailable; Cancel starts a new game instead. At
+Multiplayer only (FreeCol's default) it never shows, as browser games are
+single player.
 Export downloads the stored `.fsg` unchanged, and "Import a .fsg" adds one
 to the list: the turn, year and nation come from the file's `savegame.xml`
 (`ui/src/fsg.ts`, read in the page; a file that is not a FreeCol save is

@@ -4,7 +4,7 @@
 // save as a file, delete it, import the file again (a file that is not a save is
 // refused), check the export is byte for byte the import, load the save, check
 // it comes back at the saved turn with the saved active unit and the player's
-// turn, and play another turn. The turn autosaves FreeCol makes as each turn
+// turn (through FreeCol's Loading Save game window), and play another turn. The turn autosaves FreeCol makes as each turn
 // begins are checked after the first turn. The page's autosaves sit in the list beside
 // the script's save, so the script finds its own row by name. Exits non-zero
 // unless every browser gets there. The page's dialogs are answered as scripts/dialogs.mjs says.
@@ -182,9 +182,21 @@ async function run(page, url, shot, browserName) {
   }
   fs.rmSync(tmp, { recursive: true });
 
-  // 5. Load it: the page reloads on the saved game.
+  // 5. Load it: the page reloads on the saved game. With the save game dialog option at always
+  // (#153), FreeCol's Loading Save game window asks first, single player its one choice.
+  await page.evaluate(() => {
+    const p = JSON.parse(localStorage.getItem('freecol.prefs') ?? '{}');
+    p.freecol = { ...p.freecol, 'model.option.showSavegameSettings': 2 };
+    localStorage.setItem('freecol.prefs', JSON.stringify(p));
+  });
   await noDialog();
   await Promise.all([page.waitForURL(/[?&]load=\d+/), page.click(`#saves [data-save="${imported.id}"] [data-load]`)]);
+  await page.waitForSelector('[data-loading-save]', { timeout: 60000 });
+  const asked = await page.textContent('[data-loading-save]');
+  if (!asked?.includes(`${SAVE_NAME}: turn ${played.turn}`)) {
+    throw new Error(`the Loading Save game window does not name the save: ${JSON.stringify(asked)}`);
+  }
+  await page.click('[data-load-ok]');
   await finished();
   const loaded = await view();
   if (loaded.turn !== played.turn || !loaded.ourTurn || loaded.activeUnit?.id !== active) {

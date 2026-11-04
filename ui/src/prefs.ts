@@ -88,7 +88,7 @@ export function visibleMessages<T extends { type: string }>(p: Prefs, messages: 
  * device: the browser plays on the system's default output, as choosing another, setSinkId, works only in
  * Chromium); and those waiting on a feature, each with its issue: other players'
  * move animations (#149), terrain animations (#150), the compact colony report (#152),
- * the save game dialog (#153), mods (#155), and the warehouse
+ * mods (#155), and the warehouse
  * defaults (#158).
  */
 export const FREECOL_OPTIONS: readonly string[] = [
@@ -158,6 +158,7 @@ export const FREECOL_OPTIONS: readonly string[] = [
   'model.option.guiMinNumberToDisplayGoods',
   'model.option.colonyComparator',
   // Saved games
+  'model.option.showSavegameSettings',
   'model.option.autosavePeriod',
   'model.option.autosaveValidity',
   'model.option.autosaveDelete',
@@ -226,6 +227,8 @@ export const PAGE_OPTIONS = {
   'model.option.miniMapToggleBorders': true,
   /** The colour round the map on the minimap: 0 black, 1 to 5 greys from dark to light, 6 light blue. */
   'model.option.color.background': 0,
+  /** The Loading Save game window as a save loads: 0 never, 1 for multiplayer games only, 2 always (loading-save.tsx). */
+  'model.option.showSavegameSettings': 1,
   /** A turn autosave every this many turns, as the player's turn begins; 0 makes none. */
   'model.option.autosavePeriod': 1,
   /** Days a turn autosave is kept, counted from when it was made; 0 keeps them. Read as the page loads. */

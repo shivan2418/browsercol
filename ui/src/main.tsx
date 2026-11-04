@@ -69,6 +69,7 @@ import { soundPlayer } from './sound';
 import { StartScreen } from './start-screen';
 import { presetJson, startOptions } from './start';
 import { fileNameOf, importSave } from './save-files';
+import { LoadingSaveDialog, showsLoadingSave } from './loading-save';
 import {
   AUTOSAVE_NAME,
   debounced,
@@ -962,6 +963,42 @@ function chooseGame(data: string[]): Promise<string> {
   });
 }
 
+/**
+ * FreeCol's Loading Save game window, if the save game dialog option shows it: resolves once the
+ * player goes on. Cancel leaves the save, as FreeCol goes back to its main panel: the page reloads
+ * on a new game.
+ */
+async function confirmLoad(id: number): Promise<void> {
+  if (!showsLoadingSave(pageOption(prefs, 'model.option.showSavegameSettings'))) return;
+  const save = await store
+    .list()
+    .then((all) => all.find((m) => m.id === id) ?? null)
+    .catch(() => null);
+  const host = document.createElement('div');
+  document.body.append(host);
+  const root = createRoot(host);
+  const close = () => {
+    root.unmount();
+    host.remove();
+  };
+  return new Promise((done) => {
+    root.render(
+      <LoadingSaveDialog
+        save={save}
+        load={() => {
+          close();
+          done();
+        }}
+        cancel={() => {
+          const next = new URLSearchParams(location.search);
+          next.delete('load');
+          location.search = next.toString();
+        }}
+      />,
+    );
+  });
+}
+
 /** Delete the autosaves and reload on a new game: the page's own load and new parameters go. */
 function resetSave() {
   autosaveSoon = () => {}; // no autosave of the game being thrown away
@@ -1002,6 +1039,8 @@ async function run() {
     freecolOptions = shownClientOptions(clientOptions);
     freecolDefaults = new Map([...leaves(clientOptions)].map(([id, o]) => [id, o.value]));
   }
+  // A save the player picked, not the autosave the page resumed by itself.
+  if (loadId !== undefined && !resumed) await confirmLoad(loadId);
   const chosen = skipStart ? '' : await chooseGame(data);
   choice = chosen;
   const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
