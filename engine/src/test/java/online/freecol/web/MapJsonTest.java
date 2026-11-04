@@ -2,6 +2,7 @@ package online.freecol.web;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
@@ -137,6 +138,20 @@ class MapJsonTest {
             "the ship is not sentried and in sight: " + units);
 
         assertEquals("[" + at.getX() + "," + at.getY() + "]", field(json, "active"));
+
+        // The regions, for the tile text option's regions: the ship's tile is in one.
+        final String regions = field(json, "regions");
+        assertEquals(w * h + 2, regions.length());
+        assertNotNull(at.getRegion(), "the ship's tile is in a region");
+        final int r = regions.charAt(i) - 'A';
+        assertEquals(Messages.message(at.getRegion().getLabel()),
+            ((List<?>)JsonReader.read(field(json, "regionNames"))).get(r));
+        assertEquals('.', regions.charAt(1 + unexplored.getY() * w + unexplored.getX()));
+
+        // The fog of war shows as the game and the display fog of war option say.
+        assertEquals(String.valueOf(game.getSpecification().getBoolean(
+            net.sf.freecol.common.option.GameOptions.FOG_OF_WAR)), field(json, "fog"));
+        assertEquals("false", field(MapJson.of(game, us, null, false), "fog"));
 
         // For the info panel: what the ship is, its moves and its cargo.
         final List<String> cargo = new ArrayList<>();

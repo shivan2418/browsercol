@@ -6,6 +6,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.teavm.jso.JSBody;
 import org.teavm.jso.JSExport;
 
+import net.sf.freecol.client.ClientOptions;
 import net.sf.freecol.common.model.Colony;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.Unit;
@@ -175,6 +176,12 @@ public final class ClientMain {
     @JSExport
     public static boolean setClientOption(String id, String value) {
         return engine.setClientOption(id, value);
+    }
+
+    /** Send the map again, as an option that changes it (display fog of war) asks. */
+    @JSExport
+    public static void refreshMap() {
+        command("refreshMap", () -> {});
     }
 
     /** Ignore the turn report's message at an index, or stop ignoring it. */
@@ -545,6 +552,8 @@ public final class ClientMain {
     /** The client's view of the map for Tileset mode: see MapJson. */
     static String mapJson() {
         return MapJson.of(engine.getGame(), engine.getClient().getMyPlayer(),
-                          engine.getClient().getGUI().getActiveUnit());
+                          engine.getClient().getGUI().getActiveUnit(),
+                          engine.getClient().getClientOptions()
+                              .getBoolean(ClientOptions.DISPLAY_FOG_OF_WAR));
     }
 }
