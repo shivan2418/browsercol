@@ -802,7 +802,7 @@ function playWith(client: ClientExports) {
       menuActions().zoom(zoom);
       return;
     }
-    const c = commandForKey(e);
+    const c = commandForKey(e, side.orders);
     if (!c) return;
     e.preventDefault();
     run(c);

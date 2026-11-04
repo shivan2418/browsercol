@@ -2769,6 +2769,28 @@ public final class InGameController extends FreeColClientHolder {
     }
 
     /**
+     * browser: why a unit on the map cannot found a colony, by the causes
+     * Unit.canBuildColony checks: the unit's type, then a rebel's game
+     * option, as both last past this turn, then the unit's moves. The rules
+     * have no sentence for these, so they are English, as the Engine is.
+     *
+     * @param unit The {@code Unit} that cannot found a colony.
+     * @return The cause, as a sentence.
+     */
+    private static String whyNoColony(Unit unit) {
+        if (!unit.getType().canBuildColony()) {
+            return "Its type never founds a colony.";
+        }
+        if (unit.getOwner().isRebel()
+            && !unit.getSpecification().getBoolean(GameOptions.FOUND_COLONY_DURING_REBELLION)) {
+            return "A rebel founds no colony while the game option "
+                + Messages.message(GameOptions.FOUND_COLONY_DURING_REBELLION + ".name")
+                + " is off.";
+        }
+        return "It has no moves left this turn.";
+    }
+
+    /**
      * Use the active unit to build a colony.
      *
      * Called from BuildColonyAction.
@@ -2787,9 +2809,14 @@ public final class InGameController extends FreeColClientHolder {
             // it with Unit.getName(), which is null for every unit the player
             // never renamed, so the message read "Your null can not build a
             // colony." FreeCol names only ships, so most units had no name.
-            showInformationPanel(unit, StringTemplate
-                .template("buildColony.badUnit")
-                .addStringTemplate("%unit%", unit.getLabel()));
+            // The message then says why: upstream's Swing client never shows
+            // it, as BuildColonyAction is disabled, but the player who meets
+            // it should not have to guess which of the causes applies.
+            showInformationPanel(unit, StringTemplate.label(" ")
+                .addStringTemplate(StringTemplate
+                    .template("buildColony.badUnit")
+                    .addStringTemplate("%unit%", unit.getLabel()))
+                .addName(whyNoColony(unit)));
             return false;
         }
 

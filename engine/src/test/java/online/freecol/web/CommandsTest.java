@@ -401,42 +401,69 @@ class CommandsTest {
     }
 
     /**
-     * A unit that cannot found a colony is told so by name: the message
-     * names the unit's type, and not "null", as it does for a unit the
-     * player never renamed.
+     * A unit that cannot found a colony is told so by name, and why: the
+     * message names the unit's type, and not "null", as it does for a unit
+     * the player never renamed, and then the cause Unit.canBuildColony
+     * found: the unit's type, a rebel's game option, or no moves left.
      */
     @Test
     @Timeout(240)
-    void theHumanIsToldWhichUnitCannotFoundAColony() throws Exception {
+    void theHumanIsToldWhichUnitCannotFoundAColonyAndWhy() throws Exception {
         startGame();
         final Commands commands = client.getCommands();
         final Unit colonist = landAColonist(commands);
+        final Unit ship = client.getClient().getMyPlayer().getUnits()
+            .filter(Unit::isNaval).findFirst().get();
 
         // The colonist has used its moves landing, so it cannot found a
         // colony yet, and the Browser UI is told which unit cannot.
         assertFalse(colonist.canBuildColony(), "the colonist cannot found a colony");
         assertFalse(UnitOrders.valid(client.getClient().getMyPlayer(), colonist).contains("buildColony"),
                     "so the order is not offered");
-        final String typeName = Messages.message(StringTemplate
-            .template(Messages.nameKey(colonist.getType().getId()))
-            .addAmount("%number%", 1));
-        informationPanels.clear();
-        select(commands, colonist);
-        assertFalse(commands.buildColony(), "the colonist founds no colony");
-
-        // The message is the rules' own sentence, with the colonist's
-        // type where the unit goes, and not "null".
-        assertEquals(1, informationPanels.size(), informationPanels::toString);
-        final String text = textOf(informationPanels.get(0));
+        final String text = cannotFoundMessage(commands, colonist);
         final String sentence = Messages.message("buildColony.badUnit");
         assertTrue(sentence.contains("%unit%"), () -> "the rules' sentence: " + sentence);
         final int at = sentence.indexOf("%unit%");
-        assertTrue(text.startsWith(sentence.substring(0, at))
-                   && text.endsWith(sentence.substring(at + "%unit%".length())),
+        assertTrue(text.startsWith(sentence.substring(0, at)),
             () -> "the message is the rules' own: " + text);
-        assertTrue(text.contains(typeName),
+        assertTrue(text.contains(sentence.substring(at + "%unit%".length())),
+            () -> "the message is the rules' own: " + text);
+        assertTrue(text.contains(typeName(colonist)),
             () -> "the message names the colonist's type: " + text);
         assertFalse(text.contains("null"), () -> "the message does not say null: " + text);
+        assertTrue(text.endsWith("It has no moves left this turn."),
+            () -> "the message says the colonist has no moves left: " + text);
+
+        // A ship never founds a colony, moves or not.
+        final String shipText = cannotFoundMessage(commands, ship);
+        assertTrue(shipText.contains(typeName(ship)), () -> "names the ship: " + shipText);
+        assertTrue(shipText.endsWith("Its type never founds a colony."),
+            () -> "the message says the ship's type cannot: " + shipText);
+
+        // A rebel founds no colony unless the game option says so; that is
+        // the cause, ahead of the colonist's moves.
+        client.getClient().getMyPlayer().changePlayerType(Player.PlayerType.REBEL);
+        final String option = Messages.message("model.option.foundColonyDuringRebellion.name");
+        final String rebelText = cannotFoundMessage(commands, colonist);
+        assertTrue(rebelText.endsWith("A rebel founds no colony while the game option "
+                + option + " is off."),
+            () -> "the message names the game option: " + rebelText);
+    }
+
+    /** The one message the Browser UI is shown when the unit tries to found a colony and cannot. */
+    private String cannotFoundMessage(Commands commands, Unit unit) {
+        informationPanels.clear();
+        select(commands, unit);
+        assertFalse(commands.buildColony(), "no colony founded");
+        assertEquals(1, informationPanels.size(), informationPanels::toString);
+        return textOf(informationPanels.get(0));
+    }
+
+    /** The name of a unit's type, as the rules give it. */
+    private static String typeName(Unit unit) {
+        return Messages.message(StringTemplate
+            .template(Messages.nameKey(unit.getType().getId()))
+            .addAmount("%number%", 1));
     }
 
     @Test

@@ -73,9 +73,33 @@ const NUMPAD: Record<string, Direction> = {
   Numpad7: 'NW',
 };
 
-/** The command for a key press, or null if the key does nothing. */
-export function commandForKey(e: { key: string; code: string }): Command | null {
+/** The orders of the active unit, by command, as the Engine names them (UnitOrders.java). */
+const ORDER_OF: Partial<Record<Command['k'], string>> = {
+  buildColony: 'buildColony',
+  fortify: 'fortify',
+  sentry: 'sentry',
+  skip: 'skip',
+  disband: 'disband',
+  plow: 'plow',
+  clearForest: 'clearForest',
+  road: 'road',
+  selectDestination: 'goto',
+};
+
+/** The Engine's name for the order a command gives the active unit, or null if it is no order. */
+export function orderOf(c: Command): string | null {
+  return ORDER_OF[c.k] ?? null;
+}
+
+/**
+ * The command for a key press, or null if the key does nothing. An order's
+ * key does nothing unless the Engine offers the order (`orders`), as the
+ * Swing client ignores the key of a disabled action.
+ */
+export function commandForKey(e: { key: string; code: string }, orders: readonly string[]): Command | null {
   const direction = NUMPAD[e.code];
   if (direction) return { k: 'move', direction };
-  return Object.hasOwn(BY_KEY, e.key) ? BY_KEY[e.key] : null;
+  const c = Object.hasOwn(BY_KEY, e.key) ? BY_KEY[e.key] : null;
+  const order = c && orderOf(c);
+  return order && !orders.includes(order) ? null : c;
 }

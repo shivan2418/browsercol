@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { commandForKey } from './input';
 
-const key = (key: string, code = '') => commandForKey({ key, code });
+/** Every order the Engine names, so each order's key is live. */
+const ALL = ['buildColony', 'fortify', 'sentry', 'skip', 'disband', 'plow', 'clearForest', 'road', 'goto'];
+const key = (key: string, code = '', orders = ALL) => commandForKey({ key, code }, orders);
 
 describe('commandForKey', () => {
   it('moves with the arrow keys and the numpad, as FreeCol does', () => {
@@ -49,6 +51,18 @@ describe('commandForKey', () => {
   it('shows Europe, as EuropeAction does', () => {
     expect(key('e', 'KeyE')).toEqual({ k: 'showEurope' });
     expect(key('E', 'KeyE')).toEqual({ k: 'showEurope' });
+  });
+
+  it('gives an order only when the Engine offers it, as a disabled Swing action ignores its key', () => {
+    // A unit with no moves left cannot found a colony, so B does nothing.
+    expect(key('b', 'KeyB', ['sentry', 'skip'])).toBeNull();
+    expect(key('f', 'KeyF', ['sentry', 'skip'])).toBeNull();
+    expect(key('h', 'KeyH', ['sentry', 'skip'])).toBeNull();
+    expect(key('s', 'KeyS', ['sentry', 'skip'])).toEqual({ k: 'sentry' });
+    // Keys that are no unit's order work with no active unit at all.
+    expect(key('ArrowUp', '', [])).toEqual({ k: 'move', direction: 'N' });
+    expect(key('Enter', 'Enter', [])).toEqual({ k: 'endTurn' });
+    expect(key('e', 'KeyE', [])).toEqual({ k: 'showEurope' });
   });
 
   it('ignores other keys', () => {
