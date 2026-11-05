@@ -72,6 +72,11 @@ export const PANEL_KEY_FAMILIES = {
   minimapEconomic: 'color.economic.MiniMap.',
   /** A tile type's colour on the minimap with its borders on: color.politics.MiniMap.<type> */
   minimapPolitics: 'color.politics.MiniMap.',
+  /**
+   * The advisor over the information panels, by nation (advisor.ts): image.skin.InformationPanel[.<nation>],
+   * each with its insets.top string resource.
+   */
+  advisor: 'image.skin.InformationPanel',
 } as const;
 
 /** The kinds of founding father, whose pictures share the portraits' family but no panel shows. */
@@ -85,6 +90,8 @@ export const PANEL_KEYS = {
   coin: 'image.icon.coin',
   /** The compass rose over the map (ImageLibrary.getCompassRose), when the display compass rose option is on. */
   compass: 'image.skin.compass',
+  /** The info panel's skin, the desk with the skull (InfoPanel.updateLayoutIfNeeded). */
+  infoPanel: 'image.skin.InfoPanel',
   /** The box round what the map shows, on the minimap (ImageLibrary.getMinimapBorderColor). */
   minimapBorder: 'color.border.MiniMap',
 } as const;

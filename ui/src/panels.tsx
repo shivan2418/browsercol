@@ -15,8 +15,10 @@ import {
   useSyncExternalStore,
   type DragEvent as ReactDragEvent,
   type KeyboardEvent as ReactKeyboardEvent,
+  type CSSProperties,
   type ReactNode,
 } from 'react';
+import type { Advisor } from './advisor';
 import { ColonyActions, ColonyPanel } from './colony-panel';
 import { DebugContext } from './debug';
 import type { Dialog, Dialogs } from './dialogs';
@@ -101,6 +103,7 @@ function Win({
   title = null,
   close,
   closeKeys,
+  advisor = null,
   children,
 }: {
   d: Dialog;
@@ -108,16 +111,23 @@ function Win({
   close: (() => void) | null;
   /** Keys that close the window as Escape does (frame.tsx). */
   closeKeys?: readonly string[];
+  /** The advisor's paper as the window's whole background, as FreeCol's InformationPanel draws it. */
+  advisor?: Advisor | null;
   children: ReactNode;
 }) {
   return (
     <WindowFrame
-      className="dialog"
+      className={advisor ? 'dialog advised' : 'dialog'}
       aria-modal="true"
       data-kind={d.kind}
       title={title}
       close={close}
       closeKeys={closeKeys}
+      style={
+        advisor
+          ? ({ '--advisor': `url("${advisor.src}")`, '--advisor-top': `${advisor.top}px` } as CSSProperties)
+          : undefined
+      }
     >
       {children}
     </WindowFrame>
@@ -751,11 +761,14 @@ function Panel({
   extra = null,
   lead = null,
   closeKeys,
+  advisor = null,
 }: {
   d: Dialog;
   title?: string | null;
   children: ReactNode;
   ok: string;
+  /** The advisor's paper behind the panel (Win). */
+  advisor?: Advisor | null;
   /** A second button beside OK. */
   extra?: { label: string; run: () => void } | null;
   /** Buttons at the left of the footer, with OK alone at the right. */
@@ -766,7 +779,7 @@ function Panel({
   const close = () => (d.done as () => void)();
   useEnter(close);
   return (
-    <Win d={d} title={title} close={close} closeKeys={closeKeys}>
+    <Win d={d} title={title} close={close} closeKeys={closeKeys} advisor={advisor}>
       {children}
       <PanelButtons ok={ok} close={close} extra={extra} lead={lead} />
     </Win>
@@ -1991,6 +2004,7 @@ function Body({
   routes,
   colopedia,
   command,
+  advisor,
 }: {
   d: Dialog;
   goTo: (at: At) => void;
@@ -1998,6 +2012,7 @@ function Body({
   colopedia: (type: string) => void;
   command: (entry: string) => void;
   string: (key: string) => string;
+  advisor: Advisor | null;
   report: ReportButtons;
   routes: RouteButtons;
 }) {
@@ -2036,7 +2051,7 @@ function Body({
       return <PreCombat d={d} />;
     case 'information':
       return (
-        <Panel d={d} ok={d.event.ok}>
+        <Panel d={d} ok={d.event.ok} advisor={advisor}>
           <div className="row">
             <Pic keys={d.event.images} art={art} />
             <TileText text={d.event.text} at={d.event.at} goTo={goTo} />
@@ -2102,7 +2117,8 @@ function Body({
       );
     case 'messages':
       return (
-        <Panel d={d} title={d.event.title} ok={d.event.ok}>
+        // Model messages are FreeCol's InformationPanel, under the advisor; the turn report has a title.
+        <Panel d={d} title={d.event.title} ok={d.event.ok} advisor={d.event.title ? null : advisor}>
           <MessageList event={d.event} goTo={goTo} art={art} report={report} />
         </Panel>
       );
@@ -2127,6 +2143,7 @@ export function DialogHost({
   routes,
   colopedia = () => {},
   command = () => {},
+  advisor = null,
 }: {
   dialogs: Dialogs;
   goTo: (at: At) => void;
@@ -2139,6 +2156,8 @@ export function DialogHost({
   string?: (key: string) => string;
   report: ReportButtons;
   routes: RouteButtons;
+  /** The advisor over the information panels, for the player's nation; null for plain windows. */
+  advisor?: Advisor | null;
 }) {
   const d = useSyncExternalStore(dialogs.subscribe, dialogs.current);
   const under = useSyncExternalStore(dialogs.subscribe, dialogs.under);
@@ -2156,6 +2175,7 @@ export function DialogHost({
           routes={routes}
           colopedia={colopedia}
           command={command}
+          advisor={advisor}
         />
       )}
       <Body
@@ -2168,6 +2188,7 @@ export function DialogHost({
         routes={routes}
         colopedia={colopedia}
         command={command}
+        advisor={advisor}
       />
     </div>
   );

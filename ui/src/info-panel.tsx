@@ -1,8 +1,11 @@
 // FreeCol's InfoPanel (#216), in the map's bottom-right corner as CornerMapControls puts it: the active unit's
 // picture, its description and moves, and for a carrier what it has aboard (fillUnitPanel); once no unit is left
 // to move in our turn, the end turn message and button (fillEndPanel). A press on the unit panel centres the map
-// on the unit, as the panel's mouse listener does. The tile mode (terrain view) is not drawn yet.
+// on the unit, as the panel's mouse listener does. The tile mode (terrain view) is not drawn yet. Once the art has
+// it, FreeCol's skin is the panel's background: a desk with a skull on it, over a sheet of paper.
+import type { CSSProperties, ReactNode } from 'react';
 import type { Art } from './frame';
+import { PANEL_KEYS } from './map-keys';
 import type { ActiveUnit } from './tileset';
 
 export interface InfoPanelProps {
@@ -25,13 +28,40 @@ export const END_TURN = { text: 'Press enter in order to end the turn.', button:
 export function InfoPanel({ unit, idle, endTurn = END_TURN, art, centre, endTurnNow }: InfoPanelProps) {
   if (unit) return <UnitPanel unit={unit} art={art} centre={centre} />;
   return (
-    <section id="info-panel" aria-label="Information">
+    <Skinned art={art}>
       {idle && (
         <div className="info-end">
           <p>{endTurn.text}</p>
           <button onClick={endTurnNow}>{endTurn.button}</button>
         </div>
       )}
+    </Skinned>
+  );
+}
+
+/** The panel's box, with FreeCol's skin behind it once the art has it. */
+function Skinned({
+  art,
+  className,
+  onPointerDown,
+  children,
+}: {
+  art: Art;
+  className?: string;
+  onPointerDown?: () => void;
+  children: ReactNode;
+}) {
+  const skin = art([PANEL_KEYS.infoPanel]);
+  const classes = [className, skin && 'skinned'].filter(Boolean).join(' ');
+  return (
+    <section
+      id="info-panel"
+      aria-label="Information"
+      className={classes || undefined}
+      style={skin ? ({ '--skin': `url("${skin}")` } as CSSProperties) : undefined}
+      onPointerDown={onPointerDown}
+    >
+      {children}
     </section>
   );
 }
@@ -39,7 +69,7 @@ export function InfoPanel({ unit, idle, endTurn = END_TURN, art, centre, endTurn
 function UnitPanel({ unit, art, centre }: { unit: ActiveUnit; art: Art; centre: () => void }) {
   const src = art(unit.keys);
   return (
-    <section id="info-panel" aria-label="Information" className="info-unit" onPointerDown={centre}>
+    <Skinned art={art} className="info-unit" onPointerDown={centre}>
       <div className="info-picture">{src && <img src={src} alt="" />}</div>
       <div className="info-text">
         <p className="info-label">{unit.label}</p>
@@ -76,6 +106,6 @@ function UnitPanel({ unit, art, centre }: { unit: ActiveUnit; art: Art; centre: 
           </ul>
         )}
       </div>
-    </section>
+    </Skinned>
   );
 }

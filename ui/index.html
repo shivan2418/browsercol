@@ -31,7 +31,7 @@
         display: none;
       }
       #game {
-        --info-panel-w: 300px;
+        --info-panel-w: 310px;
         flex: 1;
         min-width: 320px;
         display: flex;
@@ -87,6 +87,33 @@
         border-width: 2px 0 0 2px;
         border-radius: 6px 0 0 0;
         font-size: var(--fs-s);
+      }
+      /*
+       * With FreeCol's skin (image.skin.InfoPanel): the desk with the skull on it over the paper, at the skin's
+       * size; the panel's contents go in the paper as image.skin.InfoPanel.properties places them. Only the
+       * contents take the pointer, so the map under the desk's empty corners can still be clicked.
+       */
+      #info-panel.skinned {
+        width: 310px;
+        height: 298px;
+        min-height: 0;
+        padding: 146px 8px 14px 52px;
+        background: var(--skin) left top / 100% 100% no-repeat;
+        border: 0;
+        border-radius: 0;
+        pointer-events: none;
+        --ink: var(--paper-ink);
+        --muted: var(--paper-muted);
+        --head: var(--paper-head);
+        --link: var(--paper-link);
+      }
+      #info-panel.skinned > * {
+        pointer-events: auto;
+        max-height: 100%;
+        overflow: hidden;
+      }
+      #info-panel.skinned .info-end {
+        min-height: 100%;
       }
       body[data-side-panel='hidden'] #info-panel {
         display: none;
@@ -565,6 +592,40 @@
       .dialog {
         max-width: 36em;
         max-height: 80vh;
+      }
+      /*
+       * An information panel under FreeCol's advisor (src/advisor.ts): the painted figure and paper are the
+       * window's whole background, at the skin's size as InformationPanel sets it, and the text starts below
+       * the figure. The title bar stays over the figure, empty, to drag the window by.
+       */
+      .frame.advised {
+        position: relative;
+        box-sizing: border-box;
+        width: 530px;
+        height: 510px;
+        padding-top: var(--advisor-top);
+        background: var(--advisor) center top / 100% 100% no-repeat;
+        border: 0;
+        box-shadow: none;
+        filter: drop-shadow(0 10px 24px rgb(0 0 0 / 45%));
+        --ink: var(--paper-ink);
+        --muted: var(--paper-muted);
+        --head: var(--paper-head);
+        --link: var(--paper-link);
+        color: var(--ink);
+      }
+      .frame.advised > .title {
+        position: absolute;
+        inset: 0 0 auto;
+        height: var(--advisor-top);
+        background: none;
+      }
+      .frame.advised > .title .close {
+        display: none;
+      }
+      .frame.advised > .body {
+        flex: 1;
+        padding: 0 28px 24px;
       }
       .dialog h2 {
         margin: 0 0 8px;

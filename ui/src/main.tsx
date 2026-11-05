@@ -106,6 +106,7 @@ import {
   turnAutosaveNames,
   type SaveMeta,
 } from './saves';
+import { advisor } from './advisor';
 import { InfoPanel } from './info-panel';
 import { MinimapPanel } from './minimap-panel';
 import { MapOrders } from './map-orders';
@@ -906,6 +907,12 @@ function renderSide() {
                         colopedia={(type) => menuClient?.menuEntry(`colopedia:${type}`)}
                         command={(entry) => menuClient?.menuEntry(entry)}
                         string={(key) => map.resources()?.string(key) ?? ''}
+                        advisor={advisor(
+                          art,
+                          (key) => map.resources()?.string(key) ?? '',
+                          lastMap?.nation ?? '',
+                          lastMap?.colonial ?? true,
+                        )}
                         report={{
                           groupBy: (value) => reportButtons.groupBy(value),
                           filter: (index, shown) => reportButtons.filter(index, shown),

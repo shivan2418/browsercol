@@ -32,7 +32,9 @@ test('every palette sets every colour token of the default one', () => {
 test('index.html takes its colours from the tokens alone', () => {
   const style = html.slice(html.indexOf('<style>'), html.indexOf('</style>'));
   // Shadows may darken whatever is under them; any other colour belongs in theme.css.
-  const literals = style.split('\n').filter((l) => /#[0-9a-f]{3,8}\b|rgb\(/i.test(l) && !/box-shadow/.test(l));
+  const literals = style
+    .split('\n')
+    .filter((l) => /#[0-9a-f]{3,8}\b|rgb\(/i.test(l) && !/box-shadow|drop-shadow/.test(l));
   expect(literals).toEqual([]);
 });
 
