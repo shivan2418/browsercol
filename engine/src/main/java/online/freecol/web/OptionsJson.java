@@ -11,6 +11,7 @@ import net.sf.freecol.common.model.UnitType;
 import net.sf.freecol.common.option.AbstractOption;
 import net.sf.freecol.common.option.AbstractUnitOption;
 import net.sf.freecol.common.option.BooleanOption;
+import net.sf.freecol.common.option.FileOption;
 import net.sf.freecol.common.option.IntegerOption;
 import net.sf.freecol.common.option.Option;
 import net.sf.freecol.common.option.OptionGroup;
@@ -37,13 +38,16 @@ import net.sf.freecol.common.option.TextOption;
  *     {@code {value, label}} with a string value; an option that lists
  *     none has its value alone;</li>
  * <li>{@code text}: a string of free text;</li>
+ * <li>{@code file}: a file to import, {@code value} is its name or an
+ *     empty string; the Browser UI's start screen lets the player pick
+ *     one and hands its bytes to the Engine (ServerEngine.startGame);</li>
  * <li>{@code units}: a list of units, {@code value} is each
  *     {@code {type, role, number}} in order, and {@code unitTypes} and
  *     {@code roles} are the {@code {value, label}} an entry can have.</li>
  * </ul>
  *
- * An option of another kind (a file) is left out, as is
- * a group left with nothing to show.
+ * An option of another kind is left out, as is a group left with
+ * nothing to show.
  */
 final class OptionsJson {
 
@@ -119,6 +123,10 @@ final class OptionsJson {
         }
         if (o instanceof TextOption) {
             return node("text", o).put("value", ((TextOption)o).getValue());
+        }
+        if (o instanceof FileOption) {
+            final java.io.File f = ((FileOption)o).getValue();
+            return node("file", o).put("value", (f == null) ? "" : f.getName());
         }
         if (o instanceof UnitListOption) {
             return units((UnitListOption)o);

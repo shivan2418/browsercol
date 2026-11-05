@@ -79,6 +79,27 @@ public final class ServerEngine {
      * @exception Exception if the rules or the server fail.
      */
     public void startGame(String rules, GamePreset preset) throws Exception {
+        startGame(rules, preset, null);
+    }
+
+    /**
+     * Start a new single-player server game on a map from a file, as the
+     * map generator's import file option does on desktop FreeCol: the map
+     * of a map file (.fsm) or of a savegame (.fsg) takes the place of a
+     * generated one. The page hands over the file's bytes because the
+     * browser has no file system for the server to read it from.
+     *
+     * @param rules The rules id, e.g. "classic", unless the preset names
+     *     its own.
+     * @param preset What to set before the game is made.
+     * @param importMap The bytes of the map or savegame file to take the
+     *     map from, or null or empty for a generated map.
+     * @exception IllegalArgumentException if the preset names something
+     *     the rules do not have, or the file holds no map.
+     * @exception Exception if the rules or the server fail.
+     */
+    public void startGame(String rules, GamePreset preset, byte[] importMap)
+        throws Exception {
         this.setup = preset.setup;
         Messages.loadMessageBundle(Language.locale());
         FreeColRules.loadRules();
@@ -94,6 +115,7 @@ public final class ServerEngine {
         // Everything the preset can get wrong fails here, before a server
         // is made.
         preset.applyTo(spec);
+        if (importMap != null && importMap.length > 0) setImportFile(spec, importMap);
         // FreeCol forgets the open sessions (a monarch's offer, a trade)
         // only when it loads a game; a new one in the same Worker would
         // otherwise meet the last game's, keyed by the same player ids, as
@@ -102,6 +124,36 @@ public final class ServerEngine {
         FreeColServer made = new FreeColServer(false, true, spec, null, 0, "browser");
         preset.applyTo(made);
         this.server = made;
+    }
+
+    /**
+     * Make the file the map generator's import file. The file passes
+     * through the file system as a savegame does (see saveDirectory) and
+     * stays until the next import replaces it: the generator reads it when
+     * the game starts, after this method returns.
+     */
+    private static void setImportFile(Specification spec, byte[] bytes)
+        throws IOException {
+        saveDirectory.mkdirs();
+        File file = new File(saveDirectory, "import.fsg");
+        try (OutputStream out = new FileOutputStream(file)) {
+            out.write(bytes);
+        }
+        // Fail here, with the message of what is wrong, not when the map
+        // generator logs the failure and makes a map of its own.
+        try {
+            if (FreeColServer.readMap(file, spec) == null) {
+                throw new IllegalArgumentException("the import file has no map");
+            }
+        } catch (IllegalArgumentException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new IllegalArgumentException("the import file is not a map or a savegame: "
+                + ex, ex);
+        }
+        ((net.sf.freecol.common.option.FileOption)spec.getOption(
+            net.sf.freecol.common.option.MapGeneratorOptions.IMPORT_FILE,
+            net.sf.freecol.common.option.FileOption.class)).setValue(file);
     }
 
     /** The preset's setup requests, until they have run. */

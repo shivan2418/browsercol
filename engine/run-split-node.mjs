@@ -207,7 +207,7 @@ if (isMainThread) {
   server.main(dataArgs());
   parentPort.postMessage({ k: 'event', name: 'ready', detail: '' });
   parentPort.on('message', (m) => {
-    if (m.k === 'start') server.startGame(m.rules, '');
+    if (m.k === 'start') server.startGame(m.rules, '', new Int8Array(0));
     else if (m.k === 'save') server.saveGame('');
     else if (m.k === 'load') server.loadGame(new Int8Array(m.bytes.buffer, m.bytes.byteOffset, m.bytes.length));
     else if (m.k === 'connect') server.connect();
