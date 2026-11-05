@@ -169,16 +169,17 @@ public class FreeColDataFile {
             return new BufferedInputStream(new java.io.FileInputStream(
                 new File(this.file, filename)));
         }
-        // browser: nor jar: URLs, so read the entry with ZipFile, whole,
-        // and close the archive at once.
-        try (java.util.zip.ZipFile zf = new java.util.zip.ZipFile(this.file)) {
-            final java.util.zip.ZipEntry entry
-                = zf.getEntry(this.jarDirectory + filename);
-            if (entry == null) {
-                throw new FileNotFoundException(this.file.getName()
-                    + " has no " + this.jarDirectory + filename);
-            }
-            try (InputStream in = zf.getInputStream(entry)) {
+        // browser: nor jar: URLs, so read the entry whole, and close the
+        // archive at once. Not with ZipFile: TeaVM's hands its inflater
+        // only the entry's compressed bytes, without the dummy byte zlib
+        // needs after them (OpenJDK's ZipFile adds one), so a save whose
+        // deflate data ended unluckily failed with EOFException (#31).
+        // ZipInputStream reads on into the bytes after the entry.
+        final String wanted = this.jarDirectory + filename;
+        try (java.util.zip.ZipInputStream in = new java.util.zip.ZipInputStream(
+                new BufferedInputStream(new java.io.FileInputStream(this.file)))) {
+            for (java.util.zip.ZipEntry entry; (entry = in.getNextEntry()) != null;) {
+                if (!entry.getName().equals(wanted)) continue;
                 java.io.ByteArrayOutputStream out
                     = new java.io.ByteArrayOutputStream();
                 byte[] buf = new byte[65536];
@@ -187,6 +188,7 @@ public class FreeColDataFile {
                     new java.io.ByteArrayInputStream(out.toByteArray()));
             }
         }
+        throw new FileNotFoundException(this.file.getName() + " has no " + wanted);
     }
 
     /**
