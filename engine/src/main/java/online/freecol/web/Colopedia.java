@@ -1,7 +1,9 @@
 package online.freecol.web;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 
 import net.sf.freecol.FreeCol;
@@ -24,7 +26,7 @@ final class Colopedia {
     private Colopedia() {}
 
     /** The specifications read for {@link #before}, by rules id. */
-    private static final java.util.Map<String, Specification> SPECS = new java.util.HashMap<>();
+    private static final Map<String, Specification> SPECS = new HashMap<>();
 
     /**
      * The Colopedia before a game, as the start screen's Nation and Advantage

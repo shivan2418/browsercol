@@ -67,6 +67,13 @@ public final class ClientMain {
     /** The data files are in the file system, written by {@link #colopedia} or {@link #main}. */
     private static boolean dataWritten = false;
 
+    /** Write the data files once, whichever of colopedia and main comes first. */
+    private static synchronized void writeData(String[] files) throws java.io.IOException {
+        if (dataWritten) return;
+        DataFiles.write(files);
+        dataWritten = true;
+    }
+
     @JSBody(params = { "json", "error" }, script = "fcColopedia(json, error);")
     private static native void colopediaDone(String json, String error);
 
@@ -87,12 +94,7 @@ public final class ClientMain {
         for (int i = 0; i < files.length; i++) files[i] = data.get(i).stringValue();
         new Thread(() -> {
                 try {
-                    synchronized (ClientMain.class) {
-                        if (!dataWritten) {
-                            DataFiles.write(files);
-                            dataWritten = true;
-                        }
-                    }
+                    writeData(files);
                     final String json = Colopedia.before(rules, select.isEmpty() ? null : select);
                     if (json == null) throw new IllegalArgumentException("Unknown rules \"" + rules + "\"");
                     colopediaDone(json, null);
@@ -108,12 +110,7 @@ public final class ClientMain {
         Failures.reportTo((what, detail) -> event("error", what + "\n" + detail));
         new Thread(() -> {
                 try {
-                    synchronized (ClientMain.class) {
-                        if (!dataWritten) {
-                            DataFiles.write(args);
-                            dataWritten = true;
-                        }
-                    }
+                    writeData(args);
                     engine = new ClientEngine(new ClientEngine.ServerLink() {
                             public void connect() { connectToServer(); }
                             public void post(String xml) { toServer(xml); }

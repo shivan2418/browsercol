@@ -185,17 +185,21 @@ export function StartScreen({
   const levelGroup = useMemo(() => options.groups.level(difficulty), [options, difficulty]);
   const [credits, setCredits] = useState(false);
   const [pedia, setPedia] = useState<ReportView | null>(null);
+  const [opening, setOpening] = useState(false);
   const [pediaError, setPediaError] = useState<string | null>(null);
   /** Open the Colopedia on a section or entry; a link in it goes on in the same window. */
   const openPedia = (section: string | null, select: string | null = null) => {
-    if (!colopedia) return;
+    if (!colopedia || opening) return;
+    setOpening(true);
     startColopediaAt(section);
     colopedia(select).then(
       (view) => {
+        setOpening(false);
         setPediaError(null);
         setPedia(view);
       },
       (ex: unknown) => {
+        setOpening(false);
         startColopediaAt(null);
         setPediaError(`The Colopedia could not be opened: ${String(ex)}`);
       },
@@ -213,7 +217,7 @@ export function StartScreen({
   };
   const pediaButton = (section: string, label: string) =>
     colopedia && (
-      <button type="button" data-colopedia={section} onClick={() => openPedia(section)}>
+      <button type="button" data-colopedia={section} disabled={opening} onClick={() => openPedia(section)}>
         {label}
       </button>
     );
