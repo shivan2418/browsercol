@@ -44,6 +44,7 @@ import {
   type DebugRequest,
   type OverlayAnswer,
 } from './debug';
+import { afterSlide as slideGate } from './after-slide';
 import { ColonyActions, ColonyTiles, type ColonyMoves, type DrawTiles } from './colony-panel';
 import { dialogs } from './dialogs';
 import { keepTabOnPage } from './focus';
@@ -1143,7 +1144,10 @@ const gui: GuiHandlers = {
       else if (e.messages.length > 0) dialogQueue.show('messages', e);
     },
     // A colony already open or queued is shown again in its place, else it opens.
-    colony: (e) => dialogQueue.replace('colony', e, (open) => open.id === e.id, true),
+    // It waits for the arriving unit's slide: a goto's arrival, a move into the colony and a landing all show it.
+    colony: (e) => {
+      void afterSlide(() => dialogQueue.replace('colony', e, (open) => open.id === e.id, true));
+    },
     closeColony: (e) => dialogQueue.remove('colony', (open) => open.id === e.id),
     unasked: (e) => {
       console.warn(`WebGUI: no dialog yet for ${e.method}; FreeCol's default was used`);
@@ -1168,11 +1172,8 @@ const gui: GuiHandlers = {
   },
 };
 
-/** A question opens once the unit that moved has slid to its tile: a move's new region or first contact comes after it. */
-async function afterSlide<T>(ask: () => Promise<T>): Promise<T> {
-  await map.settled();
-  return ask();
-}
+/** A question or the colony panel opens once the unit that moved has slid to its tile: a move's new region, first contact or a ship's arrival comes after it. */
+const afterSlide = slideGate(() => map.settled());
 
 function drawMap(m: MapView) {
   nation = m.nation;
