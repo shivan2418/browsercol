@@ -61,6 +61,8 @@ export interface GuiEvents {
     forest: string[] | null;
     rows: { label: string; value: string }[];
     production: (ColopediaGoods & { expert: number })[];
+    /** TilePanel's debug lines: a player's colony value of the tile, by category; none unless one is chosen. */
+    colonyValue?: string[];
     colopedia: string;
     ok: string;
   };

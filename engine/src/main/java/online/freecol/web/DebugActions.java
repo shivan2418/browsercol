@@ -55,6 +55,15 @@ import net.sf.freecol.server.model.ServerUnit;
  * { "action": "traceWork", "x": 3, "y": 4 }
  * { "action": "resetMoves", "x": 3, "y": 4 }
  * { "action": "dumpTile", "x": 3, "y": 4 }
+ * { "action": "changeOwner", "unit": "unit:123", "owner": "model.nation.french" }
+ * { "action": "changeOwner", "x": 3, "y": 4, "owner": "model.nation.french" }
+ * { "action": "changeRole", "unit": "unit:123", "role": "model.role.soldier" }
+ * { "action": "displayMission", "unit": "unit:123" }
+ * { "action": "colonyPlan", "x": 3, "y": 4 }
+ * { "action": "applyDisaster", "x": 3, "y": 4, "disaster": "model.disaster.fire" }
+ * { "action": "examineSettlement", "x": 3, "y": 4 }
+ * { "action": "rumourType", "x": 3, "y": 4, "rumour": "LEARN" }
+ * { "action": "idealColony", "x": 3, "y": 4 }
  * { "action": "declareIndependence", "nation": "Free Dutch", "country": "New Holland" }
  * { "action": "clearREF" }
  * { "action": "addUnit", "type": "model.unit.kingsRegular", "role": "model.role.infantry",
@@ -68,6 +77,12 @@ import net.sf.freecol.server.model.ServerUnit;
  * declared; "role" equips it; "around" puts one on each land tile next to
  * the tile that has no settlement and no other player's unit, instead of
  * on the tile.
+ *
+ * A request that needs a choice (the new owner, a role, a disaster, a
+ * rumour, a unit type) and has none answers {"action": "choose", "for": the
+ * action, "key": "owner", "prompt": ..., "choices": [{"id": ..., "label": ...}]},
+ * as the Swing dialogs ask; the Browser UI asks the player and sends the
+ * request again with the key set to the id they chose.
  *
  * Goods go to the colony on the tile, or to the unit with the id. Every
  * action answers with a JSON object naming it ("action"), so the Browser UI
@@ -114,8 +129,9 @@ final class DebugActions {
         case "addGold": return addGold(integer(r, "amount"));
         case "addColony": return addColony(r);
         case "addBuilding": return addBuilding(string(r, "type"), r);
-        case "addUnit": return addUnit(string(r, "type"), at(r),
-            Boolean.TRUE.equals(r.get("inColony")), r);
+        case "addUnit":
+            if (r.get("type") == null) return chooseUnitType(r);
+            return addUnit(string(r, "type"), at(r), Boolean.TRUE.equals(r.get("inColony")), r);
         case "addGoods": return addGoods(string(r, "type"), integer(r, "amount"), r);
         case "aiView": return aiView();
         case "addImmigration": return addImmigration(integer(r, "amount"));
@@ -124,13 +140,22 @@ final class DebugActions {
         case "traceWork": return traceWork(r);
         case "resetMoves": return resetMoves(at(r));
         case "dumpTile": return dumpTile(at(r));
+        case "changeOwner": return changeOwner(r);
+        case "changeRole": return changeRole(r);
+        case "displayMission": return displayMission(r);
+        case "colonyPlan": return colonyPlan(at(r));
+        case "applyDisaster": return applyDisaster(at(r), r);
+        case "examineSettlement": return examineSettlement(at(r));
+        case "rumourType": return rumourType(at(r), r);
+        case "idealColony": return idealColony(at(r));
         case "declareIndependence": return declareIndependence(r);
         case "clearREF": return clearREF();
         default:
             throw bad("unknown action \"" + action + "\" (known: revealMap, addGold,"
                 + " addColony, addBuilding, addUnit, addGoods, aiView, addImmigration,"
                 + " addLiberty, addFoundingFather, traceWork, resetMoves, dumpTile,"
-                + " declareIndependence, clearREF)");
+                + " changeOwner, changeRole, displayMission, colonyPlan, applyDisaster,"
+                + " examineSettlement, rumourType, idealColony, declareIndependence, clearREF)");
         }
     }
 
@@ -515,6 +540,257 @@ final class DebugActions {
                 + u.getOwner().getId() + " moves " + u.getMovesLeft());
         }
         return new Json().put("action", "dumpTile").put("text", String.join("\n", lines)).toString();
+    }
+
+    /** The answer that asks for a choice (see the class comment). */
+    private static String choose(String action, String key, String prompt, List<String[]> choices) {
+        final List<String> items = new ArrayList<>();
+        for (String[] c : choices) items.add(new Json().put("id", c[0]).put("label", c[1]).toString());
+        return new Json().put("action", "choose").put("for", action).put("key", key)
+            .put("prompt", prompt).putRaw("choices", Json.array(items)).toString();
+    }
+
+    /** DebugUtils.addNewUnitToTile's choice of unit type. */
+    private String chooseUnitType(Map<?, ?> r) {
+        final List<String[]> choices = new ArrayList<>();
+        for (UnitType t : this.game.getSpecification().getUnitTypeList()) {
+            choices.add(new String[] { t.getId(), Messages.getName(t) });
+        }
+        return choose("addUnit", "type", "Unit type", choices);
+    }
+
+    private Unit unitOf(Map<?, ?> r) {
+        final String id = string(r, "unit");
+        final Unit u = this.game.getFreeColGameObject(id, Unit.class);
+        if (u == null || u.isDisposed()) throw bad("no unit " + id);
+        return u;
+    }
+
+    /**
+     * DebugUtils.changeOwnership: a unit (named by "unit") or the colony on
+     * the tile goes to another player, who is "owner".
+     */
+    private String changeOwner(Map<?, ?> r) {
+        final boolean isUnit = r.get("unit") != null;
+        final Unit unit = isUnit ? unitOf(r) : null;
+        final Colony colony = isUnit ? null : at(r).getColony();
+        if (!isUnit && colony == null) throw bad("no colony there");
+        if (r.get("owner") == null) {
+            final List<String[]> choices = new ArrayList<>();
+            final List<Player> players = isUnit
+                ? this.game.getLivePlayerList().stream()
+                    .filter(p -> unit.getType().isAvailableTo(p)).toList()
+                : this.game.getLiveEuropeanPlayerList(colony.getOwner());
+            for (Player p : players) choices.add(new String[] { p.getId(), Messages.message(p.getCountryLabel()) });
+            return choose("changeOwner", "owner", "Select owner", choices);
+        }
+        final ServerPlayer to = this.game.getFreeColGameObject(string(r, "owner"), ServerPlayer.class);
+        if (to == null) throw bad("no player " + r.get("owner"));
+        if (isUnit) {
+            if (unit.getOwner() == to) throw bad("the unit is already theirs");
+            this.igc.debugChangeOwner((ServerUnit)unit, to);
+        } else {
+            this.igc.debugChangeOwner((net.sf.freecol.server.model.ServerColony)colony, to);
+        }
+        return new Json().put("action", "changeOwner").toString();
+    }
+
+    /** DebugUtils.changeRole: the unit takes the role, with as much equipment as the role holds. */
+    private String changeRole(Map<?, ?> r) {
+        final Unit unit = unitOf(r);
+        if (!unit.isPerson()) throw bad("only a person has a role");
+        if (r.get("role") == null) {
+            final List<String[]> choices = new ArrayList<>();
+            for (Role role : this.game.getSpecification().getRoles().toList()) {
+                choices.add(new String[] { role.getId(), role.getId() });
+            }
+            return choose("changeRole", "role", "Select role", choices);
+        }
+        final Role role = this.game.getSpecification().getRole(string(r, "role"));
+        if (role == null) throw bad("unknown role \"" + r.get("role") + "\"");
+        unit.changeRole(role, role.getMaximumCount());
+        final ChangeSet cs = new ChangeSet();
+        cs.add(See.perhaps().always((ServerPlayer)unit.getOwner()), unit);
+        if (unit.getTile() != null) cs.add(See.perhaps(), unit.getTile());
+        this.sGame.sendTo(me(), cs);
+        return new Json().put("action", "changeRole").toString();
+    }
+
+    /** DebugUtils.displayMission: what the carrier's AI plans, as text. */
+    private String displayMission(Map<?, ?> r) {
+        final Unit unit = unitOf(r);
+        final AIUnit ai = this.aiMain.getAIUnit(unit);
+        if (ai == null) throw bad("no AI unit " + unit.getId());
+        final Mission m = ai.getMission();
+        final String text = (m == null) ? Messages.message("none")
+            : (m instanceof TransportMission) ? ((TransportMission)m).toFullString() : m.toString();
+        return new Json().put("action", "displayMission").put("text", text).toString();
+    }
+
+    /** DebugUtils.displayColonyPlan: the AI's plan for the colony on the tile, as text. */
+    private String colonyPlan(Tile tile) {
+        final Colony colony = tile.getColony();
+        if (colony == null) throw bad("no colony there");
+        final net.sf.freecol.server.ai.AIColony ai = this.aiMain.getAIColony(colony);
+        if (ai == null) throw bad(colony.getName() + " is not an AI colony");
+        return new Json().put("action", "colonyPlan").put("text", ai.planToString()).toString();
+    }
+
+    /** DebugUtils.applyDisaster: a disaster strikes the colony on the tile. */
+    private String applyDisaster(Tile tile, Map<?, ?> r) {
+        final Colony colony = tile.getColony();
+        if (colony == null) throw bad("no colony there");
+        if (r.get("disaster") == null) {
+            final List<String[]> choices = new ArrayList<>();
+            for (net.sf.freecol.common.util.RandomChoice<net.sf.freecol.common.model.Disaster> rc
+                     : colony.getDisasterChoices().toList()) {
+                choices.add(new String[] { rc.getObject().getId(),
+                    Messages.getName(rc.getObject()) + " " + rc.getProbability() });
+            }
+            if (choices.isEmpty()) throw bad("no disaster can strike " + colony.getName());
+            return choose("applyDisaster", "disaster", "Select disaster", choices);
+        }
+        final net.sf.freecol.common.model.Disaster disaster
+            = this.game.getSpecification().getDisaster(string(r, "disaster"));
+        if (disaster == null) throw bad("unknown disaster \"" + r.get("disaster") + "\"");
+        final int messages = this.igc.debugApplyDisaster((net.sf.freecol.server.model.ServerColony)colony, disaster);
+        return new Json().put("action", "applyDisaster").put("messages", messages)
+            .put("avoided", messages <= 0).toString();
+    }
+
+    /** DebugUtils.summarizeSettlement: what the server knows of the native settlement on the tile, as text. */
+    private String examineSettlement(Tile tile) {
+        final net.sf.freecol.common.model.IndianSettlement is = tile.getIndianSettlement();
+        if (is == null) throw bad("no native settlement there");
+        final net.sf.freecol.common.util.LogBuilder lb = new net.sf.freecol.common.util.LogBuilder(256);
+        lb.add(is.getName(), "\n\nAlarm\n");
+        final Player mostHated = is.getMostHated();
+        for (Player p : this.game.getLiveEuropeanPlayerList()) {
+            final net.sf.freecol.common.model.Tension tension = is.getAlarm(p);
+            lb.add(Messages.message(p.getNationLabel()), " ",
+                (tension == null) ? "(none)" : Integer.toString(tension.getValue()),
+                (mostHated == p) ? " (most hated)" : "",
+                " ", Messages.message(is.getAlarmLevelKey(p)), " ", is.getContactLevel(p), "\n");
+        }
+        lb.add("\nGoods\n");
+        for (GoodsType gt : this.game.getSpecification().getGoodsTypeList()) {
+            final int amount = is.getGoodsCount(gt);
+            final int prod = is.getTotalProductionOf(gt);
+            if (amount > 0 || prod != 0) {
+                lb.add(Messages.message(new net.sf.freecol.common.model.AbstractGoods(gt, amount).getLabel()),
+                    " ", (prod > 0) ? "+" : "", prod, "\n");
+            }
+        }
+        lb.add("\nPotential sales\n");
+        for (net.sf.freecol.common.model.Goods g : is.getSellGoods(null)) {
+            lb.add(Messages.getName(g.getType()), " ", g.getAmount(),
+                " = ", is.getPriceToSell(g.getType(), g.getAmount()), "\n");
+        }
+        lb.add("\nPrices (buy 1/100 / sell 1/100)\n");
+        final List<GoodsType> wanted = is.getWantedGoods();
+        for (GoodsType type : this.game.getSpecification().getStorableGoodsTypeList()) {
+            final int idx = wanted.indexOf(type);
+            lb.add(Messages.getName(type), ": ", is.getPriceToBuy(type, 1), "/", is.getPriceToBuy(type, 100),
+                " / ", is.getPriceToSell(type, 1), "/", is.getPriceToSell(type, 100),
+                (idx < 0) ? "" : " wanted[" + idx + "]", "\n");
+        }
+        lb.add("\nUnits present\n");
+        for (Unit u : is.getUnitList()) unitLine(lb, u);
+        lb.add("\nUnits owned\n");
+        for (Unit u : is.getOwnedUnitList()) unitLine(lb, u);
+        lb.add("\nTiles\n");
+        for (Tile t : is.getOwnedTiles()) lb.add(t, "\n");
+        lb.add("\nConvert Progress = ", is.getConvertProgress());
+        lb.add("\nLast Tribute = ", is.getLastTribute());
+        return new Json().put("action", "examineSettlement").put("text", lb.toString()).toString();
+    }
+
+    private void unitLine(net.sf.freecol.common.util.LogBuilder lb, Unit u) {
+        final AIUnit ai = this.aiMain.getAIUnit(u);
+        final Mission m = (ai == null) ? null : ai.getMission();
+        lb.add(u, " at ", u.getLocation());
+        if (m != null) lb.add(" ", m.getClass(), ".");
+        lb.add("\n");
+    }
+
+    /** DebugUtils.setRumourType: the lost city rumour on the tile is of another kind. */
+    private String rumourType(Tile tile, Map<?, ?> r) {
+        final net.sf.freecol.common.model.LostCityRumour lcr
+            = (tile.getTileItemContainer() == null) ? null : tile.getTileItemContainer().getLostCityRumour();
+        if (lcr == null) throw bad("no lost city rumour there");
+        if (r.get("rumour") == null) {
+            final List<String[]> choices = new ArrayList<>();
+            for (net.sf.freecol.common.model.LostCityRumour.RumourType t
+                     : net.sf.freecol.common.model.LostCityRumour.RumourType.values()) {
+                if (t != net.sf.freecol.common.model.LostCityRumour.RumourType.NO_SUCH_RUMOUR) {
+                    choices.add(new String[] { t.name(), t.toString() });
+                }
+            }
+            return choose("rumourType", "rumour", "Lost City Rumour type", choices);
+        }
+        final net.sf.freecol.common.model.LostCityRumour.RumourType type;
+        try {
+            type = net.sf.freecol.common.model.LostCityRumour.RumourType.valueOf(string(r, "rumour"));
+        } catch (IllegalArgumentException ex) {
+            throw bad("unknown rumour \"" + r.get("rumour") + "\"");
+        }
+        lcr.setType(type);
+        final ChangeSet cs = new ChangeSet();
+        cs.add(See.perhaps(), tile);
+        this.sGame.sendTo(me(), cs);
+        return new Json().put("action", "rumourType").toString();
+    }
+
+    /**
+     * DebugUtils.createColonyFromAiColonyPlan: a colony of the human's on
+     * the tile as the AI's colony planner would lay it out, with its
+     * buildings, workers and tile improvements already there.
+     */
+    private String idealColony(Tile tile) {
+        final ServerPlayer p = me();
+        if (tile.hasSettlement()) throw bad("there is a settlement there already");
+        final net.sf.freecol.server.ai.colony.ColonyPlan plan
+            = new net.sf.freecol.server.ai.colony.StandardColonyPlanner().createPlan(tile);
+        for (net.sf.freecol.server.ai.colony.TileImprovementPlan tip : plan.getTileImprovements()) {
+            final Tile target = tip.getTarget();
+            final net.sf.freecol.common.model.TileImprovement ti
+                = new net.sf.freecol.common.model.TileImprovement(this.sGame, target, tip.getType(), null);
+            ti.setTurnsToComplete(0);
+            target.add(ti);
+            final net.sf.freecol.common.model.TileType changeType = ti.getChange(target.getType());
+            if (changeType != null) target.changeType(changeType);
+        }
+        final net.sf.freecol.server.model.ServerColony colony
+            = new net.sf.freecol.server.model.ServerColony(this.sGame, p, "Debug", tile);
+        tile.setSettlement(colony);
+        for (net.sf.freecol.common.model.BuildableType bt : plan.getBuildables()) {
+            if (!(bt instanceof BuildingType)) continue;
+            colony.addBuilding(new net.sf.freecol.server.model.ServerBuilding(this.sGame, colony, (BuildingType)bt));
+        }
+        colony.addLiberty(10000);
+        final ChangeSet cs = new ChangeSet();
+        for (net.sf.freecol.server.ai.colony.WorkerPlan wp : plan.getWorkers()) {
+            final net.sf.freecol.server.ai.colony.PlannedWorkLocation pwl = wp.getPlannedWorkLocation();
+            final net.sf.freecol.common.model.Location where;
+            if (pwl.getBuildingType() != null) {
+                where = colony.getBuilding(pwl.getBuildingType());
+            } else {
+                p.csClaimLand(pwl.getTile(), colony, 0, cs);
+                where = colony.getColonyTile(pwl.getTile());
+            }
+            final ServerUnit worker = new ServerUnit(this.sGame, tile, p, wp.getUnitType());
+            worker.setRole(this.game.getSpecification().getDefaultRole());
+            worker.setLocation(where);
+            if (!wp.getProductionTypes().isEmpty()) worker.changeWorkType(wp.getProductionTypes().get(0));
+        }
+        p.addSettlement(colony);
+        colony.placeSettlement(true);
+        p.invalidateCanSeeTiles();
+        cs.add(See.only(p), colony.getVisibleTileSet());
+        cs.add(See.perhaps(), colony.getOwnedTiles());
+        this.sGame.sendToAll(cs);
+        this.focus = tile;
+        return new Json().put("action", "idealColony").put("colony", colony.getId()).toString();
     }
 
     /**

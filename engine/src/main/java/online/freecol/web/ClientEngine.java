@@ -173,6 +173,18 @@ public final class ClientEngine {
         return this.commands;
     }
 
+    /**
+     * Have the tile panel show a player's colony value for the tile
+     * (FreeColDebugger.setDebugDisplayColonyValuePlayer).
+     *
+     * @param playerId The player's id, or "" for none.
+     */
+    public void setColonyValuePlayer(String playerId) {
+        net.sf.freecol.common.model.Player p = (playerId == null || playerId.isEmpty()) ? null
+            : getGame().getFreeColGameObject(playerId, net.sf.freecol.common.model.Player.class);
+        net.sf.freecol.common.debug.FreeColDebugger.setDebugDisplayColonyValuePlayer(p);
+    }
+
     /** The right-click menus' entries. */
     Menus getMenus() {
         return this.menus;

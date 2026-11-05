@@ -842,11 +842,15 @@ describe('the panels', () => {
             { type: 'model.goods.food', name: 'Food', keys: [], amount: 2, expert: 4 },
             { type: 'model.goods.ore', name: 'Ore', keys: [], amount: 4, expert: 4 },
           ],
+          colonyValue: ['PROD 12.0', 'Result 40'],
           colopedia: 'Colopedia',
           ok: 'OK',
         }),
       );
       expect(screen.getByRole('dialog').getAttribute('data-kind')).toBe('tilePanel');
+      // TilePanel's debug lines, when the debug menu chose a player.
+      screen.getByText('PROD 12.0');
+      screen.getByText('Result 40');
       screen.getByText('Hills (15, 50)');
       screen.getByText('Aztec');
       screen.getByText('2/4');

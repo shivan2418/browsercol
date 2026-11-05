@@ -187,6 +187,83 @@ final class Menus {
         return b.isEmpty() ? "null" : b.build(text(tile.getSimpleLabel()));
     }
 
+    /**
+     * The debug entries of a tile's popup, as TilePopup.addDebugItems lists
+     * them, those the browser can do; the page adds them to the tile's menu
+     * in debug mode. Swing's submenus (change ownership, change role,
+     * transport lists) are one entry per unit here, as the menu is flat:
+     * "Change ownership: unit". An entry's id is {@code debug:action:arg},
+     * where arg is a unit's id or the tile's "x,y".
+     *
+     * @param x The tile's x.
+     * @param y The tile's y.
+     * @return The menu as JSON, titled with the tile; "null" for no such tile.
+     */
+    String debugTile(int x, int y) {
+        final Tile tile = this.client.getGame().getMap().getTile(x, y);
+        if (tile == null || me() == null) return "null";
+        final Builder b = new Builder();
+        final String at = x + "," + y;
+        // Entries a gap line precedes: the first of the list, so it has a line to part it from the menu.
+        final boolean[] first = { true };
+        final java.util.function.BiConsumer<String, String> add = (id, label) -> {
+            if (first[0]) {
+                b.gap = true;
+                first[0] = false;
+            }
+            b.add(id, label);
+        };
+        final Colony colony = tile.getColony();
+        final IndianSettlement is = tile.getIndianSettlement();
+        for (Unit u : tile.getUnitList()) {
+            if (u.isCarrier()) add.accept("debug:displayMission:" + u.getId(), "Transport list: " + unitLabel(u));
+        }
+        if (colony != null) {
+            add.accept("debug:colonyPlan:" + at, "Display Colony Plan");
+            add.accept("debug:applyDisaster:" + at, "Apply Disaster");
+        }
+        if (is != null) add.accept("debug:examineSettlement:" + at, "Examine Settlement");
+        for (Unit u : tile.getUnitList()) {
+            add.accept("debug:changeOwner:" + u.getId(), "Change ownership: " + unitLabel(u));
+        }
+        if (colony != null) add.accept("debug:changeOwner:" + at, "Change ownership: " + colony.getName());
+        for (Unit u : tile.getUnitList()) {
+            if (u.isPerson()) add.accept("debug:changeRole:" + u.getId(), "Change role: " + unitLabel(u));
+        }
+        if (tile.hasLostCityRumour()) add.accept("debug:rumourType:" + at, "Set Lost City Rumour type");
+        add.accept("debug:addUnit:" + at, "Add unit");
+        if (tile.getUnitCount() > 0) add.accept("debug:resetMoves:" + at, "Reset moves");
+        final Unit active = this.client.getGUI().getActiveUnit();
+        if (active != null && active.getTile() != null) add.accept("debug:showSearch:" + at, "Show search");
+        for (Unit u : tile.getUnitList()) {
+            if (u.canCarryGoods() && u.hasSpaceLeft()) {
+                add.accept("debug:addGoods:" + u.getId(), "Add goods");
+                break;
+            }
+        }
+        add.accept("debug:dumpTile:" + at, "Dump tile");
+        add.accept("debug:idealColony:" + at, "Create Ideal Colony");
+        add.accept("debug:addColony:" + at, "Add colony");
+        return b.build(text(tile.getSimpleLabel()));
+    }
+
+    /**
+     * TilePopup's "Show search": the log of the active unit's path search
+     * to the tile, as text.
+     *
+     * @return The log, or "" if there is no active unit, it is not our turn
+     *     or the unit is there already (Swing does nothing then).
+     */
+    String debugSearch(int x, int y) {
+        final Tile tile = this.client.getGame().getMap().getTile(x, y);
+        final Unit active = this.client.getGUI().getActiveUnit();
+        if (tile == null || active == null || active.getTile() == null || active.getTile() == tile
+            || !this.client.currentPlayerIsMyPlayer()) return "";
+        final net.sf.freecol.common.util.LogBuilder lb = new net.sf.freecol.common.util.LogBuilder(512);
+        active.findPath(active.getTile(), tile, active.getCarrier(), null, lb);
+        return lb.toString();
+    }
+
     /** A unit on the tile, then what it carries, as TilePopup's addUnit. */
     private void addUnit(Builder b, Unit u, boolean enabled, boolean indent) {
         final Player player = me();
