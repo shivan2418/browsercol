@@ -13,6 +13,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react';
+import { focusFirstEntry, menuArrows, useFocusTrap } from './focus';
 
 /** The URL of the art for the first of some resource keys the Tileset has, or null if it has none (yet). */
 export type Art = (keys: readonly string[]) => string | null;
@@ -85,6 +86,9 @@ export const framePlaces: {
  */
 export function WindowFrame({ title, close, closeKeys, children, className, ...rest }: FrameProps) {
   useEscape(close, closeKeys);
+  const box = useRef<HTMLElement>(null);
+  // Tab goes round the newest window's buttons and fields while the focus is in it, not off the page.
+  useFocusTrap(box);
   const titleId = useId();
   const attrs = rest as Record<string, unknown>;
   const placeKey =
@@ -114,6 +118,7 @@ export function WindowFrame({ title, close, closeKeys, children, className, ...r
   };
   return (
     <section
+      ref={box}
       role="dialog"
       aria-labelledby={title ? titleId : undefined}
       className={className ? `frame ${className}` : 'frame'}
@@ -247,6 +252,10 @@ export const MENUS: readonly string[] = ['Game', 'View', 'Orders', 'Report', 'Co
 export function MenuBar({ menus, status }: { menus: Menu[]; status: string }) {
   const [open, setOpen] = useState<string | null>(null);
   const bar = useRef<HTMLElement>(null);
+  const dropdown = useRef<HTMLDivElement>(null);
+  // An open menu has the focus on its first entry; the arrows and Tab go round its entries.
+  useFocusTrap(dropdown, open !== null);
+  useEffect(() => focusFirstEntry(dropdown.current), [open]);
   useEffect(() => {
     if (open === null) return;
     const away = (e: PointerEvent) => {
@@ -294,7 +303,18 @@ export function MenuBar({ menus, status }: { menus: Menu[]; status: string }) {
               {m.name}
             </button>
             {open === m.name && (
-              <div role="menu" aria-label={m.name}>
+              <div
+                role="menu"
+                aria-label={m.name}
+                ref={dropdown}
+                onKeyDown={(e) => {
+                  // Left and Right step to the menu beside, as a desktop menu bar does.
+                  const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+                  if (!step || e.altKey || e.ctrlKey || e.metaKey) return menuArrows(e);
+                  e.preventDefault();
+                  setOpen(names[(names.indexOf(m.name) + step + names.length) % names.length]);
+                }}
+              >
                 {m.items.map((item) => (
                   <button
                     role={item.checked === undefined ? 'menuitem' : 'menuitemcheckbox'}
