@@ -464,6 +464,12 @@ class IndependenceTest {
         eventually("the colony's tax is raised, as the Browser UI accepts it", () -> us().getTax() > 0);
         final int taxed = us().getTax();
         assertNull(action.get(igc()), "the monarch acted");
+        // The answered tax raise's session lasts to the next turn, and
+        // declaring this turn would meet it (#173): declare next turn,
+        // when the Crown does nothing (no new session either).
+        player.set(igc(), us());
+        action.set(igc(), MonarchAction.NO_ACTION);
+        endTurnAndWait();
 
         rebels(colony, 60);
         declare();
@@ -473,6 +479,44 @@ class IndependenceTest {
         assertEquals(taxed, us().getTax(), "no raise for rebels");
         assertEquals(MonarchAction.RAISE_TAX_ACT, action.get(igc()), "the monarch did not act");
         action.set(igc(), null);
+    }
+
+    /**
+     * The Crown raises the tax at the start of our turn, we accept, and we
+     * declare that same turn. The declaration offers mercenaries in a new
+     * monarch session, but the answered tax raise's session stays
+     * registered until the next turn (Session.completeAll in
+     * ServerGame.csNextTurn), and Session's constructor refuses its key:
+     * the declaration stops half done with "Duplicate session".
+     */
+    @Test
+    @Timeout(300)
+    @org.junit.jupiter.api.Disabled("FreeCol: declaring the turn a monarch question was answered fails with a duplicate session (#173)")
+    void declaringTheTurnATaxRaiseWasAcceptedCompletes() throws Exception {
+        start(GAME);
+        final Colony colony = addColony();
+        addUnit("model.unit.artillery", null, colony.getTile());
+        rebels(colony, 60);
+        // Gold for the mercenaries the declaration offers.
+        server.debug("{\"action\":\"addGold\",\"amount\":20000}");
+        us().getMarket().getMarketData(spec().getGoodsType("model.goods.furs")).setTraded(true);
+        server.debug("{\"action\":\"addGoods\",\"type\":\"model.goods.furs\",\"amount\":100,\"x\":"
+            + colony.getTile().getX() + ",\"y\":" + colony.getTile().getY() + "}");
+        final java.lang.reflect.Field player = InGameController.class.getDeclaredField("debugMonarchPlayer");
+        final java.lang.reflect.Field action = InGameController.class.getDeclaredField("debugMonarchAction");
+        player.setAccessible(true);
+        action.setAccessible(true);
+        player.set(igc(), us());
+        action.set(igc(), MonarchAction.RAISE_TAX_ACT);
+        endTurnAndWait();
+        eventually("the tax raise is accepted", () -> us().getTax() > 0);
+        assertNull(us().getREFPlayer(), "not declared yet");
+
+        rebels(colony, 60);
+        declare();
+
+        assertNull(us().getEurope(), "the declaration completed: Europe is gone");
+        eventually("and the client's", () -> me().getEurope() == null);
     }
 
     // The Royal Expeditionary Force ---------------------------------------
