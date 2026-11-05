@@ -1,4 +1,4 @@
-You are working in a clone of freecol-online (FreeCol, the open-source Colonization clone, compiled from its own Java with TeaVM to run in the browser), on branch
+You are working in a clone of browsercol (FreeCol, the open-source Colonization clone, compiled from its own Java with TeaVM to run in the browser), on branch
 <branch>. This is real work: if it is good it will be merged into <base>, so
 aim for something mergeable.
 

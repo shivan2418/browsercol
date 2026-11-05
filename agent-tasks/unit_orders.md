@@ -3,11 +3,11 @@ orders from the Browser UI: fortify, sentry, skip (done for this turn),
 disband, clear forest, plow and build road.
 
 Where:
-- Engine: `engine/src/main/java/online/freecol/web/Commands.java`
+- Engine: `engine/src/main/java/browsercol/web/Commands.java`
   (entry points), `ClientMain.java` (the `@JSExport`s the Browser UI
   calls), and whatever sends the active unit to the Browser UI
   (`WebGUI.java`'s activeUnit event) for which orders are valid.
-- Tests: `engine/src/test/java/online/freecol/web/CommandsTest.java`.
+- Tests: `engine/src/test/java/browsercol/web/CommandsTest.java`.
 - Browser UI: `ui/src/channel.ts`, `ui/src/input.ts` (keys),
   `ui/src/side.tsx` (buttons), with their tests.
 - `ui/scripts/play.mjs`: add a fortify or sentry step.

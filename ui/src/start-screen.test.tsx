@@ -193,17 +193,17 @@ test('a picked map file is cleared again', () => {
 test('links the source and opens the credits, which name the CC BY authors', () => {
   render(<StartScreen options={options} start={() => {}} />);
   expect(screen.getByRole('link', { name: 'Source code' }).getAttribute('href')).toBe(
-    'https://github.com/shivan2418/freecol-online',
+    'https://github.com/shivan2418/browsercol',
   );
-  expect(screen.queryByRole('dialog', { name: 'About FreeCol Online' })).toBeNull();
+  expect(screen.queryByRole('dialog', { name: 'About BrowserCol' })).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Credits' }));
-  const credits = screen.getByRole('dialog', { name: 'About FreeCol Online' });
+  const credits = screen.getByRole('dialog', { name: 'About BrowserCol' });
   expect(credits.textContent).toContain('Alexander Zhelanov');
   expect(credits.textContent).toContain('CC BY 4.0');
   expect(credits.querySelector('a[href$="OFL.txt"]')?.textContent).toBe('SIL OFL 1.1');
   expect(credits.textContent).toContain('Cinzel font');
   fireEvent.click(screen.getByRole('button', { name: 'Close' }));
-  expect(screen.queryByRole('dialog', { name: 'About FreeCol Online' })).toBeNull();
+  expect(screen.queryByRole('dialog', { name: 'About BrowserCol' })).toBeNull();
 });
 
 test('the player removes nations from the game, and the own nation cannot be removed', () => {

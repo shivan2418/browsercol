@@ -5,11 +5,11 @@
 # DEV_PORT=N publishes port N on localhost, for a server run in the container.
 set -euo pipefail
 repo="$(cd "$(dirname "$0")" && pwd)"
-image=freecol-online-dev
+image=browsercol-dev
 dockerfile=dev.Dockerfile
 shm=()
 if [[ "${DEV_VARIANT:-}" == web ]]; then
-  image=freecol-online-web; dockerfile=web.Dockerfile
+  image=browsercol-web; dockerfile=web.Dockerfile
   # Docker's default 64 MB /dev/shm can crash browsers, which Playwright's
   # Docker docs warn of; a likely cause of Firefox's crash in #31.
   shm=(--shm-size=1g)

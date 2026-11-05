@@ -3,7 +3,7 @@ from source, master plus four open pull requests, and publishes it into a
 local Maven repository. A later task builds the spike against it to see if
 the PRs fix `Object.wait`/`notify` under Wasm GC (spike/README.md, "What
 broke along the way", item 6; tracker issue
-https://github.com/shivan2418/freecol-online/issues/9). This task only
+https://github.com/shivan2418/browsercol/issues/9). This task only
 makes TeaVM build.
 
 Source of truth: https://github.com/konsoletyper/teavm, branch master, plus

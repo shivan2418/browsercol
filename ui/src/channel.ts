@@ -14,7 +14,7 @@
 import { newSave, type SavedInfo, type SaveStore } from './saves';
 import { webGui, type GuiHandlers } from './webgui';
 
-/** Exports of the server module (online.freecol.web.WorkerMain). */
+/** Exports of the server module (browsercol.web.WorkerMain). */
 export interface ServerExports {
   /** The language of FreeCol's text, a translation's id (language.ts); called before main. */
   setLanguage(id: string): void;
@@ -33,7 +33,7 @@ export interface ServerExports {
   receive(xml: string): void;
 }
 
-/** Exports of the client module (online.freecol.web.ClientMain). */
+/** Exports of the client module (browsercol.web.ClientMain). */
 export interface ClientExports {
   /** The language of FreeCol's text, a translation's id (language.ts); called before main. */
   setLanguage(id: string): void;

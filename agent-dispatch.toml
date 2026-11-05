@@ -1,4 +1,4 @@
-# agent-dispatch config for freecol-online. See
+# agent-dispatch config for browsercol. See
 # ~/Programming/agent-dispatch/templates/agent-dispatch.example.toml.
 
 [project]
@@ -11,7 +11,7 @@ data_dirs = ["freecol"]
 [sandbox]
 mode = "providers"
 threat = "accidents"
-image = "freecol-online-agent" # docker/agent.Dockerfile: the dev image plus Chromium and Firefox
+image = "browsercol-agent" # docker/agent.Dockerfile: the dev image plus Chromium and Firefox
 workdir = "/work"
 # Share the Gradle and pnpm caches so each job does not download everything again.
 mounts = [".cache/gradle:/work/.cache/gradle", ".cache/pnpm-store:/work/.cache/pnpm-store"]

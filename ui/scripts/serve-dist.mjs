@@ -5,7 +5,7 @@ import http from 'node:http';
 import path from 'node:path';
 
 export const dist = path.resolve(import.meta.dirname, '../../dist');
-const base = '/freecol-online/';
+const base = '/browsercol/';
 
 const TYPES = {
   '.html': 'text/html',

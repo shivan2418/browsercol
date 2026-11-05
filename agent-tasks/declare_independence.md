@@ -5,7 +5,7 @@ and `showDeclarationPanel` is the base GUI's no-op, which drops the
 callback that actually tells the server.
 
 Where:
-- `engine/src/main/java/online/freecol/web/WebGUI.java`: move
+- `engine/src/main/java/browsercol/web/WebGUI.java`: move
   `showConfirmDeclarationDialog` out of the "Not asked yet" block,
   override `showDeclarationPanel(Runnable afterClosing)`, and update the
   class comment's table.
@@ -13,7 +13,7 @@ Where:
   calls to declare, calling `InGameController.declareIndependence()`
   (copy how the #49 unit orders are wired: Commands method, a
   `@JSExport` in ClientMain, a side button in `ui/src/`).
-- Engine tests under `engine/src/test/java/online/freecol/web/`
+- Engine tests under `engine/src/test/java/browsercol/web/`
   (`WebGUITest.java` and `CommandsTest.java` show a test game and the
   fake Browser UI).
 

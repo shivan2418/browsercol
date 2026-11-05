@@ -1,10 +1,10 @@
 # Toolchain spike, stage 1: the Engine headless under TeaVM
 
-Stage 1 of [Toolchain spike on real FreeCol code](https://github.com/shivan2418/freecol-online/issues/7): FreeCol's own server, AI and model, compiled by TeaVM 0.16.0 to Wasm GC, play a Classic single-player game in Node. The human seat is a stub that ends its turn immediately, so only the AI plays. The Worker channel, client Engine, `WebGUI` and PixiJS map are [stage 2](#toolchain-spike-stage-2-the-engine-split-in-the-browser), at the end of this file. Patch and shim counts in the stage 1 sections are as of stage 1.
+Stage 1 of [Toolchain spike on real FreeCol code](https://github.com/shivan2418/browsercol/issues/7): FreeCol's own server, AI and model, compiled by TeaVM 0.16.0 to Wasm GC, play a Classic single-player game in Node. The human seat is a stub that ends its turn immediately, so only the AI plays. The Worker channel, client Engine, `WebGUI` and PixiJS map are [stage 2](#toolchain-spike-stage-2-the-engine-split-in-the-browser), at the end of this file. Patch and shim counts in the stage 1 sections are as of stage 1.
 
 ## Run it
 
-> The Engine has since moved from `spike/engine` to `engine/` at the repo root ([#13](https://github.com/shivan2418/freecol-online/issues/13)); the commands below use the new path. Its two browser modules now build in one run with `gradle modules`.
+> The Engine has since moved from `spike/engine` to `engine/` at the repo root ([#13](https://github.com/shivan2418/browsercol/issues/13)); the commands below use the new path. Its two browser modules now build in one run with `gradle modules`.
 
 Everything runs in the dev container (`docker/dev.Dockerfile`, via `../dev.sh`). FreeCol's source and data come from the upstream clone at `../freecol`.
 
@@ -57,7 +57,7 @@ This is the server and AI only. The client Engine is not in this module yet.
 | `FreeCol` | `Runtime.maxMemory` is missing. |
 | `AudioMixerOption`, `SoundPlayer` | No `javax.sound`. The option keeps only the "automatic" choice. `SoundPlayer` just gets a cast. |
 
-**Shims instead of patches** (`engine/src/main/java/online/freecol/shim`). JDK classes that TeaVM lacks are supplied as `T`-prefixed classes. A TeaVM `SubstitutionPolicy` maps them in, but only where TeaVM has no class of its own. The shims are `Rectangle`, `DisplayMode`, `HeadlessException`, `PropertyChangeSupport`/`Listener`/`Event`, `CountDownLatch`, `TimeoutException`, `CharConversionException`, `SAXException`, and loopback-only `InetAddress`, `Socket`, `ServerSocket` and `InetSocketAddress`. The socket shims let FreeCol's `Server` start without a network: its accept loop waits forever. No networking code is patched.
+**Shims instead of patches** (`engine/src/main/java/browsercol/shim`). JDK classes that TeaVM lacks are supplied as `T`-prefixed classes. A TeaVM `SubstitutionPolicy` maps them in, but only where TeaVM has no class of its own. The shims are `Rectangle`, `DisplayMode`, `HeadlessException`, `PropertyChangeSupport`/`Listener`/`Event`, `CountDownLatch`, `TimeoutException`, `CharConversionException`, `SAXException`, and loopback-only `InetAddress`, `Socket`, `ServerSocket` and `InetSocketAddress`. The socket shims let FreeCol's `Server` start without a network: its accept loop waits forever. No networking code is patched.
 
 **Reflection** is declared in a TeaVM `ReflectionPolicy` (`FreeColReflectionPolicy`). It makes `FreeColObject` and `Message` subclasses findable by name, with their constructors plus the specific methods FreeCol calls by name:
 - the seven methods the rules name (`method-name=` in `specification.xml`);
@@ -119,7 +119,7 @@ With that build:
   threads never wake, the notifiers never get the monitor. **TeaVM master with
   the monitor PRs still does not make `Object.wait`/`notify` work** in the
   Engine's Wasm GC build; tracker issue
-  [#9](https://github.com/shivan2418/freecol-online/issues/9) stays open.
+  [#9](https://github.com/shivan2418/browsercol/issues/9) stays open.
 - `node run-node.mjs 30` with that build: game ready at ~393 ms, AI round mean
   317 ms (min 228, max 589), all 30 rounds finish, done at turn 31 (~9.9 s).
 
@@ -140,8 +140,8 @@ repository in `engine/settings.gradle`, the libraries from `-PteavmRepo`).
 Object.wait itself works under TeaVM 0.16.0 Wasm GC. A minimal project with
 the same plugin settings, plus our shims and both policies, passes a timed wait
 on the main thread and on a new thread (110 ms). So does
-`online.freecol.probe.WaitProbe` (build with
-`-Pmain=online.freecol.probe.WaitProbe`, run `node probe.mjs`) in this
+`browsercol.probe.WaitProbe` (build with
+`-Pmain=browsercol.probe.WaitProbe`, run `node probe.mjs`) in this
 project, as long as no FreeCol code is reachable (59 KB module). Once any of
 these is reachable, the wait never returns, even though the code never runs:
 
@@ -163,7 +163,7 @@ nothing throws. Not yet found: which class or method in that graph does it.
 
 ### Why Object.wait hangs
 
-Found 2026-10-30 ([#11](https://github.com/shivan2418/freecol-online/issues/11)). It is a TeaVM bug in `Fiber.suspend`. No FreeCol class causes it. A large graph only makes it likely.
+Found 2026-10-30 ([#11](https://github.com/shivan2418/browsercol/issues/11)). It is a TeaVM bug in `Fiber.suspend`. No FreeCol class causes it. A large graph only makes it likely.
 
 **The mechanism.** Wasm GC threads are coroutines. A method that may suspend is rewritten so that, after each call that may suspend, it checks "is the fiber suspending?". If so, it saves its locals and returns. `Fiber.suspend` (TeaVM 0.16 and master) does this:
 
@@ -192,7 +192,7 @@ call.run(pendingCall.callback);
 fiber.state = STATE_SUSPENDING;
 ```
 
-A `complete()` called synchronously inside `call.run` still works: it sets `isPendingResume`, and `Fiber.start` resumes once the stack has unwound. `engine/src/main/java/online/freecol/shim/FiberSuspendFix.java` applies this to TeaVM 0.16 without a TeaVM build. It is a `TeaVMPlugin` with a `ClassHolderTransformer` that moves that one store in `Fiber.suspend`. If `Fiber.suspend` changes shape in a later TeaVM, the plugin fails the build rather than doing nothing. A copy of `Fiber` in our sources did not work: TeaVM loads its own.
+A `complete()` called synchronously inside `call.run` still works: it sets `isPendingResume`, and `Fiber.start` resumes once the stack has unwound. `engine/src/main/java/browsercol/shim/FiberSuspendFix.java` applies this to TeaVM 0.16 without a TeaVM build. It is a `TeaVMPlugin` with a `ClassHolderTransformer` that moves that one store in `Fiber.suspend`. If `Fiber.suspend` changes shape in a later TeaVM, the plugin fails the build rather than doing nothing. A copy of `Fiber` in our sources did not work: TeaVM loads its own.
 
 With the fix, on TeaVM 0.16.0:
 
@@ -206,14 +206,14 @@ With the fix, on TeaVM 0.16.0:
 
 # Toolchain spike, stage 2: the Engine split in the browser
 
-Stage 2 of the spike ([#10](https://github.com/shivan2418/freecol-online/issues/10)) asked whether the full Engine split works in a browser. **It does**, in both Chromium and Firefox:
+Stage 2 of the spike ([#10](https://github.com/shivan2418/browsercol/issues/10)) asked whether the full Engine split works in a browser. **It does**, in both Chromium and Firefox:
 
 - The server Engine and the AI run in a Web Worker. The client Engine runs on the main thread.
 - The two sides are joined only by FreeCol protocol XML over `postMessage`.
 - A stub `WebGUI` starts a Classic single-player game from the client, and the AI plays round after round.
 - PixiJS draws the client's view of the map crudely, one square per tile.
 
-The human seat still only ends its turn, as in stage 1. (Since [#15](https://github.com/shivan2418/freecol-online/issues/15) the human plays its own turns; see the root README.)
+The human seat still only ends its turn, as in stage 1. (Since [#15](https://github.com/shivan2418/browsercol/issues/15) the human plays its own turns; see the root README.)
 
 ## Run it
 
@@ -222,8 +222,8 @@ The human seat still only ends its turn, as in stage 1. (Since [#15](https://git
 ./dev.sh -C engine gradle test
 
 # The two modules (add -Prelease for obfuscated, size-measured builds)
-./dev.sh -C engine gradle generateWasmGC copyWasmGCRuntime -Pmain=online.freecol.web.WorkerMain -Pout=server
-./dev.sh -C engine gradle generateWasmGC copyWasmGCRuntime -Pmain=online.freecol.web.ClientMain -Pout=client
+./dev.sh -C engine gradle generateWasmGC copyWasmGCRuntime -Pmain=browsercol.web.WorkerMain -Pout=server
+./dev.sh -C engine gradle generateWasmGC copyWasmGCRuntime -Pmain=browsercol.web.ClientMain -Pout=client
 
 # The split in Node: server in a worker thread, client on the main thread
 ./dev.sh -C engine node run-split-node.mjs 10 > /dev/null
@@ -303,7 +303,7 @@ Almost all of the 760 KiB is the login reply, which carries the whole game inclu
 
 ## What it took
 
-**The channel** is `PostMessageConnection`, a `Connection` subclass used on both sides (`engine/src/main/java/online/freecol/web/`):
+**The channel** is `PostMessageConnection`, a `Connection` subclass used on both sides (`engine/src/main/java/browsercol/web/`):
 
 - **Message format.** Each message crosses as one string of the XML a socket would carry, so a WebSocket can replace the Worker later.
 - **No `Object.wait`.** It replaces `ReceivingThread` and `NetworkReplyObject`, so nothing calls the broken `Object.wait`: a thread waiting for a reply polls with `Thread.sleep(1)`.

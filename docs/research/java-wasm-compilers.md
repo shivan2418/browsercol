@@ -1,6 +1,6 @@
 # Which Java-to-JS/Wasm compiler can run FreeCol's model, server and AI headless?
 
-Ticket: shivan2418/freecol-online#4. Researched 2026-10-24. Inputs: `docs/research/freecol-jvm-needs.md` (branch `research/freecol-jvm-needs`) and FreeCol source at `freecol/src`.
+Ticket: shivan2418/browsercol#4. Researched 2026-10-24. Inputs: `docs/research/freecol-jvm-needs.md` (branch `research/freecol-jvm-needs`) and FreeCol source at `freecol/src`.
 
 ## Verdict
 

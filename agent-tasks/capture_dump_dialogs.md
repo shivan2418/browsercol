@@ -4,10 +4,10 @@ throw overboard) are reported as `unasked` and fall back to the base
 GUI's default. Make both real questions the Browser UI answers.
 
 Where:
-- `engine/src/main/java/online/freecol/web/WebGUI.java`:
+- `engine/src/main/java/browsercol/web/WebGUI.java`:
   `showCaptureGoodsDialog` and `showDumpCargoDialog` in the "Not asked
   yet" block. Move them out of it and update the class comment's table.
-- `engine/src/test/java/online/freecol/web/WebGUITest.java` (or a new
+- `engine/src/test/java/browsercol/web/WebGUITest.java` (or a new
   test beside it in the same style).
 - `ui/src/webgui.ts` (question handlers and answer encoding),
   `ui/src/dialogs.ts` and the React panel code (`panels.tsx`), with

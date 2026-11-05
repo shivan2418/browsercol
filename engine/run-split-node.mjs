@@ -8,8 +8,8 @@
 // ../.cache/saves. --load: the server Engine loads a savegame, e.g. one
 // desktop FreeCol wrote, and saves it again beside the others. (#67)
 // Expects to be run from engine/ after building both modules:
-//   gradle generateWasmGC copyWasmGCRuntime -Pmain=online.freecol.web.WorkerMain -Pout=server
-//   gradle generateWasmGC copyWasmGCRuntime -Pmain=online.freecol.web.ClientMain -Pout=client
+//   gradle generateWasmGC copyWasmGCRuntime -Pmain=browsercol.web.WorkerMain -Pout=server
+//   gradle generateWasmGC copyWasmGCRuntime -Pmain=browsercol.web.ClientMain -Pout=client
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';

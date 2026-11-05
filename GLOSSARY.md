@@ -1,4 +1,4 @@
-# FreeCol Online
+# BrowserCol
 
 FreeCol, the open-source Colonization clone, made playable single-player in a desktop browser from static hosting, built from FreeCol's own Java.
 

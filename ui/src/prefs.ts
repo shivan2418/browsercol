@@ -1,4 +1,4 @@
-// The player's preferences (the Game menu's Preferences): FreeCol Online's own,
+// The player's preferences (the Game menu's Preferences): BrowserCol's own,
 // such as how fast units slide and the active unit blinks, and those of
 // FreeCol's client options the browser follows. Kept in this browser's
 // localStorage.
@@ -15,7 +15,7 @@ export const SPEEDS: readonly Speed[] = ['off', 'slow', 'normal', 'fast'];
 
 /**
  * How the active unit shows: FreeCol's own, a blinking cursor (the green chevron) over a steady unit, or
- * FreeCol Online's, the whole unit blinking, Civilization I style, with no chevron.
+ * BrowserCol's, the whole unit blinking, Civilization I style, with no chevron.
  */
 export type ActiveStyle = 'freecol' | 'online';
 export const ACTIVE_STYLES: readonly ActiveStyle[] = ['freecol', 'online'];
@@ -82,7 +82,7 @@ export function visibleMessages<T extends { type: string }>(p: Prefs, messages: 
 /**
  * FreeCol's client options (data/base/client-options.xml) the Preferences window shows, in FreeCol's
  * groups: those the browser follows. The client Engine follows most of them as FreeCol does; the page
- * follows PAGE_OPTIONS itself. Left out: those FreeCol Online's own preferences cover (move animation,
+ * follows PAGE_OPTIONS itself. Left out: those BrowserCol's own preferences cover (move animation,
  * tutorial messages, auto end turn); those a browser cannot follow (the full screen display mode, Java's
  * pixmaps and XRender, confirm save overwrite, as saves never overwrite; and the audio mixer, a Java Sound
  * device: the browser plays on the system's default output, as choosing another, setSinkId, works only in
@@ -181,7 +181,7 @@ export const PAGE_OPTIONS = {
   'model.option.displayScaling': 0,
   /** Whether mainFontSize sets the text size, rather than the display scaling. */
   'model.option.manualMainFontSize': false,
-  /** The main text size, FreeCol's 12 being FreeCol Online's own. */
+  /** The main text size, FreeCol's 12 being BrowserCol's own. */
   'model.option.mainFontSize': 12,
   /** Draw the map with WebGL (PixiJS), rather than the Canvas 2D fallback. Read as the page loads. */
   'model.option.useOpenGL': true,
@@ -272,7 +272,7 @@ export function terrainAnimation(p: Prefs): TerrainAnimation {
 /** How big the menus, panels and windows are drawn: the display scaling, 1 for automatic. */
 export const uiZoom = (p: Prefs): number => (pageOption(p, 'model.option.displayScaling') || 100) / 100;
 
-/** How much bigger than FreeCol Online's own the text is: the manual font size over FreeCol's 12. */
+/** How much bigger than BrowserCol's own the text is: the manual font size over FreeCol's 12. */
 export const fontScale = (p: Prefs): number =>
   pageOption(p, 'model.option.manualMainFontSize') ? pageOption(p, 'model.option.mainFontSize') / 12 : 1;
 

@@ -42,7 +42,7 @@ const freecol: OptionGroup = {
   ],
 };
 
-test("the categories are a tree, as in FreeCol, with FreeCol Online's own first", () => {
+test("the categories are a tree, as in FreeCol, with BrowserCol's own first", () => {
   const nested: OptionGroup = {
     ...freecol,
     children: [
@@ -56,7 +56,7 @@ test("the categories are a tree, as in FreeCol, with FreeCol Online's own first"
     ],
   };
   expect(categories(nested).map((c) => [c.label, c.depth, c.pickable])).toEqual([
-    ['FreeCol Online', 0, true],
+    ['BrowserCol', 0, true],
     ['Interface', 0, false],
     ['Messages', 1, true],
   ]);
@@ -69,7 +69,7 @@ test("a category's options show once it is picked, and a change keeps them by id
   const { container } = render(
     <PreferencesDialog prefs={prefs} freecol={freecol} change={(p) => changes.push(p)} close={() => {}} />,
   );
-  // FreeCol Online's own show first.
+  // BrowserCol's own show first.
   expect(screen.getByText('Blink speed')).toBeTruthy();
   expect(screen.queryByLabelText('Pre-combat analysis')).toBeNull();
   const messages = container.querySelector<HTMLElement>('[data-category="clientOptions.messages"]')!;
@@ -85,15 +85,15 @@ test("a category's options show once it is picked, and a change keeps them by id
   });
 });
 
-test("before the data loads, only FreeCol Online's own show", () => {
+test("before the data loads, only BrowserCol's own show", () => {
   const { container } = render(
     <PreferencesDialog prefs={DEFAULTS} freecol={null} change={() => {}} close={() => {}} />,
   );
-  expect([...container.querySelectorAll('[data-category]')].map((e) => e.textContent)).toEqual(['FreeCol Online']);
+  expect([...container.querySelectorAll('[data-category]')].map((e) => e.textContent)).toEqual(['BrowserCol']);
   expect(screen.getByText('Blink speed')).toBeTruthy();
 });
 
-test("the colours and the fonts are among FreeCol Online's own, and a pick changes them", () => {
+test("the colours and the fonts are among BrowserCol's own, and a pick changes them", () => {
   const changed: Prefs[] = [];
   const { container } = render(
     <PreferencesDialog prefs={DEFAULTS} freecol={null} change={(p) => changed.push(p)} close={() => {}} />,
@@ -137,7 +137,7 @@ test("the language's category says the Browser UI's own labels stay English", ()
   );
   fireEvent.click(container.querySelector<HTMLElement>('[data-category="clientOptions.personal"]')!);
   expect(container.querySelector('[data-note="language"]')?.textContent).toMatch(
-    /FreeCol Online's own labels stay English/,
+    /BrowserCol's own labels stay English/,
   );
   fireEvent.click(container.querySelector<HTMLElement>('[data-category="clientOptions.messages"]')!);
   expect(container.querySelector('[data-note="language"]')).toBeNull();
