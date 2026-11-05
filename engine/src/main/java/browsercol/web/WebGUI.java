@@ -277,20 +277,20 @@ import net.sf.freecol.common.option.OptionGroup;
  * the answer from the call, blocks.
  *
  * The reason is the thread the controller runs on. The server sends each
- * update as a request and waits for its reply, for
- * {@code Connection.DEFAULT_REPLY_TIMEOUT} (30 s), and the
- * {@link PostMessageConnection} sends that reply when the client's message
+ * update as a request and waits for its reply, for as long as it takes
+ * (the {@link PostMessageConnection} does not give up after FreeCol's
+ * 30 s), and the connection sends that reply when the client's message
  * handler returns. The handlers behind firstContactHandler,
  * monarchActionHandler, indianDemandHandler, newLandNameHandler,
  * newRegionNameHandler, chooseFoundingFatherHandler, fountainOfYouthHandler
  * and gameEndedHandler ask their dialog through {@code invokeLater}, which
  * here runs at once on that handler thread (in Swing it moves to the event
  * thread). Blocking there would hold the server's thread, in the middle of
- * whatever sent the update, until the player answered, and fail the send
- * after 30 s. The player's answer would then reach the server as a command
- * on top of a half-finished one. Deferring releases the server at once, as
- * in Swing. Emigration is also asked from the updates of a new turn, so it
- * defers too.
+ * whatever sent the update, until the player answered (in FreeCol over a
+ * socket the send fails after 30 s, and the player's answer then reaches
+ * the server as a command on top of a half-finished one). Deferring
+ * releases the server at once, as in Swing. Emigration is also asked from
+ * the updates of a new turn, so it defers too.
  *
  * <table>
  * <caption>Blocks or defers, as Swing does</caption>

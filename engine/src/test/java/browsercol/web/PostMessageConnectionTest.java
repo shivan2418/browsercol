@@ -2,6 +2,7 @@ package browsercol.web;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -74,6 +75,57 @@ class PostMessageConnectionTest {
         long end = System.currentTimeMillis() + 5000;
         while (seen.get() == null && System.currentTimeMillis() < end) Thread.sleep(5);
         assertEquals("<gameState state=\"END_GAME\"/>", xml(seen.get()));
+    }
+
+    /**
+     * FreeCol gives up on a reply after 30 s, and the server then sent
+     * startGame ahead of the new game, so the first turn never came (#97).
+     * Here a question waits as long as its reply takes.
+     */
+    @Test
+    void aQuestionWaitsPastFreeColsTimeoutForALateReply() throws Exception {
+        PostMessageConnection[] p = pair();
+        p[0].setMessageHandler(answering(null, new AtomicReference<>()));
+        p[1].setMessageHandler(new MessageHandler() {
+                public Message handle(Connection c, Message m) {
+                    try {
+                        Thread.sleep(500);
+                    } catch (InterruptedException ie) {}
+                    return new ConnectionVerificationMessage(true);
+                }
+                public Message read(Connection c) throws net.sf.freecol.common.FreeColException {
+                    return Message.read(null, c.getFreeColXMLReader());
+                }
+            });
+
+        Message reply = p[0].askMessage(new ConnectionVerificationMessage(false), 50);
+
+        assertEquals("<connectionVerification connectable=\"true\"/>", xml(reply));
+    }
+
+    /** With no timeout, a failed handler must still answer, or the asker waits for ever. */
+    @Test
+    void aQuestionWhoseHandlerFailsGetsAnEmptyReply() throws Exception {
+        PostMessageConnection[] p = pair();
+        p[0].setMessageHandler(answering(null, new AtomicReference<>()));
+        p[1].setMessageHandler(new MessageHandler() {
+                public Message handle(Connection c, Message m) {
+                    throw new IllegalStateException("the handler failed");
+                }
+                public Message read(Connection c) throws net.sf.freecol.common.FreeColException {
+                    return Message.read(null, c.getFreeColXMLReader());
+                }
+            });
+
+        assertNull(p[0].askMessage(new ConnectionVerificationMessage(false), 50));
+    }
+
+    @Test
+    void aQuestionOnAClosedConnectionDoesNotWait() throws Exception {
+        PostMessageConnection[] p = pair();
+        p[0].close();
+
+        assertNull(p[0].askMessage(new ConnectionVerificationMessage(false), 50));
     }
 
     private static String xml(Message m) throws Exception {

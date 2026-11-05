@@ -37,6 +37,18 @@ import net.sf.freecol.common.networking.TrivialMessage;
  * NetworkReplyObject. A thread waiting for a reply waits on the monitor of
  * its {@code Pending}, which {@code complete} notifies. Questions and
  * updates are read in arrival order and each is handled on a thread of its own, as ReceivingThread does.
+ *
+ * A question waits for its reply as long as the connection is open,
+ * whatever timeout FreeCol asks for (its {@code DEFAULT_REPLY_TIMEOUT} is
+ * 30 s). Both ends live in one browser tab, so a late reply means a busy
+ * other end, not a lost one. Giving up costs more than time: a reply that
+ * comes after the asker gave up is dropped, with whatever it carried, and
+ * the asker goes on as if the other end had seen its question. The server
+ * sends a new game as a question and {@code startGame} after its reply;
+ * a server that stopped waiting sent {@code startGame} ahead of the game,
+ * the client's startGameHandler gave up after 10 s without a map, and the
+ * first turn never came (#97). In return, every question gets a reply,
+ * an empty one if it could not be read or its handler failed.
  */
 public class PostMessageConnection extends Connection {
 
@@ -62,19 +74,19 @@ public class PostMessageConnection extends Connection {
         }
 
         /**
-         * Wait for the reply.
+         * Wait for the reply, or for the connection to close.
          *
-         * @param timeout The longest to wait, in milliseconds.
-         * @return True if the reply came, false on timeout.
+         * @return True if the reply came or the connection closed, false
+         *     if the waiting thread was interrupted.
          */
-        synchronized boolean await(long timeout) {
-            final long end = System.currentTimeMillis() + timeout;
+        synchronized boolean await() {
             while (!this.done) {
-                long left = end - System.currentTimeMillis();
-                if (left <= 0) return false;
                 try {
-                    wait(Math.min(left, MAX_WAIT_MS));
-                } catch (InterruptedException ie) {}
+                    wait(MAX_WAIT_MS);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    return false;
+                }
             }
             return true;
         }
@@ -204,7 +216,16 @@ public class PostMessageConnection extends Connection {
             }
             case Connection.QUESTION_TAG: {
                 int replyId = r.getAttribute(NETWORK_REPLY_ID_TAG, -1);
-                Message question = read(r);
+                Message question = null;
+                try {
+                    question = read(r);
+                } finally {
+                    // Unreadable: the asker still waits for a reply.
+                    if (!(question instanceof QuestionMessage)
+                        || ((QuestionMessage)question).getMessage() == null) {
+                        sendMessage(new ReplyMessage(replyId, null));
+                    }
+                }
                 if (question instanceof QuestionMessage) {
                     handleOnThread(((QuestionMessage)question).getMessage(), replyId);
                 }
@@ -255,8 +276,10 @@ public class PostMessageConnection extends Connection {
         if (message == null) return;
         this.handling.incrementAndGet();
         new Thread(() -> {
+                boolean replied = replyId < 0;
                 try {
                     Message reply = handle(message);
+                    replied = true;
                     sendMessage((replyId < 0) ? reply
                         : new ReplyMessage(replyId, reply));
                 } catch (Throwable ex) {
@@ -264,6 +287,14 @@ public class PostMessageConnection extends Connection {
                         + message.getType() + " failed: " + ex, ex);
                     Failures.report(getName() + ": handling "
                         + message.getType() + " failed", ex);
+                }
+                // The asker waits for a reply, however long: give an empty one.
+                if (!replied) {
+                    try {
+                        sendMessage(new ReplyMessage(replyId, null));
+                    } catch (Throwable ex) {
+                        logger.log(Level.WARNING, getName() + ": empty reply failed: " + ex, ex);
+                    }
                 }
                 try {
                     final Runnable after = this.afterHandle;
@@ -309,10 +340,13 @@ public class PostMessageConnection extends Connection {
         this.pending.put(replyId, p);
         sendMessage(new QuestionMessage(replyId, message));
 
-        if (!p.await(timeout)) {
+        // Closed before or while sending: close() may have missed p.
+        if (!this.open) p.complete(null);
+        // The timeout is not used: see the class comment.
+        if (!p.await()) {
             this.pending.remove(replyId);
-            throw new TimeoutException("No reply to " + message.getType()
-                + " in " + timeout + "ms");
+            throw new TimeoutException("Interrupted waiting for the reply to "
+                + message.getType());
         }
         final Message response = p.response();
         if (response == null && !this.open) return null;
