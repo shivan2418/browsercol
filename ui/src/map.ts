@@ -32,7 +32,20 @@ import {
   type Ticks,
 } from './tileset';
 import type { ActiveStyle } from './prefs';
-import { BLINK_MS, MOVE_MS, blink, path, slide, stepMs, type Path, type Step } from './motion';
+import {
+  BLINK_MS,
+  MOVE_MS,
+  blink,
+  length,
+  path,
+  slide,
+  stepMs,
+  carryOn,
+  track,
+  type Path,
+  type Step,
+  type Track,
+} from './motion';
 import { H, W, activeUnitFacts, cursor, tileOrigin, toMap, type ViewState } from './view';
 
 export type { MapView } from './tileset';
@@ -940,8 +953,8 @@ export function mapDrawer(
   const panels = new Set<(ops: Op[]) => void>();
   /** The steps the Engine told of since the last map was asked to be drawn. */
   let steps: Step[] = [];
-  /** The unit sliding along its tiles now, when it set off, and how long it takes. */
-  let sliding: { path: Path; since: number; ms: number } | null = null;
+  /** The unit sliding along its tiles now, when it set off, and its track from there. */
+  let sliding: { path: Path; since: number; track: Track } | null = null;
   /** The tiles explored last time, and the black being lifted off some newly explored since `since`. */
   let exploredTiles = new Set<string>();
   /** The scene drawn last time. */
@@ -1017,7 +1030,7 @@ export function mapDrawer(
     const now = performance.now();
     // The active unit blinks, but not while a unit slides; a slide ends once its time is up, and the active unit
     // goes back to the actors' layer to blink.
-    if (sliding && now - sliding.since >= sliding.ms) {
+    if (sliding && now - sliding.since >= length(sliding.track)) {
       sliding = null;
       drawing = drawing.then(() => (drawn ? paintScene(drawn, lastOps) : undefined));
     }
@@ -1027,7 +1040,7 @@ export function mapDrawer(
     const cursorBlinks = activeStyle === 'freecol' || blinkMs <= 0 || tileCursor;
     const alpha = !sliding && ((view.mode === 'units' && view.active) || tileCursor) ? blink(now, blinkMs) : 1;
     if (sliding) {
-      const [dx, dy] = slide(sliding.path.tiles, (now - sliding.since) / sliding.ms);
+      const [dx, dy] = slide(sliding.track, now - sliding.since);
       pen.actors(dx, dy, 1);
     } else {
       pen.actors(0, 0, cursorBlinks ? 1 : alpha);
@@ -1090,7 +1103,7 @@ export function mapDrawer(
    * Draw the scene, with one unit on its own in the actors' layer: the sliding one, else the active one, to blink.
    * Nothing else is in that layer, so nothing else slides or blinks.
    */
-  async function paintScene(map: MapView, ops: Op[], slide = sliding) {
+  async function paintScene(map: MapView, ops: Op[], slide = sliding?.path ?? null) {
     const unitAt = (tile: string) => (op: Op) =>
       (op.k === 'chip' || (op.k === 'image' && op.at === 'unit')) && `${op.x},${op.y}` === tile;
     const isBase = (op: Op) => op.k === 'image' && !!op.base;
@@ -1099,7 +1112,7 @@ export function mapDrawer(
     let actors: Op[] = [];
     let rest = ops;
     if (slide) {
-      const { step, tiles } = slide.path;
+      const { step, tiles } = slide;
       const [x, y] = tiles[tiles.length - 1];
       const shown = map.units.find((u) => u.x === x && u.y === y);
       if (shown && shown.rgb === step.rgb && shown.keys.join() === step.keys.join()) {
@@ -1139,9 +1152,16 @@ export function mapDrawer(
     // The slide starts once the actors' layer holds the unit on its new tile: offset before that, the layer
     // still shows it on its old tile, and the offset would put it a tile further back, in a second place.
     if (way) {
-      const ms = stepTime * (way.tiles.length - 1);
-      await paintScene(map, ops, { path: way, since: 0, ms });
-      sliding = { path: way, since: performance.now(), ms };
+      await paintScene(map, ops, way);
+      const now = performance.now();
+      const next = track(way.tiles, stepTime);
+      // A move made while the same unit still slides to where this one sets off from carries on from where it is.
+      const prev = sliding;
+      const carry =
+        prev &&
+        prev.path.step.unit === way.step.unit &&
+        prev.path.tiles[prev.path.tiles.length - 1].join() === way.tiles[0].join();
+      sliding = { path: way, since: now, track: carry ? carryOn(prev.track, now - prev.since, next) : next };
       camera();
     } else await paintScene(map, ops);
     // Ground that was explored since the last draw fades in out of the black, rather than appearing.

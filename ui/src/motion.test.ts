@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vite-plus/test';
-import { BLINK_MS, OPTION_MS, blink, path, slide, stepMs, type Step } from './motion';
+import { BLINK_MS, OPTION_MS, blink, length, path, slide, stepMs, carryOn, track, type Step } from './motion';
 
 const step = (from: [number, number], to: [number, number], unit = 'unit:1', speed: number | null = null): Step => ({
   unit,
@@ -51,37 +51,37 @@ describe("another player's unit", () => {
 });
 
 describe('slide', () => {
+  const row = (...xs: number[]): [number, number][] => xs.map((x) => [x, 2]);
+
   it('starts a tile back and ends on the tile', () => {
-    expect(
-      slide(
-        [
-          [3, 2],
-          [4, 2],
-        ],
-        0,
-      ),
-    ).toEqual([-128, 0]);
-    expect(
-      slide(
-        [
-          [3, 2],
-          [4, 2],
-        ],
-        1,
-      ).map(Math.abs),
-    ).toEqual([0, 0]);
+    const t = track(row(3, 4), 300);
+    expect(slide(t, 0)).toEqual([-128, 0]);
+    expect(slide(t, 300).map(Math.abs)).toEqual([0, 0]);
+    expect(length(t)).toBe(300);
   });
 
   it('goes a step in each share of the time along a longer path', () => {
-    const tiles: [number, number][] = [
-      [3, 2],
-      [4, 2],
-      [5, 2],
-    ];
-    expect(slide(tiles, 0)).toEqual([-256, 0]);
-    expect(slide(tiles, 0.5)).toEqual([-128, 0]);
-    expect(slide(tiles, 0.75)).toEqual([-64, 0]);
-    expect(slide(tiles, 1).map(Math.abs)).toEqual([0, 0]);
+    const t = track(row(3, 4, 5), 300);
+    expect(slide(t, 0)).toEqual([-256, 0]);
+    expect(slide(t, 300)).toEqual([-128, 0]);
+    expect(slide(t, 450)).toEqual([-64, 0]);
+    expect(slide(t, 600).map(Math.abs)).toEqual([0, 0]);
+  });
+
+  it('carries a move made mid-slide on from where the unit is, without a jump', () => {
+    const first = track(row(3, 4), 300);
+    const carried = carryOn(first, 150, track(row(4, 5), 300));
+    // Half a tile short of 4 when the next move comes: 64 + 128 pixels short of 5, and no nearer.
+    expect(slide(carried, 0)).toEqual([-192, 0]);
+    expect(slide(carried, 150)).toEqual([-128, 0]);
+    expect(slide(carried, 450).map(Math.abs)).toEqual([0, 0]);
+    expect(length(carried)).toBe(450);
+  });
+
+  it('starts the next move from the tile when the first slide is over', () => {
+    const carried = carryOn(track(row(3, 4), 300), 400, track(row(4, 5), 300));
+    expect(slide(carried, 0)).toEqual([-128, 0]);
+    expect(length(carried)).toBe(300);
   });
 });
 
