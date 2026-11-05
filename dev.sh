@@ -35,5 +35,20 @@ if [[ -L "$repo/freecol" ]]; then
   extra=(-v "$(readlink -f "$repo/freecol"):/work/freecol:ro")
 fi
 # Rootless Docker: container root maps to the host user, so files stay ours.
-exec docker run --rm "${tty[@]}" "${shm[@]}" "${ports[@]}" -e HOME=/work/.cache/home \
-  -v "$repo:/work" "${extra[@]}" -w "$workdir" "$image" "$@"
+run=(docker run --rm "${tty[@]}" "${shm[@]}" "${ports[@]}" -e HOME=/work/.cache/home
+  -v "$repo:/work" "${extra[@]}" -w "$workdir" "$image" "$@")
+# Concurrent containers share the Gradle user home in /work/.cache/gradle, and
+# Gradle gives up on its journal lock after 60 s before any build step runs
+# (#219). That failure is transient and does nothing to the build, so a Gradle
+# command is retried when, and only when, that message is its failure.
+if [[ "${1:-}" != gradle ]]; then exec "${run[@]}"; fi
+log=$(mktemp); trap 'rm -f "$log"' EXIT
+for attempt in 1 2 3 4; do
+  status=0
+  "${run[@]}" 2>&1 | tee "$log" || status=${PIPESTATUS[0]}
+  [[ $status -eq 0 ]] && exit 0
+  grep -q 'Timeout waiting to lock .* It is currently in use by another process' "$log" || exit "$status"
+  echo "dev.sh: Gradle cache lock timed out (attempt $attempt of 4), retrying" >&2
+  sleep $((RANDOM % 10 + 5))
+done
+exit "$status"
