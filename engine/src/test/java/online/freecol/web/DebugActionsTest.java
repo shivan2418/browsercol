@@ -161,7 +161,7 @@ class DebugActionsTest {
     @Test
     @Timeout(240)
     void dumpingATileAndResettingMovesAnswerForTheTile() throws Exception {
-        final Unit unit = me().getUnits().filter(u -> u.getTile() != null).findFirst().get();
+        final Unit unit = me().getUnits().filter(u -> u.getTile() != null && u.getLocation() == u.getTile()).findFirst().get();
         final Tile at = unit.getTile();
         final String text = server.debug("{\"action\":\"dumpTile\",\"x\":" + at.getX()
             + ",\"y\":" + at.getY() + "}");
