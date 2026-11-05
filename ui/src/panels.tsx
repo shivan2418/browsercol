@@ -1723,6 +1723,13 @@ function TileBody({ e, art }: { e: GuiEvents['tilePanel']; art: Art }) {
           <GoodsAmount key={g.type} keys={g.keys} name={g.name} amount={g.amount} expert={g.expert} art={art} />
         ))}
       </div>
+      {e.colonyValue && e.colonyValue.length > 0 && (
+        <div className="colony-value">
+          {e.colonyValue.map((line, i) => (
+            <div key={i}>{line}</div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

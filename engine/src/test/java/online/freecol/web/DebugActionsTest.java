@@ -349,4 +349,155 @@ class DebugActionsTest {
         assertEquals(2, rounds);
         assertTrue(client.getClient().currentPlayerIsMyPlayer());
     }
+
+    private static java.util.Map<?, ?> json(String s) {
+        return (java.util.Map<?, ?>)JsonReader.read(s);
+    }
+
+    private Colony serverColony(String name) {
+        final Game game = server.getGame();
+        final Player us = game.getFreeColGameObject(me().getId(), Player.class);
+        final Tile land = game.getMap().getTileSet(t -> t.isLand() && t.getUnitCount() == 0
+            && !t.hasSettlement() && t.getOwner() == null).iterator().next();
+        final Colony colony = new ServerColony(game, us, name, land);
+        land.setSettlement(colony);
+        return colony;
+    }
+
+    private static String xy(Tile t) {
+        return "\"x\":" + t.getX() + ",\"y\":" + t.getY();
+    }
+
+    @Test
+    @Timeout(240)
+    void aRequestWithoutAChoiceAsksForOne() throws Exception {
+        final Colony colony = serverColony("Debug");
+        final java.util.Map<?, ?> ask = json(server.debug(
+            "{\"action\":\"changeOwner\"," + xy(colony.getTile()) + "}"));
+        assertEquals("choose", ask.get("action"));
+        assertEquals("changeOwner", ask.get("for"));
+        assertEquals("owner", ask.get("key"));
+        assertFalse(((List<?>)ask.get("choices")).isEmpty());
+        // The unit types are asked for the same way.
+        assertEquals("type", json(server.debug("{\"action\":\"addUnit\"," + xy(colony.getTile()) + "}")).get("key"));
+    }
+
+    @Test
+    @Timeout(240)
+    void aColonyChangesOwner() throws Exception {
+        final Colony colony = serverColony("Debug");
+        final Player other = server.getGame().getLiveEuropeanPlayerList().stream()
+            .filter(p -> p != colony.getOwner()).findFirst().get();
+        server.debug("{\"action\":\"changeOwner\"," + xy(colony.getTile()) + ",\"owner\":\"" + other.getId() + "\"}");
+        assertEquals(other, colony.getOwner());
+    }
+
+    @Test
+    @Timeout(240)
+    void aUnitChangesRole() throws Exception {
+        final Unit unit = me().getUnits().filter(u -> u.isPerson() && u.getTile() != null).findFirst().get();
+        final Unit sUnit = server.getGame().getFreeColGameObject(unit.getId(), Unit.class);
+        final String id = "\"unit\":\"" + unit.getId() + "\"";
+        assertEquals("role", json(server.debug("{\"action\":\"changeRole\"," + id + "}")).get("key"));
+        server.debug("{\"action\":\"changeRole\"," + id + ",\"role\":\"model.role.soldier\"}");
+        assertEquals("model.role.soldier", sUnit.getRole().getId());
+        eventually("the client's unit has the role",
+            () -> unit.getRole().getId().equals("model.role.soldier"));
+        assertThrows(IllegalArgumentException.class, () -> server.debug(
+            "{\"action\":\"changeRole\"," + id + ",\"role\":\"model.role.nope\"}"));
+    }
+
+    @Test
+    @Timeout(240)
+    void aColonyHasAPlanAndAnIdealColonyCanBeFounded() throws Exception {
+        final Colony colony = serverColony("Debug");
+        assertNotNull(json(server.debug("{\"action\":\"colonyPlan\"," + xy(colony.getTile()) + "}")).get("text"));
+        assertThrows(IllegalArgumentException.class, () -> server.debug(
+            "{\"action\":\"colonyPlan\",\"x\":0,\"y\":0}"));
+        final Game game = server.getGame();
+        final Player us = game.getFreeColGameObject(me().getId(), Player.class);
+        final Tile site = game.getMap().getTileSet(t -> t.isLand() && !t.hasSettlement()
+            && t.getUnitCount() == 0 && us.canClaimToFoundSettlement(t)).iterator().next();
+        final java.util.Map<?, ?> answer = json(server.debug("{\"action\":\"idealColony\"," + xy(site) + "}"));
+        assertNotNull(site.getColony());
+        assertEquals(site.getColony().getId(), answer.get("colony"));
+        assertEquals(us, site.getColony().getOwner());
+        assertThrows(IllegalArgumentException.class, () -> server.debug(
+            "{\"action\":\"idealColony\"," + xy(site) + "}"));
+    }
+
+    @Test
+    @Timeout(240)
+    void aDisasterAsksWhichAndStrikes() throws Exception {
+        final Colony colony = serverColony("Debug");
+        final java.util.Map<?, ?> ask = json(server.debug("{\"action\":\"applyDisaster\"," + xy(colony.getTile()) + "}"));
+        assertEquals("disaster", ask.get("key"));
+        final String id = (String)((java.util.Map<?, ?>)((List<?>)ask.get("choices")).get(0)).get("id");
+        final java.util.Map<?, ?> done = json(server.debug(
+            "{\"action\":\"applyDisaster\"," + xy(colony.getTile()) + ",\"disaster\":\"" + id + "\"}"));
+        assertEquals("applyDisaster", done.get("action"));
+    }
+
+    @Test
+    @Timeout(240)
+    void aLostCityRumourChangesType() throws Exception {
+        final Tile rumour = server.getGame().getMap().getTileSet(Tile::hasLostCityRumour).iterator().next();
+        assertEquals("rumour", json(server.debug("{\"action\":\"rumourType\"," + xy(rumour) + "}")).get("key"));
+        server.debug("{\"action\":\"rumourType\"," + xy(rumour) + ",\"rumour\":\"MOUNDS\"}");
+        assertEquals(net.sf.freecol.common.model.LostCityRumour.RumourType.MOUNDS,
+            rumour.getTileItemContainer().getLostCityRumour().getType());
+        assertThrows(IllegalArgumentException.class, () -> server.debug(
+            "{\"action\":\"rumourType\"," + xy(rumour) + ",\"rumour\":\"NOPE\"}"));
+        final Tile bare = server.getGame().getMap().getTileSet(t -> t.isLand() && !t.hasLostCityRumour()).iterator().next();
+        assertThrows(IllegalArgumentException.class, () -> server.debug(
+            "{\"action\":\"rumourType\"," + xy(bare) + ",\"rumour\":\"MOUNDS\"}"));
+    }
+
+    @Test
+    @Timeout(240)
+    void aShipsTransportListIsItsAIMission() throws Exception {
+        final Unit ship = me().getUnits().filter(Unit::isNaval).findFirst().get();
+        final java.util.Map<?, ?> answer = json(server.debug(
+            "{\"action\":\"displayMission\",\"unit\":\"" + ship.getId() + "\"}"));
+        assertNotNull(answer.get("text"));
+    }
+
+    @Test
+    @Timeout(240)
+    void theTilePopupListsTheDebugEntriesTheTileCalls() throws Exception {
+        final Unit ship = me().getUnits().filter(Unit::isNaval).findFirst().get();
+        final String at = ship.getTile().getX() + "," + ship.getTile().getY();
+        final String menu = client.getMenus().debugTile(ship.getTile().getX(), ship.getTile().getY());
+        for (String id : new String[] { "debug:displayMission:" + ship.getId(),
+            "debug:changeOwner:" + ship.getId(), "debug:addUnit:" + at, "debug:resetMoves:" + at,
+            "debug:dumpTile:" + at, "debug:idealColony:" + at }) {
+            assertTrue(menu.contains("\"" + id + "\""), id + " in " + menu);
+        }
+        assertFalse(menu.contains("debug:colonyPlan"), "no colony here");
+        assertFalse(menu.contains("debug:rumourType"), "no rumour here");
+        final Tile bare = client.getGame().getMap().getTileSet(t -> t.isExplored() && t.getUnitCount() == 0).iterator().next();
+        assertFalse(client.getMenus().debugTile(bare.getX(), bare.getY()).contains("debug:resetMoves"),
+            "reset moves only where there are units");
+    }
+
+    @Test
+    @Timeout(240)
+    void theTilePanelShowsTheChosenPlayersColonyValue() throws Exception {
+        client.debugApplied(server.debug("{\"action\":\"revealMap\",\"reveal\":true}"));
+        final Map map = client.getGame().getMap();
+        eventually("the map explored", () -> unexplored(map) == 0);
+        final Tile tile = map.getTileSet(t -> t.isLand()).iterator().next();
+        assertTrue(TileJson.colonyValue(tile).isEmpty(), "nothing until a player is chosen");
+        client.setColonyValuePlayer(me().getId());
+        try {
+            final List<String> lines = TileJson.colonyValue(tile);
+            assertFalse(lines.isEmpty());
+            assertTrue(lines.get(lines.size() - 1).startsWith("\"Result ")
+                || lines.size() == 1, lines.toString());
+            assertTrue(TileJson.of(tile, me()).contains("\"colonyValue\":["));
+        } finally {
+            client.setColonyValuePlayer("");
+        }
+        assertTrue(TileJson.colonyValue(tile).isEmpty());
+    }
 }

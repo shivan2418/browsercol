@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vite-plus/test';
-import { debugMessage, debugMode, describeAnswer, type DebugRequest } from './debug';
+import { chosenRequest, debugEntryRequest, debugMessage, debugMode, describeAnswer, type DebugRequest } from './debug';
 import { Side } from './side';
 
 afterEach(cleanup);
@@ -48,6 +48,48 @@ describe('debug mode', () => {
     expect(describeAnswer('{"action":"addGold"}')).toBe('Done: addGold');
     expect(describeAnswer('{"action":"dumpTile","text":"tile:1"}')).toBe('tile:1');
     expect(describeAnswer('{"action":"traceWork","trace":true}')).toBe('Tracing work');
+  });
+});
+
+describe('the tile popup entries', () => {
+  it('ask for a unit by its id, or a tile by its place', () => {
+    expect(debugEntryRequest('changeRole', 'unit:12')).toEqual({ action: 'changeRole', unit: 'unit:12' });
+    expect(debugEntryRequest('colonyPlan', '3,4')).toEqual({ action: 'colonyPlan', x: 3, y: 4 });
+    expect(debugEntryRequest('changeOwner', '3,4')).toEqual({ action: 'changeOwner', x: 3, y: 4 });
+  });
+
+  it('send the request again with what the player chose', () => {
+    const last: DebugRequest = { action: 'changeOwner', x: 3, y: 4 };
+    const answer = JSON.stringify({
+      action: 'choose',
+      for: 'changeOwner',
+      key: 'owner',
+      prompt: 'Select owner',
+      choices: [
+        { id: 'player:1', label: 'Dutch' },
+        { id: 'player:2', label: 'French' },
+      ],
+    });
+    let asked = '';
+    expect(
+      chosenRequest(answer, last, (p) => {
+        asked = p;
+        return '2';
+      }),
+    ).toEqual({ action: 'changeOwner', x: 3, y: 4, owner: 'player:2' });
+    expect(asked).toBe('Select owner\n1. Dutch\n2. French');
+    // An id typed in is taken as well; a reply that is none of them, or no reply, cancels.
+    expect(chosenRequest(answer, last, () => 'player:1')).toMatchObject({ owner: 'player:1' });
+    expect(chosenRequest(answer, last, () => '9')).toBeNull();
+    expect(chosenRequest(answer, last, () => null)).toBeNull();
+    // Any other answer is no question.
+    expect(chosenRequest('{"action":"addGold"}', last, () => '1')).toBeUndefined();
+  });
+
+  it('says what the text answers hold', () => {
+    expect(describeAnswer('{"action":"colonyPlan","text":"Plan"}')).toBe('Plan');
+    expect(describeAnswer('{"action":"applyDisaster","avoided":true}')).toBe('Disaster avoided');
+    expect(describeAnswer('{"action":"applyDisaster","avoided":false}')).toBe('Disaster applied');
   });
 });
 

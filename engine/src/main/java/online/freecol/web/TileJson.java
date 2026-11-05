@@ -3,6 +3,8 @@ package online.freecol.web;
 import java.util.ArrayList;
 import java.util.List;
 
+import net.sf.freecol.common.debug.DebugUtils;
+import net.sf.freecol.common.debug.FreeColDebugger;
 import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.model.AbstractGoods;
 import net.sf.freecol.common.model.GoodsType;
@@ -70,6 +72,7 @@ final class TileJson {
             }
         }
         return new Json()
+            .putRaw("colonyValue", Json.array(colonyValue(tile)))
             .put("title", Messages.message(StringTemplate.template("tilePanel.label")
                 .addStringTemplate("%label%", tile.getLabel())
                 .addAmount("%x%", tile.getX())
@@ -82,6 +85,32 @@ final class TileJson {
             .put("colopedia", Messages.message("colopedia"))
             .put("ok", Messages.message("ok"))
             .toString();
+    }
+
+    /**
+     * TilePanel's debug lines: what the player chosen in the debug menu
+     * (FreeColDebugger.debugDisplayColonyValuePlayer) would think of a colony
+     * on the tile, by category, or why they would not found one. Each line is a
+     * JSON string; none when no player is chosen.
+     */
+    static List<String> colonyValue(Tile tile) {
+        final List<String> lines = new ArrayList<>();
+        final Player debugPlayer = FreeColDebugger.debugDisplayColonyValuePlayer();
+        if (debugPlayer == null) return lines;
+        final List<Double> values = debugPlayer.getAllColonyValues(tile);
+        final int result = debugPlayer.getColonyValue(tile);
+        if (result < 0) {
+            lines.add(Json.quote(DebugUtils.getColonyValue(tile)));
+            return lines;
+        }
+        for (Player.ColonyValueCategory c : Player.ColonyValueCategory.values()) {
+            lines.add(Json.quote(c + " " + values.get(c.ordinal())));
+        }
+        for (int a = Player.ColonyValueCategory.A_GOODS.ordinal(); a < values.size(); a++) {
+            lines.add(Json.quote("... " + values.get(a)));
+        }
+        lines.add(Json.quote("Result " + result));
+        return lines;
     }
 
     private static String row(String labelKey, String value) {

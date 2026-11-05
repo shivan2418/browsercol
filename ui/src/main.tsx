@@ -28,7 +28,15 @@ import { createRoot, type Root } from 'react-dom/client';
 import './theme.css';
 import './fonts.css';
 import { colopediaBefore, startPage, type ClientExports, type Scope, type ToWorker } from './channel';
-import { DebugContext, debugMessage, debugMode, describeAnswer, type DebugRequest } from './debug';
+import {
+  chosenRequest,
+  DebugContext,
+  debugEntryRequest,
+  debugMessage,
+  debugMode,
+  describeAnswer,
+  type DebugRequest,
+} from './debug';
 import { ColonyActions, ColonyTiles, type ColonyMoves, type DrawTiles } from './colony-panel';
 import { dialogs } from './dialogs';
 import { keepTabOnPage } from './focus';
@@ -205,6 +213,8 @@ const side: Omit<SideProps, 'run' | 'save' | 'load' | 'remove' | 'exportSave' | 
 /** The debug menu's state: what the last action answered, and what to do with a request. */
 let debugNote = '';
 let debugRequest: (r: DebugRequest) => void = () => {};
+/** The last request made, for the one that asks which owner, role and so on (chosenRequest). */
+let lastDebug: DebugRequest | null = null;
 let debugSkip: (n: number) => void = () => {};
 const store = idbSaveStore();
 /** Show the saves in the list; no storage (a private window, say) is an empty list. */
@@ -658,14 +668,12 @@ function showPopup(next: Popup | null) {
 let menuClient: ClientExports | null = null;
 /** The tile popup's debug entries (TilePopup.addDebugItems), those the Engine can do, in debug mode. */
 function debugTileEntries(menu: MenuData | null, tile: readonly [number, number]): MenuData | null {
-  if (!debug) return menu;
-  const at = `${tile[0]},${tile[1]}`;
-  const entries = [
-    { id: `debug:resetMoves:${at}`, label: 'Reset moves', enabled: true },
-    { id: `debug:dumpTile:${at}`, label: 'Dump tile', enabled: true },
-    { id: `debug:addColony:${at}`, label: 'Add colony', enabled: true },
-  ].map((e, i) => (i === 0 ? { ...e, gap: true } : e));
-  return { title: menu?.title ?? `Tile ${at}`, entries: [...(menu?.entries ?? []), ...entries] };
+  if (!debug || !menuClient) return menu;
+  const extra = parseMenu(menuClient.debugTileMenu(...tile));
+  if (!extra) return menu;
+  // The first entry has a line above it, which a menu with nothing before it has no use for.
+  const entries = menu ? extra.entries : extra.entries.map((e, i) => (i === 0 ? { ...e, gap: false } : e));
+  return { title: menu?.title ?? extra.title, entries: [...(menu?.entries ?? []), ...entries] };
 }
 /** Run a menu entry: a debug one asks the server Engine, any other the client Engine. */
 function runMenuEntry(id: string) {
@@ -688,8 +696,15 @@ function runMenuEntry(id: string) {
     if (type && Number.isFinite(amount)) debugRequest({ action: 'addGoods', type, amount, unit: arg });
     return;
   }
-  const [x, y] = arg.split(',').map(Number);
-  if (action === 'resetMoves' || action === 'dumpTile' || action === 'addColony') debugRequest({ action, x, y });
+  if (action === 'showSearch') {
+    // TilePopup's "Show search": what the active unit's path search to the tile did.
+    const [x, y] = arg.split(',').map(Number);
+    debugNote = menuClient?.debugSearch(x, y) || 'No search (no active unit, or it is there)';
+    renderSide();
+    return;
+  }
+  const request = debugEntryRequest(action, arg);
+  if (request) debugRequest(request);
 }
 const contextMenus: ContextMenus = {
   unit: (id) => {
@@ -1411,9 +1426,13 @@ async function run() {
             return resetSave();
           }
           return show('failed', { error: detail });
-        case 'debug':
-          debugNote = describeAnswer(detail);
+        case 'debug': {
+          // A choice to make (the new owner, a role...): ask, and send the request again with it.
+          const again = chosenRequest(detail, lastDebug, (prompt, first) => window.prompt(prompt, first));
+          if (again) return debugRequest(again);
+          debugNote = again === null ? 'Cancelled' : describeAnswer(detail);
           return renderSide();
+        }
         case 'debugFailed':
           debugNote = `Failed: ${detail}`;
           return renderSide();
@@ -1442,7 +1461,10 @@ async function run() {
   colonyNow = (id) => exports.colony(id);
   colonyClient = exports;
   pushFreecolOptions(prefs.freecol);
-  debugRequest = (r) => worker.postMessage(debugMessage(r));
+  debugRequest = (r) => {
+    lastDebug = r;
+    worker.postMessage(debugMessage(r));
+  };
   debugSkip = (n) => {
     if (n > 0) exports.skipTurns(n);
   };

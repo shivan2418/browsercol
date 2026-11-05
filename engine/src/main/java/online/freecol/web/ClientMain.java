@@ -619,6 +619,32 @@ public final class ClientMain {
         return engine.getMenus().tile(x, y);
     }
 
+    /**
+     * The debug entries of a tile's popup (Menus.debugTile), as a menu's JSON or "null". The page asks
+     * in debug mode and adds them to the tile's menu.
+     */
+    @JSExport
+    public static String debugTileMenu(int x, int y) {
+        return engine.getMenus().debugTile(x, y);
+    }
+
+    /** TilePopup's "Show search": the active unit's path search to the tile, as text (Menus.debugSearch). */
+    @JSExport
+    public static String debugSearch(int x, int y) {
+        return engine.getMenus().debugSearch(x, y);
+    }
+
+    /**
+     * The debug menu's "Show colony value": the tile panel then shows what the player would think of founding a
+     * colony on the tile (TileJson), as FreeColDebugger.setDebugDisplayColonyValuePlayer does.
+     *
+     * @param playerId The player's id, or "" for none.
+     */
+    @JSExport
+    public static void showColonyValue(String playerId) {
+        engine.setColonyValuePlayer(playerId);
+    }
+
     /** The quick action menu of one of our colonists or ships (Menus.unit), as JSON or "null". */
     @JSExport
     public static String unitMenu(String unitId) {
