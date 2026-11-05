@@ -11,7 +11,7 @@ shm=()
 if [[ "${DEV_VARIANT:-}" == web ]]; then
   image=browsercol-web; dockerfile=web.Dockerfile
   # Docker's default 64 MB /dev/shm can crash browsers, which Playwright's
-  # Docker docs warn of; a likely cause of Firefox's crash in #31.
+  # Docker docs warn of. (Firefox's crash in #31 was a wasm bug in Firefox 142.)
   shm=(--shm-size=1g)
 fi
 workdir=/work
