@@ -1,5 +1,6 @@
 package online.freecol.web;
 
+import java.awt.Color;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -7,7 +8,10 @@ import java.util.Map;
 import java.util.Random;
 
 import net.sf.freecol.common.model.Game;
+import net.sf.freecol.FreeCol;
+import net.sf.freecol.common.model.EuropeanNationType;
 import net.sf.freecol.common.model.Nation;
+import net.sf.freecol.common.model.NationOptions.Advantages;
 import net.sf.freecol.common.model.NationOptions.NationState;
 import net.sf.freecol.common.model.Specification;
 import net.sf.freecol.common.option.AbstractOption;
@@ -32,6 +36,10 @@ import net.sf.freecol.server.generator.SimpleMapGenerator;
  *   "difficulty": "model.difficulty.medium",
  *   "nation": "model.nation.england",
  *   "seed": 42,
+ *   "advantages": "SELECTABLE",
+ *   "nationType": "model.nationType.trade",
+ *   "colors": { "model.nation.england": "0x336699" },
+ *   "unavailable": [ "model.nation.spanish", "model.nation.tupi" ],
  *   "options": { "model.option.mapWidth": 200, "model.option.fogOfWar": false },
  *   "setup": [ { "action": "addColony" },
  *              { "action": "addBuilding", "type": "model.building.schoolhouse" } ] }
@@ -40,6 +48,12 @@ import net.sf.freecol.server.generator.SimpleMapGenerator;
  * The {@code setup} is a scenario: debug requests ({@link DebugActions}) the
  * Engine runs, in order, once the game has started ({@link ServerEngine#setup}).
  * A request with no x and y acts where the last colony or request was.
+ *
+ * {@code advantages} is FreeCol's National Advantages choice (SELECTABLE,
+ * FIXED or NONE); {@code nationType} the human nation's own advantage, which
+ * only SELECTABLE allows; {@code colors} a nation's colour, as the
+ * specification writes it; {@code unavailable} the other nations left out of
+ * the game (FreeCol's NOT_AVAILABLE; the rest play as AI).
  *
  * Every key is optional. An unknown key, option or id fails with a message
  * naming it; nothing falls back to a default silently.
@@ -60,6 +74,14 @@ public final class GamePreset {
     public final String nation;
     /** The seed of the server's random numbers, or null for a random game. */
     public final Long seed;
+    /** FreeCol's national advantages choice, or null for the default. */
+    public final Advantages advantages;
+    /** The human nation's own nation type id, or null for the nation's. */
+    public final String nationType;
+    /** Nation id to colour, as {@code 0xrrggbb}. */
+    public final Map<String, String> colors;
+    /** The ids of the nations that do not take part. */
+    public final List<String> unavailable;
     /** Option id to value: a Boolean, Long or String. */
     public final Map<String, Object> options;
     /**
@@ -76,6 +98,19 @@ public final class GamePreset {
     public GamePreset(String rules, String difficulty, String nation,
                       Long seed, Map<String, Object> options,
                       List<Map<?, ?>> setup) {
+        this(rules, difficulty, nation, seed, options, setup,
+             null, null, new LinkedHashMap<>(), new ArrayList<>());
+    }
+
+    public GamePreset(String rules, String difficulty, String nation,
+                      Long seed, Map<String, Object> options,
+                      List<Map<?, ?>> setup, Advantages advantages,
+                      String nationType, Map<String, String> colors,
+                      List<String> unavailable) {
+        this.advantages = advantages;
+        this.nationType = nationType;
+        this.colors = new LinkedHashMap<>(colors);
+        this.unavailable = new ArrayList<>(unavailable);
         this.setup = new ArrayList<>(setup);
         this.rules = rules;
         this.difficulty = difficulty;
@@ -104,6 +139,10 @@ public final class GamePreset {
         Long seed = null;
         Map<String, Object> options = new LinkedHashMap<>();
         List<Map<?, ?>> setup = new ArrayList<>();
+        Advantages advantages = null;
+        String nationType = null;
+        Map<String, String> colors = new LinkedHashMap<>();
+        List<String> unavailable = new ArrayList<>();
         for (Map.Entry<?, ?> e : ((Map<?, ?>)top).entrySet()) {
             String key = (String)e.getKey();
             Object v = e.getValue();
@@ -112,6 +151,23 @@ public final class GamePreset {
             case "difficulty": difficulty = string(key, v); break;
             case "nation": nation = string(key, v); break;
             case "seed": seed = seed(v); break;
+            case "advantages": advantages = advantages(string(key, v)); break;
+            case "nationType": nationType = string(key, v); break;
+            case "colors":
+                if (!(v instanceof Map)) {
+                    throw bad("\"colors\" is an object of nation ids and colours");
+                }
+                for (Map.Entry<?, ?> ce : ((Map<?, ?>)v).entrySet()) {
+                    colors.put((String)ce.getKey(),
+                               string("colors", ce.getValue()));
+                }
+                break;
+            case "unavailable":
+                if (!(v instanceof List)) {
+                    throw bad("\"unavailable\" is a list of nation ids");
+                }
+                for (Object o : (List<?>)v) unavailable.add(string(key, o));
+                break;
             case "options":
                 if (!(v instanceof Map)) {
                     throw bad("\"options\" is an object of option ids and values");
@@ -131,10 +187,20 @@ public final class GamePreset {
                 break;
             default:
                 throw bad("unknown key \"" + key
-                    + "\" (known: rules, difficulty, nation, seed, options, setup)");
+                    + "\" (known: rules, difficulty, nation, seed, advantages, "
+                    + "nationType, colors, unavailable, options, setup)");
             }
         }
-        return new GamePreset(rules, difficulty, nation, seed, options, setup);
+        return new GamePreset(rules, difficulty, nation, seed, options, setup,
+                              advantages, nationType, colors, unavailable);
+    }
+
+    private static Advantages advantages(String name) {
+        for (Advantages a : Advantages.values()) {
+            if (a.name().equalsIgnoreCase(name)) return a;
+        }
+        throw bad("unknown advantages \"" + name
+            + "\" (known: SELECTABLE, FIXED, NONE)");
     }
 
     private static String string(String key, Object v) {
@@ -176,6 +242,38 @@ public final class GamePreset {
             spec.applyDifficultyLevel(level);
         }
         if (this.nation != null) requireNation(spec);
+        for (Map.Entry<String, String> e : this.colors.entrySet()) {
+            Nation n = spec.getNation(e.getKey());
+            if (n == null) throw bad("unknown nation \"" + e.getKey() + "\"");
+            n.setColor(color(e.getValue()));
+        }
+        if (this.nationType != null) {
+            if (this.nation == null) {
+                throw bad("\"nationType\" needs a \"nation\" to give it to");
+            }
+            if (this.advantages != null && this.advantages != Advantages.SELECTABLE) {
+                throw bad("\"nationType\" can only be chosen when advantages are SELECTABLE");
+            }
+            EuropeanNationType type = null;
+            for (EuropeanNationType t : spec.getVisibleEuropeanNationTypes()) {
+                if (t.getId().equals(this.nationType)) type = t;
+            }
+            if (type == null) {
+                throw bad("unknown nationType \"" + this.nationType + "\"");
+            }
+            requireNation(spec).setType(type);
+        }
+        if (!this.unavailable.isEmpty() && this.nation == null) {
+            throw bad("\"unavailable\" needs a \"nation\" that plays");
+        }
+        for (String id : this.unavailable) {
+            if (id.equals(this.nation)) {
+                throw bad("the human's nation \"" + id + "\" cannot be unavailable");
+            }
+            if (spec.getNation(id) == null) {
+                throw bad("unknown nation \"" + id + "\"");
+            }
+        }
         for (Map.Entry<String, Object> e : this.options.entrySet()) {
             setOption(spec, e.getKey(), e.getValue());
         }
@@ -196,6 +294,14 @@ public final class GamePreset {
             server.setServerRandom(random);
             server.setMapGenerator(new SimpleMapGenerator(random));
             server.getInGameController().setRandom(random);
+        }
+    }
+
+    private static Color color(String text) {
+        try {
+            return new Color(Integer.decode(text.replaceFirst("^0[xX]", "#")));
+        } catch (NumberFormatException ex) {
+            throw bad("\"" + text + "\" is not a colour like 0xrrggbb");
         }
     }
 
@@ -255,5 +361,9 @@ public final class GamePreset {
             if (e.getValue() == NationState.AVAILABLE) e.setValue(NationState.AI_ONLY);
         }
         nations.put(chosen, NationState.AVAILABLE);
+        for (String id : this.unavailable) {
+            nations.put(game.getSpecification().getNation(id),
+                        NationState.NOT_AVAILABLE);
+        }
     }
 }
