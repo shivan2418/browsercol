@@ -438,7 +438,10 @@ describe('loading a ship in port in the colony panel', () => {
 
   it('shows the occupation chip and the red repair status of units outside and ships in port', () => {
     openPort({
-      outside: { title: 'Outside', units: [{ ...colonist('unit:3'), occupation: 'F', occupationFull: 'Fortified' }] },
+      outside: {
+        title: 'Outside',
+        units: [{ ...colonist('unit:3'), occupation: 'F', occupationFull: 'Fortified', rgb: 0xff8000, fg: 0x808080 }],
+      },
       inPort: {
         ...port,
         units: [{ ...caravel, occupation: 'R', occupationFull: 'Under repair', repair: 'Repair(3)' }],
@@ -446,6 +449,10 @@ describe('loading a ship in port in the colony panel', () => {
     });
     expect(unit('unit:3').querySelector('.chip')?.textContent).toBe('F');
     expect(unit('unit:3').querySelector('.chip')?.getAttribute('title')).toBe('Fortified');
+    // On the owner's nation colour, as ImageLibrary.getOccupationIndicatorChip draws it.
+    const chip = unit('unit:3').querySelector<HTMLElement>('.chip');
+    expect(chip?.style.getPropertyValue('--nation')).toBe('#ff8000');
+    expect(chip?.style.getPropertyValue('--nation-ink')).toBe('#808080');
     expect(unit('unit:9').querySelector('.chip')?.textContent).toBe('R');
     expect(unit('unit:9').querySelector('.repair')?.textContent).toBe('Repair(3)');
   });

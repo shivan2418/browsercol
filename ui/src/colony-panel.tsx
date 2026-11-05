@@ -160,13 +160,22 @@ function Img({
   return src === null ? null : <img className={className} src={src} alt={alt} title={alt || undefined} />;
 }
 
+/** An Engine colour (0xRRGGBB, game data such as a nation's colour) as CSS. */
+const hex = (rgb: number) => `#${rgb.toString(16).padStart(6, '0')}`;
+/**
+ * ImageLibrary.getOccupationIndicatorChip's colours, the owner's nation colour and the text drawn on it, as the
+ * --nation and --nation-ink properties the chip's style reads.
+ */
+const chipColours = (u: UnitRef) =>
+  u.rgb === undefined ? undefined : ({ '--nation': hex(u.rgb), '--nation-ink': hex(u.fg ?? 0) } as CSSProperties);
+
 /** UnitLabel's occupation chip, and for a damaged unit its repair status in red; only units outside the colony and ships in port have them. */
 function Occupation({ u }: { u: UnitRef }) {
   if (!u.occupation && !u.repair) return null;
   return (
     <>
       {u.occupation && (
-        <span className="chip" title={u.occupationFull}>
+        <span className="chip" title={u.occupationFull} style={chipColours(u)}>
           {u.occupation}
         </span>
       )}

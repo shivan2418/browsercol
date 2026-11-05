@@ -312,6 +312,9 @@ export interface UnitRef {
   occupation?: string;
   /** Outside the colony or in port: the occupation chip's text, its full description, and the repair status of a damaged unit (red). */
   occupationFull?: string;
+  /** The occupation chip's colours as 0xRRGGBB: the owner's nation colour, and the text on it. */
+  rgb?: number;
+  fg?: number;
   repair?: string;
   /** Working in a colony: the goods type it makes (null for none), and the goods it could make there, with the amount it would make. */
   work?: string | null;

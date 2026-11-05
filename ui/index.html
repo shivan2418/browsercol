@@ -1336,19 +1336,22 @@
       .colony .unit {
         height: 48px;
       }
-      /* UnitLabel's occupation chip over a unit outside the colony or in port, and a damaged unit's repair status. */
+      /*
+       * UnitLabel's occupation chip in the label's top-left corner, beside the figure (ImageLibrary.createChip: a
+       * black border round the owner's colour, which the Engine sends), and a damaged unit's repair status.
+       */
       .colony .chip {
         position: absolute;
-        left: 2px;
-        top: 2px;
-        min-width: 14px;
-        padding: 0 3px;
-        border-radius: 7px;
-        background: var(--menubar);
-        color: var(--menubar-ink);
+        left: 0;
+        top: 0;
+        padding: 3px;
+        border: 1px solid var(--chip-border);
+        background: var(--nation, var(--box));
+        color: var(--nation-ink, var(--ink));
+        font-family: var(--font);
+        font-weight: bold;
         font-size: 10px;
-        line-height: 14px;
-        text-align: center;
+        line-height: 10px;
       }
       .colony .repair {
         position: absolute;
@@ -1363,6 +1366,13 @@
       .colony .outside [data-unit],
       .colony .port .ship {
         position: relative;
+      }
+      /* UnitLabel: the unit at its own size with a 5px margin each side, so the chip sits beside the figure. */
+      .colony .outside [data-unit] {
+        padding: 0 5px;
+      }
+      .colony .outside [data-unit] > .unit {
+        height: auto;
       }
       .colony .population {
         width: 100%;

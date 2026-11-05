@@ -452,13 +452,13 @@ final class MapJson {
         return Json.array(quoted);
     }
 
-    private static int rgb(Player owner) {
+    static int rgb(Player owner) {
         return (owner == null || owner.getNationColor() == null) ? 0xffffff
             : Utils.getRGB(owner.getNationColor()) & 0xffffff;
     }
 
     /** ImageLibrary.makeForegroundColor. */
-    private static int foreground(int rgb) {
+    static int foreground(int rgb) {
         final int r = (rgb >> 16) & 0xff, g = (rgb >> 8) & 0xff, b = rgb & 0xff;
         return (r * 0.3 + g * 0.59 + b * 0.11 >= 126) ? 0x000000 : 0xffffff;
     }
