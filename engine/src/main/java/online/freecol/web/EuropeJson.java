@@ -32,7 +32,7 @@ import net.sf.freecol.common.model.UnitType;
  *  selected: the id of the ship whose cargo shows first
  *  (or null), log: {heading, entries: [[line]]} (the purchases and
  *  sales of the turn, oldest first, each the lines SalesLog words),
- *  market: [{id, name, images, sell, buy, enabled, reason}],
+ *  market: [{id, name, images, sell, buy, inMarket, enabled, reason}],
  *  buttons: {train, purchase, recruit, sail},
  *  recruit: {heading, text, price, units: [{index, name, images,
  *  enabled}]}, train: {heading, units: [offer]},
@@ -271,6 +271,7 @@ final class EuropeJson {
                 .putRaw("images", ObjectImages.json(type))
                 .put("sell", market.getPaidForSale(type))
                 .put("buy", market.getCostToBuy(type))
+                .put("inMarket", market.getAmountInMarket(type))
                 .put("enabled", tradeable)
                 .put("reason", tradeable ? null
                     : Messages.message(Boycotts.reason(player, type)))

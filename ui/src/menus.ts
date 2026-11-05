@@ -1,5 +1,6 @@
 // The Game, Orders and View menus of the menu bar, with FreeCol's entries in its order (InGameMenuBar).
 // An entry the Browser UI can't do yet is disabled, not left out, so the menus match FreeCol's layout.
+import type { DebugRequest } from './debug';
 import type { Menu } from './frame';
 import { orderOf, type Command } from './input';
 import type { TileText, ViewModes } from './tileset';
@@ -39,6 +40,21 @@ export interface MenuActions {
   /** Whether the side panel (the debug scaffold beside the map) is shown, and a switch for it. */
   sidePanel: boolean;
   toggleSidePanel: () => void;
+  /** Whether debug mode is on (FreeCol's DebugMode.MENUS), and a switch for it (Ctrl+Shift+D). */
+  debug: boolean;
+  toggleDebug: () => void;
+}
+
+/** What the Debug menu does (FreeCol's DebugMenu): it asks a number or an id, then sends a request to the Engine. */
+export interface DebugActions {
+  ready: boolean;
+  /** The tile the pointer selected, or null for none. */
+  at: [number, number] | null;
+  /** Ask for a value with a default, then run with it (nothing if the player cancels). */
+  ask: (question: string, fallback: string, then: (answer: string) => void) => void;
+  request: (r: DebugRequest) => void;
+  skipTurns: (n: number) => void;
+  toggleDebug: () => void;
 }
 
 const later = (label: string): Items[number] => ({ label, run: () => {}, disabled: true });
@@ -116,7 +132,52 @@ export function viewMenu(a: MenuActions): Items {
       run: () => a.setTileText(a.modes.tileText === 3 ? 0 : 3),
       checked: a.modes.tileText === 3,
     },
+    { label: 'Debug Mode', run: a.toggleDebug, checked: a.debug, hint: 'Ctrl+Shift+D' },
     { label: 'Show Side Panel', run: a.toggleSidePanel, checked: a.sidePanel, hint: 'Shift+F11' },
     { label: 'Full Screen', run: a.toggleFullScreen, checked: a.fullScreen },
+  ];
+}
+
+/** The Debug menu, shown in debug mode: FreeCol's cheats (DebugMenu) that the Engine can do. */
+export function debugMenu(a: DebugActions): Items {
+  const off = !a.ready;
+  const number = (label: string, question: string, fallback: string, go: (n: number) => void): Items[number] => ({
+    label,
+    disabled: off,
+    run: () =>
+      a.ask(question, fallback, (s) => {
+        const n = s.trim() === '' ? NaN : Math.trunc(Number(s));
+        if (Number.isFinite(n)) go(n);
+      }),
+  });
+  const at = a.at;
+  return [
+    { label: 'Reveal Entire Map', run: () => a.request({ action: 'revealMap', reveal: true }), disabled: off },
+    { label: 'Hide Map', run: () => a.request({ action: 'revealMap', reveal: false }), disabled: off },
+    number('Add Gold', 'Gold to add', '1000', (amount) => a.request({ action: 'addGold', amount })),
+    number('Add Immigration', 'Crosses to add', '100', (amount) => a.request({ action: 'addImmigration', amount })),
+    number('Add Liberty', 'Liberty to add to each colony', '100', (amount) =>
+      a.request({ action: 'addLiberty', amount }),
+    ),
+    {
+      label: 'Add Founding Father',
+      disabled: off,
+      run: () =>
+        a.ask('Founding father id (model.foundingFather.thomasJefferson)', 'model.foundingFather.', (father) =>
+          a.request({ action: 'addFoundingFather', father }),
+        ),
+    },
+    {
+      label: 'Add Building to Colony at Selected Tile',
+      disabled: off || !at,
+      run: () =>
+        at &&
+        a.ask('Building type id (model.building.stockade)', 'model.building.', (type) =>
+          a.request({ action: 'addBuilding', type, x: at[0], y: at[1] }),
+        ),
+    },
+    number('Skip Turns', 'Turns to skip with the AI playing', '5', a.skipTurns),
+    { label: 'AI View', run: () => a.request({ action: 'aiView' }), disabled: off },
+    { label: 'Debug Mode', run: a.toggleDebug, checked: true, hint: 'Ctrl+Shift+D' },
   ];
 }

@@ -13,7 +13,7 @@
 //   ?rules=ID    the ruleset (default classic)
 //   ?load=ID     continue the saved game with this id, in place of a new game
 //   (dev server) the page resumes the autosave; ?new starts afresh, ?resume resumes in a built site too
-//   ?debug       the debug menu: reveal the map, add gold, units and goods, skip turns, show the AI's view
+//   ?debug       the debug menu (or Ctrl+Shift+D in the game): reveal the map, add gold, units and goods, skip turns, show the AI's view
 //   ?skipstart   no start screen: start a game with FreeCol's defaults (debug; the browser scripts use it)
 //   ?preset=NAME start straight away from presets/NAME.json (or a URL ending .json): a
 //                preset sets the nation, difficulty, options and map seed (debug)
@@ -28,12 +28,12 @@ import { createRoot, type Root } from 'react-dom/client';
 import './theme.css';
 import './fonts.css';
 import { startPage, type ClientExports, type Scope, type ToWorker } from './channel';
-import { debugMessage, debugMode, describeAnswer, type DebugRequest } from './debug';
+import { DebugContext, debugMessage, debugMode, describeAnswer, type DebugRequest } from './debug';
 import { ColonyActions, ColonyTiles, type ColonyMoves, type DrawTiles } from './colony-panel';
 import { dialogs } from './dialogs';
 import { MENUS, MenuBar, framePlaces, goodsIcons, type Menu } from './frame';
 import { CreditsDialog } from './credits';
-import { gameMenu, ordersMenu, reportOptionsMenu, viewMenu, type MenuActions } from './menus';
+import { debugMenu, gameMenu, ordersMenu, reportOptionsMenu, viewMenu, type MenuActions } from './menus';
 import { commandForKey, type Command } from './input';
 import { PreferencesDialog } from './prefs-dialog';
 import {
@@ -63,7 +63,7 @@ import { reportForKey } from './report-keys';
 import { ReportContext, colopediaMenu, reportMenu, type ReportActions } from './reports';
 import type { ColonyLabels, PathStep } from './tileset';
 import { blockBrowserMenu, gotoKeyInput, onCanvas, pointerInput, rightClickInput } from './pointer';
-import { ContextMenuContext, PopupMenu, parseMenu, type ContextMenus, type Popup } from './popup-menu';
+import { ContextMenuContext, PopupMenu, parseMenu, type ContextMenus, type MenuData, type Popup } from './popup-menu';
 import type { AudioManifest } from './resources';
 import { soundPlayer } from './sound';
 import { StartScreen } from './start-screen';
@@ -161,7 +161,8 @@ let resumed = false;
 const preset = params.get('preset');
 /** No start screen: a debug start, a loaded game, or ?skipstart. */
 let skipStart = params.has('skipstart') || params.has('preset') || loadId !== undefined;
-const debug = debugMode(params);
+/** Debug mode: `?debug`, or switched on and off with Ctrl+Shift+D or the View menu (FreeCol's Debug action). */
+let debug = debugMode(params);
 const tileset = params.get('tileset');
 /** A palette named in the URL, over the player's own. */
 const urlPalette = params.get('theme');
@@ -450,6 +451,26 @@ addEventListener(
   },
   { capture: true },
 );
+/** Switch debug mode; the page's address keeps it, so a reload stays as it is. */
+function toggleDebug() {
+  debug = !debug;
+  const next = new URLSearchParams(location.search);
+  if (debug) next.set('debug', '1');
+  else next.delete('debug');
+  const q = next.toString();
+  history.replaceState(null, '', `${location.pathname}${q ? `?${q}` : ''}${location.hash}`);
+  renderSide();
+}
+// Ctrl+Shift+D, as FreeCol's DebugAction.
+addEventListener(
+  'keydown',
+  (e) => {
+    if (e.key.toLowerCase() !== 'd' || !e.ctrlKey || !e.shiftKey || e.altKey || e.metaKey) return;
+    e.preventDefault();
+    toggleDebug();
+  },
+  { capture: true },
+);
 /** Whether the client Engine has loaded, so the menus' game commands work. */
 let menuReady = false;
 /** What the Game, Orders and View menus do (menus.ts). */
@@ -484,6 +505,8 @@ const menuActions = (): MenuActions => ({
     }),
   sidePanel,
   toggleSidePanel,
+  debug,
+  toggleDebug,
   fullScreen: document.fullscreenElement !== null,
   toggleFullScreen: () => {
     // The browser may refuse (no gesture, or not allowed); the menu follows fullscreenchange.
@@ -499,6 +522,17 @@ const currentMenus = (): Menu[] => {
     Game: gameMenu(a),
     View: viewMenu(a),
     Orders: ordersMenu(a),
+    Debug: debugMenu({
+      ready: menuReady,
+      at: cursor(view)?.at ?? null,
+      ask: (question, fallback, then) => {
+        const answer = window.prompt(question, fallback);
+        if (answer) then(answer.trim());
+      },
+      request: debugRequest,
+      skipTurns: debugSkip,
+      toggleDebug,
+    }),
     Report: [...reportMenu(reportActions.open), ...reportOptionsMenu(a)],
     Colopedia: [
       ...colopediaMenu(reportActions.open),
@@ -511,7 +545,9 @@ const currentMenus = (): Menu[] => {
       },
     ],
   };
-  return MENUS.map((name) => ({ name, items: items[name] ?? [] }));
+  // The Debug menu, in debug mode only, comes before Report.
+  const names = debug ? [...MENUS.slice(0, 3), 'Debug', ...MENUS.slice(3)] : MENUS;
+  return names.map((name) => ({ name, items: items[name] ?? [] }));
 };
 const menuRoot = createRoot(document.getElementById('menubar')!);
 /** Our colony as the colony panel shows it, once the client Engine has loaded (ClientExports.colony). */
@@ -546,8 +582,42 @@ function showPopup(next: Popup | null) {
 }
 /** The Engine's right-click menus, once the client Engine has loaded (Menus.java). */
 let menuClient: ClientExports | null = null;
+/** The tile popup's debug entries (TilePopup.addDebugItems), those the Engine can do, in debug mode. */
+function debugTileEntries(menu: MenuData | null, tile: readonly [number, number]): MenuData | null {
+  if (!debug) return menu;
+  const at = `${tile[0]},${tile[1]}`;
+  const entries = [
+    { id: `debug:resetMoves:${at}`, label: 'Reset moves', enabled: true },
+    { id: `debug:dumpTile:${at}`, label: 'Dump tile', enabled: true },
+    { id: `debug:addColony:${at}`, label: 'Add colony', enabled: true },
+  ].map((e, i) => (i === 0 ? { ...e, gap: true } : e));
+  return { title: menu?.title ?? `Tile ${at}`, entries: [...(menu?.entries ?? []), ...entries] };
+}
+/** Run a menu entry: a debug one asks the server Engine, any other the client Engine. */
+function runMenuEntry(id: string) {
+  // The argument may hold colons itself (a unit id is `unit:123`).
+  const [prefix, action, ...rest] = id.split(':');
+  const arg = rest.join(':');
+  if (prefix !== 'debug') {
+    menuClient?.menuEntry(id);
+    return;
+  }
+  if (action === 'addGoods') {
+    const type = window.prompt('Goods type', 'model.goods.food');
+    const amount = type ? Math.trunc(Number(window.prompt('Amount to add', '100'))) : NaN;
+    if (type && Number.isFinite(amount)) debugRequest({ action: 'addGoods', type, amount, unit: arg });
+    return;
+  }
+  const [x, y] = arg.split(',').map(Number);
+  if (action === 'resetMoves' || action === 'dumpTile' || action === 'addColony') debugRequest({ action, x, y });
+}
 const contextMenus: ContextMenus = {
-  unit: (id) => (menuClient ? parseMenu(menuClient.unitMenu(id)) : null),
+  unit: (id) => {
+    const menu = menuClient ? parseMenu(menuClient.unitMenu(id)) : null;
+    // DebugUtils.addGoodsAdditionEntry: in debug mode a unit's menu can add goods to it.
+    if (menu && debug) menu.entries.push({ id: `debug:addGoods:${id}`, label: 'Add goods', enabled: true, gap: true });
+    return menu;
+  },
   colonyTile: (x, y) => (menuClient ? parseMenu(menuClient.colonyTileMenu(x, y)) : null),
   goods: (location, type, amount) => (menuClient ? parseMenu(menuClient.goodsMenu(location, type, amount)) : null),
   show: (menu, x, y) => showPopup({ menu, x, y }),
@@ -618,33 +688,35 @@ function renderSide() {
       {/* The windows, popup and banner go in their own layer: hiding the side panel must not hide them. */}
       {createPortal(
         <>
-          <ColonyTiles.Provider value={drawColonyTiles}>
-            <ColonyActions.Provider value={colonyMoves}>
-              <ContextMenuContext.Provider value={contextMenus}>
-                <ReportContext.Provider value={reportActions}>
-                  <DialogHost
-                    dialogs={dialogQueue}
-                    goTo={(at) => dispatch({ k: 'focus', tile: null, at })}
-                    art={art}
-                    colopedia={(type) => menuClient?.menuEntry(`colopedia:${type}`)}
-                    command={(entry) => menuClient?.menuEntry(entry)}
-                    string={(key) => map.resources()?.string(key) ?? ''}
-                    report={{
-                      groupBy: (value) => reportButtons.groupBy(value),
-                      filter: (index, shown) => reportButtons.filter(index, shown),
-                      ignore: (index, ignore) => reportButtons.ignore(index, ignore),
-                      open: (link) => reportButtons.open(link),
-                    }}
-                    routes={{
-                      save: (d) => routeButtons.save(d),
-                      remove: (id) => routeButtons.remove(id),
-                      assign: (unit, route) => routeButtons.assign(unit, route),
-                    }}
-                  />
-                </ReportContext.Provider>
-              </ContextMenuContext.Provider>
-            </ColonyActions.Provider>
-          </ColonyTiles.Provider>
+          <DebugContext.Provider value={{ on: debug, request: debugRequest }}>
+            <ColonyTiles.Provider value={drawColonyTiles}>
+              <ColonyActions.Provider value={colonyMoves}>
+                <ContextMenuContext.Provider value={contextMenus}>
+                  <ReportContext.Provider value={reportActions}>
+                    <DialogHost
+                      dialogs={dialogQueue}
+                      goTo={(at) => dispatch({ k: 'focus', tile: null, at })}
+                      art={art}
+                      colopedia={(type) => menuClient?.menuEntry(`colopedia:${type}`)}
+                      command={(entry) => menuClient?.menuEntry(entry)}
+                      string={(key) => map.resources()?.string(key) ?? ''}
+                      report={{
+                        groupBy: (value) => reportButtons.groupBy(value),
+                        filter: (index, shown) => reportButtons.filter(index, shown),
+                        ignore: (index, ignore) => reportButtons.ignore(index, ignore),
+                        open: (link) => reportButtons.open(link),
+                      }}
+                      routes={{
+                        save: (d) => routeButtons.save(d),
+                        remove: (id) => routeButtons.remove(id),
+                        assign: (unit, route) => routeButtons.assign(unit, route),
+                      }}
+                    />
+                  </ReportContext.Provider>
+                </ContextMenuContext.Provider>
+              </ColonyActions.Provider>
+            </ColonyTiles.Provider>
+          </DebugContext.Provider>
           {prefsOpen && (
             <PreferencesDialog
               prefs={prefs}
@@ -665,9 +737,7 @@ function renderSide() {
             />
           )}
           {createPortal(<TurnBanner notice={shownNotice(banner, lastTurn, noUnitHeard)} />, gameBox)}
-          {popup && (
-            <PopupMenu popup={popup} run={(id) => menuClient?.menuEntry(id)} close={() => showPopup(null)} art={art} />
-          )}
+          {popup && <PopupMenu popup={popup} run={(id) => runMenuEntry(id)} close={() => showPopup(null)} art={art} />}
         </>,
         overlays,
       )}
@@ -964,7 +1034,7 @@ function playWith(client: ClientExports) {
     mapHost,
     (px, py) => map.tileAt(px, py),
     (tile, x, y) => {
-      const menu = parseMenu(client.tileMenu(...tile));
+      const menu = debugTileEntries(parseMenu(client.tileMenu(...tile)), tile);
       showPopup(menu && { menu, x, y });
     },
   );

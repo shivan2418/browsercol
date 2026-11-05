@@ -241,6 +241,8 @@ export interface GuiEvents {
       images: string[];
       sell: number;
       buy: number;
+      /** How much of the goods the market holds (shown in debug mode). */
+      inMarket: number;
       /** Whether the goods can be traded at all; false when it is boycotted. */
       enabled: boolean;
       /** Why it cannot be traded, as FreeCol says it; null when it can. */

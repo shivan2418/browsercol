@@ -3,6 +3,7 @@ import { act, cleanup, createEvent, fireEvent, render, screen, within } from '@t
 import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { ColonyActions, type ColonyMoves } from './colony-panel';
 import { jamestown } from './colony-fixture';
+import { DebugContext } from './debug';
 import { dialogs } from './dialogs';
 import { europeButtons } from './europe-client';
 import { ContextMenuContext, type ContextMenus } from './popup-menu';
@@ -1614,6 +1615,7 @@ describe('the Europe panel', () => {
         images: [],
         sell: 1,
         buy: 2,
+        inMarket: 120,
         enabled: true,
         reason: null,
       },
@@ -1623,6 +1625,7 @@ describe('the Europe panel', () => {
         images: [],
         sell: 5,
         buy: 6,
+        inMarket: 0,
         enabled: false,
         reason: 'The Crown is boycotting these goods until you have paid your tax arrears of 100 gold.',
       },
@@ -1810,6 +1813,29 @@ describe('the Europe panel', () => {
     // A stack of the cargo is sold.
     fireEvent.click(document.querySelector('[data-cargo="goods"]')!);
     expect(calls).toEqual(['buy model.goods.food unit:1 true', 'sell model.goods.food unit:1 true']);
+  });
+
+  it('adds how much the market holds to a goods tooltip in debug mode only', () => {
+    const { box } = host();
+    act(() => box.show('europe', europe));
+    expect(document.querySelector('[data-goods="model.goods.food"]')!.getAttribute('title')).toBe('Food');
+    cleanup();
+    const debugBox = dialogs();
+    render(
+      <DebugContext.Provider value={{ on: true, request: () => {} }}>
+        <DialogHost
+          dialogs={debugBox}
+          goTo={() => {}}
+          art={art}
+          report={{ groupBy() {}, filter() {}, ignore() {} }}
+          routes={{ save() {}, remove() {}, assign() {} }}
+        />
+      </DebugContext.Provider>,
+    );
+    act(() => debugBox.show('europe', europe));
+    expect(document.querySelector('[data-goods="model.goods.food"]')!.getAttribute('title')).toBe(
+      'Food (120 in market)',
+    );
   });
 
   it('greys a boycotted goods, says why, and a click asks the engine (which offers to pay the arrears)', () => {

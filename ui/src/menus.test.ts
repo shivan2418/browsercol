@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vite-plus/test';
 import type { Command } from './input';
-import { gameMenu, ordersMenu, reportOptionsMenu, viewMenu, type MenuActions } from './menus';
+import { debugMenu, gameMenu, ordersMenu, reportOptionsMenu, viewMenu, type MenuActions } from './menus';
+import type { DebugRequest } from './debug';
 
 function actions(over: Partial<MenuActions> = {}) {
   const log: string[] = [];
@@ -24,6 +25,8 @@ function actions(over: Partial<MenuActions> = {}) {
     toggleFullScreen: () => log.push('fullScreen'),
     sidePanel: true,
     toggleSidePanel: () => log.push('sidePanel'),
+    debug: false,
+    toggleDebug: () => log.push('debug'),
     ...over,
   };
   return { a, log };
@@ -134,6 +137,7 @@ describe('the View menu', () => {
       'Show Tile Names',
       'Show Tile Owners',
       'Show Tile Regions',
+      'Debug Mode',
       'Show Side Panel',
       'Full Screen',
     ]);
@@ -149,6 +153,7 @@ describe('the View menu', () => {
       'Show Tile Names',
       'Show Tile Owners',
       'Show Tile Regions',
+      'Debug Mode',
       'Show Side Panel',
       'Full Screen',
     ]) {
@@ -166,6 +171,7 @@ describe('the View menu', () => {
       'tileText 1',
       'tileText 2',
       'tileText 3',
+      'debug',
       'sidePanel',
       'fullScreen',
     ]);
@@ -184,5 +190,52 @@ describe('the View menu', () => {
 
   it('disables centring without an active unit', () => {
     expect(find(viewMenu(actions().a), 'Center on Active Unit').disabled).toBe(true);
+  });
+});
+
+describe('the Debug menu', () => {
+  function debugActions(over: Partial<Parameters<typeof debugMenu>[0]> = {}) {
+    const asked: DebugRequest[] = [];
+    const answers: string[] = [];
+    const items = debugMenu({
+      ready: true,
+      at: [3, 4],
+      ask: (_q, _fallback, then) => then(answers.shift() ?? ''),
+      request: (r) => asked.push(r),
+      skipTurns: (n) => asked.push({ action: 'addGold', amount: -n }),
+      toggleDebug: () => asked.push({ action: 'aiView' }),
+      ...over,
+    });
+    return { items, asked, answers };
+  }
+
+  it('asks for a value and sends the cheat', () => {
+    const { items, asked, answers } = debugActions();
+    answers.push('250', '7', '30', 'model.foundingFather.thomasJefferson', 'model.building.stockade');
+    for (const l of [
+      'Add Gold',
+      'Add Immigration',
+      'Add Liberty',
+      'Add Founding Father',
+      'Add Building to Colony at Selected Tile',
+    ]) {
+      find(items, l).run();
+    }
+    expect(asked).toEqual([
+      { action: 'addGold', amount: 250 },
+      { action: 'addImmigration', amount: 7 },
+      { action: 'addLiberty', amount: 30 },
+      { action: 'addFoundingFather', father: 'model.foundingFather.thomasJefferson' },
+      { action: 'addBuilding', type: 'model.building.stockade', x: 3, y: 4 },
+    ]);
+  });
+
+  it('sends nothing for a cancelled or non-numeric answer, and needs a tile for a building', () => {
+    const { items, asked, answers } = debugActions({ at: null });
+    answers.push('', 'lots');
+    find(items, 'Add Gold').run();
+    find(items, 'Add Immigration').run();
+    expect(asked).toEqual([]);
+    expect(find(items, 'Add Building to Colony at Selected Tile').disabled).toBe(true);
   });
 });

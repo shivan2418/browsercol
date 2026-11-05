@@ -124,6 +124,7 @@ export const europe: GuiEvents['europe'] = {
     images: goodsImg(art),
     sell,
     buy,
+    inMarket: 100,
     enabled: !boycotted,
     reason: boycotted ? 'The Crown is boycotting these goods until you have paid your tax arrears of 100 gold.' : null,
   })),

@@ -18,6 +18,7 @@ import {
   type ReactNode,
 } from 'react';
 import { ColonyActions, ColonyPanel } from './colony-panel';
+import { DebugContext } from './debug';
 import type { Dialog, Dialogs } from './dialogs';
 import { europeButtons } from './europe-client';
 import { GoodsAmount, WindowFrame, type Art } from './frame';
@@ -687,6 +688,7 @@ function ColonyDialog({ d, e, art }: { d: Dialog; e: ColonyView; art: Art }) {
   const moves = useContext(ColonyActions);
   // With the means to move, the Engine closes the panel, once the player may (Commands.closeColonyPanel).
   const close = moves ? () => moves.close(e.id) : () => (d.done as () => void)();
+  const debug = useContext(DebugContext);
   useEnter(close);
   return (
     <Win d={d} title={e.name} close={close}>
@@ -698,6 +700,14 @@ function ColonyDialog({ d, e, art }: { d: Dialog; e: ColonyView; art: Art }) {
             ok={e.ok}
             close={close}
             extra={moves ? { label: e.warehouse.title, run: () => moves.warehouse(e.id) } : null}
+            lead={
+              // ColonyPanel's debug "Trace work" button: log this colony's occupation decisions.
+              debug.on ? (
+                <button data-debug="traceWork" onClick={() => debug.request({ action: 'traceWork', colony: e.id })}>
+                  Trace work
+                </button>
+              ) : null
+            }
           />
         }
       />
@@ -1304,6 +1314,7 @@ const EUROPE_KEYS = ['e'] as const;
 function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
   const e: Europe = d.event;
   const menus = useContext(ContextMenuContext);
+  const debug = useContext(DebugContext);
   const [picked, setPicked] = useState(e.selected);
   const [shop, setShop] = useState<'recruit' | 'train' | 'purchase' | null>(null);
   // The sales log keeps its newest entry, the last, in view.
@@ -1314,6 +1325,9 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
     if (log) log.scrollTop = log.scrollHeight;
   }, [logCount]);
   const ship = e.inPort.find((u) => u.id === picked) ?? null;
+  // In debug mode the tooltip also gives how much the market holds, as MarketLabel does in DebugMode.MENUS.
+  const marketTitle = (g: Europe['market'][number]) =>
+    debug.on ? `${g.reason ?? g.name} (${g.inMarket} in market)` : (g.reason ?? g.name);
   const closeShop = () => setShop(null);
   // EuropePanel's button keys: R recruit, P purchase, T train, S sail, while Europe is the newest window.
   const keyAct = useRef<(key: string) => void>(() => {});
@@ -1546,7 +1560,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
                   className="good"
                   data-goods={g.id}
                   data-disabled={!g.enabled || undefined}
-                  title={g.reason ?? g.name}
+                  title={marketTitle(g)}
                   onClick={() => buy(g.id)}
                   onContextMenu={marketMenu(g.id)}
                   {...drag}
@@ -1559,7 +1573,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
                   className="good"
                   data-goods={g.id}
                   data-disabled={!g.enabled || undefined}
-                  title={g.reason ?? g.name}
+                  title={marketTitle(g)}
                   onContextMenu={marketMenu(g.id)}
                 >
                   {inner}

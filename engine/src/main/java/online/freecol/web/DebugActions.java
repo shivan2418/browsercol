@@ -49,6 +49,12 @@ import net.sf.freecol.server.model.ServerUnit;
  * { "action": "addGoods", "type": "model.goods.food", "amount": 100, "x": 3, "y": 4 }
  * { "action": "addGoods", "type": "model.goods.food", "amount": 20, "unit": "unit:123" }
  * { "action": "aiView" }
+ * { "action": "addImmigration", "amount": 100 }
+ * { "action": "addLiberty", "amount": 100 }
+ * { "action": "addFoundingFather", "father": "model.foundingFather.thomasJefferson" }
+ * { "action": "traceWork", "x": 3, "y": 4 }
+ * { "action": "resetMoves", "x": 3, "y": 4 }
+ * { "action": "dumpTile", "x": 3, "y": 4 }
  * { "action": "declareIndependence", "nation": "Free Dutch", "country": "New Holland" }
  * { "action": "clearREF" }
  * { "action": "addUnit", "type": "model.unit.kingsRegular", "role": "model.role.infantry",
@@ -112,11 +118,18 @@ final class DebugActions {
             Boolean.TRUE.equals(r.get("inColony")), r);
         case "addGoods": return addGoods(string(r, "type"), integer(r, "amount"), r);
         case "aiView": return aiView();
+        case "addImmigration": return addImmigration(integer(r, "amount"));
+        case "addLiberty": return addLiberty(integer(r, "amount"));
+        case "addFoundingFather": return addFoundingFather(string(r, "father"));
+        case "traceWork": return traceWork(r);
+        case "resetMoves": return resetMoves(at(r));
+        case "dumpTile": return dumpTile(at(r));
         case "declareIndependence": return declareIndependence(r);
         case "clearREF": return clearREF();
         default:
             throw bad("unknown action \"" + action + "\" (known: revealMap, addGold,"
-                + " addColony, addBuilding, addUnit, addGoods, aiView,"
+                + " addColony, addBuilding, addUnit, addGoods, aiView, addImmigration,"
+                + " addLiberty, addFoundingFather, traceWork, resetMoves, dumpTile,"
                 + " declareIndependence, clearREF)");
         }
     }
@@ -424,6 +437,84 @@ final class DebugActions {
         gc.setAmount(type, Math.max(0, gc.getGoodsCount(type) + amount));
         this.sGame.sendTo(p, cs);
         return new Json().put("action", "addGoods").toString();
+    }
+
+    /** DebugUtils.addImmigration: crosses for the human player (a negative amount takes them away). */
+    private String addImmigration(int amount) {
+        final ServerPlayer p = me();
+        p.modifyImmigration(amount);
+        final ChangeSet cs = new ChangeSet();
+        cs.add(See.only(p), p);
+        this.sGame.sendTo(p, cs);
+        return new Json().put("action", "addImmigration").toString();
+    }
+
+    /** DebugUtils.addLiberty: bells for each of the human player's colonies. */
+    private String addLiberty(int amount) {
+        final ServerPlayer p = me();
+        final ChangeSet cs = new ChangeSet();
+        for (Colony c : p.getColonyList()) {
+            c.addLiberty(amount);
+            cs.add(See.only(p), c);
+        }
+        this.sGame.sendTo(p, cs);
+        return new Json().put("action", "addLiberty").toString();
+    }
+
+    /** DebugUtils.addFathers: the human player gains a founding father they do not have. */
+    private String addFoundingFather(String fatherId) {
+        final ServerPlayer p = me();
+        final net.sf.freecol.common.model.FoundingFather father =
+            this.game.getSpecification().getFoundingFather(fatherId);
+        if (father == null) throw bad("unknown founding father \"" + fatherId + "\"");
+        if (p.hasFather(father)) throw bad("the human already has " + fatherId);
+        this.igc.addFoundingFather(p, father);
+        return new Json().put("action", "addFoundingFather").toString();
+    }
+
+    /**
+     * ColonyPanel's "Trace work" button: turn the colony's occupation-decision
+     * logging on, or off if it is on. The answer names the colony and the
+     * state, for the client's copy of it ({@link ClientEngine#debugApplied}).
+     */
+    private String traceWork(Map<?, ?> r) {
+        final Colony colony = (r.get("colony") != null)
+            ? this.game.getFreeColGameObject(string(r, "colony"), Colony.class)
+            : at(r).getColony();
+        if (colony == null || colony.getOwner() != me()) throw bad("no colony of yours there");
+        final boolean on = !colony.getOccupationTrace();
+        colony.setOccupationTrace(on);
+        return new Json().put("action", "traceWork").put("colony", colony.getId())
+            .put("trace", on).toString();
+    }
+
+    /** The debug tile popup's "reset moves": every unit of the human's on the tile has its moves back. */
+    private String resetMoves(Tile tile) {
+        final ServerPlayer p = me();
+        int n = 0;
+        for (Unit u : tile.getUnitList()) {
+            if (u.getOwner() != p) continue;
+            u.setMovesLeft(u.getInitialMovesLeft());
+            n++;
+        }
+        if (n == 0) throw bad("no unit of yours at " + tile.getX() + "," + tile.getY());
+        final ChangeSet cs = new ChangeSet();
+        cs.add(See.perhaps(), tile);
+        this.sGame.sendTo(p, cs);
+        return new Json().put("action", "resetMoves").put("units", n).toString();
+    }
+
+    /** The debug tile popup's "dump tile": what the tile holds, as text. */
+    private String dumpTile(Tile tile) {
+        final List<String> lines = new ArrayList<>();
+        lines.add(tile.getId() + " at " + tile.getX() + "," + tile.getY() + ": " + tile.getType().getId());
+        lines.add("owner: " + ((tile.getOwner() == null) ? "none" : tile.getOwner().getId()));
+        if (tile.hasSettlement()) lines.add("settlement: " + tile.getSettlement().getId());
+        for (Unit u : tile.getUnitList()) {
+            lines.add("unit " + u.getId() + " " + u.getType().getId() + " owner "
+                + u.getOwner().getId() + " moves " + u.getMovesLeft());
+        }
+        return new Json().put("action", "dumpTile").put("text", String.join("\n", lines)).toString();
     }
 
     /**
