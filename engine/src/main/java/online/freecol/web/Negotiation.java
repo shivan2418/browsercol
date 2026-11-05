@@ -20,6 +20,7 @@ import net.sf.freecol.common.model.GoodsTradeItem;
 import net.sf.freecol.common.model.GoodsType;
 import net.sf.freecol.common.model.InciteTradeItem;
 import net.sf.freecol.common.model.Ownable;
+import net.sf.freecol.common.model.Market;
 import net.sf.freecol.common.model.Player;
 
 import net.sf.freecol.common.model.Stance;
@@ -74,6 +75,7 @@ final class Negotiation {
     private final DiplomaticTrade agreement;
     private final StringTemplate comment;
     private final int theirGold;
+    private final boolean tutorial;
 
     /**
      * @param our Our unit or colony that is negotiating.
@@ -82,10 +84,11 @@ final class Negotiation {
      * @param comment A comment message, or null.
      * @param theirGold The other player's gold, or
      *     {@code Player.GOLD_NOT_ACCOUNTED} if it is not known.
+     * @param tutorial Whether the game is in tutorial mode.
      */
     Negotiation(Player player, FreeColGameObject our, FreeColGameObject other,
                 DiplomaticTrade agreement, StringTemplate comment,
-                int theirGold) {
+                int theirGold, boolean tutorial) {
         this.game = player.getGame();
         this.player = player;
         this.otherPlayer = ((Ownable)other).getOwner();
@@ -94,6 +97,7 @@ final class Negotiation {
         this.agreement = agreement;
         this.comment = comment;
         this.theirGold = theirGold;
+        this.tutorial = tutorial;
     }
 
     /** The question for the Browser UI. */
@@ -113,6 +117,10 @@ final class Negotiation {
                                            + context.getKey()))
             .put("text", (this.comment == null) ? null
                  : Messages.message(this.comment))
+            // NegotiationDialog shows this in tutorial mode at first contact.
+            .put("tutorial", (this.tutorial && context == TradeContext.CONTACT)
+                 ? Messages.message("negotiationDialog.contact.tutorial")
+                 : null)
             .put("demand", Messages.message(StringTemplate
                 .template("negotiationDialog.demand")
                 .addStringTemplate("%nation%", nation)
@@ -124,6 +132,7 @@ final class Negotiation {
             .put("exchange", Messages.message("negotiationDialog.exchange"))
             .put("version", this.agreement.getVersion())
             .put("add", Messages.message("negotiationDialog.add"))
+            .put("clear", Messages.message("negotiationDialog.clear"))
             .put("send", Messages.message("negotiationDialog.send"))
             // A new offer can not be accepted.
             .put("accept", version
@@ -164,12 +173,26 @@ final class Negotiation {
         } else {
             return null;
         }
+        final boolean offered = item.getSource() == this.player;
+        String text = Messages.message(item.getLabel());
+        // As NegotiationDialog's item buttons: goods say what Europe pays
+        // for them if we give them, or asks for them if we get them.
+        if (item.getGoods() != null && this.player.getMarket() != null) {
+            final Goods g = item.getGoods();
+            final Market market = this.player.getMarket();
+            text += " " + Messages.message(StringTemplate
+                .template(offered ? "negotiationDialog.euSalePrice"
+                                  : "negotiationDialog.euBuyPrice")
+                .addAmount("%priceTotal%", offered
+                    ? market.getSalePrice(g.getType(), g.getAmount())
+                    : market.getBidPrice(g.getType(), g.getAmount())));
+        }
         return new Json()
             .put("kind", kind)
-            .put("side", (item.getSource() == this.player) ? "offer" : "demand")
+            .put("side", offered ? "offer" : "demand")
             .put("key", key)
             .put("amount", amount)
-            .put("text", Messages.message(item.getLabel()))
+            .put("text", text)
             .toString();
     }
 

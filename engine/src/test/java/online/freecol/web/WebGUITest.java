@@ -646,6 +646,8 @@ class WebGUITest {
         assertTrue(question.contains("raising your tax to 10%"), question);
         assertTrue(question.contains("\"ok\":\"We accept\",\"cancel\":\"Give me Liberty"),
                    question);
+        assertTrue(question.contains("\"help\":{\"label\":\"Help\",\"colopedia\":\"colopedia.concepts.taxes\""),
+                   "a tax raise has a Help button: " + question);
         got = new CompletableFuture<>();
         gui.showMonarchDialog(MonarchAction.DISPLEASURE, null, null, got::complete);
         await(got);
@@ -675,22 +677,26 @@ class WebGUITest {
 
     @Test
     @Timeout(120)
-    void pickingAWaitingUnitInTheEndTurnDialogMakesItActive() throws Exception {
+    void pickingAWaitingUnitInTheEndTurnDialogMakesItActiveAndLeavesTheDialogOpen() throws Exception {
         final ClientEngine client = startGame();
         final GUI gui = client.getClient().getGUI();
         final Unit active = gui.getActiveUnit();
         final Unit other = client.getClient().getMyPlayer().getUnits()
             .filter(u -> u != active && !u.isNaval()).findFirst().get();
 
-        shown.clear();
-        final int before = asked.size();
-        answer = "select\n" + other.getId();
+        // The dialog is held open: the pick is a command, not its answer.
+        hold = true;
+        final int heldBefore = held.size();
         gui.showEndTurnDialog(List.of(active, other));
+        while (held.size() == heldBefore) Thread.sleep(10);
+        shown.clear();
+        assertTrue(client.getCommands().menuEntry("waiting:" + other.getId()));
         while (shown().stream().noneMatch(e -> e.startsWith("activeUnit {\"unit\":\""
                 + other.getId() + "\""))) Thread.sleep(10);
         assertEquals(other, gui.getActiveUnit());
-        assertEquals(before + 1, asked.size());
         assertTrue(client.getClient().currentPlayerIsMyPlayer(), "picking keeps the turn");
+        assertFalse(client.getCommands().menuEntry("waiting:model.noSuch"));
+        hold = false;
     }
 
     @Test
@@ -1084,6 +1090,8 @@ class WebGUITest {
         final String question = asked.get(0);
         assertTrue(question.startsWith("negotiation {"), question);
         assertTrue(question.contains("\"accept\":null"), "a new offer cannot be accepted: " + question);
+        assertTrue(question.contains("\"tutorial\":null,"), "no tutorial text outside tutorial mode: " + question);
+        assertTrue(question.contains("\"clear\":\"Clear\""), question);
         assertTrue(question.contains("\"kind\":\"stance\",\"side\":null,\"label\":\"Stance\""), question);
         assertTrue(question.contains("{\"key\":\"PEACE\",\"amount\":0,\"text\":\"Peace\"}"), question);
         assertEquals(TradeStatus.PROPOSE_TRADE, sent.get(0).getStatus());

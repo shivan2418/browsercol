@@ -454,6 +454,11 @@ export interface GuiQuestions {
       object: Id | null;
       /** The title Swing's dialog shows above its text, if it has one. */
       header: string | null;
+      /**
+       * A Help button: it opens the Colopedia on an entry, or shows text in the dialog (the tax raise's and the
+       * first contact's). Pressing it does not answer.
+       */
+      help?: { label: string; colopedia: string | null; text: string | null };
     };
     answer: boolean;
   };
@@ -468,7 +473,8 @@ export interface GuiQuestions {
   };
   /**
    * The end turn dialog: the units still waiting, any of which can be picked to be made the active unit
-   * (the dialog closes and the turn goes on). Answers ok to end the turn, cancel to keep it.
+   * (as the "waiting" menu entry; the dialog stays open, as in Swing). Answers ok to end the turn, cancel to
+   * keep it.
    */
   endTurn: {
     ask: {
@@ -478,7 +484,7 @@ export interface GuiQuestions {
       cancel: string | null;
       units: { id: Id; name: string; location: string }[];
     };
-    answer: { status: 'ok' | 'cancel' } | { status: 'select'; unit: Id } | null;
+    answer: { status: 'ok' | 'cancel' } | null;
   };
   /**
    * The dialog before an attack: both sides' modifiers, side by side in FreeCol's order, and the final
@@ -541,6 +547,10 @@ export interface GuiQuestions {
     ask: {
       title: string;
       text: string | null;
+      /** The tutorial text for a first contact with a European in tutorial mode, else null. */
+      tutorial: string | null;
+      /** The label of the buttons that clear one kind of item. */
+      clear: string;
       /** The headings of what the other player gives and what we give, and the one between them. */
       demand: string;
       offer: string;
@@ -671,8 +681,7 @@ const encode: { [K in keyof GuiQuestions]: (answer: GuiQuestions[K]['answer']) =
   father: (a) => (a === null ? null : String(a)),
   amount: (a) => (a === null ? null : String(a)),
   goods: (a) => (a === null ? null : JSON.stringify(a)),
-  // Java splits the answer at the line break, after the word.
-  endTurn: (a) => (a === null ? null : a.status === 'select' ? `select\n${a.unit}` : a.status),
+  endTurn: (a) => (a === null ? null : a.status),
   // A status line, then a line for each item, its fields separated by tabs (no field has one).
   negotiation: (a) =>
     a === null

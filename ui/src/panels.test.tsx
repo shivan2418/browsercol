@@ -44,7 +44,7 @@ const art: Art = (keys) => {
 };
 
 /** The host on a fresh store, the tiles it was asked to go to, and what the report's buttons were asked. */
-function host() {
+function host(extra: { command?: (entry: string) => void; colopedia?: (type: string) => void } = {}) {
   const box = dialogs();
   const went: [number, number][] = [];
   const pressed: string[] = [];
@@ -62,7 +62,9 @@ function host() {
     remove: (id) => removed.push(id),
     assign: (unit, route) => assigned.push(`${unit} ${route}`),
   };
-  render(<DialogHost dialogs={box} goTo={(at) => went.push(at)} art={art} report={report} routes={routes} />);
+  render(
+    <DialogHost dialogs={box} goTo={(at) => went.push(at)} art={art} report={report} routes={routes} {...extra} />,
+  );
   return { box, went, pressed, saved, removed, assigned };
 }
 
@@ -131,6 +133,29 @@ describe('the confirm dialog', () => {
     expect(screen.getByText('Disband?')).toBeTruthy();
   });
 
+  it('has a Help button that opens the Colopedia or shows text, and does not answer', async () => {
+    const opened: string[] = [];
+    const { box } = host({ colopedia: (type) => opened.push(type) });
+    const tax = ask(box, 'confirm', {
+      ...confirm,
+      help: { label: 'Help', colopedia: 'colopedia.concepts.taxes', text: null },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Help' }));
+    expect(opened).toEqual(['colopedia.concepts.taxes']);
+    fireEvent.click(screen.getByRole('button', { name: 'No' }));
+    expect(await tax).toBe(false);
+
+    const contact = ask(box, 'confirm', {
+      ...confirm,
+      help: { label: 'Help', colopedia: null, text: 'You meet natives.' },
+    });
+    expect(screen.queryByText('You meet natives.')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Help' }));
+    screen.getByText('You meet natives.');
+    fireEvent.click(screen.getByRole('button', { name: 'Yes' }));
+    expect(await contact).toBe(true);
+  });
+
   it('cancels on its frame’s close button', async () => {
     const { box } = host();
     const closed = ask(box, 'confirm', { ...confirm, defaultOk: true });
@@ -170,11 +195,16 @@ describe('the end turn dialog', () => {
     expect(await kept).toEqual({ status: 'cancel' });
   });
 
-  it('answers the unit that is clicked', async () => {
-    const { box } = host();
+  it('makes the unit that is clicked active and stays open, as Swing does', async () => {
+    const entries: string[] = [];
+    const { box } = host({ command: (entry) => entries.push(entry) });
     const picked = ask(box, 'endTurn', endTurn);
     fireEvent.click(screen.getByRole('button', { name: /Soldier/ }));
-    expect(await picked).toEqual({ status: 'select', unit: 'unit:2' });
+    fireEvent.click(screen.getByRole('button', { name: /Free Colonist/ }));
+    expect(entries).toEqual(['waiting:unit:2', 'waiting:unit:1']);
+    expect(screen.getByRole('heading').textContent).toBe('End turn');
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    expect(await picked).toEqual({ status: 'ok' });
   });
 });
 
@@ -493,6 +523,8 @@ describe('the negotiation dialog', () => {
   const q = (more: Partial<GuiQuestions['negotiation']['ask']> = {}): GuiQuestions['negotiation']['ask'] => ({
     title: 'Diplomatic Negotiation',
     text: 'Let us consider our diplomatic situation.',
+    tutorial: null,
+    clear: 'Clear',
     demand: 'Spain requires of France',
     offer: 'Spain offers France',
     exchange: 'in return for',
@@ -549,6 +581,37 @@ describe('the negotiation dialog', () => {
         { kind: 'stance', side: null, key: 'PEACE', amount: 0, text: 'Peace' },
         { kind: 'colony', side: 'offer', key: 'colony:2', amount: 0, text: 'Plymouth' },
       ],
+    });
+  });
+
+  it('clears one kind of item at a time, and shows the tutorial text', async () => {
+    const { box } = host();
+    const answer = ask(
+      box,
+      'negotiation',
+      q({
+        tutorial: 'You meet fellow Europeans.',
+        items: [
+          { kind: 'gold', side: 'offer', key: '', amount: 30, text: 'Gold 30' },
+          { kind: 'gold', side: 'demand', key: '', amount: 10, text: 'Gold 10' },
+          { kind: 'stance', side: 'offer', key: 'PEACE', amount: 0, text: 'Peace' },
+        ],
+      }),
+    );
+    screen.getByText('You meet fellow Europeans.');
+    const clear = (side: string, kind: string) =>
+      document.querySelector(
+        `.trade-option[data-side="${side}"][data-kind="${kind}"] [data-clear]`,
+      ) as HTMLButtonElement;
+    expect(clear('offer', 'colony').disabled).toBe(true);
+    fireEvent.click(clear('offer', 'gold'));
+    expect(clear('offer', 'gold').disabled).toBe(true);
+    expect(screen.queryByRole('button', { name: 'Gold 30' })).toBeNull();
+    fireEvent.click(clear('', 'stance'));
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    expect(await answer).toEqual({
+      status: 'propose',
+      items: [{ kind: 'gold', side: 'demand', key: '', amount: 10, text: 'Gold 10' }],
     });
   });
 

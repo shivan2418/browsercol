@@ -619,6 +619,7 @@ function renderSide() {
                     goTo={(at) => dispatch({ k: 'focus', tile: null, at })}
                     art={art}
                     colopedia={(type) => menuClient?.menuEntry(`colopedia:${type}`)}
+                    command={(entry) => menuClient?.menuEntry(entry)}
                     string={(key) => map.resources()?.string(key) ?? ''}
                     report={{
                       groupBy: (value) => reportButtons.groupBy(value),
