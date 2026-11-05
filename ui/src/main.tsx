@@ -1120,20 +1120,26 @@ const gui: GuiHandlers = {
     },
   },
   questions: {
-    event: (q) => dialogQueue.ask('event', q),
-    confirm: (q) => dialogQueue.ask('confirm', q),
-    choice: (q) => dialogQueue.ask('choice', q),
-    input: (q) => dialogQueue.ask('input', q),
-    amount: (q) => dialogQueue.ask('amount', q),
-    goods: (q) => dialogQueue.ask('goods', q),
-    endTurn: (q) => dialogQueue.ask('endTurn', q),
-    preCombat: (q) => dialogQueue.ask('preCombat', q),
-    negotiation: (q) => dialogQueue.ask('negotiation', q),
-    names: (q) => dialogQueue.ask('names', q),
-    father: (q) => dialogQueue.ask('father', q),
-    warehouse: (q) => dialogQueue.ask('warehouse', q),
+    event: (q) => afterSlide(() => dialogQueue.ask('event', q)),
+    confirm: (q) => afterSlide(() => dialogQueue.ask('confirm', q)),
+    choice: (q) => afterSlide(() => dialogQueue.ask('choice', q)),
+    input: (q) => afterSlide(() => dialogQueue.ask('input', q)),
+    amount: (q) => afterSlide(() => dialogQueue.ask('amount', q)),
+    goods: (q) => afterSlide(() => dialogQueue.ask('goods', q)),
+    endTurn: (q) => afterSlide(() => dialogQueue.ask('endTurn', q)),
+    preCombat: (q) => afterSlide(() => dialogQueue.ask('preCombat', q)),
+    negotiation: (q) => afterSlide(() => dialogQueue.ask('negotiation', q)),
+    names: (q) => afterSlide(() => dialogQueue.ask('names', q)),
+    father: (q) => afterSlide(() => dialogQueue.ask('father', q)),
+    warehouse: (q) => afterSlide(() => dialogQueue.ask('warehouse', q)),
   },
 };
+
+/** A question opens once the unit that moved has slid to its tile: a move's new region or first contact comes after it. */
+async function afterSlide<T>(ask: () => Promise<T>): Promise<T> {
+  await map.settled();
+  return ask();
+}
 
 function drawMap(m: MapView) {
   nation = m.nation;
