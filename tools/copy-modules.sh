@@ -19,4 +19,12 @@ put() {
 }
 put "$src/server/server.wasm" "$gen/server.wasm"
 put "$src/client/client.wasm" "$gen/client.wasm"
-put "$src/client/client.wasm-runtime.js" "$gen/teavm-runtime.js"
+# The runtime imports the module's JS by a path it is given at run time, on
+# purpose; marked so, Vite stops warning that it cannot follow the import.
+runtime=$(mktemp)
+trap 'rm -f "$runtime"' EXIT
+sed 's|import(pathToJs)|import(/* @vite-ignore */ pathToJs)|' \
+  "$src/client/client.wasm-runtime.js" > "$runtime"
+grep -q 'vite-ignore' "$runtime" \
+  || { echo "TeaVM runtime: no import(pathToJs) to mark for Vite" >&2; exit 1; }
+put "$runtime" "$gen/teavm-runtime.js"
