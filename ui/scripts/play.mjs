@@ -232,6 +232,12 @@ const shotTimes = [];
 const europeSeen = [];
 
 async function play(page, url) {
+  // Tutorial messages are off by default; the script turns them on to check the build colony tutorial
+  // that follows the first landing.
+  await page.addInitScript(() => {
+    const p = JSON.parse(localStorage.getItem('freecol.prefs') ?? '{}');
+    if (p.tutorial === undefined) localStorage.setItem('freecol.prefs', JSON.stringify({ ...p, tutorial: true }));
+  });
   // Keep every map view the client Engine sends (ui/src/channel.ts calls
   // fcClientEvent for each), and count them.
   await page.addInitScript(() => {

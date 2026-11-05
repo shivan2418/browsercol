@@ -57,7 +57,7 @@ export const DEFAULTS: Prefs = {
   animation: 'normal',
   blink: 'normal',
   dimUnfocused: 'normal',
-  tutorial: true,
+  tutorial: false,
   autoEndTurn: false,
   palette: PALETTES[0].id,
   fonts: FONT_SETS[0].id,
