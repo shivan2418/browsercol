@@ -1,0 +1,5267 @@
+{
+ "rows": [
+  {
+   "file": "net/sf/freecol/client/gui/CanvasMapEditorMouseListener.java",
+   "line": 102,
+   "class": "",
+   "method": "mouseClicked",
+   "kind": "opens",
+   "target": "GUI.showTilePanel",
+   "guards": [
+    "if (getMap() == null) return;",
+    "if (e.getClickCount() > 1)",
+    "if (t != null) getGUI().showTilePanel(t);"
+   ],
+   "gestures": [
+    "mouseClicked"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/CanvasMapEditorMouseListener.java",
+   "line": 135,
+   "class": "",
+   "method": "mousePressed",
+   "kind": "opens",
+   "target": "GUI.showEditSettlementDialog",
+   "guards": [
+    "if (getMap() == null || !e.getComponent().isEnabled()) return;",
+    "} else if (e.getButton() == MouseEvent.BUTTON3",
+    "if (tile != null)",
+    "if (tile.getIndianSettlement() != null)"
+   ],
+   "gestures": [
+    "mousePressed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/CanvasMouseListener.java",
+   "line": 65,
+   "class": "CanvasMouseListener",
+   "method": "mousePressed",
+   "kind": "opens",
+   "target": "GUI.showTilePopup",
+   "guards": [
+    "if (e.isPopupTrigger())"
+   ],
+   "gestures": [
+    "mousePressed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/CanvasMouseListener.java",
+   "line": 86,
+   "class": "CanvasMouseListener",
+   "method": "mousePressed",
+   "kind": "opens",
+   "target": "GUI.showTilePopup",
+   "guards": [
+    "case MouseEvent.BUTTON3:"
+   ],
+   "gestures": [
+    "mousePressed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/SwingGUI.java",
+   "line": 1282,
+   "class": "SwingGUI",
+   "method": "traverseGotoPath",
+   "kind": "controller",
+   "target": "InGameController.clearGotoOrders",
+   "guards": [
+    "if (path == null)"
+   ],
+   "gestures": [],
+   "keys": [],
+   "reached": false,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/SwingGUI.java",
+   "line": 1284,
+   "class": "SwingGUI",
+   "method": "traverseGotoPath",
+   "kind": "controller",
+   "target": "InGameController.goToTile",
+   "guards": [
+    "} else"
+   ],
+   "gestures": [],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/SwingGUI.java",
+   "line": 1610,
+   "class": "SwingGUI",
+   "method": "clickAt",
+   "kind": "controller",
+   "target": "InGameController.attackRanged",
+   "guards": [
+    "if (mapViewer.getMapViewerState().isRangedAttackMode())"
+   ],
+   "gestures": [],
+   "keys": [],
+   "reached": false,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/TilePopup.java",
+   "line": 126,
+   "class": "TilePopup",
+   "method": "TilePopup",
+   "kind": "controller",
+   "target": "InGameController.moveTo",
+   "guards": [
+    "if (activeUnit != null)",
+    "if (owned && unitTile != null)",
+    "if (unitTile == tile)",
+    "if (activeUnit.canMoveToHighSeas())"
+   ],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [
+    "goToThisTile",
+    "goToEurope",
+    "activateUnit",
+    "fortify",
+    "skip",
+    "cashInTreasureTrain",
+    "clearOrders",
+    "activateAllUnits"
+   ],
+   "reached": true,
+   "keysUsed": [
+    "goToThisTile",
+    "goToEurope",
+    "activateUnit",
+    "fortify",
+    "skip",
+    "cashInTreasureTrain",
+    "clearOrders",
+    "activateAllUnits"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/TilePopup.java",
+   "line": 137,
+   "class": "TilePopup",
+   "method": "TilePopup",
+   "kind": "controller",
+   "target": "InGameController.changeState",
+   "guards": [
+    "if (activeUnit != null)",
+    "if (owned && unitTile != null)",
+    "if (unitTile == tile)",
+    "if (activeUnit.checkSetState(UnitState.ACTIVE))"
+   ],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [
+    "goToThisTile",
+    "goToEurope",
+    "activateUnit",
+    "fortify",
+    "skip",
+    "cashInTreasureTrain",
+    "clearOrders",
+    "activateAllUnits"
+   ],
+   "reached": true,
+   "keysUsed": [
+    "goToThisTile",
+    "goToEurope",
+    "activateUnit",
+    "fortify",
+    "skip",
+    "cashInTreasureTrain",
+    "clearOrders",
+    "activateAllUnits"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/TilePopup.java",
+   "line": 145,
+   "class": "TilePopup",
+   "method": "TilePopup",
+   "kind": "controller",
+   "target": "InGameController.changeState",
+   "guards": [
+    "if (activeUnit != null)",
+    "if (owned && unitTile != null)",
+    "if (unitTile == tile)",
+    "if (activeUnit.checkSetState(UnitState.FORTIFYING))"
+   ],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [
+    "goToThisTile",
+    "goToEurope",
+    "activateUnit",
+    "fortify",
+    "skip",
+    "cashInTreasureTrain",
+    "clearOrders",
+    "activateAllUnits"
+   ],
+   "reached": true,
+   "keysUsed": [
+    "goToThisTile",
+    "goToEurope",
+    "activateUnit",
+    "fortify",
+    "skip",
+    "cashInTreasureTrain",
+    "clearOrders",
+    "activateAllUnits"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/TilePopup.java",
+   "line": 153,
+   "class": "TilePopup",
+   "method": "TilePopup",
+   "kind": "controller",
+   "target": "InGameController.changeState",
+   "guards": [
+    "if (activeUnit != null)",
+    "if (owned && unitTile != null)",
+    "if (unitTile == tile)",
+    "if (activeUnit.checkSetState(UnitState.SKIPPED))"
+   ],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [
+    "goToThisTile",
+    "goToEurope",
+    "activateUnit",
+    "fortify",
+    "skip",
+    "cashInTreasureTrain",
+    "clearOrders",
+    "activateAllUnits"
+   ],
+   "reached": true,
+   "keysUsed": [
+    "goToThisTile",
+    "goToEurope",
+    "activateUnit",
+    "fortify",
+    "skip",
+    "cashInTreasureTrain",
+    "clearOrders",
+    "activateAllUnits"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/TilePopup.java",
+   "line": 164,
+   "class": "TilePopup",
+   "method": "TilePopup",
+   "kind": "controller",
+   "target": "InGameController.checkCashInTreasureTrain",
+   "guards": [
+    "if (activeUnit != null)",
+    "if (owned && unitTile != null)",
+    "if (unitTile == tile)",
+    "if (activeUnit.canCarryTreasure()"
+   ],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [
+    "goToThisTile",
+    "goToEurope",
+    "activateUnit",
+    "fortify",
+    "skip",
+    "cashInTreasureTrain",
+    "clearOrders",
+    "activateAllUnits"
+   ],
+   "reached": true,
+   "keysUsed": [
+    "goToThisTile",
+    "goToEurope",
+    "activateUnit",
+    "fortify",
+    "skip",
+    "cashInTreasureTrain",
+    "clearOrders",
+    "activateAllUnits"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/TilePopup.java",
+   "line": 175,
+   "class": "TilePopup",
+   "method": "TilePopup",
+   "kind": "controller",
+   "target": "InGameController.clearOrders",
+   "guards": [
+    "if (activeUnit != null)",
+    "if (owned && unitTile != null)",
+    "if (unitTile == tile)",
+    "if (activeUnit.getDestination() != null)"
+   ],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [
+    "goToThisTile",
+    "goToEurope",
+    "activateUnit",
+    "fortify",
+    "skip",
+    "cashInTreasureTrain",
+    "clearOrders",
+    "activateAllUnits"
+   ],
+   "reached": true,
+   "keysUsed": [
+    "goToThisTile",
+    "goToEurope",
+    "activateUnit",
+    "fortify",
+    "skip",
+    "cashInTreasureTrain",
+    "clearOrders",
+    "activateAllUnits"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/TilePopup.java",
+   "line": 222,
+   "class": "TilePopup",
+   "method": "TilePopup",
+   "kind": "controller",
+   "target": "InGameController.clearOrders",
+   "guards": [
+    "if (tile.getUnitCount() > 1 && player.owns(firstUnit))",
+    "if (moreUnits) addSeparator();"
+   ],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [
+    "goToThisTile",
+    "goToEurope",
+    "activateUnit",
+    "fortify",
+    "skip",
+    "cashInTreasureTrain",
+    "clearOrders",
+    "activateAllUnits"
+   ],
+   "reached": true,
+   "keysUsed": [
+    "goToThisTile",
+    "goToEurope",
+    "activateUnit",
+    "fortify",
+    "skip",
+    "cashInTreasureTrain",
+    "clearOrders",
+    "activateAllUnits"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/TilePopup.java",
+   "line": 351,
+   "class": "TilePopup",
+   "method": "(field)",
+   "kind": "opens",
+   "target": "GUI.showInformationPanel",
+   "guards": [
+    "if (activeUnit != null && activeUnit.getTile() != null)"
+   ],
+   "gestures": [
+    "addActionListener",
+    "setAction"
+   ],
+   "keys": [
+    "dumpCargo"
+   ],
+   "reached": null,
+   "keysUsed": [
+    "dumpCargo"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/TilePopup.java",
+   "line": 447,
+   "class": "TilePopup",
+   "method": "addColony",
+   "kind": "opens",
+   "target": "GUI.showColonyPanel",
+   "guards": [],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [
+    "rename"
+   ],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/TilePopup.java",
+   "line": 454,
+   "class": "TilePopup",
+   "method": "addColony",
+   "kind": "controller",
+   "target": "InGameController.rename",
+   "guards": [],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [
+    "rename"
+   ],
+   "reached": false,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/TilePopup.java",
+   "line": 474,
+   "class": "TilePopup",
+   "method": "addIndianSettlement",
+   "kind": "opens",
+   "target": "GUI.showIndianSettlementPanel",
+   "guards": [],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/TilePopup.java",
+   "line": 489,
+   "class": "TilePopup",
+   "method": "addTile",
+   "kind": "opens",
+   "target": "GUI.showTilePanel",
+   "guards": [
+    "if (tile.isExplored())"
+   ],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/AboutAction.java",
+   "line": 52,
+   "class": "AboutAction",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showAboutPanel",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/AssignTradeRouteAction.java",
+   "line": 69,
+   "class": "AssignTradeRouteAction",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showTradeRoutePanel",
+   "guards": [
+    "if (unit != null) getGUI().showTradeRoutePanel(unit);"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/BuildColonyAction.java",
+   "line": 72,
+   "class": "BuildColonyAction",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.buildColony",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/ChangeAction.java",
+   "line": 95,
+   "class": "ChangeAction",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showColonyPanel",
+   "guards": [
+    "if (tile.getColony() != null)"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/ChatAction.java",
+   "line": 68,
+   "class": "ChatAction",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showChatPanel",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/ClearOrdersAction.java",
+   "line": 52,
+   "class": "ClearOrdersAction",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.clearOrders",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/ColopediaAction.java",
+   "line": 80,
+   "class": "ColopediaAction",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showColopediaPanel",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/ContinueAction.java",
+   "line": 63,
+   "class": "ContinueAction",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "ConnectController.requestLogout",
+   "guards": [
+    "if (lastSave != null)",
+    "if (getFreeColClient().isLoggedIn())"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": false,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/ContinueAction.java",
+   "line": 66,
+   "class": "ContinueAction",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "ConnectController.startSavedGame",
+   "guards": [
+    "if (lastSave != null)",
+    "if (!getConnectController().startSavedGame(lastSave))"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": false,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/ContinueAction.java",
+   "line": 67,
+   "class": "ContinueAction",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showMainPanel",
+   "guards": [
+    "if (lastSave != null)",
+    "if (!getConnectController().startSavedGame(lastSave))"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/DebugAction.java",
+   "line": 72,
+   "class": "DebugAction",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.setInDebugMode",
+   "guards": [
+    "if (shouldBeEnabled()) igc().setInDebugMode();"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": false,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/DeclareIndependenceAction.java",
+   "line": 67,
+   "class": "DeclareIndependenceAction",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.declareIndependence",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/DetermineHighSeasAction.java",
+   "line": 69,
+   "class": "DetermineHighSeasAction",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showParametersDialog",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/DisbandUnitAction.java",
+   "line": 54,
+   "class": "DisbandUnitAction",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.disbandUnit",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/EndTurnAction.java",
+   "line": 54,
+   "class": "EndTurnAction",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.endTurn",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/EuropeAction.java",
+   "line": 66,
+   "class": "EuropeAction",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showEuropePanel",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/ExecuteGotoOrdersAction.java",
+   "line": 52,
+   "class": "ExecuteGotoOrdersAction",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.executeGotoOrders",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": false,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/FindSettlementAction.java",
+   "line": 52,
+   "class": "FindSettlementAction",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showFindSettlementPanel",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/FortifyAction.java",
+   "line": 67,
+   "class": "FortifyAction",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.changeState",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/GotoAction.java",
+   "line": 68,
+   "class": "GotoAction",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.selectDestination",
+   "guards": [
+    "if (unit != null)"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/ImprovementAction.java",
+   "line": 82,
+   "class": "ImprovementAction",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.changeWorkImprovementType",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/LoadAction.java",
+   "line": 83,
+   "class": "LoadAction",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.loadCargo",
+   "guards": [
+    "for (Goods goods : unit.getCompactGoodsList())",
+    "if (loadable > 0 && present > 0)"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/MapEditorAction.java",
+   "line": 52,
+   "class": "MapEditorAction",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "MapEditorController.startMapEditor",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": false,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/MoveAction.java",
+   "line": 84,
+   "class": "MoveAction",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.moveUnit",
+   "guards": [
+    "case MOVE_UNITS:"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/NewAction.java",
+   "line": 52,
+   "class": "NewAction",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "ConnectController.newGame",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": false,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/NewEmptyMapAction.java",
+   "line": 68,
+   "class": "NewEmptyMapAction",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showMapSizeDialog",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/NewEmptyMapAction.java",
+   "line": 74,
+   "class": "NewEmptyMapAction",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "MapEditorController.getDefaultSpecification",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": false,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/OpenAction.java",
+   "line": 53,
+   "class": "OpenAction",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.loadGame",
+   "guards": [
+    "if (!freeColClient.isMapEditor())"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": false,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/OpenAction.java",
+   "line": 55,
+   "class": "OpenAction",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "MapEditorController.loadGame",
+   "guards": [
+    "} else"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": false,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/PreferencesAction.java",
+   "line": 52,
+   "class": "PreferencesAction",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showClientOptionsDialog",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/ReconnectAction.java",
+   "line": 52,
+   "class": "ReconnectAction",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.reconnect",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": false,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/RenameAction.java",
+   "line": 52,
+   "class": "RenameAction",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.rename",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": false,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/ReportCargoAction.java",
+   "line": 52,
+   "class": "ReportCargoAction",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showReportCargoPanel",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/ReportColonyAction.java",
+   "line": 52,
+   "class": "ReportColonyAction",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showReportColonyPanel",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/ReportContinentalCongressAction.java",
+   "line": 52,
+   "class": "ReportContinentalCongressAction",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showReportContinentalCongressPanel",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/ReportEducationAction.java",
+   "line": 52,
+   "class": "ReportEducationAction",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showReportEducationPanel",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/ReportExplorationAction.java",
+   "line": 52,
+   "class": "ReportExplorationAction",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showReportExplorationPanel",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/ReportForeignAction.java",
+   "line": 52,
+   "class": "ReportForeignAction",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showReportForeignAffairPanel",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/ReportHighScoresAction.java",
+   "line": 52,
+   "class": "ReportHighScoresAction",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.highScore",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": false,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/ReportHistoryAction.java",
+   "line": 52,
+   "class": "ReportHistoryAction",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showReportHistoryPanel",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/ReportIndianAction.java",
+   "line": 52,
+   "class": "ReportIndianAction",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showReportIndianPanel",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/ReportLabourAction.java",
+   "line": 55,
+   "class": "ReportLabourAction",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showReportLabourPanel",
+   "guards": [
+    "if (getClientOptions().getInteger(ClientOptions.LABOUR_REPORT)"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/ReportLabourAction.java",
+   "line": 57,
+   "class": "ReportLabourAction",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showCompactLabourReport",
+   "guards": [
+    "} else"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/ReportMilitaryAction.java",
+   "line": 52,
+   "class": "ReportMilitaryAction",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showReportMilitaryPanel",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/ReportNavalAction.java",
+   "line": 52,
+   "class": "ReportNavalAction",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showReportNavalPanel",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/ReportProductionAction.java",
+   "line": 52,
+   "class": "ReportProductionAction",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showReportProductionPanel",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/ReportReligionAction.java",
+   "line": 52,
+   "class": "ReportReligionAction",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showReportReligiousPanel",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/ReportRequirementsAction.java",
+   "line": 52,
+   "class": "ReportRequirementsAction",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showReportRequirementsPanel",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/ReportTradeAction.java",
+   "line": 52,
+   "class": "ReportTradeAction",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showReportTradePanel",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/ReportTurnAction.java",
+   "line": 52,
+   "class": "ReportTurnAction",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.displayTurnReportMessages",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": false,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/SaveAction.java",
+   "line": 68,
+   "class": "SaveAction",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.saveGame",
+   "guards": [
+    "if (!freeColClient.isMapEditor())"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": false,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/SaveAction.java",
+   "line": 70,
+   "class": "SaveAction",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "MapEditorController.saveMapEditorGame",
+   "guards": [
+    "} else"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": false,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/SaveAndQuitAction.java",
+   "line": 68,
+   "class": "SaveAndQuitAction",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "MapEditorController.saveMapEditorGame",
+   "guards": [
+    "if (freeColClient.isMapEditor())"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": false,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/SaveAndQuitAction.java",
+   "line": 71,
+   "class": "SaveAndQuitAction",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.saveAndQuit",
+   "guards": [
+    "} else",
+    "if (!igc().saveAndQuit()) return;"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": false,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/ScaleMapAction.java",
+   "line": 81,
+   "class": "ScaleMapAction",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showScaleMapSizeDialog",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/SentryAction.java",
+   "line": 55,
+   "class": "SentryAction",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.changeState",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/ShowDifficultyAction.java",
+   "line": 52,
+   "class": "ShowDifficultyAction",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showDifficultyDialog",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/ShowGameOptionsAction.java",
+   "line": 52,
+   "class": "ShowGameOptionsAction",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showGameOptionsDialog",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/ShowMainAction.java",
+   "line": 55,
+   "class": "ShowMainAction",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "ConnectController.mainTitle",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": false,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/ShowMapGeneratorOptionsAction.java",
+   "line": 52,
+   "class": "ShowMapGeneratorOptionsAction",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showMapGeneratorOptionsDialog",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/SkipUnitAction.java",
+   "line": 58,
+   "class": "SkipUnitAction",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.changeState",
+   "guards": [
+    "if (unit.getState() != Unit.UnitState.SKIPPED)"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/SkipUnitAction.java",
+   "line": 61,
+   "class": "SkipUnitAction",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.nextActiveUnit",
+   "guards": [
+    "if (unit.getState() == Unit.UnitState.SKIPPED)"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/StartMapAction.java",
+   "line": 70,
+   "class": "StartMapAction",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showNewPanel",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/TilePopupAction.java",
+   "line": 52,
+   "class": "TilePopupAction",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showTilePopup",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/TradeRouteAction.java",
+   "line": 52,
+   "class": "TradeRouteAction",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showTradeRoutePanel",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/UnloadAction.java",
+   "line": 92,
+   "class": "UnloadAction",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.unload",
+   "guards": [
+    "if (carrier != null) igc().unload(carrier);"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": false,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/action/WaitAction.java",
+   "line": 54,
+   "class": "WaitAction",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.waitUnit",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/dialog/ConfirmDeclarationDialog.java",
+   "line": 402,
+   "class": "",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showDialog",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/dialog/DifficultyDialog.java",
+   "line": 123,
+   "class": "DifficultyDialog",
+   "method": "addLoadAction",
+   "kind": "opens",
+   "target": "GUI.showLoadDialog",
+   "guards": [],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [
+    "error.couldNotLoadDifficulty"
+   ],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/dialog/DifficultyDialog.java",
+   "line": 131,
+   "class": "DifficultyDialog",
+   "method": "addLoadAction",
+   "kind": "opens",
+   "target": "GUI.showErrorPanel",
+   "guards": [
+    "if (file != null)",
+    "} else"
+   ],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [
+    "error.couldNotLoadDifficulty"
+   ],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/dialog/DifficultyDialog.java",
+   "line": 145,
+   "class": "DifficultyDialog",
+   "method": "addSaveAction",
+   "kind": "opens",
+   "target": "GUI.showSaveDialog",
+   "guards": [],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/dialog/EndTurnDialog.java",
+   "line": 122,
+   "class": "EndTurnDialog",
+   "method": "EndTurnDialog",
+   "kind": "controller",
+   "target": "InGameController.endTurn",
+   "guards": [],
+   "gestures": [
+    "addActionListener",
+    "actionPerformed"
+   ],
+   "keys": [
+    "endTurnDialog.areYouSure",
+    "ok",
+    "cancel"
+   ],
+   "reached": true,
+   "keysUsed": [
+    "endTurnDialog.areYouSure",
+    "ok",
+    "cancel"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/dialog/EndTurnDialog.java",
+   "line": 147,
+   "class": "EndTurnDialog",
+   "method": "selectUnit",
+   "kind": "opens",
+   "target": "GUI.showEuropePanel",
+   "guards": [
+    "if (wrapper != null && wrapper.unit != null)",
+    "if (wrapper.unit.isInEurope())"
+   ],
+   "gestures": [],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/dialog/EndTurnDialog.java",
+   "line": 151,
+   "class": "EndTurnDialog",
+   "method": "selectUnit",
+   "kind": "opens",
+   "target": "GUI.showColonyPanel",
+   "guards": [
+    "if (wrapper != null && wrapper.unit != null)",
+    "} else",
+    "if (wrapper.unit.getColony() != null)"
+   ],
+   "gestures": [],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/dialog/FirstContactDialog.java",
+   "line": 117,
+   "class": "FirstContactDialog",
+   "method": "(field)",
+   "kind": "opens",
+   "target": "GUI.showInformationPanel",
+   "guards": [],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [
+    "yes",
+    "no",
+    "help"
+   ],
+   "reached": null,
+   "keysUsed": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/dialog/MapGeneratorOptionsDialog.java",
+   "line": 195,
+   "class": "MapGeneratorOptionsDialog",
+   "method": "save",
+   "kind": "opens",
+   "target": "GUI.showErrorPanel",
+   "guards": [
+    "} else"
+   ],
+   "gestures": [],
+   "keys": [
+    "mapGeneratorOptionsDialog.badWidth"
+   ],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/dialog/MapGeneratorOptionsDialog.java",
+   "line": 206,
+   "class": "MapGeneratorOptionsDialog",
+   "method": "save",
+   "kind": "opens",
+   "target": "GUI.showErrorPanel",
+   "guards": [
+    "if (!ok)"
+   ],
+   "gestures": [],
+   "keys": [
+    "mapGeneratorOptionsDialog.badWidth"
+   ],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/dialog/MonarchDialog.java",
+   "line": 91,
+   "class": "MonarchDialog",
+   "method": "(field)",
+   "kind": "opens",
+   "target": "GUI.showColopediaPanel",
+   "guards": [
+    "if (action == MonarchAction.RAISE_TAX_ACT"
+   ],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [
+    "help"
+   ],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/dialog/NegotiationDialog.java",
+   "line": 190,
+   "class": "NegotiationDialog",
+   "method": "(field)",
+   "kind": "controller",
+   "target": "InGameController.nationSummary",
+   "guards": [],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [
+    "negotiationDialog.demand",
+    "negotiationDialog.offer",
+    "negotiationDialog.exchange",
+    "negotiationDialog.contact.tutorial",
+    "negotiationDialog.accept",
+    "negotiationDialog.send",
+    "negotiationDialog.cancel"
+   ],
+   "reached": true,
+   "keysUsed": [
+    "negotiationDialog.demand",
+    "negotiationDialog.offer",
+    "negotiationDialog.exchange",
+    "negotiationDialog.accept",
+    "negotiationDialog.send",
+    "negotiationDialog.cancel"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/dialog/OptionsDialog.java",
+   "line": 243,
+   "class": "OptionsDialog",
+   "method": "save",
+   "kind": "opens",
+   "target": "GUI.showErrorPanel",
+   "guards": [],
+   "gestures": [],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/dialog/WarehouseDialog.java",
+   "line": 248,
+   "class": "WarehouseDialog.WarehouseGoodsPanel",
+   "method": "saveSettings",
+   "kind": "controller",
+   "target": "InGameController.setGoodsLevels",
+   "guards": [
+    "if (changed)"
+   ],
+   "gestures": [],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/label/GoodsLabel.java",
+   "line": 147,
+   "class": "",
+   "method": "addCargo",
+   "kind": "controller",
+   "target": "InGameController.loadCargo",
+   "guards": [],
+   "gestures": [
+    "addCargo"
+   ],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/label/GoodsLabel.java",
+   "line": 158,
+   "class": "",
+   "method": "removeCargo",
+   "kind": "controller",
+   "target": "InGameController.unloadCargo",
+   "guards": [],
+   "gestures": [],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/label/MarketLabel.java",
+   "line": 161,
+   "class": "",
+   "method": "addCargo",
+   "kind": "controller",
+   "target": "InGameController.payArrears",
+   "guards": [
+    "if (!player.canTrade(label.getType()))"
+   ],
+   "gestures": [
+    "addCargo"
+   ],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/label/MarketLabel.java",
+   "line": 167,
+   "class": "",
+   "method": "addCargo",
+   "kind": "controller",
+   "target": "InGameController.buyGoods",
+   "guards": [
+    "if (cargoPanel.igc().buyGoods(label.getType(), loadable, carrier))"
+   ],
+   "gestures": [
+    "addCargo"
+   ],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/label/MarketLabel.java",
+   "line": 168,
+   "class": "",
+   "method": "addCargo",
+   "kind": "controller",
+   "target": "InGameController.nextModelMessage",
+   "guards": [
+    "if (cargoPanel.igc().buyGoods(label.getType(), loadable, carrier))"
+   ],
+   "gestures": [
+    "addCargo"
+   ],
+   "keys": [],
+   "reached": false,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/label/UnitLabel.java",
+   "line": 235,
+   "class": "UnitLabel",
+   "method": "addCargo",
+   "kind": "controller",
+   "target": "InGameController.boardShip",
+   "guards": [
+    "if (carrier.canAdd(u))",
+    "if (cargoPanel.igc().boardShip(u, carrier))"
+   ],
+   "gestures": [
+    "addCargo"
+   ],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/label/UnitLabel.java",
+   "line": 251,
+   "class": "UnitLabel",
+   "method": "removeCargo",
+   "kind": "controller",
+   "target": "InGameController.leaveShip",
+   "guards": [],
+   "gestures": [],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/label/UnitLabel.java",
+   "line": 281,
+   "class": "UnitLabel",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.assignTeacher",
+   "guards": [
+    "switch (Enum.valueOf(UnitAction.class, upCase(args[0])))",
+    "case ASSIGN:"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/label/UnitLabel.java",
+   "line": 290,
+   "class": "UnitLabel",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.claimTile",
+   "guards": [
+    "switch (Enum.valueOf(UnitAction.class, upCase(args[0])))",
+    "case WORK_COLONYTILE:",
+    "if (args.length >= 4 && \"!\".equals(args[3]))",
+    "if (!igc.claimTile(colonyTile.getWorkTile(),"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": false,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/label/UnitLabel.java",
+   "line": 294,
+   "class": "UnitLabel",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.work",
+   "guards": [
+    "switch (Enum.valueOf(UnitAction.class, upCase(args[0])))",
+    "case WORK_COLONYTILE:",
+    "if (colonyTile != this.unit.getLocation())"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/label/UnitLabel.java",
+   "line": 298,
+   "class": "UnitLabel",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.changeWorkType",
+   "guards": [
+    "switch (Enum.valueOf(UnitAction.class, upCase(args[0])))",
+    "case WORK_COLONYTILE:",
+    "if ((gt = spec.getGoodsType(args[2])) != null"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/label/UnitLabel.java",
+   "line": 306,
+   "class": "UnitLabel",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.work",
+   "guards": [
+    "switch (Enum.valueOf(UnitAction.class, upCase(args[0])))",
+    "case WORK_BUILDING:",
+    "if (building != this.unit.getLocation())"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/label/UnitLabel.java",
+   "line": 310,
+   "class": "UnitLabel",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.changeWorkType",
+   "guards": [
+    "switch (Enum.valueOf(UnitAction.class, upCase(args[0])))",
+    "case WORK_BUILDING:",
+    "if ((gt = spec.getGoodsType(args[2])) != null"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/label/UnitLabel.java",
+   "line": 314,
+   "class": "UnitLabel",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.changeState",
+   "guards": [
+    "switch (Enum.valueOf(UnitAction.class, upCase(args[0])))",
+    "case ACTIVATE_UNIT:"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/label/UnitLabel.java",
+   "line": 318,
+   "class": "UnitLabel",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.changeState",
+   "guards": [
+    "switch (Enum.valueOf(UnitAction.class, upCase(args[0])))",
+    "case FORTIFY:"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/label/UnitLabel.java",
+   "line": 321,
+   "class": "UnitLabel",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.changeState",
+   "guards": [
+    "switch (Enum.valueOf(UnitAction.class, upCase(args[0])))",
+    "case SENTRY:"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/label/UnitLabel.java",
+   "line": 324,
+   "class": "UnitLabel",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showColopediaPanel",
+   "guards": [
+    "switch (Enum.valueOf(UnitAction.class, upCase(args[0])))",
+    "case COLOPEDIA:"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/label/UnitLabel.java",
+   "line": 327,
+   "class": "UnitLabel",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.putOutsideColony",
+   "guards": [
+    "switch (Enum.valueOf(UnitAction.class, upCase(args[0])))",
+    "case LEAVE_TOWN:"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/label/UnitLabel.java",
+   "line": 330,
+   "class": "UnitLabel",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.clearSpeciality",
+   "guards": [
+    "switch (Enum.valueOf(UnitAction.class, upCase(args[0])))",
+    "case CLEAR_SPECIALITY:"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/label/UnitLabel.java",
+   "line": 333,
+   "class": "UnitLabel",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.clearOrders",
+   "guards": [
+    "switch (Enum.valueOf(UnitAction.class, upCase(args[0])))",
+    "case CLEAR_ORDERS:"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/label/UnitLabel.java",
+   "line": 336,
+   "class": "UnitLabel",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showTradeRoutePanel",
+   "guards": [
+    "switch (Enum.valueOf(UnitAction.class, upCase(args[0])))",
+    "case ASSIGN_TRADE_ROUTE:"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/label/UnitLabel.java",
+   "line": 339,
+   "class": "UnitLabel",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.leaveShip",
+   "guards": [
+    "switch (Enum.valueOf(UnitAction.class, upCase(args[0])))",
+    "case LEAVE_SHIP:"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/label/UnitLabel.java",
+   "line": 342,
+   "class": "UnitLabel",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.unload",
+   "guards": [
+    "switch (Enum.valueOf(UnitAction.class, upCase(args[0])))",
+    "case UNLOAD:"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": false,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/menu/DebugMenu.java",
+   "line": 135,
+   "class": "DebugMenu",
+   "method": "buildDebugMenu",
+   "kind": "opens",
+   "target": "GUI.showInformationPanel",
+   "guards": [
+    "if (hasGameMap)"
+   ],
+   "gestures": [
+    "addActionListener",
+    "addChangeListener"
+   ],
+   "keys": [
+    "menuBar.debug.reloadResources",
+    "menuBar.debug.showResourceKeys",
+    "statistics",
+    "menuBar.debug.memoryManager.gc",
+    "menuBar.debug"
+   ],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/menu/DebugMenu.java",
+   "line": 334,
+   "class": "DebugMenu",
+   "method": "addGameMapOptions",
+   "kind": "opens",
+   "target": "GUI.showMonarchDialog",
+   "guards": [
+    "for (Player p : game.getLiveEuropeanPlayerList())"
+   ],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [
+    "none",
+    "menuBar.debug.skipTurns",
+    "menuBar.debug.addBuilding",
+    "menuBar.debug.addFoundingFather",
+    "menuBar.debug.runMonarch",
+    "menuBar.debug.addGold",
+    "menuBar.debug.addImmigration",
+    "menuBar.debug.addLiberty",
+    "menuBar.debug.stepRandomNumberGenerator",
+    "menuBar.debug.displayUnits",
+    "menuBar.debug.displayMonarchPanel",
+    "menuBar.debug.displayErrorMessage",
+    "menuBar.debug.displayEuropeStatus",
+    "menuBar.debug.compareMaps"
+   ],
+   "reached": null,
+   "keysUsed": [
+    "none"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/menu/DebugMenu.java",
+   "line": 337,
+   "class": "DebugMenu",
+   "method": "addGameMapOptions",
+   "kind": "controller",
+   "target": "InGameController.monarchAction",
+   "guards": [
+    "for (Player p : game.getLiveEuropeanPlayerList())"
+   ],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [
+    "none",
+    "menuBar.debug.skipTurns",
+    "menuBar.debug.addBuilding",
+    "menuBar.debug.addFoundingFather",
+    "menuBar.debug.runMonarch",
+    "menuBar.debug.addGold",
+    "menuBar.debug.addImmigration",
+    "menuBar.debug.addLiberty",
+    "menuBar.debug.stepRandomNumberGenerator",
+    "menuBar.debug.displayUnits",
+    "menuBar.debug.displayMonarchPanel",
+    "menuBar.debug.displayErrorMessage",
+    "menuBar.debug.displayEuropeStatus",
+    "menuBar.debug.compareMaps"
+   ],
+   "reached": false,
+   "keysUsed": [
+    "none"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/menu/DebugMenu.java",
+   "line": 343,
+   "class": "DebugMenu",
+   "method": "addGameMapOptions",
+   "kind": "opens",
+   "target": "GUI.showErrorPanel",
+   "guards": [
+    "for (Player p : game.getLiveEuropeanPlayerList())"
+   ],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [
+    "none",
+    "menuBar.debug.skipTurns",
+    "menuBar.debug.addBuilding",
+    "menuBar.debug.addFoundingFather",
+    "menuBar.debug.runMonarch",
+    "menuBar.debug.addGold",
+    "menuBar.debug.addImmigration",
+    "menuBar.debug.addLiberty",
+    "menuBar.debug.stepRandomNumberGenerator",
+    "menuBar.debug.displayUnits",
+    "menuBar.debug.displayMonarchPanel",
+    "menuBar.debug.displayErrorMessage",
+    "menuBar.debug.displayEuropeStatus",
+    "menuBar.debug.compareMaps"
+   ],
+   "reached": null,
+   "keysUsed": [
+    "none"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/option/AbstractUnitOptionUI.java",
+   "line": 106,
+   "class": "",
+   "method": "(field)",
+   "kind": "opens",
+   "target": "GUI.getChoices",
+   "guards": [],
+   "gestures": [
+    "addItemListener"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/option/AbstractUnitOptionUI.java",
+   "line": 113,
+   "class": "",
+   "method": "(field)",
+   "kind": "opens",
+   "target": "GUI.getChoices",
+   "guards": [],
+   "gestures": [
+    "addItemListener"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/option/AbstractUnitOptionUI.java",
+   "line": 138,
+   "class": "",
+   "method": "itemStateChanged",
+   "kind": "opens",
+   "target": "GUI.getChoices",
+   "guards": [
+    "if (type != null && type.hasAbility(Ability.CAN_BE_EQUIPPED))"
+   ],
+   "gestures": [
+    "itemStateChanged"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/option/AudioMixerOptionUI.java",
+   "line": 86,
+   "class": "AudioMixerOptionUI",
+   "method": "(field)",
+   "kind": "opens",
+   "target": "GUI.getChoices",
+   "guards": [],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [
+    "test",
+    "music"
+   ],
+   "reached": null,
+   "keysUsed": [
+    "music"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/option/FileOptionUI.java",
+   "line": 80,
+   "class": "FileOptionUI",
+   "method": "(field)",
+   "kind": "opens",
+   "target": "GUI.showLoadSaveFileDialog",
+   "guards": [
+    "if (editable)"
+   ],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [
+    "browse",
+    "remove"
+   ],
+   "reached": null,
+   "keysUsed": [
+    "remove"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/option/FullscreenDisplayModeOptionUI.java",
+   "line": 56,
+   "class": "FullscreenDisplayModeOptionUI",
+   "method": "FullscreenDisplayModeOptionUI",
+   "kind": "opens",
+   "target": "GUI.getChoices",
+   "guards": [],
+   "gestures": [],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/option/LanguageOptionUI.java",
+   "line": 51,
+   "class": "LanguageOptionUI",
+   "method": "LanguageOptionUI",
+   "kind": "opens",
+   "target": "GUI.getChoices",
+   "guards": [],
+   "gestures": [],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/option/ListOptionUI.java",
+   "line": 133,
+   "class": "",
+   "method": "(field)",
+   "kind": "opens",
+   "target": "GUI.showEditOptionDialog",
+   "guards": [
+    "if (option.getTemplate() == null) addButton.setEnabled(false);",
+    "if (gui.showEditOptionDialog(ao) && option.canAdd(ao))"
+   ],
+   "gestures": [
+    "addActionListener",
+    "addListSelectionListener"
+   ],
+   "keys": [
+    "list.edit",
+    "list.add",
+    "list.remove",
+    "list.up",
+    "list.down"
+   ],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/option/ListOptionUI.java",
+   "line": 157,
+   "class": "",
+   "method": "(field)",
+   "kind": "opens",
+   "target": "GUI.showEditOptionDialog",
+   "guards": [
+    "if (option.getTemplate() == null) addButton.setEnabled(false);",
+    "if (gui.showEditOptionDialog(ao))"
+   ],
+   "gestures": [
+    "addActionListener",
+    "addListSelectionListener"
+   ],
+   "keys": [
+    "list.edit",
+    "list.add",
+    "list.remove",
+    "list.up",
+    "list.down"
+   ],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/option/ModOptionUI.java",
+   "line": 105,
+   "class": "ModOptionUI",
+   "method": "ModOptionUI",
+   "kind": "opens",
+   "target": "GUI.getChoices",
+   "guards": [],
+   "gestures": [],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/option/StringOptionUI.java",
+   "line": 52,
+   "class": "StringOptionUI",
+   "method": "StringOptionUI",
+   "kind": "opens",
+   "target": "GUI.getChoices",
+   "guards": [],
+   "gestures": [],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/option/UnitTypeOptionUI.java",
+   "line": 68,
+   "class": "UnitTypeOptionUI",
+   "method": "UnitTypeOptionUI",
+   "kind": "opens",
+   "target": "GUI.getChoices",
+   "guards": [],
+   "gestures": [],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/BuildQueuePanel.java",
+   "line": 421,
+   "class": "BuildQueuePanel.BuildQueueMouseAdapter",
+   "method": "mousePressed",
+   "kind": "opens",
+   "target": "GUI.showColopediaPanel",
+   "guards": [
+    "if (e.getButton() == MouseEvent.BUTTON3 || e.isPopupTrigger())"
+   ],
+   "gestures": [
+    "mousePressed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/BuildQueuePanel.java",
+   "line": 1011,
+   "class": "BuildQueuePanel",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showInformationPanel",
+   "guards": [
+    "if (this.colony.getOwner() == getMyPlayer())",
+    "while ((bt = first(buildables)) != null"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/BuildQueuePanel.java",
+   "line": 1016,
+   "class": "BuildQueuePanel",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.setBuildQueue",
+   "guards": [
+    "if (this.colony.getOwner() == getMyPlayer())"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/BuildQueuePanel.java",
+   "line": 1025,
+   "class": "BuildQueuePanel",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.payForBuilding",
+   "guards": [
+    "if (this.colony.getOwner() == getMyPlayer())",
+    "if (null != command) switch (command)",
+    "case BUY:"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/ChatPanel.java",
+   "line": 110,
+   "class": "ChatPanel",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.chat",
+   "guards": [
+    "case CHAT:",
+    "if (!message.trim().equals(\"\"))"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": false,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/ColonyPanel.java",
+   "line": 215,
+   "class": "",
+   "method": "(field)",
+   "kind": "controller",
+   "target": "InGameController.unloadCargo",
+   "guards": [
+    "for (Goods goods : unit.getGoodsList())"
+   ],
+   "gestures": [],
+   "keys": [
+    "unload",
+    "load",
+    "colonyPanel.warehouse",
+    "colonyPanel.buildQueue",
+    "colonyPanel.colonyUnits"
+   ],
+   "reached": true,
+   "keysUsed": [
+    "unload",
+    "load",
+    "colonyPanel.warehouse"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/ColonyPanel.java",
+   "line": 218,
+   "class": "",
+   "method": "(field)",
+   "kind": "controller",
+   "target": "InGameController.leaveShip",
+   "guards": [
+    "for (Unit u : unit.getUnitList())"
+   ],
+   "gestures": [],
+   "keys": [
+    "unload",
+    "load",
+    "colonyPanel.warehouse",
+    "colonyPanel.buildQueue",
+    "colonyPanel.colonyUnits"
+   ],
+   "reached": true,
+   "keysUsed": [
+    "unload",
+    "load",
+    "colonyPanel.warehouse"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/ColonyPanel.java",
+   "line": 227,
+   "class": "",
+   "method": "getGUI",
+   "kind": "opens",
+   "target": "GUI.showWarehouseDialog",
+   "guards": [],
+   "gestures": [],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/ColonyPanel.java",
+   "line": 235,
+   "class": "",
+   "method": "(field)",
+   "kind": "opens",
+   "target": "GUI.showBuildQueuePanel",
+   "guards": [],
+   "gestures": [],
+   "keys": [
+    "unload",
+    "load",
+    "colonyPanel.warehouse",
+    "colonyPanel.buildQueue",
+    "colonyPanel.colonyUnits"
+   ],
+   "reached": null,
+   "keysUsed": [
+    "unload",
+    "load",
+    "colonyPanel.warehouse"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/ColonyPanel.java",
+   "line": 249,
+   "class": "",
+   "method": "(field)",
+   "kind": "controller",
+   "target": "InGameController.loadCargo",
+   "guards": [
+    "for (Goods goods : unit.getCompactGoodsList())",
+    "if (space > 0 && count > 0)"
+   ],
+   "gestures": [],
+   "keys": [
+    "unload",
+    "load",
+    "colonyPanel.warehouse",
+    "colonyPanel.buildQueue",
+    "colonyPanel.colonyUnits"
+   ],
+   "reached": true,
+   "keysUsed": [
+    "unload",
+    "load",
+    "colonyPanel.warehouse"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/ColonyPanel.java",
+   "line": 498,
+   "class": "",
+   "method": "refreshLayout",
+   "kind": "opens",
+   "target": "GUI.showColonyPanel",
+   "guards": [],
+   "gestures": [],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/ColonyPanel.java",
+   "line": 821,
+   "class": "",
+   "method": "initialize",
+   "kind": "opens",
+   "target": "GUI.showColonyPanel",
+   "guards": [
+    "if (traceWorkButton != null)"
+   ],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/ColonyPanel.java",
+   "line": 1002,
+   "class": "",
+   "method": "updateProduction",
+   "kind": "controller",
+   "target": "InGameController.changeWorkType",
+   "guards": [
+    "for (WorkLocation wl : colony.getCurrentWorkLocationsList())",
+    "for (Unit unit : transform(wl.getUnits(), u ->",
+    "if (workType != null && workType != unit.getWorkType())"
+   ],
+   "gestures": [],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/ColonyPanel.java",
+   "line": 1100,
+   "class": "",
+   "method": "generateColonyUnitsMenu",
+   "kind": "opens",
+   "target": "GUI.showPopupMenu",
+   "guards": [
+    "for (final Unit unit : colony.getUnitList())",
+    "} else"
+   ],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [
+    "colonyPanel.colonyUnits",
+    "colonyPanel.producing",
+    "nothing",
+    "colonyPanel.inPort",
+    "cargoOnCarrier",
+    "colonyPanel.outsideColony"
+   ],
+   "reached": null,
+   "keysUsed": [
+    "nothing",
+    "colonyPanel.inPort",
+    "cargoOnCarrier",
+    "colonyPanel.outsideColony"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/ColonyPanel.java",
+   "line": 1113,
+   "class": "",
+   "method": "generateColonyUnitsMenu",
+   "kind": "opens",
+   "target": "GUI.showPopupMenu",
+   "guards": [
+    "for (final Unit unit : colonyTile.getUnitList())",
+    "if (unit.isCarrier())"
+   ],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [
+    "colonyPanel.colonyUnits",
+    "colonyPanel.producing",
+    "nothing",
+    "colonyPanel.inPort",
+    "cargoOnCarrier",
+    "colonyPanel.outsideColony"
+   ],
+   "reached": null,
+   "keysUsed": [
+    "nothing",
+    "colonyPanel.inPort",
+    "cargoOnCarrier",
+    "colonyPanel.outsideColony"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/ColonyPanel.java",
+   "line": 1124,
+   "class": "",
+   "method": "generateColonyUnitsMenu",
+   "kind": "opens",
+   "target": "GUI.showPopupMenu",
+   "guards": [
+    "for (final Unit unit : colonyTile.getUnitList())",
+    "if (unit.isCarrier())",
+    "for (final Unit innerUnit : unit.getUnitList())"
+   ],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [
+    "colonyPanel.colonyUnits",
+    "colonyPanel.producing",
+    "nothing",
+    "colonyPanel.inPort",
+    "cargoOnCarrier",
+    "colonyPanel.outsideColony"
+   ],
+   "reached": null,
+   "keysUsed": [
+    "nothing",
+    "colonyPanel.inPort",
+    "cargoOnCarrier",
+    "colonyPanel.outsideColony"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/ColonyPanel.java",
+   "line": 1135,
+   "class": "",
+   "method": "generateColonyUnitsMenu",
+   "kind": "opens",
+   "target": "GUI.showPopupMenu",
+   "guards": [
+    "for (final Unit unit : colonyTile.getUnitList())",
+    "} else if (!unit.isOnCarrier())"
+   ],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [
+    "colonyPanel.colonyUnits",
+    "colonyPanel.producing",
+    "nothing",
+    "colonyPanel.inPort",
+    "cargoOnCarrier",
+    "colonyPanel.outsideColony"
+   ],
+   "reached": null,
+   "keysUsed": [
+    "nothing",
+    "colonyPanel.inPort",
+    "cargoOnCarrier",
+    "colonyPanel.outsideColony"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/ColonyPanel.java",
+   "line": 1148,
+   "class": "",
+   "method": "generateColonyUnitsMenu",
+   "kind": "opens",
+   "target": "GUI.showPopupMenu",
+   "guards": [],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [
+    "colonyPanel.colonyUnits",
+    "colonyPanel.producing",
+    "nothing",
+    "colonyPanel.inPort",
+    "cargoOnCarrier",
+    "colonyPanel.outsideColony"
+   ],
+   "reached": null,
+   "keysUsed": [
+    "nothing",
+    "colonyPanel.inPort",
+    "cargoOnCarrier",
+    "colonyPanel.outsideColony"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/ColonyPanel.java",
+   "line": 1165,
+   "class": "",
+   "method": "tryWork",
+   "kind": "controller",
+   "target": "InGameController.work",
+   "guards": [],
+   "gestures": [],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/ColonyPanel.java",
+   "line": 1173,
+   "class": "",
+   "method": "tryWork",
+   "kind": "controller",
+   "target": "InGameController.changeWorkType",
+   "guards": [
+    "if (workType != null && workType != unit.getWorkType())"
+   ],
+   "gestures": [],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/ColonyPanel.java",
+   "line": 1334,
+   "class": "",
+   "method": "closeColonyPanel",
+   "kind": "controller",
+   "target": "InGameController.closeColony",
+   "guards": [],
+   "gestures": [],
+   "keys": [
+    "colonyPanel.reducePopulation"
+   ],
+   "reached": true,
+   "keysUsed": [
+    "colonyPanel.reducePopulation"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/ColonyPanel.java",
+   "line": 1393,
+   "class": "",
+   "method": "propertyChange",
+   "kind": "opens",
+   "target": "GUI.showInformationPanel",
+   "guards": [
+    "} else if (ColonyChangeEvent.BONUS_CHANGE.toString().equals(property))",
+    "if (colony.getUnitCount() > 0)",
+    "if (msg != null)"
+   ],
+   "gestures": [],
+   "keys": [
+    "colonyPanel.unitChange"
+   ],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/ColonyPanel.java",
+   "line": 1403,
+   "class": "",
+   "method": "propertyChange",
+   "kind": "opens",
+   "target": "GUI.showInformationPanel",
+   "guards": [
+    "} else if (ColonyChangeEvent.UNIT_TYPE_CHANGE.toString().equals(property))"
+   ],
+   "gestures": [],
+   "keys": [
+    "colonyPanel.unitChange"
+   ],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/ColonyPanel.java",
+   "line": 1770,
+   "class": "OutsideColonyPanel",
+   "method": "add",
+   "kind": "controller",
+   "target": "InGameController.putOutsideColony",
+   "guards": [
+    "if (editState)",
+    "if (comp instanceof UnitLabel)",
+    "if (!unit.isOnCarrier())"
+   ],
+   "gestures": [],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/ColonyPanel.java",
+   "line": 2088,
+   "class": "BuildingsPanel.anon MouseAdapter",
+   "method": "mousePressed",
+   "kind": "opens",
+   "target": "GUI.showBuildQueuePanel",
+   "guards": [],
+   "gestures": [
+    "mousePressed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/ColonyPanel.java",
+   "line": 2264,
+   "class": "BuildingsPanel",
+   "method": "tryWork",
+   "kind": "opens",
+   "target": "GUI.showInformationPanel",
+   "guards": [
+    "if (reason != NoAddReason.NONE)"
+   ],
+   "gestures": [],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/ColonyPanel.java",
+   "line": 2474,
+   "class": "TilesPanel",
+   "method": "(field)",
+   "kind": "opens",
+   "target": "GUI.showInformationPanel",
+   "guards": [],
+   "gestures": [],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/ColonyPanel.java",
+   "line": 2655,
+   "class": "TilesPanel",
+   "method": "tryWork",
+   "kind": "controller",
+   "target": "InGameController.claimTile",
+   "guards": [
+    "if (tile.getOwningSettlement() != colony)",
+    "case NONE: case NATIVES:",
+    "if (igc().claimTile(tile, colony)"
+   ],
+   "gestures": [],
+   "keys": [
+    "colonyPanel.notBestTile"
+   ],
+   "reached": false,
+   "keysUsed": [
+    "colonyPanel.notBestTile"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/ColonyPanel.java",
+   "line": 2668,
+   "class": "TilesPanel",
+   "method": "tryWork",
+   "kind": "opens",
+   "target": "GUI.showInformationPanel",
+   "guards": [
+    "if (tile.getOwningSettlement() != colony)",
+    "default:"
+   ],
+   "gestures": [],
+   "keys": [
+    "colonyPanel.notBestTile"
+   ],
+   "reached": null,
+   "keysUsed": [
+    "colonyPanel.notBestTile"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/ColonyPanel.java",
+   "line": 2680,
+   "class": "TilesPanel",
+   "method": "tryWork",
+   "kind": "opens",
+   "target": "GUI.showInformationPanel",
+   "guards": [
+    "if (reason != NoAddReason.NONE)"
+   ],
+   "gestures": [],
+   "keys": [
+    "colonyPanel.notBestTile"
+   ],
+   "reached": null,
+   "keysUsed": [
+    "colonyPanel.notBestTile"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/ColonyPanel.java",
+   "line": 2701,
+   "class": "TilesPanel",
+   "method": "tryWork",
+   "kind": "opens",
+   "target": "GUI.showPoorProduction",
+   "guards": [
+    "if (workType != null",
+    "if (best != null && this.colonyTile != best"
+   ],
+   "gestures": [],
+   "keys": [
+    "colonyPanel.notBestTile"
+   ],
+   "reached": null,
+   "keysUsed": [
+    "colonyPanel.notBestTile"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/ColorCellEditor.java",
+   "line": 64,
+   "class": "",
+   "method": "ColorCellEditor",
+   "kind": "opens",
+   "target": "GUI.showColorChooserPanel",
+   "guards": [],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/ConstructionPanel.java",
+   "line": 109,
+   "class": "",
+   "method": "initialize/addMouseListener/mousePressed",
+   "kind": "opens",
+   "target": "GUI.showBuildQueuePanel",
+   "guards": [],
+   "gestures": [
+    "addMouseListener",
+    "mousePressed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/CornerMapControls.java",
+   "line": 117,
+   "class": "CornerMapControls.anon MouseAdapter",
+   "method": "CornerMapControls/mouseClicked",
+   "kind": "controller",
+   "target": "InGameController.moveUnit",
+   "guards": [],
+   "gestures": [
+    "addMouseListener",
+    "mouseClicked"
+   ],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/DefaultTransferHandler.java",
+   "line": 323,
+   "class": "DefaultTransferHandler",
+   "method": "(field)",
+   "kind": "opens",
+   "target": "GUI.showSelectAmountDialog",
+   "guards": [],
+   "gestures": [],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/DragListener.java",
+   "line": 127,
+   "class": "DragListener",
+   "method": "mousePressed",
+   "kind": "opens",
+   "target": "GUI.showPopupMenu",
+   "guards": [
+    "if (e.getButton() == MouseEvent.BUTTON3 || e.isPopupTrigger())",
+    "if ((gui.isWindowed() && windows)"
+   ],
+   "gestures": [
+    "mousePressed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/ErrorPanel.java",
+   "line": 115,
+   "class": "ErrorPanel",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showLogFilePanel",
+   "guards": [
+    "if (SHOW.equals(command))"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/EuropePanel.java",
+   "line": 187,
+   "class": "EuropePanel.DestinationPanel",
+   "method": "add",
+   "kind": "controller",
+   "target": "InGameController.assignTradeRoute",
+   "guards": [
+    "if (editState)",
+    "if (unit.getTradeRoute() != null)",
+    "if (!getGUI().confirmClearTradeRoute(unit)"
+   ],
+   "gestures": [],
+   "keys": [
+    "europePanel.leaveColonists"
+   ],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/EuropePanel.java",
+   "line": 192,
+   "class": "EuropePanel.DestinationPanel",
+   "method": "add",
+   "kind": "opens",
+   "target": "GUI.showSelectDestinationDialog",
+   "guards": [
+    "if (editState)",
+    "if (unit.isInEurope())"
+   ],
+   "gestures": [],
+   "keys": [
+    "europePanel.leaveColonists"
+   ],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/EuropePanel.java",
+   "line": 210,
+   "class": "EuropePanel.DestinationPanel",
+   "method": "add",
+   "kind": "controller",
+   "target": "InGameController.moveTo",
+   "guards": [
+    "if (editState)"
+   ],
+   "gestures": [],
+   "keys": [
+    "europePanel.leaveColonists"
+   ],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/EuropePanel.java",
+   "line": 468,
+   "class": "EuropePanel.MarketPanel",
+   "method": "add",
+   "kind": "controller",
+   "target": "InGameController.sellGoods",
+   "guards": [
+    "if (editState)",
+    "if (getMyPlayer().canTrade(goods.getType()))"
+   ],
+   "gestures": [],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/EuropePanel.java",
+   "line": 471,
+   "class": "EuropePanel.MarketPanel",
+   "method": "add",
+   "kind": "opens",
+   "target": "GUI.getBoycottChoice",
+   "guards": [
+    "if (editState)",
+    "} else"
+   ],
+   "gestures": [],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/EuropePanel.java",
+   "line": 475,
+   "class": "EuropePanel.MarketPanel",
+   "method": "add",
+   "kind": "controller",
+   "target": "InGameController.payArrears",
+   "guards": [
+    "if (editState)",
+    "} else",
+    "if (act != null)",
+    "case BOYCOTT_PAY_ARREARS:"
+   ],
+   "gestures": [],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/EuropePanel.java",
+   "line": 478,
+   "class": "EuropePanel.MarketPanel",
+   "method": "add",
+   "kind": "controller",
+   "target": "InGameController.unloadCargo",
+   "guards": [
+    "if (editState)",
+    "} else",
+    "if (act != null)",
+    "case BOYCOTT_DUMP_CARGO:"
+   ],
+   "gestures": [],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/EuropePanel.java",
+   "line": 489,
+   "class": "EuropePanel.MarketPanel",
+   "method": "add",
+   "kind": "controller",
+   "target": "InGameController.nextModelMessage",
+   "guards": [
+    "if (editState)"
+   ],
+   "gestures": [],
+   "keys": [],
+   "reached": false,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/EuropePanel.java",
+   "line": 636,
+   "class": "EuropePanel",
+   "method": "EuropePanel",
+   "kind": "opens",
+   "target": "GUI.showTrainPanel",
+   "guards": [],
+   "gestures": [
+    "addMouseListener",
+    "actionPerformed"
+   ],
+   "keys": [
+    "close",
+    "train",
+    "purchase",
+    "recruit",
+    "unload",
+    "setSail"
+   ],
+   "reached": null,
+   "keysUsed": [
+    "close",
+    "train",
+    "purchase",
+    "recruit",
+    "unload",
+    "setSail"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/EuropePanel.java",
+   "line": 639,
+   "class": "EuropePanel",
+   "method": "EuropePanel",
+   "kind": "opens",
+   "target": "GUI.showPurchasePanel",
+   "guards": [],
+   "gestures": [
+    "addMouseListener",
+    "actionPerformed"
+   ],
+   "keys": [
+    "close",
+    "train",
+    "purchase",
+    "recruit",
+    "unload",
+    "setSail"
+   ],
+   "reached": null,
+   "keysUsed": [
+    "close",
+    "train",
+    "purchase",
+    "recruit",
+    "unload",
+    "setSail"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/EuropePanel.java",
+   "line": 642,
+   "class": "EuropePanel",
+   "method": "EuropePanel",
+   "kind": "opens",
+   "target": "GUI.showRecruitPanel",
+   "guards": [],
+   "gestures": [
+    "addMouseListener",
+    "actionPerformed"
+   ],
+   "keys": [
+    "close",
+    "train",
+    "purchase",
+    "recruit",
+    "unload",
+    "setSail"
+   ],
+   "reached": null,
+   "keysUsed": [
+    "close",
+    "train",
+    "purchase",
+    "recruit",
+    "unload",
+    "setSail"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/EuropePanel.java",
+   "line": 844,
+   "class": "EuropePanel",
+   "method": "exitAction",
+   "kind": "controller",
+   "target": "InGameController.nextModelMessage",
+   "guards": [],
+   "gestures": [],
+   "keys": [],
+   "reached": false,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/EuropePanel.java",
+   "line": 856,
+   "class": "EuropePanel",
+   "method": "unloadAction",
+   "kind": "controller",
+   "target": "InGameController.sellGoods",
+   "guards": [
+    "if (unit != null && unit.isCarrier())",
+    "for (Goods g : unit.getCompactGoodsList())",
+    "if (player.canTrade(g.getType()))"
+   ],
+   "gestures": [],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/EuropePanel.java",
+   "line": 858,
+   "class": "EuropePanel",
+   "method": "unloadAction",
+   "kind": "controller",
+   "target": "InGameController.payArrears",
+   "guards": [
+    "if (unit != null && unit.isCarrier())",
+    "for (Goods g : unit.getCompactGoodsList())",
+    "} else"
+   ],
+   "gestures": [],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/EuropePanel.java",
+   "line": 862,
+   "class": "EuropePanel",
+   "method": "unloadAction",
+   "kind": "controller",
+   "target": "InGameController.leaveShip",
+   "guards": [
+    "if (unit != null && unit.isCarrier())",
+    "for (Unit u : unit.getUnitList())"
+   ],
+   "gestures": [],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/FindSettlementPanel.java",
+   "line": 211,
+   "class": "",
+   "method": "selectSettlement",
+   "kind": "opens",
+   "target": "GUI.showColonyPanel",
+   "guards": [
+    "if (settlement instanceof Colony"
+   ],
+   "gestures": [],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/FindSettlementPanel.java",
+   "line": 214,
+   "class": "",
+   "method": "selectSettlement",
+   "kind": "opens",
+   "target": "GUI.showIndianSettlementPanel",
+   "guards": [
+    "} else if (settlement instanceof IndianSettlement)"
+   ],
+   "gestures": [],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/MapEditorTransformPanel.java",
+   "line": 192,
+   "class": "MapEditorTransformPanel.ResourceTransform",
+   "method": "transform",
+   "kind": "opens",
+   "target": "GUI.getResourceChoice",
+   "guards": [
+    "} else",
+    "default:"
+   ],
+   "gestures": [],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/MapEditorTransformPanel.java",
+   "line": 462,
+   "class": "MapEditorTransformPanel",
+   "method": "(field)",
+   "kind": "opens",
+   "target": "GUI.showRiverStyleDialog",
+   "guards": [
+    "if (ctlr.getMapTransform() != mt)",
+    "if (mt instanceof RiverStyleTransform)"
+   ],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/MapEditorTransformPanel.java",
+   "line": 467,
+   "class": "MapEditorTransformPanel",
+   "method": "(field)",
+   "kind": "opens",
+   "target": "GUI.showFreeColPanel",
+   "guards": [
+    "if (ctlr.getMapTransform() != mt)",
+    "if (mt instanceof AssignAreaTransform)"
+   ],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/NewPanel.java",
+   "line": 275,
+   "class": "NewPanel",
+   "method": "NewPanel/getGUI",
+   "kind": "opens",
+   "target": "GUI.showDifficultyDialog",
+   "guards": [],
+   "gestures": [
+    "addActionListener",
+    "addItemListener",
+    "actionPerformed"
+   ],
+   "keys": [
+    "newPanel.singlePlayerGame",
+    "newPanel.joinMultiPlayerGame",
+    "newPanel.startMultiplayerGame",
+    "newPanel.getServerList",
+    "newPanel.nationalAdvantages",
+    "newPanel.startServerOnPort",
+    "rules",
+    "newPanel.publicServer",
+    "difficulty",
+    "newPanel.showDifficulty",
+    "host",
+    "port",
+    "cancel",
+    "name"
+   ],
+   "reached": null,
+   "keysUsed": [
+    "rules",
+    "difficulty",
+    "port",
+    "cancel",
+    "name"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/NewPanel.java",
+   "line": 301,
+   "class": "NewPanel",
+   "method": "NewPanel",
+   "kind": "opens",
+   "target": "GUI.showMainPanel",
+   "guards": [
+    "} else"
+   ],
+   "gestures": [
+    "addActionListener",
+    "addItemListener",
+    "actionPerformed"
+   ],
+   "keys": [
+    "newPanel.singlePlayerGame",
+    "newPanel.joinMultiPlayerGame",
+    "newPanel.startMultiplayerGame",
+    "newPanel.getServerList",
+    "newPanel.nationalAdvantages",
+    "newPanel.startServerOnPort",
+    "rules",
+    "newPanel.publicServer",
+    "difficulty",
+    "newPanel.showDifficulty",
+    "host",
+    "port",
+    "cancel",
+    "name"
+   ],
+   "reached": null,
+   "keysUsed": [
+    "rules",
+    "difficulty",
+    "port",
+    "cancel",
+    "name"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/NewPanel.java",
+   "line": 603,
+   "class": "NewPanel",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showServerListPanel",
+   "guards": [
+    "case OK:",
+    "case META_SERVER:",
+    "if (servers != null) gui.showServerListPanel(servers);"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [
+    "error.unspecified"
+   ],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/NewPanel.java",
+   "line": 614,
+   "class": "NewPanel",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showErrorPanel",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [
+    "error.unspecified"
+   ],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/NewUnitPanel.java",
+   "line": 152,
+   "class": "NewUnitPanel",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.trainUnitInEurope",
+   "guards": [
+    "} else"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/PlayersTable.java",
+   "line": 609,
+   "class": "PlayersTable.PlayersTableModel",
+   "method": "setValueAt",
+   "kind": "controller",
+   "target": "PreGameController.setNationType",
+   "guards": [
+    "if (row >= 0 && row < getRowCount()",
+    "case ADVANTAGE_COLUMN:"
+   ],
+   "gestures": [],
+   "keys": [],
+   "reached": false,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/PlayersTable.java",
+   "line": 613,
+   "class": "PlayersTable.PlayersTableModel",
+   "method": "setValueAt",
+   "kind": "controller",
+   "target": "PreGameController.setAvailable",
+   "guards": [
+    "if (row >= 0 && row < getRowCount()",
+    "case AVAILABILITY_COLUMN:"
+   ],
+   "gestures": [],
+   "keys": [],
+   "reached": false,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/PlayersTable.java",
+   "line": 618,
+   "class": "PlayersTable.PlayersTableModel",
+   "method": "setValueAt",
+   "kind": "controller",
+   "target": "PreGameController.setColor",
+   "guards": [
+    "if (row >= 0 && row < getRowCount()",
+    "case COLOR_COLUMN:"
+   ],
+   "gestures": [],
+   "keys": [],
+   "reached": false,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/PlayersTable.java",
+   "line": 624,
+   "class": "PlayersTable.PlayersTableModel",
+   "method": "setValueAt",
+   "kind": "controller",
+   "target": "PreGameController.setNation",
+   "guards": [
+    "if (row >= 0 && row < getRowCount()",
+    "case PLAYER_COLUMN:",
+    "if (nationOptions.getNationState(nation)"
+   ],
+   "gestures": [],
+   "keys": [],
+   "reached": false,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/PlayersTable.java",
+   "line": 625,
+   "class": "PlayersTable.PlayersTableModel",
+   "method": "setValueAt",
+   "kind": "controller",
+   "target": "PreGameController.setNationType",
+   "guards": [
+    "if (row >= 0 && row < getRowCount()",
+    "case PLAYER_COLUMN:",
+    "if (nationOptions.getNationState(nation)"
+   ],
+   "gestures": [],
+   "keys": [],
+   "reached": false,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/PlayersTable.java",
+   "line": 677,
+   "class": "PlayersTable",
+   "method": "(field)",
+   "kind": "opens",
+   "target": "GUI.showColopediaPanel",
+   "guards": [],
+   "gestures": [
+    "addActionListener",
+    "addMouseListener"
+   ],
+   "keys": [
+    "none",
+    "countryName",
+    "select",
+    "nation",
+    "playersTable.availability",
+    "playersTable.advantage",
+    "color",
+    "player"
+   ],
+   "reached": null,
+   "keysUsed": [
+    "none",
+    "select",
+    "nation",
+    "color"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/PlayersTable.java",
+   "line": 683,
+   "class": "PlayersTable",
+   "method": "(field)",
+   "kind": "opens",
+   "target": "GUI.showColopediaPanel",
+   "guards": [],
+   "gestures": [
+    "addActionListener",
+    "addMouseListener"
+   ],
+   "keys": [
+    "none",
+    "countryName",
+    "select",
+    "nation",
+    "playersTable.availability",
+    "playersTable.advantage",
+    "color",
+    "player"
+   ],
+   "reached": null,
+   "keysUsed": [
+    "none",
+    "select",
+    "nation",
+    "color"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/QuickActionMenu.java",
+   "line": 155,
+   "class": "QuickActionMenu",
+   "method": "promptForGoods",
+   "kind": "opens",
+   "target": "GUI.showSelectAmountDialog",
+   "guards": [],
+   "gestures": [],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/QuickActionMenu.java",
+   "line": 250,
+   "class": "QuickActionMenu",
+   "method": "addBoardItems",
+   "kind": "controller",
+   "target": "InGameController.boardShip",
+   "guards": [
+    "for (Unit unit : transform(loc.getUnitList(), u ->"
+   ],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [
+    "quickActionMenu.board"
+   ],
+   "reached": true,
+   "keysUsed": [
+    "quickActionMenu.board"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/QuickActionMenu.java",
+   "line": 274,
+   "class": "QuickActionMenu",
+   "method": "addLoadItems",
+   "kind": "controller",
+   "target": "InGameController.loadCargo",
+   "guards": [
+    "for (Unit unit : transform(loc.getUnits(), u ->"
+   ],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [
+    "quickActionMenu.loadOnTo"
+   ],
+   "reached": true,
+   "keysUsed": [
+    "quickActionMenu.loadOnTo"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/QuickActionMenu.java",
+   "line": 423,
+   "class": "QuickActionMenu",
+   "method": "addWorkItems",
+   "kind": "opens",
+   "target": "GUI.showWorkProductionPanel",
+   "guards": [
+    "if (current != null && unit.getWorkType() != null)"
+   ],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [
+    "showProductionModifiers"
+   ],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/QuickActionMenu.java",
+   "line": 662,
+   "class": "QuickActionMenu",
+   "method": "(field)",
+   "kind": "controller",
+   "target": "InGameController.equipUnitForRole",
+   "guards": [
+    "default:"
+   ],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [
+    "goldAmount",
+    "income"
+   ],
+   "reached": true,
+   "keysUsed": [
+    "goldAmount",
+    "income"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/QuickActionMenu.java",
+   "line": 738,
+   "class": "QuickActionMenu",
+   "method": "createGoodsMenu",
+   "kind": "opens",
+   "target": "GUI.showColopediaPanel",
+   "guards": [],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [
+    "cargo",
+    "colopedia",
+    "quickActionMenu.profit",
+    "unload",
+    "dumpCargo"
+   ],
+   "reached": null,
+   "keysUsed": [
+    "cargo",
+    "colopedia",
+    "unload",
+    "dumpCargo"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/QuickActionMenu.java",
+   "line": 775,
+   "class": "QuickActionMenu",
+   "method": "createGoodsMenu",
+   "kind": "controller",
+   "target": "InGameController.unloadCargo",
+   "guards": [
+    "} else if (goods.getLocation() instanceof Unit)",
+    "if (carrier.getLocation().getColony() != null"
+   ],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [
+    "cargo",
+    "colopedia",
+    "quickActionMenu.profit",
+    "unload",
+    "dumpCargo"
+   ],
+   "reached": true,
+   "keysUsed": [
+    "cargo",
+    "colopedia",
+    "unload",
+    "dumpCargo"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/QuickActionMenu.java",
+   "line": 789,
+   "class": "QuickActionMenu",
+   "method": "createGoodsMenu",
+   "kind": "controller",
+   "target": "InGameController.unloadCargo",
+   "guards": [
+    "} else if (goods.getLocation() instanceof Unit)",
+    "} else",
+    "if (carrier.isInEurope()"
+   ],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [
+    "cargo",
+    "colopedia",
+    "quickActionMenu.profit",
+    "unload",
+    "dumpCargo"
+   ],
+   "reached": true,
+   "keysUsed": [
+    "cargo",
+    "colopedia",
+    "unload",
+    "dumpCargo"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/QuickActionMenu.java",
+   "line": 812,
+   "class": "QuickActionMenu",
+   "method": "addPayArrears",
+   "kind": "controller",
+   "target": "InGameController.payArrears",
+   "guards": [],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [
+    "payArrears"
+   ],
+   "reached": true,
+   "keysUsed": [
+    "payArrears"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/QuickActionMenu.java",
+   "line": 845,
+   "class": "QuickActionMenu",
+   "method": "createMarketMenu",
+   "kind": "opens",
+   "target": "GUI.showColopediaPanel",
+   "guards": [],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [
+    "cargo",
+    "colopedia"
+   ],
+   "reached": null,
+   "keysUsed": [
+    "cargo",
+    "colopedia"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/QuickActionMenu.java",
+   "line": 874,
+   "class": "QuickActionMenu",
+   "method": "addMarketItems",
+   "kind": "controller",
+   "target": "InGameController.buyGoods",
+   "guards": [
+    "for (Unit unit : transform(europe.getUnits(), u ->"
+   ],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [
+    "quickActionMenu.loadOnTo"
+   ],
+   "reached": true,
+   "keysUsed": [
+    "quickActionMenu.loadOnTo"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/QuickActionMenu.java",
+   "line": 922,
+   "class": "QuickActionMenu",
+   "method": "addTileItem",
+   "kind": "opens",
+   "target": "GUI.showTilePanel",
+   "guards": [
+    "if (tile != null)"
+   ],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/RecruitPanel.java",
+   "line": 140,
+   "class": "RecruitPanel",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.recruitUnitInEurope",
+   "guards": [
+    "} else",
+    "if (Europe.MigrationType.validMigrantIndex(index))"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/ServerListPanel.java",
+   "line": 90,
+   "class": "ServerListPanel",
+   "method": "ServerListPanel",
+   "kind": "controller",
+   "target": "ConnectController.joinMultiplayerGame",
+   "guards": [
+    "for (int i = 0; i < table.getColumnModel().getColumnCount(); i++)"
+   ],
+   "gestures": [
+    "addActionListener",
+    "actionPerformed"
+   ],
+   "keys": [
+    "cancel",
+    "connect"
+   ],
+   "reached": false,
+   "keysUsed": [
+    "cancel",
+    "connect"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/ServerListPanel.java",
+   "line": 96,
+   "class": "ServerListPanel",
+   "method": "ServerListPanel",
+   "kind": "opens",
+   "target": "GUI.showNewPanel",
+   "guards": [
+    "for (int i = 0; i < table.getColumnModel().getColumnCount(); i++)"
+   ],
+   "gestures": [
+    "addActionListener",
+    "actionPerformed"
+   ],
+   "keys": [
+    "cancel",
+    "connect"
+   ],
+   "reached": null,
+   "keysUsed": [
+    "cancel",
+    "connect"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/StartGamePanel.java",
+   "line": 80,
+   "class": "StartGamePanel",
+   "method": "(field)",
+   "kind": "controller",
+   "target": "PreGameController.requestLaunch",
+   "guards": [],
+   "gestures": [],
+   "keys": [
+    "private"
+   ],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/StartGamePanel.java",
+   "line": 87,
+   "class": "StartGamePanel",
+   "method": "(field)",
+   "kind": "controller",
+   "target": "ConnectController.requestLogout",
+   "guards": [
+    "if (getFreeColClient().isLoggedIn())"
+   ],
+   "gestures": [],
+   "keys": [
+    "private"
+   ],
+   "reached": false,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/StartGamePanel.java",
+   "line": 91,
+   "class": "StartGamePanel",
+   "method": "(field)",
+   "kind": "opens",
+   "target": "GUI.showNewPanel",
+   "guards": [],
+   "gestures": [],
+   "keys": [
+    "private"
+   ],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/StartGamePanel.java",
+   "line": 95,
+   "class": "StartGamePanel",
+   "method": "(field)",
+   "kind": "controller",
+   "target": "PreGameController.setReady",
+   "guards": [],
+   "gestures": [],
+   "keys": [
+    "private"
+   ],
+   "reached": false,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/StartGamePanel.java",
+   "line": 101,
+   "class": "StartGamePanel",
+   "method": "(field)",
+   "kind": "controller",
+   "target": "PreGameController.sendChat",
+   "guards": [
+    "if (!chat.getText().isEmpty())"
+   ],
+   "gestures": [],
+   "keys": [
+    "private"
+   ],
+   "reached": false,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/StartGamePanel.java",
+   "line": 109,
+   "class": "StartGamePanel",
+   "method": "getGUI",
+   "kind": "opens",
+   "target": "GUI.showGameOptionsDialog",
+   "guards": [],
+   "gestures": [],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/StartGamePanel.java",
+   "line": 112,
+   "class": "StartGamePanel",
+   "method": "getGUI",
+   "kind": "controller",
+   "target": "PreGameController.updateGameOptions",
+   "guards": [
+    "if (gameOptions != null)"
+   ],
+   "gestures": [],
+   "keys": [],
+   "reached": false,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/StartGamePanel.java",
+   "line": 119,
+   "class": "StartGamePanel",
+   "method": "getGUI",
+   "kind": "opens",
+   "target": "GUI.showMapGeneratorOptionsDialog",
+   "guards": [],
+   "gestures": [],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/StartGamePanel.java",
+   "line": 122,
+   "class": "StartGamePanel",
+   "method": "getGUI",
+   "kind": "controller",
+   "target": "PreGameController.updateMapGeneratorOptions",
+   "guards": [
+    "if (mgo != null)"
+   ],
+   "gestures": [],
+   "keys": [],
+   "reached": false,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/StartGamePanel.java",
+   "line": 239,
+   "class": "StartGamePanel",
+   "method": "checkVictoryConditions",
+   "kind": "opens",
+   "target": "GUI.showInformationPanel",
+   "guards": [
+    "if (singlePlayerGame",
+    "if (n == 0)"
+   ],
+   "gestures": [],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/TilePanel.java",
+   "line": 225,
+   "class": "TilePanel",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showColopediaPanel",
+   "guards": [
+    "} else"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/TradeRouteInputPanel.java",
+   "line": 767,
+   "class": "",
+   "method": "verifyNewTradeRoute",
+   "kind": "opens",
+   "target": "GUI.showInformationPanel",
+   "guards": [
+    "if (err != null)"
+   ],
+   "gestures": [],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/TradeRoutePanel.java",
+   "line": 136,
+   "class": "TradeRoutePanel",
+   "method": "TradeRoutePanel",
+   "kind": "opens",
+   "target": "GUI.showTradeRouteInputPanel",
+   "guards": [],
+   "gestures": [
+    "addListSelectionListener",
+    "addActionListener",
+    "actionPerformed"
+   ],
+   "keys": [
+    "tradeRoutePanel.newRoute",
+    "tradeRoutePanel.editRoute",
+    "tradeRoutePanel.deleteRoute",
+    "tradeRoutePanel.deassignRoute",
+    "cancel"
+   ],
+   "reached": null,
+   "keysUsed": [
+    "tradeRoutePanel.newRoute",
+    "tradeRoutePanel.editRoute",
+    "tradeRoutePanel.deleteRoute",
+    "tradeRoutePanel.deassignRoute",
+    "cancel"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/TradeRoutePanel.java",
+   "line": 143,
+   "class": "TradeRoutePanel",
+   "method": "TradeRoutePanel",
+   "kind": "controller",
+   "target": "InGameController.updateTradeRoute",
+   "guards": [
+    "} else",
+    "} else if ((template = selected.verify()) == null"
+   ],
+   "gestures": [
+    "addListSelectionListener",
+    "addActionListener",
+    "actionPerformed"
+   ],
+   "keys": [
+    "tradeRoutePanel.newRoute",
+    "tradeRoutePanel.editRoute",
+    "tradeRoutePanel.deleteRoute",
+    "tradeRoutePanel.deassignRoute",
+    "cancel"
+   ],
+   "reached": true,
+   "keysUsed": [
+    "tradeRoutePanel.newRoute",
+    "tradeRoutePanel.editRoute",
+    "tradeRoutePanel.deleteRoute",
+    "tradeRoutePanel.deassignRoute",
+    "cancel"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/TradeRoutePanel.java",
+   "line": 146,
+   "class": "TradeRoutePanel",
+   "method": "TradeRoutePanel",
+   "kind": "opens",
+   "target": "GUI.showInformationPanel",
+   "guards": [
+    "} else",
+    "} else"
+   ],
+   "gestures": [
+    "addListSelectionListener",
+    "addActionListener",
+    "actionPerformed"
+   ],
+   "keys": [
+    "tradeRoutePanel.newRoute",
+    "tradeRoutePanel.editRoute",
+    "tradeRoutePanel.deleteRoute",
+    "tradeRoutePanel.deassignRoute",
+    "cancel"
+   ],
+   "reached": null,
+   "keysUsed": [
+    "tradeRoutePanel.newRoute",
+    "tradeRoutePanel.editRoute",
+    "tradeRoutePanel.deleteRoute",
+    "tradeRoutePanel.deassignRoute",
+    "cancel"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/TradeRoutePanel.java",
+   "line": 157,
+   "class": "TradeRoutePanel",
+   "method": "TradeRoutePanel",
+   "kind": "controller",
+   "target": "InGameController.assignTradeRoute",
+   "guards": [
+    "if (route != null)",
+    "for (Unit u : route.getAssignedUnits())"
+   ],
+   "gestures": [
+    "addListSelectionListener",
+    "addActionListener",
+    "actionPerformed"
+   ],
+   "keys": [
+    "tradeRoutePanel.newRoute",
+    "tradeRoutePanel.editRoute",
+    "tradeRoutePanel.deleteRoute",
+    "tradeRoutePanel.deassignRoute",
+    "cancel"
+   ],
+   "reached": true,
+   "keysUsed": [
+    "tradeRoutePanel.newRoute",
+    "tradeRoutePanel.editRoute",
+    "tradeRoutePanel.deleteRoute",
+    "tradeRoutePanel.deassignRoute",
+    "cancel"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/TradeRoutePanel.java",
+   "line": 159,
+   "class": "TradeRoutePanel",
+   "method": "TradeRoutePanel",
+   "kind": "controller",
+   "target": "InGameController.deleteTradeRoute",
+   "guards": [
+    "if (route != null)"
+   ],
+   "gestures": [
+    "addListSelectionListener",
+    "addActionListener",
+    "actionPerformed"
+   ],
+   "keys": [
+    "tradeRoutePanel.newRoute",
+    "tradeRoutePanel.editRoute",
+    "tradeRoutePanel.deleteRoute",
+    "tradeRoutePanel.deassignRoute",
+    "cancel"
+   ],
+   "reached": true,
+   "keysUsed": [
+    "tradeRoutePanel.newRoute",
+    "tradeRoutePanel.editRoute",
+    "tradeRoutePanel.deleteRoute",
+    "tradeRoutePanel.deassignRoute",
+    "cancel"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/TradeRoutePanel.java",
+   "line": 168,
+   "class": "TradeRoutePanel",
+   "method": "TradeRoutePanel",
+   "kind": "controller",
+   "target": "InGameController.clearOrders",
+   "guards": [
+    "if (this.unit != null && getRoute() == this.unit.getTradeRoute())"
+   ],
+   "gestures": [
+    "addListSelectionListener",
+    "addActionListener",
+    "actionPerformed"
+   ],
+   "keys": [
+    "tradeRoutePanel.newRoute",
+    "tradeRoutePanel.editRoute",
+    "tradeRoutePanel.deleteRoute",
+    "tradeRoutePanel.deassignRoute",
+    "cancel"
+   ],
+   "reached": true,
+   "keysUsed": [
+    "tradeRoutePanel.newRoute",
+    "tradeRoutePanel.editRoute",
+    "tradeRoutePanel.deleteRoute",
+    "tradeRoutePanel.deassignRoute",
+    "cancel"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/TradeRoutePanel.java",
+   "line": 228,
+   "class": "TradeRoutePanel",
+   "method": "newRoute",
+   "kind": "controller",
+   "target": "InGameController.newTradeRoute",
+   "guards": [],
+   "gestures": [],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/TradeRoutePanel.java",
+   "line": 229,
+   "class": "TradeRoutePanel",
+   "method": "newRoute",
+   "kind": "opens",
+   "target": "GUI.showTradeRouteInputPanel",
+   "guards": [],
+   "gestures": [],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/TradeRoutePanel.java",
+   "line": 234,
+   "class": "TradeRoutePanel",
+   "method": "newRoute",
+   "kind": "controller",
+   "target": "InGameController.deleteTradeRoute",
+   "guards": [
+    "if (name == null)"
+   ],
+   "gestures": [],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/TradeRoutePanel.java",
+   "line": 239,
+   "class": "TradeRoutePanel",
+   "method": "newRoute",
+   "kind": "opens",
+   "target": "GUI.showInformationPanel",
+   "guards": [
+    "} else if ((template = newRoute.verify()) != null"
+   ],
+   "gestures": [],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/TradeRoutePanel.java",
+   "line": 241,
+   "class": "TradeRoutePanel",
+   "method": "newRoute",
+   "kind": "controller",
+   "target": "InGameController.updateTradeRoute",
+   "guards": [
+    "} else"
+   ],
+   "gestures": [],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/TradeRoutePanel.java",
+   "line": 242,
+   "class": "TradeRoutePanel",
+   "method": "newRoute",
+   "kind": "controller",
+   "target": "InGameController.assignTradeRoute",
+   "guards": [
+    "} else",
+    "if (u != null) igc().assignTradeRoute(u, newRoute);"
+   ],
+   "gestures": [],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/TradeRoutePanel.java",
+   "line": 281,
+   "class": "TradeRoutePanel",
+   "method": "updateList",
+   "kind": "controller",
+   "target": "InGameController.deleteTradeRoute",
+   "guards": [
+    "for (TradeRoute tr : player.getTradeRoutes())",
+    "} else"
+   ],
+   "gestures": [],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/TradeRoutePanel.java",
+   "line": 323,
+   "class": "TradeRoutePanel",
+   "method": "actionPerformed",
+   "kind": "controller",
+   "target": "InGameController.assignTradeRoute",
+   "guards": [
+    "if (OK.equals(command))",
+    "if (this.unit != null && route != null)"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": true,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/colopedia/ColopediaPanel.java",
+   "line": 201,
+   "class": "",
+   "method": "valueChanged",
+   "kind": "opens",
+   "target": "GUI.showDetails",
+   "guards": [
+    "if (node != null)"
+   ],
+   "gestures": [
+    "valueChanged"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/colopedia/ColopediaPanel.java",
+   "line": 226,
+   "class": "",
+   "method": "select",
+   "kind": "opens",
+   "target": "GUI.showDetails",
+   "guards": [
+    "} else"
+   ],
+   "gestures": [],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/mapeditor/ChooseAreaModificationPanel.java",
+   "line": 104,
+   "class": "ChooseAreaModificationPanel",
+   "method": "onFrameClosing",
+   "kind": "controller",
+   "target": "MapEditorController.setDisplayAreas",
+   "guards": [],
+   "gestures": [],
+   "keys": [],
+   "reached": false,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/report/CompactLabourReport.java",
+   "line": 137,
+   "class": "CompactLabourReport",
+   "method": "createColonyButton/createButton",
+   "kind": "opens",
+   "target": "GUI.showColonyPanel",
+   "guards": [],
+   "gestures": [],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/report/CompactLabourReport.java",
+   "line": 150,
+   "class": "CompactLabourReport",
+   "method": "initialize",
+   "kind": "opens",
+   "target": "GUI.showProduction",
+   "guards": [
+    "} else"
+   ],
+   "gestures": [],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/report/CompactLabourReport.java",
+   "line": 151,
+   "class": "CompactLabourReport",
+   "method": "initialize",
+   "kind": "opens",
+   "target": "GUI.showNetProduction",
+   "guards": [
+    "} else"
+   ],
+   "gestures": [],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/report/CompactLabourReport.java",
+   "line": 389,
+   "class": "CompactLabourReport",
+   "method": "(field)",
+   "kind": "opens",
+   "target": "GUI.showProduction",
+   "guards": [
+    "if (row > notProducingStartRow && data.getUnitData().showProduction())"
+   ],
+   "gestures": [],
+   "keys": [
+    "report.labour.otherUnitType",
+    "report.labour.expertsWorking",
+    "report.labour.notWorking",
+    "report.labour.teacher",
+    "report.labour.learning",
+    "report.labour.sutdent",
+    "report.labour.learningOther"
+   ],
+   "reached": null,
+   "keysUsed": [
+    "report.labour.otherUnitType",
+    "report.labour.expertsWorking",
+    "report.labour.notWorking",
+    "report.labour.teacher",
+    "report.labour.learning",
+    "report.labour.sutdent",
+    "report.labour.learningOther"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/report/CompactLabourReport.java",
+   "line": 426,
+   "class": "CompactLabourReport",
+   "method": "addLocations",
+   "kind": "opens",
+   "target": "GUI.showEuropePanel",
+   "guards": [
+    "if (euRow > 0)"
+   ],
+   "gestures": [],
+   "keys": [
+    "report.labour.summary",
+    "report.labour.canTrain"
+   ],
+   "reached": null,
+   "keysUsed": [
+    "report.labour.summary",
+    "report.labour.canTrain"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/report/CompactLabourReport.java",
+   "line": 478,
+   "class": "CompactLabourReport",
+   "method": "addLocationSummary",
+   "kind": "opens",
+   "target": "GUI.showProduction",
+   "guards": [
+    "if (showProduction && !data.getUnitData().showProduction())"
+   ],
+   "gestures": [],
+   "keys": [
+    "report.labour.unitTotal.tooltip"
+   ],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/report/CompactLabourReport.java",
+   "line": 496,
+   "class": "CompactLabourReport",
+   "method": "addLocationSummary",
+   "kind": "opens",
+   "target": "GUI.showNetProduction",
+   "guards": [
+    "if (showNetProduction)",
+    "if (!data.getUnitData().showNetProduction() || (!data.isTotal() && net == 0))"
+   ],
+   "gestures": [],
+   "keys": [
+    "report.labour.unitTotal.tooltip"
+   ],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/report/CompactLabourReport.java",
+   "line": 549,
+   "class": "CompactLabourReport",
+   "method": "addRow",
+   "kind": "opens",
+   "target": "GUI.showProduction",
+   "guards": [
+    "if (production > 0 && data.getUnitData().showProduction())"
+   ],
+   "gestures": [],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/report/CompactLabourReport.java",
+   "line": 617,
+   "class": "CompactLabourReport",
+   "method": "(field)",
+   "kind": "opens",
+   "target": "GUI.showCompactLabourReport",
+   "guards": [],
+   "gestures": [],
+   "keys": [
+    "report.labour.otherUnitType",
+    "report.labour.expertsWorking",
+    "report.labour.notWorking",
+    "report.labour.teacher",
+    "report.labour.learning",
+    "report.labour.sutdent",
+    "report.labour.learningOther"
+   ],
+   "reached": null,
+   "keysUsed": [
+    "report.labour.otherUnitType",
+    "report.labour.expertsWorking",
+    "report.labour.notWorking",
+    "report.labour.teacher",
+    "report.labour.learning",
+    "report.labour.sutdent",
+    "report.labour.learningOther"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/report/LabourData.java",
+   "line": 382,
+   "class": "LabourData.UnitData",
+   "method": "showNetProduction",
+   "kind": "opens",
+   "target": "GUI.showProduction",
+   "guards": [],
+   "gestures": [],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/report/ReportCompactColonyPanel.java",
+   "line": 1167,
+   "class": "ReportCompactColonyPanel",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showBuildQueuePanel",
+   "guards": [
+    "if (command.startsWith(BUILDQUEUE))",
+    "if (colony != null)"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/report/ReportCompactColonyPanel.java",
+   "line": 1174,
+   "class": "ReportCompactColonyPanel",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showColonyPanel",
+   "guards": [
+    "} else",
+    "if (colony != null)"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/report/ReportForeignAffairPanel.java",
+   "line": 82,
+   "class": "ReportForeignAffairPanel",
+   "method": "ReportForeignAffairPanel",
+   "kind": "controller",
+   "target": "InGameController.nationSummary",
+   "guards": [
+    "for (Player enemy : getGame().getLiveEuropeanPlayerList())"
+   ],
+   "gestures": [],
+   "keys": [
+    "report.foreignAffair.stance",
+    "report.foreignAffair.numberOfColonies",
+    "report.foreignAffair.numberOfUnits",
+    "report.foreignAffair.militaryStrength",
+    "report.foreignAffair.navalStrength",
+    "gold",
+    "report.foreignAffair.congress",
+    "tax",
+    "report.foreignAffair.sonsOfLiberty",
+    "report.foreignAffair.notice"
+   ],
+   "reached": true,
+   "keysUsed": [
+    "report.foreignAffair.stance",
+    "report.foreignAffair.numberOfColonies",
+    "report.foreignAffair.numberOfUnits",
+    "report.foreignAffair.militaryStrength",
+    "report.foreignAffair.navalStrength",
+    "gold",
+    "report.foreignAffair.congress",
+    "tax",
+    "report.foreignAffair.sonsOfLiberty",
+    "report.foreignAffair.notice"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/report/ReportIndianPanel.java",
+   "line": 94,
+   "class": "ReportIndianPanel",
+   "method": "buildIndianAdvisorPanel",
+   "kind": "controller",
+   "target": "InGameController.nationSummary",
+   "guards": [],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [
+    "report.indian.chieftain",
+    "report.indian.typeOfSettlements",
+    "report.indian.numberOfSettlements",
+    "report.indian.tribeTension",
+    "report.indian.tensionStance",
+    "report.indian.noKnownSettlements"
+   ],
+   "reached": true,
+   "keysUsed": [
+    "report.indian.chieftain",
+    "report.indian.typeOfSettlements",
+    "report.indian.numberOfSettlements",
+    "report.indian.tribeTension",
+    "report.indian.tensionStance",
+    "report.indian.noKnownSettlements"
+   ]
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/report/ReportLabourPanel.java",
+   "line": 184,
+   "class": "ReportLabourPanel.anon AbstractAction",
+   "method": "ReportLabourPanel/actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showDetails",
+   "guards": [],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/report/ReportLabourPanel.java",
+   "line": 205,
+   "class": "ReportLabourPanel.anon MouseAdapter",
+   "method": "ReportLabourPanel/mouseClicked",
+   "kind": "opens",
+   "target": "GUI.showDetails",
+   "guards": [],
+   "gestures": [
+    "addMouseListener",
+    "mouseClicked"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/report/ReportLabourPanel.java",
+   "line": 225,
+   "class": "ReportLabourPanel",
+   "method": "showDetails",
+   "kind": "opens",
+   "target": "GUI.showReportLabourDetailPanel",
+   "guards": [],
+   "gestures": [],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/report/ReportLabourPanel.java",
+   "line": 242,
+   "class": "ReportLabourPanel",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showReportLabourDetailPanel",
+   "guards": [
+    "} else"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/report/ReportPanel.java",
+   "line": 167,
+   "class": "ReportPanel",
+   "method": "actionPerformed",
+   "kind": "opens",
+   "target": "GUI.showColopediaPanel",
+   "guards": [
+    "} else",
+    "} else"
+   ],
+   "gestures": [
+    "actionPerformed"
+   ],
+   "keys": [],
+   "reached": null,
+   "keysUsed": []
+  },
+  {
+   "file": "net/sf/freecol/client/gui/panel/report/ReportTurnPanel.java",
+   "line": 187,
+   "class": "ReportTurnPanel",
+   "method": "displayMessages",
+   "kind": "controller",
+   "target": "InGameController.ignoreMessage",
+   "guards": [
+    "for (ModelMessage message : this.messages)",
+    "case WAREHOUSE_CAPACITY:"
+   ],
+   "gestures": [
+    "addActionListener"
+   ],
+   "keys": [
+    "report.turn.filter"
+   ],
+   "reached": true,
+   "keysUsed": [
+    "report.turn.filter"
+   ]
+  }
+ ],
+ "unreached": [
+  "ConnectController.joinMultiplayerGame",
+  "ConnectController.mainTitle",
+  "ConnectController.newGame",
+  "ConnectController.requestLogout",
+  "ConnectController.startSavedGame",
+  "InGameController.attackRanged",
+  "InGameController.chat",
+  "InGameController.claimTile",
+  "InGameController.clearGotoOrders",
+  "InGameController.displayTurnReportMessages",
+  "InGameController.executeGotoOrders",
+  "InGameController.highScore",
+  "InGameController.loadGame",
+  "InGameController.monarchAction",
+  "InGameController.nextModelMessage",
+  "InGameController.reconnect",
+  "InGameController.rename",
+  "InGameController.saveAndQuit",
+  "InGameController.saveGame",
+  "InGameController.setInDebugMode",
+  "InGameController.unload",
+  "MapEditorController.getDefaultSpecification",
+  "MapEditorController.loadGame",
+  "MapEditorController.saveMapEditorGame",
+  "MapEditorController.setDisplayAreas",
+  "MapEditorController.startMapEditor",
+  "PreGameController.sendChat",
+  "PreGameController.setAvailable",
+  "PreGameController.setColor",
+  "PreGameController.setNation",
+  "PreGameController.setNationType",
+  "PreGameController.setReady",
+  "PreGameController.updateGameOptions",
+  "PreGameController.updateMapGeneratorOptions"
+ ],
+ "guiNotOverridden": [
+  "activateGotoPath",
+  "animateUnitAttack",
+  "canGameChangingModsBeAdded",
+  "canZoomInMap",
+  "canZoomInMapControls",
+  "canZoomOutMap",
+  "canZoomOutMapControls",
+  "changeWindowedMode",
+  "clearGotoPath",
+  "clickAt",
+  "closeMainPanel",
+  "closeMenus",
+  "closePanel",
+  "closeStatusPanel",
+  "createColonyTileImage",
+  "createTileImage",
+  "createTileImageWithBeachBorderAndItems",
+  "displayChat",
+  "displayColonyTiles",
+  "displayObject",
+  "displayStartChat",
+  "emergencyPurge",
+  "enableEditorToolboxPanel",
+  "enableEditorTransformPanel",
+  "enableMapControls",
+  "getFixedImageLibrary",
+  "getFocus",
+  "getFocusMapPoint",
+  "getMapViewDimension",
+  "getScaledImageLibrary",
+  "getSelectedTile",
+  "getViewMode",
+  "installLookAndFeel",
+  "isDialogShowing",
+  "isGotoStarted",
+  "isPanelShowing",
+  "isShowingMapEditorToolboxPanel",
+  "isShowingMapEditorTransformPanel",
+  "isWindowed",
+  "miniMapToggleFogOfWarControls",
+  "miniMapToggleViewControls",
+  "paintImmediately",
+  "performGoto",
+  "prepareDrag",
+  "prepareShowingMainMenu",
+  "quitGUI",
+  "refreshGuiUsingClientOptions",
+  "refreshPlayersTable",
+  "refreshScaleFactorIfNecessary",
+  "refreshTile",
+  "reloadResources",
+  "removeComponent",
+  "removeDialog",
+  "removeInGameComponents",
+  "removeTradeRoutePanel",
+  "repaint",
+  "resetMenuBar",
+  "resetScrollSpeed",
+  "restoreSavedSize",
+  "scrollMap",
+  "setFocusMapPoint",
+  "setUnitPath",
+  "showAboutPanel",
+  "showBuildQueuePanel",
+  "showChatPanel",
+  "showColorChooserPanel",
+  "showFreeColPanel",
+  "showLoadDialog",
+  "showLoadingSavegameDialog",
+  "showLogFilePanel",
+  "showMainPanel",
+  "showMainTitle",
+  "showMapGeneratorOptionsDialog",
+  "showMapSizeDialog",
+  "showNewPanel",
+  "showOpeningVideo",
+  "showParametersDialog",
+  "showPopupMenu",
+  "showPurchasePanel",
+  "showRecruitPanel",
+  "showRiverStyleDialog",
+  "showSaveDialog",
+  "showScaleMapSizeDialog",
+  "showServerListPanel",
+  "showStartGamePanel",
+  "showStatisticsPanel",
+  "showStatusPanel",
+  "showTilePopup",
+  "showTradeRouteInputPanel",
+  "showTrainPanel",
+  "showWorkProductionPanel",
+  "startGUI",
+  "startMapEditorGUI",
+  "stopMapAsyncPainter",
+  "tileAt",
+  "traverseGotoPath",
+  "updateEuropeanSubpanels",
+  "updateGoto",
+  "useMapAsyncPainter",
+  "zoomInMap",
+  "zoomInMapControls",
+  "zoomOutMap",
+  "zoomOutMapControls"
+ ]
+}
