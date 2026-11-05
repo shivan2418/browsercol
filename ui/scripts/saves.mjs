@@ -4,7 +4,8 @@
 // save as a file, delete it, import the file again (a file that is not a save is
 // refused), check the export is byte for byte the import, load the save, check
 // it comes back at the saved turn with the saved active unit and the player's
-// turn (through FreeCol's Loading Save game window), and play another turn. The turn autosaves FreeCol makes as each turn
+// turn (through FreeCol's Loading Save game window), and play another turn, then
+// import and load a save that TeaVM's ZipFile failed on (#31). The turn autosaves FreeCol makes as each turn
 // begins are checked after the first turn. The page's autosaves sit in the list beside
 // the script's save, so the script finds its own row by name. Exits non-zero
 // unless every browser gets there. The page's dialogs are answered as scripts/dialogs.mjs says.
@@ -21,6 +22,8 @@ import { dist, serveDist } from './serve-dist.mjs';
 const browsers = browserNames();
 const keepExport = opt('keep-export', '');
 const SAVE_NAME = 'script save';
+/** A save TeaVM's ZipFile could not read (#31): its deflate data needs the dummy byte zlib wants after it. */
+const DUMMY_BYTE_SAVE = path.join(import.meta.dirname, 'fixtures/zip-needs-dummy-byte.fsg');
 
 /** Play with the page of one browser; returns what was checked. */
 async function run(page, url, shot, browserName) {
@@ -210,6 +213,27 @@ async function run(page, url, shot, browserName) {
   // 6. Play a turn in the loaded game.
   const next = await endTurn();
   if (next.turn === played.turn) throw new Error('the loaded game did not go on');
+
+  // 7. A save whose deflate data ends where TeaVM's ZipFile failed with
+  // EOFException in every browser (#31) must load.
+  await noDialog();
+  await page.setInputFiles('#import-file', DUMMY_BYTE_SAVE);
+  const fixture = path.basename(DUMMY_BYTE_SAVE, '.fsg');
+  await page.waitForFunction((n) => document.querySelector('#save-note')?.textContent === `Imported: ${n}`, fixture, {
+    timeout: 10000,
+  });
+  const fixtureId = await page.evaluate(
+    (n) =>
+      [...document.querySelectorAll('#saves [data-save]')]
+        .find((r) => r.textContent?.startsWith(`${n} |`))
+        ?.getAttribute('data-save'),
+    fixture,
+  );
+  if (!fixtureId) throw new Error(`the imported ${fixture} is not in the save list: ${JSON.stringify(await rows())}`);
+  await Promise.all([page.waitForURL(/[?&]load=\d+/), page.click(`#saves [data-save="${fixtureId}"] [data-load]`)]);
+  await page.waitForSelector('[data-loading-save]', { timeout: 60000 });
+  await page.click('[data-load-ok]');
+  await finished();
   return { saved: played.turn, loaded: loaded.turn, active, next: next.turn };
 }
 
@@ -228,7 +252,7 @@ for (const name of browsers) {
       () => page.screenshot({ path: path.join(dist, `../.cache/saves-${name}.png`) }),
       name,
     );
-    line = `ok: saved at turn ${r.saved}, exported, deleted and imported, loaded at turn ${r.loaded} with ${r.active}, played on to turn ${r.next}`;
+    line = `ok: saved at turn ${r.saved}, exported, deleted and imported, loaded at turn ${r.loaded} with ${r.active}, played on to turn ${r.next}, fixture save loaded`;
   } catch (ex) {
     failed = true;
     line = `failed: ${await diagnose(ex)}`;
