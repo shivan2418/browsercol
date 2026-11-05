@@ -417,8 +417,9 @@ class DebugActionsTest {
         final String digest = client.debugClient("{\"action\":\"digest\"}");
         final String ok = server.debug("{\"action\":\"compareMaps\",\"client\":" + digest + "}");
         assertTrue(((String)json(ok).get("info")).contains("No desynchronization detected"), ok);
-        // The client has lost sight of a unit of ours.
-        final Unit unit = me().getUnits().filter(u -> u.getTile() != null).findFirst().get();
+        // The client has lost sight of a unit of ours. The digest lists the units standing on a tile,
+        // not those aboard a carrier, as Swing's check does.
+        final Unit unit = me().getUnits().filter(u -> !u.isOnCarrier() && u.getTile() != null).findFirst().get();
         final String lost = digest.replace("\"" + unit.getId() + "\":", "\"gone:\":");
         final String bad = server.debug("{\"action\":\"compareMaps\",\"client\":" + lost + "}");
         assertTrue(((String)json(bad).get("info")).contains("Unit missing on client-side"), bad);
