@@ -1927,7 +1927,7 @@ describe('the Europe panel', () => {
           dialogs={debugBox}
           goTo={() => {}}
           art={art}
-          report={{ groupBy() {}, filter() {}, ignore() {} }}
+          report={{ groupBy() {}, filter() {}, ignore() {}, open() {} }}
           routes={{ save() {}, remove() {}, assign() {} }}
         />
       </DebugContext.Provider>,

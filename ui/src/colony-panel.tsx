@@ -967,26 +967,12 @@ export function ColonyPanel({ colony: c, art, footer }: { colony: ColonyView; ar
   };
   const here = picked !== null && isHere(c, picked);
   // ColonyPanel's U and L keys act on the ship chosen in port (the buttons are there at zero size).
-  const keyed = useRef<() => ((e: KeyboardEvent) => void) | null>(() => null);
-  keyed.current = () => {
+  useColonyKey((key) => {
     const ship = chosenShip(c);
-    if (!moves || !ship) return null;
-    return (e) => {
-      const key = e.key.toLowerCase();
-      if (key === 'u') moves.unloadAll(ship.id);
-      else moves.fill(ship.id);
-      e.preventDefault();
-    };
-  };
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.altKey || e.ctrlKey || e.metaKey || e.repeat || !['u', 'l'].includes(e.key.toLowerCase())) return;
-      if (e.target instanceof Element && e.target.matches('input, textarea, select, [contenteditable]')) return;
-      keyed.current()?.(e);
-    };
-    addEventListener('keydown', onKey);
-    return () => removeEventListener('keydown', onKey);
-  }, []);
+    if (!moves || !ship) return;
+    if (key.toLowerCase() === 'u') moves.unloadAll(ship.id);
+    else if (key.toLowerCase() === 'l') moves.fill(ship.id);
+  });
   const hand: Hand = !moves
     ? NO_HAND
     : {
