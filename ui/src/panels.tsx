@@ -158,7 +158,7 @@ function Confirm({ d, colopedia }: { d: Of<'confirm'>; colopedia: (type: string)
   const enter = ask.defaultOk && ask.ok !== null ? 'ok' : 'cancel';
   useEnter(enter === 'ok' ? ok : cancel);
   return (
-    <Win d={d} title={ask.header} close={cancel}>
+    <Win d={d} title={ask.header} close={ask.escapeOk && ask.ok !== null ? ok : cancel}>
       <Text text={ask.text} />
       {help && ask.help?.text && <Text text={ask.help.text} />}
       <OkCancel ok={ask.ok} cancel={ask.cancel} onOk={ok} onCancel={cancel} enter={enter} />

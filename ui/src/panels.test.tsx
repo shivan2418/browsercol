@@ -127,6 +127,21 @@ describe('the confirm dialog', () => {
     expect(await escaped).toBe(false);
   });
 
+  it('answers ok on Escape and on its frame’s close button when the dialog says so (first contact)', async () => {
+    const { box } = host();
+    const escaped = ask(box, 'confirm', { ...confirm, defaultOk: true, escapeOk: true });
+    key('Escape');
+    expect(await escaped, 'Escape accepts, as Swing’s first contact dialog does').toBe(true);
+
+    const closed = ask(box, 'confirm', { ...confirm, defaultOk: true, escapeOk: true });
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(await closed).toBe(true);
+
+    const no = ask(box, 'confirm', { ...confirm, defaultOk: true, escapeOk: true });
+    fireEvent.click(screen.getByRole('button', { name: 'No' }));
+    expect(await no, 'the No button still declines').toBe(false);
+  });
+
   it('shows the header Swing gives a dialog above its text', () => {
     const { box } = host();
     void ask(box, 'confirm', { ...confirm, header: 'Native demand at Jamestown' });

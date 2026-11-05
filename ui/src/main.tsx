@@ -506,12 +506,14 @@ const menuActions = (): MenuActions => ({
   orders: side.orders,
   hasActiveUnit: view.active !== null,
   run: (c) => runCommand(c),
-  newGame: () => {
-    // A new page shows the start screen again.
-    const next = new URLSearchParams();
-    if (tileset) next.set('tileset', tileset);
-    location.search = next.toString();
-  },
+  newGame: () =>
+    void confirmStopGame().then((go) => {
+      if (!go) return;
+      // A new page shows the start screen again.
+      const next = new URLSearchParams();
+      if (tileset) next.set('tileset', tileset);
+      location.search = next.toString();
+    }),
   // FreeCol's SaveAction asks for the name in a dialog, and is disabled while a panel is showing.
   save: () => {
     saveDialog = 'save';
@@ -523,10 +525,13 @@ const menuActions = (): MenuActions => ({
   },
   returnToMain: returnToMain,
   panelShowing: panelShowing(),
-  open: () => {
-    openOpen = true;
-    renderSide();
-  },
+  // OpenAction asks confirmStopGame before the save picker.
+  open: () =>
+    void confirmStopGame().then((go) => {
+      if (!go) return;
+      openOpen = true;
+      renderSide();
+    }),
   preferences: () => {
     prefsOpen = true;
     renderSide();
@@ -688,7 +693,7 @@ function renderSide() {
         }
         run={(c) => runCommand(c)}
         save={(name) => saveGame(name)}
-        load={openSave}
+        load={(id) => void confirmStopGame().then((go) => go && openSave(id))}
         remove={(id) => {
           side.saveNote = 'Deleting...';
           renderSide();
@@ -1200,6 +1205,22 @@ async function confirmLoad(id: number): Promise<void> {
         }}
       />,
     );
+  });
+}
+
+/**
+ * FreeCol's confirmStopGame (stopCurrentGame.*), asked before a running game is dropped for a new one
+ * or a loaded one; Cancel is the default, as in Swing. Resolves to whether to go on.
+ */
+function confirmStopGame(): Promise<boolean> {
+  return dialogQueue.ask('confirm', {
+    text: 'A game is already running.',
+    ok: 'Stop Game',
+    cancel: 'Cancel',
+    defaultOk: false,
+    tile: null,
+    object: null,
+    header: null,
   });
 }
 
