@@ -817,6 +817,44 @@ function TileText({
 type Messages = GuiEvents['messages'];
 
 /**
+ * A message's text with its links, as the link buttons of Swing's report: the name of our colony opens
+ * its panel, Europe opens Europe, another's settlement or a unit's tile centres the map there.
+ */
+function LinkedText({
+  parts,
+  goTo,
+  open,
+}: {
+  parts: NonNullable<Messages['messages'][number]['parts']>;
+  goTo: (at: At) => void;
+  open: (link: ReportLink) => void;
+}) {
+  return (
+    <p className="text">
+      {parts.map((p, i) =>
+        p.link || p.at ? (
+          <a
+            key={i}
+            href="#"
+            data-link={p.link ? (p.link.kind === 'colony' ? p.link.id : p.link.kind) : undefined}
+            data-at={p.at?.join(',')}
+            onClick={(e) => {
+              e.preventDefault();
+              if (p.link) open(p.link);
+              else if (p.at) goTo(p.at);
+            }}
+          >
+            {p.text}
+          </a>
+        ) : (
+          <Fragment key={i}>{p.text}</Fragment>
+        ),
+      )}
+    </p>
+  );
+}
+
+/**
  * The messages, each with the image of what it is about. The turn report has FreeCol's buttons for them:
  * the group by option, a filter for a message's type, and for some messages an ignore. Like Swing's, they
  * dim the messages, and tell the Engine what to do about the next turns' messages; a filtered type is
@@ -889,7 +927,11 @@ function MessageList({
               ) : (
                 <Pic keys={m.images} art={art} />
               )}
-              <TileText text={m.text} at={m.at} goTo={goTo} />
+              {m.parts?.some((p) => p.link || p.at) ? (
+                <LinkedText parts={m.parts} goTo={goTo} open={report.open} />
+              ) : (
+                <TileText text={m.text} at={m.at} goTo={goTo} />
+              )}
               {m.ignoreTip !== null && (
                 <button
                   className="ignore"

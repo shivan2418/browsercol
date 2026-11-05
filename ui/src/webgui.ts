@@ -172,6 +172,11 @@ export interface GuiEvents {
       images: string[];
       /** What the image opens, as in Swing's report (colony or Europe); null for nothing. */
       link?: ReportLink | null;
+      /**
+       * The text split at its links, as the link buttons of Swing's report: a part naming our colony opens
+       * it (link), one naming another's settlement goes to its tile (at); plain text has neither.
+       */
+      parts?: ({ text: string; link: ReportLink | null } & Pick<TileRef, 'at'>)[];
       filter: boolean | null;
       filterTip: string | null;
       /** Whether the ignore button has been pressed. */

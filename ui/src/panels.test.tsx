@@ -749,6 +749,38 @@ describe('the panels', () => {
     ]);
   });
 
+  it("open our colony from its name in a message's text, and go to another's", () => {
+    const { box, went, pressed } = host();
+    act(() =>
+      box.show('messages', {
+        title: 'Turn Report',
+        ok: 'OK',
+        messages: [
+          message('Famine feared in Jamestown in 3 turns.', {
+            at: [3, 4],
+            parts: [
+              { text: 'Famine feared in ', link: null, at: null },
+              { text: 'Jamestown', link: { kind: 'colony', id: 'colony:1' }, at: null },
+              { text: ' in 3 turns.', link: null, at: null },
+            ],
+          }),
+          message('Testville was seen.', {
+            at: [3, 4],
+            parts: [
+              { text: 'Testville', link: null, at: [7, 8] },
+              { text: ' was seen.', link: null, at: null },
+            ],
+          }),
+        ],
+      }),
+    );
+    expect(screen.getByText('Jamestown').closest('p')?.textContent).toBe('Famine feared in Jamestown in 3 turns.');
+    fireEvent.click(screen.getByText('Jamestown'));
+    fireEvent.click(screen.getByText('Testville'));
+    expect(pressed).toEqual(['open {"kind":"colony","id":"colony:1"}']);
+    expect(went).toEqual([[7, 8]]);
+  });
+
   it('show the image of what a message is about, the first of its keys the Tileset has', () => {
     const { box } = host();
     act(() =>
