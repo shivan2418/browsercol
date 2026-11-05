@@ -93,6 +93,8 @@ export interface ClientExports {
   showHighScores(): void;
   /** Show the Europe panel (EuropeAction). */
   showEurope(): void;
+  /** Open the Find Settlement panel (FindSettlementAction). */
+  findSettlement(): void;
   /** Show the game options, read-only (ShowGameOptionsAction). */
   showGameOptions(): void;
   /** Show the map generator options, read-only (ShowMapGeneratorOptionsAction). */

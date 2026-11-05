@@ -784,6 +784,8 @@ const gui: GuiHandlers = {
     eventPanel: (e) => dialogQueue.show('eventPanel', e),
     indianSettlement: (e) => dialogQueue.show('indianSettlement', e),
     tilePanel: (e) => dialogQueue.show('tilePanel', e),
+    findSettlement: (e) => dialogQueue.replace('findSettlement', e),
+    workProduction: (e) => dialogQueue.replace('workProduction', e),
     colopedia: (e) => dialogQueue.replace('colopedia', e),
     highScores: (e) => dialogQueue.show('highScores', e),
     tradeRoutes: (e) => dialogQueue.replace('tradeRoutes', e),
@@ -933,6 +935,12 @@ function playWith(client: ClientExports) {
         const [px, py] = tileOnScreen(view, tile);
         showPopup({ menu, x: r.left + px, y: r.top + py });
       }
+      return;
+    }
+    // Ctrl+F is FindSettlementAction's accelerator, in place of the browser's find.
+    if (e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey && e.key.toLowerCase() === 'f' && !dialogQueue.current()) {
+      e.preventDefault();
+      run({ k: 'findSettlement' });
       return;
     }
     if (e.altKey || e.ctrlKey || e.metaKey || dialogQueue.current()) return;

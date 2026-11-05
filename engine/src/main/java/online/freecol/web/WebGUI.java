@@ -49,6 +49,7 @@ import net.sf.freecol.common.model.StringTemplate;
 import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.Turn;
 import net.sf.freecol.common.model.Unit;
+import net.sf.freecol.common.model.WorkLocation;
 import net.sf.freecol.common.option.BooleanOption;
 import net.sf.freecol.common.option.Option;
 import net.sf.freecol.common.option.OptionGroup;
@@ -238,6 +239,12 @@ import net.sf.freecol.common.option.OptionGroup;
  * <tr><td>showTilePanel(Tile)</td><td>event tilePanel</td>
  *     <td>what {@link TileJson} describes (the right-click menu's tile
  *         entry); its Colopedia button opens the terrain entry</td></tr>
+ * <tr><td>showFindSettlementPanel (View &gt; Find Settlement)</td><td>event findSettlement</td>
+ *     <td>{title, filters, settlements: [{id, name, native, open, at,
+ *         images}], ok}; as {@link FindSettlementJson} describes</td></tr>
+ * <tr><td>showWorkProductionPanel(Unit) (the colonist menu's "Show
+ *     production modifiers")</td><td>event workProduction</td>
+ *     <td>what {@link WorkProductionJson} describes</td></tr>
  * <tr><td>showIndianSettlementPanel</td><td>event indianSettlement</td>
  *     <td>{name, kind, tension, worthScouting, images, labels, missionary,
  *         skill, mostHated, wanted: [...], ok, tile, at}; as {@link SettlementJson}
@@ -251,7 +258,7 @@ import net.sf.freecol.common.option.OptionGroup;
  *         open is replaced</td></tr>
  * <tr><td>the other dialogs the controllers ask (see "Not asked yet"), and
  *     the panels the base GUI drops: showClientOptionsDialog, showEditOptionDialog,
- *     showEditSettlementDialog, showFindSettlementPanel</td>
+ *     showEditSettlementDialog</td>
  *     <td>event unasked</td><td>{method}; the controller gets the base
  *         GUI's default, as before</td></tr>
  * </table>
@@ -1393,7 +1400,7 @@ public class WebGUI extends GUI {
     }
 
     /** What ModifierFormat calls the name of a modifier's source. */
-    private static String modifierSource(FreeColObject source) {
+    static String modifierSource(FreeColObject source) {
         if (source == null) return Messages.message("modifierFormat.unknown");
         String name = null;
         if (source instanceof Nameable) {
@@ -1424,7 +1431,7 @@ public class WebGUI extends GUI {
     }
 
     /** A number with two decimals, as FreeCol's modifiers show. */
-    private static String decimal(float f) {
+    static String decimal(float f) {
         final boolean negative = f < 0;
         final long hundredths = Math.round(Math.abs((double)f) * 100.0);
         return ((negative && hundredths != 0) ? "-" : "")
@@ -2004,7 +2011,22 @@ public class WebGUI extends GUI {
 
     @Override
     public FreeColPanel showFindSettlementPanel() {
-        unasked("showFindSettlementPanel");
-        return super.showFindSettlementPanel();
+        final Player player = getMyPlayer();
+        if (player == null) return null;
+        this.ui.show("findSettlement", FindSettlementJson.of(player.getGame(), player).toString());
+        return null;
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * Shows WorkProductionPanel's lines for a colonist at work; a unit
+     * that is not at a work location has no panel.
+     */
+    @Override
+    public FreeColPanel showWorkProductionPanel(Unit unit) {
+        if (!(unit.getLocation() instanceof WorkLocation) || unit.getWorkType() == null) return null;
+        this.ui.show("workProduction", WorkProductionJson.of(unit).toString());
+        return null;
     }
 }

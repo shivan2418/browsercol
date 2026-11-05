@@ -97,6 +97,7 @@ export function viewMenu(a: MenuActions): Items {
     { label: 'Zoom Out', run: () => a.zoom(-1) },
     { label: 'Center on Active Unit', run: a.centreOnUnit, disabled: !a.hasActiveUnit },
     { label: 'Europe', run: () => a.run({ k: 'showEurope' }), disabled: !a.ready },
+    { label: 'Find Settlement', run: () => a.run({ k: 'findSettlement' }), disabled: !a.ready, hint: 'Ctrl+F' },
     { label: 'Show Map Grid', run: () => a.toggleMode('grid'), checked: a.modes.grid },
     { label: 'Show Borders', run: () => a.toggleMode('borders'), checked: a.modes.borders },
     { label: 'Show Fog of War', run: a.toggleFog, checked: a.fog },

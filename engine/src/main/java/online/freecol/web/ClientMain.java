@@ -320,6 +320,12 @@ public final class ClientMain {
         command("showEurope", () -> engine.getCommands().showEurope());
     }
 
+    /** Open the Find Settlement panel (FindSettlementAction). */
+    @JSExport
+    public static void findSettlement() {
+        command("findSettlement", () -> engine.getCommands().findSettlement());
+    }
+
     /** Show the game options, read-only (ShowGameOptionsAction). */
     @JSExport
     public static void showGameOptions() {

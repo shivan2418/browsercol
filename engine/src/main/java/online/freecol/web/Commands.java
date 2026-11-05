@@ -196,6 +196,12 @@ public final class Commands {
         return true;
     }
 
+    /** Open the Find Settlement panel (FindSettlementAction). */
+    public boolean findSettlement() {
+        gui().showFindSettlementPanel();
+        return true;
+    }
+
     /** Show the game options, read-only (ShowGameOptionsAction). */
     public boolean showGameOptions() {
         gui().showGameOptionsDialog(false, null);
@@ -474,6 +480,7 @@ public final class Commands {
      * <tr><td>clear:unit</td><td>clear the unit's orders</td></tr>
      * <tr><td>select:unit</td><td>make the unit the active one</td></tr>
      * <tr><td>tile:x,y</td><td>show the tile's panel</td></tr>
+     * <tr><td>production:unit</td><td>show the production modifiers of a working colonist</td></tr>
      * <tr><td>activateAll:x,y</td><td>clear the orders of the tile's units and select the first</td></tr>
      * <tr><td>rename:colony</td><td>ask for a new name for our colony</td></tr>
      * <tr><td>colony:id, settlement:id</td><td>open the settlement's panel</td></tr>
@@ -515,6 +522,7 @@ public final class Commands {
         case "rename": return renameColony(rest);
         case "settlement": return showSettlement(rest);
         case "tile": return showTile(Integer.parseInt(a[0]), Integer.parseInt(a[1]));
+        case "production": return showProduction(rest);
         case "colopedia": return showColopedia(rest);
         case "leaveTown": return putOutsideColony(rest);
         case "leaveShip": return leaveShip(rest);
@@ -625,6 +633,17 @@ public final class Commands {
         final Tile tile = this.client.getGame().getMap().getTile(x, y);
         if (tile == null || !tile.isExplored()) return false;
         gui().showTilePanel(tile);
+        return true;
+    }
+
+    /** Show WorkProductionPanel for a colonist of ours at work. */
+    private boolean showProduction(String id) {
+        final Unit unit = object(id, Unit.class);
+        if (unit == null || !this.client.getMyPlayer().owns(unit)
+            || !(unit.getLocation() instanceof WorkLocation) || unit.getWorkType() == null) {
+            return false;
+        }
+        gui().showWorkProductionPanel(unit);
         return true;
     }
 
