@@ -220,9 +220,10 @@ describe('the panel keys', () => {
       'minimapEconomic',
       'minimapPolitics',
       'advisor',
+      'button',
     ]);
     expect(EVENT_KEYS).toHaveLength(2);
-    expect(Object.keys(PANEL_KEYS)).toEqual(['coin', 'compass', 'infoPanel', 'minimapBorder']);
+    expect(Object.keys(PANEL_KEYS)).toEqual(['coin', 'compass', 'infoPanel', 'minimapSkin', 'minimapBorder']);
     expect(isArtKey('image.unit.model.unit.caravel')).toBe(true);
   });
 });

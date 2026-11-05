@@ -1016,6 +1016,7 @@ function renderMinimap() {
       options={minimapOptions(prefs)}
       centre={(at) => dispatch({ k: 'centre', at })}
       setOption={(id, value) => setPrefs({ ...prefs, freecol: { ...prefs.freecol, [id]: value } })}
+      art={art}
     />,
   );
 }

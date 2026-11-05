@@ -1,8 +1,11 @@
 // FreeCol's minimap in its corner of the map (CornerMapControls): the map
 // drawn small (minimap.ts), with the buttons beside it that switch its
 // borders and fog of war and zoom it. Pressing on it, or dragging, centres
-// the map view there. Each button keeps its client option, as FreeCol's do.
-import { useEffect, useMemo, useRef, type PointerEvent as ReactPointerEvent } from 'react';
+// the map view there. Each button keeps its client option, as FreeCol's do. Once the art has them, FreeCol's
+// skin goes over it all, a desk with a globe whose legs frame the minimap, and the buttons are FreeCol's
+// pictures on the left leg, where image.skin.MiniMap.properties puts them.
+import { useEffect, useMemo, useRef, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
+import type { Art } from './frame';
 import {
   BACKGROUNDS,
   css,
@@ -17,7 +20,7 @@ import {
   type MinimapOptions,
   type ViewBox,
 } from './minimap';
-import { PANEL_KEYS } from './map-keys';
+import { PANEL_KEY_FAMILIES, PANEL_KEYS } from './map-keys';
 import type { Resources } from './resources';
 import type { MapView } from './tileset';
 
@@ -35,9 +38,19 @@ export interface MinimapProps {
   centre: (at: [number, number]) => void;
   /** Keep a client option the buttons change. */
   setOption: (id: string, value: boolean | number) => void;
+  /** The image for resource keys, for the skin and the buttons' pictures; none draws plain buttons. */
+  art?: Art;
 }
 
-export function MinimapPanel({ map, res, view, options, centre, setOption }: MinimapProps) {
+/** ImageLibrary.getButtonImages: a button's picture per state, as CSS custom properties; null without the art. */
+function buttonPictures(art: Art, name: string): CSSProperties | null {
+  const states = ['normal', 'highlighted', 'pressed', 'disabled'] as const;
+  const srcs = states.map((state) => art([`${PANEL_KEY_FAMILIES.button}${state}.${name}`]));
+  if (srcs.some((src) => !src)) return null;
+  return Object.fromEntries(states.map((state, i) => [`--${state}`, `url("${srcs[i]}")`])) as CSSProperties;
+}
+
+export function MinimapPanel({ map, res, view, options, centre, setOption, art = () => null }: MinimapProps) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const size = tileSize(options.zoom);
   const background = BACKGROUNDS[options.background] ?? BACKGROUNDS[0];
@@ -87,40 +100,58 @@ export function MinimapPanel({ map, res, view, options, centre, setOption }: Min
     centre(pointAt(view, BOX, size, [e.clientX - r.left, e.clientY - r.top]));
   };
   const ratio = typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1;
+  const skin = art([PANEL_KEYS.minimapSkin]);
+  // The pictures FreeCol's minimap actions show: the borders' and the fog's follow their option.
+  const pictures = {
+    borders: buttonPictures(art, options.borders ? 'toggle_view_politics' : 'toggle_view_economic'),
+    fog: buttonPictures(art, options.fog ? 'toggle_fog_of_war' : 'toggle_fog_of_war_no'),
+    zoomIn: buttonPictures(art, 'zoom_in'),
+    zoomOut: buttonPictures(art, 'zoom_out'),
+  };
+  const pictured = skin !== null && Object.values(pictures).every(Boolean);
+  const look = (picture: CSSProperties | null) => (pictured ? { className: 'pictured', style: picture! } : {});
   return (
-    <div id="minimap">
+    <div
+      id="minimap"
+      className={pictured ? 'skinned' : undefined}
+      style={pictured ? ({ '--skin': `url("${skin}")` } as CSSProperties) : undefined}
+    >
       <div className="minimap-buttons">
         <button
           title="Toggle the view between political and economic"
           aria-label="Toggle the view between political and economic"
           aria-pressed={options.borders}
           onClick={() => setOption('model.option.miniMapToggleBorders', !options.borders)}
+          {...look(pictures.borders)}
         >
-          ⚑
+          {!pictured && '⚑'}
         </button>
         <button
           title="Toggle fog of war"
           aria-label="Toggle fog of war"
           aria-pressed={options.fog}
           onClick={() => setOption('model.option.miniMapToggleFogOfWar', !options.fog)}
+          {...look(pictures.fog)}
         >
-          ◐
+          {!pictured && '◐'}
         </button>
         <button
           title="Zoom in"
           aria-label="Zoom in"
           disabled={options.zoom >= MAX_ZOOM}
           onClick={() => setOption('model.option.defaultZoomLevel', options.zoom + 1)}
+          {...look(pictures.zoomIn)}
         >
-          +
+          {!pictured && '+'}
         </button>
         <button
           title="Zoom out"
           aria-label="Zoom out"
           disabled={options.zoom <= MIN_ZOOM}
           onClick={() => setOption('model.option.defaultZoomLevel', options.zoom - 1)}
+          {...look(pictures.zoomOut)}
         >
-          −
+          {!pictured && '−'}
         </button>
       </div>
       <canvas
@@ -138,6 +169,7 @@ export function MinimapPanel({ map, res, view, options, centre, setOption }: Min
           if (e.buttons & 1) focus(e);
         }}
       />
+      {pictured && <div className="minimap-skin" aria-hidden="true" />}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
+import type { Art } from './frame';
 import type { MinimapOptions } from './minimap';
 import { MinimapPanel, type MinimapProps } from './minimap-panel';
 import type { MapView } from './tileset';
@@ -70,5 +71,26 @@ describe('the minimap panel', () => {
   it('shows nothing before there is a map', () => {
     panel({ map: null });
     expect(document.querySelector('#minimap')).toBeNull();
+  });
+
+  it("puts FreeCol's skin over it, with its pictures on the buttons, once the art has them", () => {
+    const art: Art = (keys) => (keys[0].startsWith('image.') ? `art/${keys[0]}.png` : null);
+    panel({ art, options: { ...OPTIONS, borders: false, zoom: 4 } });
+    expect(document.getElementById('minimap')?.classList.contains('skinned')).toBe(true);
+    const borders = button(/political and economic/);
+    expect(borders.textContent).toBe('');
+    expect(borders.style.getPropertyValue('--normal')).toBe(
+      'url("art/image.miscicon.button.normal.toggle_view_economic.png")',
+    );
+    expect(button(/fog of war/).style.getPropertyValue('--disabled')).toBe(
+      'url("art/image.miscicon.button.disabled.toggle_fog_of_war.png")',
+    );
+  });
+
+  it('keeps its plain buttons while the art lacks a picture', () => {
+    const art: Art = (keys) => (keys[0].includes('zoom_out') ? null : `art/${keys[0]}.png`);
+    panel({ art });
+    expect(document.getElementById('minimap')?.classList.contains('skinned')).toBe(false);
+    expect(button(/Zoom out/).textContent).toBe('−');
   });
 });

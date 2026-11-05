@@ -77,6 +77,11 @@ export const PANEL_KEY_FAMILIES = {
    * each with its insets.top string resource.
    */
   advisor: 'image.skin.InformationPanel',
+  /**
+   * A map control's button, as a picture per state (ImageLibrary.getButtonImages):
+   * image.miscicon.button.<normal|highlighted|pressed|disabled>.<name>
+   */
+  button: 'image.miscicon.button.',
 } as const;
 
 /** The kinds of founding father, whose pictures share the portraits' family but no panel shows. */
@@ -92,6 +97,8 @@ export const PANEL_KEYS = {
   compass: 'image.skin.compass',
   /** The info panel's skin, the desk with the skull (InfoPanel.updateLayoutIfNeeded). */
   infoPanel: 'image.skin.InfoPanel',
+  /** The minimap's skin, the desk with the globe (CornerMapControls). */
+  minimapSkin: 'image.skin.MiniMap',
   /** The box round what the map shows, on the minimap (ImageLibrary.getMinimapBorderColor). */
   minimapBorder: 'color.border.MiniMap',
 } as const;
