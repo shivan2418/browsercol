@@ -350,18 +350,26 @@ class FatherExplorationTest {
         final Specification spec = sGame().getSpecification();
         final GoodsType furs = spec.getGoodsType("model.goods.furs");
         final UnitType colonistType = spec.getUnitType("model.unit.freeColonist");
+        final GoodsType food = spec.getPrimaryFoodType();
         final Map map = sGame().getMap();
-        // A site of no furs itself, with nobody's land around it and furs to trap there.
+        // Land to trap furs on with no river, road or resource: a river or
+        // road adds its furs after Hudson's +100%, so it would not double.
+        final java.util.function.Predicate<Tile> trapping = n -> n.isLand()
+            && n.getPotentialProduction(furs, colonistType) > 0
+            && n.getCompleteItems().isEmpty();
+        // A site of no furs itself whose land feeds the trapper, so that the
+        // colony of one does not starve at the end of the turn (on arctic
+        // land it would), with nobody's land around it and furs to trap there.
         final Tile site = map.getTileSet(t -> t.isLand() && us.canClaimToFoundSettlement(t)
             && t.getPotentialProduction(furs, null) == 0
+            && spec.getFoodGoodsTypeList().stream().mapToInt(g ->
+                t.getPotentialProduction(g, null)).sum() >= colonistType.getConsumptionOf(food)
             && t.getSurroundingTiles(1, 1).stream().allMatch(n -> n.getOwner() == null)
-            && t.getSurroundingTiles(1, 1).stream().anyMatch(n -> n.isLand()
-                && n.getPotentialProduction(furs, colonistType) > 0))
+            && t.getSurroundingTiles(1, 1).stream().anyMatch(trapping))
             .iterator().next();
         final Colony colony = addColony(site);
         final Tile forest = site.getSurroundingTiles(1, 1).stream()
-            .filter(n -> n.isLand() && n.getPotentialProduction(furs, colonistType) > 0)
-            .findFirst().get();
+            .filter(trapping).findFirst().get();
         final ColonyTile ct = colony.getColonyTile(forest);
         final Unit trapper = colony.getUnitList().get(0);
         // As the client asks: work the forest, at furs.
@@ -378,6 +386,7 @@ class FatherExplorationTest {
             + ", potential " + forest.getPotentialProduction(furs, colonistType));
         eventually("the client's colony traps furs", () ->
             seen(colony, Colony.class).getNetProductionOf(furs) == without);
+        assertTrue(colony.getNetProductionOf(food) >= 0, "the colony does not starve");
 
         join("model.foundingFather.henryHudson");
 
