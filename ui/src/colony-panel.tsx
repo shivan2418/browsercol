@@ -1031,7 +1031,8 @@ export function ColonyPanel({ colony: c, art, footer }: { colony: ColonyView; ar
                     <span className="workers">
                       <Units units={b.workers} art={art} />
                       {Array.from({ length: Math.max(0, b.capacity - b.workers.length) }, (_, i) => (
-                        <span key={i} className="slot" />
+                        // BuildingPanel's empty place: the colonist's shadow, image.unit.placeholder.
+                        <Img key={i} keys={[PLACEHOLDER]} art={art} className="slot" />
                       ))}
                     </span>
                   </BuildingPlace>

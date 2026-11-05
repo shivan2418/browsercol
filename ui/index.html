@@ -1600,10 +1600,8 @@
         align-items: end;
       }
       .colony .building .slot {
-        width: 22px;
-        height: 40px;
+        height: 48px;
         margin: 0 2px;
-        border: 1px dashed var(--line);
       }
       .colony .upper {
         grid-column: 2;
@@ -1771,7 +1769,7 @@
         cursor: grab;
       }
       .colony .over-target:not(.tile) {
-        outline: 2px dashed var(--accent);
+        background: color-mix(in srgb, var(--accent) 14%, transparent);
       }
       /* The tiles overlap by their boxes, so only the diamond of each takes a drop, a click or the pointer. */
       .colony .tile {
