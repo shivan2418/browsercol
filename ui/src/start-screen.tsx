@@ -8,12 +8,13 @@
 // [data-customize=game]; the map generator's options (#57) under
 // [data-customize=map]; what the player changes goes to the Engine in the
 // preset's options.
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { CreditsDialog, SourceLinks } from './credits';
 import { OptionEditor } from './option-editor';
-import { leaves, type OptionGroup, type OptionValue } from './options';
+import { leaves, sameValue, type OptionGroup, type OptionValue } from './options';
 import { SaveList } from './save-picker';
 import type { SaveMeta } from './saves';
+import { levelFile, loadDefaults, readLevelFile, saveDefaults } from './start-options';
 import { ADVANTAGES, type Advantages, type StartChoice, type StartOptions } from './start';
 
 /** FreeCol's names for the National Advantages choices (advantages.* in FreeColMessages). */
@@ -26,12 +27,15 @@ function Customize({
   group,
   edits,
   setEdits,
+  tools,
 }: {
   kind: string;
   summary: string;
   group: OptionGroup;
   edits: Record<string, OptionValue>;
   setEdits: (edits: Record<string, OptionValue>) => void;
+  /** Buttons under the options, such as Reset. */
+  tools?: ReactNode;
 }) {
   const base = useMemo(() => leaves(group), [group]);
   const count = Object.keys(edits).length;
@@ -44,12 +48,72 @@ function Customize({
         values={edits}
         onChange={(id, value) => {
           const next = { ...edits };
-          if (base.get(id)?.value === value) delete next[id];
+          if (sameValue(base.get(id)?.value, value)) delete next[id];
           else next[id] = value;
           setEdits(next);
         }}
       />
+      {tools && <div className="tools">{tools}</div>}
     </details>
+  );
+}
+
+/** Reset, Save and Load for a difficulty level, as DifficultyDialog has them; a level goes to a file and back as JSON. */
+function LevelTools({
+  group,
+  edits,
+  setEdits,
+}: {
+  group: OptionGroup;
+  edits: Record<string, OptionValue>;
+  setEdits: (edits: Record<string, OptionValue>) => void;
+}) {
+  const [note, setNote] = useState<string | null>(null);
+  const picker = useRef<HTMLInputElement>(null);
+  const save = () => {
+    const url = URL.createObjectURL(new Blob([levelFile(group, edits)], { type: 'application/json' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${group.id.replace(/^model\.difficulty\./, '')}.difficulty.json`;
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  };
+  const load = async (file: File | undefined) => {
+    if (!file) return;
+    const read = readLevelFile(group, await file.text());
+    if ('error' in read) {
+      setNote(read.error);
+      return;
+    }
+    setEdits(read.edits);
+    setNote(null);
+  };
+  return (
+    <>
+      <button type="button" data-level-reset disabled={Object.keys(edits).length === 0} onClick={() => setEdits({})}>
+        Reset
+      </button>
+      <button type="button" data-level-save onClick={save}>
+        Save level
+      </button>
+      <button type="button" data-level-load onClick={() => picker.current?.click()}>
+        Load level
+      </button>
+      <input
+        ref={picker}
+        type="file"
+        accept=".json,application/json"
+        hidden
+        data-level-file
+        onChange={(e) => {
+          void load(e.target.files?.[0]);
+          e.target.value = '';
+        }}
+      />
+      {note && <span role="alert">{note}</span>}
+    </>
   );
 }
 
@@ -88,11 +152,12 @@ export function StartScreen({
   ];
   const ownType = advantages === 'SELECTABLE' ? options.nationTypes.find((t) => t.id === nationType) : undefined;
   const [levelEdits, setLevelEdits] = useState<Record<string, OptionValue>>({});
-  const [gameEdits, setGameEdits] = useState<Record<string, OptionValue>>({});
-  const levelGroup = useMemo(() => options.groups.level(difficulty), [options, difficulty]);
   const gameGroup = useMemo(() => options.groups.game(), [options]);
   const mapGroup = useMemo(() => options.groups.mapGenerator(), [options]);
-  const [mapEdits, setMapEdits] = useState<Record<string, OptionValue>>({});
+  // The game and map options the player OK'd for an earlier game are the defaults of this one.
+  const [gameEdits, setGameEdits] = useState(() => loadDefaults('game', gameGroup));
+  const [mapEdits, setMapEdits] = useState(() => loadDefaults('map', mapGroup));
+  const levelGroup = useMemo(() => options.groups.level(difficulty), [options, difficulty]);
   const [credits, setCredits] = useState(false);
   return (
     <div className="start" data-testid="start">
@@ -100,6 +165,8 @@ export function StartScreen({
         className="start-window"
         onSubmit={(e) => {
           e.preventDefault();
+          saveDefaults('game', gameEdits);
+          saveDefaults('map', mapEdits);
           start({
             nation,
             difficulty,
@@ -257,6 +324,7 @@ export function StartScreen({
               group={levelGroup}
               edits={levelEdits}
               setEdits={setLevelEdits}
+              tools={<LevelTools group={levelGroup} edits={levelEdits} setEdits={setLevelEdits} />}
             />
           )}
         </fieldset>
