@@ -68,3 +68,5 @@ jobs:
           name: screenshots
           path: .cache/*.png
           if-no-files-found: ignore
+          # .cache is a hidden directory, which upload-artifact skips unless told.
+          include-hidden-files: true
