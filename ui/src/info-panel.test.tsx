@@ -7,7 +7,8 @@ import type { ActiveUnit } from './tileset';
 
 afterEach(cleanup);
 
-const art: Art = (keys) => (keys[0]?.startsWith('image.') ? `art/${keys[0]}.png` : null);
+const art: Art = (keys) =>
+  keys[0]?.startsWith('image.') && !keys[0].startsWith('image.skin.') ? `art/${keys[0]}.png` : null;
 
 const soldier: ActiveUnit = {
   id: 'unit:1',
@@ -76,6 +77,15 @@ describe('the info panel', () => {
     expect(panel.textContent).toContain('Press enter to end.');
     fireEvent.click(within(panel).getByRole('button', { name: 'End Turn' }));
     expect(calls.end).toBe(1);
+  });
+
+  it("has FreeCol's skin behind it once the art has it", () => {
+    const skinArt: Art = (keys) => (keys[0] === 'image.skin.InfoPanel' ? 'art/infopanel-skin.png' : art(keys));
+    const { panel } = shown({ unit: soldier, art: skinArt });
+    expect(panel.classList.contains('skinned')).toBe(true);
+    expect(panel.style.getPropertyValue('--skin')).toBe('url("art/infopanel-skin.png")');
+    cleanup();
+    expect(shown({ idle: true }).panel.classList.contains('skinned')).toBe(false);
   });
 
   it("falls back to FreeCol's English, and is empty while there is neither a unit nor the end of the turn", () => {

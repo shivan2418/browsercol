@@ -219,9 +219,10 @@ describe('the panel keys', () => {
       'father',
       'minimapEconomic',
       'minimapPolitics',
+      'advisor',
     ]);
     expect(EVENT_KEYS).toHaveLength(2);
-    expect(Object.keys(PANEL_KEYS)).toEqual(['coin', 'compass', 'minimapBorder']);
+    expect(Object.keys(PANEL_KEYS)).toEqual(['coin', 'compass', 'infoPanel', 'minimapBorder']);
     expect(isArtKey('image.unit.model.unit.caravel')).toBe(true);
   });
 });

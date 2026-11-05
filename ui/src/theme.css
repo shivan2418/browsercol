@@ -42,6 +42,14 @@
   --backdrop: rgb(0 0 0 / 40%);
   /* The border round a chip on a unit, drawn on its owner's colour (ImageLibrary.createChip). */
   --chip-border: #000000;
+  /*
+   * Text on FreeCol's painted paper (the advisor's sheet, the info panel's): the paper is light in every
+   * palette, so these stay dark ink.
+   */
+  --paper-ink: #2a1c0c;
+  --paper-muted: #6e5634;
+  --paper-head: #5a3714;
+  --paper-link: #1f4f8b;
 
   /* --font and --font-title come from the font set, in fonts.css. */
   --font-mono: ui-monospace, 'DejaVu Sans Mono', monospace;
@@ -69,4 +77,8 @@
   --warn: #ffb020;
   --backdrop: rgb(0 0 0 / 55%);
   --chip-border: #000000;
+  --paper-ink: #2a1c0c;
+  --paper-muted: #6e5634;
+  --paper-head: #5a3714;
+  --paper-link: #1f4f8b;
 }
