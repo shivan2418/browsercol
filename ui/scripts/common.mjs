@@ -225,7 +225,7 @@ const unlabel = (options) => {
 
 const patched = new WeakSet();
 /**
- * Makes every waitForFunction, waitForSelector and locator waitFor of the page
+ * Makes every waitForFunction, waitForSelector, locator waitFor and locator action (click, fill, ...) of the page
  * (and of its locators) fail with the step and condition on a timeout (#233).
  * Each takes an optional `label` in its options bag naming the condition.
  */
@@ -264,4 +264,31 @@ function watchWaits(page) {
     const state = rest?.state ? ` (state ${rest.state})` : '';
     return watched(this.page(), 'locator.waitFor', `${this}${state}`, label, () => waitFor.call(this, rest));
   };
+  // An action waits for its element too (Playwright's actionability checks), and its timeout says no more than a wait's does.
+  for (const name of [
+    'click',
+    'dblclick',
+    'hover',
+    'fill',
+    'press',
+    'dragTo',
+    'innerText',
+    'textContent',
+    'inputValue',
+  ]) {
+    const original = locatorProto[name];
+    locatorProto[name] = function (...args) {
+      return watched(this.page(), `locator.${name}`, `${this} to be actionable`, undefined, () =>
+        original.apply(this, args),
+      );
+    };
+  }
+  for (const name of ['click', 'fill', 'press', 'goto']) {
+    const original = pageProto[name];
+    pageProto[name] = function (...args) {
+      return watched(this, `page.${name}`, `${name} ${squash(args[0], 200)}`, undefined, () =>
+        original.apply(this, args),
+      );
+    };
+  }
 }
