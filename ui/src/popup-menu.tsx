@@ -3,6 +3,7 @@
 // its id; this file draws a menu where the pointer was, closes it on Escape,
 // on a press elsewhere and once an entry has run, and gives the colony
 // panel's colonists and goods a right-click that opens theirs.
+import { focusFirstEntry, menuArrows, useFocusTrap } from './focus';
 import { useEscape, type Art } from './frame';
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from 'react';
 
@@ -78,8 +79,18 @@ export function PopupMenu({
   }, []);
   // Escape closes the menu first, and the dialog under it only the next time.
   useEscape(close);
+  // The keyboard starts on the first entry; the arrows and Tab go round the entries, not off the page.
+  useFocusTrap(box);
+  useEffect(() => focusFirstEntry(box.current), [popup]);
   return (
-    <div className="popup" role="menu" aria-label={popup.menu.title} ref={box} style={{ left: at[0], top: at[1] }}>
+    <div
+      className="popup"
+      role="menu"
+      aria-label={popup.menu.title}
+      ref={box}
+      style={{ left: at[0], top: at[1] }}
+      onKeyDown={menuArrows}
+    >
       {popup.menu.entries.map((e, i) => (
         <button
           key={i}

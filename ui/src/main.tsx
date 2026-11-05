@@ -31,6 +31,7 @@ import { startPage, type ClientExports, type Scope, type ToWorker } from './chan
 import { DebugContext, debugMessage, debugMode, describeAnswer, type DebugRequest } from './debug';
 import { ColonyActions, ColonyTiles, type ColonyMoves, type DrawTiles } from './colony-panel';
 import { dialogs } from './dialogs';
+import { keepTabOnPage } from './focus';
 import { MENUS, MenuBar, framePlaces, goodsIcons, type Menu } from './frame';
 import { CreditsDialog } from './credits';
 import { debugMenu, gameMenu, ordersMenu, reportOptionsMenu, viewMenu, type MenuActions } from './menus';
@@ -600,6 +601,8 @@ const currentMenus = (): Menu[] => {
   return names.map((name) => ({ name, items: items[name] ?? [] }));
 };
 const menuRoot = createRoot(document.getElementById('menubar')!);
+// Tab goes round the page's buttons rather than out to the browser's address bar.
+keepTabOnPage();
 /** Our colony as the colony panel shows it, once the client Engine has loaded (ClientExports.colony). */
 let colonyNow: (id: string) => string = () => 'null';
 let colonyPull = false;
