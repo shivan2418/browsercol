@@ -275,23 +275,32 @@
         position: relative;
         overflow: hidden;
       }
-      /* FreeCol's compass rose (Preferences: display compass rose), where CornerMapControls puts it. */
-      #map #compass {
+      /*
+       * FreeCol's compass rose (Preferences: display compass rose), where CornerMapControls puts it. It and the
+       * order buttons sit in #game beside #map, not in it: in #map the canvas, appended later, painted over them,
+       * and the map's own pointer listeners took their clicks too (issue 245).
+       */
+      #game > #compass {
         position: absolute;
         top: 20px;
         right: 20px;
         cursor: pointer;
       }
       /* The active unit's order buttons, where CornerMapControls puts them. */
-      #map #map-orders {
+      /* Between the minimap and the info panel (main.tsx sets --minimap-w); in a narrow map they wrap upwards. */
+      #game #map-orders {
         position: absolute;
+        left: calc(var(--minimap-w, 0px) + 8px);
         right: calc(var(--info-panel-w) + 8px);
         bottom: 8px;
         display: flex;
-        flex-wrap: wrap;
+        flex-wrap: wrap-reverse;
         justify-content: flex-end;
         gap: 4px;
-        max-width: 60%;
+        pointer-events: none;
+      }
+      #game #map-orders button {
+        pointer-events: auto;
       }
       #map canvas {
         position: absolute;
@@ -2056,6 +2065,7 @@
     <div id="stage">
       <div id="game">
         <div id="map"></div>
+        <div id="map-orders-host"></div>
         <div id="minimap-host"></div>
         <div id="info-panel-host"></div>
       </div>

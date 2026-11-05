@@ -494,7 +494,8 @@ function showCompass(on: boolean) {
   const src = on ? art(['image.skin.compass']) : null;
   if (src) {
     compass.src = src;
-    mapHost.append(compass);
+    // Beside the map, not in it, so the map's canvas does not cover it nor its click reach the map (#245).
+    document.getElementById('game')!.append(compass);
   } else compass.remove();
 }
 // Where the player left each window, for FreeCol's remember panel positions option.
@@ -881,10 +882,11 @@ document.addEventListener('fullscreenchange', () => renderSide());
 // The menus' Save entries depend on whether a window is open.
 dialogQueue.subscribe(() => renderSide());
 const sideRoot = createRoot(document.getElementById('side')!);
-/** The active unit's order buttons over the map (map-orders.tsx). */
-const ordersHost = document.createElement('div');
-mapHost.append(ordersHost);
-const ordersRoot = createRoot(ordersHost);
+/**
+ * The active unit's order buttons over the map (map-orders.tsx), in a host beside the map rather than in it, so
+ * the map's canvas does not cover them nor their clicks reach the map (#245).
+ */
+const ordersRoot = createRoot(document.getElementById('map-orders-host')!);
 /** The layer of the windows over the page, outside the side panel. */
 const overlays = document.getElementById('overlays')!;
 /** The map's box, over which the turn banner is centred, clear of the side panel. */
@@ -1063,7 +1065,23 @@ function dispatch(e: ViewEvent) {
 }
 /** The last map view, which the minimap draws whole. */
 let lastMap: MapView | null = null;
-const minimapRoot = createRoot(document.getElementById('minimap-host')!);
+const minimapHost = document.getElementById('minimap-host')!;
+const minimapRoot = createRoot(minimapHost);
+/**
+ * The minimap's width as --minimap-w on the map's box, so the order buttons over the map keep between it and the
+ * info panel (#245). The minimap is drawn, skinned or not, and hidden with the side panel, so its size is watched.
+ */
+{
+  const minimapSize = new ResizeObserver(() => {
+    const m = minimapHost.querySelector('#minimap');
+    document.getElementById('game')!.style.setProperty('--minimap-w', `${m?.getBoundingClientRect().width ?? 0}px`);
+  });
+  new MutationObserver(() => {
+    minimapSize.disconnect();
+    const m = minimapHost.querySelector('#minimap');
+    if (m) minimapSize.observe(m);
+  }).observe(minimapHost, { childList: true });
+}
 /** FreeCol's minimap at the map's bottom-left: one of the map controls, shown with the side panel. */
 function renderMinimap() {
   minimapRoot.render(
