@@ -28,4 +28,18 @@ class FailuresTest {
         assertTrue(text.contains("readPastTheEnd"), text);
         assertTrue(text.contains("Caused by: java.io.EOFException"), text);
     }
+
+    /** An exception thrown on the AWT event thread is reported (#227). */
+    @Test
+    void anExceptionOnTheEventThreadIsReported() throws Exception {
+        FirstTurn.threads(); // loads FirstTurn, which watches the event thread
+        java.awt.EventQueue.invokeLater(() -> {
+            throw new IllegalStateException("edt boom");
+        });
+        // Runs after the throwing task, on the same thread.
+        java.awt.EventQueue.invokeAndWait(() -> {});
+        String all = String.join("\n", FirstTurn.reported());
+        assertTrue(all.contains("the AWT event thread"), all);
+        assertTrue(all.contains("edt boom"), all);
+    }
 }
