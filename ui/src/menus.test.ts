@@ -113,7 +113,6 @@ describe('the Orders menu', () => {
       'Build Road',
       'Unload',
       'Go To',
-      'Assign Trade Route',
       'Trade Routes',
       'Disband Unit',
     ]);
@@ -122,11 +121,20 @@ describe('the Orders menu', () => {
       'Fortify',
       'Clear Orders',
       'Go To',
-      'Trade Routes',
     ]);
     find(items, 'Fortify').run();
     find(items, 'Go To').run();
     expect(log).toEqual(['fortify', 'selectDestination']);
+  });
+
+  it('enables Trade Routes only for a carrier, and opens its route panel', () => {
+    const plain = ordersMenu(actions({ orders: ['fortify', 'goto'], hasActiveUnit: true }).a);
+    expect(find(plain, 'Trade Routes').disabled).toBe(true);
+    const { a, log } = actions({ orders: ['goto', 'assignRoute'], hasActiveUnit: true });
+    const routes = find(ordersMenu(a), 'Trade Routes');
+    expect(routes.disabled).toBe(false);
+    routes.run();
+    expect(log).toEqual(['assignRoute']);
   });
 
   it('offers Build Colony when the Engine says the unit can found a colony', () => {
@@ -139,7 +147,7 @@ describe('the Orders menu', () => {
 
   it('disables every order when there is no active unit', () => {
     const items = ordersMenu(actions().a);
-    expect(items.filter((i) => !i.disabled).map((i) => i.label)).toEqual(['Trade Routes']);
+    expect(items.filter((i) => !i.disabled).map((i) => i.label)).toEqual([]);
   });
 });
 

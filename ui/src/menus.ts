@@ -101,9 +101,9 @@ export function ordersMenu(a: MenuActions): Items {
     order('Build Road', { k: 'road' }),
     order('Unload', { k: 'unload' }),
     order('Go To', { k: 'selectDestination' }),
-    // As TradeRouteAction, it opens the panel with no unit; AssignTradeRouteAction is for a carrier.
-    order('Assign Trade Route', { k: 'assignRoute' }),
-    { label: 'Trade Routes', run: () => a.run({ k: 'tradeRoutes' }), disabled: !a.ready },
+    // Only a carrier can be given a route, so Trade Routes opens the panel for the active carrier
+    // (AssignTradeRouteAction) and is enabled only when the Engine lists assignRoute for the unit.
+    order('Trade Routes', { k: 'assignRoute' }),
     order('Disband Unit', { k: 'disband' }),
   ];
 }
