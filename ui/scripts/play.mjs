@@ -411,11 +411,19 @@ async function play(page, url) {
   const endTurn = async (expectUnit = false) => {
     const turn = (await view()).turn;
     await pressKey('Enter');
-    await page.waitForFunction((t) => window.__map.turn !== t && window.__map.ourTurn, turn, { timeout: 120000, label: 'the next turn starts and play is back with the human' });
+    await page.waitForFunction((t) => window.__map.turn !== t && window.__map.ourTurn, turn, {
+      timeout: 120000,
+      label: 'the next turn starts and play is back with the human',
+    });
     // The client picks the unit to play with, which the map names when it comes: the map of the new
     // turn may come first, with no unit yet, and the script must not spend its turns on that.
     if (expectUnit) {
-      await page.waitForFunction(() => window.__map.active, null, { timeout: 10000, label: 'the client picks a unit for the new turn' }).catch(() => {});
+      await page
+        .waitForFunction(() => window.__map.active, null, {
+          timeout: 10000,
+          label: 'the client picks a unit for the new turn',
+        })
+        .catch(() => {});
     }
     return view();
   };
@@ -475,7 +483,8 @@ async function play(page, url) {
         .join(' ');
     const net = () => page.evaluate(netOf);
     const unit = (id) => panel.locator(`[data-unit="${id}"]`).first();
-    const within = (place, id, timeout = 20000) => place.locator(`[data-unit="${id}"]`).waitFor({ timeout, label: 'a unit shows in a place of the colony panel' });
+    const within = (place, id, timeout = 20000) =>
+      place.locator(`[data-unit="${id}"]`).waitFor({ timeout, label: 'a unit shows in a place of the colony panel' });
     /** Whether the unit is in the place, as the panel is shown again after a change. */
     const landed = async (place, id, timeout = 20000) =>
       within(place, id, timeout).then(
@@ -498,7 +507,10 @@ async function play(page, url) {
     const changed = async (than, what) => {
       await page
         // netOf runs in the page as its source, in a string expression.
-        .waitForFunction(`(${netOf.toString()})() !== ${JSON.stringify(than)}`, null, { timeout: 20000, label: 'the net production changes' })
+        .waitForFunction(`(${netOf.toString()})() !== ${JSON.stringify(than)}`, null, {
+          timeout: 20000,
+          label: 'the net production changes',
+        })
         .catch(() => {
           throw new Error(`the net production did not change after ${what}`);
         });
@@ -553,7 +565,7 @@ async function play(page, url) {
     // and leaves the colony panel open.
     await unit(founder).click({ button: 'right' });
     const popup = page.locator('.popup[role=menu]');
-    await popup.waitFor({ timeout: 10000, label: 'the founder\'s quick action menu opens' });
+    await popup.waitFor({ timeout: 10000, label: "the founder's quick action menu opens" });
     if ((await popup.locator('[data-entry^="work:"]').count()) === 0) {
       throw new Error(`the founder's quick action menu has no place to work: ${await popup.innerText()}`);
     }
@@ -576,7 +588,7 @@ async function play(page, url) {
       // Its menu changes what it makes, when the tile offers another.
       await unit(founder).click({ button: 'right' });
       const menu = page.locator('.popup[role=menu]');
-      await menu.waitFor({ timeout: 10000, label: 'the founder\'s menu opens again' });
+      await menu.waitFor({ timeout: 10000, label: "the founder's menu opens again" });
       const work = menu.locator(`[data-entry^="work:${founder},${tileId},"]`);
       if ((await work.count()) > 0) {
         const entry = await work.first().getAttribute('data-entry');
@@ -678,7 +690,7 @@ async function play(page, url) {
     const panel = page.locator('[role=dialog][data-kind=colony]');
     await panel.waitFor({ timeout: 10000, label: 'the colony panel opens to load the ship' });
     const cargo = panel.locator(`[data-part=cargo][data-ship="${shipId}"]`);
-    await cargo.waitFor({ timeout: 10000, label: 'the colony panel shows the ship\'s cargo' }).catch(() => {
+    await cargo.waitFor({ timeout: 10000, label: "the colony panel shows the ship's cargo" }).catch(() => {
       throw new Error(`the colony panel does not show the cargo of the ship ${shipId}`);
     });
     const outside = panel.locator('[data-part=outside]');
@@ -693,7 +705,10 @@ async function play(page, url) {
       for (let i = 0; i < 5; i++) {
         await place.click();
         if ((await panel.locator('[data-picked=true]').count()) === 0) {
-          await page.waitForFunction((n) => window.__maps > n, n, { timeout: 60000, label: 'the map after a pick is put down' });
+          await page.waitForFunction((n) => window.__maps > n, n, {
+            timeout: 60000,
+            label: 'the map after a pick is put down',
+          });
           return;
         }
         await page.waitForTimeout(300);
@@ -753,14 +768,14 @@ async function play(page, url) {
     await dropBoth(passenger, goods, shipId);
     await cargo
       .locator(`[data-unit="${passenger}"]`)
-      .waitFor({ timeout: 20000, label: 'the passenger shows in the ship\'s cargo' })
+      .waitFor({ timeout: 20000, label: "the passenger shows in the ship's cargo" })
       .catch(() => {
         throw new Error(`the unit ${passenger} did not board the ship`);
       });
     await cargo
       .locator(`[data-goods="${goods}"]`)
       .first()
-      .waitFor({ timeout: 20000, label: 'the goods show in the ship\'s cargo' })
+      .waitFor({ timeout: 20000, label: "the goods show in the ship's cargo" })
       .catch(() => {
         throw new Error(`the ship did not take ${goods} aboard`);
       });
@@ -780,7 +795,7 @@ async function play(page, url) {
       .waitForFunction(
         ([ship]) => !document.querySelector(`[data-part=cargo][data-ship="${ship}"] [data-goods]`),
         [shipId],
-        { timeout: 20000, label: 'the ship\'s cargo has no goods left' },
+        { timeout: 20000, label: "the ship's cargo has no goods left" },
       )
       .catch(() => {
         throw new Error(`the ship did not unload ${goods}`);
@@ -834,7 +849,11 @@ async function play(page, url) {
     }
     // React renders the panel a moment after the view changes.
     const shows = (label) => document.querySelector('#info')?.textContent.startsWith(label);
-    if (!(await page.waitForFunction(shows, m.activeUnit.label, { timeout: 5000, label: 'the info panel names the active unit' }).catch(() => false))) {
+    if (
+      !(await page
+        .waitForFunction(shows, m.activeUnit.label, { timeout: 5000, label: 'the info panel names the active unit' })
+        .catch(() => false))
+    ) {
       const info = await page.locator('#info').textContent();
       throw new Error(`${what}: the panel shows ${JSON.stringify(info)}`);
     }
@@ -870,7 +889,11 @@ async function play(page, url) {
         c.bottom === innerHeight
       );
     };
-    if (!(await page.waitForFunction(fills, null, { timeout: 5000, label: 'the map and the side panel fill the window' }).catch(() => false))) {
+    if (
+      !(await page
+        .waitForFunction(fills, null, { timeout: 5000, label: 'the map and the side panel fill the window' })
+        .catch(() => false))
+    ) {
       const got = await page.evaluate(boxes);
       throw new Error(`${what}: the map and the side panel do not fill the window: ${JSON.stringify(got)}`);
     }
@@ -912,7 +935,11 @@ async function play(page, url) {
         vh === h
       );
     };
-    if (!(await page.waitForFunction(fits, want, { timeout: 5000, label: 'the canvas has the size of the resized window' }).catch(() => false))) {
+    if (
+      !(await page
+        .waitForFunction(fits, want, { timeout: 5000, label: 'the canvas has the size of the resized window' })
+        .catch(() => false))
+    ) {
       const got = await page.evaluate(canvasSize);
       const view = (await viewState()).viewport;
       throw new Error(
@@ -931,7 +958,12 @@ async function play(page, url) {
     // mouse.wheel does not wait for the page to handle the event (Firefox
     // may be late), so wait for the zoom to change.
     await page.mouse.wheel(0, -100);
-    await page.waitForFunction((z) => window.fcView().zoom > z, before.zoom, { timeout: 5000, label: 'the wheel zooms the map in' }).catch(() => {});
+    await page
+      .waitForFunction((z) => window.fcView().zoom > z, before.zoom, {
+        timeout: 5000,
+        label: 'the wheel zooms the map in',
+      })
+      .catch(() => {});
     const zoomed = await viewState();
     if (zoomed.zoom <= before.zoom) throw new Error(`the wheel did not zoom in: ${before.zoom} -> ${zoomed.zoom}`);
     // Drag the map right with the middle button, the only one that pans, so it has room to scroll back at the right edge.
@@ -1053,7 +1085,8 @@ async function play(page, url) {
   m = await act(() => page.click('button[data-command=tradeRoutes]'));
   const routesShown = await page
     .waitForFunction(() => (window.__dialogs ?? []).some((d) => d.startsWith('tradeRoutes: ')), null, {
-      timeout: 10000, label: 'the trade routes panel opens',
+      timeout: 10000,
+      label: 'the trade routes panel opens',
     })
     .catch(() => false);
   if (!routesShown) {
@@ -1120,7 +1153,8 @@ async function play(page, url) {
   await act(() => pressKey('h'));
   const asked = await page
     .waitForFunction(() => (window.__dialogs ?? []).some((d) => d.startsWith('choice: Select destination')), null, {
-      timeout: 10000, label: 'the Go To order asks for a destination',
+      timeout: 10000,
+      label: 'the Go To order asks for a destination',
     })
     .catch(() => false);
   if (!asked) {
@@ -1133,7 +1167,8 @@ async function play(page, url) {
   await noDialog('pressing the Europe button');
   await page.locator('button[data-command=showEurope]').click();
   await page.waitForFunction(() => (window.__dialogs ?? []).some((d) => d.startsWith('europe: ')), null, {
-    timeout: 10000, label: 'the Europe panel opens',
+    timeout: 10000,
+    label: 'the Europe panel opens',
   });
   for (let i = 0; i < 200 && europeSeen.length === 0; i++) await new Promise((ok) => setTimeout(ok, 50));
   const europe = europeSeen[0];
@@ -1167,7 +1202,10 @@ async function play(page, url) {
     await page.evaluate(() => (window.__hold = 'options'));
     await page.getByRole('menuitem', { name: 'Report', exact: true }).click();
     await page.getByRole('menuitem', { name: entry }).click();
-    await page.waitForSelector('[role=dialog][data-kind=options] [data-option]', { timeout: 10000, label: 'the options dialog lists its options' });
+    await page.waitForSelector('[role=dialog][data-kind=options] [data-option]', {
+      timeout: 10000,
+      label: 'the options dialog lists its options',
+    });
     const editor = await page.evaluate(() => {
       const controls = [
         ...document.querySelectorAll('[role=dialog][data-kind=options] [data-option] :is(input, select)'),
@@ -1191,7 +1229,10 @@ async function play(page, url) {
     const before = await page.evaluate(() => window.__pictures.length);
     await page.evaluate(([k, json]) => window.fcShow(k, json), [kind, JSON.stringify(event)]);
     await page
-      .waitForFunction((n) => window.__pictures.length > n, before, { timeout: 10000, label: 'the event dialog shows its images' })
+      .waitForFunction((n) => window.__pictures.length > n, before, {
+        timeout: 10000,
+        label: 'the event dialog shows its images',
+      })
       .catch(async () => {
         throw new Error(
           `no dialog with images came for the ${kind} event within 10 s; the page shows ${await page.evaluate(

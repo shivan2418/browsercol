@@ -175,21 +175,31 @@ async function describeTimeout(page, kind, what, label, ex) {
   const dialogs = await within(
     page.evaluate(() =>
       [...document.querySelectorAll('[role=dialog]')].map(
-        (d) => `${d.getAttribute('data-kind') ?? ''}: ${(d.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 200)}`,
+        (d) =>
+          `${d.getAttribute('data-kind') ?? ''}: ${(d.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 200)}`,
       ),
     ),
     3000,
   );
-  lines.push(`  visible dialogs: ${dialogs?.length ? dialogs.join(' | ') : dialogs ? 'none' : '(page did not answer)'}`);
+  lines.push(
+    `  visible dialogs: ${dialogs?.length ? dialogs.join(' | ') : dialogs ? 'none' : '(page did not answer)'}`,
+  );
   const tail = consoleTails.get(page) ?? [];
   if (tail.length) lines.push('  console, last lines:', ...tail.map((l) => `    ${l}`));
   // One file for each label, so a wait the script catches and goes on from cannot overwrite the one that failed it.
-  const slug = (label || what).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50);
+  const slug = (label || what)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 50);
   if (shots < 8) {
     shots++;
     const file = path.join(shotDir, `timeout-${script}-${browserName}-${slug || shots}.png`);
     fs.mkdirSync(shotDir, { recursive: true });
-    const done = await within(page.screenshot({ path: file }).then(() => true), 10000);
+    const done = await within(
+      page.screenshot({ path: file }).then(() => true),
+      10000,
+    );
     lines.push(done ? `  screenshot: ${file}` : '  screenshot: failed or timed out');
   }
   ex.message = lines.join('\n');
