@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vite-plus/test';
 import { commandForKey } from './input';
 
 /** Every order the Engine names, so each order's key is live. */
-const ALL = ['buildColony', 'fortify', 'sentry', 'skip', 'disband', 'plow', 'clearForest', 'road', 'goto'];
+const ALL = ['buildColony', 'fortify', 'sentry', 'skip', 'disband', 'unload', 'plow', 'clearForest', 'road', 'goto'];
 const key = (key: string, code = '', orders = ALL) => commandForKey({ key, code }, orders);
 
 describe('commandForKey', () => {
