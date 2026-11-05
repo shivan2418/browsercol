@@ -52,6 +52,7 @@ function host() {
     groupBy: (value) => pressed.push(`groupBy ${value}`),
     filter: (index, shown) => pressed.push(`filter ${index} ${shown}`),
     ignore: (index, ignore) => pressed.push(`ignore ${index} ${ignore}`),
+    open: (link) => pressed.push(`open ${JSON.stringify(link)}`),
   };
   const saved: TradeRouteDraft[] = [];
   const removed: string[] = [];
@@ -635,6 +636,36 @@ describe('the panels', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
+  it('open the colony panel or Europe from a heading or image that links to one', () => {
+    const { box, went, pressed } = host();
+    act(() =>
+      box.show('messages', {
+        title: 'Turn Report',
+        ok: 'OK',
+        messages: [
+          message('Jamestown has grown.', {
+            at: [3, 4],
+            images: ['image.unit.model.unit.caravel'],
+            link: { kind: 'colony', id: 'colony:1' },
+            heading: { text: 'Jamestown', tile: 'tile:9', at: [3, 4], link: { kind: 'colony', id: 'colony:1' } },
+          }),
+          message('A ship has arrived.', {
+            heading: { text: 'Europe', tile: null, at: null, link: { kind: 'europe' } },
+          }),
+        ],
+      }),
+    );
+    fireEvent.click(screen.getByText('Jamestown'));
+    fireEvent.click(screen.getByText('Europe'));
+    fireEvent.click(screen.getByRole('img', { hidden: true }));
+    expect(went).toEqual([]);
+    expect(pressed).toEqual([
+      'open {"kind":"colony","id":"colony:1"}',
+      'open {"kind":"europe"}',
+      'open {"kind":"colony","id":"colony:1"}',
+    ]);
+  });
+
   it('show the image of what a message is about, the first of its keys the Tileset has', () => {
     const { box } = host();
     act(() =>
@@ -713,7 +744,7 @@ describe('the panels', () => {
           dialogs={box}
           goTo={() => {}}
           art={art}
-          report={{ groupBy: () => {}, filter: () => {}, ignore: () => {} }}
+          report={{ groupBy: () => {}, filter: () => {}, ignore: () => {}, open: () => {} }}
           routes={{ save: () => {}, remove: () => {}, assign: () => {} }}
           colopedia={(type) => opened.push(type)}
         />,
@@ -1789,7 +1820,7 @@ describe('the Europe panel', () => {
           dialogs={box}
           goTo={() => {}}
           art={art}
-          report={{ groupBy() {}, filter() {}, ignore() {} }}
+          report={{ groupBy() {}, filter() {}, ignore() {}, open() {} }}
           routes={{ save() {}, remove() {}, assign() {} }}
         />
       </ContextMenuContext.Provider>,

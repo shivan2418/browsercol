@@ -42,7 +42,7 @@ function open(colony: ColonyView = jamestown, drawTiles: DrawTiles | null = null
         dialogs={box}
         goTo={() => {}}
         art={art}
-        report={{ groupBy() {}, filter() {}, ignore() {} }}
+        report={{ groupBy() {}, filter() {}, ignore() {}, open() {} }}
         routes={{ save() {}, remove() {}, assign() {} }}
       />
     </ColonyTiles.Provider>,
@@ -271,7 +271,7 @@ describe('moving colonists in the colony panel', () => {
           dialogs={box}
           goTo={() => {}}
           art={art}
-          report={{ groupBy() {}, filter() {}, ignore() {} }}
+          report={{ groupBy() {}, filter() {}, ignore() {}, open() {} }}
           routes={{ save() {}, remove() {}, assign() {} }}
         />
       </ColonyActions.Provider>,
@@ -378,7 +378,7 @@ describe('loading a ship in port in the colony panel', () => {
           dialogs={box}
           goTo={() => {}}
           art={art}
-          report={{ groupBy() {}, filter() {}, ignore() {} }}
+          report={{ groupBy() {}, filter() {}, ignore() {}, open() {} }}
           routes={{ save() {}, remove() {}, assign() {} }}
         />
       </ColonyActions.Provider>,
@@ -518,7 +518,7 @@ describe('the build queue in the colony panel', () => {
           dialogs={box}
           goTo={() => {}}
           art={art}
-          report={{ groupBy() {}, filter() {}, ignore() {} }}
+          report={{ groupBy() {}, filter() {}, ignore() {}, open() {} }}
           routes={{ save() {}, remove() {}, assign() {} }}
         />
       </ColonyActions.Provider>,
@@ -646,7 +646,7 @@ describe('right-clicking in the colony panel', () => {
         dialogs={box}
         goTo={() => {}}
         art={art}
-        report={{ groupBy() {}, filter() {}, ignore() {} }}
+        report={{ groupBy() {}, filter() {}, ignore() {}, open() {} }}
         routes={{ save() {}, remove() {}, assign() {} }}
       />
     );

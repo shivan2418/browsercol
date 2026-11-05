@@ -33,7 +33,7 @@ import { ColonyActions, ColonyTiles, type ColonyMoves, type DrawTiles } from './
 import { dialogs } from './dialogs';
 import { MENUS, MenuBar, framePlaces, goodsIcons, type Menu } from './frame';
 import { CreditsDialog } from './credits';
-import { gameMenu, ordersMenu, viewMenu, type MenuActions } from './menus';
+import { gameMenu, ordersMenu, reportOptionsMenu, viewMenu, type MenuActions } from './menus';
 import { commandForKey, type Command } from './input';
 import { PreferencesDialog } from './prefs-dialog';
 import {
@@ -244,7 +244,7 @@ function turnAutosave(m: MapView) {
   for (const name of turnAutosaveNames(autosaveOptions(prefs), turn, m.turnLabel)) saveNamed(name);
 }
 /** The turn report's buttons, once the client Engine has loaded. */
-let reportButtons: ReportButtons = { groupBy: () => {}, filter: () => {}, ignore: () => {} };
+let reportButtons: ReportButtons = { groupBy: () => {}, filter: () => {}, ignore: () => {}, open: () => {} };
 /** The trade routes panel's buttons, once the client Engine has loaded. */
 let routeButtons: RouteButtons = { save: () => {}, remove: () => {}, assign: () => {} };
 /** The art of the first resource key the Tileset has, as a URL to show in a dialog, once its manifest has loaded. */
@@ -496,7 +496,7 @@ const currentMenus = (): Menu[] => {
     Game: gameMenu(a),
     View: viewMenu(a),
     Orders: ordersMenu(a),
-    Report: reportMenu(reportActions.open),
+    Report: [...reportMenu(reportActions.open), ...reportOptionsMenu(a)],
     Colopedia: [
       ...colopediaMenu(reportActions.open),
       {
@@ -624,6 +624,7 @@ function renderSide() {
                       groupBy: (value) => reportButtons.groupBy(value),
                       filter: (index, shown) => reportButtons.filter(index, shown),
                       ignore: (index, ignore) => reportButtons.ignore(index, ignore),
+                      open: (link) => reportButtons.open(link),
                     }}
                     routes={{
                       save: (d) => routeButtons.save(d),
@@ -1161,6 +1162,7 @@ async function run() {
       pullFreecolOptions();
     },
     ignore: (index, ignore) => exports.reportIgnore(index, ignore),
+    open: (link) => (link.kind === 'colony' ? reportActions.colony(link.id) : reportActions.europe()),
   };
   routeButtons = {
     save: (d) => exports.saveTradeRoute(JSON.stringify(d)),

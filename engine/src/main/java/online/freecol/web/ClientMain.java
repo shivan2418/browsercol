@@ -325,6 +325,12 @@ public final class ClientMain {
         command("showGameOptions", () -> engine.getCommands().showGameOptions());
     }
 
+    /** Show the map generator options, read-only (ShowMapGeneratorOptionsAction). */
+    @JSExport
+    public static void showMapGeneratorOptions() {
+        command("showMapGeneratorOptions", () -> engine.getCommands().showMapGeneratorOptions());
+    }
+
     /** Show the game's difficulty level, read-only (ShowDifficultyAction). */
     @JSExport
     public static void showDifficulty() {

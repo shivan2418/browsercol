@@ -13,6 +13,9 @@ export interface TileRef {
   at: [number, number] | null;
 }
 
+/** What a turn report's link opens: our colony's panel, or Europe's (WebGUI.link). */
+export type ReportLink = { kind: 'colony'; id: Id } | { kind: 'europe' };
+
 /** Events: shown, nothing comes back. */
 import type { OptionGroup } from './options';
 
@@ -126,8 +129,10 @@ export interface GuiEvents {
       text: string;
       type: string;
       source: Id | null;
-      heading: ({ text: string } & TileRef) | null;
+      heading: ({ text: string; link?: ReportLink | null } & TileRef) | null;
       images: string[];
+      /** What the image opens, as in Swing's report (colony or Europe); null for nothing. */
+      link?: ReportLink | null;
       filter: boolean | null;
       filterTip: string | null;
       /** Whether the ignore button has been pressed. */
@@ -226,7 +231,7 @@ export interface GuiEvents {
    * The game's difficulty level or game options (the in-game menu's entries), as an option group the option
    * editor shows read-only (options.ts, OptionsJson.java). root is null when nothing in the group can be shown.
    */
-  options: { kind: 'difficulty' | 'game'; title: string; root: OptionGroup | null; ok: string };
+  options: { kind: 'difficulty' | 'game' | 'mapGenerator'; title: string; root: OptionGroup | null; ok: string };
   /**
    * A report of the Report menu (Reports.java): the report field tells which. It replaces the open report,
    * so a link to a detail report opens it in place.
