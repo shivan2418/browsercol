@@ -48,9 +48,16 @@ export interface Dialogs {
   show: <K extends PanelKind>(kind: K, event: GuiEvents[K]) => void;
   /**
    * Put a panel in the place of the first of its kind that is queued or open and that `same` says it is
-   * (any, by default), as the same panel shown differently; queue it if there is none.
+   * (any, by default), as the same panel shown differently; queue it if there is none. The panel starts
+   * afresh, unless `keep` says it is the same panel with newer content, as the colony panel is as each
+   * change reaches the client: it keeps what it holds, a drag in progress among it.
    */
-  replace: <K extends PanelKind>(kind: K, event: GuiEvents[K], same?: (open: GuiEvents[K]) => boolean) => void;
+  replace: <K extends PanelKind>(
+    kind: K,
+    event: GuiEvents[K],
+    same?: (open: GuiEvents[K]) => boolean,
+    keep?: boolean,
+  ) => void;
   /** Close the panels of a kind that are queued or open and that `same` says to, as the player would. */
   remove: <K extends PanelKind>(kind: K, same: (open: GuiEvents[K]) => boolean) => void;
   /** The events of the panels of a kind that are queued or open, in order. */
@@ -99,10 +106,16 @@ export function dialogs(): Dialogs {
   return {
     ask: (kind, ask) => new Promise((ok) => add(kind, ask, 'ask', ok as (a: unknown) => void)),
     show: (kind, event) => add(kind, event, 'event', () => {}),
-    replace: (kind, event, same = () => true) => {
+    replace: (kind, event, same = () => true, keep = false) => {
       const i = queue.findIndex((d) => d.kind === kind && same((d as unknown as { event: typeof event }).event));
-      // A new dialog id, so that the panel starts afresh rather than keeping what React held.
       if (i < 0) return add(kind, event, 'event', () => {});
+      if (keep) {
+        // The same dialog id, so that React keeps the panel's elements, and a drag over them is not lost.
+        queue[i] = { ...queue[i], event } as Dialog;
+        changed();
+        return;
+      }
+      // A new dialog id, so that the panel starts afresh rather than keeping what React held.
       const next = make(kind, event, 'event', () => {});
       if (covered.has(queue[i].id)) {
         covered.delete(queue[i].id);

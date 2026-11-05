@@ -118,6 +118,19 @@ describe('dialogs', () => {
     expect(d.current(), 'with nothing to replace, it is queued').not.toBeNull();
   });
 
+  it('keeps the dialog of a panel replaced with keep, so its elements and a drag over them stay', () => {
+    const d = dialogs();
+    d.show('messages', { title: 'Report', messages: [], ok: 'OK' });
+    const open = d.current()!;
+    d.replace('messages', { title: 'Report', messages: [], ok: 'Later' }, () => true, true);
+    const next = d.current()!;
+    expect(next.id, 'the same id, so React does not remount the panel').toBe(open.id);
+    if (next.kind !== 'messages') throw new Error(next.kind);
+    expect(next.event.ok, 'with the new content').toBe('Later');
+    next.done();
+    expect(d.current(), 'and closing it closes the panel').toBeNull();
+  });
+
   it('takes only the first answer to a dialog', async () => {
     const d = dialogs();
     const answer = d.ask('choice', { text: 'Pick', cancel: null, tile: null, object: null, choices: [] });
