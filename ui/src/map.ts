@@ -1025,6 +1025,11 @@ export function mapDrawer(
   draw(map: MapView): Promise<void>;
   /** A step the Engine says a unit took; it slides when the next map is drawn. */
   moved(step: Step): void;
+  /**
+   * Resolves once the steps told of have been drawn and the unit has slid to its tile, as SwingGUI's animation
+   * is over before the dialogs a move brings open; at most `maxMs` later, should no map come.
+   */
+  settled(maxMs?: number): Promise<void>;
   /** Show the view: where it is centred, its zoom, the cursor and the active unit's path. */
   show(view: ViewState): void;
   /** Make the canvas `size` screen pixels, as its host's box changed; show() the resized view after. */
@@ -1327,6 +1332,16 @@ export function mapDrawer(
     },
     moved: (step) => {
       steps.push(step);
+    },
+    settled: async (maxMs = 5000) => {
+      const until = performance.now() + maxMs;
+      while (performance.now() < until) {
+        await drawing;
+        // Timed rather than waiting on the animation frames, which a hidden tab does not get.
+        const left = sliding ? length(sliding.track) - (performance.now() - sliding.since) : 0;
+        if (steps.length === 0 && left <= 0) return;
+        await new Promise((ok) => setTimeout(ok, Math.max(16, left)));
+      }
     },
     show: (v) => {
       view = v;
