@@ -300,6 +300,8 @@ export interface ColonyView {
     site: boolean;
     /** How many units can work there. */
     capacity: number;
+    /** Whether it can build (Ability.BUILD, the carpenter's house): a click opens the build queue. */
+    builds: boolean;
     workers: UnitRef[];
     /** The output, and the most it could be with the inputs it lacks; null for none. */
     production: (GoodsAmount & { max: number }) | null;
@@ -369,6 +371,7 @@ export interface BuildQueueView {
   buildingsTitle: string;
   unitsTitle: string;
   showAll: string;
+  compact: string;
   queue: Buildable[];
   buildings: Buildable[];
   units: Buildable[];

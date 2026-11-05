@@ -1644,6 +1644,17 @@
       .colony .queue-body .buy {
         grid-column: 1 / -1;
       }
+      .colony .queue-body li[data-selected] {
+        outline: 2px solid var(--ink);
+        outline-offset: -2px;
+      }
+      .colony .queue-body li[draggable='true'] {
+        cursor: grab;
+      }
+      /* A building that can build opens the queue when clicked. */
+      .colony .building[data-builds] {
+        cursor: pointer;
+      }
       .colony .warehouse {
         align-items: center;
       }
