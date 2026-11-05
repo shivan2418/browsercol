@@ -111,7 +111,11 @@ public class Messages {
      * The mapping from language-independent key to localized message
      * for the established locale.
      */
-    private static final Map<String, String> messageBundle = new HashMap<>();
+    // online: a volatile reference to a concurrent map. A reload fills a
+    // new map and swaps it in, so a game still reading the bundle (the
+    // previous test's EDT tail, a second Engine) never sees it empty.
+    private static volatile Map<String, String> messageBundle
+        = new java.util.concurrent.ConcurrentHashMap<>();
 
     /**
      * A map with Selector values and the tag keys used in choice
@@ -168,7 +172,9 @@ public class Messages {
      * @param locale The {@code Locale} to set resources for.
      */
     public static void loadMessageBundle(Locale locale) {
-        messageBundle.clear(); // Reset the message bundle.
+        // online: build the new bundle aside and swap it in at the end.
+        final Map<String, String> bundle
+            = new java.util.concurrent.ConcurrentHashMap<>();
 
         if (!NumberRules.isInitialized()) {
             // attempt to read grammatical rules
@@ -193,14 +199,14 @@ public class Messages {
         for (File f : FreeColDirectories.getI18nMessageFileList(locale)) {
             if (!f.canRead()) continue;
             try {
-                loadMessages(new java.io.FileInputStream(f)); // browser: no File.toPath
+                loadMessages(new java.io.FileInputStream(f), bundle); // browser: no File.toPath
             } catch (IOException ioe) {
                 System.err.println("Failed to load messages from "
                     + f.getPath() + ": " + ioe.getMessage());
             }
         }
         // online: English text that says what the rules do (CLARIFIED); a translation keeps its own.
-        if ("en".equals(loc.getLanguage())) messageBundle.putAll(CLARIFIED);
+        if ("en".equals(loc.getLanguage())) bundle.putAll(CLARIFIED);
 
         List<String> filenames
             = FreeColDirectories.getMessageFileNameList(locale);
@@ -213,7 +219,7 @@ public class Messages {
                     continue; // Expecting failure
                 }
                 try {
-                    loadMessages(is);
+                    loadMessages(is, bundle);
                 } catch (IOException ioe) {
                     System.err.println("Failed to load rules messages from "
                         + fn + ": " + ioe.getMessage());
@@ -222,6 +228,7 @@ public class Messages {
                 }
             }
         }
+        messageBundle = bundle;
     }
 
     /**
@@ -235,6 +242,11 @@ public class Messages {
      * @throws IOException on failure to read from the stream.
      */
     public static void loadMessages(InputStream is) throws IOException {
+        loadMessages(is, messageBundle);
+    }
+
+    private static void loadMessages(InputStream is, Map<String, String> bundle)
+        throws IOException {
         try (BufferedReader in = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
             String line = null;
             while((line = in.readLine()) != null) {
@@ -246,7 +258,7 @@ public class Messages {
                     String key = line.substring(0, index).trim();
                     String value = line.substring(index + 1).trim()
                         .replace("\\n", "\n").replace("\\t", "\t");
-                    messageBundle.put(key, value);
+                    bundle.put(key, value);
                     // browser: FileChooser.* keys went to Swing's UIManager
                 }
             }
