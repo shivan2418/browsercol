@@ -936,6 +936,8 @@ function playWith(client: ClientExports) {
       menuActions().zoom(zoom);
       return;
     }
+    // Tab changes units only with nothing focused, so it still tabs between the page's buttons.
+    if (e.key === 'Tab' && e.target !== document.body) return;
     const c = commandForKey(e, side.orders);
     if (!c) return;
     e.preventDefault();
