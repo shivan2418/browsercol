@@ -48,6 +48,7 @@ drops a message, a server request, model state or a callback.
 | `common/option/AudioMixerOption.java`, `common/sound/SoundPlayer.java` | No mixers. | platform |
 | `common/model/Player.java` | A stack trace without `Thread.dumpStack`. | platform |
 | `common/model/Player.java` | `addFather` sets Paine's bells bonus to the tax at once (#169). | upstream bug fix |
+| `server/model/ServerPlayer.java` | `csNewTurn` holds the intervention force while the rebels have no connected port (#224). | upstream bug fix |
 | `server/model/Session.java` | The constructor drops a completed session with the same key instead of throwing (#173). | upstream bug fix |
 | `common/model/Map.java` | `resetContiguity` numbers land regions after the water regions, not from 0 again (#172). | upstream bug fix |
 
