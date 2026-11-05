@@ -1036,13 +1036,55 @@ public class WebGUI extends GUI {
      */
     @Override
     public FreeColPanel showErrorPanel(String message, Runnable callback) {
+        return showErrorPanel(message, null, callback);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * The event also carries what the panel's Copy details button copies:
+     * the server's detail, the last message sent to the server, and the
+     * turn and the player.
+     */
+    @Override
+    public FreeColPanel showErrorPanel(String message, String detail, Runnable callback) {
         // ErrorPanel's button shows the log file; here the log is the Engines' (the page shows it).
         this.ui.show("error", new Json().put("text", message)
             .put("ok", label("ok"))
             .put("showLog", Messages.message(StringTemplate.template("errorPanel.showLogFile")
-                .addName("%path%", "Engine log"))).toString());
+                .addName("%path%", "Engine log")))
+            .put("detail", detail)
+            .put("request", clip(this.engine.lastRequest()))
+            .put("turn", turnLabel())
+            .put("player", playerName()).toString());
         if (callback != null) callback.run();
         return null;
+    }
+
+    /** A message for an error report: its first 600 characters. */
+    private static String clip(String xml) {
+        return xml == null || xml.length() <= 600 ? xml : xml.substring(0, 600) + "...";
+    }
+
+    /** The game's turn for an error report, or null before a game. */
+    private String turnLabel() {
+        try {
+            final Game game = this.engine.getGame();
+            return game == null || game.getTurn() == null ? null
+                : game.getTurn().getNumber() + " (" + Messages.message(game.getTurn().getLabel()) + ")";
+        } catch (RuntimeException ex) {
+            return null;
+        }
+    }
+
+    /** The human player's name for an error report, or null before a game. */
+    private String playerName() {
+        try {
+            final Player p = this.engine.getClient().getMyPlayer();
+            return p == null ? null : p.getName() + " (" + p.getId() + ")";
+        } catch (RuntimeException ex) {
+            return null;
+        }
     }
 
     @Override

@@ -27,6 +27,7 @@ drops a message, a server request, model state or a callback.
 | File | Change | Class |
 | --- | --- | --- |
 | `client/gui/GUI.java` | Dialog icons come from `dialogIcon`, which the WebGUI overrides. | platform |
+| `client/gui/GUI.java` | A `showErrorPanel` overload that takes the server's non-i18n detail, which the WebGUI sends to the error panel's Copy details button. | platform |
 | `client/gui/GUI.java` | A `showEventPanel` overload that takes a closing callback. | restores #84 |
 | `client/control/InGameController.java` | First landing panel and tutorial go through that overload. The tutorial names the key `B`. | restores #84 |
 | `client/control/InGameController.java` | `saveGame` throws. It never runs: both it and its autosave caller check `getFreeColServer()`, which is null in the browser because the server runs in a Web Worker, apart from the client. Saves go through that Worker instead (#68, #69, #154). | unreached |

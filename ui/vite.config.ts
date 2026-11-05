@@ -1,8 +1,10 @@
 import { defineConfig } from 'vite-plus';
+import { buildId } from './scripts/build-id.mjs';
 
 export default defineConfig({
   // Relative URLs, so the site works from any path (GitHub Pages serves it under /<repo>/).
   base: './',
+  define: { __BUILD__: JSON.stringify(buildId()) },
   // Map art from scripts/build-art.mjs, copied as is.
   publicDir: 'generated/public',
   build: {
