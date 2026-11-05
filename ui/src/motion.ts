@@ -55,20 +55,54 @@ export function path(all: Step[]): Path | null {
   return { step: steps[steps.length - 1], tiles };
 }
 
+type Point = [number, number];
+
 /**
- * Where a sliding unit is `t` (0 to 1) of the way along its tiles, each step
- * taking as long, as the pixels it is short of the last tile.
+ * A slide laid out in time: the map points the unit passes, the first where it sets off, and when each leg
+ * to the next point ends, in milliseconds from the start.
  */
-export function slide(tiles: [number, number][], t: number): [number, number] {
-  const [ex, ey] = tileOrigin(...tiles[tiles.length - 1]);
-  const steps = tiles.length - 1;
-  if (steps < 1) return [0, 0];
-  const along = Math.min(1, Math.max(0, t)) * steps;
-  const i = Math.min(steps - 1, Math.floor(along));
-  const [fx, fy] = tileOrigin(...tiles[i]);
-  const [tx, ty] = tileOrigin(...tiles[i + 1]);
-  const f = along - i;
-  return [fx + (tx - fx) * f - ex, fy + (ty - fy) * f - ey];
+export interface Track {
+  points: Point[];
+  ends: number[];
+}
+
+/** A path's track: from the first tile's origin through each next one, `ms` a step. */
+export function track(tiles: [number, number][], ms: number): Track {
+  return { points: tiles.map((t) => tileOrigin(...t)), ends: tiles.slice(1).map((_, i) => (i + 1) * ms) };
+}
+
+/** How long a track takes. */
+export const length = (t: Track): number => t.ends[t.ends.length - 1] ?? 0;
+
+/** Where on the map a unit is `ms` along its track: at the start before it, at the end after it. */
+export function along({ points, ends }: Track, ms: number): Point {
+  let i = 0;
+  while (i < ends.length - 1 && ms >= ends[i]) i++;
+  if (!ends.length) return points[0];
+  const start = i ? ends[i - 1] : 0;
+  const f = Math.min(1, Math.max(0, (ms - start) / (ends[i] - start || 1)));
+  const [fx, fy] = points[i];
+  const [tx, ty] = points[i + 1];
+  return [fx + (tx - fx) * f, fy + (ty - fy) * f];
+}
+
+/**
+ * What is left of a track `ms` along it, then another after it: a move made while the unit still slides
+ * carries on from where it is, rather than the unit jumping to the end of the first.
+ */
+export function carryOn(first: Track, ms: number, next: Track): Track {
+  const left = first.ends.findIndex((e) => e > ms);
+  const legs = left < 0 ? [] : first.ends.slice(left).map((e) => e - ms);
+  const points = [along(first, ms), ...(left < 0 ? [] : first.points.slice(left + 1)), ...next.points.slice(1)];
+  const end = legs[legs.length - 1] ?? 0;
+  return { points, ends: [...legs, ...next.ends.map((e) => e + end)] };
+}
+
+/** Where a sliding unit is `ms` along its track, as the pixels it is short of the track's end. */
+export function slide(t: Track, ms: number): Point {
+  const [x, y] = along(t, ms);
+  const [ex, ey] = t.points[t.points.length - 1];
+  return [x - ex, y - ey];
 }
 
 /** How opaque the active unit is `ms` into the blink. */
