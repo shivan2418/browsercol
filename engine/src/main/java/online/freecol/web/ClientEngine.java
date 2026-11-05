@@ -5,6 +5,7 @@ import net.sf.freecol.client.ClientOptions;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.client.networking.UserServerAPI;
 import net.sf.freecol.common.i18n.Messages;
+import net.sf.freecol.common.model.ExportData;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.Specification;
 
@@ -70,6 +71,7 @@ public final class ClientEngine {
         this.client = new FreeColClient(fcc -> this.gui = new WebGUI(fcc, this, ui));
         this.commands = new Commands(this.client);
         this.menus = new Menus(this.client);
+        startExportDataFromOptions();
     }
 
     /**
@@ -204,7 +206,17 @@ public final class ClientEngine {
      * @return True if there is such an option and the value fits it.
      */
     public boolean setClientOption(String id, String value) {
-        return OptionsJson.set(this.client.getClientOptions(), id, value);
+        final boolean set = OptionsJson.set(this.client.getClientOptions(), id, value);
+        if (set) startExportDataFromOptions();
+        return set;
+    }
+
+    /** Start a colony's export settings from the warehouse options, as ExportData's defaults (#158). */
+    private void startExportDataFromOptions() {
+        final ClientOptions co = this.client.getClientOptions();
+        ExportData.setDefaults(co.getInteger(ClientOptions.HIGH_LEVEL),
+                               co.getInteger(ClientOptions.LOW_LEVEL),
+                               co.getInteger(ClientOptions.CUSTOM_STOCK));
     }
 
     FreeColClient getClient() {
