@@ -102,6 +102,8 @@ export function PopupMenu({
 export interface ContextMenus {
   /** The quick action menu of one of our colonists or ships, or null for none. */
   unit(id: string): MenuData | null;
+  /** The menu of a tile of the colony's grid, at its map position. */
+  colonyTile(x: number, y: number): MenuData | null;
   /** The quick action menu of goods in a colony (by id) or aboard a ship (by id). */
   goods(location: string, type: string, amount: number): MenuData | null;
   show(menu: MenuData, x: number, y: number): void;

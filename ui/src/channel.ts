@@ -107,6 +107,8 @@ export interface ClientExports {
   tileMenu(x: number, y: number): string;
   /** The quick action menu of one of our colonists or ships in a colony (Menus.unit), as JSON or "null". */
   unitMenu(unitId: string): string;
+  /** The menu of a tile in the colony panel's grid (Menus.colonyTile), as JSON or "null". */
+  colonyTileMenu(x: number, y: number): string;
   /** The quick action menu of goods in a colony or aboard a ship in port (Menus.goods), as JSON or "null". */
   goodsMenu(locationId: string, goodsTypeId: string, amount: number): string;
   /** Run the entry picked in a menu, by its id (Commands.menuEntry). */

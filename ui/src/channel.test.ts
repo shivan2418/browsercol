@@ -114,6 +114,7 @@ function fakeClient(scope: Scope, log: string[]): ClientExports {
     tradeRoutes: () => {},
     tileMenu: () => 'null',
     unitMenu: () => 'null',
+    colonyTileMenu: () => 'null',
     goodsMenu: () => 'null',
     menuEntry: () => {},
     report: () => {},
