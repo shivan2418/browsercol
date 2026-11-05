@@ -326,6 +326,23 @@ const fontOf = (s: TextStyle) => `${s.italic ? 'italic ' : ''}${s.bold ? 'bold '
  */
 const ratioAt = (quality: number): number => (quality <= 0 ? 1 : screenRatio());
 
+/** A Text with a black outline, its top centred on (x, y) or starting there. */
+function makeText(s: string, x: number, y: number, style: TextStyle, center: boolean): Text {
+  const t = new Text({
+    text: s,
+    style: {
+      fontFamily: style.font,
+      fontSize: style.size,
+      fontWeight: style.bold ? 'bold' : 'normal',
+      fontStyle: style.italic ? 'italic' : 'normal',
+      fill: style.color,
+      stroke: style.plain ? undefined : { color: 0x000000, width: 2 },
+    },
+  });
+  t.position.set(center ? x - t.width / 2 : x, y);
+  return t;
+}
+
 async function pixiPen(host: HTMLElement, width: number, height: number, quality: number): Promise<Pen> {
   const app = new Application();
   // The canvas's backing store is at the screen's pixel ratio, so the map is
@@ -360,17 +377,48 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
     else if (cull) toCull.add(cull);
     queued ||= requestAnimationFrame(() => {
       queued = 0;
+      settle();
       for (const c of cullAll ? [app.stage] : toCull) Culler.shared.cull(c, app.renderer.screen, false);
       cullAll = false;
       toCull.clear();
       app.render();
     });
   };
-  /** Add an object to the layer being drawn, culled when off the screen. */
-  const add = (o: Container) => {
+  /**
+   * The layer being drawn: what it is drawn with this time, in order, and what it held before, by what each one
+   * shows. A map from the Engine mostly draws what was there already, so an object drawn again in the same place is
+   * kept rather than made again (a Text is drawn to a texture of its own), and a layer that comes out the same is
+   * left as it was, so PixiJS need not gather its draws again.
+   */
+  let drawing: { layer: Container; objects: Container[]; spare: Map<string, Container[]> } | null = null;
+  /** Put what the layer being drawn holds now in place, and destroy what it held that was not drawn again. */
+  const settle = () => {
+    if (!drawing) return;
+    const { layer, objects, spare } = drawing;
+    drawing = null;
+    const old = layer.children;
+    if (objects.length !== old.length || objects.some((o, i) => o !== old[i])) {
+      layer.removeChildren();
+      if (objects.length) layer.addChild(...objects);
+      redraw(layer);
+    }
+    for (const left of spare.values()) for (const o of left) o.destroy();
+  };
+  /** Draw an object on the layer being drawn, culled when off the screen: the one it held showing `key`, else `make`'s. */
+  const add = (key: string | null, make: () => Container) => {
+    const o = (key !== null && drawing?.spare.get(key)?.pop()) || make();
     o.cullable = true;
-    layer.addChild(o);
-    redraw(layer);
+    if (drawing) drawing.objects.push(o);
+    else {
+      layer.addChild(o);
+      redraw(layer);
+    }
+  };
+  /** What an object shows, to find it again: its kind and what it was drawn with. */
+  const keys = new WeakMap<Container, string>();
+  const keyed = <T extends Container>(key: string, o: T): T => {
+    keys.set(o, key);
+    return o;
   };
   /** The camera, the actors' offset and the layers' alphas last drawn: setting them again draws nothing. */
   let shown = '';
@@ -413,39 +461,72 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
   return {
     canvas: app.canvas,
     begin: (n) => {
+      settle();
       layer = layers[n];
-      for (const child of layer.removeChildren()) child.destroy();
+      const spare = new Map<string, Container[]>();
+      // Popped from the end: the last of the same kind drawn before is found first, so keep them in reverse.
+      for (const o of layer.children.toReversed()) {
+        const key = keys.get(o);
+        if (key === undefined) continue;
+        const same = spare.get(key);
+        if (same) same.push(o);
+        else spare.set(key, [o]);
+      }
+      // What has no key is not kept; it is destroyed with the rest left over.
+      const unkeyed = layer.children.filter((o) => !keys.has(o));
+      if (unkeyed.length) spare.set('', unkeyed);
+      drawing = { layer, objects: [], spare };
       redraw(layer);
     },
     image: (pic, x, y, dim) => {
-      const s = new Sprite(texture(pic));
-      s.position.set(x, y);
-      if (dim) s.tint = 0xcccccc;
-      add(s);
+      const t = texture(pic);
+      const key = `i${t.uid},${x},${y},${dim}`;
+      add(key, () => {
+        const s = keyed(key, new Sprite(t));
+        s.position.set(x, y);
+        if (dim) s.tint = 0xcccccc;
+        return s;
+      });
     },
     repicture: (n, pics) => {
+      settle();
       const sprites = layers[n].children;
       if (sprites.length !== pics.length || !sprites.every((c) => c instanceof Sprite)) return false;
       sprites.forEach((s, i) => {
         const t = texture(pics[i]);
-        if ((s as Sprite).texture !== t) (s as Sprite).texture = t;
+        if ((s as Sprite).texture === t) return;
+        (s as Sprite).texture = t;
+        // Found again by its new picture, at the place it was.
+        keys.set(s, `i${t.uid},${s.x},${s.y},${(s as Sprite).tint !== 0xffffff}`);
       });
       redraw(null);
       return true;
     },
     diamond: (x, y, color, alpha) => {
-      add(new Graphics().poly([x + W / 2, y, x + W, y + H / 2, x + W / 2, y + H, x, y + H / 2]).fill({ color, alpha }));
+      const key = `d${x},${y},${color},${alpha}`;
+      add(key, () =>
+        keyed(
+          key,
+          new Graphics().poly([x + W / 2, y, x + W, y + H / 2, x + W / 2, y + H, x, y + H / 2]).fill({ color, alpha }),
+        ),
+      );
     },
     road: (x, y, color, path) => {
-      const g = new Graphics();
-      path(offset(g, x, y));
-      add(g.stroke({ width: H / 32, color }));
+      add(null, () => {
+        const g = new Graphics();
+        path(offset(g, x, y));
+        return g.stroke({ width: H / 32, color });
+      });
     },
     rect: (x, y, w, h, color, alpha = 1) => {
-      add(new Graphics().rect(x, y, w, h).fill({ color, alpha }));
+      const key = `r${x},${y},${w},${h},${color},${alpha}`;
+      add(key, () => keyed(key, new Graphics().rect(x, y, w, h).fill({ color, alpha })));
     },
     line: (x1, y1, x2, y2, color, width = 1, alpha = 1) => {
-      add(new Graphics().moveTo(x1, y1).lineTo(x2, y2).stroke({ width, color, alpha, cap: 'round' }));
+      const key = `l${x1},${y1},${x2},${y2},${color},${width},${alpha}`;
+      add(key, () =>
+        keyed(key, new Graphics().moveTo(x1, y1).lineTo(x2, y2).stroke({ width, color, alpha, cap: 'round' })),
+      );
     },
     outline: (paths, color, width, alpha) => {
       const g = new Graphics();
@@ -456,25 +537,17 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
       // Stroked opaque and faded as a whole: a stroke's own overlaps would otherwise blend twice.
       g.stroke({ width, color, cap: 'round', join: 'round' });
       g.filters = [new AlphaFilter({ alpha })];
-      add(g);
+      add(null, () => g);
     },
     circle: (x, y, r, fill, outline, outlineAlpha) => {
-      add(new Graphics().circle(x, y, r).fill(fill).stroke({ width: 2, color: outline, alpha: outlineAlpha }));
+      const key = `c${x},${y},${r},${fill},${outline},${outlineAlpha}`;
+      add(key, () =>
+        keyed(key, new Graphics().circle(x, y, r).fill(fill).stroke({ width: 2, color: outline, alpha: outlineAlpha })),
+      );
     },
     text: (s, x, y, style, center) => {
-      const t = new Text({
-        text: s,
-        style: {
-          fontFamily: style.font,
-          fontSize: style.size,
-          fontWeight: style.bold ? 'bold' : 'normal',
-          fontStyle: style.italic ? 'italic' : 'normal',
-          fill: style.color,
-          stroke: style.plain ? undefined : { color: 0x000000, width: 2 },
-        },
-      });
-      t.position.set(center ? x - t.width / 2 : x, y);
-      add(t);
+      const key = `t${s}|${JSON.stringify(style)},${x},${y},${center}`;
+      add(key, () => keyed(key, makeText(s, x, y, style, center)));
     },
     measure: (s, style) => {
       measurer.font = fontOf(style);
