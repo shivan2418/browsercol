@@ -752,7 +752,7 @@ function refreshColonies() {
     const json = colonyNow(open.id);
     // JSON.parse keeps the Engine's key order, so an unchanged colony stringifies to the same text.
     if (json === 'null' || json === JSON.stringify(open)) continue;
-    dialogQueue.replace('colony', JSON.parse(json) as GuiEvents['colony'], (c) => c.id === open.id);
+    dialogQueue.replace('colony', JSON.parse(json) as GuiEvents['colony'], (c) => c.id === open.id, true);
   }
 }
 /** The right-click menu that is open, if any. */
@@ -1117,7 +1117,7 @@ const gui: GuiHandlers = {
       else if (e.messages.length > 0) dialogQueue.show('messages', e);
     },
     // A colony already open or queued is shown again in its place, else it opens.
-    colony: (e) => dialogQueue.replace('colony', e, (open) => open.id === e.id),
+    colony: (e) => dialogQueue.replace('colony', e, (open) => open.id === e.id, true),
     closeColony: (e) => dialogQueue.remove('colony', (open) => open.id === e.id),
     unasked: (e) => {
       console.warn(`WebGUI: no dialog yet for ${e.method}; FreeCol's default was used`);
