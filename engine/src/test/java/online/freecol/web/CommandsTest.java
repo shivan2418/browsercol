@@ -1664,6 +1664,42 @@ class CommandsTest {
     }
 
     /**
+     * The trade routes panel opens with no unit from the menu, for a
+     * carrier from its quick menu entry or the A key, and a route saved
+     * from the carrier's panel is given to the carrier.
+     */
+    @Test
+    @Timeout(300)
+    void aNewRouteFromACarriersPanelIsAssignedToIt() throws Exception {
+        startGame();
+        final Commands commands = client.getCommands();
+        final Player player = client.getClient().getMyPlayer();
+        final Colony colony = foundAColony(commands);
+        final Unit ship = player.getUnits().filter(Unit::isNaval).findFirst().get();
+        final Unit colonist = player.getUnits().filter(u -> !u.isCarrier()).findFirst().get();
+        select(commands, ship);
+
+        assertTrue(commands.tradeRoutes());
+        assertTrue(routePanels.get(routePanels.size() - 1).contains("\"unit\":null"),
+                   "the menu opens the panel for no unit");
+        assertTrue(commands.assignRoute());
+        assertTrue(routePanels.get(routePanels.size() - 1).contains("\"unit\":{\"id\":\"" + ship.getId()),
+                   "the A key opens it for the active carrier");
+        assertTrue(commands.tradeRoutes());
+        assertTrue(commands.menuEntry("tradeRoute:" + ship.getId()), "the quick menu entry");
+        assertTrue(routePanels.get(routePanels.size() - 1).contains("\"unit\":{\"id\":\"" + ship.getId()));
+        assertFalse(commands.menuEntry("tradeRoute:" + colonist.getId()), "not for a colonist");
+
+        assertNull(commands.saveTradeRoute(null, "Fur run", false,
+            List.of(player.getEurope().getId(), colony.getId()),
+            List.of(List.of("model.goods.tools"), List.of("model.goods.furs")), ship.getId()));
+        final TradeRoute made = serverRoutes(player).get(0);
+        assertEquals(made.getId(), serverUnit(ship).getTradeRoute().getId(),
+                     "the carrier follows the new route");
+        assertEquals(made.getId(), ship.getTradeRoute().getId(), "so does the client's");
+    }
+
+    /**
      * A ship is assigned to a route between the colony and Europe: it
      * loads at the colony, sails on its own turns, and the route is
      * shown for it and dropped again on request.

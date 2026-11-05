@@ -576,6 +576,7 @@ public final class Commands {
         case "unload":
             return unloadGoods(a[0], a[1], Integer.parseInt(a[2]), ask);
         case "unloadAll": return unloadAll(rest);
+        case "tradeRoute": return assignRouteTo(ours(rest));
         case "dump": return dumpGoods(a[0], a[1], Integer.parseInt(a[2]));
         case "fill": return fillShip(rest);
         case "unloadEurope": return unloadEurope(rest);
@@ -1446,9 +1447,30 @@ public final class Commands {
         return true;
     }
 
-    /** Open the trade routes panel (TradeRouteAction). */
+    /** Open the trade routes panel with no unit, as TradeRouteAction does. */
     public boolean tradeRoutes() {
-        gui().showTradeRoutePanel(gui().getActiveUnit());
+        gui().showTradeRoutePanel(null);
+        return true;
+    }
+
+    /**
+     * Open the trade routes panel for the active carrier
+     * (AssignTradeRouteAction, the A key).
+     *
+     * @return True if the panel was opened.
+     */
+    public boolean assignRoute() {
+        return assignRouteTo(gui().getActiveUnit());
+    }
+
+    /**
+     * Open the trade routes panel for one of our carriers (the quick
+     * action menu's "Assign trade route").
+     */
+    private boolean assignRouteTo(Unit unit) {
+        if (unit == null || !unit.isCarrier()
+            || !this.client.getMyPlayer().owns(unit)) return false;
+        gui().showTradeRoutePanel(unit);
         return true;
     }
 
@@ -1463,6 +1485,16 @@ public final class Commands {
      * @return True if the unit now has that route.
      */
     public boolean assignTradeRoute(String unitId, String routeId) {
+        return assignTradeRoute(unitId, routeId, true);
+    }
+
+    /**
+     * As {@link #assignTradeRoute(String, String)}.
+     *
+     * @param show Whether to send the trade routes panel again; the panel's
+     *     OK button closes it and wants it left shut.
+     */
+    public boolean assignTradeRoute(String unitId, String routeId, boolean show) {
         final Unit unit = this.client.getMyPlayer()
             .getOurFreeColGameObject(unitId, Unit.class);
         final TradeRoute route = (routeId == null) ? null : route(routeId);
@@ -1473,7 +1505,7 @@ public final class Commands {
         if (gui() instanceof WebGUI) {
             ((WebGUI)gui()).refreshActiveUnit();
         }
-        refused(null);
+        if (show) refused(null);
         return done;
     }
 
@@ -1609,6 +1641,20 @@ public final class Commands {
     public String saveTradeRoute(String id, String name, boolean silent,
                                  List<String> places,
                                  List<List<String>> cargo) {
+        return saveTradeRoute(id, name, silent, places, cargo, null);
+    }
+
+    /**
+     * As {@link #saveTradeRoute(String, String, boolean, List, List)}; a new
+     * route that is saved is also given to the unit the panel was opened
+     * for, as TradeRoutePanel.newRoute does.
+     *
+     * @param unitId The id of that unit, or null.
+     * @return The reason the route was not saved, or null if it was.
+     */
+    public String saveTradeRoute(String id, String name, boolean silent,
+                                 List<String> places,
+                                 List<List<String>> cargo, String unitId) {
         final TradeRoute existing = (id == null) ? null : route(id);
         if (id != null && existing == null) return refused("No such trade route.");
         final TradeRoute route = (existing != null) ? existing
@@ -1618,6 +1664,13 @@ public final class Commands {
                                             places, cargo);
         // A new route that is not valid is dropped, as TradeRoutePanel drops it.
         if (why != null && existing == null) igc().deleteTradeRoute(route);
+        if (why == null && existing == null && unitId != null) {
+            final Unit unit = ours(unitId);
+            if (unit != null && unit.isCarrier()) {
+                igc().assignTradeRoute(unit, route);
+                if (gui() instanceof WebGUI) ((WebGUI)gui()).refreshActiveUnit();
+            }
+        }
         return refused(why);
     }
 

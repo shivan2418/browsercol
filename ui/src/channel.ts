@@ -148,14 +148,18 @@ export interface ClientExports {
   reportDetail(name: string, id: string): void;
   /** Open the panel of one of our colonies, by id, as a link in a report does. */
   showColony(id: string): void;
-  /** Open the trade routes panel (TradeRouteAction). */
+  /** Open the trade routes panel with no unit (TradeRouteAction). */
   tradeRoutes(): void;
+  /** Open the trade routes panel for the active carrier (AssignTradeRouteAction). */
+  assignRoute(): void;
   /** Create or change a trade route: a TradeRouteDraft as JSON. The panel is sent again. */
   saveTradeRoute(json: string): void;
   /** Delete a trade route, by its id. The panel is sent again. */
   deleteTradeRoute(id: string): void;
   /** Make a unit follow a trade route; an empty route id drops its route. */
   assignTradeRoute(unit: string, route: string): void;
+  /** As assignTradeRoute, but the panel is not sent again: its OK button closes it. */
+  confirmTradeRoute(unit: string, route: string): void;
   // The turn report's buttons (WebGUI.reportGroupBy and the others). Each message is named by its
   // place in the report as shown.
   /** Group the report by 0 nothing, 1 type or 2 source; the report is shown again, regrouped. */

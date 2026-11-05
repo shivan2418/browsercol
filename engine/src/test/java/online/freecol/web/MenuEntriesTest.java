@@ -279,6 +279,11 @@ class MenuEntriesTest {
             final String id = entry.substring("state:ACTIVE:".length());
             assertSame(client.getGame().getFreeColGameObject(id, Unit.class), active(),
                 entry + " makes the unit the active one");
+        } else if (entry.startsWith("tradeRoute:")) {
+            // Assigning a route only opens the trade routes panel for the ship.
+            assertTrue(new ArrayList<>(shown).stream().anyMatch(s -> s.startsWith("tradeRoutes ")),
+                entry + " opens the trade routes panel: " + shown);
+            return;
         } else {
             assertNotEquals(before, state(me()),
                 entry + " changes the game; asked " + asked);
@@ -357,7 +362,7 @@ class MenuEntriesTest {
         }, false));
         assertEquals(new TreeSet<>(List.of("board", "cashin", "clear",
             "clearSpeciality", "leaveShip", "leaveTown", "load", "role", "state",
-            "unload", "unloadAll", "work")), verbs, "every kind of entry was offered and picked");
+            "tradeRoute", "unload", "unloadAll", "work")), verbs, "every kind of entry was offered and picked");
         // A tile of the colony's grid offers its panel; a worker's menu lists the tile too.
         final String centre = colony.getTile().getX() + "," + colony.getTile().getY();
         assertTrue(menus.colonyTile(colony.getTile().getX(), colony.getTile().getY())
@@ -439,6 +444,6 @@ class MenuEntriesTest {
             return all;
         }, true);
         assertEquals(new TreeSet<>(List.of("board", "buy", "clear", "clearSpeciality", "leaveShip",
-            "role", "sell", "state")), verbs, "every kind of entry was offered and picked");
+            "role", "sell", "state", "tradeRoute")), verbs, "every kind of entry was offered and picked");
     }
 }

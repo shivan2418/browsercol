@@ -113,6 +113,7 @@ describe('the Orders menu', () => {
       'Build Road',
       'Unload',
       'Go To',
+      'Assign Trade Route',
       'Trade Routes',
       'Disband Unit',
     ]);

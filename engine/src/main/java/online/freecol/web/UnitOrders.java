@@ -30,6 +30,8 @@ import net.sf.freecol.common.model.Unit;
  * <tr><td>disband</td><td>DisbandUnitAction</td><td>always</td></tr>
  * <tr><td>goto</td><td>GotoAction</td><td>no panel is showing, which in
  *     the Browser UI is always</td></tr>
+ * <tr><td>assignRoute</td><td>AssignTradeRouteAction</td>
+ *     <td>the unit is a carrier</td></tr>
  * <tr><td>unload</td><td>UnloadAction</td>
  *     <td>the unit is a carrier with cargo aboard</td></tr>
  * <tr><td>buildColony</td><td>BuildColonyAction</td>
@@ -63,6 +65,9 @@ public final class UnitOrders {
     /** Found a colony with the unit, as BuildColonyAction does. */
     public static final String BUILD_COLONY = "buildColony";
 
+    /** Open the trade routes panel for the carrier, as AssignTradeRouteAction does. */
+    public static final String ASSIGN_ROUTE = "assignRoute";
+
     private UnitOrders() {}
 
 
@@ -90,6 +95,8 @@ public final class UnitOrders {
         // showing, and the Browser UI shows none. It asks where the unit
         // goes, and the destinations it may go to are the question's.
         orders.add(GOTO);
+        // AssignTradeRouteAction: the active unit must be a carrier.
+        if (unit.isCarrier()) orders.add(ASSIGN_ROUTE);
         // UnloadAction: a carrier with something aboard.
         if (unit.isCarrier() && unit.getCargoSpaceTaken() > 0) {
             orders.add(UNLOAD);

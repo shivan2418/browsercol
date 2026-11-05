@@ -2,7 +2,19 @@ import { describe, expect, it } from 'vite-plus/test';
 import { commandForKey } from './input';
 
 /** Every order the Engine names, so each order's key is live. */
-const ALL = ['buildColony', 'fortify', 'sentry', 'skip', 'disband', 'unload', 'plow', 'clearForest', 'road', 'goto'];
+const ALL = [
+  'buildColony',
+  'fortify',
+  'sentry',
+  'skip',
+  'disband',
+  'unload',
+  'plow',
+  'clearForest',
+  'road',
+  'goto',
+  'assignRoute',
+];
 const key = (key: string, code = '', orders = ALL) => commandForKey({ key, code }, orders);
 
 describe('commandForKey', () => {
@@ -61,6 +73,12 @@ describe('commandForKey', () => {
   it('asks where the active unit goes, as GotoAction does', () => {
     expect(key('h', 'KeyH')).toEqual({ k: 'selectDestination' });
     expect(key('H', 'KeyH')).toEqual({ k: 'selectDestination' });
+  });
+
+  it('opens the trade routes for the carrier, as AssignTradeRouteAction does, only when it is offered', () => {
+    expect(key('a', 'KeyA', ['assignRoute'])).toEqual({ k: 'assignRoute' });
+    expect(key('A', 'KeyA', ['assignRoute'])).toEqual({ k: 'assignRoute' });
+    expect(key('a', 'KeyA', ['goto'])).toBeNull();
   });
 
   it('shows Europe, as EuropeAction does', () => {

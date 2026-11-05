@@ -755,7 +755,7 @@ function renderSide() {
                       routes={{
                         save: (d) => routeButtons.save(d),
                         remove: (id) => routeButtons.remove(id),
-                        assign: (unit, route) => routeButtons.assign(unit, route),
+                        assign: (unit, route, show) => routeButtons.assign(unit, route, show),
                       }}
                     />
                   </ReportContext.Provider>
@@ -1395,7 +1395,8 @@ async function run() {
   routeButtons = {
     save: (d) => exports.saveTradeRoute(JSON.stringify(d)),
     remove: (id) => exports.deleteTradeRoute(id),
-    assign: (unit, route) => exports.assignTradeRoute(unit, route ?? ''),
+    assign: (unit, route, show = true) =>
+      show ? exports.assignTradeRoute(unit, route ?? '') : exports.confirmTradeRoute(unit, route ?? ''),
   };
   Object.assign(europeButtons, {
     recruit: (i: number) => exports.recruitUnit(i),

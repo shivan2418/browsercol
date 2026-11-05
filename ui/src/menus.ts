@@ -101,6 +101,8 @@ export function ordersMenu(a: MenuActions): Items {
     order('Build Road', { k: 'road' }),
     order('Unload', { k: 'unload' }),
     order('Go To', { k: 'selectDestination' }),
+    // As TradeRouteAction, it opens the panel with no unit; AssignTradeRouteAction is for a carrier.
+    order('Assign Trade Route', { k: 'assignRoute' }),
     { label: 'Trade Routes', run: () => a.run({ k: 'tradeRoutes' }), disabled: !a.ready },
     order('Disband Unit', { k: 'disband' }),
   ];
