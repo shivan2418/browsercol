@@ -41,14 +41,22 @@ public final class WorkerMain {
         engine = new ServerEngine(WorkerMain::post);
     }
 
-    /** Start a new game from a preset's JSON ("" for none), then report "started" with the time it took. */
+    /**
+     * Start a new game from a preset's JSON ("" for none), then report
+     * "started" with the time it took.
+     *
+     * @param importMap The bytes of a map or savegame file to take the
+     *     map from (the map generator's import file option); empty for a
+     *     generated map.
+     */
     @JSExport
-    public static void startGame(String rules, String preset) {
+    public static void startGame(String rules, String preset, Int8Array importMap) {
+        final byte[] map = importMap.copyToJavaArray();
         new Thread(() -> {
                 long t = System.currentTimeMillis();
                 try {
                     engine.startGame(rules, (preset.isEmpty()) ? GamePreset.none()
-                        : GamePreset.parse(preset));
+                        : GamePreset.parse(preset), map);
                     event("started", String.valueOf(System.currentTimeMillis() - t));
                 } catch (Throwable ex) {
                     ex.printStackTrace();
