@@ -152,6 +152,24 @@
         min-height: 130px;
         text-align: center;
       }
+      /* The end turn message fades slowly out and back in, over and over, to draw the eye while the turn waits. */
+      .info-end p {
+        animation: info-end-pulse 2.4s ease-in-out infinite;
+      }
+      @keyframes info-end-pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.15;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .info-end p {
+          animation: none;
+        }
+      }
       /* main.tsx sizes the map's canvas to this box. */
       #map {
         flex: 1;
