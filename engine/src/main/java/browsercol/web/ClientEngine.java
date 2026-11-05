@@ -176,6 +176,16 @@ public final class ClientEngine {
         return new DebugClientTools(this.client).run(request);
     }
 
+    /**
+     * Whether every message the server has sent has been handled.
+     *
+     * @return True if none is waiting to be read or being handled.
+     */
+    public boolean isQuiet() {
+        final PostMessageConnection c = this.connection;
+        return c == null || c.isQuiet();
+    }
+
     /** Accept protocol XML from the server. */
     public void receive(String xml) {
         this.connection.receive(xml);

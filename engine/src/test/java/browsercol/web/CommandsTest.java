@@ -304,6 +304,34 @@ class CommandsTest {
                 pressed = now;
             }
         }
+        try {
+            settle();
+        } catch (InterruptedException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    /**
+     * Wait until everything the server has sent has been applied on the
+     * client. The client handles each pushed message on a thread of its
+     * own, so on a busy machine the new turn can be announced before the
+     * changes that came first (the ship's moves, the colony's goods) are in,
+     * and a command or an assertion would then see the old state.
+     */
+    private void settle() throws Exception {
+        final long start = System.currentTimeMillis();
+        do {
+            toClient.submit(() -> {}).get(30, java.util.concurrent.TimeUnit.SECONDS);
+            if (client.isQuiet()) {
+                // Handling a message may have asked for more.
+                toClient.submit(() -> {}).get(30, java.util.concurrent.TimeUnit.SECONDS);
+                if (client.isQuiet()) return;
+            }
+            Thread.sleep(5);
+        } while (System.currentTimeMillis() - start < 60_000);
+        fail("the client did not finish handling the server's messages in 60 s");
     }
 
     private Unit active() {
@@ -1046,6 +1074,7 @@ class CommandsTest {
         final GoodsType cloth = client.getGame().getSpecification().getGoodsType("model.goods.cloth");
         client.debugApplied(server.debug("{\"action\":\"addGoods\",\"type\":\"model.goods.cloth\","
             + "\"amount\":150,\"x\":" + land.getX() + ",\"y\":" + land.getY() + "}"));
+        settle();
         awaitTrue(() -> ours.getGoodsCount(cloth) == 150, "the colony has the cloth");
 
         // A plain load takes a hold's worth.
