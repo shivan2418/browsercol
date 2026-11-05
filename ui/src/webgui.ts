@@ -248,7 +248,7 @@ export interface GuiEvents {
       /** Why it cannot be traded, as FreeCol says it; null when it can. */
       reason: string | null;
     }[];
-    buttons: { train: string; purchase: string; recruit: string; sail: string };
+    buttons: { train: string; purchase: string; recruit: string; unload: string; sail: string };
     /** The docks' recruit pool at one price (RecruitPanel); index is what recruiting sends. */
     recruit: {
       heading: string;

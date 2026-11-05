@@ -91,6 +91,7 @@ export function ordersMenu(a: MenuActions): Items {
     order('Plow', { k: 'plow' }),
     order('Clear Forest', { k: 'clearForest' }),
     order('Build Road', { k: 'road' }),
+    order('Unload', { k: 'unload' }),
     order('Go To', { k: 'selectDestination' }),
     { label: 'Trade Routes', run: () => a.run({ k: 'tradeRoutes' }), disabled: !a.ready },
     order('Disband Unit', { k: 'disband' }),

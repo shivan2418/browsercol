@@ -48,6 +48,8 @@ describe('commandForKey', () => {
     expect(key(' ', 'Space')).toEqual({ k: 'skip' });
     expect(key('d', 'KeyD')).toEqual({ k: 'disband' });
     expect(key('D', 'KeyD')).toEqual({ k: 'disband' });
+    expect(key('u', 'KeyU')).toEqual({ k: 'unload' });
+    expect(key('U', 'KeyU')).toEqual({ k: 'unload' });
     expect(key('p', 'KeyP')).toEqual({ k: 'plow' });
     expect(key('P', 'KeyP')).toEqual({ k: 'plow' });
     expect(key('c', 'KeyC')).toEqual({ k: 'clearForest' });

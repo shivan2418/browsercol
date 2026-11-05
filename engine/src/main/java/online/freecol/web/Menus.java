@@ -187,6 +187,10 @@ final class Menus {
         for (Goods g : u.getGoodsList()) {
             b.add("none", text(g.getLabel(true)), false, true);
         }
+        // TilePopup.addUnit: a carrier with goods can dump them from here.
+        if (u.hasGoodsCargo()) {
+            b.add("unloadAll:" + u.getId(), text("dumpCargo"), player.owns(u), indent);
+        }
     }
 
 
@@ -611,6 +615,11 @@ final class Menus {
                         text(StringTemplate.template("quickActionMenu.loadOnTo")
                             .addStringTemplate("%unit%",
                                 other.getLabel(Unit.UnitLabelType.NATIONAL))));
+                }
+                // Boycotted goods can be dumped instead of paying the arrears.
+                if (!player.canTrade(type)) {
+                    b.add("dump:" + ship.getId() + "," + goodsTypeId + "," + amount,
+                        text("dumpCargo"));
                 }
             } else if (ship.getColony() != null) {
                 b.add("unload:" + ship.getId() + "," + goodsTypeId + "," + amount,

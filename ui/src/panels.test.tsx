@@ -1571,7 +1571,7 @@ describe('the Europe panel', () => {
     inPort: [caravel, galleon],
     docks: [unit('unit:4', 'Expert Farmer', { images: [] })],
     selected: 'unit:1',
-    buttons: { train: 'Train', purchase: 'Purchase', recruit: 'Recruit', sail: 'Set sail' },
+    buttons: { train: 'Train', purchase: 'Purchase', recruit: 'Recruit', unload: 'Unload', sail: 'Set sail' },
     recruit: {
       heading: 'Recruit',
       text: 'Click on a unit to recruit it for 200 gold (1 turns)',
@@ -1859,6 +1859,23 @@ describe('the Europe panel', () => {
     };
     act(() => box.replace('europe', spent));
     expect(document.querySelector('[data-shop]')).toBeNull();
+  });
+
+  it('unloads the picked ship with the Unload button, once it has cargo', () => {
+    const calls: string[] = [];
+    Object.assign(europeButtons, { unload: (s: string) => calls.push(`unload ${s}`) });
+    const { box } = host();
+    act(() => box.show('europe', europe));
+    const button = screen.getByRole('button', { name: 'Unload' }) as HTMLButtonElement;
+    fireEvent.click(button);
+    expect(calls).toEqual([`unload ${europe.selected}`]);
+  });
+
+  it('has nothing to unload with no cargo aboard', () => {
+    const { box } = host();
+    const empty = europe.inPort.map((u) => ({ ...u, cargo: [] }));
+    act(() => box.show('europe', { ...europe, inPort: empty }));
+    expect((screen.getByRole('button', { name: 'Unload' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it('has nothing to sail with no ship in port', () => {

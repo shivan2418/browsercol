@@ -30,6 +30,8 @@ import net.sf.freecol.common.model.Unit;
  * <tr><td>disband</td><td>DisbandUnitAction</td><td>always</td></tr>
  * <tr><td>goto</td><td>GotoAction</td><td>no panel is showing, which in
  *     the Browser UI is always</td></tr>
+ * <tr><td>unload</td><td>UnloadAction</td>
+ *     <td>the unit is a carrier with cargo aboard</td></tr>
  * <tr><td>buildColony</td><td>BuildColonyAction</td>
  *     <td>the unit can found a colony (Unit.canBuildColony: moves left, a
  *         type that can found one, and the player is not a rebel without
@@ -54,6 +56,9 @@ public final class UnitOrders {
      * tile the player clicks on the map, which is GotoTileAction.
      */
     public static final String GOTO = "goto";
+
+    /** Unload the carrier's cargo, as UnloadAction does. */
+    public static final String UNLOAD = "unload";
 
     /** Found a colony with the unit, as BuildColonyAction does. */
     public static final String BUILD_COLONY = "buildColony";
@@ -85,6 +90,10 @@ public final class UnitOrders {
         // showing, and the Browser UI shows none. It asks where the unit
         // goes, and the destinations it may go to are the question's.
         orders.add(GOTO);
+        // UnloadAction: a carrier with something aboard.
+        if (unit.isCarrier() && unit.getCargoSpaceTaken() > 0) {
+            orders.add(UNLOAD);
+        }
         // BuildColonyAction: the unit can found a colony, or stands in one and
         // has a skill (not artillery or a ship): the order is then offered and
         // the controller says why a unit with no moves left cannot build.

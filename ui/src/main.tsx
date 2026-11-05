@@ -276,6 +276,8 @@ const colonyMoves: ColonyMoves = {
   equip: (unit, goods) => colonyClient?.equipUnit(unit, goods),
   load: (ship, goods, ask) => colonyClient?.loadGoods(ship, goods, ask),
   unload: (ship, goods, stack, ask) => colonyClient?.unloadGoods(ship, goods, stack, ask),
+  unloadAll: (ship) => colonyClient?.menuEntry(`unloadAll:${ship}`),
+  fill: (ship) => colonyClient?.menuEntry(`fill:${ship}`),
 };
 /** FreeCol's status line: the score, the gold, the tax and the year. */
 let statusLine = '';
@@ -1308,6 +1310,7 @@ async function run() {
     transfer: (from: string, to: string, goods: string, stack: number) => exports.transferGoods(from, to, goods, stack),
     sail: (ship: string) => exports.sailToNewWorld(ship),
     redirect: (ship: string, toEurope: boolean) => exports.redirectShip(ship, toEurope),
+    unload: (ship: string) => exports.menuEntry(`unloadEurope:${ship}`),
   });
   playWith(exports);
 }

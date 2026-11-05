@@ -18,6 +18,8 @@ export interface EuropeButtons {
   sail: (shipId: string) => void;
   /** Turn a ship on the high seas around. */
   redirect: (shipId: string, toEurope: boolean) => void;
+  /** Empty a ship in port: sell its cargo, pay arrears on boycotted goods, put its units on the docks. */
+  unload: (shipId: string) => void;
 }
 
 export const europeButtons: EuropeButtons = {
@@ -30,4 +32,5 @@ export const europeButtons: EuropeButtons = {
   transfer: () => {},
   sail: () => {},
   redirect: () => {},
+  unload: () => {},
 };

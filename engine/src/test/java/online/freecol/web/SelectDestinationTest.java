@@ -714,8 +714,19 @@ class SelectDestinationTest {
             "a boycotted goods cannot be bought");
         assertTrue(lastQuestion("confirm").contains("boycotting these goods"),
             "the player is asked to pay the arrears");
+        // The stack dropped on the market asks first: pay the arrears or
+        // dump the goods. Cancelled, nothing happens.
+        wanted = null;
         assertFalse(client.getCommands().sellGoods(ship.getId(), cloth.getId()),
             "a boycotted goods cannot be sold");
+        assertTrue(lastQuestion("choice").contains(Messages.message("boycottedGoods.dumpGoods")),
+            "the player may dump the goods: " + lastQuestion("choice"));
+        // Paying is chosen, and then declined by the fake Browser UI.
+        wanted = Messages.message("payArrears");
+        assertFalse(client.getCommands().sellGoods(ship.getId(), cloth.getId()),
+            "paying the arrears sells nothing");
+        assertTrue(lastQuestion("confirm").contains("boycotting these goods"),
+            "the player is asked to pay the arrears");
         assertEquals(5, serverShip(ship).getGoodsCount(cloth),
             "nothing bought or sold");
         assertEquals(gold, serverPlayer.getGold(), "nothing paid");
@@ -732,6 +743,7 @@ class SelectDestinationTest {
         // and the panel offers the goods again, but nothing is traded yet,
         // as in Swing.
         payArrears = true;
+        wanted = Messages.message("payArrears");
         final int arrears = serverPlayer.getArrears(cloth);
         assertFalse(client.getCommands().sellGoods(ship.getId(), cloth.getId()),
             "paying the arrears sells nothing");
@@ -761,6 +773,37 @@ class SelectDestinationTest {
         assertEquals(0, serverShip(ship).getGoodsCount(cloth), "none left aboard");
         assertEquals(5, server.getGame().getFreeColGameObject(other, Unit.class)
             .getGoodsCount(cloth), "the other ship has it");
+        assertTrue(client.getCommands().menuEntry(
+            "transfer:" + other + "," + ship.getId() + "," + cloth.getId() + ",5"),
+            "and back again");
+
+        // Boycotted again: the cargo menu offers Dump cargo beside paying
+        // the arrears, and a stack dropped on the market can be dumped.
+        serverPlayer.getMarket().setArrears(cloth, 100);
+        player.getMarket().setArrears(cloth, 100);
+        final String boycottedMenu = menus.goods(ship.getId(), cloth.getId(), 5);
+        assertTrue(boycottedMenu.contains("\"id\":\"dump:" + ship.getId() + "," + cloth.getId() + ",5\""),
+            boycottedMenu);
+        assertTrue(boycottedMenu.contains("\"id\":\"sell:" + ship.getId() + "," + cloth.getId() + "\""),
+            "paying the arrears stays: " + boycottedMenu);
+        gold = serverPlayer.getGold();
+        wanted = Messages.message("boycottedGoods.dumpGoods");
+        assertTrue(client.getCommands().sellGoods(ship.getId(), cloth.getId()),
+            "the stack is dumped");
+        assertEquals(0, serverShip(ship).getGoodsCount(cloth), "the cloth is gone");
+        assertEquals(gold, serverPlayer.getGold(), "and not paid for");
+
+        // The Europe panel's Unload button sells every stack the Crown
+        // trades, and takes the units ashore.
+        serverPlayer.getMarket().setArrears(cloth, 0);
+        player.getMarket().setArrears(cloth, 0);
+        amount = "10";
+        assertTrue(client.getCommands().buyGoods(ship.getId(), cloth.getId(), true), "ten bought");
+        awaitGold(serverPlayer.getGold());
+        gold = serverPlayer.getGold();
+        assertTrue(client.getCommands().menuEntry("unloadEurope:" + ship.getId()), "unloaded");
+        assertEquals(0, serverShip(ship).getGoodsCount(cloth), "the cloth is sold");
+        assertTrue(serverPlayer.getGold() > gold, "and paid for");
 
         // A new turn starts with an empty log.
         endTurnAndWait();
