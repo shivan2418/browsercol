@@ -82,7 +82,7 @@ class PartialUpdateTest {
     void aPartialUpdateWithItsOwnIdSetsItsFieldsWithoutAWarning() {
         final Player me = client.getClient().getMyPlayer();
         final Unit unit = me.getUnits().findFirst().get();
-        final List<String> warnings = Collections.synchronizedList(new ArrayList<>());
+        final List<String> warnings = new java.util.concurrent.CopyOnWriteArrayList<>();
         final Logger logger = Logger.getLogger(InGameController.class.getName());
         final Handler handler = new Handler() {
             @Override public void publish(LogRecord r) {

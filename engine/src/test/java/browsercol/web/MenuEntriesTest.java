@@ -66,8 +66,8 @@ class MenuEntriesTest {
     private static final Set<String> LOOKS = Set.of("none", "select", "colony",
         "settlement", "tile", "colopedia", "goto", "attack", "europe", "activateAll", "production");
 
-    private final List<String> asked = Collections.synchronizedList(new ArrayList<>());
-    private final List<String> shown = Collections.synchronizedList(new ArrayList<>());
+    private final List<String> asked = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private final List<String> shown = new java.util.concurrent.CopyOnWriteArrayList<>();
     /** The destination the fake Browser UI picks, while sailing to Europe. */
     private volatile String wanted = null;
 

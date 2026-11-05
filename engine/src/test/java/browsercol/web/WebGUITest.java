@@ -67,13 +67,13 @@ class WebGUITest {
     private final ExecutorService ui = Executors.newSingleThreadExecutor();
 
     /** What the fake Browser UI saw, as "kind json". */
-    private final List<String> shown = Collections.synchronizedList(new ArrayList<>());
-    private final List<String> asked = Collections.synchronizedList(new ArrayList<>());
+    private final List<String> shown = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private final List<String> asked = new java.util.concurrent.CopyOnWriteArrayList<>();
     /** The answer the fake Browser UI gives to every question. */
     private volatile String answer = null;
     /** While true the fake Browser UI leaves questions unanswered, in held. */
     private volatile boolean hold = false;
-    private final List<Integer> held = Collections.synchronizedList(new ArrayList<>());
+    private final List<Integer> held = new java.util.concurrent.CopyOnWriteArrayList<>();
     /** The server Engine of the game startGame started. */
     private ServerEngine server;
 
@@ -1197,7 +1197,7 @@ class WebGUITest {
             TradeContext.DIPLOMATIC, me, ai, null, 0);
         // The player picks the peace stance and nothing else.
         answer = "propose\nstance\t\tPEACE\t0";
-        final List<DiplomaticTrade> sent = Collections.synchronizedList(new ArrayList<>());
+        final List<DiplomaticTrade> sent = new java.util.concurrent.CopyOnWriteArrayList<>();
         fc.getGUI().showNegotiationDialog(unit, known, offer,
             offer.getSendMessage(me, known), dt -> {
                 sent.add(dt);
@@ -1243,8 +1243,8 @@ class WebGUITest {
         final Unit unit = scout(me);
         final DiplomaticTrade offer = new DiplomaticTrade(client.getGame(),
             TradeContext.DIPLOMATIC, me, ai, null, 0);
-        final List<DiplomaticTrade> got = Collections.synchronizedList(new ArrayList<>());
-        final List<Boolean> closed = Collections.synchronizedList(new ArrayList<>());
+        final List<DiplomaticTrade> got = new java.util.concurrent.CopyOnWriteArrayList<>();
+        final List<Boolean> closed = new java.util.concurrent.CopyOnWriteArrayList<>();
 
         answer = null;
         fc.getGUI().showNegotiationDialog(unit, known, offer, null,
@@ -1304,7 +1304,7 @@ class WebGUITest {
         final int space = ship.getSpaceLeft();
         assertTrue(space >= 2, "room for the loot");
 
-        final List<List<Goods>> got = Collections.synchronizedList(new ArrayList<>());
+        final List<List<Goods>> got = new java.util.concurrent.CopyOnWriteArrayList<>();
         answer = "[2,0]";
         gui.showCaptureGoodsDialog(ship, loot, got::add);
         awaitCount(got, 1);

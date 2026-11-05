@@ -27,7 +27,7 @@ class QuestionsTest {
     @Test
     @Timeout(10)
     void askWaitsForTheAnswerToItsId() {
-        final List<String> asked = Collections.synchronizedList(new ArrayList<>());
+        final List<String> asked = new java.util.concurrent.CopyOnWriteArrayList<>();
         final Questions[] q = new Questions[1];
         q[0] = new Questions((id, kind, json) -> {
                 asked.add(id + " " + kind + " " + json);

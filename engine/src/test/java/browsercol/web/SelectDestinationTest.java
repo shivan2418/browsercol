@@ -52,9 +52,9 @@ class SelectDestinationTest {
     private static final Pattern TEXT = Pattern.compile("\"text\":\"((?:[^\"\\\\]|\\\\.)*)\"");
 
     /** The questions the fake Browser UI saw, as "kind json". */
-    private final List<String> asked = Collections.synchronizedList(new ArrayList<>());
+    private final List<String> asked = new java.util.concurrent.CopyOnWriteArrayList<>();
     /** The events the fake Browser UI saw, as "kind json". */
-    private final List<String> shown = Collections.synchronizedList(new ArrayList<>());
+    private final List<String> shown = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     /** The label of the destination the fake Browser UI picks. */
     private volatile String wanted = null;

@@ -47,8 +47,8 @@ class ReportsTest {
 
     private final ExecutorService toClient = Executors.newSingleThreadExecutor();
     private final ExecutorService toServer = Executors.newSingleThreadExecutor();
-    private final List<String> reports = Collections.synchronizedList(new ArrayList<>());
-    private final List<String> colonies = Collections.synchronizedList(new ArrayList<>());
+    private final List<String> reports = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private final List<String> colonies = new java.util.concurrent.CopyOnWriteArrayList<>();
     private ServerEngine server;
     private ClientEngine client;
     private final CountDownLatch finished = new CountDownLatch(1);
