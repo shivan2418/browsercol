@@ -1,4 +1,4 @@
-# FreeCol Online
+# BrowserCol
 
 FreeCol in the browser. The Engine is FreeCol's own Java code, compiled by
 TeaVM to two Wasm GC modules. `server.wasm` (server and AI) runs in a Web
@@ -7,7 +7,7 @@ Vite+, PixiJS) carries FreeCol's messages between them and draws the map.
 
 - `engine/`: Gradle build of the Engine: FreeCol's source from the upstream
   clone at `freecol/`, our patched copies in `engine/patches/`, shims and the
-  `online.freecol.web` entry points.
+  `browsercol.web` entry points.
 - `ui/`: the Browser UI: page script, Worker script, `postMessage` channel,
   map in Tileset mode.
 - `spike/`: the toolchain spike that got here, kept as a record.
@@ -161,7 +161,7 @@ built site.
 
 ## Licence
 
-FreeCol Online is free software under the GNU General Public License,
+BrowserCol is free software under the GNU General Public License,
 version 2 or (at your option) any later version, the same terms as FreeCol
 itself; see `LICENSE`. FreeCol's art, music and sounds keep their own
 licences (mostly GPL v2, some CC BY or CC BY-SA), listed in the README next

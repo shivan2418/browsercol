@@ -3,7 +3,7 @@ requests, makes `Object.wait`/`notify` work in the Engine's Wasm GC build.
 TeaVM 0.16.0 does not: a waiting thread keeps the monitor and never wakes
 (spike/README.md, "What broke along the way", item 6). FreeCol's client
 needs it, so this decides whether we can stay on TeaVM. This is tracker
-issue https://github.com/shivan2418/freecol-online/issues/9.
+issue https://github.com/shivan2418/browsercol/issues/9.
 
 Source of truth: TeaVM at https://github.com/konsoletyper/teavm, branch
 master, plus PRs #1300, #1302, #1304 and #1305 (fetch them as

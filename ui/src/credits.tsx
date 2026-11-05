@@ -1,4 +1,4 @@
-// The credits window: who made FreeCol Online's code, art, music and sounds, under which licences, and
+// The credits window: who made BrowserCol's code, art, music and sounds, under which licences, and
 // where the source is. The GPL asks that players can get the source; CC BY asks that the authors are named
 // where their work is used. The entries follow the README beside each file under freecol/data/.
 // Opened from the start screen and from the Colopedia menu (FreeCol's About entry sits there too).
@@ -8,7 +8,7 @@ import { WindowFrame } from './frame';
 import cinzelOfl from './fonts/cinzel/OFL.txt?url';
 import notoSansOfl from './fonts/noto-sans/OFL.txt?url';
 
-export const SOURCE_URL = 'https://github.com/shivan2418/freecol-online';
+export const SOURCE_URL = 'https://github.com/shivan2418/browsercol';
 export const FREECOL_URL = 'https://github.com/FreeCol/freecol';
 
 const GPL = 'https://www.gnu.org/licenses/old-licenses/gpl-2.0.html';
@@ -146,21 +146,21 @@ export function SourceLinks({ credits }: { credits: () => void }) {
 export function CreditsDialog({ close }: { close: () => void }) {
   return (
     <div className="modal">
-      <WindowFrame title="About FreeCol Online" close={close} id="credits" className="dialog">
+      <WindowFrame title="About BrowserCol" close={close} id="credits" className="dialog">
         <div className="credits-body">
           <p>
-            FreeCol Online is FreeCol in the browser: FreeCol’s own Java code, compiled to WebAssembly, under a new
+            BrowserCol is FreeCol in the browser: FreeCol’s own Java code, compiled to WebAssembly, under a new
             interface. It is an unofficial port, not made by the FreeCol Team.
           </p>
           <p>
-            FreeCol is copyright © 2002–2024 The FreeCol Team. FreeCol Online is free software: you can redistribute it
-            and modify it under the terms of the <Link href={GPL}>GNU General Public License</Link>, version 2 or (at
-            your option) any later version. It comes with no warranty.
+            FreeCol is copyright © 2002–2024 The FreeCol Team. BrowserCol is free software: you can redistribute it and
+            modify it under the terms of the <Link href={GPL}>GNU General Public License</Link>, version 2 or (at your
+            option) any later version. It comes with no warranty.
           </p>
           <h3>Source code</h3>
           <ul>
             <li>
-              FreeCol Online: <Link href={SOURCE_URL}>{SOURCE_URL}</Link>
+              BrowserCol: <Link href={SOURCE_URL}>{SOURCE_URL}</Link>
             </li>
             <li>
               FreeCol: <Link href={FREECOL_URL}>{FREECOL_URL}</Link>

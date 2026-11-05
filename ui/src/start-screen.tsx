@@ -241,7 +241,7 @@ export function StartScreen({
           });
         }}
       >
-        <h1>FreeCol Online</h1>
+        <h1>BrowserCol</h1>
         {open && saves.length > 0 && (
           <fieldset className="saved-games">
             <legend>Saved games</legend>

@@ -4,12 +4,12 @@ scores panel. Defeat: FreeCol's game-over confirm and the high scores.
 Today `showHighScoresPanel` is the base GUI's no-op, so no scores show.
 
 Where:
-- `engine/src/main/java/online/freecol/web/WebGUI.java`: override
+- `engine/src/main/java/browsercol/web/WebGUI.java`: override
   `showHighScoresPanel(String messageId, List<HighScore> scores)` and add
   it to the class comment's table.
 - `ui/src/`: a React panel for the scores, shown from a new event, in
   the style of the existing information/eventPanel dialogs.
-- Engine tests under `engine/src/test/java/online/freecol/web/`.
+- Engine tests under `engine/src/test/java/browsercol/web/`.
 
 Source of truth:
 - `InGameController.gameEndedHandler` (~line 3617) asks the server for

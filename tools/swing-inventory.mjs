@@ -32,7 +32,7 @@ import { fileURLToPath } from 'node:url';
 const repo = join(dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = join(repo, process.argv[2] ?? 'docs/parity');
 const guiRoot = join(repo, 'freecol/src/net/sf/freecol/client/gui');
-const webRoot = join(repo, 'engine/src/main/java/online/freecol/web');
+const webRoot = join(repo, 'engine/src/main/java/browsercol/web');
 const uiRoot = join(repo, 'ui/src');
 
 const walk = (dir, ext) =>

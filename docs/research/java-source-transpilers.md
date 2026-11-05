@@ -1,6 +1,6 @@
 # Do Java-to-X source transpilers save work or tokens over compiling?
 
-Ticket: shivan2418/freecol-online#5. Researched 2026-10-24.
+Ticket: shivan2418/browsercol#5. Researched 2026-10-24.
 
 ## Verdict
 

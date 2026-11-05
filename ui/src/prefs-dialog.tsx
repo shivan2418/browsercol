@@ -1,5 +1,5 @@
 // The Preferences window of the Game menu, laid out as FreeCol's ClientOptionsDialog (OptionGroupUI): a
-// tree of categories on the left, and the options of the one picked on the right. FreeCol Online's own
+// tree of categories on the left, and the options of the one picked on the right. BrowserCol's own
 // preferences, such as the animation and blink speeds, are the first category; FreeCol's client options
 // the browser follows come after it, in FreeCol's groups. Hooks for tests: [data-category] on a
 // category's button, with its id; [data-mute] on a volume's mute button, with the preference it sets.
@@ -27,7 +27,7 @@ const DIM_LABEL: Record<Dim, string> = { off: 'Off', light: 'Light', normal: 'No
 
 const STYLE_LABEL: Record<ActiveStyle, string> = {
   freecol: 'FreeCol: blinking chevron',
-  online: 'FreeCol Online: blinking unit',
+  online: 'BrowserCol: blinking unit',
 };
 
 function SpeedRow({
@@ -55,8 +55,8 @@ function SpeedRow({
   );
 }
 
-/** The category of FreeCol Online's own preferences. */
-export const OWN_CATEGORY = 'freecolOnline';
+/** The category of BrowserCol's own preferences. */
+export const OWN_CATEGORY = 'browsercol';
 
 /** A row of the category tree: a group with options of its own can be picked; one with only subgroups is a heading. */
 export interface Category {
@@ -64,14 +64,14 @@ export interface Category {
   label: string;
   /** How deep in the tree, 0 at the top. */
   depth: number;
-  /** The group's own options, or null for a heading (and for FreeCol Online's own category). */
+  /** The group's own options, or null for a heading (and for BrowserCol's own category). */
   options: OptionGroup | null;
   pickable: boolean;
 }
 
-/** The category tree, as OptionGroupUI.buildTree builds it, fully expanded: FreeCol Online's own first. */
+/** The category tree, as OptionGroupUI.buildTree builds it, fully expanded: BrowserCol's own first. */
 export function categories(freecol: OptionGroup | null): Category[] {
-  const out: Category[] = [{ id: OWN_CATEGORY, label: 'FreeCol Online', depth: 0, options: null, pickable: true }];
+  const out: Category[] = [{ id: OWN_CATEGORY, label: 'BrowserCol', depth: 0, options: null, pickable: true }];
   const walk = (group: OptionGroup, depth: number) => {
     for (const c of group.children) {
       if (c.kind !== 'group') continue;
@@ -109,7 +109,7 @@ function MuteButton({ id, prefs, change }: { id: string; prefs: Prefs; change: (
   );
 }
 
-/** FreeCol Online's own preferences. */
+/** BrowserCol's own preferences. */
 function OwnOptions({ prefs, change }: { prefs: Prefs; change: (p: Prefs) => void }) {
   return (
     <>
@@ -257,8 +257,8 @@ export function PreferencesDialog({
                   />
                   {current.options.children.some((o) => o.id === LANGUAGE_OPTION) && (
                     <p data-note="language" className="prefs-note">
-                      The language is that of FreeCol's own text: messages, reports, names and the Colopedia. FreeCol
-                      Online's own labels stay English. Autodetect follows the browser's language.
+                      The language is that of FreeCol's own text: messages, reports, names and the Colopedia.
+                      BrowserCol's own labels stay English. Autodetect follows the browser's language.
                     </p>
                   )}
                 </>

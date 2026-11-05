@@ -1,6 +1,6 @@
 # Can FreeCol's Swing client run unmodified in the browser?
 
-Ticket: shivan2418/freecol-online#3. Researched 2026-10-24.
+Ticket: shivan2418/browsercol#3. Researched 2026-10-24.
 
 **Verdict: PLAUSIBLE, with a spike required.** CheerpJ is the only credible route. It runs unmodified Swing/AWT jars from static hosting, and its free licence covers FreeCol as a FOSS project. The open risks (performance of the Java2D map renderer, startup size, `-Xmx2G`) can only be settled by running FreeCol in it.
 

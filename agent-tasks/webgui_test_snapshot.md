@@ -3,7 +3,7 @@ then with `java.util.ConcurrentModificationException` from
 `ArrayList$ArrayListSpliterator.forEachRemaining`. There is no gh in the
 sandbox, so this brief is the spec.
 
-Cause: `shown` (engine/src/test/java/online/freecol/web/WebGUITest.java
+Cause: `shown` (engine/src/test/java/browsercol/web/WebGUITest.java
 line 69) is a `Collections.synchronizedList`, which the client thread
 appends to (`show`, ~line 114). A synchronized list's `stream()` and
 iterator are not covered by its lock, so the test's `shown.stream()...`
@@ -24,10 +24,10 @@ Where: only WebGUITest.java.
   them the same treatment if there are any.
 
 Done when:
-- `grep -n "shown.stream()" engine/src/test/java/online/freecol/web/WebGUITest.java`
+- `grep -n "shown.stream()" engine/src/test/java/browsercol/web/WebGUITest.java`
   prints nothing.
 - No assertion is changed, loosened or removed; only how the list is read.
-- `./dev.sh -C engine gradle test --tests online.freecol.web.WebGUITest`
+- `./dev.sh -C engine gradle test --tests browsercol.web.WebGUITest`
   passes 3 times in a row (add `--rerun`); say the times it printed.
 - One commit: `WebGUITest: read the shown events from a copy, not the live list (#95)`.
 

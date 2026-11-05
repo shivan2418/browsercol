@@ -14,7 +14,7 @@ which builds the text from the message `menuBar.statusLine`
 replaces "|" with "✧".
 
 Where:
-- Engine: `engine/src/main/java/online/freecol/web/MapJson.java` ~line 123
+- Engine: `engine/src/main/java/browsercol/web/MapJson.java` ~line 123
   builds the map JSON the Browser UI pulls; it already sends
   `"turn"` and `"ourTurn"`. Add a `"statusLine"` field: the message built
   exactly as InGameMenuBar builds it (copy the template code; `Messages`

@@ -5,10 +5,10 @@ sent to Europe. Make it a real question, and check a ship can sail to
 Europe and back.
 
 Where:
-- `engine/src/main/java/online/freecol/web/WebGUI.java`:
+- `engine/src/main/java/browsercol/web/WebGUI.java`:
   `showSelectDestinationDialog` in the "Not asked yet" block; move it out
   and update the class comment's table.
-- Engine tests under `engine/src/test/java/online/freecol/web/`
+- Engine tests under `engine/src/test/java/browsercol/web/`
   (`WebGUITest.java` shows how a test game and a fake Browser UI work).
 - Browser UI only if the existing `choice` question cannot show it:
   prefer reusing `choice`, so `ui/` may need no change.

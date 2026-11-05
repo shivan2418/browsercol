@@ -38,7 +38,7 @@ export function LoadingSaveDialog({
           load();
         }}
       >
-        <h1>FreeCol Online</h1>
+        <h1>BrowserCol</h1>
         <h2>Loading Save game</h2>
         {save && (
           <p className="quiet loading-save-name">

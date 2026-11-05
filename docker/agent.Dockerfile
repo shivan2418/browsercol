@@ -1,9 +1,9 @@
 # Agent sandbox image: the dev image plus Playwright's Chromium and Firefox,
 # so agents run the browser scripts (smoke, play, tileset) themselves. Build
-# freecol-online-dev first (any ./dev.sh call does), then:
-#   docker build -t freecol-online-agent -f docker/agent.Dockerfile docker
+# browsercol-dev first (any ./dev.sh call does), then:
+#   docker build -t browsercol-agent -f docker/agent.Dockerfile docker
 # Its playwright version must match web.Dockerfile's.
-ARG BASE=freecol-online-dev
+ARG BASE=browsercol-dev
 FROM ${BASE}
 ARG PW_VERSION=1.56.1
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
