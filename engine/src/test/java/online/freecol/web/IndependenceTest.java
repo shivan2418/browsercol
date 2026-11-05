@@ -487,11 +487,11 @@ class IndependenceTest {
      * monarch session, but the answered tax raise's session stays
      * registered until the next turn (Session.completeAll in
      * ServerGame.csNextTurn), and Session's constructor refuses its key:
-     * the declaration stops half done with "Duplicate session".
+     * the declaration stopped half done with "Duplicate session" (#173).
+     * The patched Session drops a completed session with the same key.
      */
     @Test
     @Timeout(300)
-    @org.junit.jupiter.api.Disabled("FreeCol: declaring the turn a monarch question was answered fails with a duplicate session (#173)")
     void declaringTheTurnATaxRaiseWasAcceptedCompletes() throws Exception {
         start(GAME);
         final Colony colony = addColony();
