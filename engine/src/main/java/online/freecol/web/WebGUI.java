@@ -894,16 +894,21 @@ public class WebGUI extends GUI {
      * {@inheritDoc}
      *
      * The Browser UI slides the unit from tile to tile, as SwingGUI does,
-     * when the map that has it on its new tile comes. Only the player's own
-     * units are sent, as the page slides only the player's moves.
+     * when the map that has it on its new tile comes. The player's own units
+     * slide at the page's own animation speed; another player's unit comes
+     * with the speed of FreeCol's enemy or friendly move animation option
+     * (FreeColClient.getAnimationSpeed), 0 to 3, off to fast.
      */
     @Override
     public void animateUnitMove(Unit unit, Tile srcTile, Tile dstTile) {
         final Player player = getFreeColClient().getMyPlayer();
         if (unit == null || srcTile == null || dstTile == null
-            || player == null || !player.owns(unit)) return;
+            || player == null) return;
+        final boolean own = player.owns(unit);
         this.ui.show("animateMove", MapJson.look(unit, player)
             .put("unit", unit.getId())
+            .putRaw("speed", own ? "null"
+                : String.valueOf(getFreeColClient().getAnimationSpeed(unit.getOwner())))
             .putRaw("from", MapJson.xy(srcTile))
             .putRaw("to", MapJson.xy(dstTile))
             .toString());

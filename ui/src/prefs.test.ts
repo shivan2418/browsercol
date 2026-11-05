@@ -13,6 +13,7 @@ import {
   minimapOptions,
   moveMs,
   PAGE_OPTIONS,
+  terrainAnimation,
   pageOption,
   parsePrefs,
   shownClientOptions,
@@ -130,6 +131,15 @@ describe('prefs', () => {
     expect(uiZoom(at({ 'model.option.displayScaling': 150 }))).toBe(1.5);
     expect(fontScale(at({ 'model.option.mainFontSize': 18 }))).toBe(1);
     expect(fontScale(at({ 'model.option.mainFontSize': 18, 'model.option.manualMainFontSize': true }))).toBe(1.5);
+  });
+
+  it("animates the terrain as FreeCol's terrain animations and graphics quality options say", () => {
+    const at = (freecol: Record<string, boolean | number>) => ({ ...DEFAULTS, freecol });
+    expect(terrainAnimation(DEFAULTS)).toBe('all');
+    expect(terrainAnimation(at({ 'model.option.useTerrainAnimations': false }))).toBe('off');
+    expect(terrainAnimation(at({ 'model.option.graphicsQuality': 10 }))).toBe('water');
+    expect(terrainAnimation(at({ 'model.option.graphicsQuality': 0 }))).toBe('off');
+    expect(terrainAnimation(at({ 'model.option.graphicsQuality': 40 }))).toBe('all');
   });
 
   it("shows FreeCol's options that the browser follows, in FreeCol's groups", () => {
