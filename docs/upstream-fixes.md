@@ -19,6 +19,7 @@ FreeCol's own bug tracker is on SourceForge
 
 | Bug | Where | Notes |
 | --- | --- | --- |
+| Declaring independence the turn a monarch question (a tax raise) was answered stops half done with "Duplicate session": the answered session stays registered until the next turn, and the declaration's mercenary offer makes one with the same key. | `Session` constructor, `InGameController.declareIndependence` | #173; `IndependenceTest.declaringTheTurnATaxRaiseWasAcceptedCompletes` is disabled for it. |
 | The REF never lands beside a colony in the map's north-east corner (38,1 on the dutch-small map): its ships reach the coast and sail back to Europe. On an open coast it lands at once. | `REFAIPlayer` / `TransportMission` | #172; `IndependenceTest.theREFLandsBesideAColonyInTheMapsCorner` is disabled for it. |
 | Paine's bells modifier is meant to be a template copied per player (the spec says so), but every player who has Paine shares the one modifier, so its value is the tax of whichever player's tax was set last. | `Player.recalculateBellsBonus` | Found while fixing #169; only matters when two players both have Paine. A first attempt at a per-player copy changed the bells count (9 instead of 8 at 20% tax) for a reason not yet understood, so it was left out. |
 
