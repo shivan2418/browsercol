@@ -76,6 +76,7 @@ const options: StartOptions = {
           min: 30,
           max: 200,
         },
+        { id: 'model.option.importFile', kind: 'file', label: 'Import file', description: null, value: '' },
       ],
     }),
     game: () => ({
@@ -163,6 +164,30 @@ test('the map generator options are changed in the editor and sent as the preset
   expect(document.querySelector('[data-customize=map] summary')?.textContent).toContain('1 changed');
   fireEvent.click(document.querySelector('[data-start]')!);
   expect(started[0].options).toEqual({ 'model.option.mapWidth': 120 });
+});
+
+test('a map file is picked for the import file option and sent with the choice, not as an option', () => {
+  const started = screenWith();
+  const pick = () => screen.getByLabelText('Import file') as HTMLInputElement;
+  expect(document.querySelector('[data-option="model.option.importFile"] [data-file-none]')).not.toBeNull();
+  const file = new File([new Uint8Array([1, 2, 3])], 'world.fsm');
+  fireEvent.change(pick(), { target: { files: [file] } });
+  expect(document.querySelector('[data-file-name]')?.textContent).toBe('world.fsm');
+  expect(document.querySelector('[data-customize=map] summary')?.textContent).toContain('1 changed');
+  fireEvent.click(document.querySelector('[data-start]')!);
+  expect(started[0].importMap).toBe(file);
+  expect(started[0].options).toEqual({});
+  // Not kept as a default for the next game.
+  expect(localStorage.getItem('freecol.defaults.map')).toBeNull();
+});
+
+test('a picked map file is cleared again', () => {
+  const started = screenWith();
+  fireEvent.change(screen.getByLabelText('Import file'), { target: { files: [new File(['x'], 'world.fsm')] } });
+  fireEvent.click(document.querySelector('[data-file-clear]')!);
+  expect(document.querySelector('[data-file-name]')).toBeNull();
+  fireEvent.click(document.querySelector('[data-start]')!);
+  expect(started[0].importMap).toBeUndefined();
 });
 
 test('links the source and opens the credits, which name the CC BY authors', () => {

@@ -19,8 +19,8 @@ export interface ServerExports {
   /** The language of FreeCol's text, a translation's id (language.ts); called before main. */
   setLanguage(id: string): void;
   main(args: string[]): void;
-  /** `preset` is a GamePreset's JSON ("" for none); a bad one fails with a message. */
-  startGame(rules: string, preset: string): void;
+  /** `preset` is a GamePreset's JSON ("" for none); a bad one fails with a message. `importMap` is the bytes of the map or save file the map generator imports, empty for none. */
+  startGame(rules: string, preset: string, importMap: Int8Array): void;
   /** Save the game; the bytes go out through fcSaved and then a "saved" event. */
   saveGame(activeUnitId: string): void;
   /** Replace the game with the one in a savegame; a "loaded" event follows. */
@@ -178,7 +178,7 @@ export interface ClientExports {
 
 export type ToWorker =
   | { k: 'data'; data: string[]; language: string }
-  | { k: 'start'; rules: string; preset: string }
+  | { k: 'start'; rules: string; preset: string; importMap?: Uint8Array }
   | { k: 'load'; id: number }
   | { k: 'save'; active: string; name: string }
   | { k: 'debug'; request: string }
@@ -250,7 +250,13 @@ export function serveWorker(
   const handle = (m: ToWorker) => {
     switch (m.k) {
       case 'start':
-        return server!.startGame(m.rules, m.preset);
+        return server!.startGame(
+          m.rules,
+          m.preset,
+          m.importMap
+            ? new Int8Array(m.importMap.buffer as ArrayBuffer, m.importMap.byteOffset, m.importMap.length)
+            : new Int8Array(0),
+        );
       case 'save':
         names.push(m.name);
         return server!.saveGame(m.active);
@@ -303,6 +309,8 @@ export interface PageOptions {
   load?: number;
   /** The JSON of a GamePreset (options, nation, map seed) to start from, or "" for none. */
   preset?: string;
+  /** The bytes of a map or save file for the map generator to import (a new game only), or none. */
+  importMap?: Uint8Array;
   /** Rounds the human player auto-ends before play is handed to them. */
   autoplay: number;
   scope: Scope;
@@ -328,7 +336,11 @@ export function startPage(o: PageOptions): Promise<ClientExports> {
   o.scope.fcConnect = () => send({ k: 'connect' });
   o.scope.fcClientEvent = (name: string, detail: string) => {
     if (name === 'ready')
-      send(o.load === undefined ? { k: 'start', rules: o.rules, preset: o.preset ?? '' } : { k: 'load', id: o.load });
+      send(
+        o.load === undefined
+          ? { k: 'start', rules: o.rules, preset: o.preset ?? '', importMap: o.importMap }
+          : { k: 'load', id: o.load },
+      );
     // A new game's preset may set up the game state, once the game has started.
     if (name === 'gameStarted' && o.load === undefined && !setupAsked) {
       setupAsked = true;

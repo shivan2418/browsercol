@@ -1158,8 +1158,11 @@ async function fetchPreset(name: string): Promise<string> {
   return res.text();
 }
 
-/** The start screen, until the player starts the game: resolves to the preset JSON the choice makes. */
-async function chooseGame(data: string[]): Promise<string> {
+/**
+ * The start screen, until the player starts the game: resolves to the preset JSON the choice makes, and the bytes
+ * of the map or save file the player picked for the map generator to import, if any.
+ */
+async function chooseGame(data: string[]): Promise<{ preset: string; importMap?: Uint8Array }> {
   // FreeCol's main panel offers Continue Playing and Open: the saves in the store, newest first.
   const saves = await store.list().catch(() => []);
   const host = document.createElement('div');
@@ -1183,7 +1186,15 @@ async function chooseGame(data: string[]): Promise<string> {
         start={(c) => {
           root.unmount();
           host.remove();
-          done(presetJson(c));
+          // The browser has no file system for the server Engine to read the file from: hand it the bytes.
+          void (c.importMap?.arrayBuffer() ?? Promise.resolve(undefined)).then(
+            (bytes) => done({ preset: presetJson(c), importMap: bytes && new Uint8Array(bytes) }),
+            (ex: unknown) => {
+              // A file the browser can no longer read: start on a generated map and say so.
+              reportError('The map file could not be read', String(ex));
+              done({ preset: presetJson(c) });
+            },
+          );
         }}
       />,
     );
@@ -1284,7 +1295,7 @@ async function run() {
   }
   // A save the player picked, not the autosave the page resumed by itself.
   if (loadId !== undefined && !resumed) await confirmLoad(loadId);
-  const chosen = skipStart ? '' : await chooseGame(data);
+  const { preset: chosen, importMap } = skipStart ? { preset: '', importMap: undefined } : await chooseGame(data);
   choice = chosen;
   const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
   // An error the Worker does not catch, such as a trap in the server Engine, stops the game's server.
@@ -1301,6 +1312,7 @@ async function run() {
     rules,
     load: loadId,
     preset: presetJson,
+    importMap,
     autoplay,
     scope: globalThis as unknown as Scope,
     gui,

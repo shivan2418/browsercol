@@ -17,6 +17,10 @@ interface Props {
   values?: Record<string, OptionValue>;
   /** The player changed an option. */
   onChange?: (id: string, value: OptionValue) => void;
+  /** The player picked a file for a file option, or cleared it (null). Without it a file option only shows its name. */
+  onFile?: (id: string, file: File | null) => void;
+  /** The names of the files picked, by option id; a file option with none shows the name the group has. */
+  fileNames?: Record<string, string>;
   /** Anything to show after an option's control, such as a mute button beside a volume, by option id. */
   after?: (id: string) => ReactNode;
 }
@@ -165,6 +169,8 @@ function Row({
   editable,
   values,
   onChange,
+  onFile,
+  fileNames,
   after,
 }: { node: Exclude<OptionNode, { kind: 'group' }> } & Omit<Props, 'root'>) {
   const set = (v: OptionValue) => onChange?.(node.id, v);
@@ -240,6 +246,30 @@ function Row({
         </select>
       );
       break;
+    case 'file': {
+      const name = fileNames?.[node.id] ?? node.value;
+      control = (
+        <span className="file">
+          {editable && onFile && (
+            <input
+              type="file"
+              aria-label={node.label}
+              accept=".fsm,.fsg"
+              // Picking the same file again after a clear still fires change.
+              key={name}
+              onChange={(e) => onFile(node.id, e.target.files?.[0] ?? null)}
+            />
+          )}
+          {name === '' ? <em data-file-none>None</em> : <output data-file-name>{name}</output>}
+          {editable && onFile && name !== '' && (
+            <button type="button" data-file-clear onClick={() => onFile(node.id, null)}>
+              Clear
+            </button>
+          )}
+        </span>
+      );
+      break;
+    }
     case 'string':
     case 'text':
       control =

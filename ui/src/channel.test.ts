@@ -15,8 +15,8 @@ function fakeServer(scope: Scope, log: string[]): ServerExports {
   return {
     setLanguage: (id) => log.push(`server language ${id}`),
     main: (args) => log.push(`server main ${args.length}`),
-    startGame: (rules, preset) => {
-      log.push(`server start ${rules} ${preset}`);
+    startGame: (rules, preset, importMap) => {
+      log.push(`server start ${rules} ${preset}` + (importMap.length > 0 ? ` map ${importMap.join(',')}` : ''));
       scope.fcServerEvent('started', '12');
     },
     connect: () => log.push('server connect'),
@@ -203,6 +203,32 @@ describe('the Worker channel', () => {
       'client answer 7 true',
     ]);
     expect(events).toEqual(['ready', 'started', 'finished']);
+  });
+
+  it('hands the bytes of an import file to the server Engine with the start', async () => {
+    const { port1: page, port2: worker } = new MessageChannel();
+    const log: string[] = [];
+    const workerScope: Scope = {};
+    const pageScope: Scope = {};
+    serveWorker(worker, async () => fakeServer(workerScope, log), workerScope, fakeSaveStore());
+    const started = new Promise<void>((done) =>
+      startPage({
+        worker: page,
+        loadClient: async () => fakeClient(pageScope, log),
+        data: [],
+        language: 'en',
+        rules: 'classic',
+        preset: '{}',
+        importMap: new Uint8Array([80, 75, 255]),
+        autoplay: 0,
+        scope: pageScope,
+        gui: sayYes,
+        onEvent: (name) => name === 'started' && done(),
+      }),
+    );
+    await started;
+    page.close();
+    expect(log).toContain('server start classic {} map 80,75,-1');
   });
 
   /** The two ends joined, the page's game started, with a fake store. */
