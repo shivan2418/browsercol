@@ -64,7 +64,7 @@ class IndependenceTest {
     private ClientEngine client;
 
     /** The questions the fake Browser UI was asked, as "kind json". */
-    private final List<String> asked = Collections.synchronizedList(new ArrayList<>());
+    private final List<String> asked = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     @AfterEach
     void stop() {

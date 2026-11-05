@@ -63,7 +63,7 @@ class FatherTradeTest {
     private ClientEngine client;
 
     /** The questions the fake Browser UI saw, as "kind json"; it answers none. */
-    private final List<String> asked = Collections.synchronizedList(new ArrayList<>());
+    private final List<String> asked = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     @BeforeEach
     void start() throws Exception {

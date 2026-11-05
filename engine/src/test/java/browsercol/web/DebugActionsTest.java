@@ -46,12 +46,12 @@ class DebugActionsTest {
     private volatile CountDownLatch finished = new CountDownLatch(1);
     private volatile int rounds = 0;
     /** What the client's colony held, if there was one, each time the listener heard of an update. */
-    private final List<Integer> heldAtUpdate = Collections.synchronizedList(new ArrayList<>());
+    private final List<Integer> heldAtUpdate = new java.util.concurrent.CopyOnWriteArrayList<>();
     /** The tile and goods type whose amount heldAtUpdate records, once a test sets them. */
     private volatile int[] watched = null;
     private volatile String watchedType = null;
     /** What the client's WebGUI showed the Browser UI, as kind:json. */
-    private final List<String> shown = Collections.synchronizedList(new ArrayList<>());
+    private final List<String> shown = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     @BeforeEach
     void start() throws Exception {

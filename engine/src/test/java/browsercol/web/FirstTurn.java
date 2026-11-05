@@ -18,7 +18,7 @@ final class FirstTurn {
 
     /** What the Engine reported as failed (Failures.report) since the last wait. */
     private static final java.util.List<String> failures
-        = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+        = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     static {
         Failures.reportTo((what, detail) -> failures.add(what + "\n" + detail));

@@ -39,7 +39,7 @@ class SplitGameTest {
     @Timeout(120)
     void aClassicGameRunsAiRoundsBetweenTheEngines() throws Exception {
         final int rounds = 3;
-        final List<Long> roundTimes = Collections.synchronizedList(new ArrayList<>());
+        final List<Long> roundTimes = new java.util.concurrent.CopyOnWriteArrayList<>();
         final AtomicReference<Game> started = new AtomicReference<>();
         final CountDownLatch finished = new CountDownLatch(1);
         final ClientEngine[] client = new ClientEngine[1];

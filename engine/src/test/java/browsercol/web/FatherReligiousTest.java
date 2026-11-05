@@ -69,7 +69,7 @@ class FatherReligiousTest {
     private ClientEngine client;
 
     /** The choice questions the fake Browser UI was asked, as their JSON. */
-    private final List<String> choices = Collections.synchronizedList(new ArrayList<>());
+    private final List<String> choices = new java.util.concurrent.CopyOnWriteArrayList<>();
     /** The choice the fake Browser UI picks, by its text; else the first enabled. */
     private volatile String wanted = null;
 

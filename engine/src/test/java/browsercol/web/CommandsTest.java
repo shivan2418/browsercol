@@ -70,18 +70,18 @@ class CommandsTest {
     private static final Pattern TEXT = Pattern.compile("\"text\":\"((?:[^\"\\\\]|\\\\.)*)\"");
 
     /** The colony panels the WebGUI showed, as their JSON. */
-    private final List<String> colonies = Collections.synchronizedList(new ArrayList<>());
+    private final List<String> colonies = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     /** The reports the WebGUI showed, as their JSON. */
-    private final List<String> reports = Collections.synchronizedList(new ArrayList<>());
+    private final List<String> reports = new java.util.concurrent.CopyOnWriteArrayList<>();
     /** The information panels the WebGUI showed, as their JSON. */
-    private final List<String> informationPanels = Collections.synchronizedList(new ArrayList<>());
+    private final List<String> informationPanels = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     /** The Find Settlement and work production panels the WebGUI showed, as "kind json". */
-    private final List<String> panels = Collections.synchronizedList(new ArrayList<>());
+    private final List<String> panels = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     /** The questions the fake Browser UI answered, with its answers. */
-    private final List<String> asked = Collections.synchronizedList(new ArrayList<>());
+    private final List<String> asked = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     /** The label of the destination the fake Browser UI picks, if any. */
     private volatile String wanted = null;
@@ -95,19 +95,19 @@ class CommandsTest {
     private volatile Boolean confirm = null;
 
     /** The messages events (model messages and the turn report) the WebGUI showed, as their JSON. */
-    private final List<String> messageEvents = Collections.synchronizedList(new ArrayList<>());
+    private final List<String> messageEvents = new java.util.concurrent.CopyOnWriteArrayList<>();
     /** What the fake Browser UI types into an input question: null keeps the suggestion, CANCEL cancels. */
     private volatile String typed = null;
     private static final String CANCEL = "\0cancel";
 
     /** The ids of the colonies whose panels the WebGUI closed. */
-    private final List<String> closedColonies = Collections.synchronizedList(new ArrayList<>());
+    private final List<String> closedColonies = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     /** The high score tables the fake Browser UI was shown. */
-    private final List<String> highScores = Collections.synchronizedList(new ArrayList<>());
+    private final List<String> highScores = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     /** The trade routes panels the fake Browser UI was shown. */
-    private final List<String> routePanels = Collections.synchronizedList(new ArrayList<>());
+    private final List<String> routePanels = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     private ServerEngine server;
     private ClientEngine client;

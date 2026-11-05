@@ -27,7 +27,7 @@ class CommandQueueTest {
     @Test
     @Timeout(30)
     void commandsRunInTheOrderTheyCame() throws Exception {
-        final List<String> log = Collections.synchronizedList(new ArrayList<>());
+        final List<String> log = new java.util.concurrent.CopyOnWriteArrayList<>();
         final CountDownLatch done = new CountDownLatch(1);
         final CommandQueue queue = new CommandQueue(() -> {});
         queue.add(() -> log.add("first"));
@@ -43,7 +43,7 @@ class CommandQueueTest {
     @Test
     @Timeout(30)
     void aCommandThatComesWhileAnotherRunsWaitsForIt() throws Exception {
-        final List<String> log = Collections.synchronizedList(new ArrayList<>());
+        final List<String> log = new java.util.concurrent.CopyOnWriteArrayList<>();
         final CountDownLatch running = new CountDownLatch(1);
         final CountDownLatch done = new CountDownLatch(1);
         final CommandQueue queue = new CommandQueue(() -> {});
@@ -98,7 +98,7 @@ class CommandQueueTest {
     @Test
     @Timeout(30)
     void aCommandThatFailsDoesNotStopTheOnesAfterIt() throws Exception {
-        final List<String> log = Collections.synchronizedList(new ArrayList<>());
+        final List<String> log = new java.util.concurrent.CopyOnWriteArrayList<>();
         final CountDownLatch done = new CountDownLatch(1);
         final CommandQueue queue = new CommandQueue(() -> {});
         queue.add(() -> {
