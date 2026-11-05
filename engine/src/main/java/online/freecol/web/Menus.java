@@ -590,11 +590,28 @@ final class Menus {
                         .addStringTemplate("%unit%",
                             ship.getLabel(Unit.UnitLabelType.NATIONAL))));
             }
+            // A boycotted goods's arrears are paid from the market, ship or none
+            // (QuickActionMenu.addMarketItems).
+            if (!player.canTrade(type)) {
+                b.add("payArrears:" + goodsTypeId, text("payArrears"));
+            }
         } else if (where instanceof Unit && player.owns((Unit)where)) {
             final Unit ship = (Unit)where;
             if (ship.isInEurope()) {
                 b.add("sell:" + ship.getId() + "," + goodsTypeId,
                     text(player.canTrade(type) ? "unload" : "payArrears"));
+                // Goods go from one ship in port to another.
+                final Goods aboard = new Goods(this.client.getGame(), ship, type,
+                    Math.min(amount, ship.getGoodsCount(type)));
+                for (Unit other : player.getEurope().getUnitList()) {
+                    if (other == ship || !other.isCarrier() || !other.canCarryGoods()
+                        || !other.canAdd(aboard)) continue;
+                    b.add("transfer:" + ship.getId() + "," + other.getId() + ","
+                        + goodsTypeId + "," + amount,
+                        text(StringTemplate.template("quickActionMenu.loadOnTo")
+                            .addStringTemplate("%unit%",
+                                other.getLabel(Unit.UnitLabelType.NATIONAL))));
+                }
             } else if (ship.getColony() != null) {
                 b.add("unload:" + ship.getId() + "," + goodsTypeId + "," + amount,
                     text("unload"));

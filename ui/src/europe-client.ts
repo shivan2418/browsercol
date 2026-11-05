@@ -10,9 +10,14 @@ export interface EuropeButtons {
   leave: (unitId: string) => void;
   /** Buy goods of a type onto a ship in port; ask has the Engine ask how much, else it buys the most. */
   buy: (goodsTypeId: string, shipId: string, ask: boolean) => void;
-  /** Sell a stack of a ship's cargo; ask has the Engine ask how much of it, else all is sold. */
-  sell: (goodsTypeId: string, shipId: string, ask: boolean) => void;
+  /** Sell cargo of a type; ask has the Engine ask how much, else the stack is sold (all of the type for stack 0). */
+  sell: (goodsTypeId: string, shipId: string, ask: boolean, stack: number) => void;
+  /** Move cargo of a type from a ship in port to another (stack 0: all of the type). */
+  transfer: (fromShipId: string, toShipId: string, goodsTypeId: string, stack: number) => void;
+  /** Send a ship in port away; the Engine asks where, and may warn of colonists left on the docks. */
   sail: (shipId: string) => void;
+  /** Turn a ship on the high seas around. */
+  redirect: (shipId: string, toEurope: boolean) => void;
 }
 
 export const europeButtons: EuropeButtons = {
@@ -22,5 +27,7 @@ export const europeButtons: EuropeButtons = {
   leave: () => {},
   buy: () => {},
   sell: () => {},
+  transfer: () => {},
   sail: () => {},
+  redirect: () => {},
 };

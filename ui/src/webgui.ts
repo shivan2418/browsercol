@@ -451,6 +451,8 @@ export interface EuropeUnit {
   images: string[];
   selected: boolean;
   cargo?: { kind: 'unit' | 'goods'; id: Id; name: string; images: string[]; amount: number }[];
+  /** A carrier's cargo box title: its name and the holds left (CargoPanel). */
+  cargoTitle?: string;
 }
 
 /** Goods of a type and how much a terrain makes of them. */

@@ -1304,8 +1304,10 @@ async function run() {
     board: (unit: string, ship: string) => exports.boardShip(unit, ship),
     leave: (unit: string) => exports.leaveShip(unit),
     buy: (goods: string, ship: string, ask: boolean) => exports.buyGoods(ship, goods, ask),
-    sell: (goods: string, ship: string, ask: boolean) => exports.sellGoods(ship, goods, ask),
+    sell: (goods: string, ship: string, ask: boolean, stack: number) => exports.sellGoods(ship, goods, ask, stack),
+    transfer: (from: string, to: string, goods: string, stack: number) => exports.transferGoods(from, to, goods, stack),
     sail: (ship: string) => exports.sailToNewWorld(ship),
+    redirect: (ship: string, toEurope: boolean) => exports.redirectShip(ship, toEurope),
   });
   playWith(exports);
 }

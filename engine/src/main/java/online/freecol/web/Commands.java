@@ -20,6 +20,7 @@ import net.sf.freecol.common.model.Goods;
 import net.sf.freecol.common.model.GoodsContainer;
 import net.sf.freecol.common.model.GoodsType;
 import net.sf.freecol.common.model.IndianSettlement;
+import net.sf.freecol.common.model.Location;
 import net.sf.freecol.common.model.Market;
 import net.sf.freecol.common.model.StringTemplate;
 import net.sf.freecol.common.model.UnitLocation.NoAddReason;
@@ -372,11 +373,30 @@ public final class Commands {
      * @return True if goods were sold.
      */
     public boolean sellGoods(String shipId, String goodsTypeId, boolean ask) {
+        return sellGoods(shipId, goodsTypeId, ask, 0);
+    }
+
+    /**
+     * Sell a ship's cargo in Europe, as {@link #sellGoods(String, String,
+     * boolean)} does, but a plain drag of one stack sells that stack only
+     * (DragListener: the label's amount), as the stack of 100 furs the
+     * player dragged and not the 250 of all three. Shift and alt held
+     * together drag all of the type, which is {@code stack} 0.
+     *
+     * @param shipId The id of one of our ships in Europe.
+     * @param goodsTypeId The id of the goods type.
+     * @param ask Whether to ask the amount.
+     * @param stack The amount of the stack dragged; 0 or less for all of the type.
+     * @return True if goods were sold.
+     */
+    public boolean sellGoods(String shipId, String goodsTypeId, boolean ask,
+                             int stack) {
         final Unit ship = shipInEurope(shipId);
         final GoodsType type = goodsType(goodsTypeId);
         if (ship == null || type == null) return false;
-        final int aboard = ship.getGoodsCount(type);
-        if (aboard <= 0) return false;
+        final int all = ship.getGoodsCount(type);
+        if (all <= 0) return false;
+        final int aboard = (stack > 0) ? Math.min(stack, all) : all;
         final Player player = this.client.getMyPlayer();
         if (!player.canTrade(type)) {
             // The Crown is boycotting this goods: the player is asked to pay
@@ -486,6 +506,8 @@ public final class Commands {
      * <tr><td>colony:id, settlement:id</td><td>open the settlement's panel</td></tr>
      * <tr><td>leaveTown:unit, leaveShip:unit, board:unit,ship</td><td>as the colony panel's moves</td></tr>
      * <tr><td>work:unit,location,goods</td><td>put the colonist to work making the goods</td></tr>
+     * <tr><td>transfer:from,to,goods,amount</td><td>move goods from a ship in Europe to another</td></tr>
+     * <tr><td>payArrears:goods</td><td>pay the Crown's arrears on a boycotted goods</td></tr>
      * <tr><td>buy:ship,goods, sell:ship,goods</td><td>trade goods between a ship in Europe and the market</td></tr>
      * <tr><td>load:ship,goods, unload:ship,goods,amount, unloadAll:ship</td><td>move goods between a ship and the warehouse</td></tr>
      * </table>
@@ -534,6 +556,9 @@ public final class Commands {
         case "buy": return buyGoods(a[0], a[1], ask);
         case "sell": return sellGoods(a[0], a[1], ask);
         case "load": return loadGoods(a[0], a[1], ask);
+        case "transfer":
+            return transferGoods(a[0], a[1], a[2], Integer.parseInt(a[3]));
+        case "payArrears": return payArrears(a[0]);
         case "unload":
             return unloadGoods(a[0], a[1], Integer.parseInt(a[2]), ask);
         case "unloadAll": return unloadAll(rest);
@@ -767,9 +792,13 @@ public final class Commands {
     }
 
     /**
-     * Send a ship in Europe to the New World (EuropePanel's sail button, a
-     * drop on the sailing to America list). A trade route it follows is
-     * cleared first, after asking. The Europe panel is sent again.
+     * Send a ship in Europe away (EuropePanel's sail button, a drop on the
+     * sailing to America list). A trade route it follows is cleared first,
+     * after asking. The player is asked where it goes, as the select
+     * destination dialog does, and a closed dialog keeps the ship in port.
+     * Unless the autoload emigrants option is on, a ship with room to spare
+     * is not sent without asking when colonists wait on the docks. The
+     * Europe panel is sent again.
      *
      * @param shipId The id of the ship.
      * @return True if the ship set sail.
@@ -783,9 +812,105 @@ public final class Commands {
             && (ship.getTradeRoute() == null
                 || (gui().confirmClearTradeRoute(ship)
                     && igc().assignTradeRoute(ship, null)))) {
-            igc().moveTo(ship, this.client.getGame().getMap());
-            done = !ship.isInEurope();
+            final Location dest = gui().showSelectDestinationDialog(ship);
+            if (dest != null && leaveColonists(ship)) {
+                igc().moveTo(ship, dest);
+                done = !ship.isInEurope();
+            }
         }
+        gui().showEuropePanel();
+        return done;
+    }
+
+    /**
+     * Whether a ship may sail with colonists left on the docks: it may if
+     * none wait, if it is full, if they board by themselves
+     * (autoload emigrants), or if the player agrees to leave them.
+     */
+    private boolean leaveColonists(Unit ship) {
+        if (this.client.getClientOptions().getBoolean(ClientOptions.AUTOLOAD_EMIGRANTS)
+            || !ship.hasSpaceLeft()) return true;
+        boolean waiting = false;
+        for (Unit u : this.client.getMyPlayer().getEurope().getUnitList()) {
+            if (!u.isNaval()) waiting = true;
+        }
+        if (!waiting) return true;
+        return gui().modalConfirmDialog(null, StringTemplate
+            .template("europePanel.leaveColonists")
+            .addStringTemplate("%newWorld%", this.client.getGame().getMap()
+                .getLocationLabelFor(ship.getOwner())),
+            ship, "ok", "cancel", true);
+    }
+
+    /**
+     * Turn a ship on the high seas around (a drag between the sailing to
+     * America and sailing to Europe lists, EuropePanel.DestinationPanel).
+     * A trade route it follows is cleared first, after asking.
+     *
+     * @param shipId The id of the ship.
+     * @param toEurope True to sail it to Europe, false to the New World.
+     * @return True if the ship was sent.
+     */
+    public boolean redirectShip(String shipId, boolean toEurope) {
+        final Player player = this.client.getMyPlayer();
+        final Unit ship = player.getOurFreeColGameObject(shipId, Unit.class);
+        boolean done = false;
+        if (ship != null && ship.isNaval() && ship.getLocation() == player.getHighSeas()
+            && (ship.getTradeRoute() == null
+                || (gui().confirmClearTradeRoute(ship)
+                    && igc().assignTradeRoute(ship, null)))) {
+            final Location dest = toEurope ? player.getEurope()
+                : this.client.getGame().getMap();
+            // moveTo only says whether the move goes on by itself, not whether
+            // the order was taken.
+            igc().moveTo(ship, dest);
+            done = ship.getDestination() == dest;
+        }
+        gui().showEuropePanel();
+        return done;
+    }
+
+    /**
+     * Move goods from one ship in Europe to another (a drop of the cargo
+     * on the other ship, or its "load on to" menu entry): as much of the
+     * stack as the other ship has room for.
+     *
+     * @param fromShipId The id of the ship the goods are aboard.
+     * @param toShipId The id of the other ship in Europe.
+     * @param goodsTypeId The id of the goods type.
+     * @param stack The amount of the stack; 0 or less for all of the type.
+     * @return True if goods were moved.
+     */
+    public boolean transferGoods(String fromShipId, String toShipId,
+                                 String goodsTypeId, int stack) {
+        final Unit from = shipInEurope(fromShipId);
+        final Unit to = shipInEurope(toShipId);
+        final GoodsType type = goodsType(goodsTypeId);
+        if (from == null || to == null || from == to || type == null
+            || !to.canCarryGoods()) return false;
+        int amount = from.getGoodsCount(type);
+        if (stack > 0) amount = Math.min(amount, stack);
+        amount = Math.min(amount, to.getLoadableAmount(type));
+        final boolean done = amount > 0 && igc().loadCargo(
+            new Goods(this.client.getGame(), from, type, amount), to);
+        gui().showEuropePanel();
+        return done;
+    }
+
+    /**
+     * Pay the Crown the arrears on a boycotted goods, from the market (the
+     * market menu's "pay arrears"), with or without a ship in port. The
+     * Europe panel is sent again.
+     *
+     * @param goodsTypeId The id of the goods type.
+     * @return True if the arrears were paid.
+     */
+    public boolean payArrears(String goodsTypeId) {
+        final GoodsType type = goodsType(goodsTypeId);
+        final Player player = this.client.getMyPlayer();
+        if (type == null || player.getEurope() == null
+            || player.canTrade(type)) return false;
+        final boolean done = igc().payArrears(type);
         gui().showEuropePanel();
         return done;
     }
