@@ -433,15 +433,34 @@ public class WebGUI extends GUI {
     private String confirm(String header, String text, String okKey,
                            String cancelKey, boolean defaultOk, Tile tile,
                            String object) {
-        return this.questions.ask("confirm", new Json()
+        return confirm(header, text, okKey, cancelKey, defaultOk, tile,
+                       object, null);
+    }
+
+    /**
+     * Ask a confirm question with a Help button: {@code help} is the
+     * button's JSON, {label, colopedia, text}, where colopedia is the
+     * Colopedia entry it opens and text is the information it shows.
+     */
+    private String confirm(String header, String text, String okKey,
+                           String cancelKey, boolean defaultOk, Tile tile,
+                           String object, String help) {
+        final Json question = new Json()
             .put("text", text)
             .put("ok", label(okKey))
             .put("cancel", label(cancelKey))
             .put("defaultOk", defaultOk)
             .put("tile", id(tile))
             .put("object", object)
-            .put("header", header)
-            .toString());
+            .put("header", header);
+        if (help != null) question.putRaw("help", help);
+        return this.questions.ask("confirm", question.toString());
+    }
+
+    /** The JSON of a confirm question's Help button. */
+    private static String helpButton(String colopedia, String text) {
+        return new Json().put("label", Messages.message("help"))
+            .put("colopedia", colopedia).put("text", text).toString();
     }
 
     /** Ask a confirm question; true for ok, false for cancel or closed. */
@@ -1083,8 +1102,11 @@ public class WebGUI extends GUI {
                 .addStringTemplate("%nation%", other.getNationLabel())
                 .addName("%camps%", Integer.toString(settlementCount))
                 .add("%settlementType%", type));
+        // Swing's Help button shows the native contact tutorial.
+        final String help = helpButton(null,
+            Messages.message("firstContactDialog.meeting.natives.tutorial"));
         defer("showFirstContactDialog", () -> handler.handle(!"false".equals(
-            confirm(header, text, "yes", "no", true, tile, id(other)))));
+            confirm(header, text, "yes", "no", true, tile, id(other), help))));
     }
 
     @Override
@@ -1207,8 +1229,12 @@ public class WebGUI extends GUI {
         final String header = Messages.message(headerKey);
         final String yes = yesId;
         final String no = noId;
-        defer("showMonarchDialog", () -> handler.handle(
-            confirmed(header, text, yes, no, false, null, null)));
+        // As MonarchDialog, a tax raise has a Help button to the taxes article.
+        final String help = (action == MonarchAction.RAISE_TAX_ACT
+            || action == MonarchAction.RAISE_TAX_WAR)
+            ? helpButton("colopedia.concepts.taxes", null) : null;
+        defer("showMonarchDialog", () -> handler.handle("true".equals(
+            confirm(header, text, yes, no, false, null, null, help))));
     }
 
     /** {@inheritDoc} Defers. The text and buttons are NativeDemandDialog's. */
@@ -1250,9 +1276,9 @@ public class WebGUI extends GUI {
      * the turn later. This asks EndTurnDialog's question and lists the units
      * still waiting, and ok ends the turn, as its ok button does. Picking a
      * unit makes it the active one and, as Swing's selectUnit does, opens
-     * its colony, or Europe (reported, not shown yet). Swing leaves the panel
-     * open for that; the Browser UI's dialog covers the map, so it closes
-     * and the turn goes on, as with cancel. A second end turn while the
+     * its colony, or Europe, and the dialog stays open as in Swing (the Browser
+     * UI sends the pick as the "waiting" menu entry, {@link #selectWaiting}).
+     * A second end turn while the
      * question is open is dropped, as Swing's open panel stops it.
      */
     @Override
@@ -1282,8 +1308,6 @@ public class WebGUI extends GUI {
                         .toString());
                     if ("ok".equals(answer)) {
                         getFreeColClient().getInGameController().endTurn(false);
-                    } else if (answer != null && answer.startsWith("select\n")) {
-                        selectWaiting(units, answer.substring("select\n".length()));
                     }
                 } finally {
                     this.endTurnDialogOpen.set(false);
@@ -1291,19 +1315,19 @@ public class WebGUI extends GUI {
             });
     }
 
-    /** EndTurnDialog's selectUnit, for the unit with this id. */
-    private void selectWaiting(List<Unit> units, String unitId) {
-        for (Unit unit : units) {
-            if (!unit.getId().equals(unitId)) continue;
-            if (unit.isInEurope()) {
-                showEuropePanel();
-            } else {
-                changeView(unit, false);
-                if (unit.getColony() != null) {
-                    showColonyPanel(unit.getColony(), unit);
-                }
+    /**
+     * EndTurnDialog's selectUnit: make the unit the active one and open its
+     * colony or Europe. The dialog stays open, as in Swing: the Browser UI
+     * sends this as a command, not as the dialog's answer.
+     */
+    void selectWaiting(Unit unit) {
+        if (unit.isInEurope()) {
+            showEuropePanel();
+        } else {
+            changeView(unit, false);
+            if (unit.getColony() != null) {
+                showColonyPanel(unit.getColony(), unit);
             }
-            return;
         }
     }
 
@@ -1581,7 +1605,8 @@ public class WebGUI extends GUI {
                     .getInGameController().nationSummary(otherPlayer);
                 final Negotiation negotiation = new Negotiation(player, our,
                     other, agreement, comment,
-                    (ns == null) ? Player.GOLD_NOT_ACCOUNTED : ns.getGold());
+                    (ns == null) ? Player.GOLD_NOT_ACCOUNTED : ns.getGold(),
+                    getFreeColClient().tutorialMode());
                 handler.handle(negotiation.answer(
                     this.questions.ask("negotiation", negotiation.question())));
             });

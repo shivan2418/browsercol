@@ -7,6 +7,7 @@ import net.sf.freecol.client.ClientOptions;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.client.control.InGameController;
 import net.sf.freecol.client.gui.GUI;
+import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.model.Ability;
 import net.sf.freecol.common.model.BuildableType;
 import net.sf.freecol.common.model.Colony;
@@ -457,6 +458,7 @@ public final class Commands {
         case "cashin": return cashIn(rest);
         case "clear": return clearOrders(rest);
         case "select": return selectUnit(rest);
+        case "waiting": return selectWaiting(rest);
         case "activateAll":
             return activateAll(Integer.parseInt(a[0]), Integer.parseInt(a[1]));
         case "colony": return showColony(rest);
@@ -535,6 +537,14 @@ public final class Commands {
         return true;
     }
 
+    /** The end turn dialog's pick of a waiting unit: it becomes active, and its colony or Europe opens. */
+    private boolean selectWaiting(String unitId) {
+        final Unit unit = ours(unitId);
+        if (unit == null) return false;
+        ((WebGUI)gui()).selectWaiting(unit);
+        return true;
+    }
+
     /** TilePopup's "activate all units": clear the orders of the tile's units and select the first. */
     private boolean activateAll(int x, int y) {
         final Tile tile = tile(x, y);
@@ -556,12 +566,15 @@ public final class Commands {
 
     /**
      * Open the Colopedia on an entry (terrain, resource, goods, unit, building, founding
-     * father, nation or nation type); false if there is none of that id.
+     * father, nation, nation type or concept); false if there is none of that id.
      */
     private boolean showColopedia(String id) {
+        // A concept (the tax dialog's Help button opens the taxes article) or a spec type.
+        final boolean concept = id.startsWith("colopedia.concepts.")
+            && Messages.containsKey(id + ".name");
         final net.sf.freecol.common.model.FreeColSpecObjectType t =
-            this.client.getGame().getSpecification().getType(id);
-        if (!(t instanceof net.sf.freecol.common.model.TileType
+            concept ? null : this.client.getGame().getSpecification().getType(id);
+        if (!concept && !(t instanceof net.sf.freecol.common.model.TileType
             || t instanceof net.sf.freecol.common.model.ResourceType
             || t instanceof net.sf.freecol.common.model.GoodsType
             || t instanceof net.sf.freecol.common.model.UnitType

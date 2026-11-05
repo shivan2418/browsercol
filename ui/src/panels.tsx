@@ -149,8 +149,9 @@ function OkCancel(p: {
   );
 }
 
-function Confirm({ d }: { d: Of<'confirm'> }) {
+function Confirm({ d, colopedia }: { d: Of<'confirm'>; colopedia: (type: string) => void }) {
   const { ask } = d;
+  const [help, setHelp] = useState(false);
   const ok = () => d.done(true);
   const cancel = () => d.done(false);
   const enter = ask.defaultOk && ask.ok !== null ? 'ok' : 'cancel';
@@ -158,7 +159,22 @@ function Confirm({ d }: { d: Of<'confirm'> }) {
   return (
     <Win d={d} title={ask.header} close={cancel}>
       <Text text={ask.text} />
+      {help && ask.help?.text && <Text text={ask.help.text} />}
       <OkCancel ok={ask.ok} cancel={ask.cancel} onOk={ok} onCancel={cancel} enter={enter} />
+      {ask.help && (
+        <div className="buttons">
+          <button
+            data-help
+            onClick={() => {
+              const { colopedia: entry } = ask.help!;
+              if (entry !== null) colopedia(entry);
+              else setHelp(true);
+            }}
+          >
+            {ask.help.label}
+          </button>
+        </div>
+      )}
     </Win>
   );
 }
@@ -314,8 +330,11 @@ function PreCombat({ d }: { d: Of<'preCombat'> }) {
   );
 }
 
-/** FreeCol's end turn dialog: the units still waiting, each a button that makes the unit active. */
-function EndTurn({ d }: { d: Of<'endTurn'> }) {
+/**
+ * FreeCol's end turn dialog: the units still waiting, each a button that makes the unit active (and opens its
+ * colony or Europe) while the dialog stays open.
+ */
+function EndTurn({ d, pick }: { d: Of<'endTurn'>; pick: (unit: string) => void }) {
   const { ask } = d;
   const ok = () => d.done({ status: 'ok' });
   const cancel = () => d.done({ status: 'cancel' });
@@ -325,7 +344,7 @@ function EndTurn({ d }: { d: Of<'endTurn'> }) {
       <Text text={ask.text} />
       <div className="choices waiting">
         {ask.units.map((u) => (
-          <button key={u.id} data-unit={u.id} onClick={() => d.done({ status: 'select', unit: u.id })}>
+          <button key={u.id} data-unit={u.id} onClick={() => pick(u.id)}>
             {u.name}
             <span className="note"> {u.location}</span>
           </button>
@@ -521,11 +540,16 @@ function AddItem({
   items,
   add,
   label,
+  clear,
+  clearLabel,
 }: {
   o: TradeOption;
   items: TradeItem[];
   add: (i: TradeItem) => void;
   label: string;
+  /** Take away every item of this kind and side. */
+  clear: () => void;
+  clearLabel: string;
 }) {
   const choices = o.choices.filter(
     (c) => !items.some((i) => sameItem(i, { kind: o.kind, side: o.side, key: c.key, amount: 0, text: '' })),
@@ -561,6 +585,13 @@ function AddItem({
       )}
       <button data-add={o.kind} disabled={!valid} onClick={submit}>
         {label}
+      </button>
+      <button
+        data-clear={o.kind}
+        disabled={!items.some((i) => i.kind === o.kind && i.side === (o.side ?? i.side))}
+        onClick={clear}
+      >
+        {clearLabel}
       </button>
     </div>
   );
@@ -608,7 +639,15 @@ function Negotiation({ d }: { d: Of<'negotiation'> }) {
       <div className="trade-options" data-side={side ?? ''}>
         {heading !== null && <h3>{heading}</h3>}
         {options.map((o, i) => (
-          <AddItem key={i} o={o} items={items} add={add} label={ask.add} />
+          <AddItem
+            key={i}
+            o={o}
+            items={items}
+            add={add}
+            label={ask.add}
+            clearLabel={ask.clear}
+            clear={() => edit(items.filter((x) => !(x.kind === o.kind && x.side === (o.side ?? x.side))))}
+          />
         ))}
       </div>
     );
@@ -616,6 +655,7 @@ function Negotiation({ d }: { d: Of<'negotiation'> }) {
   return (
     <Win d={d} title={ask.title} close={ask.cancel !== null ? reply('reject') : null}>
       {ask.text !== null && <Text text={ask.text} />}
+      {ask.tutorial !== null && <Text text={ask.tutorial} />}
       {group('demand', ask.demand)}
       {group('offer', ask.offer)}
       {group(null, null)}
@@ -1640,11 +1680,13 @@ function Body({
   report,
   routes,
   colopedia,
+  command,
 }: {
   d: Dialog;
   goTo: (at: At) => void;
   art: Art;
   colopedia: (type: string) => void;
+  command: (entry: string) => void;
   string: (key: string) => string;
   report: ReportButtons;
   routes: RouteButtons;
@@ -1661,7 +1703,7 @@ function Body({
     case 'tradeRoutes':
       return <RoutesPanel d={d} art={art} routes={routes} />;
     case 'confirm':
-      return <Confirm d={d} />;
+      return <Confirm d={d} colopedia={colopedia} />;
     case 'choice':
       return <Choice d={d} />;
     case 'input':
@@ -1679,7 +1721,7 @@ function Body({
     case 'father':
       return <Father d={d} art={art} />;
     case 'endTurn':
-      return <EndTurn d={d} />;
+      return <EndTurn d={d} pick={(unit) => command(`waiting:${unit}`)} />;
     case 'preCombat':
       return <PreCombat d={d} />;
     case 'information':
@@ -1774,12 +1816,15 @@ export function DialogHost({
   report,
   routes,
   colopedia = () => {},
+  command = () => {},
 }: {
   dialogs: Dialogs;
   goTo: (at: At) => void;
   art: Art;
   /** Open the Colopedia on a tile type. */
   colopedia?: (type: string) => void;
+  /** Run a menu entry of the Engine (Commands.menuEntry), as the end turn dialog's pick of a unit does. */
+  command?: (entry: string) => void;
   /** A string resource of the Tileset. */
   string?: (key: string) => string;
   report: ReportButtons;
@@ -1800,6 +1845,7 @@ export function DialogHost({
           report={report}
           routes={routes}
           colopedia={colopedia}
+          command={command}
         />
       )}
       <Body
@@ -1811,6 +1857,7 @@ export function DialogHost({
         report={report}
         routes={routes}
         colopedia={colopedia}
+        command={command}
       />
     </div>
   );
