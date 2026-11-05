@@ -869,7 +869,10 @@ class WebGUITest {
                 net.sf.freecol.common.option.StringOption.class).getValue()),
             ((List<Map<String, Object>>)byId.get("model.option.buildOnNativeLand").get("choices"))
                 .stream().map(c -> c.get("value")).collect(Collectors.toList()));
-        assertFalse(byId.containsKey("model.option.immigrants"), "a list of units is left out");
+        assertEquals("units", byId.get("model.option.immigrants").get("kind"));
+        assertEquals(spec.getOption("model.option.immigrants",
+                net.sf.freecol.common.option.UnitListOption.class).getOptionValues().size(),
+            ((List<?>)byId.get("model.option.immigrants").get("value")).size());
         assertTrue(asked.isEmpty(), asked.toString());
     }
 
