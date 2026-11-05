@@ -1028,7 +1028,7 @@ function playWith(client: ClientExports) {
     }
     // ChangeAction: a click on the active unit's tile opens its colony or cycles its units.
     else if (c.k === 'change') {
-      if (view.active?.tile) client.click(...view.active.tile);
+      if (view.active?.tile) client.click(...view.active.tile, 1);
     } else client[c.k]();
   };
   runCommand = run;

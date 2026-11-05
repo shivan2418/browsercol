@@ -17,9 +17,9 @@ function host() {
       dialogs={box}
       goTo={(at) => went.push(at)}
       art={() => null}
-      report={{ groupBy: () => {}, filter: () => {}, ignore: () => {} }}
+      report={{ groupBy: () => {}, filter: () => {}, ignore: () => {}, open: () => {} }}
       routes={{ save: () => {}, remove: () => {}, assign: () => {} }}
-      open={(id) => opened.push(id)}
+      command={(id) => opened.push(id)}
     />,
   );
   return { box, went, opened };

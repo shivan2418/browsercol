@@ -618,7 +618,7 @@ describe('the build queue in the colony panel', () => {
             dialogs={box}
             goTo={() => {}}
             art={art}
-            report={{ groupBy() {}, filter() {}, ignore() {} }}
+            report={{ groupBy() {}, filter() {}, ignore() {}, open() {} }}
             routes={{ save() {}, remove() {}, assign() {} }}
           />
         </ColonyActions.Provider>
