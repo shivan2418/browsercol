@@ -203,6 +203,10 @@ final class Menus {
         if (unit == null || player == null || !player.owns(unit)
             || unit.isDisposed()) return "null";
         final Builder b = new Builder();
+        // QuickActionMenu.createUnitMenu: the unit's name and "(Colopedia)", first.
+        b.add("colopedia:" + unit.getType().getId(),
+            unitLabel(unit) + " (" + text("colopedia") + ")");
+        b.gap();
         if (unit.isInEurope()) {
             addOrders(b, unit);
             b.gap();
@@ -554,6 +558,17 @@ final class Menus {
         final Object where = "europe".equals(locationId) ? player.getEurope()
             : this.client.getGame().getFreeColGameObject(locationId);
         final Builder b = new Builder();
+        // QuickActionMenu.createGoodsMenu and createMarketMenu: the goods' name and "(Colopedia)", first.
+        b.add("colopedia:" + goodsTypeId, Messages.getName(type) + " (" + text("colopedia") + ")");
+        if (!(where instanceof Europe) && player.getMarket() != null) {
+            // The stack's sale price in Europe after tax (createGoodsMenu's quickActionMenu.profit).
+            int profit = player.getMarket().getSalePrice(type, amount);
+            if (profit > 0) profit -= profit * player.getTax() / 100;
+            if (profit > 0) {
+                b.add("none", text(StringTemplate.template("quickActionMenu.profit")
+                    .addAmount("%amount%", profit)), false, false);
+            }
+        }
         if (where instanceof Colony && player.owns((Colony)where)) {
             final Colony colony = (Colony)where;
             final Goods goods = new Goods(this.client.getGame(), colony, type,
@@ -587,6 +602,6 @@ final class Menus {
                     text("unload"));
             }
         }
-        return b.isEmpty() ? "null" : b.build(text("cargo"));
+        return b.build(text("cargo"));
     }
 }

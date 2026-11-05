@@ -38,6 +38,7 @@ import {
 import { createPortal } from 'react-dom';
 import { Box, GoodsAmount, type Art } from './frame';
 import { PANEL_KEYS } from './map-keys';
+import { ReportContext } from './reports';
 import { accepts, draggableProps, dropTargetProps, same, type Item, type Place } from './moves';
 import { ContextMenuContext, useContextMenu } from './popup-menu';
 import type { Buildable, BuildingTip, ColonyView, GoodsAmount as Goods, UnitRef } from './webgui';
@@ -625,6 +626,12 @@ function BuildableLabel({ b, art }: { b: Buildable; art: Art }) {
  */
 function BuildQueue({ c, art, children }: { c: ColonyView; art: Art; children: ReactNode }) {
   const moves = useContext(ColonyActions);
+  const { colopedia } = useContext(ReportContext);
+  /** Right-click on a building or unit of a list opens its Colopedia entry (BuildQueuePanel). */
+  const aboutIt = (type: string) => (e: { preventDefault: () => void }) => {
+    e.preventDefault();
+    colopedia(type);
+  };
   const [state, setState] = useState(() => queues.get(c.id) ?? { open: false, all: false });
   const set = (s: { open: boolean; all: boolean }) => {
     queues.set(c.id, s);
@@ -677,7 +684,12 @@ function BuildQueue({ c, art, children }: { c: ColonyView; art: Art; children: R
             <Box caption={q.title} data-part="queued" className="queued">
               <ol>
                 {q.queue.map((b, i) => (
-                  <li key={`${b.type}:${i}`} data-queued={b.type} data-locked={b.reason !== null || undefined}>
+                  <li
+                    key={`${b.type}:${i}`}
+                    data-queued={b.type}
+                    data-locked={b.reason !== null || undefined}
+                    onContextMenu={aboutIt(b.type)}
+                  >
                     <button disabled={i === 0} aria-label="up" title="up" onClick={() => move(i, i - 1)}>
                       ↑
                     </button>
@@ -712,7 +724,12 @@ function BuildQueue({ c, art, children }: { c: ColonyView; art: Art; children: R
                   {items
                     .filter((b) => state.all || b.reason === null)
                     .map((b) => (
-                      <li key={b.type} data-buildable={b.type} data-locked={b.reason !== null || undefined}>
+                      <li
+                        key={b.type}
+                        data-buildable={b.type}
+                        data-locked={b.reason !== null || undefined}
+                        onContextMenu={aboutIt(b.type)}
+                      >
                         <button
                           disabled={b.reason !== null}
                           title={b.reason ?? b.name}

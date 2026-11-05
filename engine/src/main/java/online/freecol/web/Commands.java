@@ -541,7 +541,6 @@ public final class Commands {
         return true;
     }
 
-    /** Open the Colopedia on an entry; false if there is none of that id. */
     private boolean showTile(int x, int y) {
         final Tile tile = this.client.getGame().getMap().getTile(x, y);
         if (tile == null || !tile.isExplored()) return false;
@@ -549,8 +548,21 @@ public final class Commands {
         return true;
     }
 
+    /**
+     * Open the Colopedia on an entry (terrain, resource, goods, unit, building, founding
+     * father, nation or nation type); false if there is none of that id.
+     */
     private boolean showColopedia(String id) {
-        if (this.client.getGame().getSpecification().getTileType(id) == null) return false;
+        final net.sf.freecol.common.model.FreeColSpecObjectType t =
+            this.client.getGame().getSpecification().getType(id);
+        if (!(t instanceof net.sf.freecol.common.model.TileType
+            || t instanceof net.sf.freecol.common.model.ResourceType
+            || t instanceof net.sf.freecol.common.model.GoodsType
+            || t instanceof net.sf.freecol.common.model.UnitType
+            || t instanceof net.sf.freecol.common.model.BuildingType
+            || t instanceof net.sf.freecol.common.model.FoundingFather
+            || t instanceof net.sf.freecol.common.model.Nation
+            || t instanceof net.sf.freecol.common.model.NationType)) return false;
         gui().showColopediaPanel(id);
         return true;
     }

@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { ReportContext } from './reports';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { dialogs } from './dialogs';
@@ -534,6 +535,40 @@ describe('the build queue in the colony panel', () => {
     expect(part('buildings').querySelector('[data-buildable="model.building.stockade"]')).toBeTruthy();
     expect(part('buildings').querySelector('[data-buildable="model.building.university"]')).toBeNull();
     expect(part('units').querySelector('[data-buildable="model.unit.wagonTrain"]')).toBeTruthy();
+  });
+
+  it('opens the Colopedia on a right-click of a queued or buildable item', () => {
+    const asked: string[] = [];
+    const box = dialogs();
+    render(
+      <ReportContext.Provider
+        value={{
+          open() {},
+          detail() {},
+          colony() {},
+          europe() {},
+          goTo() {},
+          difficulty() {},
+          colopedia: (id) => asked.push(id),
+        }}
+      >
+        <ColonyActions.Provider value={moves}>
+          <DialogHost
+            dialogs={box}
+            goTo={() => {}}
+            art={art}
+            report={{ groupBy() {}, filter() {}, ignore() {} }}
+            routes={{ save() {}, remove() {}, assign() {} }}
+          />
+        </ColonyActions.Provider>
+      </ReportContext.Provider>,
+    );
+    act(() => box.show('colony', { ...jamestown, id: `colony:${++n}` }));
+    fireEvent.click(part('construction'));
+    fireEvent.contextMenu(part('queued').querySelector('[data-queued="model.building.warehouse"]')!);
+    fireEvent.contextMenu(part('buildings').querySelector('[data-buildable="model.building.stockade"]')!);
+    fireEvent.contextMenu(part('units').querySelector('[data-buildable="model.unit.wagonTrain"] button')!);
+    expect(asked).toEqual(['model.building.warehouse', 'model.building.stockade', 'model.unit.wagonTrain']);
   });
 
   it('shows what the colony cannot build yet, with the reason, behind the show all box', () => {

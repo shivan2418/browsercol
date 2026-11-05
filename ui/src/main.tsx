@@ -286,6 +286,8 @@ const reportActions: ReportActions = {
   detail: (name, id) => colonyClient?.reportDetail(name, id),
   colony: (id) => colonyClient?.showColony(id),
   europe: () => runCommand({ k: 'showEurope' }),
+  colopedia: (id) => menuClient?.menuEntry(`colopedia:${id}`),
+  difficulty: () => runCommand({ k: 'showDifficulty' }),
   goTo: (at) => dispatch({ k: 'focus', tile: null, at }),
 };
 /** The player's preferences, and whether their window is open. */

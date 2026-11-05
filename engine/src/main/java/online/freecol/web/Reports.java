@@ -463,10 +463,12 @@ final class Reports {
     /**
      * A message's text without its HTML: paragraphs and breaks become new
      * lines and a link to an entry becomes {@code [[id|text]]}, which the
-     * Browser UI shows as a link.
+     * Browser UI shows as a link. A link to an action ({@code http:///action/NAME}, as the
+     * efficiency concept has to the difficulty report) becomes {@code [[action/NAME|text]]}.
      */
     static String plain(String html) {
         return html.replaceAll("(?is)<a\\s+href=\"http:///id/([^\"]+)\"[^>]*>(.*?)</a>", "[[$1|$2]]")
+            .replaceAll("(?is)<a\\s+href=\"http:///action/([^\"]+)\"[^>]*>(.*?)</a>", "[[action/$1|$2]]")
             .replaceAll("(?i)</p>|<br\\s*/?>", "\n")
             .replaceAll("<[^>]*>", "")
             .replace("&nbsp;", " ").replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&")

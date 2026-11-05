@@ -1461,6 +1461,8 @@ class CommandsTest {
         final String work = entryWith(menu, "work:" + colonist.getId() + ",");
         assertNotNull(work, "a place to work: " + menu);
         assertEquals("null", menus.unit("model.unit.noSuch"));
+        assertTrue(menu.contains("\"id\":\"colopedia:" + colonist.getType().getId() + "\""),
+            "the unit's Colopedia entry: " + menu);
 
         // Picking a work entry moves the colonist and sets what it makes.
         final String[] a = work.substring("work:".length()).split(",");
@@ -1507,6 +1509,7 @@ class CommandsTest {
         final String menu = client.getMenus().goods(ours.getId(), food.getId(), ours.getGoodsCount(food));
         final String load = entryWith(menu, "load:" + ship.getId());
         assertNotNull(load, menu);
+        assertNotNull(entryWith(menu, "colopedia:" + food.getId()), "the goods' Colopedia entry: " + menu);
         assertTrue(commands.menuEntry(load), "loads");
         assertTrue(ship.getGoodsCount(food) > 0, "the ship has the goods");
 
