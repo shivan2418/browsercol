@@ -317,14 +317,14 @@ function TilePlace({
   // The whole tile carries the colonist working it, and opens its menu.
   const worker = t.workers[0];
   const movable = useMovable({ kind: 'unit', id: worker?.id ?? '' });
-  const onContextMenu = useContextMenu((m) => (worker ? m.unit(worker.id) : null));
+  const onContextMenu = useContextMenu((m) => (worker ? m.unit(worker.id) : m.colonyTile(t.at[0], t.at[1])));
   // The drag shows the colonist, not the tile around it.
   const onDragStart = (e: DragEvent) => {
     movable.onDragStart(e);
     const img = e.currentTarget.querySelector<HTMLElement>('.who .unit');
     if (img) e.dataTransfer.setDragImage?.(img, img.offsetWidth / 2, img.offsetHeight / 2);
   };
-  const carry = worker ? { ...movable, onContextMenu, onDragStart } : undefined;
+  const carry = worker ? { ...movable, onContextMenu, onDragStart } : { onContextMenu };
   return (
     <div
       className="tile"

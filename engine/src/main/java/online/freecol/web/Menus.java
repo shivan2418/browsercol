@@ -224,6 +224,12 @@ final class Menus {
             }
             b.gap();
         }
+        final Tile workTile = unit.getWorkTile();
+        if (workTile != null) {
+            // QuickActionMenu.addTileItem: the tile it works opens the tile panel.
+            b.add("tile:" + workTile.getX() + "," + workTile.getY(), text(workTile.getLabel()));
+            b.gap();
+        }
         if (!unit.isCarrier() && unit.isInColony()) {
             addWork(b, unit, colony);
             addEducation(b, unit, colony);
@@ -242,6 +248,22 @@ final class Menus {
         addRoles(b, unit);
         addClearSpeciality(b, unit);
         return b.build(unitLabel(unit));
+    }
+
+    /**
+     * The menu of a tile of the colony panel's grid, as QuickActionMenu.createTileMenu
+     * builds it: one entry, which opens the tile's panel.
+     *
+     * @param x The tile's x.
+     * @param y The tile's y.
+     * @return The menu as JSON; "null" for no such tile.
+     */
+    String colonyTile(int x, int y) {
+        final Tile tile = this.client.getGame().getMap().getTile(x, y);
+        if (tile == null || me() == null || !tile.isExplored()) return "null";
+        final Builder b = new Builder();
+        b.add("tile:" + x + "," + y, text(tile.getLabel()));
+        return b.build(text(tile.getSimpleLabel()));
     }
 
     /** QuickActionMenu's "clear speciality", unless the unit works where it would no longer fit. */

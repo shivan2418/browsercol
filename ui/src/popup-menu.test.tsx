@@ -115,6 +115,7 @@ describe('useContextMenu', () => {
     const shown: unknown[] = [];
     const menus: ContextMenus = {
       unit: (id) => (id === 'unit:7' ? menu : null),
+      colonyTile: () => null,
       goods: () => null,
       show: (m, x, y) => shown.push([m.title, x, y]),
     };
@@ -130,7 +131,12 @@ describe('useContextMenu', () => {
 
   it('opens nothing for a colonist with no menu, and without menus does nothing', () => {
     const shown: unknown[] = [];
-    const none: ContextMenus = { unit: () => null, goods: () => null, show: () => shown.push(1) };
+    const none: ContextMenus = {
+      unit: () => null,
+      colonyTile: () => null,
+      goods: () => null,
+      show: () => shown.push(1),
+    };
     const { unmount } = render(
       <ContextMenuContext.Provider value={none}>
         <Target />

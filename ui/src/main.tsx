@@ -543,6 +543,7 @@ function showPopup(next: Popup | null) {
 let menuClient: ClientExports | null = null;
 const contextMenus: ContextMenus = {
   unit: (id) => (menuClient ? parseMenu(menuClient.unitMenu(id)) : null),
+  colonyTile: (x, y) => (menuClient ? parseMenu(menuClient.colonyTileMenu(x, y)) : null),
   goods: (location, type, amount) => (menuClient ? parseMenu(menuClient.goodsMenu(location, type, amount)) : null),
   show: (menu, x, y) => showPopup({ menu, x, y }),
 };

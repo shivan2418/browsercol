@@ -539,6 +539,12 @@ public final class ClientMain {
         return engine.getMenus().unit(unitId);
     }
 
+    /** The menu of a tile in the colony panel's grid (Menus.colonyTile), as JSON or "null". */
+    @JSExport
+    public static String colonyTileMenu(int x, int y) {
+        return engine.getMenus().colonyTile(x, y);
+    }
+
     /** The quick action menu of goods in a colony or on a ship (Menus.goods), as JSON or "null". */
     @JSExport
     public static String goodsMenu(String locationId, String goodsTypeId, int amount) {

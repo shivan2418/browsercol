@@ -358,6 +358,16 @@ class MenuEntriesTest {
         assertEquals(new TreeSet<>(List.of("board", "cashin", "clear",
             "clearSpeciality", "leaveShip", "leaveTown", "load", "role", "state",
             "unload", "unloadAll", "work")), verbs, "every kind of entry was offered and picked");
+        // A tile of the colony's grid offers its panel; a worker's menu lists the tile too.
+        final String centre = colony.getTile().getX() + "," + colony.getTile().getY();
+        assertTrue(menus.colonyTile(colony.getTile().getX(), colony.getTile().getY())
+            .contains("\"id\":\"tile:" + centre + "\""), "the colony tile's menu opens its panel");
+        for (Unit u : colony.getUnitList()) {
+            if (u.getWorkTile() == null) continue;
+            assertTrue(menus.unit(u.getId()).contains("\"id\":\"tile:"
+                + u.getWorkTile().getX() + "," + u.getWorkTile().getY() + "\""),
+                "a worker's menu lists its tile");
+        }
     }
 
     /** Sail the ship to Europe and wait for it there. */

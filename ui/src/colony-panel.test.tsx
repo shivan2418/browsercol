@@ -593,6 +593,7 @@ describe('right-clicking in the colony panel', () => {
   const menu = { title: 'Menu', entries: [{ id: 'x', label: 'X', enabled: true }] };
   const menus: ContextMenus = {
     unit: (id) => (asked.push(`unit ${id}`), id === 'unit:3' ? null : menu),
+    colonyTile: (x, y) => (asked.push(`tile ${x},${y}`), menu),
     goods: (at, type, amount) => (asked.push(`goods ${at} ${type} ${amount}`), menu),
     show: (m, x, y) => shown.push(`${m.title} ${x},${y}`),
   };
@@ -641,6 +642,14 @@ describe('right-clicking in the colony panel', () => {
       'goods unit:9 model.goods.cloth 100',
     ]);
     expect(shown).toEqual(['Menu 70,80', 'Menu 70,80', 'Menu 70,80', 'Menu 70,80']);
+  });
+
+  it("asks for the tile menu of an empty tile, and a worked tile gives the worker's menu", () => {
+    open(true);
+    rightClick(document.querySelector('[data-tile="colonyTile:00"]')!);
+    rightClick(document.querySelector('[data-tile="colonyTile:21"]')!);
+    expect(asked).toEqual(['tile 10,20', 'unit unit:1']);
+    expect(shown).toEqual(['Menu 70,80', 'Menu 70,80']);
   });
 
   it('keeps the browser menu off, and opens none, without the Engine', () => {

@@ -1777,6 +1777,7 @@ describe('the Europe panel', () => {
     const asked: string[] = [];
     const shown: string[] = [];
     const menus: ContextMenus = {
+      colonyTile: () => null,
       unit: (id) => (asked.push(`unit ${id}`), { title: id, entries: [] }),
       goods: (at, type, amount) => (asked.push(`goods ${at} ${type} ${amount}`), { title: type, entries: [] }),
       show: (m, x, y) => shown.push(`${m.title} ${x},${y}`),
