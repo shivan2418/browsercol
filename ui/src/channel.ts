@@ -93,6 +93,8 @@ export interface ClientExports {
   showEurope(): void;
   /** Show the game options, read-only (ShowGameOptionsAction). */
   showGameOptions(): void;
+  /** Show the map generator options, read-only (ShowMapGeneratorOptionsAction). */
+  showMapGeneratorOptions(): void;
   /** Show the game's difficulty level, read-only (ShowDifficultyAction). */
   showDifficulty(): void;
   /** The standing orders of the active unit. */

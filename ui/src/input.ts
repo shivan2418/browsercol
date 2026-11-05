@@ -14,6 +14,7 @@ export type Command =
   | { k: 'declareIndependence' }
   | { k: 'showEurope' }
   | { k: 'showGameOptions' }
+  | { k: 'showMapGeneratorOptions' }
   | { k: 'showDifficulty' }
   | { k: 'retire' }
   | { k: 'showHighScores' }

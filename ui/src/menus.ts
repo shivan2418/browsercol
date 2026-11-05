@@ -51,8 +51,6 @@ export function gameMenu(a: MenuActions): Items {
     { label: 'Save', run: a.save, disabled: !a.ready },
     { label: 'Preferences', run: a.preferences },
     later('Reconnect'),
-    cmd('Show Game Options', { k: 'showGameOptions' }),
-    cmd('Show Difficulty Level', { k: 'showDifficulty' }),
     cmd('End Turn', { k: 'endTurn' }),
     cmd('Declare Independence', { k: 'declareIndependence' }),
     cmd('High Scores', { k: 'showHighScores' }),
@@ -80,6 +78,16 @@ export function ordersMenu(a: MenuActions): Items {
     order('Go To', { k: 'selectDestination' }),
     { label: 'Trade Routes', run: () => a.run({ k: 'tradeRoutes' }), disabled: !a.ready },
     order('Disband Unit', { k: 'disband' }),
+  ];
+}
+
+/** The Report menu's entries after the reports (InGameMenuBar): the game's options, read-only. */
+export function reportOptionsMenu(a: MenuActions): Items {
+  const cmd = (label: string, c: Command): Items[number] => ({ label, run: () => a.run(c), disabled: !a.ready });
+  return [
+    cmd('Show Game Options', { k: 'showGameOptions' }),
+    cmd('Show Map Generator Options', { k: 'showMapGeneratorOptions' }),
+    cmd('Show Difficulty Level', { k: 'showDifficulty' }),
   ];
 }
 

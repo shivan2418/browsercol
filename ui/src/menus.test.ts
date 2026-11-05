@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
 import type { Command } from './input';
-import { gameMenu, ordersMenu, viewMenu, type MenuActions } from './menus';
+import { gameMenu, ordersMenu, reportOptionsMenu, viewMenu, type MenuActions } from './menus';
 
 function actions(over: Partial<MenuActions> = {}) {
   const log: string[] = [];
@@ -40,8 +40,6 @@ describe('the Game menu', () => {
       'Save',
       'Preferences',
       'Reconnect',
-      'Show Game Options',
-      'Show Difficulty Level',
       'End Turn',
       'Declare Independence',
       'High Scores',
@@ -53,9 +51,8 @@ describe('the Game menu', () => {
   it('runs what the Browser UI can do, and disables what it cannot', () => {
     const { a, log } = actions();
     const items = gameMenu(a);
-    for (const l of ['New', 'Open', 'Save', 'Preferences', 'Show Game Options', 'End Turn', 'High Scores', 'Retire'])
-      find(items, l).run();
-    expect(log).toEqual(['newGame', 'open', 'save', 'prefs', 'showGameOptions', 'endTurn', 'showHighScores', 'retire']);
+    for (const l of ['New', 'Open', 'Save', 'Preferences', 'End Turn', 'High Scores', 'Retire']) find(items, l).run();
+    expect(log).toEqual(['newGame', 'open', 'save', 'prefs', 'endTurn', 'showHighScores', 'retire']);
     expect(items.filter((i) => i.disabled).map((i) => i.label)).toEqual(['Reconnect', 'Quit']);
   });
 
@@ -64,6 +61,17 @@ describe('the Game menu', () => {
     expect(find(items, 'End Turn').disabled).toBe(true);
     expect(find(items, 'Save').disabled).toBe(true);
     expect(find(items, 'New').disabled).toBeFalsy();
+  });
+});
+
+describe('the Report menu', () => {
+  it('shows the game options, the map generator options and the difficulty level read-only', () => {
+    const { a, log } = actions();
+    const items = reportOptionsMenu(a);
+    expect(labels(items)).toEqual(['Show Game Options', 'Show Map Generator Options', 'Show Difficulty Level']);
+    for (const i of items) i.run();
+    expect(log).toEqual(['showGameOptions', 'showMapGeneratorOptions', 'showDifficulty']);
+    expect(reportOptionsMenu(actions({ ready: false }).a).every((i) => i.disabled)).toBe(true);
   });
 });
 

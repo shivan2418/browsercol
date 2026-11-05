@@ -86,6 +86,7 @@ function fakeClient(scope: Scope, log: string[]): ClientExports {
     showGameOptions: () => {},
     retire: () => {},
     showHighScores: () => {},
+    showMapGeneratorOptions: () => {},
     showDifficulty: () => {},
     recruitUnit: () => {},
     trainUnit: () => {},

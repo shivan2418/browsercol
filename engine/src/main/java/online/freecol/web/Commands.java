@@ -157,6 +157,12 @@ public final class Commands {
         return true;
     }
 
+    /** Show the map generator options of the game, read-only (ShowMapGeneratorOptionsAction). */
+    public boolean showMapGeneratorOptions() {
+        gui().showMapGeneratorOptionsDialog(false, null);
+        return true;
+    }
+
     /** Show the game's difficulty level, read-only (ShowDifficultyAction). */
     public boolean showDifficulty() {
         gui().showDifficultyDialog();

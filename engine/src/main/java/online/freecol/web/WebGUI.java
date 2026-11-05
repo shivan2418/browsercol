@@ -123,13 +123,14 @@ import net.sf.freecol.common.option.OptionGroup;
  * <tr><td>showModelMessages</td><td>event messages</td>
  *     <td>{title: null, messages: [{text, type, source, tile, at,
  *         heading: null, images, filter: null, filterTip: null,
- *         ignored: false, ignoreTip: null}], ok}; tile and at are the source's, to go to;
+ *         ignored: false, ignoreTip: null, link}], ok}; tile and at are the source's, to go to;
+ *         link is what the message's image opens ({kind: colony, id}, {kind: europe} or null);
  *         images are the resource keys of the message's display object's
  *         image, best first</td></tr>
  * <tr><td>showReportTurnPanel</td><td>event messages</td>
  *     <td>as showModelMessages, titled as the turn report, and arranged by
  *         the group by client option: unsorted, sorted by type or sorted
- *         so a source's are together, with a heading {text, tile, at} on
+ *         so a source's are together, with a heading {text, tile, at, link} on
  *         the first of each group. Also {groupBy: {label, value, choices:
  *         [{value, text}]}, regrouped: false}, and per message the
  *         buttons ReportTurnPanel has for it: filter is whether its type
@@ -242,9 +243,10 @@ import net.sf.freecol.common.option.OptionGroup;
  *         skill, mostHated, wanted: [...], ok, tile, at}; as {@link SettlementJson}
  *         describes, with only what the player has learned; opened by a
  *         click on the settlement and by the controllers</td></tr>
- * <tr><td>showGameOptionsDialog, showDifficultyDialog (the in-game menu's
+ * <tr><td>showGameOptionsDialog, showDifficultyDialog,
+ *     showMapGeneratorOptionsDialog (the Report menu's
  *     entries)</td><td>event options</td>
- *     <td>{kind: game or difficulty, title, ok, root}: the option group
+ *     <td>{kind: game, difficulty or mapGenerator, title, ok, root}: the option group
  *         as {@link OptionsJson} describes it, read-only; a panel that is
  *         open is replaced</td></tr>
  * <tr><td>the other dialogs the controllers ask (see "Not asked yet"), and
@@ -382,6 +384,36 @@ public class WebGUI extends GUI {
         return json.put("tile", id(tile)).putRaw("at", MapJson.xy(tile));
     }
 
+    /**
+     * What clicking a message's source or image opens, as ReportTurnPanel's link buttons and
+     * SwingGUI.displayObject do: a colony (a building's, or the one a unit is in) opens its colony
+     * panel, Europe (or its market, or a unit there) opens Europe. Raw JSON: {kind: colony, id},
+     * {kind: europe}, or null for nothing to open.
+     */
+    private String link(FreeColObject object) {
+        Colony colony = null;
+        boolean europe = false;
+        if (object instanceof Unit) {
+            final Location at = ((Unit)object).up();
+            if (at instanceof Europe) europe = true;
+            else if (at instanceof Colony) colony = (Colony)at;
+        } else if (object instanceof Colony) {
+            colony = (Colony)object;
+        } else if (object instanceof Building) {
+            colony = ((Building)object).getColony();
+        } else if (object instanceof Europe || object instanceof Market) {
+            europe = true;
+        }
+        if (colony != null) {
+            final Player me = getMyPlayer();
+            return (me != null && me.owns(colony))
+                ? new Json().put("kind", "colony").put("id", colony.getId())
+                    .toString()
+                : "null";
+        }
+        return europe ? new Json().put("kind", "europe").toString() : "null";
+    }
+
     /** The localized text for a message key, or null for no key. */
     private static String label(String key) {
         return (key == null) ? null : Messages.message(key);
@@ -486,7 +518,8 @@ public class WebGUI extends GUI {
             if (groupBy == ClientOptions.MESSAGES_GROUP_BY_SOURCE
                 && (i == 0 || !Objects.equals(sourceId, m.getSourceId()))) {
                 heading = tile(new Json().put("text", headline(source)),
-                               tileOf(source)).toString();
+                               tileOf(source))
+                    .putRaw("link", link(source)).toString();
             } else if (groupBy == ClientOptions.MESSAGES_GROUP_BY_TYPE
                 && (i == 0 || m.getMessageType() != type)) {
                 heading = tile(new Json().put("text",
@@ -503,6 +536,7 @@ public class WebGUI extends GUI {
             if (heading == null) json.put("heading", (String)null);
             else json.putRaw("heading", heading);
             json.putRaw("images", ObjectImages.json(game.getMessageDisplay(m)));
+            json.putRaw("link", link(game.getMessageDisplay(m)));
             json.putRaw("filter", (!report || shown == null) ? "null"
                 : shown.toString());
             json.put("filterTip", (report && shown != null)
@@ -1893,6 +1927,22 @@ public class WebGUI extends GUI {
         this.ui.show("options", OptionsJson.event("difficulty",
             Messages.message("difficultyDialog.name") + ": " + group.getName(),
             group, Messages.message("ok")).toString());
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * Shows the map generator options the game was made with, read-only
+     * (ShowMapGeneratorOptionsAction).
+     */
+    @Override
+    public void showMapGeneratorOptionsDialog(boolean editable,
+        DialogHandler<OptionGroup> dialogHandler) {
+        final Game game = getGame();
+        if (game == null) return;
+        this.ui.show("options", OptionsJson.event("mapGenerator",
+            Messages.message("mapGeneratorOptions.name"),
+            game.getMapGeneratorOptions(), Messages.message("ok")).toString());
     }
 
     @Override

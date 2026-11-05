@@ -31,7 +31,7 @@ function host() {
         dialogs={box}
         goTo={() => {}}
         art={art}
-        report={{ groupBy: () => {}, filter: () => {}, ignore: () => {} }}
+        report={{ groupBy: () => {}, filter: () => {}, ignore: () => {}, open: () => {} }}
         routes={{ save: () => {}, remove: () => {}, assign: () => {} }}
       />
     </ReportContext.Provider>,

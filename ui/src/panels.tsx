@@ -29,6 +29,7 @@ import type {
   ColonyView,
   EuropeUnit,
   GuiEvents,
+  ReportLink,
   SettlementEntry,
   TradeItem,
   TradeOption,
@@ -44,6 +45,8 @@ export interface ReportButtons {
   groupBy: (value: number) => void;
   filter: (index: number, shown: boolean) => void;
   ignore: (index: number, ignore: boolean) => void;
+  /** Open what a heading or image links to: our colony's panel, or Europe (SwingGUI.displayObject). */
+  open: (link: ReportLink) => void;
 }
 
 /** What the trade routes panel does to the player's routes (ClientExports.saveTradeRoute and deleteTradeRoute). */
@@ -798,9 +801,39 @@ function MessageList({
         const dim = ignored.has(i) || shown.get(m.type) === false;
         return (
           <div key={i} className="message" data-dim={dim || undefined}>
-            {m.heading && <TileText heading text={m.heading.text} at={m.heading.at} goTo={goTo} />}
+            {m.heading &&
+              (m.heading.link ? (
+                <h3 className="text">
+                  <a
+                    href="#"
+                    data-link={m.heading.link.kind}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      report.open(m.heading!.link!);
+                    }}
+                  >
+                    {m.heading.text}
+                  </a>
+                </h3>
+              ) : (
+                <TileText heading text={m.heading.text} at={m.heading.at} goTo={goTo} />
+              ))}
             <div className="row">
-              <Pic keys={m.images} art={art} />
+              {m.link && art(m.images) !== null ? (
+                <a
+                  href="#"
+                  className="pic-link"
+                  data-link={m.link.kind}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    report.open(m.link!);
+                  }}
+                >
+                  <Pic keys={m.images} art={art} />
+                </a>
+              ) : (
+                <Pic keys={m.images} art={art} />
+              )}
               <TileText text={m.text} at={m.at} goTo={goTo} />
               {m.ignoreTip !== null && (
                 <button

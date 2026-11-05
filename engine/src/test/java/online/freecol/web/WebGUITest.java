@@ -34,6 +34,7 @@ import net.sf.freecol.common.model.Colony;
 import net.sf.freecol.common.model.DiplomaticTrade;
 import net.sf.freecol.common.model.DiplomaticTrade.TradeContext;
 import net.sf.freecol.common.model.DiplomaticTrade.TradeStatus;
+import net.sf.freecol.common.model.Europe;
 import net.sf.freecol.common.model.FoundingFather;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.Goods;
@@ -382,6 +383,23 @@ class WebGUITest {
             .startsWith("image.unit." + unit.getType().getId()), m.toString());
         assertNull(m.get("filterTip"), "a model message has no buttons");
         assertNull(m.get("ignoreTip"));
+        assertNull(m.get("link"), "a unit on the map opens nothing");
+    }
+
+    @Test
+    @Timeout(120)
+    @SuppressWarnings("unchecked")
+    void aMessageAboutEuropeLinksToEurope() throws Exception {
+        final ClientEngine client = startGame();
+        final GUI gui = client.getClient().getGUI();
+        final Europe europe = client.getClient().getMyPlayer().getEurope();
+        final List<ModelMessage> messages = List.of(new ModelMessage(
+                ModelMessage.MessageType.DEFAULT, "info.enterSomeText", europe));
+
+        shown.clear();
+        gui.showModelMessages(messages);
+        final Map<String, Object> m = messagesOf(messageEvents().get(0)).get(0);
+        assertEquals(Map.of("kind", "europe"), m.get("link"));
     }
 
     @Test
@@ -809,9 +827,15 @@ class WebGUITest {
         shown.clear();
         gui.showDifficultyDialog();
         gui.showGameOptionsDialog(false, null);
+        gui.showMapGeneratorOptionsDialog(false, null);
         final List<String> events = shown().stream().filter(e -> e.startsWith("options "))
             .collect(Collectors.toList());
-        assertEquals(2, events.size(), shown.toString());
+        assertEquals(3, events.size(), shown.toString());
+        final Map<String, Object> mapGenerator
+            = (Map<String, Object>)JsonReader.read(events.get(2).substring("options ".length()));
+        assertEquals("mapGenerator", mapGenerator.get("kind"));
+        assertEquals("Map Generator Options", mapGenerator.get("title"));
+        assertNotNull(mapGenerator.get("root"));
         final Map<String, Object> difficulty
             = (Map<String, Object>)JsonReader.read(events.get(0).substring("options ".length()));
         final Map<String, Object> game
