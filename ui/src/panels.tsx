@@ -1349,7 +1349,8 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
               <div className="chips">
                 {ship?.cargo?.map((c, i) => {
                   const goods = trade.get(c.id);
-                  const sellable = c.kind === 'goods' && goods?.enabled === true;
+                  // A boycotted stack is still a button: selling it asks to pay the arrears, as Swing does.
+                  const sellable = c.kind === 'goods';
                   const drag =
                     c.kind === 'unit'
                       ? draggableProps({ kind: 'unit', id: c.id })
@@ -1365,7 +1366,8 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
                       key={`${c.kind}/${c.id}`}
                       className="chip"
                       data-cargo={c.kind}
-                      title={c.name}
+                      data-disabled={goods?.enabled === false || undefined}
+                      title={goods?.reason ?? c.name}
                       onClick={() => sell(c.id)}
                       onContextMenu={cargoMenu(c)}
                       {...drag}
@@ -1407,7 +1409,9 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
         <section className="box market" data-list="market" {...dropTargetProps('market', onMarket)}>
           <div className="goods">
             {e.market.map((g) => {
-              const buyable = ship !== null && g.enabled;
+              // A boycotted goods is still a button with a ship in port: buying it asks to pay the
+              // arrears, as Swing's MarketLabel does.
+              const buyable = ship !== null;
               const drag = goodsDrag({ kind: 'goods', from: 'market', type: g.id });
               const inner = (
                 <>
@@ -1422,7 +1426,8 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
                   key={g.id}
                   className="good"
                   data-goods={g.id}
-                  title={g.name}
+                  data-disabled={!g.enabled || undefined}
+                  title={g.reason ?? g.name}
                   onClick={() => buy(g.id)}
                   onContextMenu={marketMenu(g.id)}
                   {...drag}

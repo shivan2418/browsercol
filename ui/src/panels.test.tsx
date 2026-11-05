@@ -1647,21 +1647,36 @@ describe('the Europe panel', () => {
     expect(calls).toEqual(['buy model.goods.food unit:1 true', 'sell model.goods.food unit:1 true']);
   });
 
-  it('does not trade a boycotted goods, and says why', () => {
+  it('greys a boycotted goods, says why, and a click asks the engine (which offers to pay the arrears)', () => {
     const calls: string[] = [];
     Object.assign(europeButtons, {
       buy: (g: string, s: string, ask: boolean) => calls.push(`buy ${g} ${s} ${ask}`),
       sell: (g: string, s: string, ask: boolean) => calls.push(`sell ${g} ${s} ${ask}`),
     });
     const { box } = host();
-    act(() => box.show('europe', europe));
+    const rumAboard = {
+      kind: 'goods' as const,
+      id: 'model.goods.rum',
+      name: 'Rum',
+      amount: 20,
+      images: [],
+    };
+    const ship = { ...europe.inPort[0], cargo: [...(europe.inPort[0].cargo ?? []), rumAboard] };
+    act(() => box.show('europe', { ...europe, inPort: [ship, ...europe.inPort.slice(1)] }));
+    const reason = 'The Crown is boycotting these goods until you have paid your tax arrears of 100 gold.';
     const rum = document.querySelector('[data-goods="model.goods.rum"]')!;
     expect(rum.hasAttribute('data-disabled')).toBe(true);
-    expect(rum.getAttribute('title')).toBe(
-      'The Crown is boycotting these goods until you have paid your tax arrears of 100 gold.',
-    );
+    expect(rum.getAttribute('title')).toBe(reason);
+    // Swing's MarketLabel offers to pay the arrears when a boycotted goods is bought.
     fireEvent.click(rum);
-    expect(calls).toEqual([]);
+    expect(calls).toEqual(['buy model.goods.rum unit:1 true']);
+    // And EuropePanel when a boycotted stack of the cargo is sold.
+    const stack = [...document.querySelectorAll('[data-cargo="goods"]')].find(
+      (el) => el.getAttribute('title') === reason,
+    )!;
+    expect(stack.hasAttribute('data-disabled')).toBe(true);
+    fireEvent.click(stack);
+    expect(calls).toEqual(['buy model.goods.rum unit:1 true', 'sell model.goods.rum unit:1 true']);
   });
 
   it('trades nothing with no ship in port', () => {

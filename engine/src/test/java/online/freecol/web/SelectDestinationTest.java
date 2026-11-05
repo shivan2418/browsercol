@@ -60,6 +60,8 @@ class SelectDestinationTest {
     private volatile String wanted = null;
     /** What the fake Browser UI answers to the select amount dialog. */
     private volatile String amount = null;
+    /** Whether the fake Browser UI pays the Crown's arrears when asked. */
+    private volatile boolean payArrears = false;
 
     private ServerEngine server;
     private ClientEngine client;
@@ -75,7 +77,7 @@ class SelectDestinationTest {
      * The fake Browser UI picks the destination it is told to, closes the
      * dialog when there is none to pick, and accepts every confirmation
      * but the one that would sail to Europe on its own. The Crown's
-     * arrears are not paid: the boycott stands.
+     * arrears are paid only when {@link #payArrears} says so.
      */
     private String answer(String kind, String json) {
         switch (kind) {
@@ -88,7 +90,7 @@ class SelectDestinationTest {
         case "endTurn":
             return "ok";
         case "confirm":
-            if (json.contains("boycotting these goods")) return "false";
+            if (json.contains("boycotting these goods")) return String.valueOf(payArrears);
             return json.contains("high seas") ? "false" : "true";
         case "amount":
             return amount;
@@ -676,6 +678,22 @@ class SelectDestinationTest {
         assertEquals(gold, serverPlayer.getGold(), "nothing paid");
         assertEquals(5, logOf(parse(lastEurope())).size(),
             "a refused trade is not logged: " + lastEurope());
+
+        // Asked again, the player pays the arrears: the boycott is lifted
+        // and the panel offers the goods again, but nothing is traded yet,
+        // as in Swing.
+        payArrears = true;
+        final int arrears = serverPlayer.getArrears(cloth);
+        assertFalse(client.getCommands().sellGoods(ship.getId(), cloth.getId()),
+            "paying the arrears sells nothing");
+        assertTrue(serverPlayer.canTrade(cloth), "the boycott is lifted on the server");
+        assertTrue(player.canTrade(cloth), "the boycott is lifted on the client");
+        assertEquals(gold - arrears, serverPlayer.getGold(), "the arrears are paid");
+        assertEquals(5, serverShip(ship).getGoodsCount(cloth), "nothing sold");
+        client.getClient().getGUI().showEuropePanel();
+        final java.util.Map<String, Object> lifted = marketOf(parse(lastEurope())).stream()
+            .filter(g -> cloth.getId().equals(g.get("id"))).findFirst().get();
+        assertEquals(true, lifted.get("enabled"), "the goods can be traded again");
 
         // A new turn starts with an empty log.
         endTurnAndWait();
