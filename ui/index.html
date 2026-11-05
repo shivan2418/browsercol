@@ -535,6 +535,33 @@
       .dialog .modifiers .value {
         text-align: right;
       }
+      .dialog .modifiers caption {
+        text-align: left;
+        font-weight: bold;
+        padding-top: 12px;
+      }
+      /* The Find Settlement list: a scrolling column of rows, the picked one marked. */
+      .dialog .settlements {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        width: 300px;
+        height: 300px;
+        overflow-y: auto;
+        margin-bottom: 8px;
+      }
+      .dialog .settlements button {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        text-align: left;
+      }
+      .dialog .settlements button[aria-selected='true'] {
+        outline: 2px solid var(--head);
+      }
+      .dialog .settlements img {
+        height: 32px;
+      }
       /* The select amount dialog: the goods and the amount, then the amounts it lists in a row. */
       .dialog .amount {
         display: flex;

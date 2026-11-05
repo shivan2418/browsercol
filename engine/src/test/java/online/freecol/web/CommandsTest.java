@@ -76,6 +76,9 @@ class CommandsTest {
     /** The information panels the WebGUI showed, as their JSON. */
     private final List<String> informationPanels = Collections.synchronizedList(new ArrayList<>());
 
+    /** The Find Settlement and work production panels the WebGUI showed, as "kind json". */
+    private final List<String> panels = Collections.synchronizedList(new ArrayList<>());
+
     /** The questions the fake Browser UI answered, with its answers. */
     private final List<String> asked = Collections.synchronizedList(new ArrayList<>());
 
@@ -237,6 +240,9 @@ class CommandsTest {
                     if (kind.equals("colony")) colonies.add(json);
                     if (kind.equals("tradeRoutes")) routePanels.add(json);
                     if (kind.equals("information")) informationPanels.add(json);
+                    if (kind.equals("findSettlement") || kind.equals("workProduction")) {
+                        panels.add(kind + " " + json);
+                    }
                     if (kind.equals("report")) reports.add(json);
                     if (kind.equals("highScores")) highScores.add(json);
                     if (kind.equals("closeColony")) closedColonies.add(json);
@@ -1537,6 +1543,61 @@ class CommandsTest {
             assertTrue(commands.menuEntry(leave));
             assertEquals(ours.getTile(), colonist.getLocation());
         }
+    }
+
+    @Test
+    @Timeout(180)
+    void aWorkingColonistsMenuShowsItsProductionModifiers() throws Exception {
+        startGame();
+        final Commands commands = client.getCommands();
+        final Colony serverColony = foundAColony(commands);
+        final Colony ours = client.getGame()
+            .getFreeColGameObject(serverColony.getId(), Colony.class);
+        final Unit colonist = ours.getUnitList().get(0);
+        assertNotNull(colonist.getWorkType(), "the founder works");
+
+        final String entry = "production:" + colonist.getId();
+        assertEquals(entry, entryWith(client.getMenus().unit(colonist.getId()), "production:"));
+        panels.clear();
+        assertTrue(commands.menuEntry(entry));
+        assertEquals(1, panels.size(), panels::toString);
+        final String panel = panels.get(0);
+        assertTrue(panel.startsWith("workProduction {"), panel);
+        assertTrue(panel.contains("\"lines\":["), panel);
+        assertTrue(panel.contains("\"finalResult\":\"Final result\""), panel);
+        assertTrue(panel.contains("\"result\":\""), panel);
+
+        // A colonist with no work has no entry and no panel.
+        assertTrue(commands.menuEntry("leaveTown:" + colonist.getId()));
+        assertNull(entryWith(client.getMenus().unit(colonist.getId()), "production:"));
+        panels.clear();
+        assertFalse(commands.menuEntry(entry));
+        assertTrue(panels.isEmpty());
+    }
+
+    @Test
+    @Timeout(180)
+    void theFindSettlementPanelListsTheSettlementsAndOpensOurColony() throws Exception {
+        startGame();
+        final Commands commands = client.getCommands();
+        final Colony serverColony = foundAColony(commands);
+        panels.clear();
+        assertTrue(commands.findSettlement());
+        assertEquals(1, panels.size(), panels::toString);
+        final String panel = panels.get(0);
+        assertTrue(panel.startsWith("findSettlement {"), panel);
+        assertTrue(panel.contains("\"filters\":[\"Find all settlements\","
+            + "\"Find only native settlements\",\"Find only European settlements\"]"), panel);
+        assertTrue(panel.contains("\"id\":\"" + serverColony.getId() + "\""), panel);
+        assertTrue(panel.contains("\"native\":false"), "European: " + panel);
+        assertTrue(panel.contains("\"at\":[" + serverColony.getTile().getX() + ","
+            + serverColony.getTile().getY() + "]"), panel);
+        assertTrue(panel.contains("\"open\":true"), panel);
+
+        // Picking our colony's row opens its panel, as the colony: entry does.
+        colonies.clear();
+        assertTrue(commands.menuEntry("colony:" + serverColony.getId()));
+        assertEquals(1, colonies.size());
     }
 
     @Test

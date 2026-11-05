@@ -60,6 +60,37 @@ export interface GuiEvents {
     ok: string;
   };
   /**
+   * FindSettlementPanel: the settlements of every living player, each with its row's text, the images,
+   * whether it is a native settlement and whether picking it opens a panel (our colonies and native
+   * settlements do), and the labels of the three filters (all, natives, Europeans).
+   */
+  findSettlement: {
+    title: string;
+    filters: [string, string, string];
+    settlements: { id: Id; name: string; native: boolean; open: boolean; at: [number, number]; images: string[] }[];
+    ok: string;
+  };
+  /**
+   * WorkProductionPanel: where a colonist works (title, with the terrain or building image), the base
+   * production, each modifier (source and signed value), the zero threshold line if production would be
+   * negative, the final result and, for a building, what it makes unattended.
+   */
+  workProduction: {
+    title: string;
+    place: string;
+    unit: string;
+    unitKeys: string[];
+    keys: string[];
+    forest: string[] | null;
+    base: string;
+    lines: { source: string; value: string }[];
+    zero: { label: string; value: string } | null;
+    finalResult: string;
+    result: string;
+    unattended: { label: string; place: string; base: string; lines: { source: string; value: string }[] } | null;
+    ok: string;
+  };
+  /**
    * The Colopedia's terrain entry, as TerrainDetailPanel shows a tile type: its image (keys, with the
    * forest's over it), the possible resources, movement cost, defence bonus, what it makes unattended
    * and with a colonist, and the description.

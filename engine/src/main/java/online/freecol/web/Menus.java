@@ -505,7 +505,10 @@ final class Menus {
             b.add("work:" + unit.getId() + "," + w.where.getId() + ","
                 + w.type.getId(), text(t), true, false, "image.icon." + w.type.getId());
         }
-        if (!all.isEmpty()) b.gap();
+        // QuickActionMenu's "Show production modifiers", for a colonist at work.
+        final boolean modifiers = current != null && unit.getWorkType() != null;
+        if (modifiers) b.add("production:" + unit.getId(), text("showProductionModifiers"));
+        if (!all.isEmpty() || modifiers) b.gap();
     }
 
     /** A place to work and what it would make. */

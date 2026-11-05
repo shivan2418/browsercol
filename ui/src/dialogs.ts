@@ -18,6 +18,8 @@ export type PanelKind =
   | 'eventPanel'
   | 'indianSettlement'
   | 'tilePanel'
+  | 'findSettlement'
+  | 'workProduction'
   | 'colopedia'
   | 'messages'
   | 'highScores'

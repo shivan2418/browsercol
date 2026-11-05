@@ -127,6 +127,7 @@ describe('the View menu', () => {
       'Zoom Out',
       'Center on Active Unit',
       'Europe',
+      'Find Settlement',
       'Show Map Grid',
       'Show Borders',
       'Show Fog of War',
@@ -140,6 +141,7 @@ describe('the View menu', () => {
     find(items, 'Zoom Out').run();
     find(items, 'Center on Active Unit').run();
     find(items, 'Europe').run();
+    find(items, 'Find Settlement').run();
     for (const l of [
       'Show Map Grid',
       'Show Borders',
@@ -157,6 +159,7 @@ describe('the View menu', () => {
       'zoom -1',
       'centre',
       'showEurope',
+      'findSettlement',
       'mode grid',
       'mode borders',
       'fog',

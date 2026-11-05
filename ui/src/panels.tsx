@@ -1642,6 +1642,153 @@ function TileBody({ e, art }: { e: GuiEvents['tilePanel']; art: Art }) {
   );
 }
 
+/**
+ * FindSettlementPanel: a list of settlements under a filter (all, natives, Europeans). Picking a row centres
+ * the map on it; Enter or a double click opens its colony or native settlement panel, as in Swing, and
+ * closes this one.
+ */
+export function FindSettlement({
+  d,
+  art,
+  goTo,
+  open,
+}: {
+  d: Of<'findSettlement'>;
+  art: Art;
+  goTo: (at: At) => void;
+  open: (id: string) => void;
+}) {
+  const e = d.event;
+  const [filter, setFilter] = useState(0);
+  const [picked, setPicked] = useState<string | null>(null);
+  const shown = e.settlements.filter((s) => filter === 0 || s.native === (filter === 1));
+  // As Swing keeps the selection over a filter change, and falls back to the first row.
+  const selected = shown.find((s) => s.id === picked) ?? shown[0] ?? null;
+  const at = selected?.at;
+  useEffect(() => {
+    if (at) goTo(at);
+    // goTo changes with each render of the page; only a different row moves the map.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected?.id]);
+  const close = () => (d.done as () => void)();
+  const choose = (s: (typeof shown)[number] | null) => {
+    if (!s?.open) return;
+    close();
+    open(`${s.native ? 'settlement' : 'colony'}:${s.id}`);
+  };
+  useEnter(selected ? () => choose(selected) : close);
+  const onKey = (ev: ReactKeyboardEvent) => {
+    const step = ev.key === 'ArrowDown' ? 1 : ev.key === 'ArrowUp' ? -1 : 0;
+    if (step === 0 || !selected) return;
+    ev.preventDefault();
+    const next = shown[Math.min(shown.length - 1, Math.max(0, shown.indexOf(selected) + step))];
+    setPicked(next.id);
+    (ev.currentTarget.querySelector(`[data-id="${CSS.escape(next.id)}"]`) as HTMLElement | null)?.focus();
+  };
+  return (
+    <Win d={d} title={e.title} close={close}>
+      <div className="settlements" role="listbox" aria-label={e.title} onKeyDown={onKey}>
+        {shown.map((s) => (
+          <button
+            key={s.id}
+            role="option"
+            data-id={s.id}
+            aria-selected={s === selected}
+            tabIndex={s === selected ? 0 : -1}
+            onClick={() => setPicked(s.id)}
+            onDoubleClick={() => {
+              setPicked(s.id);
+              choose(s);
+            }}
+          >
+            <Pic keys={s.images} art={art} />
+            {s.name}
+          </button>
+        ))}
+      </div>
+      <select aria-label={e.title} value={filter} onChange={(ev) => setFilter(Number(ev.target.value))}>
+        {e.filters.map((label, i) => (
+          <option key={i} value={i}>
+            {label}
+          </option>
+        ))}
+      </select>
+      <PanelButtons ok={e.ok} close={close} />
+    </Win>
+  );
+}
+
+/** One modifier line of WorkProductionPanel: its source and its signed value. */
+function ModifierRows({ lines }: { lines: { source: string; value: string }[] }) {
+  return (
+    <>
+      {lines.map((m, i) => (
+        <tr key={i}>
+          <td>{m.source}</td>
+          <td className="value">{m.value}</td>
+        </tr>
+      ))}
+    </>
+  );
+}
+
+/**
+ * WorkProductionPanel: how a colonist's output is reached. The place and the colonist, the base production,
+ * each modifier, the zero threshold if production would go negative, and the final result; a building adds
+ * what it makes unattended.
+ */
+function WorkProduction({ d, art }: { d: Of<'workProduction'>; art: Art }) {
+  const e = d.event;
+  return (
+    <Panel d={d} ok={e.ok}>
+      <div className="work-production">
+        <h2>{e.title}</h2>
+        <div className="row">
+          <div className="terrain-image">
+            <Pic keys={e.keys} art={art} />
+            {e.forest && <Pic keys={e.forest} art={art} />}
+          </div>
+          <Pic keys={e.unitKeys} art={art} />
+          <span>{e.unit}</span>
+        </div>
+        <table className="modifiers">
+          <tbody>
+            <tr>
+              <td>{e.place}</td>
+              <td className="value">{e.base}</td>
+            </tr>
+            <ModifierRows lines={e.lines} />
+            {e.zero && (
+              <tr>
+                <td>{e.zero.label}</td>
+                <td className="value">{e.zero.value}</td>
+              </tr>
+            )}
+          </tbody>
+          <tfoot>
+            <tr>
+              <th>{e.finalResult}</th>
+              <th className="value">{e.result}</th>
+            </tr>
+          </tfoot>
+        </table>
+        {e.unattended && (
+          <table className="modifiers unattended">
+            <caption>{e.unattended.label}</caption>
+            <tbody>
+              <tr>
+                <td>{e.unattended.place}</td>
+                <td className="value">{e.unattended.base}</td>
+              </tr>
+              <ModifierRows lines={e.unattended.lines} />
+            </tbody>
+          </table>
+        )}
+      </div>
+    </Panel>
+  );
+}
+
 /** The Colopedia's terrain entry as TerrainDetailPanel lays it out. */
 function TerrainBody({ e, art }: { e: GuiEvents['colopedia']; art: Art }) {
   const goods = (list: GuiEvents['colopedia']['unattended']) => (
@@ -1769,6 +1916,10 @@ function Body({
           <TileBody e={d.event} art={art} />
         </Panel>
       );
+    case 'findSettlement':
+      return <FindSettlement d={d} art={art} goTo={goTo} open={command} />;
+    case 'workProduction':
+      return <WorkProduction d={d} art={art} />;
     case 'colopedia':
       return (
         <Panel d={d} ok={d.event.ok}>

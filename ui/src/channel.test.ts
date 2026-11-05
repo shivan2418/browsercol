@@ -83,6 +83,7 @@ function fakeClient(scope: Scope, log: string[]): ClientExports {
     endTurn: () => {},
     declareIndependence: () => {},
     showEurope: () => {},
+    findSettlement: () => {},
     showGameOptions: () => {},
     retire: () => {},
     showHighScores: () => {},
