@@ -1793,6 +1793,74 @@ describe('the Europe panel', () => {
     expect(shown).toEqual([good.querySelector('img')]);
   });
 
+  it('turns a ship on the high seas around when it is dragged to the other list', () => {
+    const calls: string[] = [];
+    Object.assign(europeButtons, {
+      redirect: (s: string, toEurope: boolean) => calls.push(`redirect ${s} ${toEurope}`),
+    });
+    const { box } = host();
+    const sailing = [unit('unit:7', 'Merchantman'), unit('unit:8', 'Brig')];
+    act(() => box.show('europe', { ...europe, toAmerica: [sailing[0]], toEurope: [sailing[1]] }));
+    const dataTransfer = { setData() {}, effectAllowed: '' };
+    fireEvent.dragStart(document.querySelector('[data-unit="unit:7"]')!, { dataTransfer });
+    fireEvent.drop(document.querySelector('[data-list=toEurope]')!, { dataTransfer });
+    fireEvent.dragStart(document.querySelector('[data-unit="unit:8"]')!, { dataTransfer });
+    fireEvent.drop(document.querySelector('[data-list=toAmerica]')!, { dataTransfer });
+    expect(calls).toEqual(['redirect unit:7 true', 'redirect unit:8 false']);
+  });
+
+  it('moves cargo to another ship dropped on its icon, and sells the stack dragged, all of the type with shift and alt', () => {
+    const calls: string[] = [];
+    Object.assign(europeButtons, {
+      transfer: (a: string, b: string, g: string, n: number) => calls.push(`transfer ${a} ${b} ${g} ${n}`),
+      sell: (g: string, s: string, ask: boolean, n: number) => calls.push(`sell ${g} ${s} ${ask} ${n}`),
+    });
+    const { box } = host();
+    act(() => box.show('europe', europe));
+    const dataTransfer = { setData() {}, effectAllowed: '' };
+    const stack = () => document.querySelector('[data-cargo="goods"]')!;
+    fireEvent.dragStart(stack(), { dataTransfer });
+    fireEvent.drop(document.querySelector('[data-unit="unit:2"]')!, { dataTransfer });
+    fireEvent.dragStart(stack(), { dataTransfer });
+    fireEvent.drop(document.querySelector('[data-list=market]')!, { dataTransfer });
+    const ev = createEvent.dragStart(stack(), { dataTransfer });
+    Object.defineProperty(ev, 'shiftKey', { value: true });
+    Object.defineProperty(ev, 'altKey', { value: true });
+    fireEvent(stack(), ev);
+    fireEvent.drop(document.querySelector('[data-list=market]')!, { dataTransfer });
+    expect(calls).toEqual([
+      'transfer unit:1 unit:2 model.goods.food 50',
+      'sell model.goods.food unit:1 false 50',
+      'sell model.goods.food unit:1 false 0',
+    ]);
+  });
+
+  it('names the picked ship and its holds left over the cargo', () => {
+    const { box } = host();
+    act(() =>
+      box.show('europe', {
+        ...europe,
+        inPort: [{ ...europe.inPort[0], cargoTitle: 'Cargo on Caravel (2 holds left)' }],
+      }),
+    );
+    expect(document.querySelector('[data-list=cargo] h3')!.textContent).toBe('Cargo on Caravel (2 holds left)');
+  });
+
+  it('closes the purchase popup when a purchase leaves nothing affordable', () => {
+    Object.assign(europeButtons, { train: () => {} });
+    const { box } = host();
+    act(() => box.show('europe', europe));
+    fireEvent.click(screen.getByRole('button', { name: 'Train' }));
+    fireEvent.click(screen.getByRole('button', { name: /Master Carpenter/ }));
+    // The panel is sent again with the gold spent: every card is disabled.
+    const spent = {
+      ...europe,
+      train: { ...europe.train, units: europe.train.units.map((o) => ({ ...o, enabled: false })) },
+    };
+    act(() => box.replace('europe', spent));
+    expect(document.querySelector('[data-shop]')).toBeNull();
+  });
+
   it('has nothing to sail with no ship in port', () => {
     const { box } = host();
     act(() => box.show('europe', { ...europe, inPort: [], selected: null }));

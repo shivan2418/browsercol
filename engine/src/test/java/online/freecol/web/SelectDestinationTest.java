@@ -60,6 +60,8 @@ class SelectDestinationTest {
     private volatile String wanted = null;
     /** What the fake Browser UI answers to the select amount dialog. */
     private volatile String amount = null;
+    /** Whether the fake Browser UI agrees to sail and leave colonists on the docks. */
+    private volatile boolean leaveBehind = true;
     /** Whether the fake Browser UI pays the Crown's arrears when asked. */
     private volatile boolean payArrears = false;
 
@@ -91,6 +93,7 @@ class SelectDestinationTest {
             return "ok";
         case "confirm":
             if (json.contains("boycotting these goods")) return String.valueOf(payArrears);
+            if (json.contains("leave the colonists")) return String.valueOf(leaveBehind);
             return json.contains("high seas") ? "false" : "true";
         case "amount":
             return amount;
@@ -508,9 +511,35 @@ class SelectDestinationTest {
             "the panel has it on the docks: " + shown);
         assertTrue(client.getCommands().boardShip(passenger, ship.getId()),
             "the unit boards again");
+        // The player is asked where: a closed dialog keeps the ship in port.
+        wanted = null;
+        assertFalse(client.getCommands().sailToNewWorld(ship.getId()),
+            "a closed destination dialog keeps the ship in port");
+        assertTrue(serverShip(ship).isInEurope(), "the ship is still in Europe");
+        // With room to spare and colonists waiting on the docks, the player is
+        // warned that they are left behind, and may cancel.
+        wanted = Messages.message(
+            client.getGame().getMap().getLocationLabelFor(player));
+        leaveBehind = false;
+        asked.clear();
+        assertFalse(client.getCommands().sailToNewWorld(ship.getId()),
+            "cancelling the warning keeps the ship in port");
+        assertTrue(lastQuestion("confirm").contains("leave the colonists"),
+            "the player was warned: " + asked);
+        assertTrue(serverShip(ship).isInEurope(), "still in Europe");
+        leaveBehind = true;
         assertTrue(client.getCommands().sailToNewWorld(ship.getId()),
             "the loaded ship sails");
         assertFalse(serverShip(ship).isInEurope(), "the ship has left Europe");
+        panel = europePanel(player);
+        assertEquals(List.of(ship.getId()), unitIds(panel, "toAmerica"));
+        // A ship on the high seas is turned around, and back again.
+        assertTrue(client.getCommands().redirectShip(ship.getId(), true),
+            "the ship turns toward Europe");
+        panel = europePanel(player);
+        assertEquals(List.of(ship.getId()), unitIds(panel, "toEurope"));
+        assertTrue(client.getCommands().redirectShip(ship.getId(), false),
+            "the ship turns toward the New World");
         panel = europePanel(player);
         assertEquals(List.of(ship.getId()), unitIds(panel, "toAmerica"));
         int turns = 0;
@@ -621,6 +650,17 @@ class SelectDestinationTest {
         assertTrue(client.getCommands().sellGoods(ship.getId(), cloth.getId(), false),
             "the whole stack is sold without asking");
         assertEquals(0, serverShip(ship).getGoodsCount(cloth), "all the cloth is sold");
+        // A stack of 5 of the ten is sold alone when dragged, all with stack 0.
+        amount = "10";
+        assertTrue(client.getCommands().buyGoods(ship.getId(), cloth.getId(), true),
+            "ten again");
+        amount = null;
+        assertTrue(client.getCommands().sellGoods(ship.getId(), cloth.getId(), false, 4),
+            "a stack is sold");
+        assertEquals(6, serverShip(ship).getGoodsCount(cloth), "only the stack is sold");
+        assertTrue(client.getCommands().sellGoods(ship.getId(), cloth.getId(), false, 0),
+            "all of the type is sold");
+        assertEquals(0, serverShip(ship).getGoodsCount(cloth), "all the cloth is sold");
         // Put the ten back, asked, for what follows.
         amount = "10";
         assertTrue(client.getCommands().buyGoods(ship.getId(), cloth.getId(), true),
@@ -647,8 +687,8 @@ class SelectDestinationTest {
             "the menu's entry sells");
         assertEquals(5, ship.getGoodsCount(cloth));
         // The drag's sale, the purchase again and the menu's sale are logged.
-        assertEquals(5, logOf(parse(lastEurope())).size(),
-            "five trades this turn: " + lastEurope());
+        assertEquals(8, logOf(parse(lastEurope())).size(),
+            "eight trades this turn: " + lastEurope());
 
         // The Europe panel shows the cargo of the ship in port.
         java.util.Map<String, Object> panel = europePanel(player);
@@ -679,8 +719,14 @@ class SelectDestinationTest {
         assertEquals(5, serverShip(ship).getGoodsCount(cloth),
             "nothing bought or sold");
         assertEquals(gold, serverPlayer.getGold(), "nothing paid");
-        assertEquals(5, logOf(parse(lastEurope())).size(),
+        assertEquals(8, logOf(parse(lastEurope())).size(),
             "a refused trade is not logged: " + lastEurope());
+
+        // The market's menu offers to pay the arrears, ship or none, and
+        // the cargo's menu too.
+        assertTrue(client.getMenus().goods("europe", cloth.getId(), 100)
+            .contains("\"id\":\"payArrears:" + cloth.getId() + "\""),
+            client.getMenus().goods("europe", cloth.getId(), 100));
 
         // Asked again, the player pays the arrears: the boycott is lifted
         // and the panel offers the goods again, but nothing is traded yet,
@@ -697,6 +743,24 @@ class SelectDestinationTest {
         final java.util.Map<String, Object> lifted = marketOf(parse(lastEurope())).stream()
             .filter(g -> cloth.getId().equals(g.get("id"))).findFirst().get();
         assertEquals(true, lifted.get("enabled"), "the goods can be traded again");
+
+        // Goods go from one ship in port to another, from its cargo menu or by
+        // a drop on the other ship's icon.
+        final String bought = offers(europePanel(player), "purchase").keySet().stream()
+            .filter(id -> serverType(id).isNaval()).findFirst().get();
+        assertTrue(client.getCommands().trainUnit(bought), "a second ship is bought");
+        awaitGold(serverPlayer.getGold());
+        final String other = unitIds(europePanel(player), "inPort").stream()
+            .filter(id -> !id.equals(ship.getId())).findFirst().get();
+        final String menu = client.getMenus().goods(ship.getId(), cloth.getId(), 5);
+        assertTrue(menu.contains("\"id\":\"transfer:" + ship.getId() + "," + other
+            + "," + cloth.getId() + ",5\""), menu);
+        assertTrue(client.getCommands().menuEntry(
+            "transfer:" + ship.getId() + "," + other + "," + cloth.getId() + ",5"),
+            "the goods move to the other ship");
+        assertEquals(0, serverShip(ship).getGoodsCount(cloth), "none left aboard");
+        assertEquals(5, server.getGame().getFreeColGameObject(other, Unit.class)
+            .getGoodsCount(cloth), "the other ship has it");
 
         // A new turn starts with an empty log.
         endTurnAndWait();

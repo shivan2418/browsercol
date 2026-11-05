@@ -104,7 +104,7 @@ final class EuropeJson {
                 .put("toEurope", Messages.message("sailingToEurope"))
                 .put("inPort", Messages.message("inPort"))
                 .put("docks", Messages.message("docks"))
-                .put("cargo", Messages.message("cargo"))
+                .put("cargo", Messages.message("cargoOnCarrier"))
                 .toString())
             .putRaw("toAmerica", units(toAmerica, selected))
             .putRaw("toEurope", units(toEurope, selected))
@@ -239,6 +239,10 @@ final class EuropeJson {
                     .put("amount", g.getAmount()).toString());
             }
             json.putRaw("cargo", Json.array(cargo));
+            json.put("cargoTitle", Messages.message(StringTemplate
+                .template("cargoPanel.cargoAndSpace")
+                .addStringTemplate("%name%", u.getLabel(Unit.UnitLabelType.NATIONAL))
+                .addAmount("%space%", u.getSpaceLeft())));
         }
         return json.toString();
     }

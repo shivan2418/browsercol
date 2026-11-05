@@ -1244,9 +1244,15 @@ function RoutesPanel({ d, art, routes }: { d: Of<'tradeRoutes'>; art: Art; route
 
 type Europe = GuiEvents['europe'];
 
-/** Goods dragged in Europe move whole; shift held at the start of the drag has the Engine ask how many. */
+/**
+ * Goods dragged in Europe move as the stack picked up, as Swing's DragListener moves a label's amount; shift held at the
+ * start of the drag has the Engine ask how many, shift and alt together drag all of the type.
+ */
 const goodsDrag = (item: Item) => {
-  const props = draggableProps(item, (e) => ({ ...item, ask: e.shiftKey }) as Item);
+  const props = draggableProps(
+    item,
+    (e) => ({ ...item, ask: e.shiftKey && !e.altKey, all: e.shiftKey && e.altKey }) as Item,
+  );
   // The drag shows the goods alone, not the price or amount beside them.
   const onDragStart = (e: ReactDragEvent<HTMLElement>) => {
     props.onDragStart(e);
@@ -1263,6 +1269,7 @@ function UnitChip({
   pick,
   on,
   drag,
+  drop,
 }: {
   u: EuropeUnit;
   art: Art;
@@ -1270,6 +1277,8 @@ function UnitChip({
   on?: boolean;
   /** Whether the unit can be dragged somewhere, as a dock's unit can board. */
   drag?: boolean;
+  /** What a drop on the unit's icon does, as a ship in port takes cargo. */
+  drop?: (item: Item) => void;
 }) {
   const inner = (
     <>
@@ -1277,7 +1286,10 @@ function UnitChip({
       <span className="name">{u.name}</span>
     </>
   );
-  const props = drag ? draggableProps({ kind: 'unit', id: u.id }) : {};
+  const props = {
+    ...(drag ? draggableProps({ kind: 'unit', id: u.id }) : {}),
+    ...(drop ? dropTargetProps('ship', drop) : {}),
+  };
   const onContextMenu = useContextMenu((m) => m.unit(u.id));
   return pick ? (
     <button
@@ -1317,6 +1329,13 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
   const debug = useContext(DebugContext);
   const [picked, setPicked] = useState(e.selected);
   const [shop, setShop] = useState<'recruit' | 'train' | 'purchase' | null>(null);
+  // After a purchase that leaves nothing affordable the popup closes, as Swing's does.
+  const bought = useRef(false);
+  useEffect(() => {
+    if (!bought.current) return;
+    bought.current = false;
+    if (shop && !(shop === 'recruit' ? e.recruit.units : e[shop].units).some((o) => o.enabled)) setShop(null);
+  }, [e]);
   // The sales log keeps its newest entry, the last, in view.
   const logRef = useRef<HTMLElement>(null);
   const logCount = e.log.entries.length;
@@ -1360,7 +1379,10 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
                   className="card offer"
                   data-recruit={r.index}
                   disabled={!r.enabled}
-                  onClick={() => europeButtons.recruit(r.index)}
+                  onClick={() => {
+                    bought.current = true;
+                    europeButtons.recruit(r.index);
+                  }}
                 >
                   <Pic keys={r.images} art={art} />
                   <span className="name">{r.name}</span>
@@ -1373,7 +1395,10 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
                   className="card offer"
                   data-offer={o.id}
                   disabled={!o.enabled}
-                  onClick={() => europeButtons.train(o.id)}
+                  onClick={() => {
+                    bought.current = true;
+                    europeButtons.train(o.id);
+                  }}
                 >
                   <Pic keys={o.images} art={art} />
                   <span className="name">{o.name}</span>
@@ -1392,12 +1417,13 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
     drag?: boolean,
     drop?: (item: Item) => void,
     place: Place = 'sailing',
+    unitDrop?: (u: EuropeUnit) => (item: Item) => void,
   ) => (
     <section className="box" data-list={kind} {...(drop ? dropTargetProps(place, drop) : {})}>
       <h3>{heading}</h3>
       <div className="chips">
         {units.map((u) => (
-          <UnitChip key={u.id} u={u} art={art} pick={pick?.(u)} on={u.id === picked} drag={drag} />
+          <UnitChip key={u.id} u={u} art={art} pick={pick?.(u)} on={u.id === picked} drag={drag} drop={unitDrop?.(u)} />
         ))}
       </div>
     </section>
@@ -1409,8 +1435,8 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
     if (ship) europeButtons.buy(goodsTypeId, ship.id, ask);
   };
   /** Sell a stack of the ship's cargo. */
-  const sell = (goodsTypeId: string, ask = true) => {
-    if (ship) europeButtons.sell(goodsTypeId, ship.id, ask);
+  const sell = (goodsTypeId: string, ask = true, stack = 0) => {
+    if (ship) europeButtons.sell(goodsTypeId, ship.id, ask, stack);
   };
   /** The right-click menu of a ship's cargo: a unit's own, or goods' sale. */
   const cargoMenu = (c: { kind: 'unit' | 'goods'; id: string; amount: number }) =>
@@ -1430,13 +1456,28 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
       europeButtons.leave(item.id);
     }
   };
-  /** What a drop on the ships sailing to America does: a ship in port is sent, as the Sail button does. */
-  const onSailing = (item: Item) => {
-    if (item.kind === 'unit' && e.inPort.some((u) => u.id === item.id)) europeButtons.sail(item.id);
+  /**
+   * What a drop on the ships sailing to America or to Europe does: a ship in port is sent, as the Sail button does
+   * (the Engine asks where), and a ship on the high seas is turned around.
+   */
+  const onSailing = (toEurope: boolean) => (item: Item) => {
+    if (item.kind !== 'unit') return;
+    if (e.inPort.some((u) => u.id === item.id)) europeButtons.sail(item.id);
+    else if ((toEurope ? e.toAmerica : e.toEurope).some((u) => u.id === item.id))
+      europeButtons.redirect(item.id, toEurope);
   };
-  /** What a drop on the market does: a stack of the cargo is sold. */
+  /** What a drop on a ship's icon in port does: a unit boards it, goods load onto it, bought or from another ship. */
+  const onShip = (target: EuropeUnit) => (item: Item) => {
+    if (item.kind === 'unit') europeButtons.board(item.id, target.id);
+    else if (item.from === 'market') europeButtons.buy(item.type, target.id, item.ask === true);
+    else if (item.from === 'cargo' && ship && ship.id !== target.id) {
+      europeButtons.transfer(ship.id, target.id, item.type, item.all ? 0 : (item.amount ?? 0));
+    }
+  };
+  /** What a drop on the market does: the stack of the cargo is sold, or all of the type with shift and alt. */
   const onMarket = (item: Item) => {
-    if (item.kind === 'goods' && item.from === 'cargo') sell(item.type, item.ask === true);
+    if (item.kind === 'goods' && item.from === 'cargo')
+      sell(item.type, item.ask === true, item.all ? 0 : (item.amount ?? 0));
   };
   const footer = (
     <>
@@ -1465,9 +1506,18 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
       <div className="europe-body">
         <div className="europe-top">
           <div className="europe">
-            {list(e.headings.toAmerica, 'toAmerica', e.toAmerica, undefined, false, onSailing)}
-            {list(e.headings.toEurope, 'toEurope', e.toEurope)}
-            {list(e.headings.inPort, 'inPort', e.inPort, (u) => () => setPicked(u.id), true)}
+            {list(e.headings.toAmerica, 'toAmerica', e.toAmerica, undefined, true, onSailing(false))}
+            {list(e.headings.toEurope, 'toEurope', e.toEurope, undefined, true, onSailing(true))}
+            {list(
+              e.headings.inPort,
+              'inPort',
+              e.inPort,
+              (u) => () => setPicked(u.id),
+              true,
+              undefined,
+              undefined,
+              (u) => onShip(u),
+            )}
             {list(
               e.headings.docks,
               'docks',
@@ -1478,7 +1528,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
               'docks',
             )}
             <section className="box cargo" data-list="cargo" {...(ship ? dropTargetProps('cargo', onCargo) : {})}>
-              <h3>{e.headings.cargo}</h3>
+              <h3>{ship?.cargoTitle ?? e.headings.cargo}</h3>
               <div className="chips">
                 {ship?.cargo?.map((c, i) => {
                   const goods = trade.get(c.id);

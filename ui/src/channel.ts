@@ -73,8 +73,12 @@ export interface ClientExports {
   boardShip(unitId: string, shipId: string): void;
   /** Europe panel: buy goods of a type onto a ship in port, by ids; ask asks how much, else the most. */
   buyGoods(shipId: string, goodsTypeId: string, ask: boolean): void;
-  /** Europe panel: sell a ship's cargo in Europe, by ids; ask asks how much of it, else all. */
-  sellGoods(shipId: string, goodsTypeId: string, ask: boolean): void;
+  /** Europe panel: sell a ship's cargo in Europe, by ids; ask asks how much, else the stack (stack 0: all of the type). */
+  sellGoods(shipId: string, goodsTypeId: string, ask: boolean, stack: number): void;
+  /** Europe panel: move goods between two ships in port, by ids (stack 0: all of the type). */
+  transferGoods(fromShipId: string, toShipId: string, goodsTypeId: string, stack: number): void;
+  /** Europe panel: turn a ship on the high seas around, by id. */
+  redirectShip(shipId: string, toEurope: boolean): void;
   /** Colony panel: take a unit off a ship in port, by id. */
   leaveShip(unitId: string): void;
   /** Colony panel: goods of the warehouse dropped on a colonist equip it with the role they give, by ids. */
