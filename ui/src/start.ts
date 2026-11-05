@@ -21,6 +21,25 @@ export interface NationChoice {
   color: string;
 }
 
+/** A nation the player cannot play but can leave out of the game: a rival European or a native nation. */
+export interface RivalChoice {
+  id: string;
+  name: string;
+  color: string;
+  native: boolean;
+}
+
+/** A nation type (an advantage) a European nation may take. */
+export interface NationTypeChoice {
+  id: string;
+  name: string;
+  description: string;
+}
+
+/** FreeCol's National Advantages choices (NationOptions.Advantages), in the order NewPanel lists them. */
+export const ADVANTAGES = ['SELECTABLE', 'FIXED', 'NONE'] as const;
+export type Advantages = (typeof ADVANTAGES)[number];
+
 export interface LevelChoice {
   /** FreeCol's id, e.g. model.difficulty.medium. */
   id: string;
@@ -29,6 +48,12 @@ export interface LevelChoice {
 
 export interface StartOptions {
   nations: NationChoice[];
+  /** The other nations, which the player may remove from the game (FreeCol's availability column). */
+  rivals: RivalChoice[];
+  /** The advantages a European nation may be given when they are selectable. */
+  nationTypes: NationTypeChoice[];
+  /** The rulesets the data bundle has, e.g. classic and freecol. */
+  rulesets: string[];
   levels: LevelChoice[];
   /** The level FreeCol starts a new game at. */
   defaultLevel: string;
@@ -49,6 +74,14 @@ export interface StartChoice {
   difficulty: string;
   /** The options the player changed, by FreeCol's option id: what the preset's options hold. */
   options: Record<string, OptionValue>;
+  /** National advantages: absent is FreeCol's default, selectable. */
+  advantages?: Advantages;
+  /** The nation's own advantage, picked from the nation types; absent keeps the nation's. */
+  nationType?: string;
+  /** Nation colours the player changed, as CSS `#rrggbb` by nation id. */
+  colors?: Record<string, string>;
+  /** The nations left out of the game. */
+  unavailable?: string[];
 }
 
 /** The data bundle's text of a file, from its alternating path and text. */
@@ -107,6 +140,33 @@ export function startOptions(data: string[], rules: string, defaultLevel = 'mode
       };
     });
 
+  const rivals = [...spec.querySelectorAll('nations > nation')]
+    .filter((n) => n.getAttribute('selectable') !== 'true' && n.getAttribute('id') !== 'model.nation.unknownEnemy')
+    .filter((n) => !spec.querySelector(`european-nation-type[id="${n.getAttribute('nation-type')}"][ref="true"]`))
+    .map((n): RivalChoice => {
+      const id = n.getAttribute('id')!;
+      const type = n.getAttribute('nation-type') ?? '';
+      return {
+        id,
+        name: say(`${id}.name`, id),
+        color: css(n.getAttribute('color')),
+        native: !!spec.querySelector(`indian-nation-type[id="${type}"]`),
+      };
+    });
+  // Swing's choices: the visible European types (all but the option-only one).
+  const nationTypes = [...spec.querySelectorAll('european-nation-types > european-nation-type')]
+    .map((t) => t.getAttribute('id')!)
+    .filter(
+      (id) =>
+        id !== 'model.nationType.optionOnly' && !spec.querySelector(`european-nation-type[id="${id}"][ref="true"]`),
+    )
+    .map((id): NationTypeChoice => ({ id, name: say(`${id}.name`, id), description: say(`${id}.shortDescription`) }));
+  const rulesets = [
+    ...new Set(
+      data.flatMap((p, i) => (i % 2 === 0 ? [/^data\/rules\/([^/]+)\/specification\.xml$/.exec(p)?.[1] ?? ''] : [])),
+    ),
+  ].filter((r) => r && r !== 'testing');
+
   // FreeCol's Custom level is a level to edit option by option; here any level can be changed, so it is not listed.
   const levels = [...spec.querySelectorAll('optionGroup[id="difficultyLevels"] > optionGroup')]
     .map((g) => g.getAttribute('id')!)
@@ -119,7 +179,7 @@ export function startOptions(data: string[], rules: string, defaultLevel = 'mode
     game: () => specificationGroup(data, rules, 'optionGroup[id="gameOptions"]'),
     mapGenerator: () => specificationGroup(data, rules, 'optionGroup[id="mapGeneratorOptions"]'),
   };
-  return { nations, levels, defaultLevel, groups };
+  return { nations, rivals, nationTypes, rulesets, levels, defaultLevel, groups };
 }
 
 /** The GamePreset JSON for the Engine: the level, and the options changed from the level's own values. */
@@ -127,6 +187,12 @@ export function presetJson(choice: StartChoice): string {
   return JSON.stringify({
     ...(choice.nation ? { nation: choice.nation } : {}),
     difficulty: choice.difficulty,
+    ...(choice.advantages && choice.advantages !== 'SELECTABLE' ? { advantages: choice.advantages } : {}),
+    ...(choice.nationType ? { nationType: choice.nationType } : {}),
+    ...(choice.colors && Object.keys(choice.colors).length > 0
+      ? { colors: Object.fromEntries(Object.entries(choice.colors).map(([id, c]) => [id, `0x${c.replace('#', '')}`])) }
+      : {}),
+    ...(choice.unavailable && choice.unavailable.length > 0 ? { unavailable: choice.unavailable } : {}),
     ...(Object.keys(choice.options).length > 0 ? { options: choice.options } : {}),
   });
 }

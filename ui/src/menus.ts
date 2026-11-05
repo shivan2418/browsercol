@@ -17,9 +17,15 @@ export interface MenuActions {
   run: (c: Command) => void;
   /** Back to the start screen. */
   newGame: () => void;
-  /** Save the game under its default name. */
+  /** Ask for a name and save the game. */
   save: () => void;
-  /** Open the saved games list. */
+  /** Ask for a name, save the game and go back to the start screen (FreeCol's Save and Exit). */
+  saveAndExit: () => void;
+  /** Back to the start screen, which is the main title (FreeCol's Return to Main). */
+  returnToMain: () => void;
+  /** A window is open over the map (FreeCol's isPanelShowing): saving waits for it to close. */
+  panelShowing: boolean;
+  /** Pick a saved game to open. */
   open: () => void;
   /** Zoom levels in (+) or out (-) about the map's centre. */
   zoom: (steps: number) => void;
@@ -64,13 +70,15 @@ export function gameMenu(a: MenuActions): Items {
   return [
     { label: 'New', run: a.newGame },
     { label: 'Open', run: a.open },
-    { label: 'Save', run: a.save, disabled: !a.ready },
+    { label: 'Save', run: a.save, disabled: !a.ready || a.panelShowing },
     { label: 'Preferences', run: a.preferences },
     later('Reconnect'),
     cmd('End Turn', { k: 'endTurn' }),
     cmd('Declare Independence', { k: 'declareIndependence' }),
+    { label: 'Return to Main', run: a.returnToMain },
     cmd('High Scores', { k: 'showHighScores' }),
     cmd('Retire', { k: 'retire' }),
+    { label: 'Save and Exit', run: a.saveAndExit, disabled: !a.ready || a.panelShowing },
     later('Quit'),
   ];
 }

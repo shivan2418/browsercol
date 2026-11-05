@@ -7,6 +7,12 @@ import { StartScreen } from './start-screen';
 afterEach(cleanup);
 
 const options: StartOptions = {
+  rivals: [{ id: 'model.nation.inca', name: 'Inca', color: 'gold', native: true }],
+  nationTypes: [
+    { id: 'model.nationType.trade', name: 'Trade', description: 'Prices are more favorable' },
+    { id: 'model.nationType.conquest', name: 'Conquest', description: 'Stronger soldiers' },
+  ],
+  rulesets: ['classic', 'freecol'],
   nations: [
     {
       id: 'model.nation.dutch',
@@ -91,6 +97,9 @@ const options: StartOptions = {
   },
 };
 
+/** What a start with no change to the new choices sends. */
+const plain = { advantages: 'SELECTABLE', colors: {}, unavailable: [] };
+
 function screenWith() {
   const started: StartChoice[] = [];
   render(<StartScreen options={options} start={(c) => started.push(c)} />);
@@ -100,7 +109,9 @@ function screenWith() {
 test('it starts with the first nation and the default level', () => {
   const started = screenWith();
   fireEvent.click(screen.getByText('Start game'));
-  expect(started).toEqual([{ nation: 'model.nation.dutch', difficulty: 'model.difficulty.medium', options: {} }]);
+  expect(started).toEqual([
+    { ...plain, nation: 'model.nation.dutch', difficulty: 'model.difficulty.medium', options: {} },
+  ]);
 });
 
 test('the player picks a nation and a level and starts', () => {
@@ -109,7 +120,9 @@ test('the player picks a nation and a level and starts', () => {
   fireEvent.change(screen.getByLabelText('Difficulty'), { target: { value: 'model.difficulty.easy' } });
   expect(screen.getByText('Friendlier natives')).toBeTruthy();
   fireEvent.click(document.querySelector('[data-start]')!);
-  expect(started).toEqual([{ nation: 'model.nation.french', difficulty: 'model.difficulty.easy', options: {} }]);
+  expect(started).toEqual([
+    { ...plain, nation: 'model.nation.french', difficulty: 'model.difficulty.easy', options: {} },
+  ]);
 });
 
 test('the level’s options and the game options are changed in the editor and sent as the preset’s options', () => {
@@ -119,6 +132,7 @@ test('the level’s options and the game options are changed in the editor and s
   fireEvent.click(document.querySelector('[data-start]')!);
   expect(started).toEqual([
     {
+      ...plain,
       nation: 'model.nation.dutch',
       difficulty: 'model.difficulty.medium',
       options: { 'model.option.landPriceFactor': 250, 'model.option.fogOfWar': false },
@@ -164,4 +178,64 @@ test('links the source and opens the credits, which name the CC BY authors', () 
   expect(credits.textContent).toContain('Cinzel font');
   fireEvent.click(screen.getByRole('button', { name: 'Close' }));
   expect(screen.queryByRole('dialog', { name: 'About FreeCol Online' })).toBeNull();
+});
+
+test('the player removes nations from the game, and the own nation cannot be removed', () => {
+  const started = screenWith();
+  fireEvent.click(document.querySelector('[data-rival="model.nation.inca"] input')!);
+  fireEvent.click(document.querySelector('[data-rival="model.nation.french"] input')!);
+  // The French are chosen as the player's own: they are no longer a rival to leave out.
+  fireEvent.click(document.querySelector('[data-nation="model.nation.french"]')!);
+  expect(document.querySelector('[data-rival="model.nation.french"]')).toBeNull();
+  fireEvent.click(document.querySelector('[data-start]')!);
+  expect(started[0].unavailable).toEqual(['model.nation.inca']);
+});
+
+test('the player picks the advantages, the own nation’s type and a nation colour', () => {
+  const started = screenWith();
+  fireEvent.change(document.querySelector('[data-nation-type]')!, { target: { value: 'model.nationType.conquest' } });
+  expect(screen.getByText('Stronger soldiers')).toBeTruthy();
+  fireEvent.change(document.querySelector('[data-colour="model.nation.dutch"]')!, { target: { value: '#336699' } });
+  fireEvent.click(document.querySelector('[data-start]')!);
+  expect(started[0]).toMatchObject({
+    advantages: 'SELECTABLE',
+    nationType: 'model.nationType.conquest',
+    colors: { 'model.nation.dutch': '#336699' },
+  });
+  // With fixed advantages the nation keeps its own type.
+  cleanup();
+  const again = screenWith();
+  fireEvent.change(document.querySelector('[data-advantages]')!, { target: { value: 'FIXED' } });
+  expect((document.querySelector('[data-nation-type]') as HTMLSelectElement).disabled).toBe(true);
+  fireEvent.click(document.querySelector('[data-start]')!);
+  expect(again[0].advantages).toBe('FIXED');
+  expect(again[0].nationType).toBeUndefined();
+});
+
+test('another ruleset is a choice of the start screen', () => {
+  const rules: string[] = [];
+  render(<StartScreen options={options} start={() => {}} rules="classic" changeRules={(r) => rules.push(r)} />);
+  fireEvent.change(document.querySelector('[data-rules]')!, { target: { value: 'freecol' } });
+  expect(rules).toEqual(['freecol']);
+});
+
+test('the start screen offers to continue the newest save and to open another', () => {
+  const opened: number[] = [];
+  const save = (id: number, name: string) => ({ id, name, date: 0, turn: 3, year: 1495, nation: 'Dutch', size: 1 });
+  render(
+    <StartScreen
+      options={options}
+      start={() => {}}
+      saves={[save(7, 'Newest'), save(2, 'Older')]}
+      open={(id) => opened.push(id)}
+    />,
+  );
+  fireEvent.click(document.querySelector('[data-continue]')!);
+  fireEvent.click(document.querySelector('[data-open-save="2"]')!);
+  expect(opened).toEqual([7, 2]);
+});
+
+test('with no saves there is nothing to continue', () => {
+  render(<StartScreen options={options} start={() => {}} saves={[]} open={() => {}} />);
+  expect(document.querySelector('[data-continue]')).toBeNull();
 });

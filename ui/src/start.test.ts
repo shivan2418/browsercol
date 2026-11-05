@@ -89,3 +89,28 @@ test('a group with no option to change in the specification is not offered', () 
   expect(groups.game()).toBeNull();
   expect(groups.mapGenerator()).toBeNull();
 });
+
+test('the nations, advantages and colours the player chose go to the Engine', () => {
+  expect(
+    JSON.parse(
+      presetJson({
+        nation: 'model.nation.dutch',
+        difficulty: 'model.difficulty.medium',
+        options: {},
+        advantages: 'SELECTABLE',
+        nationType: 'model.nationType.conquest',
+        colors: { 'model.nation.dutch': '#336699' },
+        unavailable: ['model.nation.inca'],
+      }),
+    ),
+  ).toEqual({
+    nation: 'model.nation.dutch',
+    difficulty: 'model.difficulty.medium',
+    nationType: 'model.nationType.conquest',
+    colors: { 'model.nation.dutch': '0x336699' },
+    unavailable: ['model.nation.inca'],
+  });
+  expect(
+    JSON.parse(presetJson({ nation: null, difficulty: 'model.difficulty.medium', options: {}, advantages: 'NONE' })),
+  ).toEqual({ difficulty: 'model.difficulty.medium', advantages: 'NONE' });
+});
