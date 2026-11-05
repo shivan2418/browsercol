@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vite-plus/test';
+import type { MenuItem } from './frame';
 import type { Command } from './input';
 import { debugMenu, gameMenu, ordersMenu, reportOptionsMenu, viewMenu, type MenuActions } from './menus';
-import type { DebugRequest } from './debug';
+import { NO_DISPLAY, type DebugDisplay, type DebugPlayer, type DebugRequest } from './debug';
+
+const PLAYERS: DebugPlayer[] = [
+  { id: 'player:1', nation: 'model.nation.dutch', name: 'Dutch', ai: false },
+  { id: 'player:2', nation: 'model.nation.french', name: 'French', ai: true },
+];
 
 function actions(over: Partial<MenuActions> = {}) {
   const log: string[] = [];
@@ -37,8 +43,7 @@ function actions(over: Partial<MenuActions> = {}) {
   return { a, log };
 }
 const labels = (items: { label: string }[]) => items.map((i) => i.label);
-const find = (items: { label: string; run: () => void; disabled?: boolean; checked?: boolean }[], label: string) =>
-  items.find((i) => i.label === label)!;
+const find = (items: MenuItem[], label: string) => items.find((i) => i.label === label)!;
 
 describe('the Game menu', () => {
   it('has FreeCol’s entries in its order', () => {
@@ -246,6 +251,8 @@ describe('the Debug menu', () => {
   function debugActions(over: Partial<Parameters<typeof debugMenu>[0]> = {}) {
     const asked: DebugRequest[] = [];
     const answers: string[] = [];
+    const changes: Partial<DebugDisplay>[] = [];
+    const clientCalls: string[] = [];
     const items = debugMenu({
       ready: true,
       at: [3, 4],
@@ -253,9 +260,16 @@ describe('the Debug menu', () => {
       request: (r) => asked.push(r),
       skipTurns: (n) => asked.push({ action: 'addGold', amount: -n }),
       toggleDebug: () => asked.push({ action: 'aiView' }),
+      players: PLAYERS,
+      display: NO_DISPLAY,
+      setDisplay: (change) => changes.push(change),
+      stepRNG: () => asked.push({ action: 'stepRNG' }),
+      compareMaps: () => asked.push({ action: 'compareMaps', client: {} }),
+      client: (action) => clientCalls.push(action),
+      showResourceKeys: () => clientCalls.push('keys'),
       ...over,
     });
-    return { items, asked, answers };
+    return { items, asked, answers, changes, clientCalls };
   }
 
   it('asks for a value and sends the cheat', () => {
@@ -286,6 +300,85 @@ describe('the Debug menu', () => {
     find(items, 'Add Immigration').run();
     expect(asked).toEqual([]);
     expect(find(items, 'Add Building to Colony at Selected Tile').disabled).toBe(true);
+  });
+
+  it('has FreeCol’s inspection entries', () => {
+    const { items } = debugActions();
+    expect(labels(items)).toEqual(
+      expect.arrayContaining([
+        'Show Coordinates',
+        'Show Colony Values',
+        'Set the next Monarch action',
+        'Step Random number generator',
+        'Display units',
+        'Display panels',
+        'Display Europe status',
+        'Display AI missions',
+        'Display additional AI mission information',
+        'Show AI defence map',
+        'Check for Map Desynchronization',
+        'Show Resource Keys',
+        'Statistics',
+      ]),
+    );
+  });
+
+  it('forces a monarch action by name', () => {
+    const { items, asked } = debugActions();
+    const sub = find(items, 'Set the next Monarch action').sub!;
+    expect(sub).toHaveLength(15);
+    find(sub, 'RAISE_TAX_WAR').run();
+    expect(asked).toEqual([{ action: 'monarch', monarch: 'RAISE_TAX_WAR' }]);
+  });
+
+  it('steps the generator, dumps Europe, asks for statistics and compares the maps', () => {
+    const { items, asked } = debugActions();
+    for (const l of [
+      'Step Random number generator',
+      'Display Europe status',
+      'Statistics',
+      'Check for Map Desynchronization',
+    ])
+      find(items, l).run();
+    expect(asked.map((r) => r.action)).toEqual(['stepRNG', 'displayEurope', 'statistics', 'compareMaps']);
+  });
+
+  it('runs the client Engine’s tools and the page’s resource keys', () => {
+    const { items, clientCalls } = debugActions();
+    find(items, 'Display units').run();
+    const panels = find(items, 'Display panels').sub!;
+    find(panels, 'Display Monarch panel').run();
+    find(panels, 'Display error message').run();
+    find(items, 'Show Resource Keys').run();
+    expect(clientCalls).toEqual(['displayUnits', 'monarchPanel', 'errorPanel', 'keys']);
+  });
+
+  it('switches the overlays, with a choice of player for the colony value and the defence map', () => {
+    const { items, changes } = debugActions();
+    find(items, 'Show Coordinates').run();
+    const values = find(items, 'Show Colony Values').sub!;
+    expect(labels(values)).toEqual(['None', 'Dutch', 'French']);
+    expect(find(values, 'None').checked).toBe(true);
+    find(values, 'French').run();
+    // The defence map is for the AI's players only.
+    const defence = find(items, 'Show AI defence map').sub!;
+    expect(labels(defence)).toEqual(['None', 'French']);
+    find(defence, 'French').run();
+    find(items, 'Display AI missions').run();
+    expect(changes).toEqual([
+      { coords: true },
+      { colonyValue: 'player:2' },
+      { defence: 'player:2' },
+      { missions: true },
+    ]);
+  });
+
+  it('shows the extra mission information only while missions show', () => {
+    expect(find(debugActions().items, 'Display additional AI mission information').disabled).toBe(true);
+    const on = debugActions({ display: { ...NO_DISPLAY, missions: true, missionInfo: true } }).items;
+    const info = find(on, 'Display additional AI mission information');
+    expect(info.disabled).toBeFalsy();
+    expect(info.checked).toBe(true);
   });
 });
 

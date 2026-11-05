@@ -195,7 +195,11 @@ export type Op =
   /** The View menu's borders: the sides of an owned tile (NE, SE, SW, NW) that face another owner, in the owner's colour. */
   | { k: 'border'; x: number; y: number; sides: Direction[]; rgb: number }
   /** The tile text option: the tile type's name, its owner or its region, in the tile's centre. */
-  | { k: 'tileName'; x: number; y: number; name: string };
+  | { k: 'tileName'; x: number; y: number; name: string }
+  /** The Debug menu's text over a tile (coordinates, colony value, AI missions): a line each, centred on the tile. */
+  | { k: 'debugText'; x: number; y: number; lines: string[] }
+  /** The Debug menu's AI defence map: a tile tinted in a colour. */
+  | { k: 'tint'; x: number; y: number; rgb: number };
 
 /** FreeCol's colony labels option: none, classic (the population in the settlement, the name below) or modern. */
 export type ColonyLabels = 0 | 1 | 2;
@@ -744,3 +748,25 @@ export function viewModeOps(
 }
 
 export const srcId = (src: Src) => (typeof src === 'string' ? src : src.id);
+
+/**
+ * What the Debug menu has the map show over its tiles, as the Engine worked it out (DebugInspection.overlay):
+ * text at tiles ([x, y, text]; a line each) and tints of tiles ([x, y, rgb]).
+ */
+export interface DebugOverlay {
+  labels: readonly (readonly [number, number, string])[];
+  tints: readonly (readonly [number, number, number])[];
+}
+
+export const NO_OVERLAY: DebugOverlay = { labels: [], tints: [] };
+
+/** MapViewer.displayDebugAiDefensiveMap's tint: Color(r, g, b, 150) on the tile's fog shape. */
+export const TINT_ALPHA = 150 / 255;
+
+/** The operations of the Debug menu's overlay: the tints, then the text over them. */
+export function debugOverlayOps(overlay: DebugOverlay): Op[] {
+  return [
+    ...overlay.tints.map(([x, y, rgb]): Op => ({ k: 'tint', x, y, rgb })),
+    ...overlay.labels.map(([x, y, text]): Op => ({ k: 'debugText', x, y, lines: text.split('\n') })),
+  ];
+}

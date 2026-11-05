@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vite-plus/test';
 import { resources } from './resources';
 import {
   animatedBase,
+  debugOverlayOps,
   isCursorMarker,
   overlay,
   scene,
@@ -460,5 +461,22 @@ describe('viewModeOps', () => {
       (o) => o.k === 'border' && o.x === 0 && o.y === 0,
     );
     expect(border).toMatchObject({ sides: ['NE', 'SW', 'NW'] });
+  });
+});
+
+describe('debugOverlayOps', () => {
+  it('tints, then writes the lines of each label over them', () => {
+    expect(
+      debugOverlayOps({
+        labels: [[1, 2, '1, 2\n42']],
+        tints: [[0, 0, 0xff0000]],
+      }),
+    ).toEqual([
+      { k: 'tint', x: 0, y: 0, rgb: 0xff0000 },
+      { k: 'debugText', x: 1, y: 2, lines: ['1, 2', '42'] },
+    ]);
+  });
+  it('is nothing without an overlay', () => {
+    expect(debugOverlayOps({ labels: [], tints: [] })).toEqual([]);
   });
 });

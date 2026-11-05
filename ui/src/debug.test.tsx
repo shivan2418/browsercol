@@ -1,7 +1,17 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vite-plus/test';
-import { chosenRequest, debugEntryRequest, debugMessage, debugMode, describeAnswer, type DebugRequest } from './debug';
+import {
+  MONARCH_ACTIONS,
+  NO_DISPLAY,
+  chosenRequest,
+  debugEntryRequest,
+  debugMessage,
+  debugMode,
+  describeAnswer,
+  overlayRequest,
+  type DebugRequest,
+} from './debug';
 import { Side } from './side';
 
 afterEach(cleanup);
@@ -90,6 +100,37 @@ describe('the tile popup entries', () => {
     expect(describeAnswer('{"action":"colonyPlan","text":"Plan"}')).toBe('Plan');
     expect(describeAnswer('{"action":"applyDisaster","avoided":true}')).toBe('Disaster avoided');
     expect(describeAnswer('{"action":"applyDisaster","avoided":false}')).toBe('Disaster applied');
+  });
+});
+
+describe('the overlay request', () => {
+  it('asks for nothing while no overlay is on', () => {
+    expect(overlayRequest(NO_DISPLAY)).toBeNull();
+    // The extra mission information alone shows nothing.
+    expect(overlayRequest({ ...NO_DISPLAY, missionInfo: true })).toBeNull();
+  });
+
+  it('asks for what is on, and for the mission information only with the missions', () => {
+    expect(overlayRequest({ ...NO_DISPLAY, coords: true })).toEqual({
+      action: 'overlay',
+      coords: true,
+      colonyValue: null,
+      missions: 0,
+      defence: null,
+    });
+    expect(overlayRequest({ ...NO_DISPLAY, missions: true })).toMatchObject({ missions: 1 });
+    expect(overlayRequest({ ...NO_DISPLAY, missions: true, missionInfo: true })).toMatchObject({ missions: 2 });
+    expect(overlayRequest({ ...NO_DISPLAY, colonyValue: 'player:2', defence: 'player:3' })).toMatchObject({
+      colonyValue: 'player:2',
+      defence: 'player:3',
+    });
+  });
+
+  it('says which monarch action is set, and knows FreeCol’s fifteen', () => {
+    expect(describeAnswer('{"action":"monarch","monarch":"DECLARE_WAR"}')).toBe(
+      'The next monarch action is DECLARE_WAR',
+    );
+    expect(MONARCH_ACTIONS).toHaveLength(15);
   });
 });
 

@@ -22,6 +22,8 @@ interface Image {
 
 export interface Resources {
   has(key: string): boolean;
+  /** Every image key, in order (ResourceManager.getImageKeySet, which Show Resource Keys lists). */
+  imageKeys(): string[];
   /** FreeCol's getNumberOfVariations: the variations plus the named file. */
   variations(key: string): number;
   /**
@@ -182,6 +184,7 @@ export function resources(layers: ArtLayer[], files: string[]): Resources {
   const count = (key: string) => (merged.get(key)?.variations.length ?? 0) + 1;
   return {
     has: (key) => merged.has(key),
+    imageKeys: () => [...merged.keys()].sort(),
     variations: count,
     path,
     forSeed: (key, seed) => path(key, javaRandomInt(seed, count(key))),

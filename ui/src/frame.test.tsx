@@ -227,6 +227,37 @@ describe('the menu bar', () => {
     expect(screen.queryByRole('menu')).toBeNull();
   });
 
+  it('opens a submenu below its entry, and a pick in it runs and closes the menu', () => {
+    const ran: string[] = [];
+    render(
+      <MenuBar
+        menus={[
+          {
+            name: 'Debug',
+            items: [
+              {
+                label: 'Show Colony Values',
+                run: () => {},
+                sub: [
+                  { label: 'None', run: () => ran.push('none'), checked: true },
+                  { label: 'Dutch', run: () => ran.push('dutch'), checked: false },
+                ],
+              },
+            ],
+          },
+        ]}
+        status=""
+      />,
+    );
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Debug' }));
+    expect(screen.queryByRole('menuitemcheckbox', { name: /Dutch/ })).toBeNull();
+    fireEvent.click(screen.getByRole('menuitem', { name: /Show Colony Values/ }));
+    expect(screen.getByRole('menuitemcheckbox', { name: /None/ }).getAttribute('aria-checked')).toBe('true');
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /Dutch/ }));
+    expect(ran).toEqual(['dutch']);
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
   it('opens a menu with Alt and its first letter, as Swing’s mnemonics do', () => {
     render(<MenuBar menus={[{ name: 'Game', items: [{ label: 'Save', run: () => {} }] }]} status="" />);
     fireEvent.keyDown(document.body, { key: 'g', code: 'KeyG', altKey: true });

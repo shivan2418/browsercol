@@ -19,6 +19,9 @@ import {
   TICK_MS,
   unitOps,
   viewModeOps,
+  debugOverlayOps,
+  NO_OVERLAY,
+  TINT_ALPHA,
   type ColonyLabels,
   type ViewModes,
   type Direction,
@@ -861,6 +864,15 @@ async function paint(pen: Pen, layer: Layer, ops: Op[], pics: ReturnType<typeof 
       case 'tileName':
         pen.text(op.name, ox + W / 2, oy + H / 2 - NAME.size / 2, { ...NAME, size: 11 }, true);
         return;
+      case 'tint':
+        return pen.diamond(ox, oy, op.rgb, TINT_ALPHA);
+      case 'debugText': {
+        // TileViewer draws the text at the tile's middle; a tile with several lines stacks them there.
+        const step = NAME.size - 1;
+        const top = oy + H / 2 - (step * op.lines.length) / 2;
+        op.lines.forEach((line, n) => pen.text(line, ox + W / 2, top + n * step, { ...NAME, size: 11 }, true));
+        return;
+      }
       case 'pathMark':
         pen.circle(ox + W / 2, oy + H / 2, 10, pathColor(op.turns), 0x000000, 0.5);
         if (op.turns > 0) pen.text(String(op.turns), ox + W / 2, oy + H / 2 - PATH_TURNS.size / 2, PATH_TURNS, true);
@@ -968,9 +980,16 @@ export function mapDrawer(
   const overlayOf = (v: ViewState) => overlay(cursor(v), v.preview ?? activeUnitFacts(v)?.path ?? null, res!);
 
   /** The View menu's ops, kept until the map or the switches change: a whole map of them is dear to compare. */
-  let modeCache: { map: ViewState['map']; modes: ViewModes; ops: Op[]; id: number } = {
+  let modeCache: {
+    map: ViewState['map'];
+    modes: ViewModes;
+    overlay: ViewState['overlay'];
+    ops: Op[];
+    id: number;
+  } = {
     map: null,
     modes: NO_MODES,
+    overlay: NO_OVERLAY,
     ops: [],
     id: 0,
   };
@@ -980,10 +999,17 @@ export function mapDrawer(
       c.map === v.map &&
       c.modes.grid === v.modes.grid &&
       c.modes.borders === v.modes.borders &&
-      c.modes.tileText === v.modes.tileText
+      c.modes.tileText === v.modes.tileText &&
+      c.overlay === v.overlay
     )
       return c;
-    return (modeCache = { map: v.map, modes: v.modes, ops: v.map ? viewModeOps(v.map, v.modes) : [], id: c.id + 1 });
+    return (modeCache = {
+      map: v.map,
+      modes: v.modes,
+      overlay: v.overlay,
+      ops: v.map ? [...viewModeOps(v.map, v.modes), ...debugOverlayOps(v.overlay)] : [],
+      id: c.id + 1,
+    });
   };
 
   const camera = () => {

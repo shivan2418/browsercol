@@ -6,6 +6,7 @@ import { jamestown } from './colony-fixture';
 import { DebugContext } from './debug';
 import { dialogs } from './dialogs';
 import { europeButtons } from './europe-client';
+import { ShowLogContext } from './log';
 import { ContextMenuContext, type ContextMenus } from './popup-menu';
 import { DialogHost, type Art, type ReportButtons, type RouteButtons } from './panels';
 import type { Choice, EuropeUnit, GuiEvents, GuiQuestions, TradeRouteDraft } from './webgui';
@@ -45,7 +46,8 @@ const art: Art = (keys) => {
 };
 
 /** The host on a fresh store, the tiles it was asked to go to, and what the report's buttons were asked. */
-function host(extra: { command?: (entry: string) => void; colopedia?: (type: string) => void } = {}) {
+function host(extra: { command?: (entry: string) => void; colopedia?: (type: string) => void; log?: () => void } = {}) {
+  const { log = () => {}, ...props } = extra;
   const box = dialogs();
   const went: [number, number][] = [];
   const pressed: string[] = [];
@@ -64,7 +66,9 @@ function host(extra: { command?: (entry: string) => void; colopedia?: (type: str
     assign: (unit, route, show = true) => assigned.push(`${unit} ${route}${show ? '' : ' hidden'}`),
   };
   render(
-    <DialogHost dialogs={box} goTo={(at) => went.push(at)} art={art} report={report} routes={routes} {...extra} />,
+    <ShowLogContext.Provider value={log}>
+      <DialogHost dialogs={box} goTo={(at) => went.push(at)} art={art} report={report} routes={routes} {...props} />
+    </ShowLogContext.Provider>,
   );
   return { box, went, pressed, saved, removed, assigned };
 }
@@ -1116,6 +1120,18 @@ describe('the panels', () => {
     screen.getByText('Out of moves');
     fireEvent.click(screen.getByRole('button', { name: 'OK' }));
     expect(screen.queryByRole('dialog')).toBeNull();
+  });
+});
+
+describe('the error panel', () => {
+  it('has a button for the log, as FreeCol’s ErrorPanel does', () => {
+    let opened = 0;
+    const { box } = host({ log: () => opened++ });
+    act(() => box.show('error', { text: 'Out of moves', ok: 'OK', showLog: 'Show log file (Engine log)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show log file (Engine log)' }));
+    expect(opened).toBe(1);
+    // The panel stays open under the log.
+    screen.getByText('Out of moves');
   });
 });
 

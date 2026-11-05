@@ -46,7 +46,8 @@ export interface GuiEvents {
   sound: { key: string | null };
   /** ok: the close button's label, as for the other panels. The tile is the object's, if it has one. */
   information: { text: string; object: Id | null; images: string[]; ok: string } & TileRef;
-  error: { text: string; ok: string };
+  /** showLog: the label of the button that opens the log (ErrorPanel's "Show log file"). */
+  error: { text: string; ok: string; showLog?: string };
   eventPanel: { header: string; image: string | null; footer: string | null; ok: string };
   /**
    * A tile, as FreeCol's TilePanel shows it: the title, its terrain image (keys, with the forest's over

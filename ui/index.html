@@ -219,6 +219,10 @@
         font: inherit;
         opacity: 0.65;
       }
+      /* A submenu's entries (Swing's JMenu), opened below it and indented. */
+      .menubar [role='menu'] button.nested {
+        padding-left: 1.8em;
+      }
       /* A switch's tick, in the space before its label. */
       .menubar [role='menu'] .tick {
         display: inline-block;
@@ -1272,6 +1276,21 @@
       #credits .credits-body {
         max-height: 70vh;
         overflow-y: auto;
+      }
+      /* The log (src/log.tsx), over the error banner (z-index 1000) it may be opened from. */
+      .modal:has(#log) {
+        z-index: 1001;
+      }
+      #log .log-text {
+        width: min(60em, 90vw);
+        height: 60vh;
+        overflow: auto;
+        margin: 0 0 8px;
+        padding: 6px;
+        background: var(--box);
+        font: var(--fs-s) / 1.3 var(--font-mono);
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
       }
       #credits h3 {
         margin: 12px 0 4px;

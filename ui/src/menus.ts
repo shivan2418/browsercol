@@ -1,6 +1,12 @@
 // The Game, Orders and View menus of the menu bar, with FreeCol's entries in its order (InGameMenuBar).
 // An entry the Browser UI can't do yet is disabled, not left out, so the menus match FreeCol's layout.
-import type { DebugRequest } from './debug';
+import {
+  MONARCH_ACTIONS,
+  type DebugClientRequest,
+  type DebugDisplay,
+  type DebugPlayer,
+  type DebugRequest,
+} from './debug';
 import type { Menu } from './frame';
 import { orderOf, type Command } from './input';
 import type { TileText, ViewModes } from './tileset';
@@ -65,6 +71,19 @@ export interface DebugActions {
   request: (r: DebugRequest) => void;
   skipTurns: (n: number) => void;
   toggleDebug: () => void;
+  /** The European players, for the menus that choose one; empty until the Engine has said. */
+  players: readonly DebugPlayer[];
+  /** What the map shows for the Debug menu, and a way to change it. */
+  display: DebugDisplay;
+  setDisplay: (change: Partial<DebugDisplay>) => void;
+  /** Step the Engine's random number generator, showing each number and asking whether to go on. */
+  stepRNG: () => void;
+  /** Compare the client Engine's map with the server Engine's. */
+  compareMaps: () => void;
+  /** One of the client Engine's own tools. */
+  client: (action: DebugClientRequest['action']) => void;
+  /** Show the resource keys of the images the game has. */
+  showResourceKeys: () => void;
 }
 
 const later = (label: string): Items[number] => ({ label, run: () => {}, disabled: true });
@@ -156,7 +175,8 @@ export function viewMenu(a: MenuActions): Items {
   ];
 }
 
-/** The Debug menu, shown in debug mode: FreeCol's cheats (DebugMenu) that the Engine can do. */
+/** The Debug menu, shown in debug mode: FreeCol’s DebugMenu, less what is for a JVM (the resources, debug rendering,
+ * the search trace, the garbage collector, the other debug modes). */
 export function debugMenu(a: DebugActions): Items {
   const off = !a.ready;
   const number = (label: string, question: string, fallback: string, go: (n: number) => void): Items[number] => ({
@@ -168,23 +188,29 @@ export function debugMenu(a: DebugActions): Items {
         if (Number.isFinite(n)) go(n);
       }),
   });
+  /** Swing's radio items: None, then each player; the one chosen is ticked. */
+  const pick = (
+    label: string,
+    chosen: string | null,
+    players: readonly DebugPlayer[],
+    choose: (id: string | null) => void,
+  ): Items[number] => ({
+    label,
+    disabled: off,
+    run: () => {},
+    sub: [
+      { label: 'None', run: () => choose(null), checked: chosen === null },
+      ...players.map((p) => ({ label: p.name, run: () => choose(p.id), checked: chosen === p.id })),
+    ],
+  });
   const at = a.at;
+  const d = a.display;
   return [
+    { label: 'Show Coordinates', run: () => a.setDisplay({ coords: !d.coords }), checked: d.coords },
     { label: 'Reveal Entire Map', run: () => a.request({ action: 'revealMap', reveal: true }), disabled: off },
     { label: 'Hide Map', run: () => a.request({ action: 'revealMap', reveal: false }), disabled: off },
-    number('Add Gold', 'Gold to add', '1000', (amount) => a.request({ action: 'addGold', amount })),
-    number('Add Immigration', 'Crosses to add', '100', (amount) => a.request({ action: 'addImmigration', amount })),
-    number('Add Liberty', 'Liberty to add to each colony', '100', (amount) =>
-      a.request({ action: 'addLiberty', amount }),
-    ),
-    {
-      label: 'Add Founding Father',
-      disabled: off,
-      run: () =>
-        a.ask('Founding father id (model.foundingFather.thomasJefferson)', 'model.foundingFather.', (father) =>
-          a.request({ action: 'addFoundingFather', father }),
-        ),
-    },
+    pick('Show Colony Values', d.colonyValue, a.players, (colonyValue) => a.setDisplay({ colonyValue })),
+    number('Skip Turns', 'Turns to skip with the AI playing', '5', a.skipTurns),
     {
       label: 'Add Building to Colony at Selected Tile',
       disabled: off || !at,
@@ -194,7 +220,53 @@ export function debugMenu(a: DebugActions): Items {
           a.request({ action: 'addBuilding', type, x: at[0], y: at[1] }),
         ),
     },
-    number('Skip Turns', 'Turns to skip with the AI playing', '5', a.skipTurns),
+    {
+      label: 'Add Founding Father',
+      disabled: off,
+      run: () =>
+        a.ask('Founding father id (model.foundingFather.thomasJefferson)', 'model.foundingFather.', (father) =>
+          a.request({ action: 'addFoundingFather', father }),
+        ),
+    },
+    {
+      label: 'Set the next Monarch action',
+      disabled: off,
+      run: () => {},
+      sub: MONARCH_ACTIONS.map((monarch) => ({ label: monarch, run: () => a.request({ action: 'monarch', monarch }) })),
+    },
+    number('Add Gold', 'Gold to add', '1000', (amount) => a.request({ action: 'addGold', amount })),
+    number('Add Immigration', 'Crosses to add', '100', (amount) => a.request({ action: 'addImmigration', amount })),
+    number('Add Liberty', 'Liberty to add to each colony', '100', (amount) =>
+      a.request({ action: 'addLiberty', amount }),
+    ),
+    { label: 'Step Random number generator', run: a.stepRNG, disabled: off },
+    { label: 'Display units', run: () => a.client('displayUnits'), disabled: off },
+    {
+      label: 'Display panels',
+      disabled: off,
+      run: () => {},
+      sub: [
+        { label: 'Display Monarch panel', run: () => a.client('monarchPanel') },
+        { label: 'Display error message', run: () => a.client('errorPanel') },
+      ],
+    },
+    { label: 'Display Europe status', run: () => a.request({ action: 'displayEurope' }), disabled: off },
+    { label: 'Display AI missions', run: () => a.setDisplay({ missions: !d.missions }), checked: d.missions },
+    {
+      label: 'Display additional AI mission information',
+      run: () => a.setDisplay({ missionInfo: !d.missionInfo }),
+      checked: d.missionInfo,
+      disabled: !d.missions,
+    },
+    pick(
+      'Show AI defence map',
+      d.defence,
+      a.players.filter((p) => p.ai),
+      (defence) => a.setDisplay({ defence }),
+    ),
+    { label: 'Check for Map Desynchronization', run: a.compareMaps, disabled: off, hint: 'Ctrl+Alt+C' },
+    { label: 'Show Resource Keys', run: a.showResourceKeys },
+    { label: 'Statistics', run: () => a.request({ action: 'statistics' }), disabled: off },
     { label: 'AI View', run: () => a.request({ action: 'aiView' }), disabled: off },
     { label: 'Debug Mode', run: a.toggleDebug, checked: true, hint: 'Ctrl+Shift+D' },
   ];

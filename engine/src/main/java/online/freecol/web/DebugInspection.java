@@ -124,11 +124,29 @@ final class DebugInspection {
     }
 
     /**
+     * Game.getStatistics, less its memory figures: the runtime the browser
+     * has gives no Runtime.maxMemory, so the Engines cannot say how much
+     * memory they hold, only how many objects of each class the game has.
+     */
+    static Map<String, String> gameStatistics(Game game) {
+        final Map<String, Long> counts = new TreeMap<>();
+        long disposed = 0;
+        for (net.sf.freecol.common.model.FreeColGameObject o : game.getFreeColGameObjectList()) {
+            counts.merge(o.getClass().getSimpleName(), 1L, Long::sum);
+            if (o.isDisposed()) disposed++;
+        }
+        final Map<String, String> stats = new TreeMap<>();
+        stats.put("disposed", Long.toString(disposed));
+        for (Map.Entry<String, Long> e : counts.entrySet()) stats.put(e.getKey(), Long.toString(e.getValue()));
+        return stats;
+    }
+
+    /**
      * DebugUtils.statistics, the server's half: the statistics of the
      * server's game and its AI. The client adds its own half and shows both.
      */
     String statistics() {
-        final java.util.Map<String, String> stats = new TreeMap<>(this.game.getStatistics());
+        final java.util.Map<String, String> stats = new TreeMap<>(gameStatistics(this.game));
         stats.putAll(this.aiMain.getAIStatistics());
         final List<String> out = new ArrayList<>();
         for (Map.Entry<String, String> e : stats.entrySet()) {

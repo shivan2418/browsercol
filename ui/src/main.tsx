@@ -32,16 +32,24 @@ import {
   chosenRequest,
   DebugContext,
   debugEntryRequest,
+  NO_DISPLAY,
   debugMessage,
   debugMode,
   describeAnswer,
+  overlayRequest,
+  type DebugClientRequest,
+  type DebugDisplay,
+  type DebugPlayer,
   type DebugRequest,
+  type OverlayAnswer,
 } from './debug';
 import { ColonyActions, ColonyTiles, type ColonyMoves, type DrawTiles } from './colony-panel';
 import { dialogs } from './dialogs';
 import { keepTabOnPage } from './focus';
 import { MENUS, MenuBar, framePlaces, goodsIcons, type Menu } from './frame';
 import { CreditsDialog } from './credits';
+import { captureConsole } from './log-buffer';
+import { LogDialog, ShowLogContext, joinLogs } from './log';
 import { debugMenu, gameMenu, ordersMenu, reportOptionsMenu, viewMenu, type MenuActions } from './menus';
 import { commandForKey, type Command } from './input';
 import { PreferencesDialog } from './prefs-dialog';
@@ -73,7 +81,7 @@ import { europeButtons } from './europe-client';
 import { DialogHost, type Art, type ReportButtons, type RouteButtons } from './panels';
 import { isTurnReportKey, reportForKey } from './report-keys';
 import { ReportContext, colopediaMenu, reportMenu, type ReportActions } from './reports';
-import type { ColonyLabels, PathStep } from './tileset';
+import { NO_OVERLAY, type ColonyLabels, type PathStep } from './tileset';
 import { blockBrowserMenu, gotoKeyInput, onCanvas, pointerInput, rightClickInput } from './pointer';
 import { ContextMenuContext, PopupMenu, parseMenu, type ContextMenus, type MenuData, type Popup } from './popup-menu';
 import type { AudioManifest } from './resources';
@@ -126,6 +134,17 @@ declare global {
   }
 }
 
+/** What the page's console was given, for the log (log.tsx); the Worker keeps its own. */
+const pageLog = captureConsole(console);
+/** The log window's text, or null while it is closed. */
+let logText: string | null = null;
+/** Ask the Worker for its log, which comes back as a "log" event; with no Worker yet, the page's alone. */
+let askWorkerLog: () => void = () => showWorkerLog('');
+function showWorkerLog(workerText: string) {
+  logText = joinLogs(workerText, pageLog.text());
+  renderSide();
+}
+
 /** The errors on the banner (errors.tsx); the player dismisses them. */
 let errors: GameError[] = [];
 window.fcErrors = [];
@@ -144,6 +163,7 @@ function renderErrors() {
   errorRoot.render(
     <ErrorBanner
       errors={errors}
+      showLog={() => askWorkerLog()}
       dismiss={() => {
         errors = [];
         renderErrors();
@@ -216,6 +236,51 @@ let debugRequest: (r: DebugRequest) => void = () => {};
 /** The last request made, for the one that asks which owner, role and so on (chosenRequest). */
 let lastDebug: DebugRequest | null = null;
 let debugSkip: (n: number) => void = () => {};
+/** The client Engine's own debug tools (DebugClientTools), once it has loaded; a bad request throws. */
+let debugClient: (r: DebugClientRequest) => string = () => '{}';
+/** The European players the Debug menu offers (the Engine's `players` answer), once the game has started. */
+let debugPlayers: DebugPlayer[] = [];
+/** What the Debug menu has the map show: coordinates, colony values, AI missions, the AI's defence map. */
+let debugDisplay: DebugDisplay = NO_DISPLAY;
+/** Change what the map shows for the Debug menu, and ask the Engine for the text and tints it needs. */
+function setDebugDisplay(change: Partial<DebugDisplay>) {
+  debugDisplay = { ...debugDisplay, ...change };
+  const r = overlayRequest(debugDisplay);
+  if (r) debugRequest(r);
+  else dispatch({ k: 'overlay', overlay: NO_OVERLAY });
+  renderSide();
+}
+/** The overlay asked for again: the AI's missions, the values and its defence move with the turns. */
+const refreshOverlay = () => {
+  const r = overlayRequest(debugDisplay);
+  if (r && (debugDisplay.missions || debugDisplay.colonyValue !== null || debugDisplay.defence !== null))
+    debugRequest(r);
+};
+/** Debug mode's Step Random number generator: each number is shown, and the player may step again (DebugUtils.stepRNG). */
+function stepRNG(value?: number) {
+  if (
+    value === undefined ||
+    window.confirm(`Step Random Number Generator (${value})\n\nOK steps again, Cancel stops.`)
+  ) {
+    debugRequest({ action: 'stepRNG' });
+  }
+}
+/** Compare the client Engine's map with the server Engine's (DebugUtils.checkDesyncAction). */
+function compareMaps() {
+  debugRequest({ action: 'compareMaps', client: JSON.parse(debugClient({ action: 'digest' })) as unknown });
+}
+/** Show the resource keys of the images the game has, as ResourceManager.summarizeImageResources lists them. */
+function showResourceKeys() {
+  const keys = map.resources()?.imageKeys() ?? [];
+  dialogQueue.show('information', {
+    text: `All keys\n${keys.join(' ')}`,
+    object: null,
+    images: [],
+    ok: 'OK',
+    tile: null,
+    at: null,
+  });
+}
 const store = idbSaveStore();
 /** Show the saves in the list; no storage (a private window, say) is an empty list. */
 function listSaves() {
@@ -331,7 +396,7 @@ let openOpen = false;
 let exitAfterSave = false;
 /** FreeCol's isPanelShowing: a window is open over the map. */
 const panelShowing = () =>
-  dialogQueue.current() !== null || prefsOpen || creditsOpen || openOpen || saveDialog !== null;
+  dialogQueue.current() !== null || prefsOpen || creditsOpen || logText !== null || openOpen || saveDialog !== null;
 /** FreeCol's mainTitle: a new page shows the start screen, which offers to continue the last save. */
 function returnToMain() {
   autosaveSoon = () => {}; // the game is left as it is; the save the player made stays
@@ -514,6 +579,9 @@ function toggleDebug() {
   else next.delete('debug');
   const q = next.toString();
   history.replaceState(null, '', `${location.pathname}${q ? `?${q}` : ''}${location.hash}`);
+  // The overlays are the Debug menu's: with it gone they go too.
+  if (!debug && debugDisplay !== NO_DISPLAY) setDebugDisplay(NO_DISPLAY);
+  else if (debug && lastMap) debugRequest({ action: 'players' });
   renderSide();
 }
 // Ctrl+Shift+D, as FreeCol's DebugAction.
@@ -523,6 +591,16 @@ addEventListener(
     if (e.key.toLowerCase() !== 'd' || !e.ctrlKey || !e.shiftKey || e.altKey || e.metaKey) return;
     e.preventDefault();
     toggleDebug();
+  },
+  { capture: true },
+);
+// Ctrl+Alt+C, as the Debug menu's Check for Map Desynchronization has it, in debug mode.
+addEventListener(
+  'keydown',
+  (e) => {
+    if (!debug || !menuReady || e.code !== 'KeyC' || !e.ctrlKey || !e.altKey || e.shiftKey || e.metaKey) return;
+    e.preventDefault();
+    compareMaps();
   },
   { capture: true },
 );
@@ -611,6 +689,20 @@ const currentMenus = (): Menu[] => {
       request: debugRequest,
       skipTurns: debugSkip,
       toggleDebug,
+      players: debugPlayers,
+      display: debugDisplay,
+      setDisplay: setDebugDisplay,
+      stepRNG: () => stepRNG(),
+      compareMaps,
+      client: (action) => {
+        try {
+          debugClient({ action });
+        } catch (ex) {
+          debugNote = `Failed: ${ex instanceof Error ? ex.message : String(ex)}`;
+          renderSide();
+        }
+      },
+      showResourceKeys,
     }),
     Report: [
       ...reportMenu(reportActions.open, menuReady ? () => runCommand({ k: 'showTurnReport' }) : null),
@@ -780,33 +872,35 @@ function renderSide() {
       {createPortal(
         <>
           <DebugContext.Provider value={{ on: debug, request: debugRequest }}>
-            <ColonyTiles.Provider value={drawColonyTiles}>
-              <ColonyActions.Provider value={colonyMoves}>
-                <ContextMenuContext.Provider value={contextMenus}>
-                  <ReportContext.Provider value={reportActions}>
-                    <DialogHost
-                      dialogs={dialogQueue}
-                      goTo={(at) => dispatch({ k: 'focus', tile: null, at })}
-                      art={art}
-                      colopedia={(type) => menuClient?.menuEntry(`colopedia:${type}`)}
-                      command={(entry) => menuClient?.menuEntry(entry)}
-                      string={(key) => map.resources()?.string(key) ?? ''}
-                      report={{
-                        groupBy: (value) => reportButtons.groupBy(value),
-                        filter: (index, shown) => reportButtons.filter(index, shown),
-                        ignore: (index, ignore) => reportButtons.ignore(index, ignore),
-                        open: (link) => reportButtons.open(link),
-                      }}
-                      routes={{
-                        save: (d) => routeButtons.save(d),
-                        remove: (id) => routeButtons.remove(id),
-                        assign: (unit, route, show) => routeButtons.assign(unit, route, show),
-                      }}
-                    />
-                  </ReportContext.Provider>
-                </ContextMenuContext.Provider>
-              </ColonyActions.Provider>
-            </ColonyTiles.Provider>
+            <ShowLogContext.Provider value={() => askWorkerLog()}>
+              <ColonyTiles.Provider value={drawColonyTiles}>
+                <ColonyActions.Provider value={colonyMoves}>
+                  <ContextMenuContext.Provider value={contextMenus}>
+                    <ReportContext.Provider value={reportActions}>
+                      <DialogHost
+                        dialogs={dialogQueue}
+                        goTo={(at) => dispatch({ k: 'focus', tile: null, at })}
+                        art={art}
+                        colopedia={(type) => menuClient?.menuEntry(`colopedia:${type}`)}
+                        command={(entry) => menuClient?.menuEntry(entry)}
+                        string={(key) => map.resources()?.string(key) ?? ''}
+                        report={{
+                          groupBy: (value) => reportButtons.groupBy(value),
+                          filter: (index, shown) => reportButtons.filter(index, shown),
+                          ignore: (index, ignore) => reportButtons.ignore(index, ignore),
+                          open: (link) => reportButtons.open(link),
+                        }}
+                        routes={{
+                          save: (d) => routeButtons.save(d),
+                          remove: (id) => routeButtons.remove(id),
+                          assign: (unit, route, show) => routeButtons.assign(unit, route, show),
+                        }}
+                      />
+                    </ReportContext.Provider>
+                  </ContextMenuContext.Provider>
+                </ColonyActions.Provider>
+              </ColonyTiles.Provider>
+            </ShowLogContext.Provider>
           </DebugContext.Provider>
           {prefsOpen && (
             <PreferencesDialog
@@ -839,6 +933,15 @@ function renderSide() {
               }}
               close={() => {
                 saveDialog = null;
+                renderSide();
+              }}
+            />
+          )}
+          {logText !== null && (
+            <LogDialog
+              text={logText}
+              close={() => {
+                logText = null;
                 renderSide();
               }}
             />
@@ -1017,7 +1120,9 @@ function drawMap(m: MapView) {
   banner = turnNotice(lastTurn, m) ?? (banner?.kind === 'new' && m.ourTurn ? banner : null);
   // FreeCol's disable end turn background option: no banner while the others move.
   if (banner?.kind === 'ai' && pageOption(prefs, 'model.option.disableGrayLayer')) banner = null;
+  const newTurn = lastTurn?.turn !== m.turn;
   lastTurn = m;
+  if (newTurn) refreshOverlay();
   autoEndTurn();
   if (m.ourTurn) autosaveSoon();
   turnAutosave(m);
@@ -1355,6 +1460,7 @@ async function run() {
   choice = chosen;
   const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
   // An error the Worker does not catch, such as a trap in the server Engine, stops the game's server.
+  askWorkerLog = () => worker.postMessage({ k: 'log' } satisfies ToWorker);
   worker.addEventListener('error', (e) => reportError('The game server hit an error', e.message || 'unknown error'));
   worker.addEventListener('messageerror', () =>
     reportError('The game server sent a message the page could not read', ''),
@@ -1378,6 +1484,7 @@ async function run() {
       if (failure) reportError(failure.title, failure.detail);
       switch (name) {
         case 'gameStarted':
+          if (debug) debugRequest({ action: 'players' });
           // PreGameController.startGame: the default playlist plays whenever no other music does.
           void sound.then((s) => s?.startPlaylist());
           // PreGameController.startGame: the delete autosaves option clears them as a new game starts.
@@ -1387,6 +1494,9 @@ async function run() {
           return drawMap(JSON.parse(detail) as MapView);
         case 'map':
           return drawMap(JSON.parse(detail) as MapView);
+        case 'log':
+          // The Worker's log, asked for by the error dialog or the banner.
+          return showWorkerLog(detail);
         case 'updated':
           // A message from the server has been handled: the open colonies may have changed.
           return pullColonies();
@@ -1427,6 +1537,17 @@ async function run() {
           }
           return show('failed', { error: detail });
         case 'debug': {
+          const answer = JSON.parse(detail) as { action: string; value?: number } & Partial<OverlayAnswer> & {
+              players?: DebugPlayer[];
+            };
+          if (answer.action === 'overlay') {
+            return dispatch({ k: 'overlay', overlay: { labels: answer.labels ?? [], tints: answer.tints ?? [] } });
+          }
+          if (answer.action === 'players') {
+            debugPlayers = answer.players ?? [];
+            return renderSide();
+          }
+          if (answer.action === 'stepRNG') return stepRNG(answer.value);
           // A choice to make (the new owner, a role...): ask, and send the request again with it.
           const again = chosenRequest(detail, lastDebug, (prompt, first) => window.prompt(prompt, first));
           if (again) return debugRequest(again);
@@ -1465,6 +1586,7 @@ async function run() {
     lastDebug = r;
     worker.postMessage(debugMessage(r));
   };
+  debugClient = (r) => exports.debugClient(JSON.stringify(r));
   debugSkip = (n) => {
     if (n > 0) exports.skipTurns(n);
   };
