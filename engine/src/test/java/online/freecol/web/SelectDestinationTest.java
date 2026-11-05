@@ -636,11 +636,14 @@ class SelectDestinationTest {
         final String cargo = menus.goods(ship.getId(), cloth.getId(), 20);
         assertTrue(cargo.contains("\"id\":\"sell:" + ship.getId() + "," + cloth.getId() + "\""), cargo);
         final String orders = menus.unit(ship.getId());
-        assertFalse(orders.contains("SENTRY"), "nothing to sentry in Europe: " + orders);
         assertFalse(orders.contains("FORTIFYING"), "nothing to fortify in Europe: " + orders);
-        assertFalse(orders.contains("state:ACTIVE"), "nothing to activate in Europe: " + orders);
+        // QuickActionMenu lists Activate, Sentry and Clear orders in Europe too.
+        assertTrue(orders.contains("state:ACTIVE:" + ship.getId()), "activate in Europe: " + orders);
+        assertTrue(orders.contains("state:SENTRY:" + ship.getId()), "sentry in Europe: " + orders);
+        assertTrue(orders.contains("clear:" + ship.getId()), "clear orders in Europe: " + orders);
+        // A shift-click asks how many; a plain click sells the stack.
         amount = "5";
-        assertTrue(client.getCommands().menuEntry("sell:" + ship.getId() + "," + cloth.getId()),
+        assertTrue(client.getCommands().menuEntry("sell:" + ship.getId() + "," + cloth.getId() + ",ask"),
             "the menu's entry sells");
         assertEquals(5, ship.getGoodsCount(cloth));
         // The drag's sale, the purchase again and the menu's sale are logged.

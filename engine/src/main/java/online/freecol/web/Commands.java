@@ -71,10 +71,30 @@ public final class Commands {
      * @return True if a panel opened or a unit was selected.
      */
     public boolean click(int x, int y) {
+        return click(x, y, 1);
+    }
+
+    /**
+     * Click a tile as {@link #click(int, int)} does, with the click count
+     * of the gesture. Where nothing opens and no unit of ours is selected
+     * (an unexplored tile, one with only foreign units, an empty one), the
+     * map is centred on the tile, as SwingGUI.clickAt's setFocus does, and
+     * a double click on an empty tile selects it in terrain view.
+     *
+     * @param x The tile's x.
+     * @param y The tile's y.
+     * @param count How many clicks in a row this is, 1 for a single click.
+     * @return True if a panel opened or a unit was selected.
+     */
+    public boolean click(int x, int y, int count) {
         final Tile tile = tile(x, y);
         if (tile == null) return false;
+        if (!tile.isExplored()) {
+            gui().setFocus(tile);
+            return false;
+        }
         // A native settlement opens its panel, as SwingGUI's click does.
-        if (tile.isExplored() && tile.getSettlement() instanceof IndianSettlement) {
+        if (tile.getSettlement() instanceof IndianSettlement) {
             gui().showIndianSettlementPanel((IndianSettlement)tile.getSettlement());
             return true;
         }
@@ -90,7 +110,16 @@ public final class Commands {
             ours.add(u);
             for (Unit aboard : u.getUnitList()) ours.add(aboard);
         }
-        if (ours.isEmpty()) return false;
+        if (ours.isEmpty()) {
+            // SwingGUI.clickAt: an empty tile is selected in terrain view on a
+            // multi-click; any other tile without a unit of ours is focused.
+            if (count > 1 && tile.isEmpty() && tile.getSettlement() == null) {
+                gui().changeView(tile);
+            } else {
+                gui().setFocus(tile);
+            }
+            return false;
+        }
         final int i = ours.indexOf(gui().getActiveUnit());
         gui().changeView(ours.get((i + 1) % ours.size()), false);
         return true;
@@ -125,7 +154,12 @@ public final class Commands {
         final Tile tile = tile(x, y);
         if (unit == null || tile == null || unit.getTile() == tile) return false;
         final PathNode path = unit.findPath(tile);
-        return path != null && igc().goToTile(unit, path);
+        if (path == null) {
+            // SwingGUI.traverseGotoPath: no path clears the unit's goto orders.
+            igc().clearGotoOrders(unit);
+            return false;
+        }
+        return igc().goToTile(unit, path);
     }
 
     /**
@@ -431,12 +465,14 @@ public final class Commands {
      * <tr><td>select:unit</td><td>make the unit the active one</td></tr>
      * <tr><td>tile:x,y</td><td>show the tile's panel</td></tr>
      * <tr><td>activateAll:x,y</td><td>clear the orders of the tile's units and select the first</td></tr>
+     * <tr><td>rename:colony</td><td>ask for a new name for our colony</td></tr>
      * <tr><td>colony:id, settlement:id</td><td>open the settlement's panel</td></tr>
      * <tr><td>leaveTown:unit, leaveShip:unit, board:unit,ship</td><td>as the colony panel's moves</td></tr>
      * <tr><td>work:unit,location,goods</td><td>put the colonist to work making the goods</td></tr>
      * <tr><td>buy:ship,goods, sell:ship,goods</td><td>trade goods between a ship in Europe and the market</td></tr>
      * <tr><td>load:ship,goods, unload:ship,goods,amount, unloadAll:ship</td><td>move goods between a ship and the warehouse</td></tr>
      * </table>
+     * A load, unload, buy or sell entry with ",ask" added asks how many to move (a shift-click).
      *
      * @param entry The entry's id.
      * @return True if it did something.
@@ -444,7 +480,11 @@ public final class Commands {
     public boolean menuEntry(String entry) {
         final int colon = entry.indexOf(':');
         final String verb = colon < 0 ? entry : entry.substring(0, colon);
-        final String rest = colon < 0 ? "" : entry.substring(colon + 1);
+        String args = colon < 0 ? "" : entry.substring(colon + 1);
+        // A shift-click on a goods entry has ",ask" added: the player is asked how many.
+        final boolean ask = args.endsWith(",ask");
+        if (ask) args = args.substring(0, args.length() - ",ask".length());
+        final String rest = args;
         final String[] a = rest.split(",");
         switch (verb) {
         case "goto": return goTo(Integer.parseInt(a[0]), Integer.parseInt(a[1]));
@@ -462,6 +502,7 @@ public final class Commands {
         case "activateAll":
             return activateAll(Integer.parseInt(a[0]), Integer.parseInt(a[1]));
         case "colony": return showColony(rest);
+        case "rename": return renameColony(rest);
         case "settlement": return showSettlement(rest);
         case "tile": return showTile(Integer.parseInt(a[0]), Integer.parseInt(a[1]));
         case "colopedia": return showColopedia(rest);
@@ -472,11 +513,11 @@ public final class Commands {
         case "board": return boardShip(a[0], a[1]);
         case "work": return workAs(a[0], a[1], a[2]);
         case "role": return takeRole(a[0], a[1], Integer.parseInt(a[2]));
-        case "buy": return buyGoods(a[0], a[1]);
-        case "sell": return sellGoods(a[0], a[1]);
-        case "load": return loadGoods(a[0], a[1], false);
+        case "buy": return buyGoods(a[0], a[1], ask);
+        case "sell": return sellGoods(a[0], a[1], ask);
+        case "load": return loadGoods(a[0], a[1], ask);
         case "unload":
-            return unloadGoods(a[0], a[1], Integer.parseInt(a[2]), false);
+            return unloadGoods(a[0], a[1], Integer.parseInt(a[2]), ask);
         case "unloadAll": return unloadAll(rest);
         default: return false;
         }
@@ -555,6 +596,13 @@ public final class Commands {
         }
         gui().changeView(tile.getFirstUnit(), false);
         return true;
+    }
+
+    /** TilePopup's "rename": ask for a new name for one of our colonies. */
+    private boolean renameColony(String colonyId) {
+        final Colony colony = object(colonyId, Colony.class);
+        return colony != null && this.client.getMyPlayer().owns(colony)
+            && igc().rename(colony);
     }
 
     private boolean showTile(int x, int y) {

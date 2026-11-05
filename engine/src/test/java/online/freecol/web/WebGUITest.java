@@ -1344,6 +1344,35 @@ class WebGUITest {
         assertFalse(shown().stream().anyMatch(e -> e.startsWith("unasked ")), shown.toString());
     }
 
+    /**
+     * A click on a tile with no unit of ours, an unexplored one or an empty
+     * one, centres the map on it (the focus event), as SwingGUI.clickAt's
+     * setFocus does; a double click on an empty tile selects it in terrain view.
+     */
+    @Test
+    @Timeout(120)
+    void clickingAnEmptyTileCentresTheMapAndDoubleClickingSelectsIt() throws Exception {
+        final ClientEngine client = startGame();
+        final net.sf.freecol.common.model.Map map = client.getClient().getGame().getMap();
+        final Tile empty = map.getTileSet(t -> t.isExplored() && t.isEmpty()
+            && t.getSettlement() == null).stream().findFirst().orElse(null);
+        assertNotNull(empty, "the client knows an empty tile");
+        shown.clear();
+        assertFalse(client.getCommands().click(empty.getX(), empty.getY()));
+        assertTrue(shown().stream().anyMatch(e -> e.startsWith("focus ")
+            && e.contains("[" + empty.getX() + "," + empty.getY() + "]")), shown.toString());
+        assertFalse(shown().stream().anyMatch(e -> e.startsWith("selectedTile ")), shown.toString());
+        shown.clear();
+        assertFalse(client.getCommands().click(empty.getX(), empty.getY(), 2));
+        assertTrue(shown().stream().anyMatch(e -> e.startsWith("selectedTile ")), shown.toString());
+        final Tile unseen = map.getTileSet(t -> !t.isExplored()).stream().findFirst().orElse(null);
+        if (unseen != null) {
+            shown.clear();
+            assertFalse(client.getCommands().click(unseen.getX(), unseen.getY()));
+            assertTrue(shown().stream().anyMatch(e -> e.startsWith("focus ")), shown.toString());
+        }
+    }
+
     /** The tile entry of the right-click menu opens the Colopedia on the tile's terrain. */
     @Test
     @Timeout(180)

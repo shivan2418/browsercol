@@ -284,10 +284,10 @@ public final class ClientMain {
         }, "web-debugApplied").start();
     }
 
-    /** Select our unit on a tile, or send the active unit there. */
+    /** Click a tile (Commands.click); count is the click count, 2 for a double click. */
     @JSExport
-    public static void click(int x, int y) {
-        command("click", () -> engine.getCommands().click(x, y));
+    public static void click(int x, int y, int count) {
+        command("click", () -> engine.getCommands().click(x, y, count));
     }
 
     /** Send the active unit to a tile along its best path. */

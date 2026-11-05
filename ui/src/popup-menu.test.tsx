@@ -69,6 +69,26 @@ describe('PopupMenu', () => {
     expect(log).toEqual(['close', 'run select:unit:1']);
   });
 
+  it('asks how many on a shift-click of a load or unload entry, and only there', () => {
+    const goods: Popup = {
+      menu: {
+        title: 'Cargo',
+        entries: [
+          { id: 'load:unit:5,model.goods.food', label: 'Load onto Caravel', enabled: true },
+          { id: 'select:unit:1', label: 'Soldier', enabled: true },
+        ],
+      },
+      x: 0,
+      y: 0,
+    };
+    const ran: string[] = [];
+    render(<PopupMenu popup={goods} run={(id) => ran.push(id)} close={() => {}} />);
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Load onto Caravel' }), { shiftKey: true });
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Load onto Caravel' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Soldier' }), { shiftKey: true });
+    expect(ran).toEqual(['load:unit:5,model.goods.food,ask', 'load:unit:5,model.goods.food', 'select:unit:1']);
+  });
+
   it('closes on Escape, keeping the key from a dialog under it', () => {
     let closed = 0;
     const seen: string[] = [];

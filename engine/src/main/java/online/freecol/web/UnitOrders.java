@@ -31,9 +31,9 @@ import net.sf.freecol.common.model.Unit;
  * <tr><td>goto</td><td>GotoAction</td><td>no panel is showing, which in
  *     the Browser UI is always</td></tr>
  * <tr><td>buildColony</td><td>BuildColonyAction</td>
- *     <td>the unit can found a colony: Unit.canBuildColony says, which is
- *         that it has moves left, its type can found one, and the player
- *         is not a rebel without the game option</td></tr>
+ *     <td>the unit can found a colony (Unit.canBuildColony: moves left, a
+ *         type that can found one, and the player is not a rebel without
+ *         the game option), or it has a skill and is on a colony's tile</td></tr>
  * <tr><td>the tile improvements</td><td>ImprovementAction</td>
  *     <td>the unit may work its tile, and the improvement is allowed
  *         there</td></tr>
@@ -85,8 +85,11 @@ public final class UnitOrders {
         // showing, and the Browser UI shows none. It asks where the unit
         // goes, and the destinations it may go to are the question's.
         orders.add(GOTO);
-        // BuildColonyAction: the unit must be able to found a colony.
-        if (unit.getTile() != null && unit.canBuildColony()) {
+        // BuildColonyAction: the unit can found a colony, or stands in one and
+        // has a skill (not artillery or a ship): the order is then offered and
+        // the controller says why a unit with no moves left cannot build.
+        if (unit.getTile() != null && (unit.canBuildColony()
+            || (unit.getTile().getColony() != null && unit.getType().hasSkill()))) {
             orders.add(BUILD_COLONY);
         }
         // ImprovementAction: one for each improvement the rules have, named

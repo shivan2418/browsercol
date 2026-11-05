@@ -19,6 +19,9 @@ export interface MenuEntry {
   icon?: string;
 }
 
+/** The entries a shift-click asks an amount for: load onto, unload and the market's load onto (Commands.menuEntry). */
+const ASKS = /^(load|unload|buy|sell):/;
+
 /** A menu as the Engine sends it. */
 export interface MenuData {
   title: string;
@@ -85,9 +88,10 @@ export function PopupMenu({
           data-gap={e.gap || undefined}
           data-indent={e.indent || undefined}
           disabled={!e.enabled}
-          onClick={() => {
+          onClick={(click) => {
             close();
-            run(e.id);
+            // A shift-click on a goods entry asks how many (QuickActionMenu's promptForGoods).
+            run(click.shiftKey && ASKS.test(e.id) ? `${e.id},ask` : e.id);
           }}
         >
           {e.icon && art?.([e.icon]) && <img className="icon" src={art([e.icon])!} alt="" />}
