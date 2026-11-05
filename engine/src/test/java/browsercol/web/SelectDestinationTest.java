@@ -127,7 +127,7 @@ class SelectDestinationTest {
             });
         server.startGame("classic");
         assertTrue(client.startGame(0), "login");
-        ourTurn.await();
+        FirstTurn.await(ourTurn);
     }
 
     /** End our turn and wait until the AI hands play back. */
