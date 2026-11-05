@@ -142,7 +142,7 @@ export interface ClientExports {
   warehouse(colonyId: string): void;
   /** Send the active unit to a destination; the player is asked where. */
   selectDestination(): void;
-  /** Open a report of the Report menu by name: colony, labour or compactLabour (Commands.showReport). */
+  /** Open a report of the Report menu by name: colony (or the compact one, as the option says), labour or compactLabour (Commands.showReport). */
   report(name: string): void;
   /** Open the details a report links to, of a unit type by id (Commands.showReportDetail). */
   reportDetail(name: string, id: string): void;

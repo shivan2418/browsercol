@@ -11,7 +11,7 @@ import './reports.css';
 import { Fragment, createContext, useContext, useState, type ReactNode } from 'react';
 import type { Dialog } from './dialogs';
 import { GoodsAmount, WindowFrame, type Art, type Menu } from './frame';
-import type { ReportName, ReportView, UnitCount } from './webgui';
+import type { CompactCell, ReportName, ReportView, UnitCount } from './webgui';
 
 /** What a link in a report does (ClientExports.report, reportDetail and showColony, and the page's). */
 export interface ReportActions {
@@ -172,6 +172,70 @@ function ColonyReport({ e, art, go }: { e: View<'colony'>; art: Art; go: Links }
         </section>
       ))}
     </div>
+  );
+}
+
+/** ReportCompactColonyPanel: a table with a row for each colony, a summary for each continent. */
+function CompactColonyReport({ e, art, go }: { e: View<'compactColony'>; art: Art; go: Links }) {
+  const head = (key: string) => (
+    <tr key={key} className="heads">
+      {e.columns.map((c, i) => (
+        <th key={i} scope="col" title={c.tip} data-left={c.left} data-dim={c.dim}>
+          {c.keys && <Img keys={c.keys} art={art} />}
+          {c.label}
+        </th>
+      ))}
+    </tr>
+  );
+  const cells = (row: CompactCell[]) =>
+    row.map((cell, i) => (
+      <td key={i} data-left={e.columns[i].left}>
+        {cell.items.map((item, j) => {
+          const body = (
+            <>
+              {item.keys && <Img keys={item.keys} art={art} />}
+              {item.text}
+            </>
+          );
+          return item.link === null ? (
+            <span key={j} className="item" data-tone={item.tone} data-bold={item.bold} title={item.tip}>
+              {body}
+            </span>
+          ) : (
+            <button
+              key={j}
+              className="item link"
+              data-tone={item.tone}
+              data-bold={item.bold}
+              title={item.tip}
+              data-link={item.link}
+              onClick={() => go.colony(item.link as string)}
+            >
+              {body}
+            </button>
+          );
+        })}
+      </td>
+    ));
+  return (
+    <table className="compact-colonies">
+      <thead>{head('top')}</thead>
+      {e.groups.map((g, gi) => (
+        <tbody key={gi}>
+          {g.rows.map((r) => (
+            <tr key={r.id} data-colony={r.id}>
+              {cells(r.cells)}
+            </tr>
+          ))}
+          {g.summary && (
+            <tr className="summary" data-summary="true">
+              {cells(g.summary)}
+            </tr>
+          )}
+          {head('end')}
+        </tbody>
+      ))}
+    </table>
   );
 }
 
@@ -967,6 +1031,7 @@ type Body<K extends ReportName> = (p: { e: View<K>; art: Art; go: Links }) => Re
 /** The body of each report: every report the Engine sends needs one, or this does not compile. */
 const BODIES: { [K in ReportName]: Body<K> } = {
   colony: ColonyReport,
+  compactColony: CompactColonyReport,
   labour: LabourReport,
   labourDetail: LabourDetail,
   compactLabour: CompactLabour,

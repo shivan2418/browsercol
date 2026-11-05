@@ -114,6 +114,62 @@
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
+/* The compact colony report: a row for each colony, coloured by how it is doing. */
+.dialog .report .compact-colonies {
+  border-collapse: collapse;
+  width: 100%;
+}
+.dialog .report .compact-colonies th,
+.dialog .report .compact-colonies td {
+  padding: 1px 4px;
+  text-align: center;
+  white-space: nowrap;
+  font-weight: 400;
+}
+.dialog .report .compact-colonies [data-left='true'] {
+  text-align: left;
+}
+.dialog .report .compact-colonies tr.heads th {
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: var(--box);
+}
+.dialog .report .compact-colonies tr.summary td {
+  border-top: 1px solid var(--line);
+}
+.dialog .report .compact-colonies th[data-dim='true'] {
+  opacity: 0.4;
+}
+.dialog .report .compact-colonies .pic {
+  width: 18px;
+  height: 18px;
+  vertical-align: middle;
+}
+.dialog .report .compact-colonies .item {
+  margin-right: 6px;
+}
+.dialog .report .compact-colonies .item[data-bold='true'] {
+  font-weight: 700;
+}
+.dialog .report .compact-colonies [data-tone='alarm'] {
+  color: var(--bad);
+}
+.dialog .report .compact-colonies [data-tone='warn'] {
+  color: var(--warn);
+}
+.dialog .report .compact-colonies [data-tone='plain'] {
+  color: var(--muted);
+}
+.dialog .report .compact-colonies [data-tone='export'] {
+  color: var(--good);
+}
+.dialog .report .compact-colonies [data-tone='good'] {
+  color: var(--link);
+}
+.dialog .report .compact-colonies .link {
+  text-decoration: none;
+  font: inherit;
+}
 /* The compact labour report: a table, a group of rows for each kind or place. */
 .dialog .report .compact-labour {
   border-collapse: collapse;

@@ -255,6 +255,58 @@ class ReportsTest {
 
     @Test
     @Timeout(240)
+    void theCompactColonyReportHasARowForEachColonyAndAColumnForEachCell() throws Exception {
+        final List<Colony> served = twoColonies();
+        final Player us = me();
+
+        final Map<String, Object> report = obj(JsonReader.read(CompactColonyReport.of(client.getClient())));
+        assertEquals("compactColony", report.get("report"));
+        assertEquals("Colony Advisor", report.get("title"));
+        assertNull(report.get("back"));
+        final List<Map<String, Object>> columns = objs(report.get("columns"));
+        assertEquals("Colony", columns.get(0).get("label"));
+        assertEquals("U", columns.get(1).get("label"));
+        // One column of net production for each goods type that is stored and not for trade, with its image.
+        final long goodsColumns = columns.stream().filter(c -> !list(c.get("keys") == null
+            ? List.of() : c.get("keys")).isEmpty()).count();
+        assertTrue(goodsColumns > 5, "goods columns have images");
+
+        // The colonies of a continent are together, with a summary when there is more than one.
+        final List<Map<String, Object>> rows = new ArrayList<>();
+        for (Map<String, Object> g : objs(report.get("groups"))) {
+            rows.addAll(objs(g.get("rows")));
+            assertEquals(objs(g.get("rows")).size() > 1, g.get("summary") != null);
+            if (g.get("summary") != null) {
+                assertEquals(columns.size(), list(g.get("summary")).size());
+            }
+        }
+        assertEquals(List.of("Jamestown", "Plymouth"), rows.stream().map(r -> {
+            final Colony c = us.getColonyList().stream()
+                .filter(x -> x.getId().equals(r.get("id"))).findFirst().get();
+            return c.getName();
+        }).sorted().collect(Collectors.toList()));
+        for (Map<String, Object> row : rows) {
+            final List<Map<String, Object>> cells = objs(row.get("cells"));
+            assertEquals(columns.size(), cells.size(), "a cell for each column");
+            final Colony ours = us.getColonyList().stream()
+                .filter(x -> x.getId().equals(row.get("id"))).findFirst().get();
+            final Map<String, Object> name = obj(list(cells.get(0).get("items")).get(0));
+            assertTrue(((String)name.get("text")).startsWith(ours.getName()), "the colony's name");
+            assertEquals(row.get("id"), name.get("link"));
+            final Map<String, Object> size = obj(list(cells.get(1).get("items")).get(0));
+            assertEquals(Integer.toString(ours.getUnitCount()), size.get("text"));
+            for (Map<String, Object> cell : cells) {
+                for (Map<String, Object> item : objs(cell.get("items"))) {
+                    assertTrue(List.of("alarm", "warn", "plain", "export", "good").contains(item.get("tone")),
+                        "tone " + item.get("tone"));
+                }
+            }
+        }
+        assertEquals(served.size(), rows.size());
+    }
+
+    @Test
+    @Timeout(240)
     void theCompactLabourReportSummarisesTheColonistsByKindAndColony() throws Exception {
         twoColonies();
         final Player us = me();

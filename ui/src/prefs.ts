@@ -86,8 +86,7 @@ export function visibleMessages<T extends { type: string }>(p: Prefs, messages: 
  * tutorial messages, auto end turn); those a browser cannot follow (the full screen display mode, Java's
  * pixmaps and XRender, confirm save overwrite, as saves never overwrite; and the audio mixer, a Java Sound
  * device: the browser plays on the system's default output, as choosing another, setSinkId, works only in
- * Chromium); and those waiting on a feature, each with its issue: the compact colony report (#152),
- * mods (#155), and the warehouse defaults (#158).
+ * Chromium); and those waiting on a feature, each with its issue: mods (#155).
  */
 export const FREECOL_OPTIONS: readonly string[] = [
   // Personal
@@ -144,7 +143,11 @@ export const FREECOL_OPTIONS: readonly string[] = [
   'model.option.guiShowColonyWarnings',
   'model.option.guiShowPreCombat',
   'model.option.guiShowRegionNaming',
+  'model.option.colonyReport',
   // Interface: warehouse
+  'model.option.customStock',
+  'model.option.lowLevel',
+  'model.option.highLevel',
   'model.option.stockAccountsForProduction',
   // Interface: other
   'model.option.rememberPanelPositions',
