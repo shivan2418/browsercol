@@ -10,12 +10,15 @@
 // preset's options.
 import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { CreditsDialog, SourceLinks } from './credits';
+import type { Art } from './frame';
 import { OptionEditor } from './option-editor';
 import { leaves, sameValue, type OptionGroup, type OptionValue } from './options';
+import { ReportContext, ReportPanel, startColopediaAt, type ReportActions } from './reports';
 import { SaveList } from './save-picker';
 import type { SaveMeta } from './saves';
 import { levelFile, loadDefaults, readLevelFile, saveDefaults } from './start-options';
 import { ADVANTAGES, type Advantages, type StartChoice, type StartOptions } from './start';
+import type { ReportView } from './webgui';
 
 /** The map generator's import file option (MapGeneratorOptions.IMPORT_FILE). */
 const IMPORT_FILE = 'model.option.importFile';
@@ -134,6 +137,8 @@ export function StartScreen({
   changeRules,
   saves = [],
   open,
+  colopedia,
+  art = () => null,
 }: {
   options: StartOptions;
   start: (choice: StartChoice) => void;
@@ -144,6 +149,13 @@ export function StartScreen({
   saves?: SaveMeta[];
   /** Play a saved game. */
   open?: (id: number) => void;
+  /**
+   * The Colopedia, as the report the Engine builds from the rules alone, opened on an entry or none. Swing's
+   * player table opens it on the nations and the nation types (PlayersTable); no button shows without it.
+   */
+  colopedia?: (select: string | null) => Promise<ReportView & { report: 'colopedia' }>;
+  /** The art of a Colopedia entry, once the Tileset has loaded. */
+  art?: Art;
 }) {
   const [advantages, setAdvantages] = useState<Advantages>('SELECTABLE');
   const [nationType, setNationType] = useState<string>('');
@@ -172,6 +184,39 @@ export function StartScreen({
   const [mapFiles, setMapFiles] = useState<Record<string, File>>({});
   const levelGroup = useMemo(() => options.groups.level(difficulty), [options, difficulty]);
   const [credits, setCredits] = useState(false);
+  const [pedia, setPedia] = useState<ReportView | null>(null);
+  const [pediaError, setPediaError] = useState<string | null>(null);
+  /** Open the Colopedia on a section or entry; a link in it goes on in the same window. */
+  const openPedia = (section: string | null, select: string | null = null) => {
+    if (!colopedia) return;
+    startColopediaAt(section);
+    colopedia(select).then(
+      (view) => {
+        setPediaError(null);
+        setPedia(view);
+      },
+      (ex: unknown) => {
+        startColopediaAt(null);
+        setPediaError(`The Colopedia could not be opened: ${String(ex)}`);
+      },
+    );
+  };
+  // Nothing in a game to open: only the Colopedia's own links, which the window handles itself.
+  const pediaActions: ReportActions = {
+    open: () => {},
+    detail: () => {},
+    colony: () => {},
+    europe: () => {},
+    colopedia: (id) => openPedia(null, id),
+    difficulty: () => {},
+    goTo: () => {},
+  };
+  const pediaButton = (section: string, label: string) =>
+    colopedia && (
+      <button type="button" data-colopedia={section} onClick={() => openPedia(section)}>
+        {label}
+      </button>
+    );
   return (
     <div className="start" data-testid="start">
       <form
@@ -220,6 +265,7 @@ export function StartScreen({
         )}
         <fieldset>
           <legend>Nation</legend>
+          {pediaButton('nations', 'Nations (Colopedia)')}
           <div className="nations">
             {options.nations.map((n) => (
               <label key={n.id} className="nation" data-selected={n.id === nation || undefined}>
@@ -278,6 +324,7 @@ export function StartScreen({
         </fieldset>
         <fieldset>
           <legend>National Advantages</legend>
+          {pediaButton('nationTypes', 'Advantages (Colopedia)')}
           <select
             data-advantages
             aria-label="National Advantages"
@@ -379,6 +426,14 @@ export function StartScreen({
       </form>
       <SourceLinks credits={() => setCredits(true)} />
       {credits && <CreditsDialog close={() => setCredits(false)} />}
+      {pediaError && <p role="alert">{pediaError}</p>}
+      {pedia && (
+        <ReportContext.Provider value={pediaActions}>
+          <div className="modal">
+            <ReportPanel d={{ kind: 'report', event: pedia, done: () => setPedia(null), id: 0 }} e={pedia} art={art} />
+          </div>
+        </ReportContext.Provider>
+      )}
     </div>
   );
 }

@@ -663,7 +663,9 @@ final class Reports {
 
     private static List<Json> nations(Specification spec) {
         final List<Json> out = new ArrayList<>();
-        for (Nation n : spec.getNations()) {
+        final List<Nation> shown = new ArrayList<>(spec.getEuropeanNations());
+        shown.addAll(spec.getIndianNations());
+        for (Nation n : shown) {
             final List<Json> facts = new ArrayList<>();
             facts.add(fact("colopedia.nation.ruler", n.getRulerName()));
             if (n.getType() != null) {

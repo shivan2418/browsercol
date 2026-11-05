@@ -38,6 +38,13 @@ export interface ClientExports {
   /** The language of FreeCol's text, a translation's id (language.ts); called before main. */
   setLanguage(id: string): void;
   main(args: string[]): void;
+  /**
+   * The Colopedia before a game (the start screen's Nation and Advantage buttons); no client Engine is
+   * made. Call it after setLanguage. The Engine reads the rules on a thread of its own and then calls the
+   * page's fcColopedia(json, error), see colopediaBefore; `select` is the entry to open on, or empty. It
+   * writes the data files, so a later main does not.
+   */
+  colopedia(data: string[], rules: string, select: string): void;
   /** Log in as `name` (a loaded game's owner; empty for a new game) and play `rounds` rounds. */
   startGame(rounds: number, name: string): void;
   /** Debug mode: skip turns with the AI playing, then play returns ("finished"). */
@@ -197,6 +204,26 @@ export interface Endpoint {
 
 /** Where the Java side looks up the globals its @JSBody methods call. */
 export type Scope = Record<string, unknown>;
+
+/**
+ * The Colopedia of a ruleset before any game exists: the report the client module builds from the rules
+ * alone, as a promise. One at a time: the answer comes by the page's fcColopedia.
+ */
+export function colopediaBefore<R>(
+  client: ClientExports,
+  scope: Scope,
+  language: string,
+  data: string[],
+  rules: string,
+  select: string | null,
+): Promise<R> {
+  return new Promise<R>((done, fail) => {
+    scope.fcColopedia = (json: string | null, error: string | null) =>
+      json === null ? fail(new Error(error ?? 'unknown error')) : done(JSON.parse(json) as R);
+    client.setLanguage(language);
+    client.colopedia(data, rules, select ?? '');
+  });
+}
 
 function listen<T>(endpoint: Endpoint, handle: (m: T) => void): void {
   endpoint.addEventListener('message', (e) => handle(e.data as T));

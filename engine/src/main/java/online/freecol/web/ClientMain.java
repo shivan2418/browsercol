@@ -5,6 +5,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.teavm.jso.JSBody;
 import org.teavm.jso.JSExport;
+import org.teavm.jso.core.JSArray;
+import org.teavm.jso.core.JSString;
 
 import net.sf.freecol.client.ClientOptions;
 import net.sf.freecol.common.model.Colony;
@@ -62,12 +64,56 @@ public final class ClientMain {
         Language.set(id);
     }
 
+    /** The data files are in the file system, written by {@link #colopedia} or {@link #main}. */
+    private static boolean dataWritten = false;
+
+    @JSBody(params = { "json", "error" }, script = "fcColopedia(json, error);")
+    private static native void colopediaDone(String json, String error);
+
+    /**
+     * The Colopedia before a game (Colopedia.before), for the start screen's
+     * Nation and Advantage buttons: no client Engine is made. Called after
+     * setLanguage, instead of or before main. It reads the rules on a thread of
+     * its own and then calls fcColopedia(json, error): the Colopedia report as
+     * {@link Reports#colopedia} gives it, or null and what went wrong.
+     *
+     * @param data The data files, as for main.
+     * @param rules The rules id, e.g. "classic".
+     * @param select The entry to open on; empty for none.
+     */
+    @JSExport
+    public static void colopedia(JSArray<JSString> data, String rules, String select) {
+        final String[] files = new String[data.getLength()];
+        for (int i = 0; i < files.length; i++) files[i] = data.get(i).stringValue();
+        new Thread(() -> {
+                try {
+                    synchronized (ClientMain.class) {
+                        if (!dataWritten) {
+                            DataFiles.write(files);
+                            dataWritten = true;
+                        }
+                    }
+                    final String json = Colopedia.before(rules, select.isEmpty() ? null : select);
+                    if (json == null) throw new IllegalArgumentException("Unknown rules \"" + rules + "\"");
+                    colopediaDone(json, null);
+                } catch (Throwable ex) {
+                    ex.printStackTrace();
+                    colopediaDone(null, Failures.describe(ex));
+                }
+        }, "web-colopedia").start();
+    }
+
     /** Load the data files, (path, text) pairs, and make the client. */
     public static void main(String[] args) {
         Failures.reportTo((what, detail) -> event("error", what + "\n" + detail));
         new Thread(() -> {
                 try {
-                    DataFiles.write(args);
+                    synchronized (ClientMain.class) {
+                        if (!dataWritten) {
+                            DataFiles.write(args);
+                            dataWritten = true;
+                        }
+                    }
                     engine = new ClientEngine(new ClientEngine.ServerLink() {
                             public void connect() { connectToServer(); }
                             public void post(String xml) { toServer(xml); }

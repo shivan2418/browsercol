@@ -4,9 +4,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
 
+import net.sf.freecol.FreeCol;
 import net.sf.freecol.common.i18n.Messages;
+import net.sf.freecol.common.io.FreeColRules;
 import net.sf.freecol.common.model.AbstractGoods;
 import net.sf.freecol.common.model.Modifier;
+import net.sf.freecol.common.model.NationOptions.Advantages;
 import net.sf.freecol.common.model.ResourceType;
 import net.sf.freecol.common.model.Specification;
 import net.sf.freecol.common.model.TileType;
@@ -19,6 +22,33 @@ import net.sf.freecol.common.model.TileType;
 final class Colopedia {
 
     private Colopedia() {}
+
+    /** The specifications read for {@link #before}, by rules id. */
+    private static final java.util.Map<String, Specification> SPECS = new java.util.HashMap<>();
+
+    /**
+     * The Colopedia before a game, as the start screen's Nation and Advantage
+     * buttons open it (PlayersTable). Its pages come from the specification
+     * alone, so this reads the rules' own, as the server Engine does at the
+     * start of a game, without a game. The data files must already be in the
+     * file system.
+     *
+     * @param rules The rules id, e.g. "classic".
+     * @param select The entry to open on, or null.
+     * @return {@link Reports#colopedia}'s JSON; null if there are no such rules.
+     */
+    static synchronized String before(String rules, String select) {
+        Specification spec = SPECS.get(rules);
+        if (spec == null) {
+            Messages.loadMessageBundle(Language.locale());
+            FreeColRules.loadRules();
+            spec = FreeCol.loadSpecification(FreeColRules.getFreeColRulesFile(rules),
+                Advantages.SELECTABLE, "model.difficulty.medium");
+            if (spec == null) return null;
+            SPECS.put(rules, spec);
+        }
+        return Reports.colopedia(spec, select);
+    }
 
     /**
      * The terrain entry for a tile type, as TerrainDetailPanel lays it out.
