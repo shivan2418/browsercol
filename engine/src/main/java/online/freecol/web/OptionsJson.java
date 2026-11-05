@@ -5,6 +5,11 @@ import java.util.List;
 import java.util.Map;
 
 import net.sf.freecol.common.i18n.Messages;
+import net.sf.freecol.common.model.AbstractUnit;
+import net.sf.freecol.common.model.Specification;
+import net.sf.freecol.common.model.UnitType;
+import net.sf.freecol.common.option.AbstractOption;
+import net.sf.freecol.common.option.AbstractUnitOption;
 import net.sf.freecol.common.option.BooleanOption;
 import net.sf.freecol.common.option.IntegerOption;
 import net.sf.freecol.common.option.Option;
@@ -12,6 +17,7 @@ import net.sf.freecol.common.option.OptionGroup;
 import net.sf.freecol.common.option.PercentageOption;
 import net.sf.freecol.common.option.SelectOption;
 import net.sf.freecol.common.option.StringOption;
+import net.sf.freecol.common.option.UnitListOption;
 import net.sf.freecol.common.option.TextOption;
 
 
@@ -30,10 +36,13 @@ import net.sf.freecol.common.option.TextOption;
  * <li>{@code string}: {@code value}, and {@code choices}, each
  *     {@code {value, label}} with a string value; an option that lists
  *     none has its value alone;</li>
- * <li>{@code text}: a string of free text.</li>
+ * <li>{@code text}: a string of free text;</li>
+ * <li>{@code units}: a list of units, {@code value} is each
+ *     {@code {type, role, number}} in order, and {@code unitTypes} and
+ *     {@code roles} are the {@code {value, label}} an entry can have.</li>
  * </ul>
  *
- * An option of another kind (a list of units, a file) is left out, as is
+ * An option of another kind (a file) is left out, as is
  * a group left with nothing to show.
  */
 final class OptionsJson {
@@ -111,6 +120,59 @@ final class OptionsJson {
         if (o instanceof TextOption) {
             return node("text", o).put("value", ((TextOption)o).getValue());
         }
+        if (o instanceof UnitListOption) {
+            return units((UnitListOption)o);
+        }
+        return null;
+    }
+
+    private static Json units(UnitListOption list) {
+        final Specification spec = list.getSpecification();
+        final List<String> value = new ArrayList<>();
+        for (AbstractUnit au : list.getOptionValues()) {
+            value.add(new Json().put("type", au.getId()).put("role", au.getRoleId())
+                .putRaw("number", String.valueOf(au.getNumber())).toString());
+        }
+        final List<String> types = new ArrayList<>();
+        for (UnitType t : spec.getUnitTypeList()) {
+            types.add(new Json().put("value", t.getId()).put("label", Messages.getName(t.getId())).toString());
+        }
+        final List<String> roles = new ArrayList<>();
+        spec.getRoles().forEach(r -> roles.add(new Json().put("value", r.getId())
+            .put("label", Messages.getName(r.getId())).toString()));
+        return node("units", list).putRaw("value", Json.array(value))
+            .putRaw("unitTypes", Json.array(types)).putRaw("roles", Json.array(roles));
+    }
+
+    /**
+     * Set a list of units, as the options dialog does when the player edits it.
+     *
+     * @param list The option.
+     * @param entries Each a map with {@code type}, {@code role} and {@code number}.
+     * @return Null if the entries fit, or why not.
+     */
+    static String setUnits(UnitListOption list, List<?> entries) {
+        final Specification spec = list.getSpecification();
+        final List<AbstractOption<AbstractUnit>> members = new ArrayList<>();
+        int i = 0;
+        for (Object e : entries) {
+            if (!(e instanceof Map)) return "an entry is an object {type, role, number}";
+            final Map<?, ?> m = (Map<?, ?>)e;
+            final Object type = m.get("type"), role = m.get("role"), number = m.get("number");
+            if (!(type instanceof String) || spec.getUnitType((String)type) == null) {
+                return "unknown unit type " + type;
+            }
+            if (!(role instanceof String) || spec.getRole((String)role) == null) {
+                return "unknown role " + role;
+            }
+            if (!(number instanceof Long) || (Long)number < 1 || (Long)number > 999) {
+                return "a number from 1 to 999, not " + number;
+            }
+            final AbstractUnitOption member = new AbstractUnitOption(list.getId() + "." + (++i), spec);
+            member.setValue(new AbstractUnit((String)type, (String)role, (int)(long)(Long)number));
+            members.add(member);
+        }
+        list.setValue(members);
         return null;
     }
 

@@ -7,7 +7,21 @@
 
 import { AUTOMATIC, languageName, languages, messageFiles } from './language';
 
-export type OptionValue = boolean | number | string;
+/** One entry of a unit list option: a number of units of a type in a role, as FreeCol's AbstractUnit. */
+export interface UnitEntry {
+  /** A unit type's id, e.g. model.unit.freeColonist. */
+  type: string;
+  /** A role's id, e.g. model.role.soldier. */
+  role: string;
+  number: number;
+}
+
+export type OptionValue = boolean | number | string | UnitEntry[];
+
+/** Whether two option values are the same, a unit list entry by entry. */
+export function sameValue(a: OptionValue | undefined, b: OptionValue | undefined): boolean {
+  return a === b || (Array.isArray(a) && Array.isArray(b) && JSON.stringify(a) === JSON.stringify(b));
+}
 
 interface Base {
   /** FreeCol's id, e.g. model.option.landPriceFactor. */
@@ -23,7 +37,14 @@ export type OptionNode =
   | (Base & { kind: 'integer' | 'percentage'; value: number; min: number; max: number })
   | (Base & { kind: 'select'; value: number; choices: { value: number; label: string }[] })
   | (Base & { kind: 'string'; value: string; choices?: { value: string; label: string }[] })
-  | (Base & { kind: 'text'; value: string });
+  | (Base & { kind: 'text'; value: string })
+  | (Base & {
+      kind: 'units';
+      value: UnitEntry[];
+      /** The unit types and roles an entry can have. */
+      unitTypes: { value: string; label: string }[];
+      roles: { value: string; label: string }[];
+    });
 
 export type OptionGroup = Extract<OptionNode, { kind: 'group' }>;
 
@@ -60,8 +81,8 @@ const INT_MAX = 2147483647;
 
 /**
  * An option group of a ruleset's specification, such as a difficulty level
- * or the game options. Options of a kind the editor has no control for (lists
- * of units, files) and groups with nothing left are left out, as the
+ * or the game options. Options of a kind the editor has no control for (files)
+ * and groups with nothing left are left out, as the
  * Engine's OptionsJson leaves them out.
  *
  * @param data The data bundle: alternating `data/<path>` and file text.
@@ -93,7 +114,8 @@ function xmlGroup(data: string[], path: string, strings: string[], selector: str
   if (!element) return null;
   const text = new Map(strings.flatMap((s) => [...properties(file(data, s))]));
   // A message's {{tag:...|default=X}} reduced to its default, as FreeCol's lists show it.
-  const say = (key: string) => text.get(key)?.replace(/\{\{tag:[^}]*?\bdefault=([^}|]*)[^}]*\}\}/g, '$1') ?? null;
+  const say = (key: string) =>
+    text.get(key)?.replace(/\{\{(?:tag|plural):[^}]*?\bdefault=([^}|]*)[^}]*\}\}/g, '$1') ?? null;
   const name = (id: string) => say(`${id}.name`) ?? id;
   // The choices of a string option are listed only in the custom level; the other levels' options of the
   // same id take them from there, as the editor needs a list to pick from.
@@ -102,6 +124,14 @@ function xmlGroup(data: string[], path: string, strings: string[], selector: str
     const choices = [...s.children].filter((c) => c.tagName === 'choice').map((c) => c.getAttribute('value')!);
     if (choices.length > 0) listed.set(s.getAttribute('id')!, choices);
   }
+  const unitTypes = [...spec.querySelectorAll('unit-type')].map((u) => ({
+    value: u.getAttribute('id')!,
+    label: name(u.getAttribute('id')!),
+  }));
+  const roles = [...spec.querySelectorAll('roles > role')].map((r) => ({
+    value: r.getAttribute('id')!,
+    label: name(r.getAttribute('id')!),
+  }));
   const choiceLabel = (key: string) => say(key) ?? say(`${key}.name`) ?? key;
 
   const read = (el: Element): OptionNode | null => {
@@ -153,6 +183,16 @@ function xmlGroup(data: string[], path: string, strings: string[], selector: str
       }
       case 'textOption':
         return { ...base, kind: 'text', value: value ?? '' };
+      case 'unitListOption': {
+        const entries = [...el.children]
+          .filter((c) => c.tagName === 'unitOption')
+          .map((c): UnitEntry => ({
+            type: c.querySelector('unitType')?.getAttribute('value') ?? '',
+            role: c.querySelector('role')?.getAttribute('value') ?? 'model.role.default',
+            number: Number(c.querySelector('number')?.getAttribute('value') ?? 1),
+          }));
+        return { ...base, kind: 'units', value: entries, unitTypes, roles };
+      }
       case 'languageOption': {
         // FreeCol's translations, by name, after automatic (LanguageOption.initializeLanguages).
         const named = languages(data)
