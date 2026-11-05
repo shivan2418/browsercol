@@ -70,6 +70,7 @@ const canvas2d = (url) =>
  */
 export async function launchBrowser(name) {
   gone.length = 0;
+  lastStep = '(nothing logged yet for ' + name + ')';
   browserLog.length = 0;
   const browser = await playwright[name].launch();
   browser.on('disconnected', () => closing.has(browser) || note(`${name} browser disconnected`));
