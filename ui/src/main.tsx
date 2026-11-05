@@ -1456,7 +1456,9 @@ async function run() {
   }
   // A save the player picked, not the autosave the page resumed by itself.
   if (loadId !== undefined && !resumed) await confirmLoad(loadId);
-  const { preset: chosen, importMap } = skipStart ? { preset: '', importMap: undefined } : await chooseGame(data, language);
+  const { preset: chosen, importMap } = skipStart
+    ? { preset: '', importMap: undefined }
+    : await chooseGame(data, language);
   choice = chosen;
   const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
   // An error the Worker does not catch, such as a trap in the server Engine, stops the game's server.

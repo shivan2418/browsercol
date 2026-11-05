@@ -460,10 +460,6 @@ class DebugActionsTest {
         assertTrue(client.getClient().currentPlayerIsMyPlayer());
     }
 
-    private static java.util.Map<?, ?> json(String s) {
-        return (java.util.Map<?, ?>)JsonReader.read(s);
-    }
-
     private Colony serverColony(String name) {
         final Game game = server.getGame();
         final Player us = game.getFreeColGameObject(me().getId(), Player.class);
