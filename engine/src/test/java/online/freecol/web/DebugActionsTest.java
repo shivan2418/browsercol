@@ -180,6 +180,49 @@ class DebugActionsTest {
         eventually("the client's hold", () -> ship.getGoodsContainer().getGoodsCount(food) == 40);
     }
 
+    /**
+     * A colony founded by the debug action is one the player sees round,
+     * as one founded by a colonist who walked there: with fog of war off,
+     * a unit beside it reaches the client (no copy of the tile cached
+     * without its units). And it names the new land, as a first landing
+     * does, which the Crown's messages need.
+     */
+    @Test
+    @Timeout(240)
+    void aDebugColonyIsSeenRoundAndNamesTheNewLand() throws Exception {
+        final Game game = server.getGame();
+        final net.sf.freecol.server.model.ServerPlayer us =
+            game.getFreeColGameObject(me().getId(), net.sf.freecol.server.model.ServerPlayer.class);
+        game.getSpecification().setBoolean(GameOptions.FOG_OF_WAR, false);
+        client.getGame().getSpecification().setBoolean(GameOptions.FOG_OF_WAR, false);
+        us.invalidateCanSeeTiles();
+        assertFalse(us.isNewLandNamed(), "no land named before landing");
+        // Land far from what we have explored, with land around it.
+        final Tile site = game.getMap().getTileSet(t -> t.isLand() && !us.hasExplored(t)
+            && us.canClaimToFoundSettlement(t)
+            && t.getSurroundingTiles(1, 1).stream().filter(n -> n.isLand() && !n.hasSettlement()
+                && n.getUnitCount() == 0).count() >= 2).iterator().next();
+        us.canSee(site); // the visibility the server has before the colony
+
+        server.debug("{\"action\":\"addColony\",\"x\":" + site.getX() + ",\"y\":" + site.getY() + "}");
+
+        assertTrue(us.isNewLandNamed(), "the new land is named");
+        eventually("the client has the name", () -> me().getNewLandName() != null);
+        // Another player's unit beside the colony, as one that walks there.
+        final Player other = game.getLiveEuropeanPlayerList().stream()
+            .filter(p -> p != us).findFirst().get();
+        final Tile beside = site.getSurroundingTiles(1, 1).stream().filter(n -> n.isLand()
+            && !n.hasSettlement() && n.getUnitCount() == 0).findFirst().get();
+        final Unit stranger = new net.sf.freecol.server.model.ServerUnit(game, beside, other,
+            game.getSpecification().getUnitType("model.unit.freeColonist"));
+        final net.sf.freecol.common.networking.ChangeSet cs = new net.sf.freecol.common.networking.ChangeSet();
+        cs.add(net.sf.freecol.common.networking.ChangeSet.See.perhaps(), beside);
+        ((net.sf.freecol.server.model.ServerGame)game).sendTo(us, cs);
+        eventually("the client sees the unit beside its colony", () -> client.getGame().getMap()
+            .getTile(beside.getX(), beside.getY()).getUnitList().stream()
+            .anyMatch(u -> u.getId().equals(stranger.getId())));
+    }
+
     @Test
     @Timeout(240)
     void goodsGoToAColony() throws Exception {
