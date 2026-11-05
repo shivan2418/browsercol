@@ -2,9 +2,11 @@
 // (ui/tilesets/test, the page's ?tileset=test) in the built site, and counts
 // the test Tileset's cyan unexplored tiles on the map canvas. Then shows a
 // colony panel, as the client Engine sends one, and looks at the town hall's
-// art, which the test Tileset replaces. Exits non-zero unless every browser
-// finds the cyan tiles and the test town hall with the test Tileset and
-// neither without.
+// art, which the test Tileset replaces. Last, picks FreeCol+ as the player
+// does, in the stored preferences, and starts a game. Exits non-zero unless
+// every browser finds the cyan tiles and the test town hall with the test
+// Tileset and neither without, and the page loads FreeCol+'s manifest and
+// starts a game without page errors.
 // Run in the web image:
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/tileset.mjs [--browsers chromium,firefox]
 import path from 'node:path';
@@ -116,15 +118,30 @@ for (const name of browsers) {
     const test = await cyanShare(page, `${server.url}?skipstart&tileset=test`);
     const testHall = await townHall(page);
     await page.screenshot({ path: path.join(dist, `../.cache/tileset-${name}.png`) });
+    await page.evaluate(() => localStorage.setItem('freecol.prefs', JSON.stringify({ tileset: 'freecol-plus' })));
+    const manifests = [];
+    page.on('request', (r) => {
+      if (r.url().includes('/art/') && r.url().endsWith('.json'))
+        manifests.push(path.basename(new URL(r.url()).pathname));
+    });
+    const plus = await cyanShare(page, `${server.url}?skipstart`);
+    await page.evaluate(() => localStorage.removeItem('freecol.prefs'));
     const pct = (s) => `${(s * 100).toFixed(1)}%`;
     const testArt = (src) => src.includes('/test/');
     const ok =
-      plain.share === 0 && test.share >= MIN_SHARE && !testArt(plainHall) && testArt(testHall) && errors.length === 0;
+      plain.share === 0 &&
+      test.share >= MIN_SHARE &&
+      !testArt(plainHall) &&
+      testArt(testHall) &&
+      plus.share === 0 &&
+      manifests.includes('freecol-plus.json') &&
+      errors.length === 0;
     failed ||= !ok;
     line =
       `${ok ? 'ok' : 'failed'}: cyan ${pct(plain.share)} of the map with the default Tileset, ` +
       `${pct(test.share)} with the test Tileset, renderer ${test.renderer}; ` +
-      `town hall ${plainHall} with the default Tileset, ${testHall} with the test Tileset`;
+      `town hall ${plainHall} with the default Tileset, ${testHall} with the test Tileset; ` +
+      `with FreeCol+ picked the page loaded ${manifests.join(', ') || 'no manifest'}`;
   } catch (ex) {
     failed = true;
     line = `failed: ${await diagnose(ex)}`;

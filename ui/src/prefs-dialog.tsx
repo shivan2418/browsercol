@@ -14,10 +14,12 @@ import {
   DIMS,
   MUTES,
   SPEEDS,
+  TILESETS,
   type ActiveStyle,
   type Dim,
   type Prefs,
   type Speed,
+  type Tileset,
 } from './prefs';
 import { FONT_SETS, PALETTES, type FontSet, type Palette } from './theme';
 
@@ -192,6 +194,16 @@ function OwnOptions({ prefs, change }: { prefs: Prefs; change: (p: Prefs) => voi
           {FONT_SETS.map((f) => (
             <option key={f.id} value={f.id}>
               {f.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label data-pref="tileset" style={{ display: 'flex', gap: 12, justifyContent: 'space-between', margin: '6px 0' }}>
+        Tileset (on reload)
+        <select value={prefs.tileset} onChange={(e) => change({ ...prefs, tileset: e.target.value as Tileset })}>
+          {TILESETS.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.label}
             </option>
           ))}
         </select>

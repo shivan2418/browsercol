@@ -69,6 +69,7 @@ import {
   visibleMessages,
   fontScale,
   terrainAnimation,
+  tilesetManifest,
   uiZoom,
   volumes,
   autosaveOptions,
@@ -198,6 +199,7 @@ const preset = params.get('preset');
 let skipStart = params.has('skipstart') || params.has('preset') || loadId !== undefined;
 /** Debug mode: `?debug`, or switched on and off with Ctrl+Shift+D or the View menu (FreeCol's Debug action). */
 let debug = debugMode(params);
+/** A Tileset named in the URL (scripts use ?tileset=test), over the player's own; links within the page keep it. */
 const tileset = params.get('tileset');
 /** A palette named in the URL, over the player's own. */
 const urlPalette = params.get('theme');
@@ -210,7 +212,7 @@ const map = mapDrawer(
   mapHost,
   mapSize(),
   'art/',
-  tileset ? `${tileset}.json` : undefined,
+  tileset ? `${tileset}.json` : tilesetManifest(prefsAtLoad.tileset),
   // FreeCol's Enable OpenGL option off draws with Canvas 2D, as ?renderer=canvas2d does.
   params.get('renderer') === 'canvas2d' || !pageOption(prefsAtLoad, 'model.option.useOpenGL'),
   pageOption(prefsAtLoad, 'model.option.graphicsQuality'),
