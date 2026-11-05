@@ -254,6 +254,7 @@ describe('moving colonists in the colony panel', () => {
     setQueue: (c, types) => calls.push(`queue ${c} ${types.join(',')}`),
     buy: (c) => calls.push(`buy ${c}`),
     warehouse: (c) => calls.push(`warehouse ${c}`),
+    step: (c, by) => calls.push(`step ${c} ${by}`),
     close: (c) => calls.push(`close ${c}`),
     board: (u, s) => calls.push(`board ${u} ${s}`),
     leaveShip: (u) => calls.push(`leave ${u}`),
@@ -290,6 +291,21 @@ describe('moving colonists in the colony panel', () => {
     fireEvent.drop(onto, { dataTransfer });
     fireEvent.dragEnd(unit(id), { dataTransfer });
   };
+
+  it('steps between colonies with Left and Right and opens the warehouse with W, as ColonyPanel does', () => {
+    openMovable();
+    fireEvent.keyDown(document.body, { key: 'ArrowLeft' });
+    fireEvent.keyDown(document.body, { key: 'ArrowRight' });
+    fireEvent.keyDown(document.body, { key: 'w' });
+    expect(calls).toEqual([`step colony:${n} -1`, `step colony:${n} 1`, `warehouse colony:${n}`]);
+  });
+
+  it('opens the build queue with B', () => {
+    openMovable();
+    expect(document.querySelector('.queue-body')).toBeNull();
+    fireEvent.keyDown(document.body, { key: 'b' });
+    expect(document.querySelector('.queue-body')).not.toBeNull();
+  });
 
   it('moves nothing, and makes nothing draggable, without the means to move', () => {
     open();
@@ -351,6 +367,7 @@ describe('loading a ship in port in the colony panel', () => {
     setQueue: () => {},
     buy: () => {},
     warehouse: () => {},
+    step: () => {},
     close: () => {},
     board: (u, s) => calls.push(`board ${u} ${s}`),
     leaveShip: (u) => calls.push(`leave ${u}`),
@@ -502,6 +519,7 @@ describe('the build queue in the colony panel', () => {
     setQueue: (c, types) => calls.push(`queue ${c} ${types.join(',')}`),
     buy: (c) => calls.push(`buy ${c}`),
     warehouse: (c) => calls.push(`warehouse ${c}`),
+    step: (c, by) => calls.push(`step ${c} ${by}`),
     close: (c) => calls.push(`close ${c}`),
     board: () => {},
     leaveShip: () => {},

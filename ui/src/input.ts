@@ -26,13 +26,20 @@ export type Command =
   | { k: 'clearForest' }
   | { k: 'road' }
   | { k: 'selectDestination' }
-  | { k: 'tradeRoutes' };
+  | { k: 'tradeRoutes' }
+  | { k: 'clearOrders' }
+  | { k: 'change' };
 
 const BY_KEY: Record<string, Command> = {
   ArrowUp: { k: 'move', direction: 'N' },
   ArrowRight: { k: 'move', direction: 'E' },
   ArrowDown: { k: 'move', direction: 'S' },
   ArrowLeft: { k: 'move', direction: 'W' },
+  // Without a numpad, MoveAction's secondary accelerators take the diagonals.
+  Home: { k: 'move', direction: 'NW' },
+  PageUp: { k: 'move', direction: 'NE' },
+  End: { k: 'move', direction: 'SW' },
+  PageDown: { k: 'move', direction: 'SE' },
   w: { k: 'nextUnit' },
   W: { k: 'nextUnit' },
   b: { k: 'buildColony' },
@@ -55,6 +62,10 @@ const BY_KEY: Record<string, Command> = {
   C: { k: 'clearForest' },
   r: { k: 'road' },
   R: { k: 'road' },
+  // ClearOrdersAction, and ChangeAction (Tab: the same as a click on the active unit's tile).
+  z: { k: 'clearOrders' },
+  Z: { k: 'clearOrders' },
+  Tab: { k: 'change' },
   // The Go To order, as GotoAction binds it: the player is asked where
   // the unit goes.
   h: { k: 'selectDestination' },

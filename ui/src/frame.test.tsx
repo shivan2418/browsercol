@@ -227,6 +227,14 @@ describe('the menu bar', () => {
     expect(screen.queryByRole('menu')).toBeNull();
   });
 
+  it('opens a menu with Alt and its first letter, as Swing’s mnemonics do', () => {
+    render(<MenuBar menus={[{ name: 'Game', items: [{ label: 'Save', run: () => {} }] }]} status="" />);
+    fireEvent.keyDown(document.body, { key: 'g', code: 'KeyG', altKey: true });
+    expect(screen.getByRole('menu', { name: 'Game' })).toBeTruthy();
+    fireEvent.keyDown(document.body, { key: 'g', code: 'KeyG', altKey: true });
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
   it('closes an open menu on Escape or a click elsewhere', () => {
     render(<MenuBar menus={[{ name: 'Game', items: [{ label: 'Save', run: () => {} }] }]} status="" />);
     const game = screen.getByRole('menuitem', { name: 'Game' });
