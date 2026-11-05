@@ -85,8 +85,9 @@ describe('pointerInput Go To', () => {
     const preview = vi.fn();
     const go = vi.fn();
     const dispatch = vi.fn();
+    const active = { unit: 'unit:1' as string | null };
     const dragged = pointerInput(host, {
-      view: () => initialView,
+      view: () => ({ ...initialView, active: active.unit ? { unit: active.unit, tile: null } : null }),
       dispatch,
       tileAt: (px) => [Math.floor(px / 10), 0],
       goto: { preview, go },
@@ -94,7 +95,7 @@ describe('pointerInput Go To', () => {
     const press = (x: number, button = 0) =>
       host.dispatchEvent(new MouseEvent('pointerdown', { clientX: x, clientY: 0, button }));
     const release = () => dispatchEvent(new MouseEvent('pointerup'));
-    return { preview, go, dispatch, dragged, press, release };
+    return { preview, go, dispatch, dragged, press, release, active };
   };
 
   it('does not send the unit on a quick click', () => {
@@ -114,12 +115,12 @@ describe('pointerInput Go To', () => {
     const { preview, go, dragged, press, release } = setup();
     press(25);
     vi.advanceTimersByTime(HOLD_MS);
-    expect(preview).toHaveBeenLastCalledWith([2, 0]);
+    expect(preview).toHaveBeenLastCalledWith([2, 0], 'unit:1');
     dispatchEvent(new MouseEvent('pointermove', { clientX: 45, clientY: 0 }));
-    expect(preview).toHaveBeenLastCalledWith([4, 0]);
+    expect(preview).toHaveBeenLastCalledWith([4, 0], 'unit:1');
     release();
-    expect(preview).toHaveBeenLastCalledWith(null);
-    expect(go).toHaveBeenCalledWith([4, 0]);
+    expect(preview).toHaveBeenLastCalledWith(null, 'unit:1');
+    expect(go).toHaveBeenCalledWith([4, 0], 'unit:1');
     expect(dragged()).toBe(true);
     vi.useRealTimers();
   });
@@ -131,9 +132,37 @@ describe('pointerInput Go To', () => {
     dispatchEvent(new MouseEvent('pointermove', { clientX: 28, clientY: 2 }));
     dispatchEvent(new MouseEvent('pointermove', { clientX: 36, clientY: 0 }));
     vi.advanceTimersByTime(HOLD_MS);
-    expect(preview).toHaveBeenLastCalledWith([3, 0]);
+    expect(preview).toHaveBeenLastCalledWith([3, 0], 'unit:1');
     release();
-    expect(go).toHaveBeenCalledWith([3, 0]);
+    expect(go).toHaveBeenCalledWith([3, 0], 'unit:1');
+    vi.useRealTimers();
+  });
+
+  it('sends nothing when the active unit changes during the hold, and clears the path', () => {
+    vi.useFakeTimers();
+    const { preview, go, dragged, press, release, active } = setup();
+    press(25);
+    vi.advanceTimersByTime(HOLD_MS);
+    expect(preview).toHaveBeenLastCalledWith([2, 0], 'unit:1');
+    active.unit = 'unit:2';
+    dispatchEvent(new MouseEvent('pointermove', { clientX: 45, clientY: 0 }));
+    expect(preview).toHaveBeenLastCalledWith(null, 'unit:1');
+    expect(preview).not.toHaveBeenCalledWith([4, 0], expect.anything());
+    release();
+    expect(go).not.toHaveBeenCalled();
+    expect(dragged()).toBe(true);
+    vi.useRealTimers();
+  });
+
+  it('sends nothing when the unit changes before the hold is up, or the release comes after the change', () => {
+    vi.useFakeTimers();
+    const { preview, go, press, release, active } = setup();
+    press(25);
+    active.unit = 'unit:2';
+    vi.advanceTimersByTime(HOLD_MS);
+    release();
+    expect(preview).not.toHaveBeenCalledWith(expect.anything(), 'unit:2');
+    expect(go).not.toHaveBeenCalled();
     vi.useRealTimers();
   });
 

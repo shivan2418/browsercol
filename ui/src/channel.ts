@@ -65,10 +65,10 @@ export interface ClientExports {
   // comes while another runs.
   /** Select our unit on a tile, or open the settlement there; with neither, nothing. */
   click(x: number, y: number, count: number): void;
-  /** Send the active unit to a tile along its best path. */
-  goTo(x: number, y: number): void;
-  /** The path the active unit would take to a tile, as JSON [x, y, turns] per step, or "null". */
-  pathTo(x: number, y: number): string;
+  /** Send a unit to a tile along its best path: the unit a goto drag started from, if still ours and able to move. */
+  goToUnit(unitId: string, x: number, y: number): void;
+  /** The path a unit would take to a tile, as JSON [x, y, turns] per step, or "null". */
+  pathToUnit(unitId: string, x: number, y: number): string;
   /** Move the active unit one step; a FreeCol Direction name, e.g. "NE". */
   move(direction: string): void;
   nextUnit(): void;

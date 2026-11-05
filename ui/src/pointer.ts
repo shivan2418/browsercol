@@ -1,6 +1,7 @@
 // The player's pointer on the map: drags pan it, the wheel zooms it, a
 // pointer resting at its edge scrolls it, and the tile under the pointer is
 // hovered. Each turns into a view event (view.ts) for the page to dispatch.
+import type { Id } from './webgui';
 import { edgeScroll, type Tile, type ViewEvent, type ViewState } from './view';
 
 /** Pointer at the map's edge (view.ts, edgeScroll), for EDGE_DELAY ms, scrolls it by EDGE_SPEED a frame. */
@@ -70,17 +71,22 @@ export function rightClickInput(
   });
 }
 
+export interface GotoDeps {
+  /** Show the path a unit would take to a tile, or clear it with null. */
+  preview: (tile: Tile | null, unit: Id | null) => void;
+  go: (tile: Tile, unit: Id) => void;
+}
+
 export interface PointerDeps {
   view: () => ViewState;
   dispatch: (e: ViewEvent) => void;
   /** The tile at a pixel on the map canvas, or null off the map. */
   tileAt: (px: number, py: number) => Tile | null;
-  /** The Go To order: holding the pointer on a tile shows the way there (preview), and releasing it sets off (go). */
-  goto?: {
-    /** Show the path to a tile, or clear it with null. */
-    preview: (tile: Tile | null) => void;
-    go: (tile: Tile) => void;
-  };
+  /**
+   * The Go To order: holding the pointer on a tile shows the way there (preview), and releasing it sets off (go).
+   * Both name the unit the gesture started with: it belongs to that unit, not to whichever is active by then.
+   */
+  goto?: GotoDeps;
   /** Whether a pointer resting at the map's edge scrolls it (FreeCol's auto scroll option); always, if left out. */
   edgeScrolls?: () => boolean;
   /** Whether the map scrolls at its edge while the Go To order is held (FreeCol's map scroll on drag option). */
@@ -95,26 +101,33 @@ export interface PointerDeps {
 export function gotoKeyInput(
   host: HTMLElement,
   tileAt: (px: number, py: number) => Tile | null,
-  goto: NonNullable<PointerDeps['goto']>,
+  goto: GotoDeps,
   active: () => boolean,
+  /** The active unit's id: the one a Go To started now belongs to. */
+  activeUnit: () => Id | null,
 ): void {
   let pointer: { clientX: number; clientY: number } | null = null;
   let holding: Tile | null = null;
   let choosing = false;
+  /** The unit that was active when G was pressed. */
+  let unit: Id | null = null;
   const tileUnder = () => {
     const at = pointer && onCanvas(host, pointer);
     return at && tileAt(...at);
   };
   const show = () => {
+    // SwingGUI.changeView clears the goto path when the active unit changes: so does the choice.
+    if (choosing && activeUnit() !== unit) return stop();
     const tile = tileUnder();
     if (tile && (tile[0] !== holding?.[0] || tile[1] !== holding?.[1])) {
       holding = tile;
-      goto.preview(tile);
+      goto.preview(tile, unit);
     }
   };
   const stop = () => {
-    if (choosing) goto.preview(null);
+    if (choosing) goto.preview(null, unit);
     choosing = false;
+    unit = null;
     holding = null;
     host.style.cursor = '';
   };
@@ -130,6 +143,8 @@ export function gotoKeyInput(
     } else if (e.key.toLowerCase() === 'g' && !e.repeat && (choosing || active())) {
       e.preventDefault();
       if (choosing) return stop();
+      unit = activeUnit();
+      if (!unit) return;
       choosing = true;
       host.style.cursor = 'crosshair';
       show();
@@ -142,8 +157,10 @@ export function gotoKeyInput(
       if (!choosing) return;
       e.stopImmediatePropagation();
       const tile = tileUnder() ?? holding;
+      const goer = unit;
+      const same = activeUnit() === goer;
       stop();
-      if (tile) goto.go(tile);
+      if (tile && goer && same) goto.go(tile, goer);
     },
     true,
   );
@@ -162,11 +179,23 @@ export function pointerInput(
   let moved = 0;
   /** The tile the Go To order is held on, once the hold has shown its path. */
   let holding: Tile | null = null;
+  /** The unit that was active when the press began: the Go To order belongs to it. */
+  let unit: Id | null = null;
   let holdTimer: ReturnType<typeof setTimeout> | undefined;
   let heldFor = false;
   const tileUnder = (e: { clientX: number; clientY: number }) => {
     const at = onCanvas(host, e);
     return at && tileAt(...at);
+  };
+  /**
+   * Whether the unit the press began with is no longer the active one. The Go To is then dropped, as SwingGUI.changeView
+   * drops the goto path: the path is cleared and nothing is sent, however long the pointer stays down.
+   */
+  const cancelled = () => {
+    if (unit && view().active?.unit === unit) return false;
+    if (holding) goto?.preview(null, unit);
+    holding = null;
+    return true;
   };
   host.addEventListener('pointerdown', (e) => {
     from = [e.clientX, e.clientY];
@@ -175,23 +204,26 @@ export function pointerInput(
     moved = 0;
     heldFor = false;
     clearTimeout(holdTimer);
+    unit = view().active?.unit ?? null;
     if (!goto || e.button !== 0) return;
     // A press held long enough starts the Go To order, on the tile the pointer is on by then: the left button
     // does not pan, so a hand that wobbles or moves on before the hold is up still gets it.
     holdTimer = setTimeout(() => {
       if (!from) return;
-      holding = tileUnder({ clientX: from[0], clientY: from[1] });
       heldFor = true;
-      if (holding) goto.preview(holding);
+      if (cancelled()) return;
+      holding = tileUnder({ clientX: from[0], clientY: from[1] });
+      if (holding) goto.preview(holding, unit);
     }, HOLD_MS);
   });
   addEventListener('pointermove', (e) => {
     if (!from) return;
     if (heldFor) {
+      if (cancelled()) return;
       const tile = tileUnder(e);
       if (tile && (tile[0] !== holding?.[0] || tile[1] !== holding?.[1])) {
         holding = tile;
-        goto?.preview(tile);
+        goto?.preview(tile, unit);
       }
       return;
     }
@@ -203,16 +235,16 @@ export function pointerInput(
   addEventListener('pointerup', () => {
     clearTimeout(holdTimer);
     from = null;
-    if (heldFor && holding) {
-      goto?.preview(null);
-      goto?.go(holding);
+    if (heldFor && !cancelled() && holding && unit) {
+      goto?.preview(null, unit);
+      goto?.go(holding, unit);
     }
     holding = null;
   });
   addEventListener('pointercancel', () => {
     clearTimeout(holdTimer);
     from = null;
-    if (holding) goto?.preview(null);
+    if (holding) goto?.preview(null, unit);
     holding = null;
     heldFor = false;
   });
