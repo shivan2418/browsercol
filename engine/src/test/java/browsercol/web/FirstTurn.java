@@ -22,6 +22,33 @@ final class FirstTurn {
 
     static {
         Failures.reportTo((what, detail) -> failures.add(what + "\n" + detail));
+        watchTheEventThread();
+    }
+
+    /**
+     * AWT prints what a task on the event thread throws and goes on, so it
+     * never reached Failures.report (#227). An event queue that reports it
+     * does.
+     */
+    private static void watchTheEventThread() {
+        java.awt.Toolkit.getDefaultToolkit().getSystemEventQueue().push(new java.awt.EventQueue() {
+            @Override
+            protected void dispatchEvent(java.awt.AWTEvent event) {
+                try {
+                    super.dispatchEvent(event);
+                } catch (Throwable ex) {
+                    Failures.report("the AWT event thread", ex);
+                    throw ex;
+                }
+            }
+        });
+    }
+
+    /** What the Engine reported as failed since the last wait. */
+    static java.util.List<String> reported() {
+        synchronized (failures) {
+            return new java.util.ArrayList<>(failures);
+        }
     }
 
     /** The longest a game takes to reach the human's first turn. */
