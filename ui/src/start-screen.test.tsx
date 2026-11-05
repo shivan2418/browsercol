@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, expect, test } from 'vite-plus/test';
+import { afterEach, beforeEach, expect, test } from 'vite-plus/test';
 import type { StartChoice, StartOptions } from './start';
 import { StartScreen } from './start-screen';
 
 afterEach(cleanup);
+beforeEach(() => localStorage.clear());
 
 const options: StartOptions = {
   rivals: [{ id: 'model.nation.inca', name: 'Inca', color: 'gold', native: true }],
@@ -238,4 +239,41 @@ test('the start screen offers to continue the newest save and to open another', 
 test('with no saves there is nothing to continue', () => {
   render(<StartScreen options={options} start={() => {}} saves={[]} open={() => {}} />);
   expect(document.querySelector('[data-continue]')).toBeNull();
+});
+
+test('the game options the player started with are the defaults of the next game, the level’s are not', () => {
+  const first = screenWith();
+  fireEvent.click(screen.getByLabelText('Fog of war'));
+  fireEvent.change(screen.getByLabelText('Land price factor'), { target: { value: '250' } });
+  fireEvent.click(document.querySelector('[data-start]')!);
+  expect(first[0].options).toEqual({ 'model.option.fogOfWar': false, 'model.option.landPriceFactor': 250 });
+  cleanup();
+  const second = screenWith();
+  expect((screen.getByLabelText('Fog of war') as HTMLInputElement).checked).toBe(false);
+  expect((screen.getByLabelText('Land price factor') as HTMLInputElement).value).toBe('100');
+  fireEvent.click(document.querySelector('[data-start]')!);
+  expect(second[0].options).toEqual({ 'model.option.fogOfWar': false });
+});
+
+test('Reset undoes the edits of the level', () => {
+  screenWith();
+  const price = () => screen.getByLabelText('Land price factor') as HTMLInputElement;
+  const reset = document.querySelector<HTMLButtonElement>('[data-level-reset]')!;
+  expect(reset.disabled).toBe(true);
+  fireEvent.change(price(), { target: { value: '250' } });
+  expect(reset.disabled).toBe(false);
+  fireEvent.click(reset);
+  expect(price().value).toBe('100');
+});
+
+test('a level loads from a file, and a file that is no level says so', async () => {
+  const started = screenWith();
+  const input = document.querySelector<HTMLInputElement>('[data-level-file]')!;
+  const load = (text: string) => fireEvent.change(input, { target: { files: [new File([text], 'level.json')] } });
+  load('nonsense');
+  expect((await screen.findByRole('alert')).textContent).toContain('not a difficulty level');
+  load(JSON.stringify({ difficulty: 'model.difficulty.medium', options: { 'model.option.landPriceFactor': 300 } }));
+  await screen.findByDisplayValue('300');
+  fireEvent.click(document.querySelector('[data-start]')!);
+  expect(started[0].options).toEqual({ 'model.option.landPriceFactor': 300 });
 });
