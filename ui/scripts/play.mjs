@@ -178,6 +178,9 @@ function freeLands(m, ship, visited = new Set()) {
   const queue = [ship];
   let west = null;
   let coast = null;
+  let frontier = null;
+  const frontiers = [];
+  const unexplored = ([x, y]) => x >= 0 && y >= 0 && x < m.w && y < m.h && !typeAt(m, [x, y]);
   for (let i = 0; i < queue.length; i++) {
     const t = queue[i];
     const d = dist.get(label(t));
@@ -196,6 +199,14 @@ function freeLands(m, ship, visited = new Set()) {
     if (i > 0 && !visited.has(label(t))) {
       if (!west || t[0] < west[0]) west = t;
       if (!coast && dirs.some((dir) => ownedLand(m, neighbour(t, dir)))) coast = t;
+      // The frontier is sea beside unexplored tiles, where sailing shows more of the map. The westmost
+      // frontier tile is the goal, the nearest of them (the search runs nearest first) when several share
+      // a column. Plain westmost sea is no goal: at the west edge every tile ties and the ship crawls along
+      // it, and nearest-frontier alone crawls along the edge of what the ship has already seen.
+      if (dirs.some((dir) => unexplored(neighbour(t, dir)))) {
+        frontiers.push({ t, d });
+        if (!frontier || t[0] < frontier[0]) frontier = t;
+      }
     }
     for (const dir of dirs) {
       const n = neighbour(t, dir);
@@ -205,7 +216,17 @@ function freeLands(m, ship, visited = new Set()) {
       queue.push(n);
     }
   }
-  const sail = coast ?? west;
+  // Once the westmost frontier is at the map's west edge, the west has been seen and every edge tile ties:
+  // sail instead to the frontier with the most unexplored map around it, less its distance.
+  if (frontier && frontier[0] <= 2) {
+    const around = ({ t, d }) => {
+      let n = 0;
+      for (let y = t[1] - 4; y <= t[1] + 4; y++) for (let x = t[0] - 4; x <= t[0] + 4; x++) if (unexplored([x, y])) n++;
+      return n - d / 2;
+    };
+    frontier = frontiers.reduce((a, b) => (around(b) > around(a) ? b : a)).t;
+  }
+  const sail = coast ?? frontier ?? west;
   return { lands, west: sail && { tile: sail, dir: first.get(label(sail)) } };
 }
 
