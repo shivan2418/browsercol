@@ -613,6 +613,37 @@ class IndependenceTest {
     }
 
     /**
+     * The REF takes our one port before the liberty reaches interventionBells.
+     * With no connected port the intervention has nowhere to arrive: the turn
+     * must still end, and no force comes (#224, FreeCol picked a port from an
+     * empty list and crashed the turn).
+     */
+    @Test
+    @Timeout(300)
+    void libertyAfterTheREFTookOurLastPortDoesNotCrashTheTurn() throws Exception {
+        start(GAME);
+        final Colony colony = addColony();
+        rebels(colony, 60);
+        final ServerPlayer ref = declare();
+        final ServerPlayer us = us();
+
+        // The REF takes the colony, as when it captures one.
+        final ChangeSet cs = new ChangeSet();
+        ((ServerColony)colony).csChangeOwner(ref, false, null, cs);
+        cs.add(See.perhaps(), colony.getTile());
+        ((ServerGame)server.getGame()).sendTo(us, cs);
+        assertEquals(0, us.getNumberOfPorts(), "the REF took our port");
+
+        us.modifyLiberty(spec().getInteger(GameOptions.INTERVENTION_BELLS));
+        assertTrue(client.getCommands().endTurn(), "end turn");
+        // Before the fix the REF's thread died in csNewTurn and the turn never ended.
+        for (int i = 0; i < 6000 && !us.isDead(); i++) Thread.sleep(20);
+        assertTrue(us.isDead(), "the turn ended and we lost the war");
+        assertEquals(0, us.getUnits().filter(u -> "model.unit.manOWar".equals(u.getType().getId())).count(),
+            "no intervention force without a port");
+    }
+
+    /**
      * A rebel needs a port (ServerPlayer.checkForDeath): with our one
      * colony taken by the REF we are dead, and the Browser UI is told.
      */
