@@ -58,7 +58,7 @@ import net.sf.freecol.common.option.GameOptions;
  *     being whether the amount exceeds the capacity (Swing's red);
  * <li>outside: {title, units}, the units on the colony's tile that are
  *     not carriers, each unit also with occupation (UnitLabel's chip text),
- *     occupationFull and, when damaged, repair; the units in port have them
+ *     occupationFull, the chip's colours rgb and fg and, when damaged, repair; the units in port have them
  *     too;
  * <li>inPort: {title, units, selected, cargo}, the carriers on the tile,
  *     each unit with cargo: {title, units, goods} as ColonyCargoPanel
@@ -443,9 +443,15 @@ final class ColonyJson {
     }
 
     private static Json occupied(Colony colony, Unit u) {
+        // ImageLibrary.getOccupationIndicatorChip: the owner's colour, and
+        // text that shows on it, grey for a fortified unit.
+        final int rgb = MapJson.rgb(u.getOwner());
         final Json json = unit(u)
             .put("occupation", Messages.message(u.getOccupationLabel(colony.getOwner(), false)))
-            .put("occupationFull", Messages.message(u.getOccupationLabel(colony.getOwner(), true)));
+            .put("occupationFull", Messages.message(u.getOccupationLabel(colony.getOwner(), true)))
+            .put("rgb", rgb)
+            .put("fg", (u.getState() == Unit.UnitState.FORTIFIED) ? 0x808080
+                 : MapJson.foreground(rgb));
         return u.isDamaged()
             ? json.put("repair", Messages.message(u.getRepairLabel()))
             : json;

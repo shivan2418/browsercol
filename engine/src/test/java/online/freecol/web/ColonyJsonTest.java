@@ -32,6 +32,7 @@ import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.Unit;
 import net.sf.freecol.common.model.WorkLocation;
 import net.sf.freecol.common.option.GameOptions;
+import net.sf.freecol.common.util.Utils;
 import net.sf.freecol.server.model.ServerColony;
 import net.sf.freecol.server.model.ServerUnit;
 
@@ -331,6 +332,9 @@ class ColonyJsonTest {
         // Each carries UnitLabel's occupation chip; none is damaged.
         final Map<String, Object> outsideJson = obj(list(obj(json.get("outside")).get("units")).get(0));
         assertEquals(Messages.message(outside.getOccupationLabel(us, false)), outsideJson.get("occupation"));
+        // On our nation's colour, as ImageLibrary.getOccupationIndicatorChip draws it.
+        assertEquals(Utils.getRGB(us.getNationColor()) & 0xffffff, ((Number) outsideJson.get("rgb")).intValue());
+        assertTrue(outsideJson.containsKey("fg"));
         assertFalse(outsideJson.containsKey("repair"));
         // The ship in port, with its cargo as ColonyCargoPanel shows it, and
         // chosen, as InPortPanel.selectLabel chooses the last carrier.

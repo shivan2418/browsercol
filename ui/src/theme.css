@@ -40,6 +40,8 @@
   --warn: #8a5a00;
   /* The dimming behind a modal dialog. */
   --backdrop: rgb(0 0 0 / 40%);
+  /* The border round a chip on a unit, drawn on its owner's colour (ImageLibrary.createChip). */
+  --chip-border: #000000;
 
   /* --font and --font-title come from the font set, in fonts.css. */
   --font-mono: ui-monospace, 'DejaVu Sans Mono', monospace;
@@ -66,4 +68,5 @@
   --bad: #ff6b6b;
   --warn: #ffb020;
   --backdrop: rgb(0 0 0 / 55%);
+  --chip-border: #000000;
 }
