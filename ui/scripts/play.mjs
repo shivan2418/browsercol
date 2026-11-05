@@ -460,6 +460,19 @@ async function play(page, url) {
         () => true,
         () => false,
       );
+    /**
+     * Drag a colonist onto a place and wait for it to show there. The panel is shown afresh as each change
+     * reaches the client, and a drag that a redraw interrupts drops nowhere, as a player's would: the drag
+     * is made again, up to three times, and the error names the place when none of them took.
+     */
+    const dragInto = async (id, target, place, what) => {
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        await unit(id).dragTo(target);
+        if (await landed(place, id, 10000)) return;
+        console.log(`  the colony panel did not take the drag of ${id} ${what}; dragged again`);
+      }
+      throw new Error(`the drag of ${id} ${what} did not take in 3 tries`);
+    };
     const changed = async (than, what) => {
       await page
         // netOf runs in the page as its source, in a string expression.
@@ -528,16 +541,14 @@ async function play(page, url) {
 
     if (tile !== null) {
       // Drag the founder from its tile into a building.
-      await unit(founder).dragTo(hall);
-      await within(hall, founder);
+      await dragInto(founder, hall, hall, 'into a building');
       const inHall = await changed(onTile, 'the founder was dragged into a building');
       if ((await tile.locator(`[data-unit="${founder}"]`).count()) > 0) {
         throw new Error('the founder is on its tile and in the building');
       }
 
       // Drag it back to its tile: back to work there.
-      await unit(founder).dragTo(tile.locator('.hit'));
-      await within(tile, founder);
+      await dragInto(founder, tile.locator('.hit'), tile, 'back to its tile');
       await changed(inHall, 'the founder was dragged back to its tile');
 
       // Its menu changes what it makes, when the tile offers another.
@@ -576,8 +587,7 @@ async function play(page, url) {
     }
     if (other === null) throw new Error(`no colonist outside could be put to work in a building: ${waiting}`);
     await changed(before, 'a colonist outside was put to work in a building');
-    await unit(other).dragTo(outside);
-    await within(outside, other);
+    await dragInto(other, outside, outside, 'out of the building');
 
     // A colonist cannot work on a tile another colonist works: the Engine explains it, and the
     // explanation shows over the colony panel, as Swing's does, with the colony panel on screen again
