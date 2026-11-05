@@ -27,7 +27,7 @@ import { createPortal } from 'react-dom';
 import { createRoot, type Root } from 'react-dom/client';
 import './theme.css';
 import './fonts.css';
-import { startPage, type ClientExports, type Scope, type ToWorker } from './channel';
+import { colopediaBefore, startPage, type ClientExports, type Scope, type ToWorker } from './channel';
 import { DebugContext, debugMessage, debugMode, describeAnswer, type DebugRequest } from './debug';
 import { ColonyActions, ColonyTiles, type ColonyMoves, type DrawTiles } from './colony-panel';
 import { dialogs } from './dialogs';
@@ -97,7 +97,7 @@ import { ErrorBanner, addError, engineError, type GameError } from './errors';
 import { loadModule } from './teavm';
 import { applyTheme } from './theme';
 import { cursor, initialView, panel, reduce, tileOnScreen, W, type Tile, type ViewEvent, type ViewState } from './view';
-import type { GuiEvents, GuiHandlers } from './webgui';
+import type { GuiEvents, GuiHandlers, ReportView } from './webgui';
 
 declare global {
   interface Window {
@@ -1150,6 +1150,10 @@ async function withLanguage(bundle: string[]): Promise<{ data: string[]; languag
   }
 }
 
+/** The client module, loaded once: the start screen's Colopedia and the game share it. */
+let loadedClient: Promise<ClientExports> | null = null;
+const clientModule = () => (loadedClient ??= loadModule<ClientExports>(runtimeUrl, clientUrl));
+
 /** A preset's JSON: a bare name is presets/NAME.json of this build. */
 async function fetchPreset(name: string): Promise<string> {
   const url = name.endsWith('.json') ? name : `presets/${name}.json`;
@@ -1162,7 +1166,7 @@ async function fetchPreset(name: string): Promise<string> {
  * The start screen, until the player starts the game: resolves to the preset JSON the choice makes, and the bytes
  * of the map or save file the player picked for the map generator to import, if any.
  */
-async function chooseGame(data: string[]): Promise<{ preset: string; importMap?: Uint8Array }> {
+async function chooseGame(data: string[], language: string): Promise<{ preset: string; importMap?: Uint8Array }> {
   // FreeCol's main panel offers Continue Playing and Open: the saves in the store, newest first.
   const saves = await store.list().catch(() => []);
   const host = document.createElement('div');
@@ -1183,6 +1187,18 @@ async function chooseGame(data: string[]): Promise<{ preset: string; importMap?:
         }}
         saves={saves}
         open={openSave}
+        // No client Engine exists yet: the Colopedia comes from the client module's rules-only entry.
+        colopedia={async (select) =>
+          colopediaBefore<ReportView & { report: 'colopedia' }>(
+            await clientModule(),
+            globalThis as unknown as Scope,
+            language,
+            data,
+            rules,
+            select,
+          )
+        }
+        art={art}
         start={(c) => {
           root.unmount();
           host.remove();
@@ -1295,7 +1311,7 @@ async function run() {
   }
   // A save the player picked, not the autosave the page resumed by itself.
   if (loadId !== undefined && !resumed) await confirmLoad(loadId);
-  const { preset: chosen, importMap } = skipStart ? { preset: '', importMap: undefined } : await chooseGame(data);
+  const { preset: chosen, importMap } = skipStart ? { preset: '', importMap: undefined } : await chooseGame(data, language);
   choice = chosen;
   const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
   // An error the Worker does not catch, such as a trap in the server Engine, stops the game's server.
@@ -1306,7 +1322,7 @@ async function run() {
   const presetJson = preset ? await fetchPreset(preset) : chosen;
   const client = startPage({
     worker,
-    loadClient: () => loadModule<ClientExports>(runtimeUrl, clientUrl),
+    loadClient: clientModule,
     data,
     language,
     rules,

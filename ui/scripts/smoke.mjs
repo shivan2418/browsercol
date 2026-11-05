@@ -134,6 +134,27 @@ for (const name of browsers) {
       language = `German FAILED (${await diagnose(ex)})`;
     }
   }
+  // The Colopedia from the start screen (#206), before any game: nations, then nation types, and the
+  // game still starts from the same page afterwards.
+  let colopedia = 'Colopedia ok';
+  if (screen) {
+    // No answerDialogs here: it would close the Colopedia as it opens.
+    const pedia = await browser.newPage();
+    try {
+      await pedia.goto(`${server.url}?autoplay=0`);
+      await pedia.click('[data-colopedia=nations]');
+      await pedia.waitForSelector('.colopedia [data-entry="model.nation.dutch"]', { timeout: 120000 });
+      await pedia.click('[data-answer=close]');
+      await pedia.click('[data-colopedia=nationTypes]');
+      await pedia.waitForSelector('.colopedia [data-entry="model.nationType.trade"]', { timeout: 60000 });
+      await pedia.click('[data-answer=close]');
+      await pedia.click('[data-start]');
+      const r = await waitForResult(pedia, timeout);
+      if (r.status !== 'finished') colopedia = `Colopedia FAILED (game ${r.status}${r.error ? ': ' + r.error : ''})`;
+    } catch (ex) {
+      colopedia = `Colopedia FAILED (${await diagnose(ex)})`;
+    }
+  }
   await browser.close();
   const ok =
     result.status === 'finished' &&
@@ -141,14 +162,15 @@ for (const name of browsers) {
     fetches === 1 &&
     unheard.length === 0 &&
     nations.every((n) => n.endsWith(' ok')) &&
-    language.endsWith(' ok');
+    language.endsWith(' ok') &&
+    colopedia.endsWith(' ok');
   failed ||= !ok;
   console.log(
     `${name} ${browser.version()}: ${result.status}${result.error ? ': ' + result.error : ''}, ` +
       `${result.rounds?.length ?? 0} rounds, turn ${result.turn ?? '-'}, renderer ${result.renderer ?? '-'}, ` +
       `data fetched ${fetches}x, ` +
       `sounds ${unheard.length ? 'MISSING ' + unheard.join(' ') : 'ok'} (${audio.size} files), ` +
-      (screen ? `start screen: ${nations.join(', ')}, ${language}, ` : '') +
+      (screen ? `start screen: ${nations.join(', ')}, ${language}, ${colopedia}, ` : '') +
       `${((Date.now() - t) / 1000).toFixed(1)} s${errors.length ? ', page errors: ' + errors.join('; ') : ''}`,
   );
 }

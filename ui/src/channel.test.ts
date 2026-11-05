@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vite-plus/test';
-import { serveWorker, startPage, type ClientExports, type ServerExports } from './channel';
+import { colopediaBefore, serveWorker, startPage, type ClientExports, type ServerExports } from './channel';
 import { fakeSaveStore } from './fake-saves';
 import type { GuiHandlers } from './webgui';
 
@@ -49,6 +49,7 @@ function fakeClient(scope: Scope, log: string[]): ClientExports {
   return {
     activeUnitId: () => 'unit:42',
     colony: () => 'null',
+    colopedia: () => {},
     setLanguage: (id) => log.push(`client language ${id}`),
     main: (args) => {
       log.push(`client main ${args.length}`);
@@ -360,5 +361,34 @@ describe('the Worker channel', () => {
     await t.seen('loadFailed');
     t.page.close();
     expect(t.events.find(([n]) => n === 'loadFailed')![1]).toBe('no save 99');
+  });
+});
+
+describe('the Colopedia before a game', () => {
+  type Answer = (json: string | null, error: string | null) => void;
+
+  it('sets the language, asks the client for the rules and resolves to the report it answers with', async () => {
+    const log: string[] = [];
+    const scope: Record<string, unknown> = {};
+    const client = {
+      setLanguage: (id: string) => log.push(`language ${id}`),
+      colopedia: (data: string[], rules: string, select: string) => {
+        log.push(`colopedia ${data.length} ${rules} [${select}]`);
+        queueMicrotask(() => (scope.fcColopedia as Answer)('{"report":"colopedia"}', null));
+      },
+    } as unknown as ClientExports;
+    expect(await colopediaBefore(client, scope, 'de', ['data/a', 'text'], 'classic', null)).toEqual({
+      report: 'colopedia',
+    });
+    expect(log).toEqual(['language de', 'colopedia 2 classic []']);
+  });
+
+  it('rejects with what the Engine says went wrong', async () => {
+    const scope: Record<string, unknown> = {};
+    const client = {
+      setLanguage: () => {},
+      colopedia: () => queueMicrotask(() => (scope.fcColopedia as Answer)(null, 'no such rules')),
+    } as unknown as ClientExports;
+    await expect(colopediaBefore(client, scope, 'en', [], 'x', 'nations')).rejects.toThrow('no such rules');
   });
 });

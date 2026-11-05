@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, beforeEach, expect, test } from 'vite-plus/test';
+import { afterEach, beforeEach, expect, test, vi } from 'vite-plus/test';
 import type { StartChoice, StartOptions } from './start';
 import { StartScreen } from './start-screen';
 
@@ -301,4 +301,52 @@ test('a level loads from a file, and a file that is no level says so', async () 
   await screen.findByDisplayValue('300');
   fireEvent.click(document.querySelector('[data-start]')!);
   expect(started[0].options).toEqual({ 'model.option.landPriceFactor': 300 });
+});
+
+const pedia = (select: string | null) => ({
+  report: 'colopedia' as const,
+  title: 'Colopedia',
+  ok: 'OK',
+  back: null,
+  select,
+  sections: [
+    {
+      id: 'nations',
+      name: 'Nations',
+      entries: [
+        { id: 'model.nation.dutch', name: 'Dutch', group: null, keys: [], text: 'Orange.', facts: [] },
+        { id: 'model.nation.french', name: 'French', group: null, keys: [], text: 'Blue.', facts: [] },
+      ],
+    },
+    {
+      id: 'nationTypes',
+      name: 'National Advantages',
+      entries: [{ id: 'model.nationType.trade', name: 'Trade', group: null, keys: [], text: 'Prices.', facts: [] }],
+    },
+  ],
+});
+
+test('the Nation and Advantage buttons open the Colopedia on the nations and the nation types, before any game', async () => {
+  const colopedia = vi.fn((select: string | null) => Promise.resolve(pedia(select)));
+  render(<StartScreen options={options} start={() => {}} colopedia={colopedia} />);
+  fireEvent.click(document.querySelector('[data-colopedia="nations"]')!);
+  const tree = await screen.findByRole('tree');
+  expect(tree.querySelector('[data-section="nations"]')?.getAttribute('aria-expanded')).toBe('true');
+  expect(document.querySelector('.colopedia .detail h3')?.textContent).toBe('Dutch');
+  fireEvent.click(screen.getByText('OK'));
+  expect(screen.queryByRole('tree')).toBeNull();
+  fireEvent.click(document.querySelector('[data-colopedia="nationTypes"]')!);
+  await screen.findByRole('tree');
+  expect(document.querySelector('[data-section="nationTypes"]')?.getAttribute('aria-expanded')).toBe('true');
+  expect(document.querySelector('.colopedia .detail h3')?.textContent).toBe('Trade');
+  expect(colopedia).toHaveBeenCalledTimes(2);
+});
+
+test('without a Colopedia there are no buttons for it, and one that fails says so', async () => {
+  const { unmount } = render(<StartScreen options={options} start={() => {}} />);
+  expect(document.querySelector('[data-colopedia]')).toBeNull();
+  unmount();
+  render(<StartScreen options={options} start={() => {}} colopedia={() => Promise.reject(new Error('no rules'))} />);
+  fireEvent.click(document.querySelector('[data-colopedia="nations"]')!);
+  expect((await screen.findByRole('alert')).textContent).toContain('no rules');
 });
