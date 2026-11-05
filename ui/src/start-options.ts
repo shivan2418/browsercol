@@ -22,6 +22,9 @@ function fits(option: Leaf, v: unknown): v is OptionValue {
       return typeof v === 'string' && (!option.choices || option.choices.some((c) => c.value === v));
     case 'text':
       return typeof v === 'string';
+    case 'file':
+      // A file's bytes are not kept; only the start screen's own state holds the chosen file.
+      return false;
     case 'units':
       return (
         Array.isArray(v) &&

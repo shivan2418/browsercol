@@ -38,6 +38,8 @@ export type OptionNode =
   | (Base & { kind: 'select'; value: number; choices: { value: number; label: string }[] })
   | (Base & { kind: 'string'; value: string; choices?: { value: string; label: string }[] })
   | (Base & { kind: 'text'; value: string })
+  /** A file to import (the map generator's import file): its bytes cannot be an option's value, so the start screen keeps them apart and `value` is only the name. */
+  | (Base & { kind: 'file'; value: string })
   | (Base & {
       kind: 'units';
       value: UnitEntry[];
@@ -81,9 +83,9 @@ const INT_MAX = 2147483647;
 
 /**
  * An option group of a ruleset's specification, such as a difficulty level
- * or the game options. Options of a kind the editor has no control for (files)
- * and groups with nothing left are left out, as the
- * Engine's OptionsJson leaves them out.
+ * or the game options. Options of a kind the editor has no control for
+ * and groups with nothing left are left out, as the Engine's OptionsJson
+ * leaves them out.
  *
  * @param data The data bundle: alternating `data/<path>` and file text.
  * @param rules The ruleset's id, e.g. classic.
@@ -183,6 +185,8 @@ function xmlGroup(data: string[], path: string, strings: string[], selector: str
       }
       case 'textOption':
         return { ...base, kind: 'text', value: value ?? '' };
+      case 'fileOption':
+        return { ...base, kind: 'file', value: '' };
       case 'unitListOption': {
         const entries = [...el.children]
           .filter((c) => c.tagName === 'unitOption')

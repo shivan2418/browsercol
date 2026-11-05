@@ -17,6 +17,9 @@ import type { SaveMeta } from './saves';
 import { levelFile, loadDefaults, readLevelFile, saveDefaults } from './start-options';
 import { ADVANTAGES, type Advantages, type StartChoice, type StartOptions } from './start';
 
+/** The map generator's import file option (MapGeneratorOptions.IMPORT_FILE). */
+const IMPORT_FILE = 'model.option.importFile';
+
 /** FreeCol's names for the National Advantages choices (advantages.* in FreeColMessages). */
 const ADVANTAGE_NAMES: Record<Advantages, string> = { SELECTABLE: 'Selectable', FIXED: 'Fixed', NONE: 'None' };
 
@@ -27,6 +30,8 @@ function Customize({
   group,
   edits,
   setEdits,
+  files,
+  setFile,
   tools,
 }: {
   kind: string;
@@ -34,11 +39,14 @@ function Customize({
   group: OptionGroup;
   edits: Record<string, OptionValue>;
   setEdits: (edits: Record<string, OptionValue>) => void;
+  /** The files picked for the group's file options, by option id (the map generator's import file). */
+  files?: Record<string, File>;
+  setFile?: (id: string, file: File | null) => void;
   /** Buttons under the options, such as Reset. */
   tools?: ReactNode;
 }) {
   const base = useMemo(() => leaves(group), [group]);
-  const count = Object.keys(edits).length;
+  const count = Object.keys(edits).length + Object.keys(files ?? {}).length;
   return (
     <details className="customize" data-customize={kind}>
       <summary>{count > 0 ? `${summary} (${count} changed)` : summary}</summary>
@@ -46,6 +54,8 @@ function Customize({
         root={group}
         editable
         values={edits}
+        fileNames={Object.fromEntries(Object.entries(files ?? {}).map(([id, f]) => [id, f.name]))}
+        onFile={setFile}
         onChange={(id, value) => {
           const next = { ...edits };
           if (sameValue(base.get(id)?.value, value)) delete next[id];
@@ -157,6 +167,9 @@ export function StartScreen({
   // The game and map options the player OK'd for an earlier game are the defaults of this one.
   const [gameEdits, setGameEdits] = useState(() => loadDefaults('game', gameGroup));
   const [mapEdits, setMapEdits] = useState(() => loadDefaults('map', mapGroup));
+  // The files picked for the map generator's file options (the import file): a file is not an option value,
+  // so it is not kept as a default.
+  const [mapFiles, setMapFiles] = useState<Record<string, File>>({});
   const levelGroup = useMemo(() => options.groups.level(difficulty), [options, difficulty]);
   const [credits, setCredits] = useState(false);
   return (
@@ -175,6 +188,7 @@ export function StartScreen({
             nationType: advantages === 'SELECTABLE' && nationType ? nationType : undefined,
             colors,
             unavailable: removed.filter((id) => id !== nation),
+            importMap: mapFiles[IMPORT_FILE],
           });
         }}
       >
@@ -343,7 +357,18 @@ export function StartScreen({
         {mapGroup && (
           <fieldset>
             <legend>Map</legend>
-            <Customize kind="map" summary="Show map options" group={mapGroup} edits={mapEdits} setEdits={setMapEdits} />
+            <Customize
+              kind="map"
+              summary="Show map options"
+              group={mapGroup}
+              edits={mapEdits}
+              setEdits={setMapEdits}
+              files={mapFiles}
+              setFile={(id, file) => {
+                const { [id]: _, ...rest } = mapFiles;
+                setMapFiles(file ? { ...rest, [id]: file } : rest);
+              }}
+            />
           </fieldset>
         )}
         <div className="buttons">

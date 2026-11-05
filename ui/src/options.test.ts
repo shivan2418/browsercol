@@ -42,6 +42,7 @@ const spec = `<freecol-specification id="classic">
           <selectValue label="model.option.startingPositions.random" value="1"/>
         </selectOption>
         <textOption id="model.option.note" defaultValue="hi"/>
+        <fileOption id="model.option.importFile" type="map"/>
       </optionGroup>
     </optionGroup>
   </options>
@@ -113,6 +114,7 @@ test('the game options have each option type', () => {
     ],
   });
   expect(options.get('model.option.note')).toMatchObject({ kind: 'text', value: 'hi' });
+  expect(options.get('model.option.importFile')).toMatchObject({ kind: 'file', value: '' });
 });
 
 test('a group the specification lacks is null', () => {

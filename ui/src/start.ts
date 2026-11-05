@@ -82,6 +82,8 @@ export interface StartChoice {
   colors?: Record<string, string>;
   /** The nations left out of the game. */
   unavailable?: string[];
+  /** The map or save file the map generator imports in place of a generated map (its import file option). */
+  importMap?: File;
 }
 
 /** The data bundle's text of a file, from its alternating path and text. */
