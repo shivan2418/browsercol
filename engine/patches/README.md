@@ -42,6 +42,7 @@ drops a message, a server request, model state or a callback.
 | `common/io/*`, `HighScore`, `Messages`, `Specification` | `FileInputStream` replaces `File.toPath`; Aalto factories; no indenting; no POSIX modes; zip entries read whole. | platform |
 | `common/i18n/Messages.java` | `FileChooser.*` keys no longer go to Swing's `UIManager`. | Swing |
 | `common/i18n/Messages.java` | English descriptions the rules do not bear out are replaced (`CLARIFIED`): Brebeuf's. | online |
+| `common/i18n/Messages.java` | `loadMessageBundle` fills a new concurrent map and swaps the volatile reference in, so a game still reading the bundle never sees it cleared (#228). | online |
 | `common/model/Market.java`, `MarketWas.java` | Listeners as a list, not an array. | platform |
 | `common/model/TradeRoute.java` | `copyIn` keeps `silent`. | upstream bug fix |
 | `common/option/AudioMixerOption.java`, `common/sound/SoundPlayer.java` | No mixers. | platform |
