@@ -56,6 +56,9 @@ export interface MenuActions {
   /** Whether the side panel (the debug scaffold beside the map) is shown, and a switch for it. */
   sidePanel: boolean;
   toggleSidePanel: () => void;
+  /** Whether FreeCol's map controls (the minimap and the info panel) show, and a switch for it (Ctrl+M). */
+  mapControls: boolean;
+  toggleMapControls: () => void;
   /** Whether debug mode is on (FreeCol's DebugMode.MENUS), and a switch for it (Ctrl+Shift+D). */
   debug: boolean;
   toggleDebug: () => void;
@@ -170,6 +173,7 @@ export function viewMenu(a: MenuActions): Items {
       checked: a.modes.tileText === 3,
     },
     { label: 'Debug Mode', run: a.toggleDebug, checked: a.debug, hint: 'Ctrl+Shift+D' },
+    { label: 'Map Controls', run: a.toggleMapControls, checked: a.mapControls, hint: 'Ctrl+M' },
     { label: 'Show Side Panel', run: a.toggleSidePanel, checked: a.sidePanel, hint: 'Shift+F11' },
     { label: 'Full Screen', run: a.toggleFullScreen, checked: a.fullScreen },
   ];

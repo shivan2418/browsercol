@@ -36,6 +36,8 @@ function actions(over: Partial<MenuActions> = {}) {
     toggleFullScreen: () => log.push('fullScreen'),
     sidePanel: true,
     toggleSidePanel: () => log.push('sidePanel'),
+    mapControls: true,
+    toggleMapControls: () => log.push('mapControls'),
     debug: false,
     toggleDebug: () => log.push('debug'),
     ...over,
@@ -192,6 +194,7 @@ describe('the View menu', () => {
       'Show Tile Owners',
       'Show Tile Regions',
       'Debug Mode',
+      'Map Controls',
       'Show Side Panel',
       'Full Screen',
     ]);
@@ -208,6 +211,7 @@ describe('the View menu', () => {
       'Show Tile Owners',
       'Show Tile Regions',
       'Debug Mode',
+      'Map Controls',
       'Show Side Panel',
       'Full Screen',
     ]) {
@@ -226,17 +230,26 @@ describe('the View menu', () => {
       'tileText 2',
       'tileText 3',
       'debug',
+      'mapControls',
       'sidePanel',
       'fullScreen',
     ]);
     expect(items.filter((i) => i.disabled)).toEqual([]);
-    expect(items.filter((i) => i.checked).map((i) => i.label)).toEqual(['Show Borders', 'Show Side Panel']);
+    expect(items.filter((i) => i.checked).map((i) => i.label)).toEqual([
+      'Show Borders',
+      'Map Controls',
+      'Show Side Panel',
+    ]);
   });
 
   it('shows one tile text at a time, and a second pick of it turns it off', () => {
     const { a, log } = actions({ modes: { grid: false, borders: false, tileText: 2 } });
     const items = viewMenu(a);
-    expect(items.filter((i) => i.checked).map((i) => i.label)).toEqual(['Show Tile Owners', 'Show Side Panel']);
+    expect(items.filter((i) => i.checked).map((i) => i.label)).toEqual([
+      'Show Tile Owners',
+      'Map Controls',
+      'Show Side Panel',
+    ]);
     find(items, 'Show Tile Owners').run();
     find(items, 'Show Tile Regions').run();
     expect(log).toEqual(['tileText 0', 'tileText 3']);

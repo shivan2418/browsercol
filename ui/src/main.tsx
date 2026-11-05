@@ -525,8 +525,8 @@ function setPrefs(p: Prefs) {
     if (view.modes[mode] !== modes[mode]) dispatch({ k: 'toggle', mode });
   }
   if (view.modes.tileText !== modes.tileText) dispatch({ k: 'tileText', text: modes.tileText });
-  // The side panel and the minimap are BrowserCol's map controls.
-  if (pageOption(p, 'model.option.displayMapControls') !== sidePanel) toggleSidePanel();
+  // The minimap and the info panel are FreeCol's map controls.
+  applyMapControls(p);
   renderSide();
   renderMinimap();
 }
@@ -545,9 +545,6 @@ const SIDE_PANEL_KEY = 'freecol.sidePanel';
 /** A release build (build.sh -Prelease, Vite's release mode) starts with the debug side panel hidden. */
 const SIDE_PANEL_AT_FIRST = import.meta.env.MODE !== 'release';
 let sidePanel = (() => {
-  // FreeCol's display map controls option, once the player has set it, says.
-  const option = prefs.freecol['model.option.displayMapControls'];
-  if (typeof option === 'boolean') return option;
   try {
     const kept = localStorage.getItem(SIDE_PANEL_KEY);
     return kept === null ? SIDE_PANEL_AT_FIRST : kept !== 'hidden';
@@ -556,7 +553,7 @@ let sidePanel = (() => {
   }
 })();
 document.body.dataset.sidePanel = sidePanel ? 'shown' : 'hidden';
-/** Show or hide the side panel; the map takes the room it leaves. */
+/** Show or hide the debug side panel (only it); the map takes the room it leaves. */
 function toggleSidePanel() {
   sidePanel = !sidePanel;
   document.body.dataset.sidePanel = sidePanel ? 'shown' : 'hidden';
@@ -565,20 +562,37 @@ function toggleSidePanel() {
   } catch {
     // The choice just is not kept.
   }
-  if (pageOption(prefs, 'model.option.displayMapControls') !== sidePanel) {
-    prefs = { ...prefs, freecol: { ...prefs.freecol, 'model.option.displayMapControls': sidePanel } };
-    savePrefs(prefs);
-    colonyClient?.setClientOption('model.option.displayMapControls', String(sidePanel));
-  }
   renderSide();
 }
-// Shift+F11 shows or hides it too.
+// Shift+F11 shows or hides it.
 addEventListener(
   'keydown',
   (e) => {
     if (e.key !== 'F11' || !e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return;
     e.preventDefault();
     toggleSidePanel();
+  },
+  { capture: true },
+);
+/** Whether FreeCol's map controls (the minimap and the info panel) show: its display map controls option. */
+let mapControls = pageOption(prefs, 'model.option.displayMapControls');
+document.body.dataset.mapControls = mapControls ? 'shown' : 'hidden';
+/** Follow the option: the page shows or hides the map controls. */
+function applyMapControls(p: Prefs) {
+  mapControls = pageOption(p, 'model.option.displayMapControls');
+  document.body.dataset.mapControls = mapControls ? 'shown' : 'hidden';
+}
+/** FreeCol's MapControlsAction: show or hide the map controls, and keep the option, as the Preferences window does. */
+function toggleMapControls() {
+  setPrefs({ ...prefs, freecol: { ...prefs.freecol, 'model.option.displayMapControls': !mapControls } });
+}
+// Ctrl+M, FreeCol's accelerator for it.
+addEventListener(
+  'keydown',
+  (e) => {
+    if (e.code !== 'KeyM' || !e.ctrlKey || e.shiftKey || e.altKey || e.metaKey || e.repeat) return;
+    e.preventDefault();
+    toggleMapControls();
   },
   { capture: true },
 );
@@ -673,6 +687,8 @@ const menuActions = (): MenuActions => ({
     }),
   sidePanel,
   toggleSidePanel,
+  mapControls,
+  toggleMapControls,
   debug,
   toggleDebug,
   fullScreen: document.fullscreenElement !== null,
@@ -990,7 +1006,7 @@ function renderSide() {
           )}
           {/* The info panel says to end the turn; with the map controls hidden, the banner says it instead. */}
           {createPortal(
-            <TurnBanner notice={sidePanel ? banner : shownNotice(banner, lastTurn, noUnitHeard)} />,
+            <TurnBanner notice={mapControls ? banner : shownNotice(banner, lastTurn, noUnitHeard)} />,
             gameBox,
           )}
           {popup && <PopupMenu popup={popup} run={(id) => runMenuEntry(id)} close={() => showPopup(null)} art={art} />}
