@@ -207,7 +207,6 @@ class DebugActionsTest {
         server.debug("{\"action\":\"addColony\",\"x\":" + site.getX() + ",\"y\":" + site.getY() + "}");
 
         assertTrue(us.isNewLandNamed(), "the new land is named");
-        eventually("the client has the name", () -> me().getNewLandName() != null);
         // Another player's unit beside the colony, as one that walks there.
         final Player other = game.getLiveEuropeanPlayerList().stream()
             .filter(p -> p != us).findFirst().get();

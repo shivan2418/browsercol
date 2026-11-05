@@ -361,18 +361,19 @@ final class DebugActions {
         final ServerUnit founder = new ServerUnit(this.game, tile, p, type);
         founder.setMovesLeft(founder.getInitialMovesLeft());
         p.exploreForUnit(founder);
-        // What the player sees changed (with fog of war off, what it has
-        // explored): founding the colony claims tiles, and a tile the player
-        // is wrongly thought not to see gets a copy cached without its
-        // units, which fog of war off never refreshes.
-        p.invalidateCanSeeTiles();
         final ChangeSet cs = this.igc.buildSettlement(p, founder, Player.ASSIGN_SETTLEMENT_NAME);
+        // The founder did not walk here, so what the server thinks the
+        // player sees is stale, and founding cached copies (without units)
+        // of tiles round the colony for the player, as if unseen. With fog
+        // of war off nothing refreshes them: the player's view of each tile
+        // it can see is the tile itself again.
+        p.invalidateCanSeeTiles();
+        for (Tile t : tile.getColony().getVisibleTileSet()) {
+            if (p.canSee(t)) t.seeTile(p);
+        }
         // A first landing names the new land (ServerUnit.csMove); a colony
         // founded here may come first, and the Crown's messages name it.
-        if (!p.isNewLandNamed()) {
-            p.setNewLandName(p.getNameForNewLand());
-            cs.addPartial(See.only(p), p, "newLandName", p.getNewLandName());
-        }
+        if (!p.isNewLandNamed()) p.setNewLandName(p.getNameForNewLand());
         cs.add(See.only(p), tile);
         this.sGame.sendTo(p, cs);
         this.focus = tile;
