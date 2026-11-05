@@ -127,6 +127,8 @@ export interface ClientExports {
   payForBuilding(colonyId: string): void;
   /** Colony panel: close it, asking first whether to abandon a colony with no colonist left; a "closeColony" event closes it. */
   closeColonyPanel(colonyId: string): void;
+  /** Colony panel: close it and open the previous (-1) or next (1) colony's panel, in the player's colony order. */
+  stepColony(colonyId: string, by: number): void;
   /** Colony panel: open the colony's warehouse dialog (the player sets the levels and the custom house exports). */
   warehouse(colonyId: string): void;
   /** Send the active unit to a destination; the player is asked where. */

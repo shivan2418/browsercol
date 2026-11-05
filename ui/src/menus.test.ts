@@ -93,7 +93,12 @@ describe('the Orders menu', () => {
       'Disband Unit',
     ]);
     // A unit that cannot found a colony is not offered Build Colony.
-    expect(items.filter((i) => !i.disabled).map((i) => i.label)).toEqual(['Fortify', 'Go To', 'Trade Routes']);
+    expect(items.filter((i) => !i.disabled).map((i) => i.label)).toEqual([
+      'Fortify',
+      'Clear Orders',
+      'Go To',
+      'Trade Routes',
+    ]);
     find(items, 'Fortify').run();
     find(items, 'Go To').run();
     expect(log).toEqual(['fortify', 'selectDestination']);

@@ -1315,6 +1315,24 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
   }, [logCount]);
   const ship = e.inPort.find((u) => u.id === picked) ?? null;
   const closeShop = () => setShop(null);
+  // EuropePanel's button keys: R recruit, P purchase, T train, S sail, while Europe is the newest window.
+  const keyAct = useRef<(key: string) => void>(() => {});
+  keyAct.current = (key) => {
+    const kind = ({ r: 'recruit', p: 'purchase', t: 'train' } as const)[key as 'r' | 'p' | 't'];
+    if (kind) setShop(shop === kind ? null : kind);
+    else if (key === 's' && ship) europeButtons.sail(ship.id);
+  };
+  useEffect(() => {
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.altKey || ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.repeat) return;
+      if (ev.target instanceof Element && ev.target.matches('input, textarea, select, [contenteditable]')) return;
+      const windows = document.querySelectorAll('.dialog[data-kind]');
+      if (windows[windows.length - 1]?.getAttribute('data-kind') !== 'europe') return;
+      keyAct.current(ev.key.toLowerCase());
+    };
+    addEventListener('keydown', onKey);
+    return () => removeEventListener('keydown', onKey);
+  }, []);
   /** The recruit, train or purchase list: a popup over the panel, a card of one size for each unit. */
   const shopPopup = (kind: 'recruit' | 'train' | 'purchase') => (
     <div className="modal shop-modal">

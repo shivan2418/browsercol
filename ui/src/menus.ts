@@ -71,7 +71,7 @@ export function ordersMenu(a: MenuActions): Items {
     order('Fortify', { k: 'fortify' }),
     order('Sentry', { k: 'sentry' }),
     order('Skip', { k: 'skip' }),
-    later('Clear Orders'),
+    { label: 'Clear Orders', run: () => a.run({ k: 'clearOrders' }), disabled: !a.ready || !a.hasActiveUnit },
     order('Plow', { k: 'plow' }),
     order('Clear Forest', { k: 'clearForest' }),
     order('Build Road', { k: 'road' }),

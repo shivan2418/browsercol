@@ -266,6 +266,7 @@ const colonyMoves: ColonyMoves = {
   setQueue: (colony, types) => colonyClient?.setBuildQueue(colony, types.join(',')),
   buy: (colony) => colonyClient?.payForBuilding(colony),
   warehouse: (colony) => colonyClient?.warehouse(colony),
+  step: (colony, by) => colonyClient?.stepColony(colony, by),
   close: (colony) =>
     colonyClient ? colonyClient.closeColonyPanel(colony) : dialogQueue.remove('colony', (open) => open.id === colony),
   board: (unit, ship) => colonyClient?.boardShip(unit, ship),
@@ -872,7 +873,14 @@ gotoKeyInput(
 function playWith(client: ClientExports) {
   const run = (c: Command) => {
     if (c.k === 'move') client.move(c.direction);
-    else client[c.k]();
+    // ClearOrdersAction: the same as Clear orders in the unit's menu.
+    else if (c.k === 'clearOrders') {
+      if (view.active) client.menuEntry(`clear:${view.active.unit}`);
+    }
+    // ChangeAction: a click on the active unit's tile opens its colony or cycles its units.
+    else if (c.k === 'change') {
+      if (view.active?.tile) client.click(...view.active.tile);
+    } else client[c.k]();
   };
   runCommand = run;
   menuReady = true;
@@ -885,6 +893,39 @@ function playWith(client: ClientExports) {
     if (report && !e.repeat && [undefined, 'report'].includes(dialogQueue.current()?.kind)) {
       e.preventDefault();
       reportActions.open(report);
+      return;
+    }
+    // The Ctrl keys of the Game and View menus (FreeColMessages.properties): Save, Open, Preferences and
+    // Centre on the active unit. They keep the browser's own save, open and print dialogs away.
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && !dialogQueue.current() && !e.repeat) {
+      const a = menuActions();
+      const ctrl: Record<string, (() => void) | false> = {
+        s: a.ready && a.save,
+        o: a.open,
+        p: a.preferences,
+        c: a.hasActiveUnit && a.centreOnUnit,
+      };
+      const act = ctrl[e.key.toLowerCase()];
+      const typing = e.target instanceof Element && e.target.matches('input, textarea, select, [contenteditable]');
+      // Ctrl+C keeps copying a selection.
+      const copying = e.key.toLowerCase() === 'c' && !!getSelection()?.toString();
+      if (act && !typing && !copying) {
+        e.preventDefault();
+        act();
+        return;
+      }
+    }
+    // TilePopupAction: Shift+T opens the popup of the active unit's tile.
+    if (e.key === 'T' && e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey && !dialogQueue.current()) {
+      const tile = view.active?.tile;
+      const canvas = mapHost.querySelector('canvas');
+      const menu = tile && canvas && parseMenu(client.tileMenu(...tile));
+      if (tile && canvas && menu) {
+        e.preventDefault();
+        const r = canvas.getBoundingClientRect();
+        const [px, py] = tileOnScreen(view, tile);
+        showPopup({ menu, x: r.left + px, y: r.top + py });
+      }
       return;
     }
     if (e.altKey || e.ctrlKey || e.metaKey || dialogQueue.current()) return;

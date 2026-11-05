@@ -83,6 +83,8 @@ export interface ColonyMoves {
   buy(colony: string): void;
   /** Open the colony's warehouse dialog. */
   warehouse(colony: string): void;
+  /** Close this colony's panel and open the previous (-1) or next (1) colony's, as ColonyPanel's arrow keys do. */
+  step(colony: string, by: -1 | 1): void;
   /** Close the colony's panel; the Engine may ask first, as when the colony has no colonist left, and closes it (closeColony). */
   close(colony: string): void;
   /** Put a unit beside the colony aboard a ship in port. */
@@ -621,6 +623,27 @@ function BuildableLabel({ b, art }: { b: Buildable; art: Art }) {
 }
 
 /**
+ * The colony panel's keys go to the colony only while its dialog is the newest window (not under the warehouse
+ * dialog or a question), and not while the player types in a field or holds a modifier.
+ */
+function useColonyKey(on: (key: string) => void) {
+  const handler = useRef(on);
+  handler.current = on;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.repeat) return;
+      if (e.target instanceof Element && e.target.matches('input, textarea, select, [contenteditable]')) return;
+      const windows = document.querySelectorAll('.dialog[data-kind]');
+      const top = windows[windows.length - 1];
+      if (top && top.getAttribute('data-kind') !== 'colony') return;
+      handler.current(e.key);
+    };
+    addEventListener('keydown', onKey);
+    return () => removeEventListener('keydown', onKey);
+  }, []);
+}
+
+/**
  * BuildQueuePanel: edit the colony's build queue, and pay for the build. What the colony is building (the
  * children) is the button that opens it.
  */
@@ -638,6 +661,10 @@ function BuildQueue({ c, art, children }: { c: ColonyView; art: Art; children: R
     setState(s);
   };
   const q = c.queue;
+  // B opens the build queue (ColonyPanel's buildQueueCmd).
+  useColonyKey((key) => {
+    if (moves && key.toLowerCase() === 'b' && !state.open) set({ ...state, open: true });
+  });
   if (!moves) return <Part part="construction">{children}</Part>;
   const ids = q.queue.map((b) => b.type);
   const move = (from: number, to: number) => {
@@ -776,6 +803,13 @@ export function ColonyPanel({ colony: c, art, footer }: { colony: ColonyView; ar
     picks.set(c.id, item);
     show(item);
   };
+  // Left and Right step to the previous and next colony (ColonyPanel's name box), W opens the warehouse.
+  useColonyKey((key) => {
+    if (!moves) return;
+    if (key === 'ArrowLeft') moves.step(c.id, -1);
+    else if (key === 'ArrowRight') moves.step(c.id, 1);
+    else if (key.toLowerCase() === 'w') moves.warehouse(c.id);
+  });
   // A unit that has left the colony, or been disbanded, or goods that are gone, are no longer picked.
   // The ship chosen in port is kept in chosen; this draws the panel again as another is chosen.
   const [, redraw] = useState(0);

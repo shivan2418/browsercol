@@ -18,6 +18,19 @@ describe('commandForKey', () => {
     expect(key('Home', 'Numpad7')).toEqual({ k: 'move', direction: 'NW' });
   });
 
+  it('moves diagonally with Home, PageUp, End and PageDown, as MoveAction’s second accelerators do', () => {
+    expect(key('Home', 'Home')).toEqual({ k: 'move', direction: 'NW' });
+    expect(key('PageUp', 'PageUp')).toEqual({ k: 'move', direction: 'NE' });
+    expect(key('End', 'End')).toEqual({ k: 'move', direction: 'SW' });
+    expect(key('PageDown', 'PageDown')).toEqual({ k: 'move', direction: 'SE' });
+  });
+
+  it('clears the orders with Z and changes with Tab', () => {
+    expect(key('z', 'KeyZ')).toEqual({ k: 'clearOrders' });
+    expect(key('Z', 'KeyZ')).toEqual({ k: 'clearOrders' });
+    expect(key('Tab', 'Tab')).toEqual({ k: 'change' });
+  });
+
   it('selects the next unit, builds a colony and ends the turn', () => {
     expect(key('w', 'KeyW')).toEqual({ k: 'nextUnit' });
     expect(key('W', 'KeyW')).toEqual({ k: 'nextUnit' });

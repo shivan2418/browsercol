@@ -1182,6 +1182,32 @@ public final class Commands {
     }
 
     /**
+     * Close a colony's panel and open the panel of the previous or next
+     * colony in the player's colony order, wrapping round, as choosing
+     * from ColonyPanel's name box does (its Left and Right keys). The
+     * panel is closed as closeColonyPanel does, which may ask first and
+     * stay open.
+     *
+     * @param colonyId The id of the colony whose panel is open.
+     * @param by -1 for the previous colony, 1 for the next.
+     * @return True if the other colony's panel was opened.
+     */
+    public boolean stepColony(String colonyId, int by) {
+        final Colony colony = object(colonyId, Colony.class);
+        final Player player = this.client.getMyPlayer();
+        if (colony == null || !player.owns(colony)) return false;
+        final List<Colony> colonies = player.getSortedColonies(
+            this.client.getClientOptions().getColonyComparator());
+        final int n = colonies.size();
+        final int at = colonies.indexOf(colony);
+        if (n < 2 || at < 0) return false;
+        final Colony next = colonies.get(Math.floorMod(at + (by < 0 ? -1 : 1), n));
+        if (!closeColonyPanel(colonyId)) return false;
+        gui().showColonyPanel(next, null);
+        return true;
+    }
+
+    /**
      * Open the panel of one of our colonies, as a link in a report does.
      *
      * @param id The colony's id.

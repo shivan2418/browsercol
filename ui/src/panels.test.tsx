@@ -1729,6 +1729,24 @@ describe('the Europe panel', () => {
     expect(calls).toEqual(['recruit 1', 'train model.unit.masterCarpenter', 'train model.unit.galleon']);
   });
 
+  it('presses its buttons with R, P, T and S, as EuropePanel binds them', () => {
+    const calls: string[] = [];
+    Object.assign(europeButtons, { sail: (s: string) => calls.push(`sail ${s}`) });
+    const { box } = host();
+    act(() => box.show('europe', europe));
+    fireEvent.keyDown(document.body, { key: 'r' });
+    expect(document.querySelector('[data-shop=recruit]')).not.toBeNull();
+    fireEvent.keyDown(document.body, { key: 't' });
+    expect(document.querySelector('[data-shop=train]')).not.toBeNull();
+    fireEvent.keyDown(document.body, { key: 'p' });
+    expect(document.querySelector('[data-shop=purchase]')).not.toBeNull();
+    fireEvent.keyDown(document.body, { key: 'p' });
+    expect(document.querySelector('[data-shop]')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Galleon' }));
+    fireEvent.keyDown(document.body, { key: 's' });
+    expect(calls).toEqual(['sail unit:2']);
+  });
+
   it('loads a unit of the docks on the picked ship, and sends that ship to the New World', () => {
     const calls: string[] = [];
     Object.assign(europeButtons, {

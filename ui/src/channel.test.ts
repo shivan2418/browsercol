@@ -108,6 +108,7 @@ function fakeClient(scope: Scope, log: string[]): ClientExports {
     setBuildQueue: () => {},
     payForBuilding: () => {},
     warehouse: () => {},
+    stepColony: () => {},
     closeColonyPanel: () => {},
     clearForest: () => {},
     road: () => {},

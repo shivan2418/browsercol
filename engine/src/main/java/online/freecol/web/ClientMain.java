@@ -483,6 +483,12 @@ public final class ClientMain {
             typeIds.isEmpty() ? List.of() : List.of(typeIds.split(","))));
     }
 
+    /** Close a colony's panel and open the previous or next colony's (Commands.stepColony). */
+    @JSExport
+    public static void stepColony(String colonyId, int by) {
+        command("stepColony", () -> engine.getCommands().stepColony(colonyId, by));
+    }
+
     /** Open a colony's warehouse dialog. */
     @JSExport
     public static void warehouse(String colonyId) {

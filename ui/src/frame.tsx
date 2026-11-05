@@ -265,6 +265,21 @@ export function MenuBar({ menus, status }: { menus: Menu[]; status: string }) {
       removeEventListener('keydown', onKey, { capture: true });
     };
   }, [open]);
+  // Alt with a menu's first letter opens it, as Swing's mnemonics do (Alt+G for Game); again closes it.
+  const names = menus.filter((m) => m.items.length > 0).map((m) => m.name);
+  const mnemonic = useRef(names);
+  mnemonic.current = names;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.repeat) return;
+      const name = mnemonic.current.find((n) => e.code === `Key${n[0].toUpperCase()}`);
+      if (!name) return;
+      e.preventDefault();
+      setOpen((now) => (now === name ? null : name));
+    };
+    addEventListener('keydown', onKey);
+    return () => removeEventListener('keydown', onKey);
+  }, []);
   return (
     <nav className="menubar" ref={bar}>
       <div role="menubar">
