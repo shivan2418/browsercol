@@ -31,6 +31,8 @@ export interface MapView {
   nation: string;
   /** FreeCol's status line: the score, the gold, the tax and the year. */
   statusLine: string;
+  /** The info panel's end turn message and its button's label (infoPanel.endTurn, endTurnAction.name). */
+  endTurn?: { text: string; button: string };
   types: TileType[];
   /** One character per tile: 'A' + type index, '.' if unexplored. */
   tiles: string;
@@ -66,8 +68,14 @@ export interface ActiveUnit {
   label: string;
   /** Moves left, as FreeCol writes them, e.g. "1 2/3". */
   moves: string;
-  /** The units and goods aboard. */
-  cargo: string[];
+  /** The panel's line under the label: "Moves: 1 2/3", or Europe's name while in Europe. */
+  status: string;
+  /** The unit's picture: resource keys, best first. */
+  keys: string[];
+  /** The units aboard, with their pictures. */
+  units: { name: string; keys: string[] }[];
+  /** The goods aboard: the label ("100 Food"), the amount and the goods icon. */
+  goods: { name: string; amount: number; keys: string[] }[];
   /** [x, y, turns] per step to the destination (null for a step off the map, e.g. Europe), or null without one. */
   path: PathStep[] | null;
 }

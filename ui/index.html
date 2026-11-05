@@ -31,6 +31,7 @@
         display: none;
       }
       #game {
+        --info-panel-w: 300px;
         flex: 1;
         min-width: 320px;
         display: flex;
@@ -71,6 +72,86 @@
       .minimap-buttons button[aria-pressed='false'] {
         opacity: 0.6;
       }
+      /* FreeCol's InfoPanel (src/info-panel.tsx), at the map's bottom-right as CornerMapControls puts it; one of the map controls. */
+      #info-panel {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        box-sizing: border-box;
+        width: var(--info-panel-w);
+        min-height: 150px;
+        padding: 8px 10px;
+        background: var(--panel);
+        color: var(--ink);
+        border: 2px solid var(--line);
+        border-width: 2px 0 0 2px;
+        border-radius: 6px 0 0 0;
+        font-size: var(--fs-s);
+      }
+      body[data-side-panel='hidden'] #info-panel {
+        display: none;
+      }
+      body[data-side-panel='hidden'] #map #map-orders {
+        right: 8px;
+      }
+      #info-panel p {
+        margin: 0 0 4px;
+      }
+      #info-panel.info-unit {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        cursor: pointer;
+      }
+      .info-picture {
+        flex: none;
+        min-width: 64px;
+        display: flex;
+        justify-content: center;
+        align-self: center;
+      }
+      .info-picture img {
+        display: block;
+        max-width: 96px;
+      }
+      .info-text {
+        flex: 1;
+        min-width: 0;
+      }
+      .info-label {
+        font-size: var(--fs);
+        color: var(--head);
+      }
+      .info-units,
+      .info-goods {
+        list-style: none;
+        margin: 4px 0 0;
+        padding: 0;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2px 6px;
+        align-items: center;
+      }
+      .info-units img {
+        height: 32px;
+      }
+      .info-goods li {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+      }
+      .info-goods img {
+        height: 20px;
+      }
+      .info-end {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        min-height: 130px;
+        text-align: center;
+      }
       /* main.tsx sizes the map's canvas to this box. */
       #map {
         flex: 1;
@@ -88,7 +169,7 @@
       /* The active unit's order buttons, where CornerMapControls puts them. */
       #map #map-orders {
         position: absolute;
-        right: 8px;
+        right: calc(var(--info-panel-w) + 8px);
         bottom: 8px;
         display: flex;
         flex-wrap: wrap;
@@ -1826,6 +1907,7 @@
       <div id="game">
         <div id="map"></div>
         <div id="minimap-host"></div>
+        <div id="info-panel-host"></div>
       </div>
       <div id="side"></div>
     </div>

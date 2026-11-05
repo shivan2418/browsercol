@@ -3,6 +3,7 @@ package online.freecol.web;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
@@ -169,17 +170,35 @@ class MapJsonTest {
             net.sf.freecol.common.option.GameOptions.FOG_OF_WAR)), field(json, "fog"));
         assertEquals("false", field(MapJson.of(game, us, null, false), "fog"));
 
-        // For the info panel: what the ship is, its moves and its cargo.
-        final List<String> cargo = new ArrayList<>();
-        for (Unit u : ship.getUnitList()) {
-            cargo.add(Json.quote(u.getDescription(Unit.UnitLabelType.NATIONAL)));
+        // For the info panel: what the ship is, its picture, its moves and its cargo.
+        assertTrue(ship.getUnitCount() > 0, "the ship sails with colonists aboard");
+        final java.util.Map<?, ?> au = (java.util.Map<?, ?>)JsonReader.read(field(json, "activeUnit"));
+        assertEquals(ship.getId(), au.get("id"));
+        assertEquals(ship.getDescription(Unit.UnitLabelType.FULL), au.get("label"));
+        assertEquals(ship.getMovesAsString(), au.get("moves"));
+        assertEquals(Messages.message("infoPanel.moves") + " " + ship.getMovesAsString(), au.get("status"));
+        assertEquals(MapJson.unitKeys(ship), au.get("keys"));
+        final List<?> aboard = (List<?>)au.get("units");
+        assertEquals(ship.getUnitCount(), aboard.size());
+        final Unit first = ship.getUnitList().get(0);
+        final java.util.Map<?, ?> one = (java.util.Map<?, ?>)aboard.get(0);
+        assertEquals(first.getDescription(Unit.UnitLabelType.NATIONAL), one.get("name"));
+        assertEquals(MapJson.unitKeys(first), one.get("keys"));
+        final List<?> goods = (List<?>)au.get("goods");
+        assertEquals(ship.getGoodsList().size(), goods.size());
+        for (int k = 0; k < goods.size(); k++) {
+            final Goods g = ship.getGoodsList().get(k);
+            final java.util.Map<?, ?> row = (java.util.Map<?, ?>)goods.get(k);
+            assertEquals(Messages.message(g.getLabel(true)), row.get("name"));
+            assertEquals((long)g.getAmount(), row.get("amount"));
+            assertEquals(List.of("image.icon." + g.getType().getId()), row.get("keys"));
         }
-        for (Goods g : ship.getGoodsList()) cargo.add(Json.quote(Messages.message(g.getLabel(true))));
-        assertTrue(cargo.size() > 1, "the ship sails with colonists aboard");
-        assertEquals("{\"id\":\"" + ship.getId() + "\",\"label\":"
-            + Json.quote(ship.getDescription(Unit.UnitLabelType.FULL))
-            + ",\"moves\":\"" + ship.getMovesAsString() + "\",\"cargo\":" + Json.array(cargo)
-            + ",\"path\":null}", field(json, "activeUnit"));
+        assertNull(au.get("path"));
+
+        // The end turn panel's message and button.
+        final java.util.Map<?, ?> end = (java.util.Map<?, ?>)JsonReader.read(field(json, "endTurn"));
+        assertEquals(Messages.message("infoPanel.endTurn"), end.get("text"));
+        assertEquals(Messages.message("endTurnAction.name"), end.get("button"));
     }
 
     @Test

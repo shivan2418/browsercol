@@ -1,7 +1,8 @@
 // The turn change cue (#123): FreeCol shows the new year in the status line and jumps to a unit; the
 // Browser UI also says it in a banner over the map. While the AI players move it says so, and when the
-// player's turn starts it shows "Turn N, Spring 1493" for a moment. Once no unit is left to move it says
-// to end the turn, as FreeCol's info panel does.
+// player's turn starts it shows "Turn N, Spring 1493" for a moment. Once no unit is left to move the info
+// panel (info-panel.tsx) says to end the turn, as FreeCol's does; the banner says it only while the map
+// controls, and with them the info panel, are hidden.
 import { useEffect, useState } from 'react';
 
 /** What the last map said about the turn. */
