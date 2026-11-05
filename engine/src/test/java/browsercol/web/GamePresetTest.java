@@ -1,6 +1,7 @@
 package browsercol.web;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -147,6 +148,99 @@ class GamePresetTest {
         String price = "model.option.landPriceFactor";
         assertNotEquals(easy.getSpecification().getInteger(price),
             hard.getSpecification().getInteger(price), "an option of the level differs");
+    }
+
+    private static final String SMALL_MAP = "\"options\": { \"model.option.mapWidth\": 40,"
+        + " \"model.option.mapHeight\": 60 }";
+
+    /** The European players of a game, not the REFs. */
+    private static List<Player> europeans(Game game) {
+        return game.getLivePlayerList().stream()
+            .filter(p -> p.isEuropean() && !p.isREF()).toList();
+    }
+
+    private static Player human(Game game) {
+        return europeans(game).stream().filter(p -> !p.isAI()).findFirst().get();
+    }
+
+    private static boolean hasModifier(Player p, String id) {
+        return p.getModifiers(id).findAny().isPresent();
+    }
+
+    private static boolean hasUnit(Player p, String type) {
+        return p.getUnits().anyMatch(u -> u.getType().getId().equals(type));
+    }
+
+    /** Each classic nation's own advantage, as the rules give it. */
+    private static final java.util.Map<String, String> CLASSIC_TYPES = java.util.Map.of(
+        "model.nation.dutch", "model.nationType.trade",
+        "model.nation.english", "model.nationType.immigration",
+        "model.nation.french", "model.nationType.cooperation",
+        "model.nation.spanish", "model.nationType.conquest");
+
+    @Test
+    @Timeout(180)
+    void aSelectedAdvantageIsTheHumansAndItsBonusesApply() throws Exception {
+        Game game = play("{ \"nation\": \"model.nation.english\", \"seed\": 1,"
+            + " \"advantages\": \"SELECTABLE\", \"nationType\": \"model.nationType.trade\", "
+            + SMALL_MAP + " }");
+        Player english = human(game);
+        assertEquals("model.nation.english", english.getNationId());
+        assertEquals("model.nationType.trade", english.getNationType().getId());
+        assertTrue(hasModifier(english, "model.modifier.tradeBonus"), "trade's bonus");
+        assertTrue(hasUnit(english, "model.unit.merchantman"), "trade's ship");
+        assertFalse(hasModifier(english, "model.modifier.religiousUnrestBonus"),
+            "not England's own immigration bonus");
+    }
+
+    @Test
+    @Timeout(180)
+    void fixedAdvantagesGiveEveryNationItsOwn() throws Exception {
+        Game game = play("{ \"nation\": \"model.nation.english\", \"seed\": 1,"
+            + " \"advantages\": \"FIXED\", " + SMALL_MAP + " }");
+        List<Player> players = europeans(game);
+        assertEquals(CLASSIC_TYPES.keySet(),
+            players.stream().map(Player::getNationId).collect(java.util.stream.Collectors.toSet()));
+        for (Player p : players) {
+            assertEquals(CLASSIC_TYPES.get(p.getNationId()), p.getNationType().getId(), p.getNationId());
+        }
+        assertTrue(hasModifier(human(game), "model.modifier.religiousUnrestBonus"),
+            "England's immigration bonus");
+        Player dutch = players.stream()
+            .filter(p -> p.getNationId().equals("model.nation.dutch")).findFirst().get();
+        assertTrue(hasModifier(dutch, "model.modifier.tradeBonus"), "an AI's bonus too");
+        assertTrue(hasUnit(dutch, "model.unit.merchantman"), "and its starting unit");
+    }
+
+    @Test
+    @Timeout(180)
+    void noAdvantagesLeaveEveryNationWithoutABonus() throws Exception {
+        Game game = play("{ \"nation\": \"model.nation.dutch\", \"seed\": 1,"
+            + " \"advantages\": \"NONE\", " + SMALL_MAP + " }");
+        for (Player p : europeans(game)) {
+            assertEquals("model.nationType.default", p.getNationType().getId(), p.getNationId());
+            for (String bonus : new String[] { "model.modifier.tradeBonus",
+                    "model.modifier.religiousUnrestBonus", "model.modifier.nativeAlarmModifier",
+                    "model.modifier.nativeConvertBonus" }) {
+                assertFalse(hasModifier(p, bonus), p.getNationId() + " " + bonus);
+            }
+        }
+        assertFalse(hasUnit(human(game), "model.unit.merchantman"), "the Dutch get no merchantman");
+    }
+
+    @Test
+    void aNationTypeNeedsSelectableAdvantagesANationAndAKnownType() throws Exception {
+        failsWith("{ \"nation\": \"model.nation.dutch\", \"advantages\": \"FIXED\","
+            + " \"nationType\": \"model.nationType.trade\" }",
+            "\"nationType\" can only be chosen when advantages are SELECTABLE");
+        failsWith("{ \"nation\": \"model.nation.dutch\", \"advantages\": \"NONE\","
+            + " \"nationType\": \"model.nationType.trade\" }",
+            "\"nationType\" can only be chosen when advantages are SELECTABLE");
+        failsWith("{ \"nationType\": \"model.nationType.trade\" }",
+            "\"nationType\" needs a \"nation\" to give it to");
+        failsWith("{ \"nation\": \"model.nation.dutch\", \"nationType\": \"model.nationType.inca\" }",
+            "unknown nationType \"model.nationType.inca\"");
+        failsWith("{ \"advantages\": \"SOME\" }", "unknown advantages \"SOME\"");
     }
 
     /**
