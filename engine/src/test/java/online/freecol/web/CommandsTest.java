@@ -841,6 +841,12 @@ class CommandsTest {
         final Unit colonist = ours.getUnitList().get(0);
         assertTrue(commands.putOutsideColony(colonist.getId()), "the last colonist leaves");
         awaitTrue(() -> serverColony.getUnitCount() == 0, "the colony is empty");
+        // What the Browser UI asks for after the drop: the settled colony, its panel and the map.
+        commands.afterCommand();
+        final WebGUI gui = (WebGUI)client.getClient().getGUI();
+        assertTrue(gui.colonyJson(ours).contains(id), "the empty colony's panel");
+        assertTrue(MapJson.of(client.getGame(), client.getClient().getMyPlayer(), gui.getActiveUnit(), true)
+                   .contains(ours.getName()), "the map with the empty colony");
         asked.clear();
         confirm = false;
         assertFalse(commands.closeColonyPanel(id), "no keeps the panel");

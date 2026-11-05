@@ -170,7 +170,9 @@ final class ColonyJson {
                 + Colony.LIBERTY_PER_REBEL + " ("
                 + (capped ? 0 : liberty) + ")"));
         int next = -1, half = -1, all = -1;
-        if (liberty > 0 && !capped) {
+        // An empty colony (its last colonist put outside, before the panel asks to abandon it) has
+        // no membership to grow: Colony.rebelHelper never ends for one, so it is not asked.
+        if (liberty > 0 && !capped && population > 0) {
             final List<Integer> bonus = colony.rebelHelper(liberty);
             next = bonus.get(0);
             half = bonus.get(1);
