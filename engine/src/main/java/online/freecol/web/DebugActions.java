@@ -13,6 +13,7 @@ import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.option.GameOptions;
 import net.sf.freecol.common.model.GoodsContainer;
 import net.sf.freecol.common.model.GoodsType;
+import net.sf.freecol.common.model.Monarch;
 import net.sf.freecol.common.model.Player;
 import net.sf.freecol.common.model.Role;
 import net.sf.freecol.common.model.StringTemplate;
@@ -66,6 +67,13 @@ import net.sf.freecol.server.model.ServerUnit;
  * { "action": "idealColony", "x": 3, "y": 4 }
  * { "action": "declareIndependence", "nation": "Free Dutch", "country": "New Holland" }
  * { "action": "clearREF" }
+ * { "action": "monarch", "monarch": "RAISE_TAX_WAR" }
+ * { "action": "stepRNG" }
+ * { "action": "players" }
+ * { "action": "displayEurope" }
+ * { "action": "statistics" }
+ * { "action": "compareMaps", "client": { "units": {}, "settlements": {}, "prices": {} } }
+ * { "action": "overlay", "coords": true, "colonyValue": "player:1", "missions": 2, "defence": "player:2" }
  * { "action": "addUnit", "type": "model.unit.kingsRegular", "role": "model.role.infantry",
  *   "owner": "ref", "dx": 2, "dy": 0 }
  * { "action": "addUnit", "type": "model.unit.artillery", "around": true }
@@ -150,13 +158,54 @@ final class DebugActions {
         case "idealColony": return idealColony(at(r));
         case "declareIndependence": return declareIndependence(r);
         case "clearREF": return clearREF();
+        case "monarch": return monarch(string(r, "monarch"));
+        case "stepRNG": return stepRNG();
+        case "players": return inspection().players();
+        case "displayEurope": return inspection().displayEurope();
+        case "statistics": return inspection().statistics();
+        case "compareMaps": return compareMaps(r);
+        case "overlay": return inspection().overlay(r);
         default:
             throw bad("unknown action \"" + action + "\" (known: revealMap, addGold,"
                 + " addColony, addBuilding, addUnit, addGoods, aiView, addImmigration,"
                 + " addLiberty, addFoundingFather, traceWork, resetMoves, dumpTile,"
                 + " changeOwner, changeRole, displayMission, colonyPlan, applyDisaster,"
-                + " examineSettlement, rumourType, idealColony, declareIndependence, clearREF)");
+                + " examineSettlement, rumourType, idealColony, declareIndependence, clearREF,"
+                + " monarch, stepRNG, players, displayEurope, statistics, compareMaps, overlay)");
         }
+    }
+
+    private DebugInspection inspection() {
+        return new DebugInspection(this.game, this.human, this.aiMain);
+    }
+
+    /**
+     * DebugUtils.setMonarchAction: the monarch's action at the start of the
+     * human's next turn is this one. The server only keeps it in debug mode,
+     * which the page's is, so the server's turns on.
+     */
+    private String monarch(String name) {
+        final Monarch.MonarchAction action;
+        try {
+            action = Monarch.MonarchAction.valueOf(name);
+        } catch (IllegalArgumentException ex) {
+            throw bad("unknown monarch action \"" + name + "\"");
+        }
+        FreeColDebugger.enableDebugMode(FreeColDebugger.DebugMode.MENUS);
+        this.igc.setMonarchAction(me(), action);
+        return new Json().put("action", "monarch").put("monarch", name).toString();
+    }
+
+    /** DebugUtils.stepRNG, one step: the server's next random number, 0 to 99. */
+    private String stepRNG() {
+        return new Json().put("action", "stepRNG").put("value", this.igc.stepRandom()).toString();
+    }
+
+    /** DebugUtils.checkDesyncAction, with the client's digest of its map. */
+    private String compareMaps(Map<?, ?> r) {
+        final Object client = r.get("client");
+        if (!(client instanceof Map)) throw bad("\"client\" is the client's digest");
+        return inspection().compareMaps((Map<?, ?>)client);
     }
 
     private static IllegalArgumentException bad(String why) {
