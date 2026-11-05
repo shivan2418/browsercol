@@ -86,8 +86,10 @@ public final class ServerEngine {
         if (FreeColRules.getFreeColRulesFile(id) == null) {
             throw new IllegalArgumentException("Unknown rules \"" + id + "\"");
         }
+        // The advantages choice is read by the new game's nation options too.
+        FreeCol.setAdvantages(preset.advantages);
         Specification spec = FreeCol.loadSpecification(
-            FreeColRules.getFreeColRulesFile(id), null,
+            FreeColRules.getFreeColRulesFile(id), preset.advantages,
             "model.difficulty.medium");
         // Everything the preset can get wrong fails here, before a server
         // is made.
