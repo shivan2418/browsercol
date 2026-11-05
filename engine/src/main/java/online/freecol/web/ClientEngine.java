@@ -8,6 +8,7 @@ import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.model.ExportData;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.Specification;
+import net.sf.freecol.common.model.StringTemplate;
 
 
 /**
@@ -140,6 +141,17 @@ public final class ClientEngine {
         Object top = JsonReader.read(answer);
         if (!(top instanceof java.util.Map)) return;
         java.util.Map<?, ?> r = (java.util.Map<?, ?>)top;
+        if ("statistics".equals(r.get("action")) && r.get("server") instanceof java.util.Map) {
+            // DebugUtils.statistics shows the server's statistics and the client's together.
+            this.client.getGUI().showInformationPanel(StringTemplate.name(
+                new DebugClientTools(this.client).statistics((java.util.Map<?, ?>)r.get("server"))));
+            return;
+        }
+        if (r.get("info") instanceof String) {
+            // What an inspection found, which Swing shows in an information panel.
+            this.client.getGUI().showInformationPanel(StringTemplate.name((String)r.get("info")));
+            return;
+        }
         if ("traceWork".equals(r.get("action"))) {
             // The client's copy of the colony traces too, as ColonyPanel's button sets it on the one colony.
             final net.sf.freecol.common.model.Colony c = getGame()
@@ -151,6 +163,17 @@ public final class ClientEngine {
         Specification spec = getGame().getSpecification();
         DebugActions.setFogOfWar(spec, Boolean.TRUE.equals(r.get("reveal")));
         this.client.getMyPlayer().invalidateCanSeeTiles();
+    }
+
+    /**
+     * The client's own debug tools (DebugClientTools): the units' dump, the
+     * digest of the client's map, and the test panels.
+     *
+     * @param request The request, JSON.
+     * @return The answer, JSON.
+     */
+    public String debugClient(String request) {
+        return new DebugClientTools(this.client).run(request);
     }
 
     /** Accept protocol XML from the server. */

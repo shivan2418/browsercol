@@ -50,6 +50,8 @@ class DebugActionsTest {
     /** The tile and goods type whose amount heldAtUpdate records, once a test sets them. */
     private volatile int[] watched = null;
     private volatile String watchedType = null;
+    /** What the client's WebGUI showed the Browser UI, as kind:json. */
+    private final List<String> shown = Collections.synchronizedList(new ArrayList<>());
 
     @BeforeEach
     void start() throws Exception {
@@ -71,8 +73,9 @@ class DebugActionsTest {
                             client.getGame().getSpecification().getGoodsType(watchedType)));
                 }
             }, new WebGUI.BrowserUI() {
-                public void show(String kind, String json) { }
+                public void show(String kind, String json) { shown.add(kind + ":" + json); }
                 public void ask(int id, String kind, String json) {
+                    shown.add("ask:" + kind + ":" + json);
                     client.answer(id, null);
                 }
             });
@@ -336,6 +339,113 @@ class DebugActionsTest {
             "{\"action\":\"addUnit\",\"type\":\"model.unit.nope\",\"x\":1,\"y\":1}"));
         assertThrows(IllegalArgumentException.class, () -> server.debug(
             "{\"action\":\"addGoods\",\"type\":\"model.goods.food\",\"amount\":1,\"x\":0,\"y\":0}"));
+    }
+
+    private static java.util.Map<?, ?> json(String text) {
+        return (java.util.Map<?, ?>)JsonReader.read(text);
+    }
+
+    /** The text of the last information panel the client showed. */
+    private String lastInformation() {
+        synchronized (shown) {
+            for (int i = shown.size() - 1; i >= 0; i--) {
+                if (shown.get(i).startsWith("information:")) {
+                    return (String)json(shown.get(i).substring("information:".length())).get("text");
+                }
+            }
+        }
+        return null;
+    }
+
+    @Test
+    @Timeout(240)
+    void thePlayersAreTheLiveEuropeanOnesWithTheirNations() throws Exception {
+        final java.util.List<?> players = (java.util.List<?>)json(server.debug("{\"action\":\"players\"}")).get("players");
+        assertEquals(server.getGame().getLiveEuropeanPlayerList().size(), players.size());
+        final java.util.Map<?, ?> first = (java.util.Map<?, ?>)players.get(0);
+        assertTrue(((String)first.get("nation")).startsWith("model.nation."), first.toString());
+        assertNotNull(first.get("id"));
+    }
+
+    @Test
+    @Timeout(240)
+    void steppingTheRandomNumberGeneratorGivesANumberBelowOneHundred() throws Exception {
+        for (int i = 0; i < 5; i++) {
+            final long v = (Long)json(server.debug("{\"action\":\"stepRNG\"}")).get("value");
+            assertTrue(v >= 0 && v < 100, "step " + v);
+        }
+    }
+
+    @Test
+    @Timeout(240)
+    void aMonarchActionCanBeForcedByNameAndOnlyByName() throws Exception {
+        assertTrue(server.debug("{\"action\":\"monarch\",\"monarch\":\"RAISE_TAX_WAR\"}")
+            .contains("RAISE_TAX_WAR"));
+        assertThrows(IllegalArgumentException.class,
+            () -> server.debug("{\"action\":\"monarch\",\"monarch\":\"DANCE\"}"));
+    }
+
+    @Test
+    @Timeout(240)
+    void europeAndStatisticsAreShownByTheClientAsInformation() throws Exception {
+        client.debugApplied(server.debug("{\"action\":\"displayEurope\"}"));
+        assertTrue(lastInformation().contains("=="), lastInformation());
+        client.debugApplied(server.debug("{\"action\":\"statistics\"}"));
+        final String stats = lastInformation();
+        assertTrue(stats.contains("Server") && stats.contains("Client"), stats);
+        assertTrue(stats.contains("freeMemory"), stats);
+    }
+
+    @Test
+    @Timeout(240)
+    void theClientDumpsItsUnitsAndShowsTheTestPanels() throws Exception {
+        client.debugClient("{\"action\":\"displayUnits\"}");
+        final String units = lastInformation();
+        assertTrue(units.contains("Active units:") && units.contains("Remaining units:"), units);
+        assertTrue(units.contains(me().getUnits().findFirst().get().getId()), units);
+        client.debugClient("{\"action\":\"errorPanel\"}");
+        eventually("the error panel", () -> shown.stream().anyMatch(
+            e -> e.startsWith("error:") && e.contains("long error message") && e.contains("\"showLog\"")));
+        client.debugClient("{\"action\":\"monarchPanel\"}");
+        eventually("the monarch dialog", () -> shown.stream().anyMatch(e -> e.startsWith("ask:confirm:")));
+        assertThrows(IllegalArgumentException.class, () -> client.debugClient("{\"action\":\"dance\"}"));
+    }
+
+    @Test
+    @Timeout(240)
+    void aMatchingMapPassesTheCheckAndADifferingOneIsFound() throws Exception {
+        final String digest = client.debugClient("{\"action\":\"digest\"}");
+        final String ok = server.debug("{\"action\":\"compareMaps\",\"client\":" + digest + "}");
+        assertTrue(((String)json(ok).get("info")).contains("No desynchronization detected"), ok);
+        // The client has lost sight of a unit of ours.
+        final Unit unit = me().getUnits().filter(u -> u.getTile() != null).findFirst().get();
+        final String lost = digest.replace("\"" + unit.getId() + "\":", "\"gone:\":");
+        final String bad = server.debug("{\"action\":\"compareMaps\",\"client\":" + lost + "}");
+        assertTrue(((String)json(bad).get("info")).contains("Unit missing on client-side"), bad);
+    }
+
+    @Test
+    @Timeout(240)
+    void theOverlayLabelsTilesWithCoordinatesColonyValuesAndMissions() throws Exception {
+        final Game game = server.getGame();
+        final Player ai = game.getLiveEuropeanPlayerList().stream().filter(Player::isAI).findFirst().get();
+        final java.util.Map<?, ?> coords = json(server.debug("{\"action\":\"overlay\",\"coords\":true}"));
+        final java.util.List<?> labels = (java.util.List<?>)coords.get("labels");
+        assertEquals(game.getMap().getWidth() * game.getMap().getHeight(), labels.size());
+        final java.util.List<?> first = (java.util.List<?>)labels.get(0);
+        assertEquals(0L, first.get(0));
+        assertEquals(0L, first.get(1));
+        assertTrue(((String)first.get(2)).startsWith("0, 0"), first.toString());
+        final java.util.Map<?, ?> value = json(server.debug(
+            "{\"action\":\"overlay\",\"colonyValue\":\"" + ai.getId() + "\"}"));
+        assertFalse(((java.util.List<?>)value.get("labels")).isEmpty(), "the explored tiles have a value or a reason");
+        // The AI's missions are on tiles the human sees: the answer is a list, even if empty.
+        assertNotNull(json(server.debug("{\"action\":\"overlay\",\"missions\":2}")).get("labels"));
+        final java.util.List<?> tints = (java.util.List<?>)json(server.debug(
+            "{\"action\":\"overlay\",\"defence\":\"" + ai.getId() + "\"}")).get("tints");
+        assertNotNull(tints);
+        assertThrows(IllegalArgumentException.class, () -> server.debug(
+            "{\"action\":\"overlay\",\"defence\":\"" + me().getId() + "\"}"));
     }
 
     @Test

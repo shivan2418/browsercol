@@ -328,6 +328,16 @@ public final class ClientMain {
         }, "web-debugApplied").start();
     }
 
+    /**
+     * Debug mode: one of the client's own debug tools (ClientEngine.debugClient).
+     * It reads or shows what the client has and answers at once; a request that
+     * fails throws, for the page to show.
+     */
+    @JSExport
+    public static String debugClient(String request) {
+        return engine.debugClient(request);
+    }
+
     /** Click a tile (Commands.click); count is the click count, 2 for a double click. */
     @JSExport
     public static void click(int x, int y, int count) {
