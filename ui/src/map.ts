@@ -167,6 +167,11 @@ interface Pen {
   /** Clear a layer, and draw on it from now on. */
   begin(layer: Layer): void;
   image(pic: Picture, x: number, y: number, dim: boolean): void;
+  /**
+   * Give a layer's images, in the order they were drawn, these pictures instead, where the pen keeps its images
+   * (the animated base tiles' next frame, at the places they already are); false when it cannot, to draw it again.
+   */
+  repicture?(layer: Layer, pics: Picture[]): boolean;
   diamond(x: number, y: number, color: number, alpha: number): void;
   road(x: number, y: number, color: number, path: (p: PathSink) => void): void;
   rect(x: number, y: number, w: number, h: number, color: number, alpha?: number): void;
@@ -342,11 +347,22 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
   app.stage.interactiveChildren = false;
   host.append(app.canvas);
   let queued = 0;
+  /**
+   * What to cull again before the next draw, as what is on the screen may have changed: everything when the camera
+   * moved, a layer when it was drawn. Culling walks every object it is given, and a slide, a blink or the water's
+   * next frame changes nothing of what is on the screen.
+   */
+  let cullAll = true;
+  const toCull = new Set<Container>();
   /** Draw the map at the next frame, once however many changes come before it; what lies off the screen is skipped. */
-  const redraw = () => {
+  const redraw = (cull: Container | 'all' | null = 'all') => {
+    if (cull === 'all') cullAll = true;
+    else if (cull) toCull.add(cull);
     queued ||= requestAnimationFrame(() => {
       queued = 0;
-      Culler.shared.cull(app.stage, app.renderer.screen, false);
+      for (const c of cullAll ? [app.stage] : toCull) Culler.shared.cull(c, app.renderer.screen, false);
+      cullAll = false;
+      toCull.clear();
       app.render();
     });
   };
@@ -354,7 +370,7 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
   const add = (o: Container) => {
     o.cullable = true;
     layer.addChild(o);
-    redraw();
+    redraw(layer);
   };
   /** The camera, the actors' offset and the layers' alphas last drawn: setting them again draws nothing. */
   let shown = '';
@@ -372,7 +388,10 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
   };
   cssSize(width, height);
   const world = new Container();
-  const layers = Array.from({ length: 6 }, () => new Container());
+  // Each layer its own render group: moving or fading one (the slide, the blink) does not rebuild the others' draws.
+  const layers = Array.from({ length: 6 }, () => new Container({ isRenderGroup: true }));
+  // The actors are few and slide off the tile they were culled at: they are never culled.
+  layers[2].cullableChildren = false;
   world.addChild(...STACK.map((n) => layers[n]));
   app.stage.addChild(world);
   let layer = layers[0];
@@ -396,13 +415,23 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
     begin: (n) => {
       layer = layers[n];
       for (const child of layer.removeChildren()) child.destroy();
-      redraw();
+      redraw(layer);
     },
     image: (pic, x, y, dim) => {
       const s = new Sprite(texture(pic));
       s.position.set(x, y);
       if (dim) s.tint = 0xcccccc;
       add(s);
+    },
+    repicture: (n, pics) => {
+      const sprites = layers[n].children;
+      if (sprites.length !== pics.length || !sprites.every((c) => c instanceof Sprite)) return false;
+      sprites.forEach((s, i) => {
+        const t = texture(pics[i]);
+        if ((s as Sprite).texture !== t) (s as Sprite).texture = t;
+      });
+      redraw(null);
+      return true;
     },
     diamond: (x, y, color, alpha) => {
       add(new Graphics().poly([x + W / 2, y, x + W, y + H / 2, x + W / 2, y + H, x, y + H / 2]).fill({ color, alpha }));
@@ -458,19 +487,19 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
       actorsAt = key;
       layers[2].position.set(dx, dy);
       layers[2].alpha = alpha;
-      redraw();
+      redraw(null);
     },
     fade: (alpha) => {
       if (alpha === fadeAlpha) return;
       fadeAlpha = alpha;
       layers[3].alpha = alpha;
-      redraw();
+      redraw(null);
     },
     marker: (alpha) => {
       if (alpha === markerAlpha) return;
       markerAlpha = alpha;
       layers[4].alpha = alpha;
-      redraw();
+      redraw(null);
     },
     show: (dx, dy, scale) => {
       const key = `${dx},${dy},${scale}`;
@@ -1079,7 +1108,14 @@ export function mapDrawer(
     const map = drawn;
     drawing = drawing
       .then(async () => {
-        if (drawn === map && pen && res) await paint(pen, 5, animatedBase(map, res, t), pics);
+        if (drawn !== map || !pen || !res) return;
+        // The same map's base tiles are the same images in the same places: only their pictures move on a frame.
+        const ops = animatedBase(map, res, t);
+        const images = await Promise.all(
+          ops.map((op) => (op.k === 'image' ? pics.get(op.src).catch(() => null) : Promise.resolve(null))),
+        );
+        const shown = images.filter((img) => img !== null);
+        if (drawn !== map || shown.length !== ops.length || !pen.repicture?.(5, shown)) await paint(pen, 5, ops, pics);
       })
       .finally(() => {
         baseBusy = false;
