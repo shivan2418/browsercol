@@ -46,6 +46,8 @@ describe('debug mode', () => {
     expect(describeAnswer('{"action":"aiView","text":"Dutch: 5 gold"}')).toBe('Dutch: 5 gold');
     expect(describeAnswer('{"action":"revealMap","reveal":true}')).toBe('Map revealed');
     expect(describeAnswer('{"action":"addGold"}')).toBe('Done: addGold');
+    expect(describeAnswer('{"action":"dumpTile","text":"tile:1"}')).toBe('tile:1');
+    expect(describeAnswer('{"action":"traceWork","trace":true}')).toBe('Tracing work');
   });
 });
 

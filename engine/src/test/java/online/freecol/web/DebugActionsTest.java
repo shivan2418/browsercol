@@ -138,6 +138,61 @@ class DebugActionsTest {
 
     @Test
     @Timeout(240)
+    void addingImmigrationChangesTheServersPlayerAndTheClients() throws Exception {
+        final int before = me().getImmigration();
+        server.debug("{\"action\":\"addImmigration\",\"amount\":77}");
+        eventually("the client's crosses", () -> me().getImmigration() == before + 77);
+        assertEquals(before + 77, server.getGame()
+            .getFreeColGameObject(me().getId(), Player.class).getImmigration());
+    }
+
+    @Test
+    @Timeout(240)
+    void aFoundingFatherCanBeAddedOnce() throws Exception {
+        final String father = "model.foundingFather.thomasJefferson";
+        final net.sf.freecol.common.model.FoundingFather f =
+            server.getGame().getSpecification().getFoundingFather(father);
+        server.debug("{\"action\":\"addFoundingFather\",\"father\":\"" + father + "\"}");
+        assertTrue(server.getGame().getFreeColGameObject(me().getId(), Player.class).hasFather(f));
+        assertThrows(IllegalArgumentException.class,
+            () -> server.debug("{\"action\":\"addFoundingFather\",\"father\":\"" + father + "\"}"));
+    }
+
+    @Test
+    @Timeout(240)
+    void dumpingATileAndResettingMovesAnswerForTheTile() throws Exception {
+        final Unit unit = me().getUnits().filter(u -> u.getTile() != null).findFirst().get();
+        final Tile at = unit.getTile();
+        final String text = server.debug("{\"action\":\"dumpTile\",\"x\":" + at.getX()
+            + ",\"y\":" + at.getY() + "}");
+        assertTrue(text.contains(unit.getId()), text);
+        final Unit sUnit = server.getGame().getFreeColGameObject(unit.getId(), Unit.class);
+        sUnit.setMovesLeft(0);
+        server.debug("{\"action\":\"resetMoves\",\"x\":" + at.getX() + ",\"y\":" + at.getY() + "}");
+        assertEquals(sUnit.getInitialMovesLeft(), sUnit.getMovesLeft());
+    }
+
+    @Test
+    @Timeout(240)
+    void tracingWorkTogglesTheColonysOccupationTrace() throws Exception {
+        final Game game = server.getGame();
+        final Player us = game.getFreeColGameObject(me().getId(), Player.class);
+        final Tile land = game.getMap().getTileSet(t -> t.isLand() && t.getUnitCount() == 0
+            && !t.hasSettlement() && t.getOwner() == null).iterator().next();
+        final Colony colony = new ServerColony(game, us, "Debug", land);
+        land.setSettlement(colony);
+        final String at = "\"x\":" + land.getX() + ",\"y\":" + land.getY();
+        assertFalse(colony.getOccupationTrace());
+        server.debug("{\"action\":\"traceWork\"," + at + "}");
+        assertTrue(colony.getOccupationTrace());
+        // By the colony's id, as the colony panel's button asks.
+        final String answer = server.debug("{\"action\":\"traceWork\",\"colony\":\"" + colony.getId() + "\"}");
+        assertFalse(colony.getOccupationTrace());
+        assertTrue(answer.contains("\"trace\":false"), answer);
+    }
+
+    @Test
+    @Timeout(240)
     void addingAUnitPutsItOnTheTileOnBothSides() throws Exception {
         final Map map = server.getGame().getMap();
         final Tile land = map.getTileSet(t -> t.isLand() && t.getUnitCount() == 0

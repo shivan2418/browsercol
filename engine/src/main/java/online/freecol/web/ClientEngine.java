@@ -138,6 +138,13 @@ public final class ClientEngine {
         Object top = JsonReader.read(answer);
         if (!(top instanceof java.util.Map)) return;
         java.util.Map<?, ?> r = (java.util.Map<?, ?>)top;
+        if ("traceWork".equals(r.get("action"))) {
+            // The client's copy of the colony traces too, as ColonyPanel's button sets it on the one colony.
+            final net.sf.freecol.common.model.Colony c = getGame()
+                .getFreeColGameObject((String)r.get("colony"), net.sf.freecol.common.model.Colony.class);
+            if (c != null) c.setOccupationTrace(Boolean.TRUE.equals(r.get("trace")));
+            return;
+        }
         if (!"revealMap".equals(r.get("action"))) return;
         Specification spec = getGame().getSpecification();
         DebugActions.setFogOfWar(spec, Boolean.TRUE.equals(r.get("reveal")));
