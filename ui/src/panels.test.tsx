@@ -657,7 +657,7 @@ describe('the panels', () => {
     );
     fireEvent.click(screen.getByText('Jamestown'));
     fireEvent.click(screen.getByText('Europe'));
-    fireEvent.click(screen.getByRole('img', { hidden: true }));
+    fireEvent.click(document.querySelector('a.pic-link')!);
     expect(went).toEqual([]);
     expect(pressed).toEqual([
       'open {"kind":"colony","id":"colony:1"}',
