@@ -553,9 +553,12 @@ public final class Commands {
                 igc().changeState(unit, state);
             }
             gui().changeView(unit, false);
+            europeAgain(unit);
             return true;
         }
-        return igc().changeState(unit, state);
+        final boolean done = igc().changeState(unit, state);
+        europeAgain(unit);
+        return done;
     }
 
     private boolean cashIn(String unitId) {
@@ -567,7 +570,10 @@ public final class Commands {
 
     private boolean clearOrders(String unitId) {
         final Unit unit = ours(unitId);
-        return unit != null && igc().clearOrders(unit);
+        if (unit == null) return false;
+        final boolean done = igc().clearOrders(unit);
+        europeAgain(unit);
+        return done;
     }
 
     /** Make one of our units the active one, as picking it in a tile popup does. */

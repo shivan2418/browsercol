@@ -438,7 +438,7 @@ class MenuEntriesTest {
             }
             return all;
         }, true);
-        assertEquals(new TreeSet<>(List.of("board", "buy", "clearSpeciality", "leaveShip",
-            "role", "sell")), verbs, "every kind of entry was offered and picked");
+        assertEquals(new TreeSet<>(List.of("board", "buy", "clear", "clearSpeciality", "leaveShip",
+            "role", "sell", "state")), verbs, "every kind of entry was offered and picked");
     }
 }
