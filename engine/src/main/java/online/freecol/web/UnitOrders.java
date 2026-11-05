@@ -30,6 +30,8 @@ import net.sf.freecol.common.model.Unit;
  * <tr><td>disband</td><td>DisbandUnitAction</td><td>always</td></tr>
  * <tr><td>goto</td><td>GotoAction</td><td>no panel is showing, which in
  *     the Browser UI is always</td></tr>
+ * <tr><td>rename</td><td>RenameAction</td>
+ *     <td>always (an action on a unit of ours)</td></tr>
  * <tr><td>assignRoute</td><td>AssignTradeRouteAction</td>
  *     <td>the unit is a carrier</td></tr>
  * <tr><td>unload</td><td>UnloadAction</td>
@@ -68,6 +70,9 @@ public final class UnitOrders {
     /** Open the trade routes panel for the carrier, as AssignTradeRouteAction does. */
     public static final String ASSIGN_ROUTE = "assignRoute";
 
+    /** Rename the unit, as RenameAction does. */
+    public static final String RENAME = "rename";
+
     private UnitOrders() {}
 
 
@@ -91,6 +96,8 @@ public final class UnitOrders {
         orders.add(SENTRY);
         orders.add(SKIP);
         orders.add(DISBAND);
+        // RenameAction is a UnitAction with no check of its own.
+        orders.add(RENAME);
         // GotoAction's only check of its own is that no Swing panel is
         // showing, and the Browser UI shows none. It asks where the unit
         // goes, and the destinations it may go to are the question's.

@@ -1928,6 +1928,19 @@ describe('the Europe panel', () => {
     expect(calls).toEqual([`unload ${europe.selected}`]);
   });
 
+  it('unloads the picked ship with U, as the Unload button does, and only with cargo aboard', () => {
+    const calls: string[] = [];
+    Object.assign(europeButtons, { unload: (s: string) => calls.push(`unload ${s}`) });
+    const { box } = host();
+    act(() => box.show('europe', europe));
+    fireEvent.keyDown(document.body, { key: 'u' });
+    expect(calls).toEqual([`unload ${europe.selected}`]);
+    const empty = europe.inPort.map((u) => ({ ...u, cargo: [] }));
+    act(() => box.replace('europe', { ...europe, inPort: empty }));
+    fireEvent.keyDown(document.body, { key: 'u' });
+    expect(calls).toHaveLength(1);
+  });
+
   it('has nothing to unload with no cargo aboard', () => {
     const { box } = host();
     const empty = europe.inPort.map((u) => ({ ...u, cargo: [] }));

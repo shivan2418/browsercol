@@ -18,6 +18,8 @@ export interface MenuEntry {
   indent?: boolean;
   /** A resource key for an icon drawn before the label, as a work entry's goods. */
   icon?: string;
+  /** Resource keys, best first, for an icon that has several (a unit's image). */
+  icons?: string[];
 }
 
 /** The entries a shift-click asks an amount for: load onto, unload and the market's load onto (Commands.menuEntry). */
@@ -44,6 +46,12 @@ export function parseMenu(json: string): MenuData | null {
 /** Keep a menu of this size, opened at a point, inside the viewport. */
 export function clampMenu(at: [number, number], size: [number, number], viewport: [number, number]): [number, number] {
   return [Math.max(0, Math.min(at[0], viewport[0] - size[0])), Math.max(0, Math.min(at[1], viewport[1] - size[1]))];
+}
+
+/** The image of an entry's icon, if it has one and the Tileset draws it. */
+function icon(art: Art | undefined, e: MenuEntry): string | null {
+  const keys = e.icons ?? (e.icon ? [e.icon] : []);
+  return art && keys.length > 0 ? art(keys) : null;
 }
 
 /**
@@ -105,7 +113,7 @@ export function PopupMenu({
             run(click.shiftKey && ASKS.test(e.id) ? `${e.id},ask` : e.id);
           }}
         >
-          {e.icon && art?.([e.icon]) && <img className="icon" src={art([e.icon])!} alt="" />}
+          {icon(art, e) && <img className="icon" src={icon(art, e)!} alt="" />}
           {e.label}
         </button>
       ))}

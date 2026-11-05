@@ -31,7 +31,10 @@ export type Command =
   | { k: 'tradeRoutes' }
   | { k: 'clearOrders' }
   | { k: 'change' }
-  | { k: 'assignRoute' };
+  | { k: 'assignRoute' }
+  | { k: 'renameUnit' }
+  | { k: 'executeGotoOrders' }
+  | { k: 'showTurnReport' };
 
 const BY_KEY: Record<string, Command> = {
   ArrowUp: { k: 'move', direction: 'N' },
@@ -79,6 +82,11 @@ const BY_KEY: Record<string, Command> = {
   // AssignTradeRouteAction opens the trade routes panel for the active carrier.
   a: { k: 'assignRoute' },
   A: { k: 'assignRoute' },
+  // RenameAction names the active unit, and ExecuteGotoOrdersAction moves every unit with goto orders.
+  n: { k: 'renameUnit' },
+  N: { k: 'renameUnit' },
+  o: { k: 'executeGotoOrders' },
+  O: { k: 'executeGotoOrders' },
   // The Europe view, as EuropeAction binds it.
   e: { k: 'showEurope' },
   E: { k: 'showEurope' },
@@ -109,6 +117,7 @@ const ORDER_OF: Partial<Record<Command['k'], string>> = {
   road: 'road',
   selectDestination: 'goto',
   assignRoute: 'assignRoute',
+  renameUnit: 'rename',
 };
 
 /** The Engine's name for the order a command gives the active unit, or null if it is no order. */

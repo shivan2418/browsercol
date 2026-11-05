@@ -63,7 +63,7 @@ import { clientOptionsGroup, leaves, type OptionGroup } from './options';
 import { mapDrawer, type MapView } from './map';
 import { europeButtons } from './europe-client';
 import { DialogHost, type Art, type ReportButtons, type RouteButtons } from './panels';
-import { reportForKey } from './report-keys';
+import { isTurnReportKey, reportForKey } from './report-keys';
 import { ReportContext, colopediaMenu, reportMenu, type ReportActions } from './reports';
 import type { ColonyLabels, PathStep } from './tileset';
 import { blockBrowserMenu, gotoKeyInput, onCanvas, pointerInput, rightClickInput } from './pointer';
@@ -272,6 +272,10 @@ const colonyMoves: ColonyMoves = {
   setQueue: (colony, types) => colonyClient?.setBuildQueue(colony, types.join(',')),
   buy: (colony) => colonyClient?.payForBuilding(colony),
   warehouse: (colony) => colonyClient?.warehouse(colony),
+  units: (colony) => {
+    const menu = colonyClient ? parseMenu(colonyClient.colonyUnitsMenu(colony)) : null;
+    if (menu) showPopup({ menu, ...colonyOrigin() });
+  },
   step: (colony, by) => colonyClient?.stepColony(colony, by),
   close: (colony) =>
     colonyClient ? colonyClient.closeColonyPanel(colony) : dialogQueue.remove('colony', (open) => open.id === colony),
@@ -283,6 +287,12 @@ const colonyMoves: ColonyMoves = {
   unloadAll: (ship) => colonyClient?.menuEntry(`unloadAll:${ship}`),
   fill: (ship) => colonyClient?.menuEntry(`fill:${ship}`),
 };
+/** Where the colony panel's own menus open (ColonyPanel shows them at 0, 0): the top left of the open colony. */
+function colonyOrigin(): { x: number; y: number } {
+  const colonies = document.querySelectorAll('.dialog[data-kind="colony"]');
+  const r = colonies[colonies.length - 1]?.getBoundingClientRect();
+  return { x: r?.left ?? 0, y: r?.top ?? 0 };
+}
 /** FreeCol's status line: the score, the gold, the tax and the year. */
 let statusLine = '';
 /** The turn the last map was of, and the banner over the map about it (turn-banner.tsx). */
@@ -592,7 +602,10 @@ const currentMenus = (): Menu[] => {
       skipTurns: debugSkip,
       toggleDebug,
     }),
-    Report: [...reportMenu(reportActions.open), ...reportOptionsMenu(a)],
+    Report: [
+      ...reportMenu(reportActions.open, menuReady ? () => runCommand({ k: 'showTurnReport' }) : null),
+      ...reportOptionsMenu(a),
+    ],
     Colopedia: [
       ...colopediaMenu(reportActions.open),
       {
@@ -659,6 +672,12 @@ function runMenuEntry(id: string) {
   // The argument may hold colons itself (a unit id is `unit:123`).
   const [prefix, action, ...rest] = id.split(':');
   const arg = rest.join(':');
+  // The colony units menu's entry opens that unit's quick action menu, where the units menu was (ColonyPanel).
+  if (prefix === 'unitMenu') {
+    const menu = contextMenus.unit(id.slice('unitMenu:'.length));
+    if (menu) showPopup({ menu, ...colonyOrigin() });
+    return;
+  }
   if (prefix !== 'debug') {
     menuClient?.menuEntry(id);
     return;
@@ -1055,6 +1074,12 @@ function playWith(client: ClientExports) {
     if (report && !e.repeat && [undefined, 'report'].includes(dialogQueue.current()?.kind)) {
       e.preventDefault();
       reportActions.open(report);
+      return;
+    }
+    // ReportTurnAction's key shows this turn's report again, over another report or over the report itself.
+    if (isTurnReportKey(e) && !e.repeat && [undefined, 'report'].includes(dialogQueue.current()?.kind)) {
+      e.preventDefault();
+      run({ k: 'showTurnReport' });
       return;
     }
     // The Ctrl keys of the Game and View menus (FreeColMessages.properties): Save, Open, Preferences and

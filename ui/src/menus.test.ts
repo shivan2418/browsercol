@@ -110,19 +110,40 @@ describe('the Orders menu', () => {
       'Sentry',
       'Skip',
       'Clear Orders',
+      'Rename',
       'Plow',
       'Clear Forest',
       'Build Road',
       'Unload',
       'Go To',
+      'Execute Go To Orders',
       'Trade Routes',
       'Disband Unit',
     ]);
     // A unit that cannot found a colony is not offered Build Colony.
-    expect(items.filter((i) => !i.disabled).map((i) => i.label)).toEqual(['Fortify', 'Clear Orders', 'Go To']);
+    expect(items.filter((i) => !i.disabled).map((i) => i.label)).toEqual([
+      'Fortify',
+      'Clear Orders',
+      'Go To',
+      'Execute Go To Orders',
+    ]);
     find(items, 'Fortify').run();
     find(items, 'Go To').run();
     expect(log).toEqual(['fortify', 'selectDestination']);
+  });
+
+  it('renames the active unit and runs the goto orders from their entries', () => {
+    const none = ordersMenu(actions({ orders: [], hasActiveUnit: false }).a);
+    // Rename needs the active unit's order; the goto orders need only the game.
+    expect(find(none, 'Rename').disabled).toBe(true);
+    expect(find(none, 'Execute Go To Orders').disabled).toBe(false);
+    expect(find(ordersMenu(actions({ ready: false }).a), 'Execute Go To Orders').disabled).toBe(true);
+    const { a, log } = actions({ orders: ['rename'], hasActiveUnit: true });
+    const items = ordersMenu(a);
+    expect(find(items, 'Rename').disabled).toBe(false);
+    find(items, 'Rename').run();
+    find(items, 'Execute Go To Orders').run();
+    expect(log).toEqual(['renameUnit', 'executeGotoOrders']);
   });
 
   it('enables Trade Routes only for a carrier, and opens its route panel', () => {
@@ -143,9 +164,9 @@ describe('the Orders menu', () => {
     expect(log).toEqual(['buildColony']);
   });
 
-  it('disables every order when there is no active unit', () => {
+  it('disables every order when there is no active unit, but not the goto orders of all units', () => {
     const items = ordersMenu(actions().a);
-    expect(items.filter((i) => !i.disabled).map((i) => i.label)).toEqual([]);
+    expect(items.filter((i) => !i.disabled).map((i) => i.label)).toEqual(['Execute Go To Orders']);
   });
 });
 
