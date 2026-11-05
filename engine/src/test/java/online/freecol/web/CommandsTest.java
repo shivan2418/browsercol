@@ -676,8 +676,8 @@ class CommandsTest {
         assertFalse(commands.setBuildQueue(ours.getId(), List.of("model.building.noSuch")), "unknown");
         assertEquals(List.of(first), serverQueue(serverColony), "the queue stands");
 
-        // An upgrade queued after the building it upgrades stays with it: taking the
-        // building out would leave the colony unable to build the upgrade, so it is refused.
+        // An upgrade queued after the building it upgrades goes with it: taking the
+        // building out would leave the colony unable to build the upgrade, as Swing's panel prunes.
         BuildingType upgrade = null;
         for (BuildableType up : free) {
             for (BuildingType bt : ours.getSpecification().getBuildingTypeList()) {
@@ -688,8 +688,9 @@ class CommandsTest {
         assertNotNull(upgrade, "some upgrade can follow a building the colony can queue");
         assertTrue(commands.setBuildQueue(ours.getId(),
             List.of(upgrade.getUpgradesFrom().getId(), upgrade.getId())));
-        assertFalse(commands.setBuildQueue(ours.getId(), List.of(upgrade.getId())), "upgrade alone");
-        assertEquals(List.of(upgrade.getUpgradesFrom(), upgrade), serverQueue(serverColony));
+        assertTrue(commands.setBuildQueue(ours.getId(), List.of(upgrade.getId())), "upgrade goes too");
+        assertTrue(serverQueue(serverColony).isEmpty(), "both removed: " + serverQueue(serverColony));
+        assertFalse(commands.setBuildQueue(ours.getId(), List.of(upgrade.getId())), "upgrade alone is new, so refused");
         assertTrue(commands.setBuildQueue(ours.getId(), List.of(first.getId())));
 
         // Pay for the build: the server's gold goes and nothing is left to make.

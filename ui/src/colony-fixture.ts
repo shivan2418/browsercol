@@ -50,6 +50,7 @@ export const jamestown: ColonyView = {
       keys: ['image.buildingicon.model.building.townHall'],
       site: false,
       capacity: 3,
+      builds: false,
       workers: [],
       production: { ...goods('bells', 1), max: 1 },
       upkeep: null,
@@ -62,6 +63,7 @@ export const jamestown: ColonyView = {
       keys: ['image.buildingicon.model.building.carpenterHouse'],
       site: false,
       capacity: 3,
+      builds: true,
       workers: [colonist('unit:2')],
       production: { ...goods('hammers', 3), max: 6 },
       upkeep: 5,
@@ -80,6 +82,7 @@ export const jamestown: ColonyView = {
       keys: ['image.buildingicon.model.building.BuildingSite'],
       site: true,
       capacity: 0,
+      builds: false,
       workers: [],
       production: null,
       upkeep: null,
@@ -120,6 +123,7 @@ export const jamestown: ColonyView = {
     buildingsTitle: 'Buildings',
     unitsTitle: 'Units',
     showAll: 'Show all',
+    compact: 'Compact view',
     queue: [
       {
         type: 'model.building.warehouse',

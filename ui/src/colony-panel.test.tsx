@@ -625,6 +625,63 @@ describe('the build queue in the colony panel', () => {
     ]);
   });
 
+  it('opens on a click on a building that can build', () => {
+    openQueue();
+    fireEvent.click(document.querySelector('.queue-close')!);
+    expect(document.querySelector('.queue-body')).toBeNull();
+    fireEvent.click(document.querySelector('[data-building="building:2"]')!);
+    expect(part('queued')).toBeTruthy();
+    cleanup();
+    openQueue();
+    fireEvent.click(document.querySelector('.queue-close')!);
+    fireEvent.click(document.querySelector('[data-building="building:1"]')!);
+    expect(document.querySelector('.queue-body')).toBeNull();
+  });
+
+  it('reorders by dragging a queued row, and inserts and removes by drag', () => {
+    const two = [...jamestown.queue.queue, { ...jamestown.queue.buildings[0], required: [goods('hammers', 64)] }];
+    openQueue(withQueue(two));
+    const row = (type: string) => part('queued').querySelector<HTMLElement>(`[data-queued="${type}"]`)!;
+    const dt = { setData: () => {}, effectAllowed: '' };
+    fireEvent.dragStart(row('model.building.stockade'), { dataTransfer: dt });
+    fireEvent.drop(row('model.building.warehouse'), { dataTransfer: dt });
+    fireEvent.dragStart(part('units').querySelector('[data-buildable="model.unit.wagonTrain"]')!, { dataTransfer: dt });
+    fireEvent.drop(row('model.building.stockade'), { dataTransfer: dt });
+    fireEvent.dragStart(row('model.building.warehouse'), { dataTransfer: dt });
+    fireEvent.drop(part('units').querySelector('ul')!, { dataTransfer: dt });
+    expect(calls).toEqual([
+      `queue colony:${n} model.building.stockade,model.building.warehouse`,
+      `queue colony:${n} model.building.warehouse,model.unit.wagonTrain,model.building.stockade`,
+      `queue colony:${n} model.building.stockade`,
+    ]);
+  });
+
+  it('selects with ctrl-click, adds with Enter and removes with Delete', () => {
+    const two = [...jamestown.queue.queue, { ...jamestown.queue.buildings[0], required: [goods('hammers', 64)] }];
+    openQueue(withQueue(two));
+    const body = document.querySelector<HTMLElement>('.queue-body')!;
+    fireEvent.click(part('buildings').querySelector('[data-buildable="model.building.stockade"] button')!, {
+      ctrlKey: true,
+    });
+    fireEvent.click(part('units').querySelector('[data-buildable="model.unit.wagonTrain"] button')!, { ctrlKey: true });
+    expect(calls).toEqual([]);
+    fireEvent.keyDown(body, { key: 'Enter' });
+    fireEvent.click(part('queued').querySelector('[data-queued="model.building.warehouse"]')!, { ctrlKey: true });
+    fireEvent.keyDown(body, { key: 'Delete' });
+    expect(calls).toEqual([
+      `queue colony:${n} model.building.warehouse,model.building.stockade,model.building.stockade,model.unit.wagonTrain`,
+      `queue colony:${n} model.building.stockade`,
+    ]);
+  });
+
+  it('lists names only in the compact view', () => {
+    openQueue();
+    expect(part('queued').textContent).toContain('80');
+    fireEvent.click(screen.getByLabelText('Compact view'));
+    expect(part('queued').textContent).not.toContain('80');
+    expect(part('queued').textContent).toContain('Warehouse');
+  });
+
   it('buys the current build, when the colony can pay', () => {
     openQueue();
     fireEvent.click(screen.getByRole('button', { name: /Buy Warehouse/ }));

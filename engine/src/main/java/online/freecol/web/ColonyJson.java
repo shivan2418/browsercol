@@ -32,7 +32,7 @@ import net.sf.freecol.common.option.GameOptions;
  * <li>id, name, at ([x, y]), ok (the close button's label);
  * <li>population: {total, rebels, royalists, bonus (PopulationPanel's
  *     labels), rebelPercent, rebelShield and royalistShield (keys)};
- * <li>buildings: {id, type, name, keys, site, capacity, workers,
+ * <li>buildings: {id, type, name, keys, site, capacity, builds (it has Ability.BUILD, so a click opens the build queue), workers,
  *     production, upkeep}, in the specification's order, without the
  *     defences and the docks, which Swing's BuildingsPanel leaves to the
  *     background; a kind not built yet is an empty plot (site true, id
@@ -154,6 +154,7 @@ final class ColonyJson {
                     .putRaw("keys", "[" + Json.quote(BUILDING_SITE) + "]")
                     .put("site", true)
                     .put("capacity", 0)
+                    .put("builds", false)
                     .putRaw("workers", "[]")
                     .putRaw("production", "null")
                     .putRaw("upkeep", "null")
@@ -168,6 +169,7 @@ final class ColonyJson {
                 .putRaw("keys", ObjectImages.json(type))
                 .put("site", false)
                 .put("capacity", b.getUnitCapacity())
+                .put("builds", type.hasAbility(Ability.BUILD))
                 .putRaw("workers", workers(colony, b))
                 .putRaw("production", buildingProduction(colony, b))
                 .putRaw("upkeep", (upkeep && type.getUpkeep() > 0)

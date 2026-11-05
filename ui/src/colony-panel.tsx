@@ -128,8 +128,14 @@ let shiftPressed = false;
 const chosen = new Map<string, string | null>();
 /** What is picked, per colony, as the panel is shown again whenever the colony changes. */
 const picks = new Map<string, Item | null>();
-/** Whether the build queue is open, and whether it shows what cannot be built, per colony. */
-const queues = new Map<string, { open: boolean; all: boolean }>();
+/** Whether the build queue is open, whether it shows what cannot be built, and whether its rows are names only, per colony. */
+type QueueState = { open: boolean; all: boolean; compact: boolean };
+const queues = new Map<string, QueueState>();
+const queueOf = (id: string): QueueState => queues.get(id) ?? { open: false, all: false, compact: false };
+/** Opens the colony's build queue: what a click on a building that can build does. */
+const OpenQueue = createContext<() => void>(() => {});
+/** What is dragged in the build queue: a queued row (by index), or buildable types from the lists. */
+let queueDrag: { from: 'queue'; index: number } | { from: 'list'; types: string[] } | null = null;
 
 function Img({
   keys,
@@ -486,6 +492,7 @@ function BuildingPlace({
   children: ReactNode;
 }) {
   const moves = useContext(ColonyActions);
+  const openQueue = useContext(OpenQueue);
   const target = useTarget('building', (item) => {
     if (item.kind === 'unit' && b.id !== null) moves?.work(item.id, b.id);
   });
@@ -494,6 +501,7 @@ function BuildingPlace({
     <div
       className="building"
       data-building={b.id}
+      data-builds={b.builds || undefined}
       data-drop={target ? '' : undefined}
       aria-label={b.name}
       style={style}
@@ -501,6 +509,11 @@ function BuildingPlace({
       onMouseLeave={() => setOver(null)}
       onMouseDown={() => setOver(null)}
       {...target}
+      onClick={(e) => {
+        target?.onClick();
+        // BuildingPanel: a building that can build opens the build queue (unless the click was on a worker).
+        if (moves && b.builds && !(e.target as HTMLElement).closest('.unit')) openQueue();
+      }}
     >
       {children}
       {over && b.tip && <BuildingTipBox b={b} tip={b.tip} art={art} at={over} />}
@@ -609,7 +622,8 @@ function Outside({ c, art }: { c: ColonyView; art: Art }) {
 }
 
 /** A buildable with its image, name and the goods it takes; a locked one says what it lacks. */
-function BuildableLabel({ b, art }: { b: Buildable; art: Art }) {
+function BuildableLabel({ b, art, compact = false }: { b: Buildable; art: Art; compact?: boolean }) {
+  if (compact) return <span className="name">{b.name}</span>;
   return (
     <>
       <Img keys={b.keys} art={art} className="buildable-icon" />
@@ -655,11 +669,17 @@ function BuildQueue({ c, art, children }: { c: ColonyView; art: Art; children: R
     e.preventDefault();
     colopedia(type);
   };
-  const [state, setState] = useState(() => queues.get(c.id) ?? { open: false, all: false });
-  const set = (s: { open: boolean; all: boolean }) => {
+  const [, redraw] = useState(0);
+  const state = queueOf(c.id);
+  const set = (s: QueueState) => {
     queues.set(c.id, s);
-    setState(s);
+    redraw((n) => n + 1);
   };
+  // Ctrl- or shift-click selects rows (queued by index, buildable by type); Enter adds the selected buildables and
+  // Delete removes the selected queued rows, as BuildQueuePanel's lists do.
+  const [selQueue, setSelQueue] = useState<number[]>([]);
+  const [selList, setSelList] = useState<string[]>([]);
+  const toggle = <T,>(xs: T[], x: T) => (xs.includes(x) ? xs.filter((y) => y !== x) : [...xs, x]);
   const q = c.queue;
   // B opens the build queue (ColonyPanel's buildQueueCmd).
   useColonyKey((key) => {
@@ -671,6 +691,19 @@ function BuildQueue({ c, art, children }: { c: ColonyView; art: Art; children: R
     const next = [...ids];
     next.splice(to, 0, ...next.splice(from, 1));
     moves.setQueue(c.id, next);
+  };
+  const multi = (e: { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }) => e.ctrlKey || e.metaKey || e.shiftKey;
+  /** Drop on a queue position: reorder a queued row, or insert buildables there. */
+  const dropAt = (at: number) => {
+    const d = queueDrag;
+    queueDrag = null;
+    if (d === null) return;
+    if (d.from === 'queue') move(d.index, d.index < at ? at - 1 : at);
+    else moves.setQueue(c.id, [...ids.slice(0, at), ...d.types, ...ids.slice(at)]);
+    setSelList([]);
+  };
+  const allowDrop = (e: DragEvent) => {
+    if (queueDrag !== null) e.preventDefault();
   };
   const lists = [
     { part: 'buildings', title: q.buildingsTitle, items: q.buildings },
@@ -699,7 +732,29 @@ function BuildQueue({ c, art, children }: { c: ColonyView; art: Art; children: R
       {state.open && (
         <>
           <div className="queue-backdrop" onClick={() => set({ ...state, open: false })} />
-          <div className="queue-body" role="dialog" aria-label={q.title}>
+          <div
+            className="queue-body"
+            role="dialog"
+            aria-label={q.title}
+            tabIndex={-1}
+            ref={(el) => {
+              if (el && !el.contains(document.activeElement)) el.focus();
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && selList.length > 0) {
+                e.preventDefault();
+                moves.setQueue(c.id, [...ids, ...selList]);
+                setSelList([]);
+              } else if (e.key === 'Delete' && selQueue.length > 0) {
+                e.preventDefault();
+                moves.setQueue(
+                  c.id,
+                  ids.filter((_, j) => !selQueue.includes(j)),
+                );
+                setSelQueue([]);
+              }
+            }}
+          >
             <button
               className="queue-close"
               aria-label="close"
@@ -709,13 +764,36 @@ function BuildQueue({ c, art, children }: { c: ColonyView; art: Art; children: R
               ✕
             </button>
             <Box caption={q.title} data-part="queued" className="queued">
-              <ol>
+              <ol
+                onDragOver={allowDrop}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  dropAt(ids.length);
+                }}
+              >
                 {q.queue.map((b, i) => (
                   <li
                     key={`${b.type}:${i}`}
                     data-queued={b.type}
                     data-locked={b.reason !== null || undefined}
                     onContextMenu={aboutIt(b.type)}
+                    data-selected={selQueue.includes(i) || undefined}
+                    draggable
+                    onDragStart={(e) => {
+                      queueDrag = { from: 'queue', index: i };
+                      e.dataTransfer.setData('text/plain', b.type);
+                      e.dataTransfer.effectAllowed = 'move';
+                    }}
+                    onDragEnd={() => (queueDrag = null)}
+                    onDragOver={allowDrop}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      dropAt(i);
+                    }}
+                    onClick={(e) => {
+                      if (multi(e)) setSelQueue(toggle(selQueue, i));
+                    }}
                   >
                     <button disabled={i === 0} aria-label="up" title="up" onClick={() => move(i, i - 1)}>
                       ↑
@@ -740,14 +818,28 @@ function BuildQueue({ c, art, children }: { c: ColonyView; art: Art; children: R
                     >
                       ✕
                     </button>
-                    <BuildableLabel b={b} art={art} />
+                    <BuildableLabel b={b} art={art} compact={state.compact} />
                   </li>
                 ))}
               </ol>
             </Box>
             {lists.map(({ part, title, items }) => (
               <Box key={part} caption={title} data-part={part} className="can-build">
-                <ul>
+                <ul
+                  onDragOver={allowDrop}
+                  onDrop={(e) => {
+                    // A queued row dropped back on a list leaves the queue.
+                    e.preventDefault();
+                    const d = queueDrag;
+                    queueDrag = null;
+                    if (d?.from === 'queue') {
+                      moves.setQueue(
+                        c.id,
+                        ids.filter((_, j) => j !== d.index),
+                      );
+                    }
+                  }}
+                >
                   {items
                     .filter((b) => state.all || b.reason === null)
                     .map((b) => (
@@ -756,13 +848,29 @@ function BuildQueue({ c, art, children }: { c: ColonyView; art: Art; children: R
                         data-buildable={b.type}
                         data-locked={b.reason !== null || undefined}
                         onContextMenu={aboutIt(b.type)}
+                        data-selected={selList.includes(b.type) || undefined}
+                        draggable={b.reason === null}
+                        onDragStart={(e) => {
+                          // Dragging one of several selected buildables takes them all.
+                          queueDrag = { from: 'list', types: selList.includes(b.type) ? selList : [b.type] };
+                          e.dataTransfer.setData('text/plain', b.type);
+                          e.dataTransfer.effectAllowed = 'copy';
+                        }}
+                        onDragEnd={() => (queueDrag = null)}
                       >
                         <button
                           disabled={b.reason !== null}
                           title={b.reason ?? b.name}
-                          onClick={() => moves.setQueue(c.id, [...ids, b.type])}
+                          onClick={(e) => {
+                            if (multi(e)) {
+                              setSelList(toggle(selList, b.type));
+                              return;
+                            }
+                            setSelList([]);
+                            moves.setQueue(c.id, [...ids, b.type]);
+                          }}
                         >
-                          <BuildableLabel b={b} art={art} />
+                          <BuildableLabel b={b} art={art} compact={state.compact} />
                         </button>
                       </li>
                     ))}
@@ -772,6 +880,14 @@ function BuildQueue({ c, art, children }: { c: ColonyView; art: Art; children: R
             <label className="show-all">
               <input type="checkbox" checked={state.all} onChange={(e) => set({ ...state, all: e.target.checked })} />
               {q.showAll}
+            </label>
+            <label className="show-all compact">
+              <input
+                type="checkbox"
+                checked={state.compact}
+                onChange={(e) => set({ ...state, compact: e.target.checked })}
+              />
+              {q.compact}
             </label>
             {q.buy && (
               <button className="buy" disabled={!q.buy.enabled} onClick={() => moves.buy(c.id)}>
@@ -817,6 +933,10 @@ export function ColonyPanel({ colony: c, art, footer }: { colony: ColonyView; ar
     chosen.set(c.id, id);
     redraw((n) => n + 1);
   };
+  const openQueue = () => {
+    queues.set(c.id, { ...queueOf(c.id), open: true });
+    redraw((n) => n + 1);
+  };
   const here = picked !== null && isHere(c, picked);
   const hand: Hand = !moves
     ? NO_HAND
@@ -834,92 +954,94 @@ export function ColonyPanel({ colony: c, art, footer }: { colony: ColonyView; ar
         }),
       };
   return (
-    <HandContext.Provider value={hand}>
-      <div className="colony">
-        <div className="cbody">
-          <div className="buildings">
-            {c.buildings.map((b, i) => {
-              const at = scatter(i, c.buildings.length);
-              return b.site ? (
-                // EmptyBuildingSite: the plot's image, nothing more.
-                <div key={b.type} className="building site" data-site={b.type} title={b.name} style={at}>
-                  <Img keys={b.keys} art={art} className="art" />
-                </div>
-              ) : (
-                <BuildingPlace key={b.type} b={b} art={art} style={at}>
-                  <span className="name">{b.name}</span>
-                  <Img keys={b.keys} art={art} className="art" />
-                  <span className="output">
-                    {b.production && <Made g={b.production} art={art} max={b.production.max} />}
-                    {b.upkeep !== null && (
-                      // BuildingPanel's UpkeepLabel: the coin, with the upkeep.
-                      <span className="upkeep" title={String(b.upkeep)}>
-                        <Img keys={[COIN]} art={art} className="icon" />
-                        {b.upkeep}
-                      </span>
-                    )}
-                  </span>
-                  <span className="workers">
-                    <Units units={b.workers} art={art} />
-                    {Array.from({ length: Math.max(0, b.capacity - b.workers.length) }, (_, i) => (
-                      <span key={i} className="slot" />
-                    ))}
-                  </span>
-                </BuildingPlace>
-              );
-            })}
-          </div>
-          <div className="upper">
-            <Part part="population">
-              <Img keys={p.rebelShield} art={art} className="shield" />
-              <span>
-                {p.rebels} <b>{`${p.rebelPercent}%`}</b>
-              </span>
-              <span>
-                {p.total} <span className="muted">{p.bonus}</span>
-              </span>
-              <span>
-                {p.royalists} <b>{`${100 - p.rebelPercent}%`}</b>
-              </span>
-              <Img keys={p.royalistShield} art={art} className="shield" />
-            </Part>
-            <Tiles c={c} art={art} />
-            <Part part="net">
-              {c.production.map((g) => (
-                <Made key={g.type} g={g} art={art} change />
-              ))}
-            </Part>
-            <BuildQueue c={c} art={art}>
-              {c.construction === null ? (
-                <span className="muted">{c.nothing}</span>
-              ) : (
-                <>
-                  <Img keys={c.construction.keys} art={art} className="buildable" />
-                  <div className="needs">
-                    <b>{c.construction.name}</b>
-                    {c.construction.turns !== null && <span className="muted">{c.construction.turns}</span>}
-                    {c.construction.required.map((r) => (
-                      <span key={r.type} className="need" data-goods={r.type} title={r.name}>
-                        <Img keys={r.keys} art={art} className="icon" />
-                        <span className="bar">
-                          <i style={{ width: `${Math.min(100, (100 * r.available) / Math.max(1, r.needed))}%` }} />
-                        </span>
-                        {/* FreeColProgressBar's text: what is there, what comes next turn, and what is needed. */}
-                        <span>{`${r.available}${r.produced < 0 ? '-' : '+'}${Math.abs(r.produced)}/${r.needed}`}</span>
-                      </span>
-                    ))}
+    <OpenQueue.Provider value={openQueue}>
+      <HandContext.Provider value={hand}>
+        <div className="colony">
+          <div className="cbody">
+            <div className="buildings">
+              {c.buildings.map((b, i) => {
+                const at = scatter(i, c.buildings.length);
+                return b.site ? (
+                  // EmptyBuildingSite: the plot's image, nothing more.
+                  <div key={b.type} className="building site" data-site={b.type} title={b.name} style={at}>
+                    <Img keys={b.keys} art={art} className="art" />
                   </div>
-                </>
-              )}
-            </BuildQueue>
-            <InPort c={c} art={art} choose={choose} />
-            {footer}
+                ) : (
+                  <BuildingPlace key={b.type} b={b} art={art} style={at}>
+                    <span className="name">{b.name}</span>
+                    <Img keys={b.keys} art={art} className="art" />
+                    <span className="output">
+                      {b.production && <Made g={b.production} art={art} max={b.production.max} />}
+                      {b.upkeep !== null && (
+                        // BuildingPanel's UpkeepLabel: the coin, with the upkeep.
+                        <span className="upkeep" title={String(b.upkeep)}>
+                          <Img keys={[COIN]} art={art} className="icon" />
+                          {b.upkeep}
+                        </span>
+                      )}
+                    </span>
+                    <span className="workers">
+                      <Units units={b.workers} art={art} />
+                      {Array.from({ length: Math.max(0, b.capacity - b.workers.length) }, (_, i) => (
+                        <span key={i} className="slot" />
+                      ))}
+                    </span>
+                  </BuildingPlace>
+                );
+              })}
+            </div>
+            <div className="upper">
+              <Part part="population">
+                <Img keys={p.rebelShield} art={art} className="shield" />
+                <span>
+                  {p.rebels} <b>{`${p.rebelPercent}%`}</b>
+                </span>
+                <span>
+                  {p.total} <span className="muted">{p.bonus}</span>
+                </span>
+                <span>
+                  {p.royalists} <b>{`${100 - p.rebelPercent}%`}</b>
+                </span>
+                <Img keys={p.royalistShield} art={art} className="shield" />
+              </Part>
+              <Tiles c={c} art={art} />
+              <Part part="net">
+                {c.production.map((g) => (
+                  <Made key={g.type} g={g} art={art} change />
+                ))}
+              </Part>
+              <BuildQueue c={c} art={art}>
+                {c.construction === null ? (
+                  <span className="muted">{c.nothing}</span>
+                ) : (
+                  <>
+                    <Img keys={c.construction.keys} art={art} className="buildable" />
+                    <div className="needs">
+                      <b>{c.construction.name}</b>
+                      {c.construction.turns !== null && <span className="muted">{c.construction.turns}</span>}
+                      {c.construction.required.map((r) => (
+                        <span key={r.type} className="need" data-goods={r.type} title={r.name}>
+                          <Img keys={r.keys} art={art} className="icon" />
+                          <span className="bar">
+                            <i style={{ width: `${Math.min(100, (100 * r.available) / Math.max(1, r.needed))}%` }} />
+                          </span>
+                          {/* FreeColProgressBar's text: what is there, what comes next turn, and what is needed. */}
+                          <span>{`${r.available}${r.produced < 0 ? '-' : '+'}${Math.abs(r.produced)}/${r.needed}`}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </BuildQueue>
+              <InPort c={c} art={art} choose={choose} />
+              {footer}
+            </div>
+            <Outside c={c} art={art} />
+            <Cargo c={c} art={art} />
+            <Warehouse c={c} art={art} />
           </div>
-          <Outside c={c} art={art} />
-          <Cargo c={c} art={art} />
-          <Warehouse c={c} art={art} />
         </div>
-      </div>
-    </HandContext.Provider>
+      </HandContext.Provider>
+    </OpenQueue.Provider>
   );
 }

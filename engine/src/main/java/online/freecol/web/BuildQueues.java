@@ -133,6 +133,30 @@ final class BuildQueues {
     }
 
     /**
+     * The queue without what the edit locks, as BuildQueuePanel.updateAllLists
+     * does: a buildable the colony already queues, and could build after what
+     * was ahead of it, but cannot after this queue (a Fort once its Stockade
+     * is taken out). Everything else is kept, for {@link #problem} to judge.
+     *
+     * @param colony The colony.
+     * @param queue The queue wanted.
+     * @return The queue wanted, less the buildables that depended on what it removes.
+     */
+    static List<BuildableType> pruned(Colony colony, List<BuildableType> queue) {
+        final List<BuildableType> have = colony.getBuildQueue();
+        final List<BuildableType> kept = new ArrayList<>();
+        for (BuildableType type : queue) {
+            final int was = have.indexOf(type);
+            if (was >= 0 && !reasons(colony, type, kept, null).isEmpty()
+                && reasons(colony, type, have.subList(0, was), null).isEmpty()) {
+                continue;
+            }
+            kept.add(type);
+        }
+        return kept;
+    }
+
+    /**
      * Why a queue cannot be set, or null if it can: a buildable twice (a
      * unit may be queued more than once), or one added to the queue that
      * the colony could not build after those ahead of it. Buildables the
@@ -167,7 +191,7 @@ final class BuildQueues {
 
     /**
      * The build queue for the colony panel: {title, buildingsTitle,
-     * unitsTitle, showAll (BuildQueuePanel's labels), queue: [entry], buildings:
+     * unitsTitle, showAll, compact (BuildQueuePanel's labels), queue: [entry], buildings:
      * [entry], units: [entry], buy}. An entry is {type, name, keys,
      * required: [{type, name, keys, amount}], reason}, reason being
      * BuildQueuePanel's "Requires: ..." text or null; buildings and units
@@ -214,6 +238,7 @@ final class BuildQueues {
             .put("buildingsTitle", Messages.message("buildQueuePanel.buildings"))
             .put("unitsTitle", Messages.message("buildQueuePanel.units"))
             .put("showAll", Messages.message("buildQueuePanel.showAll"))
+            .put("compact", Messages.message("buildQueuePanel.compactView"))
             .putRaw("queue", Json.array(queued))
             .putRaw("buildings", Json.array(buildings))
             .putRaw("units", Json.array(units))

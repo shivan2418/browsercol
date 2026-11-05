@@ -990,7 +990,8 @@ public final class Commands {
     /**
      * Set a colony's build queue, as the build queue panel's OK does. A
      * queue with something the colony cannot build there is explained and
-     * not set.
+     * not set, but what depended on a buildable the queue drops is dropped
+     * with it.
      *
      * @param colonyId The id of one of our colonies.
      * @param typeIds The ids of the buildings and units to build, in order.
@@ -999,12 +1000,14 @@ public final class Commands {
     public boolean setBuildQueue(String colonyId, List<String> typeIds) {
         final Colony colony = object(colonyId, Colony.class);
         if (colony == null || !this.client.getMyPlayer().owns(colony)) return false;
-        final List<BuildableType> queue = new ArrayList<>();
+        final List<BuildableType> wanted = new ArrayList<>();
         for (String id : typeIds) {
             final Object type = this.client.getGame().getSpecification().getType(id);
             if (!(type instanceof BuildableType)) return false;
-            queue.add((BuildableType)type);
+            wanted.add((BuildableType)type);
         }
+        // Taking out a prerequisite takes out what depended on it, as Swing's panel does.
+        final List<BuildableType> queue = BuildQueues.pruned(colony, wanted);
         final String problem = BuildQueues.problem(colony, queue);
         if (problem != null) {
             gui().showInformationPanel(null, StringTemplate.name(problem));

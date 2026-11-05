@@ -72,7 +72,7 @@ const enterMark = (on: boolean) => (on ? { 'data-enter': '' } : {});
 /**
  * Answer Enter while the dialog is open, before anything else on the page
  * sees it; with no action it is still kept from the page. Enter on a button
- * of the dialog is left to the button, as in Swing. Escape is the frame's.
+ * of the dialog is left to the button, as in Swing, and so is Enter in the build queue (it adds what is selected). Escape is the frame's.
  */
 function useEnter(enter: (() => void) | null) {
   const act = useRef(enter);
@@ -80,7 +80,7 @@ function useEnter(enter: (() => void) | null) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target instanceof Element ? e.target : null;
-      if (e.key !== 'Enter' || target?.matches('[role=dialog] button')) return;
+      if (e.key !== 'Enter' || target?.closest('[role=dialog] button, .queue-body')) return;
       e.preventDefault();
       e.stopPropagation();
       act.current?.();
