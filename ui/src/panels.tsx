@@ -942,19 +942,20 @@ function RouteEditor({
     ev.currentTarget.classList.add(OVER);
   };
   const leave = (ev: ReactDragEvent) => ev.currentTarget.classList.remove(OVER);
-  // A goods type the first selected stop loads is taken off every selected stop, else loaded at each.
-  const toggle = (goods: string) => {
-    if (stop === undefined) return;
-    const off = stop.cargo.includes(goods);
+  // As Swing's, each press loads another hold of the goods type at every selected stop; a held one is taken off one copy at a time.
+  const load = (goods: string) =>
+    setDraft({
+      ...draft,
+      stops: draft.stops.map((s, i) => (sel.includes(i) ? { ...s, cargo: [...s.cargo, goods] } : s)),
+    });
+  const unload = (goods: string) =>
     setDraft({
       ...draft,
       stops: draft.stops.map((s, i) => {
-        if (!sel.includes(i)) return s;
-        if (off) return { ...s, cargo: s.cargo.filter((g) => g !== goods) };
-        return s.cargo.includes(goods) ? s : { ...s, cargo: [...s.cargo, goods] };
+        const at = s.cargo.indexOf(goods);
+        return sel.includes(i) && at >= 0 ? { ...s, cargo: s.cargo.filter((_, k) => k !== at) } : s;
       }),
     });
-  };
   const goodsName = (id: string) => e.goods.find((g) => g.id === id);
   return (
     <>
@@ -975,7 +976,16 @@ function RouteEditor({
         />{' '}
         {e.silence}
       </label>
-      <div className="stops" onDragOver={over} onDragLeave={leave} onDrop={(ev) => drop(null, ev)}>
+      <div
+        className="stops"
+        onKeyDown={(ev) => {
+          // As Swing's keyTyped: Delete removes the selected stops.
+          if (ev.key === 'Delete') remove();
+        }}
+        onDragOver={over}
+        onDragLeave={leave}
+        onDrop={(ev) => drop(null, ev)}
+      >
         {draft.stops.map((s, i) => (
           <button
             key={i}
@@ -990,8 +1000,8 @@ function RouteEditor({
             onDrop={(ev) => drop(i, ev)}
           >
             <span className="name">{s.label}</span>
-            {s.cargo.map((g) => (
-              <span key={g} className="cargo">
+            {s.cargo.map((g, k) => (
+              <span key={k} className="cargo">
                 <Pic keys={[goodsName(g)?.icon ?? g]} art={art} className="pic small" />
                 {goodsName(g)?.name ?? g}
               </span>
@@ -1011,7 +1021,7 @@ function RouteEditor({
             ))}
           </select>
         </label>
-        <button data-answer="addStop" onClick={add}>
+        <button data-answer="addStop" disabled={draft.stops.length >= e.places.length} onClick={add}>
           {e.addStop}
         </button>
         <button data-answer="removeStop" disabled={sel.length === 0} onClick={remove}>
@@ -1020,15 +1030,17 @@ function RouteEditor({
       </div>
       <div className="goods">
         {e.goods.map((g) => (
-          <button
-            key={g.id}
-            data-goods={g.id}
-            disabled={stop === undefined}
-            aria-pressed={stop?.cargo.includes(g.id) ?? false}
-            onClick={() => toggle(g.id)}
-          >
+          <button key={g.id} data-goods={g.id} disabled={stop === undefined} onClick={() => load(g.id)}>
             <Pic keys={[g.icon]} art={art} className="pic small" />
             {g.name}
+          </button>
+        ))}
+      </div>
+      <div className="held">
+        {(stop?.cargo ?? []).map((g, k) => (
+          <button key={k} data-held={g} aria-label={`× ${goodsName(g)?.name ?? g}`} onClick={() => unload(g)}>
+            <Pic keys={[goodsName(g)?.icon ?? g]} art={art} className="pic small" />
+            {goodsName(g)?.name ?? g}
           </button>
         ))}
       </div>
@@ -1088,6 +1100,11 @@ function RoutesPanel({ d, art, routes }: { d: Of<'tradeRoutes'>; art: Art; route
   }
   return (
     <Win d={d} title={e.title} close={close}>
+      {e.unit?.location != null && (
+        <p className="text unit">
+          <Pic keys={e.unit.images} art={art} className="pic small" /> {e.unit.name} {e.unit.location}
+        </p>
+      )}
       <div className="routes">
         {e.routes.map((r) => (
           <button key={r.id} data-route={r.id} aria-pressed={r.id === picked} onClick={() => setPicked(r.id)}>
@@ -1096,7 +1113,7 @@ function RoutesPanel({ d, art, routes }: { d: Of<'tradeRoutes'>; art: Art; route
         ))}
       </div>
       <div className="buttons">
-        <button data-answer="new" onClick={() => setEditing(blank)}>
+        <button data-answer="new" title={e.tooltips.new} onClick={() => setEditing(blank)}>
           {e.newRoute}
         </button>
         {e.unit && (
@@ -1110,6 +1127,7 @@ function RoutesPanel({ d, art, routes }: { d: Of<'tradeRoutes'>; art: Art; route
             </button>
             <button
               data-answer="unassign"
+              title={e.tooltips.deassign}
               disabled={e.unit.route === null}
               onClick={() => e.unit && routes.assign(e.unit.id, null)}
             >
@@ -1117,10 +1135,20 @@ function RoutesPanel({ d, art, routes }: { d: Of<'tradeRoutes'>; art: Art; route
             </button>
           </>
         )}
-        <button data-answer="edit" disabled={!route} onClick={() => route && setEditing(edit(route))}>
+        <button
+          data-answer="edit"
+          title={e.tooltips.edit}
+          disabled={!route}
+          onClick={() => route && setEditing(edit(route))}
+        >
           {e.editRoute}
         </button>
-        <button data-answer="delete" disabled={!route} onClick={() => route && routes.remove(route.id)}>
+        <button
+          data-answer="delete"
+          title={e.tooltips.delete}
+          disabled={!route}
+          onClick={() => route && routes.remove(route.id)}
+        >
           {e.deleteRoute}
         </button>
         <button data-answer="close" data-enter="" onClick={close}>

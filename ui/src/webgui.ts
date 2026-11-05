@@ -153,8 +153,13 @@ export interface GuiEvents {
   tradeRoutes: {
     title: string;
     routes: TradeRoute[];
-    /** The unit the panel was opened for, to assign a route to: its id, name and route (an id), or null. */
-    unit: { id: Id; name: string; route: Id | null } | null;
+    /**
+     * The unit the panel was opened for, to assign a route to: its id, name, art keys, route (an id) and where it is
+     * (its location label, or null when it is nowhere, as TradeRoutePanel then shows no unit), or null.
+     */
+    unit: { id: Id; name: string; images: string[]; location: string | null; route: Id | null } | null;
+    /** The tooltips of the route buttons: new, edit, delete and deassign. */
+    tooltips: { new: string; edit: string; delete: string; deassign: string };
     assign: string;
     unassign: string;
     places: { id: Id; label: string }[];
