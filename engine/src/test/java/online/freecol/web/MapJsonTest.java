@@ -121,6 +121,8 @@ class MapJsonTest {
         final int w = map.getWidth(), h = map.getHeight();
         assertEquals(String.valueOf(w), field(json, "w"));
         assertEquals(String.valueOf(h), field(json, "h"));
+        assertEquals("true", field(json, "colonial"), "a colonial player");
+        assertEquals("true", field(json, "europe"), "with a Europe");
 
         // One character per tile: '.' unexplored, else the type's index;
         // seen is '1' where we can see the tile now.

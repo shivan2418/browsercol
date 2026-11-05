@@ -14,6 +14,10 @@ export interface MenuActions {
   /** The orders the active unit can take now, as the Engine names them. */
   orders: string[];
   hasActiveUnit: boolean;
+  /** DeclareIndependenceAction: the player is colonial and it is their turn. */
+  canDeclare: boolean;
+  /** EuropeAction: the player has a Europe, which independence takes away. */
+  hasEurope: boolean;
   run: (c: Command) => void;
   /** Back to the start screen. */
   newGame: () => void;
@@ -74,7 +78,7 @@ export function gameMenu(a: MenuActions): Items {
     { label: 'Preferences', run: a.preferences },
     later('Reconnect'),
     cmd('End Turn', { k: 'endTurn' }),
-    cmd('Declare Independence', { k: 'declareIndependence' }),
+    { ...cmd('Declare Independence', { k: 'declareIndependence' }), disabled: !a.ready || !a.canDeclare },
     { label: 'Return to Main', run: a.returnToMain },
     cmd('High Scores', { k: 'showHighScores' }),
     cmd('Retire', { k: 'retire' }),
@@ -123,7 +127,7 @@ export function viewMenu(a: MenuActions): Items {
     { label: 'Zoom In', run: () => a.zoom(1) },
     { label: 'Zoom Out', run: () => a.zoom(-1) },
     { label: 'Center on Active Unit', run: a.centreOnUnit, disabled: !a.hasActiveUnit },
-    { label: 'Europe', run: () => a.run({ k: 'showEurope' }), disabled: !a.ready },
+    { label: 'Europe', run: () => a.run({ k: 'showEurope' }), disabled: !a.ready || !a.hasEurope },
     { label: 'Find Settlement', run: () => a.run({ k: 'findSettlement' }), disabled: !a.ready, hint: 'Ctrl+F' },
     { label: 'Show Map Grid', run: () => a.toggleMode('grid'), checked: a.modes.grid },
     { label: 'Show Borders', run: () => a.toggleMode('borders'), checked: a.modes.borders },

@@ -17,6 +17,8 @@ const map: MapView = {
   nation: 'model.nation.dutch',
   statusLine: 'Score: 0    ✧    Gold: 1000    ✧    Tax: 0%    ✧    Year: Spring 1492',
   ourTurn: true,
+  colonial: true,
+  europe: true,
   types: [
     { id: 'model.tile.plains', land: true, forested: false, name: 'Plains' },
     { id: 'model.tile.ocean', land: false, forested: false, name: 'Ocean' },

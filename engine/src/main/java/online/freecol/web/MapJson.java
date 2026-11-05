@@ -39,7 +39,10 @@ import net.sf.freecol.common.util.Utils;
  * Browser UI takes the first its Tileset has. Fields:
  * <ul>
  * <li>w, h, turn, turnLabel (the season and year, e.g. Spring 1493),
- *     ourTurn, nation, statusLine, nation being the id of
+ *     ourTurn, colonial, europe, nation, statusLine, colonial being whether
+ *     the player is still a colonial power (DeclareIndependenceAction is
+ *     enabled only then), europe whether the player has a Europe
+ *     (EuropeAction is enabled only then), nation being the id of
  *     the player's nation (e.g. model.nation.dutch) and the last being
  *     FreeCol's status line, as InGameMenuBar paints it: the score, gold,
  *     tax and year;
@@ -166,6 +169,8 @@ final class MapJson {
             .put("turnLabel", Messages.message(game.getTurn().getLabel()))
             .put("ourTurn", player == game.getCurrentPlayer())
             .put("nation", player.getNationId())
+            .put("colonial", player.getPlayerType() == Player.PlayerType.COLONIAL)
+            .put("europe", player.getEurope() != null)
             .put("statusLine", statusLine(game, player))
             .putRaw("types", Json.array(typeJson))
             .put("tiles", tiles.toString())
