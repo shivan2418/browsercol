@@ -36,6 +36,7 @@ import { CreditsDialog } from './credits';
 import { debugMenu, gameMenu, ordersMenu, reportOptionsMenu, viewMenu, type MenuActions } from './menus';
 import { commandForKey, type Command } from './input';
 import { PreferencesDialog } from './prefs-dialog';
+import { OpenDialog, SaveDialog } from './save-picker';
 import {
   blinkMs,
   fromEngine,
@@ -299,6 +300,30 @@ const reportActions: ReportActions = {
 /** The player's preferences, and whether their window is open. */
 let prefs: Prefs = prefsAtLoad;
 let prefsOpen = false;
+/** The save dialog, if open: Game > Save, or Game > Save and Exit, which goes back to the start screen once saved. */
+let saveDialog: 'save' | 'saveAndExit' | null = null;
+/** Whether the Open window (a save picker) is open. */
+let openOpen = false;
+/** The page is waiting for a save to finish before it goes back to the main title. */
+let exitAfterSave = false;
+/** FreeCol's isPanelShowing: a window is open over the map. */
+const panelShowing = () =>
+  dialogQueue.current() !== null || prefsOpen || creditsOpen || openOpen || saveDialog !== null;
+/** FreeCol's mainTitle: a new page shows the start screen, which offers to continue the last save. */
+function returnToMain() {
+  autosaveSoon = () => {}; // the game is left as it is; the save the player made stays
+  const next = new URLSearchParams();
+  // The dev server resumes the autosave by itself; asking for ?new shows the start screen.
+  next.set('new', '');
+  if (tileset) next.set('tileset', tileset);
+  location.search = next.toString();
+}
+/** Open a saved game: a new page, with a new client Engine, is the cleanest way to a loaded game. */
+function openSave(id: number) {
+  const next = new URLSearchParams({ load: String(id) });
+  if (tileset) next.set('tileset', tileset);
+  location.search = next.toString();
+}
 /** Whether the credits window (credits.tsx) is open. */
 let creditsOpen = false;
 /** FreeCol's music and sound effects, served under audio/ (build-audio.mjs); null if the manifest is missing. */
@@ -487,8 +512,21 @@ const menuActions = (): MenuActions => ({
     if (tileset) next.set('tileset', tileset);
     location.search = next.toString();
   },
-  save: () => saveGame(''),
-  open: () => document.getElementById('saves')?.scrollIntoView({ block: 'nearest' }),
+  // FreeCol's SaveAction asks for the name in a dialog, and is disabled while a panel is showing.
+  save: () => {
+    saveDialog = 'save';
+    renderSide();
+  },
+  saveAndExit: () => {
+    saveDialog = 'saveAndExit';
+    renderSide();
+  },
+  returnToMain: returnToMain,
+  panelShowing: panelShowing(),
+  open: () => {
+    openOpen = true;
+    renderSide();
+  },
   preferences: () => {
     prefsOpen = true;
     renderSide();
@@ -625,6 +663,8 @@ const contextMenus: ContextMenus = {
   show: (menu, x, y) => showPopup({ menu, x, y }),
 };
 document.addEventListener('fullscreenchange', () => renderSide());
+// The menus' Save entries depend on whether a window is open.
+dialogQueue.subscribe(() => renderSide());
 const sideRoot = createRoot(document.getElementById('side')!);
 /** The active unit's order buttons over the map (map-orders.tsx). */
 const ordersHost = document.createElement('div');
@@ -648,13 +688,7 @@ function renderSide() {
         }
         run={(c) => runCommand(c)}
         save={(name) => saveGame(name)}
-        load={(id) => {
-          // A new page, with a new client Engine, is the cleanest way to a loaded game.
-          const next = new URLSearchParams({ load: String(id) });
-          const tileset = params.get('tileset');
-          if (tileset) next.set('tileset', tileset);
-          location.search = next.toString();
-        }}
+        load={openSave}
         remove={(id) => {
           side.saveNote = 'Deleting...';
           renderSide();
@@ -726,6 +760,30 @@ function renderSide() {
               change={setPrefs}
               close={() => {
                 prefsOpen = false;
+                renderSide();
+              }}
+            />
+          )}
+          {openOpen && (
+            <OpenDialog
+              saves={side.saves}
+              open={openSave}
+              close={() => {
+                openOpen = false;
+                renderSide();
+              }}
+            />
+          )}
+          {saveDialog && (
+            <SaveDialog
+              title={saveDialog === 'saveAndExit' ? 'Save and Exit' : 'Save Game'}
+              save={(name) => {
+                exitAfterSave = saveDialog === 'saveAndExit';
+                saveDialog = null;
+                saveGame(name);
+              }}
+              close={() => {
+                saveDialog = null;
                 renderSide();
               }}
             />
@@ -1078,7 +1136,9 @@ async function fetchPreset(name: string): Promise<string> {
 }
 
 /** The start screen, until the player starts the game: resolves to the preset JSON the choice makes. */
-function chooseGame(data: string[]): Promise<string> {
+async function chooseGame(data: string[]): Promise<string> {
+  // FreeCol's main panel offers Continue Playing and Open: the saves in the store, newest first.
+  const saves = await store.list().catch(() => []);
   const host = document.createElement('div');
   document.body.append(host);
   const root = createRoot(host);
@@ -1088,6 +1148,15 @@ function chooseGame(data: string[]): Promise<string> {
     root.render(
       <StartScreen
         options={startOptions(data, rules)}
+        rules={rules}
+        changeRules={(id) => {
+          // The ruleset's nations and options differ: a new page, with the start screen of the other rules.
+          const next = new URLSearchParams(location.search);
+          next.set('rules', id);
+          location.search = next.toString();
+        }}
+        saves={saves}
+        open={openSave}
         start={(c) => {
           root.unmount();
           host.remove();
@@ -1224,6 +1293,7 @@ async function run() {
           return show('failed', { error: detail });
         case 'saved': {
           const meta = JSON.parse(detail) as SaveMeta;
+          if (exitAfterSave && !isAutosave(meta)) return returnToMain();
           if (isAutosave(meta)) {
             // One slot: the new autosave replaces the old ones, quietly.
             return void dropOlderAutosaves(store, meta).catch(console.warn).finally(listSaves);
@@ -1239,6 +1309,7 @@ async function run() {
           return listSaves();
         }
         case 'saveFailed':
+          exitAfterSave = false; // a game that did not save is not left
           side.saveNote = `Save failed: ${detail}`;
           return renderSide();
         case 'loadFailed':

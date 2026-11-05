@@ -12,6 +12,9 @@ function actions(over: Partial<MenuActions> = {}) {
     run: (c: Command) => log.push(c.k),
     newGame: () => log.push('newGame'),
     save: () => log.push('save'),
+    saveAndExit: () => log.push('saveAndExit'),
+    returnToMain: () => log.push('returnToMain'),
+    panelShowing: false,
     open: () => log.push('open'),
     zoom: (n) => log.push(`zoom ${n}`),
     centreOnUnit: () => log.push('centre'),
@@ -45,8 +48,10 @@ describe('the Game menu', () => {
       'Reconnect',
       'End Turn',
       'Declare Independence',
+      'Return to Main',
       'High Scores',
       'Retire',
+      'Save and Exit',
       'Quit',
     ]);
   });
@@ -64,6 +69,21 @@ describe('the Game menu', () => {
     expect(find(items, 'End Turn').disabled).toBe(true);
     expect(find(items, 'Save').disabled).toBe(true);
     expect(find(items, 'New').disabled).toBeFalsy();
+  });
+
+  it('returns to the main title, and saves and exits', () => {
+    const { a, log } = actions();
+    const items = gameMenu(a);
+    find(items, 'Return to Main').run();
+    find(items, 'Save and Exit').run();
+    expect(log).toEqual(['returnToMain', 'saveAndExit']);
+  });
+
+  it('disables Save and Save and Exit while a window is open, as FreeCol does for a panel', () => {
+    const items = gameMenu(actions({ panelShowing: true }).a);
+    expect(find(items, 'Save').disabled).toBe(true);
+    expect(find(items, 'Save and Exit').disabled).toBe(true);
+    expect(find(items, 'Return to Main').disabled).toBeFalsy();
   });
 });
 
