@@ -82,7 +82,7 @@ class FatherMilitaryTest {
             });
         server.startGame("classic");
         assertTrue(client.startGame(0), "login");
-        assertTrue(finished.await(120, TimeUnit.SECONDS), "our first turn");
+        FirstTurn.await(finished);
     }
 
     @AfterEach

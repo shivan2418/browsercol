@@ -134,7 +134,7 @@ class MenuEntriesTest {
             });
         server.startGame("classic");
         assertTrue(client.startGame(0), "login");
-        ourTurn.await();
+        FirstTurn.await(ourTurn);
     }
 
     private Player me() {

@@ -67,7 +67,7 @@ class SplitGameTest {
         server.startGame("classic");
         assertTrue(client[0].startGame(rounds), "login");
 
-        finished.await();
+        FirstTurn.await(finished);
 
         assertNotNull(started.get(), "client saw the game start");
         assertEquals(rounds, roundTimes.size());

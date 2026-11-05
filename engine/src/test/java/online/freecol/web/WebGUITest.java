@@ -138,7 +138,7 @@ class WebGUITest {
         this.server.startGame("classic");
         if (this.playerName != null) client[0].setClientOption(ClientOptions.NAME, this.playerName);
         assertTrue(client[0].startGame(0), "login");
-        ourTurn.await();
+        FirstTurn.await(ourTurn);
         return client[0];
     }
 

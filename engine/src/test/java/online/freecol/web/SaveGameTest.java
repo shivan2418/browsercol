@@ -86,7 +86,7 @@ class SaveGameTest {
                 }
             });
         assertTrue(client[0].startGame(rounds, name), "login");
-        finished.await();
+        FirstTurn.await(finished);
         return new Session(server, client[0]);
     }
 

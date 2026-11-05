@@ -98,7 +98,7 @@ class IndependenceTest {
             });
         server.startGame("classic", GamePreset.parse(presetJson));
         assertTrue(client.startGame(0), "login");
-        assertTrue(ourTurn.await(120, TimeUnit.SECONDS), "our first turn");
+        FirstTurn.await(ourTurn);
     }
 
     /**

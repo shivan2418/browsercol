@@ -59,7 +59,7 @@ class ScenarioTest {
             });
         server.startGame("classic", GamePreset.parse(presetJson));
         assertTrue(client.startGame(0), "login");
-        assertTrue(finished.await(120, TimeUnit.SECONDS), "our first turn");
+        FirstTurn.await(finished);
     }
 
     private static void eventually(String what, BooleanSupplier ok) throws InterruptedException {

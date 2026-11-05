@@ -261,7 +261,7 @@ class CommandsTest {
         server.startGame("classic", new GamePreset(null, null, null,
             seed, new java.util.LinkedHashMap<>()));
         assertTrue(client.startGame(0), "login");
-        ourTurn.await();
+        FirstTurn.await(ourTurn);
     }
 
     /**

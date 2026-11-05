@@ -94,7 +94,7 @@ class FatherReligiousTest {
             });
         server.startGame("classic");
         assertTrue(client.startGame(0), "login");
-        assertTrue(ourTurn.await(120, TimeUnit.SECONDS), "our first turn");
+        FirstTurn.await(ourTurn);
     }
 
     @AfterEach
