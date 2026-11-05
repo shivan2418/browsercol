@@ -258,6 +258,7 @@ describe('moving colonists in the colony panel', () => {
     close: (c) => calls.push(`close ${c}`),
     board: (u, s) => calls.push(`board ${u} ${s}`),
     leaveShip: (u) => calls.push(`leave ${u}`),
+    equip: (u, g) => calls.push(`equip ${u} ${g}`),
     load: (s, g, a) => calls.push(`load ${s} ${g}${a ? ' ask' : ''}`),
     unload: (s, g, n, a) => calls.push(`unload ${s} ${g} ${n}${a ? ' ask' : ''}`),
   };
@@ -371,6 +372,7 @@ describe('loading a ship in port in the colony panel', () => {
     close: () => {},
     board: (u, s) => calls.push(`board ${u} ${s}`),
     leaveShip: (u) => calls.push(`leave ${u}`),
+    equip: (u, g) => calls.push(`equip ${u} ${g}`),
     load: (s, g, a) => calls.push(`load ${s} ${g}${a ? ' ask' : ''}`),
     unload: (s, g, n, a) => calls.push(`unload ${s} ${g} ${n}${a ? ' ask' : ''}`),
   };
@@ -415,6 +417,31 @@ describe('loading a ship in port in the colony panel', () => {
     fireEvent.drop(onto, { dataTransfer });
     fireEvent.dragEnd(what, { dataTransfer });
   };
+
+  it('equips a colonist when goods of the warehouse are dropped on it', () => {
+    openPort();
+    drag(stored('lumber'), unit('unit:3'));
+    expect(calls).toEqual(['equip unit:3 model.goods.lumber']);
+  });
+
+  it('shows the occupation chip and the red repair status of units outside and ships in port', () => {
+    openPort({
+      outside: { title: 'Outside', units: [{ ...colonist('unit:3'), occupation: 'F', occupationFull: 'Fortified' }] },
+      inPort: {
+        ...port,
+        units: [{ ...caravel, occupation: 'R', occupationFull: 'Under repair', repair: 'Repair(3)' }],
+      },
+    });
+    expect(unit('unit:3').querySelector('.chip')?.textContent).toBe('F');
+    expect(unit('unit:3').querySelector('.chip')?.getAttribute('title')).toBe('Fortified');
+    expect(unit('unit:9').querySelector('.chip')?.textContent).toBe('R');
+    expect(unit('unit:9').querySelector('.repair')?.textContent).toBe('Repair(3)');
+  });
+
+  it('puts the unit and liberty figures of RebelToolTip on the population row', () => {
+    openPort();
+    expect(part('population').getAttribute('title')).toContain('Turns to increase rebels: N/A');
+  });
 
   it('puts a unit beside the colony aboard the ship chosen, and takes one off it', () => {
     openPort();
@@ -523,6 +550,7 @@ describe('the build queue in the colony panel', () => {
     close: (c) => calls.push(`close ${c}`),
     board: () => {},
     leaveShip: () => {},
+    equip: () => {},
     load: () => {},
     unload: () => {},
   };

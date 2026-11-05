@@ -1246,6 +1246,34 @@
       .colony .unit {
         height: 48px;
       }
+      /* UnitLabel's occupation chip over a unit outside the colony or in port, and a damaged unit's repair status. */
+      .colony .chip {
+        position: absolute;
+        left: 2px;
+        top: 2px;
+        min-width: 14px;
+        padding: 0 3px;
+        border-radius: 7px;
+        background: var(--ink);
+        color: var(--btn-ink);
+        font-size: 10px;
+        line-height: 14px;
+        text-align: center;
+      }
+      .colony .repair {
+        position: absolute;
+        left: 2px;
+        bottom: 2px;
+        color: var(--bad);
+        font-size: 10px;
+        line-height: 11px;
+        max-width: 100%;
+        overflow: hidden;
+      }
+      .colony .outside [data-unit],
+      .colony .port .ship {
+        position: relative;
+      }
       .colony .population {
         width: 100%;
         box-sizing: border-box;

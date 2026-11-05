@@ -20,10 +20,12 @@ export type Item =
   | { kind: 'goods'; from: GoodsFrom; type: string; index?: number; amount?: number; ask?: boolean };
 
 /** The places a thing can be dropped on. */
-export type Place = 'tile' | 'building' | 'outside' | 'cargo' | 'warehouse' | 'market' | 'sailing' | 'docks';
+export type Place = 'unit' | 'tile' | 'building' | 'outside' | 'cargo' | 'warehouse' | 'market' | 'sailing' | 'docks';
 
 /** What each place takes: a unit, and the goods it takes and where they come from. */
 const takes: Record<Place, { unit: boolean; from: readonly GoodsFrom[] }> = {
+  // A colonist takes the warehouse's goods it can be equipped with.
+  unit: { unit: false, from: ['warehouse'] },
   tile: { unit: true, from: [] },
   building: { unit: true, from: [] },
   outside: { unit: true, from: [] },

@@ -94,6 +94,7 @@ function fakeClient(scope: Scope, log: string[]): ClientExports {
     buyGoods: () => {},
     sellGoods: () => {},
     leaveShip: () => {},
+    equipUnit: () => {},
     loadGoods: () => {},
     unloadGoods: () => {},
     sailToNewWorld: () => {},

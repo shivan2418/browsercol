@@ -8,6 +8,7 @@ import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.client.control.InGameController;
 import net.sf.freecol.client.gui.GUI;
 import net.sf.freecol.common.i18n.Messages;
+import net.sf.freecol.common.model.AbstractGoods;
 import net.sf.freecol.common.model.Ability;
 import net.sf.freecol.common.model.BuildableType;
 import net.sf.freecol.common.model.Colony;
@@ -25,6 +26,7 @@ import net.sf.freecol.common.model.UnitLocation.NoAddReason;
 import net.sf.freecol.common.model.WorkLocation;
 import net.sf.freecol.common.model.PathNode;
 import net.sf.freecol.common.model.Player;
+import net.sf.freecol.common.model.Role;
 import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.TileImprovementType;
 import net.sf.freecol.common.model.TradeRoute;
@@ -48,6 +50,14 @@ public final class Commands {
 
     private InGameController igc() {
         return this.client.getInGameController();
+    }
+
+    /**
+     * Called when a command is done: the colony panels that are open move
+     * workers off work that no longer produces (ColonyPanel.updateProduction).
+     */
+    void afterCommand() {
+        if (gui() instanceof WebGUI) ((WebGUI)gui()).settleColonies();
     }
 
     private GUI gui() {
@@ -955,6 +965,42 @@ public final class Commands {
             .addStringTemplate("%unit%", unit.getLabel(Unit.UnitLabelType.NATIONAL))
             .addNamed("%goods%", workType)
             .addStringTemplate("%tile%", best.getLabel()));
+    }
+
+    /**
+     * Equip a colonist of the colony with the role the goods dropped on it
+     * give, as dropping goods of the warehouse on its label does
+     * (DefaultTransferHandler.equipUnitIfPossible): the first role it can
+     * take whose only requirement is these goods, as many times as the
+     * warehouse's stock allows. Missionaries are not equipped.
+     *
+     * @param unitId The id of one of our units in the colony or beside it.
+     * @param goodsTypeId The id of the goods type dropped.
+     * @return True if the unit was equipped.
+     */
+    public boolean equip(String unitId, String goodsTypeId) {
+        final Unit unit = object(unitId, Unit.class);
+        final Player player = this.client.getMyPlayer();
+        if (unit == null || !player.owns(unit)) return false;
+        final Colony colony = unit.getColony() != null ? unit.getColony()
+            : (unit.getTile() == null) ? null : unit.getTile().getColony();
+        final GoodsType type = this.client.getGame().getSpecification().getGoodsType(goodsTypeId);
+        if (colony == null || type == null || !player.owns(colony)) return false;
+        if (!unit.hasAbility(Ability.CAN_BE_EQUIPPED)
+            || unit.getRole().hasAbility(Ability.ESTABLISH_MISSION)) return false;
+        final int stock = colony.getGoodsCount(type);
+        for (Role role : (Iterable<Role>)unit.getAvailableRoles(null)::iterator) {
+            if (role.isDefaultRole()) continue;
+            final List<AbstractGoods> required = unit.getGoodsDifference(role, 1);
+            int count;
+            if (required.size() == 1 && required.get(0).getType() == type
+                && (count = Math.min(role.getMaximumCount(),
+                        stock / required.get(0).getAmount())) > 0
+                && (role != unit.getRole() || count != unit.getRoleCount())) {
+                return igc().equipUnitForRole(unit, role, count);
+            }
+        }
+        return false;
     }
 
     /**

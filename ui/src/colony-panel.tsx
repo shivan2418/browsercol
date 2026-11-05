@@ -87,6 +87,8 @@ export interface ColonyMoves {
   step(colony: string, by: -1 | 1): void;
   /** Close the colony's panel; the Engine may ask first, as when the colony has no colonist left, and closes it (closeColony). */
   close(colony: string): void;
+  /** Equip a colonist with the role that goods of the warehouse give. */
+  equip(unit: string, goods: string): void;
   /** Put a unit beside the colony aboard a ship in port. */
   board(unit: string, ship: string): void;
   /** Take a unit off a ship in port. */
@@ -152,6 +154,21 @@ function Img({
   return src === null ? null : <img className={className} src={src} alt={alt} title={alt || undefined} />;
 }
 
+/** UnitLabel's occupation chip, and for a damaged unit its repair status in red; only units outside the colony and ships in port have them. */
+function Occupation({ u }: { u: UnitRef }) {
+  if (!u.occupation && !u.repair) return null;
+  return (
+    <>
+      {u.occupation && (
+        <span className="chip" title={u.occupationFull}>
+          {u.occupation}
+        </span>
+      )}
+      {u.repair && <span className="repair">{u.repair}</span>}
+    </>
+  );
+}
+
 /**
  * Something the panel can move. With a ColonyMoves it can be dragged, and a click picks it (again puts it
  * down), or, with something else picked, goes to the place it is in. Shift held as it is picked up asks the
@@ -200,11 +217,17 @@ function Unit({
   /** Something around the unit is what moves it and opens its menu (a tile), so it does neither itself. */
   inert?: boolean;
 }) {
+  const moves = useContext(ColonyActions);
   const movable = useMovable({ kind: 'unit', id: u.id });
   const onContextMenu = useContextMenu((m) => m.unit(u.id));
+  // Goods of the warehouse dropped on a colonist equip it (DefaultTransferHandler.equipUnitIfPossible).
+  const target = useTarget('unit', (item) => {
+    if (item.kind === 'goods') moves?.equip(u.id, item.type);
+  });
   return (
-    <span className={className} data-unit={u.id} {...(inert ? undefined : { onContextMenu, ...movable })}>
+    <span className={className} data-unit={u.id} {...(inert ? undefined : { onContextMenu, ...movable, ...target })}>
       <Img keys={u.keys} art={art} className="unit" alt={u.name} />
+      {!inert && <Occupation u={u} />}
       {children}
     </span>
   );
@@ -263,8 +286,8 @@ function Made({ g, art, change = false, max }: { g: Goods; art: Art; change?: bo
 }
 
 /** A part of the panel FreeCol gives no caption, named by data-part. */
-const Part = ({ part, children }: { part: string; children: ReactNode }) => (
-  <section className={`box ${part}`} data-part={part}>
+const Part = ({ part, title, children }: { part: string; title?: string; children: ReactNode }) => (
+  <section className={`box ${part}`} data-part={part} title={title}>
     {children}
   </section>
 );
@@ -374,6 +397,7 @@ function InPort({ c, art, choose }: { c: ColonyView; art: Art; choose: (id: stri
           }}
         >
           <Img keys={u.keys} art={art} className="unit" alt={u.name} />
+          <Occupation u={u} />
         </button>
       ))}
     </Box>
@@ -991,7 +1015,7 @@ export function ColonyPanel({ colony: c, art, footer }: { colony: ColonyView; ar
               })}
             </div>
             <div className="upper">
-              <Part part="population">
+              <Part part="population" title={p.tip.map(([k, v]) => `${k}: ${v}`).join('\n')}>
                 <Img keys={p.rebelShield} art={art} className="shield" />
                 <span>
                   {p.rebels} <b>{`${p.rebelPercent}%`}</b>
