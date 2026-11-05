@@ -373,6 +373,18 @@ public final class ClientMain {
         command("declareIndependence", () -> engine.getCommands().declareIndependence());
     }
 
+    /** Retire from the game (RetireAction). */
+    @JSExport
+    public static void retire() {
+        command("retire", () -> engine.getCommands().retire());
+    }
+
+    /** Show the high score table (ReportHighScoresAction). */
+    @JSExport
+    public static void showHighScores() {
+        command("showHighScores", () -> engine.getCommands().showHighScores());
+    }
+
     /** Fortify the active unit (FortifyAction). */
     @JSExport
     public static void fortify() {

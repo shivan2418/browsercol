@@ -690,6 +690,23 @@ public final class Commands {
         return igc().declareIndependence();
     }
 
+    /**
+     * Retire from the game (RetireAction): the player is asked to confirm,
+     * becomes RETIRED, tells the server, and the high scores are shown.
+     *
+     * @return True if the player retired.
+     */
+    public boolean retire() {
+        this.client.retire();
+        final Player me = this.client.getMyPlayer();
+        return me != null && me.getPlayerType() == Player.PlayerType.RETIRED;
+    }
+
+    /** Show the high score table on request (ReportHighScoresAction). */
+    public boolean showHighScores() {
+        return igc().highScore(null);
+    }
+
     /** Fortify the active unit (FortifyAction). */
     public boolean fortify() {
         return changeState(Unit.UnitState.FORTIFYING);

@@ -2,6 +2,7 @@ package online.freecol.web;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -91,6 +92,9 @@ class CommandsTest {
 
     /** The ids of the colonies whose panels the WebGUI closed. */
     private final List<String> closedColonies = Collections.synchronizedList(new ArrayList<>());
+
+    /** The high score tables the fake Browser UI was shown. */
+    private final List<String> highScores = Collections.synchronizedList(new ArrayList<>());
 
     /** The trade routes panels the fake Browser UI was shown. */
     private final List<String> routePanels = Collections.synchronizedList(new ArrayList<>());
@@ -234,6 +238,7 @@ class CommandsTest {
                     if (kind.equals("tradeRoutes")) routePanels.add(json);
                     if (kind.equals("information")) informationPanels.add(json);
                     if (kind.equals("report")) reports.add(json);
+                    if (kind.equals("highScores")) highScores.add(json);
                     if (kind.equals("closeColony")) closedColonies.add(json);
                 }
                 public void ask(int id, String kind, String json) {
@@ -990,6 +995,34 @@ class CommandsTest {
         f.setInt(ours, percent);
         // The server checks the declaration again.
         f.setInt(serverColony, percent);
+    }
+
+    @Test
+    @Timeout(240)
+    void theHumanShowsTheHighScoresOnRequestAndRetires() throws Exception {
+        startGame();
+        final Commands commands = client.getCommands();
+        final Player player = client.getClient().getMyPlayer();
+
+        // On request, the table is shown with no header text.
+        assertTrue(commands.showHighScores());
+        awaitTrue(() -> !highScores.isEmpty(), "the high scores are shown");
+        assertTrue(highScores.get(0).contains("\"scores\":["), highScores.get(0));
+        assertTrue(highScores.get(0).contains("\"text\":null"), highScores.get(0));
+
+        // Cancelling the confirmation keeps the player in the game.
+        asked.clear();
+        confirm = false;
+        assertFalse(commands.retire(), "cancelled");
+        assertEquals(Messages.message("retireDialog.areYouSure.text"), textOf(lastAsked()));
+        assertNotEquals(Player.PlayerType.RETIRED, player.getPlayerType());
+        assertEquals(1, highScores.size(), "no scores for a cancel");
+
+        // Confirming retires and shows the scores with the new-score verdict.
+        confirm = true;
+        assertTrue(commands.retire(), "retired");
+        assertEquals(Player.PlayerType.RETIRED, player.getPlayerType());
+        awaitTrue(() -> highScores.size() == 2, "the scores are shown after retiring");
     }
 
     @Test
