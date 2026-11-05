@@ -127,6 +127,8 @@ import net.sf.freecol.common.option.OptionGroup;
  *         heading: null, images, filter: null, filterTip: null,
  *         ignored: false, ignoreTip: null, link}], ok}; tile and at are the source's, to go to;
  *         link is what the message's image opens ({kind: colony, id}, {kind: europe} or null);
+ *         parts is the text split at its links, [{text, link, at}], as
+ *         ReportTurnPanel's link buttons: link opens as above, at goes to a tile;
  *         images are the resource keys of the message's display object's
  *         image, best first</td></tr>
  * <tr><td>showReportTurnPanel</td><td>event messages</td>
@@ -431,6 +433,81 @@ public class WebGUI extends GUI {
         return europe ? new Json().put("kind", "europe").toString() : "null";
     }
 
+    /**
+     * A message's text split at its links, as ModelMessage.splitLinks and
+     * Utility.getMessageButton make ReportTurnPanel's link buttons: where
+     * the text names our colony it opens the colony, another's settlement
+     * goes to its tile, Europe (or the market) opens Europe, and the
+     * location or unit goes where the source is. Raw JSON: [{text, link,
+     * at}], link as {@link #link}, at the tile to go to, both null for
+     * plain text. One plain part when nothing in the text links.
+     */
+    private String parts(ModelMessage m, FreeColGameObject source) {
+        final Player me = getMyPlayer();
+        final Game game = getGame();
+        final List<Object[]> parts = new ArrayList<>();
+        parts.add(new Object[] { Messages.message(m), null });
+        if (me != null) {
+            for (java.util.AbstractMap.SimpleEntry<String, StringTemplate> e
+                     : m.entryList()) {
+                final String key = e.getKey();
+                final String val = Messages.message(e.getValue());
+                if (val == null || val.isEmpty()) continue;
+                final FreeColGameObject target = linkTarget(key, val, me, game, source);
+                if (target == null) continue;
+                final List<Object[]> next = new ArrayList<>();
+                for (Object[] p : parts) {
+                    if (p[1] != null) { next.add(p); continue; }
+                    final String str = (String)p[0];
+                    int index, start = 0;
+                    while ((index = str.indexOf(val, start)) >= 0) {
+                        if (index > start) next.add(new Object[] { str.substring(start, index), null });
+                        next.add(new Object[] { val, target });
+                        start = index + val.length();
+                    }
+                    if (start < str.length() || start == 0) {
+                        next.add(new Object[] { str.substring(start), null });
+                    }
+                }
+                parts.clear();
+                parts.addAll(next);
+            }
+        }
+        final List<String> out = new ArrayList<>();
+        for (Object[] p : parts) {
+            final FreeColGameObject t = (FreeColGameObject)p[1];
+            final Json json = new Json().put("text", (String)p[0]);
+            if (t instanceof Tile) {
+                json.putRaw("link", "null").putRaw("at", MapJson.xy((Tile)t));
+            } else {
+                json.putRaw("link", (t == null) ? "null" : link(t)).putRaw("at", "null");
+            }
+            out.add(json.toString());
+        }
+        return Json.array(out);
+    }
+
+    /** What Utility.getMessageButton links a message's key to, or null. */
+    private static FreeColGameObject linkTarget(String key, String val, Player me,
+                                                Game game, FreeColGameObject source) {
+        if ("%colony%".equals(key) || key.endsWith("Colony%")
+            || "%settlement%".equals(key)) {
+            final Settlement s = game.getSettlementByName(val);
+            return (s == null) ? null : (me.owns(s)) ? s : s.getTile();
+        } else if ("%europe%".equals(key) || "%market%".equals(key)) {
+            return me.getEurope();
+        } else if ("%location%".equals(key) || "%repairLocation%".equals(key)) {
+            return (source instanceof Location) ? source.getLinkTarget(me) : null;
+        } else if ("%unit%".equals(key)) {
+            return (source instanceof Unit && me.owns((Unit)source))
+                ? source.getLinkTarget(me) : null;
+        } else if ("%enemyUnit%".equals(key)) {
+            return (source instanceof Unit && !me.owns((Unit)source))
+                ? source.getLinkTarget(me) : null;
+        }
+        return null;
+    }
+
     /** The localized text for a message key, or null for no key. */
     private static String label(String key) {
         return (key == null) ? null : Messages.message(key);
@@ -585,6 +662,7 @@ public class WebGUI extends GUI {
             else json.putRaw("heading", heading);
             json.putRaw("images", ObjectImages.json(game.getMessageDisplay(m)));
             json.putRaw("link", link(game.getMessageDisplay(m)));
+            json.putRaw("parts", parts(m, source));
             json.putRaw("filter", (!report || shown == null) ? "null"
                 : shown.toString());
             json.put("filterTip", (report && shown != null)

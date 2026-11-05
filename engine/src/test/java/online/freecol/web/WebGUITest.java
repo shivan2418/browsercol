@@ -364,6 +364,22 @@ class WebGUITest {
         return events;
     }
 
+    /** The message shown last whose text is that of this message. */
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> shownMessage(ModelMessage message) {
+        final String text = Messages.message(message);
+        Map<String, Object> found = null;
+        for (String e : shown()) {
+            if (!e.startsWith("messages ")) continue;
+            for (Map<String, Object> m : messagesOf(
+                     (Map<String, Object>)JsonReader.read(e.substring("messages ".length())))) {
+                if (text.equals(m.get("text"))) found = m;
+            }
+        }
+        assertNotNull(found, "no message: " + text);
+        return found;
+    }
+
     @SuppressWarnings("unchecked")
     private static List<Map<String, Object>> messagesOf(Map<String, Object> event) {
         return (List<Map<String, Object>>)event.get("messages");
@@ -432,6 +448,74 @@ class WebGUITest {
         gui.showModelMessages(messages);
         final Map<String, Object> m = messagesOf(messageEvents().get(0)).get(0);
         assertEquals(Map.of("kind", "europe"), m.get("link"));
+    }
+
+    @Test
+    @Timeout(120)
+    void aMessageNamingOurColonyLinksTheNameToTheColony() throws Exception {
+        final ClientEngine client = startGame();
+        final GUI gui = client.getClient().getGUI();
+        final Game game = client.getGame();
+        final Player me = client.getClient().getMyPlayer();
+        // Only its name and owner count: the name is looked up, as in Swing.
+        final Colony ours = new Colony(game, "colony:ourtown");
+        ours.setName("Ourtown");
+        ours.setOwner(me);
+        me.addSettlement(ours);
+        final List<ModelMessage> messages = List.of(new ModelMessage(
+                ModelMessage.MessageType.WARNING, "model.colony.famineFeared", gui.getActiveUnit())
+            .addName("%colony%", "Ourtown").addAmount("%number%", 3));
+
+        shown.clear();
+        gui.showReportTurnPanel(messages);
+        final Map<String, Object> m = shownMessage(messages.get(0));
+        final List<?> parts = (List<?>)m.get("parts");
+        assertEquals(3, parts.size(), parts.toString());
+        final Map<?, ?> name = (Map<?, ?>)parts.get(1);
+        assertEquals("Ourtown", name.get("text"));
+        assertEquals(Map.of("kind", "colony", "id", ours.getId()), name.get("link"));
+        assertNull(name.get("at"));
+        final Map<?, ?> before = (Map<?, ?>)parts.get(0);
+        assertNull(before.get("link"));
+        assertEquals(m.get("text"), before.get("text") + "Ourtown" + ((Map<?, ?>)parts.get(2)).get("text"));
+    }
+
+    @Test
+    @Timeout(120)
+    void aMessageNamingAnothersColonyLinksTheNameToItsTile() throws Exception {
+        final ClientEngine client = startGame();
+        final GUI gui = client.getClient().getGUI();
+        final Colony known = seen(client, aiColony(client));
+        assertNotNull(known, "the human sees the colony");
+        final List<ModelMessage> messages = List.of(new ModelMessage(
+                ModelMessage.MessageType.DEFAULT, "model.colony.famineFeared", known)
+            .addName("%colony%", known.getName()).addAmount("%number%", 3));
+
+        shown.clear();
+        gui.showModelMessages(messages);
+        final List<?> parts = (List<?>)shownMessage(messages.get(0)).get("parts");
+        final Map<?, ?> name = (Map<?, ?>)parts.get(1);
+        assertEquals(known.getName(), name.get("text"));
+        assertNull(name.get("link"));
+        assertEquals(List.of((long)known.getTile().getX(), (long)known.getTile().getY()), name.get("at"));
+    }
+
+    @Test
+    @Timeout(120)
+    void aMessageWithNothingToLinkIsOnePlainPart() throws Exception {
+        final ClientEngine client = startGame();
+        final GUI gui = client.getClient().getGUI();
+        final List<ModelMessage> messages = List.of(new ModelMessage(
+                ModelMessage.MessageType.DEFAULT, "info.enterSomeText", gui.getActiveUnit()));
+
+        shown.clear();
+        gui.showModelMessages(messages);
+        final Map<String, Object> m = messagesOf(messageEvents().get(0)).get(0);
+        final Map<String, Object> plain = new java.util.HashMap<>();
+        plain.put("text", m.get("text"));
+        plain.put("link", null);
+        plain.put("at", null);
+        assertEquals(List.of(plain), m.get("parts"));
     }
 
     @Test
