@@ -97,9 +97,20 @@ export const colopediaMenu = (open: ReportActions['open']): Menu['items'] =>
     },
   }));
 
-/** The Report menu's items, each opening its report. */
-export const reportMenu = (open: ReportActions['open']): Menu['items'] =>
-  REPORTS.map((r) => ({ label: r.label, hint: r.key, run: () => open(r.name) }));
+/** The key of the Turn Report entry: FreeCol's F11, which is Shift+F11 for the side panel here, so Ctrl+Shift. */
+export const TURN_REPORT_KEY = 'Ctrl+Shift+F11';
+
+/**
+ * The Report menu's items, each opening its report, and the Turn Report (ReportTurnAction, after the
+ * trade report as in FreeCol) which shows this turn's messages again; null while the game has not loaded.
+ */
+export const reportMenu = (open: ReportActions['open'], turnReport: (() => void) | null): Menu['items'] =>
+  REPORTS.flatMap((r) => [
+    { label: r.label, hint: r.key, run: () => open(r.name) },
+    ...(r.name === 'trade'
+      ? [{ label: 'Turn report', hint: TURN_REPORT_KEY, run: turnReport ?? (() => {}), disabled: !turnReport }]
+      : []),
+  ]);
 
 type View<K extends ReportName> = Extract<ReportView, { report: K }>;
 

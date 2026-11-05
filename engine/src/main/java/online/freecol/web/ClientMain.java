@@ -643,6 +643,30 @@ public final class ClientMain {
         command("menuEntry", () -> engine.getCommands().menuEntry(id));
     }
 
+    /** Rename the active unit (RenameAction); the player is asked for the name. */
+    @JSExport
+    public static void renameUnit() {
+        command("renameUnit", () -> engine.getCommands().renameUnit());
+    }
+
+    /** Move every unit with goto orders (ExecuteGotoOrdersAction). */
+    @JSExport
+    public static void executeGotoOrders() {
+        command("executeGotoOrders", () -> engine.getCommands().executeGotoOrders());
+    }
+
+    /** Show this turn's report again (ReportTurnAction). */
+    @JSExport
+    public static void showTurnReport() {
+        command("showTurnReport", () -> engine.getCommands().showTurnReport());
+    }
+
+    /** The menu of a colony's units, which the C key opens (Menus.colonyUnits), as JSON or "null". */
+    @JSExport
+    public static String colonyUnitsMenu(String colonyId) {
+        return engine.getMenus().colonyUnits(colonyId);
+    }
+
     /** Open the trade routes panel for the active carrier (AssignTradeRouteAction). */
     @JSExport
     public static void assignRoute() {

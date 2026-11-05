@@ -159,6 +159,14 @@ export interface ClientExports {
   tradeRoutes(): void;
   /** Open the trade routes panel for the active carrier (AssignTradeRouteAction). */
   assignRoute(): void;
+  /** Rename the active unit; the player is asked for the name (RenameAction). */
+  renameUnit(): void;
+  /** Move every unit with goto orders (ExecuteGotoOrdersAction). */
+  executeGotoOrders(): void;
+  /** Show this turn's report again (ReportTurnAction). */
+  showTurnReport(): void;
+  /** The menu of a colony's units (ColonyPanel's colonyUnitsCmd), as JSON or "null". */
+  colonyUnitsMenu(colonyId: string): string;
   /** Create or change a trade route: a TradeRouteDraft as JSON. The panel is sent again. */
   saveTradeRoute(json: string): void;
   /** Delete a trade route, by its id. The panel is sent again. */

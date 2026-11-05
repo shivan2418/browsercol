@@ -1360,11 +1360,13 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
   const marketTitle = (g: Europe['market'][number]) =>
     debug.on ? `${g.reason ?? g.name} (${g.inMarket} in market)` : (g.reason ?? g.name);
   const closeShop = () => setShop(null);
-  // EuropePanel's button keys: R recruit, P purchase, T train, S sail, while Europe is the newest window.
+  // EuropePanel's button keys: R recruit, P purchase, T train, U unload, S sail, while Europe is the newest window.
   const keyAct = useRef<(key: string) => void>(() => {});
   keyAct.current = (key) => {
     const kind = ({ r: 'recruit', p: 'purchase', t: 'train' } as const)[key as 'r' | 'p' | 't'];
     if (kind) setShop(shop === kind ? null : kind);
+    // A disabled button does nothing, so U needs cargo as the Unload button does.
+    else if (key === 'u' && ship?.cargo?.length) europeButtons.unload(ship.id);
     else if (key === 's' && ship) europeButtons.sail(ship.id);
   };
   useEffect(() => {

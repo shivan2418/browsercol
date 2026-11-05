@@ -100,11 +100,14 @@ export function ordersMenu(a: MenuActions): Items {
     order('Sentry', { k: 'sentry' }),
     order('Skip', { k: 'skip' }),
     { label: 'Clear Orders', run: () => a.run({ k: 'clearOrders' }), disabled: !a.ready || !a.hasActiveUnit },
+    order('Rename', { k: 'renameUnit' }),
     order('Plow', { k: 'plow' }),
     order('Clear Forest', { k: 'clearForest' }),
     order('Build Road', { k: 'road' }),
     order('Unload', { k: 'unload' }),
     order('Go To', { k: 'selectDestination' }),
+    // MapboardAction: needs no unit, only the game (and our turn, which the Engine checks).
+    { label: 'Execute Go To Orders', run: () => a.run({ k: 'executeGotoOrders' }), disabled: !a.ready },
     // Only a carrier can be given a route, so Trade Routes opens the panel for the active carrier
     // (AssignTradeRouteAction) and is enabled only when the Engine lists assignRoute for the unit.
     order('Trade Routes', { k: 'assignRoute' }),

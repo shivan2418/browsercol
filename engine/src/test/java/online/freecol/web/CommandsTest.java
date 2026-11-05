@@ -94,6 +94,12 @@ class CommandsTest {
     /** What the fake Browser UI answers to a confirm question, if not its usual answer. */
     private volatile Boolean confirm = null;
 
+    /** The messages events (model messages and the turn report) the WebGUI showed, as their JSON. */
+    private final List<String> messageEvents = Collections.synchronizedList(new ArrayList<>());
+    /** What the fake Browser UI types into an input question: null keeps the suggestion, CANCEL cancels. */
+    private volatile String typed = null;
+    private static final String CANCEL = "\0cancel";
+
     /** The ids of the colonies whose panels the WebGUI closed. */
     private final List<String> closedColonies = Collections.synchronizedList(new ArrayList<>());
 
@@ -124,6 +130,11 @@ class CommandsTest {
             return String.valueOf((confirm != null) ? confirm : !json.contains("Europe"));
         // The end turn dialog's ok ends the turn; the pre-combat dialog's attacks.
         case "endTurn": return "ok";
+        case "input":
+            if (CANCEL.equals(typed)) return null;
+            if (typed != null) return typed;
+            Matcher v = VALUE.matcher(json);
+            return v.find() ? v.group(1) : null;
         case "preCombat": return "true";
         case "choice":
             if (wanted != null) {
@@ -245,6 +256,7 @@ class CommandsTest {
                         panels.add(kind + " " + json);
                     }
                     if (kind.equals("report")) reports.add(json);
+                    if (kind.equals("messages")) messageEvents.add(json);
                     if (kind.equals("highScores")) highScores.add(json);
                     if (kind.equals("closeColony")) closedColonies.add(json);
                 }
@@ -422,6 +434,70 @@ class CommandsTest {
         final String popup = client.getMenus().tile(colony.getTile().getX(), colony.getTile().getY());
         assertTrue(popup.contains("\"id\":\"rename:" + colony.getId() + "\""),
             () -> "the popup has Rename: " + popup);
+
+        // The colony's units menu (ColonyPanel's C key) lists the founder with what it makes,
+        // and opens its quick action menu.
+        final String units = client.getMenus().colonyUnits(colony.getId());
+        assertTrue(units.contains("\"id\":\"unitMenu:" + founder + "\""),
+            () -> "the units menu has the founder: " + units);
+        assertTrue(units.contains(Messages.message("colonyPanel.producing")),
+            () -> "the units menu says what it is producing: " + units);
+        assertTrue(units.contains("\"icons\":[\"image.unit."),
+            () -> "the units menu has unit images: " + units);
+        assertEquals("null", client.getMenus().colonyUnits("colony:none"), "no such colony");
+        assertTrue(client.getMenus().unit(founder).contains("\"entries\""), "its quick action menu opens");
+    }
+
+    /**
+     * Orders > Rename names the active unit, as RenameAction does, and a cancel leaves
+     * the name as it was; Execute Goto Orders and the turn report run as in Swing.
+     */
+    @Test
+    @Timeout(240)
+    void theHumanRenamesTheActiveUnitRunsGotoOrdersAndSeesTheTurnReport() throws Exception {
+        startGame();
+        final Commands commands = client.getCommands();
+        final Player player = client.getClient().getMyPlayer();
+        final Unit ship = player.getUnits().filter(Unit::isNaval).findFirst().get();
+        select(commands, ship);
+        assertTrue(UnitOrders.valid(player, ship).contains("rename"), "rename is offered for the active unit");
+
+        final String before = ship.getName();
+        typed = "Santa Maria";
+        assertTrue(commands.renameUnit(), "the ship is renamed");
+        assertEquals("Santa Maria", ship.getName());
+        assertEquals("Santa Maria", serverUnit(ship).getName(), "the server knows");
+        assertTrue(asked.stream().anyMatch(q -> q.startsWith("input ") && q.contains("-> Santa Maria")),
+            () -> "the name is asked: " + asked);
+
+        typed = CANCEL;
+        assertFalse(commands.renameUnit(), "cancelling renames nothing");
+        assertEquals("Santa Maria", ship.getName());
+        assertNotEquals(before, ship.getName());
+
+        // With no unit active there is nothing to rename.
+        client.getClient().getGUI().changeView((Unit)null, false);
+        assertFalse(commands.renameUnit());
+
+        // No unit has goto orders, and it is our turn: the orders run and change nothing.
+        assertTrue(commands.executeGotoOrders(), "the goto orders run");
+
+        // The turn report is shown on request, as ReportTurnAction does.
+        final int shown = messageEvents.size();
+        assertTrue(commands.showTurnReport());
+        await(() -> messageEvents.size() > shown, () -> "the turn report was shown");
+        assertTrue(messageEvents.get(messageEvents.size() - 1).contains("\"groupBy\""),
+            () -> "it is the report: " + messageEvents);
+    }
+
+    /** Wait until a condition holds, for up to 10 s. */
+    private static void await(java.util.function.BooleanSupplier ok, java.util.function.Supplier<String> what)
+        throws InterruptedException {
+        final long end = System.currentTimeMillis() + 10_000;
+        while (!ok.getAsBoolean()) {
+            assertTrue(System.currentTimeMillis() < end, what);
+            Thread.sleep(20);
+        }
     }
 
     /**
@@ -1297,7 +1373,7 @@ class CommandsTest {
         assertTrue(orders.contains("road"), () -> "the pioneer builds a road: " + orders);
         assertFalse(orders.contains("clearForest"),
                     () -> "there is no forest to clear: " + orders);
-        assertEquals(List.of("fortify", "sentry", "skip", "disband", "goto", "buildColony"),
+        assertEquals(List.of("fortify", "sentry", "skip", "disband", "rename", "goto", "buildColony"),
                      UnitOrders.valid(player, soldier),
                      "a soldier can found a colony, but cannot work its tile");
 

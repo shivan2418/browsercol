@@ -83,6 +83,8 @@ export interface ColonyMoves {
   buy(colony: string): void;
   /** Open the colony's warehouse dialog. */
   warehouse(colony: string): void;
+  /** Open the menu of the colony's units (ColonyPanel's Colony Units, the C key). */
+  units(colony: string): void;
   /** Close this colony's panel and open the previous (-1) or next (1) colony's, as ColonyPanel's arrow keys do. */
   step(colony: string, by: -1 | 1): void;
   /** Close the colony's panel; the Engine may ask first, as when the colony has no colonist left, and closes it (closeColony). */
@@ -947,12 +949,14 @@ export function ColonyPanel({ colony: c, art, footer }: { colony: ColonyView; ar
     picks.set(c.id, item);
     show(item);
   };
-  // Left and Right step to the previous and next colony (ColonyPanel's name box), W opens the warehouse.
+  // Left and Right step to the previous and next colony (ColonyPanel's name box), W opens the warehouse and C the
+  // menu of the colony's units.
   useColonyKey((key) => {
     if (!moves) return;
     if (key === 'ArrowLeft') moves.step(c.id, -1);
     else if (key === 'ArrowRight') moves.step(c.id, 1);
     else if (key.toLowerCase() === 'w') moves.warehouse(c.id);
+    else if (key.toLowerCase() === 'c') moves.units(c.id);
   });
   // A unit that has left the colony, or been disbanded, or goods that are gone, are no longer picked.
   // The ship chosen in port is kept in chosen; this draws the panel again as another is chosen.

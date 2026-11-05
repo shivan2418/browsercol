@@ -56,7 +56,16 @@ describe('the Report menu', () => {
     const opened: string[] = [];
     render(
       <MenuBar
-        menus={MENUS.map((name) => ({ name, items: name === 'Report' ? reportMenu((n) => opened.push(n)) : [] }))}
+        menus={MENUS.map((name) => ({
+          name,
+          items:
+            name === 'Report'
+              ? reportMenu(
+                  (n) => opened.push(n),
+                  () => opened.push('turn'),
+                )
+              : [],
+        }))}
         status=""
       />,
     );
@@ -83,12 +92,19 @@ describe('the Report menu', () => {
       'Religion report',
       'Requirements report',
       'Trade report',
+      'Turn report',
     ]);
     fireEvent.click(within(menu).getByRole('menuitem', { name: /^Compact labour report/ }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Report' }));
     fireEvent.click(screen.getByRole('menuitem', { name: /^Colony report/ }));
     expect(within(menu).getByRole('menuitem', { name: /^Religion report/ }).textContent).toContain('Shift+F1');
     expect(opened).toEqual(['compactLabour', 'colony']);
+    // The turn report is not a report of Commands.showReport but shows this turn's messages again, on Ctrl+Shift+F11.
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Report' }));
+    const turn = within(screen.getByRole('menu', { name: 'Report' })).getByRole('menuitem', { name: /^Turn report/ });
+    expect(turn.textContent).toContain('Ctrl+Shift+F11');
+    fireEvent.click(turn);
+    expect(opened.at(-1)).toBe('turn');
   });
 });
 

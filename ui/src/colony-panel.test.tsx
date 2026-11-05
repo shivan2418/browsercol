@@ -254,6 +254,7 @@ describe('moving colonists in the colony panel', () => {
     setQueue: (c, types) => calls.push(`queue ${c} ${types.join(',')}`),
     buy: (c) => calls.push(`buy ${c}`),
     warehouse: (c) => calls.push(`warehouse ${c}`),
+    units: (c) => calls.push(`units ${c}`),
     step: (c, by) => calls.push(`step ${c} ${by}`),
     close: (c) => calls.push(`close ${c}`),
     board: (u, s) => calls.push(`board ${u} ${s}`),
@@ -301,6 +302,12 @@ describe('moving colonists in the colony panel', () => {
     fireEvent.keyDown(document.body, { key: 'ArrowRight' });
     fireEvent.keyDown(document.body, { key: 'w' });
     expect(calls).toEqual([`step colony:${n} -1`, `step colony:${n} 1`, `warehouse colony:${n}`]);
+  });
+
+  it('opens the menu of the colony’s units with C, as ColonyPanel’s Colony Units button does', () => {
+    openMovable();
+    fireEvent.keyDown(document.body, { key: 'c' });
+    expect(calls).toEqual([`units colony:${n}`]);
   });
 
   it('opens the build queue with B', () => {
@@ -370,6 +377,7 @@ describe('loading a ship in port in the colony panel', () => {
     setQueue: () => {},
     buy: () => {},
     warehouse: () => {},
+    units: () => {},
     step: () => {},
     close: () => {},
     board: (u, s) => calls.push(`board ${u} ${s}`),
@@ -559,6 +567,7 @@ describe('the build queue in the colony panel', () => {
     setQueue: (c, types) => calls.push(`queue ${c} ${types.join(',')}`),
     buy: (c) => calls.push(`buy ${c}`),
     warehouse: (c) => calls.push(`warehouse ${c}`),
+    units: () => {},
     step: (c, by) => calls.push(`step ${c} ${by}`),
     close: (c) => calls.push(`close ${c}`),
     board: () => {},

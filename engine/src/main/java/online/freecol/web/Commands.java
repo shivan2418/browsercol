@@ -665,6 +665,40 @@ public final class Commands {
         return true;
     }
 
+    /**
+     * Rename the active unit, as RenameAction does (Orders > Rename, N): the
+     * player is asked for the new name, and cancelling leaves it as it was.
+     *
+     * @return True if the unit was renamed.
+     */
+    public boolean renameUnit() {
+        final Unit unit = gui().getActiveUnit();
+        return unit != null && this.client.getMyPlayer().owns(unit)
+            && igc().rename(unit);
+    }
+
+    /**
+     * Move every unit that has goto orders, as ExecuteGotoOrdersAction does
+     * (Orders > Execute Goto Orders, O), without ending the turn.
+     *
+     * @return True if the orders were run (it is our turn and no panel is
+     *     showing).
+     */
+    public boolean executeGotoOrders() {
+        return igc().executeGotoOrders();
+    }
+
+    /**
+     * Show this turn's report again, as ReportTurnAction does
+     * (displayTurnReportMessages).
+     *
+     * @return True always.
+     */
+    public boolean showTurnReport() {
+        igc().displayTurnReportMessages();
+        return true;
+    }
+
     /** TilePopup's "rename": ask for a new name for one of our colonies. */
     private boolean renameColony(String colonyId) {
         final Colony colony = object(colonyId, Colony.class);

@@ -14,6 +14,7 @@ const ALL = [
   'road',
   'goto',
   'assignRoute',
+  'rename',
 ];
 const key = (key: string, code = '', orders = ALL) => commandForKey({ key, code }, orders);
 
@@ -79,6 +80,16 @@ describe('commandForKey', () => {
     expect(key('a', 'KeyA', ['assignRoute'])).toEqual({ k: 'assignRoute' });
     expect(key('A', 'KeyA', ['assignRoute'])).toEqual({ k: 'assignRoute' });
     expect(key('a', 'KeyA', ['goto'])).toBeNull();
+  });
+
+  it('renames the active unit with N and runs the goto orders with O, as RenameAction and ExecuteGotoOrdersAction do', () => {
+    expect(key('n', 'KeyN')).toEqual({ k: 'renameUnit' });
+    expect(key('N', 'KeyN')).toEqual({ k: 'renameUnit' });
+    expect(key('o', 'KeyO')).toEqual({ k: 'executeGotoOrders' });
+    expect(key('O', 'KeyO')).toEqual({ k: 'executeGotoOrders' });
+    // Rename is a unit's order; the goto orders need no active unit.
+    expect(key('n', 'KeyN', ['sentry'])).toBeNull();
+    expect(key('o', 'KeyO', [])).toEqual({ k: 'executeGotoOrders' });
   });
 
   it('shows Europe, as EuropeAction does', () => {

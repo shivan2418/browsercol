@@ -70,9 +70,19 @@ final class Menus {
 
         /** An entry with an icon, by its resource key, drawn before the label. */
         void add(String id, String label, boolean enabled, boolean indent, String icon) {
+            add(id, label, enabled, indent, icon, null);
+        }
+
+        /**
+         * An entry with an icon, by its resource key or by a JSON array of keys, best first
+         * (a unit's image), drawn before the label.
+         */
+        void add(String id, String label, boolean enabled, boolean indent, String icon,
+                 String icons) {
             final Json e = new Json().put("id", id).put("label", label)
                 .put("enabled", enabled);
             if (icon != null) e.put("icon", icon);
+            if (icons != null) e.putRaw("icons", icons);
             if (this.gap) e.put("gap", true);
             if (indent) e.put("indent", true);
             this.gap = false;
@@ -257,6 +267,62 @@ final class Menus {
         addRoles(b, unit);
         addClearSpeciality(b, unit);
         return b.build(unitLabel(unit));
+    }
+
+    /**
+     * The menu of a colony's units, as ColonyPanel.generateColonyUnitsMenu
+     * builds it (its C key): each unit in the colony with what it is
+     * producing, then the units on the colony's tile (the carriers in port,
+     * what they carry, and the units outside the colony). Picking an entry
+     * opens that unit's quick action menu ({@link #unit}), so its id is
+     * {@code unitMenu:id}, which the Browser UI opens itself.
+     *
+     * @param colonyId The colony's id.
+     * @return The menu as JSON; "null" if it is not our colony.
+     */
+    String colonyUnits(String colonyId) {
+        final Player player = me();
+        final Colony colony = this.client.getGame().getFreeColGameObject(colonyId, Colony.class);
+        if (colony == null || player == null || !player.owns(colony)) return "null";
+        final Builder b = new Builder();
+        final String producing = text("colonyPanel.producing");
+        for (Unit unit : colony.getUnitList()) {
+            final WorkLocation wl = unit.getWorkLocation();
+            final GoodsType goodsType = unit.getWorkType();
+            final Unit student = unit.getStudent();
+            final StringBuilder sb = new StringBuilder(64);
+            sb.append(unit.getDescription()).append(' ').append(producing).append(' ');
+            if (student != null) {
+                sb.append(Messages.getName(unit.getType().getSkillTaught()))
+                    .append(' ').append(unit.getTurnsOfTraining())
+                    .append('/').append(unit.getNeededTurnsOfTraining());
+            } else if (wl != null && goodsType != null) {
+                final int amount = wl.getProductionOf(unit, goodsType);
+                sb.append(amount).append(' ').append(text(StringTemplate.template(goodsType)
+                    .addAmount("%amount%", amount)));
+            } else {
+                sb.append(text("nothing"));
+            }
+            addUnitEntry(b, unit, sb.toString());
+        }
+        b.gap();
+        for (Unit unit : colony.getTile().getUnitList()) {
+            if (unit.isCarrier()) {
+                addUnitEntry(b, unit, unit.getDescription() + " " + text("colonyPanel.inPort"));
+                for (Unit aboard : unit.getUnitList()) {
+                    addUnitEntry(b, aboard, aboard.getDescription() + " "
+                        + text("cargoOnCarrier") + " " + unit.getDescription());
+                }
+            } else if (!unit.isOnCarrier()) {
+                addUnitEntry(b, unit, unit.getDescription() + " " + text("colonyPanel.outsideColony"));
+            }
+        }
+        return b.isEmpty() ? "null" : b.build(text("colonyPanel.colonyUnits"));
+    }
+
+    /** An entry that opens a unit's quick action menu, with the unit's image. */
+    private static void addUnitEntry(Builder b, Unit unit, String label) {
+        b.add("unitMenu:" + unit.getId(), label, true, false, null, MapJson.unitKeyJson(unit));
     }
 
     /**
