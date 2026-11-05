@@ -1,8 +1,7 @@
 // The turn change cue (#123): FreeCol shows the new year in the status line and jumps to a unit; the
 // Browser UI also says it in a banner over the map. While the AI players move it says so, and when the
-// player's turn starts it shows "Turn N, Spring 1493" for a moment. Once no unit is left to move the info
-// panel (info-panel.tsx) says to end the turn, as FreeCol's does; the banner says it only while the map
-// controls, and with them the info panel, are hidden.
+// player's turn starts it shows "Turn N, Spring 1493" for a moment. Once no unit is left to move only the
+// info panel (info-panel.tsx) says to end the turn, as FreeCol's does.
 import { useEffect, useState } from 'react';
 
 /** What the last map said about the turn. */
@@ -13,7 +12,7 @@ export interface TurnFacts {
 }
 
 export interface TurnNotice {
-  kind: 'ai' | 'new' | 'done';
+  kind: 'ai' | 'new';
   text: string;
 }
 
@@ -26,9 +25,6 @@ export function turnNotice(prev: TurnFacts | null, next: TurnFacts): TurnNotice 
   return null;
 }
 
-/** FreeCol's end turn panel (infoPanel.endTurn): every unit has moved, so Enter ends the turn. */
-export const DONE_NOTICE: TurnNotice = { kind: 'done', text: 'All units have moved. Press Enter to end the turn.' };
-
 /**
  * Whether no unit is left to move in the turn of the last map. `heard` is the map the Engine said no unit
  * is active after (null for the start of the game), or undefined when a unit is active. The Engine says it
@@ -39,11 +35,6 @@ export const DONE_NOTICE: TurnNotice = { kind: 'done', text: 'All units have mov
 export function isIdle(heard: TurnFacts | null | undefined, last: TurnFacts | null) {
   if (heard === undefined || !last?.ourTurn) return false;
   return !heard?.ourTurn || heard.turn === last.turn;
-}
-
-/** The notice to show: the turn's own, unless no unit is left to move in our turn, when the player is told to end it. */
-export function shownNotice(banner: TurnNotice | null, last: TurnFacts | null, heard: TurnFacts | null | undefined) {
-  return isIdle(heard, last) ? DONE_NOTICE : banner;
 }
 
 /** How long the new turn notice stays, in milliseconds. */
