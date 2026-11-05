@@ -60,6 +60,7 @@ const ORDERS: [string, Command][] = [
   ['Clear forest (C)', { k: 'clearForest' }],
   ['Road (R)', { k: 'road' }],
   ['Go to (H)', { k: 'selectDestination' }],
+  ['Assign trade route (A)', { k: 'assignRoute' }],
 ];
 
 /** How many times each item is in a list, in first-seen order. */

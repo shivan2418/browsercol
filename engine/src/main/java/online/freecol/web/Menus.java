@@ -415,6 +415,11 @@ final class Menus {
         b.add("clear:" + id, text("clearOrders"),
             (state != UnitState.ACTIVE || unit.getTradeRoute() != null) && !atSea,
             false);
+        // QuickActionMenu: a carrier can be given a trade route unless it has one.
+        if (unit.isCarrier()) {
+            b.add("tradeRoute:" + id, text("assignTradeRoute"),
+                unit.getTradeRoute() == null, false);
+        }
         if (unit.canCarryTreasure() && unit.canCashInTreasureTrain()) {
             b.add("cashin:" + id, text("cashInTreasureTrain"));
         }

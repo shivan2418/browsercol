@@ -432,6 +432,8 @@ export interface TradeRouteDraft {
   name: string;
   silent: boolean;
   stops: { place: Id; cargo: string[] }[];
+  /** The unit the panel was opened for: a new route that is saved is given to it. */
+  unit?: Id | null;
 }
 
 /** A unit type Europe sells, with the server's price; enabled when the player can pay. */

@@ -600,7 +600,13 @@ public final class ClientMain {
         command("menuEntry", () -> engine.getCommands().menuEntry(id));
     }
 
-    /** Open the trade routes panel (TradeRouteAction). */
+    /** Open the trade routes panel for the active carrier (AssignTradeRouteAction). */
+    @JSExport
+    public static void assignRoute() {
+        command("assignRoute", () -> engine.getCommands().assignRoute());
+    }
+
+    /** Open the trade routes panel with no unit (TradeRouteAction). */
     @JSExport
     public static void tradeRoutes() {
         command("tradeRoutes", () -> engine.getCommands().tradeRoutes());
@@ -627,7 +633,7 @@ public final class ClientMain {
                 }
                 engine.getCommands().saveTradeRoute((String)r.get("id"),
                     (String)r.get("name"), Boolean.TRUE.equals(r.get("silent")),
-                    places, cargo);
+                    places, cargo, (String)r.get("unit"));
         });
     }
 
@@ -636,6 +642,13 @@ public final class ClientMain {
     public static void assignTradeRoute(String unitId, String routeId) {
         command("assignTradeRoute", () -> engine.getCommands()
                 .assignTradeRoute(unitId, routeId.isEmpty() ? null : routeId));
+    }
+
+    /** Assign a unit to a trade route as the panel's OK does: the panel is not sent again. */
+    @JSExport
+    public static void confirmTradeRoute(String unitId, String routeId) {
+        command("assignTradeRoute", () -> engine.getCommands()
+                .assignTradeRoute(unitId, routeId, false));
     }
 
     /** Delete a trade route, by its id. */

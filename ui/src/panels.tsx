@@ -54,8 +54,11 @@ export interface ReportButtons {
 export interface RouteButtons {
   save: (draft: TradeRouteDraft) => void;
   remove: (id: string) => void;
-  /** Make a unit follow a route, or with null stop following one (ClientExports.assignTradeRoute). */
-  assign: (unit: string, route: string | null) => void;
+  /**
+   * Make a unit follow a route, or with null stop following one (ClientExports.assignTradeRoute). With
+   * `show` false, as from OK, the Engine does not send the panel again.
+   */
+  assign: (unit: string, route: string | null, show?: boolean) => void;
 }
 
 /** An image of a game object or event, if the Tileset has one. */
@@ -1144,9 +1147,15 @@ function RoutesPanel({ d, art, routes }: { d: Of<'tradeRoutes'>; art: Art; route
   const e = d.event;
   // A refused change leaves the editor open on what the player made of the route.
   const [editing, setEditing] = useState<Draft | null>(e.error !== null ? refused : null);
-  const [picked, setPicked] = useState<string | null>(null);
+  // As TradeRoutePanel's, the unit's own route starts out picked.
+  const [picked, setPicked] = useState<string | null>(e.unit?.route ?? null);
   const close = () => d.done();
   const route = e.routes.find((r) => r.id === picked);
+  // OK gives the unit the picked route, if it is not its route already, and closes.
+  const ok = () => {
+    if (e.unit && route && route.id !== e.unit.route) routes.assign(e.unit.id, route.id, false);
+    close();
+  };
   // As TradeRoutePanel's, a new route has the name the server gives it until the player changes it.
   const blank: Draft = { id: null, name: e.defaultName, silent: false, stops: [] };
   const edit = (r: Routes['routes'][number]): Draft => ({
@@ -1155,7 +1164,7 @@ function RoutesPanel({ d, art, routes }: { d: Of<'tradeRoutes'>; art: Art; route
     silent: r.silent,
     stops: r.stops.map((s) => ({ place: s.place, label: s.label, cargo: [...s.cargo] })),
   });
-  useEnter(editing === null ? close : null);
+  useEnter(editing === null ? ok : null);
   if (editing !== null) {
     const leave = () => {
       refused = null;
@@ -1174,6 +1183,8 @@ function RoutesPanel({ d, art, routes }: { d: Of<'tradeRoutes'>; art: Art; route
               name: draft.name.trim(),
               silent: draft.silent,
               stops: draft.stops.map((s) => ({ place: s.place, cargo: s.cargo })),
+              // A new route is given to the unit the panel was opened for.
+              ...(e.unit && { unit: e.unit.id }),
             });
           }}
           cancel={leave}
@@ -1234,7 +1245,7 @@ function RoutesPanel({ d, art, routes }: { d: Of<'tradeRoutes'>; art: Art; route
         >
           {e.deleteRoute}
         </button>
-        <button data-answer="close" data-enter="" onClick={close}>
+        <button data-answer="close" data-enter="" onClick={ok}>
           {e.ok}
         </button>
       </div>

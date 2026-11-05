@@ -119,6 +119,8 @@ function fakeClient(scope: Scope, log: string[]): ClientExports {
     road: () => {},
     selectDestination: () => {},
     tradeRoutes: () => {},
+    assignRoute: () => {},
+    confirmTradeRoute: () => {},
     tileMenu: () => 'null',
     unitMenu: () => 'null',
     colonyTileMenu: () => 'null',

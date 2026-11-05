@@ -61,7 +61,7 @@ function host(extra: { command?: (entry: string) => void; colopedia?: (type: str
   const routes: RouteButtons = {
     save: (d) => saved.push(d),
     remove: (id) => removed.push(id),
-    assign: (unit, route) => assigned.push(`${unit} ${route}`),
+    assign: (unit, route, show = true) => assigned.push(`${unit} ${route}${show ? '' : ' hidden'}`),
   };
   render(
     <DialogHost dialogs={box} goTo={(at) => went.push(at)} art={art} report={report} routes={routes} {...extra} />,
@@ -1320,6 +1320,29 @@ describe('the trade routes panel', () => {
     );
     press('Drop Trade Route');
     expect(assigned).toEqual(['unit:9 tradeRoute:1', 'unit:9 null']);
+  });
+
+  it("starts with the unit's own route picked, and OK gives the unit the picked route and closes", () => {
+    const { box, assigned } = host();
+    act(() => box.replace('tradeRoutes', routes({ unit: { id: 'unit:9', name: 'Caravel', route: 'tradeRoute:1' } })));
+    expect(screen.getByRole('button', { name: 'Fur run (2)' }).getAttribute('aria-pressed')).toBe('true');
+    // Its own route is already its route: OK assigns nothing.
+    press('OK');
+    expect(assigned).toEqual([]);
+    expect(box.current()).toBeNull();
+    act(() => box.replace('tradeRoutes', routes({ unit: { id: 'unit:9', name: 'Caravel', route: 'tradeRoute:1' } })));
+    press('Rum run');
+    press('OK');
+    expect(assigned).toEqual(['unit:9 tradeRoute:2 hidden']);
+  });
+
+  it('gives a new route to the unit the panel was opened for', () => {
+    const { box, saved } = host();
+    act(() => box.replace('tradeRoutes', routes({ unit: { id: 'unit:9', name: 'Caravel', route: null } })));
+    press('New Trade Route');
+    press('Add new stop');
+    press('OK');
+    expect(saved[0].unit).toBe('unit:9');
   });
 
   it('has no assign buttons when it was not opened for a unit', () => {
