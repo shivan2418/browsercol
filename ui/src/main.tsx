@@ -112,7 +112,7 @@ import { InfoPanel } from './info-panel';
 import { MinimapPanel } from './minimap-panel';
 import { MapOrders } from './map-orders';
 import { Side, type SideProps } from './side';
-import { isIdle, shownNotice, TurnBanner, turnNotice, type TurnFacts, type TurnNotice } from './turn-banner';
+import { isIdle, TurnBanner, turnNotice, type TurnFacts, type TurnNotice } from './turn-banner';
 import { ErrorBanner, addError, engineError, type GameError } from './errors';
 import { loadModule } from './teavm';
 import { applyTheme } from './theme';
@@ -1005,10 +1005,7 @@ function renderSide() {
             />
           )}
           {/* The info panel says to end the turn; with the map controls hidden, the banner says it instead. */}
-          {createPortal(
-            <TurnBanner notice={mapControls ? banner : shownNotice(banner, lastTurn, noUnitHeard)} />,
-            gameBox,
-          )}
+          {createPortal(<TurnBanner notice={banner} />, gameBox)}
           {popup && <PopupMenu popup={popup} run={(id) => runMenuEntry(id)} close={() => showPopup(null)} art={art} />}
         </>,
         overlays,

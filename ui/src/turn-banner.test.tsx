@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
-import { DONE_NOTICE, NEW_TURN_MS, shownNotice, TurnBanner, turnNotice, type TurnFacts } from './turn-banner';
+import { isIdle, NEW_TURN_MS, TurnBanner, turnNotice, type TurnFacts } from './turn-banner';
 
 const mine = (turn: string, ourTurn = true): TurnFacts => ({ turn, turnLabel: 'Spring 1493', ourTurn });
 
@@ -20,22 +20,18 @@ describe('turnNotice', () => {
   });
 });
 
-describe('shownNotice', () => {
-  const fresh = { kind: 'new', text: 'Turn 4, Spring 1493' } as const;
-  it('tells the player to end the turn once no unit is left to move in it', () => {
-    expect(shownNotice(fresh, mine('4'), mine('4'))).toBe(DONE_NOTICE);
-    expect(DONE_NOTICE.text).toContain('Press Enter to end the turn');
+describe('isIdle', () => {
+  it('is idle once no unit is left to move in our turn, heard in it or while the others moved', () => {
+    expect(isIdle(mine('4'), mine('4'))).toBe(true);
+    expect(isIdle(mine('3', false), mine('4'))).toBe(true);
+    expect(isIdle(mine('4', false), mine('4'))).toBe(true);
+    expect(isIdle(null, mine('1'))).toBe(true);
   });
-  it('tells it at the start of a turn with no unit to move, heard before the map of the turn', () => {
-    expect(shownNotice(fresh, mine('4'), mine('3', false))).toBe(DONE_NOTICE);
-    expect(shownNotice(fresh, mine('4'), mine('4', false))).toBe(DONE_NOTICE);
-    expect(shownNotice(null, mine('1'), null)).toBe(DONE_NOTICE);
-  });
-  it('keeps the turn notice while a unit can move, in another turn, or while the others move', () => {
-    expect(shownNotice(fresh, mine('4'), undefined)).toBe(fresh);
-    expect(shownNotice(fresh, mine('5'), mine('4'))).toBe(fresh);
-    expect(shownNotice(null, mine('4', false), mine('4'))).toBeNull();
-    expect(shownNotice(null, mine('4', false), mine('3', false))).toBeNull();
+  it('is not idle while a unit can move, for another turn, or while the others move', () => {
+    expect(isIdle(undefined, mine('4'))).toBe(false);
+    expect(isIdle(mine('4'), mine('5'))).toBe(false);
+    expect(isIdle(mine('4'), mine('4', false))).toBe(false);
+    expect(isIdle(mine('3', false), mine('4', false))).toBe(false);
   });
 });
 
