@@ -39,6 +39,10 @@ export const jamestown: ColonyView = {
     royalists: 'Royalists: 1',
     bonus: 'Bonus: 0',
     rebelPercent: 0,
+    tip: [
+      ['Rebel', '0  0%'],
+      ['Turns to increase rebels', 'N/A'],
+    ],
     rebelShield: [],
     royalistShield: [],
   },

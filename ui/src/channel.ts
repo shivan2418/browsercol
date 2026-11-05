@@ -77,6 +77,8 @@ export interface ClientExports {
   sellGoods(shipId: string, goodsTypeId: string, ask: boolean): void;
   /** Colony panel: take a unit off a ship in port, by id. */
   leaveShip(unitId: string): void;
+  /** Colony panel: goods of the warehouse dropped on a colonist equip it with the role they give, by ids. */
+  equipUnit(unitId: string, goodsTypeId: string): void;
   /** Colony panel: load goods of a type from the warehouse onto a ship in port; ask asks the amount. */
   loadGoods(shipId: string, goodsTypeId: string, ask: boolean): void;
   /** Colony panel: unload a stack of a ship's goods into the warehouse; ask asks the amount. */

@@ -1,6 +1,7 @@
 package online.freecol.web;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -327,6 +328,10 @@ class ColonyJsonTest {
 
         // Units on the colony's tile but not in it.
         assertEquals(List.of(outside.getId()), ids(obj(json.get("outside")).get("units")));
+        // Each carries UnitLabel's occupation chip; none is damaged.
+        final Map<String, Object> outsideJson = obj(list(obj(json.get("outside")).get("units")).get(0));
+        assertEquals(Messages.message(outside.getOccupationLabel(us, false)), outsideJson.get("occupation"));
+        assertFalse(outsideJson.containsKey("repair"));
         // The ship in port, with its cargo as ColonyCargoPanel shows it, and
         // chosen, as InPortPanel.selectLabel chooses the last carrier.
         final Map<String, Object> port = obj(json.get("inPort"));
@@ -369,6 +374,11 @@ class ColonyJsonTest {
         final Map<String, Object> population = obj(json.get("population"));
         assertEquals("Total: 2", population.get("total"));
         assertEquals((long)colony.getSonsOfLiberty(), population.get("rebelPercent"));
+        // RebelToolTip's lines, with the turns to the next rebel among them.
+        final List<Object> tip = list(population.get("tip"));
+        assertTrue(tip.stream().anyMatch(r -> list(r).get(0)
+                .equals(Messages.message("rebelToolTip.nextMember"))),
+            "the turns to the next rebel: " + tip);
 
         // The current build and what it still needs.
         final Map<String, Object> build = obj(json.get("construction"));

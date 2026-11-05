@@ -12,13 +12,16 @@ import net.sf.freecol.common.model.BuildingType;
 import net.sf.freecol.common.model.Colony;
 import net.sf.freecol.common.model.ColonyTile;
 import net.sf.freecol.common.model.Direction;
+import net.sf.freecol.common.model.FeatureContainer;
 import net.sf.freecol.common.model.Goods;
 import net.sf.freecol.common.model.GoodsType;
+import net.sf.freecol.common.model.Modifier;
 import net.sf.freecol.common.model.Nation;
 import net.sf.freecol.common.model.ProductionInfo;
 import net.sf.freecol.common.model.Specification;
 import net.sf.freecol.common.model.StringTemplate;
 import net.sf.freecol.common.model.Tile;
+import net.sf.freecol.common.model.Turn;
 import net.sf.freecol.common.model.Unit;
 import net.sf.freecol.common.model.WorkLocation;
 import net.sf.freecol.common.option.GameOptions;
@@ -31,7 +34,8 @@ import net.sf.freecol.common.option.GameOptions;
  * <ul>
  * <li>id, name, at ([x, y]), ok (the close button's label);
  * <li>population: {total, rebels, royalists, bonus (PopulationPanel's
- *     labels), rebelPercent, rebelShield and royalistShield (keys)};
+ *     labels), rebelPercent, rebelShield and royalistShield (keys), tip
+ *     (RebelToolTip as [label, value] lines)};
  * <li>buildings: {id, type, name, keys, site, capacity, builds (it has Ability.BUILD, so a click opens the build queue), workers,
  *     production, upkeep}, in the specification's order, without the
  *     defences and the docks, which Swing's BuildingsPanel leaves to the
@@ -53,7 +57,9 @@ import net.sf.freecol.common.option.GameOptions;
  *     over}]}, the storable goods at or over the display threshold, over
  *     being whether the amount exceeds the capacity (Swing's red);
  * <li>outside: {title, units}, the units on the colony's tile that are
- *     not carriers;
+ *     not carriers, each unit also with occupation (UnitLabel's chip text),
+ *     occupationFull and, when damaged, repair; the units in port have them
+ *     too;
  * <li>inPort: {title, units, selected, cargo}, the carriers on the tile,
  *     each unit with cargo: {title, units, goods} as ColonyCargoPanel
  *     shows it; selected is the carrier chosen at first (or null), cargo
@@ -124,9 +130,69 @@ final class ColonyJson {
                     .addAmount("%number%", colony.getProductionBonus())
                     .addName("%extra%", growth)))
             .put("rebelPercent", sol)
+            .putRaw("tip", rebelTip(colony))
             .putRaw("rebelShield", ObjectImages.json(nation))
             .putRaw("royalistShield", (other == null) ? "[]" : ObjectImages.json(other))
             .toString();
+    }
+
+    /**
+     * RebelToolTip as lines of [label, value]: the rebels and royalists with
+     * their shares, the liberty each liberty goods makes and in all, the
+     * progress to the next rebel, and the turns until the next member, 50%
+     * and 100%, then how many colonists can be added or removed at the
+     * current bonus.
+     */
+    private static String rebelTip(Colony colony) {
+        final Specification spec = colony.getSpecification();
+        final int population = colony.getUnitCount();
+        final int sol = colony.getSonsOfLiberty();
+        final int rebels = Colony.calculateRebelCount(population, sol);
+        final Turn turn = colony.getGame().getTurn();
+        final List<String> rows = new ArrayList<>();
+        rows.add(row(Messages.message(StringTemplate.template("rebelToolTip.rebelLabel")
+                    .addName("%number%", "")).trim(), rebels + "  " + sol + "%"));
+        rows.add(row(Messages.message(StringTemplate.template("rebelToolTip.royalistLabel")
+                    .addName("%number%", "")).trim(),
+                (population - rebels) + "  " + (100 - sol) + "%"));
+        int liberty = 0;
+        for (GoodsType type : spec.getLibertyGoodsTypeList()) {
+            final int production = colony.getNetProductionOf(type);
+            liberty += production;
+            rows.add(row(Messages.getName(type), String.valueOf(production)));
+        }
+        liberty = (int)FeatureContainer.applyModifiers((float)liberty, turn,
+            colony.getOwner().getModifiers(Modifier.LIBERTY));
+        final boolean capped = spec.getBoolean(GameOptions.BELL_ACCUMULATION_CAPPED)
+            && sol >= 100;
+        rows.add(row(Messages.getName(spec.getLibertyGoodsTypeList().get(0)),
+                (colony.getLiberty() % Colony.LIBERTY_PER_REBEL) + "/"
+                + Colony.LIBERTY_PER_REBEL + " ("
+                + (capped ? 0 : liberty) + ")"));
+        int next = -1, half = -1, all = -1;
+        if (liberty > 0 && !capped) {
+            final List<Integer> bonus = colony.rebelHelper(liberty);
+            next = bonus.get(0);
+            half = bonus.get(1);
+            all = bonus.get(2);
+        }
+        rows.add(row(Messages.message("rebelToolTip.nextMember"),
+                (next < 0) ? Messages.message("notApplicable") : String.valueOf(next)));
+        if (half > 0) rows.add(row(Messages.message("rebelToolTip.50percent"), String.valueOf(half)));
+        if (all > 0) rows.add(row(Messages.message("rebelToolTip.100percent"), String.valueOf(all)));
+        final int grow = colony.getPreferredSizeChange();
+        if (grow >= Colony.CHANGE_UPPER_BOUND) {
+            rows.add(row(Messages.message("rebelToolTip.changeMore"), Messages.message("many")));
+        } else if (grow >= 0) {
+            rows.add(row(Messages.message("rebelToolTip.changeMore"), String.valueOf(grow)));
+        } else {
+            rows.add(row(Messages.message("rebelToolTip.changeLess"), String.valueOf(-grow)));
+        }
+        return Json.array(rows);
+    }
+
+    private static String row(String label, String value) {
+        return Json.array(List.of(Json.quote(label), Json.quote(value)));
     }
 
     /**
@@ -360,7 +426,27 @@ final class ColonyJson {
             if (!u.isCarrier()) units.add(u);
         }
         return new Json().put("title", Messages.message("colonyPanel.outsideColony"))
-            .putRaw("units", unitList(units)).toString();
+            .putRaw("units", Json.array(occupied(colony, units))).toString();
+    }
+
+    /**
+     * Each unit with the occupation chip UnitLabel draws over a unit outside
+     * the colony or in port, and for a damaged one the repair status, drawn
+     * red.
+     */
+    private static List<String> occupied(Colony colony, List<Unit> units) {
+        final List<String> out = new ArrayList<>();
+        for (Unit u : units) out.add(occupied(colony, u).toString());
+        return out;
+    }
+
+    private static Json occupied(Colony colony, Unit u) {
+        final Json json = unit(u)
+            .put("occupation", Messages.message(u.getOccupationLabel(colony.getOwner(), false)))
+            .put("occupationFull", Messages.message(u.getOccupationLabel(colony.getOwner(), true)));
+        return u.isDamaged()
+            ? json.put("repair", Messages.message(u.getRepairLabel()))
+            : json;
     }
 
     /**
@@ -378,7 +464,7 @@ final class ColonyJson {
             for (Goods g : u.getGoodsList()) {
                 goods.add(goods(g.getType(), g.getAmount()).toString());
             }
-            out.add(unit(u).putRaw("cargo", new Json()
+            out.add(occupied(colony, u).putRaw("cargo", new Json()
                     .put("title", Messages.message(StringTemplate
                             .template("cargoPanel.cargoAndSpace")
                             .addStringTemplate("%name%", u.getLabel(Unit.UnitLabelType.NATIONAL))

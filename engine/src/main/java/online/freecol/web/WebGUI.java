@@ -354,6 +354,14 @@ public class WebGUI extends GUI {
     private final SalesLog salesLog = new SalesLog();
 
 
+    /** The colonies whose panels are open, watched for changes ColonyPanel reacts to. */
+    private final ColonyWatch colonyWatch = new ColonyWatch(this);
+
+    /** Run what a colony panel does after a change, once a command is done (ColonyWatch.settle). */
+    void settleColonies() {
+        this.colonyWatch.settle(getFreeColClient());
+    }
+
     public WebGUI(FreeColClient freeColClient, ClientEngine engine, BrowserUI ui) {
         super(freeColClient);
         this.engine = engine;
@@ -1872,7 +1880,10 @@ public class WebGUI extends GUI {
      */
     @Override
     public FreeColPanel showColonyPanel(Colony colony, Unit unit) {
-        if (colony != null) this.ui.show("colony", colonyJson(colony));
+        if (colony != null) {
+            this.colonyWatch.watch(colony);
+            this.ui.show("colony", colonyJson(colony));
+        }
         return null;
     }
 
@@ -1881,6 +1892,9 @@ public class WebGUI extends GUI {
      * removes it once the player may leave it (Commands.closeColonyPanel).
      */
     void closeColonyPanel(String colonyId) {
+        final Colony colony = getFreeColClient().getGame()
+            .getFreeColGameObject(colonyId, Colony.class);
+        if (colony != null) this.colonyWatch.unwatch(colony);
         this.ui.show("closeColony", new Json().put("id", colonyId).toString());
     }
 

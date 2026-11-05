@@ -231,6 +231,7 @@ public final class ClientMain {
         commands.add(() -> {
                 try {
                     run.run();
+                    engine.getCommands().afterCommand();
                     // The map after the command covers any refresh that came
                     // while it ran.
                     refreshPending.set(false);
@@ -456,6 +457,12 @@ public final class ClientMain {
     @JSExport
     public static void changeWorkType(String unitId, String goodsTypeId) {
         command("changeWorkType", () -> engine.getCommands().changeWorkType(unitId, goodsTypeId));
+    }
+
+    /** Colony panel: goods of the warehouse dropped on a colonist equip it with the role they give. */
+    @JSExport
+    public static void equipUnit(String unitId, String goodsTypeId) {
+        command("equipUnit", () -> engine.getCommands().equip(unitId, goodsTypeId));
     }
 
     /** Colony panel: take a unit off a ship in port, by id. */

@@ -272,6 +272,7 @@ const colonyMoves: ColonyMoves = {
     colonyClient ? colonyClient.closeColonyPanel(colony) : dialogQueue.remove('colony', (open) => open.id === colony),
   board: (unit, ship) => colonyClient?.boardShip(unit, ship),
   leaveShip: (unit) => colonyClient?.leaveShip(unit),
+  equip: (unit, goods) => colonyClient?.equipUnit(unit, goods),
   load: (ship, goods, ask) => colonyClient?.loadGoods(ship, goods, ask),
   unload: (ship, goods, stack, ask) => colonyClient?.unloadGoods(ship, goods, stack, ask),
 };

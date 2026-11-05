@@ -541,6 +541,50 @@ class CommandsTest {
 
     @Test
     @Timeout(180)
+    void goodsDroppedOnAColonistEquipItWithTheRoleTheyGive() throws Exception {
+        startGame();
+        final Commands commands = client.getCommands();
+        final Colony serverColony = foundAColony(commands);
+        final Colony ours = client.getGame()
+            .getFreeColGameObject(serverColony.getId(), Colony.class);
+        final Unit colonist = ours.getUnitList().get(0);
+        final GoodsType tools = client.getGame().getSpecification().getGoodsType("model.goods.tools");
+        assertFalse(commands.equip(colonist.getId(), "model.goods.noSuch"));
+        final int had = ours.getGoodsCount(tools);
+        client.debugApplied(server.debug("{\"action\":\"addGoods\",\"type\":\"model.goods.tools\","
+            + "\"amount\":100,\"x\":" + ours.getTile().getX() + ",\"y\":" + ours.getTile().getY() + "}"));
+        awaitTrue(() -> ours.getGoodsCount(tools) == had + 100, "the colony has the tools");
+        assertFalse(commands.equip(colonist.getId(), "model.goods.lumber"), "lumber equips no one");
+        assertTrue(commands.equip(colonist.getId(), tools.getId()), "equipped");
+        assertEquals("model.role.pioneer", colonist.getRole().getId());
+        assertFalse(commands.equip(colonist.getId(), tools.getId()), "already as equipped as the tools allow");
+    }
+
+    @Test
+    @Timeout(180)
+    void anOpenColonyPanelSaysWhenAUnitChangesType() throws Exception {
+        startGame();
+        final Commands commands = client.getCommands();
+        final Colony serverColony = foundAColony(commands);
+        final Colony ours = client.getGame()
+            .getFreeColGameObject(serverColony.getId(), Colony.class);
+        final Specification spec = client.getGame().getSpecification();
+        // Founding a colony opens its panel; closed, the colony says nothing, as ColonyPanel is not listening.
+        assertTrue(commands.closeColonyPanel(ours.getId()), "closes the panel");
+        informationPanels.clear();
+        ours.firePropertyChange(Colony.ColonyChangeEvent.UNIT_TYPE_CHANGE.toString(),
+            spec.getUnitType("model.unit.freeColonist"), spec.getUnitType("model.unit.masterCarpenter"));
+        assertTrue(informationPanels.isEmpty(), "nobody is told: " + informationPanels);
+        assertTrue(commands.showColony(ours.getId()), "opens the panel");
+        ours.firePropertyChange(Colony.ColonyChangeEvent.UNIT_TYPE_CHANGE.toString(),
+            spec.getUnitType("model.unit.freeColonist"), spec.getUnitType("model.unit.masterCarpenter"));
+        assertEquals(1, informationPanels.size(), "the change is told");
+        assertTrue(informationPanels.get(0).contains(Messages.getName(spec.getUnitType("model.unit.masterCarpenter"))),
+            informationPanels.get(0));
+    }
+
+    @Test
+    @Timeout(180)
     void aColonistPutOnAPoorerTileIsToldOfTheBestOne() throws Exception {
         startGame();
         final Commands commands = client.getCommands();
