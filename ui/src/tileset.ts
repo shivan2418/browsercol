@@ -23,6 +23,10 @@ export interface MapView {
   /** The season and year of the turn, e.g. Spring 1493. */
   turnLabel: string;
   ourTurn: boolean;
+  /** Whether the player is still colonial: not a rebel, an independent nation or retired. */
+  colonial: boolean;
+  /** Whether the player still has a Europe: it goes with independence. */
+  europe: boolean;
   /** The id of the player's nation, e.g. model.nation.dutch. */
   nation: string;
   /** FreeCol's status line: the score, the gold, the tax and the year. */

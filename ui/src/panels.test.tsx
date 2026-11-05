@@ -1126,16 +1126,20 @@ describe('the names dialog', () => {
     cancel: 'Later',
   };
 
-  it('answers the fields, as edited, on ok or Enter', async () => {
+  it('answers the fields, as edited, on ok', async () => {
     const { box } = host();
     const edited = ask(box, 'names', q);
     fireEvent.change(screen.getByLabelText('Country'), { target: { value: 'Newland' } });
     fireEvent.click(screen.getByRole('button', { name: 'Liberty' }));
     expect(await edited).toEqual(['Free Dutch', 'Newland']);
+  });
 
+  it('defaults to No: Enter does not declare', async () => {
+    const { box } = host();
     const kept = ask(box, 'names', q);
+    expect(enterMarked()).toEqual(['Later']);
     key('Enter');
-    expect(await kept).toEqual(['Free Dutch', 'United Dutch']);
+    expect(await kept).toBeNull();
   });
 
   it('answers null on cancel or Escape', async () => {

@@ -10,6 +10,8 @@ const map = (more: Partial<MapView> = {}): MapView => ({
   turn: '1',
   turnLabel: 'Spring 1492',
   ourTurn: true,
+  colonial: true,
+  europe: true,
   nation: 'model.nation.dutch',
   statusLine: '',
   types: [

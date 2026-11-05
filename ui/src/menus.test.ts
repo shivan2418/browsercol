@@ -9,6 +9,8 @@ function actions(over: Partial<MenuActions> = {}) {
     ready: true,
     orders: [],
     hasActiveUnit: false,
+    canDeclare: true,
+    hasEurope: true,
     run: (c: Command) => log.push(c.k),
     newGame: () => log.push('newGame'),
     save: () => log.push('save'),
@@ -263,5 +265,17 @@ describe('the Debug menu', () => {
     find(items, 'Add Immigration').run();
     expect(asked).toEqual([]);
     expect(find(items, 'Add Building to Colony at Selected Tile').disabled).toBe(true);
+  });
+});
+
+describe('independence', () => {
+  it('greys out Europe once the player has none', () => {
+    expect(find(viewMenu(actions({ hasEurope: false }).a), 'Europe').disabled).toBe(true);
+    expect(find(viewMenu(actions().a), 'Europe').disabled).toBeFalsy();
+  });
+
+  it('greys out Declare Independence for a rebel, a retired player or outside our turn', () => {
+    expect(find(gameMenu(actions({ canDeclare: false }).a), 'Declare Independence').disabled).toBe(true);
+    expect(find(gameMenu(actions().a), 'Declare Independence').disabled).toBeFalsy();
   });
 });

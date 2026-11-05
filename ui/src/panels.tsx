@@ -424,7 +424,8 @@ function Names({ d }: { d: Of<'names'> }) {
   const [values, setValues] = useState(ask.fields.map((f) => f.value));
   const ok = () => d.done(values);
   const cancel = () => d.done(null);
-  useEnter(ok);
+  // ConfirmDeclarationDialog's default option is No: Enter does not declare independence.
+  useEnter(cancel);
   return (
     <Win d={d} close={cancel}>
       <Text text={ask.text} />
@@ -438,7 +439,7 @@ function Names({ d }: { d: Of<'names'> }) {
           />
         </label>
       ))}
-      <OkCancel ok={ask.ok} cancel={ask.cancel} onOk={ok} onCancel={cancel} enter="ok" />
+      <OkCancel ok={ask.ok} cancel={ask.cancel} onOk={ok} onCancel={cancel} enter="cancel" />
     </Win>
   );
 }

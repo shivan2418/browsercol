@@ -506,11 +506,17 @@ addEventListener(
 );
 /** Whether the client Engine has loaded, so the menus' game commands work. */
 let menuReady = false;
+/** DeclareIndependenceAction: the player is colonial, so not a rebel, independent or retired, and it is their turn. */
+const canDeclare = () => !lastMap || (lastMap.colonial && lastMap.ourTurn);
+/** EuropeAction: the player has a Europe, which independence removes. */
+const hasEurope = () => !lastMap || lastMap.europe;
 /** What the Game, Orders and View menus do (menus.ts). */
 const menuActions = (): MenuActions => ({
   ready: menuReady,
   orders: side.orders,
   hasActiveUnit: view.active !== null,
+  canDeclare: canDeclare(),
+  hasEurope: hasEurope(),
   run: (c) => runCommand(c),
   newGame: () =>
     void confirmStopGame().then((go) => {
@@ -1024,6 +1030,8 @@ gotoKeyInput(
 /** Hook the player's input up to the client Engine's commands. */
 function playWith(client: ClientExports) {
   const run = (c: Command) => {
+    // The same two actions are disabled in Swing, so the E key and the buttons do nothing either.
+    if ((c.k === 'declareIndependence' && !canDeclare()) || (c.k === 'showEurope' && !hasEurope())) return;
     if (c.k === 'move') client.move(c.direction);
     // ClearOrdersAction: the same as Clear orders in the unit's menu.
     else if (c.k === 'clearOrders') {
