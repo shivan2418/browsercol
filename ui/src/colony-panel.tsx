@@ -97,6 +97,10 @@ export interface ColonyMoves {
   load(ship: string, goods: string, ask: boolean): void;
   /** Unload a stack of a ship's goods into the warehouse; ask: let the player choose how much of it. */
   unload(ship: string, goods: string, stack: number, ask: boolean): void;
+  /** Unload everything a ship in port carries: the units ashore, the goods into the warehouse (the U key). */
+  unloadAll(ship: string): void;
+  /** Top up the goods a ship in port carries from the warehouse (the L key). */
+  fill(ship: string): void;
 }
 /** Without it the panel only shows the colony. */
 export const ColonyActions = createContext<ColonyMoves | null>(null);
@@ -962,6 +966,27 @@ export function ColonyPanel({ colony: c, art, footer }: { colony: ColonyView; ar
     redraw((n) => n + 1);
   };
   const here = picked !== null && isHere(c, picked);
+  // ColonyPanel's U and L keys act on the ship chosen in port (the buttons are there at zero size).
+  const keyed = useRef<() => ((e: KeyboardEvent) => void) | null>(() => null);
+  keyed.current = () => {
+    const ship = chosenShip(c);
+    if (!moves || !ship) return null;
+    return (e) => {
+      const key = e.key.toLowerCase();
+      if (key === 'u') moves.unloadAll(ship.id);
+      else moves.fill(ship.id);
+      e.preventDefault();
+    };
+  };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.altKey || e.ctrlKey || e.metaKey || e.repeat || !['u', 'l'].includes(e.key.toLowerCase())) return;
+      if (e.target instanceof Element && e.target.matches('input, textarea, select, [contenteditable]')) return;
+      keyed.current()?.(e);
+    };
+    addEventListener('keydown', onKey);
+    return () => removeEventListener('keydown', onKey);
+  }, []);
   const hand: Hand = !moves
     ? NO_HAND
     : {

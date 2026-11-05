@@ -1628,6 +1628,39 @@ class CommandsTest {
         assertNotNull(entryWith(back, "unload:" + ship.getId()), back);
         assertTrue(commands.menuEntry("unloadAll:" + ship.getId()), "unloads");
         assertEquals(0, ship.getGoodsCount(food));
+
+        // L tops the ship up: what it carries is loaded again to its room.
+        assertTrue(commands.menuEntry(load), "loads again");
+        final int full = ship.getGoodsCount(food);
+        assertTrue(commands.unloadGoods(ship.getId(), food.getId(), 1, false), "one unloaded");
+        assertEquals(full - 1, ship.getGoodsCount(food));
+        assertTrue(commands.menuEntry("fill:" + ship.getId()), "topped up");
+        assertEquals(full, ship.getGoodsCount(food), "the ship is topped up");
+
+        // The tile popup of the ship's tile offers Dump cargo.
+        final String popup = client.getMenus().tile(ours.getTile().getX(), ours.getTile().getY());
+        assertNotNull(entryWith(popup, "unloadAll:" + ship.getId()), popup);
+
+        // U in port unloads the active ship into the warehouse (it has no
+        // moves left, so it is made the active unit directly).
+        client.getClient().getGUI().changeView(ship, false);
+        assertTrue(commands.unload(), "U unloads");
+        assertEquals(0, ship.getGoodsCount(food));
+
+        // Out at sea U dumps the cargo.
+        assertTrue(commands.menuEntry(load), "loads for the sea");
+        endTurnAndWait(commands);
+        select(commands, ship);
+        Direction out = null;
+        for (Direction d : Direction.values()) {
+            final Tile n = ship.getTile().getNeighbourOrNull(d);
+            if (n != null && !n.isLand() && n.isExplored()) out = d;
+        }
+        assertNotNull(out, "open water beside the colony");
+        assertTrue(commands.move(out.toString()), "out to sea");
+        assertTrue(ship.getGoodsCount(food) > 0, "still loaded");
+        assertTrue(commands.unload(), "U dumps at sea");
+        assertEquals(0, ship.getGoodsCount(food), "the cargo is dumped");
     }
 
     /**

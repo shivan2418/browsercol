@@ -91,6 +91,7 @@ describe('the Orders menu', () => {
       'Plow',
       'Clear Forest',
       'Build Road',
+      'Unload',
       'Go To',
       'Trade Routes',
       'Disband Unit',

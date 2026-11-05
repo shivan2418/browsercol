@@ -441,6 +441,12 @@ public final class ClientMain {
                 () -> engine.getCommands().selectDestination());
     }
 
+    /** Unload the active carrier's cargo (UnloadAction). */
+    @JSExport
+    public static void unload() {
+        command("unload", () -> engine.getCommands().unload());
+    }
+
     /** Plow the active unit's tile (the plow ImprovementAction). */
     @JSExport
     public static void plow() {

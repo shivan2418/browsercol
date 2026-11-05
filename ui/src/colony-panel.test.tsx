@@ -261,6 +261,8 @@ describe('moving colonists in the colony panel', () => {
     equip: (u, g) => calls.push(`equip ${u} ${g}`),
     load: (s, g, a) => calls.push(`load ${s} ${g}${a ? ' ask' : ''}`),
     unload: (s, g, n, a) => calls.push(`unload ${s} ${g} ${n}${a ? ' ask' : ''}`),
+    unloadAll: (s) => calls.push(`unloadAll ${s}`),
+    fill: (s) => calls.push(`fill ${s}`),
   };
   /** A colony of its own each time: the colonist picked stays picked per colony. */
   let n = 100;
@@ -375,6 +377,8 @@ describe('loading a ship in port in the colony panel', () => {
     equip: (u, g) => calls.push(`equip ${u} ${g}`),
     load: (s, g, a) => calls.push(`load ${s} ${g}${a ? ' ask' : ''}`),
     unload: (s, g, n, a) => calls.push(`unload ${s} ${g} ${n}${a ? ' ask' : ''}`),
+    unloadAll: (s) => calls.push(`unloadAll ${s}`),
+    fill: (s) => calls.push(`fill ${s}`),
   };
   const caravel = {
     id: 'unit:9',
@@ -441,6 +445,15 @@ describe('loading a ship in port in the colony panel', () => {
   it('puts the unit and liberty figures of RebelToolTip on the population row', () => {
     openPort();
     expect(part('population').getAttribute('title')).toContain('Turns to increase rebels: N/A');
+  });
+
+  it('unloads the chosen ship with U and tops it up with L', () => {
+    openPort();
+    fireEvent.keyDown(document.body, { key: 'u' });
+    fireEvent.keyDown(document.body, { key: 'L' });
+    // Keys with a modifier are not the panel's.
+    fireEvent.keyDown(document.body, { key: 'u', ctrlKey: true });
+    expect(calls).toEqual(['unloadAll unit:9', 'fill unit:9']);
   });
 
   it('puts a unit beside the colony aboard the ship chosen, and takes one off it', () => {
@@ -553,6 +566,8 @@ describe('the build queue in the colony panel', () => {
     equip: () => {},
     load: () => {},
     unload: () => {},
+    unloadAll: () => {},
+    fill: () => {},
   };
   let n = 200;
   function openQueue(colony: Partial<ColonyView> = {}) {

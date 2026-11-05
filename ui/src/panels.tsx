@@ -1491,6 +1491,13 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
           {e.buttons[kind]}
         </button>
       ))}
+      <button
+        data-europe="unload"
+        disabled={!ship?.cargo?.length}
+        onClick={() => ship && europeButtons.unload(ship.id)}
+      >
+        {e.buttons.unload}
+      </button>
       <button data-europe="sail" disabled={!ship} onClick={() => ship && europeButtons.sail(ship.id)}>
         {e.buttons.sail}
       </button>

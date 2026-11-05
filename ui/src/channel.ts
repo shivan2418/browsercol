@@ -110,6 +110,7 @@ export interface ClientExports {
   sentry(): void;
   skip(): void;
   disband(): void;
+  unload(): void;
   plow(): void;
   clearForest(): void;
   road(): void;

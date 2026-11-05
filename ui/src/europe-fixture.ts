@@ -65,7 +65,7 @@ export const europe: GuiEvents['europe'] = {
     unit('unit:7', 'Petty Criminal', 'pettyCriminal'),
   ],
   selected: 'unit:1',
-  buttons: { train: 'Train', purchase: 'Purchase', recruit: 'Recruit', sail: 'Set sail' },
+  buttons: { train: 'Train', purchase: 'Purchase', recruit: 'Recruit', unload: 'Unload', sail: 'Set sail' },
   recruit: {
     heading: 'Recruit',
     text: 'Click on a unit to recruit it for 200 gold (1 turns)',

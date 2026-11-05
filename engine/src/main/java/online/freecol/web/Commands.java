@@ -13,6 +13,7 @@ import net.sf.freecol.common.model.Ability;
 import net.sf.freecol.common.model.BuildableType;
 import net.sf.freecol.common.model.Colony;
 import net.sf.freecol.common.model.ColonyTile;
+import net.sf.freecol.common.model.Constants.BoycottAction;
 import net.sf.freecol.common.model.Direction;
 import net.sf.freecol.common.model.ExportData;
 import net.sf.freecol.common.model.FreeColGameObject;
@@ -399,11 +400,21 @@ public final class Commands {
         final int aboard = (stack > 0) ? Math.min(stack, all) : all;
         final Player player = this.client.getMyPlayer();
         if (!player.canTrade(type)) {
-            // The Crown is boycotting this goods: the player is asked to pay
-            // the arrears, as Swing does, and the goods is not sold.
-            igc().payArrears(type);
+            // The Crown is boycotting this goods: as a stack dropped on the
+            // market does in Swing (MarketPanel.add), the player chooses
+            // between paying the arrears and dumping the stack. Nothing is
+            // sold either way.
+            final BoycottAction act = gui().getBoycottChoice(
+                new Goods(this.client.getGame(), ship, type, aboard), player.getEurope());
+            boolean dumped = false;
+            if (act == BoycottAction.BOYCOTT_PAY_ARREARS) {
+                igc().payArrears(type);
+            } else if (act == BoycottAction.BOYCOTT_DUMP_CARGO) {
+                dumped = igc().unloadCargo(
+                    new Goods(this.client.getGame(), ship, type, aboard), true);
+            }
             gui().showEuropePanel();
-            return false;
+            return dumped;
         }
         final int amount = ask
             ? gui().showSelectAmountDialog(type, aboard, aboard, false) : aboard;
@@ -510,6 +521,9 @@ public final class Commands {
      * <tr><td>payArrears:goods</td><td>pay the Crown's arrears on a boycotted goods</td></tr>
      * <tr><td>buy:ship,goods, sell:ship,goods</td><td>trade goods between a ship in Europe and the market</td></tr>
      * <tr><td>load:ship,goods, unload:ship,goods,amount, unloadAll:ship</td><td>move goods between a ship and the warehouse</td></tr>
+     * <tr><td>unloadEurope:ship</td><td>the Europe panel's Unload button: sell the cargo, pay arrears on boycotted goods, units to the docks</td></tr>
+     * <tr><td>fill:ship</td><td>top up the goods a ship in a colony carries from the warehouse</td></tr>
+     * <tr><td>dump:ship,goods,amount</td><td>dump a stack of a ship's cargo, as the cargo menu's Dump cargo does</td></tr>
      * </table>
      * A load, unload, buy or sell entry with ",ask" added asks how many to move (a shift-click).
      *
@@ -562,6 +576,9 @@ public final class Commands {
         case "unload":
             return unloadGoods(a[0], a[1], Integer.parseInt(a[2]), ask);
         case "unloadAll": return unloadAll(rest);
+        case "dump": return dumpGoods(a[0], a[1], Integer.parseInt(a[2]));
+        case "fill": return fillShip(rest);
+        case "unloadEurope": return unloadEurope(rest);
         default: return false;
         }
     }
@@ -756,12 +773,17 @@ public final class Commands {
     }
 
     /**
-     * Unload everything a ship in port carries, as InGameController.unload
-     * does in a colony: the units go ashore and the goods into the warehouse.
+     * Unload everything a carrier carries, as InGameController.unload does
+     * (UnloadAction, the carrier's Unload and Dump cargo menu entries): in
+     * a colony the units go ashore and the goods into the warehouse; in
+     * Europe the goods are sold and what is boycotted is dumped after
+     * asking; anywhere else the goods are dumped (units dislike jumping
+     * overboard).
      */
     private boolean unloadAll(String shipId) {
-        final Unit ship = shipInPort(shipId);
+        final Unit ship = ourCarrier(shipId);
         if (ship == null) return false;
+        if (ship.getColony() == null) return igc().unload(ship);
         boolean any = false;
         for (Unit u : new ArrayList<>(ship.getUnitList())) {
             any |= igc().leaveShip(u);
@@ -770,6 +792,100 @@ public final class Commands {
             any |= unloadGoods(shipId, g.getType().getId(), g.getAmount(), false);
         }
         return any;
+    }
+
+    /**
+     * Unload the active unit's cargo (UnloadAction, the U key and Orders >
+     * Unload), wherever it is.
+     *
+     * @return True if the cargo was unloaded.
+     */
+    public boolean unload() {
+        final Unit unit = gui().getActiveUnit();
+        if (unit == null || !unit.isCarrier() || !unit.hasCargo()) return false;
+        return unloadAll(unit.getId());
+    }
+
+    /**
+     * Empty a ship in Europe, as the Europe panel's Unload button does
+     * (EuropePanel.unloadAction): every stack the Crown trades is sold, the
+     * arrears are paid for each goods it boycotts, and every unit aboard
+     * goes ashore onto the docks.
+     *
+     * @param shipId The id of one of our ships in Europe.
+     * @return True if something was unloaded.
+     */
+    public boolean unloadEurope(String shipId) {
+        final Unit ship = shipInEurope(shipId);
+        if (ship == null) return false;
+        final Player player = this.client.getMyPlayer();
+        boolean any = false;
+        for (Goods g : ship.getCompactGoodsList()) {
+            if (player.canTrade(g.getType())) {
+                any |= igc().sellGoods(g);
+            } else {
+                igc().payArrears(g.getType());
+            }
+        }
+        for (Unit u : new ArrayList<>(ship.getUnitList())) {
+            any |= igc().leaveShip(u);
+        }
+        gui().showEuropePanel();
+        return any;
+    }
+
+    /**
+     * Dump a stack of a carrier's cargo, as the goods menu's Dump cargo
+     * entry does (QuickActionMenu); in Europe that is how boycotted goods
+     * are got rid of.
+     *
+     * @param shipId The id of one of our carriers.
+     * @param goodsTypeId The id of the goods type.
+     * @param stack The amount in the stack.
+     * @return True if goods were dumped.
+     */
+    public boolean dumpGoods(String shipId, String goodsTypeId, int stack) {
+        final Unit ship = ourCarrier(shipId);
+        final GoodsType type = goodsType(goodsTypeId);
+        if (ship == null || type == null) return false;
+        final int amount = Math.min(stack, ship.getGoodsCount(type));
+        if (amount <= 0) return false;
+        final boolean done = igc().unloadCargo(
+            new Goods(this.client.getGame(), ship, type, amount), true);
+        if (ship.isInEurope()) gui().showEuropePanel();
+        return done;
+    }
+
+    /**
+     * Top up a ship in a colony's port (ColonyPanel's fillCmd, the L key):
+     * for each goods the ship already carries, as much as it has room for
+     * is loaded from the warehouse.
+     *
+     * @param shipId The id of one of our ships in a colony.
+     * @return True if anything was loaded.
+     */
+    public boolean fillShip(String shipId) {
+        final Unit ship = shipInPort(shipId);
+        if (ship == null) return false;
+        final Colony colony = ship.getColony();
+        boolean any = false;
+        for (Goods g : ship.getCompactGoodsList()) {
+            final GoodsType type = g.getType();
+            final int space = ship.getLoadableAmount(type);
+            final int count = colony.getGoodsCount(type);
+            if (space > 0 && count > 0) {
+                any |= igc().loadCargo(new Goods(this.client.getGame(), colony, type,
+                    Math.min(space, count)), ship);
+            }
+        }
+        return any;
+    }
+
+    /** One of our carriers, anywhere, by id, else null. */
+    private Unit ourCarrier(String shipId) {
+        final Unit ship = this.client.getMyPlayer()
+            .getOurFreeColGameObject(shipId, Unit.class);
+        return (ship == null || !ship.isCarrier()) ? null : ship;
     }
 
     /** One of our carriers in one of our colonies, by id, else null. */

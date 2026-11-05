@@ -33,7 +33,7 @@ import net.sf.freecol.common.model.UnitType;
  *  (or null), log: {heading, entries: [[line]]} (the purchases and
  *  sales of the turn, oldest first, each the lines SalesLog words),
  *  market: [{id, name, images, sell, buy, inMarket, enabled, reason}],
- *  buttons: {train, purchase, recruit, sail},
+ *  buttons: {train, purchase, recruit, unload, sail},
  *  recruit: {heading, text, price, units: [{index, name, images,
  *  enabled}]}, train: {heading, units: [offer]},
  *  purchase: {heading, units: [offer]}}
@@ -116,6 +116,7 @@ final class EuropeJson {
                 .put("train", Messages.message("train"))
                 .put("purchase", Messages.message("purchase"))
                 .put("recruit", Messages.message("recruit"))
+                .put("unload", Messages.message("unload"))
                 .put("sail", Messages.message("setSail"))
                 .toString())
             .putRaw("recruit", recruit(player))
