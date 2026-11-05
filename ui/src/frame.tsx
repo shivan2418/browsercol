@@ -5,6 +5,7 @@
 // than on markup of their own. Their colours come from the tokens in
 // theme.css, through the classes index.html styles.
 import {
+  Fragment,
   useEffect,
   useId,
   useRef,
@@ -230,15 +231,19 @@ export function GoodsAmount({
 }
 
 /** A menu of the menu bar: its name and its entries, which may be none yet. */
+export interface MenuItem {
+  label: string;
+  run: () => void;
+  disabled?: boolean;
+  /** A switch, shown ticked when on. */ checked?: boolean;
+  /** Its hotkey, as shown beside it. */ hint?: string;
+  /** Its entries, if it is a submenu (Swing's JMenu): picking it opens them below it, and `run` is not used. */
+  sub?: MenuItem[];
+}
+
 export interface Menu {
   name: string;
-  items: {
-    label: string;
-    run: () => void;
-    disabled?: boolean;
-    /** A switch, shown ticked when on. */ checked?: boolean;
-    /** Its hotkey, as shown beside it. */ hint?: string;
-  }[];
+  items: MenuItem[];
 }
 
 /** FreeCol's menus (InGameMenuBar), in its order; menus.ts and reports.tsx give them entries. */
@@ -251,6 +256,8 @@ export const MENUS: readonly string[] = ['Game', 'View', 'Orders', 'Report', 'Co
  */
 export function MenuBar({ menus, status }: { menus: Menu[]; status: string }) {
   const [open, setOpen] = useState<string | null>(null);
+  /** The submenu that is opened, by its label. */
+  const [sub, setSub] = useState<string | null>(null);
   const bar = useRef<HTMLElement>(null);
   const dropdown = useRef<HTMLDivElement>(null);
   // An open menu has the focus on its first entry; the arrows and Tab go round its entries.
@@ -298,7 +305,10 @@ export function MenuBar({ menus, status }: { menus: Menu[]; status: string }) {
               role="menuitem"
               aria-haspopup="menu"
               aria-expanded={open === m.name}
-              onClick={() => setOpen(open === m.name || m.items.length === 0 ? null : m.name)}
+              onClick={() => {
+                setSub(null);
+                setOpen(open === m.name || m.items.length === 0 ? null : m.name);
+              }}
             >
               {m.name}
             </button>
@@ -312,25 +322,40 @@ export function MenuBar({ menus, status }: { menus: Menu[]; status: string }) {
                   const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
                   if (!step || e.altKey || e.ctrlKey || e.metaKey) return menuArrows(e);
                   e.preventDefault();
+                  setSub(null);
                   setOpen(names[(names.indexOf(m.name) + step + names.length) % names.length]);
                 }}
               >
-                {m.items.map((item) => (
-                  <button
-                    role={item.checked === undefined ? 'menuitem' : 'menuitemcheckbox'}
-                    key={item.label}
-                    disabled={item.disabled}
-                    aria-checked={item.checked}
-                    onClick={() => {
-                      setOpen(null);
-                      item.run();
-                    }}
-                  >
-                    {item.checked !== undefined && <span className="tick">{item.checked ? '✓' : ''}</span>}
-                    {item.label}
-                    {item.hint && <kbd className="hint">{item.hint}</kbd>}
-                  </button>
-                ))}
+                {m.items.map((item) => {
+                  const entry = (e: MenuItem, nested: boolean) => (
+                    <button
+                      role={e.checked === undefined ? 'menuitem' : 'menuitemcheckbox'}
+                      className={nested ? 'nested' : undefined}
+                      key={e.label}
+                      disabled={e.disabled}
+                      aria-checked={e.checked}
+                      aria-haspopup={e.sub ? 'menu' : undefined}
+                      aria-expanded={e.sub ? sub === e.label : undefined}
+                      onClick={() => {
+                        if (e.sub) return setSub(sub === e.label ? null : e.label);
+                        setOpen(null);
+                        setSub(null);
+                        e.run();
+                      }}
+                    >
+                      {e.checked !== undefined && <span className="tick">{e.checked ? '✓' : ''}</span>}
+                      {e.label}
+                      {e.sub && <span className="hint">▸</span>}
+                      {e.hint && <kbd className="hint">{e.hint}</kbd>}
+                    </button>
+                  );
+                  return (
+                    <Fragment key={item.label}>
+                      {entry(item, false)}
+                      {item.sub && sub === item.label && item.sub.map((e) => entry(e, true))}
+                    </Fragment>
+                  );
+                })}
               </div>
             )}
           </div>

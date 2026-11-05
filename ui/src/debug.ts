@@ -37,7 +37,90 @@ export type DebugRequest =
   | { action: 'applyDisaster'; x: number; y: number; disaster?: string }
   | { action: 'examineSettlement'; x: number; y: number }
   | { action: 'rumourType'; x: number; y: number; rumour?: string }
-  | { action: 'idealColony'; x: number; y: number };
+  | { action: 'idealColony'; x: number; y: number }
+  | { action: 'monarch'; monarch: string }
+  | { action: 'stepRNG' }
+  | { action: 'players' }
+  | { action: 'displayEurope' }
+  | { action: 'statistics' }
+  | { action: 'compareMaps'; client: unknown }
+  | {
+      action: 'overlay';
+      coords: boolean;
+      colonyValue: string | null;
+      missions: 0 | 1 | 2;
+      defence: string | null;
+    };
+
+/** The client Engine's own debug tools (DebugClientTools.java), which the page calls on it. */
+export type DebugClientRequest = { action: 'displayUnits' | 'digest' | 'monarchPanel' | 'errorPanel' };
+
+/** A European player the Debug menu can choose, as the Engine's `players` answer lists them. */
+export interface DebugPlayer {
+  id: string;
+  nation: string;
+  name: string;
+  ai: boolean;
+}
+
+/** Monarch.MonarchAction's constants, FreeCol's Set the next Monarch action choices, in its order. */
+export const MONARCH_ACTIONS = [
+  'NO_ACTION',
+  'RAISE_TAX_ACT',
+  'RAISE_TAX_WAR',
+  'FORCE_TAX',
+  'LOWER_TAX_WAR',
+  'LOWER_TAX_OTHER',
+  'WAIVE_TAX',
+  'ADD_TO_REF',
+  'DECLARE_PEACE',
+  'DECLARE_WAR',
+  'SUPPORT_LAND',
+  'SUPPORT_SEA',
+  'MONARCH_MERCENARIES',
+  'HESSIAN_MERCENARIES',
+  'DISPLEASURE',
+] as const;
+
+/** What the Debug menu has the map show (FreeColDebugger's display switches). */
+export interface DebugDisplay {
+  /** Show Coordinates. */
+  coords: boolean;
+  /** Show Colony Values: a player's id, or none. */
+  colonyValue: string | null;
+  /** Display AI missions, and with the additional information. */
+  missions: boolean;
+  missionInfo: boolean;
+  /** Show AI defence map: an AI player's id, or none. */
+  defence: string | null;
+}
+
+export const NO_DISPLAY: DebugDisplay = {
+  coords: false,
+  colonyValue: null,
+  missions: false,
+  missionInfo: false,
+  defence: null,
+};
+
+/** The request that asks the Engine for the overlay the switches want, or null when nothing is on. */
+export function overlayRequest(d: DebugDisplay): DebugRequest | null {
+  if (!d.coords && d.colonyValue === null && !d.missions && d.defence === null) return null;
+  return {
+    action: 'overlay',
+    coords: d.coords,
+    colonyValue: d.colonyValue,
+    missions: d.missions ? (d.missionInfo ? 2 : 1) : 0,
+    defence: d.defence,
+  };
+}
+
+/** What the Engine answers an overlay request: text at tiles and tints of tiles. */
+export interface OverlayAnswer {
+  action: 'overlay';
+  labels: [number, number, string][];
+  tints: [number, number, number][];
+}
 
 /** What the windows may ask for in debug mode (FreeCol's DebugMode.MENUS): whether it is on, and a way to ask. */
 export interface DebugState {
@@ -117,10 +200,12 @@ export function describeAnswer(detail: string): string {
     reveal?: boolean;
     trace?: boolean;
     avoided?: boolean;
+    monarch?: string;
   };
   if (TEXT_ANSWERS.has(a.action)) return a.text || 'No AI players';
   if (a.action === 'applyDisaster') return a.avoided ? 'Disaster avoided' : 'Disaster applied';
   if (a.action === 'traceWork') return a.trace ? 'Tracing work' : 'Not tracing work';
   if (a.action === 'revealMap') return a.reveal ? 'Map revealed' : 'Map hidden';
+  if (a.action === 'monarch') return `The next monarch action is ${a.monarch}`;
   return `Done: ${a.action}`;
 }

@@ -22,6 +22,7 @@ import { DebugContext } from './debug';
 import type { Dialog, Dialogs } from './dialogs';
 import { europeButtons } from './europe-client';
 import { GoodsAmount, WindowFrame, type Art } from './frame';
+import { ShowLogContext } from './log';
 import { draggableProps, dropTargetProps, OVER, type Item, type Place } from './moves';
 import { ContextMenuContext, contextMenuHandler, useContextMenu } from './popup-menu';
 import { OptionEditor } from './option-editor';
@@ -1929,6 +1930,16 @@ function TerrainBody({ e, art }: { e: GuiEvents['colopedia']; art: Art }) {
   );
 }
 
+/** FreeCol's ErrorPanel: the message, with a button for the log. */
+function ErrorPanel({ d }: { d: Of<'error'> }) {
+  const showLog = useContext(ShowLogContext);
+  return (
+    <Panel d={d} ok={d.event.ok} extra={{ label: d.event.showLog ?? 'Show log', run: showLog }}>
+      <Text text={d.event.text} />
+    </Panel>
+  );
+}
+
 function Body({
   d,
   goTo,
@@ -1991,11 +2002,7 @@ function Body({
         </Panel>
       );
     case 'error':
-      return (
-        <Panel d={d} ok={d.event.ok}>
-          <Text text={d.event.text} />
-        </Panel>
-      );
+      return <ErrorPanel d={d} />;
     case 'eventPanel':
       return (
         <Panel d={d} title={d.event.header} ok={d.event.ok}>

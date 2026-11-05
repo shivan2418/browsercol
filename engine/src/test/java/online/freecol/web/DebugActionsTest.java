@@ -393,7 +393,7 @@ class DebugActionsTest {
         client.debugApplied(server.debug("{\"action\":\"statistics\"}"));
         final String stats = lastInformation();
         assertTrue(stats.contains("Server") && stats.contains("Client"), stats);
-        assertTrue(stats.contains("freeMemory"), stats);
+        assertTrue(stats.contains("Colony") || stats.contains("Tile"), stats);
     }
 
     @Test

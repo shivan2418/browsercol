@@ -145,6 +145,7 @@ const watching = (res: Resources) => {
   };
   const watched: Resources = {
     has: (key) => note(key, res.has(key)),
+    imageKeys: () => res.imageKeys(),
     variations: (key) => note(key, res.variations(key)),
     path: (key, variation) => note(key, res.path(key, variation)),
     forSeed: (key, seed) => note(key, res.forSeed(key, seed)),

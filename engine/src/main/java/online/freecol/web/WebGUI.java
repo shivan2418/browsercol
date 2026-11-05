@@ -102,7 +102,8 @@ import net.sf.freecol.common.option.OptionGroup;
  *         As SwingGUI, first the alert sound if the audio alerts option
  *         is on</td></tr>
  * <tr><td>showErrorPanel(String, Runnable)</td><td>event error</td>
- *     <td>{text, ok}</td></tr>
+ *     <td>{text, ok, showLog}; showLog is the label of the button that
+ *         opens the Engines' log, as ErrorPanel's "Show log file"</td></tr>
  * <tr><td>showEventPanel(String, String, String)</td><td>event eventPanel</td>
  *     <td>{header, image, footer, ok}; image is a resource key</td></tr>
  * <tr><td>showEventPanel(String, String, String, Runnable) (defers)</td>
@@ -957,8 +958,11 @@ public class WebGUI extends GUI {
      */
     @Override
     public FreeColPanel showErrorPanel(String message, Runnable callback) {
+        // ErrorPanel's button shows the log file; here the log is the Engines' (the page shows it).
         this.ui.show("error", new Json().put("text", message)
-            .put("ok", label("ok")).toString());
+            .put("ok", label("ok"))
+            .put("showLog", Messages.message(StringTemplate.template("errorPanel.showLogFile")
+                .addName("%path%", "Engine log"))).toString());
         if (callback != null) callback.run();
         return null;
     }

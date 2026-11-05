@@ -75,6 +75,7 @@ function fakeClient(scope: Scope, log: string[]): ClientExports {
     },
     skipTurns: (rounds) => log.push(`client skip ${rounds}`),
     debugApplied: (answer) => log.push(`client applied ${answer}`),
+    debugClient: (request) => `{"echo":${request}}`,
     click: () => {},
     goTo: () => {},
     pathTo: () => 'null',
@@ -268,6 +269,20 @@ describe('the Worker channel', () => {
       new Promise<void>((done) => (events.some(([n]) => n === name) ? done() : waiting.push([name, done])));
     return { page, store, log, events, exports, seen, pageScope };
   }
+
+  it('answers a log request at once, with what the Worker’s console was given', async () => {
+    const { port1: page, port2: worker } = new MessageChannel();
+    const workerScope: Scope = {};
+    // The Engine never loads: the log is the Worker's own.
+    serveWorker(worker, () => new Promise<ServerExports>(() => {}), workerScope, fakeSaveStore(), {
+      text: () => 'line 1\nline 2',
+    });
+    const answer = new Promise<unknown>((done) => page.addEventListener('message', (e) => done(e.data)));
+    page.start();
+    page.postMessage({ k: 'log' });
+    expect(await answer).toEqual({ k: 'event', name: 'log', detail: 'line 1\nline 2' });
+    page.close();
+  });
 
   it('saves the game with the active unit into the store, and tells the page', async () => {
     const t = joined();

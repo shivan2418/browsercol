@@ -1,6 +1,6 @@
 // The postMessage routing between the page, which hosts the client Engine
 // (client.wasm), and the Worker, which hosts the server Engine (server.wasm).
-//   page -> worker: data (the bundle, once) | start | load | save | debug | connect | fc
+//   page -> worker: data (the bundle, once) | start | load | save | debug | log | connect | fc
 //   worker -> page: fc | event
 // A debug request (debug mode only, debug.ts) goes to the server Engine, which
 // changes its game and answers with a "debug" event, or "debugFailed"; the
@@ -51,6 +51,8 @@ export interface ClientExports {
   skipTurns(rounds: number): void;
   /** Debug mode: the server's answer to a debug request; the client's part of it, then a map. */
   debugApplied(answer: string): void;
+  /** Debug mode: one of the client's own debug tools (DebugClientTools.java), JSON in and out; a bad request throws. */
+  debugClient(request: string): string;
   /** The id of the active unit, or "" for none: what a save request carries. */
   activeUnitId(): string;
   receive(xml: string): void;
@@ -203,6 +205,8 @@ export type ToWorker =
   | { k: 'load'; id: number }
   | { k: 'save'; active: string; name: string }
   | { k: 'debug'; request: string }
+  /** The Worker's log, which a "log" event answers (log.tsx). */
+  | { k: 'log' }
   | { k: 'setup' }
   | { k: 'connect' }
   | { k: 'fc'; xml: string };
@@ -256,6 +260,8 @@ export function serveWorker(
   loadServer: () => Promise<ServerExports>,
   scope: Scope,
   store: SaveStore,
+  /** What the Worker's console was given, for the error dialog's log (log.tsx). */
+  log: { text(): string } = { text: () => '' },
 ): void {
   const send = (m: ToPage) => endpoint.postMessage(m);
   const event = (name: string, detail: string) => send({ k: 'event', name, detail });
@@ -321,6 +327,8 @@ export function serveWorker(
   };
   listen<ToWorker>(endpoint, (m) => {
     if (m.k === 'data') gotData(m);
+    // The log is the Worker's own, so it answers even while the Engine loads, or if it never does.
+    else if (m.k === 'log') event('log', log.text());
     else if (server) handle(m);
     else queued.push(m);
   });

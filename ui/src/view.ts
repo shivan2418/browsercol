@@ -4,7 +4,16 @@
 // views and the player's pans, zooms and pointer moves, and follows the
 // active unit as SwingGUI does. map.ts draws what it says.
 import type { GuiEvents, Id } from './webgui';
-import { NO_MODES, type ActiveUnit, type MapView, type PathStep, type TileText, type ViewModes } from './tileset';
+import {
+  NO_MODES,
+  NO_OVERLAY,
+  type ActiveUnit,
+  type DebugOverlay,
+  type MapView,
+  type PathStep,
+  type TileText,
+  type ViewModes,
+} from './tileset';
 
 /** FreeCol's tiles: 128x64 diamonds in staggered rows, odd rows half a tile to the right. */
 export const W = 128;
@@ -36,6 +45,8 @@ export interface ViewState {
   mode: 'units' | 'terrain';
   /** The View menu's switches: the map grid, the borders and the tiles' names. */
   modes: ViewModes;
+  /** The Debug menu's text and tints over the map (debug mode only). */
+  overlay: DebugOverlay;
   /** The tile under the pointer. */
   hover: Tile | null;
   /** The path the active unit would take to the tile the player holds the pointer on, drawn until release. */
@@ -59,6 +70,8 @@ export type ViewEvent =
   /** The player switched the grid, the borders or the tile names on or off. */
   | { k: 'toggle'; mode: 'grid' | 'borders' }
   | { k: 'tileText'; text: TileText }
+  /** The Debug menu's overlay changed. */
+  | { k: 'overlay'; overlay: DebugOverlay }
   /** The pointer is over a tile, or off the map. */
   | { k: 'hover'; at: Tile | null }
   /** The goto path under the held pointer, or none once it is released. */
@@ -76,6 +89,7 @@ export const initialView: ViewState = {
   selected: null,
   mode: 'units',
   modes: NO_MODES,
+  overlay: NO_OVERLAY,
   hover: null,
   preview: null,
 };
@@ -205,6 +219,8 @@ function apply(v: ViewState, e: ViewEvent): ViewState {
       return { ...v, modes: { ...v.modes, [e.mode]: !v.modes[e.mode] } };
     case 'tileText':
       return { ...v, modes: { ...v.modes, tileText: e.text } };
+    case 'overlay':
+      return { ...v, overlay: e.overlay };
     case 'hover':
       return { ...v, hover: e.at };
     case 'preview':

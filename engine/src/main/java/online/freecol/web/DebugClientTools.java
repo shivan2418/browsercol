@@ -170,7 +170,7 @@ final class DebugClientTools {
         final StringBuilder sb = new StringBuilder("Server\n");
         table(sb, server);
         sb.append("\nClient\n");
-        table(sb, new TreeMap<String, String>(this.client.getGame().getStatistics()));
+        table(sb, DebugInspection.gameStatistics(this.client.getGame()));
         return sb.toString();
     }
 

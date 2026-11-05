@@ -50,7 +50,16 @@ export const errorText = (errors: readonly GameError[]) =>
   errors.map((e) => `${e.title}${e.count > 1 ? ` (${e.count} times)` : ''}\n${e.detail}`).join('\n\n');
 
 /** The banner over the page while there are errors; nothing when there are none. */
-export function ErrorBanner({ errors, dismiss }: { errors: readonly GameError[]; dismiss: () => void }) {
+export function ErrorBanner({
+  errors,
+  dismiss,
+  showLog,
+}: {
+  errors: readonly GameError[];
+  dismiss: () => void;
+  /** Open the Engines' log (FreeCol's error panel has "Show log file"). */
+  showLog?: () => void;
+}) {
   const [copied, setCopied] = useState(false);
   if (errors.length === 0) return null;
   const copy = () => {
@@ -79,6 +88,7 @@ export function ErrorBanner({ errors, dismiss }: { errors: readonly GameError[];
       </ul>
       <div className="buttons">
         <button onClick={copy}>{copied ? 'Copied' : 'Copy details'}</button>
+        {showLog && <button onClick={showLog}>Show log</button>}
         <button onClick={() => location.reload()}>Reload</button>
         <button onClick={dismiss}>Dismiss</button>
       </div>
