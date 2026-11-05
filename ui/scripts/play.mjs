@@ -1307,7 +1307,10 @@ for (const name of browsers) {
   } catch (ex) {
     result = { error: await diagnose(ex) };
   }
-  await page.screenshot({ path: path.join(dist, `../.cache/play-${name}.png`) });
+  // The page may be too stuck to shoot: that must not replace the failure with a bare screenshot timeout.
+  await page.screenshot({ path: path.join(dist, `../.cache/play-${name}.png`) }).catch((ex) => {
+    console.log(`  the final screenshot failed: ${String(ex).split('\n')[0]}`);
+  });
   const log = await dialogLog(page).catch(() => ({ dialogs: [], texts: [], pictures: [], unasked: [] }));
   const { dialogs, pictures } = log;
   // The art of the dialogs must have loaded, and the first landing's event panel must have had its image.
