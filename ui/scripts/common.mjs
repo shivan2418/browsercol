@@ -1,6 +1,8 @@
 // What the browser scripts (smoke, play, saves, tileset, debug, rounds) share:
 // Playwright, the option parser and the page helpers.
+import fs from 'node:fs';
 import { createRequire } from 'node:module';
+import path from 'node:path';
 
 const require = createRequire(import.meta.url);
 // Playwright logs the browser process's stderr, exit code and signal under
@@ -73,15 +75,16 @@ export async function launchBrowser(name) {
   browser.on('disconnected', () => closing.has(browser) || note(`${name} browser disconnected`));
   const close = browser.close.bind(browser);
   browser.close = (...args) => (closing.add(browser), close(...args));
-  if (name === 'firefox' && !process.env.FC_FIREFOX_WEBGL) {
-    const newPage = browser.newPage.bind(browser);
-    browser.newPage = async (...args) => {
-      const page = await newPage(...args);
+  const newPage = browser.newPage.bind(browser);
+  browser.newPage = async (...args) => {
+    const page = await newPage(...args);
+    watchWaits(page);
+    if (name === 'firefox' && !process.env.FC_FIREFOX_WEBGL) {
       const goto = page.goto.bind(page);
       page.goto = (url, ...rest) => goto(canvas2d(url), ...rest);
-      return page;
-    };
-  }
+    }
+    return page;
+  };
   return browser;
 }
 
@@ -124,4 +127,131 @@ export async function diagnose(ex) {
 export async function waitForResult(page, timeout) {
   await page.waitForFunction(() => window.fcResult, null, { timeout });
   return page.evaluate(() => window.fcResult);
+}
+
+// --- Timeouts that say what they were waiting for ---
+
+/** The last line a script logged: the step a timed-out wait was in. */
+let lastStep = '(nothing logged yet)';
+const log = console.log.bind(console);
+console.log = (...args) => {
+  const line = args.map(String).join(' ').trim();
+  if (line) lastStep = line.split('\n')[0];
+  return log(...args);
+};
+/** Names the step the script is in, for waits that follow a step it does not log. */
+export const setStep = (text) => {
+  lastStep = text;
+};
+
+const squash = (text, max) => {
+  const t = String(text).replace(/\s+/g, ' ').trim();
+  return t.length > max ? t.slice(0, max) + '...' : t;
+};
+/** Gives a promise a few seconds: a hung page must not hang the diagnosis. */
+const within = (promise, ms = 5000) =>
+  Promise.race([promise.catch(() => undefined), new Promise((done) => setTimeout(done, ms, undefined))]);
+
+/** Where a timeout's screenshots go: .cache/*.png is what the CI workflow uploads. */
+const shotDir = path.resolve(import.meta.dirname, '../../.cache');
+const script = path.basename(process.argv[1] ?? 'script', '.mjs');
+const consoleTails = new WeakMap();
+let shots = 0;
+
+/**
+ * What a timed-out wait leaves: its step and condition in the error message,
+ * with the page's last console lines and visible dialogs, and a screenshot in
+ * .cache/ named in the message. Only the first eight timeouts of a run are shot.
+ */
+async function describeTimeout(page, kind, what, label, ex) {
+  const browserName = page.context().browser()?.browserType().name() ?? 'browser';
+  const lines = [
+    `${ex.message.split('\n')[0]}`,
+    `  script: ${script} (${browserName})`,
+    `  step: ${lastStep}`,
+    `  waiting for${label ? ` "${label}"` : ''}: ${what}`,
+    `  kind: ${kind}`,
+  ];
+  const dialogs = await within(
+    page.evaluate(() =>
+      [...document.querySelectorAll('[role=dialog]')].map(
+        (d) => `${d.getAttribute('data-kind') ?? ''}: ${(d.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 200)}`,
+      ),
+    ),
+    3000,
+  );
+  lines.push(`  visible dialogs: ${dialogs?.length ? dialogs.join(' | ') : dialogs ? 'none' : '(page did not answer)'}`);
+  const tail = consoleTails.get(page) ?? [];
+  if (tail.length) lines.push('  console, last lines:', ...tail.map((l) => `    ${l}`));
+  // One file for each label, so a wait the script catches and goes on from cannot overwrite the one that failed it.
+  const slug = (label || what).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50);
+  if (shots < 8) {
+    shots++;
+    const file = path.join(shotDir, `timeout-${script}-${browserName}-${slug || shots}.png`);
+    fs.mkdirSync(shotDir, { recursive: true });
+    const done = await within(page.screenshot({ path: file }).then(() => true), 10000);
+    lines.push(done ? `  screenshot: ${file}` : '  screenshot: failed or timed out');
+  }
+  ex.message = lines.join('\n');
+  return ex;
+}
+
+/** Runs a wait; a timeout is rethrown with what it waited for (see describeTimeout). */
+async function watched(page, kind, what, label, run) {
+  try {
+    return await run();
+  } catch (ex) {
+    if (ex?.name !== 'TimeoutError') throw ex;
+    throw await describeTimeout(page, kind, what, label, ex);
+  }
+}
+
+/** Takes a label out of an options bag: { label } names what the wait is for, Playwright never sees it. */
+const unlabel = (options) => {
+  if (!options || typeof options !== 'object' || !('label' in options)) return [options, undefined];
+  const { label, ...rest } = options;
+  return [rest, label];
+};
+
+const patched = new WeakSet();
+/**
+ * Makes every waitForFunction, waitForSelector and locator waitFor of the page
+ * (and of its locators) fail with the step and condition on a timeout (#233).
+ * Each takes an optional `label` in its options bag naming the condition.
+ */
+function watchWaits(page) {
+  const tail = [];
+  consoleTails.set(page, tail);
+  page.on('console', (m) => {
+    tail.push(`${m.type()}: ${squash(m.text(), 300)}`);
+    while (tail.length > 15) tail.shift();
+  });
+  page.on('pageerror', (e) => tail.push(`pageerror: ${squash(e, 300)}`));
+  const pageProto = Object.getPrototypeOf(page);
+  const locatorProto = Object.getPrototypeOf(page.locator('body'));
+  if (patched.has(pageProto)) return;
+  patched.add(pageProto);
+
+  const waitForFunction = pageProto.waitForFunction;
+  pageProto.waitForFunction = function (fn, arg, options) {
+    const [rest, label] = unlabel(options);
+    const arg_ = arg === undefined || arg === null ? '' : ` with ${squash(JSON.stringify(arg), 200)}`;
+    return watched(this, 'page.waitForFunction', `${squash(fn, 400)}${arg_}`, label, () =>
+      waitForFunction.call(this, fn, arg, rest),
+    );
+  };
+  const waitForSelector = pageProto.waitForSelector;
+  pageProto.waitForSelector = function (selector, options) {
+    const [rest, label] = unlabel(options);
+    const state = rest?.state ? ` (state ${rest.state})` : '';
+    return watched(this, 'page.waitForSelector', `${selector}${state}`, label, () =>
+      waitForSelector.call(this, selector, rest),
+    );
+  };
+  const waitFor = locatorProto.waitFor;
+  locatorProto.waitFor = function (options) {
+    const [rest, label] = unlabel(options);
+    const state = rest?.state ? ` (state ${rest.state})` : '';
+    return watched(this.page(), 'locator.waitFor', `${this}${state}`, label, () => waitFor.call(this, rest));
+  };
 }
