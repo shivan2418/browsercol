@@ -59,3 +59,7 @@ suite: fast build (browser "smoke") (browser "play") (browser "tileset")
 # Run the whole suite on GitHub Actions for the committed HEAD
 ci:
     ./ci.sh
+
+# The Swing parity inventory: Swing's player actions, row by row, into docs/parity
+parity:
+    ./dev.sh node tools/swing-inventory.mjs
