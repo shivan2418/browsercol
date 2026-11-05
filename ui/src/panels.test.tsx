@@ -6,7 +6,7 @@ import { jamestown } from './colony-fixture';
 import { DebugContext } from './debug';
 import { dialogs } from './dialogs';
 import { europeButtons } from './europe-client';
-import { ShowLogContext } from './log';
+import { CopyDetailsContext, ShowLogContext } from './log';
 import { ContextMenuContext, type ContextMenus } from './popup-menu';
 import type { Advisor } from './advisor';
 import { DialogHost, type Art, type ReportButtons, type RouteButtons } from './panels';
@@ -52,10 +52,11 @@ function host(
     command?: (entry: string) => void;
     colopedia?: (type: string) => void;
     log?: () => void;
+    copy?: (e: GuiEvents['error']) => Promise<boolean>;
     advisor?: Advisor | null;
   } = {},
 ) {
-  const { log = () => {}, ...props } = extra;
+  const { log = () => {}, copy = () => Promise.resolve(false), ...props } = extra;
   const box = dialogs();
   const went: [number, number][] = [];
   const pressed: string[] = [];
@@ -75,7 +76,9 @@ function host(
   };
   render(
     <ShowLogContext.Provider value={log}>
-      <DialogHost dialogs={box} goTo={(at) => went.push(at)} art={art} report={report} routes={routes} {...props} />
+      <CopyDetailsContext.Provider value={copy}>
+        <DialogHost dialogs={box} goTo={(at) => went.push(at)} art={art} report={report} routes={routes} {...props} />
+      </CopyDetailsContext.Provider>
     </ShowLogContext.Provider>,
   );
   return { box, went, pressed, saved, removed, assigned };
@@ -1187,6 +1190,21 @@ describe('the error panel', () => {
     expect(opened).toBe(1);
     // The panel stays open under the log.
     screen.getByText('Out of moves');
+  });
+
+  it('has a Copy details button that hands the panel’s event on, and says Copied', async () => {
+    const copied: GuiEvents['error'][] = [];
+    const { box } = host({
+      copy: (e) => {
+        copied.push(e);
+        return Promise.resolve(true);
+      },
+    });
+    const e = { text: 'The server can not do that.', ok: 'OK', detail: 'Not our unit', request: '<move/>' };
+    act(() => box.show('error', e));
+    fireEvent.click(screen.getByRole('button', { name: 'Copy details' }));
+    await screen.findByRole('button', { name: 'Copied' });
+    expect(copied).toEqual([e]);
   });
 });
 

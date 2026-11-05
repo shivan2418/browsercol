@@ -1,9 +1,15 @@
 // The error dialog's log (FreeCol's ErrorPanel "Show log file"): what both Engines logged, in a window.
 import { createContext } from 'react';
 import { WindowFrame } from './frame';
+import type { GuiEvents } from './webgui';
 
 /** Open the log: the error panel's "Show log file" button asks for it. */
 export const ShowLogContext = createContext<() => void>(() => {});
+
+/** Copy an error panel's details to the clipboard (error-details.ts): resolves true if it was copied. */
+export const CopyDetailsContext = createContext<(e: GuiEvents['error']) => Promise<boolean>>(() =>
+  Promise.resolve(false),
+);
 
 /** The log as the dialog shows it: what the server Engine logged, then what the client Engine logged. */
 export const joinLogs = (server: string, client: string) =>

@@ -24,7 +24,7 @@ import { DebugContext } from './debug';
 import type { Dialog, Dialogs } from './dialogs';
 import { europeButtons } from './europe-client';
 import { GoodsAmount, WindowFrame, type Art } from './frame';
-import { ShowLogContext } from './log';
+import { CopyDetailsContext, ShowLogContext } from './log';
 import { draggableProps, dropTargetProps, OVER, type Item, type Place } from './moves';
 import { ContextMenuContext, contextMenuHandler, useContextMenu } from './popup-menu';
 import { OptionEditor } from './option-editor';
@@ -1985,11 +1985,28 @@ function TerrainBody({ e, art }: { e: GuiEvents['colopedia']; art: Art }) {
   );
 }
 
-/** FreeCol's ErrorPanel: the message, with a button for the log. */
+/** FreeCol's ErrorPanel: the message, with a button for the log and one that copies its details for a bug report. */
 function ErrorPanel({ d }: { d: Of<'error'> }) {
   const showLog = useContext(ShowLogContext);
+  const copyDetails = useContext(CopyDetailsContext);
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    void copyDetails(d.event).then((done) => {
+      setCopied(done);
+      if (done) setTimeout(() => setCopied(false), 2000);
+    });
+  };
   return (
-    <Panel d={d} ok={d.event.ok} extra={{ label: d.event.showLog ?? 'Show log', run: showLog }}>
+    <Panel
+      d={d}
+      ok={d.event.ok}
+      extra={{ label: d.event.showLog ?? 'Show log', run: showLog }}
+      lead={
+        <button data-copy-details="" onClick={copy}>
+          {copied ? 'Copied' : 'Copy details'}
+        </button>
+      }
+    >
       <Text text={d.event.text} />
     </Panel>
   );

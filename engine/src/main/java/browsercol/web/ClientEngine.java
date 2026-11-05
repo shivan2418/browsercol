@@ -49,6 +49,8 @@ public final class ClientEngine {
     private final Menus menus;
     private WebGUI gui = null;
     private volatile PostMessageConnection connection = null;
+    /** The last message sent to the server, for the error panel's details. */
+    private volatile String lastRequest = null;
 
     private int roundsWanted = 0;
     private int rounds = 0;
@@ -57,13 +59,21 @@ public final class ClientEngine {
     private boolean finished = false;
 
 
+    /** @return The last message sent to the server, as XML, or null if none. */
+    String lastRequest() {
+        return this.lastRequest;
+    }
+
     public ClientEngine(ServerLink link, Listener listener, WebGUI.BrowserUI ui) {
         this.link = link;
         this.listener = listener;
         MessageReaders.install();
         Messages.loadMessageBundle(Language.locale());
         UserServerAPI.connectionFactory = (name, host, port) -> {
-            PostMessageConnection c = new PostMessageConnection(name, link::post);
+            PostMessageConnection c = new PostMessageConnection(name, xml -> {
+                this.lastRequest = xml;
+                link.post(xml);
+            });
             c.setAfterHandle(listener::updated);
             this.connection = c;
             link.connect();

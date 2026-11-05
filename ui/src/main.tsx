@@ -51,7 +51,8 @@ import { keepTabOnPage } from './focus';
 import { MENUS, MenuBar, framePlaces, goodsIcons, type Menu } from './frame';
 import { CreditsDialog } from './credits';
 import { captureConsole } from './log-buffer';
-import { LogDialog, ShowLogContext, joinLogs } from './log';
+import { CopyDetailsContext, LogDialog, ShowLogContext, joinLogs } from './log';
+import { copyText, errorDetails } from './error-details';
 import { debugMenu, gameMenu, ordersMenu, reportOptionsMenu, viewMenu, type MenuActions } from './menus';
 import { commandForKey, type Command } from './input';
 import { PreferencesDialog } from './prefs-dialog';
@@ -145,7 +146,43 @@ const pageLog = captureConsole(console);
 let logText: string | null = null;
 /** Ask the Worker for its log, which comes back as a "log" event; with no Worker yet, the page's alone. */
 let askWorkerLog: () => void = () => showWorkerLog('');
+/** Who waits for the Worker's log without wanting the log window (the error panel's Copy details). */
+let workerLogWaiters: ((text: string) => void)[] = [];
+/** The Worker's log as text: nothing when there is no Worker, or when it does not answer in a second. */
+function fetchWorkerLog(): Promise<string> {
+  return new Promise((resolve) => {
+    const waiter = (text: string) => {
+      clearTimeout(timer);
+      resolve(text);
+    };
+    const timer = setTimeout(() => {
+      workerLogWaiters = workerLogWaiters.filter((w) => w !== waiter);
+      resolve('');
+    }, 1000);
+    workerLogWaiters.push(waiter);
+    askWorkerLogQuietly();
+  });
+}
+let askWorkerLogQuietly: () => void = () => {};
+/** The error panel's Copy details: what errorDetails lists, with the Engines' logs as they are now. */
+async function copyErrorDetails(e: GuiEvents['error']) {
+  const server = await fetchWorkerLog();
+  return copyText(
+    errorDetails(e, {
+      build: typeof __BUILD__ === 'undefined' ? 'unknown' : __BUILD__,
+      userAgent: navigator.userAgent,
+      log: { server, client: pageLog.text() },
+    }),
+  );
+}
 function showWorkerLog(workerText: string) {
+  // A log asked for by Copy details is for the copy, not for the window.
+  if (workerLogWaiters.length > 0) {
+    const waiters = workerLogWaiters;
+    workerLogWaiters = [];
+    for (const w of waiters) w(workerText);
+    return;
+  }
   logText = joinLogs(workerText, pageLog.text());
   renderSide();
 }
@@ -918,39 +955,41 @@ function renderSide() {
         <>
           <DebugContext.Provider value={{ on: debug, request: debugRequest }}>
             <ShowLogContext.Provider value={() => askWorkerLog()}>
-              <ColonyTiles.Provider value={drawColonyTiles}>
-                <ColonyActions.Provider value={colonyMoves}>
-                  <ContextMenuContext.Provider value={contextMenus}>
-                    <ReportContext.Provider value={reportActions}>
-                      <DialogHost
-                        dialogs={dialogQueue}
-                        goTo={(at) => dispatch({ k: 'focus', tile: null, at })}
-                        art={art}
-                        colopedia={(type) => menuClient?.menuEntry(`colopedia:${type}`)}
-                        command={(entry) => menuClient?.menuEntry(entry)}
-                        string={(key) => map.resources()?.string(key) ?? ''}
-                        advisor={advisor(
-                          art,
-                          (key) => map.resources()?.string(key) ?? '',
-                          lastMap?.nation ?? '',
-                          lastMap?.colonial ?? true,
-                        )}
-                        report={{
-                          groupBy: (value) => reportButtons.groupBy(value),
-                          filter: (index, shown) => reportButtons.filter(index, shown),
-                          ignore: (index, ignore) => reportButtons.ignore(index, ignore),
-                          open: (link) => reportButtons.open(link),
-                        }}
-                        routes={{
-                          save: (d) => routeButtons.save(d),
-                          remove: (id) => routeButtons.remove(id),
-                          assign: (unit, route, show) => routeButtons.assign(unit, route, show),
-                        }}
-                      />
-                    </ReportContext.Provider>
-                  </ContextMenuContext.Provider>
-                </ColonyActions.Provider>
-              </ColonyTiles.Provider>
+              <CopyDetailsContext.Provider value={copyErrorDetails}>
+                <ColonyTiles.Provider value={drawColonyTiles}>
+                  <ColonyActions.Provider value={colonyMoves}>
+                    <ContextMenuContext.Provider value={contextMenus}>
+                      <ReportContext.Provider value={reportActions}>
+                        <DialogHost
+                          dialogs={dialogQueue}
+                          goTo={(at) => dispatch({ k: 'focus', tile: null, at })}
+                          art={art}
+                          colopedia={(type) => menuClient?.menuEntry(`colopedia:${type}`)}
+                          command={(entry) => menuClient?.menuEntry(entry)}
+                          string={(key) => map.resources()?.string(key) ?? ''}
+                          advisor={advisor(
+                            art,
+                            (key) => map.resources()?.string(key) ?? '',
+                            lastMap?.nation ?? '',
+                            lastMap?.colonial ?? true,
+                          )}
+                          report={{
+                            groupBy: (value) => reportButtons.groupBy(value),
+                            filter: (index, shown) => reportButtons.filter(index, shown),
+                            ignore: (index, ignore) => reportButtons.ignore(index, ignore),
+                            open: (link) => reportButtons.open(link),
+                          }}
+                          routes={{
+                            save: (d) => routeButtons.save(d),
+                            remove: (id) => routeButtons.remove(id),
+                            assign: (unit, route, show) => routeButtons.assign(unit, route, show),
+                          }}
+                        />
+                      </ReportContext.Provider>
+                    </ContextMenuContext.Provider>
+                  </ColonyActions.Provider>
+                </ColonyTiles.Provider>
+              </CopyDetailsContext.Provider>
             </ShowLogContext.Provider>
           </DebugContext.Provider>
           {prefsOpen && (
@@ -1527,6 +1566,7 @@ async function run() {
   const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
   // An error the Worker does not catch, such as a trap in the server Engine, stops the game's server.
   askWorkerLog = () => worker.postMessage({ k: 'log' } satisfies ToWorker);
+  askWorkerLogQuietly = askWorkerLog;
   worker.addEventListener('error', (e) => reportError('The game server hit an error', e.message || 'unknown error'));
   worker.addEventListener('messageerror', () =>
     reportError('The game server sent a message the page could not read', ''),

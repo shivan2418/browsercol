@@ -939,7 +939,7 @@ public class GUI extends FreeColClientHolder {
         if (message != null && FreeColDebugger.isInDebugMode()) {
             display += "/" + message + "/";
         }
-        return showErrorPanel(display, callback);
+        return showErrorPanel(display, message, callback); // browser: the extra message goes on, for the copy details button
     }
 
     /**
@@ -2128,6 +2128,20 @@ public class GUI extends FreeColClientHolder {
      * @return The panel shown.
      */
     public FreeColPanel showErrorPanel(String message, Runnable callback) { return null; }
+
+    /**
+     * Show an error panel that also has the non-i18n detail the server
+     * sent. // browser: the WebGUI keeps the detail for a bug report.
+     *
+     * @param message The error message to display.
+     * @param detail The non-i18n detail, or null.
+     * @param callback An optional {@code Runnable} to run on close.
+     * @return The panel shown.
+     */
+    public FreeColPanel showErrorPanel(String message, String detail,
+                                       Runnable callback) {
+        return showErrorPanel(message, callback);
+    }
 
     /**
      * Show the Europe panel.

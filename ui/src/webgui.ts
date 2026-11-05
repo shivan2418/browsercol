@@ -46,8 +46,20 @@ export interface GuiEvents {
   sound: { key: string | null };
   /** ok: the close button's label, as for the other panels. The tile is the object's, if it has one. */
   information: { text: string; object: Id | null; images: string[]; ok: string } & TileRef;
-  /** showLog: the label of the button that opens the log (ErrorPanel's "Show log file"). */
-  error: { text: string; ok: string; showLog?: string };
+  /**
+   * showLog: the label of the button that opens the log (ErrorPanel's "Show log file"). The rest is for the
+   * Copy details button: the non-i18n detail the server sent, the last message the client sent it (XML), and
+   * the game's turn and the human player.
+   */
+  error: {
+    text: string;
+    ok: string;
+    showLog?: string;
+    detail?: string | null;
+    request?: string | null;
+    turn?: string | null;
+    player?: string | null;
+  };
   eventPanel: { header: string; image: string | null; footer: string | null; ok: string };
   /**
    * A tile, as FreeCol's TilePanel shows it: the title, its terrain image (keys, with the forest's over
