@@ -1,8 +1,9 @@
 // Plays the human's first turns in the built site, through the page's own
-// input: arrow and numpad keys, map clicks, B, F, H and Enter. The ship sails
-// by the shortest explored sea route to free land that can feed a colony,
-// or toward the westmost explored sea while none is in sight, moves onto
-// the land to put its units ashore, a unit founds a colony (whose panel
+// input: arrow and numpad keys, map clicks, B, H and Enter, and the Fortify
+// button over the map, which must be on top of the map's canvas and is
+// clicked with the mouse (#245). The ship sails by the shortest explored sea
+// route to free land that can feed a colony, or toward the westmost explored
+// sea while none is in sight, moves onto the land to put its units ashore, a unit founds a colony (whose panel
 // opens and must show the founder), the ship fortifies and the turn ends;
 // the colony must still be there when the AI hands play back. The Go To
 // order then asks where the ship sails, which the page must ask the player.
@@ -385,6 +386,38 @@ async function play(page, url) {
       if (attempt === 5) throw new Error(`the page did not take ${name} after ${attempt} presses`);
       console.log(`  the page did not take ${name}; pressed again`);
     }
+  };
+  /**
+   * The order buttons over the map, with an active unit: each is what the page hits at its centre (nothing,
+   * such as the map's canvas, covers it), and none overlaps the info panel or the minimap.
+   */
+  const ordersOnTop = async (what) => {
+    const check = () => {
+      const buttons = [...document.querySelectorAll('#map-orders button')];
+      const overlaps = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+      const others = ['#info-panel', '#minimap']
+        .map((s) => document.querySelector(s))
+        .filter((e) => e && e.getClientRects().length > 0)
+        .map((e) => ({ id: e.id, rect: e.getBoundingClientRect() }));
+      const bad = buttons.flatMap((b) => {
+        const r = b.getBoundingClientRect();
+        const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        const covered = hit === b ? [] : [`${b.dataset.order} under ${hit ? hit.tagName + '#' + hit.id : 'nothing'}`];
+        return [
+          ...covered,
+          ...others.filter((o) => overlaps(r, o.rect)).map((o) => `${b.dataset.order} over #${o.id}`),
+        ];
+      });
+      return buttons.length === 0 ? ['no order buttons'] : bad;
+    };
+    // The layout may still be settling after the side panel was shown or hidden: up to 5 s.
+    let bad = [];
+    for (let i = 0; i < 50; i++) {
+      bad = await page.evaluate(check);
+      if (bad.length === 0) return;
+      await new Promise((ok) => setTimeout(ok, 100));
+    }
+    throw new Error(`the order buttons are not on top ${what}: ${bad.join(', ')}`);
   };
   /** Do something that ends with a new map view, and return that view. */
   const act = async (doIt) => {
@@ -1148,7 +1181,23 @@ async function play(page, url) {
   await following(m, 'after selecting the ship');
   const fortify = page.locator('button[data-command=fortify]');
   if (await fortify.isDisabled()) throw new Error('the ship cannot be fortified');
-  m = await act(() => pressKey('f'));
+  // The order buttons over the map must be on top, with the side panel shown and hidden: the map's canvas
+  // once painted over them (#245). The ship is fortified with a real click on the map's Fortify button,
+  // which must not reach the map's own click listener.
+  await ordersOnTop('with the side panel shown');
+  await page.keyboard.press('Shift+F11');
+  await ordersOnTop('with the side panel hidden');
+  await page.keyboard.press('Shift+F11');
+  await ordersOnTop('with the side panel shown again');
+  await page.evaluate(() => {
+    window.__mapClicked = false;
+    document.querySelector('#map').addEventListener('click', () => (window.__mapClicked = true), { once: true });
+  });
+  m = await act(async () => {
+    const b = await page.locator('#map-orders [data-order=fortify]').boundingBox();
+    await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2);
+  });
+  if (await page.evaluate(() => window.__mapClicked)) throw new Error('a click on an order button reached the map');
   m = await endTurn();
   const ship = m.units.find((u) => u.x === shipTile[0] && u.y === shipTile[1]);
   if (!ship || ship.fg !== FORTIFIED) {
