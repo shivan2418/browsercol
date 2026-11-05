@@ -15,6 +15,8 @@ export type Command =
   | { k: 'showEurope' }
   | { k: 'showGameOptions' }
   | { k: 'showDifficulty' }
+  | { k: 'retire' }
+  | { k: 'showHighScores' }
   | { k: 'fortify' }
   | { k: 'sentry' }
   | { k: 'skip' }

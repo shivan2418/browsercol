@@ -85,6 +85,10 @@ export interface ClientExports {
   sailToNewWorld(shipId: string): void;
   /** Declare independence (DeclareIndependenceAction). */
   declareIndependence(): void;
+  /** Retire from the game (RetireAction). */
+  retire(): void;
+  /** Show the high score table (ReportHighScoresAction). */
+  showHighScores(): void;
   /** Show the Europe panel (EuropeAction). */
   showEurope(): void;
   /** Show the game options, read-only (ShowGameOptionsAction). */

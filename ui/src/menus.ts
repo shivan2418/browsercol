@@ -55,7 +55,8 @@ export function gameMenu(a: MenuActions): Items {
     cmd('Show Difficulty Level', { k: 'showDifficulty' }),
     cmd('End Turn', { k: 'endTurn' }),
     cmd('Declare Independence', { k: 'declareIndependence' }),
-    later('Retire'),
+    cmd('High Scores', { k: 'showHighScores' }),
+    cmd('Retire', { k: 'retire' }),
     later('Quit'),
   ];
 }

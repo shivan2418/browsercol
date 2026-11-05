@@ -44,6 +44,7 @@ describe('the Game menu', () => {
       'Show Difficulty Level',
       'End Turn',
       'Declare Independence',
+      'High Scores',
       'Retire',
       'Quit',
     ]);
@@ -52,9 +53,10 @@ describe('the Game menu', () => {
   it('runs what the Browser UI can do, and disables what it cannot', () => {
     const { a, log } = actions();
     const items = gameMenu(a);
-    for (const l of ['New', 'Open', 'Save', 'Preferences', 'Show Game Options', 'End Turn']) find(items, l).run();
-    expect(log).toEqual(['newGame', 'open', 'save', 'prefs', 'showGameOptions', 'endTurn']);
-    expect(items.filter((i) => i.disabled).map((i) => i.label)).toEqual(['Reconnect', 'Retire', 'Quit']);
+    for (const l of ['New', 'Open', 'Save', 'Preferences', 'Show Game Options', 'End Turn', 'High Scores', 'Retire'])
+      find(items, l).run();
+    expect(log).toEqual(['newGame', 'open', 'save', 'prefs', 'showGameOptions', 'endTurn', 'showHighScores', 'retire']);
+    expect(items.filter((i) => i.disabled).map((i) => i.label)).toEqual(['Reconnect', 'Quit']);
   });
 
   it('disables the game’s commands until the client Engine has loaded', () => {
