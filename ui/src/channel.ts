@@ -127,7 +127,7 @@ export interface ClientExports {
   tileMenu(x: number, y: number): string;
   /** The debug entries of a tile's popup (Menus.debugTile), as a menu's JSON or "null". */
   debugTileMenu(x: number, y: number): string;
-  /** The popup's "Show search": the active unit's path search to the tile, as text (Menus.debugSearch). */
+  /** The popup's "Show search": the active unit's path search to the tile, as JSON {log, path} (Menus.debugSearch), or "" for none. */
   debugSearch(x: number, y: number): string;
   /** The debug menu's "Show colony value": the tile panel shows this player's value of the tile; "" for none. */
   showColonyValue(playerId: string): void;

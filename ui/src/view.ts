@@ -184,8 +184,9 @@ function apply(v: ViewState, e: ViewEvent): ViewState {
       // SwingGUI.changeView(Unit, force): unforced, the selected tile comes
       // along, in focus; forced, the view moves only for a unit out of it.
       // changeView() ends the turn with neither unit nor selection.
-      if (!e.unit) return { ...v, active: null, mode: 'units', selected: null };
-      const active = { ...v, active: { unit: e.unit, tile: e.at }, mode: 'units' as const };
+      // A new active unit clears the path Show search drew (SwingGUI.changeView sets the unit path to null).
+      if (!e.unit) return { ...v, active: null, mode: 'units', selected: null, preview: null };
+      const active = { ...v, active: { unit: e.unit, tile: e.at }, mode: 'units' as const, preview: null };
       if (!e.at) return active;
       if (e.force) return onScreen(v, e.at) ? active : { ...active, centre: tileCentre(e.at) };
       if (e.jump === false)

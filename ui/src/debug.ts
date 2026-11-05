@@ -3,6 +3,7 @@
 // (debug-menu.tsx) is not drawn without it.
 
 import { createContext } from 'react';
+import type { PathStep } from './tileset';
 
 /** Whether the page is in debug mode: `?debug` (or `?debug=1`; `?debug=0` is off). */
 export function debugMode(params: URLSearchParams): boolean {
@@ -208,4 +209,14 @@ export function describeAnswer(detail: string): string {
   if (a.action === 'revealMap') return a.reveal ? 'Map revealed' : 'Map hidden';
   if (a.action === 'monarch') return `The next monarch action is ${a.monarch}`;
   return `Done: ${a.action}`;
+}
+
+/**
+ * The tile popup's Show search answer (Menus.debugSearch): the search log for the debug note, and the path
+ * the map draws as the unit path, as TilePopup sets it. Null when the Engine does nothing ("").
+ */
+export function parseSearch(answer: string): { log: string; path: PathStep[] | null } | null {
+  if (!answer) return null;
+  const a = JSON.parse(answer) as { log: string; path: PathStep[] | null };
+  return { log: a.log, path: a.path };
 }

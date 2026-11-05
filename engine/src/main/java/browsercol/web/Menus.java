@@ -248,11 +248,12 @@ final class Menus {
     }
 
     /**
-     * TilePopup's "Show search": the log of the active unit's path search
-     * to the tile, as text.
+     * TilePopup's "Show search": the active unit's path search to the tile.
+     * Swing shows the search log and sets the unit path, which the map draws.
      *
-     * @return The log, or "" if there is no active unit, it is not our turn
-     *     or the unit is there already (Swing does nothing then).
+     * @return {"log": text, "path": the path as MapJson.path gives it}, or ""
+     *     if there is no active unit, it is not our turn or the unit is there
+     *     already (Swing does nothing then).
      */
     String debugSearch(int x, int y) {
         final Tile tile = this.client.getGame().getMap().getTile(x, y);
@@ -260,8 +261,9 @@ final class Menus {
         if (tile == null || active == null || active.getTile() == null || active.getTile() == tile
             || !this.client.currentPlayerIsMyPlayer()) return "";
         final net.sf.freecol.common.util.LogBuilder lb = new net.sf.freecol.common.util.LogBuilder(512);
-        active.findPath(active.getTile(), tile, active.getCarrier(), null, lb);
-        return lb.toString();
+        final net.sf.freecol.common.model.PathNode path
+            = active.findPath(active.getTile(), tile, active.getCarrier(), null, lb);
+        return "{\"log\":" + Json.quote(lb.toString()) + ",\"path\":" + MapJson.path(path) + "}";
     }
 
     /** A unit on the tile, then what it carries, as TilePopup's addUnit. */

@@ -607,4 +607,26 @@ class DebugActionsTest {
         }
         assertTrue(TileJson.colonyValue(tile).isEmpty());
     }
+
+    @Test
+    @Timeout(240)
+    void showSearchAnswersTheLogAndThePathTheMapDraws() throws Exception {
+        client.debugApplied(server.debug("{\"action\":\"revealMap\",\"reveal\":true}"));
+        final Map map = client.getGame().getMap();
+        eventually("the map explored", () -> unexplored(map) == 0);
+        final Unit ship = me().getUnits().filter(Unit::isNaval).findFirst().get();
+        final Tile from = ship.getTile();
+        assertEquals("", client.getMenus().debugSearch(from.getX(), from.getY()),
+            "no search without an active unit");
+        for (int i = 0; i < 10 && client.getClient().getGUI().getActiveUnit() != ship; i++) {
+            client.getCommands().click(from.getX(), from.getY());
+        }
+        assertEquals("", client.getMenus().debugSearch(from.getX(), from.getY()),
+            "no search to where the unit is");
+        final Tile to = map.getTileSet(t -> !t.isLand() && t.getDistanceTo(from) == 2).iterator().next();
+        final String answer = client.getMenus().debugSearch(to.getX(), to.getY());
+        assertTrue(answer.startsWith("{\"log\":\""), answer);
+        assertTrue(answer.contains("\"path\":[[" + from.getX() + "," + from.getY() + ","), answer);
+        assertTrue(answer.contains("[" + to.getX() + "," + to.getY() + ","), answer);
+    }
 }

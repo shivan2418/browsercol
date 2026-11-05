@@ -9,6 +9,7 @@ import {
   debugMessage,
   debugMode,
   describeAnswer,
+  parseSearch,
   overlayRequest,
   type DebugRequest,
 } from './debug';
@@ -100,6 +101,20 @@ describe('the tile popup entries', () => {
     expect(describeAnswer('{"action":"colonyPlan","text":"Plan"}')).toBe('Plan');
     expect(describeAnswer('{"action":"applyDisaster","avoided":true}')).toBe('Disaster avoided');
     expect(describeAnswer('{"action":"applyDisaster","avoided":false}')).toBe('Disaster applied');
+  });
+});
+
+describe('Show search', () => {
+  it('gives the log for the note and the path for the map, or nothing when the Engine did nothing', () => {
+    expect(parseSearch('')).toBeNull();
+    expect(parseSearch('{"log":"Search: 3 nodes","path":[[1,2,0],[2,2,1]]}')).toEqual({
+      log: 'Search: 3 nodes',
+      path: [
+        [1, 2, 0],
+        [2, 2, 1],
+      ],
+    });
+    expect(parseSearch('{"log":"No path","path":null}')?.path).toBeNull();
   });
 });
 
