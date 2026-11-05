@@ -199,3 +199,23 @@ test('each volume is a slider with a mute button beside it, and muting leaves th
   fireEvent.change(screen.getByLabelText('Sound effects volume'), { target: { value: '25' } });
   expect(changes.at(-1)?.freecol).toEqual({ 'model.option.musicVolume': 60, 'model.option.soundEffectsVolume': 25 });
 });
+
+test('Reset and Cancel go back to the preferences the window opened with, Revert to Defaults to the defaults', () => {
+  const changes: Prefs[] = [];
+  let closed = 0;
+  const opened = { ...DEFAULTS, blink: 'fast' as const };
+  const { container } = render(
+    <PreferencesDialog prefs={opened} freecol={null} change={(p) => changes.push(p)} close={() => closed++} />,
+  );
+  fireEvent.click(container.querySelector('[data-prefs-defaults]')!);
+  expect(changes.at(-1)).toEqual(DEFAULTS);
+  fireEvent.click(container.querySelector('[data-prefs-reset]')!);
+  expect(changes.at(-1)).toEqual(opened);
+  expect(closed).toBe(0);
+  fireEvent.click(container.querySelector('[data-prefs-cancel]')!);
+  expect(changes.at(-1)).toEqual(opened);
+  expect(closed).toBe(1);
+  fireEvent.click(container.querySelector('[data-prefs-ok]')!);
+  expect(closed).toBe(2);
+  expect(changes).toHaveLength(3);
+});
