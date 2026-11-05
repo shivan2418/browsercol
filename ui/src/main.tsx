@@ -540,14 +540,17 @@ function pullFreecolOptions() {
 }
 /** Whether the side panel is shown: the player's choice, kept for the next visit. */
 const SIDE_PANEL_KEY = 'freecol.sidePanel';
+/** A release build (build.sh -Prelease, Vite's release mode) starts with the debug side panel hidden. */
+const SIDE_PANEL_AT_FIRST = import.meta.env.MODE !== 'release';
 let sidePanel = (() => {
   // FreeCol's display map controls option, once the player has set it, says.
   const option = prefs.freecol['model.option.displayMapControls'];
   if (typeof option === 'boolean') return option;
   try {
-    return localStorage.getItem(SIDE_PANEL_KEY) !== 'hidden';
+    const kept = localStorage.getItem(SIDE_PANEL_KEY);
+    return kept === null ? SIDE_PANEL_AT_FIRST : kept !== 'hidden';
   } catch {
-    return true;
+    return SIDE_PANEL_AT_FIRST;
   }
 })();
 document.body.dataset.sidePanel = sidePanel ? 'shown' : 'hidden';

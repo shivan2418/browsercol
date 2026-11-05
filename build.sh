@@ -2,7 +2,9 @@
 # Build dist/, the static site: both Engine modules, the data bundle and the
 # Browser UI. Run in the dev image:
 #   ./dev.sh ./build.sh              (dev build of the modules)
-#   ./dev.sh ./build.sh -Prelease    (obfuscated release build)
+#   ./dev.sh ./build.sh -Prelease    (release build: obfuscated modules, and
+#                                     the Browser UI in Vite's release mode,
+#                                     which hides the debug side panel at first)
 set -euo pipefail
 repo="$(cd "$(dirname "$0")" && pwd)"
 cd "$repo"
@@ -27,4 +29,6 @@ cp ui/presets/*.json "$gen/public/presets/"
 
 cd ui
 pnpm install --frozen-lockfile
-pnpm exec vp build
+mode=()
+for arg in "$@"; do [[ $arg == -Prelease ]] && mode=(--mode release); done
+pnpm exec vp build "${mode[@]}"

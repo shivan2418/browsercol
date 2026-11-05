@@ -23,7 +23,7 @@ first if `ui/generated/` is missing; rerun `just build` after Engine changes),
 and `just preview` serves the built `dist/` there.
 
 ```sh
-./dev.sh ./build.sh                  # build dist/, the static site (add -Prelease for obfuscated modules)
+./dev.sh ./build.sh                  # build dist/, the static site (add -Prelease for a release build: obfuscated modules, debug side panel hidden at first)
 ./dev.sh -C engine gradle test       # JVM tests of the Engine
 ./dev.sh -C ui pnpm install --frozen-lockfile                # once, before the UI commands below
 ./dev.sh -C ui pnpm exec vp test           # UI tests
