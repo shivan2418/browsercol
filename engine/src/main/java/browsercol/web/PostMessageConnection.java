@@ -92,6 +92,8 @@ public class PostMessageConnection extends Connection {
     /** Arrived messages not yet read; TeaVM has no ConcurrentLinkedQueue. */
     private final ArrayDeque<String> inbox = new ArrayDeque<>();
     private final AtomicBoolean draining = new AtomicBoolean(false);
+    /** Messages being handled on their own threads; they finish in no set order. */
+    private final AtomicInteger handling = new AtomicInteger(0);
     /** The reader for the message being read, for MessageHandler.read. */
     private volatile FreeColXMLReader xr = null;
 
@@ -134,6 +136,18 @@ public class PostMessageConnection extends Connection {
         if (this.draining.compareAndSet(false, true)) {
             new Thread(this::drain, getName() + "-receive").start();
         }
+    }
+
+    /**
+     * Whether every message that has arrived has been read and handled,
+     * which is how a test knows that the other end's changes are all in.
+     * Messages are handled on threads of their own, so a later message can
+     * be handled before an earlier one when the machine is busy.
+     *
+     * @return True if nothing is queued, being read or being handled.
+     */
+    public boolean isQuiet() {
+        return this.handling.get() == 0 && !this.draining.get() && peek() == null;
     }
 
     private void drain() {
@@ -239,6 +253,7 @@ public class PostMessageConnection extends Connection {
      */
     private void handleOnThread(final Message message, final int replyId) {
         if (message == null) return;
+        this.handling.incrementAndGet();
         new Thread(() -> {
                 try {
                     Message reply = handle(message);
@@ -250,8 +265,12 @@ public class PostMessageConnection extends Connection {
                     Failures.report(getName() + ": handling "
                         + message.getType() + " failed", ex);
                 }
-                final Runnable after = this.afterHandle;
-                if (after != null) after.run();
+                try {
+                    final Runnable after = this.afterHandle;
+                    if (after != null) after.run();
+                } finally {
+                    this.handling.decrementAndGet();
+                }
         }, getName() + "-handle-" + message.getType()).start();
     }
 
