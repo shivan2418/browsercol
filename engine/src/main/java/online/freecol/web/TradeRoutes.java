@@ -75,12 +75,21 @@ final class TradeRoutes {
                 .put("id", unit.getId())
                 .put("name", Messages.message(
                          unit.getLabel(net.sf.freecol.common.model.Unit.UnitLabelType.NATIONAL)))
+                .putRaw("images", images(unit))
+                .put("location", (unit.getLocation() == null) ? null
+                                 : Messages.message(unit.getLocation().getLocationLabelFor(player)))
                 .put("route", (unit.getTradeRoute() == null) ? null
                                                               : unit.getTradeRoute().getId())
                 .toString();
         return new Json()
             .put("title", Messages.message("tradeRoutePanel.name"))
             .putRaw("unit", (forUnit == null) ? "null" : forUnit)
+            .putRaw("tooltips", new Json()
+                .put("new", Messages.message("tradeRoutePanel.new.tooltip"))
+                .put("edit", Messages.message("tradeRoutePanel.edit.tooltip"))
+                .put("delete", Messages.message("tradeRoutePanel.delete.tooltip"))
+                .put("deassign", Messages.message("tradeRoutePanel.deassign.tooltip"))
+                .toString())
             .put("assign", Messages.message("assignTradeRoute"))
             .put("unassign", Messages.message("tradeRoutePanel.deassignRoute"))
             .putRaw("routes", Json.array(routes))
@@ -102,6 +111,12 @@ final class TradeRoutes {
             .put("ok", Messages.message("ok"))
             .put("cancel", Messages.message("cancel"))
             .toString();
+    }
+
+    private static String images(net.sf.freecol.common.model.Unit unit) {
+        final List<String> keys = new ArrayList<>();
+        for (String k : MapJson.unitKeys(unit)) keys.add(Json.quote(k));
+        return Json.array(keys);
     }
 
     /** The route's assigned units, copied, to unassign them. */

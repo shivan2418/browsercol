@@ -1145,6 +1145,12 @@ describe('the trade routes panel', () => {
     unit: null,
     assign: 'Assign Trade Route',
     unassign: 'Drop Trade Route',
+    tooltips: {
+      new: 'Create a new trade route.',
+      edit: 'Edit an existing trade route.',
+      delete: 'Delete this trade route completely.',
+      deassign: 'Do not follow this trade route anymore.',
+    },
     routes: [
       {
         id: 'tradeRoute:1',
@@ -1185,13 +1191,23 @@ describe('the trade routes panel', () => {
 
   it('assigns the picked route to the unit it was opened for, and drops it again', () => {
     const { box, assigned } = host();
-    act(() => box.replace('tradeRoutes', routes({ unit: { id: 'unit:9', name: 'Caravel', route: null } })));
+    act(() =>
+      box.replace(
+        'tradeRoutes',
+        routes({ unit: { id: 'unit:9', name: 'Caravel', images: [], location: 'Europe', route: null } }),
+      ),
+    );
     expect((screen.getByRole('button', { name: 'Assign Trade Route' }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByRole('button', { name: 'Drop Trade Route' }) as HTMLButtonElement).disabled).toBe(true);
     press('Fur run (2)');
     press('Assign Trade Route');
     expect(assigned).toEqual(['unit:9 tradeRoute:1']);
-    act(() => box.replace('tradeRoutes', routes({ unit: { id: 'unit:9', name: 'Caravel', route: 'tradeRoute:1' } })));
+    act(() =>
+      box.replace(
+        'tradeRoutes',
+        routes({ unit: { id: 'unit:9', name: 'Caravel', images: [], location: 'Europe', route: 'tradeRoute:1' } }),
+      ),
+    );
     press('Drop Trade Route');
     expect(assigned).toEqual(['unit:9 tradeRoute:1', 'unit:9 null']);
   });
@@ -1314,21 +1330,58 @@ describe('the trade routes panel', () => {
     expect(placesOf(saved)).toEqual(['colony:8']);
   });
 
-  it('loads and unloads goods at every selected stop, as the first of them shows', () => {
+  it('loads another hold of a goods type at every selected stop, and unloads one copy at a time', () => {
     const saved = threeStops();
     act(() => void fireEvent.click(stopAt(1), { ctrlKey: true }));
     act(() => void fireEvent.click(stopAt(2), { ctrlKey: true }));
-    // The first selected stop loads tools: pressing Tools takes them off every selected stop.
-    expect(screen.getByRole('button', { name: 'Tools' }).getAttribute('aria-pressed')).toBe('true');
+    // Each press adds a copy at all three stops; the first loads tools, so a second hold of them is added.
     press('Tools');
-    // None loads furs now as the first shows it; pressing Furs loads them at all three, once.
+    press('Tools');
     press(/^Furs$/);
+    // The first stop's holds show as buttons: tools twice over, then one copy off the three stops.
+    expect(document.querySelectorAll('[data-held="model.goods.tools"]')).toHaveLength(3);
+    act(() => void fireEvent.click(screen.getAllByRole('button', { name: '× Tools' })[0]));
     press('OK');
     expect(saved[0].stops.map((s) => s.cargo)).toEqual([
-      ['model.goods.furs'],
-      ['model.goods.furs'],
-      ['model.goods.furs'],
+      ['model.goods.tools', 'model.goods.tools', 'model.goods.furs'],
+      ['model.goods.furs', 'model.goods.tools', 'model.goods.furs'],
+      ['model.goods.tools', 'model.goods.furs'],
     ]);
+  });
+
+  it('removes the selected stops on Delete', () => {
+    const saved = threeStops();
+    act(() => void fireEvent.click(stopAt(1), { ctrlKey: true }));
+    act(() => void fireEvent.keyDown(stopAt(1), { key: 'Delete' }));
+    press('OK');
+    expect(placesOf(saved)).toEqual(['colony:8']);
+  });
+
+  it('disables Add Stop once the route has a stop for every place', () => {
+    const { box } = host();
+    act(() => box.replace('tradeRoutes', routes()));
+    press('New Trade Route');
+    const add = screen.getByRole('button', { name: 'Add new stop' }) as HTMLButtonElement;
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'europe:1' } });
+    press('Add new stop');
+    expect(add.disabled).toBe(false);
+    press('Add new stop');
+    expect(add.disabled).toBe(true);
+  });
+
+  it('has tooltips on the route buttons and says which unit it was opened for, and where', () => {
+    const { box } = host();
+    act(() =>
+      box.replace(
+        'tradeRoutes',
+        routes({ unit: { id: 'unit:9', name: 'Caravel', images: [], location: 'Europe', route: 'tradeRoute:1' } }),
+      ),
+    );
+    expect(screen.getByRole('button', { name: 'New Trade Route' }).title).toBe('Create a new trade route.');
+    expect(screen.getByRole('button', { name: 'Delete Trade Route' }).title).toBe(
+      'Delete this trade route completely.',
+    );
+    expect(screen.getByText(/Caravel Europe/)).toBeTruthy();
   });
 
   it('drags the selected stops before the stop they are dropped on, or to the end', () => {
