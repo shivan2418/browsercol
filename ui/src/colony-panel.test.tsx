@@ -70,7 +70,8 @@ describe('the colony panel', () => {
     expect(within(carpenter).getByAltText('Dutch Free Colonist').getAttribute('src')).toBe('art/colonist.png');
     expect(carpenter.querySelector('[data-unit="unit:2"]')).toBeTruthy();
     expect(carpenter.querySelector('[data-goods="model.goods.hammers"]')?.textContent).toBe('3/6');
-    expect(carpenter.querySelectorAll('.slot')).toHaveLength(2);
+    // Empty places show nothing.
+    expect(carpenter.querySelectorAll('.slot')).toHaveLength(0);
     // BuildingPanel's UpkeepLabel.
     const upkeep = carpenter.querySelector('.upkeep')!;
     expect(upkeep.textContent).toBe('5');

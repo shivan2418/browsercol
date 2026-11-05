@@ -1029,11 +1029,8 @@ export function ColonyPanel({ colony: c, art, footer }: { colony: ColonyView; ar
                       )}
                     </span>
                     <span className="workers">
+                      {/* Empty places are left blank: no box, outline or shadow. */}
                       <Units units={b.workers} art={art} />
-                      {Array.from({ length: Math.max(0, b.capacity - b.workers.length) }, (_, i) => (
-                        // BuildingPanel's empty place: the colonist's shadow, image.unit.placeholder.
-                        <Img key={i} keys={[PLACEHOLDER]} art={art} className="slot" />
-                      ))}
                     </span>
                   </BuildingPlace>
                 );
