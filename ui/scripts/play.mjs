@@ -17,15 +17,22 @@
 // what the side panel leaves of the window, and the wheel, a drag and the
 // pointer at an edge must zoom and scroll it at its new size. Exits non-zero
 // unless every browser gets there. Run in the web image:
-//   DEV_VARIANT=web ./dev.sh node ui/scripts/play.mjs [--browsers chromium,firefox] [--query renderer=canvas2d|preset=dutch-small] [--scale 2]
+//   DEV_VARIANT=web ./dev.sh node ui/scripts/play.mjs [--browsers chromium,firefox] [--query renderer=canvas2d|preset=dutch-small|preset=] (default preset: play) [--scale 2]
 import path from 'node:path';
 import { browserNames, collectPageErrors, diagnose, launchBrowser, opt, waitForResult } from './common.mjs';
 import { answerDialogs, dialogLog } from './dialogs.mjs';
 import { dist, serveDist } from './serve-dist.mjs';
 
 const browsers = browserNames();
-/** Page parameters, e.g. renderer=canvas2d to play on the Canvas 2D fallback. */
-const query = opt('query', '');
+/**
+ * Page parameters, e.g. renderer=canvas2d to play on the Canvas 2D fallback. Unless they name a preset, the
+ * game starts from ui/presets/play.json, a seeded map with free land two or three turns from the ship, so that
+ * every run lands the same way (#30). `--query preset=` (empty) plays a random map instead.
+ */
+const given = opt('query', '');
+const query = /(^|&)preset=/.test(given)
+  ? given.replace(/(^|&)preset=(&|$)/, '$2')
+  : `preset=play${given ? `&${given}` : ''}`;
 /** The device pixel ratio the browser reports: 2 to play as on a HiDPI screen. */
 const scale = Number(opt('scale', '1'));
 const MAX_TURNS = 15;
@@ -1019,6 +1026,7 @@ async function play(page, url) {
   // then: the crossing is long, and the script puts the founder to work
   // itself when the colony has a tile to work.
   let land = null;
+  const firstTurn = m.turn;
   // Where the ship was last seen: the map names no active unit when the ship
   // is out of moves, and then it names no place either.
   let place = null;
@@ -1050,6 +1058,9 @@ async function play(page, url) {
       m = await endTurn(true);
     }
   }
+
+  // Turns taken to reach the land, counted from the first turn.
+  console.log(`  landed on turn ${m.turn} (${m.turn - firstTurn} turns of sailing after the first)`);
 
   // The ship is the active unit while it sails: remember where it is, to
   // select it and fortify it later.
