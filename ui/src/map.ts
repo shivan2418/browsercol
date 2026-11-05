@@ -383,6 +383,14 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
     return t;
   };
   const measurer = document.createElement('canvas').getContext('2d')!;
+  /**
+   * A length rounded to whole device pixels at `scale`: the world's place, and the actors' offset within it, so a
+   * sliding unit lands on the same pixels as the map under it and the pixel art stays as sharp as when it rests.
+   */
+  const snap = (n: number, scale: number) => {
+    const k = scale * app.renderer.resolution;
+    return Math.round(n * k) / k;
+  };
   return {
     canvas: app.canvas,
     begin: (n) => {
@@ -444,6 +452,7 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
       return measurer.measureText(s).width;
     },
     actors: (dx, dy, alpha) => {
+      [dx, dy] = [snap(dx, world.scale.x), snap(dy, world.scale.x)];
       const key = `${dx},${dy},${alpha}`;
       if (key === actorsAt) return;
       actorsAt = key;
@@ -468,7 +477,7 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
       if (key === shown) return;
       shown = key;
       world.scale.set(scale);
-      world.position.set(dx, dy);
+      world.position.set(snap(dx, 1), snap(dy, 1));
       redraw();
     },
     // resize() takes CSS pixels: the renderer keeps its own resolution.
