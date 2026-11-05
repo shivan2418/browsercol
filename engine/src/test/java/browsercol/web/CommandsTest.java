@@ -518,6 +518,52 @@ class CommandsTest {
             () -> "it is the report: " + messageEvents);
     }
 
+    /**
+     * A goto drag belongs to the unit it started from: once the client has
+     * moved on to another active unit, the order still goes to that unit, and
+     * a unit that is not ours or is gone is sent nowhere.
+     */
+    @Test
+    @Timeout(180)
+    void aGotoWithAnExplicitUnitMovesThatUnitWhateverIsActive() throws Exception {
+        startGame();
+        final Commands commands = client.getCommands();
+        final Player player = client.getClient().getMyPlayer();
+        final Unit ship = player.getUnits().filter(Unit::isNaval).findFirst().get();
+        final Tile from = ship.getTile();
+        Tile target = null;
+        for (Direction d : Direction.values()) {
+            final Tile n = from.getNeighbourOrNull(d);
+            if (n != null && n.isExplored() && !n.isLand()) {
+                target = n;
+                break;
+            }
+        }
+        assertNotNull(target, "an explored sea tile lies next to the ship");
+
+        // Not ours, and not there at all: nothing moves, and there is no path.
+        final Unit theirs = server.getGame().getLiveEuropeanPlayers()
+            .filter(p -> !p.getId().equals(player.getId()))
+            .flatMap(p -> p.getUnits().limit(1)).findFirst().orElse(null);
+        if (theirs != null) {
+            assertFalse(commands.goTo(theirs.getId(), target.getX(), target.getY()), "not our unit");
+            assertEquals("null", commands.pathTo(theirs.getId(), target.getX(), target.getY()));
+        }
+        assertFalse(commands.goTo("unit:999999", target.getX(), target.getY()), "no such unit");
+        assertEquals("null", commands.pathTo("unit:999999", target.getX(), target.getY()));
+        assertSame(from, ship.getTile(), "the ship has not moved");
+
+        // The active unit is no longer the ship, as when the client has moved on to the next unit.
+        client.getClient().getGUI().changeView((Unit)null, false);
+        assertNull(active());
+        assertNotEquals("null", commands.pathTo(ship.getId(), target.getX(), target.getY()),
+            "the ship has a path to the tile");
+        assertTrue(commands.goTo(ship.getId(), target.getX(), target.getY()),
+            "the ship sets off though it is not the active unit");
+        final Tile there = target;
+        await(() -> ship.getTile() == there, () -> "the ship is on the tile");
+    }
+
     /** Wait until a condition holds, for up to 10 s. */
     private static void await(java.util.function.BooleanSupplier ok, java.util.function.Supplier<String> what)
         throws InterruptedException {

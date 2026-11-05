@@ -344,16 +344,16 @@ public final class ClientMain {
         command("click", () -> engine.getCommands().click(x, y, count));
     }
 
-    /** Send the active unit to a tile along its best path. */
+    /** Send a unit to a tile along its best path, if it is ours and can still move: the unit a goto drag started from. */
     @JSExport
-    public static void goTo(int x, int y) {
-        command("goTo", () -> engine.getCommands().goTo(x, y));
+    public static void goToUnit(String unitId, int x, int y) {
+        command("goTo", () -> engine.getCommands().goTo(unitId, x, y));
     }
 
-    /** The path the active unit would take to a tile, as JSON [x, y, turns] per step, or "null". */
+    /** The path a unit would take to a tile, as JSON [x, y, turns] per step, or "null". */
     @JSExport
-    public static String pathTo(int x, int y) {
-        return engine.getCommands().pathTo(x, y);
+    public static String pathToUnit(String unitId, int x, int y) {
+        return engine.getCommands().pathTo(unitId, x, y);
     }
 
     /** Move the active unit one step; a Direction name, e.g. "NE". */

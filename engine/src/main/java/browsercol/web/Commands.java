@@ -163,6 +163,22 @@ public final class Commands {
      */
     public boolean goTo(int x, int y) {
         final Unit unit = gui().getActiveUnit();
+        return unit != null && goTo(unit.getId(), x, y);
+    }
+
+    /**
+     * Send a unit to a tile along its best path. The Browser UI names the unit
+     * the goto drag started from: the active unit may have moved on since
+     * (a move still running makes the client pick the next unit), and the
+     * order must stay with the unit the player dragged.
+     *
+     * @param unitId The unit's id.
+     * @param x The tile's x.
+     * @param y The tile's y.
+     * @return True if the unit set off; false if it is gone, not ours or out of moves.
+     */
+    public boolean goTo(String unitId, int x, int y) {
+        final Unit unit = movable(unitId);
         final Tile tile = tile(x, y);
         if (unit == null || tile == null || unit.getTile() == tile) return false;
         final PathNode path = unit.findPath(tile);
@@ -183,6 +199,20 @@ public final class Commands {
      */
     public String pathTo(int x, int y) {
         final Unit unit = gui().getActiveUnit();
+        return unit == null ? "null" : pathTo(unit.getId(), x, y);
+    }
+
+    /**
+     * The path a unit would take to a tile, as goTo would send it.
+     *
+     * @param unitId The unit's id.
+     * @param x The tile's x.
+     * @param y The tile's y.
+     * @return The path as MapJson.path gives it; "null" for none, or for a
+     *     unit that is gone, not ours or out of moves.
+     */
+    public String pathTo(String unitId, int x, int y) {
+        final Unit unit = movable(unitId);
         final Tile tile = tile(x, y);
         if (unit == null || tile == null || unit.getTile() == tile) return "null";
         try {
@@ -190,6 +220,12 @@ public final class Commands {
         } catch (RuntimeException e) {
             return "null";
         }
+    }
+
+    /** One of our units, by id, that still exists and can move, else null. */
+    private Unit movable(String unitId) {
+        final Unit unit = ours(unitId);
+        return unit == null || unit.isDisposed() || unit.getMovesLeft() <= 0 ? null : unit;
     }
 
     /** Show the Europe panel (EuropeAction). */

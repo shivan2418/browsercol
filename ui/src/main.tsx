@@ -85,7 +85,7 @@ import { DialogHost, type Art, type ReportButtons, type RouteButtons } from './p
 import { isTurnReportKey, reportForKey } from './report-keys';
 import { ReportContext, colopediaMenu, reportMenu, type ReportActions } from './reports';
 import { NO_OVERLAY, type ColonyLabels, type PathStep } from './tileset';
-import { blockBrowserMenu, gotoKeyInput, onCanvas, pointerInput, rightClickInput } from './pointer';
+import { blockBrowserMenu, gotoKeyInput, onCanvas, pointerInput, rightClickInput, type GotoDeps } from './pointer';
 import { ContextMenuContext, PopupMenu, parseMenu, type ContextMenus, type MenuData, type Popup } from './popup-menu';
 import type { AudioManifest } from './resources';
 import { soundPlayer } from './sound';
@@ -117,7 +117,7 @@ import { isIdle, TurnBanner, turnNotice, type TurnFacts, type TurnNotice } from 
 import { ErrorBanner, addError, engineError, type GameError } from './errors';
 import { loadModule } from './teavm';
 import { applyTheme } from './theme';
-import { cursor, initialView, panel, reduce, tileOnScreen, W, type Tile, type ViewEvent, type ViewState } from './view';
+import { cursor, initialView, panel, reduce, tileOnScreen, W, type ViewEvent, type ViewState } from './view';
 import type { GuiEvents, GuiHandlers, ReportView } from './webgui';
 
 declare global {
@@ -1208,13 +1208,13 @@ function drawMap(m: MapView) {
 blockBrowserMenu(document);
 /** The client Engine, once loaded: a held Go To asks it for the path and sends the unit. */
 let gotoClient: ClientExports | null = null;
-const gotoDeps = {
-  preview: (tile: Tile | null) =>
+const gotoDeps: GotoDeps = {
+  preview: (tile, unit) =>
     dispatch({
       k: 'preview',
-      path: tile && gotoClient ? (JSON.parse(gotoClient.pathTo(...tile)) as PathStep[] | null) : null,
+      path: tile && unit && gotoClient ? (JSON.parse(gotoClient.pathToUnit(unit, ...tile)) as PathStep[] | null) : null,
     }),
-  go: (tile: Tile) => gotoClient?.goTo(...tile),
+  go: (tile, unit) => gotoClient?.goToUnit(unit, ...tile),
 };
 const dragged = pointerInput(mapHost, {
   view: () => view,
@@ -1229,6 +1229,7 @@ gotoKeyInput(
   (px, py) => map.tileAt(px, py),
   gotoDeps,
   () => gotoClient !== null && view.active !== null && !dialogQueue.current(),
+  () => view.active?.unit ?? null,
 );
 
 /** Hook the player's input up to the client Engine's commands. */
