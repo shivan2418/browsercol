@@ -21,10 +21,15 @@ public class FreeColReflectionPolicy extends SimpleReflectionPolicy {
         "getType",  // Scope.appliesTo
     };
 
-    /** Fields the server sends as partial updates (Introspector get/set). */
+    /**
+     * Fields the server sends as partial updates (Introspector get/set).
+     * "id" is PartialMessage's own attribute, which it passes on with the
+     * rest to InGameController.partialHandler; setId with the same id
+     * changes nothing (FreeColObject.setId only stores it).
+     */
     private static final String[] PARTIAL_FIELDS = {
         "attackedByPrivateers", "bankrupt", "dead", "experience", "gold",
-        "hitPoints", "immigration", "immigrationRequired",
+        "hitPoints", "id", "immigration", "immigrationRequired",
         "independentNationName", "liberty", "movesLeft", "name",
         "newLandName", "playerType", "score", "spanishSuccession", "tax",
     };
