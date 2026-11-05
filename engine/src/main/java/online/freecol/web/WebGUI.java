@@ -1702,12 +1702,16 @@ public class WebGUI extends GUI {
     /**
      * {@inheritDoc}
      *
-     * Shows the classic colony report ({@link Reports#colony}); the compact
-     * colony report is not made, so the colony report option is not read.
+     * Shows the colony report the colony report option says (SwingGUI): the
+     * classic one ({@link Reports#colony}) or the compact one
+     * ({@link CompactColonyReport}).
      */
     @Override
     public FreeColPanel showReportColonyPanel() {
-        this.ui.show("report", Reports.colony(getMyPlayer()));
+        final boolean compact = getClientOptions().getInteger(ClientOptions.COLONY_REPORT)
+            == ClientOptions.COLONY_REPORT_COMPACT;
+        this.ui.show("report", compact ? CompactColonyReport.of(getFreeColClient())
+            : Reports.colony(getMyPlayer()));
         return null;
     }
 

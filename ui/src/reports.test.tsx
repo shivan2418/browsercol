@@ -129,6 +129,63 @@ describe('the colony report', () => {
   });
 });
 
+describe('the compact colony report', () => {
+  const item = (text: string, tone: 'alarm' | 'warn' | 'plain' | 'export' | 'good', link: string | null = null) => ({
+    text,
+    tone,
+    tip: `tip ${text}`,
+    bold: false,
+    keys: null,
+    link,
+  });
+  const report: ReportView = {
+    ...head('compactColony'),
+    columns: [
+      { label: 'Colony', tip: 'The list of colonies', keys: null, left: true, dim: false },
+      { label: 'U', tip: 'Units', keys: null, left: false, dim: false },
+      { label: '', tip: 'Food', keys: ['image.unit.model.unit.freeColonist'], left: false, dim: true },
+    ],
+    groups: [
+      {
+        rows: [
+          {
+            id: 'colony:7',
+            cells: [
+              { items: [item('Jamestown', 'good', 'colony:7')] },
+              { items: [item('3', 'good', 'colony:7')] },
+              { items: [item('-2', 'alarm', 'colony:7')] },
+            ],
+          },
+          { id: 'colony:8', cells: [{ items: [item('Plymouth', 'plain', 'colony:8')] }, { items: [] }, { items: [] }] },
+        ],
+        summary: [{ items: [item('Mainland', 'plain')] }, { items: [item('5', 'good')] }, { items: [] }],
+      },
+    ],
+  };
+
+  it('has a row for each colony and a summary, with the headers above and below', () => {
+    const { box } = host();
+    show(box, report);
+    expect(screen.getAllByRole('columnheader', { name: 'Colony' })).toHaveLength(2);
+    expect(screen.getAllByRole('columnheader', { name: 'U' })).toHaveLength(2);
+    expect(screen.getAllByRole('columnheader')[2].getAttribute('data-dim')).toBe('true');
+    expect(screen.getAllByAltText('').length).toBeGreaterThan(0);
+    const summary = document.querySelector('tr[data-summary]')!;
+    expect(summary.textContent).toBe('Mainland5');
+    const lost = screen.getByText('-2');
+    expect(lost.getAttribute('data-tone')).toBe('alarm');
+    expect(lost.getAttribute('title')).toBe('tip -2');
+  });
+
+  it('opens a colony from its row, closing the report', () => {
+    const { box, calls } = host();
+    show(box, report);
+    fireEvent.click(screen.getByRole('button', { name: 'Plymouth' }));
+    expect(calls).toEqual(['colony colony:8']);
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+});
+
 describe('the labour report', () => {
   const labour: ReportView = {
     ...head('labour'),

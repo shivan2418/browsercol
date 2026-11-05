@@ -828,6 +828,20 @@ type UnitsView<K extends 'military' | 'naval' | 'cargo'> = ReportHead<K> & {
   }[];
 };
 
+/** A cell of the compact colony report: items shown together, none for a blank. */
+export type CompactCell = {
+  items: {
+    text: string;
+    /** The colour: alarm, warn, plain, export or good. */
+    tone: 'alarm' | 'warn' | 'plain' | 'export' | 'good';
+    tip: string;
+    bold: boolean;
+    keys: string[] | null;
+    /** The colony a click opens, or null. */
+    link: Id | null;
+  }[];
+};
+
 /** The reports of Reports.java, as the Engine sends them. Adding a report adds a member here. */
 export type ReportView =
   | (ReportHead<'colopedia'> & {
@@ -850,6 +864,20 @@ export type ReportView =
         goods: (GoodsAmount & { stock: number; max: number })[];
         buildings: { id: Id; name: string; keys: string[] }[];
       }[];
+    })
+  | (ReportHead<'compactColony'> & {
+      /** The table's columns, in order: the colony, its size, tiles to improve, goods, and so on. */
+      columns: {
+        label: string;
+        tip: string;
+        /** An image for the header, or null. */
+        keys: string[] | null;
+        left: boolean;
+        /** Goods the player owes arrears on, shown dim. */
+        dim: boolean;
+      }[];
+      /** The colonies of each continent, with a summary row when there are several. */
+      groups: { rows: { id: Id; cells: CompactCell[] }[]; summary: CompactCell[] | null }[];
     })
   | (ReportHead<'labour'> & { types: (TypeRef & { count: number })[] })
   | (ReportHead<'labourDetail'> & {

@@ -35,6 +35,7 @@ import net.sf.freecol.common.model.Colony;
 import net.sf.freecol.common.model.ColonyTile;
 import net.sf.freecol.common.model.Direction;
 import net.sf.freecol.common.model.Game;
+import net.sf.freecol.common.model.ExportData;
 import net.sf.freecol.common.model.GoodsType;
 import net.sf.freecol.common.model.Map;
 import net.sf.freecol.common.model.Player;
@@ -668,6 +669,49 @@ class CommandsTest {
         assertEquals(1, informationPanels.size());
         final String text = textOf(informationPanels.get(0));
         assertEquals(Messages.message("model.noClaimReason.rumour.description"), text);
+    }
+
+    @Test
+    @Timeout(180)
+    void theColonyReportIsTheKindTheClientOptionSays() throws Exception {
+        startGame();
+        final Commands commands = client.getCommands();
+        final ClientOptions options = client.getClient().getClientOptions();
+        reports.clear();
+        assertTrue(commands.showReport("colony"));
+        assertTrue(reports.get(0).contains("\"report\":\"colony\""), reports.get(0));
+        options.setInteger(ClientOptions.COLONY_REPORT, ClientOptions.COLONY_REPORT_COMPACT);
+        assertTrue(commands.showReport("colony"));
+        assertTrue(reports.get(1).contains("\"report\":\"compactColony\""), reports.get(1));
+    }
+
+    @Test
+    @Timeout(180)
+    void aColonysExportSettingsStartFromTheWarehouseOptions() throws Exception {
+        startGame();
+        final Commands commands = client.getCommands();
+        try {
+            assertTrue(client.setClientOption(ClientOptions.CUSTOM_STOCK, "70"));
+            assertTrue(client.setClientOption(ClientOptions.LOW_LEVEL, "20"));
+            assertTrue(client.setClientOption(ClientOptions.HIGH_LEVEL, "80"));
+            final Colony serverColony = foundAColony(commands);
+            final Colony ours = client.getGame().getFreeColGameObject(serverColony.getId(), Colony.class);
+            final GoodsType food = ours.getSpecification().getGoodsType("model.goods.food");
+            final GoodsType tools = ours.getSpecification().getGoodsType("model.goods.tools");
+            for (GoodsType type : List.of(food, tools)) {
+                final ExportData started = ours.getExportData(type);
+                assertEquals(70, started.getExportLevel(), type.getId());
+                assertEquals(20, started.getLowLevel(), type.getId());
+                assertEquals(80, started.getHighLevel(), type.getId());
+            }
+            // Settings a colony already has are kept when the options change.
+            assertTrue(client.setClientOption(ClientOptions.CUSTOM_STOCK, "60"));
+            assertEquals(70, ours.getExportData(food).getExportLevel());
+        } finally {
+            client.setClientOption(ClientOptions.CUSTOM_STOCK, "50");
+            client.setClientOption(ClientOptions.LOW_LEVEL, "10");
+            client.setClientOption(ClientOptions.HIGH_LEVEL, "90");
+        }
     }
 
     @Test

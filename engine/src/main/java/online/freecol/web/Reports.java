@@ -48,14 +48,15 @@ import net.sf.freecol.common.model.WorkLocation;
 /**
  * The reports of FreeCol's Report menu as the Browser UI shows them, with
  * the information of the Swing panels: the classic colony report
- * (ReportClassicColonyPanel), the labour report (ReportLabourPanel and
+ * (ReportClassicColonyPanel) and the compact one (ReportCompactColonyPanel,
+ * in CompactColonyReport), the labour report (ReportLabourPanel and
  * ReportLabourDetailPanel) and the compact labour report
  * (CompactLabourReport, on LabourData), the military, naval and cargo
  * reports (ReportUnitPanel and its three subclasses), and the religion,
  * education, exploration, history, trade, production and requirements
  * reports, and the foreign affairs, native (indian) and Continental
  * Congress reports. Every payload is one object of the {@code report}
- * event, told apart by its {@code report} field: colony, labour,
+ * event, told apart by its {@code report} field: colony, compactColony, labour,
  * labourDetail, compactLabour, military, naval, cargo, religion,
  * education, exploration, history, trade, production, requirements,
  * foreign, indian or congress. Each has title, ok (the button's label)
