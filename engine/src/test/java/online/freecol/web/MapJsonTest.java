@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -55,7 +56,20 @@ class MapJsonTest {
         toServer.shutdownNow();
     }
 
+    /**
+     * The map seed of the test that needs a settlement of one nation.
+     * The map generator puts a native nation's settlements only on
+     * suitable tiles in its own region, and on some random maps the
+     * Cherokee's region has none, so they have no settlement at all.
+     * On map 10 they have none; on this map they have two.
+     */
+    private static final long CHEROKEE_MAP_SEED = 1;
+
     private void startGame() throws Exception {
+        startGame(GamePreset.none());
+    }
+
+    private void startGame(GamePreset preset) throws Exception {
         final CountDownLatch ourTurn = new CountDownLatch(1);
         server = new ServerEngine(
             xml -> toClient.execute(() -> client.receive(xml)));
@@ -74,7 +88,7 @@ class MapJsonTest {
                     client.answer(id, kind.equals("confirm") ? "true" : null);
                 }
             });
-        server.startGame("classic");
+        server.startGame("classic", preset);
         assertTrue(client.startGame(0), "login");
         ourTurn.await();
     }
@@ -312,16 +326,20 @@ class MapJsonTest {
     @Test
     @Timeout(120)
     void aNativeSettlementSendsWhatItsChipsShow() throws Exception {
-        startGame();
+        startGame(new GamePreset(null, null, null,
+            CHEROKEE_MAP_SEED, new LinkedHashMap<>()));
         final Game game = server.getGame();
         final Player us = game.getFreeColGameObject(
             client.getClient().getMyPlayer().getId(), Player.class);
-        // A settlement of the nation in dark brown, 0x6c3c18, so its
-        // settlement chip's text is white.
+        // A settlement of the nation in dark brown, 0x6c3c18, the
+        // Cherokee, so its settlement chip's text is white.
         final IndianSettlement is = game.getMap().getTileSet(t ->
                 t.getSettlement() instanceof IndianSettlement
                 && (Utils.getRGB(t.getOwner().getNationColor()) & 0xffffff) == 0x6c3c18)
-            .stream().findFirst().get().getIndianSettlement();
+            .stream().findFirst()
+            .orElseThrow(() -> new AssertionError("no Cherokee settlement on map "
+                + CHEROKEE_MAP_SEED + "; pick another seed"))
+            .getIndianSettlement();
         final Supplier<String> entry = () -> {
             final String all = field(MapJson.of(game, us, null), "settlements");
             final int from = all.indexOf("{\"x\":" + is.getTile().getX()
