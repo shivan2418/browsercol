@@ -106,6 +106,19 @@ test("the colours and the fonts are among BrowserCol's own, and a pick changes t
   expect(fonts.value).toBe('cinzel-noto');
 });
 
+test('the Tileset is picked among FreeCol and FreeCol+, and shows on reload', () => {
+  const changed: Prefs[] = [];
+  const { container } = render(
+    <PreferencesDialog prefs={DEFAULTS} freecol={null} change={(p) => changed.push(p)} close={() => {}} />,
+  );
+  const row = container.querySelector('[data-pref="tileset"]')!;
+  expect(row.textContent).toContain('Tileset (on reload)');
+  const tileset = row.querySelector('select')!;
+  expect([...tileset.options].map((o) => o.textContent)).toEqual(['FreeCol', 'FreeCol+']);
+  fireEvent.change(tileset, { target: { value: 'freecol-plus' } });
+  expect(changed.at(-1)).toEqual({ ...DEFAULTS, tileset: 'freecol-plus' });
+});
+
 test("the language's category says the Browser UI's own labels stay English", () => {
   const personal: OptionGroup = {
     ...freecol,

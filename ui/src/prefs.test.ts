@@ -14,6 +14,7 @@ import {
   moveMs,
   PAGE_OPTIONS,
   terrainAnimation,
+  tilesetManifest,
   pageOption,
   parsePrefs,
   shownClientOptions,
@@ -43,6 +44,17 @@ describe('prefs', () => {
       blink: 'slow',
     });
     expect(parsePrefs('{"activeStyle":"freecol"}').activeStyle).toBe('freecol');
+  });
+
+  it("reads the Tileset, FreeCol's own unless another known one is stored", () => {
+    expect(parsePrefs(null).tileset).toBe('freecol');
+    expect(parsePrefs('{"tileset":"freecol-plus"}').tileset).toBe('freecol-plus');
+    expect(parsePrefs('{"tileset":"test"}').tileset).toBe('freecol');
+  });
+
+  it("loads FreeCol's own Tileset from the default manifest and another from its own", () => {
+    expect(tilesetManifest('freecol')).toBeUndefined();
+    expect(tilesetManifest('freecol-plus')).toBe('freecol-plus.json');
   });
 
   it('reads the palette and the font set, parchment and the default set unless stored otherwise', () => {

@@ -20,6 +20,20 @@ export const SPEEDS: readonly Speed[] = ['off', 'slow', 'normal', 'fast'];
 export type ActiveStyle = 'freecol' | 'online';
 export const ACTIVE_STYLES: readonly ActiveStyle[] = ['freecol', 'online'];
 
+/**
+ * The Tilesets the player can pick, FreeCol's own first. Each but FreeCol's is an art-only mod under
+ * ui/tilesets/<id>, whose manifest build.sh writes as art/<id>.json.
+ */
+export const TILESETS = [
+  { id: 'freecol', label: 'FreeCol' },
+  { id: 'freecol-plus', label: 'FreeCol+' },
+] as const;
+export type Tileset = (typeof TILESETS)[number]['id'];
+const isTileset = (v: unknown): v is Tileset => TILESETS.some((t) => t.id === v);
+
+/** The manifest to load for a Tileset: none for FreeCol's own, the page's default art.json. */
+export const tilesetManifest = (t: Tileset): string | undefined => (t === 'freecol' ? undefined : `${t}.json`);
+
 /** How strongly the window greys out while it lacks keyboard focus. */
 export type Dim = 'off' | 'light' | 'normal' | 'heavy';
 export const DIMS: readonly Dim[] = ['off', 'light', 'normal', 'heavy'];
@@ -41,6 +55,8 @@ export interface Prefs {
   palette: Palette;
   /** The fonts of their text (fonts.css). */
   fonts: FontSet;
+  /** The map's art; the page loads it, so a change shows on reload. */
+  tileset: Tileset;
   /** Whether the music is muted, whatever its volume option says. */
   muteMusic: boolean;
   /** Whether the sound effects are muted, whatever their volume option says. */
@@ -61,6 +77,7 @@ export const DEFAULTS: Prefs = {
   autoEndTurn: false,
   palette: PALETTES[0].id,
   fonts: FONT_SETS[0].id,
+  tileset: TILESETS[0].id,
   muteMusic: false,
   muteEffects: false,
   freecol: {},
@@ -400,6 +417,7 @@ export function parsePrefs(text: string | null): Prefs {
       autoEndTurn: typeof o.autoEndTurn === 'boolean' ? o.autoEndTurn : DEFAULTS.autoEndTurn,
       palette: isPalette(o.palette) ? o.palette : DEFAULTS.palette,
       fonts: isFontSet(o.fonts) ? o.fonts : DEFAULTS.fonts,
+      tileset: isTileset(o.tileset) ? o.tileset : DEFAULTS.tileset,
       muteMusic: typeof o.muteMusic === 'boolean' ? o.muteMusic : DEFAULTS.muteMusic,
       muteEffects: typeof o.muteEffects === 'boolean' ? o.muteEffects : DEFAULTS.muteEffects,
       freecol: freecolValues(o.freecol),
