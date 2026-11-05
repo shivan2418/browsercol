@@ -71,7 +71,7 @@ class GamePresetTest {
             });
         server.startGame("classic", GamePreset.parse(json));
         assertTrue(client[0].startGame(0), "login");
-        finished.await();
+        FirstTurn.await(finished);
         return server.getGame();
     }
 

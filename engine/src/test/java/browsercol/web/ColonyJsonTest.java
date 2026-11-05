@@ -88,7 +88,7 @@ class ColonyJsonTest {
         server.startGame("classic", new GamePreset(null, null, null,
             MAP_SEED, new LinkedHashMap<>()));
         assertTrue(client.startGame(0), "login");
-        ourTurn.await();
+        FirstTurn.await(ourTurn);
     }
 
     @SuppressWarnings("unchecked")

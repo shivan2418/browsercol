@@ -91,7 +91,7 @@ class MapJsonTest {
             });
         server.startGame("classic", preset);
         assertTrue(client.startGame(0), "login");
-        ourTurn.await();
+        FirstTurn.await(ourTurn);
     }
 
     /** The value of a top-level field, as raw JSON up to the next top-level key. */
