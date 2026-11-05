@@ -47,6 +47,7 @@ drops a message, a server request, model state or a callback.
 | `common/option/AudioMixerOption.java`, `common/sound/SoundPlayer.java` | No mixers. | platform |
 | `common/model/Player.java` | A stack trace without `Thread.dumpStack`. | platform |
 | `common/model/Player.java` | `addFather` sets Paine's bells bonus to the tax at once (#169). | upstream bug fix |
+| `server/model/Session.java` | The constructor drops a completed session with the same key instead of throwing (#173). | upstream bug fix |
 
 "Platform" means the change works around TeaVM, Swing, `javax.sound` or the
 lack of a local file system, and the game plays the same.
