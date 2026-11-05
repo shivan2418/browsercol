@@ -21,6 +21,8 @@ function host() {
     detail: (name, id) => calls.push(`detail ${name} ${id}`),
     colony: (id) => calls.push(`colony ${id}`),
     europe: () => calls.push('europe'),
+    colopedia: (id) => calls.push(`colopedia ${id}`),
+    difficulty: () => calls.push('difficulty'),
     goTo: (at) => calls.push(`goTo ${at.join(',')}`),
   };
   render(
@@ -679,6 +681,14 @@ describe('the Continental Congress report', () => {
     expect(document.querySelector('[data-father="f:1"] [data-field="status"]')?.textContent).toBe('Elected in 1500');
   });
 
+  it("opens the Colopedia on a father's name, the one being recruited too", () => {
+    const { box, calls } = host();
+    show(box, report);
+    fireEvent.click(within(document.querySelector('[data-father="f:1"]') as HTMLElement).getByText('Franklin'));
+    fireEvent.click(within(document.querySelector('[data-current="f:2"]') as HTMLElement).getByText('Jefferson'));
+    expect(calls).toEqual(['colopedia f:1', 'colopedia f:2']);
+  });
+
   it('says so when no father is being recruited', () => {
     const { box } = host();
     show(box, { ...report, current: null });
@@ -739,6 +749,31 @@ describe('the colopedia', () => {
     fireEvent.click(within(detail()).getByRole('button', { name: 'food' }));
     expect(detail().querySelector('h3')?.textContent).toBe('Food');
     expect(document.querySelector('[data-section="goods"]')?.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('opens the difficulty report from an action link', () => {
+    const { box, calls } = host();
+    show(box, {
+      ...report,
+      sections: [
+        {
+          id: 'concepts',
+          name: 'Concepts',
+          entries: [
+            {
+              id: 'c:1',
+              name: 'Efficiency',
+              group: null,
+              keys: [],
+              text: 'See the [[action/difficultyAction|difficulty level report]].',
+              facts: [],
+            },
+          ],
+        },
+      ],
+    });
+    fireEvent.click(within(detail()).getByRole('button', { name: 'difficulty level report' }));
+    expect(calls).toEqual(['difficulty']);
   });
 
   it('opens on the entry it is told to', () => {

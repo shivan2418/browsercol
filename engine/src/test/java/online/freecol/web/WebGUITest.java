@@ -1344,4 +1344,23 @@ class WebGUITest {
         assertTrue(panel.contains("\"select\":\"" + id + "\""), panel);
         assertTrue(panel.contains("\"sections\":["), panel);
     }
+
+    /** The Colopedia opens on a goods type, a unit type and a founding father, not only terrain. */
+    @Test
+    @Timeout(180)
+    void theColopediaOpensOnAnyEntry() throws Exception {
+        final ClientEngine client = startGame();
+        for (String id : new String[] {"model.goods.furs", "model.unit.freeColonist",
+            "model.building.stockade", "model.foundingFather.thomasJefferson", "model.nation.dutch",
+            "model.nationType.trade"}) {
+            shown.clear();
+            assertTrue(client.getCommands().menuEntry("colopedia:" + id), id);
+            final String panel = shown().stream()
+                .filter(e -> e.startsWith("report ") && e.contains("\"report\":\"colopedia\""))
+                .findFirst().orElse("");
+            assertTrue(panel.contains("\"select\":\"" + id + "\""), panel);
+        }
+        assertFalse(client.getCommands().menuEntry("colopedia:model.noSuch"), "no such entry");
+        assertFalse(client.getCommands().menuEntry("colopedia:model.ability.build"), "not an entry");
+    }
 }

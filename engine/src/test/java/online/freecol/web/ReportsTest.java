@@ -496,6 +496,10 @@ class ReportsTest {
             .filter(e -> "Education".equals(e.get("name"))).findFirst().get();
         assertTrue(((String)education.get("text")).contains("[[model.building.schoolhouse|"),
             "a link in a description");
+        final Map<String, Object> efficiency = objs(sections.get(8).get("entries")).stream()
+            .filter(e -> "Efficiency".equals(e.get("name"))).findFirst().get();
+        assertTrue(((String)efficiency.get("text")).contains("[[action/difficultyAction|"),
+            "an action link in a description: " + efficiency.get("text"));
         final Map<String, Object> concept = objs(sections.get(8).get("entries")).get(0);
         assertEquals("Taxes", concept.get("name"));
         assertFalse(((String)concept.get("text")).isEmpty());

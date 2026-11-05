@@ -21,6 +21,10 @@ export interface ReportActions {
   detail: (name: ReportName, id: string) => void;
   colony: (id: string) => void;
   europe: () => void;
+  /** Open the Colopedia on an entry (a goods type, a founding father...). */
+  colopedia: (id: string) => void;
+  /** Open the difficulty level report (the Colopedia's FreeColAction link "difficultyAction"). */
+  difficulty: () => void;
   /** Centre the map on a tile. */
   goTo: (at: [number, number]) => void;
 }
@@ -31,6 +35,8 @@ export const ReportContext = createContext<ReportActions>({
   detail: none,
   colony: none,
   europe: none,
+  colopedia: none,
+  difficulty: none,
   goTo: none,
 });
 
@@ -692,7 +698,7 @@ function Linked({ text, go }: { text: string; go: (id: string) => void }) {
  * ColopediaPanel: a tree of the sections and their entries (under a heading for each sub-category) on the
  * left, the chosen entry on the right. A link in a fact or a description goes to its entry.
  */
-function Colopedia({ e, art }: { e: View<'colopedia'>; art: Art }) {
+function Colopedia({ e, art, go: links }: { e: View<'colopedia'>; art: Art; go: Links }) {
   const where = (id: string | null) => e.sections.find((s) => s.entries.some((x) => x.id === id));
   const [start] = useState(() => {
     const wanted = e.select ?? null;
@@ -704,6 +710,8 @@ function Colopedia({ e, art }: { e: View<'colopedia'>; art: Art }) {
   const [chosen, setChosen] = useState<string | null>(start.entry);
   const entry = e.sections.flatMap((s) => s.entries).find((x) => x.id === chosen);
   const go = (id: string) => {
+    // A link to a FreeColAction (Reports.plain makes it [[action/NAME|text]]).
+    if (id === 'action/difficultyAction') return links.difficulty();
     const s = where(id);
     if (!s) return;
     setSection(s.id);
@@ -905,7 +913,7 @@ function IndianReport({ e, art, go }: { e: View<'indian'>; art: Art; go: Links }
 }
 
 /** ReportContinentalCongressPanel: the father being recruited, then every father by kind. */
-function CongressReport({ e, art }: { e: View<'congress'>; art: Art }) {
+function CongressReport({ e, art, go }: { e: View<'congress'>; art: Art; go: Links }) {
   const kinds = [...new Set(e.fathers.map((f) => f.kind))];
   return (
     <div className="congress">
@@ -914,7 +922,9 @@ function CongressReport({ e, art }: { e: View<'congress'>; art: Art }) {
         {e.current ? (
           <div data-current={e.current.id}>
             <Img keys={e.current.keys} art={art} title={e.current.description} />
-            <span>{e.current.name}</span>
+            <Link go={() => go.colopedia(e.current!.id)} data-link={e.current.id}>
+              {e.current.name}
+            </Link>
             <progress value={Math.min(e.current.liberty, e.current.cost)} max={e.current.cost} />
             <span className="muted" data-field="progress">
               {e.current.liberty} / {e.current.cost}
@@ -935,7 +945,11 @@ function CongressReport({ e, art }: { e: View<'congress'>; art: Art }) {
             .map((f) => (
               <div key={f.id} className="row" data-father={f.id} data-state={f.state}>
                 <Img keys={f.keys} art={art} title={f.description} dim={f.state !== 'elected'} />
-                <span title={f.description}>{f.name}</span>
+                <span title={f.description}>
+                  <Link go={() => go.colopedia(f.id)} data-link={f.id}>
+                    {f.name}
+                  </Link>
+                </span>
                 <span className="muted" data-field="status">
                   {f.status}
                 </span>
@@ -947,7 +961,7 @@ function CongressReport({ e, art }: { e: View<'congress'>; art: Art }) {
   );
 }
 
-type Links = Pick<ReportActions, 'colony' | 'detail' | 'europe' | 'goTo'>;
+type Links = Pick<ReportActions, 'colony' | 'detail' | 'europe' | 'goTo' | 'colopedia' | 'difficulty'>;
 type Body<K extends ReportName> = (p: { e: View<K>; art: Art; go: Links }) => ReactNode;
 
 /** The body of each report: every report the Engine sends needs one, or this does not compile. */
@@ -989,6 +1003,9 @@ export function ReportPanel({ d, e, art }: { d: Dialog; e: ReportView; art: Art 
     colony: after(actions.colony),
     detail: (name, id) => actions.detail(name, id),
     europe: after(actions.europe),
+    // The Colopedia is a report: it replaces this one, so there is nothing to close.
+    colopedia: actions.colopedia,
+    difficulty: after(actions.difficulty),
     goTo: after(actions.goTo),
   };
   const Content = BODIES[e.report] as Body<ReportName>;
