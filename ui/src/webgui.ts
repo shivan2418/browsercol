@@ -502,6 +502,8 @@ export interface GuiQuestions {
        * first contact's). Pressing it does not answer.
        */
       help?: { label: string; colopedia: string | null; text: string | null };
+      /** Escape and the window's close answer ok, not cancel (Swing's first contact dialog). */
+      escapeOk?: boolean;
     };
     answer: boolean;
   };

@@ -143,7 +143,8 @@ import net.sf.freecol.common.option.OptionGroup;
  *         report again, regrouped: true, to replace the open one</td></tr>
  * <tr><td>modalConfirmDialog(Tile, StringTemplate, ImageIcon, ...)</td>
  *     <td>question confirm</td>
- *     <td>{text, ok, cancel, defaultOk, tile, object, header};
+ *     <td>{text, ok, cancel, defaultOk, tile, object, header, escapeOk
+ *         when Escape answers ok};
  *         "true" for ok, else cancel; the header is the Swing dialog's, null
  *         for a dialog with none</td></tr>
  * <tr><td>modalChoiceDialog(Tile, StringTemplate, ImageIcon, ...)</td>
@@ -460,6 +461,17 @@ public class WebGUI extends GUI {
     private String confirm(String header, String text, String okKey,
                            String cancelKey, boolean defaultOk, Tile tile,
                            String object, String help) {
+        return confirm(header, text, okKey, cancelKey, defaultOk, tile,
+                       object, help, false);
+    }
+
+    /**
+     * As above; escapeOk makes Escape and the window's close answer ok, as
+     * Swing's first contact dialog does, so the Browser UI is told.
+     */
+    private String confirm(String header, String text, String okKey,
+                           String cancelKey, boolean defaultOk, Tile tile,
+                           String object, String help, boolean escapeOk) {
         final Json question = new Json()
             .put("text", text)
             .put("ok", label(okKey))
@@ -469,6 +481,7 @@ public class WebGUI extends GUI {
             .put("object", object)
             .put("header", header);
         if (help != null) question.putRaw("help", help);
+        if (escapeOk) question.put("escapeOk", true);
         return this.questions.ask("confirm", question.toString());
     }
 
@@ -1121,7 +1134,8 @@ public class WebGUI extends GUI {
         final String help = helpButton(null,
             Messages.message("firstContactDialog.meeting.natives.tutorial"));
         defer("showFirstContactDialog", () -> handler.handle(!"false".equals(
-            confirm(header, text, "yes", "no", true, tile, id(other), help))));
+            confirm(header, text, "yes", "no", true, tile, id(other), help,
+                    true))));
     }
 
     @Override
