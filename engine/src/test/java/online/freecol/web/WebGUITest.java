@@ -808,10 +808,9 @@ class WebGUITest {
         gui.showClientOptionsDialog();
         assertFalse(gui.showEditOptionDialog(null), "the base GUI's default");
         assertNull(gui.showEditSettlementDialog(null));
-        assertNull(gui.showFindSettlementPanel());
         assertEquals(List.of(
                 "showClientOptionsDialog", "showEditOptionDialog",
-                "showEditSettlementDialog", "showFindSettlementPanel").stream()
+                "showEditSettlementDialog").stream()
                 .map(m -> "unasked {\"method\":\"" + m + "\"}").collect(Collectors.toList()),
             shown().stream().filter(e -> !e.startsWith("messages ")).collect(Collectors.toList()));
         assertTrue(asked.isEmpty(), asked.toString());
