@@ -68,11 +68,12 @@ describe('prefs', () => {
     expect(parsePrefs('{"dimUnfocused":true}').dimUnfocused).toBe('normal');
   });
 
-  it('drops tutorial messages unless the option is on', () => {
+  it('drops tutorial messages unless the option is on, off by default', () => {
     const ms = [{ type: 'TUTORIAL' }, { type: 'WARNING' }];
-    expect(visibleMessages(DEFAULTS, ms)).toHaveLength(2);
-    expect(visibleMessages({ ...DEFAULTS, tutorial: false }, ms)).toEqual([{ type: 'WARNING' }]);
-    expect(parsePrefs('{"tutorial":false}').tutorial).toBe(false);
+    expect(parsePrefs(null).tutorial).toBe(false);
+    expect(visibleMessages(DEFAULTS, ms)).toEqual([{ type: 'WARNING' }]);
+    expect(visibleMessages({ ...DEFAULTS, tutorial: true }, ms)).toHaveLength(2);
+    expect(parsePrefs('{"tutorial":true}').tutorial).toBe(true);
   });
 
   it('keeps auto end turn off unless stored on', () => {
