@@ -533,13 +533,14 @@ class IndependenceTest {
     }
 
     /**
-     * The REF lands beside a colony on the map's top row but one, in the
-     * north-east corner (the debug colony of this map, at 38,1): its ships
-     * reach the coast, turn back to Europe and never land.
+     * The REF lands beside a colony on the polar land strip, in the
+     * north-east corner (the debug colony of this map, at 38,1). FreeCol
+     * gave that strip the main ocean's contiguity, so the army on the
+     * ships looked as if it could walk there, was given no transport and
+     * sailed back to Europe (#172, fixed in our patched Map.java).
      */
     @Test
     @Timeout(300)
-    @org.junit.jupiter.api.Disabled("FreeCol's REF AI never lands beside a colony in the map's corner (#172)")
     void theREFLandsBesideAColonyInTheMapsCorner() throws Exception {
         start(GAME);
         final Colony corner = addColony();
@@ -577,7 +578,9 @@ class IndependenceTest {
     /**
      * The foreign intervention: once the liberty we make after declaring
      * reaches interventionBells, the intervention force (the monarch's
-     * interventionForce) arrives at the next turn, ours, by a port.
+     * interventionForce) arrives at the next turn, ours, by a port. The
+     * bells come in the turn we declare: by the end of the next turn the
+     * REF has landed and taken the colony, our one port (#172).
      */
     @Test
     @Timeout(300)
@@ -594,8 +597,6 @@ class IndependenceTest {
         assertTrue(force > 0, "there is an intervention force");
         final int bells = spec().getInteger(GameOptions.INTERVENTION_BELLS);
 
-        // A turn of the colony's own few bells: no intervention.
-        endTurnAndWait();
         assertEquals(0, us.getUnits().filter(u -> manOWar.equals(u.getType().getId())).count(),
             "no intervention yet");
 
