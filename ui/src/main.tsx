@@ -36,6 +36,7 @@ import {
   debugMessage,
   debugMode,
   describeAnswer,
+  parseSearch,
   overlayRequest,
   type DebugClientRequest,
   type DebugDisplay,
@@ -245,7 +246,10 @@ let debugPlayers: DebugPlayer[] = [];
 let debugDisplay: DebugDisplay = NO_DISPLAY;
 /** Change what the map shows for the Debug menu, and ask the Engine for the text and tints it needs. */
 function setDebugDisplay(change: Partial<DebugDisplay>) {
+  const before = debugDisplay.colonyValue;
   debugDisplay = { ...debugDisplay, ...change };
+  // The tile panel's colony-value breakdown follows the player the menu picked (FreeColDebugger).
+  if (debugDisplay.colonyValue !== before) menuClient?.showColonyValue(debugDisplay.colonyValue ?? '');
   const r = overlayRequest(debugDisplay);
   if (r) debugRequest(r);
   else dispatch({ k: 'overlay', overlay: NO_OVERLAY });
@@ -792,7 +796,10 @@ function runMenuEntry(id: string) {
   if (action === 'showSearch') {
     // TilePopup's "Show search": what the active unit's path search to the tile did.
     const [x, y] = arg.split(',').map(Number);
-    debugNote = menuClient?.debugSearch(x, y) || 'No search (no active unit, or it is there)';
+    const search = parseSearch(menuClient?.debugSearch(x, y) ?? '');
+    debugNote = search?.log || 'No search (no active unit, or it is there)';
+    // SwingGUI.setUnitPath: the map draws the path until the active unit changes.
+    if (search) dispatch({ k: 'preview', path: search.path });
     renderSide();
     return;
   }

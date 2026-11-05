@@ -638,7 +638,7 @@ public final class ClientMain {
         return engine.getMenus().debugTile(x, y);
     }
 
-    /** TilePopup's "Show search": the active unit's path search to the tile, as text (Menus.debugSearch). */
+    /** TilePopup's "Show search": the active unit's path search to the tile, as JSON {log, path} (Menus.debugSearch), or "". */
     @JSExport
     public static String debugSearch(int x, int y) {
         return engine.getMenus().debugSearch(x, y);

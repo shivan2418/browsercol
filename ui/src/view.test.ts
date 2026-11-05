@@ -47,6 +47,25 @@ describe('the view', () => {
     expect(v.active).toEqual({ unit: 'unit:7', tile: [5, 11] });
   });
 
+  it("drops the path Show search drew once the active unit changes, as Swing's unit path goes", () => {
+    const drawn = reduce(initialView, { k: 'preview', path: [[5, 11, 0]] });
+    expect(drawn.preview).toEqual([[5, 11, 0]]);
+    const next = reduce(drawn, {
+      k: 'activeUnit',
+      unit: 'unit:7',
+      tile: 'tile:1',
+      at: [5, 11],
+      force: false,
+      orders: [],
+      route: null,
+    });
+    expect(next.preview).toBeNull();
+    expect(
+      reduce(drawn, { k: 'activeUnit', unit: null, tile: null, at: null, force: false, orders: [], route: null })
+        .preview,
+    ).toBeNull();
+  });
+
   it('centres on a focus tile but keeps the view on the map, even when the focus comes first', () => {
     expect(play({ k: 'focus', tile: 'tile:2', at: [10, 20] }).centre).toEqual([1344, 672]);
     // reconnectGUI focuses before the first map view: clamp once it comes.
