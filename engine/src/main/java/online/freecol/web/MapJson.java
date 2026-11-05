@@ -46,6 +46,8 @@ import net.sf.freecol.common.util.Utils;
  *     the player's nation (e.g. model.nation.dutch) and the last being
  *     FreeCol's status line, as InGameMenuBar paints it: the score, gold,
  *     tax and year;
+ * <li>endTurn: {text, button}, the info panel's end turn message and
+ *     button (infoPanel.endTurn, endTurnAction.name);
  * <li>types: {id, land, forested, name} per tile type, indexed by tiles;
  * <li>tiles: one character per tile, 'A' + type index, '.' if unexplored;
  * <li>owners: one character per tile, 'A' + players index, '.' if
@@ -77,9 +79,11 @@ import net.sf.freecol.common.util.Utils;
  *     stack (units on the tile), fade}, for the unit MapViewer shows in
  *     front;
  * <li>active: the active unit's tile, [x, y], or null;
- * <li>activeUnit: {id, label, moves, cargo (labels of the units and goods
- *     aboard), path}, what FreeCol's InfoPanel shows of the active unit,
- *     or null. path is [x, y, turns] per step to the unit's destination
+ * <li>activeUnit: {id, label, moves, status (the panel's line under the
+ *     label: "Moves: 1/3", or Europe's name in Europe), keys (the unit's
+ *     picture), units: {name, keys} and goods: {name, amount, keys} per
+ *     unit and goods aboard, path}, what FreeCol's InfoPanel shows of the
+ *     active unit, or null. path is [x, y, turns] per step to the unit's destination
  *     (null for a step off the map, e.g. Europe), as
  *     SwingGUI.updateUnitPath finds it, or null without one.
  * </ul>
@@ -172,6 +176,9 @@ final class MapJson {
             .put("colonial", player.getPlayerType() == Player.PlayerType.COLONIAL)
             .put("europe", player.getEurope() != null)
             .put("statusLine", statusLine(game, player))
+            .putRaw("endTurn", new Json()
+                .put("text", Messages.message("infoPanel.endTurn"))
+                .put("button", Messages.message("endTurnAction.name")).toString())
             .putRaw("types", Json.array(typeJson))
             .put("tiles", tiles.toString())
             .put("seen", seen.toString())
@@ -210,19 +217,33 @@ final class MapJson {
         return (tile == null) ? "null" : "[" + tile.getX() + "," + tile.getY() + "]";
     }
 
-    /** InfoPanel.fillUnitPanel's text, and the path MapViewer draws. */
+    /** InfoPanel.fillUnitPanel's picture, text and cargo, and the path MapViewer draws. */
     private static String activeUnit(Unit u) {
-        final List<String> cargo = new ArrayList<>();
+        final List<String> units = new ArrayList<>();
         for (Unit aboard : u.getUnitList()) {
-            cargo.add(Json.quote(aboard.getDescription(Unit.UnitLabelType.NATIONAL)));
+            units.add(new Json()
+                .put("name", aboard.getDescription(Unit.UnitLabelType.NATIONAL))
+                .putRaw("keys", unitKeyJson(aboard)).toString());
         }
+        final List<String> goods = new ArrayList<>();
         for (Goods g : u.getGoodsList()) {
-            cargo.add(Json.quote(Messages.message(g.getLabel(true))));
+            goods.add(new Json()
+                .put("name", Messages.message(g.getLabel(true)))
+                .put("amount", g.getAmount())
+                .putRaw("keys", keys(List.of("image.icon." + g.getType().getId())))
+                .toString());
         }
+        // In Europe the panel names Europe where the moves would be.
+        final String status = u.isInEurope()
+            ? Messages.getName(u.getOwner().getEurope())
+            : Messages.message("infoPanel.moves") + " " + u.getMovesAsString();
         return new Json().put("id", u.getId())
             .put("label", u.getDescription(Unit.UnitLabelType.FULL))
             .put("moves", u.getMovesAsString())
-            .putRaw("cargo", Json.array(cargo))
+            .put("status", status)
+            .putRaw("keys", unitKeyJson(u))
+            .putRaw("units", Json.array(units))
+            .putRaw("goods", Json.array(goods))
             .putRaw("path", path(u))
             .toString();
     }

@@ -154,7 +154,7 @@ export function cursor(v: ViewState): Cursor | null {
 
 export interface Panel {
   /** The active unit, once a map view about it has come. */
-  unit: { label: string; moves: string; cargo: string[] } | null;
+  unit: ActiveUnit | null;
   /** The hovered tile: its type's name (null if unexplored) and owner. */
   tile: { name: string | null; owner: { name: string; rgb: number } | null } | null;
 }
@@ -168,8 +168,7 @@ export function activeUnitFacts(v: ViewState): ActiveUnit | null {
 /** What the info panel shows, as FreeCol's InfoPanel does for the unit and the tile. */
 export function panel(v: ViewState): Panel {
   const m = v.map;
-  const u = activeUnitFacts(v);
-  const unit = u && { label: u.label, moves: u.moves, cargo: u.cargo };
+  const unit = activeUnitFacts(v);
   if (!m || !v.hover) return { unit, tile: null };
   const i = v.hover[1] * m.w + v.hover[0];
   const type = m.types[m.tiles.charCodeAt(i) - 65];

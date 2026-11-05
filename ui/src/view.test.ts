@@ -176,7 +176,10 @@ describe('the view', () => {
       id: 'unit:7',
       label: 'Caravel',
       moves: '1 2/3',
-      cargo: ['Free Colonist', '100 Food'],
+      status: 'Moves: 1 2/3',
+      keys: ['image.unit.model.unit.caravel'],
+      units: [{ name: 'Free Colonist', keys: [] }],
+      goods: [{ name: '100 Food', amount: 100, keys: ['image.icon.model.goods.food'] }],
       path: null,
     };
     // A 2x2 corner: plains owned by the Arawaks, ocean, and two unexplored.
@@ -199,7 +202,7 @@ describe('the view', () => {
     ];
     const v = events.reduce(reduce, initialView);
     expect(panel(v)).toEqual({
-      unit: { label: 'Caravel', moves: '1 2/3', cargo: ['Free Colonist', '100 Food'] },
+      unit: caravel,
       tile: null,
     });
 
@@ -248,7 +251,16 @@ describe('the view', () => {
 });
 
 describe("the map view's active unit", () => {
-  const unit = { id: 'unit:7', label: 'Caravel', moves: '1', cargo: [], path: [[1, 0, 0] as [number, number, number]] };
+  const unit = {
+    id: 'unit:7',
+    label: 'Caravel',
+    moves: '1',
+    status: 'Moves: 1',
+    keys: [],
+    units: [],
+    goods: [],
+    path: [[1, 0, 0] as [number, number, number]],
+  };
   const select: ViewEvent = {
     k: 'activeUnit',
     unit: 'unit:7',

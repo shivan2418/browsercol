@@ -105,6 +105,7 @@ import {
   turnAutosaveNames,
   type SaveMeta,
 } from './saves';
+import { InfoPanel } from './info-panel';
 import { MinimapPanel } from './minimap-panel';
 import { MapOrders } from './map-orders';
 import { Side, type SideProps } from './side';
@@ -821,8 +822,22 @@ const ordersRoot = createRoot(ordersHost);
 const overlays = document.getElementById('overlays')!;
 /** The map's box, over which the turn banner is centred, clear of the side panel. */
 const gameBox = document.getElementById('game')!;
+/** FreeCol's InfoPanel at the map's bottom-right (info-panel.tsx), one of the map controls with the minimap. */
+const infoRoot = createRoot(document.getElementById('info-panel-host')!);
 function renderSide() {
   menuRoot.render(<MenuBar menus={currentMenus()} status={statusLine} />);
+  infoRoot.render(
+    lastMap && (
+      <InfoPanel
+        unit={panel(view).unit}
+        idle={isIdle(noUnitHeard, lastTurn)}
+        endTurn={lastMap.endTurn}
+        art={art}
+        centre={() => dispatch({ k: 'focus', tile: null, at: view.active?.tile ?? null })}
+        endTurnNow={() => runCommand({ k: 'endTurn' })}
+      />
+    ),
+  );
   ordersRoot.render(<MapOrders orders={side.orders} active={view.active !== null} run={(c) => runCommand(c)} />);
   sideRoot.render(
     <>
@@ -954,7 +969,11 @@ function renderSide() {
               }}
             />
           )}
-          {createPortal(<TurnBanner notice={shownNotice(banner, lastTurn, noUnitHeard)} />, gameBox)}
+          {/* The info panel says to end the turn; with the map controls hidden, the banner says it instead. */}
+          {createPortal(
+            <TurnBanner notice={sidePanel ? banner : shownNotice(banner, lastTurn, noUnitHeard)} />,
+            gameBox,
+          )}
           {popup && <PopupMenu popup={popup} run={(id) => runMenuEntry(id)} close={() => showPopup(null)} art={art} />}
         </>,
         overlays,
@@ -1002,12 +1021,15 @@ window.fcReveal = (x, y) => {
   const [px, py] = tileOnScreen(view, [x, y]);
   const margin = W * view.zoom;
   const [vw, vh] = view.viewport;
-  // A tile under the minimap, at the map's bottom-left, is out of reach too.
-  const minimap = document.getElementById('minimap')?.getBoundingClientRect();
+  // A tile under the minimap, at the map's bottom-left, or the info panel, at its bottom-right, is out of reach too.
   const host = mapHost.getBoundingClientRect();
+  const minimap = document.getElementById('minimap')?.getBoundingClientRect();
   const underMinimap =
     !!minimap && minimap.width > 0 && px < minimap.right - host.left + margin && py > minimap.top - host.top - margin;
-  if (px < margin || py < margin || px > vw - margin || py > vh - margin || underMinimap) {
+  const info = document.getElementById('info-panel')?.getBoundingClientRect();
+  const underInfo =
+    !!info && info.width > 0 && px > info.left - host.left - margin && py > info.top - host.top - margin;
+  if (px < margin || py < margin || px > vw - margin || py > vh - margin || underMinimap || underInfo) {
     dispatch({ k: 'focus', tile: null, at: [x, y] });
   }
   return tileOnScreen(view, [x, y]);
@@ -1019,10 +1041,11 @@ window.fcView = () => {
   return { ...rest, cursor: c, cursorOnScreen: c && tileOnScreen(view, c.at) };
 };
 
-/** FreeCol's InfoPanel, as text: the active unit, and the tile under the pointer. */
+/** The debug side panel's copy of the info panel, as text: the active unit, and the tile under the pointer. */
 function showPanel() {
   const { unit, tile } = panel(view);
-  const lines = unit ? [unit.label, `Moves: ${unit.moves}`, ...unit.cargo.map((c) => `  ${c}`)] : ['No active unit'];
+  const cargo = unit ? [...unit.units.map((u) => u.name), ...unit.goods.map((g) => g.name)] : [];
+  const lines = unit ? [unit.label, unit.status, ...cargo.map((c) => `  ${c}`)] : ['No active unit'];
   if (tile) lines.push('', tile.name ?? 'Unexplored', ...(tile.owner ? [tile.owner.name] : []));
   side.info = lines.join('\n');
   renderSide();
