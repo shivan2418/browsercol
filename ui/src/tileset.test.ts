@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { resources } from './resources';
-import { isCursorMarker, overlay, scene, viewModeOps, type Chips, type MapView, type Op } from './tileset';
+import {
+  animatedBase,
+  isCursorMarker,
+  overlay,
+  scene,
+  viewModeOps,
+  type Chips,
+  type MapView,
+  type Op,
+} from './tileset';
 
 // A 2x4 corner of a map. FreeCol stores the diamond grid as staggered rows,
 // odd rows half a tile to the right, so from (1,0) the plains at (0,1),
@@ -126,6 +135,7 @@ describe('scene', () => {
       x: 1,
       y: 0,
       at: 'tile',
+      base: true,
       src: {
         id: 'beach:default/resources/ocean02.png:se_sw',
         steps: [
@@ -140,6 +150,26 @@ describe('scene', () => {
         ],
       },
     });
+  });
+
+  it('animates the water through its frames, the beach showing through more or less', () => {
+    const beachAt = (ticks: number) => {
+      const op = at(scene(map, tileset, 1, { water: ticks, river: 0 }), 1, 0)[0];
+      return op.k === 'image' && typeof op.src !== 'string' ? op.src : null;
+    };
+    expect(beachAt(2)).toEqual(beachAt(0));
+    const next = beachAt(1)!;
+    expect(next.id).toBe('beach:default/resources/ocean0.png:se_sw');
+    expect(next.steps.map((s) => ('alpha' in s ? s.alpha : null)).filter((a) => a !== null)).toEqual([0.05]);
+  });
+
+  it('gives the animated base tiles alone for the layer that animates', () => {
+    const base = animatedBase(map, tileset, { water: 1, river: 0 });
+    expect(base.length).toBeGreaterThan(0);
+    expect(base.every((op) => op.k === 'image' && op.base)).toBe(true);
+    expect(scene(map, tileset).filter((op) => op.k === 'image' && op.base).length).toBe(
+      animatedBase(map, tileset, { water: 0, river: 0 }).length,
+    );
   });
 
   it('blends a land tile into its neighbours with masked transitions', () => {

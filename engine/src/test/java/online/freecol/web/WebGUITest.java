@@ -282,6 +282,38 @@ class WebGUITest {
         assertEquals(List.of((long)from.getX(), (long)from.getY()), move.get("from"));
         assertEquals(List.of((long)to.getX(), (long)to.getY()), move.get("to"));
         assertEquals(MapJson.unitKeys(unit), move.get("keys"));
+        assertNull(move.get("speed"), "the player's own unit slides at the page's own speed");
+    }
+
+    @Test
+    @Timeout(120)
+    void anotherPlayersMoveIsSentWithTheEnemyOrFriendlySpeed() throws Exception {
+        final ClientEngine client = startGame();
+        final net.sf.freecol.client.FreeColClient fc = client.getClient();
+        final net.sf.freecol.common.model.Player me = fc.getMyPlayer();
+        // The client sees none of another player's units at the start: lend one of ours to another player.
+        final Unit other = fc.getGUI().getActiveUnit();
+        final net.sf.freecol.common.model.Player owner = fc.getGame().getLiveEuropeanPlayerList(me).get(0);
+        other.setOwner(owner);
+        final Tile from = other.getTile();
+        final Tile to = from.getNeighbourOrNull(net.sf.freecol.common.model.Direction.N) != null
+            ? from.getNeighbourOrNull(net.sf.freecol.common.model.Direction.N)
+            : from.getNeighbourOrNull(net.sf.freecol.common.model.Direction.S);
+
+        shown.clear();
+        fc.getGUI().animateUnitMove(other, from, to);
+        final String prefix = "animateMove ";
+        for (int i = 0; i < 200 && shown().stream().noneMatch(e -> e.startsWith(prefix)); i++) {
+            Thread.sleep(50);
+        }
+        final List<String> moves = shown().stream().filter(e -> e.startsWith(prefix))
+            .collect(Collectors.toList());
+        assertEquals(1, moves.size(), shown().toString());
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> move
+            = (Map<String, Object>)JsonReader.read(moves.get(0).substring(prefix.length()));
+        assertEquals(other.getId(), move.get("unit"));
+        assertEquals((long)fc.getAnimationSpeed(other.getOwner()), move.get("speed"));
     }
 
     @Test
@@ -946,7 +978,7 @@ class WebGUITest {
         final Tile sea = land.getSurroundingTiles(1, 1).stream()
             .filter(t -> !t.isLand()).findFirst().get();
         ship.setLocation(sea);
-        final Unit passenger = ship.getUnitList().get(0);
+        final Unit passenger = ship.getUnits().collect(Collectors.toList()).get(0);
         passenger.setLocation(land);
         human.invalidateCanSeeTiles();
         final ChangeSet cs = new ChangeSet();
@@ -1035,7 +1067,7 @@ class WebGUITest {
         final Unit ship = human.getUnits().filter(Unit::isNaval).findFirst().get();
         ship.setLocation(sea);
         human.invalidateCanSeeTiles();
-        final Unit scout = ship.getUnitList().get(0);
+        final Unit scout = ship.getUnits().collect(Collectors.toList()).get(0);
         scout.changeRole(game.getSpecification().getRole("model.role.scout"), 1);
         final ChangeSet cs = new ChangeSet();
         cs.add(See.only(human), human.exploreForUnit(ship));

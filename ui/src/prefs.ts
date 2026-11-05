@@ -7,7 +7,7 @@ import type { MinimapOptions } from './minimap';
 import type { AutosaveOptions } from './saves';
 import type { OptionGroup, OptionNode } from './options';
 import { FONT_SETS, isFontSet, isPalette, PALETTES, type FontSet, type Palette } from './theme';
-import type { TileText, ViewModes } from './tileset';
+import type { TerrainAnimation, TileText, ViewModes } from './tileset';
 
 /** A speed the player picks; each preference maps it to a duration. */
 export type Speed = 'off' | 'slow' | 'normal' | 'fast';
@@ -86,10 +86,8 @@ export function visibleMessages<T extends { type: string }>(p: Prefs, messages: 
  * tutorial messages, auto end turn); those a browser cannot follow (the full screen display mode, Java's
  * pixmaps and XRender, confirm save overwrite, as saves never overwrite; and the audio mixer, a Java Sound
  * device: the browser plays on the system's default output, as choosing another, setSinkId, works only in
- * Chromium); and those waiting on a feature, each with its issue: other players'
- * move animations (#149), terrain animations (#150), the compact colony report (#152),
- * mods (#155), and the warehouse
- * defaults (#158).
+ * Chromium); and those waiting on a feature, each with its issue: the compact colony report (#152),
+ * mods (#155), and the warehouse defaults (#158).
  */
 export const FREECOL_OPTIONS: readonly string[] = [
   // Personal
@@ -101,6 +99,7 @@ export const FREECOL_OPTIONS: readonly string[] = [
   'model.option.mainFontSize',
   'model.option.useOpenGL',
   'model.option.graphicsQuality',
+  'model.option.useTerrainAnimations',
   // Interface: main map
   'model.option.defaultZoomLevel',
   'model.option.alwaysCenter',
@@ -113,6 +112,8 @@ export const FREECOL_OPTIONS: readonly string[] = [
   'model.option.displayFogOfWar',
   'model.option.displayColonyLabels',
   'model.option.unitLastMoveDelay',
+  'model.option.enemyMoveAnimationSpeed',
+  'model.option.friendlyMoveAnimationSpeed',
   // Interface: map controls
   'model.option.displayCompassRose',
   'model.option.displayMapControls',
@@ -183,6 +184,8 @@ export const PAGE_OPTIONS = {
   'model.option.useOpenGL': true,
   /** 0 lowest: no antialiasing, one pixel per CSS pixel; 10 low: no antialiasing; 20 and up as now. Read as the page loads. */
   'model.option.graphicsQuality': 20,
+  /** The ocean and its beaches animate; with the rivers and deltas too from graphics quality normal up, none below low. */
+  'model.option.useTerrainAnimations': true,
   /** SwingGUI.changeView(Tile): a selected tile is always centred, not only when out of view. */
   'model.option.alwaysCenter': false,
   /** A newly active unit is centred, not only when out of view (FreeCol never reads it; the browser does). */
@@ -252,6 +255,16 @@ export const ON_RELOAD: readonly string[] = [
   LANGUAGE_OPTION,
   'model.option.autosaveValidity',
 ];
+
+/**
+ * Which of the terrain animates, as ClientOptions.isTerrainAnimationsEnabled and isRiverAnimationEnabled have it:
+ * the terrain animations option, and the graphics quality at low or more for the water, normal or more for the rivers.
+ */
+export function terrainAnimation(p: Prefs): TerrainAnimation {
+  if (!pageOption(p, 'model.option.useTerrainAnimations')) return 'off';
+  const quality = pageOption(p, 'model.option.graphicsQuality');
+  return quality >= 20 ? 'all' : quality >= 10 ? 'water' : 'off';
+}
 
 /** How big the menus, panels and windows are drawn: the display scaling, 1 for automatic. */
 export const uiZoom = (p: Prefs): number => (pageOption(p, 'model.option.displayScaling') || 100) / 100;

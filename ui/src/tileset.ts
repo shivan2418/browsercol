@@ -1,7 +1,7 @@
 // Tileset mode: the client Engine's map (MapJson.java) turned into a list of
 // draw operations in the order FreeCol's MapViewer paints, with the images
 // its ImageLibrary would pick, at FreeCol's default "normal" graphics
-// quality and with animations stopped at their first frame. FreeCol makes
+// quality, with the animated water and rivers at the frame it is told. FreeCol makes
 // some images by masking others (terrain transitions, beaches, rivers);
 // those come as a Recipe that map.ts composites and caches by id.
 import { MAP_KEY_FAMILIES, MAP_KEYS } from './map-keys';
@@ -143,7 +143,18 @@ export type Step = { draw: Src; alpha?: number; scale?: number } | { mask: Src }
 export type Anchor = 'tile' | 'bottom' | 'center' | 'large' | 'unit';
 
 export type Op =
-  | { k: 'image'; x: number; y: number; src: Src; at: Anchor; dim?: true; fade?: true; marker?: true }
+  | {
+      k: 'image';
+      x: number;
+      y: number;
+      src: Src;
+      at: Anchor;
+      dim?: true;
+      fade?: true;
+      marker?: true;
+      /** One of the animated base tiles' (MapViewer paints them first, below the rest), which animatedBase draws again. */
+      base?: true;
+    }
   /** FreeCol's fog of war: 20% black over the tile's diamond. */
   | { k: 'fog'; x: number; y: number }
   /** A road to the neighbours with roads (RoadPainter), in color.map.road. */
@@ -257,7 +268,40 @@ export function unitOps(u: Unit, res: Resources): Op[] {
   return ops;
 }
 
-export function scene(map: MapView, res: Resources, colonyLabels: ColonyLabels = 1): Op[] {
+/**
+ * The frames of the terrain animations, in ticks (TileViewer counts 125 ms as one): water, which is the
+ * ocean and its beaches, and rivers, with the deltas. The first frame, 0, is the still map.
+ */
+export interface Ticks {
+  water: number;
+  river: number;
+}
+
+/** Which of the terrain animates: none, the water, or the water and the rivers too. */
+export type TerrainAnimation = 'off' | 'water' | 'all';
+
+/** The terrain's animation frame time in milliseconds, TileViewer's. */
+export const TICK_MS = 125;
+
+/** Still water and rivers: the first frame. */
+export const STILL: Ticks = { water: 0, river: 0 };
+
+/** The animated base tiles of the scene at some frame: what animates, and nothing else. */
+export const animatedBase = (map: MapView, res: Resources, ticks: Ticks): Op[] => scene(map, res, 1, ticks, true);
+
+/**
+ * The map's draw operations.
+ *
+ * @param ticks The frame of the animated water and rivers.
+ * @param baseOnly Only the animated base tiles, which come first, marked `base`.
+ */
+export function scene(
+  map: MapView,
+  res: Resources,
+  colonyLabels: ColonyLabels = 1,
+  ticks: Ticks = STILL,
+  baseOnly = false,
+): Op[] {
   const { w, h } = map;
   const ops: Op[] = [];
 
@@ -292,14 +336,19 @@ export function scene(map: MapView, res: Resources, colonyLabels: ColonyLabels =
     steps: [{ draw: img }, { mask }],
   });
 
-  // BeachTileAnimationImageCreator, first frame: the beach, with the ocean
-  // over it except where the mask for the land sides cuts it away.
+  /** ImageResource.getVariationNumberForTick: the frame of an animation's art. */
+  const frame = (key: string, tick: number) => tick % res.variations(key);
+
+  // BeachTileAnimationImageCreator: the beach, with the ocean over it except
+  // where the mask for the land sides cuts it away, and over that again by an
+  // alpha that goes up and down with the frame.
   const beachKey = (dirs: Direction[]) => {
     const pre = lower(dirs.filter((d) => LONG_SIDES.includes(d)));
     return lower(dirs.filter((d) => LONG_SIDES.includes(d) || pre === '' || !pre.includes(d.toLowerCase())));
   };
   const water = (x: number, y: number, type: TileType): Src | null => {
-    const ocean = res.path(terrainKey(type.id), 0);
+    const n = frame(terrainKey(type.id), ticks.water);
+    const ocean = res.path(terrainKey(type.id), n);
     if (!ocean) return null;
     const dirs = DIRECTIONS.filter((d) => land(step(x, y, d)));
     const key = beachKey(dirs);
@@ -307,9 +356,11 @@ export function scene(map: MapView, res: Resources, colonyLabels: ColonyLabels =
     const mask = res.path(`${MASK}beach.${key}`);
     const tileMask = res.path(TILE_MASK);
     if (dirs.length === 0 || !beach || !mask || !tileMask) return ocean;
+    const over = masked(ocean, mask);
+    const alpha = 0.05 * (n <= 10 ? n : 10 - (n - 10));
     return {
       id: `beach:${ocean}:${key}`,
-      steps: [{ draw: beach }, { draw: masked(ocean, mask) }, { mask: tileMask }],
+      steps: [{ draw: beach }, { draw: over }, ...(alpha > 0 ? [{ draw: over, alpha }] : []), { mask: tileMask }],
     };
   };
 
@@ -370,12 +421,12 @@ export function scene(map: MapView, res: Resources, colonyLabels: ColonyLabels =
           const river = land(b) ? riverAt(b) : undefined;
           return !!river && Number(river.style[LONG_SIDES.indexOf(REVERSE[d])] ?? 0) > 0;
         });
-  // DeltaAnimationImageCreator, first frame.
+  // DeltaAnimationImageCreator.
   const delta = (d: Direction): Recipe | null => {
     const dir = d.toLowerCase();
     const [pebbles, waterImg, waterMask, pebblesMask, tileMask] = [
       res.path(RIVER_PEBBLES),
-      res.path(RIVER_WATER, 0),
+      res.path(RIVER_WATER, frame(RIVER_WATER, ticks.river)),
       res.path(`${MASK}river.delta.${dir}`),
       res.path(`${MASK}river.delta.pebbles.${dir}`),
       res.path(TILE_MASK),
@@ -391,7 +442,7 @@ export function scene(map: MapView, res: Resources, colonyLabels: ColonyLabels =
     };
   };
 
-  // RiverAnimationImageCreator, first frame: river water and pebbles in
+  // RiverAnimationImageCreator: river water and pebbles in
   // the shape of the river's mask, fading out at a slightly larger mask.
   const river = (x: number, y: number): Recipe | null => {
     const r = riverAt([x, y])!;
@@ -407,7 +458,7 @@ export function scene(map: MapView, res: Resources, colonyLabels: ColonyLabels =
           });
     const [pebbles, waterImg, base, tileMask] = [
       res.path(RIVER_PEBBLES),
-      res.path(RIVER_WATER, 0),
+      res.path(RIVER_WATER, frame(RIVER_WATER, ticks.river)),
       res.path(`${MASK}river${minor}${shape ? '.' + shape : ''}`),
       res.path(TILE_MASK),
     ];
@@ -459,6 +510,8 @@ export function scene(map: MapView, res: Resources, colonyLabels: ColonyLabels =
       if (src) ops.push({ k: 'image', x, y, src, at: 'tile' });
     }
   });
+  for (const op of ops) if (op.k === 'image') op.base = true;
+  if (baseOnly) return ops;
   each((x, y) => {
     if (!animated(x, y)) terrain(x, y, typeAt(x, y));
   });

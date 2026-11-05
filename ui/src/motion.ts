@@ -4,7 +4,7 @@
 import { tileOrigin } from './view';
 import type { GuiEvents } from './webgui';
 
-/** A step of one of the player's units to the next tile, as the Engine tells of it (WebGUI.animateUnitMove). */
+/** A step of a unit to the next tile, as the Engine tells of it (WebGUI.animateUnitMove). */
 export type Step = GuiEvents['animateMove'];
 
 /** A unit's slide across the map: the tiles it goes through, the first the one it set off from. */
@@ -15,6 +15,16 @@ export interface Path {
 
 /** How long a unit takes to slide to the next tile, in milliseconds: a step. */
 export const MOVE_MS = 300;
+/**
+ * How long another player's unit takes to slide a tile at FreeCol's enemy or friendly move animation speed
+ * (0 off, 1 slow, 2 normal, 3 fast); the player's own are as long as their own animation preference, MOVE_MS.
+ */
+export const OPTION_MS: readonly number[] = [0, 600, 300, 150];
+
+/** How long a step of the path takes to slide: another player's unit by the Engine's speed, else `own`. */
+export const stepMs = (step: Step, own: number): number =>
+  step.speed === null ? own : (OPTION_MS[step.speed] ?? OPTION_MS[OPTION_MS.length - 1]);
+
 /** The active unit's blink: a whole cycle, and how much of it the unit is shown. */
 export const BLINK_MS = 1400;
 const SHOWN = 0.6;
@@ -23,10 +33,19 @@ const DIM = 0.15;
 
 /**
  * What slides for the steps the Engine told of between two maps: one unit's
- * steps, joined into a path. Several units moving at once (orders carried out
- * as the turn turns) jump, as do steps that do not follow on from each other.
+ * steps, joined into a path. Several of the player's units moving at once
+ * (orders carried out as the turn turns) jump, as do steps that do not follow
+ * on from each other. When other players' units moved, the one that moved last
+ * slides, along its last steps; the others jump.
  */
-export function path(steps: Step[]): Path | null {
+export function path(all: Step[]): Path | null {
+  let steps = all;
+  const last = all[all.length - 1];
+  if (last && last.speed !== null) {
+    let from = all.length - 1;
+    while (from > 0 && all[from - 1].unit === last.unit && all[from - 1].to.join() === all[from].from.join()) from--;
+    steps = all.slice(from);
+  }
   if (!steps.length || steps.some((s) => s.unit !== steps[0].unit)) return null;
   const tiles: [number, number][] = [steps[0].from];
   for (const s of steps) {

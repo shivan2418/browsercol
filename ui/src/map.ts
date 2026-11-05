@@ -9,11 +9,14 @@
 import { AlphaFilter, Application, Container, Culler, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import { resources, type ArtLayer, type Resources } from './resources';
 import {
+  animatedBase,
   isCursorMarker,
   NO_MODES,
   overlay,
   scene,
   srcId,
+  STILL,
+  TICK_MS,
   unitOps,
   viewModeOps,
   type ColonyLabels,
@@ -22,9 +25,11 @@ import {
   type MapView,
   type Op,
   type Src,
+  type TerrainAnimation,
+  type Ticks,
 } from './tileset';
 import type { ActiveStyle } from './prefs';
-import { BLINK_MS, MOVE_MS, blink, path, slide, type Path, type Step } from './motion';
+import { BLINK_MS, MOVE_MS, blink, path, slide, stepMs, type Path, type Step } from './motion';
 import { H, W, activeUnitFacts, cursor, tileOrigin, toMap, type ViewState } from './view';
 
 export type { MapView } from './tileset';
@@ -117,10 +122,16 @@ interface TextStyle {
   plain?: boolean;
 }
 
-/** The map's layers: the scene, the cursor and path over it, the units that move or blink, and the cover being lifted off ground just explored. */
-type Layer = 0 | 1 | 2 | 3 | 4;
-/** The order the layers are stacked in, bottom first: the unit cursor (4) lies between the overlay and the units. */
-const STACK: readonly Layer[] = [0, 1, 4, 2, 3];
+/**
+ * The map's layers: the scene, the cursor and path over it, the units that move or blink, the cover being lifted off
+ * ground just explored, and the animated water and rivers under the scene (5).
+ */
+type Layer = 0 | 1 | 2 | 3 | 4 | 5;
+/**
+ * The order the layers are stacked in, bottom first: the unit cursor (4) lies between the overlay and the units, and
+ * the animated base tiles (5) under all, as MapViewer paints them first.
+ */
+const STACK: readonly Layer[] = [5, 0, 1, 4, 2, 3];
 
 /** The screen's pixel ratio: how many device pixels a CSS pixel covers. */
 export const pixelRatio = (dpr: number | undefined): number => (dpr && dpr > 0 ? dpr : 1);
@@ -345,7 +356,7 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
   };
   cssSize(width, height);
   const world = new Container();
-  const layers = [new Container(), new Container(), new Container(), new Container(), new Container()];
+  const layers = Array.from({ length: 6 }, () => new Container());
   world.addChild(...STACK.map((n) => layers[n]));
   app.stage.addChild(world);
   let layer = layers[0];
@@ -470,7 +481,7 @@ function canvasPen(host: HTMLElement, width: number, height: number, background 
   host.append(canvas);
   const c = canvas.getContext('2d')!;
   // Canvas 2D has no scene graph: record the drawing and replay it to pan.
-  const layers: ((c: CanvasRenderingContext2D) => void)[][] = [[], [], [], [], []];
+  const layers: ((c: CanvasRenderingContext2D) => void)[][] = [[], [], [], [], [], []];
   let fog = 1;
   let mark = 1;
   let actor = { dx: 0, dy: 0, alpha: 1 };
@@ -876,7 +887,7 @@ export function mapDrawer(
   quality = 20,
 ): {
   draw(map: MapView): Promise<void>;
-  /** A step the Engine says one of the player's units took; it slides when the next map is drawn. */
+  /** A step the Engine says a unit took; it slides when the next map is drawn. */
   moved(step: Step): void;
   /** Show the view: where it is centred, its zoom, the cursor and the active unit's path. */
   show(view: ViewState): void;
@@ -888,6 +899,8 @@ export function mapDrawer(
    * blinks: FreeCol's cursor over a steady unit, or the unit itself.
    */
   setMotion(moveMs: number, blinkMs: number, style: ActiveStyle): void;
+  /** Which of the terrain animates (FreeCol's terrain animations and graphics quality options); off shows the still map. */
+  setTerrainAnimation(mode: TerrainAnimation): void;
   /** FreeCol's colony labels option; the map is drawn again when it changes. */
   setColonyLabels(labels: ColonyLabels): void;
   /** The tile under a pixel of the canvas, or null off the map or before the first draw. */
@@ -927,6 +940,10 @@ export function mapDrawer(
   let colonyLabels: ColonyLabels = 1;
   let blinkMs = BLINK_MS;
   let activeStyle: ActiveStyle = 'online';
+  let terrain: TerrainAnimation = 'off';
+  /** The frame of the animated base tiles last drawn, and whether the next is being drawn. */
+  let baseKey = '';
+  let baseBusy = false;
 
   async function init() {
     const art = (await (await fetch(artBase + manifest)).json()) as Art;
@@ -996,9 +1013,35 @@ export function mapDrawer(
     pen.show(size[0] / 2 - view.centre[0] * z, size[1] / 2 - view.centre[1] * z, z);
   };
 
+  /** The frame the animated water and rivers are at now. */
+  const ticksNow = (): Ticks => {
+    if (terrain === 'off') return STILL;
+    const t = Math.floor(performance.now() / TICK_MS);
+    return { water: t, river: terrain === 'all' ? t : 0 };
+  };
+
+  /** Draw the animated base tiles again when their frame has moved on. */
+  function animateBase() {
+    if (!drawn || !res || !pen || baseBusy) return;
+    const t = ticksNow();
+    const key = `${t.water}:${t.river}`;
+    if (key === baseKey) return;
+    baseKey = key;
+    baseBusy = true;
+    const map = drawn;
+    drawing = drawing
+      .then(async () => {
+        if (drawn === map && pen && res) await paint(pen, 5, animatedBase(map, res, t), pics);
+      })
+      .finally(() => {
+        baseBusy = false;
+      });
+  }
+
   /** Every frame: the slide and the blink move on, and show the camera again. */
   function tick() {
     frame = requestAnimationFrame(tick);
+    animateBase();
     if (sliding || lifting || (view?.mode === 'units' && view.active) || (view?.mode === 'terrain' && view.selected))
       camera();
   }
@@ -1024,6 +1067,9 @@ export function mapDrawer(
   async function paintScene(map: MapView, ops: Op[], slide = sliding) {
     const unitAt = (tile: string) => (op: Op) =>
       (op.k === 'chip' || (op.k === 'image' && op.at === 'unit')) && `${op.x},${op.y}` === tile;
+    const isBase = (op: Op) => op.k === 'image' && !!op.base;
+    const base = ops.filter(isBase);
+    ops = ops.filter((op) => !isBase(op));
     let actors: Op[] = [];
     let rest = ops;
     if (slide) {
@@ -1045,6 +1091,7 @@ export function mapDrawer(
       actors = ops.filter(isActor);
       rest = ops.filter((op) => !isActor(op));
     }
+    await paint(pen!, 5, base, pics);
     await paint(pen!, 0, rest, pics);
     await paint(pen!, 2, actors, pics);
   }
@@ -1055,13 +1102,18 @@ export function mapDrawer(
     if (!pen) await init();
     // What slides is what the Engine says the player's unit did, during their turn. A map with no steps (the server
     // often sends several in a row) leaves a slide under way alone.
-    const way = map.ourTurn && moveMs > 0 ? path(moved) : null;
-    const ops = scene(map, res!, colonyLabels);
+    // Another player's unit slides at the Engine's speed for it, whoever's turn it is.
+    const found = path(moved);
+    const stepTime = found ? stepMs(found.step, moveMs) : 0;
+    const way = found && stepTime > 0 && (found.step.speed !== null || map.ourTurn) ? found : null;
+    const ticks = ticksNow();
+    baseKey = `${ticks.water}:${ticks.river}`;
+    const ops = scene(map, res!, colonyLabels, ticks);
     panels.forEach((render) => render(ops));
     // The slide starts once the actors' layer holds the unit on its new tile: offset before that, the layer
     // still shows it on its old tile, and the offset would put it a tile further back, in a second place.
     if (way) {
-      const ms = moveMs * (way.tiles.length - 1);
+      const ms = stepTime * (way.tiles.length - 1);
       await paintScene(map, ops, { path: way, since: 0, ms });
       sliding = { path: way, since: performance.now(), ms };
       camera();
@@ -1093,6 +1145,9 @@ export function mapDrawer(
       moveMs = m;
       blinkMs = b;
       activeStyle = style;
+    },
+    setTerrainAnimation(mode) {
+      terrain = mode;
     },
     setColonyLabels(labels) {
       if (labels === colonyLabels) return;

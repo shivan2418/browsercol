@@ -27,9 +27,14 @@ export interface GuiEvents {
   selectedTile: TileRef;
   /** Centre the map on a tile. */
   focus: TileRef;
-  /** One of the player's units stepped to the next tile, as it looks (a map view unit's look); the map that has it there follows. */
+  /**
+   * A unit stepped to the next tile, as it looks (a map view unit's look); the map that has it there follows.
+   * speed: null for the player's own unit (the page's own animation speed); for another player's, FreeCol's
+   * enemy or friendly move animation option, 0 (off) to 3 (fast).
+   */
   animateMove: {
     unit: Id;
+    speed: number | null;
     from: [number, number];
     to: [number, number];
     keys: string[];

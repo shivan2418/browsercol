@@ -51,6 +51,7 @@ import {
   MODE_OPTIONS,
   visibleMessages,
   fontScale,
+  terrainAnimation,
   uiZoom,
   volumes,
   autosaveOptions,
@@ -383,6 +384,7 @@ framePlaces.saved = () => {
 function applyLook(p: Prefs) {
   applyTheme(document.documentElement, p.palette, p.fonts, urlPalette);
   map.setMotion(moveMs(p), blinkMs(p), p.activeStyle);
+  map.setTerrainAnimation(terrainAnimation(p));
   document.body.dataset.dimUnfocused = p.dimUnfocused;
   map.setColonyLabels(pageOption(p, 'model.option.displayColonyLabels') as ColonyLabels);
   showCompass(pageOption(p, 'model.option.displayCompassRose'));

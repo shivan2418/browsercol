@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vite-plus/test';
-import { BLINK_MS, blink, path, slide, type Step } from './motion';
+import { BLINK_MS, OPTION_MS, blink, path, slide, stepMs, type Step } from './motion';
 
-const step = (from: [number, number], to: [number, number], unit = 'unit:1'): Step => ({
+const step = (from: [number, number], to: [number, number], unit = 'unit:1', speed: number | null = null): Step => ({
   unit,
+  speed,
   from,
   to,
   keys: ['colonist'],
@@ -24,6 +25,28 @@ describe('path', () => {
     expect(path([])).toBeNull();
     expect(path([step([3, 2], [4, 2]), step([7, 7], [8, 7], 'unit:2')])).toBeNull();
     expect(path([step([3, 2], [4, 2]), step([6, 2], [7, 2])])).toBeNull();
+  });
+});
+
+describe("another player's unit", () => {
+  it('slides along its last steps, the earlier moves of others jumping', () => {
+    const steps = [
+      step([1, 1], [2, 1], 'unit:2', 3),
+      step([7, 7], [8, 7], 'unit:3', 3),
+      step([8, 7], [9, 7], 'unit:3', 3),
+    ];
+    expect(path(steps)?.tiles).toEqual([
+      [7, 7],
+      [8, 7],
+      [9, 7],
+    ]);
+  });
+
+  it("takes the option's speed, the player's own taking their own", () => {
+    expect(OPTION_MS).toEqual([0, 600, 300, 150]);
+    expect(stepMs(step([1, 1], [2, 1], 'unit:2', 1), 300)).toBe(600);
+    expect(stepMs(step([1, 1], [2, 1], 'unit:2', 0), 300)).toBe(0);
+    expect(stepMs(step([1, 1], [2, 1]), 450)).toBe(450);
   });
 });
 
