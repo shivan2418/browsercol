@@ -3,12 +3,22 @@
 // preferences, such as the animation and blink speeds, are the first category; FreeCol's client options
 // the browser follows come after it, in FreeCol's groups. Hooks for tests: [data-category] on a
 // category's button, with its id; [data-mute] on a volume's mute button, with the preference it sets.
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Box, WindowFrame } from './frame';
 import { LANGUAGE_OPTION } from './language';
 import { OptionEditor } from './option-editor';
 import type { OptionGroup } from './options';
-import { ACTIVE_STYLES, DIMS, MUTES, SPEEDS, type ActiveStyle, type Dim, type Prefs, type Speed } from './prefs';
+import {
+  ACTIVE_STYLES,
+  DEFAULTS,
+  DIMS,
+  MUTES,
+  SPEEDS,
+  type ActiveStyle,
+  type Dim,
+  type Prefs,
+  type Speed,
+} from './prefs';
 import { FONT_SETS, PALETTES, type FontSet, type Palette } from './theme';
 
 const LABEL: Record<Speed, string> = { off: 'Off', slow: 'Slow', normal: 'Normal', fast: 'Fast' };
@@ -203,6 +213,8 @@ export function PreferencesDialog({
   close: () => void;
 }) {
   const tree = categories(freecol);
+  // The preferences as the window opened with them: Reset and Cancel go back to these.
+  const opened = useRef(prefs);
   const [picked, pick] = useState(OWN_CATEGORY);
   const current = tree.find((c) => c.id === picked && c.pickable) ?? tree[0];
   return (
@@ -238,6 +250,7 @@ export function PreferencesDialog({
                     editable
                     values={prefs.freecol}
                     onChange={(id, v) => {
+                      if (Array.isArray(v)) return;
                       change({ ...prefs, freecol: { ...prefs.freecol, [id]: v } });
                     }}
                     after={(id) => <MuteButton id={id} prefs={prefs} change={change} />}
@@ -254,6 +267,27 @@ export function PreferencesDialog({
               )}
             </Box>
           </div>
+        </div>
+        <div className="buttons">
+          <button type="button" data-prefs-reset onClick={() => change(opened.current)}>
+            Reset
+          </button>
+          <button type="button" data-prefs-defaults onClick={() => change(DEFAULTS)}>
+            Revert to Defaults
+          </button>
+          <button
+            type="button"
+            data-prefs-cancel
+            onClick={() => {
+              change(opened.current);
+              close();
+            }}
+          >
+            Cancel
+          </button>
+          <button type="button" className="default" data-prefs-ok onClick={close}>
+            OK
+          </button>
         </div>
       </WindowFrame>
     </div>

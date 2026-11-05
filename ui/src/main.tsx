@@ -53,6 +53,7 @@ import {
   uiZoom,
   volumes,
   autosaveOptions,
+  type FreeColValue,
   type Prefs,
 } from './prefs';
 import { LANGUAGE_OPTION, languageName, languages, pickLanguage, translationFiles } from './language';
@@ -415,6 +416,10 @@ function setPrefs(p: Prefs) {
   applyLook(p);
   void sound.then((s) => s?.setVolumes(volumes(p)));
   const changed = Object.fromEntries(Object.entries(p.freecol).filter(([id, v]) => was.freecol[id] !== v));
+  // An option no longer set (Reset, Revert to Defaults) goes back to FreeCol's default.
+  for (const id of Object.keys(was.freecol)) {
+    if (!(id in p.freecol) && freecolDefaults.has(id)) changed[id] = freecolDefaults.get(id) as FreeColValue;
+  }
   pushFreecolOptions(changed);
   // The Engine's map says whether the fog of war shows.
   if (MODE_OPTIONS.fog in changed) colonyClient?.refreshMap();
