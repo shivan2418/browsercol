@@ -64,7 +64,7 @@ class MenuEntriesTest {
 
     /** Entries that only show something or select a unit: the game does not change. */
     private static final Set<String> LOOKS = Set.of("none", "select", "colony",
-        "settlement", "tile", "colopedia", "goto", "attack", "europe", "activateAll");
+        "settlement", "tile", "colopedia", "goto", "attack", "europe", "activateAll", "production");
 
     private final List<String> asked = Collections.synchronizedList(new ArrayList<>());
     private final List<String> shown = Collections.synchronizedList(new ArrayList<>());
