@@ -263,6 +263,33 @@ class GamePresetTest {
         }
     }
 
+    @Test
+    void aUnitListOptionTakesItsEntriesInOrder() throws Exception {
+        Messages.loadMessageBundle(java.util.Locale.US);
+        FreeColRules.loadRules();
+        Specification spec = FreeCol.loadSpecification(
+            FreeColRules.getFreeColRulesFile("classic"), null, "model.difficulty.medium");
+        GamePreset.parse("{ \"options\": { \"model.option.refSize\": ["
+            + "{ \"type\": \"model.unit.kingsRegular\", \"role\": \"model.role.soldier\", \"number\": 7 },"
+            + "{ \"type\": \"model.unit.manOWar\", \"role\": \"model.role.default\", \"number\": 2 }] } }")
+            .applyTo(spec);
+        net.sf.freecol.common.option.UnitListOption refSize = spec.getOption("model.option.refSize",
+            net.sf.freecol.common.option.UnitListOption.class);
+        List<net.sf.freecol.common.model.AbstractUnit> units = refSize.getOptionValues();
+        assertEquals(2, units.size());
+        assertEquals("model.unit.kingsRegular", units.get(0).getId());
+        assertEquals(7, units.get(0).getNumber());
+        assertEquals("model.unit.manOWar", units.get(1).getId());
+        String json = OptionsJson.of(spec.getDifficultyOptionGroup("model.difficulty.medium")).toString();
+        assertTrue(json.contains("\"kind\":\"units\""), "the editor gets the list");
+    }
+
+    @Test
+    void aUnitListEntryThatDoesNotFitFails() throws Exception {
+        failsWith("{ \"options\": { \"model.option.refSize\": [ { \"type\": \"model.unit.nope\","
+            + " \"role\": \"model.role.default\", \"number\": 1 } ] } }", "unknown unit type model.unit.nope");
+    }
+
     private static String read(Path p) throws IOException {
         return Files.readString(p);
     }

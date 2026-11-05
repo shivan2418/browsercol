@@ -20,6 +20,7 @@ import net.sf.freecol.common.option.IntegerOption;
 import net.sf.freecol.common.option.OptionGroup;
 import net.sf.freecol.common.option.StringOption;
 import net.sf.freecol.common.option.TextOption;
+import net.sf.freecol.common.option.UnitListOption;
 import net.sf.freecol.server.FreeColServer;
 import net.sf.freecol.server.generator.SimpleMapGenerator;
 
@@ -330,6 +331,10 @@ public final class GamePreset {
         } else if (option instanceof TextOption) {
             if (!(v instanceof String)) throw wrongValue(id, v, "a string");
             ((TextOption)option).setValue((String)v);
+        } else if (option instanceof UnitListOption) {
+            if (!(v instanceof List)) throw wrongValue(id, v, "a list of {type, role, number}");
+            String why = OptionsJson.setUnits((UnitListOption)option, (List<?>)v);
+            if (why != null) throw wrongValue(id, v, why);
         } else {
             throw bad("option \"" + id + "\" is a " + option.getClass().getSimpleName()
                 + ", which a preset cannot set");

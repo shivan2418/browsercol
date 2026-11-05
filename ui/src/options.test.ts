@@ -13,7 +13,13 @@ const spec = `<freecol-specification id="classic">
             <rangeValue label="verySmall" value="10"/>
             <rangeValue label="small" value="8"/>
           </rangeOption>
-          <unitListOption id="model.option.immigrants"><unitOption id="model.option.immigrants.1"/></unitListOption>
+          <unitListOption id="model.option.immigrants">
+            <unitOption id="model.option.immigrants.1">
+              <unitType value="model.unit.masterCarpenter"/>
+              <role value="model.role.default"/>
+              <number value="2"/>
+            </unitOption>
+          </unitListOption>
         </optionGroup>
         <optionGroup id="model.difficulty.empty"><unitListOption id="model.option.refSize"/></optionGroup>
       </optionGroup>
@@ -65,10 +71,13 @@ test('a difficulty level is a group of its options, as the specification gives t
     description: 'How dear land is',
     value: 40,
   });
-  // Lists of units have no control, and a group with only those is left out.
-  expect(options.has('model.option.immigrants')).toBe(false);
-  expect(options.has('model.option.refSize')).toBe(false);
-  expect(level.children.map((c) => c.id)).toEqual(['model.difficulty.natives']);
+  // A list of units is shown, entry by entry, even an empty one.
+  expect(options.get('model.option.immigrants')).toMatchObject({
+    kind: 'units',
+    value: [{ type: 'model.unit.masterCarpenter', role: 'model.role.default', number: 2 }],
+  });
+  expect(options.get('model.option.refSize')).toMatchObject({ kind: 'units', value: [] });
+  expect(level.children.map((c) => c.id)).toEqual(['model.difficulty.natives', 'model.difficulty.empty']);
 });
 
 test('a range option has its labelled values, and a string option the choices the custom level lists', () => {

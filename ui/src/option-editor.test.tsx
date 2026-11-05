@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, expect, test } from 'vite-plus/test';
 import { OptionEditor } from './option-editor';
-import type { OptionGroup, OptionValue } from './options';
+import type { OptionGroup, OptionNode, OptionValue } from './options';
 
 afterEach(cleanup);
 
@@ -124,4 +124,42 @@ test('read-only, no control takes input', () => {
   ];
   expect(controls).toHaveLength(7);
   expect(controls.every((c) => c.disabled)).toBe(true);
+});
+
+test('a unit list option shows its entries and edits them', () => {
+  const changes: [string, unknown][] = [];
+  const root: OptionNode = {
+    id: 'g',
+    kind: 'group',
+    label: 'G',
+    description: null,
+    children: [
+      {
+        id: 'model.option.refSize',
+        kind: 'units',
+        label: 'REF size',
+        description: null,
+        value: [{ type: 'model.unit.kingsRegular', role: 'model.role.soldier', number: 7 }],
+        unitTypes: [
+          { value: 'model.unit.kingsRegular', label: 'Regular' },
+          { value: 'model.unit.manOWar', label: 'Man-o-War' },
+        ],
+        roles: [
+          { value: 'model.role.default', label: 'Default' },
+          { value: 'model.role.soldier', label: 'Soldier' },
+        ],
+      },
+    ],
+  };
+  render(<OptionEditor root={root} editable onChange={(id, v) => changes.push([id, v])} />);
+  expect((screen.getByLabelText('REF size: number 1') as HTMLInputElement).value).toBe('7');
+  fireEvent.change(screen.getByLabelText('REF size: unit type 1'), { target: { value: 'model.unit.manOWar' } });
+  expect(changes.at(-1)).toEqual([
+    'model.option.refSize',
+    [{ type: 'model.unit.manOWar', role: 'model.role.soldier', number: 7 }],
+  ]);
+  fireEvent.click(document.querySelector('[data-unit-add]')!);
+  expect((changes.at(-1)![1] as unknown[]).length).toBe(2);
+  fireEvent.click(document.querySelector('[data-unit-remove="0"]')!);
+  expect(changes.at(-1)![1]).toEqual([]);
 });
