@@ -1324,13 +1324,23 @@ describe('the trade routes panel', () => {
 
   it("starts with the unit's own route picked, and OK gives the unit the picked route and closes", () => {
     const { box, assigned } = host();
-    act(() => box.replace('tradeRoutes', routes({ unit: { id: 'unit:9', name: 'Caravel', route: 'tradeRoute:1' } })));
+    act(() =>
+      box.replace(
+        'tradeRoutes',
+        routes({ unit: { id: 'unit:9', name: 'Caravel', images: [], location: null, route: 'tradeRoute:1' } }),
+      ),
+    );
     expect(screen.getByRole('button', { name: 'Fur run (2)' }).getAttribute('aria-pressed')).toBe('true');
     // Its own route is already its route: OK assigns nothing.
     press('OK');
     expect(assigned).toEqual([]);
     expect(box.current()).toBeNull();
-    act(() => box.replace('tradeRoutes', routes({ unit: { id: 'unit:9', name: 'Caravel', route: 'tradeRoute:1' } })));
+    act(() =>
+      box.replace(
+        'tradeRoutes',
+        routes({ unit: { id: 'unit:9', name: 'Caravel', images: [], location: null, route: 'tradeRoute:1' } }),
+      ),
+    );
     press('Rum run');
     press('OK');
     expect(assigned).toEqual(['unit:9 tradeRoute:2 hidden']);
@@ -1338,7 +1348,12 @@ describe('the trade routes panel', () => {
 
   it('gives a new route to the unit the panel was opened for', () => {
     const { box, saved } = host();
-    act(() => box.replace('tradeRoutes', routes({ unit: { id: 'unit:9', name: 'Caravel', route: null } })));
+    act(() =>
+      box.replace(
+        'tradeRoutes',
+        routes({ unit: { id: 'unit:9', name: 'Caravel', images: [], location: null, route: null } }),
+      ),
+    );
     press('New Trade Route');
     press('Add new stop');
     press('OK');
