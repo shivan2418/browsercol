@@ -1126,14 +1126,14 @@ async function play(page, url) {
     throw new Error(`Europe's recruit, train or purchase list or its sail button is wrong: ${JSON.stringify(europe)}`);
   }
 
-  // The Game menu's entries show the game's difficulty level and game options in the option editor, read-only.
+  // The Report menu's entries show the game's difficulty level and game options in the option editor, read-only.
   for (const [entry, kind] of [
     ['Show Difficulty Level', 'difficulty'],
     ['Show Game Options', 'game'],
   ]) {
     await noDialog(`the ${kind} options entry`);
     await page.evaluate(() => (window.__hold = 'options'));
-    await page.getByRole('menuitem', { name: 'Game', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Report', exact: true }).click();
     await page.getByRole('menuitem', { name: entry }).click();
     await page.waitForSelector('[role=dialog][data-kind=options] [data-option]', { timeout: 10000 });
     const editor = await page.evaluate(() => {

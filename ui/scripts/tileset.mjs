@@ -53,6 +53,7 @@ const colony = {
     bonus: 'Bonus: 0',
     rebelPercent: 0,
     rebelShield: [],
+    tip: [],
     royalistShield: [],
   },
   buildings: [
