@@ -410,6 +410,11 @@ class CommandsTest {
         assertTrue(commands.click(colony.getTile().getX(), colony.getTile().getY()));
         assertEquals(1, colonies.size(), colonies::toString);
         assertTrue(colonies.get(0).startsWith("{\"id\":\"" + colony.getId() + "\""));
+
+        // The tile's popup offers to rename our colony, as TilePopup does.
+        final String popup = client.getMenus().tile(colony.getTile().getX(), colony.getTile().getY());
+        assertTrue(popup.contains("\"id\":\"rename:" + colony.getId() + "\""),
+            () -> "the popup has Rename: " + popup);
     }
 
     /**

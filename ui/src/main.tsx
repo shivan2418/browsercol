@@ -86,6 +86,7 @@ import {
   type SaveMeta,
 } from './saves';
 import { MinimapPanel } from './minimap-panel';
+import { MapOrders } from './map-orders';
 import { Side, type SideProps } from './side';
 import { isIdle, shownNotice, TurnBanner, turnNotice, type TurnFacts, type TurnNotice } from './turn-banner';
 import { ErrorBanner, addError, engineError, type GameError } from './errors';
@@ -552,12 +553,17 @@ const contextMenus: ContextMenus = {
 };
 document.addEventListener('fullscreenchange', () => renderSide());
 const sideRoot = createRoot(document.getElementById('side')!);
+/** The active unit's order buttons over the map (map-orders.tsx). */
+const ordersHost = document.createElement('div');
+mapHost.append(ordersHost);
+const ordersRoot = createRoot(ordersHost);
 /** The layer of the windows over the page, outside the side panel. */
 const overlays = document.getElementById('overlays')!;
 /** The map's box, over which the turn banner is centred, clear of the side panel. */
 const gameBox = document.getElementById('game')!;
 function renderSide() {
   menuRoot.render(<MenuBar menus={currentMenus()} status={statusLine} />);
+  ordersRoot.render(<MapOrders orders={side.orders} active={view.active !== null} run={(c) => runCommand(c)} />);
   sideRoot.render(
     <>
       <Side
@@ -956,7 +962,7 @@ function playWith(client: ClientExports) {
   mapHost.addEventListener('click', (e) => {
     const at = onCanvas(mapHost, e);
     const tile = at && !dragged() ? map.tileAt(...at) : null;
-    if (tile) client.click(...tile);
+    if (tile) client.click(...tile, e.detail);
   });
 }
 

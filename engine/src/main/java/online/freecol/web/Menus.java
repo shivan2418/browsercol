@@ -159,6 +159,7 @@ final class Menus {
             if (settlement.getOwner() == player && settlement instanceof Colony) {
                 b.add("colony:" + settlement.getId(),
                     text(((Colony)settlement).getLocationLabelFor(player)));
+                b.add("rename:" + settlement.getId(), text("rename"));
             } else if (settlement instanceof IndianSettlement) {
                 b.add("settlement:" + settlement.getId(),
                     text(((IndianSettlement)settlement).getLocationLabelFor(player)));
@@ -398,24 +399,18 @@ final class Menus {
         final String id = unit.getId();
         final boolean atSea = unit.isAtSea();
         final UnitState state = unit.getState();
-        // FreeCol also offers "Activate unit" in Europe, where it only
-        // selects the unit on a map it is not on; "Clear orders" sets it
-        // active there, so the entry is left out.
+        b.add("state:ACTIVE:" + id, text("activateUnit"), !atSea, false);
         // Europe has nothing to fortify (QuickActionMenu.addCommandItems).
         if (!unit.isInEurope()) {
-            b.add("state:ACTIVE:" + id, text("activateUnit"), !atSea, false);
             b.add("state:FORTIFYING:" + id, text("fortify"),
                 unit.getMovesLeft() > 0 && state != UnitState.FORTIFIED
                     && state != UnitState.FORTIFYING, false);
         }
-        // Europe has nothing to sentry or clear either.
-        if (!unit.isInEurope()) {
-            b.add("state:SENTRY:" + id, text("sentry"),
-                state != UnitState.SENTRY && !atSea, false);
-            b.add("clear:" + id, text("clearOrders"),
-                (state != UnitState.ACTIVE || unit.getTradeRoute() != null) && !atSea,
-                false);
-        }
+        b.add("state:SENTRY:" + id, text("sentry"),
+            state != UnitState.SENTRY && !atSea, false);
+        b.add("clear:" + id, text("clearOrders"),
+            (state != UnitState.ACTIVE || unit.getTradeRoute() != null) && !atSea,
+            false);
         if (unit.canCarryTreasure() && unit.canCashInTreasureTrain()) {
             b.add("cashin:" + id, text("cashInTreasureTrain"));
         }
