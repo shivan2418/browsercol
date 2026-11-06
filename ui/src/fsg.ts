@@ -77,7 +77,7 @@ const unescapeXml = (s: string) =>
     .replaceAll('&amp;', '&');
 
 /** "model.nation.dutch" as the save list names it: "Dutch". */
-const nationName = (id: string) => {
+export const nationName = (id: string) => {
   const last = id.split('.').pop() ?? '';
   return last.charAt(0).toUpperCase() + last.slice(1);
 };

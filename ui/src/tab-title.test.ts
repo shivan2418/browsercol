@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { tabTitle } from './tab-title.ts';
+import { describe, expect, it } from 'vite-plus/test';
+import { tabTitle } from './tab-title';
 
 const dutch = { turnLabel: 'Autumn 1612', nation: 'model.nation.dutch', ourTurn: true };
 
