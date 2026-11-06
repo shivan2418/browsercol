@@ -2,7 +2,7 @@
 # The commit gate: runs .githooks/check (your fmt/lint/test script; exit
 # non-zero blocks the commit), then remembers the tree it passed so commit-msg
 # can add a `Gate: passed` trailer. A commit made with --no-verify runs
-# neither hook, so it has no trailer, and the dispatcher flags it UNGATED.
+# neither hook, so it has no trailer.
 # Without .githooks/check there is no gate and so no trailer.
 #
 # .githooks/skip-check (optional) lists glob patterns, one per line (`*`
@@ -38,4 +38,4 @@ if check_needed; then
 else
   echo "pre-commit: only files in .githooks/skip-check changed; check skipped"
 fi
-git write-tree >"$(git rev-parse --git-dir)/agent-dispatch-gate-tree"
+git write-tree >"$(git rev-parse --git-dir)/commit-gate-tree"
