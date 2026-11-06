@@ -51,6 +51,7 @@ import { blockBrowserKeys, steppedScale } from './browser-keys';
 import { BUILD } from './build';
 import { keepTabOnPage } from './focus';
 import { leaveGuard } from './leave-guard';
+import { TipProvider, TooltipLayer } from './controls';
 import { MENUS, MenuBar, framePlaces, frameEffects, goodsIcons, type Menu } from './frame';
 import { CreditsDialog } from './credits';
 import { captureConsole } from './log-buffer';
@@ -984,19 +985,22 @@ function renderSide() {
   menuRoot.render(<MenuBar menus={currentMenus()} status={statusLine} />);
   infoRoot.render(
     lastMap && (
-      <InfoPanel
-        unit={panel(view).unit}
-        idle={isIdle(noUnitHeard, lastTurn)}
-        endTurn={lastMap.endTurn}
-        art={art}
-        centre={() => dispatch({ k: 'focus', tile: null, at: view.active?.tile ?? null })}
-        endTurnNow={() => runCommand({ k: 'endTurn' })}
-      />
+      <TipProvider>
+        <InfoPanel
+          unit={panel(view).unit}
+          idle={isIdle(noUnitHeard, lastTurn)}
+          endTurn={lastMap.endTurn}
+          art={art}
+          centre={() => dispatch({ k: 'focus', tile: null, at: view.active?.tile ?? null })}
+          endTurnNow={() => runCommand({ k: 'endTurn' })}
+        />
+      </TipProvider>
     ),
   );
   ordersRoot.render(<MapOrders orders={side.orders} active={view.active !== null} run={(c) => runCommand(c)} />);
   sideRoot.render(
-    <>
+    <TipProvider>
+      <TooltipLayer />
       <Side
         {...side}
         debug={
@@ -1152,7 +1156,7 @@ function renderSide() {
         </>,
         overlays,
       )}
-    </>,
+    </TipProvider>,
   );
 }
 
@@ -1185,15 +1189,17 @@ const minimapRoot = createRoot(minimapHost);
 /** FreeCol's minimap at the map's bottom-left: one of the map controls, shown with the side panel. */
 function renderMinimap() {
   minimapRoot.render(
-    <MinimapPanel
-      map={lastMap}
-      res={map.resources()}
-      view={view}
-      options={minimapOptions(prefs)}
-      centre={(at) => dispatch({ k: 'centre', at })}
-      setOption={(id, value) => setPrefs({ ...prefs, freecol: { ...prefs.freecol, [id]: value } })}
-      art={art}
-    />,
+    <TipProvider>
+      <MinimapPanel
+        map={lastMap}
+        res={map.resources()}
+        view={view}
+        options={minimapOptions(prefs)}
+        centre={(at) => dispatch({ k: 'centre', at })}
+        setOption={(id, value) => setPrefs({ ...prefs, freecol: { ...prefs.freecol, [id]: value } })}
+        art={art}
+      />
+    </TipProvider>,
   );
 }
 /** The size the map was last given, to skip the ResizeObserver's calls that change nothing. */

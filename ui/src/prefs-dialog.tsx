@@ -4,7 +4,7 @@
 // the browser follows come after it, in FreeCol's groups. Hooks for tests: [data-category] on a
 // category's button, with its id; [data-mute] on a volume's mute button, with the preference it sets.
 import { useRef, useState } from 'react';
-import { Select } from './controls';
+import { Select, Tip } from './controls';
 import { Box, WindowFrame } from './frame';
 import { LANGUAGE_OPTION } from './language';
 import { OptionEditor } from './option-editor';
@@ -97,16 +97,17 @@ function MuteButton({ id, prefs, change }: { id: string; prefs: Prefs; change: (
   const key = MUTES[id as keyof typeof MUTES];
   const muted = prefs[key];
   return (
-    <button
+    <Tip
+      as="button"
       type="button"
       className="mute"
       data-mute={key}
       aria-pressed={muted}
-      title={muted ? 'Unmute' : 'Mute'}
+      tip={muted ? 'Unmute' : 'Mute'}
       onClick={() => change({ ...prefs, [key]: !muted })}
     >
       {muted ? 'Muted' : 'Mute'}
-    </button>
+    </Tip>
   );
 }
 

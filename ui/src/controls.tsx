@@ -4,7 +4,16 @@
 // Tooltip and NumberField build on `overlayContainer` and `OVERLAY_POSITIONER` here.
 import { NumberField as BaseNumberField } from '@base-ui/react/number-field';
 import { Select as BaseSelect } from '@base-ui/react/select';
-import { useState, type ComponentProps, type KeyboardEvent, type ReactNode } from 'react';
+import { Tooltip as BaseTooltip } from '@base-ui/react/tooltip';
+import {
+  createElement,
+  useEffect,
+  useState,
+  type ComponentProps,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
+import { dragging } from './drag';
 import { useEscape } from './frame';
 
 /**
@@ -96,6 +105,8 @@ type NumberFieldProps = {
   step?: number;
   disabled?: boolean;
   className?: string;
+  /** A hint for the pointer over the field and its step buttons, in place of `title`. */
+  tip?: string;
 } & Omit<ComponentProps<'input'>, 'value' | 'onChange' | 'min' | 'max' | 'step' | 'disabled' | 'className' | 'type'>;
 
 /** Pressing a step button leaves the focus in the field, so Enter after it still answers the dialog. */
@@ -105,9 +116,19 @@ const keepFocus = (e: { preventDefault: () => void }) => e.preventDefault();
  * A number field in place of `<input type="number">`: our own ▲/▼ buttons beside it, and the mouse wheel over the
  * focused field steps it. Arrow keys step by `step`, Shift+arrow and Page Up/Down by ten. What is typed is passed on
  * as it is, even out of range (the caller marks or clamps it); only stepping stays within `min` and `max`. A wrapping
- * `<label>` or an `aria-label` names it; other attributes (data-*, title, autoFocus) go on the input.
+ * `<label>` or an `aria-label` names it; other attributes (data-*, autoFocus) go on the input.
  */
-export function NumberField({ value, onChange, min, max, step = 1, disabled, className, ...rest }: NumberFieldProps) {
+export function NumberField({
+  value,
+  onChange,
+  min,
+  max,
+  step = 1,
+  disabled,
+  className,
+  tip,
+  ...rest
+}: NumberFieldProps) {
   // Base UI steps on the arrows only; Page Up and Page Down step ten at a time, as a browser's spinner does.
   const page = (e: KeyboardEvent<HTMLInputElement>) => {
     rest.onKeyDown?.(e);
@@ -129,7 +150,7 @@ export function NumberField({ value, onChange, min, max, step = 1, disabled, cla
       allowWheelScrub
       className={className ? `ui-number ${className}` : 'ui-number'}
     >
-      <BaseNumberField.Group className="ui-number-group">
+      <BaseNumberField.Group className="ui-number-group" render={tip ? <Tip as="div" tip={tip} /> : undefined}>
         <BaseNumberField.Input className="ui-number-input" {...rest} onKeyDown={page} />
         <BaseNumberField.Increment
           className="ui-number-step"
@@ -149,5 +170,105 @@ export function NumberField({ value, onChange, min, max, step = 1, disabled, cla
         </BaseNumberField.Decrement>
       </BaseNumberField.Group>
     </BaseNumberField.Root>
+  );
+}
+
+// ---- Tooltips (#260): Base UI's Tooltip in place of the `title` attribute ----------------------------------
+// One popup for the whole page: every `Tip` is a detached trigger of the one `TooltipLayer`, so a tooltip
+// moves from one element to the next, and what a hint says is data on the trigger (its payload).
+
+/** How long a pointer rests on an element before its hint shows: shorter than the browser's (about a second). */
+const TIP_DELAY = 300;
+
+/** The one tooltip: `Tip`s anywhere on the page attach to it. */
+const tipHandle = BaseTooltip.createHandle<ReactNode>();
+
+/** Something is open that a hint would only cover: a right-click menu or a drop-down list. */
+function menuOpen(): boolean {
+  return document.querySelector('[role="menu"], .ui-select-popup') !== null;
+}
+
+/**
+ * Wrap a React root whose elements use `Tip`: tips under it show the next one at once after one has shown, as
+ * Swing's ToolTipManager does. (A group is the provider's: separate roots have separate groups.)
+ */
+export function TipProvider({ children }: { children: ReactNode }) {
+  return (
+    <BaseTooltip.Provider delay={TIP_DELAY} closeDelay={0} timeout={500}>
+      {children}
+    </BaseTooltip.Provider>
+  );
+}
+
+/**
+ * The hint's popup, mounted once (inside a `TipProvider`). It does not show while a thing is being dragged
+ * nor while a menu is open, and it goes at once when either starts.
+ */
+export function TooltipLayer() {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    // The drag is the pointer's (drag.ts), not the browser's: its moves are seen before the page's.
+    const moved = () => {
+      if (dragging()) tipHandle.close();
+    };
+    const shut = () => tipHandle.close();
+    addEventListener('pointermove', moved);
+    document.addEventListener('contextmenu', shut, true);
+    return () => {
+      removeEventListener('pointermove', moved);
+      document.removeEventListener('contextmenu', shut, true);
+    };
+  }, []);
+  return (
+    <BaseTooltip.Root
+      handle={tipHandle}
+      disableHoverablePopup
+      onOpenChange={(next, details) => {
+        if (next && (dragging() || menuOpen())) {
+          details.cancel();
+          return;
+        }
+        setOpen(next);
+      }}
+    >
+      {({ payload }) => (
+        <>
+          {open && <EscapeCloses close={() => tipHandle.close()} />}
+          <BaseTooltip.Portal container={overlayContainer()}>
+            <BaseTooltip.Positioner {...OVERLAY_POSITIONER} sideOffset={6} collisionPadding={4}>
+              <BaseTooltip.Popup className="ui-popup ui-tip">{payload as ReactNode}</BaseTooltip.Popup>
+            </BaseTooltip.Positioner>
+          </BaseTooltip.Portal>
+        </>
+      )}
+    </BaseTooltip.Root>
+  );
+}
+
+type TipTag = 'input' | 'progress' | 'span' | 'div' | 'img' | 'button' | 'li' | 'td' | 'th' | 'section' | 'label';
+
+type TipProps<T extends TipTag> = {
+  /** The element to draw. */
+  as: T;
+  /** What the hint says (a string's lines split with a newline), or what it shows; nothing, and the element has no hint. */
+  tip: ReactNode;
+} & Omit<ComponentProps<T>, 'ref' | 'as'>;
+
+/**
+ * An element with a hint, in place of `title`. Give `aria-label` too where the element has no text of its
+ * own, as a button with an icon: a hint is for the pointer, a label for a screen reader.
+ */
+export function Tip<T extends TipTag>({ as, tip, ...rest }: TipProps<T>) {
+  if (tip === null || tip === undefined || tip === false || tip === '') return createElement(as, rest);
+  // `disabled` is the element's: on a trigger it would mean "no tooltip", so it goes on the element it renders.
+  const { disabled, ...others } = rest as { disabled?: boolean };
+  return (
+    <BaseTooltip.Trigger
+      handle={tipHandle}
+      payload={tip}
+      delay={TIP_DELAY}
+      render={createElement(as, disabled === undefined ? null : { disabled })}
+      {...others}
+    />
   );
 }

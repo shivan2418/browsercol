@@ -5,6 +5,7 @@
 // skin goes over it all, a desk with a globe whose legs frame the minimap, and the buttons are FreeCol's
 // pictures on the left leg, where image.skin.MiniMap.properties puts them.
 import { useEffect, useMemo, useRef, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
+import { Tip } from './controls';
 import type { Art } from './frame';
 import {
   BACKGROUNDS,
@@ -117,42 +118,46 @@ export function MinimapPanel({ map, res, view, options, centre, setOption, art =
       style={pictured ? ({ '--skin': `url("${skin}")` } as CSSProperties) : undefined}
     >
       <div className="minimap-buttons">
-        <button
-          title="Toggle the view between political and economic"
+        <Tip
+          as="button"
+          tip="Toggle the view between political and economic"
           aria-label="Toggle the view between political and economic"
           aria-pressed={options.borders}
           onClick={() => setOption('model.option.miniMapToggleBorders', !options.borders)}
           {...look(pictures.borders)}
         >
           {!pictured && '⚑'}
-        </button>
-        <button
-          title="Toggle fog of war"
+        </Tip>
+        <Tip
+          as="button"
+          tip="Toggle fog of war"
           aria-label="Toggle fog of war"
           aria-pressed={options.fog}
           onClick={() => setOption('model.option.miniMapToggleFogOfWar', !options.fog)}
           {...look(pictures.fog)}
         >
           {!pictured && '◐'}
-        </button>
-        <button
-          title="Zoom in"
+        </Tip>
+        <Tip
+          as="button"
+          tip="Zoom in"
           aria-label="Zoom in"
           disabled={options.zoom >= MAX_ZOOM}
           onClick={() => setOption('model.option.defaultZoomLevel', options.zoom + 1)}
           {...look(pictures.zoomIn)}
         >
           {!pictured && '+'}
-        </button>
-        <button
-          title="Zoom out"
+        </Tip>
+        <Tip
+          as="button"
+          tip="Zoom out"
           aria-label="Zoom out"
           disabled={options.zoom <= MIN_ZOOM}
           onClick={() => setOption('model.option.defaultZoomLevel', options.zoom - 1)}
           {...look(pictures.zoomOut)}
         >
           {!pictured && '−'}
-        </button>
+        </Tip>
       </div>
       <canvas
         ref={canvas}

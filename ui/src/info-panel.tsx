@@ -4,6 +4,7 @@
 // on the unit, as the panel's mouse listener does. The tile mode (terrain view) is not drawn yet. Once the art has
 // it, FreeCol's skin is the panel's background: a desk with a skull on it, over a sheet of paper.
 import type { CSSProperties, ReactNode } from 'react';
+import { Tip } from './controls';
 import type { Art } from './frame';
 import { PANEL_KEYS } from './map-keys';
 import type { ActiveUnit } from './tileset';
@@ -79,9 +80,9 @@ function UnitPanel({ unit, art, centre }: { unit: ActiveUnit; art: Art; centre: 
             {unit.units.map((u, i) => {
               const pic = art(u.keys);
               return (
-                <li key={i} title={u.name}>
+                <Tip as="li" key={i} tip={u.name}>
                   {pic ? <img src={pic} alt={u.name} /> : u.name}
-                </li>
+                </Tip>
               );
             })}
           </ul>
@@ -91,7 +92,7 @@ function UnitPanel({ unit, art, centre }: { unit: ActiveUnit; art: Art; centre: 
             {unit.goods.map((g, i) => {
               const pic = art(g.keys);
               return (
-                <li key={i} title={g.name}>
+                <Tip as="li" key={i} tip={g.name}>
                   {pic ? (
                     <>
                       <img src={pic} alt={g.name} />
@@ -100,7 +101,7 @@ function UnitPanel({ unit, art, centre }: { unit: ActiveUnit; art: Art; centre: 
                   ) : (
                     g.name
                   )}
-                </li>
+                </Tip>
               );
             })}
           </ul>

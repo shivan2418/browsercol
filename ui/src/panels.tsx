@@ -480,7 +480,7 @@ function Warehouse({ d, art }: { d: Of<'warehouse'>; art: Art }) {
       min={0}
       max={max}
       aria-label={`${rows[i].name} ${field}`}
-      title={tip}
+      tip={tip}
       value={rows[i][field] ?? 0}
       onChange={(v) => set(i, { [field]: num(v, max) })}
     />
@@ -495,7 +495,7 @@ function Warehouse({ d, art }: { d: Of<'warehouse'>; art: Art }) {
             {level(i, 'low', 100, ask.tips.low)}
             {level(i, 'high', 100, ask.tips.high)}
             {g.import !== null && level(i, 'import', g.max, ask.tips.import)}
-            <label title={ask.tips.exported}>
+            <Tip as="label" tip={ask.tips.exported}>
               <input
                 type="checkbox"
                 aria-label={`${g.name} ${ask.export}`}
@@ -504,7 +504,7 @@ function Warehouse({ d, art }: { d: Of<'warehouse'>; art: Art }) {
                 onChange={(e) => set(i, { exported: e.target.checked })}
               />
               {ask.export}
-            </label>
+            </Tip>
             {level(i, 'export', g.max, ask.tips.export)}
           </fieldset>
         ))}
@@ -943,9 +943,10 @@ function MessageList({
                 <TileText text={m.text} at={m.at} goTo={goTo} />
               )}
               {m.ignoreTip !== null && (
-                <button
+                <Tip
+                  as="button"
                   className="ignore"
-                  title={m.ignoreTip}
+                  tip={m.ignoreTip}
                   aria-pressed={ignored.has(i)}
                   onClick={() => {
                     const flag = !ignored.has(i);
@@ -959,12 +960,13 @@ function MessageList({
                   }}
                 >
                   x
-                </button>
+                </Tip>
               )}
               {m.filterTip !== null && (
-                <button
+                <Tip
+                  as="button"
                   className="filter"
-                  title={m.filterTip}
+                  tip={m.filterTip}
                   aria-pressed={shown.get(m.type) === false}
                   onClick={() => {
                     const now = !(shown.get(m.type) ?? true);
@@ -973,7 +975,7 @@ function MessageList({
                   }}
                 >
                   X
-                </button>
+                </Tip>
               )}
             </div>
           </div>
@@ -1374,9 +1376,9 @@ function RoutesPanel({ d, art, routes }: { d: Of<'tradeRoutes'>; art: Art; route
         ))}
       </div>
       <div className="buttons">
-        <button data-answer="new" title={e.tooltips.new} onClick={() => setEditing(blank)}>
+        <Tip as="button" data-answer="new" tip={e.tooltips.new} onClick={() => setEditing(blank)}>
           {e.newRoute}
-        </button>
+        </Tip>
         {e.unit && (
           <>
             <button
@@ -1386,32 +1388,35 @@ function RoutesPanel({ d, art, routes }: { d: Of<'tradeRoutes'>; art: Art; route
             >
               {e.assign}
             </button>
-            <button
+            <Tip
+              as="button"
               data-answer="unassign"
-              title={e.tooltips.deassign}
+              tip={e.tooltips.deassign}
               disabled={e.unit.route === null}
               onClick={() => e.unit && routes.assign(e.unit.id, null)}
             >
               {e.unassign}
-            </button>
+            </Tip>
           </>
         )}
-        <button
+        <Tip
+          as="button"
           data-answer="edit"
-          title={e.tooltips.edit}
+          tip={e.tooltips.edit}
           disabled={!route}
           onClick={() => route && setEditing(edit(route))}
         >
           {e.editRoute}
-        </button>
-        <button
+        </Tip>
+        <Tip
+          as="button"
           data-answer="delete"
-          title={e.tooltips.delete}
+          tip={e.tooltips.delete}
           disabled={!route}
           onClick={() => route && routes.remove(route.id)}
         >
           {e.deleteRoute}
-        </button>
+        </Tip>
         <button data-answer="close" data-enter="" onClick={ok}>
           {e.ok}
         </button>
@@ -1466,21 +1471,22 @@ function UnitChip({
   };
   const onContextMenu = useContextMenu((m) => m.unit(u.id));
   return pick ? (
-    <button
+    <Tip
+      as="button"
       className="chip"
       data-unit={u.id}
-      title={u.name}
+      tip={u.name}
       aria-pressed={on}
       onClick={pick}
       onContextMenu={onContextMenu}
       {...props}
     >
       {inner}
-    </button>
+    </Tip>
   ) : (
-    <div className="chip" data-unit={u.id} title={u.name} onContextMenu={onContextMenu} {...props}>
+    <Tip as="div" className="chip" data-unit={u.id} tip={u.name} onContextMenu={onContextMenu} {...props}>
       {inner}
-    </div>
+    </Tip>
   );
 }
 
@@ -1745,29 +1751,31 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
                     </>
                   );
                   return sellable ? (
-                    <button
+                    <Tip
+                      as="button"
                       key={`${c.kind}/${c.id}`}
                       className="chip"
                       data-cargo={c.kind}
                       data-disabled={goods?.enabled === false || undefined}
-                      title={goods?.reason ?? c.name}
+                      tip={goods?.reason ?? c.name}
                       onClick={() => sell(c.id)}
                       onContextMenu={cargoMenu(c)}
                       {...drag}
                     >
                       {inner}
-                    </button>
+                    </Tip>
                   ) : (
-                    <div
+                    <Tip
+                      as="div"
                       key={`${c.kind}/${c.id}`}
                       className="chip"
                       data-cargo={c.kind}
-                      title={goods?.reason ?? c.name}
+                      tip={goods?.reason ?? c.name}
                       onContextMenu={cargoMenu(c)}
                       {...(c.kind === 'unit' ? drag : {})}
                     >
                       {inner}
-                    </div>
+                    </Tip>
                   );
                 })}
               </div>
@@ -1805,29 +1813,31 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
                 </>
               );
               return buyable ? (
-                <button
+                <Tip
+                  as="button"
                   key={g.id}
                   className="good"
                   data-goods={g.id}
                   data-disabled={!g.enabled || undefined}
-                  title={marketTitle(g)}
+                  tip={marketTitle(g)}
                   onClick={() => buy(g.id)}
                   onContextMenu={marketMenu(g.id)}
                   {...drag}
                 >
                   {inner}
-                </button>
+                </Tip>
               ) : (
-                <div
+                <Tip
+                  as="div"
                   key={g.id}
                   className="good"
                   data-goods={g.id}
                   data-disabled={!g.enabled || undefined}
-                  title={marketTitle(g)}
+                  tip={marketTitle(g)}
                   onContextMenu={marketMenu(g.id)}
                 >
                   {inner}
-                </div>
+                </Tip>
               );
             })}
           </div>
@@ -1848,10 +1858,10 @@ function SettlementBody({
   string: (key: string) => string;
 }) {
   const entry = (item: SettlementEntry, tip: string | null = null) => (
-    <span className="entry" title={tip ?? undefined}>
+    <Tip as="span" className="entry" tip={tip ?? undefined}>
       <Pic keys={item.images} art={art} />
       {item.text}
-    </span>
+    </Tip>
   );
   return (
     <div className="settlement">

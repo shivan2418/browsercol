@@ -500,6 +500,18 @@
       .ui-select-item[data-disabled] {
         opacity: 0.5;
       }
+      /* A hint (src/controls.tsx, Base UI's Tooltip): small text on the panel, as FreeColToolTipUI draws one. */
+      .ui-tip {
+        box-sizing: border-box;
+        max-width: 28em;
+        padding: 2px 6px;
+        white-space: pre-line;
+        pointer-events: none;
+      }
+      .ui-tip:has(.rebel-tip) {
+        max-width: none;
+        padding: 10px 14px;
+      }
       #info {
         white-space: pre;
         overflow: auto;
@@ -2293,9 +2305,8 @@
         align-items: center;
         font-weight: 700;
       }
-      /* BuildingToolTip, put on the page beside the building the pointer is over; RebelToolTip by the pointer. */
-      .building-tip,
-      .rebel-tip {
+      /* BuildingToolTip, put on the page beside the building the pointer is over. */
+      .building-tip {
         position: fixed;
         z-index: 1001;
         max-width: 280px;
@@ -2311,10 +2322,9 @@
         box-shadow: 0 2px 8px var(--backdrop);
         pointer-events: none;
       }
-      /* RebelToolTip's three columns: the label, then two numbers on the right (MigLayout "[300px][50px, right][50px, right]"). */
+      /* RebelToolTip (a hint, Tip): three columns, the label, then two numbers on the right (MigLayout "[300px][50px, right][50px, right]"). */
       .rebel-tip {
         width: 400px;
-        max-width: none;
         box-sizing: border-box;
         display: grid;
         grid-template-columns: 1fr 50px 50px;

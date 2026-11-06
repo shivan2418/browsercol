@@ -12,6 +12,7 @@ import { ContextMenuContext, type ContextMenus } from './popup-menu';
 import type { Advisor } from './advisor';
 import { DialogHost, type Art, type ReportButtons, type RouteButtons } from './panels';
 import { chooseOption, listed, openSelect, shown } from './select-test';
+import { hint } from './tip-test';
 import type { Choice, EuropeUnit, GuiEvents, GuiQuestions, TradeRouteDraft } from './webgui';
 
 afterEach(cleanup);
@@ -976,7 +977,7 @@ describe('the panels', () => {
       ]) {
         screen.getByText(text);
       }
-      expect(screen.getAllByTitle('Food')).toHaveLength(2);
+      expect(screen.getAllByText('Food')).toHaveLength(2);
       fireEvent.click(screen.getByRole('button', { name: 'OK' }));
       expect(screen.queryByRole('dialog')).toBeNull();
     });
@@ -1009,7 +1010,7 @@ describe('the panels', () => {
       ...more,
     });
 
-    it('shows what the player has learned and closes with OK or Escape', () => {
+    it('shows what the player has learned and closes with OK or Escape', async () => {
       const { box } = host();
       act(() => box.show('indianSettlement', settlement({ missionary: { text: 'Our Jesuit', images: [] } })));
       const dialog = screen.getByRole('dialog');
@@ -1025,7 +1026,7 @@ describe('the panels', () => {
       ]) {
         screen.getByText(text);
       }
-      expect(screen.getByText('Rum').getAttribute('title')).toBe('sold for 3');
+      expect(await hint(screen.getByText('Rum'))).toBe('sold for 3');
       expect(screen.getByText('Skill taught:')).toBeTruthy();
       expect(dialog.querySelector('img')?.getAttribute('src'), 'the skill icon').toBe('art/caravel.png');
       key('Escape');
@@ -1107,14 +1108,14 @@ describe('the panels', () => {
       expect(screen.queryByRole('button', { name: 'X' })).toBeNull();
     });
 
-    it('gives only the messages that have them an ignore and a filter button', () => {
+    it('gives only the messages that have them an ignore and a filter button', async () => {
       const { box } = host();
       act(() => box.show('messages', report()));
       expect(screen.getAllByRole('button', { name: 'x' })).toHaveLength(2);
       expect(screen.getAllByRole('button', { name: 'X' })).toHaveLength(2);
       const rumour = screen.getByText('The rumour is gone.').closest('.message')!;
       expect(rumour.querySelectorAll('button')).toHaveLength(0);
-      expect(screen.getAllByRole('button', { name: 'x' })[1].getAttribute('title')).toBe(
+      expect(await hint(screen.getAllByRole('button', { name: 'x' })[1])).toBe(
         'Ignore this message (Colony: Boston, Goods: Rum)',
       );
     });
@@ -1743,7 +1744,7 @@ describe('the trade routes panel', () => {
     expect(add.disabled).toBe(true);
   });
 
-  it('has tooltips on the route buttons and says which unit it was opened for, and where', () => {
+  it('has tooltips on the route buttons and says which unit it was opened for, and where', async () => {
     const { box } = host();
     act(() =>
       box.replace(
@@ -1751,8 +1752,8 @@ describe('the trade routes panel', () => {
         routes({ unit: { id: 'unit:9', name: 'Caravel', images: [], location: 'Europe', route: 'tradeRoute:1' } }),
       ),
     );
-    expect(screen.getByRole('button', { name: 'New Trade Route' }).title).toBe('Create a new trade route.');
-    expect(screen.getByRole('button', { name: 'Delete Trade Route' }).title).toBe(
+    expect(await hint(screen.getByRole('button', { name: 'New Trade Route' }))).toBe('Create a new trade route.');
+    expect(await hint(screen.getByRole('button', { name: 'Delete Trade Route' }))).toBe(
       'Delete this trade route completely.',
     );
     expect(screen.getByText(/Caravel Europe/)).toBeTruthy();
@@ -1960,16 +1961,15 @@ describe('the Europe panel', () => {
     expect(logEntries()).toEqual([]);
   });
 
-  it('shows the cargo of the selected ship, and of another when it is picked', () => {
+  it('shows the cargo of the selected ship, and of another when it is picked', async () => {
     const { box } = host();
     act(() => box.show('europe', europe));
     // The market names Food too, so look in the cargo box only.
-    const cargo = () => within(document.querySelector<HTMLElement>('[data-list=cargo]')!);
     expect(names('cargo')).toEqual(['50']);
-    expect(cargo().getByTitle('Food')).toBeTruthy();
+    expect(await hint(document.querySelector('[data-list=cargo] [data-cargo="goods"]')!)).toBe('Food');
     fireEvent.click(screen.getByRole('button', { name: 'Galleon' }));
     expect(names('cargo')).toEqual([]);
-    expect(cargo().getByTitle('Free Colonist')).toBeTruthy();
+    expect(await hint(document.querySelector('[data-list=cargo] [data-cargo="unit"]')!)).toBe('Free Colonist');
   });
 
   it('recruits, trains and buys from the lists its buttons open, and offers what is too dear dimmed', () => {
@@ -2194,10 +2194,10 @@ describe('the Europe panel', () => {
     expect(calls).toEqual(['buy model.goods.food unit:1 true', 'sell model.goods.food unit:1 true']);
   });
 
-  it('adds how much the market holds to a goods tooltip in debug mode only', () => {
+  it('adds how much the market holds to a goods tooltip in debug mode only', async () => {
     const { box } = host();
     act(() => box.show('europe', europe));
-    expect(document.querySelector('[data-goods="model.goods.food"]')!.getAttribute('title')).toBe('Food');
+    expect(await hint(document.querySelector('[data-goods="model.goods.food"]')!)).toBe('Food');
     cleanup();
     const debugBox = dialogs();
     render(
@@ -2212,12 +2212,10 @@ describe('the Europe panel', () => {
       </DebugContext.Provider>,
     );
     act(() => debugBox.show('europe', europe));
-    expect(document.querySelector('[data-goods="model.goods.food"]')!.getAttribute('title')).toBe(
-      'Food (120 in market)',
-    );
+    expect(await hint(document.querySelector('[data-goods="model.goods.food"]')!)).toBe('Food (120 in market)');
   });
 
-  it('greys a boycotted goods, says why, and a click asks the engine (which offers to pay the arrears)', () => {
+  it('greys a boycotted goods, says why, and a click asks the engine (which offers to pay the arrears)', async () => {
     const calls: string[] = [];
     Object.assign(europeButtons, {
       buy: (g: string, s: string, ask: boolean) => calls.push(`buy ${g} ${s} ${ask}`),
@@ -2236,14 +2234,13 @@ describe('the Europe panel', () => {
     const reason = 'The Crown is boycotting these goods until you have paid your tax arrears of 100 gold.';
     const rum = document.querySelector('[data-goods="model.goods.rum"]')!;
     expect(rum.hasAttribute('data-disabled')).toBe(true);
-    expect(rum.getAttribute('title')).toBe(reason);
+    expect(await hint(rum)).toBe(reason);
     // Swing's MarketLabel offers to pay the arrears when a boycotted goods is bought.
     fireEvent.click(rum);
     expect(calls).toEqual(['buy model.goods.rum unit:1 true']);
     // And EuropePanel when a boycotted stack of the cargo is sold.
-    const stack = [...document.querySelectorAll('[data-cargo="goods"]')].find(
-      (el) => el.getAttribute('title') === reason,
-    )!;
+    const stack = document.querySelector('[data-cargo="goods"][data-disabled]')!;
+    expect(await hint(stack)).toBe(reason);
     expect(stack.hasAttribute('data-disabled')).toBe(true);
     fireEvent.click(stack);
     expect(calls).toEqual(['buy model.goods.rum unit:1 true', 'sell model.goods.rum unit:1 true']);

@@ -602,7 +602,7 @@ async function play(page: Page, url: string) {
       const tile = e.closest<HTMLElement>('[data-tile]');
       if (tile) return { tile: tile.dataset.tile };
       const building = e.closest('[data-building]');
-      if (building) return { place: `the ${building.getAttribute('title') ?? 'building'}` };
+      if (building) return { place: `the ${building.getAttribute('aria-label') ?? 'building'}` };
       return {
         place: e.closest<HTMLElement>('[data-part]')?.dataset.part === 'outside' ? 'outside the colony' : 'nowhere',
       };

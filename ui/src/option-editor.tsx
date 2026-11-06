@@ -6,7 +6,7 @@
 // inside it; [data-group] on a group's box. A percentage option is a slider,
 // as FreeCol's PercentageOptionUI is.
 import { useRef, useState, type ReactNode } from 'react';
-import { NumberField as NumberFieldControl, Select } from './controls';
+import { NumberField as NumberFieldControl, Select, Tip } from './controls';
 import { Box } from './frame';
 import type { OptionNode, OptionValue, UnitEntry } from './options';
 
@@ -137,17 +137,18 @@ function UnitList({
             onChange={(role) => replace(i, { role })}
             choices={node.roles}
           />
-          <button type="button" disabled={disabled || i === 0} title="Move up" onClick={() => move(i, -1)}>
+          <Tip as="button" type="button" disabled={disabled || i === 0} tip="Move up" onClick={() => move(i, -1)}>
             Up
-          </button>
-          <button
+          </Tip>
+          <Tip
+            as="button"
             type="button"
             disabled={disabled || i === entries.length - 1}
-            title="Move down"
+            tip="Move down"
             onClick={() => move(i, 1)}
           >
             Down
-          </button>
+          </Tip>
           <button
             type="button"
             data-unit-remove={i}
@@ -297,16 +298,17 @@ function Row({
       break;
   }
   return (
-    <div
+    <Tip
+      as="div"
       className="option"
       data-option={node.id}
       data-changed={(values && node.id in values) || undefined}
-      title={node.description ?? undefined}
+      tip={node.description ?? undefined}
     >
       <span className="name">{node.label}</span>
       {control}
       {after?.(node.id)}
-    </div>
+    </Tip>
   );
 }
 
