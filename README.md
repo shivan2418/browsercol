@@ -1,5 +1,7 @@
 # BrowserCol
 
+Play it at <https://shivan2418.github.io/browsercol/>.
+
 FreeCol in the browser. The Engine is FreeCol's own Java code, compiled by
 TeaVM to two Wasm GC modules. `server.wasm` (server and AI) runs in a Web
 Worker and `client.wasm` runs on the page. The Browser UI (TypeScript 7,
