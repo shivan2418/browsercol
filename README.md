@@ -25,9 +25,13 @@ such as Engine, Browser UI and Tileset are defined in
 [`GLOSSARY.md`](GLOSSARY.md), and design decisions are in
 [`docs/adr/`](docs/adr/).
 
-## Getting started
+## Developing
 
-You need Docker and [`just`](https://github.com/casey/just). Every tool
+> **Just want to play?** You don't need anything below: open
+> <https://shivan2418.github.io/browsercol/> in Chrome or Firefox. Nothing to
+> install.
+
+To work on BrowserCol itself, you need Docker and [`just`](https://github.com/casey/just). Every tool
 (JDK, Gradle, Node, pnpm, Playwright) runs in a Docker image through
 `./dev.sh`, and nothing else is installed on the host.
 
