@@ -47,3 +47,11 @@ describe('the Loading Save game window', () => {
     expect(load).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('the Loading Save game window focus', () => {
+  it('opens with OK focused', () => {
+    const save: SaveMeta = { id: 4, name: 'x', date: 0, turn: 1, year: 1492, nation: 'Dutch', size: 1 };
+    render(<LoadingSaveDialog save={save} load={() => {}} cancel={() => {}} />);
+    expect(document.activeElement).toBe(document.querySelector('[data-load-ok]'));
+  });
+});

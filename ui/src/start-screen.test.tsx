@@ -408,3 +408,8 @@ test('the sound toggles show music and sound effects on or off, and change them'
   fireEvent.click(effects);
   expect(calls).toEqual(['music true', 'effects false']);
 });
+
+test('the start screen opens with Start focused, so the focus ring marks the default', () => {
+  screenWith();
+  expect(document.activeElement).toBe(document.querySelector('[data-start]'));
+});

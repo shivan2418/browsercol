@@ -40,3 +40,11 @@ test('the Save window saves under the name typed, or the default one when it is 
   fireEvent.click(document.querySelector('[data-save-ok]')!);
   expect(names).toEqual(['', 'Before the war']);
 });
+
+test('the Save window opens with the name field focused, and Enter there presses Save', () => {
+  const names: string[] = [];
+  render(<SaveDialog title="Save Game" save={(n) => names.push(n)} close={() => {}} />);
+  expect(document.activeElement).toBe(document.querySelector('[data-save-name]'));
+  fireEvent.submit(document.querySelector('form')!);
+  expect(names).toEqual(['']);
+});

@@ -92,7 +92,7 @@ export function SaveDialog({
           <button type="button" data-save-cancel onClick={close}>
             Cancel
           </button>
-          <button type="submit" className="default" data-save-ok>
+          <button type="submit" data-save-ok>
             Save
           </button>
         </div>

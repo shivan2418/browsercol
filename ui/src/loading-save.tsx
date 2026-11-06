@@ -75,7 +75,7 @@ export function LoadingSaveDialog({
           <button type="button" data-load-cancel onClick={cancel}>
             Cancel
           </button>
-          <button type="submit" className="default" data-load-ok>
+          <button type="submit" autoFocus data-load-ok>
             OK
           </button>
         </div>

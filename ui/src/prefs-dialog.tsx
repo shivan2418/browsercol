@@ -284,7 +284,7 @@ export function PreferencesDialog({
           >
             Cancel
           </button>
-          <button type="button" className="default" data-prefs-ok onClick={close}>
+          <button type="button" autoFocus data-prefs-ok onClick={close}>
             OK
           </button>
         </div>

@@ -511,7 +511,7 @@ export function StartScreen({
                 />
               </div>
             </fieldset>
-            <button type="submit" className="default start-button" data-start>
+            <button type="submit" className="start-button" autoFocus data-start>
               Start game
             </button>
             {open && (saves.length > 0 || openFile) && (

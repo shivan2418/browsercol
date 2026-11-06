@@ -236,3 +236,8 @@ test('Reset and Cancel go back to the preferences the window opened with, Revert
   expect(closed).toBe(2);
   expect(changes).toHaveLength(3);
 });
+
+test('the Preferences window opens with OK focused, so the focus ring marks the default', () => {
+  render(<PreferencesDialog prefs={DEFAULTS} freecol={null} change={() => {}} close={() => {}} />);
+  expect(document.activeElement).toBe(document.querySelector('[data-prefs-ok]'));
+});
