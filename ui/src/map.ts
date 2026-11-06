@@ -172,14 +172,15 @@ interface Pen {
   readonly canvas: HTMLCanvasElement;
   /** Clear a layer, and draw on it from now on. */
   begin(layer: Layer): void;
-  image(pic: Picture, x: number, y: number, dim: boolean): void;
+  /** `tile`: a whole tile's picture, which the pen overlaps its neighbours by a device pixel when the map is scaled between pixels. */
+  image(pic: Picture, x: number, y: number, dim: boolean, tile?: boolean): void;
   /**
    * Give a layer's images, in the order they were drawn, these pictures instead, where the pen keeps its images
    * (the animated base tiles' next frame, at the places they already are); false when it cannot, to draw it again.
    */
   repicture?(layer: Layer, pics: Picture[]): boolean;
   diamond(x: number, y: number, color: number, alpha: number): void;
-  road(x: number, y: number, color: number, path: (p: PathSink) => void): void;
+  road(x: number, y: number, color: number, path: (p: PathSink) => void, width?: number, alpha?: number): void;
   rect(x: number, y: number, w: number, h: number, color: number, alpha?: number): void;
   line(x1: number, y1: number, x2: number, y2: number, color: number, width?: number, alpha?: number): void;
   /** Polylines with rounded corners, stroked as one shape so their overlaps don't darken. */
@@ -199,6 +200,23 @@ interface Pen {
   show(dx: number, dy: number, scale: number): void;
   /** Make the canvas `width` by `height` CSS pixels; show() draws it again. */
   resize(width: number, height: number): void;
+}
+
+/**
+ * The map grid's line: MapViewer strokes it black, one pixel wide. Each tile draws all four sides, so a side shared
+ * by two tiles is drawn twice and shows at about twice this alpha: a thin, low-contrast line.
+ */
+const GRID_WIDTH = 1;
+const GRID_ALPHA = 0.2;
+
+/**
+ * How much wider and taller than itself a tile's picture is drawn, in map pixels, at a scale `k` (the map's, times
+ * the screen's pixel ratio). The pictures are hard-edged diamonds that meet exactly at whole pixels; at any other
+ * scale the edge pixels are covered partly by each of two tiles, which leaves the black behind the map showing as a
+ * faint line along every tile. A device pixel and a half of overlap hides it.
+ */
+export function seamBleed(k: number): number {
+  return Math.abs(k - Math.round(k)) < 1e-3 ? 0 : 1.5 / k;
 }
 
 /** Points in map pixels; a closed one ends where it starts, without repeating the first point. */
@@ -464,6 +482,14 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
     const k = scale * app.renderer.resolution;
     return Math.round(n * k) / k;
   };
+  /** The tile sprites that overlap their neighbours, and so are resized when the map's scale changes. */
+  const bleeding = new Set<Sprite>();
+  const bleed = (s: Sprite) => {
+    const b = seamBleed(world.scale.x * app.renderer.resolution);
+    s.position.set(s.x + (s.width - W) / 2 - b / 2, s.y + (s.height - H) / 2 - b / 2);
+    s.width = W + b;
+    s.height = H + b;
+  };
   return {
     canvas: app.canvas,
     begin: (n) => {
@@ -484,13 +510,17 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
       drawing = { layer, objects: [], spare };
       redraw(layer);
     },
-    image: (pic, x, y, dim) => {
+    image: (pic, x, y, dim, tile) => {
       const t = texture(pic);
       const key = `i${t.uid},${x},${y},${dim}`;
       add(key, () => {
         const s = keyed(key, new Sprite(t));
         s.position.set(x, y);
         if (dim) s.tint = 0xcccccc;
+        if (tile && pic.width === W && pic.height === H) {
+          bleeding.add(s);
+          bleed(s);
+        }
         return s;
       });
     },
@@ -517,11 +547,11 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
         ),
       );
     },
-    road: (x, y, color, path) => {
+    road: (x, y, color, path, width = H / 32, alpha = 1) => {
       add(null, () => {
         const g = new Graphics();
         path(offset(g, x, y));
-        return g.stroke({ width: H / 32, color });
+        return g.stroke({ width, color, alpha });
       });
     },
     rect: (x, y, w, h, color, alpha = 1) => {
@@ -584,7 +614,13 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
       const key = `${dx},${dy},${scale}`;
       if (key === shown) return;
       shown = key;
+      const rescaled = world.scale.x !== scale;
       world.scale.set(scale);
+      if (rescaled)
+        for (const s of bleeding) {
+          if (s.destroyed) bleeding.delete(s);
+          else bleed(s);
+        }
       world.position.set(snap(dx, 1), snap(dy, 1));
       redraw();
     },
@@ -624,10 +660,12 @@ function canvasPen(host: HTMLElement, width: number, height: number, background 
     begin: (n) => {
       calls = layers[n] = [];
     },
-    image: (pic, x, y, dim) =>
+    image: (pic, x, y, dim, tile) =>
       calls.push((c) => {
         c.filter = dim ? 'brightness(0.8)' : 'none';
-        c.drawImage(pic, x, y);
+        const b = tile && pic.width === W && pic.height === H ? seamBleed(c.getTransform().a) : 0;
+        if (b) c.drawImage(pic, x - b / 2, y - b / 2, W + b, H + b);
+        else c.drawImage(pic, x, y);
         c.filter = 'none';
       }),
     diamond: (x, y, color, alpha) =>
@@ -642,13 +680,15 @@ function canvasPen(host: HTMLElement, width: number, height: number, background 
         c.fill();
         c.globalAlpha = 1;
       }),
-    road: (x, y, color, path) =>
+    road: (x, y, color, path, width = H / 32, alpha = 1) =>
       calls.push((c) => {
+        c.globalAlpha = alpha;
         c.strokeStyle = css(color);
-        c.lineWidth = H / 32;
+        c.lineWidth = width;
         c.beginPath();
         path(offset(c, x, y));
         c.stroke();
+        c.globalAlpha = 1;
       }),
     rect: (x, y, w, h, color, alpha = 1) =>
       calls.push((c) => {
@@ -867,7 +907,7 @@ async function paint(pen: Pen, layer: Layer, ops: Op[], pics: ReturnType<typeof 
                 : op.at === 'large'
                   ? [(W - iw) / 2, H - ih > 0 ? (H - ih) / 2 : H - ih]
                   : [(W - iw) / 2, (H - ih) / 2 - UNIT_OFFSET];
-        pen.image(img, ox + Math.trunc(dx), oy + Math.trunc(dy), !!op.dim);
+        pen.image(img, ox + Math.trunc(dx), oy + Math.trunc(dy), !!op.dim, op.at === 'tile');
         return;
       }
       case 'fog':
@@ -918,13 +958,20 @@ async function paint(pen: Pen, layer: Layer, ops: Op[], pics: ReturnType<typeof 
         return;
       }
       case 'grid':
-        return pen.road(ox, oy, 0x000000, (p) => {
-          p.moveTo(W / 2, 0);
-          p.lineTo(W, H / 2);
-          p.lineTo(W / 2, H);
-          p.lineTo(0, H / 2);
-          p.lineTo(W / 2, 0);
-        });
+        return pen.road(
+          ox,
+          oy,
+          0x000000,
+          (p) => {
+            p.moveTo(W / 2, 0);
+            p.lineTo(W, H / 2);
+            p.lineTo(W / 2, H);
+            p.lineTo(0, H / 2);
+            p.lineTo(W / 2, 0);
+          },
+          GRID_WIDTH,
+          GRID_ALPHA,
+        );
       case 'border':
         // All the borders at once, at the first: joined up, they have no seams at the tiles' corners.
         if (i === firstBorder) {

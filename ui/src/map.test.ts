@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vite-plus/test';
-import { backingSize, borderPaths, pixelRatio, tileAt } from './map';
+import { backingSize, borderPaths, pixelRatio, seamBleed, tileAt } from './map';
 
 // A 2x4 map of 128x64 diamonds in staggered rows, odd rows half a tile to
 // the right. Tile (0,0)'s diamond spans x 0..128 and y 0..64 with its centre
@@ -85,5 +85,18 @@ describe('borderPaths', () => {
       },
     ]);
     expect(byColor.get(2)).toHaveLength(1);
+  });
+});
+
+describe('seamBleed', () => {
+  it('overlaps nothing at a whole number of device pixels per map pixel', () => {
+    expect(seamBleed(1)).toBe(0);
+    expect(seamBleed(2)).toBe(0);
+    expect(seamBleed(3)).toBe(0);
+  });
+
+  it('overlaps a device pixel and a half between them', () => {
+    expect(seamBleed(0.5)).toBeCloseTo(3);
+    expect(seamBleed(1.5)).toBeCloseTo(1);
   });
 });
