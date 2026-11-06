@@ -208,7 +208,8 @@ final class EuropeJson {
             if (u == active) return u;
             if (u.isCarrier() && u.getTradeRoute() == null) last = u;
         }
-        return last;
+        // A ship alone in port shows its cargo from the start.
+        return (last == null && inPort.size() == 1) ? inPort.get(0) : last;
     }
 
     private static String units(List<Unit> units, Unit selected) {

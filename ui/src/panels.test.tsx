@@ -2098,6 +2098,24 @@ describe('the Europe panel', () => {
     ]);
   });
 
+  it('selects a ship alone in port, and keeps the one a drop lands on selected', () => {
+    Object.assign(europeButtons, { board: () => {} });
+    const { box } = host();
+    const lone = { ...galleon, selected: false };
+    act(() => box.show('europe', { ...europe, inPort: [lone], selected: null }));
+    const cargo = () => within(document.querySelector<HTMLElement>('[data-list=cargo]')!);
+    expect(cargo().getByTitle('Free Colonist')).toBeTruthy();
+    // A drop on a ship selects it, and a newer event from the Engine does not unselect it.
+    act(() => box.show('europe', europe));
+    expect(names('cargo')).toEqual(['50']);
+    act(() =>
+      dragOnto(document.querySelector('[data-unit="unit:4"]')!, document.querySelector('[data-unit="unit:2"]')!),
+    );
+    expect(cargo().getByTitle('Free Colonist')).toBeTruthy();
+    act(() => box.replace('europe', { ...europe, docks: [] }));
+    expect(cargo().getByTitle('Free Colonist')).toBeTruthy();
+  });
+
   it('names the picked ship and its holds left over the cargo', () => {
     const { box } = host();
     act(() =>

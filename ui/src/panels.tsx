@@ -1501,7 +1501,8 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
   const e: Europe = d.event;
   const menus = useContext(ContextMenuContext);
   const debug = useContext(DebugContext);
-  const [picked, setPicked] = useState(e.selected);
+  // The ship picked by hand; until then, and when it has left port, the Engine's choice, or a ship alone in port.
+  const [picked, setPicked] = useState<string | null>(null);
   const [shop, setShop] = useState<'recruit' | 'train' | 'purchase' | null>(null);
   // After a purchase that leaves nothing affordable the popup closes, as Swing's does.
   const bought = useRef(false);
@@ -1517,7 +1518,12 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
     const log = logRef.current;
     if (log) log.scrollTop = log.scrollHeight;
   }, [logCount]);
-  const ship = e.inPort.find((u) => u.id === picked) ?? null;
+  const shown =
+    e.inPort.find((u) => u.id === picked) ??
+    e.inPort.find((u) => u.id === e.selected) ??
+    (e.inPort.length === 1 ? e.inPort[0] : null);
+  const ship = shown;
+  const shownId = shown?.id ?? null;
   // In debug mode the tooltip also gives how much the market holds, as MarketLabel does in DebugMode.MENUS.
   const marketTitle = (g: Europe['market'][number]) =>
     debug.on ? `${g.reason ?? g.name} (${g.inMarket} in market)` : (g.reason ?? g.name);
@@ -1599,7 +1605,15 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
       <h3>{heading}</h3>
       <div className="chips">
         {units.map((u) => (
-          <UnitChip key={u.id} u={u} art={art} pick={pick?.(u)} on={u.id === picked} drag={drag} drop={unitDrop?.(u)} />
+          <UnitChip
+            key={u.id}
+            u={u}
+            art={art}
+            pick={pick?.(u)}
+            on={u.id === shownId}
+            drag={drag}
+            drop={unitDrop?.(u)}
+          />
         ))}
       </div>
     </section>
@@ -1644,6 +1658,9 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
   };
   /** What a drop on a ship's icon in port does: a unit boards it, goods load onto it, bought or from another ship. */
   const onShip = (target: EuropeUnit) => (item: Item) => {
+    // As in Swing's DefaultTransferHandler, the ship dropped on is selected, except when the drop moves cargo
+    // from another ship, which keeps its selection.
+    if (item.kind === 'unit' || item.from !== 'cargo') setPicked(target.id);
     if (item.kind === 'unit') europeButtons.board(item.id, target.id);
     else if (item.from === 'market') europeButtons.buy(item.type, target.id, item.ask === true);
     else if (item.from === 'cargo' && ship && ship.id !== target.id) {
