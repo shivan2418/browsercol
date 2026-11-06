@@ -29,6 +29,8 @@ export interface SoundPlayer {
   startPlaylist(): void;
   /** The music and sound effects volume options, as percentages. */
   setVolumes(v: { music: number; effects: number }): void;
+  /** The page is hidden or minimised (true): the sound pauses, and goes on from where it was once it shows again. */
+  setHidden(hidden: boolean): void;
 }
 
 /**
@@ -45,6 +47,7 @@ export function soundPlayer(manifest: AudioManifest, deps: SoundPlayerDeps): Sou
   const effects = makeAudio();
   let musicOn = false;
   let playlistOn = false;
+  let hidden = false;
   /** The playlist's tracks still to play this round. */
   let queue: string[] = [];
   /** Start a file; an effect the browser refuses is dropped, as it would be stale by the time it could play. */
@@ -56,6 +59,12 @@ export function soundPlayer(manifest: AudioManifest, deps: SoundPlayerDeps): Sou
   /** Music the browser refuses, as it does until the player has clicked or pressed a key, starts after that. */
   const startMusic = (file: string) => {
     musicOn = true;
+    // Music asked for while the page is hidden waits for it to show.
+    if (hidden) {
+      music.pause();
+      music.src = deps.base + file;
+      return;
+    }
     start(music, file).catch((ex: unknown) => {
       if (!(ex instanceof DOMException && ex.name === 'NotAllowedError')) return;
       const src = music.src;
@@ -87,6 +96,21 @@ export function soundPlayer(manifest: AudioManifest, deps: SoundPlayerDeps): Sou
     setVolumes(v) {
       music.volume = amplitude(v.music);
       effects.volume = amplitude(v.effects);
+    },
+    setHidden(h) {
+      if (h === hidden) return;
+      hidden = h;
+      if (h) {
+        music.pause();
+        effects.pause();
+      } else if (musicOn && music.src) {
+        music.play().catch((ex: unknown) => {
+          if (!(ex instanceof DOMException && ex.name === 'NotAllowedError')) return;
+          afterGesture(() => {
+            if (musicOn && !hidden) void music.play().catch(() => {});
+          });
+        });
+      }
     },
     startPlaylist() {
       playlistOn = true;

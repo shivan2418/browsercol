@@ -546,6 +546,10 @@ const sound = fetch('audio/audio.json')
   .then((manifest) => {
     const player = soundPlayer(manifest, { base: 'audio/' });
     player.setVolumes(volumes(prefs));
+    // A hidden tab or a minimised app is quiet, and goes on from where it was on return (#272).
+    const follow = () => player.setHidden(document.visibilityState === 'hidden');
+    document.addEventListener('visibilitychange', follow);
+    follow();
     return player;
   })
   .catch((ex: unknown) => {

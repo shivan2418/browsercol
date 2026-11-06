@@ -115,6 +115,32 @@ describe('soundPlayer', () => {
     expect(playing()).toEqual(['audio/default/resources/sound/intro/generic.ogg']);
   });
 
+  it('pauses the sound while the page is hidden and goes on from there when it shows again', () => {
+    const { player, playing } = setup();
+    player.play('sound.intro.general');
+    player.play('sound.event.loadCargo');
+    player.setHidden(true);
+    expect(playing()).toEqual([]);
+    player.setHidden(false);
+    expect(playing()).toEqual(['audio/base/resources/sound/intro.ogg']); // the effect is stale by now
+  });
+
+  it('holds music asked for while the page is hidden until it shows', () => {
+    const { player, playing } = setup();
+    player.setHidden(true);
+    player.play('sound.intro.general');
+    expect(playing()).toEqual([]);
+    player.setHidden(false);
+    expect(playing()).toEqual(['audio/base/resources/sound/intro.ogg']);
+  });
+
+  it('plays nothing on return if no music was playing', () => {
+    const { player, playing } = setup();
+    player.setHidden(true);
+    player.setHidden(false);
+    expect(playing()).toEqual([]);
+  });
+
   it('plays the default playlist, shuffled, once the game has started and the music is done', () => {
     const { player, made, playing } = setup();
     const [music] = made;
