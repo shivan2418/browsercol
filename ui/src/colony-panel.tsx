@@ -473,6 +473,22 @@ function scatter(i: number, n: number): CSSProperties {
   return { left: `${left * 100}%`, top: `${top * 100}%` };
 }
 
+/**
+ * FreeColProgressBar's bar: what is there filled dark, and what comes next turn after it in a lighter shade, cut
+ * off at the end of the bar. A loss (a negative step) draws no second part, as in Swing.
+ */
+function Progress({ have, step, max }: { have: number; step: number; max: number }) {
+  const width = (n: number) => (max > 0 ? Math.min(100, Math.max(0, (100 * n) / max)) : have >= max ? 100 : 0);
+  const now = width(have);
+  const next = Math.min(100 - now, width(step));
+  return (
+    <span className="bar">
+      <i style={{ width: `${now}%` }} />
+      {next > 0 && <i className="next" style={{ width: `${next}%` }} />}
+    </span>
+  );
+}
+
 /** The colonists working in the colony's buildings and on its tiles. */
 const workingIn = (c: ColonyView) => [...c.buildings.flatMap((b) => b.workers), ...c.tiles.flatMap((t) => t.workers)];
 
@@ -1047,9 +1063,7 @@ export function ColonyPanel({ colony: c, art, footer }: { colony: ColonyView; ar
                       {c.construction.required.map((r) => (
                         <span key={r.type} className="need" data-goods={r.type} title={r.name}>
                           <Img keys={r.keys} art={art} className="icon" />
-                          <span className="bar">
-                            <i style={{ width: `${Math.min(100, (100 * r.available) / Math.max(1, r.needed))}%` }} />
-                          </span>
+                          <Progress have={r.available} step={r.produced} max={r.needed} />
                           {/* FreeColProgressBar's text: what is there, what comes next turn, and what is needed. */}
                           <span>{`${r.available}${r.produced < 0 ? '-' : '+'}${Math.abs(r.produced)}/${r.needed}`}</span>
                         </span>
