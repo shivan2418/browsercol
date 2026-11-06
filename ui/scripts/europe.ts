@@ -97,6 +97,12 @@ for (const name of browsers) {
         throw new Error(`buying the ${shipName} did not put a ship in port`);
       });
 
+    // As in Swing, the Purchase window stays open while a unit is still affordable (with this
+    // purse one is), so the script closes it with its close button.
+    const shop = panel.locator('[data-shop]');
+    if ((await shop.count()) > 0) await shop.locator('button.close').click();
+    await shop.waitFor({ state: 'detached', timeout: 10_000 });
+
     // Buy a goods of the market onto that ship: the amount dialog asks how
     // much, and the answerer keeps the amount it suggests.
     const before = await goldAfter(page, beforeShip);
