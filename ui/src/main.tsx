@@ -774,8 +774,9 @@ const menuActions = (): MenuActions => ({
   newGame: () =>
     void confirmStopGame().then((go) => {
       if (!go) return;
-      // A new page shows the start screen again.
+      // A new page shows the start screen again; ?new stops the dev server resuming the autosave.
       const next = new URLSearchParams();
+      next.set('new', '');
       if (tileset) next.set('tileset', tileset);
       leavePage(next.toString());
     }),
