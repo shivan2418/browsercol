@@ -2,7 +2,8 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vite-plus/test';
 import { BUILD } from './build';
-import type { StartChoice, StartOptions } from './start';
+import { startOptions, type StartChoice, type StartOptions } from './start';
+import fs from 'node:fs';
 import { StartScreen } from './start-screen';
 import { chooseOption } from './select-test';
 
@@ -412,4 +413,43 @@ test('the sound toggles show music and sound effects on or off, and change them'
 test('the start screen opens with Start focused, so the focus ring marks the default', () => {
   screenWith();
   expect(document.activeElement).toBe(document.querySelector('[data-start]'));
+});
+
+/** The real Classic and FreeCol specifications, as the data bundle has them. */
+const realData = [
+  'rules/classic/specification.xml',
+  'rules/classic/FreeColMessages.properties',
+  'rules/freecol/specification.xml',
+  'rules/freecol/FreeColMessages.properties',
+  'strings/FreeColMessages.properties',
+].flatMap((p) => [`data/${p}`, fs.readFileSync(`../freecol/data/${p}`, 'utf8')]);
+const EXTRAS = ['portuguese', 'swedish', 'danish', 'russian'].map((n) => `model.nation.${n}`);
+const ticked = (id: string) => document.querySelector<HTMLInputElement>(`[data-rival="${id}"] input`)!.checked;
+
+test('under Classic only the four classic European nations take part at first, and an extra can be ticked', () => {
+  const started: StartChoice[] = [];
+  render(<StartScreen options={startOptions(realData, 'classic')} start={(c) => started.push(c)} />);
+  expect(EXTRAS.map(ticked)).toEqual([false, false, false, false]);
+  expect(['french', 'english', 'spanish'].map((n) => ticked(`model.nation.${n}`))).toEqual([true, true, true]);
+  fireEvent.click(document.querySelector('[data-rival="model.nation.swedish"] input')!);
+  fireEvent.click(document.querySelector('[data-start]')!);
+  expect(started[0].nation).toBe('model.nation.dutch');
+  expect(started[0].unavailable).toEqual(EXTRAS.filter((id) => id !== 'model.nation.swedish'));
+});
+
+test('under Classic an extra picked as the player’s own nation takes part', () => {
+  const started: StartChoice[] = [];
+  render(<StartScreen options={startOptions(realData, 'classic')} start={(c) => started.push(c)} />);
+  fireEvent.click(document.querySelector('[data-nation="model.nation.russian"]')!);
+  fireEvent.click(document.querySelector('[data-start]')!);
+  expect(started[0].nation).toBe('model.nation.russian');
+  expect(started[0].unavailable).toEqual(EXTRAS.filter((id) => id !== 'model.nation.russian'));
+});
+
+test('under FreeCol all eight European nations take part at first', () => {
+  const started: StartChoice[] = [];
+  render(<StartScreen options={startOptions(realData, 'freecol')} start={(c) => started.push(c)} rules="freecol" />);
+  expect(EXTRAS.map(ticked)).toEqual([true, true, true, true]);
+  fireEvent.click(document.querySelector('[data-start]')!);
+  expect(started[0].unavailable).toEqual([]);
 });

@@ -58,6 +58,8 @@ export interface StartOptions {
   levels: LevelChoice[];
   /** The level FreeCol starts a new game at. */
   defaultLevel: string;
+  /** The selectable nations that start a new game unticked under Other nations, as FreeCol's NationOptions leaves them out; none if absent. */
+  defaultUnavailable?: string[];
   /** The option groups the player may change before the game starts (#56); null if the ruleset has none. */
   groups: {
     /** A difficulty level's options. */
@@ -107,6 +109,9 @@ function plain(message: string): string {
 function css(color: string | null): string {
   return `#${(color ?? '0x888888').replace(/^0x/i, '').padStart(6, '0')}`;
 }
+
+/** How many European nations FreeCol's NationOptions makes available at first (FreeCol.EUROPEANS_DEFAULT). */
+const CLASSIC_EUROPEANS = 4;
 
 /**
  * The selectable European nations and the difficulty levels of a ruleset.
@@ -173,7 +178,12 @@ export function startOptions(data: string[], rules: string, defaultLevel = 'mode
     game: () => specificationGroup(data, rules, 'optionGroup[id="gameOptions"]'),
     mapGenerator: () => specificationGroup(data, rules, 'optionGroup[id="mapGeneratorOptions"]'),
   };
-  return { nations, rivals, nationTypes, rulesets, levels, defaultLevel, groups };
+  // FreeCol's NationOptions makes the first four selectable European nations of the specification
+  // available and the rest not (FreeCol.EUROPEANS_DEFAULT), whatever the ruleset; the spec has no flag
+  // for it. The Classic rules start as the classic game, with England, France, Spain and the
+  // Netherlands, and the FreeCol rules keep all of theirs.
+  const defaultUnavailable = rules === 'classic' ? nations.slice(CLASSIC_EUROPEANS).map((n) => n.id) : [];
+  return { nations, rivals, nationTypes, rulesets, levels, defaultLevel, defaultUnavailable, groups };
 }
 
 /** The GamePreset JSON for the Engine: the level, and the options changed from the level's own values. */

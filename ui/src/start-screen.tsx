@@ -208,7 +208,7 @@ export function StartScreen({
   const [advantages, setAdvantages] = useState<Advantages>('SELECTABLE');
   const [nationType, setNationType] = useState<string>('');
   const [colors, setColors] = useState<Record<string, string>>({});
-  const [removed, setRemoved] = useState<string[]>([]);
+  const [removed, setRemoved] = useState<string[]>(options.defaultUnavailable ?? []);
   const [nation, setNation] = useState<string | null>(options.nations[0]?.id ?? null);
   const levels = options.levels;
   const [difficulty, setDifficulty] = useState(
