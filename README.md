@@ -7,12 +7,72 @@ TeaVM to two Wasm GC modules. `server.wasm` (server and AI) runs in a Web
 Worker and `client.wasm` runs on the page. The Browser UI (TypeScript 7,
 Vite+, PixiJS) carries FreeCol's messages between them and draws the map.
 
-- `engine/`: Gradle build of the Engine: FreeCol's source from the upstream
-  clone at `freecol/`, our patched copies in `engine/patches/`, shims and the
-  `browsercol.web` entry points.
-- `ui/`: the Browser UI: page script, Worker script, `postMessage` channel,
-  map in Tileset mode.
+## Layout
+
+- `engine/`: the Gradle build of the Engine. It compiles FreeCol's source
+  from `freecol/` with TeaVM into `server.wasm` and `client.wasm`.
+  - `engine/patches/`: our patched copies of FreeCol's files. They replace
+    the upstream ones at build time. `engine/patches/README.md` lists each
+    patch and why.
+  - `engine/src/main/java/browsercol/web/`: the browser entry points. These
+    are `WorkerMain` (the server, in the Worker) and `ClientMain` (the page),
+    `Commands` (the orders the Browser UI
+    sends), `WebGUI` (FreeCol's GUI interface, answered by events to the
+    page) and `DebugActions`.
+  - `engine/src/main/java/browsercol/shim/`: stand-ins for the JDK classes
+    TeaVM lacks (`java.awt`, `java.beans`, `java.net` and others), plus
+    TeaVM's reflection and substitution policies.
+  - `engine/src/test/`: JVM tests (JUnit) that run the Engine on the JVM.
+  - `engine/*.mjs`: Node runners for the built modules. `run-node.mjs`
+    and `run-split-node.mjs` play AI rounds without a browser, and
+    `sizes.mjs` prints module sizes.
+- `ui/`: the Browser UI (TypeScript, React, PixiJS, Vite+).
+  - `ui/src/`: the page and the Worker. This covers the map renderer, the
+    panels and dialogs, the `postMessage` channel to the Engine, saves and
+    their tests (`*.test.ts(x)`) and Storybook stories (`*.stories.tsx`).
+    `ui/src/fonts/` holds the bundled fonts.
+  - `ui/scripts/`: build steps (`build-data.ts`, `build-art.ts`,
+    `build-audio.ts`, …) and the browser scripts. Those play the built
+    `dist/` in Chromium and Firefox through Playwright: `smoke`, `play`,
+    `saves`, `tileset`, `debug`, `rounds` and others.
+  - `ui/presets/`: debug quick-start presets for `?preset=` (below).
+  - `ui/tilesets/`: Tilesets shipped with the game (`freecol-plus`) and the
+    test Tileset that `tileset.ts` draws with.
+  - `ui/.storybook/`: Storybook's config (`just storybook`).
+  - `ui/generated/` (gitignored): the built Engine modules and data that
+    the page imports. `build.sh` writes it.
+- `tools/`: developer tools:
+  - `fc-swing/` runs upstream FreeCol's Swing game for comparison (below).
+  - `swing-inventory.mjs` builds the Swing parity inventory in
+    `docs/parity/`.
+  - `watch-engine.sh` rebuilds the Engine for `just dev`.
+  - `copy-modules.sh` copies Gradle's output into `ui/generated/`.
+  - `desktop-check.sh` checks a save with desktop FreeCol.
+- `docs/`: project documentation.
+  - `docs/adr/`: architecture decision records.
+  - `docs/research/`: research notes, such as the Java-to-Wasm compiler
+    survey and Swing in the browser.
+  - `docs/parity/`: the Swing parity inventory.
+  - `docs/agents/`: how coding agents use the issue tracker and labels.
+  - `docs/upstream-fixes.md`: bugs in FreeCol itself that `engine/patches/`
+    fixes.
+- `docker/`: the dev image (`dev.Dockerfile`: JDK, Gradle, Node, pnpm) and
+  the web image (`web.Dockerfile`: Playwright with Chromium and Firefox) that
+  `./dev.sh` runs everything in.
+- `.githooks/`: the commit gate. `pre-commit` compiles the Engine and
+  `commit-msg` requires an author trailer (see `CLAUDE.md`).
+- `.github/workflows/`: `suite.yml` runs the whole suite and `pages.yml`
+  deploys to GitHub Pages on a `deploy-*` or `v*` tag.
 - `spike/`: the toolchain spike that got here, kept as a record.
+- `GLOSSARY.md`: the project's terms (Engine, Browser UI, Tileset, …).
+- Top-level scripts: `dev.sh` (run in Docker), `build.sh` (build `dist/`),
+  `ci.sh` (the suite on GitHub Actions), `freecol.sh` (pin and update
+  `freecol/`) and the `justfile`.
+- Gitignored:
+  - `freecol/`: the upstream FreeCol clone, at the commit in `freecol.sha`.
+  - `dist/`: the built static site.
+  - `.cache/`: Gradle and pnpm caches, and the browser scripts'
+    screenshots.
 
 ## Commands
 
