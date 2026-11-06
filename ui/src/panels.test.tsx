@@ -302,6 +302,7 @@ describe('the choice dialog', () => {
     const q = { text: 'Meet the natives', cancel: 'Leave', tile: null, object: null, choices };
     const byDefault = ask(box, 'choice', q);
     expect(enterMarked()).toEqual([choices[1].text]);
+    expect(document.activeElement?.textContent, 'the default has the focus from the start').toBe(choices[1].text);
     key('Enter');
     expect(await byDefault).toBe(1);
 

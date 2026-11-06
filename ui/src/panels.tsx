@@ -72,8 +72,8 @@ function Pic({ keys, art, className = 'pic' }: { keys: readonly string[]; art: A
 }
 
 /**
- * What marks the button Enter presses, `data-enter`, which the page lights up while no button of the dialog has
- * the focus (index.html). Pass it where the button's action is the one given to useEnter.
+ * Marks the button Enter presses, `data-enter`; useEnter gives it the focus when the dialog opens, and the
+ * browser's focus ring shows it. Pass it where the button's action is the one given to useEnter.
  */
 const enterMark = (on: boolean) => (on ? { 'data-enter': '' } : {});
 
@@ -86,6 +86,9 @@ function useEnter(enter: (() => void) | null) {
   const act = useRef(enter);
   act.current = enter;
   useEffect(() => {
+    // The default button has the focus from the start, so the focus ring marks it and Enter presses it.
+    const dialogs = document.querySelectorAll('[role=dialog]');
+    dialogs[dialogs.length - 1]?.querySelector<HTMLElement>('button[data-enter]:not(:disabled)')?.focus();
     const onKey = (e: KeyboardEvent) => {
       const target = e.target instanceof Element ? e.target : null;
       if (e.key !== 'Enter' || target?.closest('[role=dialog] button, .queue-body')) return;
@@ -212,14 +215,7 @@ function Choice({ d }: { d: Of<'choice'> }) {
       <Text text={ask.text} />
       <div className="choices">
         {ask.choices.map((c, i) => (
-          <button
-            key={i}
-            data-choice={i}
-            disabled={!c.enabled}
-            className={c.default ? 'default' : ''}
-            {...enterMark(i === enterItem)}
-            onClick={pick(i)}
-          >
+          <button key={i} data-choice={i} disabled={!c.enabled} {...enterMark(i === enterItem)} onClick={pick(i)}>
             {c.text}
           </button>
         ))}
