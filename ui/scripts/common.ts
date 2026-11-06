@@ -3,6 +3,8 @@
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
+import type * as Playwright from 'playwright-core';
+import type { Browser, Locator, Page } from 'playwright-core';
 
 const require = createRequire(import.meta.url);
 // Playwright logs the browser process's stderr, exit code and signal under
@@ -11,33 +13,39 @@ const require = createRequire(import.meta.url);
 process.env.DEBUG = [process.env.DEBUG, 'pw:browser'].filter(Boolean).join(',');
 
 /** Playwright, a global install found via NODE_PATH. */
-export const playwright = require('playwright');
+export const playwright: typeof Playwright = require('playwright');
+
+/** A browser Playwright can launch. */
+export type BrowserName = 'chromium' | 'firefox' | 'webkit';
 
 /** The value of --name on the command line, or dflt. */
-export const opt = (name, dflt) => {
+export function opt(name: string): string | undefined;
+export function opt(name: string, dflt: string): string;
+export function opt(name: string, dflt?: string): string | undefined {
   const i = process.argv.indexOf('--' + name);
   return i < 0 ? dflt : process.argv[i + 1];
-};
+}
 
 /** The browsers to run, from --browsers. */
-export const browserNames = (dflt = 'chromium,firefox') => opt('browsers', dflt).split(',');
+export const browserNames = (dflt = 'chromium,firefox'): BrowserName[] =>
+  opt('browsers', dflt).split(',') as BrowserName[];
 
 /** What happened to the browsers and pages this run: crashes, closes and disconnects, with the time. */
-const gone = [];
+const gone: string[] = [];
 /** The tail of each browser process's own log (its stderr, its exit code and signal). */
-const browserLog = [];
+const browserLog: string[] = [];
 const started = Date.now();
-const note = (what) => gone.push(`${((Date.now() - started) / 1000).toFixed(1)} s: ${what}`);
+const note = (what: string) => gone.push(`${((Date.now() - started) / 1000).toFixed(1)} s: ${what}`);
 /** Browsers the script is closing itself: their pages and connection going away is no news. */
-const closing = new WeakSet();
+const closing = new WeakSet<Browser>();
 
 /** Browser log lines worth showing: the process's own stderr and exit, and anything that says it crashed. */
-const telling = (line) => /\[err\]|did exit|crash|abort|assert|fatal|memory|signal/i.test(line);
+const telling = (line: string) => /\[err\]|did exit|crash|abort|assert|fatal|memory|signal/i.test(line);
 
 // The debug lines go to the log, not to stderr, unless the caller asked to see them.
 const showDebug = !!process.env.FC_SHOW_PW_DEBUG;
 const writeStderr = process.stderr.write.bind(process.stderr);
-process.stderr.write = (chunk, ...rest) => {
+process.stderr.write = (chunk: string | Uint8Array, ...rest: unknown[]) => {
   const other = [];
   for (const line of String(chunk).split('\n')) {
     if (!line.includes('pw:browser')) {
@@ -50,7 +58,7 @@ process.stderr.write = (chunk, ...rest) => {
     if (showDebug) other.push(line);
   }
   const rest_ = other.join('\n');
-  return rest_.trim() === '' ? true : writeStderr(rest_ + (String(chunk).endsWith('\n') ? '\n' : ''), ...rest);
+  return rest_.trim() === '' ? true : writeStderr(rest_ + (String(chunk).endsWith('\n') ? '\n' : ''), ...(rest as []));
 };
 
 /**
@@ -59,7 +67,7 @@ process.stderr.write = (chunk, ...rest) => {
  * (#31), software GL in a container being the suspect. Chromium keeps covering
  * PixiJS. FC_FIREFOX_WEBGL=1 gives Firefox WebGL back.
  */
-const canvas2d = (url) =>
+const canvas2d = (url: string) =>
   /[?&]renderer=/.test(url) ? url : url + (url.includes('?') ? '&' : '?') + 'renderer=canvas2d';
 
 /**
@@ -68,21 +76,21 @@ const canvas2d = (url) =>
  * diagnose(). Without this a closed browser shows only "Target page, context
  * or browser has been closed".
  */
-export async function launchBrowser(name) {
+export async function launchBrowser(name: BrowserName): Promise<Browser> {
   gone.length = 0;
   lastStep = '(nothing logged yet for ' + name + ')';
   browserLog.length = 0;
   const browser = await playwright[name].launch();
   browser.on('disconnected', () => closing.has(browser) || note(`${name} browser disconnected`));
   const close = browser.close.bind(browser);
-  browser.close = (...args) => (closing.add(browser), close(...args));
+  browser.close = (...args: Parameters<Browser['close']>) => (closing.add(browser), close(...args));
   const newPage = browser.newPage.bind(browser);
-  browser.newPage = async (...args) => {
+  browser.newPage = async (...args: Parameters<Browser['newPage']>) => {
     const page = await newPage(...args);
     watchWaits(page);
     if (name === 'firefox' && !process.env.FC_FIREFOX_WEBGL) {
       const goto = page.goto.bind(page);
-      page.goto = (url, ...rest) => goto(canvas2d(url), ...rest);
+      page.goto = (url: string, ...rest: [Parameters<Page['goto']>[1]?]) => goto(canvas2d(url), ...rest);
     }
     return page;
   };
@@ -96,8 +104,8 @@ const BANNER = 'Error banner: ';
  * Collects the page's uncaught errors, and the Engine's and the Worker's errors its banner showed the player,
  * as strings, into the returned array.
  */
-export function collectPageErrors(page) {
-  const errors = [];
+export function collectPageErrors(page: Page): string[] {
+  const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('console', (m) => {
     const text = m.type() === 'error' ? m.text() : '';
@@ -107,7 +115,7 @@ export function collectPageErrors(page) {
     }
   });
   page.on('crash', () => note('page crashed'));
-  page.on('close', () => closing.has(page.context().browser()) || note('page closed'));
+  page.on('close', () => closing.has(page.context().browser()!) || note('page closed'));
   return errors;
 }
 
@@ -116,7 +124,7 @@ export function collectPageErrors(page) {
  * why: the page and browser events, and the browser process's last telling
  * log lines (its exit code and signal arrive a moment after the close).
  */
-export async function diagnose(ex) {
+export async function diagnose(ex: unknown): Promise<string> {
   const text = String(ex);
   if (!/closed|crash|disconnected/i.test(text)) return text;
   await new Promise((done) => setTimeout(done, 1000));
@@ -124,10 +132,25 @@ export async function diagnose(ex) {
   return [text, ...gone.map((g) => `  ${g}`), ...lines.map((l) => `  | ${l}`)].join('\n');
 }
 
+/** window.fcResult, as src/main.tsx's show() sets it: the page's status once it is no longer running. */
+export interface FcResult {
+  status: string;
+  error?: string;
+  renderer?: string;
+  /** The AI rounds played, each as "round,milliseconds"; absent from a result the script made up for a failure. */
+  rounds?: string[];
+  turn?: string;
+  /** The player's nation, and what the start screen sent, as JSON. */
+  nation?: string | null;
+  choice?: string | null;
+  mapSize?: number[];
+  [key: string]: unknown;
+}
+
 /** Waits for the page's window.fcResult and returns it. */
-export async function waitForResult(page, timeout) {
+export async function waitForResult(page: Page, timeout?: number): Promise<FcResult> {
   await page.waitForFunction(() => window.fcResult, null, { timeout });
-  return page.evaluate(() => window.fcResult);
+  return page.evaluate(() => window.fcResult as FcResult);
 }
 
 // --- Timeouts that say what they were waiting for ---
@@ -141,22 +164,22 @@ console.log = (...args) => {
   return log(...args);
 };
 /** Names the step the script is in, for waits that follow a step it does not log. */
-export const setStep = (text) => {
+export const setStep = (text: string) => {
   lastStep = text;
 };
 
-const squash = (text, max) => {
+const squash = (text: unknown, max: number) => {
   const t = String(text).replace(/\s+/g, ' ').trim();
   return t.length > max ? t.slice(0, max) + '...' : t;
 };
 /** Gives a promise a few seconds: a hung page must not hang the diagnosis. */
-const within = (promise, ms = 5000) =>
-  Promise.race([promise.catch(() => undefined), new Promise((done) => setTimeout(done, ms, undefined))]);
+const within = <T>(promise: Promise<T>, ms = 5000): Promise<T | undefined> =>
+  Promise.race([promise.catch(() => undefined), new Promise<undefined>((done) => setTimeout(done, ms, undefined))]);
 
 /** Where a timeout's screenshots go: .cache/*.png is what the CI workflow uploads. */
 const shotDir = path.resolve(import.meta.dirname, '../../.cache');
-const script = path.basename(process.argv[1] ?? 'script', '.mjs');
-const consoleTails = new WeakMap();
+const script = path.basename(process.argv[1] ?? 'script', '.ts');
+const consoleTails = new WeakMap<Page, string[]>();
 let shots = 0;
 
 /**
@@ -164,7 +187,7 @@ let shots = 0;
  * with the page's last console lines and visible dialogs, and a screenshot in
  * .cache/ named in the message. Only the first eight timeouts of a run are shot.
  */
-async function describeTimeout(page, kind, what, label, ex) {
+async function describeTimeout(page: Page, kind: string, what: string, label: string | undefined, ex: Error) {
   const browserName = page.context().browser()?.browserType().name() ?? 'browser';
   const lines = [
     `${ex.message.split('\n')[0]}`,
@@ -208,30 +231,30 @@ async function describeTimeout(page, kind, what, label, ex) {
 }
 
 /** Runs a wait; a timeout is rethrown with what it waited for (see describeTimeout). */
-async function watched(page, kind, what, label, run) {
+async function watched<T>(page: Page, kind: string, what: string, label: string | undefined, run: () => Promise<T>) {
   try {
     return await run();
   } catch (ex) {
-    if (ex?.name !== 'TimeoutError') throw ex;
-    throw await describeTimeout(page, kind, what, label, ex);
+    if ((ex as Error | undefined)?.name !== 'TimeoutError') throw ex;
+    throw await describeTimeout(page, kind, what, label, ex as Error);
   }
 }
 
 /** Takes a label out of an options bag: { label } names what the wait is for, Playwright never sees it. */
-const unlabel = (options) => {
+const unlabel = (options: unknown): [any, string | undefined] => {
   if (!options || typeof options !== 'object' || !('label' in options)) return [options, undefined];
-  const { label, ...rest } = options;
+  const { label, ...rest } = options as { label?: string };
   return [rest, label];
 };
 
-const patched = new WeakSet();
+const patched = new WeakSet<object>();
 /**
  * Makes every waitForFunction, waitForSelector, waitForEvent, locator waitFor and locator action (click, fill, ...) of the page
  * (and of its locators) fail with the step and condition on a timeout (#233).
  * Each takes an optional `label` in its options bag naming the condition.
  */
-function watchWaits(page) {
-  const tail = [];
+function watchWaits(page: Page) {
+  const tail: string[] = [];
   consoleTails.set(page, tail);
   page.on('console', (m) => {
     tail.push(`${m.type()}: ${squash(m.text(), 300)}`);
@@ -244,7 +267,7 @@ function watchWaits(page) {
   patched.add(pageProto);
 
   const waitForFunction = pageProto.waitForFunction;
-  pageProto.waitForFunction = function (fn, arg, options) {
+  pageProto.waitForFunction = function (this: Page, fn: unknown, arg: unknown, options: unknown) {
     const [rest, label] = unlabel(options);
     const arg_ = arg === undefined || arg === null ? '' : ` with ${squash(JSON.stringify(arg), 200)}`;
     return watched(this, 'page.waitForFunction', `${squash(fn, 400)}${arg_}`, label, () =>
@@ -252,7 +275,7 @@ function watchWaits(page) {
     );
   };
   const waitForSelector = pageProto.waitForSelector;
-  pageProto.waitForSelector = function (selector, options) {
+  pageProto.waitForSelector = function (this: Page, selector: string, options: unknown) {
     const [rest, label] = unlabel(options);
     const state = rest?.state ? ` (state ${rest.state})` : '';
     return watched(this, 'page.waitForSelector', `${selector}${state}`, label, () =>
@@ -260,17 +283,17 @@ function watchWaits(page) {
     );
   };
   const waitForEvent = pageProto.waitForEvent;
-  pageProto.waitForEvent = function (event, options) {
+  pageProto.waitForEvent = function (this: Page, event: string, options: unknown) {
     const [rest, label] = unlabel(options);
     return watched(this, 'page.waitForEvent', `the event "${event}"`, label, () =>
       waitForEvent.call(this, event, rest),
     );
   };
   const waitFor = locatorProto.waitFor;
-  locatorProto.waitFor = function (options) {
+  locatorProto.waitFor = function (this: Locator, options: unknown) {
     const [rest, label] = unlabel(options);
     const state = rest?.state ? ` (state ${rest.state})` : '';
-    return watched(this.page(), 'locator.waitFor', `${this}${state}`, label, () => waitFor.call(this, rest));
+    return watched(this.page(), 'locator.waitFor', `${String(this)}${state}`, label, () => waitFor.call(this, rest));
   };
   // An action waits for its element too (Playwright's actionability checks), and its timeout says no more than a wait's does.
   for (const name of [
@@ -285,15 +308,15 @@ function watchWaits(page) {
     'inputValue',
   ]) {
     const original = locatorProto[name];
-    locatorProto[name] = function (...args) {
-      return watched(this.page(), `locator.${name}`, `${this} to be actionable`, undefined, () =>
+    locatorProto[name] = function (this: Locator, ...args: unknown[]) {
+      return watched(this.page(), `locator.${name}`, `${String(this)} to be actionable`, undefined, () =>
         original.apply(this, args),
       );
     };
   }
   for (const name of ['click', 'fill', 'press', 'goto']) {
     const original = pageProto[name];
-    pageProto[name] = function (...args) {
+    pageProto[name] = function (this: Page, ...args: unknown[]) {
       return watched(this, `page.${name}`, `${name} ${squash(args[0], 200)}`, undefined, () =>
         original.apply(this, args),
       );

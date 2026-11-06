@@ -124,11 +124,11 @@ import type { GuiEvents, GuiHandlers, ReportView } from './webgui';
 declare global {
   interface Window {
     fcResult?: Record<string, unknown>;
-    /** For scripts/rounds.mjs: the AI rounds so far, each as "round,milliseconds". */
+    /** For scripts/rounds.ts: the AI rounds so far, each as "round,milliseconds". */
     fcRounds?: string[];
-    /** For scripts/play.mjs: pan a tile into view if needed; its centre on the map canvas. */
+    /** For scripts/play.ts: pan a tile into view if needed; its centre on the map canvas. */
     fcReveal?: (x: number, y: number) => [number, number];
-    /** For scripts/play.mjs: the view state, without its map, the cursor, and its tile's centre in the viewport. */
+    /** For scripts/play.ts: the view state, without its map, the cursor, and its tile's centre in the viewport. */
     fcView?: () => Omit<ViewState, 'map'> & {
       cursor: ReturnType<typeof cursor>;
       cursorOnScreen: [number, number] | null;
@@ -215,7 +215,7 @@ function renderErrors() {
 }
 /** Show an error on the banner, so a game that breaks does not break silently. */
 function reportError(title: string, detail: string) {
-  // scripts/common.mjs collects the errors by this prefix.
+  // scripts/common.ts collects the errors by this prefix.
   console.error(`Error banner: ${title}\n${detail}`);
   errors = addError(errors, title, detail);
   window.fcErrors = addError(window.fcErrors ?? [], title, detail);
@@ -460,7 +460,7 @@ function openSave(id: number) {
 }
 /** Whether the credits window (credits.tsx) is open. */
 let creditsOpen = false;
-/** FreeCol's music and sound effects, served under audio/ (build-audio.mjs); null if the manifest is missing. */
+/** FreeCol's music and sound effects, served under audio/ (build-audio.ts); null if the manifest is missing. */
 const sound = fetch('audio/audio.json')
   .then((res) => (res.ok ? (res.json() as Promise<AudioManifest>) : Promise.reject(new Error(`${res.status}`))))
   .then((manifest) => {

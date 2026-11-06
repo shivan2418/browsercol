@@ -19,8 +19,8 @@ Rules:
 - The image has Chromium and Firefox, so run the browser scripts as
   README.md shows them, without `DEV_VARIANT=web` (inside the sandbox
   ./dev.sh runs commands directly): build dist/ first with
-  `./dev.sh ./build.sh`, then `./dev.sh node ui/scripts/smoke.mjs`,
-  `play.mjs` or `tileset.mjs`. Each takes minutes; pipe through
+  `./dev.sh ./build.sh`, then `./dev.sh node ui/scripts/smoke.ts`,
+  `play.ts` or `tileset.ts`. Each takes minutes; pipe through
   `tail -30`. Run the ones your change could affect, once, before your
   final commit, and say in your report which you ran and their result.
 - Commit subjects as CLAUDE.md says: a plain sentence-case sentence, an

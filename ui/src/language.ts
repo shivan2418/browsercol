@@ -9,7 +9,7 @@
 export const LANGUAGE_OPTION = 'model.option.languageOption';
 /** The language option's value that follows the browser's languages. */
 export const AUTOMATIC = 'automatic';
-/** The data bundle's list of FreeCol's translations, by id, written by build-data.mjs. */
+/** The data bundle's list of FreeCol's translations, by id, written by build-data.ts. */
 export const LANGUAGES = 'strings/languages.json';
 
 /** The English strings file, which every language starts from. */

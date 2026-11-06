@@ -28,11 +28,11 @@ and `just preview` serves the built `dist/` there.
 ./dev.sh -C ui pnpm install --frozen-lockfile                # once, before the UI commands below
 ./dev.sh -C ui pnpm exec vp test           # UI tests
 ./dev.sh -C ui pnpm exec vp check          # format, lint and type check; a lint warning fails it
-DEV_VARIANT=web ./dev.sh node ui/scripts/smoke.mjs   # play dist/ in Chromium and Firefox
-DEV_VARIANT=web ./dev.sh node ui/scripts/play.mjs    # land, found a colony, end the turn in both
-DEV_VARIANT=web ./dev.sh node ui/scripts/saves.mjs   # save, reload, export, delete, import, load the save and play on in both
-DEV_VARIANT=web ./dev.sh node ui/scripts/tileset.mjs # draw the map and a colony panel with the test Tileset (ui/tilesets/test) in both
-DEV_VARIANT=web ./dev.sh node ui/scripts/rounds.mjs --rounds 300  # time AI rounds and memory as the game grows, per browser
+DEV_VARIANT=web ./dev.sh node ui/scripts/smoke.ts   # play dist/ in Chromium and Firefox
+DEV_VARIANT=web ./dev.sh node ui/scripts/play.ts    # land, found a colony, end the turn in both
+DEV_VARIANT=web ./dev.sh node ui/scripts/saves.ts   # save, reload, export, delete, import, load the save and play on in both
+DEV_VARIANT=web ./dev.sh node ui/scripts/tileset.ts # draw the map and a colony panel with the test Tileset (ui/tilesets/test) in both
+DEV_VARIANT=web ./dev.sh node ui/scripts/rounds.ts --rounds 300  # time AI rounds and memory as the game grows, per browser
 ```
 
 To compare with the original, `tools/fc-swing/` runs upstream FreeCol's Swing
@@ -63,7 +63,7 @@ committing on a branch and running `./ci.sh`.
 bundles FreeCol's rules and English strings into a data file, copies
 FreeCol's translations to `strings/` (the page fetches the one the player's
 language option picks), copies the map art
-of the default Tileset (`ui/scripts/build-art.mjs`, which also prints the art
+of the default Tileset (`ui/scripts/build-art.ts`, which also prints the art
 budget) and runs `vp build` into `dist/`. Serve `dist/` from any static host. URLs are relative, so a
 sub-path such as GitHub Pages' `/<repo>/` works.
 
@@ -127,7 +127,7 @@ to the list: the turn, year and nation come from the file's `savegame.xml`
 (`ui/src/fsg.ts`, read in the page; a file that is not a FreeCol save is
 refused with a message). `tools/desktop-check.sh <FreeCol dir> <file.fsg>`
 runs desktop FreeCol's `--check-savegame` on a save, e.g. one exported here
-(`saves.mjs --keep-export DIR` keeps the script's).
+(`saves.ts --keep-export DIR` keeps the script's).
 `?autoplay=N` first auto-ends N turns
 (debug; the smoke test uses 10). The map canvas is drawn at the screen's
 pixel ratio, so the map is sharp on a HiDPI display. The browser scripts save
@@ -155,8 +155,8 @@ take, fails the start with a message naming it. `england-large` and
 `dutch-small` ship, and `colony-school`. `ref-last-stand` is the end of the
 War of Independence: the Dutch have declared, and the King's last regular
 stands surrounded by their army; end the turn and the REF gives up. The browser scripts take page parameters:
-`DEV_VARIANT=web ./dev.sh node ui/scripts/smoke.mjs --query preset=dutch-small`
-and the same `--query` for `play.mjs`.
+`DEV_VARIANT=web ./dev.sh node ui/scripts/smoke.ts --query preset=dutch-small`
+and the same `--query` for `play.ts`.
 
 `?debug` adds a debug menu to the side panel: reveal or hide the map, add
 gold, add a unit or goods at the selected tile (goods go to the colony
@@ -165,7 +165,7 @@ missions. It combines with `?preset=` and `?autoplay=`. The actions are
 FreeCol's own debug actions (`DebugUtils`), run by the server Engine in the
 Worker as requests (`engine/.../DebugActions.java`), because `DebugUtils`
 reaches into the server's game from the client, which the browser cannot do.
-`DEV_VARIANT=web ./dev.sh node ui/scripts/debug.mjs` checks them in the
+`DEV_VARIANT=web ./dev.sh node ui/scripts/debug.ts` checks them in the
 built site.
 
 ## Licence

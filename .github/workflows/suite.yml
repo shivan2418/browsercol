@@ -39,27 +39,27 @@ jobs:
 
       - name: Browser smoke
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        run: DEV_VARIANT=web ./dev.sh node ui/scripts/smoke.mjs
+        run: DEV_VARIANT=web ./dev.sh node ui/scripts/smoke.ts
 
       - name: Browser play
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        run: DEV_VARIANT=web ./dev.sh node ui/scripts/play.mjs
+        run: DEV_VARIANT=web ./dev.sh node ui/scripts/play.ts
 
       - name: Browser saves
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        run: DEV_VARIANT=web ./dev.sh node ui/scripts/saves.mjs
+        run: DEV_VARIANT=web ./dev.sh node ui/scripts/saves.ts
 
       - name: Browser debug
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        run: DEV_VARIANT=web ./dev.sh node ui/scripts/debug.mjs
+        run: DEV_VARIANT=web ./dev.sh node ui/scripts/debug.ts
 
       - name: Browser Europe
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        run: DEV_VARIANT=web ./dev.sh node ui/scripts/europe.mjs
+        run: DEV_VARIANT=web ./dev.sh node ui/scripts/europe.ts
 
       - name: Browser tileset
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        run: DEV_VARIANT=web ./dev.sh node ui/scripts/tileset.mjs
+        run: DEV_VARIANT=web ./dev.sh node ui/scripts/tileset.ts
 
       - name: Upload screenshots
         if: always()

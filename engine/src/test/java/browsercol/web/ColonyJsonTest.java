@@ -424,7 +424,7 @@ class ColonyJsonTest {
      * A colony with nothing but water around it has no tile to work, and
      * neither has one founded on a tile with a lost city rumour, which
      * claims no land around it. The colony panel shows the founder in the
-     * town hall, and play.mjs puts it to work on a tile itself when FreeCol
+     * town hall, and play.ts puts it to work on a tile itself when FreeCol
      * does not.
      */
     @Test

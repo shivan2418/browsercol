@@ -239,7 +239,7 @@ const REVERSE: Record<Direction, Direction> = {
 };
 
 // The map's resource keys, from map-keys.ts, where the families the map
-// draws live: the prefixes are the ones build-art.mjs copies the art of,
+// draws live: the prefixes are the ones build-art.ts copies the art of,
 // so a key the map draws is never missing from the site.
 const {
   tile: TILE,

@@ -1,5 +1,5 @@
 // The resource keys the map draws, in one list: the Browser UI reads them
-// (tileset.ts) and build-art.mjs copies only the art they name, so a key
+// (tileset.ts) and build-art.ts copies only the art they name, so a key
 // the map draws is never missing from the site.
 //
 // A family is a set of keys that share a prefix, e.g. "image.tile." for a

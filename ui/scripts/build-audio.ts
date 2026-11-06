@@ -4,14 +4,14 @@
 // data/base and the "default" TC, as for the art. Files are fetched only
 // when played, so the budget is the site's size, not a download: it prints
 // the file count and bytes.
-// Usage: node build-audio.mjs <freecol/data> <out dir>
+// Usage: node build-audio.ts <freecol/data> <out dir>
 import fs from 'node:fs';
 import path from 'node:path';
 import { audioManifest } from '../src/resources.ts';
 
 const [dataDir, outDir] = process.argv.slice(2);
 if (!dataDir || !outDir) {
-  console.error('Usage: node build-audio.mjs <freecol/data> <out dir>');
+  console.error('Usage: node build-audio.ts <freecol/data> <out dir>');
   process.exit(1);
 }
 const layers = ['base', 'default'].map((dir) => ({
