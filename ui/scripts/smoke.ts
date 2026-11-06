@@ -57,12 +57,12 @@ async function startFromScreen(page: Page, nation?: string, level?: string, edit
   }
   if (edits) {
     // The option editor: a difficulty option and a game option, changed before the start.
-    await page.click('[data-customize=difficulty] summary');
+    await page.click('[data-customize-tab=difficulty]');
     await page.fill(`[data-customize=difficulty] [data-option="${LAND_PRICE}"] input`, '123');
-    await page.click('[data-customize=game] summary');
+    await page.click('[data-customize-tab=game]');
     await page.click('[data-customize=game] [data-option="model.option.fogOfWar"] input');
     // The map generator options: a smaller map than Classic's 40x100.
-    await page.click('[data-customize=map] summary');
+    await page.click('[data-customize-tab=map]');
     await page.fill(`[data-customize=map] [data-option="${MAP_WIDTH}"] input`, '30');
     await page.fill(`[data-customize=map] [data-option="${MAP_HEIGHT}"] input`, '40');
   }

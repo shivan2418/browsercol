@@ -148,9 +148,9 @@ test('an option put back to the level’s own value is not sent, and another lev
   const started = screenWith();
   const price = () => screen.getByLabelText('Land price factor') as HTMLInputElement;
   fireEvent.change(price(), { target: { value: '250' } });
-  expect(document.querySelector('[data-customize=difficulty] summary')?.textContent).toContain('1 changed');
+  expect(document.querySelector('[data-customize-tab=difficulty]')?.textContent).toContain('1 changed');
   fireEvent.change(price(), { target: { value: '100' } });
-  expect(document.querySelector('[data-customize=difficulty] summary')?.textContent).not.toContain('changed');
+  expect(document.querySelector('[data-customize-tab=difficulty]')?.textContent).not.toContain('changed');
   fireEvent.change(price(), { target: { value: '250' } });
   await chooseOption(screen.getByLabelText('Difficulty'), 'Easy');
   expect(price().value).toBe('40');
@@ -163,7 +163,7 @@ test('the map generator options are changed in the editor and sent as the preset
   const width = () => screen.getByLabelText('Map width') as HTMLInputElement;
   expect(width().value).toBe('40');
   fireEvent.change(width(), { target: { value: '120' } });
-  expect(document.querySelector('[data-customize=map] summary')?.textContent).toContain('1 changed');
+  expect(document.querySelector('[data-customize-tab=map]')?.textContent).toContain('1 changed');
   fireEvent.click(document.querySelector('[data-start]')!);
   expect(started[0].options).toEqual({ 'model.option.mapWidth': 120 });
 });
@@ -175,7 +175,7 @@ test('a map file is picked for the import file option and sent with the choice, 
   const file = new File([new Uint8Array([1, 2, 3])], 'world.fsm');
   fireEvent.change(pick(), { target: { files: [file] } });
   expect(document.querySelector('[data-file-name]')?.textContent).toBe('world.fsm');
-  expect(document.querySelector('[data-customize=map] summary')?.textContent).toContain('1 changed');
+  expect(document.querySelector('[data-customize-tab=map]')?.textContent).toContain('1 changed');
   fireEvent.click(document.querySelector('[data-start]')!);
   expect(started[0].importMap).toBe(file);
   expect(started[0].options).toEqual({});
@@ -190,6 +190,22 @@ test('a picked map file is cleared again', () => {
   expect(document.querySelector('[data-file-name]')).toBeNull();
   fireEvent.click(document.querySelector('[data-start]')!);
   expect(started[0].importMap).toBeUndefined();
+});
+
+test('the more options are tabs: none open at first, a click opens one, a second click closes it', () => {
+  const started = screenWith();
+  const panel = (kind: string) => document.querySelector<HTMLElement>(`[data-customize=${kind}]`)!;
+  const tab = (kind: string) => document.querySelector<HTMLElement>(`[data-customize-tab=${kind}]`)!;
+  expect(['difficulty', 'game', 'map', 'colours'].map((k) => panel(k).hidden)).toEqual([true, true, true, true]);
+  fireEvent.click(tab('game'));
+  expect(panel('game').hidden).toBe(false);
+  expect(tab('game').getAttribute('aria-selected')).toBe('true');
+  fireEvent.click(tab('map'));
+  expect([panel('game').hidden, panel('map').hidden]).toEqual([true, false]);
+  fireEvent.click(tab('map'));
+  expect(panel('map').hidden).toBe(true);
+  // A tab is no submit button: the game starts only from Start.
+  expect(started).toEqual([]);
 });
 
 test('links the source and opens the credits, which name the CC BY authors and the build', () => {
@@ -316,6 +332,7 @@ test('Reset undoes the edits of the level', () => {
 
 test('a level loads from a file, and a file that is no level says so', async () => {
   const started = screenWith();
+  fireEvent.click(document.querySelector('[data-customize-tab=difficulty]')!);
   const input = document.querySelector<HTMLInputElement>('[data-level-file]')!;
   const load = (text: string) => fireEvent.change(input, { target: { files: [new File([text], 'level.json')] } });
   load('nonsense');

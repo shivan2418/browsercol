@@ -6,13 +6,14 @@
 // [data-start] on the Start button. The level's options and the game options
 // open in the option editor (#56) under [data-customize=difficulty] and
 // [data-customize=game]; the map generator's options (#57) under
-// [data-customize=map]; what the player changes goes to the Engine in the
-// preset's options.
+// [data-customize=map], each a tab panel opened by its tab
+// [data-customize-tab=difficulty|game|map|colours]; what the player changes
+// goes to the Engine in the preset's options.
 //
 // The layout (#311) is one wide window that shows what most players change without scrolling: their nation,
 // the advantages and the other nations, and the game's rules and difficulty beside Start. The rarely changed
-// settings (the level's and the game's options, the map's, the nation colours) are disclosures of one kind
-// in a row under them.
+// settings (the level's and the game's options, the map's, the nation colours) are tabs under them.
+import { Tabs } from '@base-ui/react/tabs';
 import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { Select } from './controls';
 import { CreditsDialog, SourceLinks } from './credits';
@@ -41,8 +42,6 @@ const ADVANTAGE_NOTES: Record<Advantages, string> = {
 
 /** The options of a group, editable, as the values the player changed from the group's own. */
 function Customize({
-  kind,
-  summary,
   group,
   edits,
   setEdits,
@@ -50,8 +49,6 @@ function Customize({
   setFile,
   tools,
 }: {
-  kind: string;
-  summary: string;
   group: OptionGroup;
   edits: Record<string, OptionValue>;
   setEdits: (edits: Record<string, OptionValue>) => void;
@@ -62,10 +59,8 @@ function Customize({
   tools?: ReactNode;
 }) {
   const base = useMemo(() => leaves(group), [group]);
-  const count = Object.keys(edits).length + Object.keys(files ?? {}).length;
   return (
-    <details className="customize" data-customize={kind}>
-      <summary>{count > 0 ? `${summary} (${count} changed)` : summary}</summary>
+    <>
       <OptionEditor
         root={group}
         editable
@@ -80,7 +75,7 @@ function Customize({
         }}
       />
       {tools && <div className="tools">{tools}</div>}
-    </details>
+    </>
   );
 }
 
@@ -308,6 +303,81 @@ export function StartScreen({
         </div>
       </div>
     );
+  const [tab, setTab] = useState<string | null>(null);
+  const count = (o: object) => Object.keys(o).length;
+  /** The tabs under the columns: the options of the level, the game and the map, and the nation colours. */
+  const moreTabs: { kind: string; label: string; count: number; body: ReactNode }[] = [
+    ...(levelGroup
+      ? [
+          {
+            kind: 'difficulty',
+            label: 'Level options',
+            count: count(levelEdits),
+            body: (
+              <Customize
+                key={levelGroup.id}
+                group={levelGroup}
+                edits={levelEdits}
+                setEdits={setLevelEdits}
+                tools={<LevelTools group={levelGroup} edits={levelEdits} setEdits={setLevelEdits} />}
+              />
+            ),
+          },
+        ]
+      : []),
+    ...(gameGroup
+      ? [
+          {
+            kind: 'game',
+            label: 'Game options',
+            count: count(gameEdits),
+            body: <Customize group={gameGroup} edits={gameEdits} setEdits={setGameEdits} />,
+          },
+        ]
+      : []),
+    ...(mapGroup
+      ? [
+          {
+            kind: 'map',
+            label: 'Map options',
+            count: count(mapEdits) + count(mapFiles),
+            body: (
+              <Customize
+                group={mapGroup}
+                edits={mapEdits}
+                setEdits={setMapEdits}
+                files={mapFiles}
+                setFile={(id, file) => {
+                  const { [id]: _, ...rest } = mapFiles;
+                  setMapFiles(file ? { ...rest, [id]: file } : rest);
+                }}
+              />
+            ),
+          },
+        ]
+      : []),
+    {
+      kind: 'colours',
+      label: 'Nation colours',
+      count: count(colors),
+      body: (
+        <div className="colour-list">
+          {options.nations.map((n) => (
+            <label key={n.id}>
+              <input
+                type="color"
+                data-colour={n.id}
+                aria-label={`${n.name} colour`}
+                value={colors[n.id] ?? n.color}
+                onChange={(e) => setColors({ ...colors, [n.id]: e.target.value })}
+              />{' '}
+              {n.name}
+            </label>
+          ))}
+        </div>
+      ),
+    },
+  ];
   return (
     <div className="start" data-testid="start">
       <form
@@ -463,54 +533,32 @@ export function StartScreen({
             {sound && <SoundToggles sound={sound} />}
           </div>
         </div>
-        {/* The rarely changed settings, each a disclosure of the same kind; an open one takes the whole width. */}
-        <div className="more-options">
-          {levelGroup && (
-            <Customize
-              key={levelGroup.id}
-              kind="difficulty"
-              summary="Customize this level"
-              group={levelGroup}
-              edits={levelEdits}
-              setEdits={setLevelEdits}
-              tools={<LevelTools group={levelGroup} edits={levelEdits} setEdits={setLevelEdits} />}
-            />
-          )}
-          {gameGroup && (
-            <Customize kind="game" summary="Game options" group={gameGroup} edits={gameEdits} setEdits={setGameEdits} />
-          )}
-          {mapGroup && (
-            <Customize
-              kind="map"
-              summary="Map options"
-              group={mapGroup}
-              edits={mapEdits}
-              setEdits={setMapEdits}
-              files={mapFiles}
-              setFile={(id, file) => {
-                const { [id]: _, ...rest } = mapFiles;
-                setMapFiles(file ? { ...rest, [id]: file } : rest);
-              }}
-            />
-          )}
-          <details className="customize colours">
-            <summary>Nation colours{changed(Object.keys(colors).length)}</summary>
-            <div className="colour-list">
-              {options.nations.map((n) => (
-                <label key={n.id}>
-                  <input
-                    type="color"
-                    data-colour={n.id}
-                    aria-label={`${n.name} colour`}
-                    value={colors[n.id] ?? n.color}
-                    onChange={(e) => setColors({ ...colors, [n.id]: e.target.value })}
-                  />{' '}
-                  {n.name}
-                </label>
-              ))}
-            </div>
-          </details>
-        </div>
+        {/*
+         * The rarely changed settings, one tab each. No tab is open at first, so the window fits without a
+         * scroll, and a second click on the open tab closes it. The panels stay mounted, and so do their edits.
+         */}
+        <Tabs.Root className="more-options" value={tab} onValueChange={(v) => setTab(v as string)}>
+          <Tabs.List className="tabs" aria-label="More options">
+            {moreTabs.map((t) => (
+              <Tabs.Tab
+                key={t.kind}
+                value={t.kind}
+                data-customize-tab={t.kind}
+                onClick={() => {
+                  if (tab === t.kind) setTab(null);
+                }}
+              >
+                {t.label}
+                {changed(t.count)}
+              </Tabs.Tab>
+            ))}
+          </Tabs.List>
+          {moreTabs.map((t) => (
+            <Tabs.Panel key={t.kind} value={t.kind} keepMounted className="customize" data-customize={t.kind}>
+              {t.body}
+            </Tabs.Panel>
+          ))}
+        </Tabs.Root>
       </form>
       <SourceLinks credits={() => setCredits(true)} />
       {credits && <CreditsDialog close={() => setCredits(false)} />}
