@@ -18,7 +18,7 @@ import {
   type ReactNode,
 } from 'react';
 import type { Advisor } from './advisor';
-import { NumberField, Select } from './controls';
+import { NumberField, Select, Tip } from './controls';
 import { ColonyActions, ColonyPanel } from './colony-panel';
 import { DebugContext } from './debug';
 import type { Dialog, Dialogs } from './dialogs';

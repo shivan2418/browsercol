@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vite-plus/test';
-import { Select, Tip, TipProvider } from './controls';
+import { NumberField, Select, Tip, TipProvider } from './controls';
+import * as drag from './drag';
 import { WindowFrame } from './frame';
 import { hint, mountLayer, shownHint } from './tip-test';
 
@@ -81,25 +82,40 @@ test('after one hint, the next shows at once', async () => {
   await waitFor(() => expect(shownHint()).toBe('Second'), { timeout: 150 });
 });
 
-test('no hint while something is dragged, and one open goes at the drag’s start', async () => {
+test('no hint while something is dragged with the pointer, and one open goes at the drag’s start', async () => {
+  const lane = drag.lane<string>();
   render(
-    <Tip as="span" tip="Hint">
-      x
-    </Tip>,
+    <>
+      <Tip as="span" tip="Hint" {...lane.source(() => 'thing')}>
+        x
+      </Tip>
+      <Tip as="span" tip="Other">
+        z
+      </Tip>
+    </>,
   );
   const x = screen.getByText('x');
+  const z = screen.getByText('z');
   rest(x);
   await waitFor(() => expect(shownHint()).toBe('Hint'));
-  fireEvent.dragStart(x);
+  // Press and move far enough: the drag (drag.ts) starts and the hint goes.
+  const fire = (el: Element, type: string, at: number) =>
+    el.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, clientX: at, clientY: 0 }));
+  fire(x, 'pointerdown', 0);
+  fire(x, 'pointermove', 2 * drag.THRESHOLD);
+  expect(drag.dragging()).toBe(true);
   await waitFor(() => expect(shownHint()).toBeNull());
+  // Over another element during the drag, nothing shows.
   leave(x);
-  rest(x);
+  rest(z);
+  fire(z, 'pointermove', 3 * drag.THRESHOLD);
   await wait(450);
   expect(shownHint()).toBeNull();
   // Once the drag has ended hints are back.
-  fireEvent.dragEnd(x);
-  leave(x);
-  expect(await hint(x)).toBe('Hint');
+  fire(z, 'pointerup', 3 * drag.THRESHOLD);
+  expect(drag.dragging()).toBe(false);
+  leave(z);
+  expect(await hint(z)).toBe('Other');
 });
 
 test('no hint while a menu is open', async () => {
@@ -162,4 +178,12 @@ test('no hint while a drop-down list is open', async () => {
   rest(screen.getByText('w'));
   await wait(450);
   expect(shownHint()).toBeNull();
+});
+
+test('a number field gives its hint over the field, and is no type=number input', async () => {
+  render(<NumberField aria-label="Low" value={3} onChange={() => {}} tip="The lowest level" />);
+  const input = screen.getByRole('textbox', { name: 'Low' });
+  expect(input.getAttribute('type')).not.toBe('number');
+  expect(input.hasAttribute('title')).toBe(false);
+  expect(await hint(input.parentElement!)).toBe('The lowest level');
 });
