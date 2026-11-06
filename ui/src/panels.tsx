@@ -1123,12 +1123,13 @@ function RouteEditor({
       <div className="holds">
         {cargo.map((g, k) => (
           <Fragment key={k}>
-            <button
+            <Tip
+              as="button"
               className="hold"
               data-held={g}
               data-over={k >= MOST_HOLDS || undefined}
               aria-label={`× ${nameOf(g)}`}
-              title={`${k + 1}. ${nameOf(g)} (click to empty)${k >= MOST_HOLDS ? ': no carrier has this many holds' : ''}`}
+              tip={`${k + 1}. ${nameOf(g)} (click to empty)${k >= MOST_HOLDS ? ': no carrier has this many holds' : ''}`}
               onClick={() =>
                 setCargo(
                   i,
@@ -1137,34 +1138,41 @@ function RouteEditor({
               }
             >
               {icon(g)}
-            </button>
+            </Tip>
             {HOLD_MARKS[k + 1] !== undefined && k + 1 < cargo.length && (
-              <span className="mark" title={HOLD_MARKS[k + 1]}>
+              <Tip as="span" className="mark" tip={HOLD_MARKS[k + 1]}>
                 {k + 1}
-              </span>
+              </Tip>
             )}
           </Fragment>
         ))}
-        <button className="hold empty" aria-label="Add goods" title="Add goods" onClick={() => edit(stops[i].key)}>
+        <Tip
+          as="button"
+          className="hold empty"
+          aria-label="Add goods"
+          tip="Add goods"
+          onClick={() => edit(stops[i].key)}
+        >
           +
-        </button>
+        </Tip>
       </div>
     );
   };
   const chips = (i: number) => {
     const { unload, load } = stopWork(stops, i);
     const chip = (work: 'unload' | 'load', [g, k]: [string, number]) => (
-      <span
+      <Tip
+        as="span"
         key={`${work} ${g}`}
         className="chip"
         data-work={work}
         data-type={g}
-        title={`${work === 'load' ? 'Load' : 'Unload'} ${nameOf(g)}`}
+        tip={`${work === 'load' ? 'Load' : 'Unload'} ${nameOf(g)}`}
       >
         {icon(g)}
         {work === 'load' ? '+' : '−'}
         {k}
-      </span>
+      </Tip>
     );
     return (
       <div className="chips">
@@ -1222,25 +1230,27 @@ function RouteEditor({
           return (
             <Fragment key={s.key}>
               <div className="vstop" data-stop={i} {...dragProps(i)}>
-                <button
+                <Tip
+                  as="button"
                   className="pin"
                   aria-expanded={!shut}
                   aria-label={`${i + 1}. ${s.label}`}
-                  title={`${shut ? 'Unfold' : 'Fold'} this leg; drag the row to move the stop`}
+                  tip={`${shut ? 'Unfold' : 'Fold'} this leg; drag the row to move the stop`}
                   onClick={() => fold(s.key)}
                 >
                   {i + 1}
-                </button>
+                </Tip>
                 <h3>{s.label}</h3>
                 {chips(i)}
-                <button
+                <Tip
+                  as="button"
                   className="icon"
                   aria-label={`${e.removeStop}: ${s.label}`}
-                  title={e.removeStop}
+                  tip={e.removeStop}
                   onClick={() => remove(i)}
                 >
                   ✕
-                </button>
+                </Tip>
               </div>
               {!shut && (
                 <div className="vleg" data-leg={i} data-open={open || undefined} data-back={i === n - 1 || undefined}>
@@ -1255,14 +1265,15 @@ function RouteEditor({
                       {holds(i)}
                       <span className="to">{i === n - 1 ? `↺ back to ${next.label}` : `→ ${next.label}`}</span>
                       {n > 1 && (
-                        <button
+                        <Tip
+                          as="button"
                           className="copy"
                           disabled={same}
-                          title={`Leave ${s.label} with what it brought from ${prev.label}: nothing is loaded or unloaded here`}
+                          tip={`Leave ${s.label} with what it brought from ${prev.label}: nothing is loaded or unloaded here`}
                           onClick={() => setCargo(i, [...prev.cargo])}
                         >
                           {same ? `Same goods as ${prev.label}` : `⧉ Copy ${prev.label}’s goods`}
-                        </button>
+                        </Tip>
                       )}
                       {!open && (
                         <button className="copy" onClick={() => edit(s.key)}>
@@ -1279,15 +1290,16 @@ function RouteEditor({
                         </p>
                         <div className="palette">
                           {e.goods.map((g) => (
-                            <button
+                            <Tip
+                              as="button"
                               key={g.id}
                               data-goods={g.id}
                               aria-label={g.name}
-                              title={`${g.name} (shift-click: fill to the next mark)`}
+                              tip={`${g.name} (shift-click: fill to the next mark)`}
                               onClick={(ev) => load(i, g.id, ev.shiftKey)}
                             >
                               <Pic keys={[g.icon]} art={art} className="pic" />
-                            </button>
+                            </Tip>
                           ))}
                         </div>
                       </div>
