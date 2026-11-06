@@ -145,6 +145,24 @@ class ColopediaTest {
     }
 
     @Test
+    void aUnitShowsTheNativesThatTeachItsSkillAndItsProductionBonus() throws Exception {
+        final Map<String, Object> report = obj(JsonReader.read(Colopedia.before("classic", null)));
+        final Map<String, Object> farmer = entry(report, "units", "model.unit.expertFarmer");
+        assertTrue(refs(fact(farmer, "Natives to learn from:")).contains("Apache null"));
+        assertEquals(List.of("Grain +2.00"), refs(fact(farmer, "Production modifier:")));
+        // No unit is said to teach in another unit.
+        for (Map<String, Object> u : objs(objs(report.get("sections")).stream()
+                .filter(s -> "units".equals(s.get("id"))).findFirst().get().get("entries"))) {
+            for (Map<String, Object> f : objs(u.get("facts"))) {
+                if ("May teach in:".equals(f.get("label"))) {
+                    assertTrue(refs(f).stream().allMatch(r -> r.matches("(Schoolhouse|College|University) null")),
+                        u.get("id") + " " + refs(f));
+                }
+            }
+        }
+    }
+
+    @Test
     void theRulesDecideTheEntries() throws Exception {
         final Map<String, Object> report = obj(JsonReader.read(Colopedia.before("freecol", null)));
         assertNull(report.get("select"));

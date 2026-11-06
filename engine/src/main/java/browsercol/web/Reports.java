@@ -645,9 +645,6 @@ final class Reports {
             if (!u.getRequiredGoodsList().isEmpty()) {
                 facts.add(fact("colopedia.unit.goodsRequired", "", goodsRefs(u.getRequiredGoodsList())));
             }
-            if (u.getSkillTaught() != null && u.getSkillTaught() != u) {
-                facts.add(fact("colopedia.unit.school", "", List.of(ref(u.getSkillTaught(), null))));
-            }
             final List<Json> teaches = new ArrayList<>();
             for (BuildingType b : spec.getBuildingTypeList()) {
                 if (b.hasAbility(net.sf.freecol.common.model.Ability.TEACH)
@@ -656,6 +653,41 @@ final class Reports {
                 }
             }
             if (!teaches.isEmpty()) facts.add(fact("colopedia.unit.school", "", teaches));
+            // As UnitDetailPanel: the natives that teach the skill, what the unit requires
+            // and its production bonuses.
+            if (u.getSkill() > 0) {
+                final List<Json> natives = new ArrayList<>();
+                for (IndianNationType nt : spec.getIndianNationTypes()) {
+                    for (net.sf.freecol.common.util.RandomChoice<UnitType> c : nt.getSkills()) {
+                        if (c.getObject() == u) {
+                            natives.add(ref(nt, null));
+                            break;
+                        }
+                    }
+                }
+                if (!natives.isEmpty()) facts.add(fact("colopedia.unit.natives", "", natives));
+            }
+            final List<String> required = new ArrayList<>();
+            final List<Json> providers = new ArrayList<>();
+            for (Map.Entry<String, Boolean> a : u.getRequiredAbilities().entrySet()) {
+                required.add(Messages.getName(a.getKey()));
+                for (FreeColSpecObjectType t : spec.getTypesProviding(a.getKey(), a.getValue())) {
+                    providers.add(ref(t, null));
+                }
+            }
+            if (!required.isEmpty()) {
+                facts.add(fact("colopedia.unit.requirements", String.join(", ", required), providers));
+            }
+            final List<Modifier> bonuses = new ArrayList<>();
+            for (GoodsType g : spec.getGoodsTypeList()) u.getModifiers(g.getId()).forEach(bonuses::add);
+            bonuses.sort(Modifier.ascendingModifierIndexComparator);
+            if (!bonuses.isEmpty()) {
+                final List<Json> bonusRefs = new ArrayList<>();
+                for (Modifier m : bonuses) bonusRefs.add(ref(goodsOrNull(spec, m.getId()), modifier(m)));
+                facts.add(new Json().put("label", Messages.message(StringTemplate
+                        .template("colopedia.unit.productionBonus").addAmount("%number%", bonuses.size())))
+                    .put("value", "").putRaw("refs", array(bonusRefs)));
+            }
             out.add(entry(u, u.isNaval() ? Messages.message("model.ability.navalUnit.name") : "Land unit", facts));
         }
         return out;
