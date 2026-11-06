@@ -120,8 +120,7 @@ import { tabTitle } from './tab-title';
 import { ErrorBanner, addError, engineError, type GameError } from './errors';
 import { loadModule } from './teavm';
 import { applyTheme } from './theme';
-import { registerServiceWorker, syncThemeColor } from './install';
-import { UpdatePrompt } from './update-prompt';
+import { syncThemeColor } from './install';
 import { cursor, initialView, panel, reduce, tileOnScreen, W, type ViewEvent, type ViewState } from './view';
 import type { GuiEvents, GuiHandlers, ReportView } from './webgui';
 
@@ -807,14 +806,6 @@ const currentMenus = (): Menu[] => {
 const menuRoot = createRoot(document.getElementById('menubar')!);
 // Tab goes round the page's buttons rather than out to the browser's address bar.
 keepTabOnPage();
-// The app installs and plays offline (#267): a new build waiting is offered as a Restart, never forced.
-window.addEventListener('load', () => {
-  void registerServiceWorker((restart) => {
-    const host = document.createElement('div');
-    document.body.append(host);
-    createRoot(host).render(<UpdatePrompt onRestart={restart} />);
-  });
-});
 /** Our colony as the colony panel shows it, once the client Engine has loaded (ClientExports.colony). */
 let colonyNow: (id: string) => string = () => 'null';
 let colonyPull = false;

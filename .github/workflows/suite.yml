@@ -61,10 +61,6 @@ jobs:
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: DEV_VARIANT=web ./dev.sh node ui/scripts/tileset.ts
 
-      - name: Browser offline
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        run: DEV_VARIANT=web ./dev.sh node ui/scripts/offline.ts
-
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4
