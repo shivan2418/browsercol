@@ -496,21 +496,35 @@ final class ColonyJson {
         final List<String> required = new ArrayList<>();
         for (AbstractGoods ag : buildable.getRequiredGoodsList()) {
             final GoodsType type = ag.getType();
-            required.add(goods(type, ag.getAmount())
-                .put("needed", ag.getAmount())
-                .put("available", colony.getGoodsCount(type))
-                .put("produced", colony.getAdjustedNetProductionOf(type))
+            final int needed = ag.getAmount();
+            final int available = colony.getGoodsCount(type);
+            final int produced = colony.getAdjustedNetProductionOf(type);
+            required.add(goods(type, needed)
+                .put("needed", needed)
+                .put("available", available)
+                .put("produced", produced)
+                .put("turns", progressTurns(needed, available, produced))
                 .toString());
         }
-        final int turns = colony.getTurnsToComplete(buildable);
         return new Json().put("type", buildable.getId())
             .put("name", Messages.message(buildable.getCurrentlyBuildingLabel()))
             .putRaw("keys", ObjectImages.json(buildable))
-            .put("turns", (turns < 0) ? null : Messages.message(StringTemplate
-                    .template("constructionPanel.turnsToComplete")
-                    .addAmount("%number%", turns)))
             .putRaw("required", Json.array(required))
             .toString();
+    }
+
+    /**
+     * The turns a FreeColProgressBar shows after its numbers, "(Turns: 4)":
+     * 0 once there is enough, the turns the step takes to fill the rest, or
+     * N/A when nothing comes in.
+     */
+    static String progressTurns(int max, int value, int step) {
+        final String turns = (max <= value) ? "0"
+            : (step > 0) ? Integer.toString((max - value + step - 1) / step)
+            : Messages.message("notApplicable");
+        return Messages.message(StringTemplate
+            .template("freeColProgressBar.turnsToComplete")
+            .addName("%number%", turns));
     }
 
     /** Goods of a type: {type, name, keys, amount}, open for more fields. */

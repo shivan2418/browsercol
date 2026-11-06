@@ -414,8 +414,8 @@ export interface ColonyView {
     type: string;
     name: string;
     keys: string[];
-    turns: string | null;
-    required: (GoodsAmount & { needed: number; available: number; produced: number })[];
+    /** Each goods with what is there, what next turn adds, and its bar's turns ("(Turns: 4)"). */
+    required: (GoodsAmount & { needed: number; available: number; produced: number; turns: string })[];
   } | null;
   nothing: string;
   /** The build queue panel: see BuildQueues.java. */

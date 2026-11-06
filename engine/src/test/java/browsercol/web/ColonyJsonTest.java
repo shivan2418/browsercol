@@ -128,6 +128,18 @@ class ColonyJsonTest {
         return n == 8;
     }
 
+    /** FreeColProgressBar's turns: rounded up, 0 when full, N/A with no step. */
+    @Test
+    @Timeout(120)
+    void aProgressBarCountsTheTurnsItsStepTakesToFillIt() throws Exception {
+        startGame();
+        assertEquals("(Turns: 4)", ColonyJson.progressTurns(40, 18, 6));
+        assertEquals("(Turns: 1)", ColonyJson.progressTurns(40, 34, 6));
+        assertEquals("(Turns: 0)", ColonyJson.progressTurns(40, 40, 0));
+        assertEquals("(Turns: N/A)", ColonyJson.progressTurns(40, 18, 0));
+        assertEquals("(Turns: N/A)", ColonyJson.progressTurns(40, 18, -2));
+    }
+
     @Test
     @Timeout(120)
     void theColonySendsItsBuildingsTilesGoodsAndProduction() throws Exception {
@@ -393,6 +405,13 @@ class ColonyJsonTest {
         final List<String> types = new ArrayList<>();
         for (Map<String, Object> need : needs) types.add((String)need.get("type"));
         assertTrue(types.contains("model.goods.hammers"), "a building takes hammers: " + types);
+        // Each goods' bar has its own turns, as FreeColProgressBar draws them.
+        for (Map<String, Object> need : needs) {
+            assertEquals(ColonyJson.progressTurns(((Number)need.get("needed")).intValue(),
+                    ((Number)need.get("available")).intValue(),
+                    ((Number)need.get("produced")).intValue()),
+                need.get("turns"));
+        }
 
         // The build queue: what is queued, and what the colony can queue, with
         // the reasons it cannot queue the rest, as BuildQueuePanel gives them.

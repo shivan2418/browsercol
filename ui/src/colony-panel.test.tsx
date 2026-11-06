@@ -182,13 +182,13 @@ describe('the colony panel', () => {
     expect(within(part('cargo')).getByText('Cargo on carrier')).toBeTruthy();
     const build = part('construction');
     expect(within(build).getByText('Warehouse')).toBeTruthy();
-    expect(within(build).getByText('(Turns to complete: 27)')).toBeTruthy();
-    expect(within(build).getByText('20+3/80')).toBeTruthy();
-    // FreeColProgressBar: 20 of 80 filled, then next turn's 3 in a lighter part.
-    const [now, next] = build.querySelectorAll<HTMLElement>('.bar i');
+    // FreeColProgressBar: its numbers and turns inside, 20 of 80 shaded, then next turn's 3 shaded lighter.
+    expect(within(build).getByText('20+3/80 (Turns: 20)')).toBeTruthy();
+    const [now, next] = build.querySelectorAll<HTMLElement>('.need i');
+    expect(now.className).toBe('now');
     expect(now.style.width).toBe('25%');
     expect(next.className).toBe('next');
-    expect(next.style.width).toBe('3.75%');
+    expect(next.style).toMatchObject({ left: '25%', width: '3.75%' });
     // The captioned boxes are named by the Engine's text.
     expect(screen.getByRole('region', { name: 'Warehouse' })).toBe(part('warehouse'));
   });

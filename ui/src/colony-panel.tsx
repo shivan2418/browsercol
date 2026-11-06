@@ -474,17 +474,20 @@ function scatter(i: number, n: number): CSSProperties {
 }
 
 /**
- * FreeColProgressBar's bar: what is there filled dark, and what comes next turn after it in a lighter shade, cut
- * off at the end of the bar. A loss (a negative step) draws no second part, as in Swing.
+ * FreeColProgressBar: a bar the height of its goods icon. What is there shades it dark, what comes next turn after
+ * that a lighter shade, cut off at the end (a loss draws none); the icon and "18+6/40 (Turns: 4)" sit over it.
  */
-function Progress({ have, step, max }: { have: number; step: number; max: number }) {
-  const width = (n: number) => (max > 0 ? Math.min(100, Math.max(0, (100 * n) / max)) : have >= max ? 100 : 0);
-  const now = width(have);
+function Progress({ need, art }: { need: NonNullable<ColonyView['construction']>['required'][number]; art: Art }) {
+  const { available: have, produced: step, needed: max } = need;
+  const width = (n: number) => (max > 0 ? Math.min(100, Math.max(0, (100 * n) / max)) : 100);
+  const now = have >= max ? 100 : width(have);
   const next = Math.min(100 - now, width(step));
   return (
-    <span className="bar">
-      <i style={{ width: `${now}%` }} />
-      {next > 0 && <i className="next" style={{ width: `${next}%` }} />}
+    <span className="need" data-goods={need.type} title={need.name}>
+      <i className="now" style={{ width: `${now}%` }} />
+      {next > 0 && <i className="next" style={{ left: `${now}%`, width: `${next}%` }} />}
+      <Img keys={need.keys} art={art} className="icon" />
+      <span>{`${have}${step < 0 ? '-' : '+'}${Math.abs(step)}/${max} ${need.turns}`}</span>
     </span>
   );
 }
@@ -1058,15 +1061,9 @@ export function ColonyPanel({ colony: c, art, footer }: { colony: ColonyView; ar
                   <>
                     <Img keys={c.construction.keys} art={art} className="buildable" />
                     <div className="needs">
-                      <b>{c.construction.name}</b>
-                      {c.construction.turns !== null && <span className="muted">{c.construction.turns}</span>}
+                      <span>{c.construction.name}</span>
                       {c.construction.required.map((r) => (
-                        <span key={r.type} className="need" data-goods={r.type} title={r.name}>
-                          <Img keys={r.keys} art={art} className="icon" />
-                          <Progress have={r.available} step={r.produced} max={r.needed} />
-                          {/* FreeColProgressBar's text: what is there, what comes next turn, and what is needed. */}
-                          <span>{`${r.available}${r.produced < 0 ? '-' : '+'}${Math.abs(r.produced)}/${r.needed}`}</span>
-                        </span>
+                        <Progress key={r.type} need={r} art={art} />
                       ))}
                     </div>
                   </>
