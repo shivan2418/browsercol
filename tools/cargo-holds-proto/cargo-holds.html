@@ -316,9 +316,13 @@
         object-fit: contain;
       }
       .slot[data-kind='goods'] img {
-        height: 58%;
+        height: 62%;
         width: auto;
-        margin-bottom: 18%;
+      }
+      /* The manual: "A full load in a cargo hold appears as a color icon. A partial cargo appears as a
+         black-and-white icon." The amount is only in the tooltip. */
+      .slot[data-partial] img {
+        filter: grayscale(1) contrast(1.15);
       }
       .slot[data-empty] {
         background: color-mix(in srgb, var(--head) 55%, black);
@@ -342,6 +346,22 @@
       .slots[data-context='info'] .amt {
         font-size: 9px;
         right: 1px;
+      }
+
+      /* ---- A2: hold slots with no backgrounds: the goods sit on the panel; an empty hold is only an outline ---- */
+      .slots[data-bare] {
+        background: none;
+        box-shadow: none;
+        padding: 0;
+      }
+      .slots[data-bare] .slot {
+        background: none;
+        border: 0;
+      }
+      .slots[data-bare] .slot[data-empty] {
+        border: 1.5px solid color-mix(in srgb, var(--line) 70%, transparent);
+        box-shadow: none;
+        border-radius: 2px;
       }
 
       /* ---- B: manifest ---- */
@@ -695,13 +715,13 @@
 
       // ------------------------------------------------------------------ the variants
       /** A: a fixed row of square bevelled wooden slots, one per hold; empty ones are dark recesses. */
-      function holdSlots(l, ctx) {
-        return `<div class="hold slots" data-context="${ctx}" role="list" aria-label="${esc(title(l))}">${slots(l)
+      function holdSlots(l, ctx, bare = false) {
+        return `<div class="hold slots"${bare ? ' data-bare' : ''} data-context="${ctx}" role="list" aria-label="${esc(title(l))}">${slots(l)
           .map((c) =>
             c
-              ? `<div class="slot" data-kind="${c.kind}" role="listitem" title="${esc(tip(c))}">${pic(c)}${
-                  c.kind === 'goods' ? `<b class="amt">${c.amount}</b>` : ''
-                }</div>`
+              ? `<div class="slot" data-kind="${c.kind}"${
+                  c.kind === 'goods' && c.amount < 100 ? ' data-partial' : ''
+                } role="listitem" title="${esc(tip(c))}">${pic(c)}</div>`
               : `<div class="slot" data-empty role="listitem" title="Empty hold"></div>`,
           )
           .join('')}</div>`;
@@ -793,8 +813,14 @@
         {
           id: 'slots',
           label: 'A · Hold slots',
-          note: 'Tests: does a fixed row of Mac-style wooden slots make the free space plain at a glance?',
+          note: 'Chosen. As in Colonization: a full hold (100) is a colour icon, a partial one black-and-white; hover for the amount.',
           render: holdSlots,
+        },
+        {
+          id: 'bare',
+          label: 'A2 · Hold slots, no backgrounds',
+          note: 'A with no wooden slots or tray: the goods sit on the panel, an empty hold is a thin outline. Grey = partial; hover for the amount.',
+          render: (l, ctx) => holdSlots(l, ctx, true),
         },
         {
           id: 'manifest',
@@ -841,7 +867,7 @@
       ];
 
       // ------------------------------------------------------------------ the page
-      const fromHash = () => new URLSearchParams(location.hash.slice(1)).get('variant');
+      const fromHash = () => location.hash.slice(1);
       let at = Math.max(0, VARIANTS.findIndex((v) => v.id === fromHash()));
 
       function draw() {
@@ -857,7 +883,7 @@
 
       function go(i) {
         at = (i + VARIANTS.length) % VARIANTS.length;
-        history.replaceState(null, '', '#variant=' + VARIANTS[at].id);
+        history.replaceState(null, '', '#' + VARIANTS[at].id);
         draw();
       }
 
