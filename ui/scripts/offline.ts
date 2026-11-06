@@ -63,7 +63,10 @@ try {
   });
   await page.waitForSelector('.update-prompt', { timeout: 60000 });
   check('the new version is offered', (await page.textContent('.update-prompt'))!.includes('A new version is ready'));
-  await Promise.all([page.waitForEvent('load'), page.click('.update-prompt button')]);
+  // The reload is seen by a marker the old page has and the new one has not.
+  await page.evaluate(() => Object.assign(window, { notReloaded: true }));
+  await page.click('.update-prompt button');
+  await page.waitForFunction(() => !('notReloaded' in window), null, { timeout: 60000 });
   await waitForResult(page, 300000);
   const kept = await page.evaluate(async () => (await window.caches.keys()).filter((k) => k.startsWith('browsercol-')));
   check(`Restart swaps the build and drops the old cache (${kept.join()})`, kept.join() === 'browsercol-next-build');
