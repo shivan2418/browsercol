@@ -19,6 +19,19 @@
       .modal > * {
         zoom: var(--ui-zoom, 1);
       }
+      /* A thing dragged in a panel (drag.ts): its icon follows the pointer over everything, at the scale it has in its window; nothing is selected and the cursor stays as it is. */
+      .drag-ghost {
+        position: fixed;
+        left: 0;
+        top: 0;
+        z-index: 2147483647;
+        pointer-events: none;
+      }
+      body[data-dragging],
+      body[data-dragging] * {
+        cursor: default !important;
+        user-select: none;
+      }
       /* The menu bar across the window, then the map and the side panel below it. */
       #stage {
         flex: 1;
@@ -1399,7 +1412,7 @@
       }
       /* Goods are traded by a click, not picked: they only show they can be clicked, never in the accent colour. */
       .europe-body button.good:hover,
-      .europe .chip[draggable='true']:hover,
+      .europe .chip[data-drag]:hover,
       .europe button.chip:hover {
         background: var(--box);
         border-radius: 4px;
@@ -1411,7 +1424,7 @@
         pointer-events: none;
         user-select: none;
       }
-      .europe .chip[draggable='true'] {
+      .europe .chip[data-drag] {
         cursor: grab;
       }
       .europe [data-list='inPort'] button.chip:hover,
@@ -2103,7 +2116,7 @@
         outline: none;
       }
       /* Moving colonists and goods (colony-panel.tsx): units and goods are dragged, or picked by a click; places take drops and clicks. */
-      .colony [draggable='true'] {
+      .colony [data-drag] {
         cursor: grab;
       }
       .colony .over-target:not(.tile) {
@@ -2211,7 +2224,7 @@
         outline: 2px solid var(--ink);
         outline-offset: -2px;
       }
-      .colony .queue-body li[draggable='true'] {
+      .colony .queue-body li[data-drag] {
         cursor: grab;
       }
       /* A building that can build opens the queue when clicked. */

@@ -13,7 +13,6 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
-  type DragEvent as ReactDragEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type CSSProperties,
   type ReactNode,
@@ -25,7 +24,8 @@ import type { Dialog, Dialogs } from './dialogs';
 import { europeButtons } from './europe-client';
 import { GoodsAmount, WindowFrame, type Art } from './frame';
 import { CopyDetailsContext, ShowLogContext } from './log';
-import { draggableProps, dropTargetProps, OVER, type Item, type Place } from './moves';
+import { lane } from './drag';
+import { draggableProps, dropTargetProps, type Item, type Place } from './moves';
 import { ContextMenuContext, contextMenuHandler, useContextMenu } from './popup-menu';
 import { OptionEditor } from './option-editor';
 import { ReportPanel } from './reports';
@@ -991,6 +991,9 @@ type Routes = GuiEvents['tradeRoutes'];
 type Stop = TradeRouteDraft['stops'][number] & { label: string };
 type Draft = Omit<TradeRouteDraft, 'stops'> & { stops: Stop[] };
 
+/** The drag of a trade route's stops: the index of the stop dragged. */
+const stopsDrag = lane<number>();
+
 /** The route the player last tried to save, which the Engine refused: the editor opens on it again. */
 let refused: Draft | null = null;
 
@@ -1101,33 +1104,18 @@ function RouteEditor({
     // The stop that takes the removed one's place is edited next, if the removed one was.
     if (stops[i].key === editing) setEditing(rest[Math.min(i, rest.length - 1)]?.key ?? null);
   };
-  // Drag a stop onto another to put it there; the stop that would move is marked, as the colony panel's are.
-  const dragged = useRef<number | null>(null);
+  // Drag a stop onto another to put it there; the stop that would take it is marked, as the colony panel's are.
   const dragProps = (i: number) => ({
-    draggable: true,
-    onDragStart: (ev: ReactDragEvent) => {
-      dragged.current = i;
-      ev.dataTransfer.setData('text/plain', stops[i].label);
-      ev.dataTransfer.effectAllowed = 'move';
-    },
-    onDragEnd: () => (dragged.current = null),
-    onDragOver: (ev: ReactDragEvent) => {
-      if (dragged.current === null) return;
-      ev.preventDefault();
-      ev.currentTarget.classList.add(OVER);
-    },
-    onDragLeave: (ev: ReactDragEvent) => ev.currentTarget.classList.remove(OVER),
-    onDrop: (ev: ReactDragEvent) => {
-      ev.preventDefault();
-      ev.currentTarget.classList.remove(OVER);
-      const from = dragged.current;
-      dragged.current = null;
-      if (from === null || from === i) return;
-      const next = [...stops];
-      const [moved] = next.splice(from, 1);
-      next.splice(i, 0, moved);
-      setStops(next);
-    },
+    ...stopsDrag.source(() => i),
+    ...stopsDrag.target(
+      (from) => from !== i,
+      (from) => {
+        const next = [...stops];
+        const [moved] = next.splice(from, 1);
+        next.splice(i, 0, moved);
+        setStops(next);
+      },
+    ),
   });
 
   // The holds the carrier leaves stop i with: a full one empties on click; marks show where carriers fill up.
@@ -1445,19 +1433,15 @@ type Europe = GuiEvents['europe'];
  * Goods dragged in Europe move as the stack picked up, as Swing's DragListener moves a label's amount; shift held at the
  * start of the drag has the Engine ask how many, shift and alt together drag all of the type.
  */
-const goodsDrag = (item: Item) => {
-  const props = draggableProps(
+const goodsDrag = (item: Item) =>
+  draggableProps(
     item,
     (e) => ({ ...item, ask: e.shiftKey && !e.altKey, all: e.shiftKey && e.altKey }) as Item,
+    // A stack of cargo shows its goods and amount; the market's goods show alone, not their price beside them.
+    (el) => (item.kind === 'goods' && item.from === 'market' ? el.querySelector('img') : null),
   );
-  // The drag shows the goods alone, not the price or amount beside them.
-  const onDragStart = (e: ReactDragEvent<HTMLElement>) => {
-    props.onDragStart(e);
-    const img = e.currentTarget.querySelector<HTMLElement>('img');
-    if (img) e.dataTransfer.setDragImage?.(img, img.offsetWidth / 2, img.offsetHeight / 2);
-  };
-  return { ...props, onDragStart };
-};
+/** A unit's drag shows its picture, not its name beside it. */
+const unitDrag = (id: string) => draggableProps({ kind: 'unit', id }, undefined, (el) => el.querySelector('img'));
 
 /** A unit or ship of Europe's panel, with its picture. */
 function UnitChip({
@@ -1484,7 +1468,7 @@ function UnitChip({
     </>
   );
   const props = {
-    ...(drag ? draggableProps({ kind: 'unit', id: u.id }) : {}),
+    ...(drag ? unitDrag(u.id) : {}),
     ...(drop ? dropTargetProps('ship', drop) : {}),
   };
   const onContextMenu = useContextMenu((m) => m.unit(u.id));
@@ -1742,7 +1726,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
                   const sellable = c.kind === 'goods';
                   const drag =
                     c.kind === 'unit'
-                      ? draggableProps({ kind: 'unit', id: c.id })
+                      ? unitDrag(c.id)
                       : goodsDrag({ kind: 'goods', from: 'cargo', type: c.id, index: i, amount: c.amount });
                   const inner = (
                     <>
