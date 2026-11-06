@@ -843,7 +843,7 @@
         flex: none;
         width: 1.5em;
         height: 1.5em;
-        margin: 0 0.4em 0 0;
+        margin: 0;
         padding: 0;
         vertical-align: middle;
         background: var(--btn);
@@ -881,6 +881,10 @@
       input[type='radio']:disabled {
         opacity: 0.5;
         cursor: default;
+      }
+      label > input[type='checkbox'],
+      label > input[type='radio'] {
+        margin-right: 0.4em;
       }
       /* Clicking a label toggles its control without selecting the label's text. */
       label:has(> input[type='checkbox']),
