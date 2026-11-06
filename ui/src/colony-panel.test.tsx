@@ -184,6 +184,11 @@ describe('the colony panel', () => {
     expect(within(build).getByText('Warehouse')).toBeTruthy();
     expect(within(build).getByText('(Turns to complete: 27)')).toBeTruthy();
     expect(within(build).getByText('20+3/80')).toBeTruthy();
+    // FreeColProgressBar: 20 of 80 filled, then next turn's 3 in a lighter part.
+    const [now, next] = build.querySelectorAll<HTMLElement>('.bar i');
+    expect(now.style.width).toBe('25%');
+    expect(next.className).toBe('next');
+    expect(next.style.width).toBe('3.75%');
     // The captioned boxes are named by the Engine's text.
     expect(screen.getByRole('region', { name: 'Warehouse' })).toBe(part('warehouse'));
   });

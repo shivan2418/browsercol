@@ -2076,6 +2076,7 @@
         align-items: center;
       }
       .colony .bar {
+        display: flex;
         height: 10px;
         border: 1px solid var(--line);
         background: var(--panel);
@@ -2084,6 +2085,10 @@
         display: block;
         height: 100%;
         background: var(--accent);
+      }
+      /* What next turn adds: the same colour, lighter (FreeColProgressBar's step). */
+      .colony .bar i.next {
+        background: color-mix(in srgb, var(--accent) 40%, transparent);
       }
       /* In port beside the cargo of the ship chosen there, then the units outside, then the warehouse. */
       .colony .port,
