@@ -305,6 +305,12 @@ export function MenuBar({ menus, status }: { menus: Menu[]; status: string }) {
               role="menuitem"
               aria-haspopup="menu"
               aria-expanded={open === m.name}
+              // While a menu is open, pointing at another title opens that one, as a desktop menu bar does.
+              onPointerEnter={() => {
+                if (open === null || open === m.name || m.items.length === 0) return;
+                setSub(null);
+                setOpen(m.name);
+              }}
               onClick={() => {
                 setSub(null);
                 setOpen(open === m.name || m.items.length === 0 ? null : m.name);

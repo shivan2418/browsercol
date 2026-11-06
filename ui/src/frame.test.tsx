@@ -276,4 +276,32 @@ describe('the menu bar', () => {
     act(() => void fireEvent.pointerDown(document.body));
     expect(screen.queryByRole('menu')).toBeNull();
   });
+
+  it('opens another menu on hover only while a menu is open', () => {
+    render(
+      <MenuBar
+        menus={[
+          { name: 'Game', items: [{ label: 'Save', run: () => {} }] },
+          { name: 'View', items: [{ label: 'Zoom', run: () => {} }] },
+        ]}
+        status=""
+      />,
+    );
+    const game = screen.getByRole('menuitem', { name: 'Game' });
+    const view = screen.getByRole('menuitem', { name: 'View' });
+    fireEvent.pointerEnter(view);
+    expect(screen.queryByRole('menu')).toBeNull();
+    fireEvent.click(game);
+    fireEvent.pointerEnter(view);
+    expect(screen.getByRole('menu', { name: 'View' })).toBeTruthy();
+    expect(screen.queryByRole('menu', { name: 'Game' })).toBeNull();
+    fireEvent.click(view);
+    expect(screen.queryByRole('menu')).toBeNull();
+    fireEvent.pointerEnter(game);
+    expect(screen.queryByRole('menu')).toBeNull();
+    fireEvent.click(game);
+    key('Escape');
+    fireEvent.pointerEnter(view);
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
 });
