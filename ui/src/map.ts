@@ -1053,6 +1053,8 @@ export function mapDrawer(
    * is over before the dialogs a move brings open; at most `maxMs` later, should no map come.
    */
   settled(maxMs?: number): Promise<void>;
+  /** Whether a unit slides now, or a step told of waits for its map: what settled() waits for. */
+  sliding(): boolean;
   /** Show the view: where it is centred, its zoom, the cursor and the active unit's path. */
   show(view: ViewState): void;
   /** Make the canvas `size` screen pixels, as its host's box changed; show() the resized view after. */
@@ -1489,6 +1491,7 @@ export function mapDrawer(
       steps.push(step);
       slideEarly(step);
     },
+    sliding: () => sliding !== null || steps.length > 0,
     settled: async (maxMs = 5000) => {
       const until = performance.now() + maxMs;
       while (performance.now() < until) {

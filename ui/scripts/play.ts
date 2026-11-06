@@ -372,6 +372,11 @@ async function play(page: Page, url: string) {
 
   const view = () => page.evaluate(() => window.__map);
   /**
+   * Wait until the unit that moved has slid to its tile and the view has caught up with the Engine: the camera moves
+   * on to the next unit only once the slide is over, as Swing's does.
+   */
+  const settled = () => page.evaluate(() => window.fcSettled!());
+  /**
    * Wait until no dialog is open, since an open one takes the keys and clicks. The 10 s count only the
    * time no shot is being taken.
    */
@@ -460,6 +465,7 @@ async function play(page: Page, url: string) {
     const n = await page.evaluate(() => window.__maps);
     await doIt();
     await page.waitForFunction((n) => window.__maps > n, n, { timeout: 60000, label: 'the map after a command' });
+    await settled();
     return view();
   };
   /**
@@ -909,6 +915,7 @@ async function play(page: Page, url: string) {
   const viewState = () => page.evaluate(() => window.fcView!());
   /** The view is on the client's active unit: the cursor on its tile, in view, and the panel naming it. */
   const following = async (m: MapView, what: string) => {
+    await settled();
     const v = await viewState();
     if (!m.activeUnit || v.active?.unit !== m.activeUnit.id || !same(v.cursor?.at, m.active)) {
       throw new Error(
@@ -1056,6 +1063,7 @@ async function play(page: Page, url: string) {
     await page.mouse.wheel(0, 100);
   };
   const click = async (m: MapView, [x, y]: Tile) => {
+    await settled();
     const box = (await page.locator('#map canvas').boundingBox())!;
     const [px, py] = await page.evaluate(([x, y]) => window.fcReveal!(x, y), [x, y]);
     await page.mouse.click(box.x + px, box.y + py);
@@ -1063,6 +1071,7 @@ async function play(page: Page, url: string) {
 
   /** A right-click on our colony's tile opens the tile popup with the colony in it; a click elsewhere closes it. */
   const tilePopup = async (m: MapView, [x, y]: Tile) => {
+    await settled();
     const box = (await page.locator('#map canvas').boundingBox())!;
     const [px, py] = await page.evaluate(([x, y]) => window.fcReveal!(x, y), [x, y]);
     await page.mouse.click(box.x + px, box.y + py, { button: 'right' });

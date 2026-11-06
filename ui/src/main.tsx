@@ -44,7 +44,7 @@ import {
   type DebugRequest,
   type OverlayAnswer,
 } from './debug';
-import { afterSlide as slideGate } from './after-slide';
+import { afterSlide as slideGate, viewHold } from './after-slide';
 import { ColonyActions, ColonyTiles, type ColonyMoves, type DrawTiles } from './colony-panel';
 import { dialogs } from './dialogs';
 import { blockBrowserKeys, steppedScale } from './browser-keys';
@@ -153,6 +153,8 @@ declare global {
     fcResult?: Record<string, unknown>;
     /** For scripts/rounds.ts: the AI rounds so far, each as "round,milliseconds". */
     fcRounds?: string[];
+    /** For scripts/play.ts: resolves once the unit that moved has slid and the view has caught up with the Engine. */
+    fcSettled?: () => Promise<void>;
     /** For scripts/play.ts: pan a tile into view if needed; its centre on the map canvas. */
     fcReveal?: (x: number, y: number) => [number, number];
     /** For scripts/play.ts: the view state, without its map, the cursor, and its tile's centre in the viewport. */
@@ -1289,13 +1291,18 @@ const gui: GuiHandlers = {
       // The Engine says which orders the active unit can take now.
       side.orders = e.orders;
       side.route = e.route;
-      dispatch({ k: 'activeUnit', ...e, jump: pageOption(prefs, 'model.option.jumpToActiveUnit') });
+      // Another unit (or none) takes the camera off the one that slides: it waits until that one has slid.
+      const jump = pageOption(prefs, 'model.option.jumpToActiveUnit');
+      viewChanges.change(() => dispatch({ k: 'activeUnit', ...e, jump }), e.unit !== view.active?.unit);
       noUnitHeard = e.unit === null ? lastTurn : undefined;
       renderSide();
       autoEndTurn();
     },
-    selectedTile: (e) => dispatch({ k: 'selectedTile', ...e, always: pageOption(prefs, 'model.option.alwaysCenter') }),
-    focus: (e) => dispatch({ k: 'focus', ...e }),
+    selectedTile: (e) => {
+      const always = pageOption(prefs, 'model.option.alwaysCenter');
+      viewChanges.change(() => dispatch({ k: 'selectedTile', ...e, always }), true);
+    },
+    focus: (e) => viewChanges.change(() => dispatch({ k: 'focus', ...e }), true),
     animateMove: (e) => map.moved(e),
     sound: (e) => playSound(e.key),
     information: (e) => dialogQueue.show('information', e),
@@ -1352,6 +1359,18 @@ const gui: GuiHandlers = {
 
 /** A question or the colony panel opens once the unit that moved has slid to its tile: a move's new region, first contact or a ship's arrival comes after it. */
 const afterSlide = slideGate(() => map.settled());
+/**
+ * The view changes the Engine asks for, in order: one that takes the camera off the unit that slides (the next
+ * active unit, a selected tile) waits until it has slid, as Swing finishes a move before the view moves on.
+ */
+const viewChanges = viewHold(
+  () => map.sliding(),
+  () => map.settled(),
+);
+window.fcSettled = async () => {
+  await map.settled();
+  await viewChanges.idle();
+};
 
 /** The tab's title follows the last map, and says it is the player's turn while the tab is hidden (tab-title.ts). */
 function showTabTitle() {
@@ -1380,7 +1399,7 @@ function drawMap(m: MapView) {
   renderSide();
   lastMap = m;
   showTabTitle();
-  dispatch({ k: 'map', map: m });
+  viewChanges.change(() => dispatch({ k: 'map', map: m }), false);
   pullColonies();
   drawn = map.draw(m);
   if (!mapShown) {
