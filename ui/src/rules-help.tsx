@@ -1,15 +1,16 @@
 // What the Rules choice on the start screen changes (#326): a summary of how FreeCol's Classic and FreeCol
-// rule sets differ, shown beside the choice. Each line was checked against the two specification.xml files
-// at freecol.sha (the FreeCol one only overrides Classic, so what is not here is the same in both) and
-// names the option as the Game options tab shows it. The wording is ours: FreeCol has no strings for it.
+// rule sets differ, shown beside the choice. Every row names the option as the Game options tab labels it,
+// and was checked against the two specification.xml files at freecol.sha (the FreeCol one only overrides
+// Classic) and against the Java that reads the option, not the option's description: the file and line that
+// decide each row are listed in the pull request of #326. Only what differs is here. The wording is ours:
+// FreeCol has no strings for it.
 
 interface Row {
   /** What changes, with the option's name in the Game options as FreeCol labels it. */
   what: string;
+  /** What it does for the player under each rule set's default. */
   classic: string;
   freecol: string;
-  /** Said once across both columns where the rule sets agree; then `classic` and `freecol` are empty. */
-  same?: string;
 }
 
 const SECTIONS: { title: string; rows: Row[] }[] = [
@@ -18,18 +19,18 @@ const SECTIONS: { title: string; rows: Row[] }[] = [
     rows: [
       {
         what: 'Bells at 100% rebels (Bell accumulation capped)',
-        classic: 'Extra bells are lost, so one more colonist can drop you below 100%.',
-        freecol: 'Extra bells are kept as a buffer.',
+        classic: 'Liberty stops at 100%: extra bells are lost, so one more colonist drops you below 100%.',
+        freecol: 'Extra bells keep building up, a buffer against new colonists.',
       },
       {
         what: 'Immigration (Crosses increment)',
-        classic: 'Each immigrant raises the crosses needed by 2, on every level.',
+        classic: 'Each immigrant raises the crosses needed for the next one by 2, on every level.',
         freecol: 'By 2 on Very Easy, 3 Easy, 4 Medium, 6 Hard and 10 Very Hard.',
       },
       {
-        what: 'Extra hammers and crosses (Save production overflow)',
-        classic: 'Kept for the next turn.',
-        freecol: 'Lost.',
+        what: 'Surplus production (Save production overflow)',
+        classic: 'Hammers, bells and crosses beyond the cost of a building, founding father or immigrant carry over.',
+        freecol: 'The surplus is lost.',
       },
     ],
   },
@@ -37,20 +38,19 @@ const SECTIONS: { title: string; rows: Row[] }[] = [
     title: 'Colonies',
     rows: [
       {
-        what: 'Stockade, Fort, Fortress',
-        classic: 'A colony with one cannot shrink below 3 colonists.',
-        freecol: 'No minimum.',
+        what: 'Stockade, Fort and Fortress (Minimum Colony Size)',
+        classic: 'A colony with one cannot be reduced below 3 colonists.',
+        freecol: 'No such limit.',
       },
-      { what: 'Horses', classic: 'Eat any food, fish too.', freecol: 'Eat grain only.' },
       {
         what: 'New colonies (Claim all tiles)',
-        classic: 'Claim all the tiles next to them.',
-        freecol: 'Do not.',
+        classic: 'Claim every tile they can around them at once.',
+        freecol: 'Claim only the tile they stand on.',
       },
       {
         what: 'Students (Allow student selection)',
-        classic: 'The game picks who is taught.',
-        freecol: 'You choose who is taught.',
+        classic: 'Students are matched to teachers automatically, the least skilled first.',
+        freecol: 'You choose each student’s teacher.',
       },
     ],
   },
@@ -59,33 +59,35 @@ const SECTIONS: { title: string; rows: Row[] }[] = [
     rows: [
       {
         what: 'Amphibious moves',
-        classic: 'A ship cannot unload straight into a settlement.',
-        freecol: 'It can.',
+        classic: 'Units cannot attack or enter a native settlement straight from a ship: they must land first.',
+        freecol: 'They can, straight from the ship.',
       },
       {
         what: 'Empty trade units',
-        classic: 'Only a unit carrying goods can trade with natives.',
-        freecol: 'An empty one can trade too.',
+        classic: 'A trader with no goods cannot enter a native settlement.',
+        freecol: 'An empty one can, to buy goods.',
       },
       {
         what: 'Disembark in Colony',
-        classic: 'All units leave the ship as it reaches a colony.',
-        freecol: 'You choose who leaves.',
+        classic: 'A ship’s units all disembark when it arrives in a colony, and it has no moves left.',
+        freecol: 'Units stay aboard until you unload them.',
       },
       {
         what: 'Customs house ignores boycott',
-        classic: 'The custom house sells boycotted goods.',
-        freecol: 'It does not.',
+        classic: 'The custom house sells boycotted goods all the same.',
+        freecol: 'Boycotted goods are not sold (Jan de Witt aside).',
       },
       {
         what: 'Capture units under repair',
-        classic: 'Not captured with a conquered colony.',
-        freecol: 'Captured with it.',
+        classic: 'When a colony falls, its ships are damaged or sunk, even those under repair.',
+        freecol: 'Ships under repair are captured with the colony.',
       },
       {
         what: 'Enhanced missionaries',
-        classic: 'No extra effects.',
-        freecol: 'Also improve trade and skills taught, and show the area around the settlement.',
+        classic:
+          'A missionary sees only the tiles next to its settlement, and the settlement teaches its skill to one unit, then no more (a capital keeps teaching).',
+        freecol:
+          'A missionary sees the whole area around its settlement and improves your trade prices there, and while it is there the settlement keeps teaching its skill.',
       },
       {
         what: 'Exploration points',
@@ -99,10 +101,14 @@ const SECTIONS: { title: string; rows: Row[] }[] = [
     rows: [
       {
         what: 'Francisco de Coronado',
-        classic: 'Shows the colonies once.',
-        freecol: 'Shows all colonies for good.',
+        classic: 'Reveals the land around every colony once; they show as size 1.',
+        freecol: 'Reveals the land around every colony, and from then on you see every colony in full.',
       },
-      { what: 'Pocahontas', classic: 'Calms the natives.', freecol: 'Also lifts the bans on your missions.' },
+      {
+        what: 'Pocahontas',
+        classic: 'Natives you have met forgive you and make peace, and their future anger is halved.',
+        freecol: 'The same, and bans on your missions are lifted.',
+      },
     ],
   },
   {
@@ -110,33 +116,14 @@ const SECTIONS: { title: string; rows: Row[] }[] = [
     rows: [
       {
         what: 'The Royal Expeditionary Force (Teleport REF)',
-        classic: 'Appears at its landing site.',
-        freecol: 'Sails over, a turn faster than normal.',
+        classic: 'The royal fleet appears at once beside its first target colony.',
+        freecol: 'The fleet starts out at sea and arrives a turn later.',
       },
       {
-        what: 'Founding colonies during the war (Found colonies during rebellion)',
-        classic: 'Not allowed.',
-        freecol: 'Allowed.',
+        what: 'Found colonies during rebellion',
+        classic: 'Once you have declared independence you cannot found colonies.',
+        freecol: 'You can.',
       },
-    ],
-  },
-  {
-    title: 'The same in both',
-    rows: [
-      {
-        what: 'Starting nations (Other nations)',
-        classic: '',
-        freecol: '',
-        same: 'England, France, Spain and the Netherlands start in the game; the other four can be ticked.',
-      },
-      {
-        what: 'Building on native land (Build on native land)',
-        classic: '',
-        freecol: '',
-        same: 'Set by the difficulty level.',
-      },
-      { what: 'Sailing time to Europe (Turns to sail)', classic: '', freecol: '', same: '3 turns.' },
-      { what: 'Fog of war', classic: '', freecol: '', same: 'On.' },
     ],
   },
 ];
@@ -150,8 +137,8 @@ export function RulesHelp() {
         close to the original as FreeCol gets. Pick it for that game as it was.
       </p>
       <p>
-        <b>FreeCol</b> is Classic with the FreeCol team’s changes on top: some conveniences and some new rules. Whatever
-        is not listed here is the same in both.
+        <b>FreeCol</b> is Classic with the FreeCol team’s changes on top: some conveniences and some new rules.
+        Everything not listed here is the same as Classic.
       </p>
       <table>
         <thead>
@@ -173,14 +160,8 @@ export function RulesHelp() {
                 <th scope="row" className="rules-help-what">
                   {r.what}
                 </th>
-                {r.same === undefined ? (
-                  <>
-                    <td>{r.classic}</td>
-                    <td>{r.freecol}</td>
-                  </>
-                ) : (
-                  <td colSpan={2}>{r.same}</td>
-                )}
+                <td>{r.classic}</td>
+                <td>{r.freecol}</td>
               </tr>
             ))}
           </tbody>

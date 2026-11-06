@@ -21,6 +21,8 @@
   /* A window or panel, and a boxed section inside one. */
   --panel: #e9dcb8;
   --box: #f4ead0;
+  /* Every other row of a table (the rules summary), a shade over the panel. */
+  --stripe: rgb(0 0 0 / 7%);
   /* Text: normal, quiet (secondary) and headings. */
   --ink: #2a1c0c;
   --muted: #6e5634;
@@ -79,6 +81,7 @@
   --page: #111214;
   --panel: #16171a;
   --box: #202227;
+  --stripe: rgb(255 255 255 / 6%);
   --ink: #f1f1f1;
   --muted: #a9abb3;
   --head: #ffd60a;
