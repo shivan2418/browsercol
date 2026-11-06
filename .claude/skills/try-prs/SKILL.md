@@ -53,7 +53,7 @@ Run `just dev` in the worktree in the background. It builds first if needed, the
 
 ## 5. Report
 
-- One line per PR: merged, merged with resolved conflicts (and the files), or left out (and why).
+- **What to test**, one line per PR: its number, then where to look in the game and what should happen there, in a few words, from the PR body (for example "#323: Europe → Recruit: the colonists' feet line up; select a unit: its order buttons are centred, with icons"). Mark a PR that merged with resolved conflicts (and the files) or was left out (and why).
 - The tip sha of `try/prs` and the URL.
 - The PRs that are drafts or labelled `changes-requested`.
 
