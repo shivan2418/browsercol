@@ -14,6 +14,7 @@ The prototype that settled this is on branch `prototype/48-look` (#48), as look 
 - A new panel copies the layout of its Swing counterpart, so read FreeCol's source for it rather than design one.
 - No colour literal outside `theme.css`. `theme.test.ts` checks that `index.html` uses tokens only and that every palette sets every token.
 - Today's right-hand side panel is a debug scaffold, not part of this look.
+- A tab is not a button (#311). Buttons have FreeCol's bevel. Tabs are flat labels standing on a line, as in Swing's tabbed panes. The selected tab has its panel's background and an accent bar, and it opens into the panel. Every `role=tablist` gets this look from one rule set in `index.html`, so a new tablist only sets `--tab-panel` to its panel's background.
 
 ## Fonts (#166)
 
