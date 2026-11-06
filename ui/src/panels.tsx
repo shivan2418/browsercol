@@ -40,6 +40,7 @@ import type {
   TradeOption,
   TradeRouteDraft,
 } from './webgui';
+import { useCoverage } from './coverage';
 
 export type { Art };
 
@@ -1050,6 +1051,7 @@ function RouteEditor({
   save: (d: Draft) => void;
   cancel: () => void;
 }) {
+  useCoverage('showTradeRouteInputPanel');
   const [draft, setDraft] = useState(() => ({ ...start, stops: start.stops.map(keyed) }));
   const stops = draft.stops;
   const setStops = (next: Leg[]) => setDraft({ ...draft, stops: next });

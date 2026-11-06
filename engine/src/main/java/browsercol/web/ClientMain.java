@@ -52,6 +52,10 @@ public final class ClientMain {
     @JSBody(params = { "kind", "json" }, script = "fcShow(kind, json);")
     private static native void show(String kind, String json);
 
+    /** The browser scripts install window.fcCoverageHit to have the dialogs counted (WebGUI.count). */
+    @JSBody(script = "return typeof fcCoverageHit === 'function';")
+    private static native boolean countingDialogs();
+
     @JSBody(params = { "id", "kind", "json" }, script = "fcAsk(id, kind, json);")
     private static native void ask(int id, String kind, String json);
 
@@ -146,6 +150,9 @@ public final class ClientMain {
                             }
                             public void ask(int id, String kind, String json) {
                                 ClientMain.ask(id, kind, json);
+                            }
+                            public boolean counting() {
+                                return countingDialogs();
                             }
                         });
                     synchronized (earlyOptions) {

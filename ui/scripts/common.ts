@@ -88,6 +88,7 @@ export async function launchBrowser(name: BrowserName): Promise<Browser> {
   browser.newPage = async (...args: Parameters<Browser['newPage']>) => {
     const page = await newPage(...args);
     watchWaits(page);
+    await trackCoverage(page);
     if (name === 'firefox' && !process.env.FC_FIREFOX_WEBGL) {
       const goto = page.goto.bind(page);
       page.goto = (url: string, ...rest: [Parameters<Page['goto']>[1]?]) => goto(canvas2d(url), ...rest);
@@ -96,6 +97,42 @@ export async function launchBrowser(name: BrowserName): Promise<Browser> {
   };
   return browser;
 }
+
+// --- Dialog coverage (docs/parity/dialog-coverage.md, tools/dialog-coverage.mjs) ---
+
+/** How often each dialog was reached, by browser: what trackCoverage collects and the script's exit writes. */
+const reached: Record<string, Record<string, number>> = {};
+const coverageFile = path.resolve(
+  import.meta.dirname,
+  '../../.cache/coverage',
+  `${path.basename(process.argv[1] ?? 'script', '.ts')}.json`,
+);
+
+/**
+ * Counts the dialogs the page reaches: installs the window.fcCoverageHit hook (src/coverage.ts), which the page
+ * only counts into when it finds it, so a player's page never counts. launchBrowser does it for each page it
+ * makes; call it before page.goto for a page of a browser the script launched itself.
+ */
+export async function trackCoverage(page: Page): Promise<void> {
+  const name = page.context().browser()?.browserType().name() ?? 'browser';
+  const counts = (reached[name] ??= {});
+  await page.exposeFunction('fcCoverageHit', (dialog: string) => {
+    counts[dialog] = (counts[dialog] ?? 0) + 1;
+  });
+}
+
+/** The script's counts go to .cache/coverage/<script>.json when it ends; a browser it did not run this time keeps its earlier counts. */
+process.on('exit', () => {
+  if (!Object.keys(reached).length) return;
+  let merged: Record<string, Record<string, number>> = {};
+  try {
+    merged = JSON.parse(fs.readFileSync(coverageFile, 'utf8'));
+  } catch {
+    // none yet
+  }
+  fs.mkdirSync(path.dirname(coverageFile), { recursive: true });
+  fs.writeFileSync(coverageFile, JSON.stringify({ ...merged, ...reached }, null, 1) + '\n');
+});
 
 /** What the page logs for each error its banner shows (src/main.tsx, reportError). */
 const BANNER = 'Error banner: ';

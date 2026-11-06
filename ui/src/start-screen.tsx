@@ -27,6 +27,7 @@ import type { SaveMeta } from './saves';
 import { levelFile, loadDefaults, readLevelFile, saveDefaults } from './start-options';
 import { ADVANTAGES, type Advantages, type StartChoice, type StartOptions } from './start';
 import type { ReportView } from './webgui';
+import { useCoverage } from './coverage';
 
 /** The map generator's import file option (MapGeneratorOptions.IMPORT_FILE). */
 const IMPORT_FILE = 'model.option.importFile';
@@ -209,6 +210,7 @@ export function StartScreen({
   /** Music and sound effects on or off; no control shows without it. */
   sound?: { music: boolean; effects: boolean; setMusic: (on: boolean) => void; setEffects: (on: boolean) => void };
 }) {
+  useCoverage('showNewPanel');
   const open =
     openGame &&
     ((id: number) => {

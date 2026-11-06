@@ -4,6 +4,7 @@
 // each save's button. A .fsg file on disk opens through [data-open-file], as FreeCol's file chooser (#274).
 import { WindowFrame } from './frame';
 import type { SaveMeta } from './saves';
+import { useCoverage } from './coverage';
 
 /** A save's line: its name, when it was made, the turn and the nation. */
 export const saveSummary = (s: SaveMeta) =>
@@ -52,6 +53,7 @@ export function OpenDialog({
   note?: string;
   close: () => void;
 }) {
+  useCoverage('showLoadDialog');
   return (
     <WindowFrame title="Open Game" close={close} id="open-game" className="dialog">
       <SaveList saves={saves} open={open} />
@@ -80,6 +82,7 @@ export function SaveDialog({
   save: (name: string, download: boolean) => void;
   close: () => void;
 }) {
+  useCoverage('showSaveDialog');
   return (
     <WindowFrame title={title} close={close} id="save-game" className="dialog">
       <form

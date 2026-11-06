@@ -297,6 +297,8 @@ export interface GuiEvents {
   report: ReportView;
   /** A dialog the Browser UI cannot show yet; the controller got FreeCol's base default. */
   unasked: { method: string };
+  /** A WebGUI dialog method ran, counted for the coverage report (coverage.ts); sent only when the page has the hook. */
+  coverage: { method: string };
 }
 
 /** Goods of a type, with the resource keys of its icon, best first. */

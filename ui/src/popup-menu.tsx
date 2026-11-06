@@ -6,6 +6,7 @@
 import { focusFirstEntry, menuArrows, useFocusTrap } from './focus';
 import { useEscape, type Art } from './frame';
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from 'react';
+import { useCoverage } from './coverage';
 
 /** One entry: its id (the Engine runs it), its label, and how it is drawn (Menus.java). */
 export interface MenuEntry {
@@ -69,6 +70,7 @@ export function PopupMenu({
   close: () => void;
   art?: Art;
 }) {
+  useCoverage('showPopupMenu');
   const box = useRef<HTMLDivElement>(null);
   const [at, setAt] = useState<[number, number]>([popup.x, popup.y]);
   useLayoutEffect(() => {

@@ -2,6 +2,7 @@
 import { createContext } from 'react';
 import { WindowFrame } from './frame';
 import type { GuiEvents } from './webgui';
+import { useCoverage } from './coverage';
 
 /** Open the log: the error panel's "Show log file" button asks for it. */
 export const ShowLogContext = createContext<() => void>(() => {});
@@ -17,6 +18,7 @@ export const joinLogs = (server: string, client: string) =>
 
 /** The window of the log, scrolled to its end, where the latest lines are. */
 export function LogDialog({ text, close }: { text: string; close: () => void }) {
+  useCoverage('showLogFilePanel');
   return (
     <div className="modal">
       <WindowFrame title="Log" close={close} id="log" className="dialog">

@@ -23,6 +23,7 @@ import {
   type Tileset,
 } from './prefs';
 import { FONT_SETS, PALETTES, type FontSet, type Palette } from './theme';
+import { useCoverage } from './coverage';
 
 const LABEL: Record<Speed, string> = { off: 'Off', slow: 'Slow', normal: 'Normal', fast: 'Fast' };
 
@@ -211,6 +212,7 @@ export function PreferencesDialog({
   change: (p: Prefs) => void;
   close: () => void;
 }) {
+  useCoverage('showClientOptionsDialog');
   const tree = categories(freecol);
   // The preferences as the window opened with them: Reset and Cancel go back to these.
   const opened = useRef(prefs);

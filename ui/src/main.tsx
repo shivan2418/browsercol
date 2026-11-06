@@ -1349,6 +1349,7 @@ const gui: GuiHandlers = {
       void afterSlide(() => dialogQueue.replace('colony', e, (open) => open.id === e.id, true));
     },
     closeColony: (e) => dialogQueue.remove('colony', (open) => open.id === e.id),
+    coverage: (e) => window.fcCoverageHit?.(e.method),
     unasked: (e) => {
       console.warn(`WebGUI: no dialog yet for ${e.method}; FreeCol's default was used`);
       side.unasked = [...side.unasked, e.method];

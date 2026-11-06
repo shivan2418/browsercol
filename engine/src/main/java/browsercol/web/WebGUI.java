@@ -339,6 +339,10 @@ public class WebGUI extends GUI {
         void show(String kind, String json);
         /** Ask something; the answer comes back through {@link WebGUI#answer}. */
         void ask(int id, String kind, String json);
+        /** The page wants each dialog method's run counted (the browser scripts' coverage report); off by default. */
+        default boolean counting() {
+            return false;
+        }
     }
 
     /**
@@ -355,6 +359,8 @@ public class WebGUI extends GUI {
 
     private final ClientEngine engine;
     private final BrowserUI ui;
+    /** The page counts dialog runs (see {@link #count}); asked once, so it costs nothing when off. */
+    private final boolean counting;
     private final Questions questions;
     private volatile Unit activeUnit = null;
     /** An end turn dialog has been asked and not yet answered. */
@@ -377,6 +383,7 @@ public class WebGUI extends GUI {
         super(freeColClient);
         this.engine = engine;
         this.ui = ui;
+        this.counting = ui.counting();
         this.questions = new Questions(ui::ask);
     }
 
@@ -575,6 +582,15 @@ public class WebGUI extends GUI {
                               String object) {
         return "true".equals(confirm(header, text, okKey, cancelKey,
                                      defaultOk, tile, object));
+    }
+
+    /**
+     * Count a dialog method's run for the coverage report (docs/parity/dialog-coverage.md):
+     * a "coverage" event naming the method, sent only when the page has a coverage hook
+     * ({@link BrowserUI#counting}), which the browser scripts install. It changes nothing in the game.
+     */
+    private void count(String method) {
+        if (this.counting) this.ui.show("coverage", new Json().put("method", method).toString());
     }
 
     /**
@@ -1017,6 +1033,7 @@ public class WebGUI extends GUI {
     @Override
     public FreeColPanel showInformationPanel(FreeColObject displayObject,
                                              StringTemplate template) {
+        count("showInformationPanel");
         if (getClientOptions().getBoolean(ClientOptions.AUDIO_ALERTS)) {
             playSound("sound.event.alertSound");
         }
@@ -1048,6 +1065,7 @@ public class WebGUI extends GUI {
      */
     @Override
     public FreeColPanel showErrorPanel(String message, String detail, Runnable callback) {
+        count("showErrorPanel");
         // ErrorPanel's button shows the log file; here the log is the Engines' (the page shows it).
         this.ui.show("error", new Json().put("text", message)
             .put("ok", label("ok"))
@@ -1090,6 +1108,7 @@ public class WebGUI extends GUI {
     @Override
     public FreeColPanel showEventPanel(String header, String image,
                                        String footer) {
+        count("showEventPanel");
         this.ui.show("eventPanel", new Json()
             .put("header", header)
             .put("image", image)
@@ -1110,6 +1129,7 @@ public class WebGUI extends GUI {
     @Override
     public void showEventPanel(String header, String image, String footer,
                                Runnable closing) {
+        count("showEventPanel");
         defer("showEventPanel", () -> {
             this.questions.ask("event", new Json()
                 .put("header", header)
@@ -1129,6 +1149,7 @@ public class WebGUI extends GUI {
     @Override
     public FreeColPanel showHighScoresPanel(String messageId,
                                             List<HighScore> scores) {
+        count("showHighScoresPanel");
         List<String> entries = new ArrayList<>();
         if (scores != null) {
             for (HighScore h : scores) entries.add(highScore(h));
@@ -1184,12 +1205,14 @@ public class WebGUI extends GUI {
 
     @Override
     public FreeColPanel showModelMessages(List<ModelMessage> modelMessages) {
+        count("showModelMessages");
         showMessages(null, modelMessages, false, false);
         return null;
     }
 
     @Override
     public FreeColPanel showReportTurnPanel(List<ModelMessage> messages) {
+        count("showReportTurnPanel");
         showMessages(Messages.message("reportTurnAction.name"), messages,
                      true, false);
         return null;
@@ -1245,6 +1268,7 @@ public class WebGUI extends GUI {
     public void showFirstContactDialog(Player player, Player other, Tile tile,
                                        int settlementCount,
                                        DialogHandler<Boolean> handler) {
+        count("showFirstContactDialog");
         final String type = ((IndianNationType)other.getNationType())
             .getSettlementTypeKey(true);
         String headerKey = "firstContactDialog.meeting."
@@ -1284,6 +1308,7 @@ public class WebGUI extends GUI {
     @Override
     public void showNamingDialog(StringTemplate template, String defaultName,
                                  Unit unit, DialogHandler<String> handler) {
+        count("showNamingDialog");
         final Tile tile = unit.getTile();
         defer("showNamingDialog", () -> handler.handle(
             modalInputDialog(tile, template, defaultName, "ok", "cancel")));
@@ -1300,6 +1325,7 @@ public class WebGUI extends GUI {
     @Override
     public void showChooseFoundingFatherDialog(List<FoundingFather> ffs,
                                                DialogHandler<FoundingFather> handler) {
+        count("showChooseFoundingFatherDialog");
         defer("showChooseFoundingFatherDialog",
               () -> handler.handle(chooseFather(ffs)));
     }
@@ -1344,6 +1370,7 @@ public class WebGUI extends GUI {
     @Override
     public void showEmigrationDialog(Player player, boolean fountainOfYouth,
                                      DialogHandler<Integer> handler) {
+        count("showEmigrationDialog");
         final List<AbstractUnit> recruitables
             = player.getEurope().getExpandedRecruitables(false);
         List<ChoiceItem<Integer>> choices = new ArrayList<>();
@@ -1374,6 +1401,7 @@ public class WebGUI extends GUI {
     public void showMonarchDialog(MonarchAction action, StringTemplate template,
                                   String monarchKey,
                                   DialogHandler<Boolean> handler) {
+        count("showMonarchDialog");
         final String messageId = action.getTextKey();
         String yesId = action.getYesKey();
         if (!Messages.containsKey(yesId)) yesId = null;
@@ -1400,6 +1428,7 @@ public class WebGUI extends GUI {
     public void showNativeDemandDialog(Unit unit, Colony colony,
                                        GoodsType type, int amount,
                                        DialogHandler<Boolean> handler) {
+        count("showNativeDemandDialog");
         final String nation = Messages.message(unit.getOwner().getNationLabel());
         final String key = (type == null) ? "gold"
             : (type.isFoodType()) ? "food" : "other";
@@ -1422,6 +1451,7 @@ public class WebGUI extends GUI {
     /** {@inheritDoc} Defers. The text and buttons are VictoryDialog's. */
     @Override
     public void showVictoryDialog(DialogHandler<Boolean> handler) {
+        count("showVictoryDialog");
         defer("showVictoryDialog", () -> handler.handle(
             confirmed(null, Messages.message("victory.text"),
                 "victory.yes", "victory.continue", false, null, null)));
@@ -1441,6 +1471,7 @@ public class WebGUI extends GUI {
      */
     @Override
     public void showEndTurnDialog(List<Unit> units) {
+        count("showEndTurnDialog");
         final String text = Messages.message(StringTemplate
             .template("endTurnDialog.areYouSure")
             .addAmount("%number%", units.size()));
@@ -1499,6 +1530,7 @@ public class WebGUI extends GUI {
     @Override
     public boolean showPreCombatDialog(Unit attacker,
                                        FreeColGameObject defender, Tile tile) {
+        count("showPreCombatDialog");
         final CombatModel combat = attacker.getGame().getCombatModel();
         final Turn turn = attacker.getGame().getTurn();
         final String defenderName = (defender instanceof Settlement)
@@ -1591,6 +1623,7 @@ public class WebGUI extends GUI {
      */
     @Override
     public Location showSelectDestinationDialog(Unit unit) {
+        count("showSelectDestinationDialog");
         if (unit == null) return null;
         final List<ChoiceItem<Location>> choices = new ArrayList<>();
         for (Destinations.Destination d : Destinations.of(unit)) {
@@ -1661,6 +1694,7 @@ public class WebGUI extends GUI {
      */
     @Override
     public List<String> showConfirmDeclarationDialog() {
+        count("showConfirmDeclarationDialog");
         final Player player = getMyPlayer();
         final String nation = Messages.message(StringTemplate
             .template("confirmDeclarationDialog.defaultNation")
@@ -1697,6 +1731,7 @@ public class WebGUI extends GUI {
      */
     @Override
     public void showDeclarationPanel(Runnable afterClosing) {
+        count("showDeclarationPanel");
         defer("showDeclarationPanel", () -> {
                 this.questions.ask("confirm", new Json()
                     .put("text", Messages.message("declareIndependence.resolution"))
@@ -1721,6 +1756,7 @@ public class WebGUI extends GUI {
     @Override
     public void showCaptureGoodsDialog(Unit unit, List<Goods> gl,
                                        DialogHandler<List<Goods>> handler) {
+        count("showCaptureGoodsDialog");
         final int space = unit.getSpaceLeft();
         defer("showCaptureGoodsDialog", () -> handler.handle(
             pickGoods(Messages.message("captureGoodsDialog.title"),
@@ -1736,6 +1772,7 @@ public class WebGUI extends GUI {
     @Override
     public void showDumpCargoDialog(Unit unit,
                                     DialogHandler<List<Goods>> handler) {
+        count("showDumpCargoDialog");
         final List<Goods> cargo = unit.getGoodsList();
         defer("showDumpCargoDialog", () -> handler.handle(
             pickGoods(Messages.message("dumpCargo"), cargo,
@@ -1756,6 +1793,7 @@ public class WebGUI extends GUI {
                                       DiplomaticTrade agreement,
                                       StringTemplate comment,
                                       DialogHandler<DiplomaticTrade> handler) {
+        count("showNegotiationDialog");
         final Player player = getMyPlayer();
         defer("showNegotiationDialog", () -> {
                 final Player otherPlayer = ((Ownable)other).getOwner();
@@ -1781,6 +1819,7 @@ public class WebGUI extends GUI {
     @Override
     public int showSelectTributeAmountDialog(StringTemplate question,
                                              int maximum) {
+        count("showSelectTributeAmountDialog");
         final String answer = modalInputDialog(null, question,
             Integer.toString(maximum), "ok", "cancel");
         if (answer == null) return -1;
@@ -1800,6 +1839,7 @@ public class WebGUI extends GUI {
      */
     @Override
     public FreeColPanel showTradeRoutePanel(Unit unit) {
+        count("showTradeRoutePanel");
         this.routeUnit = unit;
         showTradeRoutes(null);
         return null;
@@ -1832,6 +1872,7 @@ public class WebGUI extends GUI {
      */
     @Override
     public FreeColPanel showReportColonyPanel() {
+        count("showReportColonyPanel");
         final boolean compact = getClientOptions().getInteger(ClientOptions.COLONY_REPORT)
             == ClientOptions.COLONY_REPORT_COMPACT;
         this.ui.show("report", compact ? CompactColonyReport.of(getFreeColClient())
@@ -1842,6 +1883,7 @@ public class WebGUI extends GUI {
     /** {@inheritDoc} Shows the labour report ({@link Reports#labour}). */
     @Override
     public FreeColPanel showReportLabourPanel() {
+        count("showReportLabourPanel");
         this.ui.show("report", Reports.labour(getMyPlayer()));
         return null;
     }
@@ -1857,6 +1899,7 @@ public class WebGUI extends GUI {
         java.util.Map<net.sf.freecol.common.model.UnitType, java.util.Map<Location, Integer>> data,
         net.sf.freecol.common.model.TypeCountMap<net.sf.freecol.common.model.UnitType> unitCount,
         List<Colony> colonies) {
+        count("showReportLabourDetailPanel");
         this.ui.show("report", Reports.labourDetail(getMyPlayer(), unitType));
         return null;
     }
@@ -1864,6 +1907,7 @@ public class WebGUI extends GUI {
     /** {@inheritDoc} Shows the military report ({@link Reports#units}). */
     @Override
     public FreeColPanel showReportMilitaryPanel() {
+        count("showReportMilitaryPanel");
         this.ui.show("report", Reports.units(getFreeColClient(), "military"));
         return null;
     }
@@ -1871,6 +1915,7 @@ public class WebGUI extends GUI {
     /** {@inheritDoc} Shows the naval report ({@link Reports#units}). */
     @Override
     public FreeColPanel showReportNavalPanel() {
+        count("showReportNavalPanel");
         this.ui.show("report", Reports.units(getFreeColClient(), "naval"));
         return null;
     }
@@ -1878,6 +1923,7 @@ public class WebGUI extends GUI {
     /** {@inheritDoc} Shows the cargo report ({@link Reports#units}). */
     @Override
     public FreeColPanel showReportCargoPanel() {
+        count("showReportCargoPanel");
         this.ui.show("report", Reports.units(getFreeColClient(), "cargo"));
         return null;
     }
@@ -1885,6 +1931,7 @@ public class WebGUI extends GUI {
     /** {@inheritDoc} Shows the compact labour report ({@link Reports#compactLabour}). */
     @Override
     public FreeColPanel showCompactLabourReport() {
+        count("showCompactLabourReport");
         this.ui.show("report", Reports.compactLabour(getFreeColClient(), null));
         return null;
     }
@@ -1893,6 +1940,7 @@ public class WebGUI extends GUI {
     @Override
     public FreeColPanel showCompactLabourReport(
         net.sf.freecol.client.gui.panel.report.LabourData.UnitData unitData) {
+        count("showCompactLabourReport");
         this.ui.show("report", Reports.compactLabour(getFreeColClient(),
                                                      unitData.getUnitType()));
         return null;
@@ -1901,6 +1949,7 @@ public class WebGUI extends GUI {
     /** {@inheritDoc} Shows the religion report ({@link Reports#religion}). */
     @Override
     public FreeColPanel showReportReligiousPanel() {
+        count("showReportReligiousPanel");
         this.ui.show("report", Reports.religion(getMyPlayer()));
         return null;
     }
@@ -1908,6 +1957,7 @@ public class WebGUI extends GUI {
     /** {@inheritDoc} Shows the education report ({@link Reports#education}). */
     @Override
     public FreeColPanel showReportEducationPanel() {
+        count("showReportEducationPanel");
         this.ui.show("report", Reports.education(getMyPlayer()));
         return null;
     }
@@ -1915,6 +1965,7 @@ public class WebGUI extends GUI {
     /** {@inheritDoc} Shows the exploration report ({@link Reports#exploration}). */
     @Override
     public FreeColPanel showReportExplorationPanel() {
+        count("showReportExplorationPanel");
         this.ui.show("report", Reports.exploration(getMyPlayer()));
         return null;
     }
@@ -1922,6 +1973,7 @@ public class WebGUI extends GUI {
     /** {@inheritDoc} Shows the trade report ({@link Reports#trade}). */
     @Override
     public FreeColPanel showReportTradePanel() {
+        count("showReportTradePanel");
         this.ui.show("report", Reports.trade(getMyPlayer()));
         return null;
     }
@@ -1929,6 +1981,7 @@ public class WebGUI extends GUI {
     /** {@inheritDoc} Shows the production report ({@link Reports#production}). */
     @Override
     public FreeColPanel showReportProductionPanel() {
+        count("showReportProductionPanel");
         this.ui.show("report", Reports.production(getMyPlayer()));
         return null;
     }
@@ -1936,6 +1989,7 @@ public class WebGUI extends GUI {
     /** {@inheritDoc} Shows the requirements report ({@link Reports#requirements}). */
     @Override
     public FreeColPanel showReportRequirementsPanel() {
+        count("showReportRequirementsPanel");
         this.ui.show("report", Reports.requirements(getMyPlayer()));
         return null;
     }
@@ -1943,6 +1997,7 @@ public class WebGUI extends GUI {
     /** {@inheritDoc} Shows the Colopedia ({@link Reports#colopedia}); nodeId is the entry to open on. */
     @Override
     public FreeColPanel showColopediaPanel(String nodeId) {
+        count("showColopediaPanel");
         this.ui.show("report", Reports.colopedia(getFreeColClient().getGame().getSpecification(), nodeId,
             getFreeColClient().getGame()));
         return null;
@@ -1951,6 +2006,7 @@ public class WebGUI extends GUI {
     /** {@inheritDoc} Shows the foreign affairs report ({@link Reports#foreign}). */
     @Override
     public FreeColPanel showReportForeignAffairPanel() {
+        count("showReportForeignAffairPanel");
         this.ui.show("report", Reports.foreign(getFreeColClient()));
         return null;
     }
@@ -1958,6 +2014,7 @@ public class WebGUI extends GUI {
     /** {@inheritDoc} Shows the native affairs report ({@link Reports#indian}). */
     @Override
     public FreeColPanel showReportIndianPanel() {
+        count("showReportIndianPanel");
         this.ui.show("report", Reports.indian(getFreeColClient()));
         return null;
     }
@@ -1965,6 +2022,7 @@ public class WebGUI extends GUI {
     /** {@inheritDoc} Shows the Continental Congress report ({@link Reports#congress}). */
     @Override
     public FreeColPanel showReportContinentalCongressPanel() {
+        count("showReportContinentalCongressPanel");
         this.ui.show("report", Reports.congress(getMyPlayer()));
         return null;
     }
@@ -1972,6 +2030,7 @@ public class WebGUI extends GUI {
     /** {@inheritDoc} Shows the history report ({@link Reports#history}). */
     @Override
     public FreeColPanel showReportHistoryPanel() {
+        count("showReportHistoryPanel");
         this.ui.show("report", Reports.history(getMyPlayer()));
         return null;
     }
@@ -1986,6 +2045,7 @@ public class WebGUI extends GUI {
     @Override
     public int showSelectAmountDialog(GoodsType goodsType, int available,
                                       int defaultAmount, boolean needToPay) {
+        count("showSelectAmountDialog");
         int most = available;
         if (needToPay) {
             final Player player = getMyPlayer();
@@ -2013,6 +2073,7 @@ public class WebGUI extends GUI {
     @Override
     public void showWarehouseDialog(Colony colony,
                                     DialogHandler<Boolean> handler) {
+        count("showWarehouseDialog");
         final Commands commands = this.engine.getCommands();
         defer("warehouse", () -> {
                 final String answer = this.questions.ask("warehouse", Warehouses.question(colony));
@@ -2035,6 +2096,7 @@ public class WebGUI extends GUI {
      */
     @Override
     public FreeColPanel showColonyPanel(Colony colony, Unit unit) {
+        count("showColonyPanel");
         if (colony != null) {
             this.colonyWatch.watch(colony);
             this.ui.show("colony", colonyJson(colony));
@@ -2069,6 +2131,7 @@ public class WebGUI extends GUI {
      */
     @Override
     public FreeColPanel showEuropePanel() {
+        count("showEuropePanel");
         final Player player = getMyPlayer();
         if (player == null || player.getEurope() == null) return null;
         this.salesLog.listen(player);
@@ -2079,12 +2142,14 @@ public class WebGUI extends GUI {
 
     @Override
     public FreeColPanel showTilePanel(Tile tile) {
+        count("showTilePanel");
         this.ui.show("tilePanel", TileJson.of(tile, getMyPlayer()));
         return null;
     }
 
     @Override
     public FreeColPanel showIndianSettlementPanel(IndianSettlement is) {
+        count("showIndianSettlementPanel");
         final Tile tile = is.getTile();
         this.ui.show("indianSettlement", tile(SettlementJson.of(is,
                 getMyPlayer()), tile)
@@ -2102,6 +2167,7 @@ public class WebGUI extends GUI {
     @Override
     public void showGameOptionsDialog(boolean editable,
                                       DialogHandler<OptionGroup> dialogHandler) {
+        count("showGameOptionsDialog");
         final Game game = getGame();
         if (game == null) return;
         this.ui.show("options", OptionsJson.event("game",
@@ -2118,6 +2184,7 @@ public class WebGUI extends GUI {
     public void showDifficultyDialog(Specification spec, OptionGroup group,
                                      boolean editable,
                                      DialogHandler<OptionGroup> dialogHandler) {
+        count("showDifficultyDialog");
         this.ui.show("options", OptionsJson.event("difficulty",
             Messages.message("difficultyDialog.name") + ": " + group.getName(),
             group, Messages.message("ok")).toString());
@@ -2132,6 +2199,7 @@ public class WebGUI extends GUI {
     @Override
     public void showMapGeneratorOptionsDialog(boolean editable,
         DialogHandler<OptionGroup> dialogHandler) {
+        count("showMapGeneratorOptionsDialog");
         final Game game = getGame();
         if (game == null) return;
         this.ui.show("options", OptionsJson.event("mapGenerator",
@@ -2141,24 +2209,28 @@ public class WebGUI extends GUI {
 
     @Override
     public void showClientOptionsDialog() {
+        count("showClientOptionsDialog");
         unasked("showClientOptionsDialog");
         super.showClientOptionsDialog();
     }
 
     @Override
     public boolean showEditOptionDialog(Option<?> option) {
+        count("showEditOptionDialog");
         unasked("showEditOptionDialog");
         return super.showEditOptionDialog(option);
     }
 
     @Override
     public IndianSettlement showEditSettlementDialog(IndianSettlement is) {
+        count("showEditSettlementDialog");
         unasked("showEditSettlementDialog");
         return super.showEditSettlementDialog(is);
     }
 
     @Override
     public FreeColPanel showFindSettlementPanel() {
+        count("showFindSettlementPanel");
         final Player player = getMyPlayer();
         if (player == null) return null;
         this.ui.show("findSettlement", FindSettlementJson.of(player.getGame(), player).toString());
@@ -2173,6 +2245,7 @@ public class WebGUI extends GUI {
      */
     @Override
     public FreeColPanel showWorkProductionPanel(Unit unit) {
+        count("showWorkProductionPanel");
         if (!(unit.getLocation() instanceof WorkLocation) || unit.getWorkType() == null) return null;
         this.ui.show("workProduction", WorkProductionJson.of(unit).toString());
         return null;

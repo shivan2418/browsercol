@@ -3,7 +3,7 @@
 // comes back as the client's update; without it there is no menu.
 // Run in the web image:
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/debug.ts [--browsers chromium,firefox]
-import { browserNames, collectPageErrors, playwright } from './common.ts';
+import { browserNames, collectPageErrors, playwright, trackCoverage } from './common.ts';
 import { answerDialogs } from './dialogs.ts';
 import { serveDist } from './serve-dist.ts';
 import type { Page } from 'playwright-core';
@@ -28,6 +28,7 @@ for (const name of browsers) {
 
   // Outside debug mode: no menu.
   const plain = await browser.newPage();
+  await trackCoverage(plain);
   await answerDialogs(plain);
   await plain.goto(`${base}&autoplay=0`);
   await plain.waitForFunction(() => window.fcResult?.status === 'finished', null, { timeout });
@@ -36,6 +37,7 @@ for (const name of browsers) {
 
   // In debug mode: the menu, and its actions.
   const page = await browser.newPage();
+  await trackCoverage(page);
   await answerDialogs(page);
   const errors = collectPageErrors(page);
   // Keep the latest map view the client Engine sends, to find a native settlement in.

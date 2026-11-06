@@ -74,6 +74,8 @@ class WebGUITest {
     /** While true the fake Browser UI leaves questions unanswered, in held. */
     private volatile boolean hold = false;
     private final List<Integer> held = new java.util.concurrent.CopyOnWriteArrayList<>();
+    /** Whether the fake Browser UI asks for the dialogs to be counted (the browser scripts do). */
+    private volatile boolean counting = false;
     /** The server Engine of the game startGame started. */
     private ServerEngine server;
 
@@ -125,6 +127,9 @@ class WebGUITest {
             }, new WebGUI.BrowserUI() {
                 public void show(String kind, String json) {
                     shown.add(kind + " " + json);
+                }
+                public boolean counting() {
+                    return WebGUITest.this.counting;
                 }
                 public void ask(int id, String kind, String json) {
                     asked.add(kind + " " + json);
@@ -179,6 +184,21 @@ class WebGUITest {
                 "information {\"text\":\"" + Messages.message("info.enterSomeText")
                 + "\",\"object\":null,\"tile\":null,\"at\":null,\"images\":[],\"ok\":\"OK\"}"),
             shown().stream().filter(e -> !e.startsWith("messages ")).collect(Collectors.toList()));
+    }
+
+    @Test
+    @Timeout(120)
+    void aDialogIsCountedOnlyWhenThePageAsksForTheCount() throws Exception {
+        // Off, as for a player: showCallsBecomeEvents shows a dialog with no coverage event.
+        this.counting = true;
+        final GUI gui = startGame().getClient().getGUI();
+
+        shown.clear();
+        gui.showInformationPanel("info.enterSomeText");
+        gui.showInformationPanel("info.enterSomeText");
+        assertEquals(List.of("coverage {\"method\":\"showInformationPanel\"}",
+                             "coverage {\"method\":\"showInformationPanel\"}"),
+            shown().stream().filter(e -> e.startsWith("coverage ") && e.contains("Information")).collect(Collectors.toList()));
     }
 
     @Test

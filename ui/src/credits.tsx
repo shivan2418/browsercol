@@ -8,6 +8,7 @@ import { WindowFrame } from './frame';
 // The fonts' licence texts, shipped in dist/ with the fonts (fonts.css).
 import cinzelOfl from './fonts/cinzel/OFL.txt?url';
 import notoSansOfl from './fonts/noto-sans/OFL.txt?url';
+import { useCoverage } from './coverage';
 
 export const SOURCE_URL = 'https://github.com/shivan2418/browsercol';
 export const FREECOL_URL = 'https://github.com/FreeCol/freecol';
@@ -146,6 +147,7 @@ export function SourceLinks({ credits }: { credits: () => void }) {
 }
 
 export function CreditsDialog({ close }: { close: () => void }) {
+  useCoverage('showAboutPanel');
   return (
     <div className="modal">
       <WindowFrame title="About BrowserCol" close={close} id="credits" className="dialog">

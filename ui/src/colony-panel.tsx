@@ -43,6 +43,7 @@ import { lane, type TargetProps } from './drag';
 import { accepts, draggableProps, dropTargetProps, same, type Item, type Place } from './moves';
 import { ContextMenuContext, useContextMenu } from './popup-menu';
 import type { Buildable, BuildingTip, ColonyView, GoodsAmount as Goods, RebelTip, UnitRef } from './webgui';
+import { useCoverage } from './coverage';
 
 /** FreeCol's tile size, which the tiles of TilesPanel are laid out by. */
 const TILE_W = 128;
@@ -799,6 +800,7 @@ function useColonyKey(on: (key: string) => void) {
  * children) is the button that opens it.
  */
 function BuildQueue({ c, art, children }: { c: ColonyView; art: Art; children: ReactNode }) {
+  useCoverage('showBuildQueuePanel');
   const moves = useContext(ColonyActions);
   const { colopedia } = useContext(ReportContext);
   /** Right-click on a building or unit of a list opens its Colopedia entry (BuildQueuePanel). */

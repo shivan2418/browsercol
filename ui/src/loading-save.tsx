@@ -8,6 +8,7 @@
 // [data-load-ok] and [data-load-cancel] on its buttons.
 import type { SaveMeta } from './saves';
 import { NumberField } from './controls';
+import { useCoverage } from './coverage';
 
 /** FreeCol's choices of the save game dialog option. */
 export const SHOW_SAVEGAME_SETTINGS = { never: 0, multiplayer: 1, always: 2 } as const;
@@ -30,6 +31,7 @@ export function LoadingSaveDialog({
   load: () => void;
   cancel: () => void;
 }) {
+  useCoverage('showLoadingSavegameDialog');
   return (
     <div className="start" data-loading-save>
       <form
