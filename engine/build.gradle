@@ -75,6 +75,8 @@ test {
     forkEvery = 6
     systemProperty 'presets.dir', file('../ui/presets').absolutePath
     systemProperty 'engine.src', file('src').absolutePath
+    // -PwriteSave=NAME: SaveGameTest writes a fixture save from this build.
+    if (project.hasProperty('writeSave')) systemProperty 'saves.write', project.property('writeSave')
     testLogging { events 'failed'; exceptionFormat 'full'; showStandardStreams = project.hasProperty('verbose') }
 }
 

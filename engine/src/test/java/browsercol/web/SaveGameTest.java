@@ -9,6 +9,9 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.util.Arrays;
+import java.util.stream.Stream;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -17,7 +20,9 @@ import java.util.zip.ZipInputStream;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestFactory;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -223,5 +228,48 @@ class SaveGameTest {
         assertTrue(resumed.client().getClient().currentPlayerIsMyPlayer(), "our turn");
         assertTrue(savegameXml(loaded.saveGame()).contains("<savedGame owner=\"Ana\""),
             "a save of the loaded game keeps the owner");
+    }
+
+    /** Saves made by earlier builds, one per build that might have changed the format. */
+    private static final File OLD_SAVES =
+        new File(System.getProperty("engine.src"), "test/resources/saves");
+
+    /**
+     * Players' saves must keep loading: every save an earlier build made
+     * loads, plays on a round with the player's turn coming back, and
+     * saves again. A change that breaks this needs a migration on load,
+     * not a new fixture (docs/adr/0007-saves-are-the-compatibility-contract.md).
+     */
+    @TestFactory
+    Stream<DynamicTest> everySaveFromAnEarlierBuildStillLoadsAndPlays() {
+        File[] files = OLD_SAVES.listFiles((d, n) -> n.endsWith(".fsg"));
+        assertNotNull(files, OLD_SAVES + " is missing");
+        assertTrue(files.length > 0, "no saves in " + OLD_SAVES);
+        Arrays.sort(files);
+        return Arrays.stream(files).map(f -> DynamicTest.dynamicTest(f.getName(), () -> {
+            ServerEngine loaded = new ServerEngine(xml -> {});
+            loaded.loadGame(Files.readAllBytes(f.toPath()));
+            int turn = loaded.getGame().getTurn().getNumber();
+            Session resumed = login(loaded, 1, loaded.ownerName());
+            assertTrue(resumed.client().getGame().getTurn().getNumber() > turn,
+                "a round is played from turn " + turn);
+            assertTrue(resumed.client().getClient().currentPlayerIsMyPlayer(), "our turn");
+            ServerEngine again = new ServerEngine(xml -> {});
+            again.loadGame(loaded.saveGame());
+        }));
+    }
+
+    /**
+     * Add a fixture to OLD_SAVES from this build: a Classic game after
+     * twenty AI rounds. Runs only when asked for:
+     *   ./dev.sh -C engine gradle test --tests '*SaveGameTest.writeAFixtureSave' -PwriteSave=NAME
+     */
+    @Test
+    @Timeout(600)
+    void writeAFixtureSave() throws Exception {
+        String name = System.getProperty("saves.write", "");
+        org.junit.jupiter.api.Assumptions.assumeFalse(name.isEmpty(), "-PwriteSave=NAME not given");
+        byte[] bytes = playRounds(20).server().saveGame();
+        Files.write(new File(OLD_SAVES, name + ".fsg").toPath(), bytes);
     }
 }
