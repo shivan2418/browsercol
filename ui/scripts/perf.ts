@@ -21,6 +21,8 @@ interface PerfRecord {
   draws: number[];
   blits: number[];
   uploads: [number, number][];
+  /** The map's own timings (performance.measure "map: scene" and "map: paint"): [start, ms, name]. */
+  measures?: [number, number, string][];
 }
 
 const query = opt('query', '');
