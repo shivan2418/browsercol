@@ -37,10 +37,12 @@ jobs:
 
       - name: First-load size
         run: |
-          # Transfer size of what a first load fetches: every file but the
-          # test Tileset and the debug presets, gzipped as Pages serves it.
+          # Transfer size of what a first load fetches, gzipped as Pages
+          # serves it: every file but the test Tileset, the debug presets,
+          # the music and sounds (each fetched when it plays) and the
+          # translations (the page fetches the player's one).
           cd dist
-          total=$(find . -type f ! -path './art/test*' ! -path './presets/*' -print0 | xargs -0 -n1 sh -c 'gzip -9c "$0" | wc -c' | awk '{s+=$1} END {print s}')
+          total=$(find . -type f ! -path './art/test*' ! -path './presets/*' ! -path './audio/*' ! -path './strings/*' -print0 | xargs -0 -n1 sh -c 'gzip -9c "$0" | wc -c' | awk '{s+=$1} END {print s}')
           raw=$(du -sb . | cut -f1)
           echo "first load (gzip): $((total/1024/1024)) MB; dist raw: $((raw/1024/1024)) MB" | tee -a "$GITHUB_STEP_SUMMARY"
           [ "$total" -lt $((30*1024*1024)) ] || { echo "over the 30 MB budget" >&2; exit 1; }
