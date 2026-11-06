@@ -5,7 +5,11 @@ import {
   debugOverlayOps,
   isCursorMarker,
   overlay,
+  sameStaticScene,
   scene,
+  STATIC_FIELDS,
+  staticScene,
+  unitScene,
   viewModeOps,
   type Chips,
   type MapView,
@@ -212,6 +216,108 @@ describe('scene', () => {
       { k: 'chip', x: 0, y: 0, text: '-', bg: 0xff8000, fg: 0, stack: 3 },
     ]);
     expect(ops).toContainEqual({ k: 'road', x: 0, y: 3, dirs: [], color: 0x804000 });
+  });
+});
+
+describe('staticScene and unitScene', () => {
+  const caravel = (x: number, y: number, rgb = 0xff8000) => ({
+    x,
+    y,
+    keys: ['image.unit.model.unit.caravel'],
+    rgb,
+    chip: '-',
+    fg: 0,
+    stack: 1,
+    fade: false,
+  });
+  const colony: MapView = {
+    ...map,
+    settlements: [
+      {
+        x: 0,
+        y: 3,
+        keys: ['image.settlement.colony'],
+        rgb: 0xff8000,
+        name: 'Jamestown',
+        population: 3,
+        bonus: -1,
+        sizeChange: 0,
+        chips: null,
+      },
+    ],
+    units: [caravel(0, 3), caravel(1, 1, 0x0000ff), caravel(0, 0)],
+  };
+
+  it('make up the scene: base, below, the units, then above', () => {
+    for (const labels of [0, 1, 2] as const) {
+      const { base, below, above } = staticScene(colony, tileset, labels);
+      expect(scene(colony, tileset, labels)).toEqual([...base, ...below, ...unitScene(colony, tileset), ...above]);
+    }
+  });
+
+  it('leave the units out of the static scene', () => {
+    const { base, below, above } = staticScene(colony, tileset);
+    const isUnit = (op: Op) => op.k === 'chip' || (op.k === 'image' && op.at === 'unit');
+    expect([...base, ...below, ...above].filter(isUnit)).toEqual([]);
+    expect(base.every((op) => op.k === 'image' && op.base)).toBe(true);
+    expect([...below, ...above].some((op) => op.k === 'image' && op.base)).toBe(false);
+    // The settlement's name is over the units.
+    expect(above).toContainEqual({ k: 'label', x: 0, y: 3, name: 'Jamestown', rgb: 0xff8000 });
+  });
+
+  it('draws the units in map.units order, not tile order', () => {
+    const chips = unitScene(colony, tileset).filter((op) => op.k === 'chip');
+    expect(chips.map((op) => [op.x, op.y, op.bg])).toEqual([
+      [0, 3, 0xff8000],
+      [1, 1, 0x0000ff],
+      [0, 0, 0xff8000],
+    ]);
+  });
+
+  it('reads no field of the map view but STATIC_FIELDS', () => {
+    const read = new Set<string | symbol>();
+    const spy = new Proxy(colony, {
+      get: (target, key, receiver) => {
+        read.add(key);
+        return Reflect.get(target, key, receiver) as unknown;
+      },
+    });
+    staticScene(spy, tileset, 2);
+    expect([...read].filter((k) => !(STATIC_FIELDS as readonly (string | symbol)[]).includes(k))).toEqual([]);
+  });
+});
+
+describe('sameStaticScene', () => {
+  // A fresh copy, as each map from the Engine is parsed anew.
+  const copy = (m: MapView): MapView => JSON.parse(JSON.stringify(m)) as MapView;
+
+  it('holds for a copy, and for a map whose units moved, came or went', () => {
+    expect(sameStaticScene(map, copy(map))).toBe(true);
+    const moved = { ...copy(map), units: [{ ...map.units[0], x: 1, y: 3 }], active: [1, 3] as [number, number] };
+    expect(sameStaticScene(map, moved)).toBe(true);
+    expect(sameStaticScene(map, { ...copy(map), units: [] })).toBe(true);
+    expect(sameStaticScene(map, { ...copy(map), turn: 'Autumn 1492', statusLine: 'Gold: 900' })).toBe(true);
+  });
+
+  it('fails when a tile is explored, a road built, an item or settlement changes', () => {
+    expect(sameStaticScene(map, { ...copy(map), tiles: 'AB' + 'AC' + 'AA' + 'AA' })).toBe(false);
+    expect(sameStaticScene(map, { ...copy(map), roads: [...map.roads, [1, 3, 150]] })).toBe(false);
+    expect(sameStaticScene(map, { ...copy(map), items: [] })).toBe(false);
+    const village = { ...copy(map), settlements: [] as MapView['settlements'] };
+    const named = (name: string): MapView => ({
+      ...village,
+      settlements: [{ x: 0, y: 3, keys: ['k'], rgb: 1, name, population: 1, bonus: 0, sizeChange: 0, chips: null }],
+    });
+    expect(sameStaticScene(named('Jamestown'), named('Jamestown'))).toBe(true);
+    expect(sameStaticScene(named('Jamestown'), named('Plymouth'))).toBe(false);
+    expect(sameStaticScene(map, { ...copy(map), w: 4, h: 2 })).toBe(false);
+  });
+
+  it('minds what the player sees only while the fog of war shows', () => {
+    const seen = '11' + '11' + '01' + '11';
+    expect(sameStaticScene(map, { ...copy(map), seen })).toBe(false);
+    expect(sameStaticScene({ ...map, fog: false }, { ...copy(map), fog: false, seen })).toBe(true);
+    expect(sameStaticScene({ ...map, fog: false }, { ...copy(map), fog: true })).toBe(false);
   });
 });
 

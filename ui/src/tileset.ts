@@ -299,21 +299,101 @@ export const TICK_MS = 125;
 export const STILL: Ticks = { water: 0, river: 0 };
 
 /** The animated base tiles of the scene at some frame: what animates, and nothing else. */
-export const animatedBase = (map: MapView, res: Resources, ticks: Ticks): Op[] => scene(map, res, 1, ticks, true);
+export const animatedBase = (map: MapView, res: Resources, ticks: Ticks): Op[] => build(map, res, 1, ticks, true).ops;
+
+/**
+ * The map's draw operations without its units, which a move that changes only units leaves as they were. The
+ * scene is `base`, `below`, the units, then `above`.
+ */
+export interface StaticScene {
+  /** The animated base tiles, marked `base`, which MapViewer paints first. */
+  base: Op[];
+  /** The terrain, transitions, fog, items and settlements, under the units. */
+  below: Op[];
+  /** Over the units: the art above the tiles and the settlement labels. */
+  above: Op[];
+}
+
+/** The scene's static part: everything but the units. */
+export function staticScene(
+  map: MapView,
+  res: Resources,
+  colonyLabels: ColonyLabels = 1,
+  ticks: Ticks = STILL,
+): StaticScene {
+  const { ops, baseEnd, unitsAt } = build(map, res, colonyLabels, ticks, false);
+  return { base: ops.slice(0, baseEnd), below: ops.slice(baseEnd, unitsAt), above: ops.slice(unitsAt) };
+}
+
+/** The scene's units in `map.units` order, which go between the static scene's `below` and `above`. */
+export const unitScene = (map: MapView, res: Resources): Op[] => map.units.flatMap((u) => unitOps(u, res));
+
+/** The fields of a map view the static scene is drawn from: all that scene() reads but the units. */
+export const STATIC_FIELDS = [
+  'w',
+  'h',
+  'types',
+  'tiles',
+  'seen',
+  'fog',
+  'rivers',
+  'roads',
+  'items',
+  'settlements',
+] as const satisfies readonly (keyof MapView)[];
+
+/** Whether two plain JSON values are the same. */
+function same(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
+  if (Array.isArray(a)) {
+    if (!Array.isArray(b) || a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) if (!same(a[i], b[i])) return false;
+    return true;
+  }
+  if (Array.isArray(b)) return false;
+  const ka = Object.keys(a);
+  if (ka.length !== Object.keys(b).length) return false;
+  for (const k of ka) if (!same((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k])) return false;
+  return true;
+}
+
+/**
+ * Whether two map views draw the same static scene, so differ at most in their units. What the player sees now
+ * matters only while the fog of war shows.
+ */
+export function sameStaticScene(a: MapView, b: MapView): boolean {
+  if (a === b) return true;
+  for (const k of STATIC_FIELDS) {
+    if (k === 'seen' && a.fog === false && b.fog === false) continue;
+    if (!same(a[k], b[k])) return false;
+  }
+  return true;
+}
 
 /**
  * The map's draw operations.
  *
  * @param ticks The frame of the animated water and rivers.
- * @param baseOnly Only the animated base tiles, which come first, marked `base`.
  */
-export function scene(
+export function scene(map: MapView, res: Resources, colonyLabels: ColonyLabels = 1, ticks: Ticks = STILL): Op[] {
+  const { base, below, above } = staticScene(map, res, colonyLabels, ticks);
+  return [...base, ...below, ...unitScene(map, res), ...above];
+}
+
+/**
+ * The scene's operations but the units, and where they go: after the animated base tiles (the first `baseEnd`,
+ * marked `base`), at `unitsAt`.
+ *
+ * @param baseOnly Only the animated base tiles.
+ */
+function build(
   map: MapView,
   res: Resources,
-  colonyLabels: ColonyLabels = 1,
-  ticks: Ticks = STILL,
-  baseOnly = false,
-): Op[] {
+  colonyLabels: ColonyLabels,
+  ticks: Ticks,
+  baseOnly: boolean,
+): { ops: Op[]; baseEnd: number; unitsAt: number } {
   const { w, h } = map;
   const ops: Op[] = [];
 
@@ -523,7 +603,8 @@ export function scene(
     }
   });
   for (const op of ops) if (op.k === 'image') op.base = true;
-  if (baseOnly) return ops;
+  const baseEnd = ops.length;
+  if (baseOnly) return { ops, baseEnd, unitsAt: baseEnd };
   each((x, y) => {
     if (!animated(x, y)) terrain(x, y, typeAt(x, y));
   });
@@ -620,7 +701,8 @@ export function scene(
     return chips;
   }
 
-  for (const u of map.units) ops.push(...unitOps(u, res));
+  // The units go here: over the settlements, under what is above the tiles.
+  const unitsAt = ops.length;
 
   each((x, y) => {
     const type = typeAt(x, y);
@@ -663,7 +745,7 @@ export function scene(
       ...dim,
     });
   }
-  return ops;
+  return { ops, baseEnd, unitsAt };
 }
 
 /**
