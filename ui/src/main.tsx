@@ -471,8 +471,10 @@ let saveDialog: 'save' | 'saveAndExit' | null = null;
 let openOpen = false;
 /** The page is waiting for a save to finish before it goes back to the main title. */
 let exitAfterSave = false;
-/** The file the player picked for the save being made, to write once it is made (#274). */
-let saveFile: SaveTarget | null = null;
+/** The file the player picked for the save being made, and the name it is saved under, to write once made (#274). */
+let saveFile: { target: SaveTarget; name: string } | null = null;
+/** The save picker is open: another Save waits for it, as the browser shows one picker at a time. */
+let picking = false;
 /** Why the last file picked in the Open window would not open; empty for none. */
 let openNote = '';
 /**
@@ -485,14 +487,18 @@ function askToSave(then: 'save' | 'saveAndExit') {
     saveDialog = then;
     return renderSide();
   }
+  if (picking) return;
+  picking = true;
   const m = lastMap;
   const suggested = fileNameOf(m ? `${nationName(m.nation)}, ${m.turnLabel}` : '');
   chooseSaveFile(suggested)
+    .finally(() => (picking = false))
     .then((target) => {
       if (!target) return;
-      saveFile = target;
+      const name = nameFromFile(target.name).trim();
+      saveFile = { target, name };
       exitAfterSave = then === 'saveAndExit';
-      saveGame(nameFromFile(target.name));
+      saveGame(name);
     })
     .catch((ex: unknown) => {
       side.saveNote = `Save failed: ${String(ex)}`;
@@ -770,7 +776,7 @@ const menuActions = (): MenuActions => ({
       if (tileset) next.set('tileset', tileset);
       leavePage(next.toString());
     }),
-  // FreeCol's SaveAction asks for the name in a dialog, and is disabled while a panel is showing.
+  // FreeCol's SaveAction asks for the file (askToSave), and is disabled while a panel is showing.
   save: () => askToSave('save'),
   saveAndExit: () => askToSave('saveAndExit'),
   returnToMain: returnToMain,
@@ -997,7 +1003,10 @@ function renderSide() {
             : undefined
         }
         run={(c) => runCommand(c)}
-        save={(name) => saveGame(name)}
+        save={(name) => {
+          saveFile = null; // the side panel's save stays in the store
+          saveGame(name);
+        }}
         load={(id) => void confirmStopGame().then((go) => go && openSave(id))}
         remove={(id) => {
           side.saveNote = 'Deleting...';
@@ -1781,9 +1790,13 @@ async function run() {
         case 'saved': {
           const meta = JSON.parse(detail) as SaveMeta;
           leaveAsk.saved();
-          const target = saveFile;
-          if (target && !isAutosave(meta) && !isTurnAutosave(autosaveOptions(prefs), meta)) {
-            // The player's save, made for the file they picked: write it there, then go on as for any save.
+          const auto = autosaveOptions(prefs);
+          const quiet = isAutosave(meta) || isTurnAutosave(auto, meta);
+          const pending = saveFile;
+          // The player's save, made for the file they picked: the save of that name, or with the default name the
+          // first one not an autosave. Written there, then on as for any save.
+          if (pending && (meta.name === pending.name || !quiet)) {
+            const target = pending.target;
             saveFile = null;
             return void store
               .get(meta.id)
@@ -1802,12 +1815,11 @@ async function run() {
               })
               .finally(listSaves);
           }
-          if (exitAfterSave && !isAutosave(meta)) return returnToMain();
+          if (exitAfterSave && !saveFile && !quiet) return returnToMain();
           if (isAutosave(meta)) {
             // One slot: the new autosave replaces the old ones, quietly.
             return void dropOlderAutosaves(store, meta).catch(console.warn).finally(listSaves);
           }
-          const auto = autosaveOptions(prefs);
           if (isTurnAutosave(auto, meta)) {
             // Quietly too; a new last-turn save moves the old one to before-last-turn.
             const shifted =

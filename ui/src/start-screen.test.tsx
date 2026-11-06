@@ -276,12 +276,12 @@ test('with no saves a save file can still be opened, and the reason one will not
       saves={[]}
       open={() => {}}
       openFile={() => asked++}
-      openNote="Import failed: not a zip"
+      openNote="Could not open the file: not a zip"
     />,
   );
   fireEvent.click(document.querySelector('[data-open-file]')!);
   expect(asked).toBe(1);
-  expect(screen.getByText('Import failed: not a zip')).toBeTruthy();
+  expect(screen.getByText('Could not open the file: not a zip')).toBeTruthy();
 });
 
 test('the game options the player started with are the defaults of the next game, the level’s are not', () => {

@@ -58,7 +58,7 @@ export const hasSavePicker = (w: object = globalThis) => typeof (w as PickerWind
 const cancelled = (ex: unknown) => ex instanceof DOMException && ex.name === 'AbortError';
 
 /** Hand the bytes to the browser as a file download. */
-export function download(bytes: Uint8Array, fileName: string) {
+function download(bytes: Uint8Array, fileName: string) {
   const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'application/octet-stream' }));
   const a = document.createElement('a');
   a.href = url;
@@ -86,7 +86,7 @@ export async function chooseSaveFile(
   fallback: (bytes: Uint8Array, fileName: string) => void = download,
 ): Promise<SaveTarget | null> {
   const pick = (w as PickerWindow).showSaveFilePicker;
-  if (typeof pick !== 'function') {
+  if (!hasSavePicker(w) || !pick) {
     return { name: suggestedName, write: (bytes) => Promise.resolve(fallback(bytes, suggestedName)) };
   }
   try {
