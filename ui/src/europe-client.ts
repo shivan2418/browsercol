@@ -2,6 +2,17 @@
 // the ship to the New World, and trade goods in the market. Set once the client Engine has loaded
 // (main.tsx); each is a client command (Commands.recruitUnit and the others), after which the Engine sends
 // the panel again.
+import type { Dialogs } from './dialogs';
+import type { GuiEvents } from './webgui';
+
+/**
+ * The Engine sends the Europe panel again after each change (a unit boarding, goods bought). The open
+ * panel takes the new content and stays the same panel: a new one would be taken down and put up again.
+ */
+export function showEurope(box: Pick<Dialogs, 'replace'>, e: GuiEvents['europe']): void {
+  box.replace('europe', e, () => true, true);
+}
+
 export interface EuropeButtons {
   recruit: (index: number) => void;
   train: (unitTypeId: string) => void;

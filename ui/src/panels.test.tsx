@@ -6,7 +6,7 @@ import { jamestown } from './colony-fixture';
 import { DebugContext } from './debug';
 import { dialogs } from './dialogs';
 import { dragOnto } from './drag.testing';
-import { europeButtons } from './europe-client';
+import { europeButtons, showEurope } from './europe-client';
 import { CopyDetailsContext, ShowLogContext } from './log';
 import { ContextMenuContext, type ContextMenus } from './popup-menu';
 import type { Advisor } from './advisor';
@@ -2114,6 +2114,16 @@ describe('the Europe panel', () => {
     expect(await hint(colonist())).toBe('Free Colonist');
     act(() => box.replace('europe', { ...europe, docks: [] }));
     expect(await hint(colonist())).toBe('Free Colonist');
+  });
+
+  it('stays the same open panel when the Engine sends Europe again after a board', () => {
+    const { box } = host();
+    act(() => showEurope(box, europe));
+    const id = box.current()!.id;
+    const unit = document.querySelector('[data-unit="unit:2"]')!;
+    act(() => showEurope(box, { ...europe, docks: [] }));
+    expect(box.current()!.id).toBe(id);
+    expect(document.contains(unit)).toBe(true);
   });
 
   it('names the picked ship and its holds left over the cargo', () => {

@@ -85,7 +85,7 @@ import {
 import { LANGUAGE_OPTION, languageName, languages, pickLanguage, translationFiles } from './language';
 import { clientOptionsGroup, leaves, type OptionGroup } from './options';
 import { mapDrawer, type MapView } from './map';
-import { europeButtons } from './europe-client';
+import { europeButtons, showEurope } from './europe-client';
 import { DialogHost, type Art, type ReportButtons, type RouteButtons } from './panels';
 import { acceleratorFor, inTextField, type Accelerator } from './accelerators';
 import { isTurnReportKey, reportForKey } from './report-keys';
@@ -1318,7 +1318,7 @@ const gui: GuiHandlers = {
     colopedia: (e) => dialogQueue.replace('colopedia', e),
     highScores: (e) => dialogQueue.show('highScores', e),
     tradeRoutes: (e) => dialogQueue.replace('tradeRoutes', e),
-    europe: (e) => dialogQueue.replace('europe', e),
+    europe: (e) => showEurope(dialogQueue, e),
     options: (e) => dialogQueue.replace('options', e, (open) => open.kind === e.kind),
     // A report that is open is replaced: a link in it opens a detail in its place.
     report: (e) => dialogQueue.replace('report', e),
