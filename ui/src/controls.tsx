@@ -5,14 +5,7 @@
 import { NumberField as BaseNumberField } from '@base-ui/react/number-field';
 import { Select as BaseSelect } from '@base-ui/react/select';
 import { Tooltip as BaseTooltip } from '@base-ui/react/tooltip';
-import {
-  createElement,
-  useEffect,
-  useState,
-  type ComponentProps,
-  type KeyboardEvent,
-  type ReactNode,
-} from 'react';
+import { createElement, useEffect, useState, type ComponentProps, type KeyboardEvent, type ReactNode } from 'react';
 import { dragging } from './drag';
 import { useEscape } from './frame';
 
