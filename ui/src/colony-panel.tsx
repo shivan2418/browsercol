@@ -41,7 +41,7 @@ import { ReportContext } from './reports';
 import { lane, type TargetProps } from './drag';
 import { accepts, draggableProps, dropTargetProps, same, type Item, type Place } from './moves';
 import { ContextMenuContext, useContextMenu } from './popup-menu';
-import type { Buildable, BuildingTip, ColonyView, GoodsAmount as Goods, UnitRef } from './webgui';
+import type { Buildable, BuildingTip, ColonyView, GoodsAmount as Goods, RebelTip, UnitRef } from './webgui';
 
 /** FreeCol's tile size, which the tiles of TilesPanel are laid out by. */
 const TILE_W = 128;
@@ -299,6 +299,99 @@ function Made({ g, art, change = false, max }: { g: Goods; art: Art; change?: bo
     <span className="made-goods" data-goods={g.type}>
       <GoodsAmount keys={g.keys} name={g.name} amount={g.amount} change={change} art={art} icons expert={max ?? null} />
     </span>
+  );
+}
+
+/** ColonyPanel's wood with the population's octagons (ImageLibrary.getColonyUpperRightBackground). */
+const OCTAGONS = PANEL_KEYS.colonyOctagons;
+/** Where each octagon is in that image, at its 1x size: the top two empty, the lower two with the muskets and the crown. */
+const OCTAGON_AT = { size: [66, 6], change: [372, 6], rebels: [66, 152], royalists: [372, 152] } as const;
+
+/**
+ * ColonyPanel's upperRightPanel: the tiles, the net production and the construction, with the octagons
+ * paintComponent writes the population in, round the tiles (the colony's size, its preferred size change, and the
+ * shares of rebels and royalists); RebelToolTip shows while the pointer is over it, as in Swing.
+ */
+function Board({ c, art, children }: { c: ColonyView; art: Art; children: ReactNode }) {
+  const [over, setOver] = useState<{ x: number; y: number } | null>(null);
+  const p = c.population;
+  const wood = art([OCTAGONS]);
+  const octagon = (part: keyof typeof OCTAGON_AT, text: string) => {
+    const [x, y] = OCTAGON_AT[part];
+    return (
+      <span
+        className={`octagon ${part}`}
+        data-part={part}
+        style={wood === null ? undefined : { backgroundImage: `url(${wood})`, backgroundPosition: `-${x}px -${y}px` }}
+      >
+        {text}
+      </span>
+    );
+  };
+  return (
+    <div
+      className="board"
+      data-part="population"
+      onMouseEnter={(e) => setOver({ x: e.clientX, y: e.clientY })}
+      onMouseLeave={() => setOver(null)}
+      onMouseDown={() => setOver(null)}
+    >
+      {octagon('size', String(p.size))}
+      {octagon('change', p.sizeChange)}
+      {octagon('rebels', `${p.rebelPercent}%`)}
+      {octagon('royalists', `${100 - p.rebelPercent}%`)}
+      {children}
+      {over && <RebelTipBox tip={p.tip} art={art} at={over} />}
+    </div>
+  );
+}
+
+/** The widest RebelToolTip is laid out for, to put it left of the pointer when the right has no room. */
+const REBEL_TIP_W = 400;
+
+/**
+ * RebelToolTip, by the pointer: the rebels and royalists with their counts and shares; each liberty goods type with
+ * what the colony makes of it; the bar towards the next rebel; and the turns to the next rebel, to 50% and to 100%,
+ * with how many colonists the colony can take or should lose at its bonus.
+ */
+function RebelTipBox({ tip, art, at }: { tip: RebelTip; art: Art; at: { x: number; y: number } }) {
+  const left = at.x + 16 + REBEL_TIP_W <= window.innerWidth ? at.x + 16 : Math.max(8, at.x - 16 - REBEL_TIP_W);
+  const { bar } = tip;
+  const width = (n: number) => `${Math.max(0, Math.min(100, (100 * n) / Math.max(1, bar.max)))}%`;
+  return createPortal(
+    <div className="rebel-tip" role="tooltip" style={{ left, top: Math.max(8, at.y + 16) }}>
+      {tip.members.map(([label, count, share]) => (
+        <div key={label} className="tip-row">
+          <span>{label}</span>
+          <span className="num">{count}</span>
+          <span className="num">{share}</span>
+        </div>
+      ))}
+      {tip.liberty.map((g) => (
+        <div key={g.type} className="tip-row" data-goods={g.type}>
+          <span>{g.name}</span>
+          <span className="span2">
+            <GoodsAmount keys={g.keys} name={g.name} amount={g.amount} art={art} icons />
+          </span>
+        </div>
+      ))}
+      {/* FreeColProgressBar: what is there, darker, and what comes next turn, lighter, under the icon and its text. */}
+      <div className="tip-bar">
+        <i className="value" style={{ width: width(bar.value) }} />
+        <i className="step" style={{ left: width(bar.value), width: width(Math.max(0, bar.step)) }} />
+        <span className="label">
+          <Img keys={bar.keys} art={art} className="icon" />
+          {bar.text}
+        </span>
+      </div>
+      {tip.turns.map(([label, value]) => (
+        <div key={label} className="tip-row">
+          <span>{label}</span>
+          <span className="span2 num">{value}</span>
+        </div>
+      ))}
+    </div>,
+    document.body,
   );
 }
 
@@ -949,7 +1042,6 @@ function isHere(c: ColonyView, item: Item) {
 }
 
 export function ColonyPanel({ colony: c, art, footer }: { colony: ColonyView; art: Art; footer?: ReactNode }) {
-  const p = c.population;
   const moves = useContext(ColonyActions);
   const [picked, show] = useState<Item | null>(() => picks.get(c.id) ?? null);
   const setPicked = (item: Item | null) => {
@@ -1035,40 +1127,29 @@ export function ColonyPanel({ colony: c, art, footer }: { colony: ColonyView; ar
               })}
             </div>
             <div className="upper">
-              <Part part="population" title={p.tip.map(([k, v]) => `${k}: ${v}`).join('\n')}>
-                <Img keys={p.rebelShield} art={art} className="shield" />
-                <span>
-                  {p.rebels} <b>{`${p.rebelPercent}%`}</b>
-                </span>
-                <span>
-                  {p.total} <span className="muted">{p.bonus}</span>
-                </span>
-                <span>
-                  {p.royalists} <b>{`${100 - p.rebelPercent}%`}</b>
-                </span>
-                <Img keys={p.royalistShield} art={art} className="shield" />
-              </Part>
-              <Tiles c={c} art={art} />
-              <Part part="net">
-                {c.production.map((g) => (
-                  <Made key={g.type} g={g} art={art} change />
-                ))}
-              </Part>
-              <BuildQueue c={c} art={art}>
-                {c.construction === null ? (
-                  <span className="muted">{c.nothing}</span>
-                ) : (
-                  <>
-                    <Img keys={c.construction.keys} art={art} className="buildable" />
-                    <div className="needs">
-                      <span>{c.construction.name}</span>
-                      {c.construction.required.map((r) => (
-                        <Progress key={r.type} need={r} art={art} />
-                      ))}
-                    </div>
-                  </>
-                )}
-              </BuildQueue>
+              <Board c={c} art={art}>
+                <Tiles c={c} art={art} />
+                <Part part="net">
+                  {c.production.map((g) => (
+                    <Made key={g.type} g={g} art={art} change />
+                  ))}
+                </Part>
+                <BuildQueue c={c} art={art}>
+                  {c.construction === null ? (
+                    <span className="muted">{c.nothing}</span>
+                  ) : (
+                    <>
+                      <Img keys={c.construction.keys} art={art} className="buildable" />
+                      <div className="needs">
+                        <span>{c.construction.name}</span>
+                        {c.construction.required.map((r) => (
+                          <Progress key={r.type} need={r} art={art} />
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </BuildQueue>
+              </Board>
               <InPort c={c} art={art} choose={choose} />
               {footer}
             </div>

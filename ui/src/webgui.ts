@@ -338,6 +338,18 @@ export interface UnitRef {
   choices?: GoodsAmount[];
 }
 
+/** RebelToolTip, the colony's rebels and royalists and how its liberty grows: see ColonyJson.rebelTip. */
+export interface RebelTip {
+  /** The rebels and the royalists: [label, count, share]. */
+  members: [string, string, string][];
+  /** The net production of each liberty goods type. */
+  liberty: GoodsAmount[];
+  /** FreeColProgressBar towards the next rebel; text is its "32+1/200 (Turns: 168)". */
+  bar: { keys: string[]; value: number; step: number; max: number; text: string };
+  /** The turns to the next rebel, to 50% and to 100%, then the colonists to add or remove: [label, value]. */
+  turns: [string, string][];
+}
+
 /** What FreeCol's colony panel shows of a colony: see ColonyJson.java. All text is localized. */
 export interface ColonyView {
   id: Id;
@@ -345,17 +357,15 @@ export interface ColonyView {
   at: [number, number];
   /** The close button's label. */
   ok: string;
-  /** PopulationPanel's labels, the share of rebels and the two shields. */
+  /**
+   * What ColonyPanel writes in the octagons round the tiles: the colony's size, its preferred size change ("+1",
+   * ">9", "-2") and the share of rebels; and RebelToolTip.
+   */
   population: {
-    total: string;
-    rebels: string;
-    royalists: string;
-    bonus: string;
+    size: number;
+    sizeChange: string;
     rebelPercent: number;
-    /** RebelToolTip: [label, value] lines. */
-    tip: [string, string][];
-    rebelShield: string[];
-    royalistShield: string[];
+    tip: RebelTip;
   };
   /** The buildings, and an empty plot (site, with no id) for each kind not built yet. */
   buildings: {

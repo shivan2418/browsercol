@@ -50,14 +50,18 @@ const colony = {
   at: [0, 0],
   ok: 'OK',
   population: {
-    total: 'Total: 0',
-    rebels: 'Rebels: 0',
-    royalists: 'Royalists: 0',
-    bonus: 'Bonus: 0',
+    size: 0,
+    sizeChange: '+0',
     rebelPercent: 0,
-    rebelShield: [],
-    tip: [],
-    royalistShield: [],
+    tip: {
+      members: [
+        ['Rebel:', '0', '0%'],
+        ['Royalist:', '0', '100%'],
+      ],
+      liberty: [],
+      bar: { keys: [], value: 32, step: 1, max: 200, text: '32+1/200 (Turns: 168)' },
+      turns: [],
+    },
   },
   buildings: [
     {

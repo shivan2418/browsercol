@@ -34,17 +34,21 @@ export const jamestown: ColonyView = {
   at: [3, 4],
   ok: 'OK',
   population: {
-    total: 'Total: 1',
-    rebels: 'Rebels: 0',
-    royalists: 'Royalists: 1',
-    bonus: 'Bonus: 0',
+    size: 1,
+    sizeChange: '+0',
     rebelPercent: 0,
-    tip: [
-      ['Rebel', '0  0%'],
-      ['Turns to increase rebels', 'N/A'],
-    ],
-    rebelShield: [],
-    royalistShield: [],
+    tip: {
+      members: [
+        ['Rebel:', '0', '0%'],
+        ['Royalist:', '1', '100%'],
+      ],
+      liberty: [{ type: 'model.goods.bells', name: 'Bells', keys: [], amount: 1 }],
+      bar: { keys: [], value: 32, step: 1, max: 200, text: '32+1/200 (Turns: 168)' },
+      turns: [
+        ['Turns to increase rebels', '168'],
+        ['Add colonists at current bonus', '1'],
+      ],
+    },
   },
   buildings: [
     {

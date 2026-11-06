@@ -386,13 +386,24 @@ class ColonyJsonTest {
         assertTrue(netProduction.get("model.goods.hammers") > 0,
             "hammers: " + netProduction);
 
-        // Population: the two colonists in it, and the share of rebels.
+        // Population: the octagons' two colonists and share of rebels.
         final Map<String, Object> population = obj(json.get("population"));
-        assertEquals("Total: 2", population.get("total"));
+        assertEquals(2L, population.get("size"));
         assertEquals((long)colony.getSonsOfLiberty(), population.get("rebelPercent"));
-        // RebelToolTip's lines, with the turns to the next rebel among them.
-        final List<Object> tip = list(population.get("tip"));
-        assertTrue(tip.stream().anyMatch(r -> list(r).get(0)
+        final int grow = colony.getPreferredSizeChange();
+        assertEquals((grow >= 0 ? "+" : "") + grow, population.get("sizeChange"));
+        // RebelToolTip: the rebels and royalists, the bells, the bar to the
+        // next rebel, and the turns to the next rebel among the lines under it.
+        final Map<String, Object> tip = obj(population.get("tip"));
+        final List<Object> members = list(tip.get("members"));
+        assertEquals(List.of("Rebel:", "0", colony.getSonsOfLiberty() + "%"), list(members.get(0)));
+        assertEquals("Royalist:", list(members.get(1)).get(0));
+        assertEquals("model.goods.bells", obj(list(tip.get("liberty")).get(0)).get("type"));
+        final Map<String, Object> bar = obj(tip.get("bar"));
+        assertEquals(200L, bar.get("max"));
+        assertTrue(((String)bar.get("text")).matches("\\d+[+-]\\d+/200 \\(Turns: .+\\)"),
+            "FreeColProgressBar's text: " + bar.get("text"));
+        assertTrue(list(tip.get("turns")).stream().anyMatch(r -> list(r).get(0)
                 .equals(Messages.message("rebelToolTip.nextMember"))),
             "the turns to the next rebel: " + tip);
 
