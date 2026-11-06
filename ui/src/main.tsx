@@ -543,15 +543,17 @@ function openSave(id: number) {
 /** Whether the credits window (credits.tsx) is open. */
 let creditsOpen = false;
 /** FreeCol's music and sound effects, served under audio/ (build-audio.ts); null if the manifest is missing. */
+let followVisibility = () => {};
 const sound = fetch('audio/audio.json')
   .then((res) => (res.ok ? (res.json() as Promise<AudioManifest>) : Promise.reject(new Error(`${res.status}`))))
   .then((manifest) => {
     const player = soundPlayer(manifest, { base: 'audio/' });
     player.setVolumes(volumes(prefs));
     // A hidden tab or a minimised app is quiet, and goes on from where it was on return (#272).
-    const follow = () => player.setHidden(document.visibilityState === 'hidden');
-    document.addEventListener('visibilitychange', follow);
-    follow();
+    // Unless the player chose to keep it playing in the background.
+    followVisibility = () => player.setHidden(document.visibilityState === 'hidden' && !prefs.playHidden);
+    document.addEventListener('visibilitychange', followVisibility);
+    followVisibility();
     return player;
   })
   .catch((ex: unknown) => {
@@ -637,6 +639,7 @@ function setPrefs(p: Prefs) {
   savePrefs(p);
   applyLook(p);
   void sound.then((s) => s?.setVolumes(volumes(p)));
+  followVisibility();
   const changed = Object.fromEntries(Object.entries(p.freecol).filter(([id, v]) => was.freecol[id] !== v));
   // An option no longer set (Reset, Revert to Defaults) goes back to FreeCol's default.
   for (const id of Object.keys(was.freecol)) {
@@ -1614,7 +1617,9 @@ async function chooseGame(data: string[], language: string): Promise<{ preset: s
   const host = document.createElement('div');
   document.body.append(host);
   const root = createRoot(host);
-  // FreeCol's main panel plays the introduction music.
+  // FreeCol's main panel plays the introduction music; the browser lets it start on the player's first choice (#272).
+  void sound.then((s) => s?.waitForChoice(true));
+  const chosen = () => void sound.then((s) => s?.choose());
   playSound('sound.intro.general');
   // The screen goes once the start screen has had a frame to draw in.
   requestAnimationFrame(() => boot.finish('start'));
@@ -1635,6 +1640,7 @@ async function chooseGame(data: string[], language: string): Promise<{ preset: s
           }}
           saves={saves}
           open={openSave}
+          chosen={chosen}
           sound={{
             music: !prefs.muteMusic,
             effects: !prefs.muteEffects,

@@ -254,6 +254,19 @@ export function PreferencesDialog({
                     }}
                     after={(id) => <MuteButton id={id} prefs={prefs} change={change} />}
                   />
+                  {current.options.children.some((o) => o.id in MUTES) && (
+                    <label
+                      data-pref="playHidden"
+                      style={{ display: 'flex', gap: 12, justifyContent: 'space-between', margin: '6px 0' }}
+                    >
+                      Keep playing sound while the tab is hidden
+                      <input
+                        type="checkbox"
+                        checked={prefs.playHidden}
+                        onChange={(e) => change({ ...prefs, playHidden: e.target.checked })}
+                      />
+                    </label>
+                  )}
                   {current.options.children.some((o) => o.id === LANGUAGE_OPTION) && (
                     <p data-note="language" className="prefs-note">
                       The language is that of FreeCol's own text: messages, reports, names and the Colopedia.

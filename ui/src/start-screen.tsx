@@ -176,12 +176,13 @@ export function StartScreen({
   rules,
   changeRules,
   saves = [],
-  open,
+  open: openGame,
   openFile,
   openNote,
   colopedia,
   art = () => null,
   sound,
+  chosen: gameChosen,
 }: {
   options: StartOptions;
   start: (choice: StartChoice) => void;
@@ -192,6 +193,8 @@ export function StartScreen({
   saves?: SaveMeta[];
   /** Play a saved game. */
   open?: (id: number) => void;
+  /** The player's New Game or Continue click, called inside it: the browser lets the title music start then (#272). */
+  chosen?: () => void;
   /** Ask for a .fsg file and play it, as MainPanel's Open does with its file chooser. */
   openFile?: () => void;
   /** Why the last file would not open; empty for none. */
@@ -206,6 +209,12 @@ export function StartScreen({
   /** Music and sound effects on or off; no control shows without it. */
   sound?: { music: boolean; effects: boolean; setMusic: (on: boolean) => void; setEffects: (on: boolean) => void };
 }) {
+  const open =
+    openGame &&
+    ((id: number) => {
+      gameChosen?.();
+      openGame(id);
+    });
   const [advantages, setAdvantages] = useState<Advantages>('SELECTABLE');
   const [nationType, setNationType] = useState<string>('');
   const [colors, setColors] = useState<Record<string, string>>({});
@@ -385,6 +394,7 @@ export function StartScreen({
         className="start-window new-game"
         onSubmit={(e) => {
           e.preventDefault();
+          gameChosen?.();
           saveDefaults('game', gameEdits);
           saveDefaults('map', mapEdits);
           start({

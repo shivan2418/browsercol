@@ -141,6 +141,32 @@ describe('soundPlayer', () => {
     expect(playing()).toEqual([]);
   });
 
+  it('holds refused music for the start screen choice, not for any click', () => {
+    const { player, made, playing, gesture } = setup();
+    made[0].blocked = true;
+    player.waitForChoice(true);
+    player.play('sound.intro.general');
+    return Promise.resolve().then(() => {
+      gesture(); // any click or key: nothing was waiting on it
+      expect(playing()).toEqual([]);
+      made[0].blocked = false;
+      player.choose();
+      expect(playing()).toEqual(['audio/base/resources/sound/intro.ogg']);
+    });
+  });
+
+  it('plays refused music on the next click once the start screen is done waiting', async () => {
+    const { player, made, playing, gesture } = setup();
+    made[0].blocked = true;
+    player.waitForChoice(true);
+    player.choose();
+    player.play('sound.intro.general');
+    await Promise.resolve();
+    made[0].blocked = false;
+    gesture();
+    expect(playing()).toEqual(['audio/base/resources/sound/intro.ogg']);
+  });
+
   it('plays the default playlist, shuffled, once the game has started and the music is done', () => {
     const { player, made, playing } = setup();
     const [music] = made;

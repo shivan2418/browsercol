@@ -410,6 +410,19 @@ test('the sound toggles show music and sound effects on or off, and change them'
   expect(calls).toEqual(['music true', 'effects false']);
 });
 
+test('Start game and Continue Playing are the choices that start the title music', () => {
+  let chosen = 0;
+  const { unmount } = render(<StartScreen options={options} start={() => {}} chosen={() => chosen++} />);
+  expect(chosen).toBe(0);
+  fireEvent.click(document.querySelector('[data-start]')!);
+  expect(chosen).toBe(1);
+  unmount();
+  const saves = [{ id: 7, name: 'a', date: 0, turn: 3, year: 1495, nation: 'Dutch', size: 1 }];
+  render(<StartScreen options={options} start={() => {}} saves={saves} open={() => {}} chosen={() => chosen++} />);
+  fireEvent.click(document.querySelector('[data-continue]')!);
+  expect(chosen).toBe(2);
+});
+
 test('the start screen opens with Start focused, so the focus ring marks the default', () => {
   screenWith();
   expect(document.activeElement).toBe(document.querySelector('[data-start]'));

@@ -217,6 +217,40 @@ test('each volume is a slider with a mute button beside it, and muting leaves th
   expect(changes.at(-1)?.freecol).toEqual({ 'model.option.musicVolume': 60, 'model.option.soundEffectsVolume': 25 });
 });
 
+test('the audio category has a switch for playing sound while the tab is hidden, off by default', () => {
+  const changes: Prefs[] = [];
+  const audio: OptionGroup = {
+    ...freecol,
+    children: [
+      {
+        id: 'clientOptions.audio',
+        label: 'Audio',
+        description: null,
+        kind: 'group',
+        children: [
+          {
+            id: 'model.option.musicVolume',
+            label: 'Music volume',
+            description: null,
+            kind: 'percentage',
+            value: 100,
+            min: 0,
+            max: 100,
+          },
+        ],
+      },
+    ],
+  };
+  const { container } = render(
+    <PreferencesDialog prefs={DEFAULTS} freecol={audio} change={(p) => changes.push(p)} close={() => {}} />,
+  );
+  fireEvent.click(container.querySelector<HTMLElement>('[data-category="clientOptions.audio"]')!);
+  const box = container.querySelector<HTMLInputElement>('[data-pref="playHidden"] input')!;
+  expect(box.checked).toBe(false);
+  fireEvent.click(box);
+  expect(changes.at(-1)).toMatchObject({ playHidden: true });
+});
+
 test('Reset and Cancel go back to the preferences the window opened with, Revert to Defaults to the defaults', () => {
   const changes: Prefs[] = [];
   let closed = 0;

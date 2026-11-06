@@ -62,6 +62,8 @@ export interface Prefs {
   muteMusic: boolean;
   /** Whether the sound effects are muted, whatever their volume option says. */
   muteEffects: boolean;
+  /** Whether the sound goes on while the tab is hidden or the app minimised; off, it pauses and resumes on return. */
+  playHidden: boolean;
   /** FreeCol's client options the player changed, by id (FREECOL_OPTIONS); the others keep FreeCol's default. */
   freecol: Record<string, FreeColValue>;
 }
@@ -83,6 +85,7 @@ export const DEFAULTS: Prefs = {
   // The music is a bit much for most players: off until they turn it on (#318).
   muteMusic: true,
   muteEffects: false,
+  playHidden: false,
   freecol: {},
 };
 
@@ -428,6 +431,7 @@ export function parsePrefs(text: string | null): Prefs {
       tileset: isTileset(o.tileset) ? o.tileset : DEFAULTS.tileset,
       muteMusic: typeof o.muteMusic === 'boolean' ? o.muteMusic : DEFAULTS.muteMusic,
       muteEffects: typeof o.muteEffects === 'boolean' ? o.muteEffects : DEFAULTS.muteEffects,
+      playHidden: typeof o.playHidden === 'boolean' ? o.playHidden : DEFAULTS.playHidden,
       freecol: freecolValues(o.freecol),
     };
   } catch {

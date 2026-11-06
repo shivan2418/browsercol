@@ -31,6 +31,12 @@ export interface SoundPlayer {
   setVolumes(v: { music: number; effects: number }): void;
   /** The page is hidden or minimised (true): the sound pauses, and goes on from where it was once it shows again. */
   setHidden(hidden: boolean): void;
+  /**
+   * The start screen is up (true): music the browser refuses waits for choose() instead of the next click or key
+   * anywhere. choose() is the player's New Game or Continue click: music that waited starts now, inside that click.
+   */
+  waitForChoice(wait: boolean): void;
+  choose(): void;
 }
 
 /**
@@ -48,6 +54,9 @@ export function soundPlayer(manifest: AudioManifest, deps: SoundPlayerDeps): Sou
   let musicOn = false;
   let playlistOn = false;
   let hidden = false;
+  let waiting = false;
+  /** Music the browser refused while the start screen waited for a choice. */
+  let pending: (() => void) | null = null;
   /** The playlist's tracks still to play this round. */
   let queue: string[] = [];
   /** Start a file; an effect the browser refuses is dropped, as it would be stale by the time it could play. */
@@ -68,9 +77,11 @@ export function soundPlayer(manifest: AudioManifest, deps: SoundPlayerDeps): Sou
     start(music, file).catch((ex: unknown) => {
       if (!(ex instanceof DOMException && ex.name === 'NotAllowedError')) return;
       const src = music.src;
-      afterGesture(() => {
-        if (musicOn && music.src === src) void music.play().catch(() => {});
-      });
+      const run = () => {
+        if (musicOn && !hidden && music.src === src) void music.play().catch(() => {});
+      };
+      if (waiting) pending = run;
+      else afterGesture(run);
     });
   };
   /** SoundPlayerThread.run: the next track, the playlist shuffled afresh once it has all played. */
@@ -111,6 +122,15 @@ export function soundPlayer(manifest: AudioManifest, deps: SoundPlayerDeps): Sou
           });
         });
       }
+    },
+    waitForChoice(wait) {
+      waiting = wait;
+    },
+    choose() {
+      waiting = false;
+      const run = pending;
+      pending = null;
+      run?.();
     },
     startPlaylist() {
       playlistOn = true;

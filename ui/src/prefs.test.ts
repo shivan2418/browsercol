@@ -71,6 +71,13 @@ describe('prefs', () => {
     expect(parsePrefs('{"muteMusic":false}').muteMusic).toBe(false);
   });
 
+  it('pauses the sound while hidden unless told to play on, and keeps the choice', () => {
+    expect(DEFAULTS.playHidden).toBe(false);
+    expect(parsePrefs(null).playHidden).toBe(false);
+    expect(parsePrefs('{"playHidden":true}').playHidden).toBe(true);
+    expect(parsePrefs('{"playHidden":"yes"}').playHidden).toBe(false);
+  });
+
   it('mutes the music and the sound effects apart, keeping their volumes', () => {
     const p = {
       ...DEFAULTS,
