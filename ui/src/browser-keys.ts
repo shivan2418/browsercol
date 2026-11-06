@@ -16,13 +16,25 @@ const closest = (target: EventTarget | null, selector: string) =>
   target instanceof Element && !!target.closest(selector);
 
 /** Whether a key press is one the browser would act on with a page behind it, and nothing in the game wants. */
-export function isLeftoverKey(e: Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'altKey' | 'metaKey' | 'target'>): boolean {
+export function isLeftoverKey(
+  e: Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'altKey' | 'metaKey' | 'target'>,
+  map: Element | null = null,
+): boolean {
   if (closest(e.target, TEXT)) return false;
   const bare = !e.ctrlKey && !e.altKey && !e.metaKey;
   if (e.altKey && !e.ctrlKey && !e.metaKey) return e.key === 'ArrowLeft' || e.key === 'ArrowRight';
   if (!bare) return false;
-  if (SCROLL_KEYS.has(e.key) || e.key === 'Backspace' || e.key === '/' || e.key === "'") return true;
-  return e.key === ' ' && !closest(e.target, PRESSABLE);
+  if (e.key === 'Backspace' || e.key === '/' || e.key === "'") return true;
+  // The page cannot scroll (overflow: hidden), so the scroll keys only matter where they would act on it: with the
+  // focus on the page or the map. In a window or menu they scroll its own pane, which the keyboard needs.
+  if (!onPage(e.target, map)) return false;
+  return SCROLL_KEYS.has(e.key) || (e.key === ' ' && !closest(e.target, PRESSABLE));
+}
+
+/** Whether a key's target is the page itself (the document, html, body) or inside the map. */
+function onPage(target: EventTarget | null, map: Element | null): boolean {
+  if (!(target instanceof Element)) return true;
+  return target === document.documentElement || target === document.body || !!map?.contains(target);
 }
 
 /** What a page-zoom key asks for: a step in or out, or back to 100%; null for any other key. */
@@ -52,7 +64,7 @@ export function blockBrowserKeys(page: EventTarget, map: Element, scale: (step: 
       if (zoom !== null) {
         key.preventDefault();
         if (!key.repeat || zoom !== 0) scale(zoom);
-      } else if (isLeftoverKey(key)) key.preventDefault();
+      } else if (isLeftoverKey(key, map)) key.preventDefault();
     },
     { capture: true },
   );

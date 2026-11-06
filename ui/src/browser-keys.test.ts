@@ -4,7 +4,7 @@ import { blockBrowserKeys, isLeftoverKey, steppedScale, zoomKey } from './browse
 
 const page = document.createElement('div');
 page.innerHTML =
-  '<div id="map"><canvas></canvas></div><button>Ok</button><span>label</span><input><textarea></textarea><select></select><div contenteditable="true"></div>';
+  '<div id="map"><canvas></canvas></div><button>Ok</button><span>label</span><div role="dialog" class="frame" style="overflow:auto"><p>long report</p></div><input><textarea></textarea><select></select><div contenteditable="true"></div>';
 document.body.append(page);
 const map = page.querySelector('#map')!;
 const scale = vi.fn();
@@ -16,29 +16,37 @@ const key = (target: Element, key: string, init: KeyboardEventInit = {}) => {
   return e.defaultPrevented;
 };
 const span = page.querySelector('span')!;
+const pane = page.querySelector('[role=dialog]')!;
 
 describe('the keys the browser would act on', () => {
-  it("keeps space, the arrows, Backspace, / and ' from doing anything on the page", () => {
-    for (const k of [
-      ' ',
-      'ArrowUp',
-      'ArrowDown',
-      'ArrowLeft',
-      'ArrowRight',
-      'PageDown',
-      'End',
-      'Backspace',
-      '/',
-      "'",
-    ]) {
+  const scrolling = [' ', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown', 'Home', 'End'];
+
+  it('keeps the scroll keys from doing anything on the page or the map', () => {
+    for (const k of scrolling) {
+      expect(key(document.body, k), k).toBe(true);
+      expect(key(document.documentElement, k), k).toBe(true);
+      expect(key(map.querySelector('canvas')!, k), k).toBe(true);
+    }
+  });
+
+  it('leaves the scroll keys to a scrollable window or menu', () => {
+    for (const k of scrolling) {
+      expect(key(pane.querySelector('p')!, k), k).toBe(false);
+      expect(key(span, k), k).toBe(false);
+    }
+  });
+
+  it("keeps Backspace, / and ' off everywhere outside text fields", () => {
+    for (const k of ['Backspace', '/', "'"]) {
       expect(key(span, k), k).toBe(true);
+      expect(key(pane.querySelector('p')!, k), k).toBe(true);
       expect(key(document.body, k), k).toBe(true);
     }
   });
 
   it('keeps Alt+Left and Alt+Right from going back and forward', () => {
     expect(key(span, 'ArrowLeft', { altKey: true })).toBe(true);
-    expect(key(span, 'ArrowRight', { altKey: true })).toBe(true);
+    expect(key(pane.querySelector('p')!, 'ArrowRight', { altKey: true })).toBe(true);
   });
 
   it('leaves every key to the text fields', () => {
@@ -51,7 +59,7 @@ describe('the keys the browser would act on', () => {
 
   it('leaves Space to a button it presses', () => {
     expect(key(page.querySelector('button')!, ' ')).toBe(false);
-    expect(key(page.querySelector('button')!, 'ArrowDown')).toBe(true);
+    expect(key(page.querySelector('button')!, 'ArrowDown')).toBe(false);
   });
 
   it('leaves the other keys and the modified ones alone', () => {
