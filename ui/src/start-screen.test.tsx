@@ -463,8 +463,7 @@ test('a ? beside Rules opens a summary of what the rule sets change, and closes 
   fireEvent.click(button());
   await waitFor(() => expect(summary()).not.toBeNull());
   expect(button().getAttribute('aria-expanded')).toBe('true');
-  expect(summary()!.textContent).toContain('Classic:');
-  expect(summary()!.textContent).toContain('FreeCol:');
+  expect([...summary()!.querySelectorAll('th[scope=col]')].map((h) => h.textContent)).toEqual(['Classic', 'FreeCol']);
   expect(summary()!.textContent).toContain('Game options');
   // Escape.
   fireEvent.keyDown(window, { key: 'Escape' });

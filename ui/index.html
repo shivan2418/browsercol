@@ -2247,29 +2247,33 @@
       .rules-help p {
         margin: 4px 0;
       }
-      .rules-help h4 {
-        margin: 10px 0 2px;
+      .rules-help table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+      }
+      .rules-help thead th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        padding: 4px 0;
+        text-align: left;
+        background: var(--panel);
         border-bottom: 1px solid var(--line);
       }
-      .rules-help dl {
-        margin: 0;
+      .rules-help td,
+      .rules-help-theme th {
+        padding: 1px 10px 1px 0;
+        vertical-align: top;
+        text-align: left;
       }
-      .rules-help-row {
-        display: grid;
-        grid-template-columns: 1.2fr 1fr 1fr;
-        gap: 0 10px;
-        padding: 2px 0;
+      .rules-help-theme th {
+        padding-top: 10px;
+        border-bottom: 1px solid var(--line);
       }
-      .rules-help dt {
+      .rules-help-what td {
+        padding-top: 4px;
         font-weight: bold;
-      }
-      .rules-help dd {
-        margin: 0;
-      }
-      @media (max-width: 36em) {
-        .rules-help-row {
-          grid-template-columns: 1fr;
-        }
       }
       .new-game .pedia {
         display: block;

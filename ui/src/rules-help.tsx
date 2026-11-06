@@ -128,29 +128,46 @@ export function RulesHelp() {
         <b>FreeCol</b> is Classic with the FreeCol team’s changes on top: some conveniences and some new rules. Whatever
         is not listed here is the same in both.
       </p>
-      {SECTIONS.map((s) => (
-        <section key={s.title}>
-          <h4>{s.title}</h4>
-          <dl>
-            {s.rows.map((r) => (
-              <div key={r.what} className="rules-help-row">
-                <dt>{r.what}</dt>
-                <dd>
-                  <span className="quiet">Classic:</span> {r.classic}
-                </dd>
-                <dd>
-                  <span className="quiet">FreeCol:</span> {r.freecol}
-                </dd>
-              </div>
-            ))}
-          </dl>
-        </section>
-      ))}
-      <p className="quiet">
-        The same in both: England, France, Spain and the Netherlands start in the game, and the other four European
-        nations can be ticked under Other nations; building on native land (a difficulty option); the sailing time to
-        Europe (Turns to sail); and fog of war.
-      </p>
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Classic</th>
+            <th scope="col">FreeCol</th>
+          </tr>
+        </thead>
+        {SECTIONS.map((s) => (
+          <tbody key={s.title}>
+            <tr className="rules-help-theme">
+              <th colSpan={2} scope="colgroup">
+                {s.title}
+              </th>
+            </tr>
+            {s.rows.flatMap((r) => [
+              <tr key={`${r.what}-what`} className="rules-help-what">
+                <td colSpan={2}>{r.what}</td>
+              </tr>,
+              <tr key={`${r.what}-says`}>
+                <td>{r.classic}</td>
+                <td>{r.freecol}</td>
+              </tr>,
+            ])}
+          </tbody>
+        ))}
+        <tbody>
+          <tr className="rules-help-theme">
+            <th colSpan={2} scope="colgroup">
+              The same in both
+            </th>
+          </tr>
+          <tr>
+            <td colSpan={2}>
+              England, France, Spain and the Netherlands start in the game, and the other four European nations can be
+              ticked under Other nations. Also building on native land (a difficulty option), the sailing time to Europe
+              (Turns to sail) and fog of war.
+            </td>
+          </tr>
+        </tbody>
+      </table>
       <p className="quiet">
         Every game option can still be changed for a game under Game options, so these are only starting points.
       </p>
