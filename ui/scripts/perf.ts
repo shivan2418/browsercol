@@ -7,7 +7,8 @@
 // Run in the web image:
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/perf.ts [--query renderer=canvas2d] [--turns 5] [--top 25]
 // --throttle N slows the page's CPU N times (DevTools' CPU throttling) while the unit moves, and
-// --keys ArrowLeft,ArrowRight,... are the keys that move it.
+// --keys ArrowLeft,ArrowRight,... are the keys that move it. --query preset=play starts from the same map
+// every run; build.sh copies the presets into dist/, so a dist/ built from an older ui/generated may lack it.
 import fs from 'node:fs';
 import path from 'node:path';
 import { opt, playwright, waitForResult } from './common.ts';
@@ -142,7 +143,14 @@ const t0 = Date.now();
 // --no-minimap skips the minimap's drawing, to see what it costs.
 const noMinimap = process.argv.includes('--no-minimap');
 await page.goto(`${server.url}?skipstart${noMinimap ? '&perfnominimap' : ''}${query ? `&${query}` : ''}`);
-await waitForResult(page, 180000);
+const ready = await waitForResult(page, 180000);
+// A page that could not start (a preset dist/ does not have, say) has a result too, but no map to profile.
+if (ready.status === 'failed') {
+  console.log(`the game did not start: ${ready.error}`);
+  await browser.close();
+  server.close();
+  process.exit(1);
+}
 console.log(`chromium ${browser.version()}, game ready in ${((Date.now() - t0) / 1000).toFixed(1)} s`);
 // --dim-off turns the unfocused window's grey-out off, to see what its backdrop filter costs.
 if (process.argv.includes('--dim-off')) await page.evaluate(() => (document.body.dataset.dimUnfocused = 'off'));
