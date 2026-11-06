@@ -1693,10 +1693,10 @@ describe('the trade routes panel', () => {
     expect(edited()).toBe(legAt(0));
   });
 
-  it('adds a stop after the one being edited, with the goods it leaves with, and edits it', () => {
+  it('adds a stop after the one being edited, with the goods it leaves with, and edits it', async () => {
     const saved = threeStops();
     act(() => void fireEvent.click(within(legAt(1)!).getByRole('button', { name: 'Edit' })));
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'colony:9' } });
+    await chooseOption(screen.getByRole('combobox'), 'Plymouth');
     press('Add new stop');
     expect(edited()).toBe(legAt(2));
     expect(stopAt(2).textContent).toContain('Plymouth');
