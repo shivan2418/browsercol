@@ -30,6 +30,10 @@
   /* Buttons and their text. */
   --btn: #cdb27a;
   --btn-ink: #2a1c0c;
+  /* A button's bevel (FreeColButtonUI): the lit edge, the shaded edge, and the shade over it under the pointer. */
+  --btn-hi: rgb(255 255 255 / 50%);
+  --btn-lo: rgb(70 40 10 / 45%);
+  --btn-hover: rgb(0 0 0 / 10%);
   /* The default button, focus, progress bars. */
   --accent: #8a2e12;
   /* Links. */
@@ -81,6 +85,9 @@
   --line: #3d4049;
   --btn: #2c2f36;
   --btn-ink: #ffffff;
+  --btn-hi: rgb(255 255 255 / 16%);
+  --btn-lo: rgb(0 0 0 / 60%);
+  --btn-hover: rgb(255 255 255 / 8%);
   --accent: #ffd60a;
   --link: #8cc4ff;
   --progress-border: #3d4049;
