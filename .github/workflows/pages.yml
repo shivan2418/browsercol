@@ -1,14 +1,14 @@
-# Builds dist/ and deploys it to GitHub Pages on a push to main (or by hand),
-# then runs the smoke script against the deployed URL.
-# One-time setup: Settings > Pages > Source: "GitHub Actions" (needs the repo
-# public, or a plan with private Pages).
+# Builds dist/ and deploys it to GitHub Pages, then runs the smoke script
+# against the deployed URL. A plain push to main does not deploy. Deploy by
+# pushing a tag that starts with "deploy-" or "v", for example
+#   git tag deploy-2026-11-06 && git push origin deploy-2026-11-06
+# or by hand: `gh workflow run pages.yml` (or the Actions tab).
+# One-time setup: Settings > Pages > Source: "GitHub Actions".
 name: Pages
 
 on:
-  # The push trigger is off while the repo is private (Pages needs a public
-  # repo or a plan with private Pages). Restore it to deploy on every push:
-  #   push:
-  #     branches: [main]
+  push:
+    tags: ['deploy-*', 'v*']
   workflow_dispatch:
 
 permissions:
