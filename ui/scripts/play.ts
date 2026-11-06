@@ -806,32 +806,24 @@ async function play(page: Page, url: string) {
     const dropBoth = async (unitId: string, goodsType: string, shipId: string) => {
       await page.evaluate(
         ([unit, goods, ship]: [string, string, string]) => {
-          // The panel reads the shift key as the thing is pressed, and shift as it is dragged.
-          const press = (el: Element, shift: boolean) =>
+          // A player's drag, as the pointer's events: press, move onto the place, let go there. The panel reads
+          // shift from the press (the mouse's), and as the drag starts.
+          const fire = (el: Element, type: string, x: number, shift: boolean) =>
+            el.dispatchEvent(
+              new PointerEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: 0, shiftKey: shift }),
+            );
+          const drag = (el: Element, onto: Element, shift: boolean) => {
+            fire(el, 'pointerdown', 0, shift);
             el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, shiftKey: shift }));
-          const drag = (el: Element, shift: boolean) =>
-            el.dispatchEvent(
-              new DragEvent('dragstart', {
-                bubbles: true,
-                cancelable: true,
-                shiftKey: shift,
-                dataTransfer: new DataTransfer(),
-              }),
-            );
-          const drop = (el: Element) =>
-            el.dispatchEvent(
-              new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: new DataTransfer() }),
-            );
+            fire(onto, 'pointermove', 20, shift);
+            fire(onto, 'pointerup', 20, shift);
+          };
           const one = document.querySelector(`[data-part=outside] [data-unit="${unit}"]`);
           const two = document.querySelector(`[data-part=warehouse] [data-goods="${goods}"]`);
           const place = document.querySelector(`[data-part=cargo][data-ship="${ship}"]`);
           if (!one || !two || !place) throw new Error('the colony panel does not show what to drop');
-          press(one, false);
-          drag(one, false);
-          drop(place);
-          press(two, true);
-          drag(two, true);
-          drop(place);
+          drag(one, place, false);
+          drag(two, place, true);
         },
         [unitId, goodsType, shipId] as [string, string, string],
       );

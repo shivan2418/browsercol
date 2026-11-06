@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
-import { act, cleanup, createEvent, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { ColonyActions, type ColonyMoves } from './colony-panel';
 import { jamestown } from './colony-fixture';
 import { DebugContext } from './debug';
 import { dialogs } from './dialogs';
+import { dragOnto } from './drag.testing';
 import { europeButtons } from './europe-client';
 import { CopyDetailsContext, ShowLogContext } from './log';
 import { ContextMenuContext, type ContextMenus } from './popup-menu';
@@ -1713,21 +1714,16 @@ describe('the trade routes panel', () => {
 
   it('moves a stop dragged onto another to its place, with its goods, folding and editing', () => {
     const saved = threeStops();
-    const dataTransfer = { setData() {}, effectAllowed: '' };
     act(() => void fireEvent.click(pinAt(1)));
     // Europe, edited, goes where Jamestown is: last.
-    act(() => void fireEvent.dragStart(stopAt(0), { dataTransfer }));
-    act(() => void fireEvent.dragOver(stopAt(2), { dataTransfer }));
-    expect(stopAt(2).classList.contains('over-target')).toBe(true);
-    act(() => void fireEvent.drop(stopAt(2), { dataTransfer }));
+    act(() => dragOnto(stopAt(0), stopAt(2)));
     expect(stopAt(2).classList.contains('over-target')).toBe(false);
     expect(stopAt(2).textContent).toContain('Europe');
     expect(edited()).toBe(legAt(2));
     // New Amsterdam, folded, is now first and still folded.
     expect(pinAt(0).getAttribute('aria-expanded')).toBe('false');
     // Jamestown goes first.
-    act(() => void fireEvent.dragStart(stopAt(1), { dataTransfer }));
-    act(() => void fireEvent.drop(stopAt(0), { dataTransfer }));
+    act(() => dragOnto(stopAt(1), stopAt(0)));
     press('OK');
     expect(placesOf(saved)).toEqual(['colony:8', 'colony:7', 'europe:1']);
     expect(saved[0].stops.map((s) => s.cargo)).toEqual([[], [F], [T]]);
@@ -2036,25 +2032,31 @@ describe('the Europe panel', () => {
     });
     const { box } = host();
     act(() => box.show('europe', europe));
-    const dataTransfer = { setData() {}, effectAllowed: '' };
     // A unit of the docks is no ship: dropped there, it does nothing.
-    fireEvent.dragStart(screen.getByRole('button', { name: 'Expert Farmer' }), { dataTransfer });
-    fireEvent.drop(document.querySelector('[data-list=toAmerica]')!, { dataTransfer });
+    act(() =>
+      dragOnto(screen.getByRole('button', { name: 'Expert Farmer' }), document.querySelector('[data-list=toAmerica]')!),
+    );
     expect(calls).toEqual([]);
-    fireEvent.dragStart(screen.getByRole('button', { name: 'Galleon' }), { dataTransfer });
-    fireEvent.drop(document.querySelector('[data-list=toAmerica]')!, { dataTransfer });
+    act(() =>
+      dragOnto(screen.getByRole('button', { name: 'Galleon' }), document.querySelector('[data-list=toAmerica]')!),
+    );
     expect(calls).toEqual(['sail unit:2']);
   });
 
-  it('drags a goods of the market by its picture alone, without its prices', () => {
+  it('drags a goods of the market by its picture alone, without its prices, until Escape puts it back', () => {
     const { box } = host();
     const market = europe.market.map((g) => ({ ...g, images: ['image.unit.model.unit.caravel'] }));
     act(() => box.show('europe', { ...europe, market }));
-    const shown: Element[] = [];
-    const dataTransfer = { setData() {}, effectAllowed: '', setDragImage: (el: Element) => shown.push(el) };
     const good = document.querySelector('[data-goods="model.goods.food"]')!;
-    fireEvent.dragStart(good, { dataTransfer });
-    expect(shown).toEqual([good.querySelector('img')]);
+    fireEvent.pointerDown(good, { clientX: 0, clientY: 0 });
+    fireEvent.pointerMove(document.querySelector('[data-list=cargo]')!, { clientX: 20, clientY: 0 });
+    const ghost = document.querySelector('.drag-ghost')!;
+    expect([...ghost.querySelectorAll('*')].map((e) => e.tagName)).toEqual(['DIV', 'IMG']);
+    expect(ghost.querySelector('img')!.getAttribute('src')).toBe(good.querySelector('img')!.getAttribute('src'));
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    expect(document.querySelector('.drag-ghost')).toBeNull();
+    // The window is still open: Escape put the goods back, and did nothing else.
+    expect(document.querySelector('[data-list=market]')).not.toBeNull();
   });
 
   it('turns a ship on the high seas around when it is dragged to the other list', () => {
@@ -2065,11 +2067,12 @@ describe('the Europe panel', () => {
     const { box } = host();
     const sailing = [unit('unit:7', 'Merchantman'), unit('unit:8', 'Brig')];
     act(() => box.show('europe', { ...europe, toAmerica: [sailing[0]], toEurope: [sailing[1]] }));
-    const dataTransfer = { setData() {}, effectAllowed: '' };
-    fireEvent.dragStart(document.querySelector('[data-unit="unit:7"]')!, { dataTransfer });
-    fireEvent.drop(document.querySelector('[data-list=toEurope]')!, { dataTransfer });
-    fireEvent.dragStart(document.querySelector('[data-unit="unit:8"]')!, { dataTransfer });
-    fireEvent.drop(document.querySelector('[data-list=toAmerica]')!, { dataTransfer });
+    act(() =>
+      dragOnto(document.querySelector('[data-unit="unit:7"]')!, document.querySelector('[data-list=toEurope]')!),
+    );
+    act(() =>
+      dragOnto(document.querySelector('[data-unit="unit:8"]')!, document.querySelector('[data-list=toAmerica]')!),
+    );
     expect(calls).toEqual(['redirect unit:7 true', 'redirect unit:8 false']);
   });
 
@@ -2081,17 +2084,11 @@ describe('the Europe panel', () => {
     });
     const { box } = host();
     act(() => box.show('europe', europe));
-    const dataTransfer = { setData() {}, effectAllowed: '' };
     const stack = () => document.querySelector('[data-cargo="goods"]')!;
-    fireEvent.dragStart(stack(), { dataTransfer });
-    fireEvent.drop(document.querySelector('[data-unit="unit:2"]')!, { dataTransfer });
-    fireEvent.dragStart(stack(), { dataTransfer });
-    fireEvent.drop(document.querySelector('[data-list=market]')!, { dataTransfer });
-    const ev = createEvent.dragStart(stack(), { dataTransfer });
-    Object.defineProperty(ev, 'shiftKey', { value: true });
-    Object.defineProperty(ev, 'altKey', { value: true });
-    fireEvent(stack(), ev);
-    fireEvent.drop(document.querySelector('[data-list=market]')!, { dataTransfer });
+    const market = () => document.querySelector('[data-list=market]')!;
+    act(() => dragOnto(stack(), document.querySelector('[data-unit="unit:2"]')!));
+    act(() => dragOnto(stack(), market()));
+    act(() => dragOnto(stack(), market(), { shiftKey: true, altKey: true }));
     expect(calls).toEqual([
       'transfer unit:1 unit:2 model.goods.food 50',
       'sell model.goods.food unit:1 false 50',
@@ -2252,24 +2249,18 @@ describe('the Europe panel', () => {
     });
     const { box } = host();
     act(() => box.show('europe', europe));
-    const dataTransfer = { setData() {}, effectAllowed: '' };
-    fireEvent.dragStart(document.querySelector('[data-goods="model.goods.food"]')!, { dataTransfer });
-    fireEvent.drop(document.querySelector('[data-list=cargo]')!, { dataTransfer });
+    const food = () => document.querySelector('[data-goods="model.goods.food"]')!;
+    const stack = () => document.querySelector('[data-cargo="goods"]')!;
+    const cargo = () => document.querySelector('[data-list=cargo]')!;
+    const market = () => document.querySelector('[data-list=market]')!;
+    act(() => dragOnto(food(), cargo()));
     expect(calls).toEqual(['buy model.goods.food unit:1 false']);
-    fireEvent.dragStart(document.querySelector('[data-cargo="goods"]')!, { dataTransfer });
-    fireEvent.drop(document.querySelector('[data-list=market]')!, { dataTransfer });
+    act(() => dragOnto(stack(), market()));
     expect(calls).toEqual(['buy model.goods.food unit:1 false', 'sell model.goods.food unit:1 false']);
-    // Shift held as the drag starts has the Engine ask how many (jsdom's drag event has no shiftKey to set).
-    const dragWithShift = (el: Element, dt: object) => {
-      const ev = createEvent.dragStart(el, { dataTransfer: dt });
-      Object.defineProperty(ev, 'shiftKey', { value: true });
-      fireEvent(el, ev);
-    };
+    // Shift held as the drag starts has the Engine ask how many.
     calls.length = 0;
-    dragWithShift(document.querySelector('[data-goods="model.goods.food"]')!, dataTransfer);
-    fireEvent.drop(document.querySelector('[data-list=cargo]')!, { dataTransfer });
-    dragWithShift(document.querySelector('[data-cargo="goods"]')!, dataTransfer);
-    fireEvent.drop(document.querySelector('[data-list=market]')!, { dataTransfer });
+    act(() => dragOnto(food(), cargo(), { shiftKey: true }));
+    act(() => dragOnto(stack(), market(), { shiftKey: true }));
     expect(calls).toEqual(['buy model.goods.food unit:1 true', 'sell model.goods.food unit:1 true']);
   });
 

@@ -6,7 +6,7 @@
 // port, warehouse and outside, and the Europe panel's cargo and market, all
 // take the same things: a unit, the warehouse's goods, a ship's cargo and
 // the market's goods.
-import { type DragEvent } from 'react';
+import { lane, type Keys } from './drag';
 
 /** Where goods come from: the warehouse, a ship's cargo, or the market. */
 export type GoodsFrom = 'warehouse' | 'cargo' | 'market';
@@ -75,30 +75,23 @@ export const same = (a: Item, b: Item) => {
   return a.from === 'warehouse' || b.from === 'warehouse' || a.index === b.index;
 };
 
-/** What is being dragged: a drag's data cannot be read until it drops, and only by the page's own drag. */
-let dragging: Item | null = null;
+/** The drag of units and goods: every panel's places take what is dragged in it. */
+const items = lane<Item>();
 
-/** The class of the place a thing is dragged over. */
-export const OVER = 'over-target';
+export { OVER } from './drag';
 
 /**
  * The props that make an element carry a thing when it is dragged.
  *
  * @param item The thing it carries.
  * @param at What it carries at the start of the drag, for a thing that depends
- *     on how it was picked up (the colony panel's shift-drag).
+ *     on the keys held as it is picked up (the colony panel's shift-drag).
+ * @param look The element whose icon follows the pointer, out of the one dragged
+ *     (the unit's picture, not the tile around it); that one by default.
  * @return The props.
  */
-export function draggableProps(item: Item, at?: (e: DragEvent) => Item) {
-  return {
-    draggable: true,
-    onDragStart: (e: DragEvent) => {
-      dragging = at ? at(e) : item;
-      e.dataTransfer.setData('text/plain', item.kind === 'unit' ? item.id : item.type);
-      e.dataTransfer.effectAllowed = 'move';
-    },
-    onDragEnd: () => (dragging = null),
-  };
+export function draggableProps(item: Item, at?: (keys: Keys) => Item, look?: (el: HTMLElement) => Element | null) {
+  return items.source((keys) => (at ? at(keys) : item), look);
 }
 
 /**
@@ -111,19 +104,5 @@ export function draggableProps(item: Item, at?: (e: DragEvent) => Item) {
  * @return The props.
  */
 export function dropTargetProps(place: Place, drop: (item: Item) => void) {
-  return {
-    onDragOver: (e: DragEvent) => {
-      if (dragging === null || !accepts(place, dragging)) return;
-      e.preventDefault();
-      e.currentTarget.classList.add(OVER);
-    },
-    onDragLeave: (e: DragEvent) => e.currentTarget.classList.remove(OVER),
-    onDrop: (e: DragEvent) => {
-      e.preventDefault();
-      e.currentTarget.classList.remove(OVER);
-      const item = dragging;
-      dragging = null;
-      if (item !== null && accepts(place, item)) drop(item);
-    },
-  };
+  return items.target((item) => accepts(place, item), drop);
 }

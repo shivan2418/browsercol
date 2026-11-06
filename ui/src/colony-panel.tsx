@@ -31,7 +31,6 @@ import {
   useRef,
   useState,
   type CSSProperties,
-  type DragEvent,
   type MouseEvent,
   type ReactNode,
 } from 'react';
@@ -39,6 +38,7 @@ import { createPortal } from 'react-dom';
 import { Box, GoodsAmount, type Art } from './frame';
 import { PANEL_KEYS } from './map-keys';
 import { ReportContext } from './reports';
+import { lane, type TargetProps as DropProps } from './drag';
 import { accepts, draggableProps, dropTargetProps, same, type Item, type Place } from './moves';
 import { ContextMenuContext, useContextMenu } from './popup-menu';
 import type { Buildable, BuildingTip, ColonyView, GoodsAmount as Goods, UnitRef } from './webgui';
@@ -121,10 +121,7 @@ interface Hand {
   /** Where things can be dropped, with what a drop there does; null when the panel cannot move them. */
   target(place: Place, drop: (item: Item) => void): TargetProps | null;
 }
-interface TargetProps {
-  onDragOver(e: DragEvent): void;
-  onDragLeave(e: DragEvent): void;
-  onDrop(e: DragEvent): void;
+interface TargetProps extends DropProps {
   onClick(): void;
 }
 const NO_HAND: Hand = { picked: null, pick() {}, target: () => null };
@@ -143,7 +140,8 @@ const queueOf = (id: string): QueueState => queues.get(id) ?? { open: false, all
 /** Opens the colony's build queue: what a click on a building that can build does. */
 const OpenQueue = createContext<() => void>(() => {});
 /** What is dragged in the build queue: a queued row (by index), or buildable types from the lists. */
-let queueDrag: { from: 'queue'; index: number } | { from: 'list'; types: string[] } | null = null;
+type QueueDrag = { from: 'queue'; index: number } | { from: 'list'; types: string[] };
+const queueDrag = lane<QueueDrag>();
 
 function Img({
   keys,
@@ -194,18 +192,21 @@ function useMovable(item: Item) {
   const movable = hand !== NO_HAND;
   const picked = hand.picked !== null && same(hand.picked, item);
   const withShift = (shift: boolean): Item => (item.kind === 'goods' ? { ...item, ask: shift } : item);
-  const drag = draggableProps(item, (e) => withShift(shiftPressed || e.shiftKey));
+  // The drag shows the colonist's picture, not the tile or the chip around it, and puts down what was picked.
+  const drag = draggableProps(
+    item,
+    (keys) => {
+      hand.pick(null);
+      return withShift(shiftPressed || keys.shiftKey);
+    },
+    (el) => (item.kind === 'unit' ? el.querySelector('img.unit') : null),
+  );
   return {
     // Only goods are picked by a click: a colonist is moved by a drag or its menu, and has no pick to show.
     'data-picked': movable && item.kind === 'goods' ? picked : undefined,
-    draggable: movable || undefined,
+    ...(movable ? drag : {}),
     // As DragListener.mousePressed, shift on the press makes the drag partial.
     onMouseDown: (e: MouseEvent) => (shiftPressed = e.shiftKey),
-    onDragStart: (e: DragEvent) => {
-      drag.onDragStart(e);
-      hand.pick(null);
-    },
-    onDragEnd: drag.onDragEnd,
     onClick: (e: MouseEvent) => {
       if (!movable || item.kind === 'unit' || (hand.picked !== null && !picked)) return;
       e.stopPropagation();
@@ -365,13 +366,7 @@ function TilePlace({
   const worker = t.workers[0];
   const movable = useMovable({ kind: 'unit', id: worker?.id ?? '' });
   const onContextMenu = useContextMenu((m) => (worker ? m.unit(worker.id) : m.colonyTile(t.at[0], t.at[1])));
-  // The drag shows the colonist, not the tile around it.
-  const onDragStart = (e: DragEvent) => {
-    movable.onDragStart(e);
-    const img = e.currentTarget.querySelector<HTMLElement>('.who .unit');
-    if (img) e.dataTransfer.setDragImage?.(img, img.offsetWidth / 2, img.offsetHeight / 2);
-  };
-  const carry = worker ? { ...movable, onContextMenu, onDragStart } : { onContextMenu };
+  const carry = worker ? { ...movable, onContextMenu } : { onContextMenu };
   return (
     <div
       className="tile"
@@ -733,16 +728,10 @@ function BuildQueue({ c, art, children }: { c: ColonyView; art: Art; children: R
   };
   const multi = (e: { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }) => e.ctrlKey || e.metaKey || e.shiftKey;
   /** Drop on a queue position: reorder a queued row, or insert buildables there. */
-  const dropAt = (at: number) => {
-    const d = queueDrag;
-    queueDrag = null;
-    if (d === null) return;
+  const dropAt = (d: QueueDrag, at: number) => {
     if (d.from === 'queue') move(d.index, d.index < at ? at - 1 : at);
     else moves.setQueue(c.id, [...ids.slice(0, at), ...d.types, ...ids.slice(at)]);
     setSelList([]);
-  };
-  const allowDrop = (e: DragEvent) => {
-    if (queueDrag !== null) e.preventDefault();
   };
   const lists = [
     { part: 'buildings', title: q.buildingsTitle, items: q.buildings },
@@ -804,11 +793,10 @@ function BuildQueue({ c, art, children }: { c: ColonyView; art: Art; children: R
             </button>
             <Box caption={q.title} data-part="queued" className="queued">
               <ol
-                onDragOver={allowDrop}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  dropAt(ids.length);
-                }}
+                {...queueDrag.target(
+                  () => true,
+                  (d) => dropAt(d, ids.length),
+                )}
               >
                 {q.queue.map((b, i) => (
                   <li
@@ -817,19 +805,11 @@ function BuildQueue({ c, art, children }: { c: ColonyView; art: Art; children: R
                     data-locked={b.reason !== null || undefined}
                     onContextMenu={aboutIt(b.type)}
                     data-selected={selQueue.includes(i) || undefined}
-                    draggable
-                    onDragStart={(e) => {
-                      queueDrag = { from: 'queue', index: i };
-                      e.dataTransfer.setData('text/plain', b.type);
-                      e.dataTransfer.effectAllowed = 'move';
-                    }}
-                    onDragEnd={() => (queueDrag = null)}
-                    onDragOver={allowDrop}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      dropAt(i);
-                    }}
+                    {...queueDrag.source(() => ({ from: 'queue', index: i }))}
+                    {...queueDrag.target(
+                      () => true,
+                      (d) => dropAt(d, i),
+                    )}
                     onClick={(e) => {
                       if (multi(e)) setSelQueue(toggle(selQueue, i));
                     }}
@@ -865,19 +845,18 @@ function BuildQueue({ c, art, children }: { c: ColonyView; art: Art; children: R
             {lists.map(({ part, title, items }) => (
               <Box key={part} caption={title} data-part={part} className="can-build">
                 <ul
-                  onDragOver={allowDrop}
-                  onDrop={(e) => {
-                    // A queued row dropped back on a list leaves the queue.
-                    e.preventDefault();
-                    const d = queueDrag;
-                    queueDrag = null;
-                    if (d?.from === 'queue') {
-                      moves.setQueue(
-                        c.id,
-                        ids.filter((_, j) => j !== d.index),
-                      );
-                    }
-                  }}
+                  // A queued row dropped back on a list leaves the queue.
+                  {...queueDrag.target(
+                    (d) => d.from === 'queue',
+                    (d) => {
+                      if (d.from === 'queue') {
+                        moves.setQueue(
+                          c.id,
+                          ids.filter((_, j) => j !== d.index),
+                        );
+                      }
+                    },
+                  )}
                 >
                   {items
                     .filter((b) => state.all || b.reason === null)
@@ -888,14 +867,13 @@ function BuildQueue({ c, art, children }: { c: ColonyView; art: Art; children: R
                         data-locked={b.reason !== null || undefined}
                         onContextMenu={aboutIt(b.type)}
                         data-selected={selList.includes(b.type) || undefined}
-                        draggable={b.reason === null}
-                        onDragStart={(e) => {
-                          // Dragging one of several selected buildables takes them all.
-                          queueDrag = { from: 'list', types: selList.includes(b.type) ? selList : [b.type] };
-                          e.dataTransfer.setData('text/plain', b.type);
-                          e.dataTransfer.effectAllowed = 'copy';
-                        }}
-                        onDragEnd={() => (queueDrag = null)}
+                        // Dragging one of several selected buildables takes them all.
+                        {...(b.reason === null
+                          ? queueDrag.source(() => ({
+                              from: 'list',
+                              types: selList.includes(b.type) ? selList : [b.type],
+                            }))
+                          : {})}
                       >
                         <button
                           disabled={b.reason !== null}

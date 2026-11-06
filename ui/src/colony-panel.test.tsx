@@ -3,6 +3,7 @@ import { ReportContext } from './reports';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { dialogs } from './dialogs';
+import { dragOnto } from './drag.testing';
 import { ColonyActions, ColonyTiles, type ColonyMoves, type DrawTiles } from './colony-panel';
 import { DialogHost, type Art } from './panels';
 import { ContextMenuContext, type ContextMenus } from './popup-menu';
@@ -288,14 +289,8 @@ describe('moving colonists in the colony panel', () => {
   const unit = (id: string) => document.querySelector<HTMLElement>(`[data-unit="${id}"]`)!;
   const tileHit = (id: string) => document.querySelector<HTMLElement>(`[data-tile="${id}"]`)!;
   const building = (id: string) => document.querySelector<HTMLElement>(`[data-building="${id}"]`)!;
-  /** What a browser's drag of a unit onto a place sends. */
-  const drag = (id: string, onto: HTMLElement) => {
-    const dataTransfer = { setData() {}, effectAllowed: '' };
-    fireEvent.dragStart(unit(id), { dataTransfer });
-    fireEvent.dragOver(onto, { dataTransfer });
-    fireEvent.drop(onto, { dataTransfer });
-    fireEvent.dragEnd(unit(id), { dataTransfer });
-  };
+  /** A player's drag of a unit onto a place. */
+  const drag = (id: string, onto: HTMLElement) => act(() => dragOnto(unit(id), onto));
 
   it('steps between colonies with Left and Right and opens the warehouse with W, as ColonyPanel does', () => {
     openMovable();
@@ -318,16 +313,16 @@ describe('moving colonists in the colony panel', () => {
     expect(document.querySelector('.queue-body')).not.toBeNull();
   });
 
-  it('moves nothing, and makes nothing draggable, without the means to move', () => {
+  it('moves nothing, and lets nothing be dragged, without the means to move', () => {
     open();
-    expect(unit('unit:1').getAttribute('draggable')).toBeNull();
+    expect(unit('unit:1').hasAttribute('data-drag')).toBe(false);
     fireEvent.click(unit('unit:1'));
     expect(unit('unit:1').dataset.picked).toBeUndefined();
   });
 
   it('puts a dragged colonist to work in a building or on a tile, or outside the colony', () => {
     openMovable();
-    expect(tileHit('colonyTile:21').getAttribute('draggable')).toBe('true');
+    expect(tileHit('colonyTile:21').hasAttribute('data-drag')).toBe(true);
     drag('unit:1', building('building:1'));
     drag('unit:2', tileHit('colonyTile:00'));
     drag('unit:1', part('outside'));
@@ -337,16 +332,12 @@ describe('moving colonists in the colony panel', () => {
   it('lets a colonist be picked up from anywhere on its tile', () => {
     openMovable();
     const tile = tileHit('colonyTile:21');
-    expect(tile.getAttribute('draggable')).toBe('true');
-    expect(unit('unit:1').getAttribute('draggable')).toBeNull();
-    const dataTransfer = { setData() {}, effectAllowed: '' };
-    fireEvent.dragStart(tile, { dataTransfer });
-    fireEvent.dragOver(building('building:1'), { dataTransfer });
-    fireEvent.drop(building('building:1'), { dataTransfer });
-    fireEvent.dragEnd(tile, { dataTransfer });
+    expect(tile.hasAttribute('data-drag')).toBe(true);
+    expect(unit('unit:1').hasAttribute('data-drag')).toBe(false);
+    act(() => dragOnto(tile, building('building:1')));
     expect(calls).toEqual(['work unit:1 building:1']);
     // A tile with no one on it carries nothing.
-    expect(tileHit('colonyTile:00').getAttribute('draggable')).toBeNull();
+    expect(tileHit('colonyTile:00').hasAttribute('data-drag')).toBe(false);
   });
 
   it('puts a colonist outside only if it works in the colony, and gives the centre tile none', () => {
@@ -421,15 +412,9 @@ describe('loading a ship in port in the colony panel', () => {
   const unit = (id: string) => document.querySelector<HTMLElement>(`[data-unit="${id}"]`)!;
   const stored = (type: string) => part('warehouse').querySelector<HTMLElement>(`[data-goods="model.goods.${type}"]`)!;
   const stacks = () => [...part('cargo').querySelectorAll<HTMLElement>('[data-goods]')];
-  /** A drag as a browser sends it: the press, then the drag. FreeCol reads shift from the press. */
-  const drag = (what: HTMLElement, onto: HTMLElement, shiftKey = false) => {
-    const dataTransfer = { setData() {}, effectAllowed: '' };
-    fireEvent.mouseDown(what, { shiftKey });
-    fireEvent.dragStart(what, { dataTransfer });
-    fireEvent.dragOver(onto, { dataTransfer });
-    fireEvent.drop(onto, { dataTransfer });
-    fireEvent.dragEnd(what, { dataTransfer });
-  };
+  /** A player's drag. FreeCol reads shift from the press. */
+  const drag = (what: HTMLElement, onto: HTMLElement, shiftKey = false) =>
+    act(() => dragOnto(what, onto, { shiftKey }));
 
   it('equips a colonist when goods of the warehouse are dropped on it', () => {
     openPort();
@@ -488,7 +473,7 @@ describe('loading a ship in port in the colony panel', () => {
 
   it('loads goods dragged from the warehouse, asking the amount on a shift-drag', () => {
     openPort();
-    expect(stored('lumber').getAttribute('draggable')).toBe('true');
+    expect(stored('lumber').hasAttribute('data-drag')).toBe(true);
     drag(stored('lumber'), part('cargo'));
     drag(stored('lumber'), part('cargo'), true);
     expect(calls).toEqual(['load unit:9 model.goods.lumber', 'load unit:9 model.goods.lumber ask']);
@@ -506,7 +491,7 @@ describe('loading a ship in port in the colony panel', () => {
       },
     });
     expect(stored('cotton').querySelector('[data-sign="zero"]')).not.toBeNull();
-    expect(stored('cotton').hasAttribute('draggable')).toBe(false);
+    expect(stored('cotton').hasAttribute('data-drag')).toBe(false);
     drag(stored('cotton'), part('cargo'));
     fireEvent.click(stored('cotton'));
     expect(stored('cotton').dataset.picked).toBeUndefined();
@@ -702,13 +687,14 @@ describe('the build queue in the colony panel', () => {
     const two = [...jamestown.queue.queue, { ...jamestown.queue.buildings[0], required: [goods('hammers', 64)] }];
     openQueue(withQueue(two));
     const row = (type: string) => part('queued').querySelector<HTMLElement>(`[data-queued="${type}"]`)!;
-    const dt = { setData: () => {}, effectAllowed: '' };
-    fireEvent.dragStart(row('model.building.stockade'), { dataTransfer: dt });
-    fireEvent.drop(row('model.building.warehouse'), { dataTransfer: dt });
-    fireEvent.dragStart(part('units').querySelector('[data-buildable="model.unit.wagonTrain"]')!, { dataTransfer: dt });
-    fireEvent.drop(row('model.building.stockade'), { dataTransfer: dt });
-    fireEvent.dragStart(row('model.building.warehouse'), { dataTransfer: dt });
-    fireEvent.drop(part('units').querySelector('ul')!, { dataTransfer: dt });
+    act(() => dragOnto(row('model.building.stockade'), row('model.building.warehouse')));
+    act(() =>
+      dragOnto(
+        part('units').querySelector('[data-buildable="model.unit.wagonTrain"]')!,
+        row('model.building.stockade'),
+      ),
+    );
+    act(() => dragOnto(row('model.building.warehouse'), part('units').querySelector('ul')!));
     expect(calls).toEqual([
       `queue colony:${n} model.building.stockade,model.building.warehouse`,
       `queue colony:${n} model.building.warehouse,model.unit.wagonTrain,model.building.stockade`,

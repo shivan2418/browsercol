@@ -14,6 +14,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react';
+import { dragging } from './drag';
 import { focusFirstEntry, menuArrows, useFocusTrap } from './focus';
 
 /** The URL of the art for the first of some resource keys the Tileset has, or null if it has none (yet). */
@@ -47,6 +48,8 @@ export function useEscape(close: (() => void) | null, keys: readonly string[] = 
     const me = {};
     frames.push(me);
     const onKey = (e: KeyboardEvent) => {
+      // Escape during a drag puts the thing back (drag.ts), and closes nothing.
+      if (dragging()) return;
       if (frames.at(-1) !== me || !(e.key === 'Escape' || isCloseKey(e, closeKeys.current))) return;
       e.preventDefault();
       e.stopPropagation();
