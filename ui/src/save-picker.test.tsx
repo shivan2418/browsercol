@@ -19,11 +19,17 @@ test('the Open window lists the saves and opens the one picked', () => {
 test('the Open window opens a save file too, and says why one would not open', () => {
   let asked = 0;
   render(
-    <OpenDialog saves={[]} open={() => {}} openFile={() => asked++} note="Import failed: not a zip" close={() => {}} />,
+    <OpenDialog
+      saves={[]}
+      open={() => {}}
+      openFile={() => asked++}
+      note="Could not open the file: not a zip"
+      close={() => {}}
+    />,
   );
   fireEvent.click(document.querySelector('[data-open-file]')!);
   expect(asked).toBe(1);
-  expect(document.querySelector('#open-game')!.textContent).toContain('Import failed: not a zip');
+  expect(document.querySelector('#open-game')!.textContent).toContain('Could not open the file: not a zip');
 });
 
 test('the Save window saves under the name typed, or the default one when it is left empty', () => {
