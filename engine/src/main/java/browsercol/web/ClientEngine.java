@@ -287,6 +287,11 @@ public final class ClientEngine {
         checkTurn();
     }
 
+    /** Whether it is still our turn, the turn that was ended. */
+    private boolean stillOurTurn(int turn) {
+        return !this.finished && this.client.currentPlayerIsMyPlayer() && getGame().getTurn().getNumber() == turn;
+    }
+
     /** If it is newly our turn, count the round and end the turn. */
     synchronized void checkTurn() {
         if (this.finished || !this.client.currentPlayerIsMyPlayer()) return;
@@ -306,7 +311,14 @@ public final class ClientEngine {
         this.roundStart = System.currentTimeMillis();
         new Thread(() -> {
                 try {
-                    this.client.getInGameController().endTurn(false);
+                    // A save with units on goto orders or trade routes (a desktop game's) runs those orders
+                    // on the first end turn and gives the turn back to the player, who ends it again, as
+                    // a player does. So does this: until the server has taken the turn.
+                    for (int attempt = 0; attempt < 8; attempt++) {
+                        this.client.getInGameController().endTurn(false);
+                        for (int i = 0; i < 30 && stillOurTurn(turn); i++) Thread.sleep(100);
+                        if (!stillOurTurn(turn)) break;
+                    }
                 } catch (Throwable ex) {
                     Failures.report("Ending turn " + turn, ex);
                 }
