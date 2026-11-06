@@ -16,7 +16,6 @@ import net.sf.freecol.common.model.FeatureContainer;
 import net.sf.freecol.common.model.Goods;
 import net.sf.freecol.common.model.GoodsType;
 import net.sf.freecol.common.model.Modifier;
-import net.sf.freecol.common.model.Nation;
 import net.sf.freecol.common.model.ProductionInfo;
 import net.sf.freecol.common.model.Specification;
 import net.sf.freecol.common.model.StringTemplate;
@@ -33,9 +32,9 @@ import net.sf.freecol.common.option.GameOptions;
  * best first, so a Tileset can replace them; text is localized. Fields:
  * <ul>
  * <li>id, name, at ([x, y]), ok (the close button's label);
- * <li>population: {total, rebels, royalists, bonus (PopulationPanel's
- *     labels), rebelPercent, rebelShield and royalistShield (keys), tip
- *     (RebelToolTip as [label, value] lines)};
+ * <li>population: {size, sizeChange, rebelPercent, tip}, what the
+ *     octagons round the tiles show and RebelToolTip, see
+ *     {@link #population} and {@link #rebelTip};
  * <li>buildings: {id, type, name, keys, site, capacity, builds (it has Ability.BUILD, so a click opens the build queue), workers,
  *     production, upkeep}, in the specification's order, without the
  *     defences and the docks, which Swing's BuildingsPanel leaves to the
@@ -105,70 +104,62 @@ final class ColonyJson {
             .toString();
     }
 
-    /** PopulationPanel. */
+    /**
+     * What ColonyPanel.paintComponent draws in the octagons of
+     * image.colony.upperRight.background (the pinned ColonyPanel no longer
+     * lays out its PopulationPanel): the colony's size, its preferred size
+     * change ("+1", ">9" or "-2"), the share of rebels, and RebelToolTip.
+     */
     private static String population(Colony colony) {
-        final int uc = colony.getUnitCount();
-        final int sol = colony.getSonsOfLiberty();
-        final int rebels = Colony.calculateRebelCount(uc, sol);
         final int grow = colony.getPreferredSizeChange();
-        final String growth = (grow == 0) ? ""
-            : "(" + ((grow >= Colony.CHANGE_UPPER_BOUND)
-                ? Messages.message("many") : String.valueOf(grow)) + ")";
-        final Nation nation = colony.getOwner().getNation();
-        final Nation other = colony.getOwner().isREF()
-            ? nation.getRebelNation() : nation.getREFNation();
         return new Json()
-            .put("total", Messages.message(StringTemplate
-                    .template("colonyPanel.populationLabel").addAmount("%number%", uc)))
-            .put("rebels", Messages.message(StringTemplate
-                    .template("colonyPanel.rebelLabel").addAmount("%number%", rebels)))
-            .put("royalists", Messages.message(StringTemplate
-                    .template("colonyPanel.royalistLabel")
-                    .addAmount("%number%", uc - rebels)))
-            .put("bonus", Messages.message(StringTemplate
-                    .template("colonyPanel.bonusLabel")
-                    .addAmount("%number%", colony.getProductionBonus())
-                    .addName("%extra%", growth)))
-            .put("rebelPercent", sol)
+            .put("size", colony.getUnitCount())
+            .put("sizeChange", (grow > 9) ? ">9" : (grow >= 0) ? "+" + grow : String.valueOf(grow))
+            .put("rebelPercent", colony.getSonsOfLiberty())
             .putRaw("tip", rebelTip(colony))
-            .putRaw("rebelShield", ObjectImages.json(nation))
-            .putRaw("royalistShield", (other == null) ? "[]" : ObjectImages.json(other))
             .toString();
     }
 
     /**
-     * RebelToolTip as lines of [label, value]: the rebels and royalists with
-     * their shares, the liberty each liberty goods makes and in all, the
-     * progress to the next rebel, and the turns until the next member, 50%
+     * RebelToolTip: members, the rebels and royalists as [label, count,
+     * share]; liberty, the net production of each liberty goods type
+     * ({type, name, keys, amount}); bar, the FreeColProgressBar towards the
+     * next rebel ({keys, value, step, max, text}); and turns, the
+     * [label, value] lines under it: the turns until the next member, 50%
      * and 100%, then how many colonists can be added or removed at the
-     * current bonus.
+     * current bonus. The liberty modifiers' lines (ModifierFormat) are left
+     * out.
      */
     private static String rebelTip(Colony colony) {
         final Specification spec = colony.getSpecification();
+        final List<GoodsType> libertyGoods = spec.getLibertyGoodsTypeList();
         final int population = colony.getUnitCount();
         final int sol = colony.getSonsOfLiberty();
         final int rebels = Colony.calculateRebelCount(population, sol);
         final Turn turn = colony.getGame().getTurn();
-        final List<String> rows = new ArrayList<>();
-        rows.add(row(Messages.message(StringTemplate.template("rebelToolTip.rebelLabel")
-                    .addName("%number%", "")).trim(), rebels + "  " + sol + "%"));
-        rows.add(row(Messages.message(StringTemplate.template("rebelToolTip.royalistLabel")
-                    .addName("%number%", "")).trim(),
-                (population - rebels) + "  " + (100 - sol) + "%"));
+        final List<String> members = List.of(
+            member("rebelToolTip.rebelLabel", rebels, sol),
+            member("rebelToolTip.royalistLabel", population - rebels, 100 - sol));
+        final List<String> made = new ArrayList<>();
         int liberty = 0;
-        for (GoodsType type : spec.getLibertyGoodsTypeList()) {
+        for (GoodsType type : libertyGoods) {
             final int production = colony.getNetProductionOf(type);
             liberty += production;
-            rows.add(row(Messages.getName(type), String.valueOf(production)));
+            made.add(goods(type, production).toString());
         }
         liberty = (int)FeatureContainer.applyModifiers((float)liberty, turn,
             colony.getOwner().getModifiers(Modifier.LIBERTY));
         final boolean capped = spec.getBoolean(GameOptions.BELL_ACCUMULATION_CAPPED)
             && sol >= 100;
-        rows.add(row(Messages.getName(spec.getLibertyGoodsTypeList().get(0)),
-                (colony.getLiberty() % Colony.LIBERTY_PER_REBEL) + "/"
-                + Colony.LIBERTY_PER_REBEL + " ("
-                + (capped ? 0 : liberty) + ")"));
+        final int value = colony.getLiberty() % Colony.LIBERTY_PER_REBEL;
+        final int step = capped ? 0 : liberty;
+        final String bar = new Json()
+            .putRaw("keys", ObjectImages.json(libertyGoods.get(0)))
+            .put("value", value)
+            .put("step", step)
+            .put("max", Colony.LIBERTY_PER_REBEL)
+            .put("text", progressText(value, step, Colony.LIBERTY_PER_REBEL))
+            .toString();
         int next = -1, half = -1, all = -1;
         // An empty colony (its last colonist put outside, before the panel asks to abandon it) has
         // no membership to grow: Colony.rebelHelper never ends for one, so it is not asked.
@@ -178,19 +169,43 @@ final class ColonyJson {
             half = bonus.get(1);
             all = bonus.get(2);
         }
-        rows.add(row(Messages.message("rebelToolTip.nextMember"),
+        final List<String> turns = new ArrayList<>();
+        turns.add(row(Messages.message("rebelToolTip.nextMember"),
                 (next < 0) ? Messages.message("notApplicable") : String.valueOf(next)));
-        if (half > 0) rows.add(row(Messages.message("rebelToolTip.50percent"), String.valueOf(half)));
-        if (all > 0) rows.add(row(Messages.message("rebelToolTip.100percent"), String.valueOf(all)));
+        if (half > 0) turns.add(row(Messages.message("rebelToolTip.50percent"), String.valueOf(half)));
+        if (all > 0) turns.add(row(Messages.message("rebelToolTip.100percent"), String.valueOf(all)));
         final int grow = colony.getPreferredSizeChange();
         if (grow >= Colony.CHANGE_UPPER_BOUND) {
-            rows.add(row(Messages.message("rebelToolTip.changeMore"), Messages.message("many")));
+            turns.add(row(Messages.message("rebelToolTip.changeMore"), Messages.message("many")));
         } else if (grow >= 0) {
-            rows.add(row(Messages.message("rebelToolTip.changeMore"), String.valueOf(grow)));
+            turns.add(row(Messages.message("rebelToolTip.changeMore"), String.valueOf(grow)));
         } else {
-            rows.add(row(Messages.message("rebelToolTip.changeLess"), String.valueOf(-grow)));
+            turns.add(row(Messages.message("rebelToolTip.changeLess"), String.valueOf(-grow)));
         }
-        return Json.array(rows);
+        return new Json()
+            .putRaw("members", Json.array(members))
+            .putRaw("liberty", Json.array(made))
+            .putRaw("bar", bar)
+            .putRaw("turns", Json.array(turns))
+            .toString();
+    }
+
+    /** A line of RebelToolTip's members: the label, the count, and the share. */
+    private static String member(String key, int count, int percent) {
+        final String label = Messages.message(StringTemplate.template(key)
+            .addName("%number%", "")).trim();
+        return Json.array(List.of(Json.quote(label), Json.quote(String.valueOf(count)),
+                Json.quote(percent + "%")));
+    }
+
+    /** FreeColProgressBar's text: "32+1/200 (Turns: 168)". */
+    static String progressText(int value, int step, int max) {
+        final String turns = (max <= value) ? "0"
+            : (step > 0) ? String.valueOf((max - value + step - 1) / step)
+            : Messages.message("notApplicable");
+        return value + ((step < 0) ? "-" : "+") + Math.abs(step) + "/" + max + " "
+            + Messages.message(StringTemplate.template("freeColProgressBar.turnsToComplete")
+                .addName("%number%", turns));
     }
 
     private static String row(String label, String value) {

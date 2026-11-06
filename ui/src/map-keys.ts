@@ -93,6 +93,11 @@ const FATHER_KINDS = ['trade', 'exploration', 'military', 'political', 'religiou
 export const PANEL_KEYS = {
   /** The coin of a building's upkeep in the colony panel (ImageLibrary.ICON_COIN). */
   coin: 'image.icon.coin',
+  /**
+   * The colony panel's wood behind the tiles, with the four octagons ColonyPanel.paintComponent writes the
+   * population in (ImageLibrary.getColonyUpperRightBackground).
+   */
+  colonyOctagons: 'image.colony.upperRight.background',
   /** The compass rose over the map (ImageLibrary.getCompassRose), when the display compass rose option is on. */
   compass: 'image.skin.compass',
   /** The info panel's skin, the desk with the skull (InfoPanel.updateLayoutIfNeeded). */

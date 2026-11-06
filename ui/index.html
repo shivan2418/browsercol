@@ -2084,7 +2084,6 @@
         align-items: start;
       }
       /* The parts FreeCol gives no caption: no room above for one. */
-      .colony .population,
       .colony .net,
       .colony .construction {
         padding-top: 6px;
@@ -2139,16 +2138,55 @@
       .colony .outside [data-unit] > .unit {
         height: auto;
       }
-      .colony .population {
-        width: 100%;
+      /*
+       * ColonyPanel's upperRightPanel: the tiles, the net production and the construction, with the population in
+       * the four octagons of its wood (cut from image.colony.upperRight.background) in the tiles' corners. The text
+       * is drawn as paintComponent draws it: the title font, larger for the size and its change.
+       */
+      .colony .board {
+        position: relative;
+        align-self: stretch;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+      }
+      .colony .octagon {
+        position: absolute;
+        z-index: 1;
+        width: 68px;
+        height: 66px;
         box-sizing: border-box;
         display: flex;
-        justify-content: space-between;
         align-items: center;
-        gap: 8px;
+        justify-content: center;
+        clip-path: polygon(30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%);
+        background-repeat: no-repeat;
+        background-color: var(--btn);
+        color: var(--paper-ink);
+        font-family: var(--font-title);
+        font-size: 32px;
+        font-weight: 700;
+        pointer-events: none;
       }
-      .colony .population .shield {
-        height: 32px;
+      .colony .octagon.size,
+      .colony .octagon.rebels {
+        left: 2px;
+      }
+      .colony .octagon.change,
+      .colony .octagon.royalists {
+        right: 2px;
+      }
+      .colony .octagon.size,
+      .colony .octagon.change {
+        top: 2px;
+      }
+      /* Under the muskets and the crown. */
+      .colony .octagon.rebels,
+      .colony .octagon.royalists {
+        top: 158px;
+        padding-top: 28px;
+        font-size: 18px;
       }
       .colony .buildings {
         grid-column: 1;
@@ -2196,8 +2234,9 @@
         align-items: center;
         font-weight: 700;
       }
-      /* BuildingToolTip, put on the page beside the building the pointer is over. */
-      .building-tip {
+      /* BuildingToolTip, put on the page beside the building the pointer is over; RebelToolTip by the pointer. */
+      .building-tip,
+      .rebel-tip {
         position: fixed;
         z-index: 1001;
         max-width: 280px;
@@ -2212,6 +2251,59 @@
         border-radius: 3px;
         box-shadow: 0 2px 8px var(--backdrop);
         pointer-events: none;
+      }
+      /* RebelToolTip's three columns: the label, then two numbers on the right (MigLayout "[300px][50px, right][50px, right]"). */
+      .rebel-tip {
+        width: 400px;
+        max-width: none;
+        box-sizing: border-box;
+        display: grid;
+        grid-template-columns: 1fr 50px 50px;
+        align-items: center;
+        gap: 6px 10px;
+      }
+      .rebel-tip .tip-row {
+        display: contents;
+      }
+      .rebel-tip .num {
+        text-align: right;
+      }
+      .rebel-tip .span2 {
+        grid-column: span 2;
+        justify-self: end;
+      }
+      .rebel-tip .icon {
+        height: 24px;
+        vertical-align: middle;
+      }
+      .rebel-tip .tip-bar {
+        grid-column: 1 / -1;
+        justify-self: center;
+        position: relative;
+        width: 80%;
+        height: 26px;
+        border: 1px solid var(--line);
+        background: var(--panel);
+      }
+      .rebel-tip .tip-bar i {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        background: var(--line);
+        opacity: 0.55;
+      }
+      .rebel-tip .tip-bar i.step {
+        opacity: 0.3;
+      }
+      .rebel-tip .tip-bar .label {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        white-space: nowrap;
       }
       .building-tip .tip-name {
         font-size: var(--fs-s);

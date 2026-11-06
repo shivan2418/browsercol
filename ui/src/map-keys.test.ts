@@ -186,6 +186,7 @@ describe('the panel keys', () => {
   it('are the art of what a message is about, of the event panel, the colony panel, the fathers and the minimap, and nothing else', () => {
     for (const key of [
       'image.icon.coin',
+      'image.colony.upperRight.background',
       'image.icon.model.goods.food',
       'image.buildingicon.model.building.townHall',
       'image.miscicon.model.nation.dutch',
@@ -228,6 +229,7 @@ describe('the panel keys', () => {
     expect(EVENT_KEYS).toHaveLength(2);
     expect(Object.keys(PANEL_KEYS)).toEqual([
       'coin',
+      'colonyOctagons',
       'compass',
       'infoPanel',
       'minimapSkin',

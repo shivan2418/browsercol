@@ -55,13 +55,21 @@ function open(colony: ColonyView = jamestown, drawTiles: DrawTiles | null = null
 const part = (name: string) => document.querySelector<HTMLElement>(`[data-part="${name}"]`)!;
 
 describe('the colony panel', () => {
-  it('is titled with the colony and shows its population', () => {
+  it('is titled with the colony and writes its population in the octagons round the tiles, as FreeCol', () => {
     open();
     expect(screen.getByRole('heading', { level: 2 }).textContent).toBe('Jamestown');
-    const population = part('population');
-    for (const text of ['Total: 1', 'Rebels: 0', 'Royalists: 1', 'Bonus: 0', '0%', '100%']) {
-      expect(within(population).getByText(text)).toBeTruthy();
-    }
+    const octagons = [...part('population').querySelectorAll('.octagon')].map((o) => [
+      o.getAttribute('data-part'),
+      o.textContent,
+    ]);
+    expect(octagons).toEqual([
+      ['size', '1'],
+      ['change', '+0'],
+      ['rebels', '0%'],
+      ['royalists', '100%'],
+    ]);
+    // The tiles, the net production and the construction are on the same board.
+    expect(part('population').querySelector('[data-part="net"]')).not.toBeNull();
   });
 
   it('shows each building with its workers and production, its icon from the Tileset', () => {
@@ -448,9 +456,25 @@ describe('loading a ship in port in the colony panel', () => {
     expect(unit('unit:9').querySelector('.repair')?.textContent).toBe('Repair(3)');
   });
 
-  it('puts the unit and liberty figures of RebelToolTip on the population row', () => {
-    openPort();
-    expect(part('population').getAttribute('title')).toContain('Turns to increase rebels: N/A');
+  it('shows RebelToolTip while the pointer is over the board, and hides it on a press', () => {
+    open();
+    expect(screen.queryByRole('tooltip')).toBeNull();
+    fireEvent.mouseEnter(part('population'), { clientX: 10, clientY: 10 });
+    const tip = screen.getByRole('tooltip');
+    for (const text of [
+      'Rebel:',
+      'Royalist:',
+      '100%',
+      'Bells',
+      '32+1/200 (Turns: 168)',
+      'Turns to increase rebels',
+      '168',
+    ]) {
+      expect(within(tip).getAllByText(text).length).toBeGreaterThan(0);
+    }
+    expect(part('population').getAttribute('title')).toBeNull();
+    fireEvent.mouseDown(part('population'));
+    expect(screen.queryByRole('tooltip')).toBeNull();
   });
 
   it('unloads the chosen ship with U and tops it up with L', () => {
