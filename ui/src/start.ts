@@ -7,6 +7,7 @@
 // (#57) are options of the preset like the others.
 
 import { messageFiles } from './language';
+import { bundleFile as file, rulesStrings, specification } from './specification';
 import { specificationGroup, type OptionGroup, type OptionValue } from './options';
 
 export interface NationChoice {
@@ -86,12 +87,6 @@ export interface StartChoice {
   importMap?: File;
 }
 
-/** The data bundle's text of a file, from its alternating path and text. */
-function file(data: string[], path: string): string {
-  const i = data.indexOf(`data/${path}`);
-  return i < 0 ? '' : data[i + 1];
-}
-
 /** A .properties file's lines, as FreeCol reads them: key=value, # comments. */
 function properties(text: string): Map<string, string> {
   const out = new Map<string, string>();
@@ -121,11 +116,8 @@ function css(color: string | null): string {
  * @param defaultLevel The level a new game starts at.
  */
 export function startOptions(data: string[], rules: string, defaultLevel = 'model.difficulty.medium'): StartOptions {
-  const spec = new DOMParser().parseFromString(file(data, `rules/${rules}/specification.xml`), 'application/xml');
-  const text = new Map([
-    ...messageFiles(data).flatMap((f) => [...properties(file(data, f))]),
-    ...properties(file(data, `rules/${rules}/FreeColMessages.properties`)),
-  ]);
+  const spec = specification(data, rules);
+  const text = new Map(rulesStrings(data, rules, messageFiles(data)).flatMap((f) => [...properties(file(data, f))]));
   const say = (key: string, otherwise = '') => plain(text.get(key) ?? otherwise);
 
   const nations = [...spec.querySelectorAll('nations > nation')]

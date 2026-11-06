@@ -2,10 +2,12 @@
 // that DifficultyDialog and GameOptionsDialog edit. Two sources fill it:
 // the Engine (OptionsJson.java) sends the game's own groups, read-only, for
 // the in-game menu; the start screen has no game yet, so it reads the
-// ruleset's specification in the data bundle, as start.ts does. The
+// ruleset's specification in the data bundle (with the ruleset it extends
+// under it, see specification.ts), as start.ts does. The
 // Preferences window reads FreeCol's client options from the bundle too.
 
 import { AUTOMATIC, languageName, languages, messageFiles } from './language';
+import { bundleFile as file, rulesStrings, specification } from './specification';
 
 /** One entry of a unit list option: a number of units of a type in a role, as FreeCol's AbstractUnit. */
 export interface UnitEntry {
@@ -61,12 +63,6 @@ export function leaves(node: OptionNode): Map<string, Exclude<OptionNode, { kind
   return out;
 }
 
-/** The data bundle's text of a file, from its alternating path and text. */
-function file(data: string[], path: string): string {
-  const i = data.indexOf(`data/${path}`);
-  return i < 0 ? '' : data[i + 1];
-}
-
 /** A .properties file's lines, as FreeCol reads them: key=value, # comments. */
 function properties(text: string): Map<string, string> {
   const out = new Map<string, string>();
@@ -93,12 +89,7 @@ const INT_MAX = 2147483647;
  * @returns The group, or null if the specification has none.
  */
 export function specificationGroup(data: string[], rules: string, selector: string): OptionGroup | null {
-  return xmlGroup(
-    data,
-    `rules/${rules}/specification.xml`,
-    [...messageFiles(data), `rules/${rules}/FreeColMessages.properties`],
-    selector,
-  );
+  return xmlGroup(data, specification(data, rules), rulesStrings(data, rules, messageFiles(data)), selector);
 }
 
 /**
@@ -106,12 +97,12 @@ export function specificationGroup(data: string[], rules: string, selector: stri
  * their defaults. The hidden group of placements is left out.
  */
 export function clientOptionsGroup(data: string[]): OptionGroup | null {
-  return xmlGroup(data, 'base/client-options.xml', messageFiles(data), 'optionGroup[id="clientOptions"]');
+  const spec = new DOMParser().parseFromString(file(data, 'base/client-options.xml'), 'application/xml');
+  return xmlGroup(data, spec, messageFiles(data), 'optionGroup[id="clientOptions"]');
 }
 
-/** An option group of an options file in the data bundle, named by a selector, labelled from the strings files. */
-function xmlGroup(data: string[], path: string, strings: string[], selector: string): OptionGroup | null {
-  const spec = new DOMParser().parseFromString(file(data, path), 'application/xml');
+/** An option group of an options document, named by a selector, labelled from the strings files. */
+function xmlGroup(data: string[], spec: Document, strings: string[], selector: string): OptionGroup | null {
   const element = spec.querySelector(selector);
   if (!element) return null;
   const text = new Map(strings.flatMap((s) => [...properties(file(data, s))]));
