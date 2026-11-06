@@ -87,7 +87,11 @@ const SECTIONS: { title: string; rows: Row[] }[] = [
         classic: 'No extra effects.',
         freecol: 'Also improve trade and skills taught, and show the area around the settlement.',
       },
-      { what: 'Exploration points', classic: 'None awarded.', freecol: 'Awarded for all discoveries.' },
+      {
+        what: 'Exploration points',
+        classic: 'Off. Discoveries only show a message and give no score.',
+        freecol: 'On. Each discovery adds to your score.',
+      },
     ],
   },
   {
