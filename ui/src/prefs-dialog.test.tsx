@@ -194,7 +194,7 @@ test('each volume is a slider with a mute button beside it, and muting leaves th
     ],
   };
   const changes: Prefs[] = [];
-  const prefs = { ...DEFAULTS, muteEffects: true, freecol: { 'model.option.musicVolume': 60 } };
+  const prefs = { ...DEFAULTS, muteMusic: false, muteEffects: true, freecol: { 'model.option.musicVolume': 60 } };
   const { container } = render(
     <PreferencesDialog prefs={prefs} freecol={audio} change={(p) => changes.push(p)} close={() => {}} />,
   );

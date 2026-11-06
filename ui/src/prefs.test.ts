@@ -63,8 +63,20 @@ describe('prefs', () => {
     expect(parsePrefs('{"palette":"neon"}').palette).toBe('parchment');
   });
 
+  it('starts with the music off and the sound effects on', () => {
+    expect(DEFAULTS.muteMusic).toBe(true);
+    expect(parsePrefs(null)).toMatchObject({ muteMusic: true, muteEffects: false });
+    expect(volumes(parsePrefs(null))).toMatchObject({ music: 0 });
+    // A player who stored a choice keeps it.
+    expect(parsePrefs('{"muteMusic":false}').muteMusic).toBe(false);
+  });
+
   it('mutes the music and the sound effects apart, keeping their volumes', () => {
-    const p = { ...DEFAULTS, freecol: { 'model.option.musicVolume': 40, 'model.option.soundEffectsVolume': 70 } };
+    const p = {
+      ...DEFAULTS,
+      muteMusic: false,
+      freecol: { 'model.option.musicVolume': 40, 'model.option.soundEffectsVolume': 70 },
+    };
     expect(volumes(p)).toEqual({ music: 40, effects: 70 });
     expect(volumes({ ...p, muteMusic: true })).toEqual({ music: 0, effects: 70 });
     expect(volumes({ ...p, muteEffects: true })).toEqual({ music: 40, effects: 0 });

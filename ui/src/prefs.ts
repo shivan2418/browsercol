@@ -78,7 +78,8 @@ export const DEFAULTS: Prefs = {
   palette: PALETTES[0].id,
   fonts: FONT_SETS[0].id,
   tileset: TILESETS[0].id,
-  muteMusic: false,
+  // The music is a bit much for most players: off until they turn it on (#318).
+  muteMusic: true,
   muteEffects: false,
   freecol: {},
 };
