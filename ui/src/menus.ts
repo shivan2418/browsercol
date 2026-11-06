@@ -94,18 +94,19 @@ const later = (label: string): Items[number] => ({ label, run: () => {}, disable
 export function gameMenu(a: MenuActions): Items {
   const cmd = (label: string, c: Command): Items[number] => ({ label, run: () => a.run(c), disabled: !a.ready });
   return [
-    { label: 'New', run: a.newGame },
-    { label: 'Open', run: a.open },
-    { label: 'Save', run: a.save, disabled: !a.ready || a.panelShowing },
-    { label: 'Preferences', run: a.preferences },
+    { label: 'New', run: a.newGame, hint: 'Ctrl+N' },
+    { label: 'Open', run: a.open, hint: 'Ctrl+O' },
+    { label: 'Save', run: a.save, disabled: !a.ready || a.panelShowing, hint: 'Ctrl+S' },
+    { label: 'Preferences', run: a.preferences, hint: 'Ctrl+P' },
     later('Reconnect'),
     cmd('End Turn', { k: 'endTurn' }),
     { ...cmd('Declare Independence', { k: 'declareIndependence' }), disabled: !a.ready || !a.canDeclare },
     { label: 'Return to Main', run: a.returnToMain },
     cmd('High Scores', { k: 'showHighScores' }),
     cmd('Retire', { k: 'retire' }),
-    { label: 'Save and Exit', run: a.saveAndExit, disabled: !a.ready || a.panelShowing },
-    later('Quit'),
+    { label: 'Save and Exit', run: a.saveAndExit, disabled: !a.ready || a.panelShowing, hint: 'Ctrl+X' },
+    // FreeCol's Quit leaves the program; the page has none, so it goes to the title screen, as Return to Main does.
+    { label: 'Quit', run: a.returnToMain, hint: 'Ctrl+Q' },
   ];
 }
 
@@ -151,7 +152,7 @@ export function viewMenu(a: MenuActions): Items {
   return [
     { label: 'Zoom In', run: () => a.zoom(1) },
     { label: 'Zoom Out', run: () => a.zoom(-1) },
-    { label: 'Center on Active Unit', run: a.centreOnUnit, disabled: !a.hasActiveUnit },
+    { label: 'Center on Active Unit', run: a.centreOnUnit, disabled: !a.hasActiveUnit, hint: 'Ctrl+C' },
     { label: 'Europe', run: () => a.run({ k: 'showEurope' }), disabled: !a.ready || !a.hasEurope },
     { label: 'Find Settlement', run: () => a.run({ k: 'findSettlement' }), disabled: !a.ready, hint: 'Ctrl+F' },
     { label: 'Show Map Grid', run: () => a.toggleMode('grid'), checked: a.modes.grid },
@@ -175,7 +176,7 @@ export function viewMenu(a: MenuActions): Items {
     { label: 'Debug Mode', run: a.toggleDebug, checked: a.debug, hint: 'Ctrl+Shift+D' },
     { label: 'Map Controls', run: a.toggleMapControls, checked: a.mapControls, hint: 'Ctrl+M' },
     { label: 'Show Side Panel', run: a.toggleSidePanel, checked: a.sidePanel, hint: 'Shift+F11' },
-    { label: 'Full Screen', run: a.toggleFullScreen, checked: a.fullScreen },
+    { label: 'Full Screen', run: a.toggleFullScreen, checked: a.fullScreen, hint: 'Alt+Enter' },
   ];
 }
 
