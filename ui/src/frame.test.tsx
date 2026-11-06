@@ -169,6 +169,20 @@ describe('the goods amount', () => {
     Object.assign(goodsIcons, { max: 7, countFrom: 7 });
   });
 
+  it('puts the number of a pile over its icons, unsigned for a gain as FreeCol does', () => {
+    const pile = (amount: number) => {
+      const { container } = render(
+        <GoodsAmount keys={['image.icon.model.goods.food']} name="Food" amount={amount} change art={art} icons />,
+      );
+      return container.lastElementChild as HTMLElement;
+    };
+    const [gain, loss] = [pile(9), pile(-3)];
+    expect(gain.querySelector('.pile > .amount')?.textContent).toBe('9');
+    expect(gain.dataset.sign).toBe('gain');
+    expect(loss.querySelector('.pile > .amount')?.textContent).toBe('−3');
+    expect(loss.dataset.sign).toBe('loss');
+  });
+
   it('marks a gain, a loss and a zero', () => {
     expect(
       [goods(3, true), goods(-2, true), goods(0, true), goods(0)].map((g) => [g.textContent, g.dataset.sign]),

@@ -42,6 +42,10 @@
   --backdrop: rgb(0 0 0 / 40%);
   /* The border round a chip on a unit, drawn on its owner's colour (ImageLibrary.createChip). */
   --chip-border: #000000;
+  /* The number over a pile of goods icons (ProductionLabel): white, red for a loss, outlined so it reads on any icon. */
+  --pile-ink: #ffffff;
+  --pile-loss: #e02020;
+  --pile-outline: #000000;
   /*
    * Text on FreeCol's painted paper (the advisor's sheet, the info panel's): the paper is light in every
    * palette, so these stay dark ink.
@@ -77,6 +81,9 @@
   --warn: #ffb020;
   --backdrop: rgb(0 0 0 / 55%);
   --chip-border: #000000;
+  --pile-ink: #ffffff;
+  --pile-loss: #ff4d4d;
+  --pile-outline: #000000;
   --paper-ink: #2a1c0c;
   --paper-muted: #6e5634;
   --paper-head: #5a3714;
