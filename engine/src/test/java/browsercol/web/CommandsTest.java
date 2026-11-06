@@ -564,6 +564,82 @@ class CommandsTest {
         await(() -> ship.getTile() == there, () -> "the ship is on the tile");
     }
 
+    /**
+     * A unit with no moves left that the player has selected still has a goto
+     * path, as in Swing: it starts next turn, so the turns count at least one,
+     * and the order is taken for it.
+     */
+    @Test
+    @Timeout(240)
+    void aUnitWithNoMovesStillHasAGotoPath() throws Exception {
+        startGame();
+        final Commands commands = client.getCommands();
+        final Unit colonist = landAColonist(commands);
+        assertEquals(0, colonist.getMovesLeft(), "the colonist has used its moves landing");
+        client.debugApplied(server.debug("{\"action\":\"revealMap\",\"reveal\":true}"));
+
+        final Map map = client.getGame().getMap();
+        Tile target = null;
+        for (Tile t : map.getTile(colonist.getTile().getX(), colonist.getTile().getY())
+                 .getSurroundingTiles(1, 2)) {
+            if (t.isLand() && t.isExplored() && colonist.findPath(t) != null) {
+                target = t;
+                break;
+            }
+        }
+        assertNotNull(target, "an explored land tile lies near the colonist");
+
+        final String path = commands.pathTo(colonist.getId(), target.getX(), target.getY());
+        assertNotEquals("null", path, "the path shows for a unit with no moves");
+        assertTrue(path.contains("," + 1 + "]") || path.contains("," + 2 + "]"),
+            () -> "the path starts next turn: " + path);
+        assertTrue(commands.goTo(colonist.getId(), target.getX(), target.getY()),
+            "the order is taken for next turn");
+        assertNotNull(colonist.getDestination(), "the colonist has its destination");
+    }
+
+    /**
+     * A native trade uses the unit's moves, and the unit selected for it is then
+     * replaced as after any other action, as Swing's updateGUI does: a unit that
+     * is no candidate for the next active unit does not stay selected.
+     */
+    @Test
+    @Timeout(240)
+    void aUnitThatTradedAndHasNoMovesIsDeselected() throws Exception {
+        startGame();
+        final Commands commands = client.getCommands();
+        final Unit colonist = landAColonist(commands);
+        client.debugApplied(server.debug("{\"action\":\"revealMap\",\"reveal\":true}"));
+        final net.sf.freecol.common.model.IndianSettlement camp = client.getGame()
+            .getMap().getTileSet(t -> t.getIndianSettlement() != null).stream()
+            .map(Tile::getIndianSettlement).findFirst().orElse(null);
+        assertNotNull(camp, "the client knows a native settlement");
+
+        select(commands, colonist);
+        assertSame(colonist, active(), "a unit with no moves can be selected");
+        // The ship, which has sailed, can move again: it is the next unit to select.
+        final Unit ship = client.getClient().getMyPlayer().getUnits()
+            .filter(Unit::isNaval).findFirst().get();
+        ship.setMovesLeft(ship.getInitialMovesLeft());
+        final net.sf.freecol.common.model.NativeTrade nt
+            = new net.sf.freecol.common.model.NativeTrade(colonist, camp);
+        nt.setDone();
+        // The game starts in the mode that executes goto orders, and the first updateGUI only leaves it.
+        final java.lang.reflect.Field mode = net.sf.freecol.client.control.InGameController.class
+            .getDeclaredField("moveMode");
+        mode.setAccessible(true);
+        mode.set(client.getClient().getInGameController(), enumValue(mode.getType(), "NEXT_ACTIVE_UNIT"));
+        client.getClient().getInGameController().nativeTradeHandler(
+            net.sf.freecol.common.model.NativeTrade.NativeTradeAction.ACK_OPEN, nt);
+        await(() -> active() == ship, () -> "the unit out of moves gives way to the next that can move, not " + active());
+    }
+
+    /** The constant of an enum class that is not visible here. */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static Object enumValue(Class<?> type, String name) {
+        return Enum.valueOf((Class)type, name);
+    }
+
     /** Wait until a condition holds, for up to 10 s. */
     private static void await(java.util.function.BooleanSupplier ok, java.util.function.Supplier<String> what)
         throws InterruptedException {

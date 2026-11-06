@@ -32,6 +32,7 @@ drops a message, a server request, model state or a callback.
 | `client/control/InGameController.java` | First landing panel and tutorial go through that overload. The tutorial names the key `B`. | restores #84 |
 | `client/control/InGameController.java` | `saveGame` throws. It never runs: both it and its autosave caller check `getFreeColServer()`, which is null in the browser because the server runs in a Web Worker, apart from the client. Saves go through that Worker instead (#68, #69, #154). | unreached |
 | `client/control/InGameController.java` | `buildColony.badUnit` names the unit by its label, not its null name. | upstream bug fix |
+| `client/control/InGameController.java` | `nativeTradeHandler` calls `updateGUI` once the trade is over, so a unit the trade left without moves is replaced (#299). | platform |
 | `client/FreeColClient.java` | A browser constructor without resources, mods, image quality, actions, sound, the shutdown hook, the uncaught exception handler or the first GUI task. See below. | platform |
 | `FreeCol.java` | `quit` logs instead of calling `System.exit`. `MEMORY_MAX` uses `totalMemory`. | platform |
 | `server/FreeColServer.java` | `saveGame` is public, refuses a thumbnail and writes the properties by hand. Only the map editor passes a thumbnail. | platform |

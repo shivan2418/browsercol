@@ -175,7 +175,8 @@ public final class Commands {
      * @param unitId The unit's id.
      * @param x The tile's x.
      * @param y The tile's y.
-     * @return True if the unit set off; false if it is gone, not ours or out of moves.
+     * @return True if the unit set off, or for a unit with no moves left, will set off next
+     *     turn; false if it is gone or not ours.
      */
     public boolean goTo(String unitId, int x, int y) {
         final Unit unit = movable(unitId);
@@ -209,7 +210,8 @@ public final class Commands {
      * @param x The tile's x.
      * @param y The tile's y.
      * @return The path as MapJson.path gives it; "null" for none, or for a
-     *     unit that is gone, not ours or out of moves.
+     *     unit that is gone or not ours. A unit with no moves left has its path
+     *     too, as in Swing: it starts next turn, and the turn counts show it.
      */
     public String pathTo(String unitId, int x, int y) {
         final Unit unit = movable(unitId);
@@ -222,10 +224,13 @@ public final class Commands {
         }
     }
 
-    /** One of our units, by id, that still exists and can move, else null. */
+    /**
+     * One of our units, by id, that still exists, else null. It needs no moves
+     * left: Swing's goto path and order work for a unit that is out of them.
+     */
     private Unit movable(String unitId) {
         final Unit unit = ours(unitId);
-        return unit == null || unit.isDisposed() || unit.getMovesLeft() <= 0 ? null : unit;
+        return unit == null || unit.isDisposed() ? null : unit;
     }
 
     /** Show the Europe panel (EuropeAction). */
