@@ -1035,6 +1035,8 @@ export function mapDrawer(
   canvas2d = false,
   /** FreeCol's graphics quality option: 0 lowest, 10 low, 20 normal, up to 40. */
   quality = 20,
+  /** Called once the art manifest has loaded (the loading screen's art step). */
+  onManifest: () => void = () => {},
 ): {
   draw(map: MapView): Promise<void>;
   /** A step the Engine says a unit took; it slides when the next map is drawn. */
@@ -1107,6 +1109,7 @@ export function mapDrawer(
   async function init() {
     const art = (await (await fetch(artBase + manifest)).json()) as Art;
     res = resources(art.layers, art.files);
+    onManifest();
     // resize() swaps in a new array, so a changed size is a different one.
     const startSize = size;
     let p: Pen;

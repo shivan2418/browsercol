@@ -128,6 +128,7 @@ import { Side, type SideProps } from './side';
 import { isIdle, TurnBanner, turnNotice, type TurnFacts, type TurnNotice } from './turn-banner';
 import { tabTitle } from './tab-title';
 import { ErrorBanner, addError, engineError, type GameError } from './errors';
+import { loading, type PartName } from './loading';
 import { loadModule } from './teavm';
 import { applyTheme } from './theme';
 import { syncThemeColor } from './install';
@@ -259,6 +260,8 @@ const mapHost = document.getElementById('map')!;
 const mapSize = (): [number, number] => [mapHost.clientWidth, mapHost.clientHeight];
 /** The preferences as the page loads: some are read only then. */
 const prefsAtLoad = loadPrefs();
+/** The loading screen of index.html, up from the first paint: the bar follows the parts the page waits for. */
+const boot = loading();
 const map = mapDrawer(
   mapHost,
   mapSize(),
@@ -267,6 +270,7 @@ const map = mapDrawer(
   // FreeCol's Enable OpenGL option off draws with Canvas 2D, as ?renderer=canvas2d does.
   params.get('renderer') === 'canvas2d' || !pageOption(prefsAtLoad, 'model.option.useOpenGL'),
   pageOption(prefsAtLoad, 'model.option.graphicsQuality'),
+  () => boot.finish('art'),
 );
 const rounds: string[] = [];
 window.fcRounds = rounds;
@@ -1180,7 +1184,10 @@ function showPanel() {
 }
 
 function show(status: string, extra: Record<string, unknown> = {}) {
-  if (status === 'failed') reportError('The game could not go on', describeError(extra.error));
+  if (status === 'failed') {
+    reportError('The game could not go on', describeError(extra.error));
+    boot.fail('The game could not start');
+  }
   const state = { status, rules, preset, choice, nation, autoplay, renderer: map.renderer(), rounds, ...extra };
   if (status !== 'running') window.fcResult = state;
   side.status = JSON.stringify(state, null, 1);
@@ -1276,6 +1283,8 @@ function showTabTitle() {
 }
 document.addEventListener('visibilitychange', showTabTitle);
 
+/** Whether the first map has been sent to be drawn: the loading screen waits for it. */
+let mapShown = false;
 function drawMap(m: MapView) {
   nation = m.nation;
   side.turn = `${m.turn}${m.ourTurn ? '' : ' (AI playing)'}`;
@@ -1298,6 +1307,10 @@ function drawMap(m: MapView) {
   dispatch({ k: 'map', map: m });
   pullColonies();
   drawn = map.draw(m);
+  if (!mapShown) {
+    mapShown = true;
+    void drawn.finally(() => boot.finish('map'));
+  }
   // A dialog shown before the art manifest loaded has no images: draw it again once they can be had.
   if (!artReady)
     void drawn.then(() => {
@@ -1479,7 +1492,13 @@ async function withLanguage(bundle: string[]): Promise<{ data: string[]; languag
 
 /** The client module, loaded once: the start screen's Colopedia and the game share it. */
 let loadedClient: Promise<ClientExports> | null = null;
-const clientModule = () => (loadedClient ??= loadModule<ClientExports>(runtimeUrl, clientUrl));
+const clientModule = () =>
+  (loadedClient ??= loadModule<ClientExports>(runtimeUrl, clientUrl, (loaded, total) =>
+    boot.progress('engine', loaded, total),
+  ).then((exports) => {
+    boot.finish('engine');
+    return exports;
+  }));
 
 /** A preset's JSON: a bare name is presets/NAME.json of this build. */
 async function fetchPreset(name: string): Promise<string> {
@@ -1501,6 +1520,8 @@ async function chooseGame(data: string[], language: string): Promise<{ preset: s
   const root = createRoot(host);
   // FreeCol's main panel plays the introduction music.
   playSound('sound.intro.general');
+  // The screen goes once the start screen has had a frame to draw in.
+  requestAnimationFrame(() => boot.finish('start'));
   return new Promise((done) => {
     root.render(
       <StartScreen
@@ -1529,6 +1550,7 @@ async function chooseGame(data: string[], language: string): Promise<{ preset: s
         start={(c) => {
           root.unmount();
           host.remove();
+          boot.begin(gameParts);
           // The browser has no file system for the server Engine to read the file from: hand it the bytes.
           void (c.importMap?.arrayBuffer() ?? Promise.resolve(undefined)).then(
             (bytes) => done({ preset: presetJson(c), importMap: bytes && new Uint8Array(bytes) }),
@@ -1562,12 +1584,14 @@ async function confirmLoad(id: number): Promise<void> {
     root.unmount();
     host.remove();
   };
+  boot.pause();
   return new Promise((done) => {
     root.render(
       <LoadingSaveDialog
         save={save}
         load={() => {
           close();
+          boot.begin(startupParts());
           done();
         }}
         cancel={() => {
@@ -1616,6 +1640,11 @@ const AUTOSAVE_MS = 1500;
 /** Whether this page is a fresh start the autosave may replace: not a debug start, not a scripted run. */
 const mayResume = !params.has('new') && !params.has('skipstart') && !params.has('preset') && autoplay === 0;
 
+/** What a page waits for before the player sees the start screen, or the map when there is no start screen. */
+const startupParts = (): PartName[] => (skipStart ? ['data', 'engine', 'art', 'map'] : ['data', 'start']);
+/** What it waits for once the player has started the game from the start screen. */
+const gameParts: PartName[] = ['engine', 'art', 'map'];
+
 async function run() {
   if (loadId === undefined && mayResume && (import.meta.env.DEV || params.has('resume'))) {
     try {
@@ -1629,8 +1658,10 @@ async function run() {
       console.warn('no autosave to resume:', ex);
     }
   }
+  boot.begin(startupParts());
   const bundle = (await (await fetch(dataUrl)).json()) as string[];
   const { data, language } = await withLanguage(bundle);
+  boot.finish('data');
   const clientOptions = clientOptionsGroup(data);
   if (clientOptions) {
     freecolOptions = shownClientOptions(clientOptions);
