@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vite-plus/test';
 import type { StartChoice, StartOptions } from './start';
 import { StartScreen } from './start-screen';
@@ -288,6 +288,8 @@ test('Reset undoes the edits of the level', () => {
   expect(reset.disabled).toBe(true);
   fireEvent.change(price(), { target: { value: '250' } });
   expect(reset.disabled).toBe(false);
+  // Pressing Reset takes the focus out of the field, which shows what it holds again.
+  fireEvent.blur(price());
   fireEvent.click(reset);
   expect(price().value).toBe('100');
 });
@@ -299,7 +301,7 @@ test('a level loads from a file, and a file that is no level says so', async () 
   load('nonsense');
   expect((await screen.findByRole('alert')).textContent).toContain('not a difficulty level');
   load(JSON.stringify({ difficulty: 'model.difficulty.medium', options: { 'model.option.landPriceFactor': 300 } }));
-  await screen.findByDisplayValue('300');
+  await waitFor(() => expect(screen.getByLabelText<HTMLInputElement>('Land price factor').value).toBe('300'));
   fireEvent.click(document.querySelector('[data-start]')!);
   expect(started[0].options).toEqual({ 'model.option.landPriceFactor': 300 });
 });

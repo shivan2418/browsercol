@@ -63,8 +63,8 @@ export function useEscape(close: (() => void) | null, keys: readonly string[] = 
   }, []);
 }
 
-/** What the player types into: a key pressed there is text, not a shortcut. */
-export const TEXT_ENTRY = 'input, textarea, select, [role="combobox"], [contenteditable]';
+/** What the player types into: a key pressed there is text, not a shortcut. A number field's input is an `input`; its step buttons count too. */
+export const TEXT_ENTRY = 'input, textarea, select, [role="combobox"], [contenteditable], .ui-number-step';
 
 /** Whether a key press is one of a window's close keys: no modifier, and not typed into a field. */
 function isCloseKey(e: KeyboardEvent, keys: readonly string[]): boolean {

@@ -18,7 +18,7 @@ import {
   type ReactNode,
 } from 'react';
 import type { Advisor } from './advisor';
-import { Select } from './controls';
+import { NumberField, Select } from './controls';
 import { ColonyActions, ColonyPanel } from './colony-panel';
 import { DebugContext } from './debug';
 import type { Dialog, Dialogs } from './dialogs';
@@ -256,9 +256,9 @@ function Input({ d }: { d: Of<'input'> }) {
  */
 function Amount({ d, art }: { d: Of<'amount'>; art: Art }) {
   const { ask } = d;
-  const [value, setValue] = useState(ask.value === null ? '' : String(ask.value));
-  const n = Number(value);
-  const valid = value.trim() !== '' && Number.isInteger(n) && n >= 0 && n <= ask.max;
+  const [value, setValue] = useState<number | null>(ask.value);
+  const n = value ?? 0;
+  const valid = value !== null && Number.isInteger(n) && n >= 0 && n <= ask.max;
   const ok = () => valid && d.done(n);
   const cancel = () => d.done(null);
   useEnter(ok);
@@ -267,20 +267,19 @@ function Amount({ d, art }: { d: Of<'amount'>; art: Art }) {
       <Text text={ask.text} />
       <div className="amount" data-goods={ask.type ?? undefined}>
         <Pic keys={ask.keys} art={art} className="icon" />
-        <input
-          type="number"
+        <NumberField
           autoFocus
           min={0}
           max={ask.max}
           step={1}
           aria-label={ask.name ?? undefined}
           value={value}
-          onChange={(e) => setValue(e.target.value)}
+          onChange={setValue}
         />
       </div>
       <div className="choices amounts">
         {ask.values.map((v) => (
-          <button key={v} data-amount={v} aria-pressed={String(v) === value} onClick={() => setValue(String(v))}>
+          <button key={v} data-amount={v} aria-pressed={v === value} onClick={() => setValue(v)}>
             {v}
           </button>
         ))}
@@ -462,7 +461,7 @@ function Warehouse({ d, art }: { d: Of<'warehouse'>; art: Art }) {
   const [rows, setRows] = useState(ask.goods);
   const set = (i: number, change: Partial<(typeof rows)[number]>) =>
     setRows(rows.map((r, j) => (j === i ? { ...r, ...change } : r)));
-  const num = (v: string, max: number) => Math.max(0, Math.min(max, Math.trunc(Number(v)) || 0));
+  const num = (v: number | null, max: number) => Math.max(0, Math.min(max, Math.trunc(v ?? 0)));
   const ok = () =>
     d.done(
       rows.map((r) => ({
@@ -477,14 +476,13 @@ function Warehouse({ d, art }: { d: Of<'warehouse'>; art: Art }) {
   const cancel = () => d.done(null);
   useEnter(ok);
   const level = (i: number, field: 'low' | 'high' | 'import' | 'export', max: number, tip: string) => (
-    <input
-      type="number"
+    <NumberField
       min={0}
       max={max}
       aria-label={`${rows[i].name} ${field}`}
       title={tip}
       value={rows[i][field] ?? 0}
-      onChange={(e) => set(i, { [field]: num(e.target.value, max) })}
+      onChange={(v) => set(i, { [field]: num(v, max) })}
     />
   );
   return (
@@ -571,11 +569,11 @@ function AddItem({
   const choices = o.choices.filter(
     (c) => !items.some((i) => sameItem(i, { kind: o.kind, side: o.side, key: c.key, amount: 0, text: '' })),
   );
-  const [amount, setAmount] = useState('1');
+  const [amount, setAmount] = useState<number | null>(1);
   const [key, setKey] = useState('');
   const chosen = choices.find((c) => c.key === key) ?? choices[0];
   const max = o.max;
-  const n = Math.floor(Number(amount));
+  const n = Math.floor(amount ?? 0);
   const valid = max !== undefined ? n >= 1 && n <= max : chosen !== undefined;
   const submit = () => {
     if (!valid) return;
@@ -590,7 +588,7 @@ function AddItem({
       <span className="text">{o.label}</span>
       {o.note !== null && <span className="note">{o.note}</span>}
       {max !== undefined ? (
-        <input type="number" min={1} max={max} value={amount} onChange={(e) => setAmount(e.target.value)} />
+        <NumberField min={1} max={max} value={amount} onChange={setAmount} />
       ) : (
         <Select
           value={chosen?.key ?? ''}
