@@ -2442,8 +2442,18 @@
         gap: 10px;
         align-items: center;
       }
+      /*
+       * ConstructionPanel draws the build's picture in a fixed 100x96 box (getSmallBuildableTypeImageWithWithSize),
+       * so a tall unit (a wagon train) is scaled down into it and the box and its bars keep their size.
+       */
+      .colony .construction {
+        min-height: 96px;
+      }
       .colony .buildable {
-        width: 80px;
+        flex: none;
+        width: 100px;
+        height: 96px;
+        object-fit: contain;
       }
       /* ConstructionPanel: the build's name over a bar for each goods it takes, centred beside its picture. */
       .colony .needs {
