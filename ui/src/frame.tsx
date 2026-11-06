@@ -193,7 +193,8 @@ export function GoodsAmount({
   art: Art;
   /**
    * Draw it as FreeCol's ProductionLabel does: an icon for each of the amount (up to 7, overlapping), the
-   * number only for a loss, for more than 7, or when `expert` says more is possible.
+   * number centred over them (white, red for a loss, never a +) only for a loss, for more than 7, or when
+   * `expert` says more is possible.
    */
   icons?: boolean;
 }) {
@@ -205,6 +206,8 @@ export function GoodsAmount({
     const max = name === 'Horses' || keys.some((k) => k.endsWith('.horses')) ? 1 : goodsIcons.max;
     const n = Math.max(1, Math.min(Math.abs(amount), max));
     const step = 24 / (Math.abs(amount) <= max ? Math.max(1, Math.abs(amount)) : 16);
+    // ProductionLabel writes the number over the middle of the pile, with no sign for a gain.
+    const count = amount < 0 ? text : String(amount);
     const number = amount < 0 || amount >= goodsIcons.countFrom || amount > max || (expert !== null && expert > amount);
     return (
       <span className="goods" data-sign={sign} title={name}>
@@ -220,8 +223,10 @@ export function GoodsAmount({
               <img key={i} src={src} alt={i === 0 ? name : ''} style={{ left: step * i }} />
             ),
           )}
+          {number && (
+            <span className="amount">{expert !== null && expert > amount ? `${count}/${expert}` : count}</span>
+          )}
         </span>
-        {number && <span className="amount">{expert !== null && expert > amount ? `${text}/${expert}` : text}</span>}
       </span>
     );
   }
