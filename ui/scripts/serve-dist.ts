@@ -17,6 +17,8 @@ const TYPES: Record<string, string> = {
   '.webmanifest': 'application/manifest+json',
   '.wasm': 'application/wasm',
   '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.woff2': 'font/woff2',
 };
 
 /** The site under test: its URL, and the data bundle fetches so far. */
