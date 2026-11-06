@@ -2162,29 +2162,23 @@
         max-height: 94vh;
         font-size: var(--fs);
       }
-      .new-game .start-title {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        padding-right: 12px;
-        background: var(--menubar);
-        color: var(--menubar-ink);
-      }
+      /* Music and sound effects, a small row under Start. */
       .new-game .sound-toggles {
         display: flex;
+        flex-wrap: wrap;
+        align-items: center;
         gap: 6px;
+      }
+      .new-game .sound-label {
+        color: var(--head);
+        margin-right: 2px;
       }
       .new-game .sound-toggle {
         padding: 1px 8px;
         font-size: var(--fs-s);
-        background: transparent;
-        color: var(--menubar-ink);
-        border: 1px solid currentColor;
-        box-shadow: none;
       }
       .new-game .sound-toggle[aria-pressed='false'] {
-        opacity: 0.7;
+        color: var(--muted);
       }
       .new-game .start-cols {
         display: grid;

@@ -144,7 +144,7 @@ function LevelTools({
 }
 
 /**
- * Music and sound effects on or off, one small control at the top of the start screen (#318, #272). The music
+ * Music and sound effects on or off, a small row under Start in the start screen's Game column (#318, #272). The music
  * is off until the player turns it on; the click that turns it on is also the gesture the browser wants before
  * it plays sound. The volumes are in Preferences.
  */
@@ -167,6 +167,7 @@ function SoundToggles({
   );
   return (
     <div className="sound-toggles" role="group" aria-label="Sound">
+      <span className="sound-label">Sound</span>
       {toggle('Music', sound.music, sound.setMusic, 'data-music')}
       {toggle('Sound effects', sound.effects, sound.setEffects, 'data-effects')}
     </div>
@@ -327,10 +328,7 @@ export function StartScreen({
           });
         }}
       >
-        <header className="start-title">
-          <h1>BrowserCol</h1>
-          {sound && <SoundToggles sound={sound} />}
-        </header>
+        <h1>BrowserCol</h1>
         {/* What most players change, side by side: their nation, the other nations, then the game and Start. */}
         <div className="start-cols">
           <fieldset className="col-nation">
@@ -462,6 +460,7 @@ export function StartScreen({
                 {openFile && <OpenFile openFile={openFile} note={openNote} />}
               </div>
             )}
+            {sound && <SoundToggles sound={sound} />}
           </div>
         </div>
         {/* The rarely changed settings, each a disclosure of the same kind; an open one takes the whole width. */}
