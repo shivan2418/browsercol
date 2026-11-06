@@ -15,9 +15,11 @@ import {
   overlay,
   scene,
   srcId,
+  staticScenes,
   STILL,
   TICK_MS,
   unitOps,
+  unitScene,
   viewModeOps,
   debugOverlayOps,
   NO_OVERLAY,
@@ -28,6 +30,7 @@ import {
   type MapView,
   type Op,
   type Src,
+  type StaticScene,
   type TerrainAnimation,
   type Ticks,
 } from './tileset';
@@ -139,15 +142,17 @@ interface TextStyle {
 }
 
 /**
- * The map's layers: the scene, the cursor and path over it, the units that move or blink, the cover being lifted off
- * ground just explored, and the animated water and rivers under the scene (5).
+ * The map's layers: the scene under the units, the cursor and path over it, the units that move or blink, the cover
+ * being lifted off ground just explored, the animated water and rivers under the scene (5), the other units (6), and
+ * the scene over the units (7). A move that changes only units draws 6 and 2 again, and leaves the rest of the scene.
  */
-type Layer = 0 | 1 | 2 | 3 | 4 | 5;
+type Layer = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
 /**
- * The order the layers are stacked in, bottom first: the unit cursor (4) lies between the overlay and the units, and
- * the animated base tiles (5) under all, as MapViewer paints them first.
+ * The order the layers are stacked in, bottom first: the animated base tiles (5) under all, as MapViewer paints them
+ * first, then the scene with the units between its two parts, and the unit cursor (4) between the overlay and the
+ * units that move or blink.
  */
-const STACK: readonly Layer[] = [5, 0, 1, 4, 2, 3];
+const STACK: readonly Layer[] = [5, 0, 6, 7, 1, 4, 2, 3];
 
 /** The screen's pixel ratio: how many device pixels a CSS pixel covers. */
 export const pixelRatio = (dpr: number | undefined): number => (dpr && dpr > 0 ? dpr : 1);
@@ -437,7 +442,7 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
   cssSize(width, height);
   const world = new Container();
   // Each layer its own render group: moving or fading one (the slide, the blink) does not rebuild the others' draws.
-  const layers = Array.from({ length: 6 }, () => new Container({ isRenderGroup: true }));
+  const layers = Array.from({ length: 8 }, () => new Container({ isRenderGroup: true }));
   // The actors are few and slide off the tile they were culled at: they are never culled.
   layers[2].cullableChildren = false;
   world.addChild(...STACK.map((n) => layers[n]));
@@ -608,7 +613,7 @@ function canvasPen(host: HTMLElement, width: number, height: number, background 
   host.append(canvas);
   const c = canvas.getContext('2d')!;
   // Canvas 2D has no scene graph: record the drawing and replay it to pan.
-  const layers: ((c: CanvasRenderingContext2D) => void)[][] = [[], [], [], [], [], []];
+  const layers: ((c: CanvasRenderingContext2D) => void)[][] = Array.from({ length: 8 }, () => []);
   let fog = 1;
   let mark = 1;
   let actor = { dx: 0, dy: 0, alpha: 1 };
@@ -1005,6 +1010,15 @@ async function paint(pen: Pen, layer: Layer, ops: Op[], pics: ReturnType<typeof 
   });
 }
 
+/**
+ * Time a step of drawing the map from `start` to now, for a performance observer (scripts/perf.mjs) to see. It is
+ * cleared from the timeline at once, which the observer still gets, so a long game does not pile them up.
+ */
+function measure(name: string, start: number) {
+  performance.measure(name, { start });
+  performance.clearMeasures(name);
+}
+
 /** The art manifest from scripts/build-art.mjs. */
 interface Art {
   layers: ArtLayer[];
@@ -1073,8 +1087,12 @@ export function mapDrawer(
   let sliding: { path: Path; since: number; track: Track } | null = null;
   /** The tiles explored last time, and the black being lifted off some newly explored since `since`. */
   let exploredTiles = new Set<string>();
-  /** The scene drawn last time. */
-  let lastOps: Op[] = [];
+  /** The static scene of each map, kept while maps change only units. */
+  const statics = staticScenes();
+  /** The static scene in the layers now (5, 0 and 7), to draw them again only when it changes. */
+  let painted: StaticScene | null = null;
+  /** The scene drawn last time: its static part and its units. */
+  let last: { ground: StaticScene; units: Op[] } | null = null;
   let lifting: { since: number } | null = null;
   let frame = 0;
   let moveMs = MOVE_MS;
@@ -1148,7 +1166,7 @@ export function mapDrawer(
     // goes back to the actors' layer to blink.
     if (sliding && now - sliding.since >= length(sliding.track)) {
       sliding = null;
-      drawing = drawing.then(() => (drawn ? paintScene(drawn, lastOps) : undefined));
+      drawing = drawing.then(() => (drawn && last ? paintScene(drawn, last.ground, last.units) : undefined));
     }
     // What blinks is the unit cursor in FreeCol's style, else the unit; with blinking off the cursor stays, as the only mark.
     // The tile cursor, shown when no unit is left to move, blinks on its own.
@@ -1224,24 +1242,23 @@ export function mapDrawer(
 
   /**
    * Draw the scene, with one unit on its own in the actors' layer: the sliding one, else the active one, to blink.
-   * Nothing else is in that layer, so nothing else slides or blinks.
+   * Nothing else is in that layer, so nothing else slides or blinks. The static scene is drawn again only when it is
+   * not the one the layers hold.
    */
-  async function paintScene(map: MapView, ops: Op[], slide = sliding?.path ?? null) {
-    const unitAt = (tile: string) => (op: Op) =>
-      (op.k === 'chip' || (op.k === 'image' && op.at === 'unit')) && `${op.x},${op.y}` === tile;
-    const isBase = (op: Op) => op.k === 'image' && !!op.base;
-    const base = ops.filter(isBase);
-    ops = ops.filter((op) => !isBase(op));
+  async function paintScene(map: MapView, ground: StaticScene, units: Op[], slide = sliding?.path ?? null) {
+    const start = performance.now();
+    const kept = painted === ground;
+    const unitAt = (tile: string) => (op: Op) => `${op.x},${op.y}` === tile;
     let actors: Op[] = [];
-    let rest = ops;
+    let rest = units;
     if (slide) {
       const { step, tiles } = slide;
       const [x, y] = tiles[tiles.length - 1];
       const shown = map.units.find((u) => u.x === x && u.y === y);
       if (shown && shown.rgb === step.rgb && shown.keys.join() === step.keys.join()) {
         const isActor = unitAt(`${x},${y}`);
-        actors = ops.filter(isActor);
-        rest = ops.filter((op) => !isActor(op));
+        actors = units.filter(isActor);
+        rest = units.filter((op) => !isActor(op));
       } else {
         // The tile shows another unit (the one that came went into a colony, onto a ship, or under a stronger unit):
         // the one that came slides in on its own, over it, and is gone once there.
@@ -1250,12 +1267,20 @@ export function mapDrawer(
       }
     } else if (map.active) {
       const isActor = unitAt(map.active.join(','));
-      actors = ops.filter(isActor);
-      rest = ops.filter((op) => !isActor(op));
+      actors = units.filter(isActor);
+      rest = units.filter((op) => !isActor(op));
     }
-    await paint(pen!, 5, base, pics);
-    await paint(pen!, 0, rest, pics);
+    if (painted !== ground) {
+      // Not kept until all three are drawn: a draw cut short leaves them to be drawn again.
+      painted = null;
+      await paint(pen!, 5, ground.base, pics);
+      await paint(pen!, 0, ground.below, pics);
+      await paint(pen!, 7, ground.above, pics);
+      painted = ground;
+    }
+    await paint(pen!, 6, rest, pics);
     await paint(pen!, 2, actors, pics);
+    measure(kept ? 'map: paint, kept' : 'map: paint', start);
   }
 
   async function drawNow(map: MapView, moved: Step[]) {
@@ -1268,14 +1293,23 @@ export function mapDrawer(
     const found = path(moved);
     const stepTime = found ? stepMs(found.step, moveMs) : 0;
     const way = found && stepTime > 0 && (found.step.speed !== null || map.ourTurn) ? found : null;
+    // A map that changes only units keeps the static scene, and the layers it is drawn in.
+    const start = performance.now();
     const ticks = ticksNow();
-    baseKey = `${ticks.water}:${ticks.river}`;
-    const ops = scene(map, res!, colonyLabels, ticks);
-    panels.forEach((render) => render(ops));
+    const ground = statics(map, res!, colonyLabels, ticks);
+    const kept = ground === last?.ground;
+    const units = unitScene(map, res!);
+    measure(kept ? 'map: scene, kept' : 'map: scene', start);
+    if (!kept) {
+      baseKey = `${ticks.water}:${ticks.river}`;
+      const ops = [...ground.base, ...ground.below, ...ground.above];
+      // The panels draw no units.
+      panels.forEach((render) => render(ops));
+    }
     // The slide starts once the actors' layer holds the unit on its new tile: offset before that, the layer
     // still shows it on its old tile, and the offset would put it a tile further back, in a second place.
     if (way) {
-      await paintScene(map, ops, way);
+      await paintScene(map, ground, units, way);
       const now = performance.now();
       const next = track(way.tiles, stepTime);
       // A move made while the same unit still slides to where this one sets off from carries on from where it is.
@@ -1286,20 +1320,25 @@ export function mapDrawer(
         prev.path.tiles[prev.path.tiles.length - 1].join() === way.tiles[0].join();
       sliding = { path: way, since: now, track: carry ? carryOn(prev.track, now - prev.since, next) : next };
       camera();
-    } else await paintScene(map, ops);
-    // Ground that was explored since the last draw fades in out of the black, rather than appearing.
-    const known = new Set<string>();
+    } else await paintScene(map, ground, units);
+    // Ground that was explored since the last draw fades in out of the black, rather than appearing. A kept static
+    // scene has the same tiles explored.
     const fresh = new Set<string>();
-    for (let i = 0; i < map.tiles.length; i++) {
-      if (map.tiles[i] === '.') continue;
-      const t = `${i % map.w},${Math.floor(i / map.w)}`;
-      known.add(t);
-      if (before && !exploredTiles.has(t)) fresh.add(t);
+    if (!kept) {
+      const known = new Set<string>();
+      for (let i = 0; i < map.tiles.length; i++) {
+        if (map.tiles[i] === '.') continue;
+        const t = `${i % map.w},${Math.floor(i / map.w)}`;
+        known.add(t);
+        if (before && !exploredTiles.has(t)) fresh.add(t);
+      }
+      exploredTiles = known;
     }
-    exploredTiles = known;
     // What fades is the unexplored tile's own picture, so the ground shows through from under it.
+    const lastOps =
+      last && fresh.size ? [...last.ground.base, ...last.ground.below, ...last.units, ...last.ground.above] : [];
     const covers = lastOps.filter((op) => op.k === 'image' && fresh.has(`${op.x},${op.y}`));
-    lastOps = ops;
+    last = { ground, units };
     // A redraw that explores nothing more (the server often sends several maps in a row) leaves a fade under way alone.
     if (covers.length) {
       await paint(pen!, 3, covers, pics);
