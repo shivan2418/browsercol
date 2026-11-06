@@ -7,6 +7,7 @@ import { DialogHost } from './panels';
 import { chooseOption } from './select-test';
 import { ReportContext, REPORTS, reportMenu, type ReportActions } from './reports';
 import { reportForKey } from './report-keys';
+import { hint } from './tip-test';
 import type { GuiEvents, ReportName, ReportView } from './webgui';
 
 afterEach(cleanup);
@@ -180,7 +181,7 @@ describe('the compact colony report', () => {
     ],
   };
 
-  it('has a row for each colony and a summary, with the headers above and below', () => {
+  it('has a row for each colony and a summary, with the headers above and below', async () => {
     const { box } = host();
     show(box, report);
     expect(screen.getAllByRole('columnheader', { name: 'Colony' })).toHaveLength(2);
@@ -191,7 +192,7 @@ describe('the compact colony report', () => {
     expect(summary.textContent).toBe('Mainland5');
     const lost = screen.getByText('-2');
     expect(lost.getAttribute('data-tone')).toBe('alarm');
-    expect(lost.getAttribute('title')).toBe('tip -2');
+    expect(await hint(lost)).toBe('tip -2');
   });
 
   it('opens a colony from its row, closing the report', () => {
@@ -420,7 +421,7 @@ describe('the education report', () => {
     ],
   };
 
-  it('lists the teachers and the students of a school, with what a student would learn', () => {
+  it('lists the teachers and the students of a school, with what a student would learn', async () => {
     const { box, calls } = host();
     show(box, report);
     const teachers = document.querySelector('[data-list="teachers"]') as HTMLElement;
@@ -428,7 +429,7 @@ describe('the education report', () => {
     expect(within(teachers).getByText('Potential teachers')).toBeTruthy();
     expect(teachers.querySelector('img')?.getAttribute('data-unit')).toBe('unit:2');
     expect(within(students).getByText('Potential students')).toBeTruthy();
-    expect(students.querySelector('img')?.getAttribute('title')).toBe('Free Colonist: Carpenter');
+    expect(await hint(students.querySelector('img')!)).toBe('Free Colonist: Carpenter');
     fireEvent.click(screen.getByRole('button', { name: 'Jamestown' }));
     expect(calls).toEqual(['colony colony:7']);
   });
@@ -507,7 +508,7 @@ describe('the trade report', () => {
     ],
   };
 
-  it('shows the totals by goods and a stock and net production for each colony', () => {
+  it('shows the totals by goods and a stock and net production for each colony', async () => {
     const { box, calls } = host();
     show(box, report);
     const text = (row: string) =>
@@ -520,8 +521,8 @@ describe('the trade report', () => {
     expect(Array.from(document.querySelectorAll('thead th')).map((h) => h.textContent)).toEqual(['4/5', '5/6']);
     const row = document.querySelector('[data-colony="colony:7"]')!;
     expect(Array.from(row.children).map((c) => c.textContent)).toEqual(['Jamestown*', '40+5', '2-2']);
-    expect(row.children[2].getAttribute('title')).toBe('Sugar will run out');
-    expect(row.children[1].getAttribute('title')).toBe('Food: exported at 100');
+    expect(await hint(row.children[2])).toBe('Sugar will run out');
+    expect(await hint(row.children[1])).toBe('Food: exported at 100');
     fireEvent.click(screen.getByRole('button', { name: 'Jamestown*' }));
     expect(calls).toEqual(['colony colony:7']);
   });

@@ -14,6 +14,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react';
+import { Tip } from './controls';
 import { dragging } from './drag';
 import { focusFirstEntry, menuArrows, useFocusTrap } from './focus';
 
@@ -170,9 +171,9 @@ export function WindowFrame({ title, close: closeNow, closeKeys, children, class
       <div className="title" onPointerDown={drag} style={{ cursor: 'move', touchAction: 'none' }}>
         {title && <h2 id={titleId}>{title}</h2>}
         {close && (
-          <button className="close" aria-label="Close" title="Close (Esc)" onClick={close}>
+          <Tip as="button" className="close" aria-label="Close" tip="Close (Esc)" onClick={close}>
             ✕
-          </button>
+          </Tip>
         )}
       </div>
       <div className="body">{children}</div>
@@ -248,7 +249,7 @@ export function GoodsAmount({
     const count = amount < 0 ? text : String(amount);
     const number = amount < 0 || amount >= goodsIcons.countFrom || amount > max || (expert !== null && expert > amount);
     return (
-      <span className="goods" data-sign={sign} title={name}>
+      <Tip as="span" className="goods" data-sign={sign} tip={name}>
         <span className="pile" style={{ width: step * (n - 1) + 24 }}>
           {Array.from({ length: n }, (_, i) =>
             src === null ? (
@@ -265,14 +266,14 @@ export function GoodsAmount({
             <span className="amount">{expert !== null && expert > amount ? `${count}/${expert}` : count}</span>
           )}
         </span>
-      </span>
+      </Tip>
     );
   }
   return (
-    <span className="goods" data-sign={sign} title={name}>
+    <Tip as="span" className="goods" data-sign={sign} tip={name}>
       {src === null ? <span className="name">{name}</span> : <img src={src} alt={name} />}
       <span className="amount">{expert !== null && expert > amount ? `${text}/${expert}` : text}</span>
-    </span>
+    </Tip>
   );
 }
 

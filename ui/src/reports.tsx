@@ -9,7 +9,7 @@
 // in REPORTS, which is the Report menu. The Engine side is Reports.java.
 import './reports.css';
 import { Fragment, createContext, useContext, useState, type ReactNode } from 'react';
-import { Select } from './controls';
+import { Select, Tip } from './controls';
 import type { Dialog } from './dialogs';
 import { GoodsAmount, WindowFrame, type Art, type Menu } from './frame';
 import type { CompactCell, ReportName, ReportView, UnitCount } from './webgui';
@@ -132,7 +132,7 @@ function Img({
 }) {
   const src = art(keys);
   return src === null ? null : (
-    <img className="pic" src={src} alt={title ?? ''} title={title} data-dim={dim} data-unit={unit} />
+    <Tip as="img" className="pic" src={src} alt={title ?? ''} tip={title} data-dim={dim} data-unit={unit} />
   );
 }
 
@@ -169,10 +169,15 @@ function ColonyReport({ e, art, go }: { e: View<'colony'>; art: Art; go: Links }
           </div>
           <div className="row" data-list="goods">
             {c.goods.map((g) => (
-              <span key={g.type} className="made" title={`${g.name}: ${g.stock} in store, up to ${g.max} a turn`}>
+              <Tip
+                as="span"
+                key={g.type}
+                className="made"
+                tip={`${g.name}: ${g.stock} in store, up to ${g.max} a turn`}
+              >
                 <GoodsAmount keys={g.keys} name={g.name} amount={g.amount} change art={art} />
                 <span className="stock">{g.stock}</span>
-              </span>
+              </Tip>
             ))}
           </div>
           <div className="row" data-list="buildings">
@@ -192,10 +197,10 @@ function CompactColonyReport({ e, art, go }: { e: View<'compactColony'>; art: Ar
   const head = (key: string) => (
     <tr key={key} className="heads">
       {e.columns.map((c, i) => (
-        <th key={i} scope="col" title={c.tip} data-left={c.left} data-dim={c.dim}>
+        <Tip as="th" key={i} scope="col" tip={c.tip} data-left={c.left} data-dim={c.dim}>
           {c.keys && <Img keys={c.keys} art={art} />}
           {c.label}
-        </th>
+        </Tip>
       ))}
     </tr>
   );
@@ -210,21 +215,22 @@ function CompactColonyReport({ e, art, go }: { e: View<'compactColony'>; art: Ar
             </>
           );
           return item.link === null ? (
-            <span key={j} className="item" data-tone={item.tone} data-bold={item.bold} title={item.tip}>
+            <Tip as="span" key={j} className="item" data-tone={item.tone} data-bold={item.bold} tip={item.tip}>
               {body}
-            </span>
+            </Tip>
           ) : (
-            <button
+            <Tip
+              as="button"
               key={j}
               className="item link"
               data-tone={item.tone}
               data-bold={item.bold}
-              title={item.tip}
+              tip={item.tip}
               data-link={item.link}
               onClick={() => go.colony(item.link as string)}
             >
               {body}
-            </button>
+            </Tip>
           );
         })}
       </td>
@@ -408,10 +414,10 @@ function Units({ e, art, go }: { e: View<'military' | 'naval' | 'cargo'>; art: A
       <h3>{f.name}</h3>
       <div className="row">
         {f.units.map((u) => (
-          <span key={`${u.type}${u.keys[0]}`} className="made" title={u.text} data-type={u.type}>
+          <Tip as="span" key={`${u.type}${u.keys[0]}`} className="made" tip={u.text} data-type={u.type}>
             <Img keys={u.keys} art={art} title={u.name} />
             <span className="stock">{u.count}</span>
-          </span>
+          </Tip>
         ))}
       </div>
     </section>
@@ -462,10 +468,11 @@ function ReligionReport({ e, art, go }: { e: View<'religion'>; art: Art; go: Lin
             <Img keys={g.keys} art={art} title={g.name} />
             {g.name}
           </h3>
-          <progress
+          <Tip
+            as="progress"
             value={Math.min(g.immigration, g.required)}
             max={g.required}
-            title={`${g.immigration} / ${g.required}, ${g.production > 0 ? '+' : ''}${g.production} a turn`}
+            tip={`${g.immigration} / ${g.required}, ${g.production > 0 ? '+' : ''}${g.production} a turn`}
           />
           <span className="muted" data-field="progress">
             {g.immigration} / {g.required} ({g.production > 0 ? '+' : ''}
@@ -587,10 +594,10 @@ function TradeReport({ e, art, go }: { e: View<'trade'>; art: Art; go: Links }) 
         <tr>
           <td />
           {e.goods.map((g) => (
-            <th key={g.type} scope="col" data-goods={g.type} title={g.name}>
+            <Tip as="th" key={g.type} scope="col" data-goods={g.type} tip={g.name}>
               <Img keys={g.keys} art={art} title={g.name} />
               {g.sell !== null && g.buy !== null && <span className="prices">{`${g.sell}/${g.buy}`}</span>}
-            </th>
+            </Tip>
           ))}
         </tr>
       </thead>
@@ -609,12 +616,13 @@ function TradeReport({ e, art, go }: { e: View<'trade'>; art: Art; go: Links }) 
               </Link>
             </th>
             {c.cells.map((cell, i) => (
-              <td
+              <Tip
+                as="td"
                 key={e.goods[i].type}
                 className="num cell"
                 data-sign={cell.production < 0 ? 'loss' : undefined}
                 data-warn={cell.warning ? '' : undefined}
-                title={
+                tip={
                   cell.warning ??
                   (cell.exported !== null ? `${e.goods[i].name}: exported at ${cell.exported}` : undefined)
                 }
@@ -623,7 +631,7 @@ function TradeReport({ e, art, go }: { e: View<'trade'>; art: Art; go: Links }) 
                   {cell.amount}
                 </span>
                 <span className="net">{signed(cell.production)}</span>
-              </td>
+              </Tip>
             ))}
           </tr>
         ))}
@@ -1018,11 +1026,11 @@ function CongressReport({ e, art, go }: { e: View<'congress'>; art: Art; go: Lin
             .map((f) => (
               <div key={f.id} className="row" data-father={f.id} data-state={f.state}>
                 <Img keys={f.keys} art={art} title={f.description} dim={f.state !== 'elected'} />
-                <span title={f.description}>
+                <Tip as="span" tip={f.description}>
                   <Link go={() => go.colopedia(f.id)} data-link={f.id}>
                     {f.name}
                   </Link>
-                </span>
+                </Tip>
                 <span className="muted" data-field="status">
                   {f.status}
                 </span>

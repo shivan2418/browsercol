@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { ReportContext } from './reports';
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { dialogs } from './dialogs';
 import { dragOnto } from './drag.testing';
@@ -8,6 +8,7 @@ import { ColonyActions, ColonyTiles, type ColonyMoves, type DrawTiles } from './
 import { DialogHost, type Art } from './panels';
 import { ContextMenuContext, type ContextMenus } from './popup-menu';
 import { colonist, goods, jamestown } from './colony-fixture';
+import { hint, mountLayer, shownHint } from './tip-test';
 import type { ColonyView } from './webgui';
 
 afterEach(cleanup);
@@ -127,7 +128,7 @@ describe('the colony panel', () => {
     const tip = screen.getByRole('tooltip');
     expect(tip.querySelector('.tip-production')).toBeNull();
     // The worker is still listed with what they would make.
-    expect(tip.querySelector('[data-unit="unit:2"] [title="Hammers"]')).toBeTruthy();
+    expect(tip.querySelector('[data-unit="unit:2"] img[alt="Hammers"]')).toBeTruthy();
     expect(within(tip).getByText('You need at least 2 horses to breed horses.')).toBeTruthy();
   });
 
@@ -435,7 +436,7 @@ describe('loading a ship in port in the colony panel', () => {
     expect(calls).toEqual(['equip unit:3 model.goods.lumber']);
   });
 
-  it('shows the occupation chip and the red repair status of units outside and ships in port', () => {
+  it('shows the occupation chip and the red repair status of units outside and ships in port', async () => {
     openPort({
       outside: {
         title: 'Outside',
@@ -447,7 +448,7 @@ describe('loading a ship in port in the colony panel', () => {
       },
     });
     expect(unit('unit:3').querySelector('.chip')?.textContent).toBe('F');
-    expect(unit('unit:3').querySelector('.chip')?.getAttribute('title')).toBe('Fortified');
+    expect(await hint(unit('unit:3').querySelector('.chip')!)).toBe('Fortified');
     // On the owner's nation colour, as ImageLibrary.getOccupationIndicatorChip draws it.
     const chip = unit('unit:3').querySelector<HTMLElement>('.chip');
     expect(chip?.style.getPropertyValue('--nation')).toBe('#ff8000');
@@ -456,11 +457,17 @@ describe('loading a ship in port in the colony panel', () => {
     expect(unit('unit:9').querySelector('.repair')?.textContent).toBe('Repair(3)');
   });
 
-  it('shows RebelToolTip while the pointer is over the board, and hides it on a press', () => {
+  it('shows RebelToolTip as a hint while the pointer rests on the board', async () => {
     open();
-    expect(screen.queryByRole('tooltip')).toBeNull();
-    fireEvent.mouseEnter(part('population'), { clientX: 10, clientY: 10 });
-    const tip = screen.getByRole('tooltip');
+    mountLayer();
+    expect(shownHint()).toBeNull();
+    const board = part('population');
+    fireEvent.pointerEnter(board, { pointerType: 'mouse' });
+    fireEvent.mouseEnter(board);
+    fireEvent.pointerMove(board, { pointerType: 'mouse' });
+    fireEvent.mouseMove(board);
+    await waitFor(() => expect(shownHint()).not.toBeNull());
+    const tip = document.querySelector<HTMLElement>('.ui-tip')!;
     for (const text of [
       'Rebel:',
       'Royalist:',
@@ -472,9 +479,10 @@ describe('loading a ship in port in the colony panel', () => {
     ]) {
       expect(within(tip).getAllByText(text).length).toBeGreaterThan(0);
     }
-    expect(part('population').getAttribute('title')).toBeNull();
-    fireEvent.mouseDown(part('population'));
-    expect(screen.queryByRole('tooltip')).toBeNull();
+    expect(board.getAttribute('title')).toBeNull();
+    fireEvent.pointerLeave(board, { pointerType: 'mouse' });
+    fireEvent.mouseLeave(board);
+    await waitFor(() => expect(shownHint()).toBeNull());
   });
 
   it('unloads the chosen ship with U and tops it up with L', () => {

@@ -34,6 +34,7 @@ import {
   type MouseEvent,
   type ReactNode,
 } from 'react';
+import { Tip } from './controls';
 import { createPortal } from 'react-dom';
 import { Box, GoodsAmount, TEXT_ENTRY, type Art } from './frame';
 import { PANEL_KEYS } from './map-keys';
@@ -156,7 +157,7 @@ function Img({
   alt?: string;
 }) {
   const src = art(keys);
-  return src === null ? null : <img className={className} src={src} alt={alt} title={alt || undefined} />;
+  return src === null ? null : <Tip as="img" className={className} src={src} alt={alt} tip={alt || undefined} />;
 }
 
 /** An Engine colour (0xRRGGBB, game data such as a nation's colour) as CSS. */
@@ -174,9 +175,9 @@ function Occupation({ u }: { u: UnitRef }) {
   return (
     <>
       {u.occupation && (
-        <span className="chip" title={u.occupationFull} style={chipColours(u)}>
+        <Tip as="span" className="chip" tip={u.occupationFull} style={chipColours(u)}>
           {u.occupation}
-        </span>
+        </Tip>
       )}
       {u.repair && <span className="repair">{u.repair}</span>}
     </>
@@ -310,10 +311,9 @@ const OCTAGON_AT = { size: [66, 6], change: [372, 6], rebels: [66, 152], royalis
 /**
  * ColonyPanel's upperRightPanel: the tiles, the net production and the construction, with the octagons
  * paintComponent writes the population in, round the tiles (the colony's size, its preferred size change, and the
- * shares of rebels and royalists); RebelToolTip shows while the pointer is over it, as in Swing.
+ * shares of rebels and royalists); RebelToolTip shows while the pointer rests on it, as in Swing.
  */
 function Board({ c, art, children }: { c: ColonyView; art: Art; children: ReactNode }) {
-  const [over, setOver] = useState<{ x: number; y: number } | null>(null);
   const p = c.population;
   const wood = art([OCTAGONS]);
   const octagon = (part: keyof typeof OCTAGON_AT, text: string) => {
@@ -329,37 +329,26 @@ function Board({ c, art, children }: { c: ColonyView; art: Art; children: ReactN
     );
   };
   return (
-    <div
-      className="board"
-      data-part="population"
-      onMouseEnter={(e) => setOver({ x: e.clientX, y: e.clientY })}
-      onMouseLeave={() => setOver(null)}
-      onMouseDown={() => setOver(null)}
-    >
+    <Tip as="div" className="board" data-part="population" tip={<RebelTipBox tip={p.tip} art={art} />}>
       {octagon('size', String(p.size))}
       {octagon('change', p.sizeChange)}
       {octagon('rebels', `${p.rebelPercent}%`)}
       {octagon('royalists', `${100 - p.rebelPercent}%`)}
       {children}
-      {over && <RebelTipBox tip={p.tip} art={art} at={over} />}
-    </div>
+    </Tip>
   );
 }
 
-/** The widest RebelToolTip is laid out for, to put it left of the pointer when the right has no room. */
-const REBEL_TIP_W = 400;
-
 /**
- * RebelToolTip, by the pointer: the rebels and royalists with their counts and shares; each liberty goods type with
+ * RebelToolTip, as a hint (Tip): the rebels and royalists with their counts and shares; each liberty goods type with
  * what the colony makes of it; the bar towards the next rebel; and the turns to the next rebel, to 50% and to 100%,
  * with how many colonists the colony can take or should lose at its bonus.
  */
-function RebelTipBox({ tip, art, at }: { tip: RebelTip; art: Art; at: { x: number; y: number } }) {
-  const left = at.x + 16 + REBEL_TIP_W <= window.innerWidth ? at.x + 16 : Math.max(8, at.x - 16 - REBEL_TIP_W);
+function RebelTipBox({ tip, art }: { tip: RebelTip; art: Art }) {
   const { bar } = tip;
   const width = (n: number) => `${Math.max(0, Math.min(100, (100 * n) / Math.max(1, bar.max)))}%`;
-  return createPortal(
-    <div className="rebel-tip" role="tooltip" style={{ left, top: Math.max(8, at.y + 16) }}>
+  return (
+    <div className="rebel-tip">
       {tip.members.map(([label, count, share]) => (
         <div key={label} className="tip-row">
           <span>{label}</span>
@@ -390,16 +379,15 @@ function RebelTipBox({ tip, art, at }: { tip: RebelTip; art: Art; at: { x: numbe
           <span className="span2 num">{value}</span>
         </div>
       ))}
-    </div>,
-    document.body,
+    </div>
   );
 }
 
 /** A part of the panel FreeCol gives no caption, named by data-part. */
 const Part = ({ part, title, children }: { part: string; title?: string; children: ReactNode }) => (
-  <section className={`box ${part}`} data-part={part} title={title}>
+  <Tip as="section" className={`box ${part}`} data-part={part} tip={title}>
     {children}
-  </section>
+  </Tip>
 );
 
 /** TilesPanel: the colony's 3x3, drawn as the map draws them, with who works each and what it makes. */
@@ -462,12 +450,13 @@ function TilePlace({
   const onContextMenu = useContextMenu((m) => (worker ? m.unit(worker.id) : m.colonyTile(t.at[0], t.at[1])));
   const carry = worker ? { ...movable, onContextMenu } : { onContextMenu };
   return (
-    <div
+    <Tip
+      as="div"
       className="tile"
       data-tile={t.id}
       data-ours={t.ours}
       data-drop={target && !t.centre ? '' : undefined}
-      title={t.name}
+      tip={t.name}
       style={style}
       {...(t.centre ? undefined : target)}
       {...carry}
@@ -475,7 +464,7 @@ function TilePlace({
       {/* The diamond itself is what a drop or click lands on, as tiles overlap by their boxes. */}
       <span className="hit" />
       {children}
-    </div>
+    </Tip>
   );
 }
 
@@ -487,12 +476,13 @@ function InPort({ c, art, choose }: { c: ColonyView; art: Art; choose: (id: stri
   return (
     <Box caption={port.title} data-part="port" className="port">
       {port.units.map((u) => (
-        <button
+        <Tip
+          as="button"
           key={u.id}
           className="ship"
           data-unit={u.id}
           aria-pressed={u.id === ship?.id}
-          title={u.name}
+          tip={u.name}
           onClick={() => choose(u.id)}
           onContextMenu={(e) => {
             e.preventDefault();
@@ -502,7 +492,7 @@ function InPort({ c, art, choose }: { c: ColonyView; art: Art; choose: (id: stri
         >
           <Img keys={u.keys} art={art} className="unit" alt={u.name} />
           <Occupation u={u} />
-        </button>
+        </Tip>
       ))}
     </Box>
   );
@@ -576,12 +566,12 @@ function Progress({ need, art }: { need: NonNullable<ColonyView['construction']>
   const now = have >= max ? 100 : width(have);
   const next = Math.min(100 - now, width(step));
   return (
-    <span className="need" data-goods={need.type} title={need.name}>
+    <Tip as="span" className="need" data-goods={need.type} tip={need.name}>
       <i className="now" style={{ width: `${now}%` }} />
       {next > 0 && <i className="next" style={{ left: `${now}%`, width: `${next}%` }} />}
       <Img keys={need.keys} art={art} className="icon" />
       <span>{`${have}${step < 0 ? '-' : '+'}${Math.abs(step)}/${max} ${need.turns}`}</span>
-    </span>
+    </Tip>
   );
 }
 
@@ -852,13 +842,14 @@ function BuildQueue({ c, art, children }: { c: ColonyView; art: Art; children: R
   ];
   return (
     <>
-      <section
+      <Tip
+        as="section"
         className="box construction"
         data-part="construction"
         role="button"
         tabIndex={0}
         aria-label={q.title}
-        title={q.title}
+        tip={q.title}
         aria-expanded={state.open}
         onClick={() => set({ ...state, open: !state.open })}
         onKeyDown={(e) => {
@@ -869,7 +860,7 @@ function BuildQueue({ c, art, children }: { c: ColonyView; art: Art; children: R
         }}
       >
         {children}
-      </section>
+      </Tip>
       {state.open && (
         <>
           <div className="queue-backdrop" onClick={() => set({ ...state, open: false })} />
@@ -896,14 +887,15 @@ function BuildQueue({ c, art, children }: { c: ColonyView; art: Art; children: R
               }
             }}
           >
-            <button
+            <Tip
+              as="button"
               className="queue-close"
               aria-label="close"
-              title="close"
+              tip="close"
               onClick={() => set({ ...state, open: false })}
             >
               ✕
-            </button>
+            </Tip>
             <Box caption={q.title} data-part="queued" className="queued">
               <ol
                 {...queueDrag.target(
@@ -927,20 +919,22 @@ function BuildQueue({ c, art, children }: { c: ColonyView; art: Art; children: R
                       if (multi(e)) setSelQueue(toggle(selQueue, i));
                     }}
                   >
-                    <button disabled={i === 0} aria-label="up" title="up" onClick={() => move(i, i - 1)}>
+                    <Tip as="button" disabled={i === 0} aria-label="up" tip="up" onClick={() => move(i, i - 1)}>
                       ↑
-                    </button>
-                    <button
+                    </Tip>
+                    <Tip
+                      as="button"
                       disabled={i === ids.length - 1}
                       aria-label="down"
-                      title="down"
+                      tip="down"
                       onClick={() => move(i, i + 1)}
                     >
                       ↓
-                    </button>
-                    <button
+                    </Tip>
+                    <Tip
+                      as="button"
                       aria-label="remove"
-                      title="remove"
+                      tip="remove"
                       onClick={() =>
                         moves.setQueue(
                           c.id,
@@ -949,7 +943,7 @@ function BuildQueue({ c, art, children }: { c: ColonyView; art: Art; children: R
                       }
                     >
                       ✕
-                    </button>
+                    </Tip>
                     <BuildableLabel b={b} art={art} compact={state.compact} />
                   </li>
                 ))}
@@ -988,9 +982,10 @@ function BuildQueue({ c, art, children }: { c: ColonyView; art: Art; children: R
                             }))
                           : {})}
                       >
-                        <button
+                        <Tip
+                          as="button"
                           disabled={b.reason !== null}
-                          title={b.reason ?? b.name}
+                          tip={b.reason ?? b.name}
                           onClick={(e) => {
                             if (multi(e)) {
                               setSelList(toggle(selList, b.type));
@@ -1001,7 +996,7 @@ function BuildQueue({ c, art, children }: { c: ColonyView; art: Art; children: R
                           }}
                         >
                           <BuildableLabel b={b} art={art} compact={state.compact} />
-                        </button>
+                        </Tip>
                       </li>
                     ))}
                 </ul>
@@ -1101,9 +1096,9 @@ export function ColonyPanel({ colony: c, art, footer }: { colony: ColonyView; ar
                 const at = scatter(i, c.buildings.length);
                 return b.site ? (
                   // EmptyBuildingSite: the plot's image, nothing more.
-                  <div key={b.type} className="building site" data-site={b.type} title={b.name} style={at}>
+                  <Tip as="div" key={b.type} className="building site" data-site={b.type} tip={b.name} style={at}>
                     <Img keys={b.keys} art={art} className="art" />
-                  </div>
+                  </Tip>
                 ) : (
                   <BuildingPlace key={b.type} b={b} art={art} style={at}>
                     <span className="name">{b.name}</span>
@@ -1112,10 +1107,10 @@ export function ColonyPanel({ colony: c, art, footer }: { colony: ColonyView; ar
                       {b.production && <Made g={b.production} art={art} max={b.production.max} />}
                       {b.upkeep !== null && (
                         // BuildingPanel's UpkeepLabel: the coin, with the upkeep.
-                        <span className="upkeep" title={String(b.upkeep)}>
+                        <Tip as="span" className="upkeep" tip={String(b.upkeep)}>
                           <Img keys={[COIN]} art={art} className="icon" />
                           {b.upkeep}
-                        </span>
+                        </Tip>
                       )}
                     </span>
                     <span className="workers">
