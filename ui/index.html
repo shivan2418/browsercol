@@ -1178,7 +1178,9 @@
         .dialog .vstop {
           grid-template-columns: 34px 1fr auto;
         }
+        /* On a phone the chips go under the name, the ✕ stays beside it. */
         .dialog .vstop .chips {
+          grid-row: 2;
           grid-column: 2 / -1;
         }
       }
