@@ -62,8 +62,3 @@ export async function copyText(text: string): Promise<boolean> {
     area.remove();
   }
 }
-
-/** The commit the page was built from (vite.config.ts), when the build knew it. */
-declare global {
-  const __BUILD__: string | undefined;
-}
