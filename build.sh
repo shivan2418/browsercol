@@ -25,6 +25,8 @@ node ui/scripts/build-art.ts freecol/data "$gen/public/art" --manifest freecol-p
 node ui/scripts/build-art.ts freecol/data "$gen/public/art" --manifest test.json ui/tilesets/test
 # Music and sound effects, served as files under audio/, each fetched when it plays.
 node ui/scripts/build-audio.ts freecol/data "$gen/public/audio"
+# The favicon and the web app icons, made from FreeCol's window icon, served as icons/.
+node ui/scripts/build-icons.ts freecol/data "$gen/public/icons"
 # Debug quick-start presets, served as presets/NAME.json (the page's ?preset=NAME).
 mkdir -p "$gen/public/presets"
 cp ui/presets/*.json "$gen/public/presets/"
