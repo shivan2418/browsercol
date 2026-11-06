@@ -1,5 +1,8 @@
 # Dev image: JDK, Gradle and Node, so nothing is installed on the host.
-FROM eclipse-temurin:21-jdk-noble
+# The base image is pinned by digest, so every machine and CI build with the
+# same JDK patch release. To update: docker buildx imagetools inspect
+# eclipse-temurin:21-jdk-noble, and put its Digest here.
+FROM eclipse-temurin:21-jdk-noble@sha256:114cabb73033ca4ce7ceec3deb62396bc1b716282bae051ed3c1d82e38fcab2d
 
 ARG GRADLE_VERSION=9.8.2
 RUN apt-get update \
