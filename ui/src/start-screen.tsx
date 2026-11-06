@@ -228,10 +228,349 @@ export function StartScreen({
         {label}
       </button>
     );
+  // --- Prototype (#311): layouts to pick from, as ?layout=a, b or c. Not for main. ---
+  const layout = new URLSearchParams(location.search).get('layout') ?? '';
+  const pediaLink = (section: string, label: string) =>
+    colopedia && (
+      <button
+        type="button"
+        className="linkish pedia"
+        data-colopedia={section}
+        disabled={opening}
+        onClick={() => openPedia(section)}
+      >
+        {label}
+      </button>
+    );
+  const savedRow = open && (saves.length > 0 || openFile) && (
+    <div className="saved-row">
+      {saves.length > 0 && (
+        <button type="button" data-continue onClick={() => open(saves[0].id)}>
+          Continue Playing
+        </button>
+      )}
+      {openFile && (
+        <button type="button" data-open-file onClick={openFile}>
+          Open a saved game...
+        </button>
+      )}
+      {openNote && <span data-open-note>{openNote}</span>}
+    </div>
+  );
+  const rulesSelect = rules !== undefined && changeRules && options.rulesets.length > 1 && (
+    <Select
+      data-rules
+      aria-label="Rules"
+      value={rules}
+      onChange={changeRules}
+      choices={options.rulesets.map((r) => ({
+        value: r,
+        label: r === 'classic' ? 'Classic' : r === 'freecol' ? 'FreeCol' : r,
+      }))}
+    />
+  );
+  const ownAdvantageSelect = (
+    <Select
+      data-nation-type
+      aria-label="Advantage of your nation"
+      value={advantages === 'SELECTABLE' ? nationType : ''}
+      disabled={advantages !== 'SELECTABLE'}
+      onChange={setNationType}
+      choices={[
+        { value: '', label: chosen?.type ? `${chosen.type} (the nation's own)` : "The nation's own" },
+        ...options.nationTypes.map((t) => ({ value: t.id, label: t.name })),
+      ]}
+    />
+  );
+  const advantagesSelect = (
+    <Select
+      data-advantages
+      aria-label="National Advantages"
+      value={advantages}
+      onChange={(v) => setAdvantages(v as Advantages)}
+      choices={ADVANTAGES.map((a) => ({ value: a, label: ADVANTAGE_NAMES[a] }))}
+    />
+  );
+  const difficultySelect = (
+    <Select
+      data-difficulty
+      aria-label="Difficulty"
+      value={difficulty}
+      onChange={(id) => {
+        setDifficulty(id);
+        setLevelEdits({});
+      }}
+      choices={levels.map((l) => ({ value: l.id, label: l.name }))}
+    />
+  );
+  const nationRadio = (n: (typeof options.nations)[number]) => (
+    <input
+      type="radio"
+      name="nation"
+      value={n.id}
+      data-nation={n.id}
+      checked={n.id === nation}
+      onChange={() => setNation(n.id)}
+    />
+  );
+  const nationList = (
+    <div className="nations">
+      {options.nations.map((n) => (
+        <label key={n.id} className="nation" data-selected={n.id === nation || undefined}>
+          {nationRadio(n)}
+          <span className="swatch" style={{ background: colors[n.id] ?? n.color }} />
+          <span className="name">{n.name}</span>
+          <span className="type">{n.id === nation && ownType ? ownType.name : n.type}</span>
+        </label>
+      ))}
+    </div>
+  );
+  const description = (ownType?.description ?? chosen?.description) && (
+    <p className="quiet">
+      {chosen?.name} ({ownType?.name ?? chosen?.type}): {ownType?.description ?? chosen?.description}
+    </p>
+  );
+  const rivalBoxes = (list: typeof others) => (
+    <div className="rivals">
+      {list.map((r) => (
+        <label key={r.id} data-rival={r.id}>
+          <input
+            type="checkbox"
+            checked={!removed.includes(r.id)}
+            onChange={(e) => setRemoved(e.target.checked ? removed.filter((id) => id !== r.id) : [...removed, r.id])}
+          />
+          <span className="swatch" style={{ background: r.color }} /> {r.name}
+          {r.native ? ' (native)' : ''}
+        </label>
+      ))}
+    </div>
+  );
+  const coloursList = options.nations.map((n) => (
+    <label key={n.id}>
+      <input
+        type="color"
+        data-colour={n.id}
+        aria-label={`${n.name} colour`}
+        value={colors[n.id] ?? n.color}
+        onChange={(e) => setColors({ ...colors, [n.id]: e.target.value })}
+      />{' '}
+      {n.name}
+    </label>
+  ));
+  const changed = (n: number) => (n > 0 ? ` (${n} changed)` : '');
+  const levelCustomize = levelGroup && (
+    <Customize
+      key={levelGroup.id}
+      kind="difficulty"
+      summary="Customize this level"
+      group={levelGroup}
+      edits={levelEdits}
+      setEdits={setLevelEdits}
+      tools={<LevelTools group={levelGroup} edits={levelEdits} setEdits={setLevelEdits} />}
+    />
+  );
+  const gameCustomize = gameGroup && (
+    <Customize kind="game" summary="Game options" group={gameGroup} edits={gameEdits} setEdits={setGameEdits} />
+  );
+  const mapCustomize = mapGroup && (
+    <Customize
+      kind="map"
+      summary="Map options"
+      group={mapGroup}
+      edits={mapEdits}
+      setEdits={setMapEdits}
+      files={mapFiles}
+      setFile={(id, file) => {
+        const { [id]: _, ...rest } = mapFiles;
+        setMapFiles(file ? { ...rest, [id]: file } : rest);
+      }}
+    />
+  );
+  const othersDisclosure = (summary: string, list: typeof others) =>
+    list.length > 0 && (
+      <details className="customize">
+        <summary>
+          {summary} ({list.filter((r) => !removed.includes(r.id)).length} of {list.length} taking part)
+        </summary>
+        <p className="quiet">The nations taking part, as computer players. Untick one to leave it out.</p>
+        {rivalBoxes(list)}
+      </details>
+    );
+  const advantagesDisclosure = (
+    <details className="customize">
+      <summary>National advantages: {ADVANTAGE_NAMES[advantages]}</summary>
+      <p className="quiet">
+        Selectable: each player picks the advantage of their nation. Fixed: each nation keeps its own. None: no nation
+        has one. {pediaLink('nationTypes', 'The advantages in the Colopedia')}
+      </p>
+      {advantagesSelect}
+    </details>
+  );
+  const coloursDisclosure = (
+    <details className="customize colours">
+      <summary>Nation colours{changed(Object.keys(colors).length)}</summary>
+      {coloursList}
+    </details>
+  );
+  const startButton = (
+    <button type="submit" className="default start-button" data-start>
+      Start game
+    </button>
+  );
+  const prototype = () => {
+    if (layout === 'a')
+      // Two columns: what most players change on the left and right, Start under them; the rest in disclosures.
+      return (
+        <>
+          <div className="cols">
+            <fieldset>
+              <legend>Your nation</legend>
+              {nationList}
+              {description}
+              {options.nationTypes.length > 0 && advantages === 'SELECTABLE' && (
+                <label className="row">Advantage: {ownAdvantageSelect}</label>
+              )}
+              {pediaLink('nations', 'The nations in the Colopedia')}
+            </fieldset>
+            <div className="side">
+              <fieldset>
+                <legend>Difficulty</legend>
+                {difficultySelect}
+                {levelCustomize}
+              </fieldset>
+              {rulesSelect && (
+                <fieldset>
+                  <legend>Rules</legend>
+                  {rulesSelect}
+                </fieldset>
+              )}
+              <div className="go">{startButton}</div>
+              {savedRow}
+            </div>
+          </div>
+          <fieldset className="more">
+            <legend>More options</legend>
+            {othersDisclosure('Other nations', others)}
+            {advantagesDisclosure}
+            {coloursDisclosure}
+            {gameCustomize}
+            {mapCustomize}
+          </fieldset>
+        </>
+      );
+    if (layout === 'b')
+      // FreeCol's own order: NewPanel's choices on top, StartGamePanel's player table, then its option buttons.
+      return (
+        <>
+          <div className="topline">
+            {rulesSelect && <label>Rules {rulesSelect}</label>}
+            <label>Difficulty {difficultySelect}</label>
+            <label>National advantages {advantagesSelect}</label>
+          </div>
+          <table className="players">
+            <thead>
+              <tr>
+                <th>Play</th>
+                <th>Nation</th>
+                <th>Advantage</th>
+                <th>Taking part</th>
+              </tr>
+            </thead>
+            <tbody>
+              {options.nations.map((n) => {
+                const own = n.id === nation;
+                return (
+                  <tr key={n.id} data-selected={own || undefined} onClick={() => setNation(n.id)}>
+                    <td>{nationRadio(n)}</td>
+                    <td>
+                      <span className="swatch" style={{ background: colors[n.id] ?? n.color }} /> {n.name}
+                    </td>
+                    <td>
+                      {own && advantages === 'SELECTABLE' && options.nationTypes.length > 0
+                        ? ownAdvantageSelect
+                        : advantages === 'NONE'
+                          ? '—'
+                          : n.type}
+                    </td>
+                    <td>
+                      {own ? (
+                        <span className="quiet">You</span>
+                      ) : (
+                        <input
+                          type="checkbox"
+                          aria-label={`${n.name} taking part`}
+                          checked={!removed.includes(n.id)}
+                          onChange={(e) =>
+                            setRemoved(e.target.checked ? removed.filter((id) => id !== n.id) : [...removed, n.id])
+                          }
+                        />
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {description}
+          <div className="more-row">
+            {othersDisclosure(
+              'Native nations',
+              others.filter((r) => r.native),
+            )}
+            {levelCustomize}
+            {gameCustomize}
+            {mapCustomize}
+            {coloursDisclosure}
+          </div>
+          <div className="footer">
+            {savedRow}
+            {pediaLink('nations', 'Colopedia')}
+            {startButton}
+          </div>
+        </>
+      );
+    // c: one wide column of nation cards, the level beside Start in a footer that never scrolls away.
+    return (
+      <>
+        <div className="scroll">
+          <h2>Choose your nation</h2>
+          <div className="cards">
+            {options.nations.map((n) => (
+              <label key={n.id} className="card" data-selected={n.id === nation || undefined}>
+                {nationRadio(n)}
+                <span className="swatch big" style={{ background: colors[n.id] ?? n.color }} />
+                <span className="name">{n.name}</span>
+                <span className="type">{n.id === nation && ownType ? ownType.name : n.type}</span>
+              </label>
+            ))}
+          </div>
+          {description}
+          <details className="customize more">
+            <summary>More options</summary>
+            {options.nationTypes.length > 0 && advantages === 'SELECTABLE' && (
+              <label className="row">Advantage of your nation: {ownAdvantageSelect}</label>
+            )}
+            {advantagesDisclosure}
+            {othersDisclosure('Other nations', others)}
+            {coloursDisclosure}
+            {levelCustomize}
+            {gameCustomize}
+            {mapCustomize}
+            {rulesSelect && <label className="row">Rules: {rulesSelect}</label>}
+          </details>
+        </div>
+        <div className="footer">
+          {savedRow}
+          <label className="row">Difficulty {difficultySelect}</label>
+          {startButton}
+        </div>
+      </>
+    );
+  };
   return (
     <div className="start" data-testid="start">
       <form
-        className="start-window"
+        className={layout ? `start-window proto proto-${layout}` : 'start-window'}
         onSubmit={(e) => {
           e.preventDefault();
           saveDefaults('game', gameEdits);
@@ -249,186 +588,192 @@ export function StartScreen({
         }}
       >
         <h1>BrowserCol</h1>
-        {open && (saves.length > 0 || openFile) && (
-          <fieldset className="saved-games">
-            <legend>Saved games</legend>
-            {saves.length > 0 && (
-              <>
-                <button type="button" className="default" data-continue onClick={() => open(saves[0].id)}>
-                  Continue Playing
-                </button>
-                <details data-open>
-                  <summary>Open a saved game</summary>
-                  <SaveList saves={saves} open={open} />
-                </details>
-              </>
+        {layout ? (
+          prototype()
+        ) : (
+          <>
+            {open && (saves.length > 0 || openFile) && (
+              <fieldset className="saved-games">
+                <legend>Saved games</legend>
+                {saves.length > 0 && (
+                  <>
+                    <button type="button" className="default" data-continue onClick={() => open(saves[0].id)}>
+                      Continue Playing
+                    </button>
+                    <details data-open>
+                      <summary>Open a saved game</summary>
+                      <SaveList saves={saves} open={open} />
+                    </details>
+                  </>
+                )}
+                {openFile && <OpenFile openFile={openFile} note={openNote} />}
+              </fieldset>
             )}
-            {openFile && <OpenFile openFile={openFile} note={openNote} />}
-          </fieldset>
-        )}
-        <h2>New game</h2>
-        {rules !== undefined && changeRules && options.rulesets.length > 1 && (
-          <fieldset>
-            <legend>Rules</legend>
-            <Select
-              data-rules
-              aria-label="Rules"
-              value={rules}
-              onChange={changeRules}
-              choices={options.rulesets.map((r) => ({
-                value: r,
-                label: r === 'classic' ? 'Classic' : r === 'freecol' ? 'FreeCol' : r,
-              }))}
-            />
-          </fieldset>
-        )}
-        <fieldset>
-          <legend>Nation</legend>
-          {pediaButton('nations', 'Nations (Colopedia)')}
-          <div className="nations">
-            {options.nations.map((n) => (
-              <label key={n.id} className="nation" data-selected={n.id === nation || undefined}>
-                <input
-                  type="radio"
-                  name="nation"
-                  value={n.id}
-                  data-nation={n.id}
-                  checked={n.id === nation}
-                  onChange={() => setNation(n.id)}
+            <h2>New game</h2>
+            {rules !== undefined && changeRules && options.rulesets.length > 1 && (
+              <fieldset>
+                <legend>Rules</legend>
+                <Select
+                  data-rules
+                  aria-label="Rules"
+                  value={rules}
+                  onChange={changeRules}
+                  choices={options.rulesets.map((r) => ({
+                    value: r,
+                    label: r === 'classic' ? 'Classic' : r === 'freecol' ? 'FreeCol' : r,
+                  }))}
                 />
-                <span className="swatch" style={{ background: colors[n.id] ?? n.color }} />
-                <span className="name">{n.name}</span>
-                <span className="type">{n.id === nation && ownType ? ownType.name : n.type}</span>
-              </label>
-            ))}
-          </div>
-          {chosen?.description || ownType?.description ? (
-            <p className="quiet">{ownType?.description ?? chosen?.description}</p>
-          ) : null}
-          {options.nationTypes.length > 0 && (
-            <label>
-              Advantage of your nation:{' '}
-              <Select
-                data-nation-type
-                value={advantages === 'SELECTABLE' ? nationType : ''}
-                disabled={advantages !== 'SELECTABLE'}
-                onChange={setNationType}
-                choices={[
-                  { value: '', label: chosen?.type ? `${chosen.type} (the nation's own)` : "The nation's own" },
-                  ...options.nationTypes.map((t) => ({ value: t.id, label: t.name })),
-                ]}
-              />
-            </label>
-          )}
-          <details className="colours">
-            <summary>
-              Nation colours{Object.keys(colors).length > 0 ? ` (${Object.keys(colors).length} changed)` : ''}
-            </summary>
-            {options.nations.map((n) => (
-              <label key={n.id}>
-                <input
-                  type="color"
-                  data-colour={n.id}
-                  aria-label={`${n.name} colour`}
-                  value={colors[n.id] ?? n.color}
-                  onChange={(e) => setColors({ ...colors, [n.id]: e.target.value })}
-                />{' '}
-                {n.name}
-              </label>
-            ))}
-          </details>
-        </fieldset>
-        <fieldset>
-          <legend>National Advantages</legend>
-          {pediaButton('nationTypes', 'Advantages (Colopedia)')}
-          <Select
-            data-advantages
-            aria-label="National Advantages"
-            value={advantages}
-            onChange={(v) => setAdvantages(v as Advantages)}
-            choices={ADVANTAGES.map((a) => ({ value: a, label: ADVANTAGE_NAMES[a] }))}
-          />
-        </fieldset>
-        {others.length > 0 && (
-          <fieldset>
-            <legend>Other nations</legend>
-            <p className="quiet">The nations taking part, as computer players. Uncheck one to leave it out.</p>
-            <div className="rivals">
-              {others.map((r) => (
-                <label key={r.id} data-rival={r.id}>
-                  <input
-                    type="checkbox"
-                    checked={!removed.includes(r.id)}
-                    onChange={(e) =>
-                      setRemoved(e.target.checked ? removed.filter((id) => id !== r.id) : [...removed, r.id])
-                    }
+              </fieldset>
+            )}
+            <fieldset>
+              <legend>Nation</legend>
+              {pediaButton('nations', 'Nations (Colopedia)')}
+              <div className="nations">
+                {options.nations.map((n) => (
+                  <label key={n.id} className="nation" data-selected={n.id === nation || undefined}>
+                    <input
+                      type="radio"
+                      name="nation"
+                      value={n.id}
+                      data-nation={n.id}
+                      checked={n.id === nation}
+                      onChange={() => setNation(n.id)}
+                    />
+                    <span className="swatch" style={{ background: colors[n.id] ?? n.color }} />
+                    <span className="name">{n.name}</span>
+                    <span className="type">{n.id === nation && ownType ? ownType.name : n.type}</span>
+                  </label>
+                ))}
+              </div>
+              {chosen?.description || ownType?.description ? (
+                <p className="quiet">{ownType?.description ?? chosen?.description}</p>
+              ) : null}
+              {options.nationTypes.length > 0 && (
+                <label>
+                  Advantage of your nation:{' '}
+                  <Select
+                    data-nation-type
+                    value={advantages === 'SELECTABLE' ? nationType : ''}
+                    disabled={advantages !== 'SELECTABLE'}
+                    onChange={setNationType}
+                    choices={[
+                      { value: '', label: chosen?.type ? `${chosen.type} (the nation's own)` : "The nation's own" },
+                      ...options.nationTypes.map((t) => ({ value: t.id, label: t.name })),
+                    ]}
                   />
-                  <span className="swatch" style={{ background: r.color }} /> {r.name}
-                  {r.native ? ' (native)' : ''}
                 </label>
-              ))}
+              )}
+              <details className="colours">
+                <summary>
+                  Nation colours{Object.keys(colors).length > 0 ? ` (${Object.keys(colors).length} changed)` : ''}
+                </summary>
+                {options.nations.map((n) => (
+                  <label key={n.id}>
+                    <input
+                      type="color"
+                      data-colour={n.id}
+                      aria-label={`${n.name} colour`}
+                      value={colors[n.id] ?? n.color}
+                      onChange={(e) => setColors({ ...colors, [n.id]: e.target.value })}
+                    />{' '}
+                    {n.name}
+                  </label>
+                ))}
+              </details>
+            </fieldset>
+            <fieldset>
+              <legend>National Advantages</legend>
+              {pediaButton('nationTypes', 'Advantages (Colopedia)')}
+              <Select
+                data-advantages
+                aria-label="National Advantages"
+                value={advantages}
+                onChange={(v) => setAdvantages(v as Advantages)}
+                choices={ADVANTAGES.map((a) => ({ value: a, label: ADVANTAGE_NAMES[a] }))}
+              />
+            </fieldset>
+            {others.length > 0 && (
+              <fieldset>
+                <legend>Other nations</legend>
+                <p className="quiet">The nations taking part, as computer players. Uncheck one to leave it out.</p>
+                <div className="rivals">
+                  {others.map((r) => (
+                    <label key={r.id} data-rival={r.id}>
+                      <input
+                        type="checkbox"
+                        checked={!removed.includes(r.id)}
+                        onChange={(e) =>
+                          setRemoved(e.target.checked ? removed.filter((id) => id !== r.id) : [...removed, r.id])
+                        }
+                      />
+                      <span className="swatch" style={{ background: r.color }} /> {r.name}
+                      {r.native ? ' (native)' : ''}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            )}
+            <fieldset>
+              <legend>Difficulty</legend>
+              <Select
+                data-difficulty
+                aria-label="Difficulty"
+                value={difficulty}
+                onChange={(id) => {
+                  setDifficulty(id);
+                  // Another level has other values: what was changed in the one before does not carry over.
+                  setLevelEdits({});
+                }}
+                choices={levels.map((l) => ({ value: l.id, label: l.name }))}
+              />
+              {levelGroup && (
+                <Customize
+                  key={levelGroup.id}
+                  kind="difficulty"
+                  summary="Customize this level"
+                  group={levelGroup}
+                  edits={levelEdits}
+                  setEdits={setLevelEdits}
+                  tools={<LevelTools group={levelGroup} edits={levelEdits} setEdits={setLevelEdits} />}
+                />
+              )}
+            </fieldset>
+            {gameGroup && (
+              <fieldset>
+                <legend>Game options</legend>
+                <Customize
+                  kind="game"
+                  summary="Show game options"
+                  group={gameGroup}
+                  edits={gameEdits}
+                  setEdits={setGameEdits}
+                />
+              </fieldset>
+            )}
+            {mapGroup && (
+              <fieldset>
+                <legend>Map</legend>
+                <Customize
+                  kind="map"
+                  summary="Show map options"
+                  group={mapGroup}
+                  edits={mapEdits}
+                  setEdits={setMapEdits}
+                  files={mapFiles}
+                  setFile={(id, file) => {
+                    const { [id]: _, ...rest } = mapFiles;
+                    setMapFiles(file ? { ...rest, [id]: file } : rest);
+                  }}
+                />
+              </fieldset>
+            )}
+            <div className="buttons">
+              <button type="submit" className="default" data-start>
+                Start game
+              </button>
             </div>
-          </fieldset>
+          </>
         )}
-        <fieldset>
-          <legend>Difficulty</legend>
-          <Select
-            data-difficulty
-            aria-label="Difficulty"
-            value={difficulty}
-            onChange={(id) => {
-              setDifficulty(id);
-              // Another level has other values: what was changed in the one before does not carry over.
-              setLevelEdits({});
-            }}
-            choices={levels.map((l) => ({ value: l.id, label: l.name }))}
-          />
-          {levelGroup && (
-            <Customize
-              key={levelGroup.id}
-              kind="difficulty"
-              summary="Customize this level"
-              group={levelGroup}
-              edits={levelEdits}
-              setEdits={setLevelEdits}
-              tools={<LevelTools group={levelGroup} edits={levelEdits} setEdits={setLevelEdits} />}
-            />
-          )}
-        </fieldset>
-        {gameGroup && (
-          <fieldset>
-            <legend>Game options</legend>
-            <Customize
-              kind="game"
-              summary="Show game options"
-              group={gameGroup}
-              edits={gameEdits}
-              setEdits={setGameEdits}
-            />
-          </fieldset>
-        )}
-        {mapGroup && (
-          <fieldset>
-            <legend>Map</legend>
-            <Customize
-              kind="map"
-              summary="Show map options"
-              group={mapGroup}
-              edits={mapEdits}
-              setEdits={setMapEdits}
-              files={mapFiles}
-              setFile={(id, file) => {
-                const { [id]: _, ...rest } = mapFiles;
-                setMapFiles(file ? { ...rest, [id]: file } : rest);
-              }}
-            />
-          </fieldset>
-        )}
-        <div className="buttons">
-          <button type="submit" className="default" data-start>
-            Start game
-          </button>
-        </div>
       </form>
       <SourceLinks credits={() => setCredits(true)} />
       {credits && <CreditsDialog close={() => setCredits(false)} />}
