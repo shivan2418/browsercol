@@ -464,15 +464,18 @@
        * JTabbedPane does in FreeCol's Continental Congress panel. An unselected tab is flat and recessed, with
        * muted text; the selected one has the panel's own background (--tab-panel, the panel under the row), the
        * line round it, a bar of the accent colour on top, and no line under it, so it opens into its panel. No
-       * bevel, no button fill. Under the pointer a tab's text darkens and is underlined; with keyboard focus it
-       * has the accent outline inside.
+       * bevel, no button fill. The top corners are rounded a little (4px). Under the pointer a tab's text darkens,
+       * with no underline; with keyboard focus it has the accent outline inside, following the rounding. The
+       * lines make one outline: the row has no side padding, so the line under it spans the panel's width, the
+       * selected tab's sides stand on it, and the panel's side borders (the same 1px, at the same x) carry on
+       * from it. A panel under the row draws its sides and bottom, not its top.
        */
       [role='tablist'] {
         display: flex;
         flex-wrap: wrap;
         align-items: flex-end;
         gap: 2px;
-        padding: 0 4px;
+        padding: 0;
         border-bottom: 1px solid var(--line);
       }
       button[role='tab'] {
@@ -482,6 +485,7 @@
         background: color-mix(in srgb, var(--line) 12%, transparent);
         border: 1px solid transparent;
         border-bottom: 0;
+        border-radius: 4px 4px 0 0;
         box-shadow: none;
       }
       button[role='tab']:hover:enabled,
@@ -489,8 +493,7 @@
         color: var(--ink);
         background-image: none;
         border-color: transparent;
-        text-decoration: underline;
-        text-underline-offset: 3px;
+        text-decoration: none;
       }
       button[role='tab']:active:enabled {
         padding: 5px 14px 4px;
@@ -2297,6 +2300,8 @@
        * height that keeps the window within the page at 1280x800.
        */
       .new-game .more-options [role='tabpanel'] {
+        /* Directly under the row's line, not the 6px a .customize panel keeps from what is above. */
+        margin-top: 0;
         max-height: max(10em, calc(100vh - 680px));
         overflow-y: auto;
         padding: 6px 10px;
