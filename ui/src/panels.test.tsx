@@ -1524,8 +1524,8 @@ describe('the trade routes panel', () => {
     press('Edit Trade Route');
     expect((screen.getByRole('textbox') as HTMLInputElement).value).toBe('Fur run');
     fireEvent.click(screen.getByLabelText(/Silence messages/));
-    // The first stop is selected; take it away and load tools at the colony as well.
-    press('Remove stop');
+    // The first stop is edited; take it away and load tools at the colony, edited next, as well.
+    press('Remove stop: Europe');
     press('Tools');
     press('OK');
     expect(saved).toEqual([
@@ -1539,8 +1539,16 @@ describe('the trade routes panel', () => {
   });
 
   const stopAt = (i: number) => document.querySelector(`[data-stop="${i}"]`) as HTMLElement;
-  const picked = () =>
-    [...document.querySelectorAll('[data-stop]')].map((b) => b.getAttribute('aria-pressed') === 'true');
+  const legAt = (i: number) => document.querySelector(`[data-leg="${i}"]`) as HTMLElement | null;
+  const pinAt = (i: number) => stopAt(i).querySelector('.pin') as HTMLButtonElement;
+  // The leg being edited.
+  const edited = () => [...document.querySelectorAll('[data-leg]')].find((l) => l.hasAttribute('data-open'));
+  const heldAt = (i: number) => [...legAt(i)!.querySelectorAll('[data-held]')].map((h) => h.getAttribute('data-held'));
+  // A stop's worked-out chips: unload or load, goods type, and how many holds.
+  const chipsAt = (i: number) =>
+    [...stopAt(i).querySelectorAll('[data-work]')].map(
+      (c) => `${c.getAttribute('data-work')} ${c.getAttribute('data-type')} ${c.textContent}`,
+    );
   const threeStops = () => {
     const { box, saved } = host();
     act(() =>
@@ -1560,6 +1568,12 @@ describe('the trade routes panel', () => {
               ],
             },
           ],
+          places: [
+            { id: 'europe:1', label: 'Europe' },
+            { id: 'colony:7', label: 'New Amsterdam' },
+            { id: 'colony:8', label: 'Jamestown' },
+            { id: 'colony:9', label: 'Plymouth' },
+          ],
         }),
       ),
     );
@@ -1568,52 +1582,155 @@ describe('the trade routes panel', () => {
     return saved;
   };
   const placesOf = (saved: { stops: { place: string }[] }[]) => saved[0].stops.map((s) => s.place);
+  const T = 'model.goods.tools';
+  const F = 'model.goods.furs';
 
-  it('selects several stops with ctrl or shift, and removes them together', () => {
-    const saved = threeStops();
-    expect(picked()).toEqual([true, false, false]);
-    act(() => void fireEvent.click(stopAt(2), { ctrlKey: true }));
-    expect(picked()).toEqual([true, false, true]);
-    act(() => void fireEvent.click(stopAt(0), { metaKey: true }));
-    expect(picked()).toEqual([false, false, true]);
-    // Shift selects from the stop last clicked to this one.
-    act(() => void fireEvent.click(stopAt(2), { shiftKey: true }));
-    expect(picked()).toEqual([true, true, true]);
-    act(() => void fireEvent.click(stopAt(1)));
-    expect(picked()).toEqual([false, true, false]);
-    act(() => void fireEvent.click(stopAt(0), { ctrlKey: true }));
-    press('Remove stop');
-    // As Swing's, the stop under the last one removed is selected next.
-    expect(picked()).toEqual([true]);
-    press('OK');
-    expect(placesOf(saved)).toEqual(['colony:8']);
+  it("works out each stop's unloads and loads from the stop before it, round the loop", () => {
+    threeStops();
+    // Europe is reached from Jamestown, empty, and loads tools; New Amsterdam unloads them and loads furs;
+    // Jamestown lists nothing, so it unloads the furs.
+    expect(chipsAt(0)).toEqual([`load ${T} +1`]);
+    expect(chipsAt(1)).toEqual([`unload ${T} −1`, `load ${F} +1`]);
+    expect(chipsAt(2)).toEqual([`unload ${F} −1`]);
+    // A stop that keeps what it arrived with has nothing to do.
+    press('⧉ Copy New Amsterdam’s goods');
+    expect(chipsAt(2)).toEqual([]);
+    expect(stopAt(2).textContent).toContain('nothing to do');
   });
 
-  it('loads another hold of a goods type at every selected stop, and unloads one copy at a time', () => {
+  it('shows each leg with where it goes, the last one back to the first stop', () => {
+    threeStops();
+    expect(legAt(0)!.textContent).toContain('→ New Amsterdam');
+    expect(legAt(2)!.textContent).toContain('↺ back to Europe');
+    expect(legAt(2)!.hasAttribute('data-back')).toBe(true);
+    expect(legAt(0)!.hasAttribute('data-back')).toBe(false);
+  });
+
+  it('edits one leg at a time, with the goods under it; another leg or its Edit button moves the editing', () => {
+    threeStops();
+    expect(edited()).toBe(legAt(0));
+    expect(legAt(0)!.querySelectorAll('[data-goods]')).toHaveLength(2);
+    expect(legAt(1)!.querySelector('[data-goods]')).toBeNull();
+    act(() => void fireEvent.click(within(legAt(1)!).getByRole('button', { name: 'Edit' })));
+    expect(edited()).toBe(legAt(1));
+    expect(legAt(0)!.querySelector('[data-goods]')).toBeNull();
+    // Clicking a leg's box (not a button on it) edits it too.
+    act(() => void fireEvent.click(legAt(2)!.querySelector('.ship')!));
+    expect(edited()).toBe(legAt(2));
+    // The goods go into the edited leg.
+    press('Tools');
+    expect(heldAt(2)).toEqual([T]);
+  });
+
+  it('adds holds, empties one on click, fills to the next mark on shift-click, and marks holds no carrier has', () => {
     const saved = threeStops();
-    act(() => void fireEvent.click(stopAt(1), { ctrlKey: true }));
-    act(() => void fireEvent.click(stopAt(2), { ctrlKey: true }));
-    // Each press adds a copy at all three stops; the first loads tools, so a second hold of them is added.
+    const shift = (name: string) =>
+      act(() => void fireEvent.click(screen.getByRole('button', { name }), { shiftKey: true }));
+    const marks = () => [...legAt(0)!.querySelectorAll('.mark')].map((m) => m.textContent);
     press('Tools');
+    expect(heldAt(0)).toEqual([T, T]);
+    // At three holds, shift-click fills to the mark after the fourth.
     press('Tools');
-    press(/^Furs$/);
-    // The first stop's holds show as buttons: tools twice over, then one copy off the three stops.
-    expect(document.querySelectorAll('[data-held="model.goods.tools"]')).toHaveLength(3);
-    act(() => void fireEvent.click(screen.getAllByRole('button', { name: '× Tools' })[0]));
-    press('OK');
-    expect(saved[0].stops.map((s) => s.cargo)).toEqual([
-      ['model.goods.tools', 'model.goods.tools', 'model.goods.furs'],
-      ['model.goods.furs', 'model.goods.tools', 'model.goods.furs'],
-      ['model.goods.tools', 'model.goods.furs'],
+    shift('Furs');
+    expect(heldAt(0)).toEqual([T, T, T, F]);
+    expect(marks()).toEqual(['2']);
+    act(() => void fireEvent.click(within(legAt(0)!).getAllByRole('button', { name: '× Tools' })[1]));
+    expect(heldAt(0)).toEqual([T, T, F]);
+    shift('Furs');
+    expect(heldAt(0)).toEqual([T, T, F, F]);
+    shift('Furs');
+    expect(heldAt(0)).toEqual([T, T, F, F, F, F]);
+    expect(marks()).toEqual(['2', '4']);
+    expect(legAt(0)!.querySelector('[data-over]')).toBeNull();
+    // A seventh hold: no carrier has it.
+    press('Tools');
+    expect([...legAt(0)!.querySelectorAll('[data-held]')].map((h) => h.hasAttribute('data-over'))).toEqual([
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
     ]);
+    expect(marks()).toEqual(['2', '4', '6']);
+    press('OK');
+    expect(saved[0].stops[0].cargo).toEqual([T, T, F, F, F, F, T]);
   });
 
-  it('removes the selected stops on Delete', () => {
+  it("copies the previous stop's goods, and is disabled once they are the same", () => {
     const saved = threeStops();
-    act(() => void fireEvent.click(stopAt(1), { ctrlKey: true }));
-    act(() => void fireEvent.keyDown(stopAt(1), { key: 'Delete' }));
+    // Europe's previous stop is Jamestown, round the loop.
+    press('⧉ Copy Jamestown’s goods');
+    expect(heldAt(0)).toEqual([]);
+    expect((screen.getByRole('button', { name: 'Same goods as Jamestown' }) as HTMLButtonElement).disabled).toBe(true);
+    press('⧉ Copy Europe’s goods');
+    expect((screen.getByRole('button', { name: 'Same goods as Europe' }) as HTMLButtonElement).disabled).toBe(true);
     press('OK');
-    expect(placesOf(saved)).toEqual(['colony:8']);
+    expect(saved[0].stops.map((s) => s.cargo)).toEqual([[], [], []]);
+  });
+
+  it("folds a stop's leg by its number and unfolds it again; a folded leg is not edited", () => {
+    threeStops();
+    expect(pinAt(0).getAttribute('aria-expanded')).toBe('true');
+    act(() => void fireEvent.click(pinAt(0)));
+    expect(pinAt(0).getAttribute('aria-expanded')).toBe('false');
+    expect(legAt(0)).toBeNull();
+    // The stop row and its chips stay; no leg is being edited now.
+    expect(chipsAt(0)).toEqual([`load ${T} +1`]);
+    expect(edited()).toBeUndefined();
+    expect(document.querySelector('[data-goods]')).toBeNull();
+    act(() => void fireEvent.click(pinAt(0)));
+    expect(pinAt(0).getAttribute('aria-expanded')).toBe('true');
+    expect(heldAt(0)).toEqual([T]);
+    // Folding another leg leaves the edited one alone.
+    act(() => void fireEvent.click(within(legAt(0)!).getByRole('button', { name: 'Edit' })));
+    act(() => void fireEvent.click(pinAt(2)));
+    expect(legAt(2)).toBeNull();
+    expect(edited()).toBe(legAt(0));
+  });
+
+  it('adds a stop after the one being edited, with the goods it leaves with, and edits it', () => {
+    const saved = threeStops();
+    act(() => void fireEvent.click(within(legAt(1)!).getByRole('button', { name: 'Edit' })));
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'colony:9' } });
+    press('Add new stop');
+    expect(edited()).toBe(legAt(2));
+    expect(stopAt(2).textContent).toContain('Plymouth');
+    press('OK');
+    expect(placesOf(saved)).toEqual(['europe:1', 'colony:7', 'colony:9', 'colony:8']);
+    expect(saved[0].stops[2].cargo).toEqual([F]);
+  });
+
+  it('removes a stop by its ✕, and the stop in its place is edited next', () => {
+    const saved = threeStops();
+    press('Remove stop: Europe');
+    expect(edited()).toBe(legAt(0));
+    expect(stopAt(0).textContent).toContain('New Amsterdam');
+    press('OK');
+    expect(placesOf(saved)).toEqual(['colony:7', 'colony:8']);
+  });
+
+  it('moves a stop dragged onto another to its place, with its goods, folding and editing', () => {
+    const saved = threeStops();
+    const dataTransfer = { setData() {}, effectAllowed: '' };
+    act(() => void fireEvent.click(pinAt(1)));
+    // Europe, edited, goes where Jamestown is: last.
+    act(() => void fireEvent.dragStart(stopAt(0), { dataTransfer }));
+    act(() => void fireEvent.dragOver(stopAt(2), { dataTransfer }));
+    expect(stopAt(2).classList.contains('over-target')).toBe(true);
+    act(() => void fireEvent.drop(stopAt(2), { dataTransfer }));
+    expect(stopAt(2).classList.contains('over-target')).toBe(false);
+    expect(stopAt(2).textContent).toContain('Europe');
+    expect(edited()).toBe(legAt(2));
+    // New Amsterdam, folded, is now first and still folded.
+    expect(pinAt(0).getAttribute('aria-expanded')).toBe('false');
+    // Jamestown goes first.
+    act(() => void fireEvent.dragStart(stopAt(1), { dataTransfer }));
+    act(() => void fireEvent.drop(stopAt(0), { dataTransfer }));
+    press('OK');
+    expect(placesOf(saved)).toEqual(['colony:8', 'colony:7', 'europe:1']);
+    expect(saved[0].stops.map((s) => s.cargo)).toEqual([[], [F], [T]]);
   });
 
   it('disables Add Stop once the route has a stop for every place', () => {
@@ -1641,23 +1758,6 @@ describe('the trade routes panel', () => {
       'Delete this trade route completely.',
     );
     expect(screen.getByText(/Caravel Europe/)).toBeTruthy();
-  });
-
-  it('drags the selected stops before the stop they are dropped on, or to the end', () => {
-    const saved = threeStops();
-    const dataTransfer = { setData() {}, effectAllowed: '' };
-    act(() => void fireEvent.click(stopAt(1), { ctrlKey: true }));
-    // Europe and New Amsterdam go to the end.
-    act(() => void fireEvent.dragStart(stopAt(0), { dataTransfer }));
-    act(() => void fireEvent.drop(document.querySelector('.stops')!, { dataTransfer }));
-    expect(picked()).toEqual([false, true, true]);
-    // An unselected stop dragged goes alone: Jamestown before New Amsterdam (now second).
-    act(() => void fireEvent.dragStart(stopAt(0), { dataTransfer }));
-    act(() => void fireEvent.drop(stopAt(2), { dataTransfer }));
-    expect(picked()).toEqual([false, true, false]);
-    press('OK');
-    expect(placesOf(saved)).toEqual(['europe:1', 'colony:8', 'colony:7']);
-    expect(saved[0].stops[2].cargo).toEqual(['model.goods.furs']);
   });
 
   it('adds Europe and every colony for all colonies', () => {

@@ -995,10 +995,50 @@ type Draft = Omit<TradeRouteDraft, 'stops'> & { stops: Stop[] };
 let refused: Draft | null = null;
 
 /**
- * FreeCol's trade route input panel: a route's name, its stops (stops are selected, several with ctrl or
- * shift, to remove them, to say which goods they load, or to drag them elsewhere in the route), where to add
- * one, and silence. Saving leaves the panel to the Engine, which sends
- * the routes again.
+ * Where carriers of each size are full, after that many holds: a route has no carrier (any unit can be given
+ * it, as in FreeCol), so these marks stand in for its capacity. A hold is 100 goods.
+ */
+const HOLD_MARKS: Readonly<Record<number, string>> = {
+  2: 'Wagon train, caravel, privateer: full',
+  4: 'Merchantman, frigate: full',
+  6: 'Galleon: full',
+};
+/** The most holds any carrier has: a hold past this is never filled. */
+const MOST_HOLDS = 6;
+
+/** How many holds of each goods type a cargo list has, in the order the types first appear. */
+const holdsOf = (cargo: readonly string[]) => {
+  const n = new Map<string, number>();
+  for (const g of cargo) n.set(g, (n.get(g) ?? 0) + 1);
+  return n;
+};
+
+/**
+ * What a carrier does at stop i, as FreeCol's: arriving with what the stop before left with (the route
+ * loops), it unloads every goods type not listed at i, and loads a listed one up to the holds listed. Each
+ * entry is a goods type and how many holds of it.
+ */
+function stopWork(stops: readonly { cargo: readonly string[] }[], i: number) {
+  const n = stops.length;
+  const before = holdsOf(n > 1 ? stops[(i - 1 + n) % n].cargo : []);
+  const after = holdsOf(stops[i].cargo);
+  const unload: [string, number][] = [];
+  const load: [string, number][] = [];
+  for (const [g, k] of before) if (!after.has(g)) unload.push([g, k]);
+  for (const [g, k] of after) if (k > (before.get(g) ?? 0)) load.push([g, k - (before.get(g) ?? 0)]);
+  return { unload, load };
+}
+
+/** A stop as the editor keeps it: with a key of its own, so folding and editing follow it when it moves. */
+type Leg = Stop & { key: number };
+let legKeys = 0;
+const keyed = (s: Stop): Leg => ({ ...s, key: ++legKeys });
+
+/**
+ * FreeCol's trade route input panel, laid out as a voyage: each stop with what it unloads and loads, worked
+ * out from the route, and under it the leg to the next stop with the holds the carrier leaves with. One leg
+ * is edited at a time, with the goods under it; a stop's number folds its leg away. Stops are dragged onto
+ * each other to reorder them. Saving leaves the panel to the Engine, which sends the routes again.
  */
 function RouteEditor({
   e,
@@ -1013,94 +1053,145 @@ function RouteEditor({
   save: (d: Draft) => void;
   cancel: () => void;
 }) {
-  const [draft, setDraft] = useState(start);
-  // The selected stops, in order, as Swing's multi-select list has them; shift selects from the anchor.
-  const [sel, setSel] = useState<number[]>(start.stops.length > 0 ? [0] : []);
-  const [anchor, setAnchor] = useState(0);
+  const [draft, setDraft] = useState(() => ({ ...start, stops: start.stops.map(keyed) }));
+  const stops = draft.stops;
+  const setStops = (next: Leg[]) => setDraft({ ...draft, stops: next });
+  // The leg being edited, and the folded ones, by their stops' keys.
+  const [editing, setEditing] = useState<number | null>(stops[0]?.key ?? null);
+  const [folded, setFolded] = useState<ReadonlySet<number>>(new Set());
   const [place, setPlace] = useState('');
   const ok = () => draft.name.trim() !== '' && save(draft);
   useEnter(ok);
-  // The goods shown are the first selected stop's, as Swing's cargo panel shows them.
-  const stop = sel.length === 0 ? undefined : draft.stops[sel[0]];
   const label = (id: string) => e.places.find((p) => p.id === id)?.label ?? id;
-  const pick = (i: number, ev: { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }) => {
-    if (ev.shiftKey) {
-      const [lo, hi] = anchor < i ? [anchor, i] : [i, anchor];
-      setSel(draft.stops.map((_, j) => j).filter((j) => j >= lo && j <= hi));
-      return;
-    }
-    setAnchor(i);
-    if (ev.ctrlKey || ev.metaKey) {
-      setSel(sel.includes(i) ? sel.filter((j) => j !== i) : [...sel, i].sort((a, b) => a - b));
-    } else {
-      setSel([i]);
-    }
+  const goods = (id: string) => e.goods.find((g) => g.id === id);
+  const nameOf = (id: string) => goods(id)?.name ?? id;
+  const icon = (id: string) => <Pic keys={[goods(id)?.icon ?? id]} art={art} className="pic small" />;
+  const at = stops.findIndex((s) => s.key === editing);
+
+  // Unfolding a leg and editing it go together: a folded leg is never the one edited.
+  const edit = (key: number) => {
+    setEditing(key);
+    if (folded.has(key)) setFolded(new Set([...folded].filter((k) => k !== key)));
+  };
+  const fold = (key: number) => {
+    if (folded.has(key)) return setFolded(new Set([...folded].filter((k) => k !== key)));
+    setFolded(new Set([...folded, key]));
+    if (editing === key) setEditing(null);
+  };
+  const setCargo = (i: number, cargo: string[]) => setStops(stops.map((s, j) => (j === i ? { ...s, cargo } : s)));
+  // A click adds a hold of the goods; shift-click fills holds up to the next mark.
+  const load = (i: number, g: string, fill: boolean) => {
+    const cargo = [...stops[i].cargo];
+    do cargo.push(g);
+    while (fill && cargo.length < MOST_HOLDS && !HOLD_MARKS[cargo.length]);
+    setCargo(i, cargo);
   };
   const add = () => {
-    // As Swing's: after the last selected stop, with the goods the first loads; all colonies means Europe and every colony.
+    // After the stop being edited, with the goods it leaves with, so nothing changes at the new stop; all
+    // colonies means Europe and every colony. The last one added is edited next.
     const ids = place === '' ? e.places.map((p) => p.id) : [place];
-    const made = ids.map((id) => ({ place: id, label: label(id), cargo: [...(stop?.cargo ?? [])] }));
-    const where = sel.length === 0 ? draft.stops.length : sel[sel.length - 1] + 1;
-    setDraft({ ...draft, stops: [...draft.stops.slice(0, where), ...made, ...draft.stops.slice(where)] });
-    setSel([where + made.length - 1]);
-    setAnchor(where + made.length - 1);
+    const made = ids.map((id) => keyed({ place: id, label: label(id), cargo: [...(stops[at]?.cargo ?? [])] }));
+    const where = at < 0 ? stops.length : at + 1;
+    setStops([...stops.slice(0, where), ...made, ...stops.slice(where)]);
+    setEditing(made[made.length - 1].key);
   };
-  const remove = () => {
-    if (sel.length === 0) return;
-    const stops = draft.stops.filter((_, i) => !sel.includes(i));
-    setDraft({ ...draft, stops });
-    // As Swing's, the stop under the last one removed is selected, so the player can go on removing.
-    const next = Math.min(sel[sel.length - 1] - sel.length + 1, stops.length - 1);
-    setSel(stops.length === 0 ? [] : [next]);
-    setAnchor(Math.max(next, 0));
+  const remove = (i: number) => {
+    const rest = stops.filter((_, j) => j !== i);
+    setStops(rest);
+    // The stop that takes the removed one's place is edited next, if the removed one was.
+    if (stops[i].key === editing) setEditing(rest[Math.min(i, rest.length - 1)]?.key ?? null);
   };
-  // The stops being dragged: the selection when a selected stop is picked up, else that stop alone.
-  const dragged = useRef<number[]>([]);
-  const lift = (i: number, ev: ReactDragEvent) => {
-    dragged.current = sel.includes(i) ? sel : [i];
-    setSel(dragged.current);
-    ev.dataTransfer.setData('text/plain', draft.stops[i].label);
-    ev.dataTransfer.effectAllowed = 'move';
+  // Drag a stop onto another to put it there; the stop that would move is marked, as the colony panel's are.
+  const dragged = useRef<number | null>(null);
+  const dragProps = (i: number) => ({
+    draggable: true,
+    onDragStart: (ev: ReactDragEvent) => {
+      dragged.current = i;
+      ev.dataTransfer.setData('text/plain', stops[i].label);
+      ev.dataTransfer.effectAllowed = 'move';
+    },
+    onDragEnd: () => (dragged.current = null),
+    onDragOver: (ev: ReactDragEvent) => {
+      if (dragged.current === null) return;
+      ev.preventDefault();
+      ev.currentTarget.classList.add(OVER);
+    },
+    onDragLeave: (ev: ReactDragEvent) => ev.currentTarget.classList.remove(OVER),
+    onDrop: (ev: ReactDragEvent) => {
+      ev.preventDefault();
+      ev.currentTarget.classList.remove(OVER);
+      const from = dragged.current;
+      dragged.current = null;
+      if (from === null || from === i) return;
+      const next = [...stops];
+      const [moved] = next.splice(from, 1);
+      next.splice(i, 0, moved);
+      setStops(next);
+    },
+  });
+
+  // The holds the carrier leaves stop i with: a full one empties on click; marks show where carriers fill up.
+  const holds = (i: number) => {
+    const cargo = stops[i].cargo;
+    return (
+      <div className="holds">
+        {cargo.map((g, k) => (
+          <Fragment key={k}>
+            <button
+              className="hold"
+              data-held={g}
+              data-over={k >= MOST_HOLDS || undefined}
+              aria-label={`× ${nameOf(g)}`}
+              title={`${k + 1}. ${nameOf(g)} (click to empty)${k >= MOST_HOLDS ? ': no carrier has this many holds' : ''}`}
+              onClick={() =>
+                setCargo(
+                  i,
+                  cargo.filter((_, j) => j !== k),
+                )
+              }
+            >
+              {icon(g)}
+            </button>
+            {HOLD_MARKS[k + 1] !== undefined && k + 1 < cargo.length && (
+              <span className="mark" title={HOLD_MARKS[k + 1]}>
+                {k + 1}
+              </span>
+            )}
+          </Fragment>
+        ))}
+        <button className="hold empty" aria-label="Add goods" title="Add goods" onClick={() => edit(stops[i].key)}>
+          +
+        </button>
+      </div>
+    );
   };
-  // As Swing's: the dragged stops go before the stop they are dropped on, or to the end, and stay selected.
-  const drop = (before: number | null, ev: ReactDragEvent) => {
-    ev.preventDefault();
-    ev.stopPropagation();
-    ev.currentTarget.classList.remove(OVER);
-    const moved = dragged.current;
-    dragged.current = [];
-    if (moved.length === 0) return;
-    const end = before ?? draft.stops.length;
-    const rest = (from: number, to: number) => draft.stops.slice(from, to).filter((_, k) => !moved.includes(from + k));
-    const head = rest(0, end);
-    const stops = [...head, ...moved.map((i) => draft.stops[i]), ...rest(end, draft.stops.length)];
-    setDraft({ ...draft, stops });
-    setSel(moved.map((_, k) => head.length + k));
-    setAnchor(head.length);
+  const chips = (i: number) => {
+    const { unload, load } = stopWork(stops, i);
+    const chip = (work: 'unload' | 'load', [g, k]: [string, number]) => (
+      <span
+        key={`${work} ${g}`}
+        className="chip"
+        data-work={work}
+        data-type={g}
+        title={`${work === 'load' ? 'Load' : 'Unload'} ${nameOf(g)}`}
+      >
+        {icon(g)}
+        {work === 'load' ? '+' : '−'}
+        {k}
+      </span>
+    );
+    return (
+      <div className="chips">
+        {unload.length + load.length === 0 ? (
+          <span className="muted">nothing to do</span>
+        ) : (
+          [...unload.map((x) => chip('unload', x)), ...load.map((x) => chip('load', x))]
+        )}
+      </div>
+    );
   };
-  // The place a stop would drop on is marked, as the colony panel's are.
-  const over = (ev: ReactDragEvent) => {
-    if (dragged.current.length === 0) return;
-    ev.preventDefault();
-    ev.stopPropagation();
-    ev.currentTarget.classList.add(OVER);
-  };
-  const leave = (ev: ReactDragEvent) => ev.currentTarget.classList.remove(OVER);
-  // As Swing's, each press loads another hold of the goods type at every selected stop; a held one is taken off one copy at a time.
-  const load = (goods: string) =>
-    setDraft({
-      ...draft,
-      stops: draft.stops.map((s, i) => (sel.includes(i) ? { ...s, cargo: [...s.cargo, goods] } : s)),
-    });
-  const unload = (goods: string) =>
-    setDraft({
-      ...draft,
-      stops: draft.stops.map((s, i) => {
-        const at = s.cargo.indexOf(goods);
-        return sel.includes(i) && at >= 0 ? { ...s, cargo: s.cargo.filter((_, k) => k !== at) } : s;
-      }),
-    });
-  const goodsName = (id: string) => e.goods.find((g) => g.id === id);
+
+  const n = stops.length;
   return (
     <>
       {e.error !== null && (
@@ -1108,85 +1199,122 @@ function RouteEditor({
           {e.error}
         </p>
       )}
-      <label className="field">
-        <span className="text">{e.nameLabel}</span>
-        <input autoFocus value={draft.name} onChange={(ev) => setDraft({ ...draft, name: ev.target.value })} />
-      </label>
-      <label className="field">
-        <input
-          type="checkbox"
-          checked={draft.silent}
-          onChange={(ev) => setDraft({ ...draft, silent: ev.target.checked })}
-        />{' '}
-        {e.silence}
-      </label>
-      <div
-        className="stops"
-        onKeyDown={(ev) => {
-          // As Swing's keyTyped: Delete removes the selected stops.
-          if (ev.key === 'Delete') remove();
-        }}
-        onDragOver={over}
-        onDragLeave={leave}
-        onDrop={(ev) => drop(null, ev)}
-      >
-        {draft.stops.map((s, i) => (
-          <button
-            key={i}
-            data-stop={i}
-            aria-pressed={sel.includes(i)}
-            onClick={(ev) => pick(i, ev)}
-            draggable
-            onDragStart={(ev) => lift(i, ev)}
-            onDragEnd={() => (dragged.current = [])}
-            onDragOver={over}
-            onDragLeave={leave}
-            onDrop={(ev) => drop(i, ev)}
-          >
-            <span className="name">{s.label}</span>
-            {s.cargo.map((g, k) => (
-              <span key={k} className="cargo">
-                <Pic keys={[goodsName(g)?.icon ?? g]} art={art} className="pic small" />
-                {goodsName(g)?.name ?? g}
-              </span>
-            ))}
-          </button>
-        ))}
-      </div>
-      <div className="row">
-        <label className="text">
-          {e.destinationLabel}{' '}
-          <select value={place} onChange={(ev) => setPlace(ev.target.value)}>
-            <option value="">{e.allColonies}</option>
-            {e.places.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.label}
-              </option>
-            ))}
-          </select>
+      <div className="route-top">
+        <label className="field">
+          <span className="text">{e.nameLabel}</span>{' '}
+          <input autoFocus value={draft.name} onChange={(ev) => setDraft({ ...draft, name: ev.target.value })} />
         </label>
-        <button data-answer="addStop" disabled={draft.stops.length >= e.places.length} onClick={add}>
-          {e.addStop}
-        </button>
-        <button data-answer="removeStop" disabled={sel.length === 0} onClick={remove}>
-          {e.removeStop}
-        </button>
-      </div>
-      <div className="goods">
-        {e.goods.map((g) => (
-          <button key={g.id} data-goods={g.id} disabled={stop === undefined} onClick={() => load(g.id)}>
-            <Pic keys={[g.icon]} art={art} className="pic small" />
-            {g.name}
+        <label className="field">
+          <input
+            type="checkbox"
+            checked={draft.silent}
+            onChange={(ev) => setDraft({ ...draft, silent: ev.target.checked })}
+          />{' '}
+          {e.silence}
+        </label>
+        <span className="field">
+          <label className="text">
+            {e.destinationLabel}{' '}
+            <select value={place} onChange={(ev) => setPlace(ev.target.value)}>
+              <option value="">{e.allColonies}</option>
+              {e.places.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          </label>{' '}
+          <button data-answer="addStop" disabled={n >= e.places.length} onClick={add}>
+            {e.addStop}
           </button>
-        ))}
+        </span>
       </div>
-      <div className="held">
-        {(stop?.cargo ?? []).map((g, k) => (
-          <button key={k} data-held={g} aria-label={`× ${goodsName(g)?.name ?? g}`} onClick={() => unload(g)}>
-            <Pic keys={[goodsName(g)?.icon ?? g]} art={art} className="pic small" />
-            {goodsName(g)?.name ?? g}
-          </button>
-        ))}
+      <div className="voyage">
+        {stops.map((s, i) => {
+          const prev = stops[(i - 1 + n) % n];
+          const next = stops[(i + 1) % n];
+          const open = s.key === editing;
+          const shut = folded.has(s.key);
+          const same = prev.cargo.join() === s.cargo.join();
+          return (
+            <Fragment key={s.key}>
+              <div className="vstop" data-stop={i} {...dragProps(i)}>
+                <button
+                  className="pin"
+                  aria-expanded={!shut}
+                  aria-label={`${i + 1}. ${s.label}`}
+                  title={`${shut ? 'Unfold' : 'Fold'} this leg; drag the row to move the stop`}
+                  onClick={() => fold(s.key)}
+                >
+                  {i + 1}
+                </button>
+                <h3>{s.label}</h3>
+                {chips(i)}
+                <button
+                  className="icon"
+                  aria-label={`${e.removeStop}: ${s.label}`}
+                  title={e.removeStop}
+                  onClick={() => remove(i)}
+                >
+                  ✕
+                </button>
+              </div>
+              {!shut && (
+                <div className="vleg" data-leg={i} data-open={open || undefined} data-back={i === n - 1 || undefined}>
+                  <div className="rail" />
+                  <div
+                    className="ship"
+                    onClick={(ev) => {
+                      if (!open && !(ev.target as Element).closest('button')) edit(s.key);
+                    }}
+                  >
+                    <div className="shiprow">
+                      {holds(i)}
+                      <span className="to">{i === n - 1 ? `↺ back to ${next.label}` : `→ ${next.label}`}</span>
+                      {n > 1 && (
+                        <button
+                          className="copy"
+                          disabled={same}
+                          title={`Leave ${s.label} with what it brought from ${prev.label}: nothing is loaded or unloaded here`}
+                          onClick={() => setCargo(i, [...prev.cargo])}
+                        >
+                          {same ? `Same goods as ${prev.label}` : `⧉ Copy ${prev.label}’s goods`}
+                        </button>
+                      )}
+                      {!open && (
+                        <button className="copy" onClick={() => edit(s.key)}>
+                          Edit
+                        </button>
+                      )}
+                    </div>
+                    {open && (
+                      <div className="legedit">
+                        <p className="hint">
+                          <b>Load at {s.label}: </b>click goods to add a hold of them; the first goods load first, and
+                          loading stops at the first that do not fit. Shift-click fills to the next mark.{' '}
+                          <b>Unload: </b>click a hold to empty it; {s.label} unloads whatever is no longer in the holds.
+                        </p>
+                        <div className="palette">
+                          {e.goods.map((g) => (
+                            <button
+                              key={g.id}
+                              data-goods={g.id}
+                              aria-label={g.name}
+                              title={`${g.name} (shift-click: fill to the next mark)`}
+                              onClick={(ev) => load(i, g.id, ev.shiftKey)}
+                            >
+                              <Pic keys={[g.icon]} art={art} className="pic" />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </Fragment>
+          );
+        })}
       </div>
       <div className="buttons">
         <button data-answer="ok" data-enter="" disabled={draft.name.trim() === ''} onClick={ok}>
