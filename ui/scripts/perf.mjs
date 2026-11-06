@@ -6,6 +6,8 @@
 // open in DevTools (Performance > Load profile) or ui.perfetto.dev.
 // Run in the web image:
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/perf.mjs [--query renderer=canvas2d] [--turns 5] [--top 25]
+// --throttle N slows the page's CPU N times (DevTools' CPU throttling) while the unit moves, and
+// --keys ArrowLeft,ArrowRight,... are the keys that move it.
 import fs from 'node:fs';
 import path from 'node:path';
 import { opt, playwright, waitForResult } from './common.mjs';
@@ -15,6 +17,8 @@ import { serveDist } from './serve-dist.mjs';
 const query = opt('query', '');
 const turns = Number(opt('turns', '5'));
 const top = Number(opt('top', '25'));
+const throttle = Number(opt('throttle', '1'));
+const keys = opt('keys', 'ArrowLeft,ArrowLeft,ArrowUp,ArrowDown,ArrowLeft,ArrowRight').split(',');
 const out = path.resolve(import.meta.dirname, '../../.cache/perf');
 fs.mkdirSync(out, { recursive: true });
 
@@ -194,12 +198,24 @@ await phase('edge scroll', async () => {
 await phase('hover', async () => {
   for (let i = 0; i < 80; i++) await page.mouse.move(cx + ((i * 37) % 600) - 300, cy + ((i * 53) % 400) - 200);
 });
+const cdp = throttle > 1 ? await page.context().newCDPSession(page) : null;
+await cdp?.send('Emulation.setCPUThrottlingRate', { rate: throttle });
+if (cdp) console.log(`CPU throttled ${throttle}x while the unit moves`);
+/** Where the active unit is and how many tiles are explored, to tell a move that explores from one that doesn't. */
+const where = () =>
+  page.evaluate(() => {
+    const m = window.__map;
+    return `active unit at ${JSON.stringify(m?.active)}, ${m?.tiles.replace(/\./g, '').length} tiles explored`;
+  });
+console.log(`before the moves: ${await where()}`);
 await phase('unit moves (keys)', async () => {
-  for (const k of ['ArrowLeft', 'ArrowLeft', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']) {
+  for (const k of keys) {
     await page.keyboard.press(k);
     await pause(400);
+    console.log(`  ${k}: ${await where()}`);
   }
 });
+await cdp?.send('Emulation.setCPUThrottlingRate', { rate: 1 });
 await phase(`end ${turns} turns`, async () => {
   for (let i = 0; i < turns; i++) {
     const turn = await page.evaluate(() => window.__map?.turn);
@@ -225,7 +241,7 @@ const pct = (xs, p) =>
   xs.length ? xs.toSorted((a, b) => a - b)[Math.min(xs.length - 1, Math.floor(xs.length * p))] : 0;
 console.log(`\nmain-thread JS heap at the end: ${mem} MB`);
 console.log(
-  '\nphase                 wall_s  frames  fps   p50_ms  p95_ms  max_ms  >50ms  long_tasks  long_ms  gl_draws  frames_drawn  2d_images',
+  '\nphase                 wall_s  frames  fps   p50_ms  p95_ms  max_ms  >20ms  >50ms  long_tasks  long_ms  gl_draws  frames_drawn  2d_images',
 );
 for (const p of phases) {
   const f = rec.frames.filter(([t]) => t >= p.start && t <= p.end).map(([, d]) => d);
@@ -236,6 +252,7 @@ for (const p of phases) {
       ` ${pct(f, 0.5).toFixed(1).padStart(7)} ${pct(f, 0.95).toFixed(1).padStart(7)} ${Math.max(0, ...f)
         .toFixed(0)
         .padStart(7)}` +
+      ` ${String(f.filter((d) => d > 20).length).padStart(6)}` +
       ` ${String(f.filter((d) => d > 50).length).padStart(6)} ${String(l.length).padStart(11)} ${l
         .reduce((a, [, d]) => a + d, 0)
         .toFixed(0)
