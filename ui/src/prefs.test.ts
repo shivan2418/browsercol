@@ -180,6 +180,16 @@ describe('prefs', () => {
     expect(terrainAnimation(at({ 'model.option.graphicsQuality': 40 }))).toBe('all');
   });
 
+  it('reads a stored high or highest graphics quality as normal, the highest level offered', () => {
+    const stored = (q: number) =>
+      parsePrefs(JSON.stringify({ freecol: { 'model.option.graphicsQuality': q } })).freecol[
+        'model.option.graphicsQuality'
+      ];
+    expect(stored(40)).toBe(20);
+    expect(stored(30)).toBe(20);
+    expect(stored(10)).toBe(10);
+  });
+
   it("shows FreeCol's options that the browser follows, in FreeCol's groups", () => {
     const all = clientOptionsGroup(data)!;
     const options = leaves(all);
@@ -188,6 +198,9 @@ describe('prefs', () => {
 
     const shown = shownClientOptions(all)!;
     expect([...leaves(shown).keys()].sort()).toEqual([...FREECOL_OPTIONS].sort());
+    // High and highest draw as normal does in the browser, so only the levels that change the map are offered.
+    const quality = leaves(shown).get('model.option.graphicsQuality');
+    expect(quality?.kind === 'select' && quality.choices.map((c) => c.label)).toEqual(['Lowest', 'Low', 'Normal']);
     expect(shown.children.map((g) => g.label)).toEqual(['Personal', 'Display', 'Interface', 'Saved games', 'Audio']);
     // The save game dialog (#153) and autosaves (#154), but not the confirm overwrite option: browser saves never overwrite.
     expect(shown.children[3].kind === 'group' && shown.children[3].children.map((o) => o.id)).toEqual([

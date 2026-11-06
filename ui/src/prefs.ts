@@ -356,8 +356,17 @@ export const MODE_OPTIONS = {
 } as const;
 
 /**
- * FreeCol's client option groups cut to FREECOL_OPTIONS, and empty groups dropped, as the Preferences
- * window shows them. Null if nothing is left.
+ * The choices of a select option the Preferences window offers, where the browser follows only some of FreeCol's:
+ * graphics quality above normal sets Java 2D's slower image scaling, which the map has no counterpart for, so high
+ * and highest would draw as normal does (map.ts, terrainAnimation).
+ */
+const SHOWN_CHOICES: Readonly<Record<string, readonly number[]>> = {
+  'model.option.graphicsQuality': [0, 10, 20],
+};
+
+/**
+ * FreeCol's client option groups cut to FREECOL_OPTIONS, with the choices SHOWN_CHOICES allows, and empty groups
+ * dropped, as the Preferences window shows them. Null if nothing is left.
  */
 export function shownClientOptions(group: OptionNode): OptionGroup | null {
   const cut = (n: OptionNode): OptionNode | null => {
@@ -366,11 +375,21 @@ export function shownClientOptions(group: OptionNode): OptionGroup | null {
       return children.length > 0 ? { ...n, children } : null;
     }
     if (!FREECOL_OPTIONS.includes(n.id)) return null;
-    if (ON_RELOAD.includes(n.id)) return { ...n, label: `${n.label} (on reload)` };
-    return n;
+    const allowed = SHOWN_CHOICES[n.id];
+    const shown =
+      allowed && n.kind === 'select' ? { ...n, choices: n.choices.filter((c) => allowed.includes(c.value)) } : n;
+    if (ON_RELOAD.includes(n.id)) return { ...shown, label: `${shown.label} (on reload)` };
+    return shown;
   };
   const out = cut(group);
   return out?.kind === 'group' ? out : null;
+}
+
+/** A stored value of an option SHOWN_CHOICES cuts, moved to the highest shown choice below it, as it draws the same. */
+function shownChoice(id: string, x: FreeColValue): FreeColValue {
+  const allowed = SHOWN_CHOICES[id];
+  if (!allowed || typeof x !== 'number' || allowed.includes(x)) return x;
+  return Math.max(...allowed.filter((a) => a <= x), allowed[0]);
 }
 
 /** The stored FreeCol options: shown ones with a boolean, whole number or text value. */
@@ -379,7 +398,7 @@ function freecolValues(v: unknown): Record<string, FreeColValue> {
   if (typeof v !== 'object' || v === null) return out;
   for (const [id, x] of Object.entries(v)) {
     if (FREECOL_OPTIONS.includes(id) && (typeof x === 'boolean' || typeof x === 'string' || Number.isInteger(x)))
-      out[id] = x as FreeColValue;
+      out[id] = shownChoice(id, x as FreeColValue);
   }
   return out;
 }
