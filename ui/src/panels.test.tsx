@@ -448,7 +448,7 @@ describe('the select amount dialog', () => {
     ok: 'OK',
     cancel: 'Cancel',
   };
-  const field = () => screen.getByRole('spinbutton') as HTMLInputElement;
+  const field = () => screen.getByRole('textbox') as HTMLInputElement;
 
   it('starts at the amount selected, and answers one of the listed amounts or one typed in', async () => {
     const { box } = host();
@@ -595,10 +595,10 @@ describe('the negotiation dialog', () => {
     expect(screen.queryByRole('button', { name: 'Accept' })).toBeNull();
 
     const gold = within('offer', 'gold');
-    fireEvent.change(gold.querySelector('input')!, { target: { value: '20' } });
-    fireEvent.click(gold.querySelector('button')!);
-    fireEvent.change(gold.querySelector('input')!, { target: { value: '30' } });
-    fireEvent.click(gold.querySelector('button')!);
+    fireEvent.change(gold.querySelector('input:not([aria-hidden])')!, { target: { value: '20' } });
+    fireEvent.click(gold.querySelector('button[data-add]')!);
+    fireEvent.change(gold.querySelector('input:not([aria-hidden])')!, { target: { value: '30' } });
+    fireEvent.click(gold.querySelector('button[data-add]')!);
     fireEvent.click(within('', 'stance').querySelector('button[data-add]')!);
     const colony = within('offer', 'colony');
     await chooseOption(colony.querySelector('[role="combobox"]')!, 'Plymouth');
@@ -656,7 +656,7 @@ describe('the negotiation dialog', () => {
       q({ items: [{ kind: 'gold', side: 'demand', key: '', amount: 10, text: 'Gold 10' }] }),
     );
     const gold = within('demand', 'gold');
-    fireEvent.change(gold.querySelector('input')!, { target: { value: '91' } });
+    fireEvent.change(gold.querySelector('input:not([aria-hidden])')!, { target: { value: '91' } });
     expect((gold.querySelector('button') as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(screen.getByRole('button', { name: 'Gold 10' }));
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
@@ -2361,7 +2361,7 @@ describe('the options panel', () => {
     expect(screen.getByRole('heading', { name: 'Game Options' })).toBeTruthy();
     expect(screen.getByText('Map')).toBeTruthy();
     expect((screen.getByLabelText('Turns to sail') as HTMLInputElement).value).toBe('3');
-    const controls = [...document.querySelectorAll<HTMLInputElement>('[data-option] input')];
+    const controls = [...document.querySelectorAll<HTMLInputElement>('[data-option] input:not([aria-hidden])')];
     expect(controls).toHaveLength(2);
     expect(controls.every((c) => c.disabled)).toBe(true);
   });

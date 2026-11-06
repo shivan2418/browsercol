@@ -7,6 +7,7 @@
 // Hooks for the browser scripts: [data-loading-save] on the window,
 // [data-load-ok] and [data-load-cancel] on its buttons.
 import type { SaveMeta } from './saves';
+import { NumberField } from './controls';
 
 /** FreeCol's choices of the save game dialog option. */
 export const SHOW_SAVEGAME_SETTINGS = { never: 0, multiplayer: 1, always: 2 } as const;
@@ -67,7 +68,7 @@ export function LoadingSaveDialog({
             IP Address: <input type="text" disabled />
           </label>
           <label>
-            Port: <input type="number" disabled />
+            Port: <NumberField value={null} onChange={() => {}} disabled />
           </label>
         </fieldset>
         <div className="buttons">

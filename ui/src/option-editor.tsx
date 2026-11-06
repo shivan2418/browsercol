@@ -6,7 +6,7 @@
 // inside it; [data-group] on a group's box. A percentage option is a slider,
 // as FreeCol's PercentageOptionUI is.
 import { useRef, useState, type ReactNode } from 'react';
-import { Select } from './controls';
+import { NumberField as NumberFieldControl, Select } from './controls';
 import { Box } from './frame';
 import type { OptionNode, OptionValue, UnitEntry } from './options';
 
@@ -65,27 +65,24 @@ function NumberField({
   label: string;
   onChange: (n: number) => void;
 }) {
-  const [draft, setDraft] = useState<string | null>(null);
-  const shown = draft ?? String(value);
-  const n = Number(shown);
-  const bad = shown.trim() === '' || !Number.isInteger(n) || n < min || n > max;
+  // What is typed and not passed on (out of range or not whole, or empty), until the field is left.
+  const [draft, setDraft] = useState<{ n: number | null } | null>(null);
+  const shown = draft ? draft.n : value;
+  const bad = shown === null || !Number.isInteger(shown) || shown < min || shown > max;
   return (
-    <input
-      type="number"
+    <NumberFieldControl
       aria-label={label}
       aria-invalid={bad || undefined}
       min={min > -2147483648 ? min : undefined}
       max={max < 2147483647 ? max : undefined}
       disabled={disabled}
       value={shown}
-      onChange={(e) => {
-        const text = e.target.value;
-        const m = Number(text);
-        if (text.trim() !== '' && Number.isInteger(m) && m >= min && m <= max) {
+      onChange={(m) => {
+        if (m !== null && Number.isInteger(m) && m >= min && m <= max) {
           setDraft(null);
           onChange(m);
         } else {
-          setDraft(text);
+          setDraft({ n: m });
         }
       }}
       onBlur={() => setDraft(null)}
