@@ -58,6 +58,7 @@ rebuilds the Engine and reloads the page when the Java changes.
 | `just fast` | The fast checks: Engine tests, `vp check`, `vp test` |
 | `just suite` | The whole suite: fast checks, build and the browser scripts |
 | `just ci` | The whole suite on GitHub Actions for the committed HEAD |
+| `just deploy` | Deploy `origin/main` to GitHub Pages as the next numbered build |
 
 ### Tests
 
@@ -114,8 +115,18 @@ translations to `strings/`, which the page fetches for the player's
 language. It also copies the default Tileset's art
 (`ui/scripts/build-art.ts`, which prints the art budget) and runs
 `vp build` into `dist/`. Serve `dist/` from any static host: its URLs are
-relative, so a sub-path such as GitHub Pages' `/<repo>/` works. Pushing a
-`deploy-*` or `v*` tag deploys to GitHub Pages.
+relative, so a sub-path such as GitHub Pages' `/<repo>/` works.
+
+### Deploying
+
+A push to `main` does not deploy. `just deploy` tags `origin/main` as the
+next build (`build-1`, `build-2`, ...) and pushes the tag, and the Pages
+workflow builds and deploys it. The page shows its build on the start screen
+and in the credits. Builds are numbered rather than versioned, because the
+only promise to players is that their saves keep loading (ADR 0007).
+`SaveGameTest` loads every save in `engine/src/test/resources/saves/`; add one
+with `just test-engine --tests '*SaveGameTest.writeAFixtureSave' -PwriteSave=<date>-<commit>`
+after a change to what a save holds.
 
 ## Project layout
 
@@ -136,7 +147,7 @@ relative, so a sub-path such as GitHub Pages' `/<repo>/` works. Pushing a
 | `docs/` | `adr/` decision records, `research/` notes, `parity/` the Swing parity inventory, `teavm.md` TeaVM's quirks and our workarounds, `agents/` how coding agents use the tracker, `upstream-fixes.md` FreeCol bugs our patches fix |
 | `docker/` | `dev.Dockerfile` (JDK, Gradle, Node, pnpm) and `web.Dockerfile` (Playwright with Chromium and Firefox) |
 | `.githooks/` | The commit gate: `pre-commit` compiles the Engine, `commit-msg` requires an author trailer |
-| `.github/workflows/` | `suite.yml` (the whole suite) and `pages.yml` (deploy to Pages on a tag) |
+| `.github/workflows/` | `suite.yml` (the whole suite) and `pages.yml` (deploy to Pages on a `build-N` tag) |
 | `dev.sh`, `build.sh`, `ci.sh`, `freecol.sh` | Run in Docker; build `dist/`; the suite on Actions; pin and update `freecol/` |
 
 Gitignored: `freecol/` (the upstream clone), `ui/generated/` (built modules
@@ -144,15 +155,6 @@ and data the page imports), `dist/` (the site) and `.cache/` (Gradle and pnpm
 caches, screenshots).
 
 ## Playing
-
-A push to `main` does not deploy. `just deploy` tags `origin/main` as the
-next build (`build-1`, `build-2`, ...) and pushes the tag, and the Pages
-workflow builds and deploys it. The page shows its build on the start screen
-and in the credits. Builds are numbered rather than versioned, because the
-only promise to players is that their saves keep loading (ADR 0007).
-`SaveGameTest` loads every save in `engine/src/test/resources/saves/`; add one
-with `just test-engine --tests '*SaveGameTest.writeAFixtureSave' -PwriteSave=<date>-<commit>`
-after a change to what a save holds.
 
 The page opens on a start screen (FreeCol's NewPanel and StartGamePanel,
 single player): pick a European nation and a difficulty level, then Start
