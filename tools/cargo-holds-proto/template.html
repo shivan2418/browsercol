@@ -1,0 +1,881 @@
+<!doctype html>
+<!--
+  THROWAWAY PROTOTYPE (branch prototype/cargo-holds, never main): what a ship's or wagon train's cargo hold
+  could look like in browsercol, after the 1994 Mac Colonization's hold slots, drawn with FreeCol's art and the
+  Browser UI's theme tokens (ui/src/theme.css). build.mjs inlines the art; edit this file, not cargo-holds.html.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cargo Hold Prototypes</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600&family=Noto+Sans:wght@400;700&display=swap"
+    />
+    <style>
+      /* The page around the panels: follows light and dark. */
+      :root {
+        --page-bg: #e2d5b0;
+        --page-ink: #2a1c0c;
+        --page-muted: #6e5634;
+        --page-rule: #b89c66;
+        --switch-bg: #3b2a17;
+        --switch-ink: #f3e6c4;
+        --switch-line: #8c6c3c;
+        --shadow: rgb(0 0 0 / 35%);
+
+        /* The game's parchment palette (theme.css :root); the panels keep it in both modes. */
+        --panel: #e9dcb8;
+        --box: #f4ead0;
+        --ink: #2a1c0c;
+        --muted: #6e5634;
+        --head: #5a3714;
+        --line: #8c6c3c;
+        --btn: #cdb27a;
+        --btn-ink: #2a1c0c;
+        --accent: #8a2e12;
+        --link: #1f4f8b;
+
+        --font: 'Noto Sans', 'Segoe UI', Ubuntu, Cantarell, system-ui, sans-serif;
+        --font-title: Cinzel, var(--font);
+        --fs: 15px;
+        --fs-s: 13px;
+        color-scheme: light;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme='light']) {
+          --page-bg: #111214;
+          --page-ink: #f1f1f1;
+          --page-muted: #a9abb3;
+          --page-rule: #3d4049;
+          --switch-bg: #0b0b0c;
+          --switch-ink: #f2f2f2;
+          --switch-line: #3d4049;
+          --shadow: rgb(0 0 0 / 60%);
+          color-scheme: dark;
+        }
+      }
+      :root[data-theme='dark'] {
+        --page-bg: #111214;
+        --page-ink: #f1f1f1;
+        --page-muted: #a9abb3;
+        --page-rule: #3d4049;
+        --switch-bg: #0b0b0c;
+        --switch-ink: #f2f2f2;
+        --switch-line: #3d4049;
+        --shadow: rgb(0 0 0 / 60%);
+        color-scheme: dark;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        overflow-x: hidden;
+      }
+      body {
+        background: var(--page-bg);
+        color: var(--page-ink);
+        font-family: var(--font);
+        font-size: var(--fs);
+        line-height: 1.35;
+      }
+      main {
+        max-width: 1440px;
+        margin: 0 auto;
+        padding: 20px 16px 130px;
+      }
+      header h1 {
+        margin: 0 0 4px;
+        font-family: var(--font-title);
+        font-size: 24px;
+        letter-spacing: 0.02em;
+      }
+      header p {
+        margin: 0 0 4px;
+        color: var(--page-muted);
+        font-size: var(--fs-s);
+        max-width: 70ch;
+      }
+      .context {
+        margin-top: 22px;
+        padding-top: 10px;
+        border-top: 1px solid var(--page-rule);
+      }
+      .context h2 {
+        margin: 0 0 8px;
+        font-size: var(--fs-s);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      .context h2 small {
+        font-weight: 400;
+        text-transform: none;
+        letter-spacing: 0;
+        color: var(--page-muted);
+      }
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: flex-start;
+      }
+
+      /* ---- The three places a hold shows, after ui/index.html ---- */
+      .box {
+        position: relative;
+        background: var(--box);
+        color: var(--ink);
+        border: 1px solid var(--line);
+        border-radius: 3px;
+        max-width: 100%;
+      }
+      /* The colony panel's cargo box: 400 px wide, caption at the top-left. */
+      .colony-box {
+        width: 400px;
+        min-height: 78px;
+        padding: 18px 6px 6px;
+        display: flex;
+        align-items: flex-end;
+      }
+      .colony-box > .cap {
+        position: absolute;
+        top: 2px;
+        left: 8px;
+        right: 8px;
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--head);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .colony-box > .hold {
+        flex: 1 1 100%;
+      }
+      .colony-box > .cutaway,
+      .colony-box > .slots {
+        flex: 0 1 auto;
+      }
+      /* The Europe screen's cargo box: a cell of its grid, 429 x 182. */
+      .europe-box {
+        width: 429px;
+        height: 182px;
+        padding: 4px 8px;
+      }
+      .europe-box h3 {
+        margin: 0 0 4px;
+        font-size: var(--fs);
+        color: var(--head);
+      }
+      /* The info panel at the map's bottom-right: 310 wide, the unit's picture beside its text. */
+      .info-panel {
+        width: 310px;
+        min-height: 150px;
+        padding: 8px 10px;
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        background: var(--panel);
+        color: var(--ink);
+        border: 2px solid var(--line);
+        border-width: 2px 0 0 2px;
+        border-radius: 6px 0 0 0;
+        font-size: var(--fs-s);
+        max-width: 100%;
+      }
+      .info-panel .pic {
+        flex: none;
+        min-width: 64px;
+        display: flex;
+        justify-content: center;
+        align-self: center;
+      }
+      .info-panel .pic img {
+        display: block;
+        max-width: 96px;
+      }
+      .info-panel .text {
+        flex: 1;
+        min-width: 0;
+      }
+      .info-panel p {
+        margin: 0 0 4px;
+      }
+      .info-panel .label {
+        font-size: var(--fs);
+        color: var(--head);
+      }
+
+      /* ---- The switcher ---- */
+      .switch {
+        position: fixed;
+        left: 50%;
+        bottom: 12px;
+        transform: translateX(-50%);
+        z-index: 10;
+        width: max-content;
+        max-width: calc(100vw - 32px);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 6px 8px;
+        background: var(--switch-bg);
+        color: var(--switch-ink);
+        border: 2px solid var(--switch-line);
+        border-radius: 6px;
+        box-shadow: 0 6px 18px var(--shadow);
+      }
+      .switch .what {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        min-width: 0;
+        width: 400px;
+        max-width: 100%;
+        flex: 1 1 auto;
+      }
+      .switch b {
+        font-size: var(--fs);
+      }
+      .switch small {
+        font-size: 12px;
+        opacity: 0.85;
+      }
+      .switch button {
+        flex: none;
+        font: inherit;
+        font-size: 20px;
+        line-height: 1;
+        width: 38px;
+        height: 34px;
+        background: var(--btn);
+        color: var(--btn-ink);
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .switch button:focus-visible {
+        outline: 2px solid var(--switch-ink);
+        outline-offset: 1px;
+      }
+
+      img {
+        image-rendering: auto;
+      }
+
+      /* ---- A: hold slots ---- */
+      .slots {
+        --slot: 46px;
+        display: inline-flex;
+        gap: 4px;
+        padding: 4px;
+        width: max-content;
+        max-width: 100%;
+        background: var(--head);
+        border-radius: 3px;
+        box-shadow:
+          inset 1px 1px 0 color-mix(in srgb, var(--btn) 60%, transparent),
+          inset -1px -1px 0 color-mix(in srgb, var(--ink) 70%, transparent);
+      }
+      .slots[data-context='europe'] {
+        --slot: 58px;
+        margin-top: 6px;
+      }
+      .slots[data-context='info'] {
+        --slot: 30px;
+        gap: 2px;
+        padding: 2px;
+        margin-top: 4px;
+      }
+      .slot {
+        position: relative;
+        width: var(--slot);
+        height: var(--slot);
+        flex: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--btn);
+        border: 2px solid;
+        border-color: color-mix(in srgb, var(--btn) 55%, white) color-mix(in srgb, var(--btn) 45%, black)
+          color-mix(in srgb, var(--btn) 45%, black) color-mix(in srgb, var(--btn) 55%, white);
+      }
+      .slot img {
+        max-width: 80%;
+        max-height: 92%;
+        object-fit: contain;
+      }
+      .slot[data-kind='goods'] img {
+        height: 58%;
+        width: auto;
+        margin-bottom: 18%;
+      }
+      .slot[data-empty] {
+        background: color-mix(in srgb, var(--head) 55%, black);
+        border-color: color-mix(in srgb, var(--head) 40%, black) color-mix(in srgb, var(--head) 80%, white)
+          color-mix(in srgb, var(--head) 80%, white) color-mix(in srgb, var(--head) 40%, black);
+        box-shadow: inset 2px 2px 4px rgb(0 0 0 / 45%);
+      }
+      .amt {
+        position: absolute;
+        right: 2px;
+        bottom: 0;
+        font-size: 12px;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        line-height: 1.1;
+        color: var(--btn-ink);
+      }
+      .slots[data-context='europe'] .amt {
+        font-size: 13px;
+      }
+      .slots[data-context='info'] .amt {
+        font-size: 9px;
+        right: 1px;
+      }
+
+      /* ---- B: manifest ---- */
+      .manifest {
+        display: grid;
+        gap: 2px;
+        width: 100%;
+      }
+      .manifest[data-context='colony'] {
+        grid-template-columns: 1fr 1fr;
+        gap: 2px 10px;
+      }
+      .line {
+        display: grid;
+        grid-template-columns: 26px 1fr 1fr 30px;
+        align-items: center;
+        gap: 6px;
+        height: 26px;
+        padding: 0 4px;
+        border-bottom: 1px dotted var(--line);
+        font-size: var(--fs-s);
+      }
+      .manifest[data-context='colony'] .line {
+        grid-template-columns: 22px 1fr 40px 26px;
+        height: 22px;
+        gap: 4px;
+      }
+      .manifest[data-context='info'] .line {
+        grid-template-columns: 18px 1fr 1fr 24px;
+        height: 18px;
+        gap: 4px;
+        font-size: 11px;
+      }
+      .line .icon {
+        display: flex;
+        justify-content: center;
+        align-self: stretch;
+        min-height: 0;
+        overflow: hidden;
+      }
+      .line .icon img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+      .line .name {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .bar {
+        height: 8px;
+        background: color-mix(in srgb, var(--line) 25%, var(--box));
+        border: 1px solid var(--line);
+      }
+      .bar i {
+        display: block;
+        height: 100%;
+        background: var(--accent);
+      }
+      .num {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      .passenger {
+        grid-column: span 2;
+        font-style: italic;
+        color: var(--muted);
+      }
+      .line.free {
+        grid-template-columns: auto 1fr !important;
+        color: var(--muted);
+        border-bottom: 0;
+      }
+      .manifest[data-context='colony'] .free {
+        grid-column: 1 / -1;
+      }
+      .boxes {
+        display: flex;
+        gap: 3px;
+      }
+      .boxes i {
+        width: 10px;
+        height: 10px;
+        border: 1.5px solid var(--line);
+        border-radius: 1px;
+      }
+
+      /* ---- C: cutaway ---- */
+      .cutaway {
+        position: relative;
+        aspect-ratio: var(--ratio);
+        max-width: 100%;
+        height: var(--hull-h);
+        --hull-h: 72px;
+      }
+      .cutaway[data-context='europe'] {
+        --hull-h: 130px;
+        margin: 4px auto 0;
+      }
+      .cutaway[data-context='info'] {
+        --hull-h: 52px;
+        margin-top: 4px;
+      }
+      .cutaway svg {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+      }
+      .hull {
+        fill: var(--head);
+        stroke: color-mix(in srgb, var(--head) 60%, black);
+        stroke-width: 2;
+        vector-effect: non-scaling-stroke;
+      }
+      .inside {
+        fill: color-mix(in srgb, var(--head) 45%, black);
+      }
+      .bulkhead,
+      .deck {
+        stroke: var(--btn);
+        stroke-width: 3;
+        vector-effect: non-scaling-stroke;
+      }
+      .water {
+        stroke: var(--link);
+        stroke-width: 2;
+        stroke-dasharray: 6 4;
+        vector-effect: non-scaling-stroke;
+        opacity: 0.6;
+      }
+      .wheel {
+        fill: var(--btn);
+        stroke: color-mix(in srgb, var(--head) 60%, black);
+        stroke-width: 2;
+        vector-effect: non-scaling-stroke;
+      }
+      .hub {
+        fill: var(--head);
+      }
+      .tongue {
+        stroke: var(--head);
+        stroke-width: 4;
+        vector-effect: non-scaling-stroke;
+      }
+      .rooms {
+        position: absolute;
+        display: grid;
+      }
+      .room {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-end;
+        min-width: 0;
+        min-height: 0;
+        margin: 0 2px;
+        padding: 2px 0 1px;
+        overflow: hidden;
+      }
+      /* A taken compartment is lit, pale planking behind its load; an empty one stays dark. */
+      .room:not([data-empty]) {
+        background: linear-gradient(color-mix(in srgb, var(--btn) 70%, var(--head)), var(--btn));
+      }
+      .room img {
+        flex: 1 1 auto;
+        min-height: 0;
+        max-width: 90%;
+        object-fit: contain;
+      }
+      .room .amt {
+        position: static;
+        flex: none;
+        font-size: 11px;
+      }
+      .cutaway[data-context='europe'] .amt {
+        font-size: 13px;
+      }
+      .cutaway[data-context='info'] .amt {
+        font-size: 9px;
+      }
+
+      /* ---- D: pip strip ---- */
+      .strip {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .strip[data-context='info'] {
+        margin-top: 4px;
+      }
+      .strip[data-context='europe'] {
+        margin-top: 6px;
+      }
+      .pips {
+        display: inline-flex;
+        gap: 3px;
+      }
+      .pip {
+        width: 28px;
+        height: 28px;
+        padding: 3px;
+        flex: none;
+        border-radius: 50%;
+        /* The ring is the stack's gauge: how far round it goes is the amount out of 100. */
+        background: conic-gradient(
+          var(--accent) calc(var(--fill) * 1%),
+          color-mix(in srgb, var(--line) 35%, transparent) 0
+        );
+      }
+      .pip[data-kind='unit'] {
+        background: var(--line);
+      }
+      .pip > span {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 100%;
+        background: var(--box);
+        border-radius: 50%;
+        overflow: hidden;
+      }
+      .strip[data-context='europe'] .pip {
+        width: 40px;
+        height: 40px;
+        padding: 4px;
+      }
+      .strip[data-context='info'] .pip {
+        width: 23px;
+        height: 23px;
+        padding: 2.5px;
+      }
+      .strip[data-context='info'] .pips {
+        gap: 2px;
+      }
+      .pip img {
+        max-width: 76%;
+        max-height: 76%;
+        object-fit: contain;
+      }
+      .pip[data-kind='unit'] img {
+        max-height: 96%;
+        margin-top: 15%;
+      }
+      .pip[data-empty] {
+        background: none;
+        border: 1.5px dashed var(--line);
+        opacity: 0.7;
+      }
+      .pip[data-empty] > span {
+        background: none;
+      }
+      .count {
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        color: var(--muted);
+        font-size: var(--fs-s);
+      }
+
+      /* Phone width: the boxes take the column, and the biggest slots shrink so six still fit. */
+      @media (max-width: 480px) {
+        .colony-box,
+        .europe-box,
+        .info-panel {
+          width: 100%;
+        }
+        .slots[data-context='europe'] {
+          --slot: 48px;
+        }
+        .strip[data-context='europe'] .pip {
+          width: 34px;
+          height: 34px;
+        }
+        .switch {
+          gap: 6px;
+        }
+        .switch small {
+          font-size: 11px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Cargo hold prototypes</h1>
+        <p>
+          Four ways to draw what a ship or wagon train carries, after the hold slots of the 1994 Mac Colonization, in
+          browsercol's FreeCol art and parchment palette. Each shows the same four loads in the three places a hold
+          appears. Switch with the bar below or the arrow keys.
+        </p>
+        <p>
+          The view today sends only the holds left (in the title), not the holds in all; the capacities here are
+          hard-coded, and the real ones need the Engine to send them.
+        </p>
+      </header>
+      <div id="contexts"></div>
+    </main>
+    <nav class="switch" aria-label="Variant">
+      <button id="prev" aria-label="Previous variant">←</button>
+      <span class="what" aria-live="polite">
+        <b id="variant-label"></b>
+        <small id="variant-note"></small>
+      </span>
+      <button id="next" aria-label="Next variant">→</button>
+    </nav>
+    <script>
+      const IMG = /*IMAGES*/{};
+
+      // ------------------------------------------------------------------ the sample loads
+      const goods = (type, name, amount) => ({ kind: 'goods', type, name, amount, img: type });
+      const unit = (img, name) => ({ kind: 'unit', name, img });
+      // capacity: holds in all, hard-coded (the view does not send it).
+      const LOADS = [
+        { name: 'Galleon', img: 'galleon', capacity: 6, cargo: [], status: 'Moves: 6' },
+        {
+          name: 'Merchantman',
+          img: 'merchantman',
+          capacity: 4,
+          cargo: [unit('freeColonist', 'Free Colonist'), goods('furs', 'Furs', 100), goods('sugar', 'Sugar', 37)],
+          status: 'Moves: 5',
+        },
+        {
+          name: 'Caravel',
+          img: 'caravel',
+          capacity: 2,
+          cargo: [goods('muskets', 'Muskets', 100), goods('horses', 'Horses', 100)],
+          status: 'Moves: 4',
+        },
+        {
+          name: 'Wagon Train',
+          img: 'wagonTrain',
+          capacity: 2,
+          cargo: [goods('cigars', 'Cigars', 100), goods('cloth', 'Cloth', 45)],
+          status: 'Moves: 1',
+          wagon: true,
+        },
+      ];
+
+      const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+      const left = (l) => l.capacity - l.cargo.length;
+      // FreeCol's cargoPanel.cargoAndSpace, as the view sends it.
+      const title = (l) => `Cargo on ${l.name} (${left(l)} ${left(l) === 1 ? 'hold' : 'holds'} left)`;
+      const pic = (c) => `<img src="${IMG[c.img]}" alt="${esc(c.name)}" draggable="false">`;
+      const tip = (c) => (c ? (c.kind === 'goods' ? `${c.amount} ${c.name}` : c.name) : 'Empty hold');
+      /** The holds in order: what is aboard, then null for each empty one. */
+      const slots = (l) => [...l.cargo, ...Array(Math.max(0, left(l))).fill(null)];
+
+      // ------------------------------------------------------------------ the variants
+      /** A: a fixed row of square bevelled wooden slots, one per hold; empty ones are dark recesses. */
+      function holdSlots(l, ctx) {
+        return `<div class="hold slots" data-context="${ctx}" role="list" aria-label="${esc(title(l))}">${slots(l)
+          .map((c) =>
+            c
+              ? `<div class="slot" data-kind="${c.kind}" role="listitem" title="${esc(tip(c))}">${pic(c)}${
+                  c.kind === 'goods' ? `<b class="amt">${c.amount}</b>` : ''
+                }</div>`
+              : `<div class="slot" data-empty role="listitem" title="Empty hold"></div>`,
+          )
+          .join('')}</div>`;
+      }
+
+      /** B: a manifest line per hold taken, with a fill bar out of 100; empty holds fold into one line. */
+      function holdManifest(l, ctx) {
+        const empty = left(l);
+        const lines = l.cargo.map(
+          (c) =>
+            `<div class="line" data-kind="${c.kind}" title="${esc(tip(c))}"><span class="icon">${pic(c)}</span>` +
+            `<span class="name">${esc(c.name)}</span>` +
+            (c.kind === 'goods'
+              ? `<span class="bar" aria-hidden="true"><i style="width:${c.amount}%"></i></span><b class="num">${c.amount}</b>`
+              : `<span class="passenger">passenger</span>`) +
+            `</div>`,
+        );
+        if (empty > 0)
+          lines.push(
+            `<div class="line free"><span class="boxes" aria-hidden="true">${'<i></i>'.repeat(empty)}</span>` +
+              `<span class="name">${empty} empty ${empty === 1 ? 'hold' : 'holds'}</span></div>`,
+          );
+        return `<div class="hold manifest" data-context="${ctx}">${lines.join('')}</div>`;
+      }
+
+      /** C: the hull from the side, a compartment per hold between bulkheads; a wagon's bed sits on wheels. */
+      function holdCutaway(l, ctx) {
+        const n = l.capacity;
+        const W = 100;
+        const stern = 14;
+        const bow = l.wagon ? 34 : 70;
+        const total = stern + n * W + bow;
+        const H = l.wagon ? 118 : 110;
+        const x0 = stern;
+        const x1 = stern + n * W;
+        const top = 22;
+        const floor = 86;
+        const hull = l.wagon
+          ? `M ${x0 - 8} ${top - 6} H ${x1 + 8} V ${floor + 6} H ${x0 - 8} Z`
+          : `M 0 ${top - 12} L ${x0} ${top - 4} H ${x1} L ${total} ${top - 18} ` +
+            `C ${total - 18} ${floor - 10}, ${x1 + 10} ${floor + 20}, ${x1 - 30} ${floor + 16} ` +
+            `H ${x0 + 30} C ${x0 + 6} ${floor + 16}, 2 ${floor}, 0 ${top - 12} Z`;
+        const body = l.wagon
+          ? `<path class="tongue" d="M ${x1 + 8} ${floor - 6} L ${total} ${floor + 4}"/><path class="hull" d="${hull}"/>` +
+            [x0 + 40, x1 - 40]
+              .map((cx) => `<circle class="wheel" cx="${cx}" cy="${floor + 12}" r="18"/><circle class="hub" cx="${cx}" cy="${floor + 12}" r="5"/>`)
+              .join('')
+          : `<path class="water" d="M 0 ${floor + 6} H ${total}"/><path class="hull" d="${hull}"/>`;
+        const bulkheads = Array.from({ length: n - 1 }, (_, i) => `<path class="bulkhead" d="M ${x0 + (i + 1) * W} ${top} V ${floor}"/>`).join('');
+        const d = l.wagon ? 8 : 0;
+        const svg =
+          `<svg viewBox="0 0 ${total} ${H}" preserveAspectRatio="none" aria-hidden="true">${body}` +
+          `<rect class="inside" x="${x0}" y="${top}" width="${n * W}" height="${floor - top}"/>${bulkheads}` +
+          `<path class="deck" d="M ${x0 - d} ${top} H ${x1 + d}"/></svg>`;
+        const rooms = slots(l)
+          .map((c) =>
+            c
+              ? `<div class="room" data-kind="${c.kind}" role="listitem" title="${esc(tip(c))}">${pic(c)}${
+                  c.kind === 'goods' ? `<b class="amt">${c.amount}</b>` : ''
+                }</div>`
+              : `<div class="room" data-empty role="listitem" title="Empty hold"></div>`,
+          )
+          .join('');
+        const pos =
+          `left:${(x0 / total) * 100}%;width:${((n * W) / total) * 100}%;top:${(top / H) * 100}%;` +
+          `height:${((floor - top) / H) * 100}%;grid-template-columns:repeat(${n},1fr)`;
+        return (
+          `<div class="hold cutaway" data-context="${ctx}" style="--ratio:${total} / ${H}" role="list" aria-label="${esc(title(l))}">` +
+          `${svg}<div class="rooms" style="${pos}">${rooms}</div></div>`
+        );
+      }
+
+      /** D: a compact strip of round pips, a mini icon in each and its ring the amount out of 100, then used/all. */
+      function holdStrip(l, ctx) {
+        const pips = slots(l)
+          .map(
+            (c) =>
+              `<span class="pip" ${c ? `data-kind="${c.kind}"` : 'data-empty'} title="${esc(tip(c))}" ` +
+              `style="--fill:${c && c.kind === 'goods' ? c.amount : 100}"><span>${c ? pic(c) : ''}</span></span>`,
+          )
+          .join('');
+        return (
+          `<div class="hold strip" data-context="${ctx}" aria-label="${esc(title(l))}"><span class="pips">${pips}</span>` +
+          `<span class="count">${l.cargo.length}/${l.capacity}</span></div>`
+        );
+      }
+
+      const VARIANTS = [
+        {
+          id: 'slots',
+          label: 'A · Hold slots',
+          note: 'Tests: does a fixed row of Mac-style wooden slots make the free space plain at a glance?',
+          render: holdSlots,
+        },
+        {
+          id: 'manifest',
+          label: 'B · Manifest',
+          note: 'Tests: does a written list with fill bars read better than pictures, with empty holds folded away?',
+          render: holdManifest,
+        },
+        {
+          id: 'cutaway',
+          label: 'C · Cutaway',
+          note: 'Tests: does drawing the hull itself, a compartment per hold, make the hold feel like a place?',
+          render: holdCutaway,
+        },
+        {
+          id: 'strip',
+          label: 'D · Pip strip',
+          note: 'Tests: how small can a hold get and still show how many, what, and how full?',
+          render: holdStrip,
+        },
+      ];
+
+      // ------------------------------------------------------------------ the contexts
+      const CONTEXTS = [
+        {
+          id: 'colony',
+          label: 'Colony panel',
+          sub: 'the cargo box, 400 px',
+          frame: (l, hold) => `<section class="box colony-box"><span class="cap">${esc(title(l))}</span>${hold}</section>`,
+        },
+        {
+          id: 'europe',
+          label: 'Europe',
+          sub: 'the cargo box on the docks, 429 × 182',
+          frame: (l, hold) => `<section class="box europe-box"><h3>${esc(title(l))}</h3>${hold}</section>`,
+        },
+        {
+          id: 'info',
+          label: 'Info panel',
+          sub: 'bottom right of the map, 310 px',
+          frame: (l, hold) =>
+            `<section class="info-panel"><div class="pic"><img src="${IMG[l.img]}" alt=""></div>` +
+            `<div class="text"><p class="label">${esc(l.name)}</p><p>${esc(l.status)}</p>${hold}</div></section>`,
+        },
+      ];
+
+      // ------------------------------------------------------------------ the page
+      const fromHash = () => new URLSearchParams(location.hash.slice(1)).get('variant');
+      let at = Math.max(0, VARIANTS.findIndex((v) => v.id === fromHash()));
+
+      function draw() {
+        const v = VARIANTS[at];
+        document.getElementById('variant-label').textContent = v.label;
+        document.getElementById('variant-note').textContent = v.note;
+        document.getElementById('contexts').innerHTML = CONTEXTS.map(
+          (c) =>
+            `<section class="context" data-context="${c.id}"><h2>${c.label} <small>${c.sub}</small></h2>` +
+            `<div class="row">${LOADS.map((l) => c.frame(l, v.render(l, c.id))).join('')}</div></section>`,
+        ).join('');
+      }
+
+      function go(i) {
+        at = (i + VARIANTS.length) % VARIANTS.length;
+        history.replaceState(null, '', '#variant=' + VARIANTS[at].id);
+        draw();
+      }
+
+      document.getElementById('prev').addEventListener('click', () => go(at - 1));
+      document.getElementById('next').addEventListener('click', () => go(at + 1));
+      addEventListener('keydown', (e) => {
+        if (e.altKey || e.ctrlKey || e.metaKey) return;
+        if (e.key === 'ArrowLeft') go(at - 1);
+        else if (e.key === 'ArrowRight') go(at + 1);
+      });
+      addEventListener('hashchange', () => {
+        const i = VARIANTS.findIndex((v) => v.id === fromHash());
+        if (i >= 0 && i !== at) {
+          at = i;
+          draw();
+        }
+      });
+      draw();
+    </script>
+  </body>
+</html>
