@@ -15,7 +15,8 @@
 // settings (the level's and the game's options, the map's, the nation colours) are tabs under them.
 import { Tabs } from '@base-ui/react/tabs';
 import { useMemo, useRef, useState, type ReactNode } from 'react';
-import { Select } from './controls';
+import { HelpButton, Select } from './controls';
+import { RulesHelp } from './rules-help';
 import { CreditsDialog, SourceLinks } from './credits';
 import type { Art } from './frame';
 import { OptionEditor } from './option-editor';
@@ -485,16 +486,21 @@ export function StartScreen({
                 {rules !== undefined && changeRules && options.rulesets.length > 1 && (
                   <>
                     <span>Rules</span>
-                    <Select
-                      data-rules
-                      aria-label="Rules"
-                      value={rules}
-                      onChange={changeRules}
-                      choices={options.rulesets.map((r) => ({
-                        value: r,
-                        label: r === 'classic' ? 'Classic' : r === 'freecol' ? 'FreeCol' : r,
-                      }))}
-                    />
+                    <span className="with-help">
+                      <Select
+                        data-rules
+                        aria-label="Rules"
+                        value={rules}
+                        onChange={changeRules}
+                        choices={options.rulesets.map((r) => ({
+                          value: r,
+                          label: r === 'classic' ? 'Classic' : r === 'freecol' ? 'FreeCol' : r,
+                        }))}
+                      />
+                      <HelpButton label="What the rule sets change" data-rules-help-button>
+                        <RulesHelp />
+                      </HelpButton>
+                    </span>
                   </>
                 )}
                 <span>Difficulty</span>

@@ -3,6 +3,7 @@
 // wrappers keep the call sites short and the styling in one place (the .ui-* rules in index.html).
 // Tooltip and NumberField build on `overlayContainer` and `OVERLAY_POSITIONER` here.
 import { NumberField as BaseNumberField } from '@base-ui/react/number-field';
+import { Popover as BasePopover } from '@base-ui/react/popover';
 import { Select as BaseSelect } from '@base-ui/react/select';
 import { Tooltip as BaseTooltip } from '@base-ui/react/tooltip';
 import { createElement, useEffect, useState, type ComponentProps, type KeyboardEvent, type ReactNode } from 'react';
@@ -83,6 +84,33 @@ export function Select({ value, onChange, choices, disabled, className, ...rest 
         </BaseSelect.Positioner>
       </BaseSelect.Portal>
     </BaseSelect.Root>
+  );
+}
+
+// --- HelpButton ---
+
+/**
+ * A small ? button that opens a popover of help beside it: the button again, Escape or a click outside
+ * closes it. `label` names the button for a screen reader; other attributes (data-*) go on the button.
+ */
+export function HelpButton({
+  label,
+  children,
+  ...rest
+}: { label: string; children: ReactNode } & Omit<ComponentProps<'button'>, 'children' | 'aria-label'>) {
+  const [open, setOpen] = useState(false);
+  return (
+    <BasePopover.Root open={open} onOpenChange={setOpen}>
+      <BasePopover.Trigger {...rest} type="button" className="ui-help-button" aria-label={label}>
+        ?
+      </BasePopover.Trigger>
+      {open && <EscapeCloses close={() => setOpen(false)} />}
+      <BasePopover.Portal container={overlayContainer()}>
+        <BasePopover.Positioner {...OVERLAY_POSITIONER} side="bottom" align="start" sideOffset={4} collisionPadding={8}>
+          <BasePopover.Popup className="ui-popup ui-help-popup">{children}</BasePopover.Popup>
+        </BasePopover.Positioner>
+      </BasePopover.Portal>
+    </BasePopover.Root>
   );
 }
 

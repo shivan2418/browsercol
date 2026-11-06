@@ -453,3 +453,45 @@ test('under FreeCol too only the first four European nations take part at first'
   fireEvent.click(document.querySelector('[data-start]')!);
   expect(started[0].unavailable).toEqual(EXTRAS);
 });
+
+test('a ? beside Rules opens a summary of what the rule sets change, and closes on Escape, a click outside or a second click', async () => {
+  render(<StartScreen options={options} start={() => {}} rules="classic" changeRules={() => {}} />);
+  const button = () => screen.getByLabelText('What the rule sets change');
+  const summary = () => document.querySelector('[data-rules-help]');
+  expect(button().getAttribute('aria-expanded')).toBe('false');
+  expect(summary()).toBeNull();
+  fireEvent.click(button());
+  await waitFor(() => expect(summary()).not.toBeNull());
+  expect(button().getAttribute('aria-expanded')).toBe('true');
+  expect(summary()!.textContent).toContain('Classic:');
+  expect(summary()!.textContent).toContain('FreeCol:');
+  expect(summary()!.textContent).toContain('Game options');
+  // Escape.
+  fireEvent.keyDown(window, { key: 'Escape' });
+  await waitFor(() => expect(summary()).toBeNull());
+  expect(button().getAttribute('aria-expanded')).toBe('false');
+  // A second click on the button.
+  fireEvent.click(button());
+  await waitFor(() => expect(summary()).not.toBeNull());
+  fireEvent.click(button());
+  await waitFor(() => expect(summary()).toBeNull());
+  // A click outside.
+  fireEvent.click(button());
+  await waitFor(() => expect(summary()).not.toBeNull());
+  fireEvent.pointerDown(document.body);
+  fireEvent.mouseDown(document.body);
+  fireEvent.click(document.body);
+  await waitFor(() => expect(summary()).toBeNull());
+});
+
+test('the ? shows only where there is a choice of rule sets', () => {
+  render(
+    <StartScreen
+      options={{ ...options, rulesets: ['classic'] }}
+      start={() => {}}
+      rules="classic"
+      changeRules={() => {}}
+    />,
+  );
+  expect(screen.queryByLabelText('What the rule sets change')).toBeNull();
+});
