@@ -36,21 +36,13 @@ describe('the window frame', () => {
     framePlaces.remember = false;
   });
 
-  it('clicks as it opens, and does not animate where motion is off', () => {
-    const played: string[] = [];
-    const was = frameEffects.play;
-    frameEffects.play = (k) => played.push(k);
+  it('does not animate where motion is off', () => {
     const closed: string[] = [];
-    try {
-      render(
-        <WindowFrame title="Europe" close={() => closed.push('closed')}>
-          body
-        </WindowFrame>,
-      );
-    } finally {
-      frameEffects.play = was;
-    }
-    expect(played).toEqual([frameEffects.sound]);
+    render(
+      <WindowFrame title="Europe" close={() => closed.push('closed')}>
+        body
+      </WindowFrame>,
+    );
     expect(screen.getByRole('dialog').hasAttribute('data-motion')).toBe(false);
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(closed).toEqual(['closed']);

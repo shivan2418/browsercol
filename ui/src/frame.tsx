@@ -22,19 +22,15 @@ import { focusFirstEntry, menuArrows, useFocusTrap } from './focus';
 export type Art = (keys: readonly string[]) => string | null;
 
 /**
- * What a window does as it opens and closes (#270). The page sets `play` to the sound player's, so the
- * effects volume option applies; `motion` says whether to animate, and is off for a player who asks the
+ * What a window does as it opens and closes (#270): `motion` says whether to animate, and is off for a player who asks the
  * system for reduced motion, for an automated browser (navigator.webdriver, so the browser scripts never
  * wait on an animation) and where there is no matchMedia (the unit tests).
  */
-export const frameEffects: { play: (key: string) => void; motion: () => boolean; ms: number; sound: string } = {
-  play: () => {},
+export const frameEffects: { motion: () => boolean; ms: number } = {
   motion: () =>
     typeof matchMedia === 'function' && !navigator.webdriver && !matchMedia('(prefers-reduced-motion: reduce)').matches,
   /** How long the scale-and-fade lasts; index.html's frame-in and frame-out keyframes say the same. */
   ms: 120,
-  /** FreeCol's sound set has no click; its shortest, load.ogg (a cargo hatch thump), stands in. */
-  sound: 'sound.event.loadCargo',
 };
 
 /** The frames on screen, the newest last: Escape closes only the newest. */
@@ -123,10 +119,6 @@ export function WindowFrame({ title, close: closeNow, closeKeys, children, class
       }
     : null;
   useEscape(close, closeKeys);
-  // A click as the window opens.
-  useEffect(() => {
-    frameEffects.play(frameEffects.sound);
-  }, []);
   const box = useRef<HTMLElement>(null);
   // Tab goes round the newest window's buttons and fields while the focus is in it, not off the page.
   useFocusTrap(box);

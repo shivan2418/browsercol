@@ -52,7 +52,7 @@ import { BUILD } from './build';
 import { keepTabOnPage } from './focus';
 import { leaveGuard } from './leave-guard';
 import { TipProvider, TooltipLayer } from './controls';
-import { MENUS, MenuBar, framePlaces, frameEffects, goodsIcons, type Menu } from './frame';
+import { MENUS, MenuBar, framePlaces, goodsIcons, type Menu } from './frame';
 import { CreditsDialog } from './credits';
 import { captureConsole } from './log-buffer';
 import { CopyDetailsContext, LogDialog, ShowLogContext, joinLogs } from './log';
@@ -551,7 +551,6 @@ const sound = fetch('audio/audio.json')
   });
 /** GUI.playSound: play a sound by its resource key, or stop the sound effect; in order, once the manifest is in. */
 const playSound = (key: string | null) => void sound.then((s) => s?.play(key));
-frameEffects.play = playSound;
 /**
  * FreeCol's compass rose at the map's top right (CornerMapControls), shown by the display compass rose option:
  * a click on it moves the active unit the way it points.
