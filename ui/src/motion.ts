@@ -13,13 +13,26 @@ export interface Path {
   tiles: [number, number][];
 }
 
-/** How long a unit takes to slide to the next tile, in milliseconds: a step. */
-export const MOVE_MS = 300;
+/** How often SwingGUI's UnitMoveAnimation moves a sliding unit on: its ANIMATION_DELAY, in milliseconds. */
+const SWING_FRAME_MS = 33;
+
 /**
- * How long another player's unit takes to slide a tile at FreeCol's enemy or friendly move animation speed
- * (0 off, 1 slow, 2 normal, 3 fast); the player's own are as long as their own animation preference, MOVE_MS.
+ * How long a step across a row or a column takes to slide at FreeCol's move animation speed (0 off, 1 slow,
+ * 2 normal, 3 fast), in milliseconds, as UnitMoveAnimation moves it: 2^(speed + 1) pixels a frame down a tile and
+ * twice that across it, so a tile H pixels high and W wide takes H / 2^(speed + 1) frames. A diagonal step, half a
+ * tile each way, takes half of it (see track). At zoom 1: 528, 264 and 132 ms.
  */
-export const OPTION_MS: readonly number[] = [0, 600, 300, 150];
+export const swingStepMs = (speed: number): number => (speed <= 0 ? 0 : (H / 2 ** (speed + 1)) * SWING_FRAME_MS);
+
+/**
+ * How long a unit takes to slide a tile at each of FreeCol's move animation speeds, the index (0 off, 1 slow,
+ * 2 normal, 3 fast): another player's unit at the enemy or friendly move animation speed the Engine gives, the
+ * player's own at their own animation preference, which has the same choices.
+ */
+export const OPTION_MS: readonly number[] = [0, 1, 2, 3].map(swingStepMs);
+
+/** How long a step takes to slide at FreeCol's default speed, fast: a step. */
+export const MOVE_MS = OPTION_MS[3];
 
 /** How long a step of the path takes to slide: another player's unit by the Engine's speed, else `own`. */
 export const stepMs = (step: Step, own: number): number =>

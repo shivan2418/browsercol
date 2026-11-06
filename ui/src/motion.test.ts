@@ -44,8 +44,8 @@ describe("another player's unit", () => {
   });
 
   it("takes the option's speed, the player's own taking their own", () => {
-    expect(OPTION_MS).toEqual([0, 600, 300, 150]);
-    expect(stepMs(step([1, 1], [2, 1], 'unit:2', 1), 300)).toBe(600);
+    expect(OPTION_MS).toEqual([0, 528, 264, 132]);
+    expect(stepMs(step([1, 1], [2, 1], 'unit:2', 1), 300)).toBe(528);
     expect(stepMs(step([1, 1], [2, 1], 'unit:2', 0), 300)).toBe(0);
     expect(stepMs(step([1, 1], [2, 1]), 450)).toBe(450);
   });

@@ -108,7 +108,14 @@ describe('prefs', () => {
 
   it('maps speeds to durations, with off as 0', () => {
     expect(moveMs({ ...DEFAULTS, animation: 'off', blink: 'off' })).toBe(0);
-    expect(moveMs({ ...DEFAULTS, animation: 'fast', blink: 'off' })).toBeLessThan(moveMs(DEFAULTS));
+    expect(moveMs({ ...DEFAULTS, animation: 'slow', blink: 'off' })).toBeGreaterThan(moveMs(DEFAULTS));
+  });
+
+  it("slides a step as long as Swing at the same speed, FreeCol's default fast unless one is stored", () => {
+    const at = (animation: (typeof DEFAULTS)['animation']) => moveMs({ ...DEFAULTS, animation });
+    expect([at('slow'), at('normal'), at('fast')]).toEqual([528, 264, 132]);
+    expect(parsePrefs(null).animation).toBe('fast');
+    expect(parsePrefs('{"animation":"normal"}').animation).toBe('normal');
     expect(blinkMs({ ...DEFAULTS, animation: 'off', blink: 'slow' })).toBeGreaterThan(blinkMs(DEFAULTS));
   });
 

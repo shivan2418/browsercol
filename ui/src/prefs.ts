@@ -2,6 +2,7 @@
 // such as how fast units slide and the active unit blinks, and those of
 // FreeCol's client options the browser follows. Kept in this browser's
 // localStorage.
+import { OPTION_MS } from './motion';
 import { AUTOMATIC, LANGUAGE_OPTION } from './language';
 import type { MinimapOptions } from './minimap';
 import type { AutosaveOptions } from './saves';
@@ -70,7 +71,8 @@ export type FreeColValue = boolean | number | string;
 
 export const DEFAULTS: Prefs = {
   activeStyle: 'online',
-  animation: 'normal',
+  // FreeCol's default move animation speed (client-options.xml); a stored choice is kept.
+  animation: 'fast',
   blink: 'normal',
   dimUnfocused: 'normal',
   tutorial: false,
@@ -84,8 +86,13 @@ export const DEFAULTS: Prefs = {
   freecol: {},
 };
 
-/** A slide's length in milliseconds; 0 moves the unit at once. */
-const MOVE: Record<Speed, number> = { off: 0, slow: 600, normal: 300, fast: 150 };
+/** A step's slide in milliseconds, as long as Swing's at the same move animation speed; 0 moves the unit at once. */
+const MOVE: Record<Speed, number> = {
+  off: OPTION_MS[0],
+  slow: OPTION_MS[1],
+  normal: OPTION_MS[2],
+  fast: OPTION_MS[3],
+};
 /** A whole blink cycle in milliseconds; 0 never blinks. */
 const BLINK: Record<Speed, number> = { off: 0, slow: 2400, normal: 1400, fast: 700 };
 
