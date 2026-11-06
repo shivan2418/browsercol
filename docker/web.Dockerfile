@@ -6,8 +6,11 @@
 # bug 1992130, fixed in Firefox 145): the js-string builtin fromCharCodeArray
 # sometimes garbled a string or overran a stack buffer, which crashed
 # Firefox's content process and broke save loads (#31).
+# The base image is pinned by digest as well as version; a new PW_VERSION
+# needs its digest (docker buildx imagetools inspect
+# mcr.microsoft.com/playwright:v<version>-noble).
 ARG PW_VERSION=1.64.1
-FROM mcr.microsoft.com/playwright:v${PW_VERSION}-noble
+FROM mcr.microsoft.com/playwright:v${PW_VERSION}-noble@sha256:2f05f8a734509a7b3f26a912639488ee08f58a7b292d14d62271bcff9038768f
 ARG PW_VERSION
 # The npm package must match the browsers baked into the base image.
 RUN npm install -g playwright@${PW_VERSION}
