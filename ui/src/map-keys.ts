@@ -101,6 +101,12 @@ export const PANEL_KEYS = {
   minimapSkin: 'image.skin.MiniMap',
   /** The box round what the map shows, on the minimap (ImageLibrary.getMinimapBorderColor). */
   minimapBorder: 'color.border.MiniMap',
+  /** The tick of a checkbox (FreeColCheckBoxUI), which the page draws as a mask in a token's colour (control-art.ts). */
+  checkmark: 'image.ui.checkmark',
+  /** A radio button's unselected disc (FreeColRadioButtonUI). */
+  radio: 'image.ui.button.radio',
+  /** A radio button's selected disc, whose shape is the dot a selected radio shows. */
+  radioSelected: 'image.ui.button.radio.selected',
 } as const;
 
 /**

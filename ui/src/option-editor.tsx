@@ -5,7 +5,7 @@
 // scripts: [data-option] on a row, with the option's id, and the control
 // inside it; [data-group] on a group's box. A percentage option is a slider,
 // as FreeCol's PercentageOptionUI is.
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { Box } from './frame';
 import type { OptionNode, OptionValue, UnitEntry } from './options';
 
@@ -23,6 +23,29 @@ interface Props {
   fileNames?: Record<string, string>;
   /** Anything to show after an option's control, such as a mute button beside a volume, by option id. */
   after?: (id: string) => ReactNode;
+}
+
+/**
+ * A file option's picker: the browser's own would show "Browse... No file selected" in the browser's
+ * language, so the input stays hidden behind a game button and the row shows the picked name.
+ */
+function FilePicker({ label, onFile }: { label: string; onFile: (file: File | null) => void }) {
+  const input = useRef<HTMLInputElement>(null);
+  return (
+    <>
+      <button type="button" data-file-choose onClick={() => input.current?.click()}>
+        Choose
+      </button>
+      <input
+        ref={input}
+        type="file"
+        hidden
+        aria-label={label}
+        accept=".fsm,.fsg"
+        onChange={(e) => onFile(e.target.files?.[0] ?? null)}
+      />
+    </>
+  );
 }
 
 /** A whole number field: a value out of range or not a number is shown as invalid and not passed on. */
@@ -251,13 +274,11 @@ function Row({
       control = (
         <span className="file">
           {editable && onFile && (
-            <input
-              type="file"
-              aria-label={node.label}
-              accept=".fsm,.fsg"
+            <FilePicker
+              label={node.label}
               // Picking the same file again after a clear still fires change.
               key={name}
-              onChange={(e) => onFile(node.id, e.target.files?.[0] ?? null)}
+              onFile={(file) => onFile(node.id, file)}
             />
           )}
           {name === '' ? <em data-file-none>None</em> : <output data-file-name>{name}</output>}

@@ -829,8 +829,116 @@
         width: 100%;
         box-sizing: border-box;
       }
-      .dialog input[type='checkbox'] {
-        width: auto;
+      /*
+       * Checkboxes and radio buttons in FreeCol's look (FreeColCheckBoxUI, FreeColRadioButtonUI): a box
+       * 1.5 times the text, framed like a button. The tick and the radio's dot are FreeCol's art as a mask filled
+       * with a token, so they show in every palette; control-art.ts sets --img-checkmark and --img-radio-dot.
+       */
+      input[type='checkbox'],
+      input[type='radio'],
+      .dialog input[type='checkbox'],
+      .dialog input[type='radio'] {
+        appearance: none;
+        position: relative;
+        flex: none;
+        width: 1.5em;
+        height: 1.5em;
+        margin: 0 0.4em 0 0;
+        padding: 0;
+        vertical-align: middle;
+        background: var(--btn);
+        border: 1px solid var(--line);
+        border-radius: 3px;
+        cursor: pointer;
+      }
+      input[type='radio'],
+      .dialog input[type='radio'] {
+        border-radius: 50%;
+      }
+      input[type='checkbox']::after,
+      input[type='radio']::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: var(--btn-ink);
+        mask: var(--img-checkmark, none) center / contain no-repeat;
+        visibility: hidden;
+      }
+      input[type='radio']::after {
+        inset: 25%;
+        mask-image: var(--img-radio-dot, none);
+      }
+      input[type='checkbox']:checked::after,
+      input[type='radio']:checked::after {
+        visibility: visible;
+      }
+      input[type='checkbox']:focus-visible,
+      input[type='radio']:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+      }
+      input[type='checkbox']:disabled,
+      input[type='radio']:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+      /* Clicking a label toggles its control without selecting the label's text. */
+      label:has(> input[type='checkbox']),
+      label:has(> input[type='radio']) {
+        user-select: none;
+        cursor: pointer;
+      }
+      /* Disclosure triangles: our own marker in place of the browser's. */
+      summary {
+        list-style: none;
+      }
+      summary::-webkit-details-marker {
+        display: none;
+      }
+      summary::before {
+        content: '';
+        display: inline-block;
+        width: 0.6em;
+        height: 0.6em;
+        margin-right: 0.4em;
+        background: currentColor;
+        clip-path: polygon(15% 0, 100% 50%, 15% 100%);
+        transition: transform 0.1s;
+      }
+      details[open] > summary::before {
+        transform: rotate(90deg);
+      }
+      /* Progress bars as FreeColProgressBarUI draws them: paper with a fill. */
+      progress {
+        appearance: none;
+        height: 1em;
+        vertical-align: middle;
+        background: var(--box);
+        border: 1px solid var(--line);
+        border-radius: 3px;
+        overflow: hidden;
+      }
+      progress::-webkit-progress-bar {
+        background: var(--box);
+      }
+      progress::-webkit-progress-value {
+        background: var(--accent);
+      }
+      progress::-moz-progress-bar {
+        background: var(--accent);
+      }
+      /* Scroll bars, selected text and the caret, from the tokens. */
+      * {
+        scrollbar-width: thin;
+        scrollbar-color: var(--line) var(--box);
+      }
+      ::selection {
+        background: var(--accent);
+        color: var(--panel);
+      }
+      input,
+      textarea {
+        caret-color: var(--accent);
       }
       .dialog .lots {
         display: flex;
@@ -1684,9 +1792,64 @@
         gap: 6px;
         align-items: center;
       }
+      /* A slider's track and handle: a framed groove and a button-like knob. */
       .options .slider input[type='range'] {
+        appearance: none;
         width: 10em;
-        accent-color: var(--accent);
+        height: 1.2em;
+        padding: 0;
+        background: none;
+        border: 0;
+        cursor: pointer;
+      }
+      .options .slider input[type='range']:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+      .options .slider input[type='range']:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+      .options .slider input[type='range']::-webkit-slider-runnable-track {
+        height: 6px;
+        background: var(--box);
+        border: 1px solid var(--line);
+        border-radius: 3px;
+      }
+      .options .slider input[type='range']::-moz-range-track {
+        height: 6px;
+        background: var(--box);
+        border: 1px solid var(--line);
+        border-radius: 3px;
+      }
+      .options .slider input[type='range']::-webkit-slider-thumb {
+        appearance: none;
+        width: 0.9em;
+        height: 1.2em;
+        margin-top: -7px;
+        background: var(--btn);
+        border: 1px solid var(--line);
+        border-radius: 3px;
+      }
+      .options .slider input[type='range']::-moz-range-thumb {
+        box-sizing: border-box;
+        width: 0.9em;
+        height: 1.2em;
+        background: var(--btn);
+        border: 1px solid var(--line);
+        border-radius: 3px;
+      }
+      .options .slider input[type='range']:hover::-webkit-slider-thumb {
+        border-color: var(--accent);
+      }
+      .options .slider input[type='range']:hover::-moz-range-thumb {
+        border-color: var(--accent);
+      }
+      /* A file option's picked name sits beside its Choose button. */
+      .options .file {
+        display: flex;
+        gap: 6px;
+        align-items: center;
       }
       .options .slider output {
         min-width: 3.5em;

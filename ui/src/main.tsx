@@ -132,6 +132,7 @@ import { loading, type PartName } from './loading';
 import { loadModule } from './teavm';
 import { applyTheme } from './theme';
 import { syncThemeColor } from './install';
+import { controlArt } from './control-art';
 import { cursor, initialView, panel, reduce, tileOnScreen, W, type ViewEvent, type ViewState } from './view';
 import type { GuiEvents, GuiHandlers, ReportView } from './webgui';
 
@@ -1316,6 +1317,7 @@ function drawMap(m: MapView) {
     void drawn.then(() => {
       if (!map.resources()) return;
       artReady = true;
+      controlArt(document.documentElement, art);
       showCompass(pageOption(prefs, 'model.option.displayCompassRose'));
       renderSide();
       renderMinimap();
