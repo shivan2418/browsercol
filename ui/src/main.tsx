@@ -83,6 +83,7 @@ import { clientOptionsGroup, leaves, type OptionGroup } from './options';
 import { mapDrawer, type MapView } from './map';
 import { europeButtons } from './europe-client';
 import { DialogHost, type Art, type ReportButtons, type RouteButtons } from './panels';
+import { acceleratorFor, inTextField, type Accelerator } from './accelerators';
 import { isTurnReportKey, reportForKey } from './report-keys';
 import { ReportContext, colopediaMenu, reportMenu, type ReportActions } from './reports';
 import { NO_OVERLAY, type ColonyLabels, type PathStep } from './tileset';
@@ -610,6 +611,16 @@ addEventListener(
     if (e.key !== 'F11' || !e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return;
     e.preventDefault();
     toggleSidePanel();
+  },
+  { capture: true },
+);
+// Alt+Enter (FreeCol's windowed mode accelerator) and F11 switch full screen, as the View menu does.
+addEventListener(
+  'keydown',
+  (e) => {
+    if (acceleratorFor(e) !== 'fullScreen' || e.repeat) return;
+    e.preventDefault();
+    menuActions().toggleFullScreen();
   },
   { capture: true },
 );
@@ -1324,23 +1335,26 @@ function playWith(client: ClientExports) {
       run({ k: 'showTurnReport' });
       return;
     }
-    // The Ctrl keys of the Game and View menus (FreeColMessages.properties): Save, Open, Preferences and
-    // Centre on the active unit. They keep the browser's own save, open and print dialogs away.
-    if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && !dialogQueue.current() && !e.repeat) {
+    // FreeCol's accelerators for the Game menu and Centre on the active unit (accelerators.ts). They keep the
+    // browser's own save, open, print and new window away, and leave Ctrl+X and Ctrl+C to a text field.
+    const accel = acceleratorFor(e);
+    if (accel && accel !== 'fullScreen' && !dialogQueue.current() && !e.repeat) {
       const a = menuActions();
-      const ctrl: Record<string, (() => void) | false> = {
-        s: a.ready && a.save,
-        o: a.open,
-        p: a.preferences,
-        c: a.hasActiveUnit && a.centreOnUnit,
+      const act: Record<Exclude<Accelerator, 'fullScreen'>, (() => void) | false> = {
+        new: a.newGame,
+        open: a.open,
+        save: a.ready && !a.panelShowing && a.save,
+        saveAndExit: a.ready && !a.panelShowing && a.saveAndExit,
+        quit: a.returnToMain,
+        preferences: a.preferences,
+        centre: a.hasActiveUnit && a.centreOnUnit,
       };
-      const act = ctrl[e.key.toLowerCase()];
-      const typing = e.target instanceof Element && e.target.matches('input, textarea, select, [contenteditable]');
+      const entry = act[accel];
       // Ctrl+C keeps copying a selection.
-      const copying = e.key.toLowerCase() === 'c' && !!getSelection()?.toString();
-      if (act && !typing && !copying) {
+      const copying = accel === 'centre' && !!getSelection()?.toString();
+      if (entry && !inTextField(e.target) && !copying) {
         e.preventDefault();
-        act();
+        entry();
         return;
       }
     }

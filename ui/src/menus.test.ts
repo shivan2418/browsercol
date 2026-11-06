@@ -70,7 +70,27 @@ describe('the Game menu', () => {
     const items = gameMenu(a);
     for (const l of ['New', 'Open', 'Save', 'Preferences', 'End Turn', 'High Scores', 'Retire']) find(items, l).run();
     expect(log).toEqual(['newGame', 'open', 'save', 'prefs', 'endTurn', 'showHighScores', 'retire']);
-    expect(items.filter((i) => i.disabled).map((i) => i.label)).toEqual(['Reconnect', 'Quit']);
+    expect(items.filter((i) => i.disabled).map((i) => i.label)).toEqual(['Reconnect']);
+  });
+
+  it('shows FreeCol’s accelerators as hints', () => {
+    const items = gameMenu(actions().a);
+    const hints = Object.fromEntries(items.filter((i) => i.hint).map((i) => [i.label, i.hint]));
+    expect(hints).toEqual({
+      New: 'Ctrl+N',
+      Open: 'Ctrl+O',
+      Save: 'Ctrl+S',
+      Preferences: 'Ctrl+P',
+      'Save and Exit': 'Ctrl+X',
+      Quit: 'Ctrl+Q',
+    });
+    expect(find(viewMenu(actions().a), 'Full Screen').hint).toBe('Alt+Enter');
+  });
+
+  it('takes Quit to the title screen', () => {
+    const { a, log } = actions();
+    find(gameMenu(a), 'Quit').run();
+    expect(log).toEqual(['returnToMain']);
   });
 
   it('disables the game’s commands until the client Engine has loaded', () => {
