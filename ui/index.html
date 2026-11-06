@@ -2397,6 +2397,9 @@
       }
       /* Buildings fill the left; the right column holds the population, tiles, production, construction and port; units outside and the warehouse run along the bottom. */
       .colony .cbody {
+        /* The fixed heights of the boxes that hold units and goods (see .colony .outside). */
+        --colony-row: 100px;
+        --colony-warehouse: 84px;
         display: grid;
         grid-template-columns: 1fr 400px;
         gap: 6px;
@@ -2813,16 +2816,31 @@
       .colony .need > :not(i) {
         position: relative;
       }
-      /* In port beside the cargo of the ship chosen there, then the units outside, then the warehouse. */
+      /*
+       * In port beside the cargo of the ship chosen there, then the units outside, then the warehouse. A window must
+       * not change size with what is in it: each of these boxes has the one height FreeCol's scroll panes
+       * give it, and more than fits wraps and scrolls inside the box.
+       */
       .colony .port,
       .colony .cargo,
       .colony .outside,
       .colony .warehouse {
-        min-height: 64px;
+        box-sizing: border-box;
         display: flex;
         flex-wrap: wrap;
         gap: 6px;
         align-items: end;
+        align-content: flex-start;
+        overflow-x: hidden;
+        overflow-y: auto;
+      }
+      .colony .port,
+      .colony .cargo,
+      .colony .outside {
+        height: var(--colony-row);
+      }
+      .colony .warehouse {
+        height: var(--colony-warehouse);
       }
       .colony .upper .buttons {
         width: 100%;
@@ -2835,15 +2853,12 @@
       /* Units outside the colony and the cargo of the chosen ship share a line; the cargo sits under the right column. */
       .colony .outside {
         grid-column: 1;
-        min-height: 52px;
       }
       .colony .cargo {
         grid-column: 2;
-        min-height: 52px;
       }
       .colony .warehouse {
         grid-column: 1 / -1;
-        min-height: 0;
         gap: 6px 14px;
         justify-content: space-between;
       }
