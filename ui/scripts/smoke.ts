@@ -7,14 +7,23 @@
 // unless every browser finishes the game, fetching the data bundle once, and
 // plays sound: the start screen's introduction music and the nation's, which
 // the Engine asks for as the game starts.
-// The page's dialogs are answered as scripts/dialogs.mjs says.
+// The page's dialogs are answered as scripts/dialogs.ts says.
 // Run in the web image:
-//   DEV_VARIANT=web ./dev.sh node ui/scripts/smoke.mjs [--browsers chromium,firefox] [--autoplay N] [--query preset=NAME] [--url https://deployed.site/path/]
+//   DEV_VARIANT=web ./dev.sh node ui/scripts/smoke.ts [--browsers chromium,firefox] [--autoplay N] [--query preset=NAME] [--url https://deployed.site/path/]
 import fs from 'node:fs';
 import path from 'node:path';
-import { browserNames, collectPageErrors, diagnose, launchBrowser, opt, waitForResult } from './common.mjs';
-import { answerDialogs } from './dialogs.mjs';
-import { dist, serveDist } from './serve-dist.mjs';
+import {
+  browserNames,
+  collectPageErrors,
+  diagnose,
+  launchBrowser,
+  opt,
+  waitForResult,
+  type FcResult,
+} from './common.ts';
+import { answerDialogs } from './dialogs.ts';
+import { dist, serveDist } from './serve-dist.ts';
+import type { Page, Request } from 'playwright-core';
 
 const browsers = browserNames();
 const autoplay = opt('autoplay', '10');
@@ -38,7 +47,7 @@ const MAP_WIDTH = 'model.option.mapWidth';
 const MAP_HEIGHT = 'model.option.mapHeight';
 
 /** Pick on the start screen (nothing picked keeps what it shows first) and start the game. */
-async function startFromScreen(page, nation, level, edits = false) {
+async function startFromScreen(page: Page, nation?: string, level?: string, edits = false) {
   await page.waitForSelector('[data-start]', { timeout: 60000 });
   if (nation) await page.click(`[data-nation="${nation}"]`);
   if (level) await page.selectOption('[data-difficulty]', level);
@@ -65,14 +74,14 @@ for (const name of browsers) {
   server.watch?.(page);
   server.resetDataFetches();
   /** The audio files the page asked for, under audio/. */
-  const audio = new Set();
-  const onRequest = (r) => {
+  const audio = new Set<string>();
+  const onRequest = (r: Request) => {
     const m = /\/audio\/(.+\.ogg)$/.exec(r.url());
-    if (m) audio.add(m[1]);
+    if (m) audio.add(m[1]!);
   };
   page.on('request', onRequest);
   const t = Date.now();
-  let result;
+  let result: FcResult;
   try {
     await page.goto(url);
     if (screen) await startFromScreen(page);
@@ -89,7 +98,7 @@ for (const name of browsers) {
     : ['default/resources/sound/intro/generic.ogg'];
   const unheard = sounds.filter((f) => !audio.has(f));
   // Each Classic nation, started from the start screen with a difficulty level, is the player's.
-  const nations = [];
+  const nations: string[] = [];
   if (screen) {
     for (const [nation, level] of NATIONS) {
       try {
@@ -128,7 +137,7 @@ for (const name of browsers) {
       await german.click('[data-start]');
       const r = await waitForResult(german, timeout);
       const units = await german.textContent('body');
-      if (!nation.includes('Niederländisch') || r.status !== 'finished' || !units.includes('Niederländisch Soldat'))
+      if (!nation!.includes('Niederländisch') || r.status !== 'finished' || !units!.includes('Niederländisch Soldat'))
         language = `German FAILED (${r.status}${r.error ? ': ' + r.error : ''}, start screen ${nation})`;
     } catch (ex) {
       language = `German FAILED (${await diagnose(ex)})`;
@@ -158,7 +167,7 @@ for (const name of browsers) {
   await browser.close();
   const ok =
     result.status === 'finished' &&
-    result.rounds.length === Number(autoplay) &&
+    result.rounds!.length === Number(autoplay) &&
     fetches === 1 &&
     unheard.length === 0 &&
     nations.every((n) => n.endsWith(' ok')) &&

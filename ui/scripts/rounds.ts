@@ -1,20 +1,20 @@
 // Times AI rounds as a game grows, in each browser, and samples the browser's
-// memory. Serves dist/ as smoke.mjs does, loads it with ?autoplay=N (the
+// memory. Serves dist/ as smoke.ts does, loads it with ?autoplay=N (the
 // human auto-ends N turns, so the AI plays N rounds) and polls window.fcRounds.
 // Prints one line per sample: the round, the AI's time for that round as the
 // Engine measured it ("round" event), the mean of the rounds since the last
 // sample, wall seconds since load, and the resident memory (RSS, MB) of the
 // browser's process tree, workers included.
 // Run in the web image:
-//   DEV_VARIANT=web ./dev.sh node ui/scripts/rounds.mjs [--rounds 300] [--browsers chromium,firefox] [--every 25] [--timeout 7200]
+//   DEV_VARIANT=web ./dev.sh node ui/scripts/rounds.ts [--rounds 300] [--browsers chromium,firefox] [--every 25] [--timeout 7200]
 // A run that stalls or hits --timeout reports as far as it got. Numbers
 // depend on the machine's load, so the script prints the load and CPU.
 import fs from 'node:fs';
 import os from 'node:os';
 import { execFileSync } from 'node:child_process';
-import { browserNames, opt, playwright } from './common.mjs';
-import { answerDialogs } from './dialogs.mjs';
-import { serveDist } from './serve-dist.mjs';
+import { browserNames, opt, playwright } from './common.ts';
+import { answerDialogs } from './dialogs.ts';
+import { serveDist } from './serve-dist.ts';
 
 const rounds = Number(opt('rounds', '300'));
 const every = Number(opt('every', '25'));
@@ -27,10 +27,11 @@ function treeRssMb() {
     .trim()
     .split('\n')
     .map((l) => l.trim().split(/\s+/).map(Number));
-  const kids = new Map();
-  for (const [pid, ppid, rss] of rows) kids.set(ppid, [...(kids.get(ppid) ?? []), [pid, rss]]);
+  const kids = new Map<number, [number, number][]>();
+  for (const [pid, ppid, rss] of rows as [number, number, number][])
+    kids.set(ppid, [...(kids.get(ppid) ?? []), [pid, rss]]);
   let kb = 0;
-  const walk = (pid) => {
+  const walk = (pid: number) => {
     for (const [c, rss] of kids.get(pid) ?? []) {
       kb += rss;
       walk(c);
@@ -62,7 +63,7 @@ for (const name of browsers) {
   let last = 0;
   let stall = Date.now();
   let seen = 0;
-  let all = [];
+  let all: string[] = [];
   while (Date.now() - t0 < timeout) {
     let state;
     try {

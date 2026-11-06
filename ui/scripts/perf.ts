@@ -5,14 +5,23 @@
 // per thread (page and Engine worker). The raw trace is kept in .cache/perf/ to
 // open in DevTools (Performance > Load profile) or ui.perfetto.dev.
 // Run in the web image:
-//   DEV_VARIANT=web ./dev.sh node ui/scripts/perf.mjs [--query renderer=canvas2d] [--turns 5] [--top 25]
+//   DEV_VARIANT=web ./dev.sh node ui/scripts/perf.ts [--query renderer=canvas2d] [--turns 5] [--top 25]
 // --throttle N slows the page's CPU N times (DevTools' CPU throttling) while the unit moves, and
 // --keys ArrowLeft,ArrowRight,... are the keys that move it.
 import fs from 'node:fs';
 import path from 'node:path';
-import { opt, playwright, waitForResult } from './common.mjs';
-import { answerDialogs } from './dialogs.mjs';
-import { serveDist } from './serve-dist.mjs';
+import { opt, playwright, waitForResult } from './common.ts';
+import { answerDialogs } from './dialogs.ts';
+import { serveDist } from './serve-dist.ts';
+
+/** What the page records (window.__perf): [time, ms or pixels] pairs and times. */
+interface PerfRecord {
+  frames: [number, number][];
+  long: [number, number][];
+  draws: number[];
+  blits: number[];
+  uploads: [number, number][];
+}
 
 const query = opt('query', '');
 const turns = Number(opt('turns', '5'));
@@ -53,15 +62,16 @@ if (quality) {
 }
 
 // Frame and long-task recorder, installed before the page's own scripts, and the
-// client Engine's last map view (as play.mjs keeps it) to tell when a turn is back.
+// client Engine's last map view (as play.ts keeps it) to tell when a turn is back.
 await page.addInitScript(() => {
-  const w = window;
-  let inner;
+  // The page's own globals and patched prototypes, untyped.
+  const w: any = window;
+  let inner: ((name: string, detail: string) => unknown) | undefined;
   Object.defineProperty(w, 'fcClientEvent', {
     configurable: true,
     get: () => inner,
-    set: (f) => {
-      inner = (name, detail) => {
+    set: (f: (name: string, detail: string) => unknown) => {
+      inner = (name: string, detail: string) => {
         if (name === 'map' || name === 'gameStarted') w.__map = JSON.parse(detail);
         return f(name, detail);
       };
@@ -73,7 +83,7 @@ await page.addInitScript(() => {
     for (const f of ['texImage2D', 'texSubImage2D']) {
       const orig = C?.prototype[f];
       if (!orig) continue;
-      C.prototype[f] = function (...a) {
+      C.prototype[f] = function (this: unknown, ...a: any[]) {
         const src = a.find((x) => x && typeof x === 'object' && 'width' in x);
         const px = src
           ? src.width * src.height
@@ -90,7 +100,7 @@ await page.addInitScript(() => {
   const ctx2d = w.CanvasRenderingContext2D.prototype;
   const blit = Reflect.get(ctx2d, 'drawImage');
   const skipMinimap = new URLSearchParams(location.search).has('perfnominimap');
-  ctx2d.drawImage = function (...a) {
+  ctx2d.drawImage = function (this: CanvasRenderingContext2D, ...a: any[]) {
     if (skipMinimap && this.canvas.closest?.('#minimap')) return;
     w.__perf.blits.push(performance.now());
     return blit.apply(this, a);
@@ -100,14 +110,14 @@ await page.addInitScript(() => {
     for (const f of ['drawElements', 'drawArrays', 'drawElementsInstanced', 'drawArraysInstanced']) {
       const orig = C?.prototype[f];
       if (orig)
-        C.prototype[f] = function (...a) {
+        C.prototype[f] = function (this: unknown, ...a: any[]) {
           w.__perf.draws.push(performance.now());
           return orig.apply(this, a);
         };
     }
   }
   let last = 0;
-  const tick = (t) => {
+  const tick = (t: number) => {
     if (last) w.__perf.frames.push([t, t - last]);
     last = t;
     requestAnimationFrame(tick);
@@ -137,21 +147,21 @@ if (process.argv.includes('--dim-off')) await page.evaluate(() => (document.body
 console.log(
   `grey-out: ${await page.evaluate(() => `${document.body.dataset.dimUnfocused}, unfocused ${document.body.dataset.unfocused}`)}`,
 );
-const renderer = await page.evaluate(() => window.fcResult?.renderer);
+const renderer = await page.evaluate(() => window.fcResult?.renderer as string | undefined);
 console.log(`renderer: ${renderer}`);
 const gl = await page.evaluate(() => {
   const c = document.createElement('canvas').getContext('webgl2');
   const d = c?.getExtension('WEBGL_debug_renderer_info');
-  return d ? c.getParameter(d.UNMASKED_RENDERER_WEBGL) : 'no webgl2';
+  return d ? c!.getParameter(d.UNMASKED_RENDERER_WEBGL) : 'no webgl2';
 });
 console.log(`GL: ${gl}`);
 
-const box = await page.locator('#map canvas').boundingBox();
+const box = (await page.locator('#map canvas').boundingBox())!;
 const [cx, cy] = [box.x + box.width / 2, box.y + box.height / 2];
-const pause = (ms) => page.waitForTimeout(ms);
+const pause = (ms: number) => page.waitForTimeout(ms);
 
-const phases = [];
-const phase = async (name, run) => {
+const phases: { name: string; start: number; end: number; wall: number }[] = [];
+const phase = async (name: string, run: () => Promise<unknown>) => {
   const start = await page.evaluate((n) => (performance.mark(`perf-start:${n}`), performance.now()), name);
   const wall = Date.now();
   await run();
@@ -235,16 +245,20 @@ await phase(`end ${turns} turns`, async () => {
 });
 
 await browser.stopTracing();
-const rec = await page.evaluate(() => window.__perf);
-const mem = await page.evaluate(() => performance.memory && Math.round(performance.memory.usedJSHeapSize / 1048576));
+const rec = (await page.evaluate(() => window.__perf)) as PerfRecord;
+const mem = await page.evaluate(() => {
+  // Chromium's own, not in the DOM's types.
+  const p = performance as Performance & { memory?: { usedJSHeapSize: number } };
+  return p.memory && Math.round(p.memory.usedJSHeapSize / 1048576);
+});
 await browser.close();
 server.close();
 
 // --- Frame times and long tasks per phase.
-const ups = (p) => rec.uploads.filter(([t]) => t >= p.start && t <= p.end);
-const draws = (p) => rec.draws.filter((t) => t >= p.start && t <= p.end);
-const pct = (xs, p) =>
-  xs.length ? xs.toSorted((a, b) => a - b)[Math.min(xs.length - 1, Math.floor(xs.length * p))] : 0;
+const ups = (p: { start: number; end: number }) => rec.uploads.filter(([t]) => t >= p.start && t <= p.end);
+const draws = (p: { start: number; end: number }) => rec.draws.filter((t) => t >= p.start && t <= p.end);
+const pct = (xs: number[], p: number) =>
+  xs.length ? xs.toSorted((a, b) => a - b)[Math.min(xs.length - 1, Math.floor(xs.length * p))]! : 0;
 console.log(`\nmain-thread JS heap at the end: ${mem} MB`);
 console.log(
   '\nphase                 wall_s  frames  fps   p50_ms  p95_ms  max_ms  >20ms  >50ms  long_tasks  long_ms  gl_draws  frames_drawn  2d_images',
@@ -286,14 +300,14 @@ for (const p of phases) {
 
 // --- The trace: thread names, busy time per thread per phase, and sampled self time per function.
 const trace = JSON.parse(fs.readFileSync(path.join(out, 'trace.json'), 'utf8'));
-const events = trace.traceEvents ?? trace;
-const threads = new Map();
+const events: any[] = trace.traceEvents ?? trace;
+const threads = new Map<string, string>();
 for (const e of events) if (e.name === 'thread_name') threads.set(`${e.pid}:${e.tid}`, e.args.name);
-const tname = (k) => threads.get(k) ?? k;
+const tname = (k: string) => threads.get(k) ?? k;
 
 // Map the page's performance.now() to trace time with the first frame's TracingStartedInBrowser? Simpler:
 // time of each phase relative to the trace start, by wall-clock proportions is unreliable, so busy time is per run.
-const busy = new Map();
+const busy = new Map<string, number>();
 for (const e of events) {
   if (e.ph !== 'X' || !e.dur) continue;
   if (e.name !== 'RunTask' && e.name !== 'ThreadControllerImpl::RunTask') continue;
@@ -318,7 +332,7 @@ for (const [k, ms] of [...busy].sort((a, b) => b[1] - a[1]).slice(0, 10)) {
 }
 
 // Busy time per phase on the busiest threads, between the phases' marks in the trace.
-const marks = new Map();
+const marks = new Map<string, number>();
 for (const e of events) {
   const m = /^perf-(start|end):(.*)$/.exec(e.name ?? '');
   if (m && e.ts) marks.set(`${m[1]}:${m[2]}`, e.ts);
@@ -352,12 +366,12 @@ for (const p of phases) {
 }
 
 // CPU profile chunks: one profile per thread (keyed by the Profile event's id).
-const profiles = new Map();
+const profiles = new Map<string, { thread: string; nodes: Map<number, any>; samples: number[]; deltas: number[] }>();
 for (const e of events) {
   if (e.name !== 'Profile' && e.name !== 'ProfileChunk') continue;
   const id = `${e.pid}:${e.id}`;
   if (!profiles.has(id)) profiles.set(id, { thread: `${e.pid}:${e.tid}`, nodes: new Map(), samples: [], deltas: [] });
-  const p = profiles.get(id);
+  const p = profiles.get(id)!;
   if (e.name === 'Profile') continue;
   const d = e.args?.data ?? {};
   for (const n of d.cpuProfile?.nodes ?? []) p.nodes.set(n.id, n);
@@ -366,7 +380,7 @@ for (const e of events) {
 }
 for (const p of profiles.values()) {
   if (!p.samples.length) continue;
-  const self = new Map();
+  const self = new Map<string, number>();
   let total = 0;
   for (let i = 0; i < p.samples.length; i++) {
     const n = p.nodes.get(p.samples[i]);

@@ -16,15 +16,15 @@ gen=ui/generated
 rm -rf "$gen"
 tools/copy-modules.sh
 # FreeCol's translations, served as strings/ and fetched as the player picks one.
-node ui/scripts/build-data.mjs freecol/data "$gen/data.json" "$gen/public/strings"
+node ui/scripts/build-data.ts freecol/data "$gen/data.json" "$gen/public/strings"
 # Map art, served as files under art/ (Vite's public dir), and each other
 # Tileset's manifest beside the default's: FreeCol+ (the page's
 # ?tileset=freecol-plus) and the test Tileset (?tileset=test).
-node ui/scripts/build-art.mjs freecol/data "$gen/public/art"
-node ui/scripts/build-art.mjs freecol/data "$gen/public/art" --manifest freecol-plus.json ui/tilesets/freecol-plus
-node ui/scripts/build-art.mjs freecol/data "$gen/public/art" --manifest test.json ui/tilesets/test
+node ui/scripts/build-art.ts freecol/data "$gen/public/art"
+node ui/scripts/build-art.ts freecol/data "$gen/public/art" --manifest freecol-plus.json ui/tilesets/freecol-plus
+node ui/scripts/build-art.ts freecol/data "$gen/public/art" --manifest test.json ui/tilesets/test
 # Music and sound effects, served as files under audio/, each fetched when it plays.
-node ui/scripts/build-audio.mjs freecol/data "$gen/public/audio"
+node ui/scripts/build-audio.ts freecol/data "$gen/public/audio"
 # Debug quick-start presets, served as presets/NAME.json (the page's ?preset=NAME).
 mkdir -p "$gen/public/presets"
 cp ui/presets/*.json "$gen/public/presets/"

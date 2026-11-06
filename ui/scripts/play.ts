@@ -10,7 +10,7 @@
 // The colony panel's two quick drops, a unit and goods aboard the ship in
 // one turn, must both land: the Engine runs the commands one at a time, and
 // queues the one that comes while another runs.
-// The page's dialogs are answered as scripts/dialogs.mjs says, and every
+// The page's dialogs are answered as scripts/dialogs.ts says, and every
 // question the controllers ask must reach one: a dialog with no Browser UI yet fails the run. Along the way
 // the map's view must follow the active unit, its cursor and the info panel
 // must match the client's active unit, the side panel's buttons must follow
@@ -18,11 +18,13 @@
 // what the side panel leaves of the window, and the wheel, a drag and the
 // pointer at an edge must zoom and scroll it at its new size. Exits non-zero
 // unless every browser gets there. Run in the web image:
-//   DEV_VARIANT=web ./dev.sh node ui/scripts/play.mjs [--browsers chromium,firefox] [--query renderer=canvas2d|preset=dutch-small|preset=] (default preset: play) [--scale 2]
+//   DEV_VARIANT=web ./dev.sh node ui/scripts/play.ts [--browsers chromium,firefox] [--query renderer=canvas2d|preset=dutch-small|preset=] (default preset: play) [--scale 2]
 import path from 'node:path';
-import { browserNames, collectPageErrors, diagnose, launchBrowser, opt, waitForResult } from './common.mjs';
-import { answerDialogs, dialogLog } from './dialogs.mjs';
-import { dist, serveDist } from './serve-dist.mjs';
+import type { Locator, Page } from 'playwright-core';
+import type { MapView, Unit } from '../src/tileset.ts';
+import { browserNames, collectPageErrors, diagnose, launchBrowser, opt, waitForResult } from './common.ts';
+import { answerDialogs, dialogLog } from './dialogs.ts';
+import { dist, serveDist } from './serve-dist.ts';
 
 const browsers = browserNames();
 /**
@@ -37,6 +39,33 @@ const query = /(^|&)preset=/.test(given)
 /** The device pixel ratio the browser reports: 2 to play as on a HiDPI screen. */
 const scale = Number(opt('scale', '1'));
 const MAX_TURNS = 15;
+
+/** A tile's [x, y]. */
+type Tile = [number, number];
+/** A free land the ship can sail to, how far it is and the first step there (freeLands). */
+interface Land {
+  tile: Tile;
+  dist: number;
+  dir: Dir | null | undefined;
+}
+/** What the Europe panel showed when it was shot (europePanel). */
+interface EuropeSeen {
+  recruits: number;
+  trains: number;
+  buys: (string | null)[];
+  sailDisabled: boolean;
+  headings: (string | null)[];
+  lists: (string | undefined)[];
+  goods: number;
+  prices: (string | null)[];
+}
+/** What a browser's run came to. */
+interface Result {
+  error?: string;
+  land?: Tile | null;
+  turn?: string;
+  note?: string;
+}
 
 // FreeCol's Direction deltas on its staggered rows: [odd row, even row].
 const DIRECTIONS = {
@@ -74,6 +103,7 @@ const DIRECTIONS = {
   ],
 };
 // The page's keys for each direction (ui/src/input.ts).
+type Dir = keyof typeof DIRECTIONS;
 const KEYS = {
   N: 'ArrowUp',
   NE: 'Numpad9',
@@ -100,16 +130,16 @@ const MAX_DETOUR = 2;
 // FreeCol's grey for a fortified unit (MapJson draws it in that colour).
 const FORTIFIED = 0x808080;
 
-const neighbour = ([x, y], d) => {
+const neighbour = ([x, y]: Tile, d: Dir): Tile => {
   const [dx, dy] = DIRECTIONS[d][y % 2 ? 0 : 1];
   return [x + dx, y + dy];
 };
-const same = (a, b) => a && b && a[0] === b[0] && a[1] === b[1];
-const label = (tile) => (tile ? tile.join(',') : 'none');
-const at = (list, tile) => list.some(({ x, y }) => same([x, y], tile));
+const same = (a: Tile | null | undefined, b: Tile | null | undefined) => a && b && a[0] === b[0] && a[1] === b[1];
+const label = (tile: Tile | null | undefined) => (tile ? tile.join(',') : 'none');
+const at = (list: { x: number; y: number }[], tile: Tile) => list.some(({ x, y }) => same([x, y], tile));
 
 /** The tile type id at a tile of a map view, null if unexplored or off the map. */
-function typeAt(m, [x, y]) {
+function typeAt(m: MapView, [x, y]: Tile) {
   if (x < 0 || y < 0 || x >= m.w || y >= m.h) return null;
   const i = m.tiles.charCodeAt(y * m.w + x) - 65;
   return i >= 0 ? m.types[i].id : null;
@@ -119,7 +149,7 @@ function typeAt(m, [x, y]) {
  * Whether the tile has a lost city rumour, as the map shows it when the tile
  * is seen: a rumour cannot be claimed, so a colony cannot work the tile.
  */
-const hasRumour = (m, t) =>
+const hasRumour = (m: MapView, t: Tile) =>
   m.items.some(([x, y, , , image]) => x === t[0] && y === t[1] && /lostCityRumour/.test(image));
 
 /**
@@ -130,7 +160,7 @@ const hasRumour = (m, t) =>
  * the colony's tiles, and in the town hall (which makes bells) when the
  * colony has none.
  */
-const isWorkable = (m, t) => {
+const isWorkable = (m: MapView, t: Tile) => {
   const type = typeAt(m, t);
   return (
     type &&
@@ -147,13 +177,13 @@ const isWorkable = (m, t) => {
  * Whether a colony founded on the tile would have a tile for its colonists
  * to work: FreeCol puts the founder in the town hall when it has none.
  */
-const hasWork = (m, t) => Object.keys(DIRECTIONS).some((d) => isWorkable(m, neighbour(t, d)));
+const hasWork = (m: MapView, t: Tile) => (Object.keys(DIRECTIONS) as Dir[]).some((d) => isWorkable(m, neighbour(t, d)));
 
 /**
  * Land to found on: explored, not water or barren, nobody's (so founding
  * needs no land claim), and with no settlement or unit on it.
  */
-const isFreeLand = (m, t) => {
+const isFreeLand = (m: MapView, t: Tile) => {
   const type = typeAt(m, t);
   return (
     type &&
@@ -166,9 +196,9 @@ const isFreeLand = (m, t) => {
 };
 
 /** Land that a nation owns: native land, which the script does not found on. */
-function ownedLand(m, t) {
+function ownedLand(m: MapView, t: Tile) {
   const type = typeAt(m, t);
-  return Boolean(type) && !WATER.test(type) && m.owners[t[1] * m.w + t[0]] !== '.';
+  return Boolean(type) && !WATER.test(type!) && m.owners[t[1] * m.w + t[0]] !== '.';
 }
 
 /**
@@ -178,20 +208,20 @@ function ownedLand(m, t) {
  * ship has seen no more of the map yet, and the direction is the first step
  * of the shortest route to the land.
  */
-function freeLands(m, ship, visited = new Set()) {
-  const dirs = Object.keys(DIRECTIONS);
-  const lands = new Map();
-  const first = new Map([[label(ship), null]]);
+function freeLands(m: MapView, ship: Tile, visited = new Set<string>()) {
+  const dirs = Object.keys(DIRECTIONS) as Dir[];
+  const lands = new Map<string, Land>();
+  const first = new Map<string, Dir | null>([[label(ship), null]]);
   const dist = new Map([[label(ship), 0]]);
   const queue = [ship];
-  let west = null;
-  let coast = null;
-  let frontier = null;
-  const frontiers = [];
-  const unexplored = ([x, y]) => x >= 0 && y >= 0 && x < m.w && y < m.h && !typeAt(m, [x, y]);
+  let west: Tile | null = null;
+  let coast: Tile | null = null;
+  let frontier: Tile | null = null;
+  const frontiers: { t: Tile; d: number }[] = [];
+  const unexplored = ([x, y]: Tile) => x >= 0 && y >= 0 && x < m.w && y < m.h && !typeAt(m, [x, y]);
   for (let i = 0; i < queue.length; i++) {
     const t = queue[i];
-    const d = dist.get(label(t));
+    const d = dist.get(label(t))!;
     for (const dir of dirs) {
       const n = neighbour(t, dir);
       if (!isFreeLand(m, n)) continue;
@@ -227,7 +257,7 @@ function freeLands(m, ship, visited = new Set()) {
   // Once the westmost frontier is at the map's west edge, the west has been seen and every edge tile ties:
   // sail instead to the frontier with the most unexplored map around it, less its distance.
   if (frontier && frontier[0] <= 2) {
-    const around = ({ t, d }) => {
+    const around = ({ t, d }: { t: Tile; d: number }) => {
       let n = 0;
       for (let y = t[1] - 4; y <= t[1] + 4; y++) for (let x = t[0] - 4; x <= t[0] + 4; x++) if (unexplored([x, y])) n++;
       return n - d / 2;
@@ -246,7 +276,11 @@ function freeLands(m, ship, visited = new Set()) {
  * the ship sails for the westmost sea it knows, where more of the map comes
  * into sight.
  */
-function bestLand(m, ship, visited) {
+function bestLand(
+  m: MapView,
+  ship: Tile,
+  visited: Set<string>,
+): { tile?: Tile; dist: number; dir: Dir | null | undefined } | null {
   const { lands, west } = freeLands(m, ship, visited);
   const all = [...lands.values()];
   if (!all.length) return west && { dir: west.dir, dist: Infinity };
@@ -256,11 +290,11 @@ function bestLand(m, ship, visited) {
 }
 
 /** How long each screenshot of a dialog took, for the report. */
-const shotTimes = [];
+const shotTimes: string[] = [];
 /** What the Europe panel showed when it was shot, as it was asked for by the Europe button. */
-const europeSeen = [];
+const europeSeen: (EuropeSeen | null)[] = [];
 
-async function play(page, url) {
+async function play(page: Page, url: string) {
   // Tutorial messages are off by default; the script turns them on to check the build colony tutorial
   // that follows the first landing.
   await page.addInitScript(() => {
@@ -270,12 +304,12 @@ async function play(page, url) {
   // Keep every map view the client Engine sends (ui/src/channel.ts calls
   // fcClientEvent for each), and count them.
   await page.addInitScript(() => {
-    let inner;
+    let inner: ((name: string, detail: string) => unknown) | undefined;
     window.__maps = 0;
     Object.defineProperty(window, 'fcClientEvent', {
       configurable: true,
       get: () => inner,
-      set: (f) => {
+      set: (f: (name: string, detail: string) => unknown) => {
         inner = (name, detail) => {
           if (name === 'map' || name === 'gameStarted') {
             window.__map = JSON.parse(detail);
@@ -288,41 +322,41 @@ async function play(page, url) {
   });
   /** The Europe panel, as the page draws it: its headings, its lists and its goods. */
   const europePanel = () =>
-    page.evaluate(async () => {
+    page.evaluate(async (): Promise<EuropeSeen | null> => {
       const d = document.querySelector('[role=dialog][data-kind=europe]');
       if (!d) return null;
       // The panel's lists are opened by its buttons, and are counted in the dialog the script is shooting:
       // the script closes it once shot.
-      const shop = async (kind, what) => {
-        d.querySelector(`button[data-europe=${kind}]`)?.click();
+      const shop = async (kind: string, what: string) => {
+        d.querySelector<HTMLButtonElement>(`button[data-europe=${kind}]`)?.click();
         await new Promise((ok) => requestAnimationFrame(() => setTimeout(ok, 50)));
         return [...d.querySelectorAll(`[data-shop=${kind}] ${what}`)];
       };
       const recruits = (await shop('recruit', '[data-recruit]')).length;
       const trains = (await shop('train', '[data-offer]')).length;
       const buys = (await shop('purchase', '[data-offer] .price')).map((p) => p.textContent);
-      d.querySelector('button[data-europe=purchase]')?.click();
+      d.querySelector<HTMLButtonElement>('button[data-europe=purchase]')?.click();
       await new Promise((ok) => requestAnimationFrame(() => setTimeout(ok, 50)));
       return (
         d && {
           recruits,
           trains,
           buys,
-          sailDisabled: d.querySelector('button[data-europe=sail]')?.disabled === true,
+          sailDisabled: d.querySelector<HTMLButtonElement>('button[data-europe=sail]')?.disabled === true,
           headings: [...d.querySelectorAll('h2, h3')].map((h) => h.textContent),
-          lists: [...d.querySelectorAll('[data-list]')].map((l) => l.dataset.list),
+          lists: [...d.querySelectorAll<HTMLElement>('[data-list]')].map((l) => l.dataset.list),
           goods: d.querySelectorAll('[data-goods]').length,
           prices: [...d.querySelectorAll('.price')].map((p) => p.textContent),
         }
       );
     });
   // A dialog with images is shot once its images have loaded: the first three of each kind.
-  const browserName = page.context().browser().browserType().name();
+  const browserName = page.context().browser()!.browserType().name();
   // The dialog stays open while it is shot, which Firefox can take long over (on CI, longer than the 10 s
   // noDialog waits for a dialog to close), so noDialog waits for the shot to be done first.
   let shooting = 0;
   shotTimes.length = 0;
-  await answerDialogs(page, async (kind, n) => {
+  await answerDialogs(page, async (kind: string | undefined, n: number) => {
     const t = Date.now();
     shooting++;
     try {
@@ -342,14 +376,14 @@ async function play(page, url) {
    * time no shot is being taken.
    */
   const noDialog = async (what = 'a step') => {
-    const open = () => page.evaluate(() => document.querySelector('[role=dialog]')?.dataset.kind ?? null);
+    const open = () => page.evaluate(() => document.querySelector<HTMLElement>('[role=dialog]')?.dataset.kind ?? null);
     let idle = Date.now();
     for (let kind = await open(); kind; kind = await open()) {
       if (shooting > 0) idle = Date.now();
       if (Date.now() - idle > 10000) {
         const detail = await page.evaluate(
           () =>
-            `${document.querySelector('[role=dialog]')?.textContent.slice(0, 80)}; answered: ${window.__dialogs.slice(-3).join(' | ')}`,
+            `${document.querySelector('[role=dialog]')?.textContent!.slice(0, 80)}; answered: ${window.__dialogs.slice(-3).join(' | ')}`,
         );
         throw new Error(
           `a ${kind} dialog stayed open for 10 s before ${what}: ${detail}; screenshots ${shooting > 0 ? 'still being taken' : 'done'}: ${shotTimes.join(' | ')}`,
@@ -366,7 +400,7 @@ async function play(page, url) {
    * did; a dialog on screen stops the key before then (and takes Enter as its answer), and the listener
    * sees nothing.
    */
-  const pressKey = async (name) => {
+  const pressKey = async (name: string) => {
     for (let attempt = 1; ; attempt++) {
       await noDialog(`pressing ${name}`);
       await page.evaluate(() => {
@@ -391,14 +425,15 @@ async function play(page, url) {
    * The order buttons over the map, with an active unit: each is what the page hits at its centre (nothing,
    * such as the map's canvas, covers it), and none overlaps the info panel or the minimap.
    */
-  const ordersOnTop = async (what) => {
+  const ordersOnTop = async (what: string) => {
     const check = () => {
-      const buttons = [...document.querySelectorAll('#map-orders button')];
-      const overlaps = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+      const buttons = [...document.querySelectorAll<HTMLElement>('#map-orders button')];
+      const overlaps = (a: DOMRect, b: DOMRect) =>
+        a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
       const others = ['#info-panel', '#minimap']
         .map((s) => document.querySelector(s))
         .filter((e) => e && e.getClientRects().length > 0)
-        .map((e) => ({ id: e.id, rect: e.getBoundingClientRect() }));
+        .map((e) => ({ id: e!.id, rect: e!.getBoundingClientRect() }));
       const bad = buttons.flatMap((b) => {
         const r = b.getBoundingClientRect();
         const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
@@ -411,7 +446,7 @@ async function play(page, url) {
       return buttons.length === 0 ? ['no order buttons'] : bad;
     };
     // The layout may still be settling after the side panel was shown or hidden: up to 5 s.
-    let bad = [];
+    let bad: string[] = [];
     for (let i = 0; i < 50; i++) {
       bad = await page.evaluate(check);
       if (bad.length === 0) return;
@@ -420,7 +455,7 @@ async function play(page, url) {
     throw new Error(`the order buttons are not on top ${what}: ${bad.join(', ')}`);
   };
   /** Do something that ends with a new map view, and return that view. */
-  const act = async (doIt) => {
+  const act = async (doIt: () => Promise<unknown>) => {
     await noDialog('a command');
     const n = await page.evaluate(() => window.__maps);
     await doIt();
@@ -432,14 +467,15 @@ async function play(page, url) {
    * click aimed before the scroll lands on the tile that was at that pixel; so when another unit is selected,
    * the tile is revealed and clicked again, up to three times.
    */
-  const select = async (m, tile) => {
+  const select = async (m: MapView, tile: Tile) => {
     for (let attempt = 1; ; attempt++) {
       const n = await page.evaluate(() => window.__maps);
       await noDialog('a click');
       await click(m, tile);
       await page
         .waitForFunction(
-          ([n, [x, y]]) => window.__maps > n && window.__map.active?.[0] === x && window.__map.active?.[1] === y,
+          ([n, [x, y]]: [number, Tile]) =>
+            window.__maps > n && window.__map.active?.[0] === x && window.__map.active?.[1] === y,
           [n, tile],
           { timeout: attempt < 3 ? 3000 : 60000, label: 'the clicked tile selects its unit' },
         )
@@ -471,7 +507,7 @@ async function play(page, url) {
    * Pick a thing up in the colony panel: the panel is shown afresh as each change reaches the client, so a
    * click can land as it is redrawn; a pick is clicked again until it shows picked.
    */
-  const pickUp = async (thing, what) => {
+  const pickUp = async (thing: Locator, what: string) => {
     for (let i = 0; i < 5; i++) {
       await thing.click();
       if ((await thing.getAttribute('data-picked')) === 'true') return;
@@ -485,12 +521,16 @@ async function play(page, url) {
    * named by the start of its entry, e.g. "amount: ", for a page function cannot be given a function
    * to match with.
    */
-  const waitForDialog = async (logged, prefix, what, timeout = 10000) => {
+  const waitForDialog = async (logged: number, prefix: string, what: string, timeout = 10000) => {
     const got = await page
-      .waitForFunction(([n, p]) => (window.__dialogs ?? []).slice(n).some((d) => d.startsWith(p)), [logged, prefix], {
-        timeout,
-        label: `the dialog "${prefix}" opens (${what})`,
-      })
+      .waitForFunction(
+        ([n, p]: [number, string]) => (window.__dialogs ?? []).slice(n).some((d) => d.startsWith(p)),
+        [logged, prefix],
+        {
+          timeout,
+          label: `the dialog "${prefix}" opens (${what})`,
+        },
+      )
       .then(() => true)
       .catch((ex) => {
         // Only a timeout means the dialog did not come; anything else is a fault in the page.
@@ -506,7 +546,7 @@ async function play(page, url) {
    * clicked back to its tile, given other work, and a colonist outside is put to work and out again, and a building is queued. After each
    * move the panel must show the colonist in its new place, and the net production must have changed.
    */
-  const moveColonists = async (m, land, founder) => {
+  const moveColonists = async (m: MapView, land: Tile, founder: string) => {
     await noDialog('opening the colony panel');
     await page.evaluate(() => (window.__hold = 'colony'));
     await act(() => click(m, land));
@@ -515,18 +555,18 @@ async function play(page, url) {
     // The net production is drawn as icons, one for each of the amount, and text only for a loss or a large
     // amount, so its text alone is empty for a small one: the state is each goods with its icons and text.
     const netOf = () =>
-      [...document.querySelectorAll('[data-part=net] .made-goods')]
+      [...document.querySelectorAll<HTMLElement>('[data-part=net] .made-goods')]
         .map(
           (e) =>
             `${e.dataset.goods}:${e.querySelectorAll('img, .name').length}:${e.querySelector('.amount')?.textContent ?? ''}`,
         )
         .join(' ');
     const net = () => page.evaluate(netOf);
-    const unit = (id) => panel.locator(`[data-unit="${id}"]`).first();
-    const within = (place, id, timeout = 20000) =>
+    const unit = (id: string) => panel.locator(`[data-unit="${id}"]`).first();
+    const within = (place: Locator, id: string, timeout = 20000) =>
       place.locator(`[data-unit="${id}"]`).waitFor({ timeout, label: 'a unit shows in a place of the colony panel' });
     /** Whether the unit is in the place, as the panel is shown again after a change. */
-    const landed = async (place, id, timeout = 20000) =>
+    const landed = async (place: Locator, id: string, timeout = 20000) =>
       within(place, id, timeout).then(
         () => true,
         () => false,
@@ -536,7 +576,7 @@ async function play(page, url) {
      * reaches the client, and a drag that a redraw interrupts drops nowhere, as a player's would: the drag
      * is made again, up to three times, and the error names the place when none of them took.
      */
-    const dragInto = async (id, target, place, what) => {
+    const dragInto = async (id: string, target: Locator, place: Locator, what: string) => {
       for (let attempt = 1; attempt <= 3; attempt++) {
         await unit(id).dragTo(target);
         if (await landed(place, id, 10000)) return;
@@ -544,7 +584,7 @@ async function play(page, url) {
       }
       throw new Error(`the drag of ${id} ${what} did not take in 3 tries`);
     };
-    const changed = async (than, what) => {
+    const changed = async (than: string, what: string) => {
       await page
         // netOf runs in the page as its source, in a string expression.
         .waitForFunction(`(${netOf.toString()})() !== ${JSON.stringify(than)}`, null, {
@@ -558,14 +598,16 @@ async function play(page, url) {
     };
     // Where the founder is in the panel: on a tile, in a building, or outside the colony. FreeCol puts
     // the founder to work on the colony's best tile, and in the town hall when the colony has none.
-    const start = await unit(founder).evaluate((e) => {
-      const tile = e.closest('[data-tile]');
+    const start = await unit(founder).evaluate((e): { tile?: string; place?: string } => {
+      const tile = e.closest<HTMLElement>('[data-tile]');
       if (tile) return { tile: tile.dataset.tile };
       const building = e.closest('[data-building]');
       if (building) return { place: `the ${building.getAttribute('title') ?? 'building'}` };
-      return { place: e.closest('[data-part]')?.dataset.part === 'outside' ? 'outside the colony' : 'nowhere' };
+      return {
+        place: e.closest<HTMLElement>('[data-part]')?.dataset.part === 'outside' ? 'outside the colony' : 'nowhere',
+      };
     });
-    let tileId = start.tile ?? null;
+    let tileId: string | null = start.tile ?? null;
     if (!tileId) {
       // The colony has no tile for the founder to work (its tiles are water,
       // or the arctic, or land nobody may claim), so FreeCol put it in the
@@ -575,7 +617,7 @@ async function play(page, url) {
       // pay.
       const free = await panel
         .locator('[data-tile][data-drop]:not(:has(img.taken)):not(:has(img.natives))')
-        .evaluateAll((es) => es.map((e) => e.dataset.tile));
+        .evaluateAll((es) => es.map((e) => e.dataset.tile!));
       for (const id of free) {
         const place = panel.locator(`[data-tile="${id}"]`);
         await unit(founder).dragTo(place.locator('.hit'));
@@ -632,7 +674,7 @@ async function play(page, url) {
       const work = menu.locator(`[data-entry^="work:${founder},${tileId},"]`);
       if ((await work.count()) > 0) {
         const entry = await work.first().getAttribute('data-entry');
-        const goods = entry.split(',')[2];
+        const goods = entry!.split(',')[2];
         await work.first().click();
         // The tile makes it now. (The net production would do, but it moves twice when a colonist returns to work.)
         await tile
@@ -648,10 +690,10 @@ async function play(page, url) {
 
     // A colonist outside the colony goes to work, and out again.
     const outside = panel.locator('[data-part=outside]');
-    const waiting = await outside.locator('[data-unit]').evaluateAll((es) => es.map((e) => e.dataset.unit));
+    const waiting = await outside.locator('[data-unit]').evaluateAll((es) => es.map((e) => e.dataset.unit!));
     const before = await net();
     // Not every unit left on the colony's tile can work in a building (a soldier cannot): the first that can does.
-    let other = null;
+    let other: string | null = null;
     for (const id of waiting) {
       await unit(id).dragTo(hall);
       if (await landed(hall, id, 8000)) {
@@ -659,7 +701,7 @@ async function play(page, url) {
         break;
       }
     }
-    if (other === null) throw new Error(`no colonist outside could be put to work in a building: ${waiting}`);
+    if (other === null) throw new Error(`no colonist outside could be put to work in a building: ${String(waiting)}`);
     await changed(before, 'a colonist outside was put to work in a building');
     await dragInto(other, outside, outside, 'out of the building');
 
@@ -683,7 +725,7 @@ async function play(page, url) {
     await panel.locator('[data-part=construction]').click();
     const addable = panel.locator('[data-part=buildings] [data-buildable] button:not([disabled])');
     if ((await addable.count()) > 0) {
-      const type = await addable.first().evaluate((e) => e.closest('[data-buildable]').dataset.buildable);
+      const type = await addable.first().evaluate((e) => e.closest<HTMLElement>('[data-buildable]')!.dataset.buildable);
       await addable.first().click();
       await panel
         .locator(`[data-part=queued] [data-queued="${type}"]`)
@@ -711,16 +753,16 @@ async function play(page, url) {
    * select amount dialog asks how much (the answerer keeps the amount it suggests), go aboard and come back.
    * Next turn the ship sails back out to sea. What the server does with the cargo is CommandsTest's to check.
    */
-  const loadShip = async (m, land, sea) => {
+  const loadShip = async (m: MapView, land: Tile, sea: Tile) => {
     m = await select(m, sea);
     if (!same(m.active, sea)) throw new Error(`clicking ${label(sea)} selected ${label(m.active)}`);
-    const shipId = m.activeUnit.id;
-    const dirs = Object.keys(DIRECTIONS);
+    const shipId = m.activeUnit!.id;
+    const dirs = Object.keys(DIRECTIONS) as Dir[];
     const into = dirs.find((d) => same(neighbour(sea, d), land));
     const out = dirs.find((d) => same(neighbour(land, d), sea));
-    m = await act(() => pressKey(KEYS[into]));
+    m = await act(() => pressKey(KEYS[into!]));
     // The map names the unit in front on a tile only, so the ship is found gone from the sea.
-    if (m.units.some((u) => u.id === shipId)) {
+    if (m.units.some((u) => (u as Unit & { id?: string }).id === shipId)) {
       throw new Error(`the ship ${shipId} did not sail into the colony at ${label(land)}`);
     }
 
@@ -740,7 +782,7 @@ async function play(page, url) {
     // a place is clicked again until nothing is picked.
     // The Engine runs the commands one at a time, so a put waits for its command's closing map before
     // the next one goes.
-    const putOn = async (place, what) => {
+    const putOn = async (place: Locator, what: string) => {
       const n = await page.evaluate(() => window.__maps);
       for (let i = 0; i < 5; i++) {
         await place.click();
@@ -761,13 +803,13 @@ async function play(page, url) {
      * it (#98). The drags are dispatched together, so that both commands reach the Engine before either
      * of them has run.
      */
-    const dropBoth = async (unitId, goodsType, shipId) => {
+    const dropBoth = async (unitId: string, goodsType: string, shipId: string) => {
       await page.evaluate(
-        ([unit, goods, ship]) => {
+        ([unit, goods, ship]: [string, string, string]) => {
           // The panel reads the shift key as the thing is pressed, and shift as it is dragged.
-          const press = (el, shift) =>
+          const press = (el: Element, shift: boolean) =>
             el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, shiftKey: shift }));
-          const drag = (el, shift) =>
+          const drag = (el: Element, shift: boolean) =>
             el.dispatchEvent(
               new DragEvent('dragstart', {
                 bubbles: true,
@@ -776,7 +818,7 @@ async function play(page, url) {
                 dataTransfer: new DataTransfer(),
               }),
             );
-          const drop = (el) =>
+          const drop = (el: Element) =>
             el.dispatchEvent(
               new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: new DataTransfer() }),
             );
@@ -791,7 +833,7 @@ async function play(page, url) {
           drag(two, true);
           drop(place);
         },
-        [unitId, goodsType, shipId],
+        [unitId, goodsType, shipId] as [string, string, string],
       );
     };
 
@@ -867,14 +909,14 @@ async function play(page, url) {
         `the ship ${shipId} could not be selected in the colony: active ${m.activeUnit?.id} at ${label(m.active)}`,
       );
     }
-    m = await act(() => pressKey(KEYS[out]));
+    m = await act(() => pressKey(KEYS[out!]));
     if (!same(m.active, sea)) throw new Error(`the ship did not sail back to ${label(sea)}: at ${label(m.active)}`);
     console.log(`  colony panel: ${passenger} boarded the ship and left it, ${goods} loaded and unloaded`);
     return m;
   };
-  const viewState = () => page.evaluate(() => window.fcView());
+  const viewState = () => page.evaluate(() => window.fcView!());
   /** The view is on the client's active unit: the cursor on its tile, in view, and the panel naming it. */
-  const following = async (m, what) => {
+  const following = async (m: MapView, what: string) => {
     const v = await viewState();
     if (!m.activeUnit || v.active?.unit !== m.activeUnit.id || !same(v.cursor?.at, m.active)) {
       throw new Error(
@@ -883,12 +925,12 @@ async function play(page, url) {
     }
     // The view's own geometry (tileOnScreen in ui/src/view.ts, unit-tested
     // there) places the cursor; clicks through fcReveal rely on the same maths.
-    const [px, py] = v.cursorOnScreen;
+    const [px, py] = v.cursorOnScreen!;
     if (px < 0 || py < 0 || px > v.viewport[0] || py > v.viewport[1]) {
       throw new Error(`${what}: the active unit at ${label(m.active)} is out of view`);
     }
     // React renders the panel a moment after the view changes.
-    const shows = (label) => document.querySelector('#info')?.textContent.startsWith(label);
+    const shows = (label: string) => document.querySelector('#info')?.textContent!.startsWith(label);
     if (
       !(await page
         .waitForFunction(shows, m.activeUnit.label, { timeout: 5000, label: 'the info panel names the active unit' })
@@ -902,12 +944,12 @@ async function play(page, url) {
    * The menu bar must span the top of the window, and the map canvas fill the window below it up to the side
    * panel, which must reach the window's right edge.
    */
-  const laidOut = async (what) => {
+  const laidOut = async (what: string) => {
     // These run in the page, so neither can call the other.
     const boxes = () => {
-      const c = document.querySelector('#map canvas').getBoundingClientRect();
-      const s = document.querySelector('#side').getBoundingClientRect();
-      const m = document.querySelector('.menubar').getBoundingClientRect();
+      const c = document.querySelector('#map canvas')!.getBoundingClientRect();
+      const s = document.querySelector('#side')!.getBoundingClientRect();
+      const m = document.querySelector('.menubar')!.getBoundingClientRect();
       return {
         menubar: [m.left, m.right, m.top, m.bottom],
         canvas: [c.left, c.right, c.top, c.bottom],
@@ -916,9 +958,9 @@ async function play(page, url) {
       };
     };
     const fills = () => {
-      const c = document.querySelector('#map canvas').getBoundingClientRect();
-      const s = document.querySelector('#side').getBoundingClientRect();
-      const m = document.querySelector('.menubar').getBoundingClientRect();
+      const c = document.querySelector('#map canvas')!.getBoundingClientRect();
+      const s = document.querySelector('#side')!.getBoundingClientRect();
+      const m = document.querySelector('.menubar')!.getBoundingClientRect();
       const bar = m.top === 0 && m.height > 0 && m.left === 0 && m.right === innerWidth;
       return (
         bar &&
@@ -942,7 +984,7 @@ async function play(page, url) {
   const widenSide = async () => {
     const style = await page.addStyleTag({ content: '#side { width: 600px; }' });
     await laidOut('with a wider side panel');
-    await style.evaluate((s) => s.remove());
+    await style.evaluate((s) => (s as Element).remove());
     await laidOut('with the side panel back');
   };
   /** Shrink the window: the map canvas and the view's viewport must shrink with it. */
@@ -950,27 +992,27 @@ async function play(page, url) {
     await laidOut('before a resize');
     const before = (await viewState()).viewport;
     const [dw, dh] = [300, 200];
-    const size = page.viewportSize();
+    const size = page.viewportSize()!;
     await page.setViewportSize({ width: size.width - dw, height: size.height - dh });
     const want = [before[0] - dw, before[1] - dh];
     // These run in the page, so neither can call the other.
     const canvasSize = () => {
-      const c = document.querySelector('#map canvas');
+      const c = document.querySelector<HTMLCanvasElement>('#map canvas');
       return [c?.width, c?.height];
     };
     // The canvas's CSS box is the viewport's size, in CSS pixels, and its
     // backing store is that many device pixels: the map is drawn at the
     // screen's pixel ratio.
-    const fits = ([w, h]) => {
-      const c = document.querySelector('#map canvas');
-      const [vw, vh] = window.fcView().viewport;
+    const fits = ([w, h]: number[]) => {
+      const c = document.querySelector<HTMLCanvasElement>('#map canvas');
+      const [vw, vh] = window.fcView!().viewport;
       const r = window.devicePixelRatio || 1;
       const box = c?.getBoundingClientRect();
       return (
         box?.width === w &&
         box.height === h &&
-        c.width === Math.round(w * r) &&
-        c.height === Math.round(h * r) &&
+        c!.width === Math.round(w * r) &&
+        c!.height === Math.round(h * r) &&
         vw === w &&
         vh === h
       );
@@ -991,7 +1033,7 @@ async function play(page, url) {
   /** Zoom with the wheel, drag the map and rest the pointer at its right edge; each must move the view. */
   const zoomAndScroll = async () => {
     await noDialog('zooming');
-    const box = await page.locator('#map canvas').boundingBox();
+    const box = (await page.locator('#map canvas').boundingBox())!;
     const [cx, cy] = [box.x + box.width / 2, box.y + box.height / 2];
     const before = await viewState();
     await page.mouse.move(cx, cy);
@@ -999,7 +1041,7 @@ async function play(page, url) {
     // may be late), so wait for the zoom to change.
     await page.mouse.wheel(0, -100);
     await page
-      .waitForFunction((z) => window.fcView().zoom > z, before.zoom, {
+      .waitForFunction((z) => window.fcView!().zoom > z, before.zoom, {
         timeout: 5000,
         label: 'the wheel zooms the map in',
       })
@@ -1021,16 +1063,16 @@ async function play(page, url) {
     }
     await page.mouse.wheel(0, 100);
   };
-  const click = async (m, [x, y]) => {
-    const box = await page.locator('#map canvas').boundingBox();
-    const [px, py] = await page.evaluate(([x, y]) => window.fcReveal(x, y), [x, y]);
+  const click = async (m: MapView, [x, y]: Tile) => {
+    const box = (await page.locator('#map canvas').boundingBox())!;
+    const [px, py] = await page.evaluate(([x, y]) => window.fcReveal!(x, y), [x, y]);
     await page.mouse.click(box.x + px, box.y + py);
   };
 
   /** A right-click on our colony's tile opens the tile popup with the colony in it; a click elsewhere closes it. */
-  const tilePopup = async (m, [x, y]) => {
-    const box = await page.locator('#map canvas').boundingBox();
-    const [px, py] = await page.evaluate(([x, y]) => window.fcReveal(x, y), [x, y]);
+  const tilePopup = async (m: MapView, [x, y]: Tile) => {
+    const box = (await page.locator('#map canvas').boundingBox())!;
+    const [px, py] = await page.evaluate(([x, y]) => window.fcReveal!(x, y), [x, y]);
     await page.mouse.click(box.x + px, box.y + py, { button: 'right' });
     const popup = page.locator('.popup[role=menu]');
     await popup.waitFor({ timeout: 10000, label: 'the tile popup opens' });
@@ -1058,13 +1100,13 @@ async function play(page, url) {
   // that land is much farther off than the nearest land, which it takes
   // then: the crossing is long, and the script puts the founder to work
   // itself when the colony has a tile to work.
-  let land = null;
+  let land: Tile | null = null;
   const firstTurn = m.turn;
   // Where the ship was last seen: the map names no active unit when the ship
   // is out of moves, and then it names no place either.
-  let place = null;
-  const visited = new Set();
-  const trail = [];
+  let place: Tile | null = null;
+  const visited = new Set<string>();
+  const trail: string[] = [];
   for (let turns = 0; !land;) {
     if (m.active) {
       place = m.active;
@@ -1080,7 +1122,7 @@ async function play(page, url) {
       continue;
     }
     const ship = m.active;
-    m = await act(() => pressKey(KEYS[step.dir]));
+    m = await act(() => pressKey(KEYS[step.dir!]));
     if (m.activeUnit) await following(m, 'after a move');
     if (step.tile && at(m.units, step.tile)) land = step.tile;
     else if (same(m.active, ship)) {
@@ -1093,20 +1135,22 @@ async function play(page, url) {
   }
 
   // Turns taken to reach the land, counted from the first turn.
-  console.log(`  landed on turn ${m.turn} (${m.turn - firstTurn} turns of sailing after the first)`);
+  console.log(
+    `  landed on turn ${m.turn} (${(m.turn as unknown as number) - (firstTurn as unknown as number)} turns of sailing after the first)`,
+  );
 
   // The ship is the active unit while it sails: remember where it is, to
   // select it and fortify it later.
-  const shipTile = m.active;
+  const shipTile = m.active!;
 
   // The landed units have no moves left: next turn, select one and build.
   m = await endTurn();
-  m = await select(m, land);
+  m = await select(m, land!);
   if (!same(m.active, land)) throw new Error(`clicking ${label(land)} selected ${label(m.active)}`);
   await following(m, 'after selecting a unit');
-  const founder = m.activeUnit.id;
+  const founder = m.activeUnit!.id;
   m = await act(() => pressKey('b'));
-  if (!at(m.settlements, land)) throw new Error(`no colony at ${label(land)}`);
+  if (!at(m.settlements, land!)) throw new Error(`no colony at ${label(land)}`);
   // The controller opens the colony panel after founding, with the founder working in the colony.
   const panelShowsFounder = await page
     .waitForFunction(
@@ -1119,10 +1163,10 @@ async function play(page, url) {
     const seen = await page.evaluate(() => window.__dialogUnits);
     throw new Error(`the colony panel did not show the founder ${founder}: ${JSON.stringify(seen)}`);
   }
-  const note = await moveColonists(m, land, founder);
-  await tilePopup(m, land);
+  const note = await moveColonists(m, land!, founder);
+  await tilePopup(m, land!);
   m = await endTurn();
-  if (!at(m.settlements, land)) throw new Error(`the colony at ${label(land)} is gone after the AI turn`);
+  if (!at(m.settlements, land!)) throw new Error(`the colony at ${label(land)} is gone after the AI turn`);
 
   // The Trade routes button asks the Engine for the panel, which the page shows (the dialog answerer
   // closes it). Making, changing and deleting routes is CommandsTest's and panels.test.tsx's to check.
@@ -1171,7 +1215,7 @@ async function play(page, url) {
     }
   }
 
-  m = await loadShip(m, land, shipTile);
+  m = await loadShip(m, land!, shipTile);
 
   // The ship is at sea again: select it and fortify it, as a player would.
   // The side panel's Fortify button follows the Engine's orders, and the
@@ -1191,10 +1235,10 @@ async function play(page, url) {
   await ordersOnTop('with the side panel shown again');
   await page.evaluate(() => {
     window.__mapClicked = false;
-    document.querySelector('#map').addEventListener('click', () => (window.__mapClicked = true), { once: true });
+    document.querySelector('#map')!.addEventListener('click', () => (window.__mapClicked = true), { once: true });
   });
   m = await act(async () => {
-    const b = await page.locator('#map-orders [data-order=fortify]').boundingBox();
+    const b = (await page.locator('#map-orders [data-order=fortify]').boundingBox())!;
     await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2);
   });
   if (await page.evaluate(() => window.__mapClicked)) throw new Error('a click on an order button reached the map');
@@ -1237,7 +1281,7 @@ async function play(page, url) {
   if (!europe.headings[0] || europe.headings.length < 6 || !lists.every((l) => europe.lists.includes(l))) {
     throw new Error(`the Europe panel lacks FreeCol's headings or lists: ${JSON.stringify(europe)}`);
   }
-  if (europe.goods < 10 || !europe.prices.every((p) => /^\d+\/\d+$/.test(p))) {
+  if (europe.goods < 10 || !europe.prices.every((p) => /^\d+\/\d+$/.test(p!))) {
     throw new Error(`the Europe panel's market is wrong: ${JSON.stringify(europe)}`);
   }
 
@@ -1247,7 +1291,7 @@ async function play(page, url) {
     europe.recruits !== 3 ||
     europe.trains < 1 ||
     europe.buys.length < 1 ||
-    !europe.buys.every((p) => /\d/.test(p)) ||
+    !europe.buys.every((p) => /\d/.test(p!)) ||
     !europe.sailDisabled
   ) {
     throw new Error(`Europe's recruit, train or purchase list or its sail button is wrong: ${JSON.stringify(europe)}`);
@@ -1268,7 +1312,9 @@ async function play(page, url) {
     });
     const editor = await page.evaluate(() => {
       const controls = [
-        ...document.querySelectorAll('[role=dialog][data-kind=options] [data-option] :is(input, select)'),
+        ...document.querySelectorAll<HTMLInputElement | HTMLSelectElement>(
+          '[role=dialog][data-kind=options] [data-option] :is(input, select)',
+        ),
       ];
       return { options: controls.length, editable: controls.filter((c) => !c.disabled).length };
     });
@@ -1284,7 +1330,7 @@ async function play(page, url) {
   // The art the dialogs show, from events as the client Engine sends them (the page's fcShow): the
   // event panel's two flavour images, and a turn report with the image of each kind of object, and
   // its group by option and buttons. The real game gives few of these in its first turns.
-  const show = async (kind, event) => {
+  const show = async (kind: string, event: unknown) => {
     await noDialog(`showing the ${kind} event`);
     const before = await page.evaluate(() => window.__pictures.length);
     await page.evaluate(([k, json]) => window.fcShow(k, json), [kind, JSON.stringify(event)]);
@@ -1305,7 +1351,7 @@ async function play(page, url) {
   const ok = 'OK';
   await show('eventPanel', { header: 'Landfall', image: 'image.flavor.event.firstLanding', footer: null, ok });
   await show('eventPanel', { header: 'The Pacific', image: 'image.flavor.event.discoverPacific', footer: null, ok });
-  const message = (text, type, images, more = {}) => ({
+  const message = (text: string, type: string, images: string[], more = {}) => ({
     text,
     type,
     source: null,
@@ -1359,10 +1405,10 @@ for (const name of browsers) {
   const page = await browser.newPage({ viewport: { width: 1400, height: 900 }, deviceScaleFactor: scale });
   const errors = collectPageErrors(page);
   const t = Date.now();
-  let result;
+  let result: Result;
   try {
     result = await play(page, `${server.url}?skipstart${query ? `&${query}` : ''}`);
-    await page.evaluate(([x, y]) => window.fcReveal(x, y), result.land);
+    await page.evaluate(([x, y]) => window.fcReveal!(x, y), result.land!);
     await page.screenshot({ path: path.join(dist, `../.cache/play-${name}.png`) });
   } catch (ex) {
     result = { error: await diagnose(ex) };
@@ -1376,12 +1422,12 @@ for (const name of browsers) {
   // The art of the dialogs must have loaded, and the first landing's event panel must have had its image.
   const broken = pictures.filter((p) => !p.loaded);
   if (!result.error && broken.length > 0) result = { error: `dialog images did not load: ${JSON.stringify(broken)}` };
-  if (!result.error && !pictures.some((p) => p.kind === 'eventPanel' && /landing/.test(p.src))) {
+  if (!result.error && !pictures.some((p) => p.kind === 'eventPanel' && /landing/.test(p.src!))) {
     result = { error: `the first landing's event panel showed no image: ${JSON.stringify(pictures)}` };
   }
   // The panel above is the one the script injects (kind eventPanel). The game's own is asked by the Engine
   // (kind event) when the new land is named, and closing it adds the build colony tutorial message.
-  if (!result.error && !pictures.some((p) => p.kind === 'event' && /landing/.test(p.src))) {
+  if (!result.error && !pictures.some((p) => p.kind === 'event' && /landing/.test(p.src!))) {
     result = { error: `the Engine did not ask the first landing's event panel: ${dialogs.join(' | ')}` };
   }
   // The tutorial is a model message, shown by nextModelMessage with any others that are queued, so it may

@@ -8,16 +8,17 @@
 // import and load a save that TeaVM's ZipFile failed on (#31). The turn autosaves FreeCol makes as each turn
 // begins are checked after the first turn. The page's autosaves sit in the list beside
 // the script's save, so the script finds its own row by name. Exits non-zero
-// unless every browser gets there. The page's dialogs are answered as scripts/dialogs.mjs says.
+// unless every browser gets there. The page's dialogs are answered as scripts/dialogs.ts says.
 // Run in the web image:
-//   DEV_VARIANT=web ./dev.sh node ui/scripts/saves.mjs [--browsers chromium,firefox] [--keep-export DIR]
+//   DEV_VARIANT=web ./dev.sh node ui/scripts/saves.ts [--browsers chromium,firefox] [--keep-export DIR]
 // --keep-export copies each browser's exported .fsg to DIR (for tools/desktop-check.sh).
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { browserNames, collectPageErrors, diagnose, launchBrowser, opt, setStep, waitForResult } from './common.mjs';
-import { answerDialogs } from './dialogs.mjs';
-import { dist, serveDist } from './serve-dist.mjs';
+import { browserNames, collectPageErrors, diagnose, launchBrowser, opt, setStep, waitForResult } from './common.ts';
+import { answerDialogs } from './dialogs.ts';
+import { dist, serveDist } from './serve-dist.ts';
+import type { Page } from 'playwright-core';
 
 const browsers = browserNames();
 const keepExport = opt('keep-export', '');
@@ -26,11 +27,11 @@ const SAVE_NAME = 'script save';
 const DUMMY_BYTE_SAVE = path.join(import.meta.dirname, 'fixtures/zip-needs-dummy-byte.fsg');
 
 /** Play with the page of one browser; returns what was checked. */
-async function run(page, url, shot, browserName) {
-  // Keep the latest map view the client Engine sends, as play.mjs does, and when the save list last
+async function run(page: Page, url: string, shot: () => Promise<unknown>, browserName: string) {
+  // Keep the latest map view the client Engine sends, as play.ts does, and when the save list last
   // changed and when the last map view of the player's turn came, for listSettled.
   await page.addInitScript(() => {
-    let inner;
+    let inner: ((name: string, detail: string) => unknown) | undefined;
     window.__maps = 0;
     window.__listAt = 0;
     window.__ourMapAt = -Infinity;
@@ -45,8 +46,8 @@ async function run(page, url, shot, browserName) {
     Object.defineProperty(window, 'fcClientEvent', {
       configurable: true,
       get: () => inner,
-      set: (f) => {
-        inner = (name, detail) => {
+      set: (f: (name: string, detail: string) => unknown) => {
+        inner = (name: string, detail: string) => {
           if (name === 'map' || name === 'gameStarted') {
             window.__map = JSON.parse(detail);
             window.__maps++;
@@ -78,7 +79,7 @@ async function run(page, url, shot, browserName) {
     const turn = (await view()).turn;
     await noDialog();
     await page.keyboard.press('Enter');
-    await page.waitForFunction((t) => window.__map.turn !== t && window.__map.ourTurn, turn, {
+    await page.waitForFunction((t: string) => window.__map.turn !== t && window.__map.ourTurn, turn, {
       timeout: 120000,
       label: 'the next turn starts and play is back with the human',
     });
@@ -96,18 +97,18 @@ async function run(page, url, shot, browserName) {
       SAVE_NAME,
     );
   /** The one row of the script's save; throws, with the whole list, if there is not exactly one. */
-  const ownRow = async (what) => {
+  const ownRow = async (what: string) => {
     const own = await ownRows();
     if (own.length !== 1) throw new Error(`${what}: ${JSON.stringify(await rows())}`);
-    return own[0];
+    return own[0]!;
   };
   /** Wait until the list shows `count` rows of the script's save. */
-  const waitOwn = (count) =>
+  const waitOwn = (count: number) =>
     page.waitForFunction(
-      ([n, c]) =>
+      ([n, c]: [string, number]) =>
         [...document.querySelectorAll('#saves [data-save]')].filter((r) => r.textContent?.startsWith(`${n} |`))
           .length === c,
-      [SAVE_NAME, count],
+      [SAVE_NAME, count] as [string, number],
       { timeout: 10000, label: `the save list shows ${count} rows of the script's save` },
     );
 
@@ -125,7 +126,7 @@ async function run(page, url, shot, browserName) {
       { timeout: 30000, polling: 100, label: 'the save list has its autosave and stops moving' },
     );
   /** Clicks a button of a save's row once the list holds still. */
-  const clickRow = async (id, button) => {
+  const clickRow = async (id: string | null, button: string) => {
     await listSettled();
     await page.click(`#saves [data-save="${id}"] [${button}]`);
   };
@@ -142,7 +143,7 @@ async function run(page, url, shot, browserName) {
   // turn, the before-last-turn save of the first, and a turn autosave of each.
   const autosaves = {
     'Autosave-last-turn': played.turn,
-    'Autosave-before-last-turn': played.turn - 1,
+    'Autosave-before-last-turn': Number(played.turn) - 1,
     [`Autosave-${played.turnLabel}`]: played.turn,
   };
   await page
@@ -150,7 +151,7 @@ async function run(page, url, shot, browserName) {
       (want) =>
         Object.entries(want).every(([n, t]) =>
           [...document.querySelectorAll('#saves [data-save]')].some(
-            (r) => r.textContent?.startsWith(`${n} |`) && r.textContent.includes(`turn ${t} `),
+            (r) => r.textContent?.startsWith(`${n} |`) && r.textContent.includes(`turn ${String(t)} `),
           ),
         ),
       autosaves,
@@ -192,7 +193,7 @@ async function run(page, url, shot, browserName) {
    * for one after another, so a timeout says which of them did not happen (#244): the page writes its
    * note just after it hands the file to the browser.
    */
-  const exportOne = async (id, what) => {
+  const exportOne = async (id: string | null, what: string) => {
     setStep(`4. export ${what}`);
     const downloaded = page.waitForEvent('download', { timeout: 30000, label: `the browser's download of ${what}` });
     // Rejected before it is awaited (a failed click, say), it must not be an unhandled rejection.
@@ -317,7 +318,7 @@ for (const name of browsers) {
   const page = await browser.newPage();
   const errors = collectPageErrors(page);
   const t = Date.now();
-  let line;
+  let line: string;
   try {
     const r = await run(
       page,

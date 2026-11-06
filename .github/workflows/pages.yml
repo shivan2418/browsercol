@@ -66,4 +66,4 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Smoke against the Pages URL
-        run: DEV_VARIANT=web ./dev.sh node ui/scripts/smoke.mjs --url "${{ needs.deploy.outputs.page_url }}"
+        run: DEV_VARIANT=web ./dev.sh node ui/scripts/smoke.ts --url "${{ needs.deploy.outputs.page_url }}"

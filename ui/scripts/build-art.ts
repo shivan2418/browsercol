@@ -6,7 +6,7 @@
 // mission chip colours; and the keys the panels show (map-keys.ts): the
 // images of what a message is about, and of the event panel.
 // Prints the art budget: file count, bytes, brotli bytes and atlas area.
-// Usage: node build-art.mjs <freecol/data> <out dir> [--manifest <file>] [mod dir...]
+// Usage: node build-art.ts <freecol/data> <out dir> [--manifest <file>] [mod dir...]
 // The manifest is art.json unless --manifest names another file; the option
 // may come before or after the mod directories. Files already in the out dir
 // stay, so a Tileset built with mods can share the default Tileset's
@@ -20,7 +20,7 @@ import { parseProperties, resources } from '../src/resources.ts';
 const args = process.argv.slice(2);
 const dataDir = args[0];
 const outDir = args[1];
-const usage = 'Usage: node build-art.mjs <freecol/data> <out dir> [--manifest <file>] [mod dir...]';
+const usage = 'Usage: node build-art.ts <freecol/data> <out dir> [--manifest <file>] [mod dir...]';
 if (!dataDir || !outDir) {
   console.error(usage);
   process.exit(1);
@@ -66,7 +66,7 @@ const files = layers.flatMap(({ dir, root }) =>
 const res = resources(layers, files);
 
 const keys = new Set(layers.flatMap(({ props }) => parseProperties(props).map(([k]) => k)));
-const used = new Set();
+const used = new Set<string | null>();
 for (const key of keys) {
   for (let n = 0; n < res.variations(key); n++) used.add(res.path(key, n));
 }
@@ -76,9 +76,9 @@ const rootOf = new Map(layers.map(({ dir, root }) => [dir, root]));
 let bytes = 0;
 let brotli = 0;
 let area = 0;
-for (const file of used) {
+for (const file of used as Set<string>) {
   const layer = [...rootOf.keys()].find((d) => file.startsWith(`${d}/`));
-  const body = fs.readFileSync(path.join(rootOf.get(layer), file.slice(layer.length + 1)));
+  const body = fs.readFileSync(path.join(rootOf.get(layer!)!, file.slice(layer!.length + 1)));
   fs.mkdirSync(path.dirname(path.join(outDir, file)), { recursive: true });
   fs.writeFileSync(path.join(outDir, file), body);
   bytes += body.length;
@@ -87,11 +87,11 @@ for (const file of used) {
 }
 const manifest = {
   layers: layers.map(({ dir, props }) => ({ dir, props })),
-  files: [...used].sort((a, b) => (a < b ? -1 : 1)),
+  files: [...(used as Set<string>)].sort((a, b) => (a < b ? -1 : 1)),
 };
 fs.mkdirSync(outDir, { recursive: true });
 fs.writeFileSync(path.join(outDir, manifestFile), JSON.stringify(manifest));
-const mib = (n) => `${(n / 2 ** 20).toFixed(1)} MiB`;
+const mib = (n: number) => `${(n / 2 ** 20).toFixed(1)} MiB`;
 console.log(
   `${manifestFile}: ${used.size} files, ${mib(bytes)}, ${mib(brotli)} brotli, ` +
     `${(area / 2048 ** 2).toFixed(1)} 2048x2048 atlas pages of pixels, ` +

@@ -217,7 +217,7 @@ export interface Sound {
   music: boolean;
 }
 
-/** What build-audio.mjs writes as audio.json. */
+/** What build-audio.ts writes as audio.json. */
 export interface AudioManifest {
   sounds: Record<string, Sound>;
   /** The default playlist's files, in name order. */

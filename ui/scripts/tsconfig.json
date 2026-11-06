@@ -1,0 +1,8 @@
+{
+  // The browser and build scripts, run by Node's type stripping: Node's types, and the DOM's for page.evaluate.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "types": ["node", "vite-plus/client"]
+  },
+  "include": [".", "../src/main.tsx"]
+}

@@ -12,8 +12,12 @@
 // a screenshot.
 // A kind named by window.__hold is logged and shot, but left open for the script to use.
 // Call before page.goto; read the log with dialogLog(page).
+import type { Page } from 'playwright-core';
 
-export async function answerDialogs(page, shot = null) {
+export async function answerDialogs(
+  page: Page,
+  shot: ((kind: string | undefined, n: number) => unknown) | null = null,
+) {
   if (shot) await page.exposeFunction('__shot', shot);
   await page.addInitScript(() => {
     window.__dialogs = [];
@@ -21,10 +25,12 @@ export async function answerDialogs(page, shot = null) {
     window.__pictures = [];
     /** The units each dialog names by id (data-unit), e.g. the colony panel's workers. */
     window.__dialogUnits = [];
-    const shots = {};
-    const loadedImages = async (d) => {
+    const shots: Record<string, number> = {};
+    const loadedImages = async (d: HTMLElement) => {
       const imgs = [...d.querySelectorAll('img')];
       await Promise.all(
+        // A complete image is true, not a promise: Promise.all takes it as is.
+        // oxlint-disable-next-line typescript/await-thenable
         imgs.map(
           (img) =>
             img.complete ||
@@ -36,7 +42,7 @@ export async function answerDialogs(page, shot = null) {
       );
       return imgs;
     };
-    const answer = async (d) => {
+    const answer = async (d: HTMLElement) => {
       const text = d.querySelector('.text, h2')?.textContent ?? '';
       window.__dialogs.push(`${d.dataset.kind}: ${text.split('\n')[0]}`);
       window.__dialogTexts.push(
@@ -44,24 +50,24 @@ export async function answerDialogs(page, shot = null) {
       );
       window.__dialogUnits.push({
         kind: d.dataset.kind,
-        units: [...d.querySelectorAll('[data-unit]')].map((e) => e.dataset.unit),
+        units: [...d.querySelectorAll<HTMLElement>('[data-unit]')].map((e) => e.dataset.unit),
       });
       const imgs = await loadedImages(d);
       for (const img of imgs) {
         window.__pictures.push({ kind: d.dataset.kind, src: img.getAttribute('src'), loaded: img.naturalWidth > 0 });
       }
-      const n = (shots[d.dataset.kind] ?? 0) + 1;
+      const n = (shots[d.dataset.kind!] ?? 0) + 1;
       if (imgs.length > 0 && window.__shot && n <= 3) {
-        shots[d.dataset.kind] = n;
+        shots[d.dataset.kind!] = n;
         await window.__shot(d.dataset.kind, n);
       }
       // A script that works in a panel sets window.__hold to its kind, and closes it itself.
       if (window.__hold === d.dataset.kind) return;
-      const pick = (selector) => d.querySelector(selector);
-      const buttonFor = {
+      const pick = (selector: string) => d.querySelector<HTMLElement>(selector);
+      const buttonFor: Record<string, () => HTMLElement | null | undefined> = {
         confirm: () =>
           (!/Europe/.test(d.textContent ?? '') && pick('[data-answer=ok]')) || pick('[data-answer=cancel]'),
-        choice: () => [...d.querySelectorAll('[data-choice]:not(:disabled)')].pop(),
+        choice: () => [...d.querySelectorAll<HTMLElement>('[data-choice]:not(:disabled)')].pop(),
         input: () => pick('[data-answer=ok]'),
         amount: () => pick('[data-answer=ok]'),
         goods: () => pick('[data-answer=ok]'),
@@ -70,11 +76,11 @@ export async function answerDialogs(page, shot = null) {
         preCombat: () => pick('[data-answer=ok]'),
         negotiation: () => pick('[data-answer=cancel]') || pick('[data-answer=send]'),
       };
-      (buttonFor[d.dataset.kind] ?? (() => pick('[data-answer=close]')))()?.click();
+      (buttonFor[d.dataset.kind!] ?? (() => pick('[data-answer=close]')))()?.click();
     };
     const seen = new WeakSet();
     new MutationObserver(() => {
-      for (const d of document.querySelectorAll('[role=dialog]')) {
+      for (const d of document.querySelectorAll<HTMLElement>('[role=dialog]')) {
         if (seen.has(d)) continue;
         seen.add(d);
         // After React has finished rendering it.
@@ -85,7 +91,7 @@ export async function answerDialogs(page, shot = null) {
 }
 
 /** The dialogs answered so far, the images they showed, and the WebGUI dialogs that had no Browser UI. */
-export function dialogLog(page) {
+export function dialogLog(page: Page) {
   return page.evaluate(() => ({
     dialogs: window.__dialogs ?? [],
     texts: window.__dialogTexts ?? [],

@@ -8,31 +8,32 @@
 // Tileset and neither without, and the page loads FreeCol+'s manifest and
 // starts a game without page errors.
 // Run in the web image:
-//   DEV_VARIANT=web ./dev.sh node ui/scripts/tileset.mjs [--browsers chromium,firefox]
+//   DEV_VARIANT=web ./dev.sh node ui/scripts/tileset.ts [--browsers chromium,firefox]
 import path from 'node:path';
-import { browserNames, collectPageErrors, diagnose, launchBrowser, waitForResult } from './common.mjs';
-import { answerDialogs } from './dialogs.mjs';
-import { dist, serveDist } from './serve-dist.mjs';
+import { browserNames, collectPageErrors, diagnose, launchBrowser, waitForResult } from './common.ts';
+import { answerDialogs } from './dialogs.ts';
+import { dist, serveDist } from './serve-dist.ts';
+import type { Page } from 'playwright-core';
 
 const browsers = browserNames();
 /** The share of the map the unexplored tiles must at least cover at the start. */
 const MIN_SHARE = 0.1;
 
 /** The share of the map canvas's pixels that are exactly the test Tileset's cyan. */
-async function cyanShare(page, url) {
+async function cyanShare(page: Page, url: string) {
   await page.goto(url);
   const result = await waitForResult(page, 120000);
   if (result.status !== 'finished') throw new Error(`${result.status}: ${result.error}`);
-  // Turn messages open over the map; scripts/dialogs.mjs closes them.
+  // Turn messages open over the map; scripts/dialogs.ts closes them.
   await page.waitForFunction(() => !document.querySelector('[role=dialog]'), null, { timeout: 10000 });
   // A screenshot rather than reading the canvas, which WebGL may have cleared.
   const png = (await page.locator('#map canvas').screenshot()).toString('base64');
-  const share = await page.evaluate(async (png) => {
+  const share = await page.evaluate(async (png: string) => {
     const img = new Image();
     img.src = 'data:image/png;base64,' + png;
     await img.decode();
     const c = Object.assign(document.createElement('canvas'), { width: img.width, height: img.height });
-    const g = c.getContext('2d');
+    const g = c.getContext('2d')!;
     g.drawImage(img, 0, 0);
     const px = g.getImageData(0, 0, c.width, c.height).data;
     let n = 0;
@@ -91,17 +92,17 @@ const colony = {
   },
 };
 
-/** The file the colony panel shows for the town hall. dialogs.mjs closes the panel and keeps its images. */
-async function townHall(page) {
+/** The file the colony panel shows for the town hall. dialogs.ts closes the panel and keeps its images. */
+async function townHall(page: Page) {
   await page.evaluate((c) => window.fcShow('colony', JSON.stringify(c)), colony);
   const handle = await page.waitForFunction(
     () => (window.__pictures ?? []).filter((p) => p.kind === 'colony').at(-1),
     null,
     { timeout: 10000 },
   );
-  const picture = await handle.jsonValue();
+  const picture = (await handle.jsonValue())!;
   if (!picture.loaded) throw new Error(`the town hall did not load: ${picture.src}`);
-  return picture.src;
+  return picture.src!;
 }
 
 const server = await serveDist();
@@ -111,7 +112,7 @@ for (const name of browsers) {
   const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
   const errors = collectPageErrors(page);
   await answerDialogs(page);
-  let line;
+  let line: string;
   try {
     const plain = await cyanShare(page, `${server.url}?skipstart`);
     const plainHall = await townHall(page);
@@ -119,15 +120,15 @@ for (const name of browsers) {
     const testHall = await townHall(page);
     await page.screenshot({ path: path.join(dist, `../.cache/tileset-${name}.png`) });
     await page.evaluate(() => localStorage.setItem('freecol.prefs', JSON.stringify({ tileset: 'freecol-plus' })));
-    const manifests = [];
+    const manifests: string[] = [];
     page.on('request', (r) => {
       if (r.url().includes('/art/') && r.url().endsWith('.json'))
         manifests.push(path.basename(new URL(r.url()).pathname));
     });
     const plus = await cyanShare(page, `${server.url}?skipstart`);
     await page.evaluate(() => localStorage.removeItem('freecol.prefs'));
-    const pct = (s) => `${(s * 100).toFixed(1)}%`;
-    const testArt = (src) => src.includes('/test/');
+    const pct = (s: number) => `${(s * 100).toFixed(1)}%`;
+    const testArt = (src: string) => src.includes('/test/');
     const ok =
       plain.share === 0 &&
       test.share >= MIN_SHARE &&

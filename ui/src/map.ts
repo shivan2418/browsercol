@@ -1,7 +1,7 @@
 // The map in Tileset mode: draws the operations of tileset.ts with
 // PixiJS, falling back to Canvas 2D where PixiJS cannot get a renderer (some
 // headless browsers). Images load by path from the art/ directory that
-// scripts/build-art.mjs fills; recipes (FreeCol's masked images) are
+// scripts/build-art.ts fills; recipes (FreeCol's masked images) are
 // composited once on a canvas and cached by id. The map is FreeCol's: 128x64
 // diamonds in staggered rows, odd rows half a tile to the right. It shows
 // the part of the map, at the zoom, that the view state (view.ts) says, with
@@ -1011,7 +1011,7 @@ async function paint(pen: Pen, layer: Layer, ops: Op[], pics: ReturnType<typeof 
 }
 
 /**
- * Time a step of drawing the map from `start` to now, for a performance observer (scripts/perf.mjs) to see. It is
+ * Time a step of drawing the map from `start` to now, for a performance observer (scripts/perf.ts) to see. It is
  * cleared from the timeline at once, which the observer still gets, so a long game does not pile them up.
  */
 function measure(name: string, start: number) {
@@ -1019,7 +1019,7 @@ function measure(name: string, start: number) {
   performance.clearMeasures(name);
 }
 
-/** The art manifest from scripts/build-art.mjs. */
+/** The art manifest from scripts/build-art.ts. */
 interface Art {
   layers: ArtLayer[];
   files: string[];

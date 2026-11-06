@@ -51,7 +51,7 @@ fast: test-engine check test-ui
 
 # Browser script against dist/: smoke, play, saves, tileset or rounds
 browser script *args:
-    DEV_VARIANT=web ./dev.sh node ui/scripts/{{script}}.mjs {{args}}
+    DEV_VARIANT=web ./dev.sh node ui/scripts/{{script}}.ts {{args}}
 
 # The whole local suite: fast checks, build and the browser scripts
 suite: fast build (browser "smoke") (browser "play") (browser "tileset")

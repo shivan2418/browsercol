@@ -47,7 +47,7 @@ async function load(name) {
  * the strings the Engine expects (ui/src/webgui.ts): "true" for a confirm,
  * the index of a choice, the text of an input. They are the defaults a
  * player would give, as the Browser UI takes them when the player presses
- * Enter (ui/src/panels.tsx) or its auto-player clicks (ui/scripts/dialogs.mjs).
+ * Enter (ui/src/panels.tsx) or its auto-player clicks (ui/scripts/dialogs.ts).
  */
 const answers = {
   /**
