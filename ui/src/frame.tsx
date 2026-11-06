@@ -63,11 +63,14 @@ export function useEscape(close: (() => void) | null, keys: readonly string[] = 
   }, []);
 }
 
+/** What the player types into: a key pressed there is text, not a shortcut. */
+export const TEXT_ENTRY = 'input, textarea, select, [role="combobox"], [contenteditable]';
+
 /** Whether a key press is one of a window's close keys: no modifier, and not typed into a field. */
 function isCloseKey(e: KeyboardEvent, keys: readonly string[]): boolean {
   if (e.altKey || e.ctrlKey || e.metaKey || e.repeat) return false;
   const target = e.target instanceof Element ? e.target : null;
-  if (target?.matches('input, textarea, select, [role="combobox"], [contenteditable]')) return false;
+  if (target?.matches(TEXT_ENTRY)) return false;
   return keys.some((k) => k.toLowerCase() === e.key.toLowerCase());
 }
 

@@ -23,7 +23,7 @@ import { ColonyActions, ColonyPanel } from './colony-panel';
 import { DebugContext } from './debug';
 import type { Dialog, Dialogs } from './dialogs';
 import { europeButtons } from './europe-client';
-import { GoodsAmount, WindowFrame, type Art } from './frame';
+import { GoodsAmount, TEXT_ENTRY, WindowFrame, type Art } from './frame';
 import { CopyDetailsContext, ShowLogContext } from './log';
 import { lane } from './drag';
 import { draggableProps, dropTargetProps, type Item, type Place } from './moves';
@@ -1536,7 +1536,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
   useEffect(() => {
     const onKey = (ev: KeyboardEvent) => {
       if (ev.altKey || ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.repeat) return;
-      if (ev.target instanceof Element && ev.target.matches('input, textarea, select, [contenteditable]')) return;
+      if (ev.target instanceof Element && ev.target.matches(TEXT_ENTRY)) return;
       const windows = document.querySelectorAll('.dialog[data-kind]');
       if (windows[windows.length - 1]?.getAttribute('data-kind') !== 'europe') return;
       keyAct.current(ev.key.toLowerCase());

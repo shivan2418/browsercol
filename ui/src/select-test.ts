@@ -4,14 +4,17 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { expect } from 'vite-plus/test';
 
+/** A mouse press and release on an element. */
+function press(el: Element) {
+  fireEvent.pointerDown(el, { button: 0, pointerType: 'mouse' });
+  fireEvent.mouseDown(el, { button: 0 });
+  fireEvent.pointerUp(el, { button: 0, pointerType: 'mouse' });
+  fireEvent.mouseUp(el, { button: 0 });
+}
+
 /** Open a drop-down list (its button) with the pointer, and wait until its options are on screen. */
 export async function openSelect(trigger: Element) {
-  await act(async () => {
-    fireEvent.pointerDown(trigger, { button: 0, pointerType: 'mouse' });
-    fireEvent.mouseDown(trigger, { button: 0 });
-    fireEvent.pointerUp(trigger, { button: 0, pointerType: 'mouse' });
-    fireEvent.mouseUp(trigger, { button: 0 });
-  });
+  await act(async () => press(trigger));
   await waitFor(() => expect(trigger.getAttribute('aria-expanded')).toBe('true'));
   await waitFor(() => expect(options()).not.toEqual([]));
 }
@@ -40,10 +43,7 @@ export async function chooseOption(trigger: Element, text: string) {
   const item = options().find((o) => o.textContent === text);
   if (!item) throw new Error(`No option "${text}" in ${JSON.stringify(listed())}`);
   await act(async () => {
-    fireEvent.pointerDown(item, { button: 0, pointerType: 'mouse' });
-    fireEvent.mouseDown(item, { button: 0 });
-    fireEvent.pointerUp(item, { button: 0, pointerType: 'mouse' });
-    fireEvent.mouseUp(item, { button: 0 });
+    press(item);
     fireEvent.click(item, { button: 0 });
   });
   await waitFor(() => expect(listed()).toEqual([]));
