@@ -372,6 +372,25 @@ export function sameStaticScene(a: MapView, b: MapView): boolean {
 }
 
 /**
+ * What gives the static scene of a map view: the one it gave last, the same object, while the map views differ
+ * only in their units, else a new one drawn at `ticks`.
+ */
+export function staticScenes(): (
+  map: MapView,
+  res: Resources,
+  colonyLabels: ColonyLabels,
+  ticks: Ticks,
+) => StaticScene {
+  let kept: { map: MapView; res: Resources; colonyLabels: ColonyLabels; scene: StaticScene } | null = null;
+  return (map, res, colonyLabels, ticks) => {
+    if (kept && kept.res === res && kept.colonyLabels === colonyLabels && sameStaticScene(kept.map, map))
+      return kept.scene;
+    kept = { map, res, colonyLabels, scene: staticScene(map, res, colonyLabels, ticks) };
+    return kept.scene;
+  };
+}
+
+/**
  * The map's draw operations.
  *
  * @param ticks The frame of the animated water and rivers.
