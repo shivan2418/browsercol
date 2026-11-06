@@ -60,6 +60,14 @@ suite: fast build (browser "smoke") (browser "play") (browser "tileset")
 ci:
     ./ci.sh
 
+# Open a save in the upstream Java FreeCol (Swing) on this desktop: a path, "last" (newest autosave) or a save name
+swing save *args:
+    tools/fc-swing/open.sh {{save}} {{args}}
+
+# Upstream Java FreeCol on a virtual screen, driven and screenshotted: -s SAVE, then steps like wait:40000 shot:map key:F1 (see tools/fc-swing/shot.sh)
+swing-shot *args:
+    tools/fc-swing/shot.sh {{args}}
+
 # The Swing parity inventory: Swing's player actions, row by row, into docs/parity
 parity:
     ./dev.sh node tools/swing-inventory.mjs

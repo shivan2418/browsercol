@@ -35,6 +35,15 @@ DEV_VARIANT=web ./dev.sh node ui/scripts/tileset.mjs # draw the map and a colony
 DEV_VARIANT=web ./dev.sh node ui/scripts/rounds.mjs --rounds 300  # time AI rounds and memory as the game grows, per browser
 ```
 
+To compare with the original, `tools/fc-swing/` runs upstream FreeCol's Swing
+game at `freecol.sha` (the jar is built with Ant in Docker, into
+`~/.cache/freecol-swing`; it runs on the host's `java`):
+
+```sh
+just swing last                      # open the newest autosave in Java FreeCol on this desktop (or a path, or a save name)
+just swing-shot -s last wait:40000 shot:map key:F1 wait:3000 shot:f1   # on a virtual screen in Docker; PNGs in ~/.cache/freecol-swing/shots
+```
+
 To run the whole suite on GitHub Actions instead, start the Suite workflow
 (`.github/workflows/suite.yml`) from the Actions tab or with
 `gh workflow run suite.yml --ref <branch>`. It runs the commands above and
