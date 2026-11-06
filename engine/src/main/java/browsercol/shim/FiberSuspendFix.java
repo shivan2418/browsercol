@@ -13,8 +13,8 @@ import org.teavm.vm.spi.TeaVMHost;
 import org.teavm.vm.spi.TeaVMPlugin;
 
 /**
- * Makes Object.wait work under TeaVM 0.16 Wasm GC (#11, spike/README.md,
- * "Why Object.wait hangs").
+ * Makes Object.wait work under TeaVM 0.16 Wasm GC (#11, docs/teavm.md,
+ * "Object.wait").
  *
  * TeaVM's Fiber.suspend marks the fiber as suspending and then calls
  * call.run(callback), which starts the async operation. For Object.wait that

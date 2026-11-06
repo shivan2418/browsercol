@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Build TeaVM master plus the open monitor PRs and publish it into
-# .cache/teavm-repo. Rerunnable. See spike/README.md.
+# .cache/teavm-repo. Rerunnable. See docs/teavm.md.
 set -euo pipefail
 
 repo="$(cd "$(dirname "$0")/../.." && pwd)"

@@ -1,6 +1,6 @@
 // Minimal reproducer for #11: Object.wait never returns under TeaVM Wasm GC.
-// ./dev.sh -C spike/teavm/wait-repro gradle generateWasmGC copyWasmGCRuntime
-// ./dev.sh -C spike/teavm/wait-repro node run.mjs
+// ./dev.sh -C tools/teavm/wait-repro gradle generateWasmGC copyWasmGCRuntime
+// ./dev.sh -C tools/teavm/wait-repro node run.mjs
 plugins {
     id 'java'
     id 'org.teavm' version '0.16.0'

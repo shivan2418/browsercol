@@ -74,7 +74,7 @@ public abstract class Message {
 
     /**
      * browser: readers by message tag, tried before reflection. TeaVM does
-     * not find the message classes by name (spike/README.md).
+     * not find the message classes by name (docs/teavm.md).
      */
     public static final Map<String, Reader> readers = new HashMap<>(); // browser:
 
