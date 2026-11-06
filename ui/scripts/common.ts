@@ -147,9 +147,20 @@ export interface FcResult {
   [key: string]: unknown;
 }
 
-/** Waits for the page's window.fcResult and returns it. */
+/**
+ * Waits for the page's window.fcResult and returns it, once the loading screen (index.html, #265) has faded
+ * out or stayed up to show a failed start: it never takes a click, but a screenshot taken while it fades has it in.
+ */
 export async function waitForResult(page: Page, timeout?: number): Promise<FcResult> {
   await page.waitForFunction(() => window.fcResult, null, { timeout });
+  await page.waitForFunction(
+    () => {
+      const state = document.getElementById('loading')?.dataset.state;
+      return state === undefined || state === 'done' || state === 'failed';
+    },
+    null,
+    { timeout: 10000 },
+  );
   return page.evaluate(() => window.fcResult as FcResult);
 }
 
