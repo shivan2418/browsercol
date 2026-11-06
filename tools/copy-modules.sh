@@ -21,9 +21,11 @@ put "$src/server/server.wasm" "$gen/server.wasm"
 put "$src/client/client.wasm" "$gen/client.wasm"
 # The runtime imports the module's JS by a path it is given at run time, on
 # purpose; marked so, Vite stops warning that it cannot follow the import.
+# It is found by its place, first in a Promise.all with the wasm's compile,
+# not by its name: a release build minifies import(pathToJs) to import(t).
 runtime=$(mktemp)
 trap 'rm -f "$runtime"' EXIT
-sed 's|import(pathToJs)|import(/* @vite-ignore */ pathToJs)|' \
+perl -0pe 's|(Promise\.all\(\[\s*)import\(([\w\$]+)\)|$1import(/* \@vite-ignore */ $2)|' \
   "$src/client/client.wasm-runtime.js" > "$runtime"
 grep -q 'vite-ignore' "$runtime" \
   || { echo "TeaVM runtime: no import(pathToJs) to mark for Vite" >&2; exit 1; }
