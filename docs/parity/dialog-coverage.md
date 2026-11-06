@@ -54,14 +54,16 @@ the Swing GUI method. Counts are summed over the browsers a script ran in. Count
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|
 | `showModelMessages` | WebGUI |  | 14 | 4 | 4 | 2 | 4 | 6 | 34 |
 | `showNewPanel` | Browser UI | 3 | 14 |  |  |  |  |  | 14 |
+| `showEuropePanel` | WebGUI | 3 |  | 2 |  | 10 |  |  | 12 |
 | `showBuildQueuePanel` | Browser UI | 4 |  | 6 |  |  |  | 4 | 10 |
 | `showEndTurnDialog` | WebGUI |  |  | 6 | 4 |  |  |  | 10 |
 | `showReportTurnPanel` | WebGUI |  | 2 | 4 |  |  | 2 |  | 8 |
 | `showColonyPanel` | WebGUI | 8 |  | 6 |  |  |  |  | 6 |
-| `showEuropePanel` | WebGUI | 3 |  | 2 |  | 4 |  |  | 6 |
 | `showPopupMenu` | Browser UI | 6 |  | 6 |  |  |  |  | 6 |
+| `showSelectAmountDialog` | WebGUI | 2 |  | 2 |  | 4 |  |  | 6 |
 | `showLoadingSavegameDialog` | Browser UI |  |  |  | 4 |  |  |  | 4 |
 | `showNamingDialog` | WebGUI |  |  | 4 |  |  |  |  | 4 |
+| `showSelectDestinationDialog` | WebGUI | 1 |  | 2 |  | 2 |  |  | 4 |
 | `showWarehouseDialog` | WebGUI | 1 |  | 4 |  |  |  |  | 4 |
 | `showChooseFoundingFatherDialog` | WebGUI |  |  | 2 |  |  |  |  | 2 |
 | `showCompactLabourReport` | WebGUI | 2 |  | 2 |  |  |  |  | 2 |
@@ -82,8 +84,6 @@ the Swing GUI method. Counts are summed over the browsers a script ran in. Count
 | `showReportReligiousPanel` | WebGUI | 1 |  | 2 |  |  |  |  | 2 |
 | `showReportRequirementsPanel` | WebGUI | 1 |  | 2 |  |  |  |  | 2 |
 | `showReportTradePanel` | WebGUI | 1 |  | 2 |  |  |  |  | 2 |
-| `showSelectAmountDialog` | WebGUI | 2 |  | 2 |  |  |  |  | 2 |
-| `showSelectDestinationDialog` | WebGUI | 1 |  | 2 |  |  |  |  | 2 |
 | `showTradeRoutePanel` | WebGUI | 3 |  | 2 |  |  |  |  | 2 |
 | `showSaveDialog` | Browser UI | 1 |  |  | 1 |  |  |  | 1 |
 | `showAboutPanel` | Browser UI | 1 |  |  |  |  |  |  | 0 |
