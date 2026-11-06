@@ -15,6 +15,20 @@
         display: flex;
         flex-direction: column;
         height: 100vh;
+        /* The browser's own behaviour stays out of the game (issue 263): no bounce or swipe-back, no scrolling page. */
+        overflow: hidden;
+        overscroll-behavior: none;
+        /* No blue selection from a double-click or a drag that misses; text fields, the log and error details keep it. */
+        user-select: none;
+      }
+      input,
+      textarea,
+      pre {
+        user-select: text;
+      }
+      img {
+        -webkit-user-drag: none;
+        user-drag: none;
       }
       /* FreeCol's display scaling (Preferences): the menus, side panel and windows; the map has its own zoom. */
       #menubar,
@@ -215,7 +229,6 @@
         display: flex;
         gap: 10px;
         align-items: flex-start;
-        cursor: pointer;
       }
       .info-picture {
         flex: none;
@@ -300,7 +313,6 @@
         position: absolute;
         top: 20px;
         right: 20px;
-        cursor: pointer;
       }
       /* The active unit's order buttons, where CornerMapControls puts them. */
       /* Between the minimap and the info panel (main.tsx sets --minimap-w); in a narrow map they wrap upwards. */
@@ -317,6 +329,10 @@
       }
       #game #map-orders button {
         pointer-events: auto;
+      }
+      /* Focus returns here when a window closes (main.tsx); it is a place for keys, not a control with a ring. */
+      #map:focus {
+        outline: none;
       }
       #map canvas {
         position: absolute;
@@ -342,7 +358,6 @@
         border: 1px solid var(--line);
         border-radius: 4px;
         padding: 4px 12px;
-        cursor: pointer;
       }
       button:hover,
       button:focus-visible {
@@ -495,7 +510,6 @@
         color: inherit;
         border: 0;
         font: inherit;
-        cursor: pointer;
       }
       /* A work entry's goods, before its label. */
       .popup button .icon {
@@ -1453,7 +1467,6 @@
         border: none;
         padding: 0;
         color: var(--ink);
-        cursor: pointer;
       }
       /* Goods are traded by a click, not picked: they only show they can be clicked, never in the accent colour. */
       .europe-body button.good:hover,
@@ -1540,7 +1553,6 @@
         align-items: center;
         padding: 3px 6px;
         border: 1px solid transparent;
-        cursor: pointer;
       }
       .start-window .nation[data-selected] {
         border-color: var(--accent);
@@ -1602,7 +1614,6 @@
         margin-bottom: 6px;
       }
       .start-window .customize > summary {
-        cursor: pointer;
         color: var(--muted);
         font-size: var(--fs-s);
       }
@@ -1693,9 +1704,6 @@
         font: inherit;
         text-align: left;
       }
-      #preferences .prefs-tree button {
-        cursor: pointer;
-      }
       #preferences .prefs-tree button:hover {
         background: color-mix(in srgb, var(--accent) 10%, transparent);
       }
@@ -1770,7 +1778,6 @@
         background: none;
         font: inherit;
         text-decoration: underline;
-        cursor: pointer;
       }
       #credits .credits-body {
         max-height: 70vh;
@@ -2210,9 +2217,10 @@
         pointer-events: auto;
       }
       /* The build queue (BuildQueuePanel): the queue, then what can be added, each listed with the goods it takes. */
-      /* What is being built opens the queue when clicked. */
-      .colony .construction[role='button'] {
-        cursor: pointer;
+      /* What is being built, and a building that can build, open the queue when clicked: a highlight shows it, not a hand. */
+      .colony .construction[role='button']:hover,
+      .colony .building[data-builds]:hover {
+        background: color-mix(in srgb, var(--accent) 15%, transparent);
       }
       .colony {
         position: relative;
@@ -2295,10 +2303,6 @@
       .colony .queue-body li[data-drag] {
         cursor: grab;
       }
-      /* A building that can build opens the queue when clicked. */
-      .colony .building[data-builds] {
-        cursor: pointer;
-      }
       .colony .warehouse {
         align-items: center;
       }
@@ -2340,7 +2344,7 @@
     <div id="menubar"></div>
     <div id="stage">
       <div id="game">
-        <div id="map"></div>
+        <div id="map" tabindex="-1"></div>
         <div id="map-orders-host"></div>
         <div id="minimap-host"></div>
         <div id="info-panel-host"></div>
