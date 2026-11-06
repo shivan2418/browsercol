@@ -16,10 +16,6 @@ if [[ "${DEV_VARIANT:-}" == web ]]; then
 fi
 workdir=/work
 if [[ "${1:-}" == "-C" ]]; then workdir="/work/$2"; shift 2; fi
-# Inside an agent sandbox (already this image, no Docker): run directly.
-if [[ -n "${FREECOL_SANDBOX:-}" ]]; then
-  cd "$repo${workdir#/work}" && exec "$@"
-fi
 # The image is rebuilt when it is missing, when DEV_REBUILD=1, or when its Dockerfile changed since it was built.
 sum=$(sha256sum "$repo/docker/$dockerfile" | cut -c1-16)
 if ! docker image inspect "$image" >/dev/null 2>&1 || [[ "${DEV_REBUILD:-}" == 1 ]] \
