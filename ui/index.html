@@ -2722,6 +2722,10 @@
       #loading[data-state='leaving'] {
         opacity: 0;
       }
+      /* A browser without Wasm GC (src/entry.ts): the message in place of the progress bar. */
+      #loading[data-state='unsupported'] [data-loading-track] {
+        display: none;
+      }
       #loading[data-state='done'] {
         display: none;
       }
@@ -2858,6 +2862,6 @@
         sync();
       })();
     </script>
-    <script type="module" src="/src/main.tsx"></script>
+    <script type="module" src="/src/entry.ts"></script>
   </body>
 </html>
