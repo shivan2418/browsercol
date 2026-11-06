@@ -118,8 +118,7 @@ export const jamestown: ColonyView = {
     type: 'model.building.warehouse',
     name: 'Warehouse',
     keys: ['image.buildingicon.model.building.warehouse'],
-    turns: '(Turns to complete: 27)',
-    required: [{ ...goods('hammers', 80), needed: 80, available: 20, produced: 3 }],
+    required: [{ ...goods('hammers', 80), needed: 80, available: 20, produced: 3, turns: '(Turns: 20)' }],
   },
   nothing: 'Click on the building site to select a building or unit to build.',
   queue: {

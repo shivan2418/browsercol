@@ -34,6 +34,13 @@
   --accent: #8a2e12;
   /* Links. */
   --link: #1f4f8b;
+  /*
+   * FreeColProgressBar: its border, the shade over what is there, and the lighter one over what next turn adds
+   * (Swing's black at alpha 70 and 40).
+   */
+  --progress-border: #7a6d52;
+  --progress-now: rgb(0 0 0 / 27%);
+  --progress-next: rgb(0 0 0 / 16%);
   /* Gains and losses (+3, −2), and warnings. */
   --good: #1f6b1f;
   --bad: #b01e10;
@@ -76,6 +83,9 @@
   --btn-ink: #ffffff;
   --accent: #ffd60a;
   --link: #8cc4ff;
+  --progress-border: #3d4049;
+  --progress-now: rgb(255 255 255 / 27%);
+  --progress-next: rgb(255 255 255 / 14%);
   --good: #4ade80;
   --bad: #ff6b6b;
   --warn: #ffb020;
