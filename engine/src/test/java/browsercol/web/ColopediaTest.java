@@ -1,6 +1,7 @@
 package browsercol.web;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -39,6 +40,100 @@ class ColopediaTest {
         assertTrue(entries.get("nationTypes").contains("model.nationType.trade"));
         // The pages are the ones a game's Colopedia has.
         assertTrue(entries.get("units").contains("model.unit.freeColonist"));
+    }
+
+    private static Map<String, Object> entry(Map<String, Object> report, String section, String id) {
+        return objs(objs(report.get("sections")).stream().filter(s -> section.equals(s.get("id")))
+            .findFirst().get().get("entries")).stream().filter(e -> id.equals(e.get("id")))
+            .findFirst().orElseThrow(() -> new AssertionError("no entry " + id));
+    }
+
+    private static Map<String, Object> fact(Map<String, Object> entry, String label) {
+        return objs(entry.get("facts")).stream().filter(f -> label.equals(f.get("label")))
+            .findFirst().orElseThrow(() -> new AssertionError("no fact " + label + " in " + entry.get("id")));
+    }
+
+    private static List<String> refs(Map<String, Object> fact) {
+        return objs(fact.get("refs")).stream().map(r -> r.get("name") + " " + r.get("note"))
+            .collect(Collectors.toList());
+    }
+
+    /** No entry shows a message key, a %placeholder% or unresolved {{tag}} markup, as a name, text or fact. */
+    @Test
+    void noEntryShowsAMessageKeyOrMarkupUnderEitherRules() throws Exception {
+        for (String rules : List.of("classic", "freecol")) {
+            final Map<String, Object> report = obj(JsonReader.read(Colopedia.before(rules, null)));
+            for (Map<String, Object> section : objs(report.get("sections"))) {
+                for (Map<String, Object> e : objs(section.get("entries"))) {
+                    final List<String> shown = new java.util.ArrayList<>();
+                    shown.add((String)e.get("name"));
+                    shown.add((String)e.get("text"));
+                    for (Map<String, Object> f : objs(e.get("facts"))) {
+                        shown.add((String)f.get("label"));
+                        shown.add((String)f.get("value"));
+                        refs(f).forEach(shown::add);
+                    }
+                    for (String s : shown) {
+                        final String where = rules + " " + e.get("id") + ": " + s;
+                        assertFalse(s.matches("(?s).*\\b(model|colopedia)\\.[a-zA-Z]+\\.[a-zA-Z.]+.*")
+                            && !s.contains("[["), where);
+                        assertFalse(s.contains("%") && s.matches("(?s).*%[a-zA-Z]+%.*"), where);
+                        assertFalse(s.contains("{{"), where);
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    void aNationTypeShowsItsAbilitiesAndModifiersAsSwingDoes() throws Exception {
+        for (String rules : List.of("classic", "freecol")) {
+            final Map<String, Object> report = obj(JsonReader.read(Colopedia.before(rules, null)));
+            final List<String> ids = objs(objs(report.get("sections")).stream()
+                .filter(s -> "nationTypes".equals(s.get("id"))).findFirst().get().get("entries")).stream()
+                .map(e -> (String)e.get("id")).collect(Collectors.toList());
+            assertFalse(ids.contains("model.nationType.optionOnly"), "the options' own type is not listed");
+            assertTrue(ids.contains("model.nationType.ref"), "the Royal Expeditionary Force is");
+            // A bonus that is not a production one is a line of text with its value.
+            final Map<String, Object> trade = entry(report, "nationTypes", "model.nationType.trade");
+            assertEquals("Trade", trade.get("name"));
+            assertEquals("", trade.get("text"), "Swing shows no description for it");
+            assertEquals("Trade Bonus: -50.00%", fact(trade, "Modifiers").get("value"));
+            assertTrue(((String)fact(trade, "Abilities").get("value")).contains("Recruit units"));
+            // A production bonus links to its goods, with the value.
+            assertEquals(List.of("Hammers +2.00", "Lumber +2.00"),
+                refs(fact(entry(report, "nationTypes", "model.nationType.building"), "Modifiers")));
+            assertEquals(List.of("Grain +2.00"),
+                refs(fact(entry(report, "nationTypes", "model.nationType.agriculture"), "Modifiers")));
+            assertEquals("Movement Bonus (Naval unit): +3.00",
+                fact(entry(report, "nationTypes", "model.nationType.naval"), "Modifiers").get("value"));
+            assertEquals("Native Convert Bonus: +200.00%; Offence against (natives): +50.00%",
+                fact(entry(report, "nationTypes", "model.nationType.conquest"), "Modifiers").get("value"));
+            // The first starting unit and the ship.
+            assertEquals(List.of("Free Colonist 1", "Veteran Soldier 1", "Caravel 1"),
+                refs(fact(entry(report, "nationTypes", "model.nationType.conquest"), "Starting units:")));
+        }
+    }
+
+    @Test
+    void aNativeNationTypeShowsItsAggressionSettlementsAndRegions() throws Exception {
+        final Map<String, Object> report = obj(JsonReader.read(Colopedia.before("classic", null)));
+        final Map<String, Object> inca = entry(report, "nationTypes", "model.nationType.inca");
+        assertEquals("The Inca nation", inca.get("text"));
+        assertEquals("Low", fact(inca, "Aggression:").get("value"));
+        assertEquals("Low", fact(inca, "Number of Settlements:").get("value"));
+        assertEquals("Inca City", fact(inca, "Type of Settlements:").get("value"));
+        assertEquals("South West", fact(inca, "Settled Regions:").get("value"));
+        assertTrue(refs(fact(inca, "Skills taught:")).contains("Expert Silver Miner null"));
+    }
+
+    @Test
+    void aNationShowsNoMessageKeyAsItsDescriptionAndItsCurrentAdvantage() throws Exception {
+        final Map<String, Object> report = obj(JsonReader.read(Colopedia.before("classic", null)));
+        final Map<String, Object> dutch = entry(report, "nations", "model.nation.dutch");
+        assertEquals("", dutch.get("text"));
+        assertEquals(List.of("Trade null"), refs(fact(dutch, "Default advantage:")));
+        assertEquals(List.of("Trade null"), refs(fact(dutch, "Current advantage:")));
     }
 
     @Test

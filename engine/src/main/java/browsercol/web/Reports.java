@@ -22,7 +22,15 @@ import net.sf.freecol.common.model.ExportData;
 import net.sf.freecol.common.model.FreeColObject;
 import net.sf.freecol.common.model.Goods;
 import net.sf.freecol.common.model.AbstractGoods;
+import net.sf.freecol.common.model.Feature;
+import net.sf.freecol.common.model.FreeColSpecObjectType;
+import net.sf.freecol.common.model.EuropeanNationType;
+import net.sf.freecol.common.model.IndianNationType;
+import net.sf.freecol.common.model.Game;
+import net.sf.freecol.common.model.Modifier;
 import net.sf.freecol.common.model.Nation;
+import net.sf.freecol.common.model.NationType;
+import net.sf.freecol.common.model.Scope;
 import net.sf.freecol.common.model.ResourceType;
 import net.sf.freecol.common.model.TileType;
 import net.sf.freecol.common.model.FoundingFather;
@@ -508,8 +516,17 @@ final class Reports {
         return new Json().put("id", o.getId()).put("name", Messages.getName(o.getId()))
             .put("group", group)
             .putRaw("keys", ObjectImages.json(o))
-            .put("text", plain(Messages.getDescription(o.getId())))
+            .put("text", describe(o))
             .putRaw("facts", array(facts));
+    }
+
+    /**
+     * An entry's description, plain: empty if the entry has none, as for a nation or a
+     * nation type, which Swing shows no description for (the message key must not show).
+     */
+    private static String describe(FreeColObject o) {
+        final String key = Messages.descriptionKey(o.getId());
+        return Messages.containsKey(key) ? plain(Messages.message(key)) : "";
     }
 
     private static Json section(String id, List<Json> entries) {
@@ -518,14 +535,24 @@ final class Reports {
             .putRaw("entries", array(entries));
     }
 
-    private static String modifier(net.sf.freecol.common.model.Modifier m) {
-        final String n = (m.getValue() == (int)m.getValue()) ? String.valueOf((int)m.getValue())
-            : String.valueOf(m.getValue());
-        switch (m.getType()) {
-        case PERCENTAGE: return (m.getValue() > 0 ? "+" : "") + n + "%";
-        case MULTIPLICATIVE: return "×" + n;
-        default: return (m.getValue() > 0 ? "+" : "") + n;
+    /** A modifier's value, as ModifierFormat shows it (+25.00%, ×2.00, +3.00). */
+    private static String modifier(Modifier m) {
+        return WebGUI.modifierValue(m, null);
+    }
+
+    /**
+     * A feature's name and, in brackets, its scopes: the label ModifierFormat.getFeatureAsString
+     * gives a nation type's ability or modifier, without its stray colon.
+     */
+    static String feature(Feature f) {
+        final List<String> scopes = new ArrayList<>();
+        if (f.hasScope()) {
+            for (Scope sc : f.getScopes().toArray(Scope[]::new)) {
+                if (sc != null) scopes.add(sc.getFeatureString());
+            }
         }
+        return Messages.getName(f.getId())
+            + (scopes.isEmpty() ? "" : " (" + String.join(", ", scopes) + ")");
     }
 
     private static List<Json> terrain(Specification spec) {
@@ -606,9 +633,6 @@ final class Reports {
             if (!u.getRequiredGoodsList().isEmpty()) {
                 facts.add(fact("colopedia.unit.goodsRequired", "", goodsRefs(u.getRequiredGoodsList())));
             }
-            if (u.getSkillTaught() != null && u.getSkillTaught() != u) {
-                facts.add(fact("colopedia.unit.school", "", List.of(ref(u.getSkillTaught(), null))));
-            }
             final List<Json> teaches = new ArrayList<>();
             for (BuildingType b : spec.getBuildingTypeList()) {
                 if (b.hasAbility(net.sf.freecol.common.model.Ability.TEACH)
@@ -661,7 +685,7 @@ final class Reports {
         return out;
     }
 
-    private static List<Json> nations(Specification spec) {
+    private static List<Json> nations(Specification spec, Game game) {
         final List<Json> out = new ArrayList<>();
         final List<Nation> shown = new ArrayList<>(spec.getEuropeanNations());
         shown.addAll(spec.getIndianNations());
@@ -670,29 +694,72 @@ final class Reports {
             facts.add(fact("colopedia.nation.ruler", n.getRulerName()));
             if (n.getType() != null) {
                 facts.add(fact("colopedia.nation.defaultAdvantage", "", List.of(ref(n.getType(), null))));
+                // As NationDetailPanel: the type its player has in the game, else the default.
+                NationType current = n.getType();
+                if (game != null) {
+                    for (Player p : game.getLivePlayers().toArray(Player[]::new)) {
+                        if (p.getNation() == n && p.getNationType() != null) current = p.getNationType();
+                    }
+                }
+                facts.add(fact("colopedia.nation.currentAdvantage", "", List.of(ref(current, null))));
             }
             out.add(entry(n, null, facts));
         }
         return out;
     }
 
+    /**
+     * The nation types, as NationTypeDetailPanel lists them: the European ones
+     * (not the one only the options use), the Royal Expeditionary Force and the native ones.
+     * A European type has its starting units, abilities and modifiers; a native
+     * one its aggression, settlements, regions and skills.
+     */
     private static List<Json> nationTypes(Specification spec) {
         final List<Json> out = new ArrayList<>();
-        for (net.sf.freecol.common.model.EuropeanNationType t : spec.getEuropeanNationTypes()) {
+        final List<EuropeanNationType> european = new ArrayList<>(spec.getVisibleEuropeanNationTypes());
+        european.addAll(spec.getREFNationTypes());
+        for (EuropeanNationType t : european) {
+            final List<Json> facts = new ArrayList<>();
             final List<Json> start = new ArrayList<>();
-            for (net.sf.freecol.common.model.AbstractUnit a : t.getStartingUnits()) {
+            for (AbstractUnit a : t.getStartingUnits()) {
                 start.add(ref(a.getType(spec), String.valueOf(a.getNumber())));
             }
-            out.add(entry(t, Messages.message("colopedia.europeanNationTypes"), start.isEmpty() ? List.of()
-                : List.of(fact("colopedia.nationType.units", "", start))));
+            if (!start.isEmpty()) facts.add(fact("colopedia.nationType.units", "", start));
+            final List<String> abilities = new ArrayList<>();
+            for (Ability a : t.getSortedAbilities()) {
+                if (a.getValue()) abilities.add(feature(a));
+            }
+            if (!abilities.isEmpty()) facts.add(fact("abilities", String.join("; ", abilities)));
+            final List<String> modifiers = new ArrayList<>();
+            final List<Json> production = new ArrayList<>();
+            for (Modifier m : t.getSortedModifiers()) {
+                final GoodsType g = goodsOrNull(spec, m.getId());
+                if (g != null) production.add(ref(g, modifier(m)));
+                else modifiers.add(feature(m) + ": " + modifier(m));
+            }
+            if (!modifiers.isEmpty() || !production.isEmpty()) {
+                facts.add(fact("modifiers", String.join("; ", modifiers), production));
+            }
+            out.add(entry(t, Messages.message("colopedia.europeanNationTypes"), facts));
         }
-        for (net.sf.freecol.common.model.IndianNationType t : spec.getIndianNationTypes()) {
+        for (IndianNationType t : spec.getIndianNationTypes()) {
+            final List<Json> facts = new ArrayList<>();
+            facts.add(fact("colopedia.nationType.aggression",
+                Messages.message("colopedia.nationType." + t.getAggression().getKey())));
+            facts.add(fact("colopedia.nationType.settlementNumber",
+                Messages.message("colopedia.nationType." + t.getNumberOfSettlements().getKey())));
+            if (t.getCapitalType() != null) {
+                facts.add(fact("colopedia.nationType.typeOfSettlements", Messages.getName(t.getCapitalType())));
+            }
+            final List<String> regions = new ArrayList<>();
+            for (String r : t.getRegions()) regions.add(Messages.getName(r));
+            facts.add(fact("colopedia.nationType.regions", String.join(", ", regions)));
             final List<Json> skills = new ArrayList<>();
             for (net.sf.freecol.common.util.RandomChoice<UnitType> c : t.getSkills()) {
                 skills.add(ref(c.getObject(), null));
             }
-            out.add(entry(t, Messages.message("colopedia.nativeNationTypes"), skills.isEmpty() ? List.of()
-                : List.of(fact("colopedia.nationType.skills", "", skills))));
+            if (!skills.isEmpty()) facts.add(fact("colopedia.nationType.skills", "", skills));
+            out.add(entry(t, Messages.message("colopedia.nativeNationTypes"), facts));
         }
         return out;
     }
@@ -722,6 +789,16 @@ final class Reports {
      * @param select The id of the entry to open on, or null.
      */
     static String colopedia(Specification spec, String select) {
+        return colopedia(spec, select, null);
+    }
+
+    /**
+     * The Colopedia in a game: as {@link #colopedia(Specification, String)}, with
+     * each nation's current advantage that its player has in the game.
+     *
+     * @param game The game, or null before one.
+     */
+    static String colopedia(Specification spec, String select, Game game) {
         final List<Json> sections = new ArrayList<>();
         sections.add(section("terrain", terrain(spec)));
         sections.add(section("resources", resources(spec)));
@@ -729,7 +806,7 @@ final class Reports {
         sections.add(section("units", units(spec)));
         sections.add(section("buildings", buildings(spec)));
         sections.add(section("fathers", fathers(spec)));
-        sections.add(section("nations", nations(spec)));
+        sections.add(section("nations", nations(spec, game)));
         sections.add(section("nationTypes", nationTypes(spec)));
         sections.add(section("concepts", concepts()));
         return new Json().put("report", "colopedia")

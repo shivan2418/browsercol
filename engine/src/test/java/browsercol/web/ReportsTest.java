@@ -513,6 +513,23 @@ class ReportsTest {
         }
     }
 
+    /** In a game a nation's current advantage is its player's nation type. */
+    @Test
+    @Timeout(240)
+    void theColopediaInAGameShowsEachPlayersNationType() throws Exception {
+        twoColonies();
+        final Player player = me();
+        final Map<String, Object> report = obj(JsonReader.read(
+            Reports.colopedia(player.getSpecification(), null, player.getGame())));
+        final Map<String, Object> nations = objs(report.get("sections")).stream()
+            .filter(s -> "nations".equals(s.get("id"))).findFirst().get();
+        final Map<String, Object> mine = objs(nations.get("entries")).stream()
+            .filter(e -> player.getNationId().equals(e.get("id"))).findFirst().get();
+        final Map<String, Object> current = objs(mine.get("facts")).stream()
+            .filter(f -> "Current advantage:".equals(f.get("label"))).findFirst().get();
+        assertEquals(player.getNationType().getId(), objs(current.get("refs")).get(0).get("id"));
+    }
+
     @Test
     @Timeout(240)
     void theColopediaListsTheSpecificationInSectionsAndPlainText() throws Exception {

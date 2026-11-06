@@ -1943,7 +1943,8 @@ public class WebGUI extends GUI {
     /** {@inheritDoc} Shows the Colopedia ({@link Reports#colopedia}); nodeId is the entry to open on. */
     @Override
     public FreeColPanel showColopediaPanel(String nodeId) {
-        this.ui.show("report", Reports.colopedia(getFreeColClient().getGame().getSpecification(), nodeId));
+        this.ui.show("report", Reports.colopedia(getFreeColClient().getGame().getSpecification(), nodeId,
+            getFreeColClient().getGame()));
         return null;
     }
 
