@@ -135,6 +135,16 @@ export function idbSaveStore(factory: IDBFactory = indexedDB): SaveStore {
 }
 
 /**
+ * The error banner's title for a save that failed. A full store says so: the browser rejects the write with a
+ * QuotaExceededError, whose message names the quota in every browser.
+ */
+export function saveFailedTitle(detail: string): string {
+  return /quota/i.test(detail)
+    ? 'The game could not be saved: the browser has no room left for saves. Delete some saves, or free up disk space'
+    : 'The game could not be saved';
+}
+
+/**
  * Ask the browser not to evict our saves when disk runs low; false where it will not say. Call it from the
  * page: a Worker has no navigator.storage.persist, so there it always answers false.
  */

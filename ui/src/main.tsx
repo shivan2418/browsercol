@@ -128,6 +128,7 @@ import {
   keepSaves,
   lastTurnSaveName,
   latestAutosave,
+  saveFailedTitle,
   shiftLastTurnSaves,
   turnAutosaveNames,
   type SaveMeta,
@@ -481,6 +482,8 @@ let openOpen = false;
 let exitAfterSave = false;
 /** The file the player picked for the save being made, and the name it is saved under, to write once made (#274). */
 let saveFile: { target: SaveTarget; name: string } | null = null;
+/** A failed save is on the error banner; the next failure stays off it until a save works. */
+let saveFailShown = false;
 /** The save picker is open: another Save waits for it, as the browser shows one picker at a time. */
 let picking = false;
 /** Why the last file picked in the Open window would not open; empty for none. */
@@ -490,6 +493,11 @@ let openNote = '';
  * FreeCol's file chooser: the save picker, then the game saved under the file's name and written to it. Elsewhere
  * the name dialog, and the save stays in the browser's store.
  */
+/** The file name a save is offered under: the name given, or the nation and the turn. */
+function suggestedFileName(name = ''): string {
+  const m = lastMap;
+  return fileNameOf(name.trim() || (m ? `${nationName(m.nation)}, ${m.turnLabel}` : ''));
+}
 function askToSave(then: 'save' | 'saveAndExit') {
   if (!hasSavePicker()) {
     saveDialog = then;
@@ -497,9 +505,7 @@ function askToSave(then: 'save' | 'saveAndExit') {
   }
   if (picking) return;
   picking = true;
-  const m = lastMap;
-  const suggested = fileNameOf(m ? `${nationName(m.nation)}, ${m.turnLabel}` : '');
-  chooseSaveFile(suggested)
+  chooseSaveFile(suggestedFileName())
     .finally(() => (picking = false))
     .then((target) => {
       if (!target) return;
@@ -1139,10 +1145,15 @@ function renderSide() {
           {saveDialog && (
             <SaveDialog
               title={saveDialog === 'saveAndExit' ? 'Save and Exit' : 'Save Game'}
-              save={(name) => {
+              save={(name, download) => {
                 exitAfterSave = saveDialog === 'saveAndExit';
                 saveDialog = null;
-                saveGame(name);
+                if (!download) return saveGame(name);
+                // No save picker here, so the target is a download; written once the save is made, as a picked file is.
+                void chooseSaveFile(suggestedFileName(name)).then((target) => {
+                  if (target) saveFile = { target, name: name.trim() };
+                  saveGame(name);
+                });
               }}
               close={() => {
                 saveDialog = null;
@@ -1846,6 +1857,7 @@ async function run() {
           return show('failed', { error: detail });
         case 'saved': {
           const meta = JSON.parse(detail) as SaveMeta;
+          saveFailShown = false;
           leaveAsk.saved();
           const auto = autosaveOptions(prefs);
           const quiet = isAutosave(meta) || isTurnAutosave(auto, meta);
@@ -1890,6 +1902,9 @@ async function run() {
           exitAfterSave = false; // a game that did not save is not left
           saveFile = null;
           side.saveNote = `Save failed: ${detail}`;
+          // On the banner, once until a save works again: autosaves fail too, and would raise it each time.
+          if (!saveFailShown) reportError(saveFailedTitle(detail), detail);
+          saveFailShown = true;
           return renderSide();
         case 'loadFailed':
           if (resumed && loadId !== undefined) {

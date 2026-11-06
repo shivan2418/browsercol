@@ -48,3 +48,16 @@ test('the Save window opens with the name field focused, and Enter there presses
   fireEvent.submit(document.querySelector('form')!);
   expect(names).toEqual(['']);
 });
+
+test('the Save window says the save stays in this browser, and Save and Download asks for a copy too', () => {
+  const saves: [string, boolean][] = [];
+  render(<SaveDialog title="Save Game" save={(n, d) => saves.push([n, d])} close={() => {}} />);
+  expect(document.querySelector('#save-game')!.textContent).toContain('kept in this browser only');
+  fireEvent.change(document.querySelector('[data-save-name]')!, { target: { value: 'Before the war' } });
+  fireEvent.click(document.querySelector('[data-save-download]')!);
+  fireEvent.click(document.querySelector('[data-save-ok]')!);
+  expect(saves).toEqual([
+    ['Before the war', true],
+    ['Before the war', false],
+  ]);
+});

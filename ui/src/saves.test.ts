@@ -15,6 +15,7 @@ import {
   latestAutosave,
   newestFirst,
   newSave,
+  saveFailedTitle,
   type SavedInfo,
   type SaveMeta,
 } from './saves';
@@ -55,6 +56,16 @@ describe('the save list', () => {
     await store.remove(a.id);
     expect(await store.get(a.id)).toBeNull();
     expect((await store.list()).map((s) => s.id)).toEqual([b.id]);
+  });
+});
+
+describe('a failed save', () => {
+  it('says the browser is out of room when the store is full', () => {
+    expect(saveFailedTitle('QuotaExceededError: The quota has been exceeded.')).toMatch(/no room left/);
+  });
+
+  it('says only that the game was not saved otherwise', () => {
+    expect(saveFailedTitle('Error: the Engine broke')).toBe('The game could not be saved');
   });
 });
 

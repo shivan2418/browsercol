@@ -199,6 +199,32 @@ async function run(page: Page, url: string, shot: () => Promise<unknown>, browse
     throw new Error(`the save list does not show the save: ${JSON.stringify(row.text)}`);
   }
 
+  // 2b. Without a save picker (Firefox), Game > Save keeps the save in the browser, says so, and its Save and
+  // Download button hands a copy to the browser as a download too.
+  if (!picker) {
+    setStep('2b. Game > Save, Save and Download');
+    const DOWNLOAD_NAME = 'script download';
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.keyboard.press('Control+s');
+    await page.waitForSelector('#save-game [data-save-where]', { timeout: 10000 });
+    await page.fill('#save-game [data-save-name]', DOWNLOAD_NAME);
+    const downloaded = page.waitForEvent('download', { timeout: 60000, label: 'the download of Save and Download' });
+    downloaded.catch(() => {});
+    await page.click('#save-game [data-save-download]');
+    const download = await downloaded;
+    const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'saves-')), download.suggestedFilename());
+    await download.saveAs(file);
+    const bytes = fs.readFileSync(file);
+    if (download.suggestedFilename() !== `${DOWNLOAD_NAME}.fsg` || bytes.subarray(0, 2).toString() !== 'PK') {
+      throw new Error(`Save and Download gave ${download.suggestedFilename()}, ${bytes.length} bytes, not a save`);
+    }
+    await page.waitForFunction(
+      (n) => [...document.querySelectorAll('#saves [data-save]')].some((r) => r.textContent?.startsWith(`${n} |`)),
+      DOWNLOAD_NAME,
+      { timeout: 10000, label: 'the save list shows the downloaded save' },
+    );
+  }
+
   // 3. Reload: a new game starts, and the save is still listed.
   setStep('3. reload: a new game, the save still listed');
   await page.goto(url);
