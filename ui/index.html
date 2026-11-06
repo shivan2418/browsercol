@@ -397,13 +397,76 @@
         cursor: default;
       }
       input,
-      select,
       textarea {
         font: inherit;
         color: var(--ink);
         background: var(--box);
         border: 1px solid var(--line);
         border-radius: 3px;
+      }
+      /* A drop-down list (src/controls.tsx, Base UI's Select): the button, then its list in #overlays. */
+      .ui-select {
+        display: inline-flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+        font: inherit;
+        text-align: left;
+        color: var(--ink);
+        background: var(--box);
+        border: 1px solid var(--line);
+        border-radius: 3px;
+        padding: 2px 4px;
+        cursor: default;
+      }
+      .ui-select:focus-visible,
+      .ui-select[data-popup-open] {
+        border-color: var(--accent);
+        outline: none;
+      }
+      .ui-select:disabled {
+        opacity: 0.5;
+      }
+      .ui-select-icon {
+        flex: none;
+      }
+      /* The popups of Base UI's controls sit in #overlays above every window; the player's UI scale goes on the popup, not on the positioner Base UI places in real pixels. */
+      .ui-positioner {
+        z-index: 1100;
+      }
+      .ui-popup {
+        zoom: var(--ui-zoom, 1);
+        font: inherit;
+        color: var(--ink);
+        background: var(--panel);
+        border: 1px solid var(--line);
+        box-shadow: 0 4px 12px rgb(0 0 0 / 40%);
+      }
+      .ui-select-popup {
+        box-sizing: border-box;
+        /* The button's width, in the popup's own (scaled) pixels. */
+        min-width: calc(var(--anchor-width) / var(--ui-zoom, 1));
+        max-height: calc(var(--available-height) / var(--ui-zoom, 1));
+        overflow-y: auto;
+      }
+      .ui-select-list {
+        padding: 2px;
+      }
+      .ui-select-item {
+        padding: 2px 6px;
+        cursor: default;
+        white-space: nowrap;
+        outline: none;
+      }
+      .ui-select-item[data-highlighted] {
+        background: var(--btn);
+        color: var(--btn-ink);
+      }
+      .ui-select-item[data-selected] {
+        font-weight: bold;
+      }
+      .ui-select-item[data-disabled] {
+        opacity: 0.5;
       }
       #info {
         white-space: pre;
@@ -1724,7 +1787,7 @@
       .start-window .loading-save-name {
         margin: 0 16px;
       }
-      .start-window fieldset > select {
+      .start-window fieldset > .ui-select {
         width: 100%;
         padding: 3px;
       }
@@ -1788,7 +1851,7 @@
         width: 8em;
       }
       .options input[type='text'],
-      .options select {
+      .options .ui-select {
         width: 14em;
       }
       .options .slider {

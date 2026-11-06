@@ -9,6 +9,7 @@
 // in REPORTS, which is the Report menu. The Engine side is Reports.java.
 import './reports.css';
 import { Fragment, createContext, useContext, useState, type ReactNode } from 'react';
+import { Select } from './controls';
 import type { Dialog } from './dialogs';
 import { GoodsAmount, WindowFrame, type Art, type Menu } from './frame';
 import type { CompactCell, ReportName, ReportView, UnitCount } from './webgui';
@@ -658,19 +659,16 @@ function ProductionReport({ e, art, go }: { e: View<'production'>; art: Art; go:
       <div className="picks">
         <span>{e.labels.selectGoods}</span>
         {picks.map((p, i) => (
-          <select
+          <Select
             key={i}
             aria-label={`${e.labels.selectGoods} ${i + 1}`}
             value={p}
-            onChange={(ev) => setPicks(picks.map((q, j) => (j === i ? ev.target.value : q)))}
-          >
-            <option value="">{e.labels.nothing}</option>
-            {e.goods.map((g, k) => (
-              <option key={g.type} value={k}>
-                {g.name}
-              </option>
-            ))}
-          </select>
+            onChange={(v) => setPicks(picks.map((q, j) => (j === i ? v : q)))}
+            choices={[
+              { value: '', label: e.labels.nothing },
+              ...e.goods.map((g, k) => ({ value: String(k), label: g.name })),
+            ]}
+          />
         ))}
       </div>
       {chosen.length > 0 && (

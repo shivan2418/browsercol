@@ -50,7 +50,11 @@ const MAP_HEIGHT = 'model.option.mapHeight';
 async function startFromScreen(page: Page, nation?: string, level?: string, edits = false) {
   await page.waitForSelector('[data-start]', { timeout: 60000 });
   if (nation) await page.click(`[data-nation="${nation}"]`);
-  if (level) await page.selectOption('[data-difficulty]', level);
+  if (level) {
+    // A drop-down list (src/controls.tsx): open it, then pick the entry by its value.
+    await page.click('[data-difficulty]');
+    await page.click(`.ui-select-item[data-value="${level}"]`);
+  }
   if (edits) {
     // The option editor: a difficulty option and a game option, changed before the start.
     await page.click('[data-customize=difficulty] summary');

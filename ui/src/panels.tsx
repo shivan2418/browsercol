@@ -18,6 +18,7 @@ import {
   type ReactNode,
 } from 'react';
 import type { Advisor } from './advisor';
+import { Select } from './controls';
 import { ColonyActions, ColonyPanel } from './colony-panel';
 import { DebugContext } from './debug';
 import type { Dialog, Dialogs } from './dialogs';
@@ -591,13 +592,12 @@ function AddItem({
       {max !== undefined ? (
         <input type="number" min={1} max={max} value={amount} onChange={(e) => setAmount(e.target.value)} />
       ) : (
-        <select value={chosen?.key ?? ''} disabled={choices.length === 0} onChange={(e) => setKey(e.target.value)}>
-          {choices.map((c) => (
-            <option key={c.key} value={c.key}>
-              {c.text}
-            </option>
-          ))}
-        </select>
+        <Select
+          value={chosen?.key ?? ''}
+          disabled={choices.length === 0}
+          onChange={setKey}
+          choices={choices.map((c) => ({ value: c.key, label: c.text }))}
+        />
       )}
       <button data-add={o.kind} disabled={!valid} onClick={submit}>
         {label}
@@ -894,13 +894,11 @@ function MessageList({
       {groupBy && (
         <label className="field group-by">
           {groupBy.label}{' '}
-          <select value={groupBy.value} onChange={(e) => report.groupBy(Number(e.target.value))}>
-            {groupBy.choices.map((c) => (
-              <option key={c.value} value={c.value}>
-                {c.text}
-              </option>
-            ))}
-          </select>
+          <Select
+            value={String(groupBy.value)}
+            onChange={(v) => report.groupBy(Number(v))}
+            choices={groupBy.choices.map((c) => ({ value: String(c.value), label: c.text }))}
+          />
         </label>
       )}
       {event.messages.length === 0 && <p className="message empty">Nothing happened this turn.</p>}
@@ -1203,14 +1201,11 @@ function RouteEditor({
         <span className="field">
           <label className="text">
             {e.destinationLabel}{' '}
-            <select value={place} onChange={(ev) => setPlace(ev.target.value)}>
-              <option value="">{e.allColonies}</option>
-              {e.places.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.label}
-                </option>
-              ))}
-            </select>
+            <Select
+              value={place}
+              onChange={setPlace}
+              choices={[{ value: '', label: e.allColonies }, ...e.places.map((p) => ({ value: p.id, label: p.label }))]}
+            />
           </label>{' '}
           <button data-answer="addStop" disabled={n >= e.places.length} onClick={add}>
             {e.addStop}
@@ -1967,13 +1962,12 @@ export function FindSettlement({
           </button>
         ))}
       </div>
-      <select aria-label={e.title} value={filter} onChange={(ev) => setFilter(Number(ev.target.value))}>
-        {e.filters.map((label, i) => (
-          <option key={i} value={i}>
-            {label}
-          </option>
-        ))}
-      </select>
+      <Select
+        aria-label={e.title}
+        value={String(filter)}
+        onChange={(v) => setFilter(Number(v))}
+        choices={e.filters.map((label, i) => ({ value: String(i), label }))}
+      />
       <PanelButtons ok={e.ok} close={close} />
     </Win>
   );

@@ -4,6 +4,7 @@
 // the browser follows come after it, in FreeCol's groups. Hooks for tests: [data-category] on a
 // category's button, with its id; [data-mute] on a volume's mute button, with the preference it sets.
 import { useRef, useState } from 'react';
+import { Select } from './controls';
 import { Box, WindowFrame } from './frame';
 import { LANGUAGE_OPTION } from './language';
 import { OptionEditor } from './option-editor';
@@ -46,13 +47,11 @@ function SpeedRow({
   return (
     <label data-pref={name} style={{ display: 'flex', gap: 12, justifyContent: 'space-between', margin: '6px 0' }}>
       {label}
-      <select value={value} onChange={(e) => onChange(e.target.value as Speed)}>
-        {SPEEDS.map((s) => (
-          <option key={s} value={s}>
-            {LABEL[s]}
-          </option>
-        ))}
-      </select>
+      <Select
+        value={value}
+        onChange={(v) => onChange(v as Speed)}
+        choices={SPEEDS.map((s) => ({ value: s, label: LABEL[s] }))}
+      />
     </label>
   );
 }
@@ -126,16 +125,11 @@ function OwnOptions({ prefs, change }: { prefs: Prefs; change: (p: Prefs) => voi
         style={{ display: 'flex', gap: 12, justifyContent: 'space-between', margin: '6px 0' }}
       >
         Active unit shown by
-        <select
+        <Select
           value={prefs.activeStyle}
-          onChange={(e) => change({ ...prefs, activeStyle: e.target.value as ActiveStyle })}
-        >
-          {ACTIVE_STYLES.map((a) => (
-            <option key={a} value={a}>
-              {STYLE_LABEL[a]}
-            </option>
-          ))}
-        </select>
+          onChange={(v) => change({ ...prefs, activeStyle: v as ActiveStyle })}
+          choices={ACTIVE_STYLES.map((a) => ({ value: a, label: STYLE_LABEL[a] }))}
+        />
       </label>
       <SpeedRow
         name="blink"
@@ -170,43 +164,35 @@ function OwnOptions({ prefs, change }: { prefs: Prefs; change: (p: Prefs) => voi
         style={{ display: 'flex', gap: 12, justifyContent: 'space-between', margin: '6px 0' }}
       >
         Grey out the window when it is not focused
-        <select value={prefs.dimUnfocused} onChange={(e) => change({ ...prefs, dimUnfocused: e.target.value as Dim })}>
-          {DIMS.map((d) => (
-            <option key={d} value={d}>
-              {DIM_LABEL[d]}
-            </option>
-          ))}
-        </select>
+        <Select
+          value={prefs.dimUnfocused}
+          onChange={(v) => change({ ...prefs, dimUnfocused: v as Dim })}
+          choices={DIMS.map((d) => ({ value: d, label: DIM_LABEL[d] }))}
+        />
       </label>
       <label data-pref="palette" style={{ display: 'flex', gap: 12, justifyContent: 'space-between', margin: '6px 0' }}>
         Colours
-        <select value={prefs.palette} onChange={(e) => change({ ...prefs, palette: e.target.value as Palette })}>
-          {PALETTES.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.label}
-            </option>
-          ))}
-        </select>
+        <Select
+          value={prefs.palette}
+          onChange={(v) => change({ ...prefs, palette: v as Palette })}
+          choices={PALETTES.map((p) => ({ value: p.id, label: p.label }))}
+        />
       </label>
       <label data-pref="fonts" style={{ display: 'flex', gap: 12, justifyContent: 'space-between', margin: '6px 0' }}>
         Fonts
-        <select value={prefs.fonts} onChange={(e) => change({ ...prefs, fonts: e.target.value as FontSet })}>
-          {FONT_SETS.map((f) => (
-            <option key={f.id} value={f.id}>
-              {f.label}
-            </option>
-          ))}
-        </select>
+        <Select
+          value={prefs.fonts}
+          onChange={(v) => change({ ...prefs, fonts: v as FontSet })}
+          choices={FONT_SETS.map((f) => ({ value: f.id, label: f.label }))}
+        />
       </label>
       <label data-pref="tileset" style={{ display: 'flex', gap: 12, justifyContent: 'space-between', margin: '6px 0' }}>
         Tileset (on reload)
-        <select value={prefs.tileset} onChange={(e) => change({ ...prefs, tileset: e.target.value as Tileset })}>
-          {TILESETS.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.label}
-            </option>
-          ))}
-        </select>
+        <Select
+          value={prefs.tileset}
+          onChange={(v) => change({ ...prefs, tileset: v as Tileset })}
+          choices={TILESETS.map((t) => ({ value: t.id, label: t.label }))}
+        />
       </label>
     </>
   );

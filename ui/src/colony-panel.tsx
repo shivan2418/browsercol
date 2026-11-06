@@ -700,7 +700,11 @@ function useColonyKey(on: (key: string) => void) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.repeat) return;
-      if (e.target instanceof Element && e.target.matches('input, textarea, select, [contenteditable]')) return;
+      if (
+        e.target instanceof Element &&
+        e.target.matches('input, textarea, select, [role="combobox"], [contenteditable]')
+      )
+        return;
       const windows = document.querySelectorAll('.dialog[data-kind]');
       const top = windows[windows.length - 1];
       if (top && top.getAttribute('data-kind') !== 'colony') return;

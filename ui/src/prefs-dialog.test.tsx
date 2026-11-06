@@ -4,6 +4,8 @@ import { afterEach, expect, test } from 'vite-plus/test';
 import type { OptionGroup } from './options';
 import { categories, OWN_CATEGORY, PreferencesDialog } from './prefs-dialog';
 import { DEFAULTS, type Prefs } from './prefs';
+import { FONT_SETS } from './theme';
+import { chooseOption, listed, openSelect, shown } from './select-test';
 
 afterEach(cleanup);
 
@@ -77,7 +79,7 @@ test("a category's options show once it is picked, and a change keeps them by id
   fireEvent.click(messages);
   expect(messages.getAttribute('aria-current')).toBe('true');
   expect(screen.queryByText('Blink speed')).toBeNull();
-  expect(screen.getByLabelText<HTMLSelectElement>('Response to Indian Demands').value).toBe('2');
+  expect(shown(screen.getByLabelText('Response to Indian Demands'))).toBe('Reject');
   fireEvent.click(screen.getByLabelText('Pre-combat analysis'));
   expect(changes.at(-1)?.freecol).toEqual({
     'model.option.indianDemandResponse': 2,
@@ -93,29 +95,31 @@ test("before the data loads, only BrowserCol's own show", () => {
   expect(screen.getByText('Blink speed')).toBeTruthy();
 });
 
-test("the colours and the fonts are among BrowserCol's own, and a pick changes them", () => {
+test("the colours and the fonts are among BrowserCol's own, and a pick changes them", async () => {
   const changed: Prefs[] = [];
   const { container } = render(
     <PreferencesDialog prefs={DEFAULTS} freecol={null} change={(p) => changed.push(p)} close={() => {}} />,
   );
-  const colours = container.querySelector<HTMLSelectElement>('[data-pref="palette"] select')!;
-  expect([...colours.options].map((o) => o.textContent)).toEqual(['Parchment', 'Dark']);
-  fireEvent.change(colours, { target: { value: 'dark' } });
+  const colours = container.querySelector<HTMLElement>('[data-pref="palette"] [role="combobox"]')!;
+  await openSelect(colours);
+  expect(listed()).toEqual(['Parchment', 'Dark']);
+  await chooseOption(colours, 'Dark');
   expect(changed.at(-1)).toEqual({ ...DEFAULTS, palette: 'dark' });
-  const fonts = container.querySelector<HTMLSelectElement>('[data-pref="fonts"] select')!;
-  expect(fonts.value).toBe('cinzel-noto');
+  const fonts = container.querySelector<HTMLElement>('[data-pref="fonts"] [role="combobox"]')!;
+  expect(shown(fonts)).toBe(FONT_SETS.find((f) => f.id === 'cinzel-noto')!.label);
 });
 
-test('the Tileset is picked among FreeCol and FreeCol+, and shows on reload', () => {
+test('the Tileset is picked among FreeCol and FreeCol+, and shows on reload', async () => {
   const changed: Prefs[] = [];
   const { container } = render(
     <PreferencesDialog prefs={DEFAULTS} freecol={null} change={(p) => changed.push(p)} close={() => {}} />,
   );
   const row = container.querySelector('[data-pref="tileset"]')!;
   expect(row.textContent).toContain('Tileset (on reload)');
-  const tileset = row.querySelector('select')!;
-  expect([...tileset.options].map((o) => o.textContent)).toEqual(['FreeCol', 'FreeCol+']);
-  fireEvent.change(tileset, { target: { value: 'freecol-plus' } });
+  const tileset = row.querySelector<HTMLElement>('[role="combobox"]')!;
+  await openSelect(tileset);
+  expect(listed()).toEqual(['FreeCol', 'FreeCol+']);
+  await chooseOption(tileset, 'FreeCol+');
   expect(changed.at(-1)).toEqual({ ...DEFAULTS, tileset: 'freecol-plus' });
 });
 
