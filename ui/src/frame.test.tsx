@@ -1,7 +1,17 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vite-plus/test';
-import { Box, GoodsAmount, MENUS, MenuBar, WindowFrame, framePlaces, goodsIcons, type Art } from './frame';
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
+import {
+  Box,
+  GoodsAmount,
+  MENUS,
+  MenuBar,
+  WindowFrame,
+  frameEffects,
+  framePlaces,
+  goodsIcons,
+  type Art,
+} from './frame';
 
 afterEach(cleanup);
 
@@ -24,6 +34,48 @@ describe('the window frame', () => {
     open();
     expect(frame().style.transform).toBe('translate(40px, -20px)');
     framePlaces.remember = false;
+  });
+
+  it('clicks as it opens, and does not animate where motion is off', () => {
+    const played: string[] = [];
+    const was = frameEffects.play;
+    frameEffects.play = (k) => played.push(k);
+    const closed: string[] = [];
+    render(
+      <WindowFrame title="Europe" close={() => closed.push('closed')}>
+        body
+      </WindowFrame>,
+    );
+    frameEffects.play = was;
+    expect(played).toEqual([frameEffects.sound]);
+    expect(screen.getByRole('dialog').hasAttribute('data-motion')).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(closed).toEqual(['closed']);
+  });
+
+  it('fades in and out with motion on, closing once the fade is over and only once', () => {
+    vi.useFakeTimers();
+    const motion = frameEffects.motion;
+    frameEffects.motion = () => true;
+    try {
+      const closed: string[] = [];
+      render(
+        <WindowFrame title="Europe" close={() => closed.push('closed')}>
+          body
+        </WindowFrame>,
+      );
+      const frame = screen.getByRole('dialog');
+      expect(frame.getAttribute('data-motion')).toBe('in');
+      fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+      key('Escape');
+      expect(frame.getAttribute('data-motion')).toBe('out');
+      expect(closed).toEqual([]);
+      act(() => void vi.advanceTimersByTime(frameEffects.ms));
+      expect(closed).toEqual(['closed']);
+    } finally {
+      frameEffects.motion = motion;
+      vi.useRealTimers();
+    }
   });
 
   it('has the panel’s name in its title bar, over its body', () => {
