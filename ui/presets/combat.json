@@ -1,0 +1,134 @@
+{
+  "difficulty": "model.difficulty.veryEasy",
+  "nation": "model.nation.dutch",
+  "seed": 1,
+  "options": {
+    "model.option.mapWidth": 40,
+    "model.option.mapHeight": 60,
+    "model.option.fogOfWar": false
+  },
+  "setup": [
+    {
+      "action": "addColony"
+    },
+    {
+      "action": "addUnit",
+      "type": "model.unit.freeColonist",
+      "inColony": true
+    },
+    {
+      "action": "addUnit",
+      "type": "model.unit.freeColonist",
+      "inColony": true
+    },
+    {
+      "action": "addColony",
+      "native": 0,
+      "dx": -3,
+      "nearest": true
+    },
+    {
+      "action": "changeOwner",
+      "owner": "model.nation.french"
+    },
+    {
+      "action": "addUnit",
+      "type": "model.unit.veteranSoldier",
+      "role": "model.role.soldier",
+      "owner": "model.nation.french"
+    },
+    {
+      "action": "addUnit",
+      "type": "model.unit.veteranSoldier",
+      "role": "model.role.dragoon",
+      "owner": "model.nation.french"
+    },
+    {
+      "action": "setStance",
+      "stance": "war",
+      "with": "model.nation.french"
+    },
+    {
+      "action": "addUnit",
+      "type": "model.unit.veteranSoldier",
+      "around": true,
+      "role": "model.role.dragoon"
+    },
+    {
+      "action": "addUnit",
+      "type": "model.unit.veteranSoldier",
+      "around": true,
+      "role": "model.role.soldier"
+    },
+    {
+      "action": "addUnit",
+      "type": "model.unit.artillery",
+      "around": true
+    },
+    {
+      "action": "addUnit",
+      "type": "model.unit.veteranSoldier",
+      "around": true,
+      "native": 0,
+      "role": "model.role.dragoon"
+    },
+    {
+      "action": "addUnit",
+      "type": "model.unit.veteranSoldier",
+      "around": true,
+      "native": 0,
+      "role": "model.role.soldier"
+    },
+    {
+      "action": "addUnit",
+      "type": "model.unit.artillery",
+      "around": true,
+      "native": 0
+    },
+    {
+      "action": "addUnit",
+      "type": "model.unit.galleon",
+      "owner": "model.nation.french",
+      "ship": true,
+      "dx": -3
+    },
+    {
+      "action": "addGoods",
+      "type": "model.goods.sugar",
+      "amount": 100,
+      "onShip": true
+    },
+    {
+      "action": "addGoods",
+      "type": "model.goods.silver",
+      "amount": 60,
+      "onShip": true
+    },
+    {
+      "action": "addGoods",
+      "type": "model.goods.muskets",
+      "amount": 50,
+      "onShip": true
+    },
+    {
+      "action": "addUnit",
+      "type": "model.unit.privateer",
+      "ship": true,
+      "dx": -2
+    },
+    {
+      "action": "addUnit",
+      "type": "model.unit.frigate",
+      "ship": true,
+      "dx": -4
+    },
+    {
+      "action": "addUnit",
+      "type": "model.unit.frigate",
+      "owner": "model.nation.french",
+      "ship": true,
+      "dx": -3,
+      "dy": 2
+    }
+  ]
+}

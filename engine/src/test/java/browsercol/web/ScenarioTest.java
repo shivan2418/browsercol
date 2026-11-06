@@ -3,6 +3,8 @@ package browsercol.web;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -18,6 +20,8 @@ import net.sf.freecol.common.model.Colony;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.GoodsType;
 import net.sf.freecol.common.model.Player;
+import net.sf.freecol.common.model.Stance;
+import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.Unit;
 
 
@@ -145,5 +149,80 @@ class ScenarioTest {
         final IllegalArgumentException ex = org.junit.jupiter.api.Assertions.assertThrows(
             IllegalArgumentException.class, () -> GamePreset.parse("{\"setup\":3}"));
         assertTrue(ex.getMessage().contains("setup"), ex.getMessage());
+    }
+
+    /** A setup request with "repeat" and "do" runs its requests that many times, and a bad one says so. */
+    @Test
+    @Timeout(240)
+    void aSetupBlockRepeats() throws Exception {
+        start("{\"seed\":1,\"setup\":[{\"action\":\"addColony\"},"
+            + "{\"repeat\":3,\"do\":[{\"action\":\"addUnit\",\"type\":\"model.unit.freeColonist\",\"inColony\":true},"
+            + "{\"repeat\":2,\"do\":[{\"action\":\"addGold\",\"amount\":10}]}]}]}");
+        assertEquals(1 + 3 * (1 + 2), server.setup().size());
+        final Player us = client.getClient().getMyPlayer();
+        eventually("the client has the colony and its colonists",
+            () -> !us.getColonyList().isEmpty() && us.getColonyList().get(0).getUnitCount() == 4);
+    }
+
+    @Test
+    @Timeout(240)
+    void aBadSetupBlockIsRefusedWithItsReason() throws Exception {
+        start("{\"seed\":1,\"setup\":[{\"repeat\":\"x\",\"do\":[]}]}");
+        final IllegalArgumentException ex = org.junit.jupiter.api.Assertions.assertThrows(
+            IllegalArgumentException.class, () -> server.setup());
+        assertTrue(ex.getMessage().contains("repeat"), ex.getMessage());
+    }
+
+    /** The big-empire preset (#349): about thirty colonies full of buildings, a fleet and a garrison, for the UI's load. */
+    @Test
+    @Timeout(300)
+    void theBigEmpirePresetFillsThirtyColonies() throws Exception {
+        start(preset("big-empire"));
+        server.setup();
+        final Game game = server.getGame();
+        final Player us = game.getFreeColGameObject(client.getClient().getMyPlayer().getId(), Player.class);
+        final List<Colony> colonies = us.getColonyList();
+        assertTrue(colonies.size() >= 25, "colonies: " + colonies.size());
+        for (Colony c : colonies) {
+            assertTrue(c.getUnitCount() >= 7, c.getName() + " has " + c.getUnitCount() + " units");
+            assertTrue(c.getBuildings().size() >= 15, c.getName() + " has " + c.getBuildings().size() + " buildings");
+        }
+        assertTrue(us.getUnits().filter(Unit::isNaval).count() >= 15, "a fleet");
+        assertTrue(us.getUnits().filter(Unit::isOffensiveUnit).count() >= 50, "an army");
+    }
+
+    private static String preset(String name) throws Exception {
+        return Files.readString(Path.of(System.getProperty("presets.dir"), name + ".json"));
+    }
+
+    /**
+     * The combat preset (#349): the Dutch army beside a French colony and a native village, a Dutch
+     * privateer and frigate beside a loaded French galleon, and the Dutch at war with France.
+     */
+    @Test
+    @Timeout(240)
+    void theCombatPresetPutsTheArmyAndTheShipsNextToTheirTargets() throws Exception {
+        start(preset("combat"));
+        server.setup();
+        final Game game = server.getGame();
+        final Player us = game.getFreeColGameObject(client.getClient().getMyPlayer().getId(), Player.class);
+        final Player france = game.getPlayerByNationId("model.nation.french");
+        assertEquals(Stance.WAR, us.getStance(france));
+        assertEquals(Stance.WAR, france.getStance(us));
+        final Colony french = france.getColonyList().stream().findFirst().orElse(null);
+        org.junit.jupiter.api.Assertions.assertNotNull(french, "a French colony");
+        final Tile colony = french.getTile();
+        assertTrue(colony.getUnitList().stream().anyMatch(u -> u.getOwner() == france && u.isOffensiveUnit()),
+            "French defenders");
+        final long dutchNext = colony.getSurroundingTiles(1, 1).stream()
+            .flatMap(t -> t.getUnitList().stream()).filter(u -> u.getOwner() == us && u.isOffensiveUnit()).count();
+        assertTrue(dutchNext >= 6, "the army is round the colony: " + dutchNext);
+        final Unit galleon = france.getUnits().filter(u -> u.getType().getId().equals("model.unit.galleon"))
+            .findFirst().orElse(null);
+        org.junit.jupiter.api.Assertions.assertNotNull(galleon, "a French galleon");
+        assertTrue(galleon.getGoodsList().size() > 0, "loaded");
+        final long dutchShips = galleon.getTile().getSurroundingTiles(1, 1).stream()
+            .flatMap(t -> t.getUnitList().stream()).filter(u -> u.getOwner() == us && u.isNaval()).count();
+        assertEquals(2, dutchShips, "a privateer and a frigate beside it");
     }
 }

@@ -49,6 +49,8 @@ import net.sf.freecol.server.generator.SimpleMapGenerator;
  * The {@code setup} is a scenario: debug requests ({@link DebugActions}) the
  * Engine runs, in order, once the game has started ({@link ServerEngine#setup}).
  * A request with no x and y acts where the last colony or request was.
+ * A request {@code { "repeat": 30, "do": [ ...requests ] }} runs its requests
+ * that many times over, so a scenario can describe a colony once and have thirty.
  *
  * {@code advantages} is FreeCol's National Advantages choice (SELECTABLE,
  * FIXED or NONE); {@code nationType} the human nation's own advantage, which

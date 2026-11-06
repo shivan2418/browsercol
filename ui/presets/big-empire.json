@@ -1,0 +1,804 @@
+{
+  "difficulty": "model.difficulty.veryEasy",
+  "nation": "model.nation.dutch",
+  "seed": 1,
+  "options": {
+    "model.option.mapWidth": 40,
+    "model.option.mapHeight": 80,
+    "model.option.fogOfWar": false
+  },
+  "setup": [
+    {
+      "action": "revealMap"
+    },
+    {
+      "action": "addFoundingFather",
+      "father": "model.foundingFather.adamSmith"
+    },
+    {
+      "action": "addFoundingFather",
+      "father": "model.foundingFather.peterStuyvesant"
+    },
+    {
+      "action": "addGold",
+      "amount": 50000
+    },
+    {
+      "repeat": 30,
+      "do": [
+        {
+          "action": "addColony"
+        },
+        {
+          "repeat": 6,
+          "do": [
+            {
+              "action": "addUnit",
+              "type": "model.unit.freeColonist",
+              "inColony": true
+            }
+          ]
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.townHall",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.carpenterHouse",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.lumberMill",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.blacksmithHouse",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.blacksmithShop",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.ironWorks",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.tobacconistHouse",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.tobacconistShop",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.cigarFactory",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.weaverHouse",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.weaverShop",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.textileMill",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.distillerHouse",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.rumDistillery",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.rumFactory",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.furTraderHouse",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.furTradingPost",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.furFactory",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.schoolhouse",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.college",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.university",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.armory",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.magazine",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.arsenal",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.chapel",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.church",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.cathedral",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.stockade",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.fort",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.fortress",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.depot",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.warehouse",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.warehouseExpansion",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.stables",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.docks",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.drydock",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.shipyard",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.printingPress",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.newspaper",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.customHouse",
+          "optional": true
+        },
+        {
+          "repeat": 6,
+          "do": [
+            {
+              "action": "addUnit",
+              "type": "model.unit.freeColonist",
+              "inColony": true
+            }
+          ]
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.townHall",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.carpenterHouse",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.lumberMill",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.blacksmithHouse",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.blacksmithShop",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.ironWorks",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.tobacconistHouse",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.tobacconistShop",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.cigarFactory",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.weaverHouse",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.weaverShop",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.textileMill",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.distillerHouse",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.rumDistillery",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.rumFactory",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.furTraderHouse",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.furTradingPost",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.furFactory",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.schoolhouse",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.college",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.university",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.armory",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.magazine",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.arsenal",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.chapel",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.church",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.cathedral",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.stockade",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.fort",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.fortress",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.depot",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.warehouse",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.warehouseExpansion",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.stables",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.docks",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.drydock",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.shipyard",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.printingPress",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.newspaper",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.customHouse",
+          "optional": true
+        },
+        {
+          "repeat": 4,
+          "do": [
+            {
+              "action": "addUnit",
+              "type": "model.unit.freeColonist",
+              "inColony": true
+            }
+          ]
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.townHall",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.carpenterHouse",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.lumberMill",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.blacksmithHouse",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.blacksmithShop",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.ironWorks",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.tobacconistHouse",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.tobacconistShop",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.cigarFactory",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.weaverHouse",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.weaverShop",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.textileMill",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.distillerHouse",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.rumDistillery",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.rumFactory",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.furTraderHouse",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.furTradingPost",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.furFactory",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.schoolhouse",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.college",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.university",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.armory",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.magazine",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.arsenal",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.chapel",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.church",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.cathedral",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.stockade",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.fort",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.fortress",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.depot",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.warehouse",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.warehouseExpansion",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.stables",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.docks",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.drydock",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.shipyard",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.printingPress",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.newspaper",
+          "optional": true
+        },
+        {
+          "action": "addBuilding",
+          "type": "model.building.customHouse",
+          "optional": true
+        },
+        {
+          "action": "addGoods",
+          "type": "model.goods.food",
+          "amount": 150
+        },
+        {
+          "action": "addGoods",
+          "type": "model.goods.lumber",
+          "amount": 150
+        },
+        {
+          "action": "addGoods",
+          "type": "model.goods.tools",
+          "amount": 150
+        },
+        {
+          "action": "addGoods",
+          "type": "model.goods.muskets",
+          "amount": 150
+        },
+        {
+          "action": "addGoods",
+          "type": "model.goods.horses",
+          "amount": 150
+        },
+        {
+          "action": "addGoods",
+          "type": "model.goods.sugar",
+          "amount": 150
+        },
+        {
+          "action": "addGoods",
+          "type": "model.goods.tobacco",
+          "amount": 150
+        },
+        {
+          "action": "addGoods",
+          "type": "model.goods.cotton",
+          "amount": 150
+        },
+        {
+          "action": "addGoods",
+          "type": "model.goods.furs",
+          "amount": 150
+        },
+        {
+          "action": "addGoods",
+          "type": "model.goods.rum",
+          "amount": 150
+        },
+        {
+          "action": "addGoods",
+          "type": "model.goods.cigars",
+          "amount": 150
+        },
+        {
+          "action": "addGoods",
+          "type": "model.goods.cloth",
+          "amount": 150
+        },
+        {
+          "action": "addGoods",
+          "type": "model.goods.coats",
+          "amount": 150
+        },
+        {
+          "action": "addGoods",
+          "type": "model.goods.tradeGoods",
+          "amount": 150
+        },
+        {
+          "action": "addGoods",
+          "type": "model.goods.silver",
+          "amount": 150
+        },
+        {
+          "action": "addUnit",
+          "type": "model.unit.veteranSoldier",
+          "role": "model.role.soldier"
+        },
+        {
+          "action": "addUnit",
+          "type": "model.unit.veteranSoldier",
+          "role": "model.role.dragoon"
+        },
+        {
+          "action": "addUnit",
+          "type": "model.unit.artillery"
+        }
+      ]
+    },
+    {
+      "repeat": 4,
+      "do": [
+        {
+          "action": "addUnit",
+          "type": "model.unit.galleon",
+          "ship": true
+        }
+      ]
+    },
+    {
+      "repeat": 4,
+      "do": [
+        {
+          "action": "addUnit",
+          "type": "model.unit.frigate",
+          "ship": true
+        }
+      ]
+    },
+    {
+      "repeat": 3,
+      "do": [
+        {
+          "action": "addUnit",
+          "type": "model.unit.caravel",
+          "ship": true
+        }
+      ]
+    },
+    {
+      "repeat": 3,
+      "do": [
+        {
+          "action": "addUnit",
+          "type": "model.unit.merchantman",
+          "ship": true
+        }
+      ]
+    },
+    {
+      "repeat": 2,
+      "do": [
+        {
+          "action": "addUnit",
+          "type": "model.unit.privateer",
+          "ship": true
+        }
+      ]
+    }
+  ]
+}

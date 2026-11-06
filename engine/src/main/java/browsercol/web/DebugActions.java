@@ -85,7 +85,12 @@ import net.sf.freecol.server.model.ServerUnit;
  * </pre>
  *
  * A tile is named by "x" and "y", or by "dx" and "dy" from where the last
- * colony or request was, or else is that tile. A unit is the human's, or,
+ * colony or request was, or else is that tile. "native": 0 (or 1, 2, ...) is
+ * the native settlement nearest to the human's first ship (or the second
+ * nearest, ...) and "ship": true the human's first ship; "dx" and "dy" then
+ * count from there. An addColony that names its tile and has "nearest": true
+ * founds the colony on the nearest land one can be founded on, from that tile.
+ * An addBuilding with "optional": true is skipped, not refused, where the colony cannot build it. A unit is the human's, or,
  * with "owner": "ref", their Royal Expeditionary Force's once they have
  * declared; "role" equips it; "around" puts one on each land tile next to
  * the tile that has no settlement and no other player's unit, instead of
@@ -246,13 +251,47 @@ final class DebugActions {
     private Tile at(Map<?, ?> r) {
         if (r.get("x") != null || r.get("y") != null) {
             this.focus = tile(integer(r, "x"), integer(r, "y"));
+        } else if (anchored(r)) {
+            this.focus = anchor(r);
+            offset(r);
         } else if (r.get("dx") != null || r.get("dy") != null) {
             if (this.focus == null) throw bad("\"dx\" and \"dy\" count from a colony or tile named before");
-            this.focus = tile(this.focus.getX() + ((r.get("dx") == null) ? 0 : integer(r, "dx")),
-                              this.focus.getY() + ((r.get("dy") == null) ? 0 : integer(r, "dy")));
+            offset(r);
         }
         if (this.focus == null) throw bad("name a tile with \"x\" and \"y\"");
         return this.focus;
+    }
+
+    /** Whether a request names its tile by what it is next to: "native" or "ship". */
+    private static boolean anchored(Map<?, ?> r) {
+        return r.get("native") != null || r.get("ship") != null;
+    }
+
+    /**
+     * The tile "ship" (the human's first ship) or "native" (the nth native settlement, nearest to the
+     * human's first unit first, counting from 0) names. The map of a game differs between the JVM and
+     * the browser for the same seed, so a preset names a place by what is there, not by its x and y.
+     */
+    private Tile anchor(Map<?, ?> r) {
+        final Unit first = me().getUnits().filter(u -> u.getTile() != null && u.isNaval())
+            .findFirst().orElse(me().getUnits().filter(u -> u.getTile() != null).findFirst().orElse(null));
+        if (first == null) throw bad("the human has no unit on the map to count from");
+        if (Boolean.TRUE.equals(r.get("ship")) || "ship".equals(r.get("ship"))) return first.getTile();
+        final int n = (r.get("native") instanceof Long) ? integer(r, "native") : 0;
+        final Tile from = first.getTile();
+        final List<Tile> natives = new ArrayList<>();
+        for (Player p : this.game.getLiveNativePlayerList()) {
+            for (net.sf.freecol.common.model.Settlement s : p.getSettlementList()) natives.add(s.getTile());
+        }
+        natives.sort((a, b) -> Integer.compare(this.game.getMap().getDistance(from, a),
+                                               this.game.getMap().getDistance(from, b)));
+        if (n >= natives.size()) throw bad("there are only " + natives.size() + " native settlements");
+        return natives.get(n);
+    }
+
+    private void offset(Map<?, ?> r) {
+        this.focus = tile(this.focus.getX() + ((r.get("dx") == null) ? 0 : integer(r, "dx")),
+                          this.focus.getY() + ((r.get("dy") == null) ? 0 : integer(r, "dy")));
     }
 
     private Tile tile(int x, int y) {
@@ -459,10 +498,12 @@ final class DebugActions {
     private String addColony(Map<?, ?> r) {
         final ServerPlayer p = me();
         Tile tile = null;
-        if (r.get("x") != null || r.get("y") != null) {
-            tile = tile(integer(r, "x"), integer(r, "y"));
+        final boolean named = r.get("x") != null || r.get("y") != null || anchored(r)
+            || r.get("dx") != null || r.get("dy") != null;
+        if (named && !Boolean.TRUE.equals(r.get("nearest"))) {
+            tile = at(r);
         } else {
-            final Tile from = p.getUnits().filter(u -> u.getTile() != null)
+            final Tile from = named ? at(r) : p.getUnits().filter(u -> u.getTile() != null)
                 .map(Unit::getTile).findFirst().orElse(null);
             if (from == null) throw bad("the human has no unit to look from");
             int best = Integer.MAX_VALUE;
@@ -515,7 +556,13 @@ final class DebugActions {
         if (type == null) throw bad("unknown building type \"" + typeId + "\"");
         final Colony colony = at(r).getColony();
         if (colony == null || colony.getOwner() != p) throw bad("no colony of yours there");
-        if (!colony.canBuild(type)) throw bad("the colony cannot build " + typeId);
+        if (!colony.canBuild(type)) {
+            // A scenario that fills every colony with every building meets ones a colony cannot have (a port, say).
+            if (Boolean.TRUE.equals(r.get("optional"))) {
+                return new Json().put("action", "addBuilding").put("skipped", typeId).toString();
+            }
+            throw bad("the colony cannot build " + typeId);
+        }
         final ChangeSet cs = new ChangeSet();
         ((net.sf.freecol.server.model.ServerColony)colony).csFreeBuilding(type, cs);
         cs.add(See.only(p), colony);

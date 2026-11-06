@@ -172,8 +172,24 @@ public final class ServerEngine {
             this.server.getAIMain(), this.server.getInGameController());
         final List<Map<?, ?>> requests = this.setup;
         this.setup = new ArrayList<>();
-        for (Map<?, ?> r : requests) answers.add(actions.run(r));
+        runAll(actions, requests, answers);
         return answers;
+    }
+
+    /** Run requests in order; one with "repeat" and "do" runs its "do" requests that many times. */
+    private static void runAll(DebugActions actions, List<?> requests, List<String> answers) {
+        for (Object o : requests) {
+            if (!(o instanceof Map)) throw new IllegalArgumentException("Bad preset: a \"setup\" request is an object");
+            final Map<?, ?> r = (Map<?, ?>)o;
+            if (r.get("repeat") == null && r.get("do") == null) {
+                answers.add(actions.run(r));
+                continue;
+            }
+            if (!(r.get("repeat") instanceof Long) || !(r.get("do") instanceof List)) {
+                throw new IllegalArgumentException("Bad preset: \"repeat\" is a whole number and \"do\" a list of requests");
+            }
+            for (long i = 0; i < (Long)r.get("repeat"); i++) runAll(actions, (List<?>)r.get("do"), answers);
+        }
     }
 
     /**
