@@ -9,6 +9,8 @@ import {
   scene,
   STATIC_FIELDS,
   staticScene,
+  staticScenes,
+  STILL,
   unitScene,
   viewModeOps,
   type Chips,
@@ -311,6 +313,25 @@ describe('sameStaticScene', () => {
     expect(sameStaticScene(named('Jamestown'), named('Jamestown'))).toBe(true);
     expect(sameStaticScene(named('Jamestown'), named('Plymouth'))).toBe(false);
     expect(sameStaticScene(map, { ...copy(map), w: 4, h: 2 })).toBe(false);
+  });
+
+  it('lets staticScenes keep the static scene while only units change', () => {
+    const statics = staticScenes();
+    const first = statics(map, tileset, 1, STILL);
+    expect(first).toEqual(staticScene(map, tileset));
+    const moved = { ...copy(map), units: [{ ...map.units[0], x: 1, y: 3 }] };
+    expect(statics(moved, tileset, 1, STILL)).toBe(first);
+    // The units are drawn from the new map all the same.
+    expect(unitScene(moved, tileset).map((op) => [op.x, op.y])).toEqual([
+      [1, 3],
+      [1, 3],
+    ]);
+    // A tile explored, or other colony labels, draw it again.
+    const explored = { ...moved, tiles: 'AB' + 'AC' + 'AA' + 'AA' };
+    const again = statics(explored, tileset, 1, STILL);
+    expect(again).not.toBe(first);
+    expect(again).toEqual(staticScene(explored, tileset));
+    expect(statics(explored, tileset, 2, STILL)).not.toBe(again);
   });
 
   it('minds what the player sees only while the fog of war shows', () => {
