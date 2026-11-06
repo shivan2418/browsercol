@@ -133,6 +133,18 @@ test('Escape closes the hint only, not the window under it', async () => {
   expect(close).not.toHaveBeenCalled();
 });
 
+test('a hint goes with its element when that is removed while it shows', async () => {
+  const { rerender } = render(
+    <Tip as="span" tip="Hint">
+      v
+    </Tip>,
+  );
+  rest(screen.getByText('v'));
+  await waitFor(() => expect(shownHint()).toBe('Hint'));
+  rerender(<div />);
+  await waitFor(() => expect(shownHint()).toBeNull(), { timeout: 500 });
+});
+
 test('no hint while a drop-down list is open', async () => {
   render(
     <>
