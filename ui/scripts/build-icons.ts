@@ -1,6 +1,6 @@
 // Makes the site's icons from FreeCol's own window icon (the ship Swing puts on its frame): the tab's
 // favicon, the touch icon, and the 192 and 512 px icons a web app manifest asks for, one of them
-// maskable (the ship inside the 80% safe zone, on a sea-coloured square, so a launcher may crop it to a circle).
+// maskable (the ship inside the 70% centre, within the safe zone, on a sea-coloured square, so a launcher may crop it to a circle).
 // The source is a small non-square PNG, so it is padded to a square and scaled with a bilinear filter.
 // Usage: node build-icons.ts <freecol/data> <out dir>
 import fs from 'node:fs';

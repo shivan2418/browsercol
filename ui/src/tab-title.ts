@@ -2,6 +2,8 @@
 // player's nation, as the status line shows them. While it is the player's turn and the tab is hidden the
 // title says so, until the tab is shown again.
 
+import { nationName } from './fsg';
+
 const NAME = 'BrowserCol';
 
 /** What the title needs of the last map. */
@@ -11,12 +13,6 @@ export interface TitleFacts {
   /** The id of the player's nation, e.g. model.nation.dutch. */
   nation: string;
   ourTurn: boolean;
-}
-
-/** "model.nation.dutch" as a name: "Dutch". */
-function nationName(id: string): string {
-  const last = id.split('.').pop() ?? '';
-  return last.charAt(0).toUpperCase() + last.slice(1);
 }
 
 /** "Autumn 1612" as "1612 Autumn": the year first, so a narrow tab still shows it. */
