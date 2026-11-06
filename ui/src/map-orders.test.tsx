@@ -19,4 +19,16 @@ describe('MapOrders', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Build colony' }));
     expect(ran).toEqual([{ k: 'buildColony' }]);
   });
+
+  it("draws a button as FreeCol's pictures where the art has them, and keeps its name for the hint and the screen reader", () => {
+    const art = (keys: readonly string[]) => `art/${keys[0]}.png`;
+    render(<MapOrders orders={['sentry']} active run={() => {}} art={art} />);
+    const sentry = screen.getByRole('button', { name: 'Sentry' });
+    expect(sentry.className).toBe('pictured');
+    expect(sentry.style.getPropertyValue('--normal')).toContain('image.miscicon.button.normal.sentry');
+    expect(sentry.textContent).toBe('');
+    // Skip is FreeCol's "done" picture; Go to has none in Swing and stays a text button.
+    expect(screen.getByRole('button', { name: 'Skip' }).style.getPropertyValue('--pressed')).toContain('pressed.done');
+    expect(screen.getByRole('button', { name: 'Go to' }).textContent).toBe('Go to');
+  });
 });

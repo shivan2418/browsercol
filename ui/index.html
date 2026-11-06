@@ -249,7 +249,7 @@
         display: none;
       }
       body[data-map-controls='hidden'] #game #map-orders {
-        right: 8px;
+        --clear: 0px;
       }
       #info-panel p {
         margin: 0 0 4px;
@@ -345,19 +345,43 @@
       }
       /* The active unit's order buttons, where CornerMapControls puts them. */
       /* Between the minimap and the info panel (main.tsx sets --minimap-w); in a narrow map they wrap upwards. */
+      /* Centred on the screen: the room kept at both sides is that of the wider of the minimap and the info panel. */
       #game #map-orders {
         position: absolute;
-        left: calc(var(--minimap-w, 0px) + 8px);
-        right: calc(var(--info-panel-w) + 8px);
+        --clear: max(var(--minimap-w, 0px), var(--info-panel-w));
+        left: calc(var(--clear) + 8px);
+        right: calc(var(--clear) + 8px);
         bottom: 8px;
         display: flex;
         flex-wrap: wrap-reverse;
-        justify-content: flex-end;
+        justify-content: center;
         gap: 4px;
         pointer-events: none;
       }
       #game #map-orders button {
         pointer-events: auto;
+      }
+      /* With FreeCol's pictures (order-buttons), a button is its picture in four states, as the minimap's are. */
+      #game #map-orders .pictured {
+        width: 39px;
+        height: 39px;
+        padding: 0;
+        border: 0;
+        box-shadow: none;
+        background: var(--normal) center / contain no-repeat;
+      }
+      #game #map-orders .pictured:hover:enabled {
+        background-image: var(--highlighted);
+      }
+      #game #map-orders .pictured:active:enabled {
+        background-image: var(--pressed);
+      }
+      #game #map-orders .pictured:disabled {
+        background-image: var(--disabled);
+        opacity: 1;
+      }
+      #game #map-orders .pictured:focus-visible {
+        outline: 2px solid var(--accent);
       }
       /* Focus returns here when a window closes (main.tsx); it is a place for keys, not a control with a ring. */
       #map:focus {
@@ -398,6 +422,7 @@
           inset 1px 1px 0 var(--btn-hi),
           inset -1px -1px 0 var(--btn-lo);
         padding: 4px 12px;
+        cursor: pointer;
       }
       button:hover,
       button:focus-visible {
@@ -422,11 +447,23 @@
       .colony .ship,
       .colony [data-picked],
       #preferences .prefs-tree button {
-        cursor: pointer;
         box-shadow: none;
+      }
+      /* Whatever a click does shows the pointer, a disabled one does not. A control with its own look needs no cursor of its own. */
+      summary,
+      select,
+      [role='button'],
+      [role='tab'],
+      [role='menuitem'],
+      [role='option'],
+      .linkish {
+        cursor: pointer;
       }
       button:disabled {
         opacity: 0.5;
+      }
+      button:disabled,
+      [aria-disabled='true'] {
         cursor: default;
       }
       input,
@@ -449,21 +486,8 @@
         background: var(--box);
         border: 1px solid var(--line);
         border-radius: 3px;
-      /* Whatever a click does shows the pointer, a disabled one does not. A control with its own look needs no cursor of its own. */
-      summary,
-      select,
-      [role='button'],
-      [role='tab'],
-      [role='menuitem'],
-      [role='option'],
-      .linkish {
-        cursor: pointer;
-      }
         padding: 2px 4px;
         cursor: default;
-      }
-      button:disabled,
-      [aria-disabled='true'] {
       }
       .ui-select:focus-visible,
       .ui-select[data-popup-open] {
@@ -512,6 +536,7 @@
         font-weight: bold;
       }
       .ui-select-item[data-disabled] {
+        cursor: default;
         opacity: 0.5;
       }
       /* A hint (src/controls.tsx, Base UI's Tooltip): small text on the panel, as FreeColToolTipUI draws one. */
@@ -536,7 +561,6 @@
         padding: 4px;
       }
       #out {
-        cursor: default;
         font-family: var(--font-mono);
         color: var(--muted);
         white-space: pre;
@@ -1715,11 +1739,27 @@
         display: flex;
         flex-direction: column;
         align-items: center;
-        justify-content: center;
+        justify-content: flex-start;
         gap: 4px;
         padding: 6px;
         text-align: center;
         color: var(--ink);
+      }
+      /* The picture has a slot of its own height, and the name room for two lines, so a one-line name or a short picture moves nothing. */
+      .shop-popup .card .pic {
+        flex: none;
+        width: 48px;
+        height: 48px;
+        max-width: none;
+        max-height: none;
+        object-fit: contain;
+        object-position: center bottom;
+      }
+      .shop-popup .card .name {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        line-height: 1.2;
       }
       .shop-popup .card .price {
         min-height: 1.4em;
@@ -1745,22 +1785,6 @@
       .colony .ship,
       .colony [data-picked] {
         padding: 4px;
-      /* The picture has a slot of its own height, and the name room for two lines, so a one-line name or a short picture moves nothing. */
-      .shop-popup .card .pic {
-        flex: none;
-        width: 48px;
-        height: 48px;
-        max-width: none;
-        max-height: none;
-        object-fit: contain;
-        object-position: center bottom;
-      }
-      .shop-popup .card .name {
-        flex: 1;
-        display: flex;
-        align-items: center;
-        line-height: 1.2;
-      }
         border: none;
         border-radius: 4px;
         box-sizing: border-box;
@@ -1777,7 +1801,7 @@
       }
       .europe-body .good {
         display: flex;
-        justify-content: flex-start;
+        justify-content: center;
         align-items: center;
         gap: 6px;
         white-space: nowrap;

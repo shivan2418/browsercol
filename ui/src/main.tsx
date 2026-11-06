@@ -1004,7 +1004,11 @@ function renderSide() {
       </TipProvider>
     ),
   );
-  ordersRoot.render(<MapOrders orders={side.orders} active={view.active !== null} run={(c) => runCommand(c)} />);
+  ordersRoot.render(
+    <TipProvider>
+      <MapOrders orders={side.orders} active={view.active !== null} run={(c) => runCommand(c)} art={art} />
+    </TipProvider>,
+  );
   sideRoot.render(
     <TipProvider>
       <TooltipLayer />
