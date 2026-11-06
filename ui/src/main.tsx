@@ -48,6 +48,7 @@ import { afterSlide as slideGate } from './after-slide';
 import { ColonyActions, ColonyTiles, type ColonyMoves, type DrawTiles } from './colony-panel';
 import { dialogs } from './dialogs';
 import { blockBrowserKeys, steppedScale } from './browser-keys';
+import { BUILD } from './build';
 import { keepTabOnPage } from './focus';
 import { leaveGuard } from './leave-guard';
 import { MENUS, MenuBar, framePlaces, goodsIcons, type Menu } from './frame';
@@ -193,7 +194,7 @@ async function copyErrorDetails(e: GuiEvents['error']) {
   const server = await fetchWorkerLog();
   return copyText(
     errorDetails(e, {
-      build: typeof __BUILD__ === 'undefined' ? 'unknown' : __BUILD__,
+      build: BUILD,
       userAgent: navigator.userAgent,
       log: { server, client: pageLog.text() },
     }),

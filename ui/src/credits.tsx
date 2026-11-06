@@ -3,6 +3,7 @@
 // where their work is used. The entries follow the README beside each file under freecol/data/.
 // Opened from the start screen and from the Colopedia menu (FreeCol's About entry sits there too).
 import type { ReactNode } from 'react';
+import { BUILD } from './build';
 import { WindowFrame } from './frame';
 // The fonts' licence texts, shipped in dist/ with the fonts (fonts.css).
 import cinzelOfl from './fonts/cinzel/OFL.txt?url';
@@ -138,7 +139,8 @@ export function SourceLinks({ credits }: { credits: () => void }) {
       Free software under the <Link href={GPL}>GNU GPL</Link> · <Link href={SOURCE_URL}>Source code</Link> ·{' '}
       <button type="button" className="linkish" data-credits onClick={credits}>
         Credits
-      </button>
+      </button>{' '}
+      · <span data-build>{BUILD}</span>
     </p>
   );
 }
@@ -157,6 +159,7 @@ export function CreditsDialog({ close }: { close: () => void }) {
             modify it under the terms of the <Link href={GPL}>GNU General Public License</Link>, version 2 or (at your
             option) any later version. It comes with no warranty.
           </p>
+          <p>Build: {BUILD}</p>
           <h3>Source code</h3>
           <ul>
             <li>

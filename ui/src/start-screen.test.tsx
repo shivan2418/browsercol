@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vite-plus/test';
+import { BUILD } from './build';
 import type { StartChoice, StartOptions } from './start';
 import { StartScreen } from './start-screen';
 import { chooseOption } from './select-test';
@@ -191,8 +192,9 @@ test('a picked map file is cleared again', () => {
   expect(started[0].importMap).toBeUndefined();
 });
 
-test('links the source and opens the credits, which name the CC BY authors', () => {
+test('links the source and opens the credits, which name the CC BY authors and the build', () => {
   render(<StartScreen options={options} start={() => {}} />);
+  expect(document.querySelector('[data-build]')?.textContent).toBe(BUILD);
   expect(screen.getByRole('link', { name: 'Source code' }).getAttribute('href')).toBe(
     'https://github.com/shivan2418/browsercol',
   );
@@ -203,6 +205,7 @@ test('links the source and opens the credits, which name the CC BY authors', () 
   expect(credits.textContent).toContain('CC BY 4.0');
   expect(credits.querySelector('a[href$="OFL.txt"]')?.textContent).toBe('SIL OFL 1.1');
   expect(credits.textContent).toContain('Cinzel font');
+  expect(credits.textContent).toContain(`Build: ${BUILD}`);
   fireEvent.click(screen.getByRole('button', { name: 'Close' }));
   expect(screen.queryByRole('dialog', { name: 'About BrowserCol' })).toBeNull();
 });
