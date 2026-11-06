@@ -4233,6 +4233,11 @@ public final class InGameController extends FreeColClientHolder {
                 nativeTrade(nt, act, nti, prompt);
                 uw.fireChanges();
                 gui.changeView(current, false);
+                // browser: the trade has used the unit's moves, and nothing after it asks for a new
+                // active unit: the updateGUI of the move that began it ran before they were gone,
+                // as the WebGUI runs deferred work at once. As every action ends, update the GUI
+                // now: a unit that is no candidate for the next active unit is replaced.
+                updateGUI(null, false); // browser:
             });                
     }
 
