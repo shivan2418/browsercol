@@ -1198,7 +1198,8 @@ const gui: GuiHandlers = {
     messages: (raw) => {
       const e = { ...raw, messages: visibleMessages(prefs, raw.messages) };
       if (e.regrouped) dialogQueue.replace('messages', e, (open) => open.title === e.title);
-      else if (e.messages.length > 0) dialogQueue.show('messages', e);
+      // The turn report (it has the group by option) opens even with no messages, and says so.
+      else if (e.messages.length > 0 || e.groupBy) dialogQueue.show('messages', e);
     },
     // A colony already open or queued is shown again in its place, else it opens.
     // It waits for the arriving unit's slide: a goto's arrival, a move into the colony and a landing all show it.

@@ -730,6 +730,20 @@ describe('the panels', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
+  it('open the turn report with no messages, and say nothing happened', () => {
+    const { box } = host();
+    act(() =>
+      box.show('messages', {
+        title: 'Turn Report',
+        ok: 'OK',
+        messages: [],
+        groupBy: { label: 'Group by', value: 0, choices: [{ value: 0, text: 'Nothing' }] },
+      }),
+    );
+    screen.getByRole('heading', { name: 'Turn Report' });
+    screen.getByText('Nothing happened this turn.');
+  });
+
   it('open the colony panel or Europe from a heading or image that links to one', () => {
     const { box, went, pressed } = host();
     act(() =>
