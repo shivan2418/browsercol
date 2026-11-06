@@ -226,7 +226,7 @@ const unlabel = (options) => {
 
 const patched = new WeakSet();
 /**
- * Makes every waitForFunction, waitForSelector, locator waitFor and locator action (click, fill, ...) of the page
+ * Makes every waitForFunction, waitForSelector, waitForEvent, locator waitFor and locator action (click, fill, ...) of the page
  * (and of its locators) fail with the step and condition on a timeout (#233).
  * Each takes an optional `label` in its options bag naming the condition.
  */
@@ -257,6 +257,13 @@ function watchWaits(page) {
     const state = rest?.state ? ` (state ${rest.state})` : '';
     return watched(this, 'page.waitForSelector', `${selector}${state}`, label, () =>
       waitForSelector.call(this, selector, rest),
+    );
+  };
+  const waitForEvent = pageProto.waitForEvent;
+  pageProto.waitForEvent = function (event, options) {
+    const [rest, label] = unlabel(options);
+    return watched(this, 'page.waitForEvent', `the event "${event}"`, label, () =>
+      waitForEvent.call(this, event, rest),
     );
   };
   const waitFor = locatorProto.waitFor;
