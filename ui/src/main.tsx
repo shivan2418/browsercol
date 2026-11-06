@@ -125,6 +125,7 @@ import {
   idbSaveStore,
   isAutosave,
   isTurnAutosave,
+  keepSaves,
   lastTurnSaveName,
   latestAutosave,
   shiftLastTurnSaves,
@@ -1925,6 +1926,9 @@ async function run() {
   });
   const exports = await client;
   saveGame = (name) => {
+    // Ask the browser not to evict the saves. Only a page can ask, not the Worker, and Firefox asks the
+    // player, so it goes with a save the player chose to make.
+    void keepSaves(navigator.storage);
     side.saveNote = 'Saving...';
     renderSide();
     const m: ToWorker = { k: 'save', active: exports.activeUnitId(), name };

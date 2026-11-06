@@ -134,7 +134,10 @@ export function idbSaveStore(factory: IDBFactory = indexedDB): SaveStore {
   };
 }
 
-/** Ask the browser not to evict our saves when disk runs low; false where it will not say. */
+/**
+ * Ask the browser not to evict our saves when disk runs low; false where it will not say. Call it from the
+ * page: a Worker has no navigator.storage.persist, so there it always answers false.
+ */
 export async function keepSaves(storage: Pick<StorageManager, 'persist'> | undefined): Promise<boolean> {
   try {
     return (await storage?.persist?.()) ?? false;
