@@ -25,6 +25,8 @@ import type { Page } from 'playwright-core';
 const browsers = browserNames();
 const keepExport = opt('keep-export', '');
 const SAVE_NAME = 'script save';
+/** Whether a download is the file named: WebKit's downloads put underscores for the spaces. */
+const isFile = (got: string, want: string) => got.replaceAll('_', ' ') === want;
 /** A save TeaVM's ZipFile could not read (#31): its deflate data needs the dummy byte zlib wants after it. */
 const DUMMY_BYTE_SAVE = path.join(import.meta.dirname, 'fixtures/zip-needs-dummy-byte.fsg');
 
@@ -215,7 +217,7 @@ async function run(page: Page, url: string, shot: () => Promise<unknown>, browse
     const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'saves-')), download.suggestedFilename());
     await download.saveAs(file);
     const bytes = fs.readFileSync(file);
-    if (download.suggestedFilename() !== `${DOWNLOAD_NAME}.fsg` || bytes.subarray(0, 2).toString() !== 'PK') {
+    if (!isFile(download.suggestedFilename(), `${DOWNLOAD_NAME}.fsg`) || bytes.subarray(0, 2).toString() !== 'PK') {
       throw new Error(`Save and Download gave ${download.suggestedFilename()}, ${bytes.length} bytes, not a save`);
     }
     await page.waitForFunction(
@@ -276,7 +278,7 @@ async function run(page: Page, url: string, shot: () => Promise<unknown>, browse
   };
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'saves-'));
   const exported = await exportOne(listed.id, 'the save');
-  if (exported.name !== `${SAVE_NAME}.fsg` || exported.bytes.subarray(0, 2).toString() !== 'PK') {
+  if (!isFile(exported.name, `${SAVE_NAME}.fsg`) || exported.bytes.subarray(0, 2).toString() !== 'PK') {
     throw new Error(`the export is ${exported.name}, ${exported.bytes.length} bytes, not a zip named for the save`);
   }
   setStep('4. delete the save, import a file that is no save, then the export');
