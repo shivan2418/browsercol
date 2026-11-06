@@ -750,6 +750,31 @@
         font: var(--fs) / 1.4 var(--font);
         box-shadow: 0 10px 40px rgb(0 0 0 / 45%);
       }
+      /* Opening and closing (#270): a short scale and fade; frame.tsx sets data-motion only when it animates. */
+      @keyframes frame-in {
+        from {
+          opacity: 0;
+          scale: 0.94;
+        }
+      }
+      @keyframes frame-out {
+        to {
+          opacity: 0;
+          scale: 0.94;
+        }
+      }
+      .frame[data-motion='in'] {
+        animation: frame-in 120ms ease-out;
+      }
+      .frame[data-motion='out'] {
+        animation: frame-out 120ms ease-in forwards;
+        pointer-events: none;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .frame[data-motion] {
+          animation: none;
+        }
+      }
       .frame > .title {
         display: flex;
         align-items: center;

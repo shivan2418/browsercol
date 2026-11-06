@@ -20,6 +20,22 @@ import { focusFirstEntry, menuArrows, useFocusTrap } from './focus';
 /** The URL of the art for the first of some resource keys the Tileset has, or null if it has none (yet). */
 export type Art = (keys: readonly string[]) => string | null;
 
+/**
+ * What a window does as it opens and closes (#270). The page sets `play` to the sound player's, so the
+ * effects volume option applies; `motion` says whether to animate, and is off for a player who asks the
+ * system for reduced motion, for an automated browser (navigator.webdriver, so the browser scripts never
+ * wait on an animation) and where there is no matchMedia (the unit tests).
+ */
+export const frameEffects: { play: (key: string) => void; motion: () => boolean; ms: number; sound: string } = {
+  play: () => {},
+  motion: () =>
+    typeof matchMedia === 'function' && !navigator.webdriver && !matchMedia('(prefers-reduced-motion: reduce)').matches,
+  /** How long the scale-and-fade lasts; index.html's frame-in and frame-out keyframes say the same. */
+  ms: 120,
+  /** FreeCol's sound set has no click; its shortest, load.ogg (a cargo hatch thump), stands in. */
+  sound: 'sound.event.loadCargo',
+};
+
 /** The frames on screen, the newest last: Escape closes only the newest. */
 const frames: object[] = [];
 
@@ -91,8 +107,25 @@ export const framePlaces: {
  * a close button, over the panel's body. Escape closes it too, before
  * anything else on the page sees the key.
  */
-export function WindowFrame({ title, close, closeKeys, children, className, ...rest }: FrameProps) {
+export function WindowFrame({ title, close: closeNow, closeKeys, children, className, ...rest }: FrameProps) {
+  // The window fades out before it closes, unless it is not to animate; a second close meanwhile does nothing.
+  const [motion] = useState(() => frameEffects.motion());
+  const [closing, setClosing] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  const close = closeNow
+    ? () => {
+        if (!motion) return closeNow();
+        if (closing) return;
+        setClosing(true);
+        timer.current = setTimeout(closeNow, frameEffects.ms);
+      }
+    : null;
   useEscape(close, closeKeys);
+  // A click as the window opens.
+  useEffect(() => {
+    frameEffects.play(frameEffects.sound);
+  }, []);
   const box = useRef<HTMLElement>(null);
   // Tab goes round the newest window's buttons and fields while the focus is in it, not off the page.
   useFocusTrap(box);
@@ -130,6 +163,7 @@ export function WindowFrame({ title, close, closeKeys, children, className, ...r
       aria-labelledby={title ? titleId : undefined}
       className={className ? `frame ${className}` : 'frame'}
       {...rest}
+      data-motion={motion ? (closing ? 'out' : 'in') : undefined}
       style={{ ...rest.style, transform: shift.x || shift.y ? `translate(${shift.x}px, ${shift.y}px)` : undefined }}
     >
       <div className="title" onPointerDown={drag} style={{ cursor: 'move', touchAction: 'none' }}>
