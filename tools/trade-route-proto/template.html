@@ -1,0 +1,597 @@
+<!--
+  THROWAWAY PROTOTYPE (branch prototype/trade-route-editor, never main): three ways the trade route editor
+  (ui/src/panels.tsx RouteEditor) could look. FreeCol's model: each stop lists the goods the carrier should
+  leave with, one entry per hold; whatever is aboard and not listed is unloaded there. build.mjs inlines the
+  art; edit this file, not trade-routes.html.
+-->
+<title>Trade Route Editor Prototypes</title>
+<meta name="claude:viewport-fit-sides" content="cover" />
+<link
+  rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600&family=Noto+Sans:wght@400;700&display=swap"
+/>
+<style>
+  /* Layout: the game's parchment panel centred on a page that follows the theme; variants switch from a bottom bar. */
+  :root {
+    --page-bg: #e2d5b0;
+    --page-ink: #2a1c0c;
+    --page-muted: #6e5634;
+    --page-rule: #b89c66;
+    --switch-bg: #3b2a17;
+    --switch-ink: #f3e6c4;
+    --switch-line: #8c6c3c;
+    --shadow: rgb(0 0 0 / 35%);
+    /* The game's parchment palette (ui/src/theme.css); the panel keeps it in both modes. */
+    --panel: #e9dcb8;
+    --box: #f4ead0;
+    --ink: #2a1c0c;
+    --muted: #6e5634;
+    --head: #5a3714;
+    --line: #8c6c3c;
+    --btn: #cdb27a;
+    --accent: #8a2e12;
+    --load: #2f6b2a;
+    --unload: #8a2e12;
+    --load-bg: #d6e4c2;
+    --unload-bg: #efc9b6;
+    --font: 'Noto Sans', 'Segoe UI', Ubuntu, Cantarell, system-ui, sans-serif;
+    --font-title: Cinzel, Georgia, serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+      --page-bg: #111214;
+      --page-ink: #f1f1f1;
+      --page-muted: #a9abb3;
+      --page-rule: #3d4049;
+      --switch-bg: #0b0b0c;
+      --switch-ink: #f2f2f2;
+      --switch-line: #3d4049;
+      --shadow: rgb(0 0 0 / 60%);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme='dark'] {
+    --page-bg: #111214;
+    --page-ink: #f1f1f1;
+    --page-muted: #a9abb3;
+    --page-rule: #3d4049;
+    --switch-bg: #0b0b0c;
+    --switch-ink: #f2f2f2;
+    --switch-line: #3d4049;
+    --shadow: rgb(0 0 0 / 60%);
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--page-bg);
+    color: var(--page-ink);
+    font-family: var(--font);
+    font-size: 15px;
+    line-height: 1.35;
+    overflow-x: hidden;
+  }
+  main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding-block: 20px 130px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  header h1 { margin: 0 0 4px; font-family: var(--font-title); font-size: 24px; }
+  header p { margin: 0 0 4px; color: var(--page-muted); font-size: 13px; max-width: 75ch; }
+
+  .win {
+    margin-top: 16px;
+    background: var(--panel);
+    color: var(--ink);
+    border: 2px solid var(--line);
+    border-radius: 4px;
+    box-shadow: 0 6px 24px var(--shadow);
+  }
+  .win > h2 {
+    margin: 0;
+    padding: 8px 14px;
+    font-family: var(--font-title);
+    font-size: 18px;
+    color: var(--head);
+    border-bottom: 1px solid var(--line);
+  }
+  .win .body { padding: 14px; display: grid; gap: 14px; }
+  .top { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; font-size: 14px; }
+  .top input[type='text'] { font: inherit; padding: 3px 6px; border: 1px solid var(--line); background: var(--box); color: var(--ink); width: 14em; max-width: 100%; }
+  select, button { font: inherit; font-size: 13px; color: var(--ink); }
+  select { background: var(--box); border: 1px solid var(--line); padding: 2px 4px; }
+  button { background: var(--btn); border: 1px solid var(--line); border-radius: 3px; padding: 3px 9px; cursor: pointer; }
+  button:hover { filter: brightness(1.06); }
+  button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .buttons { display: flex; gap: 8px; justify-content: flex-end; }
+  .muted { color: var(--muted); font-size: 12px; }
+
+  /* A hold: one 100-unit load. Empty holds are outlines, as in the chosen cargo hold. */
+  .holds { display: flex; flex-wrap: wrap; gap: 3px; }
+  .hold {
+    width: 34px; height: 34px; padding: 0; display: grid; place-items: center;
+    background: var(--box); border: 1px solid var(--line); border-radius: 2px;
+  }
+  .hold.empty { background: transparent; border-style: dashed; color: var(--muted); font-size: 16px; }
+  .hold.over { border: 2px solid var(--accent); background: var(--unload-bg); }
+  .hold img { width: 28px; height: 28px; image-rendering: auto; }
+  .chip { display: inline-flex; align-items: center; gap: 2px; font-size: 12px; padding: 1px 5px 1px 2px; border-radius: 10px; }
+  .chip img { width: 20px; height: 20px; }
+  .chip.load { background: var(--load-bg); color: var(--load); }
+  .chip.unload { background: var(--unload-bg); color: var(--unload); }
+  .chips { display: flex; flex-wrap: wrap; gap: 3px; min-height: 22px; align-items: center; }
+  .icon-btn { padding: 1px 6px; min-width: 26px; }
+
+  /* The goods palette pops up beside the hold that was clicked. */
+  #palette {
+    position: absolute; z-index: 20; display: grid; grid-template-columns: repeat(8, 34px); gap: 3px;
+    padding: 6px; background: var(--panel); border: 2px solid var(--line); border-radius: 4px;
+    box-shadow: 0 6px 18px var(--shadow);
+  }
+  #palette[hidden] { display: none; }
+  #palette button { width: 34px; height: 34px; padding: 0; background: var(--box); }
+  #palette img { width: 28px; height: 28px; }
+
+  /* A: the ledger, after Colonization's trade route report: one row per stop. */
+  .ledger-wrap { overflow-x: auto; }
+  table.ledger { border-collapse: collapse; width: 100%; min-width: 720px; background: var(--box); }
+  .ledger th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--head); padding: 6px 8px; border-bottom: 2px solid var(--line); }
+  .ledger td { padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  .ledger td.n { font-family: var(--font-title); color: var(--head); width: 2em; }
+  .ledger tr.loop td { color: var(--muted); font-size: 12px; font-style: italic; border-bottom: none; }
+
+  /* B: the voyage, a rail of stops with the legs between them; the ship's holds are edited on each leg. */
+  .voyage { display: grid; gap: 0; }
+  .stop-node { display: grid; grid-template-columns: 34px 1fr auto; gap: 10px; align-items: start; }
+  .pin { width: 26px; height: 26px; margin: 4px; border-radius: 50%; background: var(--head); color: var(--panel); display: grid; place-items: center; font-family: var(--font-title); font-size: 13px; }
+  .stop-node h3 { margin: 4px 0 4px; font-family: var(--font-title); font-size: 17px; color: var(--head); }
+  .stop-node .acts { display: flex; gap: 4px; padding-top: 4px; }
+  .leg { display: grid; grid-template-columns: 34px 1fr; gap: 10px; }
+  .leg .rail { justify-self: center; width: 4px; background: repeating-linear-gradient(var(--line) 0 8px, transparent 8px 13px); }
+  .leg .ship { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 8px 0 12px; padding: 8px 10px; background: var(--box); border: 1px solid var(--line); border-radius: 3px; }
+  .leg .ship > img { width: 46px; height: 46px; }
+  .leg .ship .to { font-size: 12px; color: var(--muted); width: 100%; }
+  .leg.back .ship { border-style: dashed; }
+
+  /* C: the matrix, goods down, stops across; a cell is the holds of that goods leaving that stop. */
+  .matrix-wrap { overflow-x: auto; }
+  table.matrix { border-collapse: separate; border-spacing: 0; background: var(--box); }
+  .matrix th, .matrix td { border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); padding: 4px 6px; text-align: center; }
+  .matrix thead th { font-family: var(--font-title); color: var(--head); font-size: 14px; vertical-align: bottom; min-width: 110px; }
+  .matrix thead th .acts { display: flex; gap: 2px; justify-content: center; margin-top: 3px; }
+  .matrix th.g { text-align: left; white-space: nowrap; font-weight: 400; font-size: 13px; position: sticky; left: 0; background: var(--box); }
+  .matrix th.g img { width: 26px; height: 26px; vertical-align: middle; margin-right: 4px; }
+  .cell { display: flex; align-items: center; justify-content: center; gap: 4px; }
+  .cell .v { min-width: 1.4em; font-variant-numeric: tabular-nums; font-weight: 700; }
+  .cell button { padding: 0 6px; font-size: 13px; line-height: 1.3; }
+  td.up { background: var(--load-bg); }
+  td.down { background: var(--unload-bg); }
+  td.up .v { color: var(--load); }
+  .delta { display: block; font-size: 11px; }
+  td.up .delta { color: var(--load); }
+  td.down .delta { color: var(--unload); }
+  tfoot td { font-size: 12px; font-variant-numeric: tabular-nums; }
+  tfoot td.full { color: var(--accent); font-weight: 700; }
+
+
+  /* D: today's editor, tightened: stops left, the picked stop's holds and the goods right. */
+  .compact { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 300px); gap: 14px; }
+  @media (max-width: 640px) { .compact { grid-template-columns: 1fr; } }
+  .stoplist { display: grid; gap: 2px; align-content: start; background: var(--box); border: 1px solid var(--line); padding: 3px; }
+  .stoprow { display: grid; grid-template-columns: 1.6em 7.5em 1fr auto; gap: 6px; align-items: center; padding: 2px 4px; border: 1px solid transparent; border-radius: 2px; cursor: pointer; }
+  .stoprow[aria-selected='true'] { background: var(--btn); border-color: var(--line); }
+  .stoprow .n { font-family: var(--font-title); color: var(--head); }
+  .stoprow .mini { display: flex; gap: 1px; flex-wrap: wrap; }
+  .stoprow .mini img { width: 22px; height: 22px; }
+  .side h4 { margin: 0 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--head); }
+  .side { display: grid; gap: 10px; align-content: start; }
+  .goodsgrid { display: grid; grid-template-columns: repeat(8, 34px); gap: 3px; }
+  .goodsgrid button { width: 34px; height: 34px; padding: 0; background: var(--box); }
+  .goodsgrid img { width: 28px; height: 28px; }
+
+
+  .over { outline: 2px dashed var(--accent); outline-offset: -2px; }
+  [draggable='true'] { cursor: grab; }
+  /* B1, tighter. */
+  .vstop { display: grid; grid-template-columns: 34px auto 1fr auto; gap: 8px; align-items: center; }
+  .vstop h3 { margin: 0; font-family: var(--font-title); font-size: 16px; color: var(--head); }
+  .vleg { display: grid; grid-template-columns: 34px 1fr; gap: 8px; }
+  .vleg .rail { justify-self: center; width: 4px; background: repeating-linear-gradient(var(--line) 0 8px, transparent 8px 13px); }
+  .vleg .ship { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 4px 0; padding: 4px 8px; background: var(--box); border: 1px solid var(--line); border-radius: 3px; justify-self: start; max-width: 100%; }
+  .vleg .ship { display: grid; gap: 6px; }
+  .vleg .shiprow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .vleg .shiprow > img { width: 36px; height: 36px; }
+  .vleg.open .ship { border-width: 2px; border-color: var(--head); }
+  .vleg:not(.open) .ship { cursor: pointer; }
+  .mark { align-self: stretch; display: grid; place-items: end center; width: 12px; font-size: 10px; color: var(--muted); border-left: 2px solid var(--line); margin: 0 1px; cursor: help; }
+  .copy { font-size: 12px; padding: 2px 7px; }
+  .legedit { display: grid; gap: 6px; padding-top: 6px; border-top: 1px solid var(--line); }
+  .hint { margin: 0; font-size: 12px; color: var(--muted); max-width: 60ch; }
+  .hint b { color: var(--ink); }
+  /* A full hold says it unloads when hovered. */
+  .hold:not(.empty) { position: relative; }
+  .hold:not(.empty):hover::after { content: '✕'; position: absolute; inset: 0; display: grid; place-items: center; background: rgb(138 46 18 / 55%); color: #fff; font-weight: 700; }
+  .vleg .to { font-size: 12px; color: var(--muted); }
+  .vleg.back .ship { border-style: dashed; }
+  /* B2. */
+  .across { display: flex; flex-wrap: wrap; gap: 10px 6px; align-items: stretch; }
+  .astop { display: grid; gap: 4px; align-content: start; padding: 6px 8px; background: var(--box); border: 1px solid var(--line); border-radius: 3px; min-width: 130px; max-width: 220px; }
+  .ahead { display: flex; gap: 6px; align-items: center; }
+  .ahead .pin { margin: 0; width: 22px; height: 22px; font-size: 12px; }
+  .ahead strong { font-family: var(--font-title); color: var(--head); flex: 1; }
+  .aleg { display: grid; gap: 4px; align-content: center; justify-items: center; padding: 0 4px; }
+  .aleg .holds { display: grid; grid-template-columns: repeat(2, 34px); }
+  .acarrier { display: flex; align-items: center; gap: 4px; font-size: 13px; color: var(--muted); }
+  .acarrier img { width: 36px; height: 36px; }
+  .aleg.back { border-left: 1px dashed var(--line); }
+  @media (max-width: 520px) { .across { flex-direction: column; } .astop { max-width: none; } .aleg { justify-items: start; padding-left: 20px; } .aleg .holds { display: flex; } }
+  /* D2. */
+  .tabsv { display: grid; gap: 10px; }
+  .strip { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+  .tab { display: grid; gap: 2px; justify-items: start; background: var(--box); padding: 4px 8px; }
+  .tab[aria-pressed='true'] { background: var(--btn); border-width: 2px; }
+  .tname { display: flex; gap: 5px; font-weight: 700; }
+  .tname .n { font-family: var(--font-title); color: var(--head); }
+  .tab .mini { display: flex; gap: 1px; min-height: 20px; align-items: center; }
+  .tab .mini img { width: 20px; height: 20px; }
+  .sep { color: var(--muted); font-size: 16px; }
+  .band { display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: start; padding: 8px; background: var(--box); border: 1px solid var(--line); }
+  .band h4 { margin: 0 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--head); }
+  .tabacts { display: grid; gap: 6px; margin-left: auto; }
+  /* D3. */
+  .foldopen { background: var(--btn); border: 1px solid var(--line); border-radius: 2px; }
+  .foldopen .stoprow { background: transparent; border-color: transparent; }
+  .foldbody { display: flex; flex-wrap: wrap; gap: 10px 20px; padding: 4px 8px 8px 2.2em; }
+  .foldbody h4 { margin: 0 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--head); }
+  .foldbody .goodsgrid button, .foldbody .hold { background: var(--box); }
+  @media (max-width: 400px) { .goodsgrid { grid-template-columns: repeat(6, 34px); } }
+
+  /* The state, shown after every change. */
+  details.state { margin-top: 18px; font-size: 12px; color: var(--page-muted); }
+  details.state pre { white-space: pre-wrap; background: var(--switch-bg); color: var(--switch-ink); padding: 10px; border-radius: 4px; overflow-x: auto; }
+
+  nav.switch {
+    position: fixed; left: 50%; transform: translateX(-50%);
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    display: flex; gap: 4px; padding: 5px; background: var(--switch-bg); border: 1px solid var(--switch-line);
+    border-radius: 999px; box-shadow: 0 4px 16px var(--shadow); max-width: calc(100% - 24px); overflow-x: auto;
+  }
+  nav.switch a { color: var(--switch-ink); text-decoration: none; padding: 6px 14px; border-radius: 999px; white-space: nowrap; font-size: 13px; }
+  nav.switch a[aria-current='true'] { background: var(--switch-ink); color: var(--switch-bg); font-weight: 700; }
+  @media (max-width: 520px) {
+    .stop-node { grid-template-columns: 34px 1fr; }
+    .stop-node .acts { grid-column: 2; }
+  }
+</style>
+
+<main>
+  <header>
+    <h1 id="vtitle"></h1>
+    <p id="vnote"></p>
+    <p>
+      Prototype on sample data. A route has no carrier: any wagon train or ship can be given it. The marks after 2, 4 and 6 goods show where each size of carrier is full; goods load in order. A hold is 100 goods. Each stop says what the carrier leaves with; anything aboard
+      and not listed there is unloaded. Unloads and loads below are worked out from that.
+    </p>
+  </header>
+  <section class="win">
+    <h2>Edit trade route</h2>
+    <div class="body">
+      <div class="top">
+        <label>Name <input type="text" id="name" /></label>
+        <label><input type="checkbox" id="silent" /> Silence warnings</label>
+        <label>Add stop
+          <select id="addPlace"></select>
+        </label>
+      </div>
+      <div id="variant"></div>
+      <div class="buttons"><button id="ok">OK</button><button id="reset">Cancel (reset sample)</button></div>
+    </div>
+  </section>
+  <details class="state"><summary>Route state</summary><pre id="state"></pre></details>
+</main>
+<div id="palette" hidden></div>
+<nav class="switch" id="switch"></nav>
+
+<script>
+  const IMG = /*IMAGES*/{};
+  const GOODS = [
+    ['food', 'Food'], ['sugar', 'Sugar'], ['tobacco', 'Tobacco'], ['cotton', 'Cotton'], ['furs', 'Furs'],
+    ['lumber', 'Lumber'], ['ore', 'Ore'], ['silver', 'Silver'], ['horses', 'Horses'], ['rum', 'Rum'],
+    ['cigars', 'Cigars'], ['cloth', 'Cloth'], ['coats', 'Coats'], ['tradeGoods', 'Trade goods'], ['tools', 'Tools'],
+    ['muskets', 'Muskets'],
+  ];
+  const NAME = Object.fromEntries(GOODS);
+  const PLACES = ['Jamestown', 'Plymouth', 'Roanoke', 'Hampton', 'Europe'];
+  const CAP = { wagonTrain: 2, merchantman: 4, galleon: 6 };
+  const sample = () => ({
+    name: 'Sugar and rum',
+    silent: false,
+    carrier: 'merchantman',
+    stops: [
+      { place: 'Jamestown', cargo: ['sugar', 'sugar', 'furs', 'cotton', 'tobacco'] },
+      { place: 'Plymouth', cargo: ['furs', 'rum', 'rum'] },
+      { place: 'Europe', cargo: ['tools', 'muskets', 'horses'] },
+    ],
+  });
+  let route = sample();
+
+  const VARIANTS = [
+    { id: 'side', label: 'D1 · Side by side', title: 'D1 · Side by side', note: 'Today’s way of working, tightened: stops left, the picked stop’s holds and the goods right. Drag a stop to reorder it; shift-click goods to fill every empty hold.', render: compact },
+    { id: 'tabs', label: 'D2 · Stop tabs', title: 'D2 · Stop tabs', note: 'The route reads as one line of stops along the top; the picked stop’s holds and the goods sit in one band under it. The least height of all.', render: tabs },
+    { id: 'fold', label: 'D3 · Fold-out', title: 'D3 · Fold-out', note: 'One list: the picked stop opens in place to show its holds and the goods, the others stay one line each.', render: fold },
+    { id: 'voyage', label: 'B1 · Voyage', title: 'B1 · Voyage, tighter', note: 'Stops on a rail, the carrier and its holds on each leg between them. Tightened: a stop is one line, a leg is one line.', render: voyage },
+    { id: 'across', label: 'B2 · Voyage across', title: 'B2 · Voyage across', note: 'The same journey laid out left to right, wrapping like text: stop, the carrier with what it carries, the next stop. On a phone it stacks.', render: across },
+  ];
+
+  // ---- The model ----
+  const count = (list) => list.reduce((m, g) => ((m[g] = (m[g] || 0) + 1), m), {});
+  // A route has no carrier: it is given to wagons and ships alike. Marks show where each size fills up.
+  const MARKS = { 2: 'Wagon train, caravel, privateer: full', 4: 'Merchantman, frigate: full', 6: 'Galleon: full' };
+  const MAX = 6;
+  const cap = () => MAX;
+  // As FreeCol: arriving at stop i with what stop i-1 left with (the route loops), a goods type not listed
+  // at i is unloaded; a listed one is loaded up to the listed holds.
+  function work(i) {
+    const n = route.stops.length;
+    const before = count(n > 1 ? route.stops[(i - 1 + n) % n].cargo : []);
+    const after = count(route.stops[i].cargo);
+    const unload = [], load = [];
+    for (const g in before) if (!after[g]) unload.push([g, before[g]]);
+    for (const g in after) if (after[g] > (before[g] || 0)) load.push([g, after[g] - (before[g] || 0)]);
+    return { unload, load };
+  }
+  function change(f) { f(); paint(); }
+  const move = (i, d) => change(() => {
+    const j = i + d; if (j < 0 || j >= route.stops.length) return;
+    const s = route.stops; [s[i], s[j]] = [s[j], s[i]];
+  });
+  const drop = (i) => change(() => route.stops.splice(i, 1));
+  const addHold = (i, g) => change(() => route.stops[i].cargo.push(g));
+  const fillHolds = (i, g) => change(() => { const c = route.stops[i].cargo; do c.push(g); while (c.length < MAX && !MARKS[c.length]); });
+  const loadGoods = (i, g, ev) => (ev && ev.shiftKey ? fillHolds(i, g) : addHold(i, g));
+  let dragFrom = null;
+  // Drag a stop onto another to put it there.
+  const dragStop = (i) => ({
+    draggable: 'true',
+    ondragstart: (ev) => { dragFrom = i; ev.dataTransfer.effectAllowed = 'move'; ev.dataTransfer.setData('text/plain', String(i)); },
+    ondragover: (ev) => { if (dragFrom !== null) { ev.preventDefault(); ev.currentTarget.classList.add('over'); } },
+    ondragleave: (ev) => ev.currentTarget.classList.remove('over'),
+    ondrop: (ev) => { ev.preventDefault(); const f = dragFrom; dragFrom = null; if (f === null || f === i) return paint(); change(() => { const [x] = route.stops.splice(f, 1); route.stops.splice(i, 0, x); }); picked = i; paint(); },
+    ondragend: () => (dragFrom = null),
+  });
+  const goodsGrid = (i) => h('div', { class: 'goodsgrid' }, GOODS.map(([g, nm]) => h('button', { title: `${nm} (shift-click: fill every empty hold)`, onclick: (ev) => loadGoods(i, g, ev) }, img(g))));
+  const takeHold = (i, k) => change(() => route.stops[i].cargo.splice(k, 1));
+  const setPlace = (i, p) => change(() => (route.stops[i].place = p));
+
+  // ---- Small pieces ----
+  const h = (tag, attrs = {}, ...kids) => {
+    const e = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+      else if (v !== false && v != null) e.setAttribute(k, v === true ? '' : v);
+    }
+    for (const k of kids.flat()) if (k != null && k !== false) e.append(k.nodeType ? k : document.createTextNode(k));
+    return e;
+  };
+  const img = (g) => h('img', { src: IMG[g], alt: NAME[g] || g });
+  const chip = (cls, [g, n]) => h('span', { class: 'chip ' + cls, title: `${cls === 'load' ? 'Load' : 'Unload'} ${NAME[g]}` }, img(g), `${cls === 'load' ? '+' : '−'}${n}`);
+  const chips = (i) => {
+    const w = work(i);
+    const kids = [...w.unload.map((x) => chip('unload', x)), ...w.load.map((x) => chip('load', x))];
+    return h('div', { class: 'chips' }, kids.length ? kids : h('span', { class: 'muted' }, 'nothing to do'));
+  };
+  // The carrier's holds when leaving stop i: filled ones empty on click, empty ones open the palette.
+  function holds(i) {
+    const c = route.stops[i].cargo;
+    const slots = [];
+    c.forEach((g, k) => {
+      slots.push(h('button', {
+        class: 'hold' + (k >= MAX ? ' over' : ''), title: `${k + 1}. ${NAME[g]} (click to empty)${k >= MAX ? ' · no carrier has this many holds' : ''}`,
+        onclick: () => takeHold(i, k),
+      }, img(g)));
+      if (MARKS[k + 1] && k + 1 < c.length) slots.push(h('span', { class: 'mark', title: MARKS[k + 1] }, k + 1));
+    });
+    slots.push(h('button', { class: 'hold empty', title: 'Add goods: click to choose', onclick: (ev) => pick(ev.currentTarget, (g) => addHold(i, g)) }, '+'));
+    return h('div', { class: 'holds' }, slots);
+  }
+  const placeSelect = (i) => h('select', { 'aria-label': 'Stop', onchange: (ev) => setPlace(i, ev.target.value) },
+    PLACES.map((p) => h('option', { value: p, selected: p === route.stops[i].place }, p)));
+  const acts = (i) => [
+    h('button', { class: 'icon-btn', title: 'Earlier', disabled: i === 0, onclick: () => move(i, -1) }, '▲'),
+    h('button', { class: 'icon-btn', title: 'Later', disabled: i === route.stops.length - 1, onclick: () => move(i, 1) }, '▼'),
+    h('button', { class: 'icon-btn', title: 'Remove stop', onclick: () => drop(i) }, '✕'),
+  ];
+
+  const palette = document.getElementById('palette');
+  let onPick = null;
+  function pick(anchor, f) {
+    onPick = f;
+    palette.replaceChildren(...GOODS.map(([g, n]) => h('button', { title: n, onclick: () => { palette.hidden = true; onPick(g); } }, img(g))));
+    palette.hidden = false;
+    const r = anchor.getBoundingClientRect();
+    const w = palette.offsetWidth;
+    palette.style.left = Math.max(8, Math.min(r.left + scrollX, scrollX + innerWidth - w - 8)) + 'px';
+    palette.style.top = r.bottom + scrollY + 4 + 'px';
+  }
+  document.addEventListener('click', (ev) => {
+    if (!palette.hidden && !palette.contains(ev.target) && !ev.target.closest('.hold.empty, .addrow')) palette.hidden = true;
+  }, true);
+  document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') palette.hidden = true; });
+
+
+  // ---- D: today's editor, tighter ----
+  let picked = 0;
+  function compact() {
+    const n = route.stops.length;
+    picked = Math.min(picked, n - 1);
+    const list = h('div', { class: 'stoplist', role: 'listbox' }, route.stops.map((s, i) => h('div', {
+      class: 'stoprow', role: 'option', 'aria-selected': String(i === picked), tabindex: 0, ...dragStop(i),
+      onclick: (ev) => { if (!ev.target.closest('button,select')) { picked = i; paint(); } },
+    },
+      h('span', { class: 'n' }, i + 1), h('strong', {}, s.place),
+      h('span', { class: 'mini', title: s.cargo.map((g) => NAME[g]).join(', ') }, s.cargo.length ? s.cargo.map(img) : h('span', { class: 'muted' }, 'leaves empty')),
+      h('button', { class: 'icon-btn', title: 'Remove stop', onclick: () => drop(i) }, '✕'))));
+    if (n === 0) return h('p', { class: 'muted' }, 'No stops yet: add one above.');
+    const s = route.stops[picked];
+    const side = h('div', { class: 'side' },
+      h('div', {}, h('h4', {}, `${s.place}: leaves with`), holds(picked)),
+      h('div', {}, h('h4', {}, 'Does here'), chips(picked)),
+      h('div', {}, h('h4', {}, 'Load'), goodsGrid(picked)));
+    return h('div', { class: 'compact' }, list, side);
+  }
+
+  // ---- A: Ledger ----
+  function ledger() {
+    const n = route.stops.length;
+    const rows = route.stops.map((s, i) => h('tr', {},
+      h('td', { class: 'n' }, i + 1),
+      h('td', {}, placeSelect(i)),
+      h('td', {}, h('div', { class: 'chips' }, work(i).unload.map((x) => chip('unload', x)))),
+      h('td', {}, h('div', { class: 'chips' }, work(i).load.map((x) => chip('load', x)))),
+      h('td', {}, holds(i)),
+      h('td', {}, h('div', { class: 'holds' }, acts(i))),
+    ));
+    if (n > 1) rows.push(h('tr', { class: 'loop' }, h('td', {}, '↺'), h('td', { colspan: 5 }, `then back to ${route.stops[0].place}`)));
+    return h('div', { class: 'ledger-wrap' }, h('table', { class: 'ledger' },
+      h('thead', {}, h('tr', {}, ['#', 'Stop', 'Unloads', 'Loads', 'Leaves with', ''].map((t) => h('th', {}, t)))),
+      h('tbody', {}, rows)));
+  }
+
+  // ---- B: Voyage ----
+  function voyage() {
+    const n = route.stops.length;
+    picked = Math.min(picked, Math.max(n - 1, 0));
+    const out = [];
+    route.stops.forEach((s, i) => {
+      const next = route.stops[(i + 1) % n];
+      const prev = route.stops[(i - 1 + n) % n];
+      const open = i === picked;
+      out.push(h('div', { class: 'vstop', ...dragStop(i) },
+        h('div', { class: 'pin', title: 'Drag to reorder' }, i + 1),
+        h('h3', {}, s.place), chips(i),
+        h('button', { class: 'icon-btn', title: 'Remove stop', onclick: () => drop(i) }, '✕')));
+      const same = n > 1 && prev.cargo.join() === s.cargo.join();
+      out.push(h('div', { class: 'vleg' + (i === n - 1 ? ' back' : '') + (open ? ' open' : '') },
+        h('div', { class: 'rail' }),
+        h('div', { class: 'ship', onclick: (ev) => { if (!open && !ev.target.closest('button')) { picked = i; paint(); } } },
+          h('div', { class: 'shiprow' }, holds(i),
+            h('span', { class: 'to' }, i === n - 1 ? `↺ back to ${next.place}` : `→ ${next.place}`),
+            n > 1 && h('button', { class: 'copy', disabled: same, title: `Leave ${s.place} with what it brought from ${prev.place}: nothing is loaded or unloaded here`, onclick: () => change(() => (route.stops[i].cargo = [...prev.cargo])) }, same ? `Same goods as ${prev.place}` : `⧉ Copy ${prev.place}’s goods`),
+            !open && h('button', { class: 'copy', onclick: () => { picked = i; paint(); } }, 'Edit')),
+          open && h('div', { class: 'legedit' },
+            h('p', { class: 'hint' }, h('b', {}, `Load at ${s.place}: `), 'click goods to add them; the first goods load first, and loading stops at the first goods that do not fit. Shift-click fills to the next mark. ',
+              h('b', {}, 'Unload: '), `click a hold to empty it; ${s.place} unloads whatever is no longer in the holds.`),
+            goodsGrid(i)))));
+    });
+    return h('div', { class: 'voyage' }, out);
+  }
+
+  // ---- B2: Voyage across ----
+  function across() {
+    const n = route.stops.length;
+    const out = [];
+    route.stops.forEach((s, i) => {
+      out.push(h('div', { class: 'astop', ...dragStop(i) },
+        h('div', { class: 'ahead' }, h('span', { class: 'pin' }, i + 1), h('strong', {}, s.place),
+          h('button', { class: 'icon-btn', title: 'Remove stop', onclick: () => drop(i) }, '✕')),
+        chips(i)));
+      out.push(h('div', { class: 'aleg' + (i === n - 1 ? ' back' : '') },
+        h('div', { class: 'acarrier' }, h('span', { class: 'arrow' }, i === n - 1 ? `↺ ${route.stops[0].place}` : '→')),
+        holds(i)));
+    });
+    return h('div', { class: 'across' }, out);
+  }
+
+  // ---- D2: Stop tabs ----
+  function tabs() {
+    const n = route.stops.length;
+    if (n === 0) return h('p', { class: 'muted' }, 'No stops yet: add one above.');
+    picked = Math.min(picked, n - 1);
+    const strip = [];
+    route.stops.forEach((s, i) => {
+      strip.push(h('button', { class: 'tab', 'aria-pressed': String(i === picked), onclick: () => { picked = i; paint(); }, ...dragStop(i) },
+        h('span', { class: 'tname' }, h('span', { class: 'n' }, i + 1), s.place),
+        h('span', { class: 'mini' }, s.cargo.length ? s.cargo.map(img) : h('span', { class: 'muted' }, 'empty'))));
+      strip.push(h('span', { class: 'sep' }, i === n - 1 ? '↺' : '→'));
+    });
+    const s = route.stops[picked];
+    return h('div', { class: 'tabsv' },
+      h('div', { class: 'strip' }, strip),
+      h('div', { class: 'band' },
+        h('div', {}, h('h4', {}, `${s.place} · leaves with`), holds(picked)),
+        h('div', {}, h('h4', {}, 'Does here'), chips(picked)),
+        h('div', {}, h('h4', {}, 'Load (shift: fill)'), goodsGrid(picked)),
+        h('div', { class: 'tabacts' }, placeSelect(picked), h('button', { onclick: () => drop(picked) }, 'Remove stop'))));
+  }
+
+  // ---- D3: Fold-out ----
+  function fold() {
+    const n = route.stops.length;
+    if (n === 0) return h('p', { class: 'muted' }, 'No stops yet: add one above.');
+    picked = Math.min(picked, n - 1);
+    return h('div', { class: 'stoplist foldv' }, route.stops.map((s, i) => {
+      const open = i === picked;
+      const row = h('div', { class: 'stoprow', 'aria-selected': String(open), ...dragStop(i), onclick: (ev) => { if (!ev.target.closest('button,select,.goodsgrid')) { picked = i; paint(); } } },
+        h('span', { class: 'n' }, i + 1), h('strong', {}, s.place),
+        open ? chips(i) : h('span', { class: 'mini' }, s.cargo.length ? s.cargo.map(img) : h('span', { class: 'muted' }, 'leaves empty')),
+        h('button', { class: 'icon-btn', title: 'Remove stop', onclick: () => drop(i) }, '✕'));
+      if (!open) return row;
+      return h('div', { class: 'foldopen' }, row,
+        h('div', { class: 'foldbody' }, h('div', {}, h('h4', {}, 'Leaves with'), holds(i)), h('div', {}, h('h4', {}, 'Load (shift: fill)'), goodsGrid(i))));
+    }));
+  }
+
+  // ---- C: Matrix ----
+  let extraRows = [];
+  function matrix() {
+    const used = [...new Set([...route.stops.flatMap((s) => s.cargo), ...extraRows])];
+    const n = route.stops.length;
+    const at = (i, g) => route.stops[i].cargo.filter((x) => x === g).length;
+    const set = (i, g, v) => change(() => {
+      const c = route.stops[i].cargo.filter((x) => x !== g);
+      route.stops[i].cargo = [...c, ...Array(Math.max(0, v)).fill(g)];
+    });
+    const head = h('tr', {}, h('th', { class: 'g' }, ''), route.stops.map((s, i) => h('th', {}, s.place, h('div', { class: 'acts' }, acts(i)))));
+    const rows = used.map((g) => h('tr', {},
+      h('th', { class: 'g' }, img(g), NAME[g]),
+      route.stops.map((s, i) => {
+        const v = at(i, g), before = n > 1 ? at((i - 1 + n) % n, g) : 0;
+        // As FreeCol: an unlisted goods type is unloaded; a listed one is only topped up.
+        const cls = v > before ? 'up' : v === 0 && before > 0 ? 'down' : '';
+        const d = cls === 'up' ? `load ${v - before}` : cls === 'down' ? `unload ${before}` : v > 0 ? 'keep' : '';
+        return h('td', { class: cls },
+          h('div', { class: 'cell' },
+            h('button', { title: 'One hold fewer', disabled: v === 0, onclick: () => set(i, g, v - 1) }, '−'),
+            h('span', { class: 'v' }, v || '·'),
+            h('button', { title: 'One hold more', onclick: () => set(i, g, v + 1) }, '+')),
+          h('span', { class: 'delta' }, d || ' '));
+      })));
+    const add = h('tr', {}, h('th', { class: 'g' }, h('button', { class: 'addrow', onclick: (ev) => pick(ev.currentTarget, (g) => change(() => extraRows.push(g))) }, '+ Goods')), route.stops.map(() => h('td', {}, '')));
+    const foot = h('tr', {}, h('td', { class: 'g muted' }, 'Holds used'),
+      route.stops.map((s) => h('td', { class: s.cargo.length > cap() ? 'full' : '' }, `${s.cargo.length} / ${cap()}`)));
+    return h('div', { class: 'matrix-wrap' }, h('table', { class: 'matrix' }, h('thead', {}, head), h('tbody', {}, rows, add), h('tfoot', {}, foot)));
+  }
+
+  // ---- Wiring ----
+  const $ = (id) => document.getElementById(id);
+  const current = () => VARIANTS.find((v) => '#' + v.id === location.hash) || VARIANTS[0];
+  function paint() {
+    const v = current();
+    $('vtitle').textContent = v.title;
+    $('vnote').textContent = v.note;
+    $('name').value = route.name;
+    $('silent').checked = route.silent;
+    $('addPlace').replaceChildren(h('option', { value: '' }, 'Choose…'), PLACES.map((p) => h('option', { value: p }, p)));
+    $('variant').replaceChildren(v.render());
+    $('switch').replaceChildren(...VARIANTS.map((x) => h('a', { href: '#' + x.id, 'aria-current': String(x === v) }, x.label)));
+    $('state').textContent = JSON.stringify({ ...route, work: route.stops.map((s, i) => ({ place: s.place, ...work(i) })) }, null, 1);
+  }
+  $('name').addEventListener('input', (ev) => { route.name = ev.target.value; $('state').textContent = JSON.stringify(route, null, 1); });
+  $('silent').addEventListener('change', (ev) => change(() => (route.silent = ev.target.checked)));
+  $('addPlace').addEventListener('change', (ev) => ev.target.value && change(() => route.stops.push({ place: ev.target.value, cargo: [] })));
+  $('reset').addEventListener('click', () => change(() => { route = sample(); extraRows = []; }));
+  $('ok').addEventListener('click', () => { $('state').parentElement.open = true; });
+  addEventListener('hashchange', paint);
+  paint();
+</script>
