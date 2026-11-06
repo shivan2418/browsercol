@@ -78,8 +78,6 @@ export const same = (a: Item, b: Item) => {
 /** The drag of units and goods: every panel's places take what is dragged in it. */
 const items = lane<Item>();
 
-export { OVER } from './drag';
-
 /**
  * The props that make an element carry a thing when it is dragged.
  *

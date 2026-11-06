@@ -38,7 +38,7 @@ import { createPortal } from 'react-dom';
 import { Box, GoodsAmount, type Art } from './frame';
 import { PANEL_KEYS } from './map-keys';
 import { ReportContext } from './reports';
-import { lane, type TargetProps as DropProps } from './drag';
+import { lane, type TargetProps } from './drag';
 import { accepts, draggableProps, dropTargetProps, same, type Item, type Place } from './moves';
 import { ContextMenuContext, useContextMenu } from './popup-menu';
 import type { Buildable, BuildingTip, ColonyView, GoodsAmount as Goods, UnitRef } from './webgui';
@@ -119,9 +119,10 @@ interface Hand {
   picked: Item | null;
   pick(item: Item | null): void;
   /** Where things can be dropped, with what a drop there does; null when the panel cannot move them. */
-  target(place: Place, drop: (item: Item) => void): TargetProps | null;
+  target(place: Place, drop: (item: Item) => void): PlaceProps | null;
 }
-interface TargetProps extends DropProps {
+/** A place's props: it takes drops, and a click puts down what is picked there. */
+interface PlaceProps extends TargetProps {
   onClick(): void;
 }
 const NO_HAND: Hand = { picked: null, pick() {}, target: () => null };
@@ -288,7 +289,7 @@ function MovableGoods({
 const Units = ({ units, art }: { units: UnitRef[]; art: Art }) => units.map((u) => <Unit key={u.id} u={u} art={art} />);
 
 /** The props that make an element a place things go to, or none when the panel cannot move them. */
-function useTarget(place: Place, drop: (item: Item) => void): TargetProps | null {
+function useTarget(place: Place, drop: (item: Item) => void): PlaceProps | null {
   return useContext(HandContext).target(place, drop);
 }
 

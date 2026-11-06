@@ -2133,6 +2133,10 @@
         clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
         pointer-events: auto;
       }
+      /* The build queue marks no place a row is dragged over, as it never has. */
+      .colony .queue-body .over-target {
+        background: none;
+      }
       .colony .tile.over-target .hit {
         background: var(--accent);
         opacity: 0.3;

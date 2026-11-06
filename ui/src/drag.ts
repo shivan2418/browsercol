@@ -66,16 +66,35 @@ const mark = (el: Element | null) => {
   lit?.classList.add(OVER);
 };
 
+/** What a copy of the dragged thing does not take from it: where it sat on the page, and how it moved there. */
+const PLACED =
+  /^(position|inset|top|right|bottom|left|margin|float|transform|translate|rotate|scale|zoom|transition|animation|pointer-events)/;
+
 /**
- * A copy of what is dragged that follows the pointer, at the size it has on the page: the UI scale
- * (CSS zoom) of the window it came from carries over. It takes no pointer events, and the browser scripts and
- * assistive tools do not see it.
+ * Give a copy the look its original has where it is drawn: the panel's styles hang on its window and its
+ * data attributes, which the copy, on the page's body and without them, does not have.
+ */
+function lookOf(from: Element, to: Element, root: boolean) {
+  const look = getComputedStyle(from);
+  const style = (to as HTMLElement).style;
+  for (const name of Array.from(look)) {
+    if (!(root && PLACED.test(name))) style.setProperty(name, look.getPropertyValue(name));
+  }
+  style.setProperty('transition', 'none');
+  style.setProperty('animation', 'none');
+  for (let i = 0; i < from.children.length; i++) lookOf(from.children[i], to.children[i], false);
+}
+
+/**
+ * A copy of what is dragged that follows the pointer, as it looks on the page and at its size there: the UI
+ * scale (CSS zoom) of the window it came from carries over. It takes no pointer events, and the browser
+ * scripts and assistive tools do not see it.
  */
 function ghostOf(el: Element): { ghost: HTMLElement; half: [number, number] } {
   const box = el.getBoundingClientRect();
   const zoom = (el as Element & { currentCSSZoom?: number }).currentCSSZoom ?? 1;
-  const look = getComputedStyle(el);
   const copy = el.cloneNode(true) as HTMLElement;
+  lookOf(el, copy, true);
   for (const e of [copy, ...copy.querySelectorAll('*')]) {
     for (const name of e.getAttributeNames()) {
       if (name === 'id' || name === 'title' || name.startsWith('data-') || name.startsWith('aria-')) {
@@ -83,13 +102,6 @@ function ghostOf(el: Element): { ghost: HTMLElement; half: [number, number] } {
       }
     }
   }
-  Object.assign(copy.style, {
-    width: `${box.width / zoom}px`,
-    height: `${box.height / zoom}px`,
-    margin: '0',
-    font: look.font,
-    color: look.color,
-  });
   const scaled = document.createElement('div');
   scaled.style.zoom = String(zoom);
   scaled.append(copy);
