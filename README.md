@@ -32,7 +32,6 @@ DEV_VARIANT=web ./dev.sh node ui/scripts/smoke.ts   # play dist/ in Chromium and
 DEV_VARIANT=web ./dev.sh node ui/scripts/play.ts    # land, found a colony, end the turn in both
 DEV_VARIANT=web ./dev.sh node ui/scripts/saves.ts   # save, reload, export, delete, import, load the save and play on in both
 DEV_VARIANT=web ./dev.sh node ui/scripts/tileset.ts # draw the map and a colony panel with the test Tileset (ui/tilesets/test) in both
-DEV_VARIANT=web ./dev.sh node ui/scripts/offline.ts # the service worker: a second start with the network gone, and a new build through Restart (Chromium)
 DEV_VARIANT=web ./dev.sh node ui/scripts/rounds.ts --rounds 300  # time AI rounds and memory as the game grows, per browser
 ```
 
