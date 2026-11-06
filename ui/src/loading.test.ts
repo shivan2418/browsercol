@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { BUILD } from './build';
 import { FADE_MS, fraction, loading, pending } from './loading';
 
 describe('fraction', () => {
@@ -31,6 +32,12 @@ describe('loading', () => {
   const root = () => document.getElementById('loading')!;
   const loaded = () => root().querySelector<HTMLElement>('[data-loading-bar]')!.style.getPropertyValue('--loaded');
   const label = () => root().querySelector('[data-loading-label]')!.textContent;
+
+  it('names the build under the bar', () => {
+    root().insertAdjacentHTML('beforeend', '<p data-loading-build></p>');
+    loading();
+    expect(root().querySelector('[data-loading-build]')!.textContent).toBe(BUILD);
+  });
 
   it('fills the bar as bytes come, and one step for a part of unknown size', () => {
     const screen = loading();

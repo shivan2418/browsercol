@@ -2841,6 +2841,34 @@
         min-height: 1.4em;
         font: var(--fs-s) / 1.4 var(--font);
       }
+      #loading p[data-loading-build] {
+        min-height: 0;
+        opacity: 0.7;
+      }
+      /* The notice for phones (src/mobile-notice.ts, issue 319): over the loading screen, which takes no click. */
+      #mobile-notice {
+        position: fixed;
+        left: 16px;
+        right: 16px;
+        bottom: 16px;
+        z-index: 950;
+        box-sizing: border-box;
+        max-width: 460px;
+        margin: 0 auto;
+        padding: 14px 16px;
+        background: var(--box);
+        color: var(--ink);
+        border: 2px solid var(--line);
+        border-radius: 4px;
+        font: var(--fs-s) / 1.4 var(--font);
+      }
+      #mobile-notice h2 {
+        margin: 0 0 6px;
+        font: 700 var(--fs-h) / 1.2 var(--font-title);
+      }
+      #mobile-notice p {
+        margin: 0 0 10px;
+      }
       @media (prefers-reduced-motion: reduce) {
         #loading,
         #loading img,
@@ -2907,6 +2935,7 @@
       <h1>BrowserCol</h1>
       <div data-loading-track><div data-loading-bar></div></div>
       <p data-loading-label aria-live="polite">Loading</p>
+      <p data-loading-build></p>
     </div>
     <div id="menubar"></div>
     <div id="stage">

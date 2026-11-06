@@ -4,6 +4,8 @@
 // The bar follows the parts a page load waits for. A part with a known size (a fetch with a
 // Content-Length) fills the bar as its bytes come; any other part is one step, done when it ends.
 
+import { BUILD } from './build';
+
 /** A part of the page load: its label while it loads, and its share of the bar. */
 export interface Part {
   label: string;
@@ -57,6 +59,9 @@ export interface Loading {
 export function loading(root: HTMLElement | null = document.getElementById('loading')): Loading {
   const bar = root?.querySelector<HTMLElement>('[data-loading-bar]') ?? null;
   const label = root?.querySelector<HTMLElement>('[data-loading-label]') ?? null;
+  // Which build this is, under the bar (#317), so a screenshot of a stuck load says what it ran.
+  const build = root?.querySelector<HTMLElement>('[data-loading-build]');
+  if (build) build.textContent = BUILD;
   const done: Done = {};
   let parts: readonly PartName[] = [];
   let failed = false;

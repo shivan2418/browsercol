@@ -140,6 +140,7 @@ import { isIdle, TurnBanner, turnNotice, type TurnFacts, type TurnNotice } from 
 import { tabTitle } from './tab-title';
 import { ErrorBanner, addError, engineError, type GameError } from './errors';
 import { loading, type PartName } from './loading';
+import { mobileNotice } from './mobile-notice';
 import { loadModule } from './teavm';
 import { applyTheme } from './theme';
 import { syncThemeColor } from './install';
@@ -274,6 +275,8 @@ const mapSize = (): [number, number] => [mapHost.clientWidth, mapHost.clientHeig
 const prefsAtLoad = loadPrefs();
 /** The loading screen of index.html, up from the first paint: the bar follows the parts the page waits for. */
 const boot = loading();
+// A phone is told the game is not made for it yet (#319).
+mobileNotice();
 const map = mapDrawer(
   mapHost,
   mapSize(),
