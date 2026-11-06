@@ -131,6 +131,36 @@ function LevelTools({
   );
 }
 
+/**
+ * Music and sound effects on or off, one small control at the top of the start screen (#318, #272). The music
+ * is off until the player turns it on; the click that turns it on is also the gesture the browser wants before
+ * it plays sound. The volumes are in Preferences.
+ */
+function SoundToggles({
+  sound,
+}: {
+  sound: { music: boolean; effects: boolean; setMusic: (on: boolean) => void; setEffects: (on: boolean) => void };
+}) {
+  const toggle = (label: string, on: boolean, set: (on: boolean) => void, hook: string) => (
+    <button
+      type="button"
+      className="sound-toggle"
+      aria-pressed={on}
+      title={`${label} ${on ? 'on' : 'off'}`}
+      {...{ [hook]: '' }}
+      onClick={() => set(!on)}
+    >
+      {on ? '\u{1F50A}' : '\u{1F507}'} {label}: {on ? 'on' : 'off'}
+    </button>
+  );
+  return (
+    <div className="sound-toggles" role="group" aria-label="Sound">
+      {toggle('Music', sound.music, sound.setMusic, 'data-music')}
+      {toggle('Sound effects', sound.effects, sound.setEffects, 'data-effects')}
+    </div>
+  );
+}
+
 export function StartScreen({
   options,
   start,
@@ -142,6 +172,7 @@ export function StartScreen({
   openNote,
   colopedia,
   art = () => null,
+  sound,
 }: {
   options: StartOptions;
   start: (choice: StartChoice) => void;
@@ -163,6 +194,8 @@ export function StartScreen({
   colopedia?: (select: string | null) => Promise<ReportView & { report: 'colopedia' }>;
   /** The art of a Colopedia entry, once the Tileset has loaded. */
   art?: Art;
+  /** Music and sound effects on or off; no control shows without it. */
+  sound?: { music: boolean; effects: boolean; setMusic: (on: boolean) => void; setEffects: (on: boolean) => void };
 }) {
   const [advantages, setAdvantages] = useState<Advantages>('SELECTABLE');
   const [nationType, setNationType] = useState<string>('');
@@ -249,6 +282,7 @@ export function StartScreen({
         }}
       >
         <h1>BrowserCol</h1>
+        {sound && <SoundToggles sound={sound} />}
         {open && (saves.length > 0 || openFile) && (
           <fieldset className="saved-games">
             <legend>Saved games</legend>

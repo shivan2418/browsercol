@@ -1612,6 +1612,18 @@ async function chooseGame(data: string[], language: string): Promise<{ preset: s
           }}
           saves={saves}
           open={openSave}
+          sound={{
+            music: !prefs.muteMusic,
+            effects: !prefs.muteEffects,
+            setMusic: (on) => {
+              setPrefs({ ...prefs, muteMusic: !on });
+              draw(openNote);
+            },
+            setEffects: (on) => {
+              setPrefs({ ...prefs, muteEffects: !on });
+              draw(openNote);
+            },
+          }}
           // No client Engine exists yet: the Colopedia comes from the client module's rules-only entry.
           colopedia={async (select) =>
             colopediaBefore<ReportView & { report: 'colopedia' }>(

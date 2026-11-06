@@ -373,3 +373,21 @@ test('without a Colopedia there are no buttons for it, and one that fails says s
   fireEvent.click(document.querySelector('[data-colopedia="nations"]')!);
   expect((await screen.findByRole('alert')).textContent).toContain('no rules');
 });
+
+test('the sound toggles show music and sound effects on or off, and change them', () => {
+  const calls: string[] = [];
+  const sound = {
+    music: false,
+    effects: true,
+    setMusic: (on: boolean) => calls.push(`music ${on}`),
+    setEffects: (on: boolean) => calls.push(`effects ${on}`),
+  };
+  const { container } = render(<StartScreen options={options} start={() => {}} sound={sound} />);
+  const music = container.querySelector<HTMLElement>('[data-music]')!;
+  const effects = container.querySelector<HTMLElement>('[data-effects]')!;
+  expect(music.getAttribute('aria-pressed')).toBe('false');
+  expect(effects.getAttribute('aria-pressed')).toBe('true');
+  fireEvent.click(music);
+  fireEvent.click(effects);
+  expect(calls).toEqual(['music true', 'effects false']);
+});
