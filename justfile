@@ -34,6 +34,10 @@ storybook:
     [ -d ui/generated/public/art ] || just build
     DEV_PORT=6006 ./dev.sh -C ui pnpm exec storybook dev -p 6006 --host 0.0.0.0 --no-open
 
+# Deploy origin/main (or a given commit) to GitHub Pages as the next build-N
+deploy *commit:
+    tools/deploy.sh {{commit}}
+
 # JVM tests of the Engine
 test-engine *args:
     ./dev.sh -C engine gradle test {{args}}

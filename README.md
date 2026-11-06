@@ -145,6 +145,15 @@ caches, screenshots).
 
 ## Playing
 
+A push to `main` does not deploy. `just deploy` tags `origin/main` as the
+next build (`build-1`, `build-2`, ...) and pushes the tag, and the Pages
+workflow builds and deploys it. The page shows its build on the start screen
+and in the credits. Builds are numbered rather than versioned, because the
+only promise to players is that their saves keep loading (ADR 0007).
+`SaveGameTest` loads every save in `engine/src/test/resources/saves/`; add one
+with `just test-engine --tests '*SaveGameTest.writeAFixtureSave' -PwriteSave=<date>-<commit>`
+after a change to what a save holds.
+
 The page opens on a start screen (FreeCol's NewPanel and StartGamePanel,
 single player): pick a European nation and a difficulty level, then Start
 game. The game draws the map in **Tileset mode**: FreeCol's own art, looked up

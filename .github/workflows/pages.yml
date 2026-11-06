@@ -1,14 +1,16 @@
 # Builds dist/ and deploys it to GitHub Pages, then runs the smoke script
-# against the deployed URL. A plain push to main does not deploy. Deploy by
-# pushing a tag that starts with "deploy-" or "v", for example
-#   git tag deploy-2026-11-06 && git push origin deploy-2026-11-06
-# or by hand: `gh workflow run pages.yml` (or the Actions tab).
+# against the deployed URL. A plain push to main does not deploy. Deploy with
+# `just deploy` (tools/deploy.sh), which tags origin/main build-N, one more
+# than the last build, and pushes the tag; the page shows "build N · <commit>".
+# By hand, `gh workflow run pages.yml` deploys too, shown as the commit alone.
+# Builds are numbered, not semver: the one promise to players is that their
+# saves keep loading (docs/adr/0007-saves-are-the-compatibility-contract.md).
 # One-time setup: Settings > Pages > Source: "GitHub Actions".
 name: Pages
 
 on:
   push:
-    tags: ['deploy-*', 'v*']
+    tags: ['build-*']
   workflow_dispatch:
 
 permissions:
