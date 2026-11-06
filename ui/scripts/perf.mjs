@@ -118,6 +118,12 @@ await page.addInitScript(() => {
       for (const e of l.getEntries()) w.__perf.long.push([e.startTime, e.duration]);
     }).observe({ type: 'longtask', buffered: true });
   } catch {}
+  // The map's own timings (map.ts): building the scene and painting it, and whether the static scene was kept.
+  w.__perf.measures = [];
+  new PerformanceObserver((l) => {
+    for (const e of l.getEntries())
+      if (e.name.startsWith('map: ')) w.__perf.measures.push([e.startTime, e.duration, e.name]);
+  }).observe({ type: 'measure' });
 });
 
 const t0 = Date.now();
@@ -261,6 +267,21 @@ for (const p of phases) {
       ` ${String(rec.blits.filter((t) => t >= p.start && t <= p.end).length).padStart(10)}` +
       ` ${String(ups(p).length).padStart(8)} ${(ups(p).reduce((a, [, px]) => a + px, 0) / 1e6).toFixed(1).padStart(11)}`,
   );
+}
+
+// --- The map's timings per phase: how often it built and painted the scene, for how long in all and at most.
+console.log('\nmap timings per phase (count, total ms, max ms):');
+for (const p of phases) {
+  const byName = new Map();
+  for (const [t, d, name] of rec.measures ?? []) {
+    if (t < p.start || t > p.end) continue;
+    const s = byName.get(name) ?? { n: 0, total: 0, max: 0 };
+    byName.set(name, { n: s.n + 1, total: s.total + d, max: Math.max(s.max, d) });
+  }
+  const cells = [...byName]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([name, s]) => `${name} ${s.n}, ${s.total.toFixed(0)}, ${s.max.toFixed(0)}`);
+  if (cells.length) console.log(`  ${p.name.padEnd(18)} ${cells.join('; ')}`);
 }
 
 // --- The trace: thread names, busy time per thread per phase, and sampled self time per function.
