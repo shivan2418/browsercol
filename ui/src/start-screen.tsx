@@ -15,7 +15,7 @@ import type { Art } from './frame';
 import { OptionEditor } from './option-editor';
 import { leaves, sameValue, type OptionGroup, type OptionValue } from './options';
 import { ReportContext, ReportPanel, startColopediaAt, type ReportActions } from './reports';
-import { SaveList } from './save-picker';
+import { OpenFile, SaveList } from './save-picker';
 import type { SaveMeta } from './saves';
 import { levelFile, loadDefaults, readLevelFile, saveDefaults } from './start-options';
 import { ADVANTAGES, type Advantages, type StartChoice, type StartOptions } from './start';
@@ -138,6 +138,8 @@ export function StartScreen({
   changeRules,
   saves = [],
   open,
+  openFile,
+  openNote,
   colopedia,
   art = () => null,
 }: {
@@ -150,6 +152,10 @@ export function StartScreen({
   saves?: SaveMeta[];
   /** Play a saved game. */
   open?: (id: number) => void;
+  /** Ask for a .fsg file and play it, as MainPanel's Open does with its file chooser. */
+  openFile?: () => void;
+  /** Why the last file would not open; empty for none. */
+  openNote?: string;
   /**
    * The Colopedia, as the report the Engine builds from the rules alone, opened on an entry or none. Swing's
    * player table opens it on the nations and the nation types (PlayersTable); no button shows without it.
@@ -243,16 +249,21 @@ export function StartScreen({
         }}
       >
         <h1>BrowserCol</h1>
-        {open && saves.length > 0 && (
+        {open && (saves.length > 0 || openFile) && (
           <fieldset className="saved-games">
             <legend>Saved games</legend>
-            <button type="button" className="default" data-continue onClick={() => open(saves[0].id)}>
-              Continue Playing
-            </button>
-            <details data-open>
-              <summary>Open a saved game</summary>
-              <SaveList saves={saves} open={open} />
-            </details>
+            {saves.length > 0 && (
+              <>
+                <button type="button" className="default" data-continue onClick={() => open(saves[0].id)}>
+                  Continue Playing
+                </button>
+                <details data-open>
+                  <summary>Open a saved game</summary>
+                  <SaveList saves={saves} open={open} />
+                </details>
+              </>
+            )}
+            {openFile && <OpenFile openFile={openFile} note={openNote} />}
           </fieldset>
         )}
         <h2>New game</h2>

@@ -31,6 +31,8 @@ declare global {
     /** saves.ts: when the page last listed the saves, and when it last got a map on its own turn. */
     __listAt: number;
     __ourMapAt: number;
+    /** saves.ts, in Chromium: the files the stand-in save picker was given, by name, as byte arrays. */
+    __files?: Record<string, number[]>;
     /** play.ts: whether the page's own key handler took the last key. */
     __keyTaken: boolean | null;
     __keyListener: (e: KeyboardEvent) => void;

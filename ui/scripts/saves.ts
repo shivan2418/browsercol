@@ -9,6 +9,8 @@
 // begins are checked after the first turn. The page's autosaves sit in the list beside
 // the script's save, so the script finds its own row by name. Exits non-zero
 // unless every browser gets there. The page's dialogs are answered as scripts/dialogs.ts says.
+// Chromium has the File System Access API, so its export goes through the save picker (#274); Playwright
+// cannot answer that picker, so a stand-in takes the name suggested and keeps what is written to it.
 // Run in the web image:
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/saves.ts [--browsers chromium,firefox] [--keep-export DIR]
 // --keep-export copies each browser's exported .fsg to DIR (for tools/desktop-check.sh).
@@ -28,6 +30,26 @@ const DUMMY_BYTE_SAVE = path.join(import.meta.dirname, 'fixtures/zip-needs-dummy
 
 /** Play with the page of one browser; returns what was checked. */
 async function run(page: Page, url: string, shot: () => Promise<unknown>, browserName: string) {
+  const picker = browserName === 'chromium';
+  if (picker) {
+    await page.addInitScript(() => {
+      window.__files = {};
+      Object.defineProperty(window, 'showSaveFilePicker', {
+        configurable: true,
+        value: ({ suggestedName }: { suggestedName: string }) =>
+          Promise.resolve({
+            name: suggestedName,
+            createWritable: () => {
+              const parts: number[] = [];
+              return Promise.resolve({
+                write: (b: Uint8Array) => void parts.push(...b),
+                close: () => void (window.__files![suggestedName] = parts),
+              });
+            },
+          }),
+      });
+    });
+  }
   // Keep the latest map view the client Engine sends, as play.ts does, and when the save list last
   // changed and when the last map view of the player's turn came, for listSettled.
   await page.addInitScript(() => {
@@ -191,11 +213,15 @@ async function run(page: Page, url: string, shot: () => Promise<unknown>, browse
   /**
    * Exports a save. The click, the page's own word on the export and the browser's download are waited
    * for one after another, so a timeout says which of them did not happen (#244): the page writes its
-   * note just after it hands the file to the browser.
+   * note just after it hands the file to the browser. In Chromium the file is the one the stand-in save
+   * picker was given.
    */
   const exportOne = async (id: string | null, what: string) => {
     setStep(`4. export ${what}`);
-    const downloaded = page.waitForEvent('download', { timeout: 30000, label: `the browser's download of ${what}` });
+    if (picker) await page.evaluate(() => (window.__files = {}));
+    const downloaded = picker
+      ? Promise.resolve(null)
+      : page.waitForEvent('download', { timeout: 30000, label: `the browser's download of ${what}` });
     // Rejected before it is awaited (a failed click, say), it must not be an unhandled rejection.
     downloaded.catch(() => {});
     await clickRow(id, 'data-export');
@@ -210,6 +236,14 @@ async function run(page: Page, url: string, shot: () => Promise<unknown>, browse
     const note = await page.textContent('#save-note');
     if (!note?.startsWith('Exported: ')) throw new Error(`the page did not export ${what}: ${note}`);
     const download = await downloaded;
+    if (!download) {
+      const files = Object.entries((await page.evaluate(() => window.__files)) ?? {});
+      if (files.length !== 1) throw new Error(`the save picker was written ${files.length} files for ${what}`);
+      const [name, bytes] = files[0];
+      const file = path.join(tmp, name);
+      fs.writeFileSync(file, Uint8Array.from(bytes));
+      return { file, name, bytes: fs.readFileSync(file) };
+    }
     const file = path.join(tmp, download.suggestedFilename());
     await download.saveAs(file);
     return { file, name: download.suggestedFilename(), bytes: fs.readFileSync(file) };

@@ -267,6 +267,23 @@ test('with no saves there is nothing to continue', () => {
   expect(document.querySelector('[data-continue]')).toBeNull();
 });
 
+test('with no saves a save file can still be opened, and the reason one will not open is shown', () => {
+  let asked = 0;
+  render(
+    <StartScreen
+      options={options}
+      start={() => {}}
+      saves={[]}
+      open={() => {}}
+      openFile={() => asked++}
+      openNote="Import failed: not a zip"
+    />,
+  );
+  fireEvent.click(document.querySelector('[data-open-file]')!);
+  expect(asked).toBe(1);
+  expect(screen.getByText('Import failed: not a zip')).toBeTruthy();
+});
+
 test('the game options the player started with are the defaults of the next game, the level’s are not', () => {
   const first = screenWith();
   fireEvent.click(screen.getByLabelText('Fog of war'));

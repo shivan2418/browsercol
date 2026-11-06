@@ -103,7 +103,16 @@ import type { AudioManifest } from './resources';
 import { soundPlayer } from './sound';
 import { StartScreen } from './start-screen';
 import { presetJson, startOptions } from './start';
-import { fileNameOf, importSave } from './save-files';
+import { nationName } from './fsg';
+import {
+  chooseOpenFile,
+  chooseSaveFile,
+  fileNameOf,
+  hasSavePicker,
+  importSave,
+  nameFromFile,
+  type SaveTarget,
+} from './save-files';
 import { LoadingSaveDialog, showsLoadingSave } from './loading-save';
 import {
   AUTOSAVE_NAME,
@@ -354,16 +363,20 @@ function listSaves() {
     .catch((ex: unknown) => (side.saveNote = `Saves unavailable: ${String(ex)}`))
     .finally(renderSide);
 }
-/** Hand the bytes to the browser as a file download. */
-function download(bytes: Uint8Array, fileName: string) {
-  const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'application/octet-stream' }));
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = fileName;
-  document.body.append(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
+/**
+ * Open a .fsg file the player picks: it joins the saves in the store, and the game in it is played. Resolves to
+ * why it would not open; empty when it opens, or the player cancels.
+ */
+async function openSaveFile(): Promise<string> {
+  try {
+    const file = await chooseOpenFile();
+    if (!file) return '';
+    const meta = await importSave(store, file.name, new Uint8Array(await file.arrayBuffer()), Date.now());
+    openSave(meta.id);
+    return '';
+  } catch (ex) {
+    return `Could not open the file: ${ex instanceof Error ? ex.message : String(ex)}`;
+  }
 }
 let saveGame: (name: string) => void = () => {};
 /** Schedule an autosave (set once the client Engine has loaded). */
@@ -458,6 +471,35 @@ let saveDialog: 'save' | 'saveAndExit' | null = null;
 let openOpen = false;
 /** The page is waiting for a save to finish before it goes back to the main title. */
 let exitAfterSave = false;
+/** The file the player picked for the save being made, to write once it is made (#274). */
+let saveFile: SaveTarget | null = null;
+/** Why the last file picked in the Open window would not open; empty for none. */
+let openNote = '';
+/**
+ * Game > Save and Game > Save and Exit. Where the browser can write a file the player picks (save-files.ts),
+ * FreeCol's file chooser: the save picker, then the game saved under the file's name and written to it. Elsewhere
+ * the name dialog, and the save stays in the browser's store.
+ */
+function askToSave(then: 'save' | 'saveAndExit') {
+  if (!hasSavePicker()) {
+    saveDialog = then;
+    return renderSide();
+  }
+  const m = lastMap;
+  const suggested = fileNameOf(m ? `${nationName(m.nation)}, ${m.turnLabel}` : '');
+  chooseSaveFile(suggested)
+    .then((target) => {
+      if (!target) return;
+      saveFile = target;
+      exitAfterSave = then === 'saveAndExit';
+      saveGame(nameFromFile(target.name));
+    })
+    .catch((ex: unknown) => {
+      side.saveNote = `Save failed: ${String(ex)}`;
+      renderSide();
+      reportError('The game could not be saved to a file', String(ex));
+    });
+}
 /** FreeCol's isPanelShowing: a window is open over the map. */
 const panelShowing = () =>
   dialogQueue.current() !== null || prefsOpen || creditsOpen || logText !== null || openOpen || saveDialog !== null;
@@ -729,14 +771,8 @@ const menuActions = (): MenuActions => ({
       leavePage(next.toString());
     }),
   // FreeCol's SaveAction asks for the name in a dialog, and is disabled while a panel is showing.
-  save: () => {
-    saveDialog = 'save';
-    renderSide();
-  },
-  saveAndExit: () => {
-    saveDialog = 'saveAndExit';
-    renderSide();
-  },
+  save: () => askToSave('save'),
+  saveAndExit: () => askToSave('saveAndExit'),
   returnToMain: returnToMain,
   panelShowing: panelShowing(),
   // OpenAction asks confirmStopGame before the save picker.
@@ -744,6 +780,7 @@ const menuActions = (): MenuActions => ({
     void confirmStopGame().then((go) => {
       if (!go) return;
       openOpen = true;
+      openNote = '';
       renderSide();
     }),
   preferences: () => {
@@ -973,11 +1010,14 @@ function renderSide() {
         }}
         exportSave={(id) => {
           const meta = side.saves.find((s) => s.id === id);
-          store
-            .get(id)
-            .then((bytes) => {
-              if (!meta || !bytes) throw new Error('no such save');
-              download(bytes, fileNameOf(meta.name));
+          if (!meta) return;
+          // The picker first, while the click still lets the browser show it.
+          chooseSaveFile(fileNameOf(meta.name))
+            .then(async (target) => {
+              if (!target) return;
+              const bytes = await store.get(id);
+              if (!bytes) throw new Error('no such save');
+              await target.write(bytes);
               side.saveNote = `Exported: ${meta.name}`;
             })
             .catch((ex: unknown) => (side.saveNote = `Export failed: ${String(ex)}`))
@@ -1051,6 +1091,13 @@ function renderSide() {
             <OpenDialog
               saves={side.saves}
               open={openSave}
+              openFile={() =>
+                void openSaveFile().then((note) => {
+                  openNote = note;
+                  renderSide();
+                })
+              }
+              note={openNote}
               close={() => {
                 openOpen = false;
                 renderSide();
@@ -1525,46 +1572,51 @@ async function chooseGame(data: string[], language: string): Promise<{ preset: s
   // The screen goes once the start screen has had a frame to draw in.
   requestAnimationFrame(() => boot.finish('start'));
   return new Promise((done) => {
-    root.render(
-      <StartScreen
-        options={startOptions(data, rules)}
-        rules={rules}
-        changeRules={(id) => {
-          // The ruleset's nations and options differ: a new page, with the start screen of the other rules.
-          const next = new URLSearchParams(location.search);
-          next.set('rules', id);
-          leavePage(next.toString());
-        }}
-        saves={saves}
-        open={openSave}
-        // No client Engine exists yet: the Colopedia comes from the client module's rules-only entry.
-        colopedia={async (select) =>
-          colopediaBefore<ReportView & { report: 'colopedia' }>(
-            await clientModule(),
-            globalThis as unknown as Scope,
-            language,
-            data,
-            rules,
-            select,
-          )
-        }
-        art={art}
-        start={(c) => {
-          root.unmount();
-          host.remove();
-          boot.begin(gameParts);
-          // The browser has no file system for the server Engine to read the file from: hand it the bytes.
-          void (c.importMap?.arrayBuffer() ?? Promise.resolve(undefined)).then(
-            (bytes) => done({ preset: presetJson(c), importMap: bytes && new Uint8Array(bytes) }),
-            (ex: unknown) => {
-              // A file the browser can no longer read: start on a generated map and say so.
-              reportError('The map file could not be read', String(ex));
-              done({ preset: presetJson(c) });
-            },
-          );
-        }}
-      />,
-    );
+    // Drawn again with why a save file would not open, if one does not.
+    const draw = (openNote: string) =>
+      root.render(
+        <StartScreen
+          openFile={() => void openSaveFile().then(draw)}
+          openNote={openNote}
+          options={startOptions(data, rules)}
+          rules={rules}
+          changeRules={(id) => {
+            // The ruleset's nations and options differ: a new page, with the start screen of the other rules.
+            const next = new URLSearchParams(location.search);
+            next.set('rules', id);
+            leavePage(next.toString());
+          }}
+          saves={saves}
+          open={openSave}
+          // No client Engine exists yet: the Colopedia comes from the client module's rules-only entry.
+          colopedia={async (select) =>
+            colopediaBefore<ReportView & { report: 'colopedia' }>(
+              await clientModule(),
+              globalThis as unknown as Scope,
+              language,
+              data,
+              rules,
+              select,
+            )
+          }
+          art={art}
+          start={(c) => {
+            root.unmount();
+            host.remove();
+            boot.begin(gameParts);
+            // The browser has no file system for the server Engine to read the file from: hand it the bytes.
+            void (c.importMap?.arrayBuffer() ?? Promise.resolve(undefined)).then(
+              (bytes) => done({ preset: presetJson(c), importMap: bytes && new Uint8Array(bytes) }),
+              (ex: unknown) => {
+                // A file the browser can no longer read: start on a generated map and say so.
+                reportError('The map file could not be read', String(ex));
+                done({ preset: presetJson(c) });
+              },
+            );
+          }}
+        />,
+      );
+    draw('');
   });
 }
 
@@ -1729,6 +1781,27 @@ async function run() {
         case 'saved': {
           const meta = JSON.parse(detail) as SaveMeta;
           leaveAsk.saved();
+          const target = saveFile;
+          if (target && !isAutosave(meta) && !isTurnAutosave(autosaveOptions(prefs), meta)) {
+            // The player's save, made for the file they picked: write it there, then go on as for any save.
+            saveFile = null;
+            return void store
+              .get(meta.id)
+              .then((bytes) => {
+                if (!bytes) throw new Error('the save is gone from the store');
+                return target.write(bytes);
+              })
+              .then(() => {
+                side.saveNote = `Saved: ${target.name}`;
+                if (exitAfterSave) returnToMain();
+              })
+              .catch((ex: unknown) => {
+                exitAfterSave = false; // a game that is not in its file is not left
+                side.saveNote = `Save failed: ${String(ex)}`;
+                reportError(`The save could not be written to ${target.name}`, String(ex));
+              })
+              .finally(listSaves);
+          }
           if (exitAfterSave && !isAutosave(meta)) return returnToMain();
           if (isAutosave(meta)) {
             // One slot: the new autosave replaces the old ones, quietly.
@@ -1746,6 +1819,7 @@ async function run() {
         }
         case 'saveFailed':
           exitAfterSave = false; // a game that did not save is not left
+          saveFile = null;
           side.saveNote = `Save failed: ${detail}`;
           return renderSide();
         case 'loadFailed':
