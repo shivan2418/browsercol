@@ -35,7 +35,7 @@ import {
   type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { Box, GoodsAmount, type Art } from './frame';
+import { Box, GoodsAmount, TEXT_ENTRY, type Art } from './frame';
 import { PANEL_KEYS } from './map-keys';
 import { ReportContext } from './reports';
 import { lane, type TargetProps } from './drag';
@@ -700,11 +700,7 @@ function useColonyKey(on: (key: string) => void) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.repeat) return;
-      if (
-        e.target instanceof Element &&
-        e.target.matches('input, textarea, select, [role="combobox"], [contenteditable]')
-      )
-        return;
+      if (e.target instanceof Element && e.target.matches(TEXT_ENTRY)) return;
       const windows = document.querySelectorAll('.dialog[data-kind]');
       const top = windows[windows.length - 1];
       if (top && top.getAttribute('data-kind') !== 'colony') return;

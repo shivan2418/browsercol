@@ -28,12 +28,12 @@ export function EscapeCloses({ close }: { close: () => void }) {
   return null;
 }
 
-export type Choice = { value: string; label: ReactNode; disabled?: boolean };
+export type SelectChoice = { value: string; label: ReactNode; disabled?: boolean };
 
 type SelectProps = {
   value: string;
   onChange: (value: string) => void;
-  choices: readonly Choice[];
+  choices: readonly SelectChoice[];
   disabled?: boolean;
   className?: string;
 } & Omit<ComponentProps<'button'>, 'value' | 'onChange' | 'children' | 'className' | 'disabled'>;
@@ -50,7 +50,7 @@ export function Select({ value, onChange, choices, disabled, className, ...rest 
       onValueChange={(v) => {
         if (v !== null) onChange(v);
       }}
-      items={choices as Choice[]}
+      items={choices as SelectChoice[]}
       disabled={disabled}
       open={open}
       onOpenChange={setOpen}
