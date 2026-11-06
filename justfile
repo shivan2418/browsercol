@@ -75,3 +75,10 @@ swing-shot *args:
 # The Swing parity inventory: Swing's player actions, row by row, into docs/parity
 parity:
     ./dev.sh node tools/swing-inventory.mjs
+
+# Run the browser scripts that count which dialogs a real game reaches (after `just build`), then merge the counts
+dialog-coverage-run: (browser "smoke") (browser "play") (browser "saves") (browser "europe") (browser "debug") (browser "tileset") dialog-coverage
+
+# Merge the scripts' dialog counts (.cache/coverage) into docs/parity/dialog-coverage.md
+dialog-coverage:
+    ./dev.sh node tools/dialog-coverage.mjs
