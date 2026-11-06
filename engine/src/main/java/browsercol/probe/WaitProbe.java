@@ -4,7 +4,7 @@ package browsercol.probe;
  * Which reachable code breaks Object.wait under TeaVM Wasm GC? Build with
  * -Pmain=browsercol.probe.WaitProbe and run probe.mjs. The wait works
  * with reach() empty and breaks once reach() calls into FreeCol, even
- * though reach() never runs (spike/README.md, "Isolating the cause").
+ * though reach() never runs (docs/teavm.md, "Object.wait").
  */
 public class WaitProbe {
     public static void main(String[] args) throws Exception {

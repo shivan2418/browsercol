@@ -1,4 +1,4 @@
-# Dev image for the spike: JDK, Gradle and Node, so nothing is installed on the host.
+# Dev image: JDK, Gradle and Node, so nothing is installed on the host.
 FROM eclipse-temurin:21-jdk-noble
 
 ARG GRADLE_VERSION=9.8.2

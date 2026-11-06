@@ -128,12 +128,11 @@ relative, so a sub-path such as GitHub Pages' `/<repo>/` works. Pushing a
 | `ui/presets/` | Quick-start presets for `?preset=` |
 | `ui/tilesets/` | Tilesets: `freecol-plus`, and `test` for the tileset script |
 | `ui/.storybook/` | Storybook config |
-| `tools/` | Developer tools: `fc-swing/`, `swing-inventory.mjs`, `watch-engine.sh` (Engine rebuilds for `just dev`), `copy-modules.sh`, `desktop-check.sh` |
-| `docs/` | `adr/` decision records, `research/` notes, `parity/` the Swing parity inventory, `agents/` how coding agents use the tracker, `upstream-fixes.md` FreeCol bugs our patches fix |
+| `tools/` | Developer tools: `fc-swing/`, `teavm/` (TeaVM from source, the `Object.wait` reproducer), `swing-inventory.mjs`, `watch-engine.sh` (Engine rebuilds for `just dev`), `copy-modules.sh`, `desktop-check.sh` |
+| `docs/` | `adr/` decision records, `research/` notes, `parity/` the Swing parity inventory, `teavm.md` TeaVM's quirks and our workarounds, `agents/` how coding agents use the tracker, `upstream-fixes.md` FreeCol bugs our patches fix |
 | `docker/` | `dev.Dockerfile` (JDK, Gradle, Node, pnpm) and `web.Dockerfile` (Playwright with Chromium and Firefox) |
 | `.githooks/` | The commit gate: `pre-commit` compiles the Engine, `commit-msg` requires an author trailer |
 | `.github/workflows/` | `suite.yml` (the whole suite) and `pages.yml` (deploy to Pages on a tag) |
-| `spike/` | The toolchain spike that got here, kept as a record |
 | `dev.sh`, `build.sh`, `ci.sh`, `freecol.sh` | Run in Docker; build `dist/`; the suite on Actions; pin and update `freecol/` |
 
 Gitignored: `freecol/` (the upstream clone), `ui/generated/` (built modules

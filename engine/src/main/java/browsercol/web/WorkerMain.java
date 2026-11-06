@@ -7,7 +7,7 @@ import org.teavm.jso.typedarrays.Int8Array;
 
 /**
  * Entry point of the server module, which runs in the Worker. The Worker
- * script (spike/web/worker.js) calls the exports and provides fcPost and
+ * script (ui/src/worker.ts) calls the exports and provides fcPost and
  * fcServerEvent.
  */
 public final class WorkerMain {

@@ -3,8 +3,6 @@
 /.cache/
 build/
 .gradle/
-/spike/web/dist/
-/spike/web/results.md
 /dist/
 /ui/generated/
 node_modules/

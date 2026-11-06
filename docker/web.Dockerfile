@@ -1,4 +1,4 @@
-# Browser image for the spike's measurement harness: Playwright with Chromium,
+# Browser image for the browser scripts: Playwright with Chromium,
 # Firefox and WebKit preinstalled, so nothing is installed on the host. Kept
 # apart from dev.Dockerfile because the browsers add about 2 GB.
 # Use it with: DEV_VARIANT=web ./dev.sh ...
