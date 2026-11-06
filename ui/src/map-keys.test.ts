@@ -195,6 +195,9 @@ describe('the panel keys', () => {
       'color.economic.MiniMap.model.tile.plains',
       'color.politics.MiniMap.model.tile.ocean',
       'color.border.MiniMap',
+      'image.ui.checkmark',
+      'image.ui.button.radio',
+      'image.ui.button.radio.selected',
     ]) {
       expect(isPanelKey(key), key).toBe(true);
       expect(isMapKey(key), `the map does not draw ${key}`).toBe(false);
@@ -223,7 +226,16 @@ describe('the panel keys', () => {
       'button',
     ]);
     expect(EVENT_KEYS).toHaveLength(2);
-    expect(Object.keys(PANEL_KEYS)).toEqual(['coin', 'compass', 'infoPanel', 'minimapSkin', 'minimapBorder']);
+    expect(Object.keys(PANEL_KEYS)).toEqual([
+      'coin',
+      'compass',
+      'infoPanel',
+      'minimapSkin',
+      'minimapBorder',
+      'checkmark',
+      'radio',
+      'radioSelected',
+    ]);
     expect(isArtKey('image.unit.model.unit.caravel')).toBe(true);
   });
 });
