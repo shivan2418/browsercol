@@ -25,6 +25,7 @@ import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.option.GameOptions;
 import net.sf.freecol.common.model.GoodsType;
 import net.sf.freecol.common.model.Map;
+import net.sf.freecol.common.model.Stance;
 import net.sf.freecol.common.model.Player;
 import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.Unit;
@@ -236,6 +237,54 @@ class DebugActionsTest {
         server.debug("{\"action\":\"addGoods\",\"type\":\"model.goods.food\",\"amount\":40,\"unit\":\""
             + ship.getId() + "\"}");
         eventually("the client's hold", () -> ship.getGoodsContainer().getGoodsCount(food) == 40);
+    }
+
+    /** The stance between two players is set both ways, by nation id, and the human is the default. */
+    @Test
+    @Timeout(240)
+    void aStanceIsSetBothWays() throws Exception {
+        final Game game = server.getGame();
+        final Player us = game.getFreeColGameObject(me().getId(), Player.class);
+        final Player other = game.getLiveEuropeanPlayerList(us).get(0);
+        server.debug("{\"action\":\"setStance\",\"stance\":\"war\",\"with\":\"" + other.getNationId() + "\"}");
+        assertEquals(Stance.WAR, us.getStance(other));
+        assertEquals(Stance.WAR, other.getStance(us));
+        eventually("the client's stance", () -> me().getStance(client.getGame().getFreeColGameObject(other.getId(), Player.class))
+            == Stance.WAR);
+        // Between two others, by player id, in any case.
+        final Player third = game.getLiveEuropeanPlayerList(us).get(1);
+        server.debug("{\"action\":\"setStance\",\"stance\":\"Peace\",\"player\":\"" + other.getId()
+            + "\",\"with\":\"" + third.getId() + "\"}");
+        assertEquals(Stance.PEACE, other.getStance(third));
+        assertEquals(Stance.PEACE, third.getStance(other));
+        assertThrows(IllegalArgumentException.class, () -> server.debug(
+            "{\"action\":\"setStance\",\"stance\":\"nope\",\"with\":\"" + other.getNationId() + "\"}"));
+        assertThrows(IllegalArgumentException.class, () -> server.debug(
+            "{\"action\":\"setStance\",\"stance\":\"war\",\"with\":\"" + us.getNationId() + "\"}"));
+    }
+
+    /** A unit can be another player's, by nation id, and goods go to the ship on a tile whoever's it is. */
+    @Test
+    @Timeout(240)
+    void anotherPlayersShipCanBeLoadedWithGoods() throws Exception {
+        final Game game = server.getGame();
+        final Player us = game.getFreeColGameObject(me().getId(), Player.class);
+        final Player other = game.getLiveEuropeanPlayerList(us).get(0);
+        final Unit ours = me().getUnits().filter(Unit::isNaval).findFirst().get();
+        final Tile sea = game.getFreeColGameObject(ours.getId(), Unit.class).getTile();
+        final String at = "\"x\":" + sea.getX() + ",\"y\":" + sea.getY();
+        final String id = (String)json(server.debug("{\"action\":\"addUnit\",\"type\":\"model.unit.galleon\","
+            + "\"owner\":\"" + other.getNationId() + "\"," + at + "}")).get("unit");
+        final Unit theirs = game.getFreeColGameObject(id, Unit.class);
+        assertEquals(other, theirs.getOwner());
+        // Both ships are on the tile: the first naval unit gets the goods, so the tile's order is not assumed.
+        server.debug("{\"action\":\"addGoods\",\"type\":\"model.goods.sugar\",\"amount\":60,\"onShip\":true," + at + "}");
+        final GoodsType sugar = game.getSpecification().getGoodsType("model.goods.sugar");
+        final int held = sea.getUnitList().stream().filter(Unit::isNaval)
+            .mapToInt(u -> u.getGoodsContainer().getGoodsCount(sugar)).sum();
+        assertEquals(60, held);
+        assertThrows(IllegalArgumentException.class, () -> server.debug(
+            "{\"action\":\"addUnit\",\"type\":\"model.unit.galleon\",\"owner\":\"model.nation.nope\"," + at + "}"));
     }
 
     /**

@@ -16,6 +16,7 @@ import net.sf.freecol.common.model.GoodsType;
 import net.sf.freecol.common.model.Monarch;
 import net.sf.freecol.common.model.Player;
 import net.sf.freecol.common.model.Role;
+import net.sf.freecol.common.model.Stance;
 import net.sf.freecol.common.model.StringTemplate;
 import net.sf.freecol.common.model.Specification;
 import net.sf.freecol.common.model.Tile;
@@ -67,6 +68,10 @@ import net.sf.freecol.server.model.ServerUnit;
  * { "action": "idealColony", "x": 3, "y": 4 }
  * { "action": "declareIndependence", "nation": "Free Dutch", "country": "New Holland" }
  * { "action": "clearREF" }
+ * { "action": "setStance", "stance": "war", "with": "model.nation.french" }
+ * { "action": "setStance", "stance": "war", "player": "model.nation.english", "with": "model.nation.french" }
+ * { "action": "addUnit", "type": "model.unit.galleon", "owner": "model.nation.french", "x": 3, "y": 4 }
+ * { "action": "addGoods", "type": "model.goods.sugar", "amount": 100, "x": 3, "y": 4, "onShip": true }
  * { "action": "monarch", "monarch": "RAISE_TAX_WAR" }
  * { "action": "stepRNG" }
  * { "action": "players" }
@@ -84,7 +89,11 @@ import net.sf.freecol.server.model.ServerUnit;
  * with "owner": "ref", their Royal Expeditionary Force's once they have
  * declared; "role" equips it; "around" puts one on each land tile next to
  * the tile that has no settlement and no other player's unit, instead of
- * on the tile.
+ * on the tile. "owner" can also be another player, by id or nation id. A
+ * stance is set both ways between "player" (the human by default) and
+ * "with", to a name of FreeCol's Stance (war, peace, ceasefire, ...), in any
+ * case. "onShip" puts goods on the ship on the tile, whoever's it is,
+ * instead of in the colony there.
  *
  * A request that needs a choice (the new owner, a role, a disaster, a
  * rumour, a unit type) and has none answers {"action": "choose", "for": the
@@ -158,6 +167,7 @@ final class DebugActions {
         case "idealColony": return idealColony(at(r));
         case "declareIndependence": return declareIndependence(r);
         case "clearREF": return clearREF();
+        case "setStance": return setStance(r);
         case "monarch": return monarch(string(r, "monarch"));
         case "stepRNG": return stepRNG();
         case "players": return inspection().players();
@@ -171,7 +181,7 @@ final class DebugActions {
                 + " addLiberty, addFoundingFather, traceWork, resetMoves, dumpTile,"
                 + " changeOwner, changeRole, displayMission, colonyPlan, applyDisaster,"
                 + " examineSettlement, rumourType, idealColony, declareIndependence, clearREF,"
-                + " monarch, stepRNG, players, displayEurope, statistics, compareMaps, overlay)");
+                + " setStance, monarch, stepRNG, players, displayEurope, statistics, compareMaps, overlay)");
         }
     }
 
@@ -332,10 +342,38 @@ final class DebugActions {
     /** The human, or with "owner": "ref" their REF once they have declared. */
     private ServerPlayer owner(Map<?, ?> r) {
         if (r.get("owner") == null) return me();
-        if (!"ref".equals(r.get("owner"))) throw bad("\"owner\" is \"ref\" or left out");
+        if (!"ref".equals(r.get("owner"))) return player(r, "owner");
         final ServerPlayer ref = (ServerPlayer)me().getREFPlayer();
         if (!me().isRebel() || ref == null) throw bad("the REF comes once the human has declared independence");
         return ref;
+    }
+
+    /** The player a request names under the key, by player id or nation id. */
+    private ServerPlayer player(Map<?, ?> r, String key) {
+        final String id = string(r, key);
+        Player p = this.game.getFreeColGameObject(id, Player.class);
+        if (p == null) p = this.game.getPlayerByNationId(id);
+        if (!(p instanceof ServerPlayer)) throw bad("no player " + id);
+        return (ServerPlayer)p;
+    }
+
+    /**
+     * Sets the stance between two players, both ways: "player" (the human
+     * if left out) is at "stance" with "with".
+     */
+    private String setStance(Map<?, ?> r) {
+        final Stance stance;
+        try {
+            stance = Stance.valueOf(string(r, "stance").toUpperCase(java.util.Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            throw bad("unknown stance \"" + r.get("stance") + "\" (known: "
+                + java.util.Arrays.toString(Stance.values()) + ")");
+        }
+        final ServerPlayer a = (r.get("player") == null) ? me() : player(r, "player");
+        final ServerPlayer b = player(r, "with");
+        if (a == b) throw bad("a stance is between two players");
+        this.igc.changeStance(a, stance, b, true);
+        return new Json().put("action", "setStance").put("stance", stance.toString()).toString();
     }
 
     private Unit addUnit(ServerPlayer p, UnitType type, Role role, Tile tile, boolean inColony, Map<?, ?> r) {
@@ -502,6 +540,12 @@ final class DebugActions {
             if (unit == null) throw bad("no unit " + r.get("unit"));
             gc = unit.getGoodsContainer();
             cs.add(See.only(p), unit);
+        } else if (Boolean.TRUE.equals(r.get("onShip"))) {
+            final Tile tile = at(r);
+            final Unit ship = tile.getUnitList().stream().filter(Unit::isNaval).findFirst().orElse(null);
+            if (ship == null) throw bad("no ship on " + tile.getX() + "," + tile.getY());
+            gc = ship.getGoodsContainer();
+            cs.add(See.perhaps(), ship);
         } else {
             Colony colony = at(r).getColony();
             if (colony == null) throw bad("no colony there");
@@ -633,8 +677,7 @@ final class DebugActions {
             for (Player p : players) choices.add(new String[] { p.getId(), Messages.message(p.getCountryLabel()) });
             return choose("changeOwner", "owner", "Select owner", choices);
         }
-        final ServerPlayer to = this.game.getFreeColGameObject(string(r, "owner"), ServerPlayer.class);
-        if (to == null) throw bad("no player " + r.get("owner"));
+        final ServerPlayer to = player(r, "owner");
         if (isUnit) {
             if (unit.getOwner() == to) throw bad("the unit is already theirs");
             this.igc.debugChangeOwner((ServerUnit)unit, to);
