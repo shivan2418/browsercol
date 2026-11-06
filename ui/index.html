@@ -964,7 +964,9 @@
       /*
        * Checkboxes and radio buttons in FreeCol's look (FreeColCheckBoxUI, FreeColRadioButtonUI): a box
        * 1.5 times the text, framed like a button. The tick and the radio's dot are FreeCol's art as a mask filled
-       * with a token, so they show in every palette; control-art.ts sets --img-checkmark and --img-radio-dot.
+       * with a token, so they show in every palette; control-art.ts sets --img-checkmark and --img-radio-dot once
+       * the art has loaded. Until then (the start screen comes before it) the tick is a drawn one and the
+       * dot a plain disc: with no mask the mark would fill the whole box, which reads as neither state.
        */
       input[type='checkbox'],
       input[type='radio'],
@@ -991,18 +993,31 @@
       input[type='radio']::after {
         content: '';
         position: absolute;
-        inset: 0;
+        inset: 10%;
         background: var(--btn-ink);
-        mask: var(--img-checkmark, none) center / contain no-repeat;
+        mask: var(
+            --img-checkmark,
+            url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M1 8.6l2.3-2.3 3 3L12.7 2 15 4.3 6.3 13.9z'/%3E%3C/svg%3E")
+          )
+          center / contain no-repeat;
         visibility: hidden;
       }
       input[type='radio']::after {
         inset: 25%;
+        border-radius: 50%;
         mask-image: var(--img-radio-dot, none);
       }
       input[type='checkbox']:checked::after,
       input[type='radio']:checked::after {
         visibility: visible;
+      }
+      /* Under the pointer the box is shaded as a button is, and its frame takes the accent. */
+      input[type='checkbox']:not(:disabled):hover,
+      input[type='radio']:not(:disabled):hover,
+      label:hover > input[type='checkbox']:not(:disabled),
+      label:hover > input[type='radio']:not(:disabled) {
+        background-image: linear-gradient(var(--btn-hover), var(--btn-hover));
+        border-color: var(--accent);
       }
       input[type='checkbox']:focus-visible,
       input[type='radio']:focus-visible {
@@ -1013,6 +1028,10 @@
       input[type='radio']:disabled {
         opacity: 0.5;
         cursor: default;
+      }
+      label:has(> input[type='checkbox']:disabled),
+      label:has(> input[type='radio']:disabled) {
+        color: var(--muted);
       }
       label > input[type='checkbox'],
       label > input[type='radio'] {
@@ -1834,6 +1853,9 @@
         font-weight: bold;
       }
       .start-window .swatch {
+        /* In running text (the other nations) an inline swatch has no width, and shows as a bar. */
+        display: inline-block;
+        vertical-align: middle;
         width: 14px;
         height: 14px;
         border: 1px solid var(--line);
