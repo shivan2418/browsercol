@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vite-plus/test';
 import type { StartChoice, StartOptions } from './start';
 import { StartScreen } from './start-screen';
+import { chooseOption } from './select-test';
 
 afterEach(cleanup);
 beforeEach(() => localStorage.clear());
@@ -116,10 +117,10 @@ test('it starts with the first nation and the default level', () => {
   ]);
 });
 
-test('the player picks a nation and a level and starts', () => {
+test('the player picks a nation and a level and starts', async () => {
   const started = screenWith();
   fireEvent.click(document.querySelector('[data-nation="model.nation.french"]')!);
-  fireEvent.change(screen.getByLabelText('Difficulty'), { target: { value: 'model.difficulty.easy' } });
+  await chooseOption(screen.getByLabelText('Difficulty'), 'Easy');
   expect(screen.getByText('Friendlier natives')).toBeTruthy();
   fireEvent.click(document.querySelector('[data-start]')!);
   expect(started).toEqual([
@@ -142,7 +143,7 @@ test('the level’s options and the game options are changed in the editor and s
   ]);
 });
 
-test('an option put back to the level’s own value is not sent, and another level starts afresh', () => {
+test('an option put back to the level’s own value is not sent, and another level starts afresh', async () => {
   const started = screenWith();
   const price = () => screen.getByLabelText('Land price factor') as HTMLInputElement;
   fireEvent.change(price(), { target: { value: '250' } });
@@ -150,7 +151,7 @@ test('an option put back to the level’s own value is not sent, and another lev
   fireEvent.change(price(), { target: { value: '100' } });
   expect(document.querySelector('[data-customize=difficulty] summary')?.textContent).not.toContain('changed');
   fireEvent.change(price(), { target: { value: '250' } });
-  fireEvent.change(screen.getByLabelText('Difficulty'), { target: { value: 'model.difficulty.easy' } });
+  await chooseOption(screen.getByLabelText('Difficulty'), 'Easy');
   expect(price().value).toBe('40');
   fireEvent.click(document.querySelector('[data-start]')!);
   expect(started[0].options).toEqual({});
@@ -217,9 +218,9 @@ test('the player removes nations from the game, and the own nation cannot be rem
   expect(started[0].unavailable).toEqual(['model.nation.inca']);
 });
 
-test('the player picks the advantages, the own nation’s type and a nation colour', () => {
+test('the player picks the advantages, the own nation’s type and a nation colour', async () => {
   const started = screenWith();
-  fireEvent.change(document.querySelector('[data-nation-type]')!, { target: { value: 'model.nationType.conquest' } });
+  await chooseOption(document.querySelector('[data-nation-type]')!, 'Conquest');
   expect(screen.getByText('Stronger soldiers')).toBeTruthy();
   fireEvent.change(document.querySelector('[data-colour="model.nation.dutch"]')!, { target: { value: '#336699' } });
   fireEvent.click(document.querySelector('[data-start]')!);
@@ -231,17 +232,17 @@ test('the player picks the advantages, the own nation’s type and a nation colo
   // With fixed advantages the nation keeps its own type.
   cleanup();
   const again = screenWith();
-  fireEvent.change(document.querySelector('[data-advantages]')!, { target: { value: 'FIXED' } });
-  expect((document.querySelector('[data-nation-type]') as HTMLSelectElement).disabled).toBe(true);
+  await chooseOption(document.querySelector('[data-advantages]')!, 'Fixed');
+  expect((document.querySelector('[data-nation-type]') as HTMLButtonElement).disabled).toBe(true);
   fireEvent.click(document.querySelector('[data-start]')!);
   expect(again[0].advantages).toBe('FIXED');
   expect(again[0].nationType).toBeUndefined();
 });
 
-test('another ruleset is a choice of the start screen', () => {
+test('another ruleset is a choice of the start screen', async () => {
   const rules: string[] = [];
   render(<StartScreen options={options} start={() => {}} rules="classic" changeRules={(r) => rules.push(r)} />);
-  fireEvent.change(document.querySelector('[data-rules]')!, { target: { value: 'freecol' } });
+  await chooseOption(document.querySelector('[data-rules]')!, 'FreeCol');
   expect(rules).toEqual(['freecol']);
 });
 

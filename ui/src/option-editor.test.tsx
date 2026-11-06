@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, expect, test } from 'vite-plus/test';
 import { OptionEditor } from './option-editor';
 import type { OptionGroup, OptionNode, OptionValue } from './options';
+import { chooseOption, shown } from './select-test';
 
 afterEach(cleanup);
 
@@ -61,21 +62,19 @@ test('every option type shows its label and value, and the groups are boxes with
   expect((screen.getByLabelText('Fog of war') as HTMLInputElement).checked).toBe(true);
   expect((screen.getByLabelText('Turns to sail') as HTMLInputElement).value).toBe('3');
   expect((screen.getByLabelText('Gift probability') as HTMLInputElement).value).toBe('5');
-  expect((screen.getByLabelText('Starting positions') as HTMLSelectElement).selectedOptions[0].textContent).toBe(
-    'Classic',
-  );
-  expect((screen.getByLabelText('Build on native land') as HTMLSelectElement).value).toBe('always');
+  expect(shown(screen.getByLabelText('Starting positions'))).toBe('Classic');
+  expect(shown(screen.getByLabelText('Build on native land'))).toBe('Always');
   expect((screen.getByLabelText('Tile production') as HTMLInputElement).value).toBe('high');
   expect((screen.getByLabelText('Note') as HTMLInputElement).value).toBe('hello');
 });
 
-test('each option type edits', () => {
+test('each option type edits', async () => {
   const changes = editor();
   fireEvent.click(screen.getByLabelText('Fog of war'));
   fireEvent.change(screen.getByLabelText('Turns to sail'), { target: { value: '7' } });
   fireEvent.change(screen.getByLabelText('Gift probability'), { target: { value: '40' } });
-  fireEvent.change(screen.getByLabelText('Starting positions'), { target: { value: '1' } });
-  fireEvent.change(screen.getByLabelText('Build on native land'), { target: { value: 'never' } });
+  await chooseOption(screen.getByLabelText('Starting positions'), 'Random');
+  await chooseOption(screen.getByLabelText('Build on native land'), 'Never');
   fireEvent.change(screen.getByLabelText('Tile production'), { target: { value: 'low' } });
   fireEvent.change(screen.getByLabelText('Note'), { target: { value: 'bye' } });
   expect(changes).toEqual([
@@ -120,13 +119,15 @@ test('changed values show instead of the group’s own and are marked', () => {
 test('read-only, no control takes input', () => {
   editor(false);
   const controls = [
-    ...document.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[data-option] :is(input, select)'),
+    ...document.querySelectorAll<HTMLInputElement | HTMLButtonElement>(
+      '[data-option] :is(input:not([aria-hidden]), [role="combobox"])',
+    ),
   ];
   expect(controls).toHaveLength(7);
   expect(controls.every((c) => c.disabled)).toBe(true);
 });
 
-test('a unit list option shows its entries and edits them', () => {
+test('a unit list option shows its entries and edits them', async () => {
   const changes: [string, unknown][] = [];
   const root: OptionNode = {
     id: 'g',
@@ -153,7 +154,7 @@ test('a unit list option shows its entries and edits them', () => {
   };
   render(<OptionEditor root={root} editable onChange={(id, v) => changes.push([id, v])} />);
   expect((screen.getByLabelText('REF size: number 1') as HTMLInputElement).value).toBe('7');
-  fireEvent.change(screen.getByLabelText('REF size: unit type 1'), { target: { value: 'model.unit.manOWar' } });
+  await chooseOption(screen.getByLabelText('REF size: unit type 1'), 'Man-o-War');
   expect(changes.at(-1)).toEqual([
     'model.option.refSize',
     [{ type: 'model.unit.manOWar', role: 'model.role.soldier', number: 7 }],

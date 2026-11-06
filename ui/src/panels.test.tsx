@@ -11,6 +11,7 @@ import { CopyDetailsContext, ShowLogContext } from './log';
 import { ContextMenuContext, type ContextMenus } from './popup-menu';
 import type { Advisor } from './advisor';
 import { DialogHost, type Art, type ReportButtons, type RouteButtons } from './panels';
+import { chooseOption, listed, openSelect, shown } from './select-test';
 import type { Choice, EuropeUnit, GuiEvents, GuiQuestions, TradeRouteDraft } from './webgui';
 
 afterEach(cleanup);
@@ -598,12 +599,12 @@ describe('the negotiation dialog', () => {
     fireEvent.click(gold.querySelector('button')!);
     fireEvent.change(gold.querySelector('input')!, { target: { value: '30' } });
     fireEvent.click(gold.querySelector('button')!);
-    fireEvent.click(within('', 'stance').querySelector('button')!);
+    fireEvent.click(within('', 'stance').querySelector('button[data-add]')!);
     const colony = within('offer', 'colony');
-    fireEvent.change(colony.querySelector('select')!, { target: { value: 'colony:2' } });
-    fireEvent.click(colony.querySelector('button')!);
+    await chooseOption(colony.querySelector('[role="combobox"]')!, 'Plymouth');
+    fireEvent.click(colony.querySelector('button[data-add]')!);
     // Plymouth is on the table: Jamestown is what is left to add.
-    expect(colony.querySelector('select')!.value).toBe('colony:1');
+    expect(shown(colony.querySelector('[role="combobox"]')!)).toBe('Jamestown');
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
 
     expect(await answer).toEqual({
@@ -1073,13 +1074,14 @@ describe('the panels', () => {
     });
     const dim = (text: string) => screen.getByText(text).closest('.message')?.hasAttribute('data-dim');
 
-    it('offers the group by option, and asks the Engine to regroup when it changes', () => {
+    it('offers the group by option, and asks the Engine to regroup when it changes', async () => {
       const { box, pressed } = host();
       act(() => box.show('messages', report(0)));
-      const select = screen.getByRole('combobox', { name: /Group messages by/ }) as HTMLSelectElement;
-      expect(select.value).toBe('0');
-      expect([...select.options].map((o) => o.text)).toEqual(['Nothing', 'Type', 'Source']);
-      fireEvent.change(select, { target: { value: '2' } });
+      const select = screen.getByRole('combobox', { name: /Group messages by/ });
+      expect(shown(select)).toBe('Nothing');
+      await openSelect(select);
+      expect(listed()).toEqual(['Nothing', 'Type', 'Source']);
+      await chooseOption(select, 'Source');
       expect(pressed).toEqual(['groupBy 2']);
     });
 
@@ -1094,7 +1096,7 @@ describe('the panels', () => {
         }),
       );
       expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['Rumours']);
-      expect((screen.getByRole('combobox') as HTMLSelectElement).value).toBe('1');
+      expect(shown(screen.getByRole('combobox'))).toBe('Type');
       expect(screen.queryByText('The warehouse is full.')).toBeNull();
     });
 
@@ -1489,7 +1491,7 @@ describe('the trade routes panel', () => {
     expect(removed).toEqual(['tradeRoute:2']);
   });
 
-  it('makes a new route: a name, stops with their goods, and saves it', () => {
+  it('makes a new route: a name, stops with their goods, and saves it', async () => {
     const { box, saved } = host();
     act(() => box.replace('tradeRoutes', routes()));
     press('New Trade Route');
@@ -1498,10 +1500,10 @@ describe('the trade routes panel', () => {
     fireEvent.change(screen.getByRole('textbox'), { target: { value: ' ' } });
     expect((screen.getByRole('button', { name: 'OK' }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Tool run' } });
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'europe:1' } });
+    await chooseOption(screen.getByRole('combobox'), 'Europe');
     press('Add new stop');
     press('Tools');
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'colony:7' } });
+    await chooseOption(screen.getByRole('combobox'), 'New Amsterdam');
     press('Add new stop');
     press('Furs');
     press('OK');
@@ -1729,12 +1731,12 @@ describe('the trade routes panel', () => {
     expect(saved[0].stops.map((s) => s.cargo)).toEqual([[], [F], [T]]);
   });
 
-  it('disables Add Stop once the route has a stop for every place', () => {
+  it('disables Add Stop once the route has a stop for every place', async () => {
     const { box } = host();
     act(() => box.replace('tradeRoutes', routes()));
     press('New Trade Route');
     const add = screen.getByRole('button', { name: 'Add new stop' }) as HTMLButtonElement;
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'europe:1' } });
+    await chooseOption(screen.getByRole('combobox'), 'Europe');
     press('Add new stop');
     expect(add.disabled).toBe(false);
     press('Add new stop');

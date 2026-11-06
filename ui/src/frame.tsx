@@ -67,7 +67,7 @@ export function useEscape(close: (() => void) | null, keys: readonly string[] = 
 function isCloseKey(e: KeyboardEvent, keys: readonly string[]): boolean {
   if (e.altKey || e.ctrlKey || e.metaKey || e.repeat) return false;
   const target = e.target instanceof Element ? e.target : null;
-  if (target?.matches('input, textarea, select, [contenteditable]')) return false;
+  if (target?.matches('input, textarea, select, [role="combobox"], [contenteditable]')) return false;
   return keys.some((k) => k.toLowerCase() === e.key.toLowerCase());
 }
 

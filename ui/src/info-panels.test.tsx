@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { dialogs } from './dialogs';
 import { DialogHost } from './panels';
+import { chooseOption } from './select-test';
 import type { GuiEvents } from './webgui';
 
 afterEach(cleanup);
@@ -59,12 +60,12 @@ describe('the Find Settlement panel', () => {
     ]);
   });
 
-  it('filters to natives or Europeans', () => {
+  it('filters to natives or Europeans', async () => {
     opened();
     const filter = screen.getByRole('combobox');
-    fireEvent.change(filter, { target: { value: '1' } });
+    await chooseOption(filter, 'Find only native settlements');
     expect(rows()).toEqual(['Cuzco* (Inca)']);
-    fireEvent.change(filter, { target: { value: '2' } });
+    await chooseOption(filter, 'Find only European settlements');
     expect(rows()).toEqual(['Jamestown (English)', 'Plymouth (French)']);
   });
 

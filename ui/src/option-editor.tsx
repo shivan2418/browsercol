@@ -6,6 +6,7 @@
 // inside it; [data-group] on a group's box. A percentage option is a slider,
 // as FreeCol's PercentageOptionUI is.
 import { useRef, useState, type ReactNode } from 'react';
+import { Select } from './controls';
 import { Box } from './frame';
 import type { OptionNode, OptionValue, UnitEntry } from './options';
 
@@ -125,30 +126,20 @@ function UnitList({
             label={`${label}: number ${i + 1}`}
             onChange={(number) => replace(i, { number })}
           />
-          <select
+          <Select
             aria-label={`${label}: unit type ${i + 1}`}
             disabled={disabled}
             value={e.type}
-            onChange={(ev) => replace(i, { type: ev.target.value })}
-          >
-            {node.unitTypes.map((t) => (
-              <option key={t.value} value={t.value}>
-                {t.label}
-              </option>
-            ))}
-          </select>
-          <select
+            onChange={(type) => replace(i, { type })}
+            choices={node.unitTypes}
+          />
+          <Select
             aria-label={`${label}: role ${i + 1}`}
             disabled={disabled}
             value={e.role}
-            onChange={(ev) => replace(i, { role: ev.target.value })}
-          >
-            {node.roles.map((r) => (
-              <option key={r.value} value={r.value}>
-                {r.label}
-              </option>
-            ))}
-          </select>
+            onChange={(role) => replace(i, { role })}
+            choices={node.roles}
+          />
           <button type="button" disabled={disabled || i === 0} title="Move up" onClick={() => move(i, -1)}>
             Up
           </button>
@@ -255,18 +246,13 @@ function Row({
       break;
     case 'select':
       control = (
-        <select
+        <Select
           aria-label={node.label}
           disabled={disabled}
           value={String(plain)}
-          onChange={(e) => set(Number(e.target.value))}
-        >
-          {node.choices.map((c) => (
-            <option key={c.value} value={c.value}>
-              {c.label}
-            </option>
-          ))}
-        </select>
+          onChange={(v) => set(Number(v))}
+          choices={node.choices.map((c) => ({ value: String(c.value), label: c.label }))}
+        />
       );
       break;
     case 'file': {
@@ -295,18 +281,13 @@ function Row({
     case 'text':
       control =
         node.kind === 'string' && node.choices ? (
-          <select
+          <Select
             aria-label={node.label}
             disabled={disabled}
             value={String(plain)}
-            onChange={(e) => set(e.target.value)}
-          >
-            {node.choices.map((c) => (
-              <option key={c.value} value={c.value}>
-                {c.label}
-              </option>
-            ))}
-          </select>
+            onChange={set}
+            choices={node.choices}
+          />
         ) : (
           <input
             type="text"

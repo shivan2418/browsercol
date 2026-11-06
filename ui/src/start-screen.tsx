@@ -9,6 +9,7 @@
 // [data-customize=map]; what the player changes goes to the Engine in the
 // preset's options.
 import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { Select } from './controls';
 import { CreditsDialog, SourceLinks } from './credits';
 import type { Art } from './frame';
 import { OptionEditor } from './option-editor';
@@ -258,13 +259,16 @@ export function StartScreen({
         {rules !== undefined && changeRules && options.rulesets.length > 1 && (
           <fieldset>
             <legend>Rules</legend>
-            <select data-rules aria-label="Rules" value={rules} onChange={(e) => changeRules(e.target.value)}>
-              {options.rulesets.map((r) => (
-                <option key={r} value={r}>
-                  {r === 'classic' ? 'Classic' : r === 'freecol' ? 'FreeCol' : r}
-                </option>
-              ))}
-            </select>
+            <Select
+              data-rules
+              aria-label="Rules"
+              value={rules}
+              onChange={changeRules}
+              choices={options.rulesets.map((r) => ({
+                value: r,
+                label: r === 'classic' ? 'Classic' : r === 'freecol' ? 'FreeCol' : r,
+              }))}
+            />
           </fieldset>
         )}
         <fieldset>
@@ -293,19 +297,16 @@ export function StartScreen({
           {options.nationTypes.length > 0 && (
             <label>
               Advantage of your nation:{' '}
-              <select
+              <Select
                 data-nation-type
                 value={advantages === 'SELECTABLE' ? nationType : ''}
                 disabled={advantages !== 'SELECTABLE'}
-                onChange={(e) => setNationType(e.target.value)}
-              >
-                <option value="">{chosen?.type ? `${chosen.type} (the nation's own)` : "The nation's own"}</option>
-                {options.nationTypes.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
+                onChange={setNationType}
+                choices={[
+                  { value: '', label: chosen?.type ? `${chosen.type} (the nation's own)` : "The nation's own" },
+                  ...options.nationTypes.map((t) => ({ value: t.id, label: t.name })),
+                ]}
+              />
             </label>
           )}
           <details className="colours">
@@ -329,18 +330,13 @@ export function StartScreen({
         <fieldset>
           <legend>National Advantages</legend>
           {pediaButton('nationTypes', 'Advantages (Colopedia)')}
-          <select
+          <Select
             data-advantages
             aria-label="National Advantages"
             value={advantages}
-            onChange={(e) => setAdvantages(e.target.value as Advantages)}
-          >
-            {ADVANTAGES.map((a) => (
-              <option key={a} value={a}>
-                {ADVANTAGE_NAMES[a]}
-              </option>
-            ))}
-          </select>
+            onChange={(v) => setAdvantages(v as Advantages)}
+            choices={ADVANTAGES.map((a) => ({ value: a, label: ADVANTAGE_NAMES[a] }))}
+          />
         </fieldset>
         {others.length > 0 && (
           <fieldset>
@@ -365,22 +361,17 @@ export function StartScreen({
         )}
         <fieldset>
           <legend>Difficulty</legend>
-          <select
+          <Select
             data-difficulty
             aria-label="Difficulty"
             value={difficulty}
-            onChange={(e) => {
-              setDifficulty(e.target.value);
+            onChange={(id) => {
+              setDifficulty(id);
               // Another level has other values: what was changed in the one before does not carry over.
               setLevelEdits({});
             }}
-          >
-            {levels.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.name}
-              </option>
-            ))}
-          </select>
+            choices={levels.map((l) => ({ value: l.id, label: l.name }))}
+          />
           {levelGroup && (
             <Customize
               key={levelGroup.id}

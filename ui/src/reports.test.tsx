@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { dialogs } from './dialogs';
 import { MENUS, MenuBar, type Art } from './frame';
 import { DialogHost } from './panels';
+import { chooseOption } from './select-test';
 import { ReportContext, REPORTS, reportMenu, type ReportActions } from './reports';
 import { reportForKey } from './report-keys';
 import type { GuiEvents, ReportName, ReportView } from './webgui';
@@ -556,12 +557,12 @@ describe('the production report', () => {
     ],
   };
 
-  it('shows nothing until goods are picked, then each colony with the units in the buildings', () => {
+  it('shows nothing until goods are picked, then each colony with the units in the buildings', async () => {
     const { box, calls } = host();
     show(box, report);
     expect(document.querySelector('table')).toBeNull();
-    fireEvent.change(screen.getByLabelText('Select goods 1'), { target: { value: '0' } });
-    fireEvent.change(screen.getByLabelText('Select goods 2'), { target: { value: '1' } });
+    await chooseOption(screen.getByLabelText('Select goods 1'), 'Hammers');
+    await chooseOption(screen.getByLabelText('Select goods 2'), 'Rum');
     const row = document.querySelector('[data-colony="colony:7"]')!;
     expect(Array.from(row.children).map((c) => c.textContent)).toEqual(['Jamestown', '+3', '', '-1', '']);
     expect(row.querySelector('[data-building="model.building.carpenterHouse"] img')?.getAttribute('data-unit')).toBe(
@@ -573,7 +574,7 @@ describe('the production report', () => {
       'Rum',
     ]);
     // Back to Nothing, and the goods leave the table.
-    fireEvent.change(screen.getByLabelText('Select goods 2'), { target: { value: '' } });
+    await chooseOption(screen.getByLabelText('Select goods 2'), 'Nothing');
     expect(Array.from(document.querySelectorAll('thead th')).map((h) => h.textContent)).toEqual(['Colony', 'Hammers']);
     fireEvent.click(screen.getByRole('button', { name: 'Jamestown' }));
     expect(calls).toEqual(['colony colony:7']);
