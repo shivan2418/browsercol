@@ -114,16 +114,6 @@ const SECTIONS: { title: string; rows: Row[] }[] = [
       },
     ],
   },
-  {
-    title: 'European nations at the start',
-    rows: [
-      {
-        what: 'Who takes part (Other nations)',
-        classic: 'England, France, Spain and the Netherlands.',
-        freecol: 'Also Portugal, Sweden, Denmark and Russia.',
-      },
-    ],
-  },
 ];
 
 /** The summary, for a popover beside the Rules choice. */
@@ -157,8 +147,9 @@ export function RulesHelp() {
         </section>
       ))}
       <p className="quiet">
-        The same in both: building on native land (a difficulty option), the sailing time to Europe (Turns to sail) and
-        fog of war.
+        The same in both: England, France, Spain and the Netherlands start in the game, and the other four European
+        nations can be ticked under Other nations; building on native land (a difficulty option); the sailing time to
+        Europe (Turns to sail); and fog of war.
       </p>
       <p className="quiet">
         Every game option can still be changed for a game under Game options, so these are only starting points.
