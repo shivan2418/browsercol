@@ -1,204 +1,207 @@
 # BrowserCol
 
-Play it at <https://shivan2418.github.io/browsercol/>.
+**FreeCol in the browser.** No install, no server: the whole game, AI
+included, runs in the page.
 
-FreeCol in the browser. The Engine is FreeCol's own Java code, compiled by
-TeaVM to two Wasm GC modules. `server.wasm` (server and AI) runs in a Web
-Worker and `client.wasm` runs on the page. The Browser UI (TypeScript 7,
-Vite+, PixiJS) carries FreeCol's messages between them and draws the map.
+▶ **Play it at <https://shivan2418.github.io/browsercol/>**
 
-## Layout
+## How it works
 
-- `engine/`: the Gradle build of the Engine. It compiles FreeCol's source
-  from `freecol/` with TeaVM into `server.wasm` and `client.wasm`.
-  - `engine/patches/`: our patched copies of FreeCol's files. They replace
-    the upstream ones at build time. `engine/patches/README.md` lists each
-    patch and why.
-  - `engine/src/main/java/browsercol/web/`: the browser entry points. These
-    are `WorkerMain` (the server, in the Worker) and `ClientMain` (the page),
-    `Commands` (the orders the Browser UI
-    sends), `WebGUI` (FreeCol's GUI interface, answered by events to the
-    page) and `DebugActions`.
-  - `engine/src/main/java/browsercol/shim/`: stand-ins for the JDK classes
-    TeaVM lacks (`java.awt`, `java.beans`, `java.net` and others), plus
-    TeaVM's reflection and substitution policies.
-  - `engine/src/test/`: JVM tests (JUnit) that run the Engine on the JVM.
-  - `engine/*.mjs`: Node runners for the built modules. `run-node.mjs`
-    and `run-split-node.mjs` play AI rounds without a browser, and
-    `sizes.mjs` prints module sizes.
-- `ui/`: the Browser UI (TypeScript, React, PixiJS, Vite+).
-  - `ui/src/`: the page and the Worker. This covers the map renderer, the
-    panels and dialogs, the `postMessage` channel to the Engine, saves and
-    their tests (`*.test.ts(x)`) and Storybook stories (`*.stories.tsx`).
-    `ui/src/fonts/` holds the bundled fonts.
-  - `ui/scripts/`: build steps (`build-data.ts`, `build-art.ts`,
-    `build-audio.ts`, …) and the browser scripts. Those play the built
-    `dist/` in Chromium and Firefox through Playwright: `smoke`, `play`,
-    `saves`, `tileset`, `debug`, `rounds` and others.
-  - `ui/presets/`: debug quick-start presets for `?preset=` (below).
-  - `ui/tilesets/`: Tilesets shipped with the game (`freecol-plus`) and the
-    test Tileset that `tileset.ts` draws with.
-  - `ui/.storybook/`: Storybook's config (`just storybook`).
-  - `ui/generated/` (gitignored): the built Engine modules and data that
-    the page imports. `build.sh` writes it.
-- `tools/`: developer tools:
-  - `fc-swing/` runs upstream FreeCol's Swing game for comparison (below).
-  - `swing-inventory.mjs` builds the Swing parity inventory in
-    `docs/parity/`.
-  - `watch-engine.sh` rebuilds the Engine for `just dev`.
-  - `copy-modules.sh` copies Gradle's output into `ui/generated/`.
-  - `desktop-check.sh` checks a save with desktop FreeCol.
-- `docs/`: project documentation.
-  - `docs/adr/`: architecture decision records.
-  - `docs/research/`: research notes, such as the Java-to-Wasm compiler
-    survey and Swing in the browser.
-  - `docs/parity/`: the Swing parity inventory.
-  - `docs/agents/`: how coding agents use the issue tracker and labels.
-  - `docs/upstream-fixes.md`: bugs in FreeCol itself that `engine/patches/`
-    fixes.
-- `docker/`: the dev image (`dev.Dockerfile`: JDK, Gradle, Node, pnpm) and
-  the web image (`web.Dockerfile`: Playwright with Chromium and Firefox) that
-  `./dev.sh` runs everything in.
-- `.githooks/`: the commit gate. `pre-commit` compiles the Engine and
-  `commit-msg` requires an author trailer (see `CLAUDE.md`).
-- `.github/workflows/`: `suite.yml` runs the whole suite and `pages.yml`
-  deploys to GitHub Pages on a `deploy-*` or `v*` tag.
-- `spike/`: the toolchain spike that got here, kept as a record.
-- `GLOSSARY.md`: the project's terms (Engine, Browser UI, Tileset, …).
-- Top-level scripts: `dev.sh` (run in Docker), `build.sh` (build `dist/`),
-  `ci.sh` (the suite on GitHub Actions), `freecol.sh` (pin and update
-  `freecol/`) and the `justfile`.
-- Gitignored:
-  - `freecol/`: the upstream FreeCol clone, at the commit in `freecol.sha`.
-  - `dist/`: the built static site.
-  - `.cache/`: Gradle and pnpm caches, and the browser scripts'
-    screenshots.
+The **Engine** is FreeCol's own Java code, compiled by
+[TeaVM](https://teavm.org/) to two WebAssembly GC modules. The **Browser UI**
+(TypeScript, React, PixiJS, Vite+) carries FreeCol's protocol messages
+between them and draws the game.
+
+```
+┌─────────────── page ───────────────┐  postMessage  ┌──── Web Worker ────┐
+│  Browser UI  ◀──▶  client.wasm     │ ◀───────────▶ │    server.wasm     │
+│  (map, panels)     (FreeCol client)│   FreeCol XML │ (server and the AI)│
+└────────────────────────────────────┘               └────────────────────┘
+```
+
+FreeCol is pinned to the commit in `freecol.sha`. Our changes to its source
+are patched copies in `engine/patches/`, each listed with its reason. Terms
+such as Engine, Browser UI and Tileset are defined in
+[`GLOSSARY.md`](GLOSSARY.md), and design decisions are in
+[`docs/adr/`](docs/adr/).
+
+## Getting started
+
+You need Docker and [`just`](https://github.com/casey/just). Every tool
+(JDK, Gradle, Node, pnpm, Playwright) runs in a Docker image through
+`./dev.sh`, and nothing else is installed on the host.
+
+```sh
+./freecol.sh                            # clone FreeCol into freecol/ at freecol.sha
+git config core.hooksPath .githooks     # the commit gate (see CLAUDE.md)
+just install                            # the UI's packages
+just dev                                # build, then a dev server with hot reload
+```
+
+`just dev` serves at http://localhost:5173 (or the next free port). It
+rebuilds the Engine and reloads the page when the Java changes.
 
 ## Commands
 
-Everything runs in a Docker dev image through `./dev.sh`. Nothing is
-installed on the host.
+`just` with no arguments lists every recipe. The main ones:
 
-The `justfile` wraps the commands below (`just` lists its recipes). `just dev`
-starts Vite's dev server with hot reload at http://localhost:5173 (it builds
-first if `ui/generated/` is missing; rerun `just build` after Engine changes),
-and `just preview` serves the built `dist/` there.
+| Command | What it does |
+| --- | --- |
+| `just dev` | Vite dev server with hot reload |
+| `just build` | Build `dist/`, the static site (`just build -Prelease` obfuscates the modules and hides the debug side panel at first) |
+| `just preview` | Serve the built `dist/` |
+| `just storybook` | Storybook at http://localhost:6006, with the game's own art |
+| `just fast` | The fast checks: Engine tests, `vp check`, `vp test` |
+| `just suite` | The whole suite: fast checks, build and the browser scripts |
+| `just ci` | The whole suite on GitHub Actions for the committed HEAD |
+
+### Tests
+
+| Command | What it checks |
+| --- | --- |
+| `just test-engine` | JVM tests of the Engine (JUnit) |
+| `just test-ui` | UI tests (`vp test`) |
+| `just check` | Format, lint and type check; a lint warning fails it |
+| `just browser smoke` | Play `dist/` for 10 turns in Chromium and Firefox, starting each Classic nation from the start screen |
+| `just browser play` | Land, found a colony and end the turn |
+| `just browser saves` | Save, reload, export, delete, import, then load the save and play on |
+| `just browser tileset` | Draw the map and a colony panel with the test Tileset (`ui/tilesets/test`) |
+| `just browser debug` | The debug menu's actions |
+| `just browser rounds --rounds 300` | Time AI rounds and memory as the game grows |
+
+The browser scripts run against the built `dist/` in both browsers and save
+screenshots in `.cache/`. They take page parameters with `--query`, e.g.
+`just browser smoke --query preset=dutch-small`.
+
+`./ci.sh` (or the Suite workflow, `gh workflow run suite.yml --ref <branch>`)
+runs the whole suite on GitHub Actions, uploads the screenshots and waits
+for the result, so your machine stays free.
+
+### Comparing with Swing FreeCol
+
+`tools/fc-swing/` runs upstream FreeCol's Swing game at `freecol.sha`. The
+jar is built with Ant in Docker into `~/.cache/freecol-swing` and runs on the
+host's `java`.
 
 ```sh
-./dev.sh ./build.sh                  # build dist/, the static site (add -Prelease for a release build: obfuscated modules, debug side panel hidden at first)
-./dev.sh -C engine gradle test       # JVM tests of the Engine
-./dev.sh -C ui pnpm install --frozen-lockfile                # once, before the UI commands below
-./dev.sh -C ui pnpm exec vp test           # UI tests
-./dev.sh -C ui pnpm exec vp check          # format, lint and type check; a lint warning fails it
-DEV_VARIANT=web ./dev.sh node ui/scripts/smoke.ts   # play dist/ in Chromium and Firefox
-DEV_VARIANT=web ./dev.sh node ui/scripts/play.ts    # land, found a colony, end the turn in both
-DEV_VARIANT=web ./dev.sh node ui/scripts/saves.ts   # save, reload, export, delete, import, load the save and play on in both
-DEV_VARIANT=web ./dev.sh node ui/scripts/tileset.ts # draw the map and a colony panel with the test Tileset (ui/tilesets/test) in both
-DEV_VARIANT=web ./dev.sh node ui/scripts/rounds.ts --rounds 300  # time AI rounds and memory as the game grows, per browser
+just swing last        # open the newest autosave on this desktop (or a path, or a save name)
+just swing-shot -s last wait:40000 shot:map key:F1 wait:3000 shot:f1
+                       # on a virtual screen; PNGs in ~/.cache/freecol-swing/shots
+just parity            # Swing's player actions, row by row, into docs/parity/
 ```
 
-To compare with the original, `tools/fc-swing/` runs upstream FreeCol's Swing
-game at `freecol.sha` (the jar is built with Ant in Docker, into
-`~/.cache/freecol-swing`; it runs on the host's `java`):
+### Updating FreeCol
 
-```sh
-just swing last                      # open the newest autosave in Java FreeCol on this desktop (or a path, or a save name)
-just swing-shot -s last wait:40000 shot:map key:F1 wait:3000 shot:f1   # on a virtual screen in Docker; PNGs in ~/.cache/freecol-swing/shots
-```
+The Gradle build fails when `freecol/` is on any commit other than
+`freecol.sha`, or on a branch. To try a newer FreeCol:
 
-To run the whole suite on GitHub Actions instead, start the Suite workflow
-(`.github/workflows/suite.yml`) from the Actions tab or with
-`gh workflow run suite.yml --ref <branch>`. It runs the commands above and
-uploads the browser screenshots. `./ci.sh` does the same for the
-committed HEAD of any branch and waits for the result, so the machine stays
-free.
+1. Run `./freecol.sh <commit, branch or tag>`. It rewrites `freecol.sha`,
+   checks the commit out and lists the files in `engine/patches/` whose
+   upstream changed.
+2. Merge those upstream changes into the patched copies.
+3. Run the whole suite, for example by committing on a branch and running
+   `./ci.sh`.
 
-FreeCol is pinned to the commit in `freecol.sha`. `./freecol.sh` clones
-`freecol/` or checks it out at that commit, and the Gradle build fails when
-`freecol/` is on any other commit or on a branch. To try a newer FreeCol, run
-`./freecol.sh <commit, branch or tag>`: it rewrites `freecol.sha`, checks the
-commit out and lists the files in `engine/patches/` whose upstream changed,
-which need those changes merged in. Then run the whole suite, e.g. by
-committing on a branch and running `./ci.sh`.
+### What the build does
 
-`build.sh` builds both Engine modules in one Gradle run (`gradle modules`),
-bundles FreeCol's rules and English strings into a data file, copies
-FreeCol's translations to `strings/` (the page fetches the one the player's
-language option picks), copies the map art
-of the default Tileset (`ui/scripts/build-art.ts`, which also prints the art
-budget) and runs `vp build` into `dist/`. Serve `dist/` from any static host. URLs are relative, so a
-sub-path such as GitHub Pages' `/<repo>/` works.
+`build.sh` builds both Engine modules in one Gradle run. It then bundles
+FreeCol's rules and English strings into a data file and copies FreeCol's
+translations to `strings/`, which the page fetches for the player's
+language. It also copies the default Tileset's art
+(`ui/scripts/build-art.ts`, which prints the art budget) and runs
+`vp build` into `dist/`. Serve `dist/` from any static host: its URLs are
+relative, so a sub-path such as GitHub Pages' `/<repo>/` works. Pushing a
+`deploy-*` or `v*` tag deploys to GitHub Pages.
+
+## Project layout
+
+| Path | What's there |
+| --- | --- |
+| `engine/` | Gradle build of the Engine: compiles `freecol/` with TeaVM into `server.wasm` and `client.wasm` |
+| `engine/patches/` | Our patched copies of FreeCol files, which replace upstream at build time; its README lists each one |
+| `engine/src/main/java/browsercol/web/` | Entry points: `WorkerMain` (the server, in the Worker), `ClientMain` (the page), `Commands` (the UI's orders), `WebGUI` (FreeCol's GUI interface, answered as events to the page), `DebugActions` |
+| `engine/src/main/java/browsercol/shim/` | Stand-ins for JDK classes TeaVM lacks (`java.awt`, `java.beans`, `java.net`, …) and TeaVM's reflection and substitution policies |
+| `engine/src/test/` | JVM tests that run the Engine on the JVM |
+| `engine/*.mjs` | Node runners for the built modules (`run-node.mjs`, `run-split-node.mjs`) and `sizes.mjs` for module sizes |
+| `ui/src/` | The page and the Worker: map renderer, panels and dialogs, the `postMessage` channel, saves, fonts; tests (`*.test.ts(x)`) and stories (`*.stories.tsx`) sit beside the code |
+| `ui/scripts/` | Build steps (`build-data.ts`, `build-art.ts`, `build-audio.ts`, …) and the Playwright browser scripts |
+| `ui/presets/` | Quick-start presets for `?preset=` |
+| `ui/tilesets/` | Tilesets: `freecol-plus`, and `test` for the tileset script |
+| `ui/.storybook/` | Storybook config |
+| `tools/` | Developer tools: `fc-swing/`, `swing-inventory.mjs`, `watch-engine.sh` (Engine rebuilds for `just dev`), `copy-modules.sh`, `desktop-check.sh` |
+| `docs/` | `adr/` decision records, `research/` notes, `parity/` the Swing parity inventory, `agents/` how coding agents use the tracker, `upstream-fixes.md` FreeCol bugs our patches fix |
+| `docker/` | `dev.Dockerfile` (JDK, Gradle, Node, pnpm) and `web.Dockerfile` (Playwright with Chromium and Firefox) |
+| `.githooks/` | The commit gate: `pre-commit` compiles the Engine, `commit-msg` requires an author trailer |
+| `.github/workflows/` | `suite.yml` (the whole suite) and `pages.yml` (deploy to Pages on a tag) |
+| `spike/` | The toolchain spike that got here, kept as a record |
+| `dev.sh`, `build.sh`, `ci.sh`, `freecol.sh` | Run in Docker; build `dist/`; the suite on Actions; pin and update `freecol/` |
+
+Gitignored: `freecol/` (the upstream clone), `ui/generated/` (built modules
+and data the page imports), `dist/` (the site) and `.cache/` (Gradle and pnpm
+caches, screenshots).
+
+## Playing
 
 The page opens on a start screen (FreeCol's NewPanel and StartGamePanel,
 single player): pick a European nation and a difficulty level, then Start
-game. The choices come from the ruleset's own specification and go to the
-server Engine as a preset (below). `?skipstart` skips the screen and starts
-with FreeCol's defaults; `?preset=` and `?load=` skip it too. The browser
-scripts use `?skipstart`, except `smoke`, which plays through the screen and
-starts each Classic nation from it.
+game. The game draws the map in **Tileset mode**: FreeCol's own art, looked up
+by resource key as FreeCol does, so a Tileset (an art-only mod) can replace
+any key. The canvas is drawn at the screen's pixel ratio, so the map stays
+sharp on a HiDPI display.
 
-Then the page starts a Classic game and draws the map in Tileset mode: FreeCol's
-own art, found by resource key as FreeCol finds it, so a Tileset (an
-art-only mod) can replace any key. The map follows the active unit, marked
-with FreeCol's cursor, and the side panel shows it and the tile under the
-pointer. The menu bar over the map has FreeCol's menus and its status line
-(the score, the gold, the tax and the year); the side panel, a debug
-scaffold, shows the turn. Drag the map or rest the
-pointer at its edge to scroll, and zoom with the wheel. Click one of your
-colonies to open its colony panel (also opened after founding one), which
-shows what FreeCol's does, read-only: buildings (with empty plots and
-upkeep), the tiles drawn as the map draws them and who works them, units
-outside, ships in port and the cargo of the one clicked, the warehouse, net
-production, population and the current build, and follows the colony as it
-changes. Click one of your
-units to select it (click again to cycle through a stack, units aboard ships
-included; not in a colony, where a click opens the panel, as in FreeCol), click a tile to send the active unit there, move one step with
-the arrow keys or numpad, `W` for the next unit, `Space` to leave it for
-this turn, `F` to fortify it, `S` to sentry it, `D` to disband it, `P` to
-plow its tile, `C` to clear a forest, `R` to build a road, `H` to send it
-to a destination, `B` to build a colony, `Enter` to end the turn. The side
-panel has a button for each of them, disabled while the active unit may not
-take that order.
-The side panel also saves the game under a name and lists the saved games
-(name, date, turn, nation) with a Load, an Export and a Delete button each. Saves live
-in the browser's IndexedDB, written by the Worker, and the Worker asks the
-browser to keep them (`navigator.storage.persist()`). A save is FreeCol's own
-zipped `.fsg` with the active unit, so a loaded game continues at the same
-turn with the same unit active; Load reloads the page on `?load=ID`. FreeCol's
-own autosave never runs (the browser client has no in-process server), so the
-page autosaves instead: 1.5 s after the last change on the player's turn it
-saves into one slot named "Autosave", replacing the last. Under `just dev` a
-reload (a rebuild, say) resumes that autosave; `?new` starts afresh, and
-`?resume` resumes in a built site too. The debug panel's "Reset save" deletes
-the autosave and starts a new game; an autosave the Engine can no longer read
-is dropped the same way.
-The page also makes FreeCol's own autosaves as each of the player's turns
-begins, by its Saved games options in Preferences: `Autosave-last-turn`, the
-one before it kept as `Autosave-before-last-turn`, and every N turns
-(autosave period) one named for the turn, e.g. `Autosave-Spring 1493`. Turn
-autosaves older than the validity in days go as the page loads, and all of
-them as a new game starts if "Delete autosaves files" is on. A loaded game's
-first turn and an `?autoplay` run make none.
-With the "Save game dialog" option at Always, loading a save first shows
-FreeCol's Loading Save game window: single player is the one choice, the
-multiplayer ones shown unavailable; Cancel starts a new game instead. At
-Multiplayer only (FreeCol's default) it never shows, as browser games are
-single player.
-Export downloads the stored `.fsg` unchanged, and "Import a .fsg" adds one
-to the list: the turn, year and nation come from the file's `savegame.xml`
-(`ui/src/fsg.ts`, read in the page; a file that is not a FreeCol save is
-refused with a message). `tools/desktop-check.sh <FreeCol dir> <file.fsg>`
-runs desktop FreeCol's `--check-savegame` on a save, e.g. one exported here
-(`saves.ts --keep-export DIR` keeps the script's).
-`?autoplay=N` first auto-ends N turns
-(debug; the smoke test uses 10). The map canvas is drawn at the screen's
-pixel ratio, so the map is sharp on a HiDPI display. The browser scripts save
-screenshots in `.cache/`.
+Drag the map or rest the pointer at its edge to scroll, and zoom with the
+wheel. Click a unit to select it; click again to cycle through a stack,
+units aboard ships included. Click a tile to send the active unit there.
+Click one of your colonies to open its colony panel.
 
-`?preset=NAME` is the debug quick start: it skips the start screen and
-starts from `ui/presets/NAME.json` (shipped as `presets/NAME.json`; a URL
-ending `.json` works too). A preset sets what the start screen will set, in
-JSON, and every key is optional:
+| Key | Order |
+| --- | --- |
+| Arrows / numpad | Move one step |
+| `W` | Next unit |
+| `Space` | Leave the unit for this turn |
+| `F` / `S` | Fortify / sentry |
+| `D` | Disband |
+| `P` / `C` / `R` | Plow / clear forest / build road |
+| `H` | Go to a destination |
+| `B` | Build a colony |
+| `Enter` | End the turn |
+
+The debug side panel has a button for each order, disabled while the active
+unit can't take it.
+
+### Saves
+
+- **Your saves** are FreeCol's own zipped `.fsg` files, kept in the browser's
+  IndexedDB by the Worker. The Worker asks the browser to keep them
+  (`navigator.storage.persist()`). A loaded game continues at the same turn
+  with the same unit active.
+- **Autosave**: FreeCol's own autosave can't run, since the browser client
+  has no in-process server. Instead the page saves into one slot named
+  "Autosave", 1.5 s after the last change on your turn. Under `just dev` a
+  reload resumes it.
+- **Turn autosaves** follow the Saved games options in Preferences, as in
+  FreeCol: `Autosave-last-turn`, `Autosave-before-last-turn`, and every N
+  turns one named for the turn, e.g. `Autosave-Spring 1493`. Old ones go by
+  the validity setting.
+- **Export and import**: Export downloads the stored `.fsg` unchanged, and
+  "Import a .fsg" adds one (`ui/src/fsg.ts` reads its `savegame.xml`).
+  `tools/desktop-check.sh <FreeCol dir> <file.fsg>` runs desktop FreeCol's
+  `--check-savegame` on a save.
+
+### URL parameters
+
+| Parameter | Effect |
+| --- | --- |
+| `?skipstart` | Skip the start screen and use FreeCol's defaults |
+| `?preset=NAME` | Start from `ui/presets/NAME.json` (or a URL ending `.json`) |
+| `?load=ID` | Load a saved game |
+| `?new` / `?resume` | Start afresh / resume the autosave (in a built site too) |
+| `?autoplay=N` | Auto-end N turns first |
+| `?debug` | Add the debug menu |
+
+### Presets
+
+A preset sets what the start screen would, in JSON. Every key is optional:
 
 ```json
 { "rules": "classic",
@@ -209,41 +212,38 @@ JSON, and every key is optional:
 ```
 
 `options` takes any game, map generator or difficulty option by its FreeCol
-id and a boolean, whole number or string. The same preset with a `seed`
-gives the same map and starting units every time (FreeCol's own `--seed`
-only reseeds a loaded game, so the Engine seeds a new one itself). An
-unknown key, option, nation or difficulty, or a value the option does not
-take, fails the start with a message naming it. `england-large` and
-`dutch-small` ship, and `colony-school`. `ref-last-stand` is the end of the
-War of Independence: the Dutch have declared, and the King's last regular
-stands surrounded by their army; end the turn and the REF gives up. The browser scripts take page parameters:
-`DEV_VARIANT=web ./dev.sh node ui/scripts/smoke.ts --query preset=dutch-small`
-and the same `--query` for `play.ts`.
+id. A `seed` gives the same map and starting units every time. An unknown key,
+option, nation or difficulty, or a value an option doesn't take, fails the
+start with a message naming it.
 
-`?debug` adds a debug menu to the side panel: reveal or hide the map, add
-gold, add a unit or goods at the selected tile (goods go to the colony
-there), skip N turns with the AI playing, and show the AI players' units and
-missions. It combines with `?preset=` and `?autoplay=`. The actions are
-FreeCol's own debug actions (`DebugUtils`), run by the server Engine in the
-Worker as requests (`engine/.../DebugActions.java`), because `DebugUtils`
-reaches into the server's game from the client, which the browser cannot do.
-`DEV_VARIANT=web ./dev.sh node ui/scripts/debug.ts` checks them in the
-built site.
+Shipped presets:
+- `england-large`, `dutch-small` and `colony-school`.
+- `ref-last-stand`: the end of the War of Independence, with the King's last
+  regular surrounded. End the turn and the REF gives up.
+
+### Debug menu
+
+`?debug` adds a debug menu to the side panel. It can reveal or hide the map,
+add gold, add a unit or goods at the selected tile, skip N turns with the AI
+playing, and show the AI players' units and missions. These are FreeCol's
+own `DebugUtils` actions. The server Engine runs them in the Worker
+(`DebugActions.java`), because `DebugUtils` reaches into the server's game
+from the client, which the browser can't do.
 
 ## Licence
 
-BrowserCol is free software under the GNU General Public License,
-version 2 or (at your option) any later version, the same terms as FreeCol
-itself; see `LICENSE`. FreeCol's art, music and sounds keep their own
-licences (mostly GPL v2, some CC BY or CC BY-SA), listed in the README next
-to each file under `freecol/data/`.
+BrowserCol is free software under the GNU General Public License, version 2
+or (at your option) any later version, the same terms as FreeCol itself; see
+[`LICENSE`](LICENSE). FreeCol's art, music and sounds keep their own licences
+(mostly GPL v2, some CC BY or CC BY-SA), listed in the README next to each
+file under `freecol/data/`.
 
 ## Credits
 
-FreeCol is by the FreeCol Team (https://github.com/FreeCol/freecol); this
-is an unofficial port. The game's music is by Alexander Zhelanov and Stian
-Grenborgen (CC BY 4.0), and some art comes from OpenGameArt, 0 A.D. and the
-David Rumsey Map Collection under CC BY, CC BY-SA or CC0. The full list,
-with links, is in the game's About window (Colopedia menu, or Credits on the
-start screen), kept in `ui/src/credits.tsx`. The Browser UI uses TeaVM
-(Apache 2.0), PixiJS and React (MIT).
+FreeCol is by the [FreeCol Team](https://github.com/FreeCol/freecol); this is
+an unofficial port. The music is by Alexander Zhelanov and Stian Grenborgen
+(CC BY 4.0). Some art comes from OpenGameArt, 0 A.D. and the David Rumsey
+Map Collection under CC BY, CC BY-SA or CC0. The full list, with links, is in
+the game's About window (Colopedia menu, or Credits on the start screen),
+kept in `ui/src/credits.tsx`. BrowserCol uses TeaVM (Apache 2.0), PixiJS and
+React (MIT).
