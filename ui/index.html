@@ -399,6 +399,44 @@
         display: flex;
         gap: 2px;
       }
+      /*
+       * The installed app with the window's title bar given to the page (display_override
+       * window-controls-overlay): the menu bar is the title bar, as tall as it and clear of the window's own
+       * buttons, which sit over its right end and, on a Mac, its left. env() is in the window's pixels and the bar
+       * is scaled by --ui-zoom, so it is divided by it. The bar drags the window; the menus stay clickable.
+       */
+      @media (display-mode: window-controls-overlay) {
+        .menubar {
+          box-sizing: border-box;
+          min-height: calc(env(titlebar-area-height, 33px) / var(--ui-zoom, 1));
+          margin-left: calc(env(titlebar-area-x, 0px) / var(--ui-zoom, 1));
+          width: calc(env(titlebar-area-width, 100%) / var(--ui-zoom, 1));
+          app-region: drag;
+          -webkit-app-region: drag;
+        }
+        .menubar button,
+        .menubar [role='menu'] {
+          app-region: no-drag;
+          -webkit-app-region: no-drag;
+        }
+      }
+      /* "A new version is ready" (src/update-prompt.tsx): over the bottom of the page until the player restarts. */
+      .update-prompt {
+        position: fixed;
+        left: 50%;
+        bottom: 16px;
+        transform: translateX(-50%);
+        z-index: 30;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 14px;
+        background: var(--menubar);
+        color: var(--menubar-ink);
+        border: 2px solid var(--line);
+        border-radius: 6px;
+        font-size: var(--fs);
+      }
       .menubar .menu {
         position: relative;
       }
