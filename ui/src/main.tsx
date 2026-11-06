@@ -116,6 +116,7 @@ import { MinimapPanel } from './minimap-panel';
 import { MapOrders } from './map-orders';
 import { Side, type SideProps } from './side';
 import { isIdle, TurnBanner, turnNotice, type TurnFacts, type TurnNotice } from './turn-banner';
+import { tabTitle } from './tab-title';
 import { ErrorBanner, addError, engineError, type GameError } from './errors';
 import { loadModule } from './teavm';
 import { applyTheme } from './theme';
@@ -1244,6 +1245,12 @@ const gui: GuiHandlers = {
 /** A question or the colony panel opens once the unit that moved has slid to its tile: a move's new region, first contact or a ship's arrival comes after it. */
 const afterSlide = slideGate(() => map.settled());
 
+/** The tab's title follows the last map, and says it is the player's turn while the tab is hidden (tab-title.ts). */
+function showTabTitle() {
+  document.title = tabTitle(lastMap, document.hidden);
+}
+document.addEventListener('visibilitychange', showTabTitle);
+
 function drawMap(m: MapView) {
   nation = m.nation;
   side.turn = `${m.turn}${m.ourTurn ? '' : ' (AI playing)'}`;
@@ -1260,6 +1267,7 @@ function drawMap(m: MapView) {
   turnAutosave(m);
   renderSide();
   lastMap = m;
+  showTabTitle();
   dispatch({ k: 'map', map: m });
   pullColonies();
   drawn = map.draw(m);
