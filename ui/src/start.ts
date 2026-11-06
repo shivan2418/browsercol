@@ -111,7 +111,7 @@ function css(color: string | null): string {
 }
 
 /** How many European nations FreeCol's NationOptions makes available at first (FreeCol.EUROPEANS_DEFAULT). */
-const CLASSIC_EUROPEANS = 4;
+const EUROPEANS_DEFAULT = 4;
 
 /**
  * The selectable European nations and the difficulty levels of a ruleset.
@@ -180,9 +180,8 @@ export function startOptions(data: string[], rules: string, defaultLevel = 'mode
   };
   // FreeCol's NationOptions makes the first four selectable European nations of the specification
   // available and the rest not (FreeCol.EUROPEANS_DEFAULT), whatever the ruleset; the spec has no flag
-  // for it. The Classic rules start as the classic game, with England, France, Spain and the
-  // Netherlands, and the FreeCol rules keep all of theirs.
-  const defaultUnavailable = rules === 'classic' ? nations.slice(CLASSIC_EUROPEANS).map((n) => n.id) : [];
+  // for it.
+  const defaultUnavailable = nations.slice(EUROPEANS_DEFAULT).map((n) => n.id);
   return { nations, rivals, nationTypes, rulesets, levels, defaultLevel, defaultUnavailable, groups };
 }
 

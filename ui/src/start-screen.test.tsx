@@ -446,10 +446,10 @@ test('under Classic an extra picked as the player’s own nation takes part', ()
   expect(started[0].unavailable).toEqual(EXTRAS.filter((id) => id !== 'model.nation.russian'));
 });
 
-test('under FreeCol all eight European nations take part at first', () => {
+test('under FreeCol too only the first four European nations take part at first', () => {
   const started: StartChoice[] = [];
   render(<StartScreen options={startOptions(realData, 'freecol')} start={(c) => started.push(c)} rules="freecol" />);
-  expect(EXTRAS.map(ticked)).toEqual([true, true, true, true]);
+  expect(EXTRAS.map(ticked)).toEqual([false, false, false, false]);
   fireEvent.click(document.querySelector('[data-start]')!);
-  expect(started[0].unavailable).toEqual([]);
+  expect(started[0].unavailable).toEqual(EXTRAS);
 });
