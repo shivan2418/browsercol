@@ -903,6 +903,7 @@ function MessageList({
           </select>
         </label>
       )}
+      {event.messages.length === 0 && <p className="message empty">Nothing happened this turn.</p>}
       {event.messages.map((m, i) => {
         const dim = ignored.has(i) || shown.get(m.type) === false;
         return (
