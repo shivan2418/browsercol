@@ -49,6 +49,7 @@ import {
   type Step,
   type Track,
 } from './motion';
+import { slideMark } from './timing';
 import { H, W, activeUnitFacts, cursor, tileOrigin, toMap, type ViewState } from './view';
 
 export type { MapView } from './tileset';
@@ -810,6 +811,12 @@ const SIDES: Record<'NE' | 'SE' | 'SW' | 'NW', [[number, number], [number, numbe
   NW: [CORNERS.W, CORNERS.N],
 };
 
+/** How long a map waits for a slide's first frame before it is painted anyway. */
+const FIRST_FRAME_MS = 100;
+
+/** How long a slide that set off early waits at its end for the map that has the unit there, before it ends anyway. */
+const EARLY_WAIT_MS = 2000;
+
 /** How long the black takes to fade from a tile just explored, as a multiple of a slide's time. */
 const EXPLORE_FADE_SLIDES = 1;
 
@@ -1085,8 +1092,19 @@ export function mapDrawer(
   const panels = new Set<(ops: Op[]) => void>();
   /** The steps the Engine told of since the last map was asked to be drawn. */
   let steps: Step[] = [];
-  /** The unit sliding along its tiles now, when it set off, and its track from there. */
-  let sliding: { path: Path; since: number; track: Track } | null = null;
+  /**
+   * The unit sliding along its tiles now, when it set off, and its track from there. A slide that set off on the
+   * Engine's word of the step, before the map that has the unit on its new tile came, is `early` until that map is
+   * drawn: it does not end before then, and the map does not start it again.
+   */
+  let sliding: { path: Path; since: number; track: Track; early: boolean } | null = null;
+  /**
+   * The unit the actors' layer holds, and the tile it is drawn on: a slide offsets the layer from there. A step of
+   * that unit off that tile can slide at once, before the map that has it on its new tile is drawn.
+   */
+  let actor: { tile: [number, number]; keys: string; rgb: number } | null = null;
+  /** When the active unit's blink started: when its slide ended, so a unit that has just come shows before it dims. */
+  let blinkFrom = 0;
   /** The tiles explored last time, and the black being lifted off some newly explored since `since`. */
   let exploredTiles = new Set<string>();
   /** The static scene of each map, kept while maps change only units. */
@@ -1167,27 +1185,46 @@ export function mapDrawer(
     const now = performance.now();
     // The active unit blinks, but not while a unit slides; a slide ends once its time is up, and the active unit
     // goes back to the actors' layer to blink.
-    if (sliding && now - sliding.since >= length(sliding.track)) {
+    if (sliding && now - sliding.since >= length(sliding.track) + (sliding.early ? EARLY_WAIT_MS : 0)) {
       sliding = null;
+      blinkFrom = now;
       drawing = drawing.then(() => (drawn && last ? paintScene(drawn, last.ground, last.units) : undefined));
     }
     // What blinks is the unit cursor in FreeCol's style, else the unit; with blinking off the cursor stays, as the only mark.
     // The tile cursor, shown when no unit is left to move, blinks on its own.
     const tileCursor = view.mode === 'terrain' && !!view.selected;
     const cursorBlinks = activeStyle === 'freecol' || blinkMs <= 0 || tileCursor;
-    const alpha = !sliding && ((view.mode === 'units' && view.active) || tileCursor) ? blink(now, blinkMs) : 1;
+    const alpha =
+      !sliding && ((view.mode === 'units' && view.active) || tileCursor) ? blink(now - blinkFrom, blinkMs) : 1;
     if (sliding) {
-      const [dx, dy] = slide(sliding.track, now - sliding.since);
+      const [dx, dy] = slide(sliding.track, now - sliding.since, actor ? tileOrigin(...actor.tile) : undefined);
       pen.actors(dx, dy, 1);
     } else {
       pen.actors(0, 0, cursorBlinks ? 1 : alpha);
     }
-    pen.marker(cursorBlinks ? alpha : 0);
+    // The unit cursor waits on the tile the unit comes to until it is there, as Swing draws no cursor while it slides.
+    pen.marker(cursorBlinks && !sliding ? alpha : 0);
     if (lifting && now - lifting.since >= moveMs * EXPLORE_FADE_SLIDES) lifting = null;
     pen.fade(lifting ? 1 - (now - lifting.since) / (moveMs * EXPLORE_FADE_SLIDES) : 0);
     const z = view.zoom;
-    pen.show(size[0] / 2 - view.centre[0] * z, size[1] / 2 - view.centre[1] * z, z);
+    const [cx, cy] = following(now) ?? view.centre;
+    pen.show(size[0] / 2 - cx * z, size[1] / 2 - cy * z, z);
   };
+
+  /**
+   * Where the camera is while the view is centred on the tile a unit slides to: on the unit, so the map scrolls
+   * under it and the camera comes to the tile with it, rather than jumping a tile ahead as the slide sets off.
+   * Null when no slide is under way or the view is centred elsewhere.
+   */
+  function following(now: number): [number, number] | null {
+    if (!sliding || !view) return null;
+    const [ex, ey] = sliding.track.points[sliding.track.points.length - 1];
+    const [cx, cy] = view.centre;
+    if (cx !== ex + W / 2 || cy !== ey + H / 2) return null;
+    // In whole map pixels, as the actors' offset is: the unit stays still on the screen.
+    const [dx, dy] = slide(sliding.track, now - sliding.since).map(Math.round);
+    return [cx + dx, cy + dy];
+  }
 
   /** The frame the animated water and rivers are at now. */
   const ticksNow = (): Ticks => {
@@ -1254,10 +1291,12 @@ export function mapDrawer(
     const unitAt = (tile: string) => (op: Op) => `${op.x},${op.y}` === tile;
     let actors: Op[] = [];
     let rest = units;
+    let holds: typeof actor = null;
     if (slide) {
       const { step, tiles } = slide;
       const [x, y] = tiles[tiles.length - 1];
       const shown = map.units.find((u) => u.x === x && u.y === y);
+      holds = { tile: [x, y], keys: step.keys.join(), rgb: step.rgb };
       if (shown && shown.rgb === step.rgb && shown.keys.join() === step.keys.join()) {
         const isActor = unitAt(`${x},${y}`);
         actors = units.filter(isActor);
@@ -1269,6 +1308,9 @@ export function mapDrawer(
         actors = unitOps({ x, y, keys, rgb, chip, fg, stack: 1, fade: false }, res!);
       }
     } else if (map.active) {
+      const [x, y] = map.active;
+      const shown = map.units.find((u) => u.x === x && u.y === y);
+      holds = shown ? { tile: [x, y], keys: shown.keys.join(), rgb: shown.rgb } : null;
       const isActor = unitAt(map.active.join(','));
       actors = units.filter(isActor);
       rest = units.filter((op) => !isActor(op));
@@ -1283,7 +1325,58 @@ export function mapDrawer(
     }
     await paint(pen!, 6, rest, pics);
     await paint(pen!, 2, actors, pics);
+    // The layer and its offset change together: no frame draws between them.
+    actor = holds;
+    camera();
     measure(kept ? 'map: paint, kept' : 'map: paint', start);
+  }
+
+  /**
+   * Resolves once the slide that started last has had its first frame drawn, or after FIRST_FRAME_MS when no frame
+   * comes (a hidden tab gets none). A map waits for it before it is painted: the Engine sends the map in the same task
+   * as the step, and a paint there would hold the unit's setting off back by as long as it takes.
+   */
+  let firstFrame: Promise<void> | null = null;
+
+  /** A slide has started: show its first frame. */
+  function started() {
+    slideMark('start');
+    const shown = new Promise<void>((ok) => {
+      requestAnimationFrame(() => {
+        slideMark('frame');
+        // Once the frame is on the screen: the browser draws it after its animation frame callbacks.
+        setTimeout(ok, 0);
+      });
+      setTimeout(ok, FIRST_FRAME_MS);
+    });
+    firstFrame = shown;
+    void shown.then(() => {
+      if (firstFrame === shown) firstFrame = null;
+    });
+    camera();
+  }
+
+  /**
+   * Slide the player's unit as soon as the Engine tells of its step, rather than once the map that has it on its
+   * new tile is drawn: the actors' layer holds it on the tile it steps off (it is the active unit), or it is sliding
+   * there now and carries on. Other steps slide when their map is drawn.
+   */
+  function slideEarly(step: Step) {
+    if (!pen || moveMs <= 0 || step.speed !== null || !drawn?.ourTurn) return;
+    const now = performance.now();
+    const next = track([step.from, step.to], moveMs);
+    const tiles: [number, number][] = [step.from, step.to];
+    const prev = sliding;
+    if (prev) {
+      const end = prev.path.tiles[prev.path.tiles.length - 1];
+      if (prev.path.step.unit !== step.unit || end.join() !== step.from.join()) return;
+      sliding = { path: { step, tiles }, since: now, track: carryOn(prev.track, now - prev.since, next), early: true };
+    } else {
+      if (!actor || actor.tile.join() !== step.from.join()) return;
+      if (actor.keys !== step.keys.join() || actor.rgb !== step.rgb) return;
+      sliding = { path: { step, tiles }, since: now, track: next, early: true };
+    }
+    started();
   }
 
   async function drawNow(map: MapView, moved: Step[]) {
@@ -1309,10 +1402,22 @@ export function mapDrawer(
       // The panels draw no units.
       panels.forEach((render) => render(ops));
     }
-    // The slide starts once the actors' layer holds the unit on its new tile: offset before that, the layer
-    // still shows it on its old tile, and the offset would put it a tile further back, in a second place.
-    if (way) {
+    // A slide that set off early, on the Engine's word of the step, goes on: this map puts the unit on the tile it
+    // slides to, and the slide is offset from there. A map from before the step leaves the unit on its old tile.
+    const early = sliding?.early ? sliding : null;
+    if (early && (!way || way.step.unit === early.path.step.unit)) {
+      await paintScene(map, ground, units, moved.length ? (way ?? early.path) : null);
+      // A map with the earlier of several steps the unit was told to take leaves the slide early: the map with the
+      // last is still to come.
+      const to = (p: Path) => p.tiles[p.tiles.length - 1].join();
+      if (moved.length && (!way || to(way) === to(early.path))) {
+        early.early = false;
+        slideMark('painted');
+      }
+    } else if (way) {
+      // Else the slide starts once the actors' layer holds the unit on its new tile.
       await paintScene(map, ground, units, way);
+      slideMark('painted');
       const now = performance.now();
       const next = track(way.tiles, stepTime);
       // A move made while the same unit still slides to where this one sets off from carries on from where it is.
@@ -1321,8 +1426,13 @@ export function mapDrawer(
         prev &&
         prev.path.step.unit === way.step.unit &&
         prev.path.tiles[prev.path.tiles.length - 1].join() === way.tiles[0].join();
-      sliding = { path: way, since: now, track: carry ? carryOn(prev.track, now - prev.since, next) : next };
-      camera();
+      sliding = {
+        path: way,
+        since: now,
+        track: carry ? carryOn(prev.track, now - prev.since, next) : next,
+        early: false,
+      };
+      started();
     } else await paintScene(map, ground, units);
     // Ground that was explored since the last draw fades in out of the black, rather than appearing. A kept static
     // scene has the same tiles explored.
@@ -1370,10 +1480,14 @@ export function mapDrawer(
       // The steps belong to this map: they came before it, and those after it go with the next.
       const moved = steps;
       steps = [];
-      return (drawing = drawing.then(() => drawNow(map, moved)));
+      if (moved.length) slideMark('map');
+      const shown = firstFrame;
+      return (drawing = drawing.then(() => shown).then(() => drawNow(map, moved)));
     },
     moved: (step) => {
+      if (!steps.length) slideMark('step');
       steps.push(step);
+      slideEarly(step);
     },
     settled: async (maxMs = 5000) => {
       const until = performance.now() + maxMs;
