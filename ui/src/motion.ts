@@ -1,7 +1,7 @@
 // How the moving and the active unit look at a moment: the slide of a unit
 // along the tiles the Engine says it stepped to, as FreeCol animates a move,
 // and the slow blink of the active unit.
-import { tileOrigin } from './view';
+import { H, W, tileOrigin } from './view';
 import type { GuiEvents } from './webgui';
 
 /** A step of a unit to the next tile, as the Engine tells of it (WebGUI.animateUnitMove). */
@@ -66,21 +66,38 @@ export interface Track {
   ends: number[];
 }
 
-/** A path's track: from the first tile's origin through each next one, `ms` a step. */
+/**
+ * A path's track: from the first tile's origin through each next one, `ms` a step across a row or a column and half
+ * that a diagonal step, as SwingGUI's UnitMoveAnimation moves a unit as many pixels a frame across a tile as down it,
+ * and a diagonal step is half a tile each way.
+ */
 export function track(tiles: [number, number][], ms: number): Track {
-  return { points: tiles.map((t) => tileOrigin(...t)), ends: tiles.slice(1).map((_, i) => (i + 1) * ms) };
+  const points = tiles.map((t) => tileOrigin(...t));
+  let at = 0;
+  const ends = points.slice(1).map(([x, y], i) => {
+    const [fx, fy] = points[i];
+    return (at += ms * Math.min(1, Math.max(Math.abs(x - fx) / W, Math.abs(y - fy) / H)));
+  });
+  return { points, ends };
 }
 
 /** How long a track takes. */
 export const length = (t: Track): number => t.ends[t.ends.length - 1] ?? 0;
 
-/** Where on the map a unit is `ms` along its track: at the start before it, at the end after it. */
+/** How far through the last leg the unit is at a share `f` of its time: quick off the mark, and settling onto the tile. */
+export const easeOut = (f: number): number => 1 - (1 - f) * (1 - f);
+
+/**
+ * Where on the map a unit is `ms` along its track: at the start before it, at the end after it. The last leg eases
+ * out; the legs before it are even, so a unit going on along a path does not slow at each tile.
+ */
 export function along({ points, ends }: Track, ms: number): Point {
   let i = 0;
   while (i < ends.length - 1 && ms >= ends[i]) i++;
   if (!ends.length) return points[0];
   const start = i ? ends[i - 1] : 0;
-  const f = Math.min(1, Math.max(0, (ms - start) / (ends[i] - start || 1)));
+  const linear = Math.min(1, Math.max(0, (ms - start) / (ends[i] - start || 1)));
+  const f = i === ends.length - 1 ? easeOut(linear) : linear;
   const [fx, fy] = points[i];
   const [tx, ty] = points[i + 1];
   return [fx + (tx - fx) * f, fy + (ty - fy) * f];
@@ -88,21 +105,33 @@ export function along({ points, ends }: Track, ms: number): Point {
 
 /**
  * What is left of a track `ms` along it, then another after it: a move made while the unit still slides
- * carries on from where it is, rather than the unit jumping to the end of the first.
+ * carries on from where it is, rather than the unit jumping to the end of the first. The rest of the leg it is on
+ * goes at that leg's even pace, rather than slowing as the leg eased out.
  */
 export function carryOn(first: Track, ms: number, next: Track): Track {
   const left = first.ends.findIndex((e) => e > ms);
-  const legs = left < 0 ? [] : first.ends.slice(left).map((e) => e - ms);
-  const points = [along(first, ms), ...(left < 0 ? [] : first.points.slice(left + 1)), ...next.points.slice(1)];
+  const here = along(first, ms);
+  let legs: number[] = [];
+  if (left >= 0) {
+    const legStart = left ? first.ends[left - 1] : 0;
+    const [fx, fy] = first.points[left];
+    const [tx, ty] = first.points[left + 1];
+    const whole = Math.hypot(tx - fx, ty - fy);
+    const rest = whole ? ((first.ends[left] - legStart) * Math.hypot(tx - here[0], ty - here[1])) / whole : 0;
+    legs = first.ends.slice(left).map((e) => e - first.ends[left] + rest);
+  }
+  const points = [here, ...(left < 0 ? [] : first.points.slice(left + 1)), ...next.points.slice(1)];
   const end = legs[legs.length - 1] ?? 0;
   return { points, ends: [...legs, ...next.ends.map((e) => e + end)] };
 }
 
-/** Where a sliding unit is `ms` along its track, as the pixels it is short of the track's end. */
-export function slide(t: Track, ms: number): Point {
+/**
+ * Where a sliding unit is `ms` along its track, as the pixels it is off the map point `at`: where the actors' layer
+ * draws it, the track's end unless said otherwise.
+ */
+export function slide(t: Track, ms: number, at: Point = t.points[t.points.length - 1]): Point {
   const [x, y] = along(t, ms);
-  const [ex, ey] = t.points[t.points.length - 1];
-  return [x - ex, y - ey];
+  return [x - at[0], y - at[1]];
 }
 
 /** How opaque the active unit is `ms` into the blink. */
