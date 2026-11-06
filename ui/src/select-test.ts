@@ -4,6 +4,13 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { expect } from 'vite-plus/test';
 
+/**
+ * How long to wait for the list to open or shut. Testing Library's 1 s default is too short when dozens of
+ * workers share the machine (#304, #335): Base UI mounts the popup a frame after the press and unmounts it
+ * after its exit transition, and a starved worker gets those frames late. The test timeout (vite.config.ts) is longer.
+ */
+const LIST_TIMEOUT = 10_000;
+
 /** A mouse press and release on an element. */
 function press(el: Element) {
   fireEvent.pointerDown(el, { button: 0, pointerType: 'mouse' });
@@ -12,11 +19,15 @@ function press(el: Element) {
   fireEvent.mouseUp(el, { button: 0 });
 }
 
-/** Open a drop-down list (its button) with the pointer, and wait until its options are on screen. */
+/**
+ * Open a drop-down list (its button) with the pointer, and wait until its options are on screen. A list that is
+ * already open stays open: pressing its button again would shut it, and a test that opens the list to read it and
+ * then picks from it (chooseOption) would race the closing, which a loaded machine loses (#304, #335).
+ */
 export async function openSelect(trigger: Element) {
-  await act(async () => press(trigger));
-  await waitFor(() => expect(trigger.getAttribute('aria-expanded')).toBe('true'));
-  await waitFor(() => expect(options()).not.toEqual([]));
+  if (trigger.getAttribute('aria-expanded') !== 'true') await act(async () => press(trigger));
+  await waitFor(() => expect(trigger.getAttribute('aria-expanded')).toBe('true'), { timeout: LIST_TIMEOUT });
+  await waitFor(() => expect(options()).not.toEqual([]), { timeout: LIST_TIMEOUT });
 }
 
 /** The options of the open list, in order (none when it is shut: Base UI keeps a shut list's items, hidden, for typing on the button). */
@@ -46,5 +57,5 @@ export async function chooseOption(trigger: Element, text: string) {
     press(item);
     fireEvent.click(item, { button: 0 });
   });
-  await waitFor(() => expect(listed()).toEqual([]));
+  await waitFor(() => expect(listed()).toEqual([]), { timeout: LIST_TIMEOUT });
 }

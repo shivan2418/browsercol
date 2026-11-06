@@ -1222,7 +1222,7 @@ describe('the error panel', () => {
     const e = { text: 'The server can not do that.', ok: 'OK', detail: 'Not our unit', request: '<move/>' };
     act(() => box.show('error', e));
     fireEvent.click(screen.getByRole('button', { name: 'Copy details' }));
-    await screen.findByRole('button', { name: 'Copied' });
+    await screen.findByRole('button', { name: 'Copied' }, { timeout: 10_000 });
     expect(copied).toEqual([e]);
   });
 });

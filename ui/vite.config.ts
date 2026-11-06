@@ -54,6 +54,9 @@ export default defineConfig(({ command }) => ({
   },
   test: {
     include: ['src/**/*.test.{ts,tsx}'],
+    // Vitest's 5 s default is too tight for the component tests when many workers share the machine (#304, #335);
+    // select-test.ts waits up to 10 s for a drop-down list, so a test has room for two of those.
+    testTimeout: 30_000,
     // theme.test.ts reads theme.css and fonts.css as text; Vitest empties other CSS.
     css: { include: [/(theme|fonts)\.css/] },
   },
