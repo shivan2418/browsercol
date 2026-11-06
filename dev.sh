@@ -33,8 +33,11 @@ fi
 # Rootless Docker: container root maps to the host user, so files stay ours.
 # GITHUB_SHA and GITHUB_REF_NAME, when CI sets them, name the build the page
 # shows (ui/scripts/build-id.ts); git in the container cannot tell it there.
+# BUILD_COMMIT does the same locally: in a worktree, .git points outside /work.
+BUILD_COMMIT=$(git -C "$repo" rev-parse HEAD 2>/dev/null || true)
+export BUILD_COMMIT
 run=(docker run --rm "${tty[@]}" "${shm[@]}" "${ports[@]}" -e HOME=/work/.cache/home
-  -e GITHUB_SHA -e GITHUB_REF_NAME
+  -e GITHUB_SHA -e GITHUB_REF_NAME -e BUILD_COMMIT
   -v "$repo:/work" "${extra[@]}" -w "$workdir" "$image" "$@")
 # Concurrent containers share the Gradle user home in /work/.cache/gradle, and
 # Gradle gives up on its journal lock after 60 s before any build step runs

@@ -12,3 +12,12 @@ test('any other CI ref names the commit alone', () => {
   expect(buildId({ GITHUB_SHA: sha, GITHUB_REF_NAME: 'main' })).toBe('28d5f88');
   expect(buildId({ GITHUB_SHA: sha, GITHUB_REF_NAME: 'build-next' })).toBe('28d5f88');
 });
+
+test('a local build names the commit dev.sh passes in', () => {
+  expect(buildId({ BUILD_COMMIT: sha })).toBe('28d5f88');
+});
+
+test('the dev server says it is one', () => {
+  expect(buildId({ BUILD_COMMIT: sha }, true)).toBe('dev · 28d5f88');
+  expect(buildId({ GITHUB_SHA: sha, GITHUB_REF_NAME: 'build-42' }, true)).toBe('dev · 28d5f88');
+});

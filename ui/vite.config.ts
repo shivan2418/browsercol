@@ -24,11 +24,11 @@ function installable(): Plugin {
   };
 }
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [installable()],
   // Relative URLs, so the site works from any path (GitHub Pages serves it under /<repo>/).
   base: './',
-  define: { __BUILD__: JSON.stringify(buildId()) },
+  define: { __BUILD__: JSON.stringify(buildId(process.env, command === 'serve')) },
   // Map art from scripts/build-art.ts, copied as is.
   publicDir: 'generated/public',
   build: {
@@ -57,4 +57,4 @@ export default defineConfig({
     // theme.test.ts reads theme.css and fonts.css as text; Vitest empties other CSS.
     css: { include: [/(theme|fonts)\.css/] },
   },
-});
+}));
