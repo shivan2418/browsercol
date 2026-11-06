@@ -8,6 +8,8 @@ interface Row {
   what: string;
   classic: string;
   freecol: string;
+  /** Said once across both columns where the rule sets agree; then `classic` and `freecol` are empty. */
+  same?: string;
 }
 
 const SECTIONS: { title: string; rows: Row[] }[] = [
@@ -114,6 +116,25 @@ const SECTIONS: { title: string; rows: Row[] }[] = [
       },
     ],
   },
+  {
+    title: 'The same in both',
+    rows: [
+      {
+        what: 'Starting nations (Other nations)',
+        classic: '',
+        freecol: '',
+        same: 'England, France, Spain and the Netherlands start in the game; the other four can be ticked.',
+      },
+      {
+        what: 'Building on native land (Build on native land)',
+        classic: '',
+        freecol: '',
+        same: 'Set by the difficulty level.',
+      },
+      { what: 'Sailing time to Europe (Turns to sail)', classic: '', freecol: '', same: '3 turns.' },
+      { what: 'Fog of war', classic: '', freecol: '', same: 'On.' },
+    ],
+  },
 ];
 
 /** The summary, for a popover beside the Rules choice. */
@@ -131,6 +152,7 @@ export function RulesHelp() {
       <table>
         <thead>
           <tr>
+            <th scope="col">Topic</th>
             <th scope="col">Classic</th>
             <th scope="col">FreeCol</th>
           </tr>
@@ -138,35 +160,27 @@ export function RulesHelp() {
         {SECTIONS.map((s) => (
           <tbody key={s.title}>
             <tr className="rules-help-theme">
-              <th colSpan={2} scope="colgroup">
+              <th colSpan={3} scope="colgroup">
                 {s.title}
               </th>
             </tr>
-            {s.rows.flatMap((r) => [
-              <tr key={`${r.what}-what`} className="rules-help-what">
-                <td colSpan={2}>{r.what}</td>
-              </tr>,
-              <tr key={`${r.what}-says`}>
-                <td>{r.classic}</td>
-                <td>{r.freecol}</td>
-              </tr>,
-            ])}
+            {s.rows.map((r) => (
+              <tr key={r.what}>
+                <th scope="row" className="rules-help-what">
+                  {r.what}
+                </th>
+                {r.same === undefined ? (
+                  <>
+                    <td>{r.classic}</td>
+                    <td>{r.freecol}</td>
+                  </>
+                ) : (
+                  <td colSpan={2}>{r.same}</td>
+                )}
+              </tr>
+            ))}
           </tbody>
         ))}
-        <tbody>
-          <tr className="rules-help-theme">
-            <th colSpan={2} scope="colgroup">
-              The same in both
-            </th>
-          </tr>
-          <tr>
-            <td colSpan={2}>
-              England, France, Spain and the Netherlands start in the game, and the other four European nations can be
-              ticked under Other nations. Also building on native land (a difficulty option), the sailing time to Europe
-              (Turns to sail) and fog of war.
-            </td>
-          </tr>
-        </tbody>
       </table>
       <p className="quiet">
         Every game option can still be changed for a game under Game options, so these are only starting points.
