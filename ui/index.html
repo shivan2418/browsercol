@@ -380,17 +380,49 @@
         overflow: auto;
       }
       /* Buttons and fields, in the side panel and in dialogs. */
+      /*
+       * A button has FreeCol's bevel (FreeColButtonUI, ticket 268): square corners, the line round it, a lit edge inside
+       * at the top and left and a shaded one at the bottom and right, from the tokens. Under the pointer it darkens
+       * by a tenth, as FreeCol's does; pressed, the bevel turns over and the label moves in by a pixel. The two
+       * states are also set by data-state (hover, pressed) for the stories. A button that is no bevel (the menu
+       * bar's, a chip) takes its own padding, border or shadow, and the :where() keeps these states at the weight of
+       * this rule, so such a button's own rules win.
+       */
       button {
         font: inherit;
         color: var(--btn-ink);
         background: var(--btn);
         border: 1px solid var(--line);
-        border-radius: 4px;
+        border-radius: 0;
+        box-shadow:
+          inset 1px 1px 0 var(--btn-hi),
+          inset -1px -1px 0 var(--btn-lo);
         padding: 4px 12px;
       }
       button:hover,
       button:focus-visible {
         border-color: var(--accent);
+      }
+      button:where(:hover:enabled, [data-state='hover'], [data-state='pressed']) {
+        background-image: linear-gradient(var(--btn-hover), var(--btn-hover));
+      }
+      button:where(:active:enabled, [data-state='pressed']) {
+        box-shadow:
+          inset 1px 1px 0 var(--btn-lo),
+          inset -1px -1px 0 var(--btn-hi);
+        padding: 5px 11px 3px 13px;
+      }
+      /* What looks as a label or a menu entry, not as a button: no bevel. */
+      .menubar button,
+      .popup button,
+      .frame > .title .close,
+      .linkish,
+      .europe-body button.good,
+      .europe button.chip,
+      .colony .ship,
+      .colony [data-picked],
+      #preferences .prefs-tree button {
+        box-shadow: none;
       }
       button:disabled {
         opacity: 0.5;
@@ -1116,6 +1148,8 @@
         border-color: var(--accent);
         box-shadow:
           inset 0 0 0 1px var(--accent),
+          inset 2px 2px 0 var(--btn-hi),
+          inset -2px -2px 0 var(--btn-lo),
           0 0 6px color-mix(in srgb, var(--accent) 45%, transparent);
       }
       /* The choose founding father dialog: a tab per kind, then the open tab's father. */
