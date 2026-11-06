@@ -1953,22 +1953,6 @@
         width: 100%;
         text-align: left;
       }
-      .start-window .rivals {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(11em, 1fr));
-        gap: 2px 12px;
-      }
-      .start-window .colours > label {
-        display: inline-block;
-        margin: 4px 12px 0 0;
-      }
-      .start-window .saved-games > button {
-        margin-bottom: 6px;
-      }
-      .start-window .customize > summary {
-        color: var(--muted);
-        font-size: var(--fs-s);
-      }
       .start-window .customize .options {
         max-height: 18em;
         overflow-y: auto;
@@ -2168,6 +2152,185 @@
       .start-window .buttons .default {
         font-weight: bold;
         border-color: var(--accent);
+      }
+      /*
+       * The new game window (issue 311): wide, with what most players change in three columns and the rarely
+       * changed settings in a row of disclosures under them, so nothing usual needs a scroll at 1280x800.
+       */
+      .start-window.new-game {
+        width: min(78em, 96vw);
+        max-height: 94vh;
+        font-size: var(--fs);
+      }
+      .new-game .start-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding-right: 12px;
+        background: var(--menubar);
+        color: var(--menubar-ink);
+      }
+      .new-game .sound-toggles {
+        display: flex;
+        gap: 6px;
+      }
+      .new-game .sound-toggle {
+        padding: 1px 8px;
+        font-size: var(--fs-s);
+        background: transparent;
+        color: var(--menubar-ink);
+        border: 1px solid currentColor;
+        box-shadow: none;
+      }
+      .new-game .sound-toggle[aria-pressed='false'] {
+        opacity: 0.7;
+      }
+      .new-game .start-cols {
+        display: grid;
+        grid-template-columns: minmax(15em, 1fr) minmax(20em, 1.4fr) minmax(14em, 0.9fr);
+        gap: 12px;
+        margin: 12px 16px 0;
+        align-items: stretch;
+      }
+      .new-game .start-cols fieldset {
+        margin: 0;
+      }
+      .new-game .col-others,
+      .new-game .col-game {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .new-game .field-grid {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 6px 10px;
+        align-items: center;
+        margin-top: 2px;
+      }
+      .new-game .field-grid .ui-select {
+        width: 100%;
+        padding: 3px;
+      }
+      .new-game .pedia {
+        display: block;
+        margin-top: 6px;
+        color: var(--link);
+        font-size: var(--fs-s);
+      }
+      .new-game .quiet .pedia {
+        display: inline;
+      }
+      .new-game .rival-groups {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0 12px;
+      }
+      .new-game .rival-group h3 {
+        margin: 0 0 2px;
+        font-size: var(--fs);
+        font-weight: normal;
+        color: var(--head);
+      }
+      .new-game .rivals {
+        display: flex;
+        flex-direction: column;
+      }
+      .new-game .rivals > label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 1px 0;
+      }
+      .new-game .start-button {
+        padding: 12px;
+        font-size: var(--fs-h);
+        font-weight: bold;
+        border-color: var(--accent);
+      }
+      .new-game .saved-games {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .new-game .saved-games p {
+        margin: 0;
+      }
+      .new-game .more-options {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0 12px;
+        margin: 12px 16px 0;
+        padding: 4px 10px;
+        border: 1px solid var(--line);
+        background: var(--box);
+      }
+      /* An open disclosure takes the whole row, so its options have the window's width. */
+      .new-game .more-options > details[open] {
+        grid-column: 1 / -1;
+        padding-bottom: 6px;
+      }
+      .new-game .customize {
+        margin: 0;
+      }
+      .new-game .customize > summary {
+        padding: 3px 0;
+        color: var(--ink);
+        cursor: pointer;
+      }
+      /* An open option editor uses the width: its options flow in columns, and the window scrolls. */
+      .new-game .more-options .options {
+        max-height: none;
+        columns: 24em;
+        column-gap: 24px;
+      }
+      .new-game .more-options .options .option {
+        break-inside: avoid;
+      }
+      .new-game .more-options .options .box {
+        box-decoration-break: clone;
+      }
+      .new-game .colour-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(11em, 1fr));
+        gap: 4px 12px;
+        margin-top: 6px;
+      }
+      /* Narrower: the nation beside the game and Start, the other nations under them. */
+      @media (max-width: 1000px) {
+        .new-game .start-cols {
+          grid-template-columns: 1fr 1fr;
+        }
+        .new-game .col-game {
+          order: 1;
+        }
+        .new-game .col-others {
+          order: 2;
+          grid-column: 1 / -1;
+        }
+        .new-game .more-options {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      @media (max-width: 640px) {
+        .new-game .start-cols,
+        .new-game .more-options {
+          grid-template-columns: 1fr;
+        }
+      }
+      @media (max-width: 420px) {
+        .new-game .rival-groups {
+          grid-template-columns: 1fr;
+        }
+      }
+      /* Wider and taller: the same layout, larger. */
+      @media (min-width: 1600px) and (min-height: 960px) {
+        .start-window.new-game {
+          --fs: 17px;
+          --fs-s: 15px;
+          --fs-h: 20px;
+        }
       }
       /* The licence, source and credits links under the start window (src/credits.tsx). */
       .start .source-links {
