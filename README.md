@@ -107,6 +107,21 @@ The Gradle build fails when `freecol/` is on any commit other than
 3. Run the whole suite, for example by committing on a branch and running
    `./ci.sh`.
 
+### Engine dependencies
+
+Every Engine dependency has a fixed version, and Gradle checks each
+download against its sha256 in `engine/gradle/verification-metadata.xml`.
+A changed or unlisted file fails the build. After adding or bumping a
+dependency (TeaVM's version is in `engine/gradle.properties`), record the
+new hashes:
+
+```sh
+./dev.sh -C engine gradle --write-verification-metadata sha256 modules test
+```
+
+The Docker base images are pinned by digest; each Dockerfile says how to
+move to a newer one.
+
 ### What the build does
 
 `build.sh` builds both Engine modules in one Gradle run. It then bundles

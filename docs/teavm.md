@@ -160,7 +160,9 @@ requests and publishes the result into `.cache/teavm-repo` as
 ./dev.sh -C engine gradle modules -PteavmVersion=0.17.0-SNAPSHOT -PteavmRepo=/work/.cache/teavm-repo
 ```
 
-Both properties default to TeaVM 0.16.0 from Maven Central. The Gradle
+Add `--dependency-verification lenient`: the snapshot isn't in
+`engine/gradle/verification-metadata.xml`. Without the two properties, the
+build uses the version in `engine/gradle.properties`, from Maven Central. The Gradle
 plugin comes from the `pluginManagement` repository in
 `engine/settings.gradle`, and the libraries from `-PteavmRepo`.
 
