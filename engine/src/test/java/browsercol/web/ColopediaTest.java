@@ -137,6 +137,14 @@ class ColopediaTest {
     }
 
     @Test
+    void aResourceBonusNamesTheScopeItIsFor() throws Exception {
+        final Map<String, Object> report = obj(JsonReader.read(Colopedia.before("classic", null)));
+        final List<String> bonus = refs(fact(entry(report, "resources", "model.resource.game"), "Bonus Production"));
+        assertTrue(bonus.contains("Furs +2.00"), bonus.toString());
+        assertTrue(bonus.contains("Grain +2.00 (Expert Farmer)"), bonus.toString());
+    }
+
+    @Test
     void theRulesDecideTheEntries() throws Exception {
         final Map<String, Object> report = obj(JsonReader.read(Colopedia.before("freecol", null)));
         assertNull(report.get("select"));

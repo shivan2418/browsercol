@@ -589,10 +589,22 @@ final class Reports {
         final List<Json> out = new ArrayList<>();
         for (ResourceType r : spec.getResourceTypeList()) {
             final List<Json> bonus = new ArrayList<>();
-            r.getModifiers().forEach(m -> {
+            for (Modifier m : r.getSortedModifiers()) {
                 final GoodsType g = goodsOrNull(spec, m.getId());
-                if (g != null) bonus.add(ref(g, modifier(m)));
-            });
+                if (g == null) continue;
+                // As ResourcesDetailPanel: the scopes (the tiles the bonus is for) follow the value.
+                String note = modifier(m);
+                if (m.hasScope()) {
+                    final List<String> scopes = new ArrayList<>();
+                    for (Scope sc : m.getScopes().toArray(Scope[]::new)) {
+                        if (sc.getType() == null) continue;
+                        final FreeColSpecObjectType t = spec.getType(sc.getType());
+                        if (t != null) scopes.add(Messages.getName(t));
+                    }
+                    if (!scopes.isEmpty()) note += " (" + String.join(", ", scopes) + ")";
+                }
+                bonus.add(ref(g, note));
+            }
             out.add(entry(r, null, bonus.isEmpty() ? List.of()
                 : List.of(fact("colopedia.resource.bonusProduction", "", bonus))));
         }
@@ -632,6 +644,9 @@ final class Reports {
             if (u.getSkill() > 0) facts.add(fact("colopedia.unit.skill", String.valueOf(u.getSkill())));
             if (!u.getRequiredGoodsList().isEmpty()) {
                 facts.add(fact("colopedia.unit.goodsRequired", "", goodsRefs(u.getRequiredGoodsList())));
+            }
+            if (u.getSkillTaught() != null && u.getSkillTaught() != u) {
+                facts.add(fact("colopedia.unit.school", "", List.of(ref(u.getSkillTaught(), null))));
             }
             final List<Json> teaches = new ArrayList<>();
             for (BuildingType b : spec.getBuildingTypeList()) {
