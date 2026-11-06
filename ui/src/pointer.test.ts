@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vite-plus/test';
-import { HOLD_MS, blockBrowserMenu, pointerInput, rightClickInput, wheelZoom } from './pointer';
+import { HOLD_MS, blockBrowserMenu, blockImageDrag, pointerInput, rightClickInput, wheelZoom } from './pointer';
 import { initialView } from './view';
 
 const PIXEL = 0;
@@ -190,5 +190,22 @@ describe('pointerInput Go To', () => {
     expect(preview).not.toHaveBeenCalled();
     expect(go).not.toHaveBeenCalled();
     vi.useRealTimers();
+  });
+});
+
+describe('blockImageDrag', () => {
+  it("keeps the browser's drag ghost off a picture, but not off a draggable chip", () => {
+    const page = document.createElement('div');
+    page.innerHTML = '<img class="lone"><div draggable="true"><img class="chip"></div>';
+    document.body.append(page);
+    blockImageDrag(page);
+    const drag = (target: Element) => {
+      const e = new Event('dragstart', { bubbles: true, cancelable: true });
+      target.dispatchEvent(e);
+      return e.defaultPrevented;
+    };
+    expect(drag(page.querySelector('.lone')!)).toBe(true);
+    expect(drag(page.querySelector('.chip')!)).toBe(false);
+    page.remove();
   });
 });

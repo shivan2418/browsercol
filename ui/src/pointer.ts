@@ -55,6 +55,14 @@ export function blockBrowserMenu(page: EventTarget): void {
   });
 }
 
+/** Keep the browser's ghost image off a dragged picture; a draggable element's own drag (a colonist chip) stays. */
+export function blockImageDrag(page: EventTarget): void {
+  page.addEventListener('dragstart', (e) => {
+    const t = e.target;
+    if (t instanceof HTMLImageElement && !t.closest('[draggable="true"]')) e.preventDefault();
+  });
+}
+
 /**
  * A right-click on a tile of the map in a host asks for that tile's menu, at the pointer
  * (FreeCol's TilePopup); off the map or off any tile it does nothing.

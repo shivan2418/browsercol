@@ -47,7 +47,9 @@ import {
 import { afterSlide as slideGate } from './after-slide';
 import { ColonyActions, ColonyTiles, type ColonyMoves, type DrawTiles } from './colony-panel';
 import { dialogs } from './dialogs';
+import { blockBrowserKeys, steppedScale } from './browser-keys';
 import { keepTabOnPage } from './focus';
+import { leaveGuard } from './leave-guard';
 import { MENUS, MenuBar, framePlaces, goodsIcons, type Menu } from './frame';
 import { CreditsDialog } from './credits';
 import { captureConsole } from './log-buffer';
@@ -87,7 +89,15 @@ import { acceleratorFor, inTextField, type Accelerator } from './accelerators';
 import { isTurnReportKey, reportForKey } from './report-keys';
 import { ReportContext, colopediaMenu, reportMenu, type ReportActions } from './reports';
 import { NO_OVERLAY, type ColonyLabels, type PathStep } from './tileset';
-import { blockBrowserMenu, gotoKeyInput, onCanvas, pointerInput, rightClickInput, type GotoDeps } from './pointer';
+import {
+  blockBrowserMenu,
+  blockImageDrag,
+  gotoKeyInput,
+  onCanvas,
+  pointerInput,
+  rightClickInput,
+  type GotoDeps,
+} from './pointer';
 import { ContextMenuContext, PopupMenu, parseMenu, type ContextMenus, type MenuData, type Popup } from './popup-menu';
 import type { AudioManifest } from './resources';
 import { soundPlayer } from './sound';
@@ -446,6 +456,15 @@ let exitAfterSave = false;
 /** FreeCol's isPanelShowing: a window is open over the map. */
 const panelShowing = () =>
   dialogQueue.current() !== null || prefsOpen || creditsOpen || logText !== null || openOpen || saveDialog !== null;
+/** Whether a window was open at the last render, to see it close (renderSide). */
+let windowWasOpen = false;
+/** Asks before the page is left with play since the last save (leave-guard.ts). */
+const leaveAsk = leaveGuard(window);
+/** Reload the page with another query on purpose: the leave-page question is not asked (it is for Ctrl+W and F5). */
+function leavePage(search: string) {
+  leaveAsk.leaving();
+  location.search = search;
+}
 /** FreeCol's mainTitle: a new page shows the start screen, which offers to continue the last save. */
 function returnToMain() {
   autosaveSoon = () => {}; // the game is left as it is; the save the player made stays
@@ -453,13 +472,13 @@ function returnToMain() {
   // The dev server resumes the autosave by itself; asking for ?new shows the start screen.
   next.set('new', '');
   if (tileset) next.set('tileset', tileset);
-  location.search = next.toString();
+  leavePage(next.toString());
 }
 /** Open a saved game: a new page, with a new client Engine, is the cleanest way to a loaded game. */
 function openSave(id: number) {
   const next = new URLSearchParams({ load: String(id) });
   if (tileset) next.set('tileset', tileset);
-  location.search = next.toString();
+  leavePage(next.toString());
 }
 /** Whether the credits window (credits.tsx) is open. */
 let creditsOpen = false;
@@ -702,7 +721,7 @@ const menuActions = (): MenuActions => ({
       // A new page shows the start screen again.
       const next = new URLSearchParams();
       if (tileset) next.set('tileset', tileset);
-      location.search = next.toString();
+      leavePage(next.toString());
     }),
   // FreeCol's SaveAction asks for the name in a dialog, and is disabled while a panel is showing.
   save: () => {
@@ -908,6 +927,10 @@ const gameBox = document.getElementById('game')!;
 /** FreeCol's InfoPanel at the map's bottom-right (info-panel.tsx), one of the map controls with the minimap. */
 const infoRoot = createRoot(document.getElementById('info-panel-host')!);
 function renderSide() {
+  // When the last window closes the focus goes back to the map, so the next arrow key moves the unit.
+  const showing = panelShowing();
+  if (windowWasOpen && !showing && !mapHost.contains(document.activeElement)) mapHost.focus({ preventScroll: true });
+  windowWasOpen = showing;
   menuRoot.render(<MenuBar menus={currentMenus()} status={statusLine} />);
   infoRoot.render(
     lastMap && (
@@ -1265,6 +1288,8 @@ function drawMap(m: MapView) {
   lastTurn = m;
   if (newTurn) refreshOverlay();
   autoEndTurn();
+  // The first map is the game as loaded or started; each one after it is play the saves do not hold yet.
+  if (lastMap && autoplay === 0) leaveAsk.changed();
   if (m.ourTurn) autosaveSoon();
   turnAutosave(m);
   renderSide();
@@ -1285,6 +1310,17 @@ function drawMap(m: MapView) {
 }
 
 blockBrowserMenu(document);
+blockImageDrag(document);
+// The browser's zoom is the player's UI scale instead (Preferences, display scaling), and its page keys are off.
+blockBrowserKeys(document, mapHost, (step) =>
+  setPrefs({
+    ...prefs,
+    freecol: {
+      ...prefs.freecol,
+      'model.option.displayScaling': steppedScale(Math.round(uiZoom(prefs) * 100), step),
+    },
+  }),
+);
 /** The client Engine, once loaded: a held Go To asks it for the path and sends the unit. */
 let gotoClient: ClientExports | null = null;
 const gotoDeps: GotoDeps = {
@@ -1396,7 +1432,7 @@ function playWith(client: ClientExports) {
       return;
     }
     // Tab changes units only with nothing focused, so it still tabs between the page's buttons.
-    if (e.key === 'Tab' && e.target !== document.body) return;
+    if (e.key === 'Tab' && e.target !== document.body && e.target !== mapHost) return;
     const c = commandForKey(e, side.orders);
     if (!c) return;
     e.preventDefault();
@@ -1474,7 +1510,7 @@ async function chooseGame(data: string[], language: string): Promise<{ preset: s
           // The ruleset's nations and options differ: a new page, with the start screen of the other rules.
           const next = new URLSearchParams(location.search);
           next.set('rules', id);
-          location.search = next.toString();
+          leavePage(next.toString());
         }}
         saves={saves}
         open={openSave}
@@ -1537,7 +1573,7 @@ async function confirmLoad(id: number): Promise<void> {
         cancel={() => {
           const next = new URLSearchParams(location.search);
           next.delete('load');
-          location.search = next.toString();
+          leavePage(next.toString());
         }}
       />,
     );
@@ -1571,7 +1607,7 @@ function resetSave() {
     .then((all) => Promise.all(all.filter(isAutosave).map((m) => store.remove(m.id))))
     .catch(console.warn)
     .finally(() => {
-      location.search = next.toString();
+      leavePage(next.toString());
     });
 }
 
@@ -1659,6 +1695,7 @@ async function run() {
           return show('failed', { error: detail });
         case 'saved': {
           const meta = JSON.parse(detail) as SaveMeta;
+          leaveAsk.saved();
           if (exitAfterSave && !isAutosave(meta)) return returnToMain();
           if (isAutosave(meta)) {
             // One slot: the new autosave replaces the old ones, quietly.
@@ -1716,17 +1753,22 @@ async function run() {
     side.saveNote = 'Saving...';
     renderSide();
     const m: ToWorker = { k: 'save', active: exports.activeUnitId(), name };
+    leaveAsk.saving();
     worker.postMessage(m);
   };
   // Autosave a moment after the player's last change, so a reload (a dev rebuild, say) loses nothing.
   const autosave = debounced(() => {
     if (!lastTurn?.ourTurn) return;
+    leaveAsk.saving();
     worker.postMessage({ k: 'save', active: exports.activeUnitId(), name: AUTOSAVE_NAME } satisfies ToWorker);
   }, AUTOSAVE_MS);
   autosaveSoon = () => {
     if (autoplay === 0) autosave();
   };
-  saveNamed = (name) => worker.postMessage({ k: 'save', active: exports.activeUnitId(), name } satisfies ToWorker);
+  saveNamed = (name) => {
+    leaveAsk.saving();
+    worker.postMessage({ k: 'save', active: exports.activeUnitId(), name } satisfies ToWorker);
+  };
   waitingSaves.splice(0).forEach(saveNamed);
   colonyNow = (id) => exports.colony(id);
   colonyClient = exports;
