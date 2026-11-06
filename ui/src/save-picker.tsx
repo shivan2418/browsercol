@@ -1,7 +1,7 @@
 // FreeCol's open-a-saved-game choice (OpenAction, MainPanel's Open and Continue Playing): the saves in
 // the browser's store, newest first, to pick one from. Shown in the start screen and, as a window, from
 // Game > Open. Hooks for the browser scripts: [data-save-picker] on the list and [data-open-save=ID] on
-// each save's button.
+// each save's button. A .fsg file on disk opens through [data-open-file], as FreeCol's file chooser (#274).
 import { WindowFrame } from './frame';
 import type { SaveMeta } from './saves';
 
@@ -24,19 +24,38 @@ export function SaveList({ saves, open }: { saves: SaveMeta[]; open: (id: number
   );
 }
 
-/** Game > Open: the saves in a window. */
+/** Open a .fsg file the player picks, and what became of the last one, if it would not open. */
+export function OpenFile({ openFile, note }: { openFile: () => void; note?: string }) {
+  return (
+    <p>
+      <button type="button" data-open-file onClick={openFile}>
+        Open a file...
+      </button>{' '}
+      {note && <span data-open-note>{note}</span>}
+    </p>
+  );
+}
+
+/** Game > Open: the saves in a window, and a save file to open in place of them. */
 export function OpenDialog({
   saves,
   open,
+  openFile,
+  note,
   close,
 }: {
   saves: SaveMeta[];
   open: (id: number) => void;
+  /** Ask for a .fsg file and open it. */
+  openFile?: () => void;
+  /** Why the last file would not open; empty for none. */
+  note?: string;
   close: () => void;
 }) {
   return (
     <WindowFrame title="Open Game" close={close} id="open-game" className="dialog">
       <SaveList saves={saves} open={open} />
+      {openFile && <OpenFile openFile={openFile} note={note} />}
       <div className="buttons">
         <button type="button" data-open-cancel onClick={close}>
           Cancel
