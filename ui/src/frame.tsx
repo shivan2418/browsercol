@@ -116,7 +116,7 @@ export function WindowFrame({ title, close: closeNow, closeKeys, children, class
   const close = closeNow
     ? () => {
         if (!motion) return closeNow();
-        if (closing) return;
+        if (timer.current) return;
         setClosing(true);
         timer.current = setTimeout(closeNow, frameEffects.ms);
       }
@@ -164,6 +164,7 @@ export function WindowFrame({ title, close: closeNow, closeKeys, children, class
       className={className ? `frame ${className}` : 'frame'}
       {...rest}
       data-motion={motion ? (closing ? 'out' : 'in') : undefined}
+      inert={closing || undefined}
       style={{ ...rest.style, transform: shift.x || shift.y ? `translate(${shift.x}px, ${shift.y}px)` : undefined }}
     >
       <div className="title" onPointerDown={drag} style={{ cursor: 'move', touchAction: 'none' }}>

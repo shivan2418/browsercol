@@ -41,12 +41,15 @@ describe('the window frame', () => {
     const was = frameEffects.play;
     frameEffects.play = (k) => played.push(k);
     const closed: string[] = [];
-    render(
-      <WindowFrame title="Europe" close={() => closed.push('closed')}>
-        body
-      </WindowFrame>,
-    );
-    frameEffects.play = was;
+    try {
+      render(
+        <WindowFrame title="Europe" close={() => closed.push('closed')}>
+          body
+        </WindowFrame>,
+      );
+    } finally {
+      frameEffects.play = was;
+    }
     expect(played).toEqual([frameEffects.sound]);
     expect(screen.getByRole('dialog').hasAttribute('data-motion')).toBe(false);
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
