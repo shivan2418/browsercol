@@ -10,7 +10,10 @@
     />
     <meta name="color-scheme" content="light dark" />
     <meta property="og:title" content="BrowserCol: FreeCol in your browser" />
-    <meta property="og:description" content="Found colonies, trade with the natives and win independence. Free, no install, no account." />
+    <meta
+      property="og:description"
+      content="Found colonies, trade with the natives and win independence. Free, no install, no account."
+    />
     <meta property="og:image" content="https://shivan2418.github.io/browsercol/img/game.webp" />
     <link rel="icon" type="image/svg+xml" href="./play/icons/favicon.svg" />
     <link rel="icon" type="image/png" sizes="32x32" href="./play/icons/favicon-32.png" />
@@ -19,7 +22,8 @@
     <script>
       // Old links to the site's root that carry game parameters go to the game with the same query.
       (function () {
-        var game = /[?&](preset|autoplay|load|rules|resume|skipstart|new|debug|renderer|theme|tileset|slidetiming|perfnominimap)(=|&|$)/;
+        var game =
+          /[?&](preset|autoplay|load|rules|resume|skipstart|new|debug|renderer|theme|tileset|slidetiming|perfnominimap)(=|&|$)/;
         if (game.test(location.search)) location.replace('play/' + location.search + location.hash);
       })();
     </script>
@@ -425,8 +429,8 @@
           <summary>Which browsers does it work in?</summary>
           <div>
             <p>
-              Current Chrome, Edge and Firefox on a desktop or laptop. It needs a browser with WebAssembly GC, which
-              the current versions have. It is not made for phones yet.
+              Current Chrome, Edge and Firefox on a desktop or laptop. It needs a browser with WebAssembly GC, which the
+              current versions have. It is not made for phones yet.
             </p>
           </div>
         </details>
@@ -434,8 +438,8 @@
           <summary>Where are my saves?</summary>
           <div>
             <p>
-              In your browser, on this site. Clearing the site's data, or using another browser or computer, leaves
-              them behind. To keep a game safe, save it as a file from the load dialog, and import it again whenever you
+              In your browser, on this site. Clearing the site's data, or using another browser or computer, leaves them
+              behind. To keep a game safe, save it as a file from the load dialog, and import it again whenever you
               like.
             </p>
           </div>
@@ -445,8 +449,8 @@
           <div>
             <p>
               BrowserCol reads FreeCol's own save format, so a <code>.fsg</code> save from the desktop game can be
-              imported. Saves made in the browser can be exported as files too. FreeCol versions can differ in what
-              they accept, so keep your original file.
+              imported. Saves made in the browser can be exported as files too. FreeCol versions can differ in what they
+              accept, so keep your original file.
             </p>
           </div>
         </details>
@@ -454,9 +458,9 @@
           <summary>How does it differ from FreeCol?</summary>
           <div>
             <p>
-              The game underneath is FreeCol's own, compiled for the browser. What is new is the front end: a Browser
-              UI written for the web, with its own look, mouse and keyboard handling, and saves kept in the browser.
-              Some of FreeCol's desktop features are not there yet.
+              The game underneath is FreeCol's own, compiled for the browser. What is new is the front end: a Browser UI
+              written for the web, with its own look, mouse and keyboard handling, and saves kept in the browser. Some
+              of FreeCol's desktop features are not there yet.
             </p>
           </div>
         </details>
