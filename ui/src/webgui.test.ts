@@ -160,6 +160,7 @@ describe('webGui', () => {
         questions: {
           event: (q) => (asked.push(q), true),
           confirm: (q) => (asked.push(q), true),
+          declaration: (q) => (asked.push(q), true),
           choice: async (q) => (asked.push(q), 0),
           input: (q) => (asked.push(q), null),
           goods: (q) => (asked.push(q), [1, 0]),
@@ -232,6 +233,7 @@ describe('webGui', () => {
       events: { unasked: (e) => unasked.push(e.method) },
       questions: {
         event: () => true,
+        declaration: () => true,
         confirm: () => {
           throw new Error('no dialog');
         },
@@ -275,6 +277,7 @@ describe('webGui', () => {
         events: { activeUnit: (e) => seen.push(e.unit) },
         questions: {
           event: () => true,
+          declaration: () => true,
           confirm: () => false,
           choice: () => null,
           input: () => null,

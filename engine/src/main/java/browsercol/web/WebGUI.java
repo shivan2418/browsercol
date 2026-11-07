@@ -167,8 +167,9 @@ import net.sf.freecol.common.option.OptionGroup;
  *     <td>{text, fields: [{label, value}], ok, cancel}, the nation's then
  *         the country's name; the answers joined by a line break, null to
  *         cancel</td></tr>
- * <tr><td>showDeclarationPanel (defers)</td><td>question confirm</td>
- *     <td>{text, ok} with no cancel; the callback runs when it is closed</td></tr>
+ * <tr><td>showDeclarationPanel (defers)</td><td>question declaration</td>
+ *     <td>{name, title}, the player's name, signed across the Declaration's picture;
+ *         the callback runs when it is closed</td></tr>
  * <tr><td>showChooseFoundingFatherDialog (defers)</td><td>question father</td>
  *     <td>{title, ok, fathers: [{id, kind, name, description, born, text,
  *         keys}]}, a tab per father as ChooseFoundingFatherDialog has; the
@@ -1448,13 +1449,25 @@ public class WebGUI extends GUI {
                 colony.getTile(), id(colony))));
     }
 
-    /** {@inheritDoc} Defers. The text and buttons are VictoryDialog's. */
+    /**
+     * {@inheritDoc} Defers. The header, picture and buttons are VictoryDialog's:
+     * the text is a header in the title font above the Continental soldier.
+     */
     @Override
     public void showVictoryDialog(DialogHandler<Boolean> handler) {
         count("showVictoryDialog");
-        defer("showVictoryDialog", () -> handler.handle(
-            confirmed(null, Messages.message("victory.text"),
-                "victory.yes", "victory.continue", false, null, null)));
+        defer("showVictoryDialog", () -> handler.handle("true".equals(
+            this.questions.ask("confirm", new Json()
+                .put("text", Messages.message("victory.text"))
+                .put("ok", label("victory.yes"))
+                .put("cancel", label("victory.continue"))
+                .put("defaultOk", false)
+                .put("tile", (String)null)
+                .put("object", (String)null)
+                .put("header", (String)null)
+                .put("headline", true)
+                .put("image", "image.flavor.Victory")
+                .toString()))));
     }
 
     /**
@@ -1725,23 +1738,19 @@ public class WebGUI extends GUI {
     /**
      * {@inheritDoc}
      *
-     * Defers, as Swing shows DeclarationPanel without waiting. Asks the
-     * declaration's resolution as a confirm with only an ok button, then
-     * runs the callback, as DeclarationPanel does on closing. The animated
-     * signature is not shown.
+     * Defers, as Swing shows DeclarationPanel without waiting. The Browser UI
+     * shows FreeCol's picture of the Declaration and signs the player's name
+     * across it; the question is answered when the panel closes, and the
+     * callback runs then. The resolution's text is not on the panel, as in
+     * Swing: the server sends it as a message of its own.
      */
     @Override
     public void showDeclarationPanel(Runnable afterClosing) {
         count("showDeclarationPanel");
         defer("showDeclarationPanel", () -> {
-                this.questions.ask("confirm", new Json()
-                    .put("text", Messages.message("declareIndependence.resolution"))
-                    .put("ok", label("ok"))
-                    .put("cancel", (String)null)
-                    .put("defaultOk", true)
-                    .put("tile", (String)null)
-                    .put("object", (String)null)
-                    .put("header", label("model.ability.independenceDeclared.name"))
+                this.questions.ask("declaration", new Json()
+                    .put("name", getMyPlayer().getName())
+                    .put("title", label("declareIndependenceAction.name"))
                     .toString());
                 afterClosing.run();
             });

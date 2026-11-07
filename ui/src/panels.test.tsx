@@ -43,6 +43,7 @@ const item = (text: string, more: Partial<Choice> = {}): Choice => ({
 const files: Record<string, string> = {
   'image.unit.model.unit.caravel': 'art/caravel.png',
   'image.flavor.event.firstLanding': 'art/landing.png',
+  'image.flavor.Victory': 'art/victory.png',
 };
 const art: Art = (keys) => {
   const key = keys.find((k) => k in files);
@@ -143,6 +144,27 @@ describe('the confirm dialog', () => {
     const escaped = ask(box, 'confirm', { ...confirm, defaultOk: true });
     key('Escape');
     expect(await escaped).toBe(false);
+  });
+
+  it('shows the victory dialog as a header in the title font over the Continental soldier', async () => {
+    const { box } = host();
+    const won = ask(box, 'confirm', {
+      ...confirm,
+      text: 'You are victorious!',
+      ok: 'Quit',
+      cancel: 'Continue playing',
+      headline: true,
+      image: 'image.flavor.Victory',
+    });
+    const header = screen.getByRole('heading', { name: 'You are victorious!' });
+    expect(header.className).toBe('headline');
+    const soldier = document.querySelector('img.picture');
+    expect(soldier?.getAttribute('src')).toBe('art/victory.png');
+    // The header comes first, then the picture, then the buttons.
+    expect(header.compareDocumentPosition(soldier!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(document.querySelector('p.text')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Continue playing' }));
+    expect(await won).toBe(false);
   });
 
   it('answers ok on Escape and on its frame’s close button when the dialog says so (first contact)', async () => {

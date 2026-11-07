@@ -112,7 +112,20 @@ export const PANEL_KEYS = {
   radio: 'image.ui.button.radio',
   /** A radio button's selected disc, whose shape is the dot a selected radio shows. */
   radioSelected: 'image.ui.button.radio.selected',
+  /** The Declaration of Independence the declaration panel is the picture of (DeclarationPanel), 525x624. */
+  declaration: 'image.flavor.Declaration',
+  /** The Continental soldier under the victory dialog's header (VictoryDialog), 132x275. */
+  victory: 'image.flavor.Victory',
 } as const;
+
+/**
+ * The animated font the Declaration is signed in (DeclarationPanel): a FAF file, not an image, so the art
+ * build copies it as a file of its own, to SIGNATURE_FONT_FILE under art/, and the page fetches it only when
+ * the Declaration opens.
+ */
+export const SIGNATURE_FONT_KEY = 'animatedfont.signature';
+/** Where the art build puts the signature font, under art/. */
+export const SIGNATURE_FONT_FILE = 'base/resources/fonts/signature.faf';
 
 /**
  * The resource keys the event panel shows, which are the ones InGameController asks it for: the

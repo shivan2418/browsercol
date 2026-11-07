@@ -1831,8 +1831,8 @@ class WebGUITest {
     @Test
     @Timeout(120)
     void theDeclarationIsConfirmedByNamingTheNationAndTheCountryAndThenShown() throws Exception {
-        final GUI gui = startGame().getClient().getGUI();
-
+        final ClientEngine client = startGame();
+        final GUI gui = client.getClient().getGUI();
         answer = "New Eng!land\nBritannia";
         assertEquals(List.of("New England", "Britannia"), gui.showConfirmDeclarationDialog());
         String question = asked.get(asked.size() - 1);
@@ -1849,17 +1849,15 @@ class WebGUITest {
         answer = "just one name";
         assertNull(gui.showConfirmDeclarationDialog(), "a malformed answer is a cancel");
 
-        // The declaration panel has only an ok button; the callback runs once it is answered.
-        answer = "true";
+        // The declaration panel signs the player's name over FreeCol's picture; the callback runs
+        // once it is closed. The resolution is the server's message, not the panel's text.
+        answer = "closed";
         final CompletableFuture<Boolean> closed = new CompletableFuture<>();
         gui.showDeclarationPanel(() -> closed.complete(true));
         assertEquals(Boolean.TRUE, await(closed));
         question = asked.get(asked.size() - 1);
-        assertTrue(question.startsWith("confirm {\"text\":\"This Day the Congress"),
-                   question);
-        assertTrue(question.contains("\"cancel\":null"), question);
-        assertTrue(question.contains("\"header\":\""
-            + Messages.message("model.ability.independenceDeclared.name") + "\""), question);
+        assertEquals("declaration {\"name\":\"" + client.getClient().getMyPlayer().getName()
+            + "\",\"title\":\"" + Messages.message("declareIndependenceAction.name") + "\"}", question);
     }
 
     @Test
@@ -1968,6 +1966,8 @@ class WebGUITest {
         assertTrue(question.contains("\"text\":\"" + Messages.message("victory.text") + "\""), question);
         assertTrue(question.contains("\"ok\":\"" + Messages.message("victory.yes")
             + "\",\"cancel\":\"" + Messages.message("victory.continue") + "\""), question);
+        assertTrue(question.contains("\"headline\":true"), question);
+        assertTrue(question.contains("\"image\":\"image.flavor.Victory\""), question);
 
         answer = "false";
         got = new CompletableFuture<>();

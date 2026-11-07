@@ -68,6 +68,8 @@ export async function answerDialogs(
       if (window.__hold?.split(',').includes(kind)) return;
       const pick = (selector: string) => d.querySelector<HTMLElement>(selector);
       const buttonFor: Record<string, () => HTMLElement | null | undefined> = {
+        // The Declaration closes on a click.
+        declaration: () => d,
         confirm: () =>
           (!/Europe/.test(d.textContent ?? '') && pick('[data-answer=ok]')) || pick('[data-answer=cancel]'),
         choice: () => [...d.querySelectorAll<HTMLElement>('[data-choice]:not(:disabled)')].pop(),

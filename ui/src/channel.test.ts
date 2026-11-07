@@ -155,6 +155,7 @@ const sayYes: GuiHandlers = {
   questions: {
     event: () => true,
     confirm: () => true,
+    declaration: () => true,
     choice: () => null,
     input: () => null,
     goods: () => null,

@@ -25,6 +25,7 @@ import { DebugContext } from './debug';
 import type { Dialog, Dialogs } from './dialogs';
 import { europeButtons } from './europe-client';
 import { GoodsAmount, TEXT_ENTRY, WindowFrame, type Art } from './frame';
+import { Declaration } from './declaration';
 import { CopyDetailsContext, ShowLogContext } from './log';
 import { lane } from './drag';
 import { draggableProps, dropTargetProps, type Item, type Place } from './moves';
@@ -162,7 +163,7 @@ function OkCancel(p: {
   );
 }
 
-function Confirm({ d, colopedia }: { d: Of<'confirm'>; colopedia: (type: string) => void }) {
+function Confirm({ d, colopedia, art }: { d: Of<'confirm'>; colopedia: (type: string) => void; art: Art }) {
   const { ask } = d;
   const [help, setHelp] = useState(false);
   const ok = () => d.done(true);
@@ -171,7 +172,8 @@ function Confirm({ d, colopedia }: { d: Of<'confirm'>; colopedia: (type: string)
   useEnter(enter === 'ok' ? ok : cancel);
   return (
     <Win d={d} title={ask.header} close={ask.escapeOk && ask.ok !== null ? ok : cancel}>
-      <Text text={ask.text} />
+      {ask.headline ? <h3 className="headline">{ask.text}</h3> : <Text text={ask.text} />}
+      {ask.image && <Pic keys={[ask.image]} art={art} className="picture" />}
       {help && ask.help?.text && <Text text={ask.help.text} />}
       <OkCancel ok={ask.ok} cancel={ask.cancel} onOk={ok} onCancel={cancel} enter={enter} />
       {ask.help && (
@@ -2034,7 +2036,9 @@ function Body({
     case 'tradeRoutes':
       return <RoutesPanel d={d} art={art} routes={routes} />;
     case 'confirm':
-      return <Confirm d={d} colopedia={colopedia} />;
+      return <Confirm d={d} colopedia={colopedia} art={art} />;
+    case 'declaration':
+      return <Declaration name={d.ask.name} title={d.ask.title} art={art} done={() => d.done(true)} />;
     case 'choice':
       return <Choice d={d} />;
     case 'input':

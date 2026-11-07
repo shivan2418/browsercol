@@ -1424,17 +1424,18 @@ class CommandsTest {
         for (int i = 0; i < 3000 && us.getPlayerType() != Player.PlayerType.REBEL; i++) {
             Thread.sleep(10);
         }
-        // The names, then the declaration's resolution with only an ok.
+        // The names, then the Declaration to sign. Its resolution is not on the panel: the
+        // server sends it as a message, so no question holds it.
         final List<String> named = askedOf("names");
         assertEquals(1, named.size(), asked.toString());
         assertTrue(named.get(0).contains("\"label\":\"" + Messages.message(
             "confirmDeclarationDialog.enterNation") + "\""), named.get(0));
+        final List<String> declaration = askedOf("declaration");
+        assertEquals(1, declaration.size(), asked.toString());
+        assertTrue(declaration.get(0).contains("\"name\":\"" + us.getName() + "\""), declaration.get(0));
         final String text = Json.quote(Messages.message("declareIndependence.resolution"));
-        final List<String> resolution = askedOf("confirm").stream()
-            .filter(q -> q.contains(text)).toList();
-        assertEquals(1, resolution.size(), asked.toString());
-        assertTrue(resolution.get(0).contains("\"cancel\":null"), resolution.get(0));
-        assertTrue(asked.indexOf(named.get(0)) < asked.indexOf(resolution.get(0)),
+        assertTrue(askedOf("confirm").stream().noneMatch(q -> q.contains(text)), asked.toString());
+        assertTrue(asked.indexOf(named.get(0)) < asked.indexOf(declaration.get(0)),
                    asked.toString());
         assertEquals(Player.PlayerType.REBEL, us.getPlayerType());
         assertEquals("Free Test", us.getIndependentNationName());

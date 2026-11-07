@@ -199,6 +199,8 @@ describe('the panel keys', () => {
       'image.ui.checkmark',
       'image.ui.button.radio',
       'image.ui.button.radio.selected',
+      'image.flavor.Declaration',
+      'image.flavor.Victory',
     ]) {
       expect(isPanelKey(key), key).toBe(true);
       expect(isMapKey(key), `the map does not draw ${key}`).toBe(false);
@@ -237,6 +239,8 @@ describe('the panel keys', () => {
       'checkmark',
       'radio',
       'radioSelected',
+      'declaration',
+      'victory',
     ]);
     expect(isArtKey('image.unit.model.unit.caravel')).toBe(true);
   });

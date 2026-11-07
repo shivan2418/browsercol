@@ -1360,6 +1360,7 @@ const gui: GuiHandlers = {
   questions: {
     event: (q) => afterSlide(() => dialogQueue.ask('event', q)),
     confirm: (q) => afterSlide(() => dialogQueue.ask('confirm', q)),
+    declaration: (q) => afterSlide(() => dialogQueue.ask('declaration', q)),
     choice: (q) => afterSlide(() => dialogQueue.ask('choice', q)),
     input: (q) => afterSlide(() => dialogQueue.ask('input', q)),
     amount: (q) => afterSlide(() => dialogQueue.ask('amount', q)),

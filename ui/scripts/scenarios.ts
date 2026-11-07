@@ -693,6 +693,15 @@ const scenarios: Record<string, (run: Run) => Promise<void>> = {
   },
   independence: async (run) => {
     const page = run.page;
+    // The player signs the Declaration in their own name: a neutral one, for the screenshots.
+    await page.addInitScript(() =>
+      localStorage.setItem('freecol.prefs', JSON.stringify({ freecol: { 'model.option.playerName': 'William I' } })),
+    );
+    // The Declaration's picture and signature font load when it opens, and not before (#347).
+    const fetched: string[] = [];
+    page.on('request', (r: { url(): string }) => {
+      if (/doi\.png|signature\.faf|victory\.png/.test(r.url())) fetched.push(r.url().replace(/^.*\//, ''));
+    });
     await page.goto(`${run.url}?skipstart&debug&preset=independence`);
     await run.finished('independence');
     await page.waitForFunction(() => window.__map.settlements.some((s) => s.population >= 0), null, {
@@ -701,19 +710,58 @@ const scenarios: Record<string, (run: Run) => Promise<void>> = {
       label: 'the preset has founded its colony',
     });
     await sleep(5000);
+    if (fetched.length > 0) throw new Error(`fetched before the Declaration opened: ${fetched.join(', ')}`);
     await hold(run, 'names');
     await page.getByRole('button', { name: /^Declare independence/ }).click();
     await sleep(2000);
     run.note(`dialogs after the menu item: ${(await page.evaluate(() => window.__dialogs)).slice(-4).join(' | ')}`);
     await waitKind(run, 'names', 'declare');
     await dialogShot(run, 'showConfirmDeclarationDialog');
-    await hold(run, 'confirm');
+    if (fetched.length > 0) throw new Error(`fetched before the Declaration opened: ${fetched.join(', ')}`);
+    await hold(run, 'declaration');
     await clickIn(run, 'names', '[data-answer=ok]');
-    const text = await waitKind(run, 'confirm', 'declaration');
-    if (!/Resolution/i.test(text)) throw new Error(`the declaration panel says: ${text}`);
-    await dialogShot(run, 'showDeclarationPanel');
-    await clickIn(run, 'confirm', '[data-answer=ok]');
+    // The panel is FreeCol's picture of the Declaration: no text, no buttons, the name signed over it.
+    const text = await waitKind(run, 'declaration', 'declaration');
+    if (text.trim() !== '') throw new Error(`the declaration panel has text: ${text}`);
+    if (/Resolution/i.test(await page.evaluate(() => document.body.innerText)))
+      throw new Error('the resolution is on the page with the Declaration');
+    const declaration = kindSel('declaration');
+    await page.waitForFunction(
+      (sel: string) => {
+        const img = document.querySelector<HTMLImageElement>(`${sel} img`);
+        return img?.complete && img.naturalWidth === 525 && img.naturalHeight === 624;
+      },
+      declaration,
+      { timeout: 30000, label: 'the Declaration picture loads at 525x624' },
+    );
+    for (const f of ['doi.png', 'signature.faf'])
+      if (!fetched.includes(f))
+        throw new Error(`${f} was not fetched when the Declaration opened: ${fetched.join(', ')}`);
+    run.note(`fetched on opening: ${fetched.join(', ')}`);
+    const signed = await page.locator(`${declaration} canvas`).getAttribute('data-signature');
+    if (signed !== 'William I') throw new Error(`the signature says ${signed}`);
+    // Mid-signature: after the 2 s wait, some of the strokes are drawn.
+    await page.waitForFunction(
+      (sel: string) => Number(document.querySelector<HTMLElement>(`${sel} canvas`)?.dataset.drawn ?? 0) > 400,
+      declaration,
+      { timeout: 30000, polling: 20, label: 'the signature is being drawn' },
+    );
+    const phase = await page.locator(declaration).getAttribute('data-phase');
+    if (phase !== 'signing') throw new Error(`the panel is ${phase} mid-signature`);
+    await dialogShot(run, 'showDeclarationPanel-signing');
+    await page.waitForFunction(
+      (sel: string) => document.querySelector(sel)?.getAttribute('data-phase') === 'signed',
+      declaration,
+      { timeout: 60000, label: 'the signature is finished' },
+    );
+    await dialogShot(run, 'showDeclarationPanel-signed');
     await hold(run, null);
+    // A click closes it, and the declaration goes to the server.
+    await page.locator(declaration).click();
+    await page.waitForFunction(() => !document.querySelector('[role=dialog][data-kind="declaration"]'), null, {
+      timeout: 30000,
+      label: 'the Declaration closes',
+    });
     await sleep(3000);
     await run.shot('after-declaration');
     const m = await run.view();
@@ -763,6 +811,14 @@ const scenarios: Record<string, (run: Run) => Promise<void>> = {
     if (!victory) throw new Error('no victory dialog');
     if (!scores) throw new Error('no high scores panel');
     if (!/victor|won|win/i.test(victory)) throw new Error(`the victory dialog says: ${victory}`);
+    // FreeCol's VictoryDialog: the line as a header in the title font over the Continental soldier (132x275).
+    const soldier = await page.evaluate(() => {
+      const img = document.querySelector<HTMLImageElement>('[role=dialog][data-kind="confirm"] img.picture');
+      const head = document.querySelector('[role=dialog][data-kind="confirm"] h3.headline');
+      return img ? { w: img.naturalWidth, h: img.naturalHeight, head: head?.textContent ?? null } : null;
+    });
+    if (!soldier || soldier.w !== 132 || soldier.h !== 275 || !soldier.head)
+      throw new Error(`the victory dialog has no soldier under a header: ${JSON.stringify(soldier)}`);
     await hold(run, null);
     // "Continue playing" is the cancel button.
     await clickIn(run, 'confirm', '[data-answer=cancel]');

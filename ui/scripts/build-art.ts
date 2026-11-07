@@ -14,7 +14,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
-import { isArtKey } from '../src/map-keys.ts';
+import { isArtKey, SIGNATURE_FONT_FILE, SIGNATURE_FONT_KEY } from '../src/map-keys.ts';
 import { parseProperties, resources } from '../src/resources.ts';
 
 const args = process.argv.slice(2);
@@ -85,6 +85,15 @@ for (const file of used as Set<string>) {
   brotli += zlib.brotliCompressSync(body).length;
   if (body.toString('ascii', 12, 16) === 'IHDR') area += body.readUInt32BE(16) * body.readUInt32BE(20);
 }
+// The signature font is a file the page fetches when the Declaration opens (DeclarationPanel's animatedfont.signature).
+const base = layers[0];
+const signature = parseProperties(fs.readFileSync(path.join(base.root, 'resources.properties'), 'utf8')).find(
+  ([key]) => key === SIGNATURE_FONT_KEY,
+)?.[1];
+if (!signature) throw new Error(`${SIGNATURE_FONT_KEY} is not in ${base.root}/resources.properties`);
+if (`${base.dir}/${signature}` !== SIGNATURE_FONT_FILE) throw new Error(`the signature font moved to ${signature}`);
+fs.mkdirSync(path.dirname(path.join(outDir, SIGNATURE_FONT_FILE)), { recursive: true });
+fs.copyFileSync(path.join(base.root, signature), path.join(outDir, SIGNATURE_FONT_FILE));
 const manifest = {
   layers: layers.map(({ dir, props }) => ({ dir, props })),
   files: [...(used as Set<string>)].sort((a, b) => (a < b ? -1 : 1)),

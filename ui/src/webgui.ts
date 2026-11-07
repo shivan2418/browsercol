@@ -554,8 +554,25 @@ export interface GuiQuestions {
       help?: { label: string; colopedia: string | null; text: string | null };
       /** Escape and the window's close answer ok, not cancel (Swing's first contact dialog). */
       escapeOk?: boolean;
+      /** The text is a header in the title font, centred over the picture (Swing's victory dialog). */
+      headline?: boolean;
+      /** The resource key of a picture under the text (image.flavor.Victory). */
+      image?: string | null;
     };
     answer: boolean;
+  };
+  /**
+   * The Declaration of Independence (DeclarationPanel): FreeCol's picture of it, with the player's name signed
+   * across it in handwriting. It closes when signed, or on a click or a key; closing answers.
+   */
+  declaration: {
+    ask: {
+      /** The name signed: the player's. */
+      name: string;
+      /** What the window is called, for a screen reader. */
+      title: string;
+    };
+    answer: true;
   };
   choice: {
     ask: { text: string; cancel: string | null; tile: Id | null; object: Id | null; choices: Choice[] };
@@ -777,6 +794,7 @@ export interface GuiHandlers {
 /** How each kind of answer crosses to Java, as a string or null. */
 const encode: { [K in keyof GuiQuestions]: (answer: GuiQuestions[K]['answer']) => string | null } = {
   confirm: (a) => String(a),
+  declaration: () => 'closed',
   event: () => 'closed',
   preCombat: (a) => String(a),
   choice: (a) => (a === null ? null : String(a)),
