@@ -626,12 +626,12 @@ describe('loading a ship in port in the colony panel', () => {
 
     it('gives what Europe pays and asks, and what the warehouse goods are worth, in the tooltip', async () => {
       openPort({ inPort: port, warehouse, market });
-      expect(await hint(stored('lumber').querySelector('.goods')!)).toBe('Lumber: 4/6/348');
+      expect(await hint(stored('lumber').querySelector('.goods')!)).toBe('Lumber: 4/6 (348)');
     });
 
     it('gives them for goods aboard a ship in the colony', async () => {
       openPort({ inPort: port, warehouse, market });
-      expect(await hint(stacks()[0].querySelector('.goods')!)).toBe('Cloth: 9/12/900');
+      expect(await hint(stacks()[0].querySelector('.goods')!)).toBe('Cloth: 9/12 (900)');
     });
 
     it('says a boycotted goods type cannot be traded in place of the price', async () => {
@@ -658,7 +658,7 @@ describe('loading a ship in port in the colony panel', () => {
           true,
         ),
       );
-      expect(await hint(stored('lumber').querySelector('.goods')!)).toBe('Lumber: 2/6/174');
+      expect(await hint(stored('lumber').querySelector('.goods')!)).toBe('Lumber: 2/6 (174)');
     });
   });
 });
