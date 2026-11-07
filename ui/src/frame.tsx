@@ -233,6 +233,7 @@ export function GoodsAmount({
   expert = null,
   art,
   icons = false,
+  tip = name,
 }: {
   /** The goods icon's resource keys, best first (image.icon.model.goods.<id>, say). */
   keys: readonly string[];
@@ -249,6 +250,8 @@ export function GoodsAmount({
    * `expert` says more is possible.
    */
   icons?: boolean;
+  /** What the hint says, the goods type's name by default. */
+  tip?: string | null;
 }) {
   const src = art(keys);
   const sign = amount === 0 ? 'zero' : !change ? undefined : amount > 0 ? 'gain' : 'loss';
@@ -262,7 +265,7 @@ export function GoodsAmount({
     const count = amount < 0 ? text : String(amount);
     const number = amount < 0 || amount >= goodsIcons.countFrom || amount > max || (expert !== null && expert > amount);
     return (
-      <Tip as="span" className="goods" data-sign={sign} tip={name}>
+      <Tip as="span" className="goods" data-sign={sign} tip={tip}>
         <span className="pile" style={{ width: step * (n - 1) + 24 }}>
           {Array.from({ length: n }, (_, i) =>
             src === null ? (
@@ -283,7 +286,7 @@ export function GoodsAmount({
     );
   }
   return (
-    <Tip as="span" className="goods" data-sign={sign} tip={name}>
+    <Tip as="span" className="goods" data-sign={sign} tip={tip}>
       {src === null ? <span className="name">{name}</span> : <img src={src} alt={name} />}
       <span className="amount">{expert !== null && expert > amount ? `${text}/${expert}` : text}</span>
     </Tip>

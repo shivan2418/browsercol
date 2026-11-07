@@ -279,17 +279,15 @@ function MovableGoods({
   const movable = useMovable(item);
   const onContextMenu = useContextMenu((m) => (g.amount > 0 ? m.goods(at, g.type, g.amount) : null));
   return (
-    <Tip
-      as="span"
+    <span
       className={className}
       data-goods={g.type}
       data-over={over}
-      tip={priceTip(g, market)}
       onContextMenu={onContextMenu}
       {...(g.amount > 0 ? movable : {})}
     >
-      <GoodsAmount keys={g.keys} name={g.name} amount={g.amount} art={art} />
-    </Tip>
+      <GoodsAmount keys={g.keys} name={g.name} amount={g.amount} art={art} tip={priceTip(g, market) ?? g.name} />
+    </span>
   );
 }
 
@@ -300,7 +298,7 @@ function MovableGoods({
 export function priceTip(g: Goods, market: ColonyView['market']): string | null {
   const m = market?.find((p) => p.type === g.type);
   if (!m) return null;
-  if (!m.enabled) return `${g.name}: ${g.amount} \u00b7 ${m.reason ?? 'boycotted'}`;
+  if (!m.enabled) return `${g.name}: ${g.amount} \u00b7 ${(m.reason ?? 'boycotted').replace(/\s*[^.!?]*\?\s*$/, '')}`;
   return `${g.name}: ${g.amount} \u00b7 Europe buys at ${m.sell}, sells at ${m.buy} \u00b7 worth ${g.amount * m.sell}`;
 }
 
