@@ -1714,6 +1714,33 @@ class WebGUITest {
      */
     @Test
     @Timeout(120)
+    void buyingFromNativesGivesWhatEuropeChargesAndWhatItPays() throws Exception {
+        final ClientEngine client = startGame();
+        client.debugApplied(this.server.debug("{\"action\":\"revealMap\"}"));
+        final net.sf.freecol.common.model.Map map = client.getClient().getGame().getMap();
+        Tile at = null;
+        for (int i = 0; i < 3000 && at == null; i++) {
+            at = map.getTileSet(t -> t.isExplored() && t.getIndianSettlement() != null)
+                .stream().findFirst().orElse(null);
+            if (at == null) Thread.sleep(10);
+        }
+        assertNotNull(at, "the client knows a native settlement");
+        final net.sf.freecol.common.model.Player me = client.getClient().getMyPlayer();
+        final Unit unit = me.getUnits().iterator().next();
+        final GoodsType furs = client.getClient().getGame().getSpecification().getGoodsType("model.goods.furs");
+        final Goods goods = new Goods(client.getClient().getGame(), null, furs, 100);
+
+        answer = "0";
+        assertEquals(net.sf.freecol.common.model.Constants.TradeBuyAction.BUY,
+            client.getClient().getGUI().getBuyChoice(unit, at.getIndianSettlement(), goods, 123, true));
+        final String q = asked.get(asked.size() - 1);
+        assertTrue(q.contains("123"), q);
+        assertTrue(q.contains("European buy price: " + me.getMarket().getBidPrice(furs, 100) + " gold"), q);
+        assertTrue(q.contains("European sale price: " + me.getMarket().getSalePrice(furs, 100) + " gold"), q);
+    }
+
+    @Test
+    @Timeout(120)
     void clickingANativeSettlementShowsItsPanel() throws Exception {
         final ClientEngine client = startGame();
         client.debugApplied(this.server.debug("{\"action\":\"revealMap\"}"));

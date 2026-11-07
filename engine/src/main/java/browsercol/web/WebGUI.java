@@ -17,6 +17,7 @@ import net.sf.freecol.client.gui.GUI;
 import net.sf.freecol.client.gui.panel.FreeColPanel;
 import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.model.AbstractUnit;
+import net.sf.freecol.common.model.Constants.TradeBuyAction;
 import net.sf.freecol.common.model.Building;
 import net.sf.freecol.common.model.Colony;
 import net.sf.freecol.common.model.CombatModel;
@@ -1650,6 +1651,30 @@ public class WebGUI extends GUI {
             dialogIcon(unit), "selectDestinationDialog.cancel", choices);
     }
 
+
+    /**
+     * Buying from a native settlement: GUI.getBuyChoice's question, which gives what Europe charges for the
+     * goods, with what Europe would pay for them added after it, so the player sees both sides of the trade.
+     */
+    @Override
+    public TradeBuyAction getBuyChoice(Unit unit, Settlement settlement,
+                                       Goods goods, int gold, boolean canBuy) {
+        final net.sf.freecol.common.model.Market market = unit.getOwner().getMarket();
+        if (market == null) return super.getBuyChoice(unit, settlement, goods, gold, canBuy);
+        final StringTemplate template = StringTemplate.template("buy.text")
+            .addStringTemplate("%nation%", settlement.getOwner().getNationLabel())
+            .addStringTemplate("%goods%", goods.getLabel(true))
+            .addAmount("%gold%", gold)
+            .addAmount("%euprice%", market.getBidPrice(goods.getType(), goods.getAmount()));
+        // FreeCol has no string for this line; its sell question says "European sale price" inside sell.text.
+        final String text = Messages.message(template) + "\n (European sale price: "
+            + market.getSalePrice(goods.getType(), goods.getAmount()) + " gold)";
+        final List<ChoiceItem<TradeBuyAction>> choices = new ArrayList<>();
+        choices.add(new ChoiceItem<>(Messages.message("buy.takeOffer"), TradeBuyAction.BUY, canBuy));
+        choices.add(new ChoiceItem<>(Messages.message("buy.moreGold"), TradeBuyAction.HAGGLE));
+        return modalChoiceDialog(unit.getTile(), StringTemplate.name(text),
+                                 dialogIcon(goods.getType()), "cancel", choices);
+    }
 
     /**
      * Ask a goods question: which of some goods to take.
