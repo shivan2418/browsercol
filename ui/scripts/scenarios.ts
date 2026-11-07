@@ -217,9 +217,11 @@ class Run {
       .first()
       .waitFor({ timeout: 10000, label: 'the foreign report lists a nation' });
     const nations = await d.locator('thead th[data-nation]').count();
+    setStep(`${this.scenario}: shot of the foreign report at 1280x720`);
     await page.screenshot({ path: path.join(dir, `foreign-affairs-late-game-${this.browser}.png`) });
     const wide = await spills(d);
     await resize({ width: 640, height: 720 });
+    setStep(`${this.scenario}: shot of the foreign report at 640x720`);
     await page.screenshot({ path: path.join(dir, `foreign-affairs-late-game-narrow-${this.browser}.png`) });
     const narrow = await spills(d);
     await close(d);
@@ -234,9 +236,26 @@ class Run {
       .first()
       .waitFor({ timeout: 10000, label: 'the native report lists a tribe' })
       .catch(() => {});
-    // The shot is of a tall window, so the whole report shows, with no scrolling.
     await resize({ width: 1280, height: 1800 });
-    await page.screenshot({ path: path.join(dir, `native-affairs-late-game-${this.browser}.png`) });
+    // The whole report is shot: the window is let grow to its content first, so nothing is scrolled out of the shot.
+    await d.evaluate((el) => {
+      const dialog = el as HTMLElement;
+      dialog.style.maxHeight = 'none';
+      for (const e of dialog.querySelectorAll<HTMLElement>('.report')) {
+        e.style.maxHeight = 'none';
+        e.style.overflow = 'visible';
+      }
+    });
+    setStep(`${this.scenario}: shot of the native report`);
+    await d.screenshot({ path: path.join(dir, `native-affairs-late-game-${this.browser}.png`) });
+    await d.evaluate((el) => {
+      const dialog = el as HTMLElement;
+      dialog.style.maxHeight = '';
+      for (const e of dialog.querySelectorAll<HTMLElement>('.report')) {
+        e.style.maxHeight = '';
+        e.style.overflow = '';
+      }
+    });
     const count = (sel: string) => d.locator(sel).count();
     const tribes = await count('[data-tribe]');
     const rows = await count('[data-settlement]');
