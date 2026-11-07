@@ -205,6 +205,15 @@ class Run {
    * The native report must list a tribe met, with a row for a settlement and its skill and trade; the foreign one
    * must fit its window with no scrolling.
    */
+  /**
+   * A screenshot for the maintainer's review, not a check: Firefox can take long over a tall one late in a game, so it
+   * gets a long timeout, and a shot that still fails is noted, not a failure.
+   */
+  reviewShot = async (target: { screenshot: Page['screenshot'] }, file: string) => {
+    await target.screenshot({ path: file, timeout: 120000 }).catch((ex: Error) => {
+      this.note(`review screenshot ${path.basename(file)} not taken: ${ex.message.split('\n')[0]}`);
+    });
+  };
   async affairsReports(): Promise<void> {
     const page = this.page;
     setStep(`${this.scenario}: the affairs reports`);
@@ -245,11 +254,11 @@ class Run {
       .waitFor({ timeout: 10000, label: 'the foreign report lists a nation' });
     const nations = await d.locator('thead th[data-nation]').count();
     setStep(`${this.scenario}: shot of the foreign report at 1280x720`);
-    await page.screenshot({ path: path.join(dir, `foreign-affairs-late-game-${this.browser}.png`) });
+    await this.reviewShot(page, path.join(dir, `foreign-affairs-late-game-${this.browser}.png`));
     const wide = await spills(d);
     await resize({ width: 640, height: 720 });
     setStep(`${this.scenario}: shot of the foreign report at 640x720`);
-    await page.screenshot({ path: path.join(dir, `foreign-affairs-late-game-narrow-${this.browser}.png`) });
+    await this.reviewShot(page, path.join(dir, `foreign-affairs-late-game-narrow-${this.browser}.png`));
     const narrow = await spills(d);
     await close(d);
     await resize({ width: 1280, height: 720 });
@@ -274,7 +283,7 @@ class Run {
       }
     });
     setStep(`${this.scenario}: shot of the native report`);
-    await d.screenshot({ path: path.join(dir, `native-affairs-late-game-${this.browser}.png`) });
+    await this.reviewShot(d, path.join(dir, `native-affairs-late-game-${this.browser}.png`));
     await d.evaluate((el) => {
       const dialog = el as HTMLElement;
       dialog.style.maxHeight = '';
