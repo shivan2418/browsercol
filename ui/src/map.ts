@@ -633,7 +633,21 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
   };
 }
 
-function canvasPen(host: HTMLElement, width: number, height: number, background = true, quality = 20): Pen {
+/** Each picture's dimmed copy (ImageLibrary's darker tiles of fog), made on first use. */
+const dimmedCopies = new WeakMap<Picture, HTMLCanvasElement>();
+export function dimmed(pic: Picture): Picture {
+  let copy = dimmedCopies.get(pic);
+  if (!copy) {
+    copy = Object.assign(document.createElement('canvas'), { width: pic.width, height: pic.height });
+    const g = copy.getContext('2d')!;
+    g.filter = 'brightness(0.8)';
+    g.drawImage(pic, 0, 0);
+    dimmedCopies.set(pic, copy);
+  }
+  return copy;
+}
+
+export function canvasPen(host: HTMLElement, width: number, height: number, background = true, quality = 20): Pen {
   const canvas = document.createElement('canvas');
   let ratio = ratioAt(quality);
   /** The canvas's backing store at the pixel ratio, its CSS size in CSS pixels. */
@@ -650,26 +664,42 @@ function canvasPen(host: HTMLElement, width: number, height: number, background 
   host.append(canvas);
   const c = canvas.getContext('2d')!;
   // Canvas 2D has no scene graph: record the drawing and replay it to pan.
-  const layers: ((c: CanvasRenderingContext2D) => void)[][] = Array.from({ length: 8 }, () => []);
+  // An image carries the box it covers, so show() can leave out those off the screen: a big map is thousands of
+  // images, and Firefox spent seconds on every frame drawing them all (#353).
+  type Call = ((c: CanvasRenderingContext2D) => void) & { box?: [number, number, number, number] };
+  const layers: Call[][] = Array.from({ length: 8 }, () => []);
   let fog = 1;
   let mark = 1;
   let actor = { dx: 0, dy: 0, alpha: 1 };
   let calls = layers[0];
+  // What the canvas shows, so a frame that changes nothing is not drawn again.
+  let shownKey = '';
+  let changed = true;
+  const push = (call: Call, box?: Call['box']) => {
+    if (box) call.box = box;
+    changed = true;
+    calls.push(call);
+  };
   return {
     canvas,
     begin: (n) => {
+      changed = true;
       calls = layers[n] = [];
     },
     image: (pic, x, y, dim, tile) =>
-      calls.push((c) => {
-        c.filter = dim ? 'brightness(0.8)' : 'none';
-        const b = tile && pic.width === W && pic.height === H ? seamBleed(c.getTransform().a) : 0;
-        if (b) c.drawImage(pic, x - b / 2, y - b / 2, W + b, H + b);
-        else c.drawImage(pic, x, y);
-        c.filter = 'none';
-      }),
+      push(
+        (c) => {
+          // A dimmed picture is drawn from a copy made once: setting the context's filter for every tile took
+          // half of Firefox's time in a big map, since it parses the filter string each time.
+          const src = dim ? dimmed(pic) : pic;
+          const b = tile && pic.width === W && pic.height === H ? seamBleed(c.getTransform().a) : 0;
+          if (b) c.drawImage(src, x - b / 2, y - b / 2, W + b, H + b);
+          else c.drawImage(src, x, y);
+        },
+        [x, y, pic.width, pic.height],
+      ),
     diamond: (x, y, color, alpha) =>
-      calls.push((c) => {
+      push((c) => {
         c.globalAlpha = alpha;
         c.fillStyle = css(color);
         c.beginPath();
@@ -681,7 +711,7 @@ function canvasPen(host: HTMLElement, width: number, height: number, background 
         c.globalAlpha = 1;
       }),
     road: (x, y, color, path, width = H / 32, alpha = 1) =>
-      calls.push((c) => {
+      push((c) => {
         c.globalAlpha = alpha;
         c.strokeStyle = css(color);
         c.lineWidth = width;
@@ -691,14 +721,14 @@ function canvasPen(host: HTMLElement, width: number, height: number, background 
         c.globalAlpha = 1;
       }),
     rect: (x, y, w, h, color, alpha = 1) =>
-      calls.push((c) => {
+      push((c) => {
         c.globalAlpha = alpha;
         c.fillStyle = css(color);
         c.fillRect(x, y, w, h);
         c.globalAlpha = 1;
       }),
     line: (x1, y1, x2, y2, color, width = 1, alpha = 1) =>
-      calls.push((c) => {
+      push((c) => {
         c.globalAlpha = alpha;
         c.strokeStyle = css(color);
         c.lineWidth = width;
@@ -711,7 +741,7 @@ function canvasPen(host: HTMLElement, width: number, height: number, background 
         c.lineCap = 'butt';
       }),
     outline: (paths, color, width, alpha) =>
-      calls.push((c) => {
+      push((c) => {
         c.globalAlpha = alpha;
         c.strokeStyle = css(color);
         c.lineWidth = width;
@@ -728,7 +758,7 @@ function canvasPen(host: HTMLElement, width: number, height: number, background 
         c.lineJoin = 'miter';
       }),
     circle: (x, y, r, fill, outline, outlineAlpha) =>
-      calls.push((c) => {
+      push((c) => {
         c.beginPath();
         c.arc(x, y, r, 0, 2 * Math.PI);
         c.fillStyle = css(fill);
@@ -740,7 +770,7 @@ function canvasPen(host: HTMLElement, width: number, height: number, background 
         c.globalAlpha = 1;
       }),
     text: (s, x, y, style, center) =>
-      calls.push((c) => {
+      push((c) => {
         c.font = fontOf(style);
         c.textAlign = center ? 'center' : 'left';
         c.textBaseline = 'top';
@@ -766,6 +796,15 @@ function canvasPen(host: HTMLElement, width: number, height: number, background 
       mark = alpha;
     },
     show: (dx, dy, scale) => {
+      const key = `${dx},${dy},${scale},${actor.dx},${actor.dy},${actor.alpha},${fog},${mark}`;
+      if (!changed && key === shownKey) return;
+      changed = false;
+      shownKey = key;
+      // What is on the screen, in map pixels, with a tile and a bit of room for what slides and bleeds.
+      const left = -dx / scale - 2 * W;
+      const top = -dy / scale - 2 * H;
+      const right = (width - dx) / scale + 2 * W;
+      const bottom = (height - dy) / scale + 2 * H;
       // The transform carries the pixel ratio, so the drawing code works in CSS pixels.
       c.setTransform(ratio, 0, 0, ratio, 0, 0);
       c.fillStyle = '#000';
@@ -781,12 +820,21 @@ function canvasPen(host: HTMLElement, width: number, height: number, background 
         }
         if (n === 3) c.globalAlpha = fog;
         if (n === 4) c.globalAlpha = mark;
-        for (const call of layer) call(c);
+        for (const call of layer) {
+          const b = call.box;
+          // The slide moves the third layer by up to its offset: that much room too.
+          const ox = n === 2 ? actor.dx : 0;
+          const oy = n === 2 ? actor.dy : 0;
+          if (b && (b[0] + ox > right || b[0] + ox + b[2] < left || b[1] + oy > bottom || b[1] + oy + b[3] < top))
+            continue;
+          call(c);
+        }
         c.restore();
       });
     },
     resize: (w, h) => {
       ratio = ratioAt(quality);
+      changed = true;
       setSize(w, h);
     },
   };

@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vite-plus/test';
-import { backingSize, borderPaths, pixelRatio, seamBleed, tileAt } from './map';
+import { describe, expect, it, vi } from 'vite-plus/test';
+import { backingSize, borderPaths, canvasPen, dimmed, pixelRatio, seamBleed, tileAt } from './map';
 
 // A 2x4 map of 128x64 diamonds in staggered rows, odd rows half a tile to
 // the right. Tile (0,0)'s diamond spans x 0..128 and y 0..64 with its centre
@@ -98,5 +98,76 @@ describe('seamBleed', () => {
   it('overlaps a device pixel and a half between them', () => {
     expect(seamBleed(0.5)).toBeCloseTo(3);
     expect(seamBleed(1.5)).toBeCloseTo(1);
+  });
+});
+
+describe('dimmed', () => {
+  it('filters a picture once and hands back the same copy after', () => {
+    const filtered: string[] = [];
+    const drawn: unknown[] = [];
+    const context = {
+      set filter(v: string) {
+        filtered.push(v);
+      },
+      drawImage: (pic: unknown) => drawn.push(pic),
+    };
+    vi.stubGlobal('document', { createElement: () => ({ getContext: () => context }) });
+    try {
+      const pic = { width: 128, height: 64 } as HTMLCanvasElement;
+      const first = dimmed(pic);
+      expect(dimmed(pic)).toBe(first);
+      expect(first).not.toBe(pic);
+      expect(filtered).toEqual(['brightness(0.8)']);
+      expect(drawn).toEqual([pic]);
+      expect(dimmed({ width: 128, height: 64 } as HTMLCanvasElement)).not.toBe(first);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
+
+describe('canvasPen', () => {
+  /** A pen on a 400x300 canvas whose context counts the images it draws. */
+  const penOnFakeCanvas = () => {
+    const drawn: number[][] = [];
+    const context = {
+      setTransform: () => {},
+      save: () => {},
+      restore: () => {},
+      translate: () => {},
+      fillRect: () => {},
+      clearRect: () => {},
+      drawImage: (_pic: unknown, x: number, y: number) => drawn.push([x, y]),
+    };
+    const canvas = { style: {}, getContext: () => context };
+    vi.stubGlobal('document', { createElement: () => canvas });
+    vi.stubGlobal('window', { devicePixelRatio: 1 });
+    const pic = { width: 128, height: 64 } as HTMLCanvasElement;
+    const pen = canvasPen({ append: () => {} } as unknown as HTMLElement, 400, 300, false, 0);
+    return { pen, pic, drawn };
+  };
+
+  it('draws only the images on the screen, and draws again only for a change', () => {
+    const { pen, pic, drawn } = penOnFakeCanvas();
+    try {
+      pen.begin(0);
+      pen.image(pic, 10, 10, false);
+      pen.image(pic, 5000, 5000, false);
+      pen.show(0, 0, 1);
+      expect(drawn).toEqual([[10, 10]]);
+      pen.show(0, 0, 1);
+      expect(drawn).toHaveLength(1);
+      pen.show(-5000, -5000, 1);
+      expect(drawn).toEqual([
+        [10, 10],
+        [5000, 5000],
+      ]);
+      pen.show(-5000, -5000, 1);
+      pen.marker(0.5);
+      pen.show(-5000, -5000, 1);
+      expect(drawn).toHaveLength(3);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
