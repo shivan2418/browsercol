@@ -299,7 +299,7 @@ export function priceTip(g: Goods, market: ColonyView['market']): string | null 
   const m = market?.find((p) => p.type === g.type);
   if (!m) return null;
   if (!m.enabled) return `${g.name}: ${g.amount} \u00b7 ${(m.reason ?? 'boycotted').replace(/\s*[^.!?]*\?\s*$/, '')}`;
-  return `${g.name}: ${g.amount} \u00b7 Europe buys at ${m.sell}, sells at ${m.buy} \u00b7 worth ${g.amount * m.sell}`;
+  return `${g.name}: ${m.sell}/${m.buy}/${g.amount * m.sell}`;
 }
 
 const Units = ({ units, art }: { units: UnitRef[]; art: Art }) => units.map((u) => <Unit key={u.id} u={u} art={art} />);
