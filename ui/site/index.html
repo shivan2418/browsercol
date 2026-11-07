@@ -267,6 +267,50 @@
         color: var(--head);
       }
 
+      /* The roadmap: three stages left to right, joined by a rule, stacked on narrow screens. */
+      .roadmap {
+        list-style: none;
+        margin: 0 0 12px;
+        padding: 0;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 14px;
+      }
+      .roadmap > li {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-top: 6px solid var(--line);
+        border-radius: 4px;
+        padding: 14px 16px;
+      }
+      .roadmap > li.now {
+        border-top-color: var(--accent);
+      }
+      .roadmap h3 {
+        margin: 0 0 8px;
+        font: 700 1.6rem/1.2 var(--font-title);
+        letter-spacing: 0.06em;
+        color: var(--head);
+      }
+      .roadmap h3 span {
+        display: block;
+        font: 700 0.75rem/1.4 var(--font);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .roadmap .now h3 span {
+        color: var(--accent);
+      }
+      .roadmap p {
+        margin: 0;
+        font-size: 0.95rem;
+        line-height: 1.5;
+      }
+      #roadmap .note a {
+        color: var(--link);
+      }
+
       details {
         background: var(--panel);
         border: 1px solid var(--line);
@@ -367,6 +411,7 @@
       <div class="wrap">
         <img src="./brand/icon.svg" alt="BrowserCol" width="30" height="30" />
         <nav aria-label="Site">
+          <a href="#roadmap">Roadmap</a>
           <a href="#faq">FAQ</a>
           <a href="https://github.com/shivan2418/browsercol/releases">Changes</a>
           <a href="https://github.com/shivan2418/browsercol">Source</a>
@@ -385,7 +430,7 @@
         </div>
         <div class="actions">
           <a class="play" href="play/">Play</a>
-          <p class="note">Free. Runs in current Chrome, Edge and Firefox on a computer.</p>
+          <p class="note">Free. Runs in current Chrome and Firefox on a computer.</p>
         </div>
         <figure class="shot">
           <img
@@ -414,6 +459,28 @@
         </ul>
       </section>
 
+      <section aria-labelledby="roadmap-h" id="roadmap">
+        <h2 id="roadmap-h">Roadmap</h2>
+        <ol class="roadmap">
+          <li class="now">
+            <h3><span>Now: in beta</span>1.0</h3>
+            <p>FreeCol 1.2, faithfully, in the browser. The same rules, the same AI and the same game.</p>
+          </li>
+          <li>
+            <h3><span>Next</span>1.1</h3>
+            <p>Still FreeCol, with many quality-of-life additions, a better AI and optional new graphics.</p>
+          </li>
+          <li>
+            <h3><span>Later</span>2.0</h3>
+            <p>An evolution that is no longer the same game. It adds slavery, mixed cargo holds and more.</p>
+          </li>
+        </ol>
+        <p class="note">
+          Plans change. What is being worked on is in the
+          <a href="https://github.com/shivan2418/browsercol/issues">issue tracker</a>.
+        </p>
+      </section>
+
       <section aria-labelledby="faq-h" id="faq">
         <h2 id="faq-h">Questions</h2>
         <details>
@@ -429,7 +496,7 @@
           <summary>Which browsers does it work in?</summary>
           <div>
             <p>
-              Current Chrome, Edge and Firefox on a desktop or laptop. It needs a browser with WebAssembly GC, which the
+              Current Chrome and Firefox on a desktop or laptop. It needs a browser with WebAssembly GC, which the
               current versions have. It is not made for phones yet.
             </p>
           </div>
