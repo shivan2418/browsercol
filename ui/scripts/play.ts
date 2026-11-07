@@ -920,6 +920,40 @@ async function play(page: Page, url: string) {
       .locator('[data-goods]')
       .evaluateAll((es) => es.find((e) => Number(e.querySelector('.amount')?.textContent) > 0)?.dataset.goods ?? null);
     if (!goods) throw new Error('the colony has no goods in its warehouse to load');
+    // A plain drag with the real mouse (#358): hit-tested at the pointer's position, with moves in between. The
+    // goods of the warehouse go aboard the ship's cargo, and back; a ghost that took the release would lose it.
+    const realDrag = async (from: Locator, to: Locator, what: string) => {
+      await from.scrollIntoViewIfNeeded();
+      await to.scrollIntoViewIfNeeded();
+      const [a, b, view] = [await from.boundingBox(), await to.boundingBox(), page.viewportSize()];
+      const inside = (r: typeof a) => r && view && r.y >= 0 && r.y + r.height <= view.height;
+      if (!a || !b || !inside(a) || !inside(b)) throw new Error(`${what}: the drag's ends are not both on screen`);
+      const [sx, sy, tx, ty] = [a.x + a.width / 2, a.y + a.height / 2, b.x + b.width / 2, b.y + b.height / 2];
+      await page.mouse.move(sx, sy);
+      await page.mouse.down();
+      await page.mouse.move(sx + 10, sy + 10, { steps: 3 });
+      await page.mouse.move(tx, ty, { steps: 10 });
+      await page.mouse.up();
+    };
+    await realDrag(warehouse.locator(`[data-goods="${goods}"]`), cargo, 'goods to the cargo');
+    await cargo
+      .locator(`[data-goods="${goods}"]`)
+      .first()
+      .waitFor({ timeout: 20000, label: "a plain real-mouse drag shows the goods in the ship's cargo" })
+      .catch(() => {
+        throw new Error(`a plain drag of ${goods} onto the ship's cargo did not load it`);
+      });
+    await realDrag(cargo.locator(`[data-goods="${goods}"]`).first(), warehouse, 'cargo to the warehouse');
+    await page
+      .waitForFunction(
+        ([ship]) => !document.querySelector(`[data-part=cargo][data-ship="${ship}"] [data-goods]`),
+        [shipId],
+        { timeout: 20000, label: "a plain real-mouse drag empties the ship's cargo" },
+      )
+      .catch(() => {
+        throw new Error(`a plain drag of ${goods} onto the warehouse did not unload it`);
+      });
+    console.log('  colony panel: a real-mouse drag loads goods onto the ship and unloads them');
     const before = await page.evaluate(() => window.__dialogs.length);
     await dropBoth(passenger, goods, shipId);
     await cargo

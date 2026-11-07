@@ -68,7 +68,13 @@ const mark = (el: Element | null) => {
 
 /** What a copy of the dragged thing does not take from it: where it sat on the page, and how it moved there. */
 const PLACED =
-  /^(position|inset|top|right|bottom|left|margin|float|transform|translate|rotate|scale|zoom|transition|animation|pointer-events)/;
+  /^(position|inset|top|right|bottom|left|margin|float|transform|translate|rotate|scale|zoom|transition|animation)/;
+/**
+ * What no part of the copy takes from its original, root or not: its pointer events. Every part is made to take
+ * none (lookOf), as one given its original's `auto` would take the pointer's release, which would not reach the
+ * place under the ghost (#358).
+ */
+const INERT = /^pointer-events$/;
 
 /**
  * Give a copy the look its original has where it is drawn: the panel's styles hang on its window and its
@@ -78,10 +84,11 @@ function lookOf(from: Element, to: Element, root: boolean) {
   const look = getComputedStyle(from);
   const style = (to as HTMLElement).style;
   for (const name of Array.from(look)) {
-    if (!(root && PLACED.test(name))) style.setProperty(name, look.getPropertyValue(name));
+    if (!INERT.test(name) && !(root && PLACED.test(name))) style.setProperty(name, look.getPropertyValue(name));
   }
   style.setProperty('transition', 'none');
   style.setProperty('animation', 'none');
+  style.setProperty('pointer-events', 'none');
   for (let i = 0; i < from.children.length; i++) lookOf(from.children[i], to.children[i], false);
 }
 

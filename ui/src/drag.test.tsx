@@ -96,6 +96,24 @@ describe('a drag with the pointer', () => {
     expect(drops).toEqual([]);
   });
 
+  it('carries a copy that takes no pointer events anywhere in it, as what sits under it must get the release (#358)', () => {
+    render(
+      <div>
+        <span id="goods" {...things.source(() => 'all')}>
+          <b style={{ pointerEvents: 'auto' }}>
+            <i style={{ pointerEvents: 'auto' }}>50</i>
+          </b>
+        </span>
+      </div>,
+    );
+    fireEvent.pointerDown($('goods'), { clientX: 0, clientY: 0 });
+    fireEvent.pointerMove($('goods'), { clientX: 30, clientY: 0 });
+    const ghost = document.querySelector<HTMLElement>('.drag-ghost')!;
+    // The page's own style makes the ghost's root take none; its descendants inherit that, unless the copy set theirs.
+    for (const e of ghost.querySelectorAll<HTMLElement>('*')) expect(e.style.pointerEvents).not.toBe('auto');
+    fireEvent.pointerUp($('goods'), { clientX: 30, clientY: 0 });
+  });
+
   it('puts the thing back on Escape, which goes no further', () => {
     const drops: string[] = [];
     const keys: string[] = [];
