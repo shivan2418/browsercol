@@ -143,7 +143,9 @@ const geoCache = {};
 function geo(view) {
   if (geoCache[view]) return geoCache[view];
   const P = projector(...VIEWS[view]);
-  return (geoCache[view] = { land: polys(LAND, P), water: polys(WATER, P), grid: graticule(P) });
+  // The new world's globe leaves the old world off, so Africa and Europe don't peek in at its eastern rim.
+  const newWorld = view === 'americas', land = newWorld ? LAND.filter((_, i) => i < 5 || i === 11) : LAND, water = newWorld ? WATER.slice(0, 1) : WATER;
+  return (geoCache[view] = { land: polys(land, P), water: polys(water, P), grid: graticule(P) });
 }
 
 // ---------- one wooden globe ----------
@@ -154,7 +156,7 @@ function globeBody(view, st, cx = 50, cy = 50) {
   const id = 'g' + uid++, G = geo(view), R = 46;
   const oFill = st.oceanFill ?? `url(#${id}o)`, lFill = st.landHatch ? `url(#${id}lh)` : st.landFill ?? `url(#${id}l)`;
   const defs = [
-    st.landHatch ? `<pattern id="${id}lh" patternUnits="userSpaceOnUse" width="2.6" height="2.6" patternTransform="rotate(-35)"><rect width="2.6" height="2.6" fill="${st.oceanFill}"/><line x1="0" y1="0" x2="0" y2="2.6" stroke="${st.landHatch}" stroke-width=".8"/></pattern>` : '',
+    st.landHatch ? `<pattern id="${id}lh" patternUnits="userSpaceOnUse" width="2.6" height="2.6" patternTransform="rotate(-35)"><rect width="2.6" height="2.6" fill="${st.oceanFill}"/><line x1="0" y1="0" x2="0" y2="2.6" stroke="${st.landHatch}" stroke-width="${st.landHatchW ?? 0.8}"/></pattern>` : '',
     st.rough ? `<filter id="${id}r" x="0" y="0" width="100" height="100" filterUnits="userSpaceOnUse"><feTurbulence type="fractalNoise" baseFrequency="0.12" numOctaves="2" seed="4"/><feDisplacementMap in="SourceGraphic" scale="${st.rough}" xChannelSelector="R" yChannelSelector="G"/></filter>` : '',
     st.ocean ? pat(id + 'o', st.ocean, st.oSeed ?? 3, st.oRot ?? -18) : '',
     st.land ? pat(id + 'l', st.land, st.lSeed ?? 9, st.lRot ?? 62) : '',
@@ -171,7 +173,7 @@ function globeBody(view, st, cx = 50, cy = 50) {
   const ripple = st.ripple ? [6, 4, 2.2].map((w) => `<path d="${G.land}" fill="none" stroke="${st.ripple}" stroke-width="${w}" stroke-linejoin="round"/><path d="${G.land}" fill="none" stroke="${st.oceanFill}" stroke-width="${w - 0.55}" stroke-linejoin="round"/>`).join('') : '';
   const body = `<g clip-path="url(#${id}c)">
       <path d="${disc}" fill="${oFill}"/>${tint(st.oTint, disc)}${st.hatch ? `<path d="${disc}" fill="url(#${id}h)"/>` : ''}${ripple}
-      ${st.gridUnder ? `<path d="${G.grid}" fill="none" stroke="${st.grid}" stroke-width=".55" opacity="${st.gridO ?? 0.5}"/>` : ''}
+      ${st.gridUnder ? `<path d="${G.grid}" fill="none" stroke="${st.grid}" stroke-width="${st.gridW ?? 0.55}" opacity="${st.gridO ?? 0.5}"/>` : ''}
       ${land}${tint(st.lTint, G.land)}${water}
       ${st.burn ? `<path d="${G.land}" fill="${st.burn}" opacity=".5" style="mix-blend-mode:multiply"/>` : ''}
       ${!st.gridUnder && st.grid ? `<path d="${G.grid}" fill="none" stroke="${st.grid}" stroke-width=".5" opacity="${st.gridO ?? 0.35}"/>` : ''}
@@ -186,13 +188,14 @@ function globe(size, view, st) {
   const g = globeBody(view, st), e = st.ring ? 4 : 2;
   return `<svg viewBox="${-e} ${-e} ${100 + 2 * e} ${100 + 2 * e}" width="${size}" height="${size}" aria-hidden="true"><defs>${g.defs}</defs>${g.body}</svg>`;
 }
-/** The favicon: the Americas behind, the old world in front and overlapping it a little. */
-const OVERLAP = 0.2;
-function pair(size, st, frontLeft = false) {
+/** The favicon: the Americas in front, overlapping the old world. */
+const OVERLAP = 0.3;
+function pair(size, st, frontLeft = true) {
   const dx = 92 * (1 - OVERLAP), W = 100 + dx, a = globeBody('americas', st, 50, 50), b = globeBody('oldworld', st, 50 + dx, 50);
   const gap = st.gap ?? '#1a0e05', e = st.ring ? 4 : 2;
-  const back = frontLeft ? b : a, front = frontLeft ? a : b, fx = frontLeft ? 50 : 50 + dx;
-  return `<svg viewBox="${-e} ${50 - W / 2 - e} ${W + 2 * e} ${W + 2 * e}" width="${size}" height="${size}" aria-hidden="true"><defs>${a.defs}${b.defs}</defs>${back.body}<circle cx="${fx}" cy="50" r="${46 + (st.ring ? 5 : 2.6)}" fill="${gap}" opacity=".85"/>${front.body}</svg>`;
+  const back = frontLeft ? b : a, front = frontLeft ? a : b, fx = frontLeft ? 50 : 50 + dx, bx = frontLeft ? 50 + dx : 50, cid = 'gap' + uid++;
+  // The gap ring round the front globe only shows where it lies over the back one, not as a halo outside it.
+  return `<svg viewBox="${-e} ${50 - W / 2 - e} ${W + 2 * e} ${W + 2 * e}" width="${size}" height="${size}" aria-hidden="true"><defs>${a.defs}${b.defs}<clipPath id="${cid}"><circle cx="${bx}" cy="50" r="46"/></clipPath></defs>${back.body}<circle cx="${fx}" cy="50" r="${46 + (st.ring ? 5 : 2.6)}" fill="${gap}" opacity=".85" clip-path="url(#${cid})"/>${front.body}</svg>`;
 }
 /** Space either side of a globe, as a share of the cap height; negative pulls the neighbours in past their side bearings. */
 const GLOBE_MARGIN = -0.035;
@@ -304,7 +307,7 @@ function show(key) {
   const v = VARIANTS[key], many = Array.isArray(FONT?.[0]), f = many ? FONT[0] : FONT ?? FONTS.find((x) => x[0] === 'cinzel-reg');
   document.body.style.background = v.page ?? '#1d4357';
   const label = v.labelInk ?? '#cfe0e8';
-  const favs = `<div style="display:flex;gap:28px;align-items:center">${pair(150, v.st)}<span style="color:${label};font-size:13px">favicon (Americas behind)</span>${pair(150, v.st, true)}<span style="color:${label};font-size:13px">(Americas in front)</span></div>`;
+  const favs = `<div style="display:flex;gap:28px;align-items:center">${pair(150, v.st)}<span style="color:${label};font-size:13px">favicon (Americas in front)</span>${pair(150, v.st, false)}<span style="color:${label};font-size:13px">(Americas behind)</span></div>`;
   const hero = many
     ? `<div style="display:grid;justify-items:center;gap:22px">${FONT.map((x) => `<figure style="margin:0 0 18px;display:grid;justify-items:center;gap:12px">${board(v, x, 64)}<figcaption style="color:${label};font-size:13px">${x[1]}</figcaption></figure>`).join('')}${favs}</div>`
     : FONT
