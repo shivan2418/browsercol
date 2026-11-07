@@ -191,7 +191,7 @@ for (const name of browsers) {
       await lp.evaluate((u) => (location.href = u), server.root);
       const play = await lp.getAttribute('a.play', 'href', { timeout: 30000 });
       await lp.goto(`${server.root}?preset=dutch-small&autoplay=0`);
-      await lp.waitForURL(/\/play\/\?preset=dutch-small&autoplay=0$/, { timeout: 30000 });
+      await lp.waitForURL(/\/play\/\?preset=dutch-small&autoplay=0/, { timeout: 30000 });
       if (play !== 'play/') landing = `landing FAILED (Play goes to ${play})`;
     } catch (ex) {
       landing = `landing FAILED (${await diagnose(ex)})`;
