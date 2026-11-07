@@ -669,7 +669,8 @@ class ReportsTest {
         }
         final List<net.sf.freecol.common.model.IndianSettlement> known = tribe.getIndianSettlementList();
         if (known.stream().anyMatch(net.sf.freecol.common.model.IndianSettlement::isCapital)) {
-            assertTrue(((String)rows.get(0).get("name")).contains("*"));
+            assertEquals(Boolean.TRUE, rows.get(0).get("capital"));
+            assertFalse(((String)rows.get(0).get("name")).contains("*"));
         }
         assertEquals(6, list(obj(report.get("labels")).get("columns")).size());
     }

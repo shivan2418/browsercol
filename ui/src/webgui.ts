@@ -1104,6 +1104,9 @@ export type ReportView =
         tension: string;
         /** What to say of a tribe with no known settlement. */
         none: string;
+        /** The tags FreeCol marks with "*" and "$". */
+        capital: string;
+        scout: string;
         /** The settlement table's headings. */
         columns: string[];
       };
@@ -1123,6 +1126,10 @@ export type ReportView =
           /** Where the settlement is, for the link. */
           at: [number, number];
           name: string;
+          /** The tribe's capital (FreeCol's "*"). */
+          capital: boolean;
+          /** Worth sending a scout to (FreeCol's "$"). */
+          scout: boolean;
           mission: { text: string; keys: string[] } | null;
           alarm: string;
           /** The skill taught, with its image once visited. */

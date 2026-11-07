@@ -1306,9 +1306,11 @@ final class Reports {
             for (IndianSettlement is : ordered) {
                 final boolean visited = is.hasVisited(player);
                 final boolean contacted = is.hasContacted(player);
-                String name = Messages.message(is.getLocationLabelFor(player));
-                if (is.getTile().isExplored() && is.isCapital()) name += "*";
-                if (is.worthScouting(player)) name += "$";
+                // FreeCol appends "*" for a capital and "$" for a settlement worth scouting to the name; the
+                // page shows them as labelled tags instead, so they are sent as flags.
+                final String name = Messages.message(is.getLocationLabelFor(player));
+                final boolean capital = is.getTile().isExplored() && is.isCapital();
+                final boolean scout = is.worthScouting(player);
                 final Unit missionary = is.getMissionary();
                 final UnitType skill = is.getLearnableSkill();
                 final List<String> wanted = new ArrayList<>();
@@ -1320,6 +1322,8 @@ final class Reports {
                 rows.add(new Json().put("id", is.getTile().getId())
                     .putRaw("at", MapJson.xy(is.getTile()))
                     .put("name", name)
+                    .put("capital", capital)
+                    .put("scout", scout)
                     .putRaw("mission", (missionary == null) ? "null"
                         : labelled(Messages.message(missionary.getLabel(Unit.UnitLabelType.NATIONAL)),
                             missionary.getType()))
@@ -1351,6 +1355,9 @@ final class Reports {
                 .put("settlements", Messages.message("report.indian.numberOfSettlements"))
                 .put("tension", Messages.message("report.indian.tribeTension"))
                 .put("none", Messages.message("report.indian.noKnownSettlements"))
+                .put("capital", Messages.message("capital"))
+                // No FreeCol string says this; FreeCol shows only a "$".
+                .put("scout", "Not yet visited by a scout")
                 .putRaw("columns", Json.array(List.of(
                     Json.quote(Messages.message("settlement")),
                     Json.quote(Messages.message("mission")),

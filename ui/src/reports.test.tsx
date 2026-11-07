@@ -687,6 +687,8 @@ describe('the native affairs report', () => {
       settlements: 'Number',
       tension: 'Tension',
       none: 'No known settlements.',
+      capital: 'Capital',
+      scout: 'Not yet visited by a scout',
       columns: ['Settlement', 'Mission', 'Tension', 'Skill', 'Most hated', 'Trade'],
     },
     tribes: [
@@ -702,7 +704,9 @@ describe('the native affairs report', () => {
           {
             id: 'tile:5',
             at: [5, 6],
-            name: 'Cuzco*',
+            name: 'Cuzco',
+            capital: true,
+            scout: true,
             mission: { text: 'Jesuit Missionary', keys: [] },
             alarm: 'Wary',
             skill: { text: 'Free Colonist', keys: ['image.unit.model.unit.freeColonist'] },
@@ -735,7 +739,12 @@ describe('the native affairs report', () => {
     const aztec = document.querySelector('section[data-tribe="p:10"]') as HTMLElement;
     expect(aztec.textContent).toContain('No known settlements.');
     expect(aztec.querySelector('table')).toBeNull();
-    fireEvent.click(within(inca).getByRole('button', { name: 'Cuzco*' }));
+    const name = inca.querySelector('tr[data-settlement="tile:5"] td') as HTMLElement;
+    expect([...name.querySelectorAll('.tag')].map((t) => t.textContent)).toEqual([
+      'Capital',
+      'Not yet visited by a scout',
+    ]);
+    fireEvent.click(within(inca).getByRole('button', { name: 'Cuzco' }));
     expect(calls).toEqual(['goTo 5,6']);
   });
 });

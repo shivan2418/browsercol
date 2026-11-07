@@ -419,7 +419,6 @@
   color: var(--head);
   text-align: center;
   vertical-align: bottom;
-  background: var(--box);
 }
 .dialog .report .foreign thead th .pic {
   display: block;
@@ -496,4 +495,14 @@
   width: 24px;
   height: 24px;
   vertical-align: middle;
+}
+/* The trade goods stay on one line: wrapped, the third sat under the first and touched the row above. */
+.dialog .report .indian td[data-cell='wanted'] {
+  white-space: nowrap;
+}
+/* What FreeCol marks with "*" (capital) and "$" (worth scouting) after a settlement's name. */
+.dialog .report .indian .tag {
+  display: block;
+  font-size: 0.8em;
+  color: var(--muted);
 }

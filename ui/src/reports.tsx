@@ -982,6 +982,8 @@ function IndianReport({ e, art, go }: { e: View<'indian'>; art: Art; go: Links }
                       <Link go={() => go.goTo(r.at)} data-link={r.id}>
                         {r.name}
                       </Link>
+                      {r.capital && <span className="tag">{e.labels.capital}</span>}
+                      {r.scout && <span className="tag">{e.labels.scout}</span>}
                     </td>
                     <td data-cell="mission">
                       {r.mission && <Img keys={r.mission.keys} art={art} title={r.mission.text} />}
