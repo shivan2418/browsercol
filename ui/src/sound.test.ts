@@ -226,4 +226,35 @@ describe('soundPlayer', () => {
     player.startPlaylist();
     expect(playing()).toEqual(['audio/default/resources/music/default/tailwind.ogg']);
   });
+
+  it('downloads no music while the music volume is 0, and starts the music asked for when it is raised (#347)', () => {
+    const { player, made, playing } = setup();
+    player.setVolumes({ music: 0, effects: 100 });
+    player.play('sound.intro.general');
+    player.startPlaylist();
+    expect(made.map((a) => a.src)).toEqual(['', '']);
+    expect(playing()).toEqual([]);
+    player.setVolumes({ music: 50, effects: 100 });
+    expect(playing()).toEqual(['audio/base/resources/sound/intro.ogg']);
+  });
+
+  it('stops the music when it is silenced, and plays it again when it is raised', () => {
+    const { player, playing } = setup();
+    player.setVolumes({ music: 50, effects: 100 });
+    player.play('sound.intro.general');
+    player.setVolumes({ music: 0, effects: 100 });
+    expect(playing()).toEqual([]);
+    player.setHidden(true);
+    player.setHidden(false);
+    expect(playing()).toEqual([]);
+    player.setVolumes({ music: 50, effects: 100 });
+    expect(playing()).toEqual(['audio/base/resources/sound/intro.ogg']);
+  });
+
+  it('downloads no sound effect while the effects volume is 0', () => {
+    const { player, made } = setup();
+    player.setVolumes({ music: 50, effects: 0 });
+    player.play('sound.event.loadCargo');
+    expect(made[1]!.src).toBe('');
+  });
 });

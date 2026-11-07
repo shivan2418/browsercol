@@ -55,6 +55,11 @@ export function soundPlayer(manifest: AudioManifest, deps: SoundPlayerDeps): Sou
   let playlistOn = false;
   let hidden = false;
   let waiting = false;
+  /** A volume of 0 (muted): nothing of that kind is fetched, as a file nobody can hear is bytes for nothing (#347). */
+  let musicQuiet = false;
+  let effectsQuiet = false;
+  /** The music file asked for, while it plays or while the music is quiet; it starts when the music is audible again. */
+  let current: string | null = null;
   /** Music the browser refused while the start screen waited for a choice. */
   let pending: (() => void) | null = null;
   /** The playlist's tracks still to play this round. */
@@ -68,6 +73,9 @@ export function soundPlayer(manifest: AudioManifest, deps: SoundPlayerDeps): Sou
   /** Music the browser refuses, as it does until the player has clicked or pressed a key, starts after that. */
   const startMusic = (file: string) => {
     musicOn = true;
+    current = file;
+    // Music asked for while the volume is 0 is not downloaded: it starts when the volume is raised.
+    if (musicQuiet) return;
     // Music asked for while the page is hidden waits for it to show.
     if (hidden) {
       music.pause();
@@ -102,11 +110,20 @@ export function soundPlayer(manifest: AudioManifest, deps: SoundPlayerDeps): Sou
       if (sound.music) {
         queue = []; // SoundPlayer.stop: the playlist starts afresh after this music
         startMusic(sound.file);
-      } else start(effects, sound.file).catch(() => {});
+      } else if (!effectsQuiet) start(effects, sound.file).catch(() => {});
     },
     setVolumes(v) {
       music.volume = amplitude(v.music);
       effects.volume = amplitude(v.effects);
+      effectsQuiet = v.effects <= 0;
+      if (effectsQuiet) effects.pause();
+      const quiet = v.music <= 0;
+      if (quiet === musicQuiet) return;
+      musicQuiet = quiet;
+      if (quiet) {
+        // Silenced: the track stops, and starts again from its beginning once the music is back.
+        music.pause();
+      } else if (musicOn && current) startMusic(current);
     },
     setHidden(h) {
       if (h === hidden) return;
@@ -114,7 +131,7 @@ export function soundPlayer(manifest: AudioManifest, deps: SoundPlayerDeps): Sou
       if (h) {
         music.pause();
         effects.pause();
-      } else if (musicOn && music.src) {
+      } else if (musicOn && music.src && !musicQuiet) {
         music.play().catch((ex: unknown) => {
           if (!(ex instanceof DOMException && ex.name === 'NotAllowedError')) return;
           afterGesture(() => {
