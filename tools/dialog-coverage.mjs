@@ -20,6 +20,14 @@ const countsDir = join(repo, process.argv[2] ?? '.cache/coverage');
 const outFile = join(repo, process.argv[3] ?? 'docs/parity/dialog-coverage.md');
 const SCRIPTS = ['smoke', 'play', 'saves', 'europe', 'debug', 'tileset'];
 
+// WebGUI dialogs the browser never shows, with the reason: Swing-only or debug and map-editor dialogs that a Browser UI
+// window of its own replaces (they report `unasked` if the Engine ever calls them). They are listed apart, not as never reached.
+const UNUSED = {
+  showClientOptionsDialog: 'Swing\'s options window; the Browser UI has its own Preferences window (the Browser UI row of this name), which the play script opens',
+  showEditOptionDialog: 'Swing\'s editor of one option in the option dialogs; the Browser UI edits options in place in its option editor',
+  showEditSettlementDialog: 'FreeCol\'s map editor, to edit a native settlement; the browser has no map editor',
+};
+
 const walk = (dir) =>
   readdirSync(dir).flatMap((f) => {
     const p = join(dir, f);
@@ -67,7 +75,8 @@ const known = new Set(rows.map((r) => r.key));
 const strays = [...new Set(Object.values(found).flatMap((b) => Object.values(b).flatMap((c) => Object.keys(c))))].filter((k) => !known.has(k)).sort();
 
 rows.sort((a, b) => (a.total === 0) - (b.total === 0) || (a.total === 0 ? a.name.localeCompare(b.name) : b.total - a.total || a.name.localeCompare(b.name)));
-const never = rows.filter((r) => r.total === 0);
+const unused = rows.filter((r) => r.kind === 'WebGUI' && r.name in UNUSED);
+const never = rows.filter((r) => r.total === 0 && !unused.includes(r));
 
 const out = [];
 out.push('# Dialog coverage', '');
@@ -76,17 +85,19 @@ out.push('Each row is a dialog or question the game can ask. *WebGUI* rows are t
 out.push('they run in a real game; *Browser UI* rows are panels the page shows by itself that Swing opens from its own UI, named for');
 out.push('the Swing GUI method. Counts are summed over the browsers a script ran in. Counting is on only for the scripts: they install');
 out.push('`window.fcCoverageHit`, and a page without it counts nothing. `dialogs.ts` is a helper the scripts share, not a script.', '');
-out.push(`- ${rows.length} dialogs (${engineNames.length} WebGUI, ${uiNames.length} Browser UI); ${rows.length - never.length} reached, ${never.length} never reached`);
+out.push(`- ${rows.length} dialogs (${engineNames.length} WebGUI, ${uiNames.length} Browser UI); ${rows.length - never.length - unused.length} reached, ${never.length} never reached, ${unused.length} not used in the browser`);
 for (const s of scripts) {
   out.push(`- \`${s}\`: ${found[s] ? `ran in ${browsersOf(s)}` : 'no counts (not run)'}`);
 }
 out.push('', `## Never reached (${never.length})`, '');
 for (const r of never) out.push(`- \`${r.name}\` (${r.kind}${r.swing ? `, Swing opens it from ${r.swing} place${r.swing > 1 ? 's' : ''}` : ''})`);
+out.push('', `## Not used in the browser (${unused.length})`, '');
+for (const r of unused) out.push(`- \`${r.name}\` (WebGUI): ${UNUSED[r.name]}${r.total ? ` (reached ${r.total} times)` : ''}`);
 if (strays.length) out.push('', '## Counted but not in the list', '', ...strays.map((k) => `- \`${k}\``));
-out.push('', '## All dialogs, never reached first', '');
+out.push('', '## All dialogs, never reached first (those not used in the browser are marked)', '');
 out.push(`| Dialog | Kind | Swing sites | ${scripts.join(' | ')} | Total |`);
 out.push(`|---|---|---:|${scripts.map(() => '---:').join('|')}|---:|`);
-for (const r of rows) out.push(`| \`${r.name}\` | ${r.kind} | ${r.swing || ''} | ${r.per.map((n) => n || '').join(' | ')} | ${r.total} |`);
+for (const r of rows) out.push(`| \`${r.name}\`${unused.includes(r) ? ' (not used)' : ''} | ${r.kind} | ${r.swing || ''} | ${r.per.map((n) => n || '').join(' | ')} | ${r.total} |`);
 out.push('');
 writeFileSync(outFile, out.join('\n'));
-console.log(`${outFile}: ${rows.length} dialogs, ${never.length} never reached${strays.length ? `, ${strays.length} not in the list` : ''}`);
+console.log(`${outFile}: ${rows.length} dialogs, ${never.length} never reached, ${unused.length} not used${strays.length ? `, ${strays.length} not in the list` : ''}`);
