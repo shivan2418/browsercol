@@ -1342,10 +1342,8 @@ async function play(page: Page, url: string) {
     await editor.waitFor({ timeout: 10000, label: 'the New button opens the route editor' });
     await editor.click();
     await routes.locator('[data-stop]').first().waitFor({ timeout: 10000, label: 'Add stop adds a stop to the route' });
-    // A three-stop route (all colonies twice, the last taken away) with goods in the holds, so each stop shows
-    // what it unloads, loads and keeps (#362): the first goods type is in two holds at the first stop.
-    await editor.click();
-    await routes.locator('[data-stop="3"] button[aria-label^="Remove stop"]').click();
+    // Goods in the holds of the two stops (Europe and the colony), so each shows what it unloads, loads and keeps
+    // (#362): the first goods type is in two holds at the first stop.
     const goods = await routes
       .locator('.palette [data-goods]')
       .evaluateAll((bs) => bs.map((b) => b.getAttribute('data-goods')!));
@@ -1356,24 +1354,23 @@ async function play(page: Page, url: string) {
     };
     await fill(0, [A, A, B]);
     await fill(1, [A, C]);
-    await fill(2, [B]);
     const work = (i: number) =>
       routes
         .locator(`[data-stop="${i}"] [data-work]`)
         .evaluateAll((cs) => cs.map((c) => `${c.getAttribute('data-work')} ${c.textContent}`));
-    const seen = [await work(0), await work(1), await work(2)];
-    // Stop 2 arrives with A, A, B and leaves with A, C: it unloads A and B, keeps A and loads C.
+    const seen = [await work(0), await work(1)];
+    // The colony arrives with A, A, B and leaves with A, C: it unloads A and B, keeps A and loads C.
     if (
       !seen[1].some((c) => c.startsWith('unload')) ||
       !seen[1].some((c) => c.startsWith('load')) ||
       !seen[1].some((c) => c.startsWith('keep'))
     ) {
-      throw new Error(`stop 2 of the route editor should unload, load and keep goods: ${JSON.stringify(seen)}`);
+      throw new Error(
+        `the colony stop of the route editor should unload, load and keep goods: ${JSON.stringify(seen)}`,
+      );
     }
-    await page.screenshot({ path: shot('showTradeRouteInputPanel-desktop'), fullPage: true });
     const desktop = page.viewportSize();
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.screenshot({ path: shot('showTradeRouteInputPanel-phone'), fullPage: true });
     const wide = await routes.evaluate((r) => r.scrollWidth > r.clientWidth + 1);
     if (wide) throw new Error('the trade route editor overflows sideways at phone width');
     if (desktop) await page.setViewportSize(desktop);
