@@ -1002,10 +1002,14 @@ function CongressReport({ e, art, go }: { e: View<'congress'>; art: Art; go: Lin
         <h3>{e.labels.recruiting}</h3>
         {e.current ? (
           <div data-current={e.current.id}>
-            <Img keys={e.current.keys} art={art} title={e.current.description} />
-            <Link go={() => go.colopedia(e.current!.id)} data-link={e.current.id}>
-              {e.current.name}
-            </Link>
+            <div className="row">
+              <Img keys={e.current.keys} art={art} title={e.current.description} />
+              <Tip as="span" tip={e.current.description}>
+                <Link go={() => go.colopedia(e.current!.id)} data-link={e.current.id}>
+                  {e.current.name}
+                </Link>
+              </Tip>
+            </div>
             {e.current.bars.map((bar) => (
               <GoodsProgressBar key={bar.type} need={bar} art={art} />
             ))}

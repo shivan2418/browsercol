@@ -25,6 +25,8 @@
   color: var(--link);
   background: none;
   border: 0;
+  /* A link, not a button: no bevel. */
+  box-shadow: none;
   text-decoration: underline;
 }
 .dialog .report .muted {
@@ -383,4 +385,13 @@
 }
 .dialog .report .colopedia .detail .ref img {
   height: 20px;
+}
+/* The father being recruited: a row like the others, the bar under it; the bell sits inside the bar with room. */
+.dialog .report .congress [data-current] .need {
+  margin-top: 4px;
+  padding: 3px 0;
+}
+.dialog .report .congress [data-current] .need .icon {
+  max-height: 22px;
+  width: auto;
 }
