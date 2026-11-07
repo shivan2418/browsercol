@@ -239,6 +239,55 @@ class DebugActionsTest {
         eventually("the client's hold", () -> ship.getGoodsContainer().getGoodsCount(food) == 40);
     }
 
+    /** A ship in Europe with goods aboard, the goods boycotted: the setup of the dump cargo dialog (#349). */
+    @Test
+    @Timeout(240)
+    void aShipInEuropeCanCarryBoycottedGoods() throws Exception {
+        final GoodsType sugar = client.getGame().getSpecification().getGoodsType("model.goods.sugar");
+        final String id = (String)json(server.debug(
+            "{\"action\":\"addUnit\",\"type\":\"model.unit.galleon\",\"inEurope\":true}")).get("unit");
+        server.debug("{\"action\":\"addGoods\",\"type\":\"model.goods.sugar\",\"amount\":50,\"europe\":true}");
+        server.debug("{\"action\":\"boycott\",\"goods\":\"model.goods.sugar\",\"amount\":300}");
+
+        final Unit ship = server.getGame().getFreeColGameObject(id, Unit.class);
+        assertTrue(ship.isInEurope(), "in Europe");
+        assertEquals(50, ship.getGoodsContainer().getGoodsCount(sugar));
+        assertEquals(300, server.getGame().getFreeColGameObject(me().getId(), Player.class).getArrears(sugar));
+        eventually("the client has the ship in Europe, loaded", () -> {
+            final Unit seen = client.getGame().getFreeColGameObject(id, Unit.class);
+            return seen != null && seen.isInEurope() && seen.getGoodsContainer().getGoodsCount(sugar) == 50;
+        });
+        eventually("the client's market has the arrears", () -> me().getArrears(sugar) == 300 && !me().canTrade(sugar));
+        assertThrows(IllegalArgumentException.class, () -> server.debug(
+            "{\"action\":\"boycott\",\"goods\":\"model.goods.sugar\",\"amount\":0}"));
+        assertThrows(IllegalArgumentException.class, () -> server.debug(
+            "{\"action\":\"boycott\",\"goods\":\"model.goods.nope\"}"));
+    }
+
+    /** Natives demand goods of a colony, and the client asks the player (#349). */
+    @Test
+    @Timeout(240)
+    void nativesDemandGoodsOfAColonyAndTheClientAsks() throws Exception {
+        server.debug("{\"action\":\"addColony\"}");
+        eventually("the client has the colony", () -> !me().getColonyList().isEmpty());
+        final String colony = me().getColonyList().get(0).getName();
+        final Tile where = me().getColonyList().get(0).getTile();
+        final String at = "\"x\":" + where.getX() + ",\"y\":" + where.getY();
+
+        final String answer = server.debug("{\"action\":\"nativeDemand\",\"goods\":\"model.goods.food\",\"amount\":25," + at + "}");
+        final String brave = (String)json(answer).get("unit");
+        assertTrue(server.getGame().getFreeColGameObject(brave, Unit.class).getOwner().isIndian(), "a native brave");
+        eventually("the client asks about the demand", () -> {
+            synchronized (shown) {
+                return shown.stream().anyMatch(s -> s.startsWith("ask:confirm:") && s.contains(colony)
+                    && s.contains("25"));
+            }
+        });
+        server.debug("{\"action\":\"nativeDemand\",\"amount\":10," + at + "}");
+        assertThrows(IllegalArgumentException.class, () -> server.debug(
+            "{\"action\":\"nativeDemand\",\"goods\":\"model.goods.nope\",\"amount\":10," + at + "}"));
+    }
+
     /** The stance between two players is set both ways, by nation id, and the human is the default. */
     @Test
     @Timeout(240)

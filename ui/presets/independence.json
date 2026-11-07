@@ -1,0 +1,16 @@
+{
+  "difficulty": "model.difficulty.veryEasy",
+  "nation": "model.nation.dutch",
+  "seed": 1,
+  "options": {
+    "model.option.mapWidth": 40,
+    "model.option.mapHeight": 60,
+    "model.option.fogOfWar": false
+  },
+  "setup": [
+    { "action": "addColony" },
+    { "action": "addUnit", "type": "model.unit.freeColonist", "inColony": true },
+    { "action": "addUnit", "type": "model.unit.freeColonist", "inColony": true },
+    { "action": "addLiberty", "amount": 5000 }
+  ]
+}

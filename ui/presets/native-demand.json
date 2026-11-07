@@ -1,0 +1,21 @@
+{
+  "difficulty": "model.difficulty.veryEasy",
+  "nation": "model.nation.dutch",
+  "seed": 1,
+  "options": {
+    "model.option.mapWidth": 40,
+    "model.option.mapHeight": 60,
+    "model.option.fogOfWar": false
+  },
+  "setup": [
+    { "action": "addColony" },
+    { "action": "addUnit", "type": "model.unit.freeColonist", "inColony": true },
+    { "action": "addUnit", "type": "model.unit.freeColonist", "inColony": true },
+    { "action": "addGoods", "type": "model.goods.food", "amount": 200 },
+    { "action": "addGoods", "type": "model.goods.sugar", "amount": 100 },
+    { "action": "addGold", "amount": 500 },
+    { "action": "nativeDemand", "goods": "model.goods.food", "amount": 50 },
+    { "action": "nativeDemand", "goods": "model.goods.sugar", "amount": 40 },
+    { "action": "nativeDemand", "amount": 80 }
+  ]
+}

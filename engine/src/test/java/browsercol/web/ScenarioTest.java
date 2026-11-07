@@ -58,6 +58,8 @@ class ScenarioTest {
             }, new WebGUI.BrowserUI() {
                 public void show(String kind, String json) { }
                 public void ask(int id, String kind, String json) {
+                    final List<String> log = asked;
+                    if (log != null) log.add(kind + ":" + json);
                     client.answer(id, null);
                 }
             });
@@ -189,6 +191,101 @@ class ScenarioTest {
         }
         assertTrue(us.getUnits().filter(Unit::isNaval).count() >= 15, "a fleet");
         assertTrue(us.getUnits().filter(Unit::isOffensiveUnit).count() >= 50, "an army");
+    }
+
+    /** The capture-goods preset (#349): Dutch warships beside a loaded French galleon, and no French warship near it. */
+    @Test
+    @Timeout(240)
+    void theCaptureGoodsPresetPutsWarshipsBesideALoadedGalleonWithNoEscort() throws Exception {
+        start(preset("capture-goods"));
+        server.setup();
+        final Game game = server.getGame();
+        final Player us = game.getFreeColGameObject(client.getClient().getMyPlayer().getId(), Player.class);
+        final Player france = game.getPlayerByNationId("model.nation.french");
+        assertEquals(Stance.WAR, us.getStance(france));
+        final Unit galleon = france.getUnits().filter(u -> u.getType().getId().equals("model.unit.galleon"))
+            .findFirst().orElse(null);
+        org.junit.jupiter.api.Assertions.assertNotNull(galleon, "a French galleon");
+        assertTrue(galleon.getGoodsList().size() >= 3, "loaded");
+        final List<Unit> near = galleon.getTile().getSurroundingTiles(1, 4).stream()
+            .flatMap(t -> t.getUnitList().stream()).toList();
+        assertEquals(0, near.stream().filter(u -> u.getOwner() == france && u != galleon && u.isOffensiveUnit()).count(),
+            "no French warship near the galleon");
+        final long capturing = galleon.getTile().getSurroundingTiles(1, 1).stream()
+            .flatMap(t -> t.getUnitList().stream())
+            .filter(u -> u.getOwner() == us && u.isNaval() && u.isOffensiveUnit()).count();
+        assertEquals(5, capturing, "three privateers and two frigates beside it");
+    }
+
+    /** The dump-cargo preset (#349): a ship in Europe with goods aboard, one of them boycotted. */
+    @Test
+    @Timeout(240)
+    void theDumpCargoPresetPutsAShipInEuropeWithBoycottedGoods() throws Exception {
+        start(preset("dump-cargo"));
+        server.setup();
+        final GoodsType sugar = client.getGame().getSpecification().getGoodsType("model.goods.sugar");
+        final GoodsType rum = client.getGame().getSpecification().getGoodsType("model.goods.rum");
+        final Player us = client.getClient().getMyPlayer();
+        eventually("the client has the loaded ship in Europe", () -> us.getEurope().getUnitList().stream()
+            .anyMatch(u -> u.isNaval() && u.getGoodsContainer().getGoodsCount(sugar) == 60
+                && u.getGoodsContainer().getGoodsCount(rum) == 40));
+        eventually("sugar is boycotted", () -> !us.canTrade(sugar));
+        assertTrue(us.canTrade(rum), "rum is not");
+    }
+
+    /** The native-demand preset (#349): natives demand food, sugar and gold of the Dutch colony, and the client asks. */
+    @Test
+    @Timeout(240)
+    void theNativeDemandPresetHasNativesDemandOfTheColony() throws Exception {
+        start(preset("native-demand"));
+        final List<String> asked = new java.util.concurrent.CopyOnWriteArrayList<>();
+        this.asked = asked;
+        server.setup();
+        eventually("three demands asked", () -> asked.stream().filter(s -> s.startsWith("confirm:")).count() >= 3);
+    }
+
+    private volatile List<String> asked = null;
+
+    /** The diplomacy preset (#349): scouts and soldiers beside a French colony at war, to negotiate with or demand of. */
+    @Test
+    @Timeout(240)
+    void theDiplomacyPresetPutsAScoutAndSoldiersBesideAFrenchColony() throws Exception {
+        start(preset("diplomacy"));
+        server.setup();
+        final Game game = server.getGame();
+        final Player us = game.getFreeColGameObject(client.getClient().getMyPlayer().getId(), Player.class);
+        final Player france = game.getPlayerByNationId("model.nation.french");
+        final Colony french = france.getColonyList().stream().findFirst().orElse(null);
+        org.junit.jupiter.api.Assertions.assertNotNull(french, "a French colony");
+        final List<Unit> beside = french.getTile().getSurroundingTiles(1, 1).stream()
+            .flatMap(t -> t.getUnitList().stream()).filter(u -> u.getOwner() == us).toList();
+        assertTrue(beside.stream().anyMatch(u -> u.hasAbility(net.sf.freecol.common.model.Ability.NEGOTIATE)),
+            "a scout that can negotiate");
+        assertTrue(beside.stream().anyMatch(Unit::isOffensiveUnit), "soldiers");
+    }
+
+    /** The independence preset (#349): a colony with enough liberty that the player may declare independence. */
+    @Test
+    @Timeout(240)
+    void theIndependencePresetLetsThePlayerDeclare() throws Exception {
+        start(preset("independence"));
+        server.setup();
+        final Player us = client.getClient().getMyPlayer();
+        eventually("the client may declare independence", () -> !us.getColonyList().isEmpty()
+            && us.checkDeclareIndependence() == null);
+        assertEquals(net.sf.freecol.common.model.Player.PlayerType.COLONIAL, us.getPlayerType());
+    }
+
+    /** The victory preset (#349): independence declared, and the Royal Expeditionary Force has no unit to fight with. */
+    @Test
+    @Timeout(240)
+    void theVictoryPresetLeavesTheRoyalForceNothing() throws Exception {
+        start(preset("victory"));
+        server.setup();
+        final Game game = server.getGame();
+        final Player us = game.getFreeColGameObject(client.getClient().getMyPlayer().getId(), Player.class);
+        assertEquals(net.sf.freecol.common.model.Player.PlayerType.REBEL, us.getPlayerType());
+        assertEquals(0, us.getREFPlayer().getUnitCount(), "the REF's units");
     }
 
     private static String preset(String name) throws Exception {

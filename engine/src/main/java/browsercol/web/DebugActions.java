@@ -74,6 +74,10 @@ import net.sf.freecol.server.model.ServerUnit;
  * { "action": "addGoods", "type": "model.goods.sugar", "amount": 100, "x": 3, "y": 4, "onShip": true }
  * { "action": "monarch", "monarch": "RAISE_TAX_WAR" }
  * { "action": "stepRNG" }
+ * { "action": "addUnit", "type": "model.unit.galleon", "inEurope": true }
+ * { "action": "addGoods", "type": "model.goods.sugar", "amount": 50, "europe": true }
+ * { "action": "boycott", "goods": "model.goods.sugar", "amount": 500 }
+ * { "action": "nativeDemand", "goods": "model.goods.food", "amount": 40 }
  * { "action": "players" }
  * { "action": "displayEurope" }
  * { "action": "statistics" }
@@ -153,8 +157,11 @@ final class DebugActions {
         case "addBuilding": return addBuilding(string(r, "type"), r);
         case "addUnit":
             if (r.get("type") == null) return chooseUnitType(r);
+            if (Boolean.TRUE.equals(r.get("inEurope"))) return addUnitInEurope(string(r, "type"), r);
             return addUnit(string(r, "type"), at(r), Boolean.TRUE.equals(r.get("inColony")), r);
         case "addGoods": return addGoods(string(r, "type"), integer(r, "amount"), r);
+        case "boycott": return boycott(string(r, "goods"), r);
+        case "nativeDemand": return nativeDemand(r);
         case "aiView": return aiView();
         case "addImmigration": return addImmigration(integer(r, "amount"));
         case "addLiberty": return addLiberty(integer(r, "amount"));
@@ -182,7 +189,7 @@ final class DebugActions {
         case "overlay": return inspection().overlay(r);
         default:
             throw bad("unknown action \"" + action + "\" (known: revealMap, addGold,"
-                + " addColony, addBuilding, addUnit, addGoods, aiView, addImmigration,"
+                + " addColony, addBuilding, addUnit, addGoods, boycott, nativeDemand, aiView, addImmigration,"
                 + " addLiberty, addFoundingFather, traceWork, resetMoves, dumpTile,"
                 + " changeOwner, changeRole, displayMission, colonyPlan, applyDisaster,"
                 + " examineSettlement, rumourType, idealColony, declareIndependence, clearREF,"
@@ -376,6 +383,86 @@ final class DebugActions {
         this.sGame.sendTo(me(), cs);
         return new Json().put("action", "addUnit").putRaw("units",
             "[" + String.join(",", ids.stream().map(Json::quote).toList()) + "]").toString();
+    }
+
+    /** A new unit of the human's in Europe, as the recruit and purchase of Europe's panel put one. */
+    private String addUnitInEurope(String typeId, Map<?, ?> r) {
+        final ServerPlayer p = me();
+        final UnitType type = this.game.getSpecification().getUnitType(typeId);
+        if (type == null) throw bad("unknown unit type \"" + typeId + "\"");
+        if (p.getEurope() == null) throw bad("the human has no Europe");
+        final Role role = (r.get("role") == null) ? type.getDefaultRole()
+            : this.game.getSpecification().getRole(string(r, "role"));
+        if (role == null) throw bad("unknown role \"" + r.get("role") + "\"");
+        final ServerUnit unit = new ServerUnit(this.game, p.getEurope(), p, type, role);
+        unit.setMovesLeft(unit.getInitialMovesLeft());
+        final ChangeSet cs = new ChangeSet();
+        cs.add(See.only(p), p.getEurope());
+        cs.add(See.only(p), unit);
+        this.sGame.sendTo(p, cs);
+        return new Json().put("action", "addUnit").put("unit", unit.getId()).toString();
+    }
+
+    /**
+     * The Crown boycotts goods, as a refused tax raise does (the Boston Tea Party): the human owes
+     * "amount" (500 if left out) for them, and cannot trade them in Europe until it is paid.
+     */
+    private String boycott(String goodsId, Map<?, ?> r) {
+        final ServerPlayer p = me();
+        final GoodsType type = this.game.getSpecification().getGoodsType(goodsId);
+        if (type == null) throw bad("unknown goods type \"" + goodsId + "\"");
+        if (p.getMarket() == null) throw bad("the human has no market");
+        final int arrears = (r.get("amount") == null) ? 500 : integer(r, "amount");
+        if (arrears <= 0) throw bad("\"amount\" is more than none");
+        p.getMarket().setArrears(type, arrears);
+        final ChangeSet cs = new ChangeSet();
+        cs.add(See.only(p), p.getMarket().getMarketData(type));
+        this.sGame.sendTo(p, cs);
+        return new Json().put("action", "boycott").toString();
+    }
+
+    /**
+     * A brave of the native settlement nearest to the human's colony (the one at "x" and "y", or
+     * the last one named) demands goods, or gold if there is no "goods", of it: the demand the AI
+     * natives make on their own, as the server sends it (InGameController.indianDemand, which
+     * sends the human the question itself).
+     */
+    private String nativeDemand(Map<?, ?> r) {
+        final ServerPlayer p = me();
+        final Colony colony = at(r).getColony();
+        if (colony == null || colony.getOwner() != p) throw bad("no colony of yours there");
+        final GoodsType type = (r.get("goods") == null) ? null
+            : this.game.getSpecification().getGoodsType(string(r, "goods"));
+        if (r.get("goods") != null && type == null) throw bad("unknown goods type \"" + r.get("goods") + "\"");
+        final int amount = integer(r, "amount");
+        ServerPlayer natives = null;
+        int best = Integer.MAX_VALUE;
+        for (Player n : this.game.getLiveNativePlayerList()) {
+            for (net.sf.freecol.common.model.Settlement s : n.getSettlementList()) {
+                final int d = this.game.getMap().getDistance(colony.getTile(), s.getTile());
+                if (d < best) {
+                    best = d;
+                    natives = (ServerPlayer)n;
+                }
+            }
+        }
+        if (natives == null) throw bad("there are no native settlements");
+        Tile at = null;
+        for (Tile t : colony.getTile().getSurroundingTiles(1, 1)) {
+            if (t.isLand() && !t.hasSettlement() && t.getUnitList().isEmpty()) {
+                at = t;
+                break;
+            }
+        }
+        if (at == null) throw bad("no free land next to the colony for the brave");
+        final UnitType brave = this.game.getSpecification().getUnitType("model.unit.brave");
+        final ServerUnit unit = new ServerUnit(this.game, at, natives, brave, brave.getDefaultRole());
+        natives.exploreForUnit(unit);
+        final ChangeSet cs = new ChangeSet();
+        cs.add(See.perhaps(), at);
+        this.sGame.sendTo(p, cs);
+        this.igc.indianDemand(natives, unit, colony, type, amount, null);
+        return new Json().put("action", "nativeDemand").put("unit", unit.getId()).toString();
     }
 
     /** The human, or with "owner": "ref" their REF once they have declared. */
@@ -587,6 +674,12 @@ final class DebugActions {
             if (unit == null) throw bad("no unit " + r.get("unit"));
             gc = unit.getGoodsContainer();
             cs.add(See.only(p), unit);
+        } else if (Boolean.TRUE.equals(r.get("europe"))) {
+            final Unit ship = p.getEurope().getUnitList().stream().filter(Unit::isNaval)
+                .findFirst().orElse(null);
+            if (ship == null) throw bad("no ship in Europe");
+            gc = ship.getGoodsContainer();
+            cs.add(See.only(p), ship);
         } else if (Boolean.TRUE.equals(r.get("onShip"))) {
             final Tile tile = at(r);
             final Unit ship = tile.getUnitList().stream().filter(Unit::isNaval).findFirst().orElse(null);
