@@ -418,7 +418,9 @@
 .dialog .report .foreign thead th {
   color: var(--head);
   text-align: center;
-  vertical-align: bottom;
+  /* The arms line up at the top; a name that wraps, as "The Netherlands", grows downwards. */
+  vertical-align: top;
+  padding-top: 0;
 }
 .dialog .report .foreign thead th .pic {
   display: block;
