@@ -9,14 +9,14 @@
   },
   "setup": [
     { "action": "setStance", "stance": "war", "with": "model.nation.french" },
-    { "action": "addUnit", "type": "model.unit.galleon", "owner": "model.nation.french", "ship": true, "dx": -3 },
+    { "action": "addUnit", "type": "model.unit.privateer", "ship": true, "dx": -2 },
+    { "action": "addUnit", "type": "model.unit.privateer" },
+    { "action": "addUnit", "type": "model.unit.privateer" },
+    { "action": "addUnit", "type": "model.unit.privateer" },
+    { "action": "addUnit", "type": "model.unit.privateer" },
+    { "action": "addUnit", "type": "model.unit.galleon", "owner": "model.nation.french", "dx": -1 },
     { "action": "addGoods", "type": "model.goods.sugar", "amount": 100, "onShip": true },
     { "action": "addGoods", "type": "model.goods.silver", "amount": 60, "onShip": true },
-    { "action": "addGoods", "type": "model.goods.muskets", "amount": 50, "onShip": true },
-    { "action": "addUnit", "type": "model.unit.privateer", "ship": true, "dx": -2 },
-    { "action": "addUnit", "type": "model.unit.privateer", "ship": true, "dx": -2 },
-    { "action": "addUnit", "type": "model.unit.privateer", "ship": true, "dx": -2 },
-    { "action": "addUnit", "type": "model.unit.frigate", "ship": true, "dx": -2 },
-    { "action": "addUnit", "type": "model.unit.frigate", "ship": true, "dx": -2 }
+    { "action": "addGoods", "type": "model.goods.muskets", "amount": 50, "onShip": true }
   ]
 }

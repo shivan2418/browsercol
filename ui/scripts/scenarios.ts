@@ -8,6 +8,9 @@
 //                      Europe panels, the reports and a save
 //   combat             ?preset=combat: the army beside a French colony and a native village at war, and a privateer
 //                      and a frigate beside a loaded French galleon; attacks until the army has had its fights
+//   capture-goods, dump-cargo, native-demand, diplomacy, independence, victory (#349 part 5)
+//                      each leads the player to a dialog no game reaches by itself, answers it, and checks the
+//                      game went on; the dialog is shot open as .cache/dialog-shots/METHOD-BROWSER.png
 // The saves are the Engine's fixtures (engine/src/test/resources/saves), which the Engine tests load too.
 // Run in the web image:
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/scenarios.ts [--only desktop-late-game,combat] [--browsers chromium,firefox] [--turns 5]
@@ -350,7 +353,309 @@ async function fight(run: Run) {
   if (combat.length === 0) throw new Error('no combat dialog was shown');
 }
 
+// ---- Dialogs no game reaches by itself (#349 part 5). Each scenario holds the dialog's kind (window.__hold), so
+// dialogs.ts leaves it open, takes a screenshot with it open (.cache/dialog-shots/METHOD-BROWSER.png), answers it
+// and checks that the game went on.
+const shotsDir = path.join(cache, 'dialog-shots');
+fs.mkdirSync(shotsDir, { recursive: true });
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const hold = (run: Run, kind: string | null) => run.page.evaluate((k) => (window.__hold = k), kind);
+const kindSel = (kind: string) => `[role=dialog][data-kind="${kind}"]`;
+/** Waits for a dialog of the kind, and says what it shows. */
+async function waitKind(run: Run, kind: string, what: string, timeout = 120000) {
+  await run.page.waitForSelector(kindSel(kind), { timeout, label: `${what}: a ${kind} dialog opens` });
+  await sleep(300);
+  const text = (await run.page.locator(kindSel(kind)).last().textContent()) ?? '';
+  run.note(`${what}: ${kind} dialog: ${text.replace(/\s+/g, ' ').slice(0, 160)}`);
+  return text;
+}
+/** The screenshot of a dialog left open, for the person who reviews how the dialog looks. */
+const dialogShot = (run: Run, method: string) =>
+  run.page.screenshot({ path: path.join(shotsDir, `${method}-${run.browser}.png`) });
+const clickIn = async (run: Run, kind: string, selector: string) => {
+  const text = (await run.page.locator(kindSel(kind)).first().textContent()) ?? '';
+  await run.page
+    .locator(`${kindSel(kind)} ${selector}`)
+    .first()
+    .click();
+  // The next dialog of the kind may open at once: the one answered is gone when no dialog has its text.
+  await run.page.waitForFunction(
+    ([k, t]: [string, string]) => ![...document.querySelectorAll(k)].some((d) => d.textContent === t),
+    [kindSel(kind), text] as [string, string],
+    {
+      timeout: 60000,
+      label: `the ${kind} dialog closes`,
+    },
+  );
+};
+const gold = (run: Run) =>
+  run.page.evaluate(() => Number(/Gold: (\d+)/.exec(document.querySelector('#statusLine')?.textContent ?? '')?.[1]));
+
+/** Presses the active unit's way to the enemy beside it: true if it did. Skips a unit with nothing beside it. */
+async function pressTarget(run: Run, want: RegExp): Promise<boolean> {
+  const m = await run.view();
+  if (!m.ourTurn) return false;
+  if (!m.activeUnit) {
+    await run.page.keyboard.press('w');
+    return false;
+  }
+  const t = target(m);
+  const before = await run.page.evaluate(() => window.__maps);
+  if (t && want.test(m.activeUnit.label)) {
+    run.note(`${m.activeUnit.label} moves ${t.key} onto ${t.what}`);
+    await run.page.keyboard.press(t.key);
+  } else {
+    await run.page.keyboard.press(' ');
+    await run.page.waitForFunction((n: number) => window.__maps > n, before, { timeout: 5000 }).catch(() => {});
+    return false;
+  }
+  return true;
+}
+
+/** Skips and moves units until one matching `want` has a target and has been pressed at it. */
+async function findAndPress(run: Run, want: RegExp, what: string) {
+  for (let i = 0; i < 80; i++) {
+    await sleep(150);
+    if ((await run.page.locator('[role=dialog]').count()) > 0) {
+      await sleep(300);
+      continue;
+    }
+    if (await pressTarget(run, want)) return;
+  }
+  throw new Error(`${what}: no ${want} unit had a target`);
+}
+
 const scenarios: Record<string, (run: Run) => Promise<void>> = {
+  'capture-goods': async (run) => {
+    const page = run.page;
+    await page.goto(`${run.url}?skipstart&debug&preset=capture-goods`);
+    await run.finished('capture goods');
+    await hold(run, 'goods');
+    await run.shot('start');
+    // Every warship beside the loaded galleon attacks it in turn, until one wins and may loot it.
+    let found = false;
+    for (let i = 0; i < 120 && !found; i++) {
+      await sleep(200);
+      if ((await page.locator(kindSel('goods')).count()) > 0) {
+        found = true;
+        break;
+      }
+      if ((await page.locator('[role=dialog]').count()) > 0) continue;
+      const m = await run.view();
+      if (!m.ourTurn) continue;
+      if (!m.activeUnit) {
+        await page.keyboard.press('w');
+        continue;
+      }
+      const before = await page.evaluate(() => window.__maps);
+      if (await pressTarget(run, /Privateer|Frigate/)) {
+        await page
+          .waitForFunction(
+            (n: number) => window.__maps > n || !!document.querySelector('[role=dialog][data-kind="goods"]'),
+            before,
+            { timeout: 8000 },
+          )
+          .catch(() => {});
+      }
+    }
+    if (!found) throw new Error('no warship won against the galleon');
+    const text = await waitKind(run, 'goods', 'capture goods');
+    if (!/Sugar|Silver|Muskets/i.test(text)) throw new Error(`the capture dialog names no goods: ${text}`);
+    await dialogShot(run, 'showCaptureGoodsDialog');
+    // None is checked at first: take the first goods that fit, as a player would.
+    await page
+      .locator(`${kindSel('goods')} input[type=checkbox]`)
+      .first()
+      .check();
+    await clickIn(run, 'goods', '[data-answer=ok]');
+    await hold(run, null);
+    await run.shot('after-loot');
+    const m = await run.view();
+    if (m.units.some((u) => u.keys.some((k) => k.includes('galleon') && k.includes('french')))) {
+      run.note('a French galleon is still on the map (the winner may have only damaged it)');
+    }
+    await run.playTurns(1);
+  },
+  'dump-cargo': async (run) => {
+    const page = run.page;
+    await page.goto(`${run.url}?skipstart&debug&preset=dump-cargo`);
+    await run.finished('dump cargo');
+    // Open Europe and activate the galleon from its menu: it becomes the active unit, as a ship that has arrived is.
+    await sleep(3000);
+    await hold(run, 'europe');
+    await page.click('button[data-command=showEurope]');
+    await waitKind(run, 'europe', 'dump cargo');
+    await run.shot('europe');
+    await page
+      .locator(`${kindSel('europe')} [data-unit]`)
+      .first()
+      .click({ button: 'right' });
+    await page.getByRole('menuitem', { name: /Activate/ }).click();
+    await sleep(500);
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('[role=dialog][data-kind="europe"]'), null, {
+      timeout: 30000,
+    });
+    await hold(run, 'goods');
+    await page.keyboard.press('u');
+    const text = await waitKind(run, 'goods', 'dump cargo');
+    await dialogShot(run, 'showDumpCargoDialog');
+    if (!/Sugar/i.test(text)) throw new Error(`the dump dialog does not offer the boycotted sugar: ${text}`);
+    await clickIn(run, 'goods', '[data-answer=ok]');
+    await hold(run, null);
+    await sleep(1500);
+    await run.shot('after-dump');
+  },
+  'native-demand': async (run) => {
+    const page = run.page;
+    await page.addInitScript(() => (window.__hold = 'confirm'));
+    await page.goto(`${run.url}?skipstart&debug&preset=native-demand`);
+    await run.finished('native demand');
+    // Food, sugar and gold are demanded: the first and the last are accepted, the sugar refused.
+    const seen: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      const text = await waitKind(run, 'confirm', `native demand ${i + 1}`);
+      seen.push(text);
+      if (i === 0) await dialogShot(run, 'showNativeDemandDialog');
+      await run.shot(`demand-${i + 1}`);
+      const refuse = /sugar/i.test(text);
+      const before = await gold(run);
+      await clickIn(run, 'confirm', refuse ? '[data-answer=cancel]' : '[data-answer=ok]');
+      run.note(`demand ${i + 1}: ${refuse ? 'refused' : 'accepted'}; gold ${before}`);
+      // The braves are the debug action's: the AI mission that hands the goods or gold over is not theirs, so
+      // only the answer reaches the server (the session closes), and the colony is not changed.
+    }
+    if (!seen.some((t) => /food|50/i.test(t))) throw new Error('no food demand');
+    await hold(run, null);
+    await run.playTurns(1);
+  },
+  diplomacy: async (run) => {
+    const page = run.page;
+    await page.goto(`${run.url}?skipstart&debug&preset=diplomacy`);
+    await run.finished('diplomacy');
+    await page.waitForFunction(
+      () => window.__map.units.reduce((n, u) => n + u.stack, 0) >= 8 && window.__map.settlements.length >= 2,
+      null,
+      { timeout: 300000, polling: 500, label: 'the preset has put its units round the French colony' },
+    );
+    await sleep(2000);
+    await run.shot('start');
+    // A scout meets the French: negotiate.
+    await hold(run, 'choice');
+    await findAndPress(run, /Scout/, 'scout');
+    await waitKind(run, 'choice', 'scout');
+    await run.shot('scout-choice');
+    await hold(run, 'negotiation');
+    await clickIn(run, 'choice', 'button[data-choice]:not(:disabled):has-text("egotiat")');
+    await waitKind(run, 'negotiation', 'scout');
+    await dialogShot(run, 'showNegotiationDialog');
+    await clickIn(run, 'negotiation', '[data-answer=send], [data-answer=cancel]');
+    await sleep(3000);
+    // A soldier demands tribute: the amount, then the demand itself as a negotiation.
+    await hold(run, 'choice');
+    await findAndPress(run, /Soldier/, 'soldier');
+    await waitKind(run, 'choice', 'soldier');
+    await run.shot('soldier-choice');
+    await hold(run, 'input');
+    await clickIn(run, 'choice', 'button[data-choice]:not(:disabled):has-text("ribute")');
+    await waitKind(run, 'input', 'tribute');
+    await dialogShot(run, 'showSelectTributeAmountDialog');
+    await page.locator(`${kindSel('input')} input`).fill('5');
+    // The demand goes straight to the French with the amount: the AI takes the 5 gold for peace.
+    const before = await gold(run);
+    await hold(run, null);
+    await clickIn(run, 'input', '[data-answer=ok]');
+    await page
+      .waitForFunction(
+        (g: number) => Number(/Gold: (\d+)/.exec(document.querySelector('#statusLine')!.textContent!)?.[1]) !== g,
+        before,
+        { timeout: 60000, label: 'the tribute arrives' },
+      )
+      .catch(() => {});
+    run.note(`gold ${before} -> ${await gold(run)} after demanding 5 tribute`);
+    await sleep(3000);
+    await run.shot('after-diplomacy');
+    await run.playTurns(1);
+  },
+  independence: async (run) => {
+    const page = run.page;
+    await page.goto(`${run.url}?skipstart&debug&preset=independence`);
+    await run.finished('independence');
+    await page.waitForFunction(() => window.__map.settlements.some((s) => s.population >= 0), null, {
+      timeout: 300000,
+      polling: 500,
+      label: 'the preset has founded its colony',
+    });
+    await sleep(5000);
+    await hold(run, 'names');
+    await page.getByRole('button', { name: /^Declare independence/ }).click();
+    await sleep(2000);
+    run.note(`dialogs after the menu item: ${(await page.evaluate(() => window.__dialogs)).slice(-4).join(' | ')}`);
+    await waitKind(run, 'names', 'declare');
+    await dialogShot(run, 'showConfirmDeclarationDialog');
+    await hold(run, 'confirm');
+    await clickIn(run, 'names', '[data-answer=ok]');
+    const text = await waitKind(run, 'confirm', 'declaration');
+    if (!/Resolution/i.test(text)) throw new Error(`the declaration panel says: ${text}`);
+    await dialogShot(run, 'showDeclarationPanel');
+    await clickIn(run, 'confirm', '[data-answer=ok]');
+    await hold(run, null);
+    await sleep(3000);
+    await run.shot('after-declaration');
+    const m = await run.view();
+    run.note(`nation after declaring: ${m.nation}`);
+    await run.playTurns(1);
+  },
+  victory: async (run) => {
+    const page = run.page;
+    await page.goto(`${run.url}?skipstart&debug&preset=victory`);
+    await run.finished('victory');
+    await page.waitForFunction(() => window.__map.settlements.some((s) => s.population >= 0), null, {
+      timeout: 300000,
+      polling: 500,
+      label: 'the preset has founded its colony',
+    });
+    await sleep(3000);
+    // The REF has nothing left: it is defeated as the turn ends, and the Dutch are independent. The turn after,
+    // they have won.
+    await run.playTurns(1);
+    await hold(run, 'confirm,highScores');
+    // The high scores and the victory dialog arrive together, in either order. Turns go by until they do.
+    let victory = '';
+    let scores = false;
+    for (let i = 0; i < 1200 && !(victory && scores); i++) {
+      if (i % 60 === 0) {
+        await page.waitForFunction(() => window.__map.ourTurn, null, { timeout: 120000, label: 'our turn' });
+        const m = await run.view();
+        run.note(
+          `turn ${m.turn}, nation ${m.nation}; dialogs: ${(await page.evaluate(() => window.__dialogs)).slice(-3).join(' | ')}`,
+        );
+        if (i > 0 && !victory) await page.keyboard.press('Enter');
+        if (i === 0) await page.keyboard.press('Enter');
+      }
+      await sleep(500);
+      if (!scores && (await page.locator(kindSel('highScores')).count()) > 0) {
+        const t = await waitKind(run, 'highScores', 'high scores');
+        await dialogShot(run, 'showHighScoresPanel');
+        scores = true;
+        await clickIn(run, 'highScores', '[data-answer=close]');
+        run.note(`high scores: ${t.length} characters`);
+      }
+      if (!victory && (await page.locator(kindSel('confirm')).count()) > 0) {
+        victory = await waitKind(run, 'confirm', 'victory');
+        await dialogShot(run, 'showVictoryDialog');
+      }
+    }
+    if (!victory) throw new Error('no victory dialog');
+    if (!scores) throw new Error('no high scores panel');
+    if (!/victor|won|win/i.test(victory)) throw new Error(`the victory dialog says: ${victory}`);
+    await hold(run, null);
+    // "Continue playing" is the cancel button.
+    await clickIn(run, 'confirm', '[data-answer=cancel]');
+    await sleep(2000);
+    await run.shot('after-victory');
+  },
+
   'desktop-late-game': async (run) => {
     await loadSave(run, path.join(saves, '2026-11-04-desktop-long-game-turn173.fsg'));
     const m = await run.view();

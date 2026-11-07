@@ -13,7 +13,12 @@
     { "action": "addUnit", "type": "model.unit.freeColonist", "inColony": true },
     { "action": "addColony", "native": 0, "dx": -3, "nearest": true },
     { "action": "changeOwner", "owner": "model.nation.french" },
-    { "action": "addUnit", "type": "model.unit.veteranSoldier", "role": "model.role.soldier", "owner": "model.nation.french" },
+    {
+      "action": "addUnit",
+      "type": "model.unit.veteranSoldier",
+      "role": "model.role.soldier",
+      "owner": "model.nation.french"
+    },
     { "action": "setStance", "stance": "war", "with": "model.nation.french" },
     { "action": "addUnit", "type": "model.unit.seasonedScout", "around": true, "role": "model.role.scout" },
     { "action": "addUnit", "type": "model.unit.veteranSoldier", "around": true, "role": "model.role.soldier" }

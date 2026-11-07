@@ -193,7 +193,7 @@ class ScenarioTest {
         assertTrue(us.getUnits().filter(Unit::isOffensiveUnit).count() >= 50, "an army");
     }
 
-    /** The capture-goods preset (#349): Dutch warships beside a loaded French galleon, and no French warship near it. */
+    /** The capture-goods preset (#349): Dutch privateers beside a loaded French galleon, and no French warship near it. */
     @Test
     @Timeout(240)
     void theCaptureGoodsPresetPutsWarshipsBesideALoadedGalleonWithNoEscort() throws Exception {
@@ -214,7 +214,9 @@ class ScenarioTest {
         final long capturing = galleon.getTile().getSurroundingTiles(1, 1).stream()
             .flatMap(t -> t.getUnitList().stream())
             .filter(u -> u.getOwner() == us && u.isNaval() && u.isOffensiveUnit()).count();
-        assertEquals(5, capturing, "three privateers and two frigates beside it");
+        assertEquals(5, capturing, "five privateers beside it");
+        eventually("the client sees the galleon", () -> client.getGame().getFreeColGameObject(galleon.getId(), Unit.class) != null
+            && client.getGame().getFreeColGameObject(galleon.getId(), Unit.class).getTile() != null);
     }
 
     /** The dump-cargo preset (#349): a ship in Europe with goods aboard, one of them boycotted. */
@@ -273,6 +275,7 @@ class ScenarioTest {
         final Player us = client.getClient().getMyPlayer();
         eventually("the client may declare independence", () -> !us.getColonyList().isEmpty()
             && us.checkDeclareIndependence() == null);
+        eventually("the client's player names the new land", us::isNewLandNamed);
         assertEquals(net.sf.freecol.common.model.Player.PlayerType.COLONIAL, us.getPlayerType());
     }
 

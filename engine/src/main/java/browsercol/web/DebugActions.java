@@ -447,9 +447,11 @@ final class DebugActions {
             }
         }
         if (natives == null) throw bad("there are no native settlements");
+        final ServerPlayer braves = natives;
         Tile at = null;
         for (Tile t : colony.getTile().getSurroundingTiles(1, 1)) {
-            if (t.isLand() && !t.hasSettlement() && t.getUnitList().isEmpty()) {
+            if (t.isLand() && !t.hasSettlement()
+                && t.getUnitList().stream().allMatch(u -> u.getOwner() == braves)) {
                 at = t;
                 break;
             }
@@ -531,8 +533,10 @@ final class DebugActions {
             unit.setExperience(integer(r, "experience"));
         }
         p.invalidateCanSeeTiles();
+        if (p != me()) me().invalidateCanSeeTiles();
         ChangeSet cs = new ChangeSet();
-        cs.add(See.perhaps(), tile);
+        // Another player's unit is shown to the human whether or not the server thinks the human can see the tile.
+        cs.add((p == me()) ? See.perhaps() : See.only(me()), tile);
         if (inColony) cs.add(See.only(p), colony);
         if (carrier != null) cs.add(See.only(p), carrier);
         this.sGame.sendTo(me(), cs);
@@ -626,7 +630,11 @@ final class DebugActions {
         }
         // A first landing names the new land (ServerUnit.csMove); a colony
         // founded here may come first, and the Crown's messages name it.
-        if (!p.isNewLandNamed()) p.setNewLandName(p.getNameForNewLand());
+        // The player's own copy learns it too: declaring independence needs it.
+        if (!p.isNewLandNamed()) {
+            p.setNewLandName(p.getNameForNewLand());
+            cs.add(See.only(p), p);
+        }
         cs.add(See.only(p), tile);
         this.sGame.sendTo(p, cs);
         this.focus = tile;
@@ -685,7 +693,7 @@ final class DebugActions {
             final Unit ship = tile.getUnitList().stream().filter(Unit::isNaval).findFirst().orElse(null);
             if (ship == null) throw bad("no ship on " + tile.getX() + "," + tile.getY());
             gc = ship.getGoodsContainer();
-            cs.add(See.perhaps(), ship);
+            cs.add(See.only(p), ship);
         } else {
             Colony colony = at(r).getColony();
             if (colony == null) throw bad("no colony there");
