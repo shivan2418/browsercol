@@ -14,6 +14,14 @@ export function coverageHit(name: string): void {
   window.fcCoverageHit?.(`ui:${name}`);
 }
 
+/**
+ * Counts a panel the Browser UI opens by itself that WebGUI also shows, against WebGUI's own method (the Colopedia
+ * before a game: Swing's showColopediaPanel), so the report has one row for it however it opened.
+ */
+export function coverageHitMethod(method: string): void {
+  window.fcCoverageHit?.(method);
+}
+
 /** Counts the dialog each time it opens: put in the component the dialog is. */
 export function useCoverage(name: string): void {
   useEffect(() => coverageHit(name), [name]);

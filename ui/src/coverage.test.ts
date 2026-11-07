@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vite-plus/test';
-import { coverageHit } from './coverage';
+import { coverageHit, coverageHitMethod } from './coverage';
 
 describe('coverageHit', () => {
   afterEach(() => {
@@ -16,5 +16,12 @@ describe('coverageHit', () => {
     (globalThis as { window?: unknown }).window = { fcCoverageHit: (n: string) => hits.push(n) };
     coverageHit('showAboutPanel');
     expect(hits).toEqual(['ui:showAboutPanel']);
+  });
+
+  it('counts a panel WebGUI also shows against its WebGUI method, with no prefix', () => {
+    const hits: string[] = [];
+    (globalThis as { window?: unknown }).window = { fcCoverageHit: (n: string) => hits.push(n) };
+    coverageHitMethod('showColopediaPanel');
+    expect(hits).toEqual(['showColopediaPanel']);
   });
 });

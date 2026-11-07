@@ -27,7 +27,7 @@ import type { SaveMeta } from './saves';
 import { levelFile, loadDefaults, readLevelFile, saveDefaults } from './start-options';
 import { ADVANTAGES, type Advantages, type StartChoice, type StartOptions } from './start';
 import type { ReportView } from './webgui';
-import { useCoverage } from './coverage';
+import { coverageHitMethod, useCoverage } from './coverage';
 
 /** The map generator's import file option (MapGeneratorOptions.IMPORT_FILE). */
 const IMPORT_FILE = 'model.option.importFile';
@@ -257,6 +257,8 @@ export function StartScreen({
         setOpening(false);
         setPediaError(null);
         setPedia(view);
+        // Opened here, not by WebGUI.showColopediaPanel, which the in-game Colopedia is.
+        coverageHitMethod('showColopediaPanel');
       },
       (ex: unknown) => {
         setOpening(false);
