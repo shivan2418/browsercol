@@ -31,6 +31,7 @@ import { draggableProps, dropTargetProps, type Item, type Place } from './moves'
 import { ContextMenuContext, contextMenuHandler, useContextMenu } from './popup-menu';
 import { OptionEditor } from './option-editor';
 import { ReportPanel } from './reports';
+import { stopWork, type Work } from './route-work';
 import type { ColonyView, EuropeUnit, GuiEvents, ReportLink, SettlementEntry, TradeRouteDraft } from './webgui';
 import { useCoverage } from './coverage';
 
@@ -858,29 +859,6 @@ const HOLD_MARKS: Readonly<Record<number, string>> = {
 /** The most holds any carrier has: a hold past this is never filled. */
 const MOST_HOLDS = 6;
 
-/** How many holds of each goods type a cargo list has, in the order the types first appear. */
-const holdsOf = (cargo: readonly string[]) => {
-  const n = new Map<string, number>();
-  for (const g of cargo) n.set(g, (n.get(g) ?? 0) + 1);
-  return n;
-};
-
-/**
- * What a carrier does at stop i, as FreeCol's: arriving with what the stop before left with (the route
- * loops), it unloads every goods type not listed at i, and loads a listed one up to the holds listed. Each
- * entry is a goods type and how many holds of it.
- */
-function stopWork(stops: readonly { cargo: readonly string[] }[], i: number) {
-  const n = stops.length;
-  const before = holdsOf(n > 1 ? stops[(i - 1 + n) % n].cargo : []);
-  const after = holdsOf(stops[i].cargo);
-  const unload: [string, number][] = [];
-  const load: [string, number][] = [];
-  for (const [g, k] of before) if (!after.has(g)) unload.push([g, k]);
-  for (const [g, k] of after) if (k > (before.get(g) ?? 0)) load.push([g, k - (before.get(g) ?? 0)]);
-  return { unload, load };
-}
-
 /** A stop as the editor keeps it: with a key of its own, so folding and editing follow it when it moves. */
 type Leg = Stop & { key: number };
 let legKeys = 0;
@@ -1011,27 +989,42 @@ function RouteEditor({
     );
   };
   const chips = (i: number) => {
-    const { unload, load } = stopWork(stops, i);
-    const chip = (work: 'unload' | 'load', [g, k]: [string, number]) => (
+    const { unload, load, keep } = stopWork(stops, i);
+    const verb = { unload: 'Unload', load: 'Load', keep: 'Keep aboard' };
+    const chip = (work: 'unload' | 'load' | 'keep', [g, k]: Work) => (
       <Tip
         as="span"
         key={`${work} ${g}`}
         className="chip"
         data-work={work}
         data-type={g}
-        tip={`${work === 'load' ? 'Load' : 'Unload'} ${nameOf(g)}`}
+        tip={`${verb[work]} ${k > 1 ? `${k} holds of ` : ''}${nameOf(g)} (the plan: real amounts depend on the colony's stock and export level)`}
       >
         {icon(g)}
-        {work === 'load' ? '+' : '−'}
+        {work === 'load' ? '+' : work === 'unload' ? '−' : '='}
         {k}
       </Tip>
     );
+    const group = (work: 'unload' | 'load' | 'keep', list: Work[], arrow: string) =>
+      list.length > 0 && (
+        <span className="work" data-group={work}>
+          <span className="arrow" aria-hidden="true">
+            {arrow}
+          </span>
+          {list.map((x) => chip(work, x))}
+        </span>
+      );
     return (
       <div className="chips">
-        {unload.length + load.length === 0 ? (
+        {unload.length + load.length + keep.length === 0 ? (
           <span className="muted">nothing to do</span>
         ) : (
-          [...unload.map((x) => chip('unload', x)), ...load.map((x) => chip('load', x))]
+          <>
+            {group('unload', unload, '↓ off')}
+            {group('load', load, '↑ on')}
+            {group('keep', keep, 'kept')}
+            {unload.length + load.length === 0 && <span className="muted">nothing to do</span>}
+          </>
         )}
       </div>
     );

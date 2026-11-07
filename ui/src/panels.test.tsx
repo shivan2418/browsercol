@@ -1719,9 +1719,12 @@ describe('the trade routes panel', () => {
   const heldAt = (i: number) => [...legAt(i)!.querySelectorAll('[data-held]')].map((h) => h.getAttribute('data-held'));
   // A stop's worked-out chips: unload or load, goods type, and how many holds.
   const chipsAt = (i: number) =>
-    [...stopAt(i).querySelectorAll('[data-work]')].map(
+    [...stopAt(i).querySelectorAll('[data-work]:not([data-work=keep])')].map(
       (c) => `${c.getAttribute('data-work')} ${c.getAttribute('data-type')} ${c.textContent}`,
     );
+  // The goods a stop keeps aboard, muted.
+  const keptAt = (i: number) =>
+    [...stopAt(i).querySelectorAll('[data-work=keep]')].map((c) => `${c.getAttribute('data-type')} ${c.textContent}`);
   const threeStops = () => {
     const { box, saved } = host();
     act(() =>
@@ -1768,7 +1771,46 @@ describe('the trade routes panel', () => {
     // A stop that keeps what it arrived with has nothing to do.
     press('⧉ Copy New Amsterdam’s goods');
     expect(chipsAt(2)).toEqual([]);
+    expect(keptAt(2)).toEqual([`${F} =1`]);
     expect(stopAt(2).textContent).toContain('nothing to do');
+  });
+
+  it('counts holds: a stop that leaves with fewer holds of a goods type unloads the rest, and keeps the others', () => {
+    const { box } = host();
+    act(() =>
+      box.replace(
+        'tradeRoutes',
+        routes({
+          routes: [
+            {
+              id: 'tradeRoute:1',
+              name: 'Sugar run',
+              silent: false,
+              units: 0,
+              stops: [
+                { place: 'colony:7', label: 'New Amsterdam', cargo: [T, T, F] },
+                { place: 'colony:8', label: 'Jamestown', cargo: [T] },
+                { place: 'europe:1', label: 'Europe', cargo: [F] },
+              ],
+            },
+          ],
+          places: [
+            { id: 'europe:1', label: 'Europe' },
+            { id: 'colony:7', label: 'New Amsterdam' },
+            { id: 'colony:8', label: 'Jamestown' },
+          ],
+        }),
+      ),
+    );
+    press('Sugar run');
+    press('Edit Trade Route');
+    // Jamestown is reached with two holds of tools and furs, and leaves with one tools: one tools stays.
+    expect(chipsAt(1)).toEqual([`unload ${T} −1`, `unload ${F} −1`]);
+    expect(keptAt(1)).toEqual([`${T} =1`]);
+    // Europe unloads the tools and loads furs; New Amsterdam is reached with furs only.
+    expect(chipsAt(2)).toEqual([`unload ${T} −1`, `load ${F} +1`]);
+    expect(chipsAt(0)).toEqual([`load ${T} +2`]);
+    expect(keptAt(0)).toEqual([`${F} =1`]);
   });
 
   it('shows each leg with where it goes, the last one back to the first stop', () => {

@@ -1642,6 +1642,22 @@
         background: color-mix(in srgb, var(--good) 22%, var(--box));
         color: var(--good);
       }
+      .dialog .chips .work {
+        display: inline-flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 3px;
+        margin-right: 6px;
+      }
+      .dialog .chips .arrow {
+        color: var(--muted);
+        font-size: var(--fs-s);
+      }
+      .dialog .chip[data-work='keep'] {
+        background: transparent;
+        color: var(--muted);
+        opacity: 0.7;
+      }
       .dialog .vleg {
         display: grid;
         grid-template-columns: 34px minmax(0, 1fr);
