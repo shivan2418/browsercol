@@ -42,7 +42,7 @@ jobs:
           # the music and sounds (each fetched when it plays) and the
           # translations (the page fetches the player's one).
           cd dist
-          total=$(find . -type f ! -path './art/test*' ! -path './presets/*' ! -path './audio/*' ! -path './strings/*' -print0 | xargs -0 -n1 sh -c 'gzip -9c "$0" | wc -c' | awk '{s+=$1} END {print s}')
+          total=$(find . -type f ! -path './play/art/test*' ! -path './play/presets/*' ! -path './play/audio/*' ! -path './play/strings/*' -print0 | xargs -0 -n1 sh -c 'gzip -9c "$0" | wc -c' | awk '{s+=$1} END {print s}')
           raw=$(du -sb . | cut -f1)
           echo "first load (gzip): $((total/1024/1024)) MB; dist raw: $((raw/1024/1024)) MB" | tee -a "$GITHUB_STEP_SUMMARY"
           [ "$total" -lt $((30*1024*1024)) ] || { echo "over the 30 MB budget" >&2; exit 1; }

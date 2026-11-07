@@ -32,6 +32,7 @@ cp ui/brand/globe-*.svg "$gen/public/brand/"
 mkdir -p "$gen/public/presets"
 cp ui/presets/*.json "$gen/public/presets/"
 
+rm -rf dist
 cd ui
 pnpm install --frozen-lockfile
 # The favicon and the web app icons, rendered from BrowserCol's icon (brand/), served as icons/.
@@ -40,3 +41,12 @@ node scripts/build-icons.ts brand "generated/public/icons"
 mode=()
 for arg in "$@"; do [[ $arg == -Prelease ]] && mode=(--mode release); done
 pnpm exec vp build "${mode[@]}"
+
+# The landing page (ui/site/, plain static files) at the site's root, with the logo and fonts it uses.
+cd "$repo"
+cp -r ui/site/. dist/
+mkdir -p dist/brand dist/fonts
+cp ui/brand/wordmark.svg ui/brand/globe-*.svg ui/brand/icon.svg dist/brand/
+cp ui/src/fonts/cinzel/cinzel-latin-{400,700}-normal.woff2 ui/src/fonts/noto-sans/noto-sans-latin-{400,700}-normal.woff2 dist/fonts/
+cp ui/src/fonts/cinzel/OFL.txt dist/fonts/OFL-cinzel.txt 2>/dev/null || true
+cp ui/src/fonts/noto-sans/OFL.txt dist/fonts/OFL-noto-sans.txt 2>/dev/null || true

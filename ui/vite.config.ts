@@ -38,7 +38,8 @@ export default defineConfig(({ command }) => ({
   // Map art from scripts/build-art.ts, copied as is.
   publicDir: 'generated/public',
   build: {
-    outDir: '../dist',
+    // The game lives at <site>/play/; the landing page (ui/site/) is copied to the site's root by build.sh.
+    outDir: '../dist/play',
     emptyOutDir: true,
   },
   server: {

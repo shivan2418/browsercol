@@ -3,7 +3,7 @@
 **FreeCol in the browser.** No install, no server: the whole game, AI
 included, runs in the page.
 
-▶ **Play it at <https://shivan2418.github.io/browsercol/>**
+▶ **Play it at <https://shivan2418.github.io/browsercol/play/>** ([the landing page](https://shivan2418.github.io/browsercol/) says what it is)
 
 ## How it works
 
@@ -28,7 +28,7 @@ such as Engine, Browser UI and Tileset are defined in
 ## Developing
 
 > **Just want to play?** You don't need anything below: open
-> <https://shivan2418.github.io/browsercol/> in Chrome or Firefox. Nothing to
+> <https://shivan2418.github.io/browsercol/play/> in Chrome or Firefox. Nothing to
 > install.
 
 To work on BrowserCol itself, you need Docker and [`just`](https://github.com/casey/just). Every tool
@@ -130,8 +130,11 @@ FreeCol's rules and English strings into a data file and copies FreeCol's
 translations to `strings/`, which the page fetches for the player's
 language. It also copies the default Tileset's art
 (`ui/scripts/build-art.ts`, which prints the art budget) and runs
-`vp build` into `dist/`. Serve `dist/` from any static host: its URLs are
-relative, so a sub-path such as GitHub Pages' `/<repo>/` works.
+`vp build` into `dist/play/`, the game. The site's root, `dist/index.html`,
+is the landing page (`ui/site/`, plain HTML and CSS, with the logo and fonts
+copied beside it); a root URL carrying game parameters is forwarded to
+`play/`. Serve `dist/` from any static host: its URLs are relative, so a
+sub-path such as GitHub Pages' `/<repo>/` works.
 
 ### Deploying
 
@@ -219,6 +222,8 @@ unit can't take it.
   `--check-savegame` on a save.
 
 ### URL parameters
+
+The game's URL is `play/`; the parameters go on it (a site root URL that carries one is forwarded there).
 
 | Parameter | Effect |
 | --- | --- |
