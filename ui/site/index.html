@@ -1,0 +1,501 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BrowserCol: FreeCol in your browser</title>
+    <meta
+      name="description"
+      content="BrowserCol is FreeCol, the open-source Colonization, running in your browser. Free, with no install and no account."
+    />
+    <meta name="color-scheme" content="light dark" />
+    <meta property="og:title" content="BrowserCol: FreeCol in your browser" />
+    <meta property="og:description" content="Found colonies, trade with the natives and win independence. Free, no install, no account." />
+    <meta property="og:image" content="https://shivan2418.github.io/browsercol/img/game.webp" />
+    <link rel="icon" type="image/svg+xml" href="./play/icons/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="./play/icons/favicon-32.png" />
+    <link rel="apple-touch-icon" href="./play/icons/apple-touch-icon.png" />
+    <link rel="preload" href="./fonts/cinzel-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <script>
+      // Old links to the site's root that carry game parameters go to the game with the same query.
+      (function () {
+        var game = /[?&](preset|autoplay|load|rules|resume|skipstart|new|debug|renderer|theme|tileset|slidetiming|perfnominimap)(=|&|$)/;
+        if (game.test(location.search)) location.replace('play/' + location.search + location.hash);
+      })();
+    </script>
+    <style>
+      @font-face {
+        font-family: 'Cinzel';
+        font-weight: 400;
+        font-display: swap;
+        src: url('./fonts/cinzel-latin-400-normal.woff2') format('woff2');
+      }
+      @font-face {
+        font-family: 'Cinzel';
+        font-weight: 700;
+        font-display: swap;
+        src: url('./fonts/cinzel-latin-700-normal.woff2') format('woff2');
+      }
+      @font-face {
+        font-family: 'Noto Sans';
+        font-weight: 400;
+        font-display: swap;
+        src: url('./fonts/noto-sans-latin-400-normal.woff2') format('woff2');
+      }
+      @font-face {
+        font-family: 'Noto Sans';
+        font-weight: 700;
+        font-display: swap;
+        src: url('./fonts/noto-sans-latin-700-normal.woff2') format('woff2');
+      }
+
+      /* The tokens are the game's (ui/src/theme.css): parchment by default, and a dark palette by preference. */
+      :root {
+        --menubar: #3b2a17;
+        --menubar-ink: #f3e6c4;
+        --page: #e9dcb8;
+        --panel: #f4ead0;
+        --ink: #2a1c0c;
+        --muted: #6e5634;
+        --head: #5a3714;
+        --line: #8c6c3c;
+        --btn-hi: rgb(255 255 255 / 50%);
+        --btn-lo: rgb(70 40 10 / 45%);
+        --accent: #8a2e12;
+        --accent-ink: #f8ecd0;
+        --link: #8a2e12;
+        --font: 'Noto Sans', system-ui, sans-serif;
+        --font-title: 'Cinzel', 'Palatino Linotype', Georgia, serif;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --menubar: #0b0b0c;
+          --menubar-ink: #f2e6c8;
+          --page: #14110d;
+          --panel: #1d1914;
+          --ink: #efe6d2;
+          --muted: #b3a68c;
+          --head: #e8c985;
+          --line: #4a3f2e;
+          --accent: #c8582f;
+          --accent-ink: #fff4dc;
+          --link: #e8c985;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        background: var(--page);
+        color: var(--ink);
+        font: 17px/1.6 var(--font);
+        -webkit-text-size-adjust: 100%;
+      }
+      body {
+        margin: 0;
+        background: var(--page);
+      }
+      a {
+        color: var(--link);
+        text-underline-offset: 3px;
+      }
+      a:focus-visible,
+      summary:focus-visible {
+        outline: 3px solid var(--accent);
+        outline-offset: 3px;
+      }
+      .wrap {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 0 20px;
+      }
+
+      /* The title bar, as the game's menu bar. */
+      header.bar {
+        background: var(--menubar);
+        color: var(--menubar-ink);
+        border-bottom: 3px double color-mix(in srgb, var(--menubar-ink) 45%, transparent);
+      }
+      header.bar .wrap {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        min-height: 52px;
+      }
+      header.bar img {
+        height: 30px;
+        width: auto;
+        display: block;
+        border-radius: 4px;
+      }
+      header.bar nav {
+        display: flex;
+        gap: 18px;
+        font: 700 13px/1 var(--font-title);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      header.bar nav a {
+        color: var(--menubar-ink);
+        text-decoration: none;
+      }
+      header.bar nav a:hover {
+        text-decoration: underline;
+      }
+
+      /* The wordmark stands on a parchment cartouche in both palettes: its letters are sepia ink. */
+      .hero {
+        padding: 40px 0 20px;
+        text-align: center;
+      }
+      .cartouche {
+        background: #efe2bf;
+        color: #2a1c0c;
+        border: 4px double #8c6c3c;
+        border-radius: 6px;
+        padding: clamp(18px, 4vw, 36px) clamp(16px, 5vw, 48px);
+        box-shadow:
+          0 2px 0 rgb(0 0 0 / 15%),
+          0 12px 30px -12px rgb(0 0 0 / 45%);
+      }
+      .cartouche img {
+        display: block;
+        width: min(100%, 640px);
+        height: auto;
+        margin: 0 auto;
+      }
+      .cartouche p {
+        margin: clamp(10px, 2vw, 18px) auto 0;
+        max-width: 34em;
+        font: 400 clamp(1.1rem, 2.4vw, 1.4rem) / 1.45 var(--font);
+      }
+      .cartouche p strong {
+        color: #8a2e12;
+      }
+      .actions {
+        margin: 28px 0 8px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+      }
+      .play {
+        display: inline-block;
+        padding: 16px 56px;
+        font: 700 clamp(1.4rem, 4vw, 1.9rem) / 1 var(--font-title);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        text-decoration: none;
+        color: var(--accent-ink);
+        background: var(--accent);
+        border: 2px solid var(--line);
+        border-radius: 4px;
+        box-shadow:
+          inset 2px 2px 0 var(--btn-hi),
+          inset -2px -2px 0 var(--btn-lo),
+          0 6px 16px -6px rgb(0 0 0 / 55%);
+      }
+      .play:hover {
+        filter: brightness(1.12);
+      }
+      .play:active {
+        transform: translateY(1px);
+      }
+      .note {
+        margin: 0;
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+
+      figure.shot {
+        margin: 28px 0 0;
+      }
+      figure.shot img {
+        display: block;
+        width: 100%;
+        height: auto;
+        border: 4px double var(--line);
+        border-radius: 4px;
+        background: var(--menubar);
+        box-shadow: 0 14px 34px -14px rgb(0 0 0 / 60%);
+      }
+      figure.shot figcaption {
+        margin-top: 8px;
+        font-size: 0.85rem;
+        color: var(--muted);
+        text-align: center;
+      }
+
+      section {
+        padding: 36px 0 4px;
+      }
+      h2 {
+        margin: 0 0 14px;
+        font: 700 1.35rem/1.2 var(--font-title);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--head);
+        padding-bottom: 8px;
+        border-bottom: 3px double var(--line);
+      }
+      .features {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 14px;
+      }
+      .features li {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        padding: 14px 16px;
+        font-size: 0.95rem;
+        line-height: 1.5;
+      }
+      .features b {
+        display: block;
+        margin-bottom: 2px;
+        font: 700 0.95rem/1.3 var(--font-title);
+        letter-spacing: 0.06em;
+        color: var(--head);
+      }
+
+      details {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        margin-bottom: 8px;
+      }
+      summary {
+        cursor: pointer;
+        padding: 12px 16px;
+        font-weight: 700;
+        list-style: none;
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      summary::-webkit-details-marker {
+        display: none;
+      }
+      summary::after {
+        content: '+';
+        font-family: var(--font-title);
+        color: var(--accent);
+      }
+      details[open] > summary::after {
+        content: '\2212';
+      }
+      details > div {
+        padding: 0 16px 14px;
+      }
+      details p {
+        margin: 0 0 8px;
+      }
+      details p:last-child {
+        margin-bottom: 0;
+      }
+
+      .credit {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-left: 6px solid var(--accent);
+        border-radius: 4px;
+        padding: 16px 20px;
+      }
+      .credit p {
+        margin: 0 0 10px;
+      }
+      .credit p:last-child {
+        margin-bottom: 0;
+      }
+
+      footer {
+        margin-top: 48px;
+        background: var(--menubar);
+        color: var(--menubar-ink);
+        border-top: 3px double color-mix(in srgb, var(--menubar-ink) 45%, transparent);
+        padding: 28px 0 36px;
+        font-size: 0.95rem;
+      }
+      footer a {
+        color: var(--menubar-ink);
+      }
+      footer ul {
+        list-style: none;
+        margin: 0 0 16px;
+        padding: 0;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 26px;
+        font-weight: 700;
+      }
+      footer p {
+        margin: 0 0 8px;
+        opacity: 0.8;
+        font-size: 0.85rem;
+      }
+
+      @media (max-width: 520px) {
+        html {
+          font-size: 16px;
+        }
+        header.bar nav {
+          gap: 12px;
+          font-size: 11px;
+        }
+        .play {
+          padding: 16px 40px;
+        }
+      }
+      @media (prefers-reduced-motion: no-preference) {
+        .play {
+          transition: filter 0.15s;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="bar">
+      <div class="wrap">
+        <img src="./brand/icon.svg" alt="BrowserCol" width="30" height="30" />
+        <nav aria-label="Site">
+          <a href="#faq">FAQ</a>
+          <a href="https://github.com/shivan2418/browsercol/releases">Changes</a>
+          <a href="https://github.com/shivan2418/browsercol">Source</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <div class="hero">
+        <div class="cartouche">
+          <img src="./brand/wordmark.svg" alt="BrowserCol" width="640" height="68" />
+          <p>
+            <strong>FreeCol</strong>, the open-source Colonization, in your browser. Found colonies, trade with the
+            natives and win your independence. No install, no account.
+          </p>
+        </div>
+        <div class="actions">
+          <a class="play" href="play/">Play</a>
+          <p class="note">Free. Runs in current Chrome, Edge and Firefox on a computer.</p>
+        </div>
+        <figure class="shot">
+          <img
+            src="./img/game.webp"
+            alt="A BrowserCol game in progress: the map with a Dutch colony and ships, the menu bar above and the minimap below."
+            width="1280"
+            height="800"
+            fetchpriority="high"
+          />
+          <figcaption>A game of BrowserCol, running in the browser.</figcaption>
+        </figure>
+      </div>
+
+      <section aria-labelledby="what">
+        <h2 id="what">What it is</h2>
+        <ul class="features">
+          <li>
+            <b>The real game</b>FreeCol's own rules and engine, compiled to WebAssembly. It is the same game, not a
+            lookalike.
+          </li>
+          <li><b>Nothing to install</b>Open the page and play. Your games stay in your browser.</li>
+          <li>
+            <b>Made for the screen</b>A parchment-and-ink look, readable text, and the Swing client's layout you may
+            know.
+          </li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="faq-h" id="faq">
+        <h2 id="faq-h">Questions</h2>
+        <details>
+          <summary>Is it free?</summary>
+          <div>
+            <p>
+              Yes. There is nothing to pay for and no account to make. BrowserCol is open source, under the GPL, like
+              FreeCol.
+            </p>
+          </div>
+        </details>
+        <details>
+          <summary>Which browsers does it work in?</summary>
+          <div>
+            <p>
+              Current Chrome, Edge and Firefox on a desktop or laptop. It needs a browser with WebAssembly GC, which
+              the current versions have. It is not made for phones yet.
+            </p>
+          </div>
+        </details>
+        <details>
+          <summary>Where are my saves?</summary>
+          <div>
+            <p>
+              In your browser, on this site. Clearing the site's data, or using another browser or computer, leaves
+              them behind. To keep a game safe, save it as a file from the load dialog, and import it again whenever you
+              like.
+            </p>
+          </div>
+        </details>
+        <details>
+          <summary>Can I open my desktop FreeCol saves?</summary>
+          <div>
+            <p>
+              BrowserCol reads FreeCol's own save format, so a <code>.fsg</code> save from the desktop game can be
+              imported. Saves made in the browser can be exported as files too. FreeCol versions can differ in what
+              they accept, so keep your original file.
+            </p>
+          </div>
+        </details>
+        <details>
+          <summary>How does it differ from FreeCol?</summary>
+          <div>
+            <p>
+              The game underneath is FreeCol's own, compiled for the browser. What is new is the front end: a Browser
+              UI written for the web, with its own look, mouse and keyboard handling, and saves kept in the browser.
+              Some of FreeCol's desktop features are not there yet.
+            </p>
+          </div>
+        </details>
+      </section>
+
+      <section aria-labelledby="credit">
+        <h2 id="credit">Built on FreeCol</h2>
+        <div class="credit">
+          <p>
+            BrowserCol is an unofficial fan project. It is built on <a href="https://www.freecol.org/">FreeCol</a>, the
+            open-source game made by the FreeCol Team and released under the
+            <a href="https://www.gnu.org/licenses/gpl-2.0.html">GNU General Public License</a>. The game's rules and
+            data are theirs; BrowserCol is FreeCol in the browser.
+          </p>
+          <p>
+            FreeCol is itself based on, and inspired by, the 1994 original, Sid Meier's Colonization by MicroProse. If
+            you want to play that one, it is sold on
+            <a href="https://www.gog.com/en/game/sid_meiers_colonization">GOG</a>.
+          </p>
+          <p>
+            BrowserCol is not affiliated with or endorsed by the rights holders of Colonization, by GOG, or by the
+            FreeCol Team.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        <ul>
+          <li><a href="play/">Play</a></li>
+          <li><a href="https://github.com/shivan2418/browsercol">Source on GitHub</a></li>
+          <li><a href="https://github.com/shivan2418/browsercol/issues">Report a bug</a></li>
+          <li><a href="https://github.com/shivan2418/browsercol/releases">Changes</a></li>
+          <li><a href="https://www.freecol.org/">FreeCol</a></li>
+        </ul>
+        <p>BrowserCol is free software under the GNU General Public License, like FreeCol.</p>
+        <p>Fonts: Cinzel and Noto Sans, under the SIL Open Font License.</p>
+      </div>
+    </footer>
+  </body>
+</html>
