@@ -20,7 +20,7 @@ import path from 'node:path';
 import { browserNames, collectPageErrors, diagnose, launchBrowser, opt, setStep, waitForResult } from './common.ts';
 import { answerDialogs } from './dialogs.ts';
 import { serveDist } from './serve-dist.ts';
-import type { Page } from 'playwright-core';
+import type { Locator, Page } from 'playwright-core';
 
 const browsers = browserNames();
 const turns = Number(opt('turns', '5'));
@@ -170,6 +170,95 @@ class Run {
       `AI rounds (ms): ${ms.join(' ')}; mean ${Math.round(ms.reduce((a, b) => a + b, 0) / Math.max(1, ms.length))}`,
     );
     return ms;
+  }
+
+  /**
+   * The foreign and native affairs reports (#354, #355) as a player opens them from the Report menu: each is held
+   * open and shot into .cache/dialog-shots/ (at 1280x720, and the foreign one in a narrow window too), then checked.
+   * The native report must list a tribe met, with a row for a settlement and its skill and trade; the foreign one
+   * must fit its window with no scrolling.
+   */
+  async affairsReports(): Promise<void> {
+    const page = this.page;
+    setStep(`${this.scenario}: the affairs reports`);
+    const dir = path.join(root, '.cache/dialog-shots');
+    fs.mkdirSync(dir, { recursive: true });
+    await this.noDialog();
+    const open = async (item: string, kind: string): Promise<Locator> => {
+      await page.evaluate((k) => (window.__hold = k), kind);
+      await page.getByRole('menuitem', { name: 'Report', exact: true }).click();
+      await page.getByRole('menuitem', { name: new RegExp(`^${item}( (Ctrl\\+)?(Shift\\+)?F\\d+)?$`) }).click();
+      const d = page.locator(`[role=dialog][data-kind="${kind}"]`);
+      await d.waitFor({ timeout: 15000, label: `${item} opens` });
+      return d;
+    };
+    const close = async (d: Locator) => {
+      await d.locator('[data-answer=close]').first().click();
+      await d.waitFor({ state: 'detached', timeout: 10000, label: 'the report closes' });
+      await page.evaluate(() => (window.__hold = ''));
+    };
+    // A window is resized and given two frames to lay out before it is shot (Firefox's shot once waited for fonts for ever).
+    const resize = async (size: { width: number; height: number }) => {
+      await page.setViewportSize(size);
+      await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    };
+    const spills = (d: Locator) =>
+      d.evaluate((el) => {
+        const spill = (e: Element) => ({ h: e.scrollHeight - e.clientHeight, w: e.scrollWidth - e.clientWidth });
+        const r = spill(el.querySelector('.report')!);
+        const w = spill(el);
+        return { h: Math.max(r.h, w.h), w: Math.max(r.w, w.w) };
+      });
+    await resize({ width: 1280, height: 720 });
+    // The foreign affairs report: every nation's measures, in a window of 1280x720 and a narrow one.
+    let d = await open('Foreign affairs report', 'report');
+    await d
+      .locator('thead th[data-nation]')
+      .first()
+      .waitFor({ timeout: 10000, label: 'the foreign report lists a nation' });
+    const nations = await d.locator('thead th[data-nation]').count();
+    await page.screenshot({ path: path.join(dir, `foreign-affairs-late-game-${this.browser}.png`) });
+    const wide = await spills(d);
+    await resize({ width: 640, height: 720 });
+    await page.screenshot({ path: path.join(dir, `foreign-affairs-late-game-narrow-${this.browser}.png`) });
+    const narrow = await spills(d);
+    await close(d);
+    await resize({ width: 1280, height: 720 });
+    this.note(
+      `foreign affairs: ${nations} nations; spill at 1280x720 ${JSON.stringify(wide)}, at 640x720 ${JSON.stringify(narrow)}`,
+    );
+    // The native affairs report: not empty in a game that has met the natives.
+    d = await open('Native affairs report', 'report');
+    await d
+      .locator('[data-tribe]')
+      .first()
+      .waitFor({ timeout: 10000, label: 'the native report lists a tribe' })
+      .catch(() => {});
+    // The shot is of a tall window, so the whole report shows, with no scrolling.
+    await resize({ width: 1280, height: 1800 });
+    await page.screenshot({ path: path.join(dir, `native-affairs-late-game-${this.browser}.png`) });
+    const count = (sel: string) => d.locator(sel).count();
+    const tribes = await count('[data-tribe]');
+    const rows = await count('[data-settlement]');
+    const skills = await count('[data-cell=skill] img, [data-cell=skill] span');
+    const wanted = await count('[data-cell=wanted] img, [data-cell=wanted] span');
+    const missions = await count('[data-cell=mission] img');
+    await close(d);
+    await resize({ width: 1280, height: 800 });
+    this.note(
+      `native affairs: ${tribes} tribes, ${rows} settlements, ${skills} skills, ${wanted} trade items, ${missions} missions`,
+    );
+    if (tribes === 0 || rows === 0)
+      throw new Error(`the native affairs report is empty: ${tribes} tribes, ${rows} settlements`);
+    if (skills < rows || wanted < rows)
+      throw new Error(`the native report lacks skills or trade for its ${rows} settlements`);
+    if (nations === 0) throw new Error('the foreign affairs report lists no nation');
+    for (const [what, s] of [
+      ['1280x720', wide],
+      ['640x720', narrow],
+    ] as const) {
+      if (s.h > 0 || s.w > 0) throw new Error(`the foreign affairs report scrolls at ${what}: ${JSON.stringify(s)}`);
+    }
   }
 
   /** The panels a late game must open quickly: Europe, a colony of ours if there is one, some reports, and a save. */
@@ -669,6 +758,7 @@ const scenarios: Record<string, (run: Run) => Promise<void>> = {
       throw new Error(`the desktop save came up as ${m.nation} at turn ${m.turn}, not Dutch at 173`);
     }
     await run.playTurns(turns);
+    await run.affairsReports();
     await run.tour();
   },
   'ai-late-game': async (run) => {
