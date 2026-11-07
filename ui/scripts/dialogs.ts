@@ -29,18 +29,27 @@ export async function answerDialogs(
     const shots: Record<string, number> = {};
     const loadedImages = async (d: HTMLElement) => {
       const imgs = [...d.querySelectorAll('img')];
-      await Promise.all(
-        // A complete image is true, not a promise: Promise.all takes it as is.
-        // oxlint-disable-next-line typescript/await-thenable
-        imgs.map(
-          (img) =>
-            img.complete ||
-            new Promise((ok) => {
-              img.addEventListener('load', ok);
-              img.addEventListener('error', ok);
-            }),
-        ),
-      );
+      // Firefox once left the Europe panel open for good on a late-game turn, as if an image never loaded nor
+      // failed: wait for the images at most five seconds, and say in the console which were not done.
+      const loaded = await Promise.race([
+        Promise.all(
+          // A complete image is true, not a promise: Promise.all takes it as is.
+          // oxlint-disable-next-line typescript/await-thenable
+          imgs.map(
+            (img) =>
+              img.complete ||
+              new Promise((ok) => {
+                img.addEventListener('load', ok);
+                img.addEventListener('error', ok);
+              }),
+          ),
+        ).then(() => true),
+        new Promise<boolean>((ok) => setTimeout(() => ok(false), 5000)),
+      ]);
+      if (!loaded) {
+        const waiting = imgs.filter((img) => !img.complete).map((img) => img.getAttribute('src'));
+        console.warn(`dialog ${d.dataset.kind ?? d.id}: images not loaded after 5 s: ${waiting.join(' ')}`);
+      }
       return imgs;
     };
     const answer = async (d: HTMLElement) => {
