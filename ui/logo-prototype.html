@@ -1,0 +1,308 @@
+<!doctype html>
+<!--
+  PROTOTYPE, throw away. Question: what should the BrowserCol logo look like?
+  Your plank (P, round 1) first, then round 2's fresh concepts: five marks, each a period object with a browser hidden in it.
+  Switch with ← → (or #A..#E), ↑ ↓ to try other fonts. The globe round is in logo-prototype-globes.html.
+  Not part of the build: Vite only bundles index.html. Open it with `just dev`, then /logo-prototype.html.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Logo prototype</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Almendra+SC&family=Cormorant+SC:wght@600&family=IM+Fell+English+SC&family=IM+Fell+English:ital@0;1&family=Libre+Caslon+Display&family=Marcellus+SC&family=Pirata+One&family=Playfair+Display+SC:wght@700&family=Rye&family=Cinzel+Decorative:wght@700&family=Cinzel:wght@400;700&family=Noto+Sans&display=swap">
+<style>
+  :root { --menubar: #3b2a17; --menubar-ink: #f3e6c4; --panel: #e9dcb8; --ink: #2a1c0c; --muted: #6e5634; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Noto Sans', system-ui, sans-serif; color: var(--ink); background: #1d4357; min-height: 100vh; }
+  .stage { min-height: 62vh; display: grid; place-items: center; padding: 48px 16px; overflow-x: auto; }
+  .context { background: var(--panel); padding: 20px 16px 90px; display: grid; gap: 18px; justify-items: start; }
+  .context h3 { margin: 0; font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  .menubar { width: 100%; height: 30px; background: var(--menubar); color: var(--menubar-ink); display: flex; align-items: center; gap: 18px; padding: 0 10px; font-size: 14px; }
+  .icons { display: flex; gap: 18px; align-items: end; flex-wrap: wrap; }
+  .icons figure { margin: 0; text-align: center; font-size: 11px; color: var(--muted); }
+  .icons .tile { border-radius: 22%; overflow: hidden; display: grid; place-items: center; }
+  .tab { background: #dfe3e8; border-radius: 8px 8px 0 0; padding: 6px 12px; display: flex; gap: 8px; align-items: center; font-size: 13px; color: #222; width: 260px; }
+  .notes { max-width: 70ch; font-size: 14px; line-height: 1.5; margin: 0; }
+  .notes code { background: rgb(0 0 0 / 8%); padding: 0 4px; border-radius: 3px; }
+  .switcher { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 4px; background: #111; color: #fff; border-radius: 999px; padding: 6px; box-shadow: 0 6px 24px rgb(0 0 0 / 45%); font: 600 14px system-ui, sans-serif; z-index: 10; }
+  .switcher button, .switcher select { font: inherit; background: #333; color: #fff; border: 0; height: 34px; border-radius: 999px; cursor: pointer; }
+  .switcher button { width: 34px; }
+  .switcher select { padding: 0 10px; }
+  .switcher button:hover { background: #555; }
+  .switcher span { padding: 0 10px; min-width: 190px; text-align: center; }
+  svg { overflow: visible; }
+</style>
+</head>
+<body>
+<main id="app"></main>
+<div class="switcher"><button id="prev" aria-label="Previous concept">←</button><span id="label"></span><button id="next" aria-label="Next concept">→</button><select id="font" aria-label="Font"></select></div>
+<script>
+// ---------- procedural wood ----------
+function noise2(seed) {
+  const p = []; for (let i = 0; i < 512; i++) p[i] = Math.abs(Math.sin(i * 12.9898 + seed * 78.233) * 43758.5453) % 1;
+  const h = (x, y) => p[((x & 255) + ((y * 57) & 255)) & 511];
+  return (x, y) => {
+    const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+    const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+    const a = h(xi, yi), b = h(xi + 1, yi), c = h(xi, yi + 1), d = h(xi + 1, yi + 1);
+    return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+  };
+}
+const hex = (s) => [1, 3, 5].map((i) => parseInt(s.slice(i, i + 2), 16));
+const woodCache = {};
+function wood(dark, light, seed = 1, w = 512, h = 256) {
+  const key = dark + light + seed + w + h; if (woodCache[key]) return woodCache[key];
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const ctx = c.getContext('2d'), img = ctx.createImageData(w, h), n = noise2(seed), m = noise2(seed + 7);
+  const D = hex(dark), L = hex(light);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const warp = n(x * 0.004, y * 0.012) * 3 + n(x * 0.02, y * 0.05) * 0.6;
+    let t = (Math.sin(y * 0.2 + warp * 2.5) + 1) / 2;
+    t = Math.pow(t, 2.4) * 0.7 + m(x * 0.015, y * 0.9) * 0.3;
+    const i = (y * w + x) * 4;
+    for (let k = 0; k < 3; k++) img.data[i + k] = L[k] + (D[k] - L[k]) * t;
+    img.data[i + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  return (woodCache[key] = c.toDataURL());
+}
+const WOODS = { oak: ['#8a5a2b', '#d9a866'], walnut: ['#2e1a0c', '#6b4424'], pine: ['#a87436', '#e8c58c'], teak: ['#5a3818', '#a06a34'] };
+const wd = (k, seed, w = 900, h = 260) => `url(${wood(...WOODS[k], seed, w, h)}) center/cover`;
+let uid = 0;
+/** An SVG wood pattern (in user units) for fills inside a mark. */
+const woodPat = (id, k, seed, rot = 0) => `<pattern id="${id}" patternUnits="userSpaceOnUse" width="120" height="60" patternTransform="rotate(${rot})"><image href="${wood(...WOODS[k], seed, 240, 120)}" width="120" height="60"/></pattern>`;
+const svg = (size, body, vb = '0 0 100 100') => `<svg viewBox="${vb}" width="${size}" height="${size}" aria-hidden="true">${body}</svg>`;
+const INK = '#2a1a0c', PAPER = '#efe2bf', BRASS = '#c9a24a';
+
+// ---------- the marks ----------
+
+/** A: the stockade window. A browser window built from logs: the title bar is a beam, its three
+ *  buttons are log ends showing their rings, and the page is a view of a palisaded colony. */
+function stockade(size) {
+  const id = 'm' + uid++;
+  const stakes = [...Array(11)].map((_, i) => { const x = 16 + i * 6.4, h = 12 + ((i * 7) % 4); return `<path d="M${x} 84V${84 - h + 3}L${x + 2.6} ${84 - h}L${x + 5.2} ${84 - h + 3}V84Z" fill="url(#${id}w)" stroke="${INK}" stroke-width=".7"/>`; }).join('');
+  const ring = (x) => `<circle cx="${x}" cy="20" r="3.4" fill="#e3c48e" stroke="${INK}" stroke-width=".8"/><circle cx="${x}" cy="20" r="2.1" fill="none" stroke="#9a6a34" stroke-width=".5"/><circle cx="${x}" cy="20" r=".8" fill="#9a6a34"/>`;
+  return svg(size, `<defs>${woodPat(id + 'w', 'teak', 4, 90)}${woodPat(id + 'f', 'oak', 5)}<clipPath id="${id}c"><rect x="14" y="28" width="72" height="56"/></clipPath></defs>
+    <rect x="6" y="10" width="88" height="82" rx="7" fill="url(#${id}f)" stroke="${INK}" stroke-width="2"/>
+    <g clip-path="url(#${id}c)">
+      <rect x="14" y="28" width="72" height="56" fill="${PAPER}"/>
+      <path d="M14 62 Q30 52 44 58 T76 54 L86 56 V84 H14Z" fill="#8d8a55"/>
+      <path d="M14 66 Q36 60 56 64 T86 62 V84 H14Z" fill="#6d6c3c"/>
+      <circle cx="68" cy="40" r="6" fill="none" stroke="${INK}" stroke-width=".8" stroke-dasharray="1.2 1.6"/>
+      ${stakes}
+      <path d="M48 68V44" stroke="${INK}" stroke-width="1.2"/><path d="M48 44h10l-2 3.5 2 3.5H48Z" fill="#8a2e12" stroke="${INK}" stroke-width=".6"/>
+    </g>
+    <rect x="14" y="28" width="72" height="56" fill="none" stroke="${INK}" stroke-width="1.6"/>
+    ${ring(17)}${ring(26)}${ring(35)}
+    <path d="M44 20h42" stroke="${INK}" stroke-width=".6" opacity=".5"/>`);
+}
+
+/** B: the pointer rose. A compass rose whose north point, where old charts put a fleur-de-lis,
+ *  is a mouse pointer. */
+function pointerRose(size, ink = INK, paper = PAPER) {
+  const P = (r, a) => [50 + r * Math.sin((a * Math.PI) / 180), 50 - r * Math.cos((a * Math.PI) / 180)].map((v) => +v.toFixed(2));
+  const kite = (a, r, w) => { const t = P(r, a), l = P(w, a - 90), rr = P(w, a + 90), c = [50, 50]; return `<path d="M${c}L${l}L${t}Z" fill="${ink}"/><path d="M${c}L${t}L${rr}Z" fill="${paper}" stroke="${ink}" stroke-width=".8"/>`; };
+  let s = `<circle cx="50" cy="50" r="40" fill="${paper}" stroke="${ink}" stroke-width="1.6"/><circle cx="50" cy="50" r="36" fill="none" stroke="${ink}" stroke-width=".6"/>`;
+  for (let a = 0; a < 360; a += 10) { const [x1, y1] = P(40, a), [x2, y2] = P(a % 90 ? 38 : 36, a); s += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${ink}" stroke-width=".6"/>`; }
+  for (const a of [45, 135, 225, 315]) s += kite(a, 28, 4.5);
+  for (const a of [90, 180, 270]) s += kite(a, 44, 6.5);
+  s += kite(0, 24, 6.5);
+  // the north point: a pointer, its tip where the fleur-de-lis would be
+  s += `<path transform="translate(46.4 3) scale(1.45)" d="M0 0V17L4 13.2L7 20L9.6 18.9L6.7 12.2H11.8Z" fill="${ink}" stroke="${paper}" stroke-width=".7" stroke-linejoin="round"/>`;
+  s += `<circle cx="50" cy="50" r="2.6" fill="${paper}" stroke="${ink}" stroke-width=".8"/>`;
+  return svg(size, s);
+}
+
+/** C: the spyglass. A brass lens on a telescoping wooden barrel, looking out over a coast: tilt
+ *  your head and it is a search icon. */
+function spyglass(size, scene = true) {
+  const id = 'm' + uid++;
+  const seg = (x, w, len) => `<rect x="${x}" y="${-w / 2}" width="${len}" height="${w}" rx="1.5" fill="url(#${id}w)" stroke="${INK}" stroke-width="1"/><rect x="${x + len - 2.5}" y="${-w / 2 - 0.6}" width="2.5" height="${w + 1.2}" fill="${BRASS}" stroke="${INK}" stroke-width=".6"/>`;
+  return svg(size, `<defs>${woodPat(id + 'w', 'walnut', 6)}<clipPath id="${id}c"><circle cx="40" cy="40" r="27"/></clipPath></defs>
+    <g transform="translate(59 59) rotate(45)">${seg(0, 15, 14)}${seg(13, 12.5, 13)}${seg(25, 10, 12)}<rect x="36" y="-4" width="4" height="8" rx="1.5" fill="${BRASS}" stroke="${INK}" stroke-width=".8"/></g>
+    <circle cx="40" cy="40" r="31" fill="${BRASS}" stroke="${INK}" stroke-width="1.6"/>
+    <circle cx="40" cy="40" r="27" fill="${PAPER}" stroke="${INK}" stroke-width="1.2"/>
+    ${scene ? `<g clip-path="url(#${id}c)">
+      <path d="M13 44 Q40 42 67 44 V70 H13Z" fill="#6f8a8a"/>
+      ${[49, 54, 59].map((y, i) => `<path d="M${16 + i * 4} ${y}q3-2 6 0t6 0t6 0t6 0t6 0" fill="none" stroke="${PAPER}" stroke-width=".7" opacity=".7"/>`).join('')}
+      <path d="M44 44 Q50 33 56 37 T67 34 V44Z" fill="#7d7a46" stroke="${INK}" stroke-width=".6"/>
+      <g transform="translate(24 37)" fill="${INK}"><path d="M0 7 Q6 10 13 7 L12 9 Q6 11 1 9Z"/><path d="M5 7V-2M9 7V0" stroke="${INK}" stroke-width=".6"/><path d="M5-1 Q8 2 5 6Z M9 1 Q11.5 3.5 9 6Z"/></g>
+    </g>` : ''}
+    <path d="M25 22 A22 22 0 0 1 45 15" fill="none" stroke="#fff" stroke-width="2" opacity=".6" stroke-linecap="round"/>`);
+}
+
+/** D: the tile. FreeCol's own unit of the world, a 2:1 diamond, cut as a wooden game piece with a
+ *  colony on it. Its flag is a browser tab. */
+function tile(size) {
+  const id = 'm' + uid++;
+  return svg(size, `<defs>${woodPat(id + 'l', 'teak', 7, -26.5)}${woodPat(id + 'r', 'walnut', 8, 26.5)}</defs>
+    <path d="M6 54 L50 76 V86 L6 64Z" fill="url(#${id}l)" stroke="${INK}" stroke-width="1.2" stroke-linejoin="round"/>
+    <path d="M94 54 L50 76 V86 L94 64Z" fill="url(#${id}r)" stroke="${INK}" stroke-width="1.2" stroke-linejoin="round"/>
+    <path d="M50 32 L94 54 L50 76 L6 54Z" fill="#8d8a55" stroke="${INK}" stroke-width="1.4" stroke-linejoin="round"/>
+    <path d="M50 38 L82 54 L50 70 L18 54Z" fill="#a19c62"/>
+    ${[[30, 60], [70, 62], [64, 46], [26, 50]].map(([x, y]) => `<path d="M${x} ${y}l1.2-2.5 1.2 2.5 1.2-3 1.2 3" fill="none" stroke="#4d4a24" stroke-width=".7"/>`).join('')}
+    <g stroke="${INK}" stroke-width=".7">
+      <path d="M38 55 L50 49 L62 55 L50 61Z" fill="#6b4424"/>
+      ${[...Array(9)].map((_, i) => { const x = 37 + i * 3, y = 55 + (i < 4 ? i * 1.5 : (8 - i) * 1.5); return `<path d="M${x} ${y}V${y - 6}l1 -1.5 1 1.5V${y}Z" fill="#b0824a"/>`; }).join('')}
+      <path d="M45 51 L50 48.5 L55 51 V46 L50 42 L45 46Z" fill="#c9a26a"/><path d="M44 46 L50 41 L56 46" fill="none" stroke-width="1.4"/>
+      <path d="M58 50 V27" stroke-width="1"/>
+    </g>
+    <path transform="translate(58 26.5) scale(.62)" d="M0 1.5 h1.6 q1 0 1.2 -1 l.8 -3 q.3 -1 1.3 -1 h5.2 q1 0 1.3 1 l.8 3 q.2 1 1.2 1 h1.6 v5 H0Z" fill="#8a2e12" stroke="${INK}" stroke-width=".6"/>`, '0 18 100 72');
+}
+
+/** E: the caravel. A woodblock print of a ship whose mainsail is cut in the shape of a browser tab. */
+function caravel(size, ink = INK, paper = PAPER) {
+  const id = 'm' + uid++;
+  return svg(size, `<defs><filter id="${id}p" x="0" y="0" width="100" height="100" filterUnits="userSpaceOnUse"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="1" seed="3" result="n"/><feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -9 6.6" result="a"/><feComposite in="SourceGraphic" in2="a" operator="in"/></filter></defs>
+    <g filter="url(#${id}p)" fill="${ink}" stroke="${ink}">
+      <path d="M50 12V72M30 24V72M70 30V72" stroke-width="1.6"/>
+      <path d="M50 12l9 2.5-9 2.5Z" stroke="none"/>
+      <path d="M33 60 Q39 60 39 54 L40 28 Q40 22 46 22 L54 22 Q60 22 60 28 L61 54 Q61 60 67 60Z" stroke="none"/>
+      <path d="M38 52 Q50 46 62 52" fill="none" stroke="${paper}" stroke-width=".8"/>
+      <path d="M38 40 Q50 34 62 40" fill="none" stroke="${paper}" stroke-width=".8"/>
+      <path d="M22 50 Q24 34 30 26 L38 54Z" stroke="none"/>
+      <path d="M70 32 L82 60 L66 58Z" stroke="none"/>
+      <path d="M10 66 Q14 64 16 64 L84 64 Q88 64 92 60 L86 76 Q50 84 16 76Z" stroke="none"/>
+      <path d="M18 69 H84" stroke="${paper}" stroke-width=".8"/>
+      ${[30, 40, 50, 60, 70].map((x) => `<circle cx="${x}" cy="72.5" r="1.3" fill="${paper}" stroke="none"/>`).join('')}
+      ${[84, 90].map((y, i) => `<path d="M${4 + i * 6} ${y}q4-4 8 0t8 0t8 0t8 0t8 0t8 0t8 0t8 0t8 0t8 0t8 0" fill="none" stroke-width="1.4"/>`).join('')}
+    </g>`);
+}
+
+
+/** Round 1, the user's idea: a globe cut like a Chromium-style pinwheel, three woods round a
+ *  blue ocean centre, split by lines tangent to it. */
+function pinwheelO({ size, fills = ['oak', 'walnut', 'cherry'], gap = '#f3e6c4', rotate = -30, ink = '#3b2410' }) {
+  const id = 'g' + uid++, R = 48, g = 22, w = 5, BIG = 300, ext = 50;
+  const rad = (a) => (a * Math.PI) / 180, P = (r, a) => [r * Math.cos(rad(a)), r * Math.sin(rad(a))];
+  const T = [], F = [];
+  for (let k = 0; k < 3; k++) { const phi = rotate + k * 120, t = P(g, phi), d = P(1, phi + 90); T.push(t); F.push([t[0] + d[0] * BIG, t[1] + d[1] * BIG]); }
+  const defs = [], body = [];
+  const W3 = { oak: ['#8a5a2b', '#d9a866'], walnut: ['#2e1a0c', '#6b4424'], cherry: ['#6e2a14', '#b0582e'] };
+  const paint = (f, k) => { defs.push(`<pattern id="${id}w${k}" patternUnits="userSpaceOnUse" width="160" height="80" patternTransform="rotate(${rotate + k * 120 + 150})"><image href="${wood(...W3[f], k + 3, 320, 160)}" width="160" height="80"/></pattern>`); return `url(#${id}w${k})`; };
+  defs.push(`<clipPath id="${id}c"><circle r="${R}"/></clipPath><clipPath id="${id}i"><circle r="${g - w / 2}"/></clipPath>`);
+  defs.push(`<radialGradient id="${id}o" cx="35%" cy="30%" r="80%"><stop offset="0" stop-color="#6fb3c9"/><stop offset=".55" stop-color="#2a6f8c"/><stop offset="1" stop-color="#123a4d"/></radialGradient>`);
+  defs.push(`<radialGradient id="${id}s" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#fff" stop-opacity=".35"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".35"/></radialGradient>`);
+  const gridLines = (r) => { let s = ''; for (const e of [0.35, 0.72]) s += `<ellipse rx="${r * e}" ry="${r}"/>`; s += `<line x1="0" y1="${-r}" x2="0" y2="${r}"/>`; for (const y of [-0.5, 0, 0.5]) s += `<line x1="${-r}" y1="${r * y}" x2="${r}" y2="${r * y}"/>`; return s; };
+  const seg = T.map((t, k) => { const t2 = T[(k + 1) % 3], mid = P(BIG, rotate + k * 120 + 150); return `<path d="M0 0L${t}L${F[k]}L${mid}L${F[(k + 1) % 3]}L${t2}Z" fill="${paint(fills[k], k)}"/>`; }).join('');
+  body.push(`<g clip-path="url(#${id}c)">${seg}<g stroke="${gap}" stroke-width="${w}">${T.map((t, k) => `<line x1="${t[0]}" y1="${t[1]}" x2="${F[k][0]}" y2="${F[k][1]}"/>`).join('')}</g><circle r="${R}" fill="url(#${id}s)"/></g>`);
+  body.push(`<circle r="${R}" fill="none" stroke="${ink}" stroke-width="2"/><circle r="${g + w / 2}" fill="${gap}"/>`);
+  body.push(`<circle r="${g - w / 2}" fill="url(#${id}o)"/><g clip-path="url(#${id}i)" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="1">${gridLines(g - w / 2)}</g>`);
+  body.push(`<path clip-path="url(#${id}i)" d="M-9 -6c4-3 8 1 6 5s-6 8-2 12c-5 0-8-4-7-9zM4 -10c3 0 6 2 7 6-2 1-5 0-7-2z" fill="#7a9a4a" opacity=".85"/><circle r="${g - w / 2}" fill="url(#${id}s)"/>`);
+  return `<svg viewBox="${-ext} ${-ext} ${ext * 2} ${ext * 2}" width="${size}" height="${size}" aria-hidden="true"><defs>${defs.join('')}</defs>${body.join('')}</svg>`;
+}
+/** The wordmark with each O swapped for a mark. */
+function wordmark(text, o, oStyle = '') {
+  return `<span style="display:inline-flex;align-items:baseline;white-space:nowrap;line-height:1" aria-label="BrowserCol">${text.split(/([Oo])/).map((x) => (/^[Oo]$/.test(x) ? `<span style="display:inline-flex;align-self:center;${oStyle}">${o()}</span>` : x ? `<span>${x}</span>` : '')).join('')}</span>`;
+}
+
+// ---------- the fonts ----------
+const FONTS = [
+  ['cinzel', 'Cinzel Bold', '700 1em Cinzel', 1],
+  ['cinzel-deco', 'Cinzel Decorative', "700 1em 'Cinzel Decorative'", 0.95],
+  ['playfair', 'Playfair Display SC', "700 1em 'Playfair Display SC'", 0.95],
+];
+let FONT = null; // null: the concept's own
+const fontOf = (v) => FONT ?? FONTS.find((f) => f[0] === v.font);
+const word = (v, px, extra = '') => { const f = fontOf(v); return `<span style="font:${f[2]};font-size:${px * f[3]}px;line-height:1;white-space:nowrap;${extra}">BrowserCol</span>`; };
+
+// ---------- the concepts ----------
+const VARIANTS = {
+  P: {
+    name: 'Your plank', font: 'cinzel', tile: '#3b2a17',
+    idea: 'Your idea, as it was in round 1: the name carved into an oak plank in Cinzel Bold (the game\'s own title font), both O\'s wooden globes in three woods (oak, walnut, cherry) cut like a Chromium-style pinwheel round a blue ocean centre.',
+    mark: (s) => pinwheelO({ size: s }),
+    render() { document.body.style.background = '#1d4357';
+      const f = fontOf(this);
+      return `<div style="background:${wd('oak', 2)};padding:26px 48px;border-radius:10px;box-shadow:inset 0 2px 0 rgb(255 230 180/.35),inset 0 -4px 0 rgb(0 0 0/.35),0 14px 30px rgb(0 0 0/.5);border:2px solid #3b2410">
+        <div style="font:${f[2]};font-size:${92 * f[3]}px;color:#3a210c;letter-spacing:.02em;text-shadow:0 1px 0 rgb(255 225 170/.55),0 -1px 1px rgb(0 0 0/.6)">${wordmark('BROWSERCOL', () => pinwheelO({ size: 74 }), 'margin:0 2px')}</div></div>`; },
+  },
+  A: {
+    name: 'Stockade window', font: 'playfair', tile: wd('oak', 21),
+    idea: 'A browser window built like a colony: the frame is oak, the title bar a beam, and the three window buttons are log ends showing their growth rings. The page shows a palisade on a green hill with the colony\'s flag. It is a window from the start, but nobody calls it a browser until they spot the three circles.',
+    mark: (s) => stockade(s),
+    render() { document.body.style.background = '#2c3b2a';
+      return `<div style="display:flex;align-items:center;gap:28px;background:${wd('walnut', 22)};padding:26px 44px 26px 30px;border-radius:8px;border:2px solid #120a04;box-shadow:0 14px 30px #0008">${this.mark(150)}<div style="display:grid;gap:10px">${word(this, 86, 'color:#ead2a0;text-shadow:0 2px 0 #000a')}<span style="font:italic 400 18px 'IM Fell English',serif;color:#d9bf8c;letter-spacing:.06em">A colony in every tab</span></div></div>`; },
+  },
+  B: {
+    name: 'Pointer rose', font: 'cinzel-deco', tile: PAPER,
+    idea: 'A sea chart\'s compass rose. On old charts the north point is a fleur-de-lis; here it is a mouse pointer. It looks right at a glance because the pointer is about the same size and weight as a fleur-de-lis.',
+    mark: (s) => pointerRose(s),
+    render() { document.body.style.background = '#cdb382';
+      const rhumbs = [...Array(16)].map((_, i) => { const a = (i * Math.PI) / 8; return `<line x1="50%" y1="40%" x2="${50 + 80 * Math.cos(a)}%" y2="${40 + 80 * Math.sin(a)}%" stroke="#3b2410" stroke-width=".6" opacity=".25"/>`; }).join('');
+      return `<div style="position:relative;background:#efe2bf;padding:30px 70px 26px;border:1px solid #3b2410;outline:6px double #3b2410;outline-offset:4px;display:grid;justify-items:center;gap:12px;overflow:hidden;box-shadow:0 10px 24px #0004">
+        <svg style="position:absolute;inset:0;width:100%;height:100%" aria-hidden="true">${rhumbs}</svg>
+        <div style="position:relative">${this.mark(190)}</div>
+        ${word(this, 70, 'color:#3b2410;position:relative')}
+        <span style="position:relative;font:italic 400 16px 'IM Fell English',serif;color:#6e5634">being a true chart of the New World, for any browser</span></div>`; },
+  },
+  C: {
+    name: 'Spyglass', font: 'cinzel', tile: '#3b2a17',
+    idea: 'To browse is to look about you, and the explorer looked through a spyglass. A brass lens on a wooden barrel, seen from the side, with a coast and a caravel in the glass. Turn it 45 degrees in your head and it is the search icon of every browser. In the wordmark the lens stands in for the first O.',
+    mark: (s) => spyglass(s),
+    render() { document.body.style.background = '#1d4357';
+      const f = fontOf(this), px = 96;
+      return `<div style="display:flex;align-items:baseline;color:#f3e6c4;text-shadow:0 2px 0 #0c2230;font:${f[2]};font-size:${px * f[3]}px;line-height:1;padding-bottom:40px">Br<span style="display:inline-block;width:.78em;height:.7em;position:relative;margin:0 .02em"><span style="position:absolute;left:-.08em;top:-.12em">${spyglass(px * 1.25)}</span></span>wserCol</div>`; },
+  },
+  D: {
+    name: 'The tile', font: 'cinzel', tile: '#1d4357',
+    idea: 'FreeCol draws the world in 2:1 diamond tiles. This is one of them, cut from wood like a board-game piece: grassland on top, a stockade and a house on it. The flag over the colony has the outline of a browser tab. The mark is the game\'s own building block, the most "this game" of the five.',
+    mark: (s) => tile(s),
+    render() { document.body.style.background = '#1d4357';
+      return `<div style="display:grid;justify-items:center;gap:6px">${this.mark(260)}${word(this, 72, 'color:#f3e6c4;letter-spacing:.04em;text-shadow:0 2px 0 #0c2230')}</div>`; },
+  },
+  E: {
+    name: 'Woodblock caravel', font: 'cinzel-deco', tile: PAPER,
+    idea: 'A woodblock print of a caravel, one ink, with the speckle a real block leaves. Its mainsail is cut in the shape of a browser tab: square-topped with rounded shoulders, flaring at the foot. Sails were cut that way, so it reads as a sail first.',
+    mark: (s) => caravel(s),
+    render() { document.body.style.background = '#cdb382';
+      return `<div style="background:#efe2bf;padding:26px 50px 22px;display:grid;justify-items:center;gap:8px;border:2px solid #2a1a0c;box-shadow:0 10px 24px #0004">${this.mark(200)}${word(this, 80, 'color:#2a1a0c')}<span style="font:400 13px 'IM Fell English SC',serif;letter-spacing:.4em;color:#2a1a0c;border-top:1.5px solid #2a1a0c;padding-top:6px">ANNO MMXXVI</span></div>`; },
+  },
+};
+const KEYS = Object.keys(VARIANTS);
+
+let KEY = 'P';
+function show(key) {
+  KEY = key;
+  const v = VARIANTS[key], f = fontOf(v);
+  const hero = v.render();
+  const chip = (s) => `<span style="display:inline-grid;place-items:center;width:${s + 2}px;height:${s + 2}px;border-radius:4px;background:${v.tile}">${v.mark(s)}</span>`;
+  document.getElementById('app').innerHTML = `
+    <section class="stage">${hero}</section>
+    <section class="context">
+      <h3>In the app</h3>
+      <div class="menubar">${chip(22)}<b style="font:${f[2]};font-size:${17 * f[3]}px">BrowserCol</b><span>Game</span><span>View</span><span>Orders</span><span>Report</span></div>
+      <div class="tab">${chip(16)} Your turn · 1612 Autumn · Dutch</div>
+      <h3>Icons</h3>
+      <div class="icons">${[192, 64, 32, 16].map((s) => `<figure><div class="tile" style="width:${s}px;height:${s}px;background:${v.tile}">${v.mark(s * 0.86)}</div>${s}px</figure>`).join('')}</div>
+      <h3>${key}: ${v.name} · ${f[1]}</h3>
+      <p class="notes">${v.idea}</p>
+      <p class="notes">Link: <code>#${key}${FONT ? '-' + FONT[0] : ''}</code> · ← → concept · ↑ ↓ font</p>
+    </section>`;
+  document.getElementById('label').textContent = `${key} (${v.name})`;
+  document.getElementById('font').value = FONT ? FONT[0] : '';
+  try { history.replaceState(null, '', `#${key}${FONT ? '-' + FONT[0] : ''}`); } catch {}
+}
+function readHash() {
+  const [k, ...f] = location.hash.slice(1).split('-');
+  FONT = FONTS.find((x) => x[0] === f.join('-')) ?? null;
+  return KEYS.includes(k) ? k : 'P';
+}
+const step = (d) => show(KEYS[(KEYS.indexOf(KEY) + d + KEYS.length) % KEYS.length]);
+const stepFont = (d) => { const i = FONT ? FONTS.indexOf(FONT) : -1, n = i + d; FONT = n < 0 || n >= FONTS.length ? null : FONTS[n]; show(KEY); };
+document.getElementById('prev').onclick = () => step(-1);
+document.getElementById('next').onclick = () => step(1);
+const sel = document.getElementById('font');
+sel.innerHTML = `<option value="">Concept's font</option>` + FONTS.map((f) => `<option value="${f[0]}">${f[1]}</option>`).join('');
+sel.onchange = () => { FONT = FONTS.find((x) => x[0] === sel.value) ?? null; show(KEY); sel.blur(); };
+addEventListener('hashchange', () => show(readHash()));
+addEventListener('keydown', (e) => {
+  if (e.target.closest?.('input,textarea,select,[contenteditable]')) return;
+  if (e.key === 'ArrowLeft') step(-1); else if (e.key === 'ArrowRight') step(1);
+  else if (e.key === 'ArrowUp') { e.preventDefault(); stepFont(-1); } else if (e.key === 'ArrowDown') { e.preventDefault(); stepFont(1); }
+});
+Promise.all(FONTS.map((f) => document.fonts.load(f[2].replace('1em', '20px')))).finally(() => show(readHash()));
+</script>
+</body>
+</html>
