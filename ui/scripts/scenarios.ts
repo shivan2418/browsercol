@@ -344,6 +344,12 @@ async function fight(run: Run) {
   for (const d of texts) kinds.set(d.split(':')[0]!, (kinds.get(d.split(':')[0]!) ?? 0) + 1);
   run.note(`dialogs: ${[...kinds].map(([k, n]) => `${k} x${n}`).join(', ')}`);
   fs.writeFileSync(run.file('dialogs').replace('.png', '.txt'), texts.join('\n'));
+  if (seenErrors > 0) {
+    const detail = await page.evaluate(() => JSON.stringify(window.fcErrors ?? []));
+    throw new Error(
+      `the Engine raised ${seenErrors} error(s) during the fights (the banner): ${detail.slice(0, 3000)}`,
+    );
+  }
   if (attacks === 0) throw new Error('the army never had anything to attack');
   const combat = texts.filter((d) =>
     /attack|defeat|captur|plunder|damaged|sunk|demoted|destroy|victory|loses|wins/i.test(d),

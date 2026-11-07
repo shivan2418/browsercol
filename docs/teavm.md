@@ -139,6 +139,20 @@ that may suspend is hit the same way. Four open TeaVM monitor pull requests
 9. **`-Paggressive`** (TeaVM's `AGGRESSIVE` optimisation) produces a module
    that fails at run time. `-Prelease` (obfuscation) gives the size gain
    anyway.
+10. **`Collectors.minBy`/`maxBy` throw on a null result.** TeaVM 0.16's
+    `Reducer.getOpt` is `Optional.of(value)`, and the JDK's gives an empty
+    Optional for null, so `.orElse(null)` returns null. FreeCol's
+    `CollectionUtils.minimize` and `maximize` ended in `.collect(minBy(...))
+    .orElse(null)`, and `Unit.getClosestColony` puts a null placeholder in
+    its stream, which wins when no colony is near. A ship battle then threw
+    a `NullPointerException` in `getRepairLocation` (#352) whenever the
+    loser's player had no colony that repairs ships: "handling attack
+    failed" and the error banner, on a win, a loss or a ship that evades.
+    `browsercol.shim.OptionalReducerFix` (a TeaVM plugin, like `FiberSuspendFix`) turns the `Optional.of` in `Reducer.getOpt` into `ofNullable`; FreeCol's code is untouched (no patch). The stack was
+    unreadable (`Throwable$FakeClass.fakeMethod` with offsets that do not
+    match the name section), so it was found by putting a step marker in
+    the server's `csCombat` and reading it in the "failed" event. Not yet
+    reported to TeaVM.
 
 FreeCol's own behaviour that the browser needed changed:
 - The base `GUI` silently drops `invokeNowOrLater` and `invokeNowOrWait`, so
