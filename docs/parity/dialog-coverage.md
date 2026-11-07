@@ -6,7 +6,7 @@ they run in a real game; *Browser UI* rows are panels the page shows by itself t
 the Swing GUI method. Counts are summed over the browsers a script ran in. Counting is on only for the scripts: they install
 `window.fcCoverageHit`, and a page without it counts nothing. `dialogs.ts` is a helper the scripts share, not a script.
 
-- 65 dialogs (55 WebGUI, 10 Browser UI); 34 reached, 31 never reached
+- 65 dialogs (55 WebGUI, 10 Browser UI); 35 reached, 30 never reached
 - `smoke`: ran in chromium, firefox
 - `play`: ran in chromium, firefox
 - `saves`: ran in chromium, firefox
@@ -14,13 +14,12 @@ the Swing GUI method. Counts are summed over the browsers a script ran in. Count
 - `debug`: ran in chromium, firefox
 - `tileset`: ran in chromium, firefox
 
-## Never reached (31)
+## Never reached (30)
 
 - `showAboutPanel` (Browser UI, Swing opens it from 1 place)
 - `showCaptureGoodsDialog` (WebGUI)
 - `showClientOptionsDialog` (WebGUI, Swing opens it from 1 place)
 - `showClientOptionsDialog` (Browser UI, Swing opens it from 1 place)
-- `showColopediaPanel` (WebGUI, Swing opens it from 10 places)
 - `showConfirmDeclarationDialog` (WebGUI)
 - `showDeclarationPanel` (WebGUI)
 - `showDumpCargoDialog` (WebGUI)
@@ -57,10 +56,11 @@ the Swing GUI method. Counts are summed over the browsers a script ran in. Count
 | `showEuropePanel` | WebGUI | 3 |  | 2 |  | 10 |  |  | 12 |
 | `showBuildQueuePanel` | Browser UI | 4 |  | 6 |  |  |  | 4 | 10 |
 | `showEndTurnDialog` | WebGUI |  |  | 6 | 4 |  |  |  | 10 |
-| `showReportTurnPanel` | WebGUI |  | 2 | 4 |  |  | 2 |  | 8 |
+| `showReportTurnPanel` | WebGUI |  | 3 | 4 |  |  | 2 |  | 9 |
 | `showColonyPanel` | WebGUI | 8 |  | 6 |  |  |  |  | 6 |
 | `showPopupMenu` | Browser UI | 6 |  | 6 |  |  |  |  | 6 |
 | `showSelectAmountDialog` | WebGUI | 2 |  | 2 |  | 4 |  |  | 6 |
+| `showColopediaPanel` | WebGUI | 10 | 4 |  |  |  |  |  | 4 |
 | `showLoadingSavegameDialog` | Browser UI |  |  |  | 4 |  |  |  | 4 |
 | `showNamingDialog` | WebGUI |  |  | 4 |  |  |  |  | 4 |
 | `showSelectDestinationDialog` | WebGUI | 1 |  | 2 |  | 2 |  |  | 4 |
@@ -90,7 +90,6 @@ the Swing GUI method. Counts are summed over the browsers a script ran in. Count
 | `showCaptureGoodsDialog` | WebGUI |  |  |  |  |  |  |  | 0 |
 | `showClientOptionsDialog` | WebGUI | 1 |  |  |  |  |  |  | 0 |
 | `showClientOptionsDialog` | Browser UI | 1 |  |  |  |  |  |  | 0 |
-| `showColopediaPanel` | WebGUI | 10 |  |  |  |  |  |  | 0 |
 | `showConfirmDeclarationDialog` | WebGUI |  |  |  |  |  |  |  | 0 |
 | `showDeclarationPanel` | WebGUI |  |  |  |  |  |  |  | 0 |
 | `showDumpCargoDialog` | WebGUI |  |  |  |  |  |  |  | 0 |
