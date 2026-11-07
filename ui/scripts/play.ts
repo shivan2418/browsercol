@@ -990,6 +990,30 @@ async function play(page: Page, url: string) {
       .catch(() => {
         throw new Error(`the ship did not unload ${goods}`);
       });
+    // The same goods dropped on the ship's icon in the port list load it too (#361).
+    await realDrag(
+      warehouse.locator(`[data-goods="${goods}"]`),
+      panel.locator(`[data-part=port] [data-unit="${shipId}"]`),
+      "goods to the ship's icon",
+    );
+    await cargo
+      .locator(`[data-goods="${goods}"]`)
+      .first()
+      .waitFor({ timeout: 20000, label: "a real-mouse drop on the ship's icon shows the goods in its cargo" })
+      .catch(() => {
+        throw new Error(`a drop of ${goods} on the ship's icon did not load it`);
+      });
+    await realDrag(cargo.locator(`[data-goods="${goods}"]`).first(), warehouse, 'cargo to the warehouse');
+    await page
+      .waitForFunction(
+        ([ship]) => !document.querySelector(`[data-part=cargo][data-ship="${ship}"] [data-goods]`),
+        [shipId],
+        { timeout: 20000, label: "the ship's cargo has no goods left after the icon drop" },
+      )
+      .catch(() => {
+        throw new Error(`the ship did not unload ${goods} after the icon drop`);
+      });
+    console.log("  colony panel: goods dropped on the ship's icon load it");
     // The warehouse button opens the warehouse dialog: an export level set there is there when it is reopened.
     const warehouseDialog = page.locator('[role=dialog][data-kind=warehouse]');
     const exportLevel = warehouseDialog.locator('fieldset input[aria-label$=" export"]').first();
