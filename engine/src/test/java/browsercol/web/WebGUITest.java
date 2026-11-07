@@ -1562,4 +1562,227 @@ class WebGUITest {
         assertFalse(client.getCommands().menuEntry("colopedia:model.noSuch"), "no such entry");
         assertFalse(client.getCommands().menuEntry("colopedia:model.ability.build"), "not an entry");
     }
+
+    /** The last "kind ..." the fake Browser UI saw, after waiting for it. */
+    private String lastOf(List<String> seen, String kindPrefix) throws Exception {
+        waitFor(seen, kindPrefix);
+        final List<String> all = new ArrayList<>(seen);
+        for (int i = all.size() - 1; i >= 0; i--) if (all.get(i).startsWith(kindPrefix)) return all.get(i);
+        throw new AssertionError("no " + kindPrefix + " in " + seen);
+    }
+
+    @Test
+    @Timeout(120)
+    void theDeclarationIsConfirmedByNamingTheNationAndTheCountryAndThenShown() throws Exception {
+        final GUI gui = startGame().getClient().getGUI();
+
+        answer = "New Eng!land\nBritannia";
+        assertEquals(List.of("New England", "Britannia"), gui.showConfirmDeclarationDialog());
+        String question = asked.get(asked.size() - 1);
+        assertTrue(question.startsWith("names {"), question);
+        assertTrue(question.contains("\"ok\":\"" + Messages.message("confirmDeclarationDialog.areYouSure.yes")
+            + "\",\"cancel\":\"" + Messages.message("confirmDeclarationDialog.areYouSure.no") + "\""), question);
+        assertTrue(question.contains(Messages.message("confirmDeclarationDialog.enterNation")), question);
+        assertTrue(question.contains(Messages.message("confirmDeclarationDialog.enterCountry")), question);
+
+        answer = null;
+        assertNull(gui.showConfirmDeclarationDialog(), "cancelled");
+        answer = "just one name";
+        assertNull(gui.showConfirmDeclarationDialog(), "a malformed answer is a cancel");
+
+        // The declaration panel has only an ok button; the callback runs once it is answered.
+        answer = "true";
+        final CompletableFuture<Boolean> closed = new CompletableFuture<>();
+        gui.showDeclarationPanel(() -> closed.complete(true));
+        assertEquals(Boolean.TRUE, await(closed));
+        question = asked.get(asked.size() - 1);
+        assertTrue(question.startsWith("confirm {\"text\":\"This Day the Congress"),
+                   question);
+        assertTrue(question.contains("\"cancel\":null"), question);
+    }
+
+    @Test
+    @Timeout(120)
+    void anEmigrationDialogOffersEachRecruitableAndGivesTheChosenSlot() throws Exception {
+        final ClientEngine client = startGame();
+        final GUI gui = client.getClient().getGUI();
+        final Player me = client.getClient().getMyPlayer();
+        final int slot = Europe.MigrationType.getDefaultSlot();
+
+        answer = "1";
+        final CompletableFuture<Integer> got = new CompletableFuture<>();
+        gui.showEmigrationDialog(me, false, got::complete);
+        assertEquals(Integer.valueOf(slot + 1), await(got));
+        final String question = asked.get(asked.size() - 1);
+        assertTrue(question.contains(Messages.message("emigrationDialog.chooseImmigrant")), question);
+
+        // A closed dialog is asked again, as Swing ignores Escape: null, then a pick.
+        final int before = asked.size();
+        hold = true;
+        final CompletableFuture<Integer> again = new CompletableFuture<>();
+        gui.showEmigrationDialog(me, true, again::complete);
+        while (held.isEmpty()) Thread.sleep(10);
+        assertTrue(asked.get(before).contains("\\n\\n"), "the Fountain of Youth text comes first: " + asked.get(before));
+        client.answer(held.remove(0), null);
+        while (held.isEmpty()) Thread.sleep(10);
+        assertEquals(before + 2, asked.size(), "asked again");
+        hold = false;
+        client.answer(held.remove(0), "0");
+        assertEquals(Integer.valueOf(slot), await(again));
+    }
+
+    @Test
+    @Timeout(120)
+    void aFirstContactIsAskedWithTheNativeNationsWelcomeAndTheAnswerReachesTheHandler() throws Exception {
+        final ClientEngine client = startGame();
+        final GUI gui = client.getClient().getGUI();
+        final Player me = client.getClient().getMyPlayer();
+        final Player natives = client.getGame().getLiveNativePlayerList().get(0);
+        final Tile tile = me.getUnits().filter(Unit::isNaval).findFirst().get().getTile();
+
+        answer = "true";
+        CompletableFuture<Boolean> got = new CompletableFuture<>();
+        gui.showFirstContactDialog(me, natives, tile, 3, got::complete);
+        assertEquals(Boolean.TRUE, await(got));
+        String question = asked.get(asked.size() - 1);
+        assertTrue(question.startsWith("confirm {"), question);
+        assertTrue(question.contains("\"tile\":\"" + tile.getId() + "\""), question);
+        assertTrue(question.contains("\"escapeOk\":true"), "Escape accepts: " + question);
+        assertTrue(question.contains("\"help\":{"), "the tutorial help: " + question);
+
+        answer = "false";
+        got = new CompletableFuture<>();
+        gui.showFirstContactDialog(me, natives, null, 1, got::complete);
+        assertEquals(Boolean.FALSE, await(got));
+        question = asked.get(asked.size() - 1);
+        assertTrue(question.contains("\"tile\":null"), question);
+    }
+
+    @Test
+    @Timeout(120)
+    void aNativeDemandAsksForAcceptingOrRefusingAndTheAnswerReachesTheHandler() throws Exception {
+        final ClientEngine client = startGame();
+        final GUI gui = client.getClient().getGUI();
+        final Colony colony = seen(client, aiColony(client));
+        final Unit brave = client.getClient().getMyPlayer().getUnits().findFirst().get();
+        final Game game = client.getClient().getGame();
+
+        answer = "true";
+        CompletableFuture<Boolean> got = new CompletableFuture<>();
+        gui.showNativeDemandDialog(brave, colony, null, 50, got::complete);
+        assertEquals(Boolean.TRUE, await(got));
+        String question = asked.get(asked.size() - 1);
+        assertTrue(question.startsWith("confirm {"), question);
+        assertTrue(question.contains("50"), question);
+        assertTrue(question.contains(colony.getName()), question);
+        assertTrue(question.contains("\"object\":\"" + colony.getId() + "\""), question);
+        assertTrue(question.contains("\"cancel\":\"" + Messages.message("indianDemand.gold.no") + "\""), question);
+
+        // Food has its own accept button.
+        answer = "false";
+        got = new CompletableFuture<>();
+        gui.showNativeDemandDialog(brave, colony, game.getSpecification().getGoodsType("model.goods.food"),
+                                   30, got::complete);
+        assertEquals(Boolean.FALSE, await(got));
+        question = asked.get(asked.size() - 1);
+        assertTrue(question.contains("\"ok\":\"" + Messages.message("indianDemand.food.yes") + "\""), question);
+        got = new CompletableFuture<>();
+        gui.showNativeDemandDialog(brave, colony, game.getSpecification().getGoodsType("model.goods.sugar"),
+                                   30, got::complete);
+        await(got);
+        question = asked.get(asked.size() - 1);
+        assertTrue(question.contains("\"ok\":\"" + Messages.message("accept") + "\""), question);
+    }
+
+    @Test
+    @Timeout(120)
+    void theVictoryDialogOffersVictoryOrContinuingAndTheAnswerReachesTheHandler() throws Exception {
+        final GUI gui = startGame().getClient().getGUI();
+
+        answer = "true";
+        CompletableFuture<Boolean> got = new CompletableFuture<>();
+        gui.showVictoryDialog(got::complete);
+        assertEquals(Boolean.TRUE, await(got));
+        final String question = asked.get(asked.size() - 1);
+        assertTrue(question.contains("\"text\":\"" + Messages.message("victory.text") + "\""), question);
+        assertTrue(question.contains("\"ok\":\"" + Messages.message("victory.yes")
+            + "\",\"cancel\":\"" + Messages.message("victory.continue") + "\""), question);
+
+        answer = "false";
+        got = new CompletableFuture<>();
+        gui.showVictoryDialog(got::complete);
+        assertEquals(Boolean.FALSE, await(got), "continue playing");
+    }
+
+    @Test
+    @Timeout(120)
+    void theTileFindSettlementWorkProductionAndColopediaPanelsAreShownToTheBrowserUI() throws Exception {
+        final ClientEngine client = startGame();
+        final GUI gui = client.getClient().getGUI();
+        final Player me = client.getClient().getMyPlayer();
+        final Tile at = me.getUnits().filter(Unit::isNaval).findFirst().get().getTile();
+
+        shown.clear();
+        gui.showTilePanel(at);
+        String panel = lastOf(shown, "tilePanel ");
+        assertTrue(panel.contains("\"type\":\"" + at.getType().getId() + "\""), panel);
+
+        shown.clear();
+        gui.showFindSettlementPanel();
+        panel = lastOf(shown, "findSettlement ");
+        assertTrue(panel.contains("\"filters\":["), panel);
+
+        // A unit that is not at work has no production panel.
+        shown.clear();
+        final Unit idle = me.getUnits().filter(u -> !u.isNaval()).findFirst().get();
+        assertNull(gui.showWorkProductionPanel(idle));
+        assertTrue(shown().stream().noneMatch(e -> e.startsWith("workProduction ")), shown.toString());
+
+        shown.clear();
+        gui.showColopediaPanel("model.goods.furs");
+        panel = lastOf(shown, "report ");
+        assertTrue(panel.contains("\"report\":\"colopedia\""), panel);
+        assertTrue(panel.contains("\"select\":\"model.goods.furs\""), panel);
+        shown.clear();
+        gui.showColopediaPanel(null);
+        panel = lastOf(shown, "report ");
+        assertTrue(panel.contains("\"report\":\"colopedia\""), panel);
+        assertTrue(panel.contains("\"sections\":["), panel);
+    }
+
+    @Test
+    @Timeout(120)
+    void theLabourDetailReportShowsWhereTheUnitTypeIs() throws Exception {
+        final ClientEngine client = startGame();
+        final Unit unit = client.getClient().getMyPlayer().getUnits()
+            .filter(u -> !u.isNaval()).findFirst().get();
+
+        shown.clear();
+        assertNull(client.getClient().getGUI().showReportLabourDetailPanel(unit.getType(), null, null, null));
+        final String panel = lastOf(shown, "report ");
+        assertTrue(panel.contains("\"report\":\"labourDetail\""), panel);
+    }
+
+    @Test
+    @Timeout(120)
+    void theErrorPanelCarriesTheMessageAndTheDetailAndRunsTheCallback() throws Exception {
+        final GUI gui = startGame().getClient().getGUI();
+        final java.util.concurrent.atomic.AtomicInteger called = new java.util.concurrent.atomic.AtomicInteger();
+
+        shown.clear();
+        gui.showErrorPanel("It broke", "stack trace here", called::incrementAndGet);
+        String panel = lastOf(shown, "error ");
+        assertTrue(panel.contains("\"text\":\"It broke\""), panel);
+        assertTrue(panel.contains("\"detail\":\"stack trace here\""), panel);
+        assertTrue(panel.contains("\"ok\":\"" + Messages.message("ok") + "\""), panel);
+        assertEquals(1, called.get());
+
+        // Without a detail or a callback.
+        shown.clear();
+        gui.showErrorPanel("Plain", (Runnable)null);
+        panel = lastOf(shown, "error ");
+        assertTrue(panel.contains("\"text\":\"Plain\""), panel);
+        assertTrue(panel.contains("\"detail\":null"), panel);
+        assertEquals(1, called.get());
+    }
 }
