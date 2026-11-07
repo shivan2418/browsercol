@@ -278,12 +278,26 @@ and three full scenario runs 9.9, 9.9, 10.1 s (setup quiet at 16 s). Chromium
 shot at a moment the page has a lot to take in. Not rerun on the late-game
 fixtures.
 
-A page-side cost is real too but did not cause this: with the terrain
-animation on, `animatedBase` rebuilds the whole 40x80 scene every tick
-(125 ms) and a frame costs about 370 ms in Firefox's Canvas 2D (the map
-`dD` function was 49% of the page's time in the first profile). It starves
-the page's events as well, but the setup was fast (10 s) with it on, once
-the shot was fixed. Left alone.
+**The terrain animation in Canvas 2D (fourth pass).** With the terrain
+animation on, `animateBase` redraws the animated base tiles every tick
+(125 ms), and the Canvas 2D pen, unlike Pixi's, had no `repicture()`: each
+tick recorded all 3,200 tiles' draw calls again. Measured with
+`performance.measure` entries (`map: base, painted`, `map: base,
+repictured`, `map: show`) in a probe copy of `scenarios.ts`, Firefox, 40x80
+big empire, the machine shared with other runs, so the numbers drift 30%
+between runs: a base frame cost 19-23 ms (mean; max 88) and now costs 8-13 ms
+(the rest is `animatedBase` walking the scene), `show` 3-4 ms on average; a
+played turn in the scenario took 17-25 s of wall time and now 10-20 s; the
+page's `requestAnimationFrame` gaps had p95 114-127 ms and now 87-109 ms. The
+370 ms frame of the first profile was the page under the setup's backlog (the
+screenshot stall above), not a frame at rest. On the desktop late game
+(`desktop-late-game`, Firefox) a base frame costs 8-10 ms and the gaps are
+p95 20 ms: it was never starved. The pen now keeps each image's picture in a
+holder and `repicture` swaps it, and a frame sets when the next may start,
+three times its own cost on (`baseNext`), so a map the machine cannot keep up
+with animates more slowly instead of starving the page. Pixi's pen is
+unchanged, and at its cost (a few ms) the throttle does not engage. Still
+open: the scene walk (`animatedBase`, 8-10 ms) could be cached per map.
 
 **How it was found.** The Worker was not the slow side, so the Worker's
 profile only showed it waiting. Bisecting the script: a probe that did the
@@ -291,10 +305,46 @@ same steps was fast, the scenario script slow; removing `answerDialogs` made
 it fast, keeping it without the shot function too, and an exposed function
 alone too: only a shot function that returned the screenshot was slow.
 
+## Firefox AI rounds against Chromium (#353)
+
+`ai-late-game` (the AI's round-300 save), mean AI round over the first four
+played turns, 1280x800, the machine shared: Chromium 11.9 s (15.9, 10.9, 9.1,
+11.7), Firefox 25.1 s (30.5, 27.4, 22.7, 20.0) and 30.3 s in a second run: 2-2.5x.
+The page's main thread is not the limit (`requestAnimationFrame` p95 21 ms in
+Firefox during the rounds).
+
+A Firefox Profiler capture of the server Worker over three rounds (the method
+above; 22,500 samples at 5 ms, function names from the server module's name
+section): the Worker is 94% in `Thread::run` under `AIPlayer` handlers, and
+**none of it is our code**: 0% of the self samples are in `browsercol.*`,
+`ui/src/worker.ts` or the channel; `PostMessageConnection` and XML (aalto,
+jzlib) are under 1.5% together. By inclusive time: `EuropeanAIPlayer::
+startWorking` 77%, `Map::searchMap` 64% (`Unit::findPath` 63%, from
+`TransportMission::doMission` 37% and `checkCargoes` 22%), the
+`Map$MoveCandidate` constructor 32%, `FreeColObject::getAbilities` /
+`FeatureContainer::getAbilities` 26% (a `HashMap` walk, a `Stream` over a
+`SpliteratorOverCollection`, TeaVM's `synchronized`: `Object::monitorEnter`,
+`monitorExit` and `isEmptyMonitor` are 5.8% of the self time). By self time
+by kind: FreeCol 32%, TeaVM's classlib 29% (streams, `HashMap`), its monitors
+6%, and 31% in frames Firefox shows only as machine addresses (the Wasm
+engine's own stubs under `getAbilities`, `Logger::log`, `searchMap`,
+`Cargo::newCargo`: allocation and casts of Wasm GC objects).
+
+So the slowdown is FreeCol's own pathfinding and feature lookups running on
+Firefox's Wasm GC code, with TeaVM's streams and monitors in the path: not
+something `browsercol.web` or the Worker glue can fix, and FreeCol's Java is
+off limits for 1.0. Leads for after 1.0, in order of likely gain: a cache or
+a plain loop in `FeatureContainer.getAbilities` (it is 26% of the Worker,
+and builds a stream and takes a monitor per call), `Map.searchMap`'s
+`MoveCandidate` allocation, and a TeaVM that drops the monitors of a
+single-threaded program. A Chromium profile of the same rounds was not taken,
+so which of these Firefox runs slower than V8 is not measured.
+
 ## Open questions
 
 - AI rounds took about 2x longer in Chromium and 6x longer in Firefox than
   in Node (October 2026). It is not timer clamping and not map drawing.
+  See the next section for Firefox against Chromium.
 - Firefox spends more than 1 s compiling each module, which dominates its
   load time on a fast link.
 - The `Class.forName` gap above: a TeaVM bug, or our policy?
