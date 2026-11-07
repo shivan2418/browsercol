@@ -6,16 +6,17 @@ they run in a real game; *Browser UI* rows are panels the page shows by itself t
 the Swing GUI method. Counts are summed over the browsers a script ran in. Counting is on only for the scripts: they install
 `window.fcCoverageHit`, and a page without it counts nothing. `dialogs.ts` is a helper the scripts share, not a script.
 
-- 65 dialogs (55 WebGUI, 10 Browser UI); 40 reached, 25 never reached
+- 65 dialogs (55 WebGUI, 10 Browser UI); 39 reached, 26 never reached
 - `smoke`: ran in chromium, firefox
 - `play`: ran in chromium, firefox
 - `saves`: ran in chromium, firefox
 - `europe`: ran in chromium, firefox
 - `debug`: ran in chromium, firefox
 - `tileset`: ran in chromium, firefox
+- `prof353`: ran in chromium, firefox
 - `scenarios`: ran in chromium, firefox
 
-## Never reached (25)
+## Never reached (26)
 
 - `showAboutPanel` (Browser UI, Swing opens it from 1 place)
 - `showCaptureGoodsDialog` (WebGUI)
@@ -26,6 +27,7 @@ the Swing GUI method. Counts are summed over the browsers a script ran in. Count
 - `showDumpCargoDialog` (WebGUI)
 - `showEditOptionDialog` (WebGUI, Swing opens it from 2 places)
 - `showEditSettlementDialog` (WebGUI, Swing opens it from 1 place)
+- `showErrorPanel` (WebGUI, Swing opens it from 6 places)
 - `showFindSettlementPanel` (WebGUI, Swing opens it from 1 place)
 - `showHighScoresPanel` (WebGUI)
 - `showLoadDialog` (Browser UI, Swing opens it from 1 place)
@@ -45,70 +47,70 @@ the Swing GUI method. Counts are summed over the browsers a script ran in. Count
 
 ## All dialogs, never reached first
 
-| Dialog | Kind | Swing sites | smoke | play | saves | europe | debug | tileset | scenarios | Total |
-|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `showModelMessages` | WebGUI |  | 14 | 4 | 4 | 2 | 4 | 6 | 56 | 90 |
-| `showPreCombatDialog` | WebGUI |  |  |  |  |  |  |  | 62 | 62 |
-| `showEndTurnDialog` | WebGUI |  |  | 6 | 4 |  |  |  | 34 | 44 |
-| `showReportTurnPanel` | WebGUI |  | 2 | 4 |  |  | 2 |  | 17 | 25 |
-| `showEuropePanel` | WebGUI | 3 |  | 2 |  | 10 |  |  | 6 | 18 |
-| `showBuildQueuePanel` | Browser UI | 4 |  | 6 |  |  |  | 4 | 6 | 16 |
-| `showColonyPanel` | WebGUI | 8 |  | 6 |  |  |  |  | 10 | 16 |
-| `showNewPanel` | Browser UI | 3 | 14 |  |  |  |  |  |  | 14 |
-| `showChooseFoundingFatherDialog` | WebGUI |  |  | 2 |  |  |  |  | 6 | 8 |
-| `showLoadingSavegameDialog` | Browser UI |  |  |  | 4 |  |  |  | 4 | 8 |
-| `showNamingDialog` | WebGUI |  |  | 4 |  |  |  |  | 4 | 8 |
-| `showPopupMenu` | Browser UI | 6 |  | 6 |  |  |  |  |  | 6 |
-| `showReportColonyPanel` | WebGUI | 1 |  | 2 |  |  |  |  | 4 | 6 |
-| `showReportMilitaryPanel` | WebGUI | 1 |  | 2 |  |  |  |  | 4 | 6 |
-| `showReportNavalPanel` | WebGUI | 1 |  | 2 |  |  |  |  | 4 | 6 |
-| `showReportProductionPanel` | WebGUI | 1 |  | 2 |  |  |  |  | 4 | 6 |
-| `showReportTradePanel` | WebGUI | 1 |  | 2 |  |  |  |  | 4 | 6 |
-| `showSelectAmountDialog` | WebGUI | 2 |  | 2 |  | 4 |  |  |  | 6 |
-| `showColopediaPanel` | WebGUI | 10 | 4 |  |  |  |  |  |  | 4 |
-| `showMonarchDialog` | WebGUI | 1 |  |  |  |  |  |  | 4 | 4 |
-| `showSelectDestinationDialog` | WebGUI | 1 |  | 2 |  | 2 |  |  |  | 4 |
-| `showWarehouseDialog` | WebGUI | 1 |  | 4 |  |  |  |  |  | 4 |
-| `showCompactLabourReport` | WebGUI | 2 |  | 2 |  |  |  |  |  | 2 |
-| `showDifficultyDialog` | WebGUI | 2 |  | 2 |  |  |  |  |  | 2 |
-| `showEventPanel` | WebGUI |  |  | 2 |  |  |  |  |  | 2 |
-| `showGameOptionsDialog` | WebGUI | 2 |  | 2 |  |  |  |  |  | 2 |
-| `showIndianSettlementPanel` | WebGUI | 2 |  |  |  |  | 2 |  |  | 2 |
-| `showInformationPanel` | WebGUI | 14 |  | 2 |  |  |  |  |  | 2 |
-| `showReportCargoPanel` | WebGUI | 1 |  | 2 |  |  |  |  |  | 2 |
-| `showReportEducationPanel` | WebGUI | 1 |  | 2 |  |  |  |  |  | 2 |
-| `showReportExplorationPanel` | WebGUI | 1 |  | 2 |  |  |  |  |  | 2 |
-| `showReportHistoryPanel` | WebGUI | 1 |  | 2 |  |  |  |  |  | 2 |
-| `showReportLabourPanel` | WebGUI | 1 |  | 2 |  |  |  |  |  | 2 |
-| `showReportReligiousPanel` | WebGUI | 1 |  | 2 |  |  |  |  |  | 2 |
-| `showReportRequirementsPanel` | WebGUI | 1 |  | 2 |  |  |  |  |  | 2 |
-| `showTradeRoutePanel` | WebGUI | 3 |  | 2 |  |  |  |  |  | 2 |
-| `showEmigrationDialog` | WebGUI |  |  |  |  |  |  |  | 1 | 1 |
-| `showErrorPanel` | WebGUI | 6 |  |  |  |  |  |  | 1 | 1 |
-| `showFirstContactDialog` | WebGUI |  |  |  |  |  |  |  | 1 | 1 |
-| `showSaveDialog` | Browser UI | 1 |  |  | 1 |  |  |  |  | 1 |
-| `showAboutPanel` | Browser UI | 1 |  |  |  |  |  |  |  | 0 |
-| `showCaptureGoodsDialog` | WebGUI |  |  |  |  |  |  |  |  | 0 |
-| `showClientOptionsDialog` | WebGUI | 1 |  |  |  |  |  |  |  | 0 |
-| `showClientOptionsDialog` | Browser UI | 1 |  |  |  |  |  |  |  | 0 |
-| `showConfirmDeclarationDialog` | WebGUI |  |  |  |  |  |  |  |  | 0 |
-| `showDeclarationPanel` | WebGUI |  |  |  |  |  |  |  |  | 0 |
-| `showDumpCargoDialog` | WebGUI |  |  |  |  |  |  |  |  | 0 |
-| `showEditOptionDialog` | WebGUI | 2 |  |  |  |  |  |  |  | 0 |
-| `showEditSettlementDialog` | WebGUI | 1 |  |  |  |  |  |  |  | 0 |
-| `showFindSettlementPanel` | WebGUI | 1 |  |  |  |  |  |  |  | 0 |
-| `showHighScoresPanel` | WebGUI |  |  |  |  |  |  |  |  | 0 |
-| `showLoadDialog` | Browser UI | 1 |  |  |  |  |  |  |  | 0 |
-| `showLogFilePanel` | Browser UI | 1 |  |  |  |  |  |  |  | 0 |
-| `showMapGeneratorOptionsDialog` | WebGUI | 2 |  |  |  |  |  |  |  | 0 |
-| `showNativeDemandDialog` | WebGUI |  |  |  |  |  |  |  |  | 0 |
-| `showNegotiationDialog` | WebGUI |  |  |  |  |  |  |  |  | 0 |
-| `showReportContinentalCongressPanel` | WebGUI | 1 |  |  |  |  |  |  |  | 0 |
-| `showReportForeignAffairPanel` | WebGUI | 1 |  |  |  |  |  |  |  | 0 |
-| `showReportIndianPanel` | WebGUI | 1 |  |  |  |  |  |  |  | 0 |
-| `showReportLabourDetailPanel` | WebGUI | 2 |  |  |  |  |  |  |  | 0 |
-| `showSelectTributeAmountDialog` | WebGUI |  |  |  |  |  |  |  |  | 0 |
-| `showTilePanel` | WebGUI | 3 |  |  |  |  |  |  |  | 0 |
-| `showTradeRouteInputPanel` | Browser UI | 2 |  |  |  |  |  |  |  | 0 |
-| `showVictoryDialog` | WebGUI |  |  |  |  |  |  |  |  | 0 |
-| `showWorkProductionPanel` | WebGUI | 1 |  |  |  |  |  |  |  | 0 |
+| Dialog | Kind | Swing sites | smoke | play | saves | europe | debug | tileset | prof353 | scenarios | Total |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `showModelMessages` | WebGUI |  | 14 | 4 | 4 | 2 | 4 | 6 | 6 | 56 | 96 |
+| `showPreCombatDialog` | WebGUI |  |  |  |  |  |  |  |  | 56 | 56 |
+| `showEndTurnDialog` | WebGUI |  |  | 6 | 4 |  |  |  |  | 44 | 54 |
+| `showReportTurnPanel` | WebGUI |  | 2 | 4 |  |  | 2 |  |  | 21 | 29 |
+| `showEuropePanel` | WebGUI | 3 |  | 2 |  | 10 |  |  |  | 7 | 19 |
+| `showBuildQueuePanel` | Browser UI | 4 |  | 6 |  |  |  | 4 |  | 7 | 17 |
+| `showColonyPanel` | WebGUI | 8 |  | 6 |  |  |  |  |  | 11 | 17 |
+| `showNewPanel` | Browser UI | 3 | 14 |  |  |  |  |  |  |  | 14 |
+| `showChooseFoundingFatherDialog` | WebGUI |  |  | 2 |  |  |  |  |  | 9 | 11 |
+| `showLoadingSavegameDialog` | Browser UI |  |  |  | 4 |  |  |  |  | 4 | 8 |
+| `showReportProductionPanel` | WebGUI | 1 |  | 2 |  |  |  |  | 1 | 5 | 8 |
+| `showNamingDialog` | WebGUI |  |  | 4 |  |  |  |  |  | 3 | 7 |
+| `showReportColonyPanel` | WebGUI | 1 |  | 2 |  |  |  |  |  | 5 | 7 |
+| `showReportMilitaryPanel` | WebGUI | 1 |  | 2 |  |  |  |  |  | 5 | 7 |
+| `showReportNavalPanel` | WebGUI | 1 |  | 2 |  |  |  |  |  | 5 | 7 |
+| `showReportTradePanel` | WebGUI | 1 |  | 2 |  |  |  |  |  | 5 | 7 |
+| `showPopupMenu` | Browser UI | 6 |  | 6 |  |  |  |  |  |  | 6 |
+| `showSelectAmountDialog` | WebGUI | 2 |  | 2 |  | 4 |  |  |  |  | 6 |
+| `showColopediaPanel` | WebGUI | 10 | 4 |  |  |  |  |  |  |  | 4 |
+| `showMonarchDialog` | WebGUI | 1 |  |  |  |  |  |  |  | 4 | 4 |
+| `showSelectDestinationDialog` | WebGUI | 1 |  | 2 |  | 2 |  |  |  |  | 4 |
+| `showWarehouseDialog` | WebGUI | 1 |  | 4 |  |  |  |  |  |  | 4 |
+| `showCompactLabourReport` | WebGUI | 2 |  | 2 |  |  |  |  |  |  | 2 |
+| `showDifficultyDialog` | WebGUI | 2 |  | 2 |  |  |  |  |  |  | 2 |
+| `showEventPanel` | WebGUI |  |  | 2 |  |  |  |  |  |  | 2 |
+| `showFirstContactDialog` | WebGUI |  |  |  |  |  |  |  |  | 2 | 2 |
+| `showGameOptionsDialog` | WebGUI | 2 |  | 2 |  |  |  |  |  |  | 2 |
+| `showIndianSettlementPanel` | WebGUI | 2 |  |  |  |  | 2 |  |  |  | 2 |
+| `showInformationPanel` | WebGUI | 14 |  | 2 |  |  |  |  |  |  | 2 |
+| `showReportCargoPanel` | WebGUI | 1 |  | 2 |  |  |  |  |  |  | 2 |
+| `showReportEducationPanel` | WebGUI | 1 |  | 2 |  |  |  |  |  |  | 2 |
+| `showReportExplorationPanel` | WebGUI | 1 |  | 2 |  |  |  |  |  |  | 2 |
+| `showReportHistoryPanel` | WebGUI | 1 |  | 2 |  |  |  |  |  |  | 2 |
+| `showReportLabourPanel` | WebGUI | 1 |  | 2 |  |  |  |  |  |  | 2 |
+| `showReportReligiousPanel` | WebGUI | 1 |  | 2 |  |  |  |  |  |  | 2 |
+| `showReportRequirementsPanel` | WebGUI | 1 |  | 2 |  |  |  |  |  |  | 2 |
+| `showTradeRoutePanel` | WebGUI | 3 |  | 2 |  |  |  |  |  |  | 2 |
+| `showEmigrationDialog` | WebGUI |  |  |  |  |  |  |  |  | 1 | 1 |
+| `showSaveDialog` | Browser UI | 1 |  |  | 1 |  |  |  |  |  | 1 |
+| `showAboutPanel` | Browser UI | 1 |  |  |  |  |  |  |  |  | 0 |
+| `showCaptureGoodsDialog` | WebGUI |  |  |  |  |  |  |  |  |  | 0 |
+| `showClientOptionsDialog` | WebGUI | 1 |  |  |  |  |  |  |  |  | 0 |
+| `showClientOptionsDialog` | Browser UI | 1 |  |  |  |  |  |  |  |  | 0 |
+| `showConfirmDeclarationDialog` | WebGUI |  |  |  |  |  |  |  |  |  | 0 |
+| `showDeclarationPanel` | WebGUI |  |  |  |  |  |  |  |  |  | 0 |
+| `showDumpCargoDialog` | WebGUI |  |  |  |  |  |  |  |  |  | 0 |
+| `showEditOptionDialog` | WebGUI | 2 |  |  |  |  |  |  |  |  | 0 |
+| `showEditSettlementDialog` | WebGUI | 1 |  |  |  |  |  |  |  |  | 0 |
+| `showErrorPanel` | WebGUI | 6 |  |  |  |  |  |  |  |  | 0 |
+| `showFindSettlementPanel` | WebGUI | 1 |  |  |  |  |  |  |  |  | 0 |
+| `showHighScoresPanel` | WebGUI |  |  |  |  |  |  |  |  |  | 0 |
+| `showLoadDialog` | Browser UI | 1 |  |  |  |  |  |  |  |  | 0 |
+| `showLogFilePanel` | Browser UI | 1 |  |  |  |  |  |  |  |  | 0 |
+| `showMapGeneratorOptionsDialog` | WebGUI | 2 |  |  |  |  |  |  |  |  | 0 |
+| `showNativeDemandDialog` | WebGUI |  |  |  |  |  |  |  |  |  | 0 |
+| `showNegotiationDialog` | WebGUI |  |  |  |  |  |  |  |  |  | 0 |
+| `showReportContinentalCongressPanel` | WebGUI | 1 |  |  |  |  |  |  |  |  | 0 |
+| `showReportForeignAffairPanel` | WebGUI | 1 |  |  |  |  |  |  |  |  | 0 |
+| `showReportIndianPanel` | WebGUI | 1 |  |  |  |  |  |  |  |  | 0 |
+| `showReportLabourDetailPanel` | WebGUI | 2 |  |  |  |  |  |  |  |  | 0 |
+| `showSelectTributeAmountDialog` | WebGUI |  |  |  |  |  |  |  |  |  | 0 |
+| `showTilePanel` | WebGUI | 3 |  |  |  |  |  |  |  |  | 0 |
+| `showTradeRouteInputPanel` | Browser UI | 2 |  |  |  |  |  |  |  |  | 0 |
+| `showVictoryDialog` | WebGUI |  |  |  |  |  |  |  |  |  | 0 |
+| `showWorkProductionPanel` | WebGUI | 1 |  |  |  |  |  |  |  |  | 0 |
