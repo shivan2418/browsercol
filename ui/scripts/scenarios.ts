@@ -357,7 +357,7 @@ class Run {
     await page.click('button[data-command=save]');
     // The save must finish: Firefox once never did in a big empire, its page too busy to hear the Worker (#353).
     await page.waitForFunction((n) => document.querySelector('#save-note')?.textContent === `Saved: ${n}`, name, {
-      timeout: 180000,
+      timeout: 30000,
       label: 'the page says the game is saved',
     });
     this.note(`save: ${secs(Date.now() - t0)} s`);
