@@ -180,6 +180,23 @@ for (const name of browsers) {
       colopedia = `Colopedia FAILED (${await diagnose(ex)})`;
     }
   }
+  // The landing page at the site's root (#374): the Play button goes to play/, and a root URL with game
+  // parameters is forwarded to the game with the same query.
+  let landing = 'landing ok';
+  if (screen) {
+    const lp = await browser.newPage();
+    try {
+      // Not goto: in Firefox it adds ?renderer=canvas2d, which is a game parameter, so the root would forward.
+      await lp.goto('about:blank');
+      await lp.evaluate((u) => (location.href = u), server.root);
+      const play = await lp.getAttribute('a.play', 'href', { timeout: 30000 });
+      await lp.goto(`${server.root}?preset=dutch-small&autoplay=0`);
+      await lp.waitForURL(/\/play\/\?preset=dutch-small&autoplay=0$/, { timeout: 30000 });
+      if (play !== 'play/') landing = `landing FAILED (Play goes to ${play})`;
+    } catch (ex) {
+      landing = `landing FAILED (${await diagnose(ex)})`;
+    }
+  }
   await browser.close();
   const ok =
     result.status === 'finished' &&
@@ -188,14 +205,15 @@ for (const name of browsers) {
     unheard.length === 0 &&
     nations.every((n) => n.endsWith(' ok')) &&
     language.endsWith(' ok') &&
-    colopedia.endsWith(' ok');
+    colopedia.endsWith(' ok') &&
+    landing.endsWith(' ok');
   failed ||= !ok;
   console.log(
     `${name} ${browser.version()}: ${result.status}${result.error ? ': ' + result.error : ''}, ` +
       `${result.rounds?.length ?? 0} rounds, turn ${result.turn ?? '-'}, renderer ${result.renderer ?? '-'}, ` +
       `data fetched ${fetches}x, ` +
       `sounds ${unheard.length ? 'MISSING ' + unheard.join(' ') : 'ok'} (${audio.size} files), ` +
-      (screen ? `start screen: ${nations.join(', ')}, ${language}, ${colopedia}, ` : '') +
+      (screen ? `start screen: ${nations.join(', ')}, ${language}, ${colopedia}, ${landing}, ` : '') +
       `${((Date.now() - t) / 1000).toFixed(1)} s${errors.length ? ', page errors: ' + errors.join('; ') : ''}`,
   );
 }
