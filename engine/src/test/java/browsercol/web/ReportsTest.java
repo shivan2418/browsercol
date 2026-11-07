@@ -627,6 +627,8 @@ class ReportsTest {
             assertEquals(!ours, n.get("tax") == null);
             assertEquals(!ours, n.get("sol") == null);
             assertNotNull(n.get("stance"));
+            assertTrue(List.of("war", "cease_fire", "peace", "alliance", "uncontacted").contains(n.get("stanceKind")),
+                "" + n.get("stanceKind"));
             assertFalse(list(n.get("keys")).isEmpty());
             if (ours) {
                 assertEquals(2.0, ((Number)n.get("colonies")).doubleValue());

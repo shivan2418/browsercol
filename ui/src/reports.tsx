@@ -874,44 +874,58 @@ function Colopedia({ e, art, go: links }: { e: View<'colopedia'>; art: Art; go: 
   );
 }
 
-/** ReportForeignAffairPanel: each nation's stance, size and strength; what we have not learnt of it is left out. */
+/**
+ * ReportForeignAffairPanel: a column for each nation (its coat of arms and name) and a row for each measure, so the
+ * nations compare at a glance. What we have not learnt of a nation is left blank, and its stance is coloured.
+ */
 function ForeignReport({ e, art }: { e: View<'foreign'>; art: Art }) {
   const l = e.labels;
+  const rows = [
+    ['stance', l.stance, ''],
+    ['colonies', l.colonies, ''],
+    ['units', l.units, ''],
+    ['military', l.military, ''],
+    ['naval', l.naval, ''],
+    ['gold', l.gold, ''],
+    ['fathers', l.fathers, ''],
+    ['tax', l.tax, '%'],
+    ['sol', l.sol, '%'],
+  ] as const;
   return (
     <div className="foreign">
-      {e.nations.map((n) => (
-        <section key={n.id} data-nation={n.id}>
-          <h3>
-            <Img keys={n.keys} art={art} title={n.name} />
-            {n.name}
-          </h3>
-          <dl>
-            {(
-              [
-                ['stance', l.stance, n.stance, ''],
-                ['colonies', l.colonies, n.colonies, ''],
-                ['units', l.units, n.units, ''],
-                ['military', l.military, n.military, ''],
-                ['naval', l.naval, n.naval, ''],
-                ['gold', l.gold, n.gold, ''],
-                ['fathers', l.fathers, n.fathers, ''],
-                ['tax', l.tax, n.tax, '%'],
-                ['sol', l.sol, n.sol, '%'],
-              ] as const
-            )
-              .filter(([, , v]) => v !== null)
-              .map(([field, label, v, unit]) => (
-                <div key={field} data-field={field}>
-                  <dt>{label}</dt>
-                  <dd>
-                    {v}
-                    {unit}
-                  </dd>
-                </div>
-              ))}
-          </dl>
-        </section>
-      ))}
+      <table>
+        <thead>
+          <tr>
+            <td />
+            {e.nations.map((n) => (
+              <th key={n.id} scope="col" data-nation={n.id}>
+                <Img keys={n.keys} art={art} title={n.name} />
+                <span>{n.name}</span>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(([field, label, unit]) => (
+            <tr key={field} data-field={field}>
+              <th scope="row">{label}</th>
+              {e.nations.map((n) => {
+                const v = n[field];
+                return (
+                  <td
+                    key={n.id}
+                    data-nation={n.id}
+                    data-stance={field === 'stance' ? n.stanceKind : undefined}
+                    data-known={v !== null}
+                  >
+                    {v === null ? '' : `${v}${unit}`}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
       <p className="muted" data-field="notice">
         {e.notice}
       </p>

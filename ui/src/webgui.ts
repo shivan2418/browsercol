@@ -1062,6 +1062,7 @@ export type ReportView =
         name: string;
         keys: string[];
         stance: string;
+        stanceKind: string;
         colonies: number;
         units: number;
         military: number;

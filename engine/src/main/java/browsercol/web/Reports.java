@@ -1225,7 +1225,8 @@ final class Reports {
 
     /**
      * The foreign affairs report (ReportForeignAffairPanel): {labels,
-     * notice, nations: [{id, name, keys, stance, colonies, units, military,
+     * notice, nations: [{id, name, keys, stance, stanceKind (war, cease_fire,
+     * peace, alliance or uncontacted, for the colour), colonies, units, military,
      * naval, gold, fathers, tax, sol}]} for each European nation the
      * server gives a summary of (as the panel skips the rest). The
      * fathers, tax and sol are null where the summary gives -1: what we
@@ -1241,6 +1242,7 @@ final class Reports {
                 .put("name", Messages.message(enemy.getCountryLabel()))
                 .putRaw("keys", ObjectImages.json(enemy.getNation()))
                 .put("stance", Messages.message(ns.getStance().getNameKey()))
+                .put("stanceKind", ns.getStance().toString().toLowerCase(java.util.Locale.ROOT))
                 .put("colonies", ns.getNumberOfSettlements())
                 .put("units", ns.getNumberOfUnits())
                 .put("military", ns.getMilitaryStrength())

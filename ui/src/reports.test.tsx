@@ -632,7 +632,16 @@ describe('the foreign affairs report', () => {
     tax: 'Tax',
     sol: 'Sons of Liberty',
   };
-  const nation = { stance: 'Peace', colonies: 3, units: 12, military: 5, naval: 2, gold: 400, keys: [] };
+  const nation = {
+    stance: 'Peace',
+    stanceKind: 'peace',
+    colonies: 3,
+    units: 12,
+    military: 5,
+    naval: 2,
+    gold: 400,
+    keys: [],
+  };
   const report: ReportView = {
     ...head('foreign'),
     labels,
@@ -647,7 +656,10 @@ describe('the foreign affairs report', () => {
     const { box } = host();
     show(box, report);
     const fields = (id: string) =>
-      Array.from(document.querySelectorAll(`section[data-nation="${id}"] [data-field]`)).map((f) => f.textContent);
+      Array.from(document.querySelectorAll('tbody tr[data-field]'))
+        .map((r) => [r.querySelector('th')?.textContent, r.querySelector(`td[data-nation="${id}"]`)?.textContent])
+        .filter(([, v]) => v)
+        .map(([k, v]) => `${k}${v}`);
     expect(fields('p:1')).toEqual([
       'StancePeace',
       'Colonies3',
@@ -661,6 +673,8 @@ describe('the foreign affairs report', () => {
     ]);
     expect(fields('p:2')).toEqual(['StancePeace', 'Colonies3', 'Units12', 'Military5', 'Naval2', 'Gold400']);
     expect(screen.getByText('Some figures are estimates.')).toBeTruthy();
+    expect(document.querySelector('td[data-stance="peace"]')?.textContent).toBe('Peace');
+    expect(document.querySelectorAll('thead th[data-nation]')).toHaveLength(2);
   });
 });
 
