@@ -101,6 +101,17 @@ export function clientOptionsGroup(data: string[]): OptionGroup | null {
   return xmlGroup(data, spec, messageFiles(data), 'optionGroup[id="clientOptions"]');
 }
 
+/**
+ * Our words for the options FreeCol has no short description for, so every rule explains itself on hover. The
+ * Engine's option dialogs say the same (OptionsJson.DESCRIPTIONS); checked against LostCityRumour.chooseType.
+ */
+const DESCRIPTIONS: Record<string, string> = {
+  'model.option.goodRumour':
+    "The chance, in percent, that a Lost City Rumour turns out well: a free colonist, a chief's gift, treasure or the Fountain of Youth. Seasoned scouts improve it.",
+  'model.option.badRumour':
+    'The chance, in percent, that a Lost City Rumour turns out badly: the expedition vanishes, or it disturbs a native burial ground. Seasoned scouts lower it.',
+};
+
 /** An option group of an options document, named by a selector, labelled from the strings files. */
 function xmlGroup(data: string[], spec: Document, strings: string[], selector: string): OptionGroup | null {
   const element = spec.querySelector(selector);
@@ -129,7 +140,7 @@ function xmlGroup(data: string[], spec: Document, strings: string[], selector: s
 
   const read = (el: Element): OptionNode | null => {
     const id = el.getAttribute('id')!;
-    const base = { id, label: name(id), description: say(`${id}.shortDescription`) };
+    const base = { id, label: name(id), description: say(`${id}.shortDescription`) ?? DESCRIPTIONS[id] ?? null };
     const value = el.getAttribute('value') ?? el.getAttribute('defaultValue');
     const number = (attribute: string, otherwise: number) => {
       const v = el.getAttribute(attribute);

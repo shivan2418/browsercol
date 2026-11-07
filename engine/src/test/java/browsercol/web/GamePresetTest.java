@@ -379,6 +379,27 @@ class GamePresetTest {
     }
 
     @Test
+    void everyStartScreenOptionHasADescriptionForItsTooltip() throws Exception {
+        Messages.loadMessageBundle(java.util.Locale.US);
+        FreeColRules.loadRules();
+        Specification spec = FreeCol.loadSpecification(
+            FreeColRules.getFreeColRulesFile("classic"), null, "model.difficulty.medium");
+        for (net.sf.freecol.common.option.OptionGroup g : new net.sf.freecol.common.option.OptionGroup[] {
+                spec.getDifficultyOptionGroup("model.difficulty.medium"), spec.getGameOptions(),
+                spec.getMapGeneratorOptions() }) {
+            String json = OptionsJson.of(g).toString();
+            // A group is a box with a caption, not a row with a tooltip: only the options need one.
+            java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("\"id\":\"([^\"]+)\",\"kind\":\"(\\w+)\"[^{}]*?\"description\":null").matcher(json);
+            List<String> bare = new ArrayList<>();
+            while (m.find()) if (!m.group(2).equals("group")) bare.add(m.group(1));
+            assertEquals(List.of(), bare, g.getId() + ": options with no description");
+        }
+        assertTrue(OptionsJson.of(spec.getDifficultyOptionGroup("model.difficulty.medium")).toString()
+            .contains("Lost City Rumour turns out badly"));
+    }
+
+    @Test
     void aUnitListEntryThatDoesNotFitFails() throws Exception {
         failsWith("{ \"options\": { \"model.option.refSize\": [ { \"type\": \"model.unit.nope\","
             + " \"role\": \"model.role.default\", \"number\": 1 } ] } }", "unknown unit type model.unit.nope");

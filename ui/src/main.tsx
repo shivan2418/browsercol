@@ -1641,59 +1641,64 @@ async function chooseGame(data: string[], language: string): Promise<{ preset: s
     // Drawn again with why a save file would not open, if one does not.
     const draw = (openNote: string) =>
       root.render(
-        <StartScreen
-          openFile={() => void openSaveFile().then(draw)}
-          openNote={openNote}
-          options={startOptions(data, rules)}
-          rules={rules}
-          changeRules={(id) => {
-            // The ruleset's nations and options differ: a new page, with the start screen of the other rules.
-            const next = new URLSearchParams(location.search);
-            next.set('rules', id);
-            leavePage(next.toString());
-          }}
-          saves={saves}
-          open={openSave}
-          chosen={chosen}
-          sound={{
-            music: !prefs.muteMusic,
-            effects: !prefs.muteEffects,
-            setMusic: (on) => {
-              setPrefs({ ...prefs, muteMusic: !on });
-              draw(openNote);
-            },
-            setEffects: (on) => {
-              setPrefs({ ...prefs, muteEffects: !on });
-              draw(openNote);
-            },
-          }}
-          // No client Engine exists yet: the Colopedia comes from the client module's rules-only entry.
-          colopedia={async (select) =>
-            colopediaBefore<ReportView & { report: 'colopedia' }>(
-              await clientModule(),
-              globalThis as unknown as Scope,
-              language,
-              data,
-              rules,
-              select,
-            )
-          }
-          art={art}
-          start={(c) => {
-            root.unmount();
-            host.remove();
-            boot.begin(gameParts);
-            // The browser has no file system for the server Engine to read the file from: hand it the bytes.
-            void (c.importMap?.arrayBuffer() ?? Promise.resolve(undefined)).then(
-              (bytes) => done({ preset: presetJson(c), importMap: bytes && new Uint8Array(bytes) }),
-              (ex: unknown) => {
-                // A file the browser can no longer read: start on a generated map and say so.
-                reportError('The map file could not be read', String(ex));
-                done({ preset: presetJson(c) });
+        // The setup's option rows explain themselves on hover (FreeCol's short descriptions): the start screen
+        // needs its own tooltip layer, as the side panel's is not mounted before a game.
+        <TipProvider>
+          <TooltipLayer />
+          <StartScreen
+            openFile={() => void openSaveFile().then(draw)}
+            openNote={openNote}
+            options={startOptions(data, rules)}
+            rules={rules}
+            changeRules={(id) => {
+              // The ruleset's nations and options differ: a new page, with the start screen of the other rules.
+              const next = new URLSearchParams(location.search);
+              next.set('rules', id);
+              leavePage(next.toString());
+            }}
+            saves={saves}
+            open={openSave}
+            chosen={chosen}
+            sound={{
+              music: !prefs.muteMusic,
+              effects: !prefs.muteEffects,
+              setMusic: (on) => {
+                setPrefs({ ...prefs, muteMusic: !on });
+                draw(openNote);
               },
-            );
-          }}
-        />,
+              setEffects: (on) => {
+                setPrefs({ ...prefs, muteEffects: !on });
+                draw(openNote);
+              },
+            }}
+            // No client Engine exists yet: the Colopedia comes from the client module's rules-only entry.
+            colopedia={async (select) =>
+              colopediaBefore<ReportView & { report: 'colopedia' }>(
+                await clientModule(),
+                globalThis as unknown as Scope,
+                language,
+                data,
+                rules,
+                select,
+              )
+            }
+            art={art}
+            start={(c) => {
+              root.unmount();
+              host.remove();
+              boot.begin(gameParts);
+              // The browser has no file system for the server Engine to read the file from: hand it the bytes.
+              void (c.importMap?.arrayBuffer() ?? Promise.resolve(undefined)).then(
+                (bytes) => done({ preset: presetJson(c), importMap: bytes && new Uint8Array(bytes) }),
+                (ex: unknown) => {
+                  // A file the browser can no longer read: start on a generated map and say so.
+                  reportError('The map file could not be read', String(ex));
+                  done({ preset: presetJson(c) });
+                },
+              );
+            }}
+          />
+        </TipProvider>,
       );
     draw('');
   });

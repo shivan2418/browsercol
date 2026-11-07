@@ -8,6 +8,7 @@ const spec = `<freecol-specification id="classic">
       <optionGroup id="model.difficulty.easy" editable="false">
         <optionGroup id="model.difficulty.natives" editable="false">
           <integerOption id="model.option.landPriceFactor" value="40"/>
+          <percentageOption id="model.option.badRumour" value="23"/>
           <stringOption id="model.option.buildOnNativeLand" value="model.option.buildOnNativeLand.always"/>
           <rangeOption id="model.option.settlementNumber" defaultValue="8" localizedLabels="true">
             <rangeValue label="verySmall" value="10"/>
@@ -79,6 +80,12 @@ test('a difficulty level is a group of its options, as the specification gives t
   });
   expect(options.get('model.option.refSize')).toMatchObject({ kind: 'units', value: [] });
   expect(level.children.map((c) => c.id)).toEqual(['model.difficulty.natives', 'model.difficulty.empty']);
+});
+
+test('an option FreeCol has no short description for gets ours, for its tooltip', () => {
+  const options = leaves(specificationGroup(data, 'classic', easy)!);
+  expect(options.get('model.option.badRumour')?.description).toMatch(/Lost City Rumour turns out badly/);
+  expect(options.get('model.option.immigrants')).toMatchObject({ description: null });
 });
 
 test('a range option has its labelled values, and a string option the choices the custom level lists', () => {

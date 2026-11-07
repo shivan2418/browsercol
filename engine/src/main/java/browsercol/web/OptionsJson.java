@@ -12,6 +12,7 @@ import net.sf.freecol.common.option.AbstractOption;
 import net.sf.freecol.common.option.AbstractUnitOption;
 import net.sf.freecol.common.option.BooleanOption;
 import net.sf.freecol.common.option.FileOption;
+import net.sf.freecol.common.option.GameOptions;
 import net.sf.freecol.common.option.IntegerOption;
 import net.sf.freecol.common.option.Option;
 import net.sf.freecol.common.option.OptionGroup;
@@ -61,12 +62,24 @@ final class OptionsJson {
         return Messages.message(key);
     }
 
+    /**
+     * Our words for the options FreeCol has no short description for, so every rule explains itself on hover.
+     * The start screen says the same (ui/src/options.ts); checked against LostCityRumour.chooseType.
+     */
+    private static final Map<String, String> DESCRIPTIONS = Map.of(
+        GameOptions.GOOD_RUMOUR,
+        "The chance, in percent, that a Lost City Rumour turns out well: a free colonist, a chief's gift,"
+            + " treasure or the Fountain of Youth. Seasoned scouts improve it.",
+        GameOptions.BAD_RUMOUR,
+        "The chance, in percent, that a Lost City Rumour turns out badly: the expedition vanishes,"
+            + " or it disturbs a native burial ground. Seasoned scouts lower it.");
+
     private static Json node(String kind, Option<?> option) {
         final String id = option.getId();
         return new Json().put("id", id).put("kind", kind)
             .put("label", Messages.getName(id))
             .put("description", Messages.containsKey(id + ".shortDescription")
-                ? Messages.getShortDescription(id) : null);
+                ? Messages.getShortDescription(id) : DESCRIPTIONS.get(id));
     }
 
     /**
