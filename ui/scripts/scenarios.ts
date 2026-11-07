@@ -24,6 +24,8 @@ import type { Locator, Page } from 'playwright-core';
 
 const browsers = browserNames();
 const turns = Number(opt('turns', '5'));
+/** How long a turn may take to end before it counts as stuck, in ms (--stall SECONDS, default 25 minutes). */
+const STALL_MS = Number(opt('stall', '1500')) * 1000;
 const only = opt('only', '')
   .split(',')
   .filter((x) => x);
@@ -112,10 +114,14 @@ class Run {
   endTurn = async () => {
     const turn = (await this.view()).turn;
     await this.noDialog();
+    // The end turn dialogs asked so far: an Enter that was taken asks one (or ends the turn at once).
+    const asked = () => this.page.evaluate(() => window.__dialogs.filter((d) => d.startsWith('endTurn')).length);
+    const askedAtStart = await asked();
     await this.page.keyboard.press('Enter');
     // A long wait says what the page is doing every half minute: dialogs answered, AI rounds played, the status line.
     const t0 = Date.now();
     let presses = 0;
+    let mapsBefore = -1;
     let noted = Date.now();
     for (;;) {
       const done = await this.page
@@ -139,13 +145,29 @@ class Run {
           !document.querySelector('[role=dialog]'),
         await this.page.evaluate(() => window.__maps),
       );
+      // The page leaves an Enter alone while one of its dialogs is open, and a dialog the server asks as the turn
+      // starts (the founding father to nominate) can be queued, though not yet on the page, when noDialog looks:
+      // that Enter did nothing, and a player would press it again once the dialog is answered (#366).
+      const mapsNow = await this.page.evaluate(() => window.__maps);
+      const quiet = mapsNow === mapsBefore;
+      mapsBefore = mapsNow;
+      const ignored =
+        quiet &&
+        (await asked()) === askedAtStart &&
+        (await this.page.evaluate(() => window.__map.ourTurn && !document.querySelector('[role=dialog]')));
+      if (ignored && presses < 6) {
+        presses++;
+        this.note(`Enter was not taken (no end turn dialog asked, the page quiet): Enter again (${presses})`);
+        await this.page.keyboard.press('Enter');
+        continue;
+      }
       if (idle && presses < 6) {
         presses++;
         this.note(`the turn is back with the player, no unit active: Enter again (${presses})`);
         await this.page.keyboard.press('Enter');
         continue;
       }
-      if (Date.now() - noted < 30000) continue;
+      if (Date.now() - noted < Math.min(30000, STALL_MS / 2)) continue;
       noted = Date.now();
       const state = await this.page.evaluate(() => ({
         dialogs: window.__dialogs.length,
@@ -159,10 +181,36 @@ class Run {
       }));
       await this.shot(`waiting-${Math.round((Date.now() - t0) / 1000)}s`).catch(() => {});
       this.note(`still in turn ${turn} after ${secs(Date.now() - t0)} s: ${JSON.stringify(state)}`);
-      if (Date.now() - t0 > 1500000) throw new Error(`turn ${turn} did not end in 25 minutes`);
+      if (Date.now() - t0 > STALL_MS) {
+        await this.stuckDump(turn);
+        throw new Error(`turn ${turn} did not end in ${secs(STALL_MS)} s`);
+      }
     }
     return this.view();
   };
+  /** What the page and the Engines were doing when a turn did not end, for the failure's report (#366). */
+  stuckDump = async (turn: string) => {
+    const state = await this.page
+      .evaluate(() => ({
+        map: { turn: window.__map.turn, ourTurn: window.__map.ourTurn, maps: window.__maps },
+        active: window.__map.activeUnit,
+        dialogs: window.__dialogs.slice(-8),
+        errors: window.fcErrors,
+        unasked: window.fcUnasked,
+        open: [...document.querySelectorAll('[role=dialog]')].map((d) => d.outerHTML.slice(0, 400)),
+        turnText: document.querySelector('#turn')?.textContent,
+      }))
+      .catch((ex: Error) => ({ dumpFailed: ex.message }));
+    this.note(`STUCK in turn ${turn}: ${JSON.stringify(state)}`);
+    this.note(
+      `console tail:\n${this.consoleTail
+        .filter((l) => !/Production type|random\(/.test(l))
+        .slice(-40)
+        .join('\n')}`,
+    );
+  };
+  /** The last console lines of the page and its Workers. */
+  consoleTail: string[] = [];
   /** The dialogs logged so far. */
   logged = () => this.page.evaluate(() => window.__dialogs.length);
   /** Milliseconds from `act` to the first dialog it opens whose log line starts with `prefix`. */
@@ -925,6 +973,13 @@ for (const browserName of browsers) {
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     const errors = collectPageErrors(page);
     let run: Run | null = new Run(page, name, browserName, server.url);
+    const tail = run.consoleTail;
+    const keep = (who: string) => (m: { type(): string; text(): string }) => {
+      tail.push(`${who} [${m.type()}] ${m.text().slice(0, 300)}`);
+      if (tail.length > 200) tail.shift();
+    };
+    page.on('console', keep('page'));
+    page.on('worker', (w) => w.on('console', keep('worker')));
     await page.addInitScript(() => {
       let inner: ((name: string, detail: string) => unknown) | undefined;
       window.__maps = 0;
