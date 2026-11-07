@@ -19,7 +19,13 @@ export async function answerDialogs(
   page: Page,
   shot: ((kind: string | undefined, n: number) => unknown) | null = null,
 ) {
-  if (shot) await page.exposeFunction('__shot', shot);
+  // The page gets nothing back: a screenshot's Buffer, which page.screenshot resolves to, is sent to the page as a
+  // JSON array of its bytes, and Firefox's page spent minutes (its main thread busy allocating) taking that in, with
+  // the Engine's updates and so the preset's setup waiting behind it (#353).
+  if (shot)
+    await page.exposeFunction('__shot', async (kind: string | undefined, n: number) => {
+      await shot(kind, n);
+    });
   await page.addInitScript(() => {
     window.__dialogs = [];
     window.__dialogTexts = [];

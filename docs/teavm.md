@@ -242,12 +242,54 @@ script ends the browser itself (a long scenario run got only the parent and
 an extension process). Wasm frames show as `wasm-function[N]`: the name
 section of `dist/assets/*.wasm` has the names, by function index.
 
-**Not understood: a slow setup.** In about half the Firefox runs of this
-pass the preset's setup took 70-140 s instead of 10 s, with the page idle and
-its map count stuck at 3 the whole time (the server Worker busy or waiting;
-the Worker was not profiled). It happened in `scenarios` only, never in a
-probe that did the same steps, and is not tied to the code of the run. A
-cold Wasm compile in the Worker is one candidate; unchecked.
+**The slow setup: the script's screenshot, not the game (third pass).** In
+about half the Firefox runs of `scenarios` the preset's setup took 40-214 s
+instead of 10 s (six runs: 20, 138, 21, 79, 214, 77 s). Found by timing the
+Worker: `ServerEngine.setup` runs the preset's actions one after the other,
+and a temporary `System.out` line per action showed them taking 0-2 ms each,
+then, from some action on, a steady 370 ms each (multiples of it, 740, 1100).
+The Worker was idle (Firefox Profiler: `WorkerPrivate::WaitForWorkerEvents`
+in 99% of its samples, GC 1 s of 40) because each action's update to the
+client is a *question* (`PostMessageConnection.askMessage`, 1,900 "update"
+questions in a setup) and the server waits for the client's reply. The page's
+main thread was the slow side: in the same profile 65% of it was Minor GC
+(3,177 nursery collections) and 30% was Playwright's `_toDebugger`
+(`chrome://juggler/content/content/Runtime.js`), which converts a value
+Playwright hands to the page.
+
+The value is the return of the `__shot` function `answerDialogs` exposes to
+the page (`ui/scripts/dialogs.ts`): the scenario script's `dialogShots`
+returns `page.screenshot(...)`, a Buffer, and Playwright sends an exposed
+function's result back to the page as JSON, a Buffer as an array of its bytes
+(hundreds of thousands of numbers). Firefox's page spends seconds to minutes
+allocating and tearing that down, with the page's events (the Engine's
+replies) queued behind it. It happens when a dialog (the `messages` one, which
+the preset's actions raise) opens while the setup runs and the script shoots
+it (three shots a kind), so it comes and goes with timing, and only in the
+scenario script (the other scripts pass no shot function, nor does a probe
+that did the same steps). Chromium takes the array in far faster.
+
+**Fix.** `answerDialogs` exposes a wrapper that awaits the shot and returns
+nothing. Big empire, Firefox, the setup (thirty colonies on the map), before:
+20, 138, 21, 79, 214, 77 s; after, five runs of the setup alone 8.5-10.8 s,
+and three full scenario runs 9.9, 9.9, 10.1 s (setup quiet at 16 s). Chromium
+6.6 s. The late-game timeouts of #366 (no dialog open / `waitForFunction`
+120 s after turn 174, Firefox only) are very likely the same stall: a dialog
+shot at a moment the page has a lot to take in. Not rerun on the late-game
+fixtures.
+
+A page-side cost is real too but did not cause this: with the terrain
+animation on, `animatedBase` rebuilds the whole 40x80 scene every tick
+(125 ms) and a frame costs about 370 ms in Firefox's Canvas 2D (the map
+`dD` function was 49% of the page's time in the first profile). It starves
+the page's events as well, but the setup was fast (10 s) with it on, once
+the shot was fixed. Left alone.
+
+**How it was found.** The Worker was not the slow side, so the Worker's
+profile only showed it waiting. Bisecting the script: a probe that did the
+same steps was fast, the scenario script slow; removing `answerDialogs` made
+it fast, keeping it without the shot function too, and an exposed function
+alone too: only a shot function that returned the screenshot was slow.
 
 ## Open questions
 
