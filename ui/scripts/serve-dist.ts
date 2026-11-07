@@ -17,6 +17,7 @@ const TYPES: Record<string, string> = {
   '.webmanifest': 'application/manifest+json',
   '.wasm': 'application/wasm',
   '.png': 'image/png',
+  '.svg': 'image/svg+xml',
   '.jpg': 'image/jpeg',
   '.woff2': 'font/woff2',
 };

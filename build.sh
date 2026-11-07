@@ -25,8 +25,6 @@ node ui/scripts/build-art.ts freecol/data "$gen/public/art" --manifest freecol-p
 node ui/scripts/build-art.ts freecol/data "$gen/public/art" --manifest test.json ui/tilesets/test
 # Music and sound effects, served as files under audio/, each fetched when it plays.
 node ui/scripts/build-audio.ts freecol/data "$gen/public/audio"
-# The favicon and the web app icons, made from FreeCol's window icon, served as icons/.
-node ui/scripts/build-icons.ts freecol/data "$gen/public/icons"
 # FreeCol's splash, the loading screen's picture (index.html).
 cp freecol/build/splash.jpg "$gen/public/splash.jpg"
 # Debug quick-start presets, served as presets/NAME.json (the page's ?preset=NAME).
@@ -35,6 +33,9 @@ cp ui/presets/*.json "$gen/public/presets/"
 
 cd ui
 pnpm install --frozen-lockfile
+# The favicon and the web app icons, rendered from BrowserCol's icon (brand/), served as icons/.
+# After the install, as it renders with resvg.
+node scripts/build-icons.ts brand "generated/public/icons"
 mode=()
 for arg in "$@"; do [[ $arg == -Prelease ]] && mode=(--mode release); done
 pnpm exec vp build "${mode[@]}"
