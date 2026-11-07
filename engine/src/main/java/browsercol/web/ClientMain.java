@@ -349,22 +349,31 @@ public final class ClientMain {
      * no sooner than 3c later, with the game as it is then.
      */
     private static void mapSoon() {
-        if (debugMapQueued) {
-            return;
+        long wait;
+        synchronized (ClientMain.class) {
+            if (debugMapQueued) {
+                return;
+            }
+            wait = debugMapEnd + 3 * debugMapCost - System.currentTimeMillis();
+            if (wait > 0) {
+                debugMapQueued = true;
+            }
         }
-        long wait = debugMapEnd + 3 * debugMapCost - System.currentTimeMillis();
         if (wait <= 0) {
             sendDebugMap();
             return;
         }
-        debugMapQueued = true;
         new Thread(() -> {
                 try {
                     Thread.sleep(wait);
-                    debugMapQueued = false;
+                    synchronized (ClientMain.class) {
+                        debugMapQueued = false;
+                    }
                     sendDebugMap();
                 } catch (Throwable ex) {
-                    debugMapQueued = false;
+                    synchronized (ClientMain.class) {
+                        debugMapQueued = false;
+                    }
                     ex.printStackTrace();
                     event("commandFailed", "debug: " + Failures.describe(ex));
                 }
@@ -374,8 +383,11 @@ public final class ClientMain {
     private static void sendDebugMap() {
         long start = System.currentTimeMillis();
         event("map", mapJson());
-        debugMapEnd = System.currentTimeMillis();
-        debugMapCost = debugMapEnd - start;
+        long end = System.currentTimeMillis();
+        synchronized (ClientMain.class) {
+            debugMapEnd = end;
+            debugMapCost = end - start;
+        }
     }
 
     /**
