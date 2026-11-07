@@ -5,13 +5,18 @@
 // Engine measured it ("round" event), the mean of the rounds since the last
 // sample, wall seconds since load, and the resident memory (RSS, MB) of the
 // browser's process tree, workers included.
+// With --save FILE, once the rounds are played the game is saved through the page's own save button and
+// the .fsg is written to FILE (a late game made by the AI, for the scenarios; with two browsers, the
+// browser's name goes before the extension). --save-name sets the save's name in the page.
 // Run in the web image:
-//   DEV_VARIANT=web ./dev.sh node ui/scripts/rounds.ts [--rounds 300] [--browsers chromium,firefox] [--every 25] [--timeout 7200]
+//   DEV_VARIANT=web ./dev.sh node ui/scripts/rounds.ts [--rounds 300] [--browsers chromium,firefox] [--every 25] [--timeout 7200] [--save FILE]
 // A run that stalls or hits --timeout reports as far as it got. Numbers
 // depend on the machine's load, so the script prints the load and CPU.
 import fs from 'node:fs';
 import os from 'node:os';
+import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import type { Page } from 'playwright-core';
 import { browserNames, opt, playwright } from './common.ts';
 import { answerDialogs } from './dialogs.ts';
 import { serveDist } from './serve-dist.ts';
@@ -20,6 +25,37 @@ const rounds = Number(opt('rounds', '300'));
 const every = Number(opt('every', '25'));
 const timeout = Number(opt('timeout', '7200')) * 1000;
 const browsers = browserNames();
+const saveTo = opt('save', '');
+const saveName = opt('save-name', `AI round ${rounds}`);
+
+/** Saves the game through the page's save button and returns the .fsg's bytes from the browser's save store. */
+async function saveGame(page: Page, name: string) {
+  await page.fill('#save-name', name);
+  await page.click('button[data-command=save]');
+  await page.waitForFunction((n) => document.querySelector('#save-note')?.textContent === `Saved: ${n}`, name, {
+    timeout: 300000,
+    label: 'the page says the game is saved',
+  });
+  const bytes = await page.evaluate(
+    (n) =>
+      new Promise<number[]>((done, fail) => {
+        const open = indexedDB.open('freecol-saves');
+        open.onerror = () => fail(open.error);
+        open.onsuccess = () => {
+          const db = open.result;
+          const metas = db.transaction('saves').objectStore('saves').getAll();
+          metas.onsuccess = () => {
+            const row = (metas.result as { id: number; name: string }[]).filter((m) => m.name === n).at(-1);
+            if (!row) return fail(new Error(`no save named ${n}`));
+            const blob = db.transaction('blobs').objectStore('blobs').get(row.id);
+            blob.onsuccess = () => done([...(blob.result as Uint8Array)]);
+          };
+        };
+      }),
+    name,
+  );
+  return Uint8Array.from(bytes);
+}
 
 /** Resident memory in MB of this process's descendants (the browser). */
 function treeRssMb() {
@@ -100,6 +136,13 @@ for (const name of browsers) {
     await new Promise((r) => setTimeout(r, 2000));
   }
   console.log(`rounds done: ${all.length}; all ai_ms: ${all.map((x) => x.split(',')[1]).join(' ')}`);
+  if (saveTo && all.length >= rounds) {
+    const file = browsers.length > 1 ? saveTo.replace(/(\.fsg)?$/, `-${name}$1`) : saveTo;
+    fs.mkdirSync(path.dirname(path.resolve(file)), { recursive: true });
+    const bytes = await saveGame(page, saveName);
+    fs.writeFileSync(file, bytes);
+    console.log(`saved ${saveName}: ${file}, ${bytes.length} bytes`);
+  }
   await browser.close().catch(() => {});
 }
 server.close();

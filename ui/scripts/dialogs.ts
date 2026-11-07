@@ -9,7 +9,7 @@
 // and they are logged in window.__pictures as {kind, src, loaded}. With a
 // shot function (answerDialogs(page, shot)), the first three dialogs of each
 // kind that has images are shown to it first, as shot(kind, n), e.g. to take
-// a screenshot.
+// a screenshot. With window.__shotPlain set, the dialogs with no images are shown too.
 // A kind named by window.__hold is logged and shot, but left open for the script to use.
 // Call before page.goto; read the log with dialogLog(page).
 import type { Page } from 'playwright-core';
@@ -57,7 +57,8 @@ export async function answerDialogs(
         window.__pictures.push({ kind: d.dataset.kind, src: img.getAttribute('src'), loaded: img.naturalWidth > 0 });
       }
       const n = (shots[d.dataset.kind!] ?? 0) + 1;
-      if (imgs.length > 0 && window.__shot && n <= 3) {
+      // A script that sets window.__shotPlain wants the dialogs with no pictures too (combat reports, say).
+      if ((imgs.length > 0 || window.__shotPlain) && window.__shot && n <= 3) {
         shots[d.dataset.kind!] = n;
         await window.__shot(d.dataset.kind, n);
       }

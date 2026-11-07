@@ -22,8 +22,13 @@ declare global {
     __dialogUnits: { kind: string | undefined; units: (string | undefined)[] }[];
     /** dialogs.ts: the shot function the script passed, exposed to the page. */
     __shot?: (kind: string | undefined, n: number) => Promise<void>;
+    /** dialogs.ts: whether the dialogs with no pictures are shown to the shot function too. */
+    __shotPlain?: boolean;
     /** The dialog kind the script answers itself. */
     __hold?: string | null;
+    /** scenarios.ts: when the AI's turns began (0 if they have not), and how long each took, in ms. */
+    __aiAt?: number;
+    __aiMs?: number[];
     /** The last map the page was sent. */
     __map: MapView;
     /** How many maps the page was sent. */
