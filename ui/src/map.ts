@@ -666,7 +666,11 @@ export function canvasPen(host: HTMLElement, width: number, height: number, back
   // Canvas 2D has no scene graph: record the drawing and replay it to pan.
   // An image carries the box it covers, so show() can leave out those off the screen: a big map is thousands of
   // images, and Firefox spent seconds on every frame drawing them all (#353).
-  type Call = ((c: CanvasRenderingContext2D) => void) & { box?: [number, number, number, number] };
+  type Call = ((c: CanvasRenderingContext2D) => void) & {
+    box?: [number, number, number, number];
+    /** An image's picture, which repicture() swaps for the next frame without recording the call again. */
+    pic?: { cur: Picture };
+  };
   const layers: Call[][] = Array.from({ length: 8 }, () => []);
   let fog = 1;
   let mark = 1;
@@ -686,18 +690,27 @@ export function canvasPen(host: HTMLElement, width: number, height: number, back
       changed = true;
       calls = layers[n] = [];
     },
-    image: (pic, x, y, dim, tile) =>
-      push(
-        (c) => {
-          // A dimmed picture is drawn from a copy made once: setting the context's filter for every tile took
-          // half of Firefox's time in a big map, since it parses the filter string each time.
-          const src = dim ? dimmed(pic) : pic;
-          const b = tile && pic.width === W && pic.height === H ? seamBleed(c.getTransform().a) : 0;
-          if (b) c.drawImage(src, x - b / 2, y - b / 2, W + b, H + b);
-          else c.drawImage(src, x, y);
-        },
-        [x, y, pic.width, pic.height],
-      ),
+    image: (pic, x, y, dim, tile) => {
+      const held = { cur: pic };
+      const call: Call = (c) => {
+        const pic = held.cur;
+        // A dimmed picture is drawn from a copy made once: setting the context's filter for every tile took
+        // half of Firefox's time in a big map, since it parses the filter string each time.
+        const src = dim ? dimmed(pic) : pic;
+        const b = tile && pic.width === W && pic.height === H ? seamBleed(c.getTransform().a) : 0;
+        if (b) c.drawImage(src, x - b / 2, y - b / 2, W + b, H + b);
+        else c.drawImage(src, x, y);
+      };
+      call.pic = held;
+      push(call, [x, y, pic.width, pic.height]);
+    },
+    repicture: (n, pics) => {
+      const layer = layers[n];
+      if (layer.length !== pics.length || !layer.every((call) => call.pic)) return false;
+      layer.forEach((call, i) => (call.pic!.cur = pics[i]));
+      changed = true;
+      return true;
+    },
     diamond: (x, y, color, alpha) =>
       push((c) => {
         c.globalAlpha = alpha;
@@ -1220,6 +1233,8 @@ export function mapDrawer(
   /** The frame of the animated base tiles last drawn, and whether the next is being drawn. */
   let baseKey = '';
   let baseBusy = false;
+  /** When the animated base may be drawn again: three times what the last frame cost after it, so a map too big for the machine animates more slowly instead of starving the page (#353). */
+  let baseNext = 0;
 
   async function init() {
     const art = (await (await fetch(artBase + manifest)).json()) as Art;
@@ -1305,7 +1320,9 @@ export function mapDrawer(
     pen.fade(lifting ? 1 - (now - lifting.since) / (moveMs * EXPLORE_FADE_SLIDES) : 0);
     const z = view.zoom;
     const [cx, cy] = following(now) ?? view.centre;
+    const shownAt = performance.now();
     pen.show(size[0] / 2 - cx * z, size[1] / 2 - cy * z, z);
+    measure('map: show', shownAt);
   };
 
   /**
@@ -1332,26 +1349,32 @@ export function mapDrawer(
 
   /** Draw the animated base tiles again when their frame has moved on. */
   function animateBase() {
-    if (!drawn || !res || !pen || baseBusy) return;
+    if (!drawn || !res || !pen || baseBusy || performance.now() < baseNext) return;
     const t = ticksNow();
     const key = `${t.water}:${t.river}`;
     if (key === baseKey) return;
     baseKey = key;
     baseBusy = true;
     const map = drawn;
+    const began = performance.now();
     drawing = drawing
       .then(async () => {
         if (drawn !== map || !pen || !res) return;
+        const start = performance.now();
         // The same map's base tiles are the same images in the same places: only their pictures move on a frame.
         const ops = animatedBase(map, res, t);
         const images = await Promise.all(
           ops.map((op) => (op.k === 'image' ? pics.get(op.src).catch(() => null) : Promise.resolve(null))),
         );
         const shown = images.filter((img) => img !== null);
-        if (drawn !== map || shown.length !== ops.length || !pen.repicture?.(5, shown)) await paint(pen, 5, ops, pics);
+        const again = drawn !== map || shown.length !== ops.length || !pen.repicture?.(5, shown);
+        if (again) await paint(pen, 5, ops, pics);
+        measure(again ? 'map: base, painted' : 'map: base, repictured', start);
       })
       .finally(() => {
         baseBusy = false;
+        const end = performance.now();
+        baseNext = end + 3 * (end - began);
       });
   }
 
