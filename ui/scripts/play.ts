@@ -19,6 +19,7 @@
 // pointer at an edge must zoom and scroll it at its new size. Exits non-zero
 // unless every browser gets there. Run in the web image:
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/play.ts [--browsers chromium,firefox] [--query renderer=canvas2d|preset=dutch-small|preset=] (default preset: play) [--scale 2]
+import fs from 'node:fs';
 import path from 'node:path';
 import type { Locator, Page } from 'playwright-core';
 import type { MapView, Unit } from '../src/tileset.ts';
@@ -547,6 +548,61 @@ async function play(page: Page, url: string) {
     const seen = await page.evaluate((n) => (window.__dialogs ?? []).slice(n), logged);
     throw new Error(`${what}: ${JSON.stringify(seen)}`);
   };
+  /** Where a screen's screenshot goes: .cache/dialog-shots/<Swing method>-<browser>.png, for review (not in git). */
+  const shot = (method: string) => {
+    const dir = path.join(dist, '../.cache/dialog-shots');
+    fs.mkdirSync(dir, { recursive: true });
+    return path.join(dir, `${method}-${browserName}.png`);
+  };
+  /**
+   * Open a window of the page as a player does (open: a menu entry, a key, a click), and look at it before it
+   * closes: it must show text with no unset value in it, matching what it should say. The dialog answerer is told
+   * to leave its kind open, the window is shot into .cache/play-<browser>-<shot>.png, then closed with the
+   * selector close names (a button of the window). Returns the window's text and what check, run while it is
+   * open, returned.
+   */
+  const inspect = async <T = void>(
+    what: string,
+    kind: string,
+    shotName: string,
+    open: () => Promise<unknown>,
+    says: RegExp,
+    close = '[data-answer=close]',
+    check?: (d: Locator) => Promise<T>,
+  ) => {
+    // Over a panel the script holds open (the colony's), a dialog is open by design.
+    if (!(await page.evaluate(() => window.__hold))) await noDialog(`opening ${what}`);
+    const before = await page.evaluate(() => window.__hold ?? null);
+    await page.evaluate(([b, k]) => (window.__hold = `${b},${k}`), [before ?? '', kind]);
+    await open();
+    // A window of the page's own has no kind, and is found by its id (dialogs.ts names it so too).
+    const sel = `[role=dialog][data-kind="${kind}"], [role=dialog]#${kind}`;
+    const d = page.locator(sel).last();
+    await d.waitFor({ timeout: 15000, label: `${what} opens` });
+    // The window may fill after it opens (a report's rows come with its first draw): wait for its text.
+    await page
+      .waitForFunction(
+        ([q, re, fl]: [string, string, string]) => {
+          const ds = document.querySelectorAll<HTMLElement>(q);
+          return new RegExp(re, fl).test(ds[ds.length - 1]?.innerText ?? '');
+        },
+        [sel, says.source, says.flags],
+        { timeout: 10000, label: `${what} says ${says}` },
+      )
+      .catch(async () => {
+        throw new Error(`${what} does not say ${says}: ${(await d.innerText()).slice(0, 300)}`);
+      });
+    const text = await d.innerText();
+    const broken = kind === 'log' ? null : /undefined|NaN|\[object|\bnull\b/.exec(text);
+    if (broken) throw new Error(`${what} shows an unset value (${broken[0]}): ${text.slice(0, 300)}`);
+    const found = check ? await check(d) : (undefined as T);
+    await page.screenshot({ path: shot(shotName) });
+    await d.locator(close).first().click();
+    await d.waitFor({ state: 'detached', timeout: 10000, label: `${what} closes` });
+    await page.evaluate((k) => (window.__hold = k), before);
+    console.log(`  ${what}: ${text.replace(/\s+/g, ' ').slice(0, 90)}`);
+    return { text, found };
+  };
   /**
    * Open the colony's panel and move colonists in it as a player would: the founder is dragged to a building,
    * clicked back to its tile, given other work, and a colonist outside is put to work and out again, and a building is queued. After each
@@ -660,6 +716,26 @@ async function play(page: Page, url: string) {
     await page.keyboard.press('Escape');
     await popup.waitFor({ state: 'detached', timeout: 5000, label: 'Escape closes the quick action menu' });
     if ((await panel.count()) !== 1) throw new Error('Escape closed the colony panel with the menu');
+
+    // The same menu's "Show production modifiers" opens the work production panel of the colonist at work
+    // (showWorkProductionPanel): what the founder makes there, with the modifiers behind the amount.
+    await inspect(
+      'the work production panel',
+      'workProduction',
+      'showWorkProductionPanel',
+      async () => {
+        await unit(founder).click({ button: 'right' });
+        const menu = page.locator('.popup[role=menu]');
+        await menu.waitFor({ timeout: 10000, label: "the founder's quick action menu opens for its production" });
+        const entry = menu.locator('[data-entry^="production:"]');
+        if ((await entry.count()) === 0) {
+          throw new Error(`the founder's quick action menu has no production entry: ${await menu.innerText()}`);
+        }
+        await entry.click();
+      },
+      /\d/,
+    );
+    if ((await panel.count()) !== 1) throw new Error('the work production panel closed the colony panel');
 
     if (tile !== null) {
       // Drag the founder from its tile into a building.
@@ -1080,6 +1156,19 @@ async function play(page: Page, url: string) {
     if ((await popup.locator('[data-entry^="colony:"]').count()) === 0) {
       throw new Error(`the tile popup of the colony has no colony entry: ${await popup.innerText()}`);
     }
+    // The popup's tile entry (the tile's label) opens the tile panel (showTilePanel), which names the terrain.
+    await inspect(
+      'the tile panel',
+      'tilePanel',
+      'showTilePanel',
+      async () => {
+        await popup.locator('[data-entry^="tile:"]').click();
+        await popup.waitFor({ state: 'detached', timeout: 5000, label: 'the tile entry closes the popup' });
+      },
+      /\S{3}/,
+    );
+    await page.mouse.click(box.x + px, box.y + py, { button: 'right' });
+    await popup.waitFor({ timeout: 10000, label: 'the tile popup opens again' });
     // The map's top-left corner: the minimap is at its bottom-left.
     await page.mouse.click(box.x + 5, box.y + 5);
     await popup.waitFor({ state: 'detached', timeout: 5000, label: 'a click elsewhere closes the tile popup' });
@@ -1171,6 +1260,9 @@ async function play(page: Page, url: string) {
 
   // The Trade routes button asks the Engine for the panel, which the page shows (the dialog answerer
   // closes it). Making, changing and deleting routes is CommandsTest's and panels.test.tsx's to check.
+  // The panel is held open to open the route editor from its New button.
+  await noDialog('the Trade routes button');
+  await page.evaluate(() => (window.__hold = 'tradeRoutes'));
   m = await act(() => page.click('button[data-command=tradeRoutes]'));
   const routesShown = await page
     .waitForFunction(() => (window.__dialogs ?? []).some((d) => d.startsWith('tradeRoutes: ')), null, {
@@ -1182,6 +1274,30 @@ async function play(page: Page, url: string) {
     throw new Error(
       `the trade routes panel did not open: ${JSON.stringify(await page.evaluate(() => window.__dialogs))}`,
     );
+  }
+  // New opens the route editor (showTradeRouteInputPanel) over the list, with a name to give the route; Add stop
+  // puts a stop in the route, which the editor then lists; Cancel goes back to the list, and OK closes it.
+  {
+    const routes = page.locator('[role=dialog][data-kind=tradeRoutes]');
+    await routes.locator('[data-answer=new]').click();
+    const editor = routes.locator('[data-answer=addStop]');
+    await editor.waitFor({ timeout: 10000, label: 'the New button opens the route editor' });
+    await editor.click();
+    await routes.locator('[data-stop]').first().waitFor({ timeout: 10000, label: 'Add stop adds a stop to the route' });
+    const text = await routes.innerText();
+    if (!(await routes.locator('input').first().inputValue()) || /undefined|NaN|\[object/.test(text)) {
+      throw new Error(`the trade route editor shows no route name or an unset value: ${text.slice(0, 300)}`);
+    }
+    await page.screenshot({ path: shot('showTradeRouteInputPanel') });
+    console.log(`  trade route editor: ${text.replace(/\s+/g, ' ').slice(0, 90)}`);
+    await routes.locator('[data-answer=cancel]').click();
+    await routes
+      .locator('[data-route], [data-answer=new]')
+      .first()
+      .waitFor({ timeout: 10000, label: 'Cancel returns to the routes list' });
+    await page.evaluate(() => (window.__hold = null));
+    await routes.locator('[data-answer=close]').click();
+    await routes.waitFor({ state: 'detached', timeout: 10000, label: 'OK closes the routes panel' });
   }
 
   // The Report menu opens each report, as a player would: its window is the dialog the answerer then
@@ -1215,6 +1331,55 @@ async function play(page: Page, url: string) {
       if (!named) throw new Error(`the colony report does not show the founder ${founder}`);
     }
   }
+
+  // The three reports the loop above leaves out are looked at, held open and shot: the Continental Congress,
+  // the foreign powers and the natives (the Report menu's entries), and the labour report's click on a kind
+  // of colonist, which opens the labour detail report.
+  const reportEntry = (item: string) => async () => {
+    await page.getByRole('menuitem', { name: 'Report', exact: true }).click();
+    await page.getByRole('menuitem', { name: new RegExp(`^${item}( (Ctrl\\+)?(Shift\\+)?F\\d+)?$`) }).click();
+  };
+  await inspect(
+    'the Continental Congress report',
+    'report',
+    'showReportContinentalCongressPanel',
+    reportEntry('Continental Congress report'),
+    /Congress|Father|Liberty|Bells/i,
+  );
+  await inspect(
+    'the foreign affairs report',
+    'report',
+    'showReportForeignAffairPanel',
+    reportEntry('Foreign affairs report'),
+    /Foreign|Dutch|English|French|Spanish/i,
+  );
+  await inspect(
+    'the native affairs report',
+    'report',
+    'showReportIndianPanel',
+    reportEntry('Native affairs report'),
+    /Native|Indian|Tribe|Arawak|Aztec|Cherokee|Inca|Iroquois|Sioux|Apache|Tupi|Contact/i,
+  );
+  await inspect(
+    'the labour detail report',
+    'report',
+    'showReportLabourDetailPanel',
+    async () => {
+      await reportEntry('Labour report')();
+      const type = page.locator('[role=dialog][data-kind=report] button.labour-type:not([disabled])').first();
+      await type.waitFor({ timeout: 10000, label: 'the labour report lists a kind of colonist we have' });
+      await type.click();
+    },
+    /Details/,
+    '[data-answer=close]',
+    async (d) => {
+      await d
+        .locator('.labour-detail')
+        .waitFor({ timeout: 10000, label: 'a click on a kind of colonist opens its detail' });
+      if ((await d.locator('.labour-detail dl > div').count()) === 0)
+        throw new Error('the labour detail lists no place');
+    },
+  );
 
   m = await loadShip(m, land!, shipTile);
 
@@ -1302,6 +1467,7 @@ async function play(page: Page, url: string) {
   for (const [entry, kind] of [
     ['Show Difficulty Level', 'difficulty'],
     ['Show Game Options', 'game'],
+    ['Show Map Generator Options', 'map generator'],
   ]) {
     await noDialog(`the ${kind} options entry`);
     await page.evaluate(() => (window.__hold = 'options'));
@@ -1324,9 +1490,145 @@ async function play(page: Page, url: string) {
         `the ${kind} options panel is not a read-only editor of the game's options: ${JSON.stringify(editor)}`,
       );
     }
+    await page.screenshot({
+      path: shot(
+        {
+          'map generator': 'showMapGeneratorOptionsDialog',
+          difficulty: 'showDifficultyDialog',
+          game: 'showGameOptionsDialog',
+        }[kind]!,
+      ),
+    });
     await page.evaluate(() => (window.__hold = null));
     await page.click('[role=dialog][data-kind=options] [data-answer=close]');
   }
+
+  // View > Find Settlement, and its key Ctrl+F, list the settlements the player knows (showFindSettlementPanel),
+  // our colony among them, with a filter; Escape closes it.
+  const settlements = async (d: Locator) => {
+    const names = await d.locator('[role=option]').evaluateAll((es) => es.map((e) => e.textContent!.trim()));
+    if (names.length === 0) throw new Error('the find settlement panel lists no settlement');
+    return names;
+  };
+  await inspect(
+    'the find settlement panel (View menu)',
+    'findSettlement',
+    'showFindSettlementPanel',
+    async () => {
+      await page.getByRole('menuitem', { name: 'View', exact: true }).click();
+      await page.getByRole('menuitem', { name: /^Find Settlement/ }).click();
+    },
+    /\S{3}/,
+    '[data-answer=close]',
+    settlements,
+  );
+  await inspect(
+    'the find settlement panel (Ctrl+F)',
+    'findSettlement',
+    'showFindSettlementPanel-ctrl-f',
+    () => page.keyboard.press('Control+f'),
+    /\S{3}/,
+    '[data-answer=close]',
+    settlements,
+  );
+
+  // The page's own windows, which FreeCol's Swing opens from its own menus: Game > Preferences (Ctrl+P) with
+  // FreeCol's client options by category, Game > Open with the saves and a file to open, Colopedia > About
+  // BrowserCol with its credits.
+  const prefs = await inspect(
+    'the Preferences window',
+    'preferences',
+    'showClientOptionsDialog',
+    async () => {
+      await page.getByRole('menuitem', { name: 'Game', exact: true }).click();
+      await page.getByRole('menuitem', { name: /^Preferences/ }).click();
+    },
+    /Preferences/,
+    '[data-prefs-ok]',
+    async (d) => {
+      const categories = await d
+        .locator('[data-category]')
+        .evaluateAll((es) => es.map((e) => e.getAttribute('data-category')!));
+      if (categories.length < 5) throw new Error(`Preferences has too few categories: ${categories.join(', ')}`);
+      // A click on another category shows that one's options.
+      const shown = await d.locator('[data-shown]').getAttribute('data-shown');
+      const other = categories.find((c) => c !== shown)!;
+      await d.locator(`[data-category="${other}"]`).click();
+      await d.locator(`[data-shown="${other}"]`).waitFor({ timeout: 5000, label: 'a click on a category shows it' });
+      if (
+        (await d
+          .locator(
+            `[data-shown="${other}"] input, [data-shown="${other}"] select, [data-shown="${other}"] [role=combobox]`,
+          )
+          .count()) === 0
+      ) {
+        throw new Error(`the Preferences category ${other} has no option to set`);
+      }
+      return categories;
+    },
+  );
+  console.log(`  Preferences categories: ${prefs.found.join(', ')}`);
+  await inspect(
+    'the Open Game window',
+    'open-game',
+    'showLoadDialog',
+    async () => {
+      await page.getByRole('menuitem', { name: 'Game', exact: true }).click();
+      await page.getByRole('menuitem', { name: /^Open/ }).click();
+    },
+    /Open Game/,
+    '[data-open-cancel]',
+    async (d) => {
+      if ((await d.locator('[data-open-file]').count()) === 0)
+        throw new Error('the Open Game window has no file to open');
+    },
+  );
+  await inspect(
+    'the About window',
+    'credits',
+    'showAboutPanel',
+    async () => {
+      await page.getByRole('menuitem', { name: 'Colopedia', exact: true }).click();
+      await page.getByRole('menuitem', { name: 'About BrowserCol' }).click();
+    },
+    /About BrowserCol.*GNU General Public License/s,
+    'button.close',
+  );
+
+  // The error panel's "Show log" button opens the log (showLogFilePanel). A real error is rare, so the panel is
+  // asked for as a player in debug mode does: View > Debug Mode, then Debug > Display panels > Display error message.
+  await noDialog('turning debug mode on');
+  const debugMode = () => page.getByRole('menuitemcheckbox', { name: /^Debug Mode/ });
+  await page.getByRole('menuitem', { name: 'View', exact: true }).click();
+  await debugMode().click();
+  await page
+    .getByRole('menuitem', { name: 'Debug', exact: true })
+    .waitFor({ timeout: 10000, label: 'debug mode adds the Debug menu' });
+  const log = await inspect(
+    'the log window',
+    'log',
+    'showLogFilePanel',
+    async () => {
+      // The error panel stays open as well, for its Show log button.
+      await page.evaluate(() => (window.__hold = 'error,log'));
+      await page.getByRole('menuitem', { name: 'Debug', exact: true }).click();
+      await page.getByRole('menuitem', { name: 'Display panels' }).click();
+      await page.getByRole('menuitem', { name: 'Display error message' }).click();
+      await page.locator('[role=dialog][data-kind=error]').waitFor({ timeout: 10000, label: 'the error panel opens' });
+      await page.locator('[role=dialog][data-kind=error] button:has-text("log")').first().click();
+    },
+    /Server Engine.*Client Engine/s,
+    '[data-answer=close]',
+  );
+  await page.evaluate(() => (window.__hold = null));
+  await page.locator('[role=dialog][data-kind=error] [data-answer=close]').click();
+  await noDialog('closing the error panel');
+  // Ctrl+Shift+D turns debug mode off again.
+  await page.keyboard.press('Control+Shift+D');
+  await page
+    .getByRole('menuitem', { name: 'Debug', exact: true })
+    .waitFor({ state: 'detached', timeout: 10000, label: 'debug mode off removes the Debug menu' });
+  void log;
 
   // The art the dialogs show, from events as the client Engine sends them (the page's fcShow): the
   // event panel's two flavour images, and a turn report with the image of each kind of object, and

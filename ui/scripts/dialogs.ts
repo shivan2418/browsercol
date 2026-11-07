@@ -10,7 +10,8 @@
 // shot function (answerDialogs(page, shot)), the first three dialogs of each
 // kind that has images are shown to it first, as shot(kind, n), e.g. to take
 // a screenshot. With window.__shotPlain set, the dialogs with no images are shown too.
-// A kind named by window.__hold is logged and shot, but left open for the script to use.
+// A kind named by window.__hold (or several, separated by commas) is logged and shot, but left open for the script
+// to use. A window of the page's own, which has no kind, is named by its id (preferences, log, credits).
 // Call before page.goto; read the log with dialogLog(page).
 import type { Page } from 'playwright-core';
 
@@ -43,27 +44,28 @@ export async function answerDialogs(
       return imgs;
     };
     const answer = async (d: HTMLElement) => {
+      const kind = d.dataset.kind ?? d.id;
       const text = d.querySelector('.text, h2')?.textContent ?? '';
-      window.__dialogs.push(`${d.dataset.kind}: ${text.split('\n')[0]}`);
+      window.__dialogs.push(`${kind}: ${text.split('\n')[0]}`);
       window.__dialogTexts.push(
-        `${d.dataset.kind}: ${[...d.querySelectorAll('.text, h2')].map((e) => e.textContent).join(' / ')}`,
+        `${kind}: ${[...d.querySelectorAll('.text, h2')].map((e) => e.textContent).join(' / ')}`,
       );
       window.__dialogUnits.push({
-        kind: d.dataset.kind,
+        kind,
         units: [...d.querySelectorAll<HTMLElement>('[data-unit]')].map((e) => e.dataset.unit),
       });
       const imgs = await loadedImages(d);
       for (const img of imgs) {
-        window.__pictures.push({ kind: d.dataset.kind, src: img.getAttribute('src'), loaded: img.naturalWidth > 0 });
+        window.__pictures.push({ kind, src: img.getAttribute('src'), loaded: img.naturalWidth > 0 });
       }
-      const n = (shots[d.dataset.kind!] ?? 0) + 1;
+      const n = (shots[kind] ?? 0) + 1;
       // A script that sets window.__shotPlain wants the dialogs with no pictures too (combat reports, say).
       if ((imgs.length > 0 || window.__shotPlain) && window.__shot && n <= 3) {
-        shots[d.dataset.kind!] = n;
-        await window.__shot(d.dataset.kind, n);
+        shots[kind] = n;
+        await window.__shot(kind, n);
       }
       // A script that works in a panel sets window.__hold to its kind, and closes it itself.
-      if (window.__hold === d.dataset.kind) return;
+      if (window.__hold?.split(',').includes(kind)) return;
       const pick = (selector: string) => d.querySelector<HTMLElement>(selector);
       const buttonFor: Record<string, () => HTMLElement | null | undefined> = {
         confirm: () =>
@@ -77,7 +79,7 @@ export async function answerDialogs(
         preCombat: () => pick('[data-answer=ok]'),
         negotiation: () => pick('[data-answer=cancel]') || pick('[data-answer=send]'),
       };
-      (buttonFor[d.dataset.kind!] ?? (() => pick('[data-answer=close]')))()?.click();
+      (buttonFor[kind] ?? (() => pick('[data-answer=close]')))()?.click();
     };
     const seen = new WeakSet();
     new MutationObserver(() => {
