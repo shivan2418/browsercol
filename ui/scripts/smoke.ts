@@ -75,6 +75,8 @@ for (const name of browsers) {
   const page = await browser.newPage();
   await answerDialogs(page);
   const errors = collectPageErrors(page);
+  // Music is off until the player turns it on (#318), and its files are not fetched while it is (#347): the sound check needs it on.
+  await page.addInitScript(() => localStorage.setItem('freecol.prefs', JSON.stringify({ muteMusic: false })));
   server.watch?.(page);
   server.resetDataFetches();
   /** The audio files the page asked for, under audio/. */

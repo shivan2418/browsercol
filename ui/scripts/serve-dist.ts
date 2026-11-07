@@ -20,6 +20,7 @@ const TYPES: Record<string, string> = {
   '.svg': 'image/svg+xml',
   '.jpg': 'image/jpeg',
   '.woff2': 'font/woff2',
+  '.ogg': 'audio/ogg',
 };
 
 /** The site under test: its URL, and the data bundle fetches so far. */
