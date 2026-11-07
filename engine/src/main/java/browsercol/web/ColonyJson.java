@@ -15,7 +15,9 @@ import net.sf.freecol.common.model.Direction;
 import net.sf.freecol.common.model.FeatureContainer;
 import net.sf.freecol.common.model.Goods;
 import net.sf.freecol.common.model.GoodsType;
+import net.sf.freecol.common.model.Market;
 import net.sf.freecol.common.model.Modifier;
+import net.sf.freecol.common.model.Player;
 import net.sf.freecol.common.model.ProductionInfo;
 import net.sf.freecol.common.model.Specification;
 import net.sf.freecol.common.model.StringTemplate;
@@ -68,6 +70,11 @@ import net.sf.freecol.common.option.GameOptions;
  *     available, produced}]}, or null when nothing is being built, with
  *     nothing, ConstructionPanel's text for that.
  * <li>queue: the build queue panel, see {@link BuildQueues#json}.
+ * <li>market: what Europe's market now pays and asks for each storable
+ *     goods, [{type, sell, buy, enabled, reason}] as in EuropePanel's
+ *     (sell is what Europe pays, buy what it asks; enabled is false for a
+ *     boycotted goods type, with reason), for the goods tooltips; null
+ *     when the owner has no Europe (after independence).
  * </ul>
  * A unit is {id, name, keys}; one working in a building or on a tile
  * also has work (the goods type it works at, or null) and choices (the
@@ -99,9 +106,30 @@ final class ColonyJson {
             .putRaw("inPort", inPort(colony))
             .putRaw("construction", construction(colony))
             .putRaw("queue", BuildQueues.json(colony))
+            .putRaw("market", market(colony))
             .put("nothing", Messages.message(StringTemplate
                     .template("constructionPanel.clickToBuild")))
             .toString();
+    }
+
+    /** The prices of Europe's market, from the owner's Market; null without a Europe. */
+    private static String market(Colony colony) {
+        final Player player = colony.getOwner();
+        final Market market = player.getMarket();
+        if (player.getEurope() == null || market == null) return null;
+        final List<String> out = new ArrayList<>();
+        for (GoodsType type : colony.getSpecification()
+                 .getStorableGoodsTypeList()) {
+            final boolean tradeable = player.canTrade(type);
+            out.add(new Json().put("type", type.getId())
+                .put("sell", market.getPaidForSale(type))
+                .put("buy", market.getCostToBuy(type))
+                .put("enabled", tradeable)
+                .put("reason", tradeable ? null
+                    : Messages.message(Boycotts.reason(player, type)))
+                .toString());
+        }
+        return Json.array(out);
     }
 
     /**

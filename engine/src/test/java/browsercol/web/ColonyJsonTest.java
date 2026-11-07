@@ -111,6 +111,12 @@ class ColonyJsonTest {
         return obj(JsonReader.read(ColonyJson.of(colony, 1)));
     }
 
+    /** The market's entry for a goods type. */
+    private static Map<String, Object> marketOf(Map<String, Object> panel, String type) {
+        return list(panel.get("market")).stream().map(ColonyJsonTest::obj)
+            .filter(m -> type.equals(m.get("type"))).findFirst().get();
+    }
+
     /** The goods in a list of {type, amount}, as type to amount. */
     private static Map<String, Long> amounts(Object goods) {
         return list(goods).stream().map(ColonyJsonTest::obj)
@@ -181,6 +187,19 @@ class ColonyJsonTest {
 
         assertEquals(colony.getId(), json.get("id"));
         assertEquals("Jamestown", json.get("name"));
+
+        // Europe's prices, from the player's Market: what it pays and asks,
+        // and a boycotted goods type cannot be traded, with the reason.
+        final GoodsType furType = spec.getGoodsType("model.goods.furs");
+        final Map<String, Object> furs = marketOf(json, furType.getId());
+        assertEquals((long)us.getMarket().getPaidForSale(furType), furs.get("sell"));
+        assertEquals((long)us.getMarket().getCostToBuy(furType), furs.get("buy"));
+        assertEquals(true, furs.get("enabled"));
+        us.getMarket().setArrears(furType, 500);
+        final Map<String, Object> boycott = marketOf(panel(colony), furType.getId());
+        assertEquals(false, boycott.get("enabled"));
+        assertNotNull(boycott.get("reason"));
+        us.getMarket().setArrears(furType, 0);
         assertEquals(List.of((long)land.getX(), (long)land.getY()), json.get("at"));
 
         // Buildings: each with its icon's resource key, its workers and what

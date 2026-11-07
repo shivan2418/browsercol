@@ -424,6 +424,11 @@ export interface ColonyView {
     selected: Id | null;
     cargo: string;
   };
+  /**
+   * What Europe's market pays (sell) and asks (buy) for each storable goods now; enabled is false for a boycotted
+   * goods type, with the reason. Null after independence, when there is no Europe.
+   */
+  market: { type: string; sell: number; buy: number; enabled: boolean; reason: string | null }[] | null;
   /** The current build, and the goods it needs; null when nothing is built, which `nothing` says. */
   construction: {
     type: string;

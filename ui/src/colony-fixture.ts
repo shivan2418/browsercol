@@ -118,6 +118,7 @@ export const jamestown: ColonyView = {
   warehouse: { title: 'Warehouse', capacity: 100, goods: [{ ...goods('lumber', 150), over: true }] },
   outside: { title: 'Outside Colony', units: [colonist('unit:3')] },
   inPort: { title: 'In Port', units: [], selected: null, cargo: 'Cargo on carrier' },
+  market: null,
   construction: {
     type: 'model.building.warehouse',
     name: 'Warehouse',

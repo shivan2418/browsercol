@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { dialogs } from './dialogs';
 import { dragOnto } from './drag.testing';
-import { ColonyActions, ColonyTiles, type ColonyMoves, type DrawTiles } from './colony-panel';
+import { ColonyActions, ColonyTiles, priceTip, type ColonyMoves, type DrawTiles } from './colony-panel';
 import { DialogHost, type Art } from './panels';
 import { ContextMenuContext, type ContextMenus } from './popup-menu';
 import { colonist, goods, jamestown } from './colony-fixture';
@@ -585,6 +585,79 @@ describe('loading a ship in port in the colony panel', () => {
     drag(stored('lumber'), part('cargo'));
     drag(unit('unit:3'), part('cargo'));
     expect(calls).toEqual([]);
+  });
+
+  const shipIcon = (id: string) => part('port').querySelector<HTMLElement>(`[data-unit="${id}"]`)!;
+
+  it("loads goods dropped on a ship's icon in the port onto that ship, and boards a colonist", () => {
+    const other = { ...caravel, id: 'unit:10', name: 'Caravel B', cargo: { ...caravel.cargo, goods: [] } };
+    openPort({ inPort: { ...port, units: [caravel, other] } });
+    expect(shipIcon('unit:10').hasAttribute('data-drop')).toBe(true);
+    drag(stored('lumber'), shipIcon('unit:10'));
+    drag(stored('lumber'), shipIcon('unit:9'), true);
+    drag(unit('unit:3'), shipIcon('unit:10'));
+    drag(unit('unit:8'), shipIcon('unit:10'));
+    expect(calls).toEqual([
+      'load unit:10 model.goods.lumber',
+      'load unit:9 model.goods.lumber ask',
+      'board unit:3 unit:10',
+    ]);
+  });
+
+  describe("Europe's prices on goods", () => {
+    const market: NonNullable<ColonyView['market']> = [
+      { type: 'model.goods.lumber', sell: 4, buy: 6, enabled: true, reason: null },
+      { type: 'model.goods.cloth', sell: 9, buy: 12, enabled: true, reason: null },
+      {
+        type: 'model.goods.cotton',
+        sell: 0,
+        buy: 0,
+        enabled: false,
+        reason: 'The Crown boycotts cotton: arrears of 500',
+      },
+    ];
+    const warehouse = {
+      ...jamestown.warehouse,
+      goods: [
+        { ...goods('lumber', 87), over: false },
+        { ...goods('cotton', 20), over: false },
+      ],
+    };
+
+    it('gives what Europe pays and asks, and what the warehouse goods are worth, in the tooltip', async () => {
+      openPort({ inPort: port, warehouse, market });
+      expect(await hint(stored('lumber'))).toBe('Lumber: 87 · Europe buys at 4, sells at 6 · worth 348');
+    });
+
+    it('gives them for goods aboard a ship in the colony', async () => {
+      openPort({ inPort: port, warehouse, market });
+      expect(await hint(stacks()[0])).toBe('Cloth: 100 · Europe buys at 9, sells at 12 · worth 900');
+    });
+
+    it('says a boycotted goods type cannot be traded in place of the price', async () => {
+      openPort({ inPort: port, warehouse, market });
+      expect(await hint(stored('cotton'))).toBe('Cotton: 20 · The Crown boycotts cotton: arrears of 500');
+    });
+
+    it('shows no price after independence, when there is no Europe market', () => {
+      openPort({ inPort: port, warehouse, market: null });
+      expect(stored('lumber').getAttribute('title')).toBeNull();
+      expect(priceTip(warehouse.goods[0], null)).toBeNull();
+    });
+
+    it('follows the market when the colony is shown again', async () => {
+      const box = openPort({ inPort: port, warehouse, market });
+      const cheaper = market.map((m) => (m.type === 'model.goods.lumber' ? { ...m, sell: 2 } : m));
+      act(() =>
+        box.replace(
+          'colony',
+          { ...jamestown, id: `colony:${n}`, inPort: port, warehouse, market: cheaper },
+          undefined,
+          true,
+        ),
+      );
+      expect(await hint(stored('lumber'))).toBe('Lumber: 87 · Europe buys at 2, sells at 6 · worth 174');
+    });
   });
 });
 

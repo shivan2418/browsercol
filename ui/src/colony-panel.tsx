@@ -263,6 +263,7 @@ function MovableGoods({
   art,
   className,
   over,
+  market,
 }: {
   g: Goods;
   item: Item;
@@ -272,20 +273,35 @@ function MovableGoods({
   className?: string;
   /** More than the warehouse holds (Swing's red). */
   over?: boolean;
+  /** Europe's prices (the colony's `market`); null after independence. */
+  market: ColonyView['market'];
 }) {
   const movable = useMovable(item);
   const onContextMenu = useContextMenu((m) => (g.amount > 0 ? m.goods(at, g.type, g.amount) : null));
   return (
-    <span
+    <Tip
+      as="span"
       className={className}
       data-goods={g.type}
       data-over={over}
+      tip={priceTip(g, market)}
       onContextMenu={onContextMenu}
       {...(g.amount > 0 ? movable : {})}
     >
       <GoodsAmount keys={g.keys} name={g.name} amount={g.amount} art={art} />
-    </span>
+    </Tip>
   );
+}
+
+/**
+ * What Europe pays and asks for goods, from the Engine's Market, and what the amount held is worth at the sell
+ * price; a boycotted goods type says so in place of a price. Nothing after independence (no Europe).
+ */
+export function priceTip(g: Goods, market: ColonyView['market']): string | null {
+  const m = market?.find((p) => p.type === g.type);
+  if (!m) return null;
+  if (!m.enabled) return `${g.name}: ${g.amount} \u00b7 ${m.reason ?? 'boycotted'}`;
+  return `${g.name}: ${g.amount} \u00b7 Europe buys at ${m.sell}, sells at ${m.buy} \u00b7 worth ${g.amount * m.sell}`;
 }
 
 const Units = ({ units, art }: { units: UnitRef[]; art: Art }) => units.map((u) => <Unit key={u.id} u={u} art={art} />);
@@ -471,31 +487,61 @@ function TilePlace({
 
 /** ColonyInPortPanel: the ships in port, one of which is chosen. */
 function InPort({ c, art, choose }: { c: ColonyView; art: Art; choose: (id: string) => void }) {
-  const menus = useContext(ContextMenuContext);
   const port = c.inPort;
   const ship = chosenShip(c);
   return (
     <Box caption={port.title} data-part="port" className="port">
       {port.units.map((u) => (
-        <Tip
-          as="button"
-          key={u.id}
-          className="ship"
-          data-unit={u.id}
-          aria-pressed={u.id === ship?.id}
-          tip={u.name}
-          onClick={() => choose(u.id)}
-          onContextMenu={(e) => {
-            e.preventDefault();
-            const menu = menus?.unit(u.id);
-            if (menu) menus!.show(menu, e.clientX, e.clientY);
-          }}
-        >
-          <Img keys={u.keys} art={art} className="unit" alt={u.name} />
-          <Occupation u={u} />
-        </Tip>
+        <ShipIcon key={u.id} c={c} u={u} art={art} chosen={u.id === ship?.id} choose={choose} />
       ))}
     </Box>
+  );
+}
+
+/**
+ * A ship's icon in the port list. Dropped on, it takes what its cargo box does: a colonist beside the colony or
+ * working in it boards, and goods of the warehouse are loaded.
+ */
+function ShipIcon({
+  c,
+  u,
+  art,
+  chosen,
+  choose,
+}: {
+  c: ColonyView;
+  u: ColonyView['inPort']['units'][number];
+  art: Art;
+  chosen: boolean;
+  choose: (id: string) => void;
+}) {
+  const menus = useContext(ContextMenuContext);
+  const moves = useContext(ColonyActions);
+  const boardable = new Set([...c.outside.units, ...workingIn(c)].map((x) => x.id));
+  const target = useTarget('cargo', (item) => {
+    if (!moves) return;
+    if (item.kind === 'unit' && boardable.has(item.id)) moves.board(item.id, u.id);
+    else if (item.kind === 'goods' && item.from === 'warehouse') moves.load(u.id, item.type, item.ask ?? false);
+  });
+  return (
+    <Tip
+      as="button"
+      className="ship"
+      data-unit={u.id}
+      data-drop={target ? '' : undefined}
+      aria-pressed={chosen}
+      tip={u.name}
+      onClick={() => choose(u.id)}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        const menu = menus?.unit(u.id);
+        if (menu) menus!.show(menu, e.clientX, e.clientY);
+      }}
+      {...target}
+    >
+      <Img keys={u.keys} art={art} className="unit" alt={u.name} />
+      <Occupation u={u} />
+    </Tip>
   );
 }
 
@@ -531,6 +577,7 @@ function Cargo({ c, art }: { c: ColonyView; art: Art }) {
               g={g}
               art={art}
               at={ship.id}
+              market={c.market}
               className="made-goods"
               item={{ kind: 'goods', from: 'cargo', type: g.type, index: i, amount: g.amount, ask: false }}
             />
@@ -589,6 +636,7 @@ function Warehouse({ c, art }: { c: ColonyView; art: Art }) {
           g={g}
           art={art}
           at={c.id}
+          market={c.market}
           className="stored"
           item={{ kind: 'goods', from: 'warehouse', type: g.type, ask: false }}
           over={g.over}
