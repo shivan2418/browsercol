@@ -738,7 +738,18 @@ describe('the Continental Congress report', () => {
       keys: [],
       cost: 100,
       liberty: 40,
-      production: [{ type: 'model.goods.bells', name: 'Bells', keys: [], amount: 6 }],
+      bars: [
+        {
+          type: 'model.goods.bells',
+          name: 'Bells',
+          keys: [],
+          amount: 100,
+          needed: 100,
+          available: 40,
+          produced: 6,
+          turns: '(Turns: 10)',
+        },
+      ],
     },
     fathers: [
       { id: 'f:1', name: 'Franklin', ...father, state: 'elected', status: 'Elected in 1500', turn: '1500' },
@@ -750,7 +761,12 @@ describe('the Continental Congress report', () => {
   it('shows the father being recruited and every father with its state', () => {
     const { box } = host();
     show(box, report);
-    expect(document.querySelector('[data-current="f:2"] [data-field="progress"]')?.textContent).toBe('40 / 100');
+    // The colony panel's progress bar: 40 bells dark, next turn's 6 lighter after them.
+    const bar = document.querySelector('[data-current="f:2"] .need')!;
+    expect(bar.textContent).toBe('40+6/100 (Turns: 10)');
+    const [now, next] = bar.querySelectorAll<HTMLElement>('i');
+    expect(now.style.width).toBe('40%');
+    expect(next.style).toMatchObject({ left: '40%', width: '6%' });
     const state = (id: string) => document.querySelector(`[data-father="${id}"]`)?.getAttribute('data-state');
     expect([state('f:1'), state('f:2'), state('f:3')]).toEqual(['elected', 'recruiting', 'available']);
     expect(document.querySelector('[data-father="f:1"] [data-field="status"]')?.textContent).toBe('Elected in 1500');

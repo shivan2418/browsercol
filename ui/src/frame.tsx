@@ -17,6 +17,7 @@ import {
 import { Tip } from './controls';
 import { dragging } from './drag';
 import { focusFirstEntry, menuArrows, useFocusTrap } from './focus';
+import type { GoodsProgress } from './webgui';
 
 /** The URL of the art for the first of some resource keys the Tileset has, or null if it has none (yet). */
 export type Art = (keys: readonly string[]) => string | null;
@@ -203,6 +204,26 @@ export function Box({
  * (guiMinNumberToDisplayGoodsCount). The page sets them from the Preferences.
  */
 export const goodsIcons = { max: 7, countFrom: 7 };
+
+/**
+ * FreeColProgressBar: a bar the height of its goods icon. What is there shades it dark, what comes next turn after
+ * that a lighter shade, cut off at the end (a loss draws none); the icon and "18+6/40 (Turns: 4)" sit over it.
+ */
+export function GoodsProgressBar({ need, art }: { need: GoodsProgress; art: Art }) {
+  const { available: have, produced: step, needed: max } = need;
+  const width = (n: number) => (max > 0 ? Math.min(100, Math.max(0, (100 * n) / max)) : 100);
+  const now = have >= max ? 100 : width(have);
+  const next = Math.min(100 - now, width(step));
+  const src = art(need.keys);
+  return (
+    <Tip as="span" className="need" data-goods={need.type} tip={need.name}>
+      <i className="now" style={{ width: `${now}%` }} />
+      {next > 0 && <i className="next" style={{ left: `${now}%`, width: `${next}%` }} />}
+      {src !== null && <img className="icon" src={src} alt="" />}
+      <span>{`${have}${step < 0 ? '-' : '+'}${Math.abs(step)}/${max} ${need.turns}`}</span>
+    </Tip>
+  );
+}
 
 export function GoodsAmount({
   keys,

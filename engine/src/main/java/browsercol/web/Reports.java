@@ -1364,7 +1364,9 @@ final class Reports {
      * The Continental Congress report (ReportContinentalCongressPanel):
      * {labels, current, fathers}. Current is the father being recruited,
      * with its liberty progress ({id, name, description, keys, cost,
-     * liberty, production: [{type, name, keys, amount}]}), or null. Each of
+     * liberty, bars: [{type, name, keys, needed, available, produced, turns}]},
+     * a FreeColProgressBar for each liberty goods, whose produced is the
+     * colonies' net production, next turn's gain), or null. Each of
      * the fathers is {id, name, description, keys, kind (the type's name),
      * state: elected, recruiting or available, status (localized), turn
      * (when elected, or null)}, grouped by kind in the specification's order.
@@ -1377,7 +1379,8 @@ final class Reports {
         for (GoodsType gt : spec.getLibertyGoodsTypeList()) {
             int total = 0;
             for (Colony c : player.getColonyList()) total += c.getNetProductionOf(gt);
-            libertyGoods.add(ColonyJson.goods(gt, total).toString());
+            libertyGoods.add(ColonyJson.progress(gt, player.getTotalFoundingFatherCost(),
+                player.getLiberty(), total).toString());
         }
         final List<String> fathers = new ArrayList<>();
         for (FoundingFather.FoundingFatherType type : FoundingFather.FoundingFatherType.values()) {
@@ -1413,7 +1416,7 @@ final class Reports {
                 .putRaw("keys", Json.array(List.of(Json.quote("image.flavor." + now.getId()))))
                 .put("cost", player.getTotalFoundingFatherCost())
                 .put("liberty", player.getLiberty())
-                .putRaw("production", Json.array(libertyGoods)).toString())
+                .putRaw("bars", Json.array(libertyGoods)).toString())
             .putRaw("fathers", Json.array(fathers)).toString();
     }
 }

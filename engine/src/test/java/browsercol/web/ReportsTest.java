@@ -697,7 +697,15 @@ class ReportsTest {
         final Map<String, Object> current = obj(report.get("current"));
         assertEquals(second.getId(), current.get("id"));
         assertEquals(us.getTotalFoundingFatherCost(), ((Number)current.get("cost")).intValue());
-        assertFalse(list(current.get("production")).isEmpty());
+        final var bells = spec.getLibertyGoodsTypeList().get(0);
+        final Map<String, Object> bar = objs(current.get("bars")).get(0);
+        int gain = 0;
+        for (net.sf.freecol.common.model.Colony c : us.getColonyList()) gain += c.getNetProductionOf(bells);
+        assertEquals(bells.getId(), bar.get("type"));
+        assertEquals(us.getTotalFoundingFatherCost(), ((Number)bar.get("needed")).intValue());
+        assertEquals(us.getLiberty(), ((Number)bar.get("available")).intValue());
+        assertEquals(gain, ((Number)bar.get("produced")).intValue());
+        assertFalse(((String)bar.get("turns")).isEmpty());
     }
 
     @Test

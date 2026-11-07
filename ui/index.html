@@ -3020,7 +3020,7 @@
        * FreeColProgressBar: as tall as its goods icon, with the icon and its text centred over the bar. What is
        * there shades it, what next turn adds shades it lighter.
        */
-      .colony .need {
+      .need {
         position: relative;
         box-sizing: border-box;
         width: 100%;
@@ -3034,19 +3034,19 @@
         background: var(--box);
         color: var(--ink);
       }
-      .colony .need i {
+      .need i {
         position: absolute;
         left: 0;
         top: 0;
         bottom: 0;
       }
-      .colony .need i.now {
+      .need i.now {
         background: var(--progress-now);
       }
-      .colony .need i.next {
+      .need i.next {
         background: var(--progress-next);
       }
-      .colony .need > :not(i) {
+      .need > :not(i) {
         position: relative;
       }
       /*

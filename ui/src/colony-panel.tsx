@@ -36,7 +36,7 @@ import {
 } from 'react';
 import { Tip } from './controls';
 import { createPortal } from 'react-dom';
-import { Box, GoodsAmount, TEXT_ENTRY, type Art } from './frame';
+import { Box, GoodsAmount, GoodsProgressBar, TEXT_ENTRY, type Art } from './frame';
 import { PANEL_KEYS } from './map-keys';
 import { ReportContext } from './reports';
 import { lane, type TargetProps } from './drag';
@@ -555,25 +555,6 @@ function scatter(i: number, n: number): CSSProperties {
   const left = (col + 0.5 + jitter(0) * 0.16) / cols;
   const top = (Math.floor(i / cols) + 0.5 + (col % 2) * 0.25 + jitter(1) * 0.12) / (rows + 0.25);
   return { left: `${left * 100}%`, top: `${top * 100}%` };
-}
-
-/**
- * FreeColProgressBar: a bar the height of its goods icon. What is there shades it dark, what comes next turn after
- * that a lighter shade, cut off at the end (a loss draws none); the icon and "18+6/40 (Turns: 4)" sit over it.
- */
-function Progress({ need, art }: { need: NonNullable<ColonyView['construction']>['required'][number]; art: Art }) {
-  const { available: have, produced: step, needed: max } = need;
-  const width = (n: number) => (max > 0 ? Math.min(100, Math.max(0, (100 * n) / max)) : 100);
-  const now = have >= max ? 100 : width(have);
-  const next = Math.min(100 - now, width(step));
-  return (
-    <Tip as="span" className="need" data-goods={need.type} tip={need.name}>
-      <i className="now" style={{ width: `${now}%` }} />
-      {next > 0 && <i className="next" style={{ left: `${now}%`, width: `${next}%` }} />}
-      <Img keys={need.keys} art={art} className="icon" />
-      <span>{`${have}${step < 0 ? '-' : '+'}${Math.abs(step)}/${max} ${need.turns}`}</span>
-    </Tip>
-  );
 }
 
 /** The colonists working in the colony's buildings and on its tiles. */
@@ -1140,7 +1121,7 @@ export function ColonyPanel({ colony: c, art, footer }: { colony: ColonyView; ar
                       <div className="needs">
                         <span>{c.construction.name}</span>
                         {c.construction.required.map((r) => (
-                          <Progress key={r.type} need={r} art={art} />
+                          <GoodsProgressBar key={r.type} need={r} art={art} />
                         ))}
                       </div>
                     </>

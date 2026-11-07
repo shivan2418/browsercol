@@ -11,7 +11,7 @@ import './reports.css';
 import { Fragment, createContext, useContext, useState, type ReactNode } from 'react';
 import { Select, Tip } from './controls';
 import type { Dialog } from './dialogs';
-import { GoodsAmount, WindowFrame, type Art, type Menu } from './frame';
+import { GoodsAmount, GoodsProgressBar, WindowFrame, type Art, type Menu } from './frame';
 import type { CompactCell, ReportName, ReportView, UnitCount } from './webgui';
 
 /** What a link in a report does (ClientExports.report, reportDetail and showColony, and the page's). */
@@ -1006,12 +1006,8 @@ function CongressReport({ e, art, go }: { e: View<'congress'>; art: Art; go: Lin
             <Link go={() => go.colopedia(e.current!.id)} data-link={e.current.id}>
               {e.current.name}
             </Link>
-            <progress value={Math.min(e.current.liberty, e.current.cost)} max={e.current.cost} />
-            <span className="muted" data-field="progress">
-              {e.current.liberty} / {e.current.cost}
-            </span>
-            {e.current.production.map((g) => (
-              <GoodsAmount key={g.type} keys={g.keys} name={g.name} amount={g.amount} art={art} />
+            {e.current.bars.map((bar) => (
+              <GoodsProgressBar key={bar.type} need={bar} art={art} />
             ))}
           </div>
         ) : (

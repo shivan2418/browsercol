@@ -513,19 +513,25 @@ final class ColonyJson {
             final GoodsType type = ag.getType();
             final int needed = ag.getAmount();
             final int available = colony.getGoodsCount(type);
-            final int produced = colony.getAdjustedNetProductionOf(type);
-            required.add(goods(type, needed)
-                .put("needed", needed)
-                .put("available", available)
-                .put("produced", produced)
-                .put("turns", progressTurns(needed, available, produced))
-                .toString());
+            required.add(progress(type, needed, available, colony.getAdjustedNetProductionOf(type)).toString());
         }
         return new Json().put("type", buildable.getId())
             .put("name", Messages.message(buildable.getCurrentlyBuildingLabel()))
             .putRaw("keys", ObjectImages.json(buildable))
             .putRaw("required", Json.array(required))
             .toString();
+    }
+
+    /**
+     * What a FreeColProgressBar draws: {type, name, keys, amount (the needed),
+     * needed, available, produced (next turn's step) and turns}.
+     */
+    static Json progress(GoodsType type, int needed, int available, int produced) {
+        return goods(type, needed)
+            .put("needed", needed)
+            .put("available", available)
+            .put("produced", produced)
+            .put("turns", progressTurns(needed, available, produced));
     }
 
     /**

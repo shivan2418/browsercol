@@ -353,6 +353,9 @@ export interface RebelTip {
 }
 
 /** What FreeCol's colony panel shows of a colony: see ColonyJson.java. All text is localized. */
+/** What a FreeColProgressBar draws for goods: what is there, what next turn adds, what is needed, the turns. */
+export type GoodsProgress = GoodsAmount & { needed: number; available: number; produced: number; turns: string };
+
 export interface ColonyView {
   id: Id;
   name: string;
@@ -427,7 +430,7 @@ export interface ColonyView {
     name: string;
     keys: string[];
     /** Each goods with what is there, what next turn adds, and its bar's turns ("(Turns: 4)"). */
-    required: (GoodsAmount & { needed: number; available: number; produced: number; turns: string })[];
+    required: GoodsProgress[];
   } | null;
   nothing: string;
   /** The build queue panel: see BuildQueues.java. */
@@ -1115,7 +1118,8 @@ export type ReportView =
         keys: string[];
         cost: number;
         liberty: number;
-        production: { type: string; name: string; keys: string[]; amount: number }[];
+        /** A bar for each liberty goods: the bells there are, and next turn's gain. */
+        bars: GoodsProgress[];
       } | null;
       /** Every father, grouped by kind. */
       fathers: {
