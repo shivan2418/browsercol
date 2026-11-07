@@ -19,6 +19,21 @@ FreeCol's own bug tracker is on SourceForge
 | The intervention force crashes the turn when the rebels have no port left: once liberty reaches `interventionBells` after the REF has taken their last connected port, `ServerPlayer.csNewTurn` picks a random member of the empty `getConnectedPortList()` and dereferences null, killing the thread that ends the turn. The patch holds the intervention (bells kept, nothing announced) until a connected port exists. | `server/model/ServerPlayer.java` (`csNewTurn`) | #224 | None found | Not reported. |
 | Building a colony with a unit that can't names the unit as "null" ("Your null can not build a colony."): `buildColony.badUnit` takes `Unit.getName()`, which is null for every unit never renamed. Desktop FreeCol never shows the message, because its Build Colony action is disabled for such a unit. Our patch also adds the reason, which is a change of our own, not part of the bug fix. | `client/control/InGameController.java` (`buildColony`, marked `// browser:`) | #19 | None found | Not reported. Latent upstream: Swing doesn't reach it. |
 
+## Other changes to what FreeCol does
+
+Not bug fixes FreeCol would take as they are, but each one makes our Engine
+behave a little differently from desktop FreeCol. The pure platform changes
+(Swing, sound, files, TeaVM) that leave the game the same are listed in
+`engine/patches/README.md`, not here.
+
+| Change | Where | Why | Effect on the game |
+| --- | --- | --- | --- |
+| Saving reseeds the game's random generator from itself and saves that seed. | `common/util/Utils.java` (`// browser:`) | TeaVM has no Java serialization, and a `Random`'s seed can't be read. | After a save, the game draws different numbers than an unsaved game would. It draws the same numbers as a game loaded from that save, so save and load agree. |
+| The message bundle is a volatile reference to a concurrent map. A reload fills a new map and swaps it in. | `common/i18n/Messages.java` (`// online:`) | #228: a game still reading text while the bundle reloads (a second Engine, a test's tail) saw it empty. | None for the player. Possibly a latent FreeCol race, but desktop FreeCol reloads only at startup. |
+| After a native trade, the client updates the GUI once more, so a unit the trade left without moves is replaced as the active unit. | `client/control/InGameController.java` (`nativeTradeHandler`, `// browser:`) | #299: the WebGUI runs deferred work at once, so the move's own update ran before the trade used the moves. | None in rules. Matches what desktop FreeCol shows. |
+| Building a colony with a unit that can't also says why. | `client/control/InGameController.java` (`buildColony`, `// browser:`) | Desktop FreeCol disables the action instead and never shows the message. | Text only. |
+| A new game clears the registry of open sessions (`Session.clearAll()`). | `browsercol.web.ServerEngine.startGame`, not a patch | FreeCol clears it only on loading a save; several games run in one Engine. | None. Listed above as a bug too. |
+
 ## Known, not fixed
 
 | Bug | Where | Notes |
