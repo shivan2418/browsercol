@@ -863,6 +863,33 @@ class CommandsTest {
 
     @Test
     @Timeout(180)
+    void aColonistPutOnOurLandOfNoColonyClaimsItForTheColony() throws Exception {
+        startGame();
+        final Commands commands = client.getCommands();
+        final Colony serverColony = foundAColony(commands);
+        final Colony ours = client.getGame()
+            .getFreeColGameObject(serverColony.getId(), Colony.class);
+        final Unit colonist = ours.getUnitList().get(0);
+        final Unit onServer = serverColony.getGame().getFreeColGameObject(colonist.getId(), Unit.class);
+
+        // A land tile we own but no colony does, as a pioneer's claim leaves it, on both sides.
+        final ColonyTile ct = ours.getColonyTiles().stream()
+            .filter(t -> !t.isColonyCenterTile() && t.getWorkTile().isLand() && t.isEmpty()
+                && t.getWorkTile().getOwningSettlement() == ours)
+            .findFirst().get();
+        final Tile serverTile = serverColony.getGame()
+            .getFreeColGameObject(ct.getWorkTile().getId(), Tile.class);
+        serverTile.changeOwnership(serverColony.getOwner(), null);
+        ct.getWorkTile().changeOwnership(ours.getOwner(), null);
+        assertEquals(UnitLocation.NoAddReason.CLAIM_REQUIRED, ct.getNoAddReason(colonist));
+
+        assertTrue(commands.work(colonist.getId(), ct.getId()), "works the tile");
+        assertEquals(ct.getId(), onServer.getLocation().getId());
+        assertEquals(serverColony, serverTile.getOwningSettlement(), "the colony owns the tile");
+    }
+
+    @Test
+    @Timeout(180)
     void aColonistPutOnARumourTileIsToldOfTheRumourNotDocks() throws Exception {
         startGame();
         final Commands commands = client.getCommands();

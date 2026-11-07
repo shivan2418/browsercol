@@ -1250,6 +1250,15 @@ public final class Commands {
             gui().showInformationPanel(wl, StringTemplate.template(noAddKey(wl, reason)));
             return false;
         }
+        // ColonyPanel's tile claims land the colony does not own first. The
+        // controller's work() claims only land the player does not own, so
+        // our land of no colony, such as a pioneer's claim, would be refused.
+        if (wl instanceof ColonyTile) {
+            final Tile tile = ((ColonyTile)wl).getWorkTile();
+            final Colony colony = wl.getColony();
+            if (tile.getOwningSettlement() != colony
+                && (!igc().claimTile(tile, colony) || tile.getOwningSettlement() != colony)) return false;
+        }
         final GoodsType workType = wl.getWorkFor(unit);
         igc().work(unit, wl);
         if (unit.getLocation() != wl) return false;
