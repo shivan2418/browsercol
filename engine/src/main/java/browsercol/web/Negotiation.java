@@ -32,7 +32,7 @@ import net.sf.freecol.common.model.UnitTradeItem;
 
 
 /**
- * The questions of FreeCol's negotiation dialog, for the Browser UI.
+ * The questions of FreeCol's negotiation dialog, for the Browser UI (#357).
  *
  * {@code NegotiationDialog} is a Swing panel, which TeaVM cannot load, so
  * what it offers is copied here without the Swing parts: for each
@@ -40,24 +40,40 @@ import net.sf.freecol.common.model.UnitTradeItem;
  * chosen for each (gold up to what the side has, the stances
  * {@code StanceTradeItemPanel} lists, the colonies, goods, units and
  * victims the other panels list), and what an answer does to the
- * agreement.
+ * agreement. The rules are FreeCol's, with one change in what is offered:
+ * war is not among the stances, as a treaty that declares war does what an
+ * attack does.
  *
- * The question is {@code {title, text, demand, offer, exchange, version,
- * add, send, accept, cancel, items, options}}. The items are the agreement's:
- * {@code {kind, side, key, amount, text}}, the kind being gold, stance,
- * colony, goods, incite or unit, the side "offer" for what we give and
- * "demand" for what the other player gives (a stance has neither, being
- * traded by both) and the key what identifies the thing traded: a stance's
- * name, an id, a goods type's id, nothing for gold. The options are the
- * groups of things that can be added: {@code {kind, side, label, note,
- * unique, max, choices: [{key, amount, text}]}}. A group with a max is
- * gold, an amount from 1 to max; a group with choices is one of them. A
- * unique kind has at most one item in an agreement, as the
- * {@code TradeItem}s say, so adding another replaces it.
+ * The question is {@code {title, context, version, tutorial, nation, other,
+ * stance, gold, cancellable, items, options}}. The context is the
+ * agreement's: contact, diplomatic, trade or tribute. Nation and other
+ * name the two sides. The stance is the current one, {@code {key, name}},
+ * and the gold {@code {ours, theirs}}, theirs being null when it is not
+ * known. A question whose version is above 0, or whose context is contact,
+ * is an offer to answer; cancellable is false for the first contact offer,
+ * which cannot be turned down.
+ *
+ * The items are the agreement's: {@code {kind, side, key, amount, text}},
+ * the kind being gold, stance, colony, goods, incite or unit, the side
+ * "offer" for what we give and "demand" for what the other player gives (a
+ * stance has neither, being traded by both) and the key what identifies the
+ * thing traded: a stance's name, an id, a goods type's id, nothing for gold.
+ * The text names the thing, a colony or nation by its name.
+ *
+ * The options are the groups of things that can be added, each only with
+ * what is valid for its side: {@code {kind, side, label, unique, max, choices:
+ * [{key, amount, text}], empty}}. A group with a max is gold, an amount from
+ * 1 to max (an unknown treasury allows {@link #HUGE_DEMAND}); a group with
+ * choices is one of them. A unique kind has at most one item in an
+ * agreement, as the {@code TradeItem}s say, so adding another replaces it.
+ * Where nothing is valid empty says why, else it is null.
  *
  * The answer is a status line (accept, propose or reject) then one line
  * per item, its kind, side, key and amount separated by tabs, for propose
- * only: accept and reject send the agreement as it was, as Swing does.
+ * only: accept and reject send the agreement as it was, as Swing does. The
+ * first contact offer, version 0, is the player's own proposal of peace, so
+ * the Browser UI answers it with propose, as Swing's Send does, for the other
+ * player to answer; accept would end the contact without them.
  */
 final class Negotiation {
 
@@ -102,8 +118,6 @@ final class Negotiation {
 
     /** The question for the Browser UI. */
     String question() {
-        final StringTemplate nation = this.player.getCountryLabel();
-        final StringTemplate otherNation = this.otherPlayer.getCountryLabel();
         final TradeContext context = this.agreement.getContext();
         final boolean version = this.agreement.getVersion() > 0;
 
@@ -112,42 +126,40 @@ final class Negotiation {
             final String json = describe(item);
             if (json != null) items.add(json);
         }
+        final Stance stance = this.player.getStance(this.otherPlayer);
         return new Json()
             .put("title", Messages.message("negotiationDialog.title."
                                            + context.getKey()))
-            .put("text", (this.comment == null) ? null
-                 : Messages.message(this.comment))
+            .put("context", context.getKey())
+            .put("version", this.agreement.getVersion())
             // NegotiationDialog shows this in tutorial mode at first contact.
             .put("tutorial", (this.tutorial && context == TradeContext.CONTACT)
                  ? Messages.message("negotiationDialog.contact.tutorial")
                  : null)
-            .put("demand", Messages.message(StringTemplate
-                .template("negotiationDialog.demand")
-                .addStringTemplate("%nation%", nation)
-                .addStringTemplate("%otherNation%", otherNation)))
-            .put("offer", Messages.message(StringTemplate
-                .template("negotiationDialog.offer")
-                .addStringTemplate("%nation%", nation)
-                .addStringTemplate("%otherNation%", otherNation)))
-            .put("exchange", Messages.message("negotiationDialog.exchange"))
-            .put("version", this.agreement.getVersion())
-            .put("add", Messages.message("negotiationDialog.add"))
-            .put("clear", Messages.message("negotiationDialog.clear"))
-            .put("send", Messages.message("negotiationDialog.send"))
-            // A new offer can not be accepted.
-            .put("accept", version
-                 ? Messages.message("negotiationDialog.accept") : null)
+            .put("nation", nation(this.player))
+            .put("other", nation(this.otherPlayer))
+            .putRaw("stance", new Json().put("key", stance.name())
+                .put("name", Messages.getName(stance)).toString())
+            .putRaw("gold", new Json()
+                .put("ours", this.player.getGold())
+                .putRaw("theirs", (this.theirGold == Player.GOLD_NOT_ACCOUNTED)
+                    ? "null" : Integer.toString(this.theirGold))
+                .toString())
             // The first contact offer cannot be cancelled.
-            .put("cancel", (version || context != TradeContext.CONTACT)
-                 ? Messages.message("negotiationDialog.cancel") : null)
+            .put("cancellable", version || context != TradeContext.CONTACT)
             .putRaw("items", Json.array(items))
             .putRaw("options", Json.array(options(context)))
             .toString();
     }
 
+    private static String nation(Player player) {
+        return Messages.message(player.getCountryLabel());
+    }
+
     private String describe(TradeItem item) {
         final String kind;
         String key = "";
+        String text = null;
         int amount = 0;
         if (item instanceof GoldTradeItem) {
             kind = "gold";
@@ -160,6 +172,7 @@ final class Negotiation {
             final Colony colony = item.getColony(this.game);
             if (colony == null) return null;
             key = colony.getId();
+            text = colony.getName();
         } else if (item instanceof GoodsTradeItem) {
             kind = "goods";
             key = item.getGoods().getType().getId();
@@ -167,14 +180,16 @@ final class Negotiation {
         } else if (item instanceof InciteTradeItem) {
             kind = "incite";
             key = item.getVictim().getId();
+            text = Messages.message(item.getVictim().getNationLabel());
         } else if (item instanceof UnitTradeItem) {
             kind = "unit";
             key = item.getUnit().getId();
+            text = item.getUnit().getDescription();
         } else {
             return null;
         }
         final boolean offered = item.getSource() == this.player;
-        String text = Messages.message(item.getLabel());
+        if (text == null) text = Messages.message(item.getLabel());
         // As NegotiationDialog's item buttons: goods say what Europe pays
         // for them if we give them, or asks for them if we get them.
         if (item.getGoods() != null && this.player.getMarket() != null) {
@@ -189,7 +204,8 @@ final class Negotiation {
         }
         return new Json()
             .put("kind", kind)
-            .put("side", offered ? "offer" : "demand")
+            .put("side", "stance".equals(kind) ? null
+                 : offered ? "offer" : "demand")
             .put("key", key)
             .put("amount", amount)
             .put("text", text)
@@ -198,8 +214,8 @@ final class Negotiation {
 
     private List<String> options(TradeContext context) {
         final List<String> groups = new ArrayList<>();
-        groups.add(gold("demand", this.theirGold));
-        groups.add(gold("offer", this.player.getGold()));
+        groups.add(gold("demand", this.otherPlayer, this.theirGold));
+        groups.add(gold("offer", this.player, this.player.getGold()));
         switch (context) {
         case CONTACT:
             groups.add(stances());
@@ -225,16 +241,16 @@ final class Negotiation {
     }
 
     private static String group(String kind, String side, String label,
-                                String note, boolean unique, Integer max,
-                                List<String> choices) {
+                                boolean unique, Integer max,
+                                List<String> choices, String empty) {
         final Json json = new Json()
             .put("kind", kind)
             .put("side", side)
             .put("label", label)
-            .put("note", note)
             .put("unique", unique);
         if (max != null) json.put("max", max);
-        return json.putRaw("choices", Json.array(choices)).toString();
+        return json.putRaw("choices", Json.array(choices))
+            .put("empty", empty).toString();
     }
 
     private static String choice(String key, int amount, String text) {
@@ -242,24 +258,26 @@ final class Negotiation {
             .put("text", text).toString();
     }
 
-    private String gold(String side, int gold) {
+    /** Gold up to the side's treasury; an unknown one allows what Swing does. */
+    private String gold(String side, Player source, int gold) {
         final int max = (gold == Player.GOLD_NOT_ACCOUNTED) ? HUGE_DEMAND
             : gold;
         return group("gold", side,
-            Messages.getName("model.tradeItem.gold"),
-            Messages.message(StringTemplate
-                .template("negotiationDialog.goldAvailable")
-                .addAmount("%amount%", max)),
-            true, max, List.of());
+            Messages.getName("model.tradeItem.gold"), true, max, List.of(),
+            (max < 1) ? nation(source) + " has no gold." : null);
     }
 
-    /** The stances StanceTradeItemPanel lists. */
+    /**
+     * The stances StanceTradeItemPanel lists, but for war: a cease-fire
+     * from war, peace unless at peace and an alliance from peace.
+     */
     private String stances() {
         final List<String> choices = new ArrayList<>();
         final Stance stance = this.player.getStance(this.otherPlayer);
-        final Stance first = (stance != Stance.WAR) ? Stance.WAR
-            : Stance.CEASE_FIRE;
-        choices.add(choice(first.name(), 0, Messages.getName(first)));
+        if (stance == Stance.WAR) {
+            choices.add(choice(Stance.CEASE_FIRE.name(), 0,
+                               Messages.getName(Stance.CEASE_FIRE)));
+        }
         if (stance != Stance.PEACE) {
             choices.add(choice(Stance.PEACE.name(), 0,
                                Messages.getName(Stance.PEACE)));
@@ -269,10 +287,11 @@ final class Negotiation {
                                Messages.getName(Stance.ALLIANCE)));
         }
         return group("stance", null,
-            Messages.getName("model.tradeItem.stance"), null, true, null,
-            choices);
+            Messages.getName("model.tradeItem.stance"), true, null,
+            choices, null);
     }
 
+    /** Each side's own colonies, as ColonyTradeItemPanel lists them. */
     private void colonies(List<String> groups) {
         // Swing offers a colony only when the source is European.
         for (Player source : new Player[] { this.otherPlayer, this.player }) {
@@ -282,26 +301,62 @@ final class Negotiation {
                 choices.add(choice(c.getId(), 0, c.getName()));
             }
             groups.add(group("colony", side(source),
-                Messages.getName("model.tradeItem.colony"), null, false, null,
-                choices));
+                Messages.getName("model.tradeItem.colony"), false, null,
+                choices,
+                choices.isEmpty() ? nation(source) + " has no colonies."
+                    : null));
         }
     }
 
+    /** The nations a side could be asked to declare war against, as InciteTradeItemPanel lists them. */
     private void incite(List<String> groups) {
         for (Player source : new Player[] { this.otherPlayer, this.player }) {
             final Player target = (source == this.player) ? this.otherPlayer
                 : this.player;
             final List<String> choices = new ArrayList<>();
+            final List<String> atWar = new ArrayList<>();
+            final List<String> allied = new ArrayList<>();
+            final List<String> unmet = new ArrayList<>();
             this.game.getLivePlayers(source).forEach(p -> {
-                    if (p != target && source.getStance(p).isIncitable()) {
-                        choices.add(choice(p.getId(), 0,
-                            Messages.message(p.getNationLabel())));
+                    if (p == target) return;
+                    final Stance stance = source.getStance(p);
+                    final String name = Messages.message(p.getNationLabel());
+                    if (stance.isIncitable()) {
+                        choices.add(choice(p.getId(), 0, name));
+                    } else if (stance == Stance.WAR) {
+                        atWar.add(name);
+                    } else if (stance == Stance.ALLIANCE) {
+                        allied.add(name);
+                    } else {
+                        unmet.add(name);
                     }
                 });
             groups.add(group("incite", side(source),
-                Messages.getName("model.tradeItem.incite"), null, true, null,
-                choices));
+                Messages.getName("model.tradeItem.incite"), true, null,
+                choices, choices.isEmpty()
+                    ? noOneToDeclareWarOn(source, atWar, allied, unmet)
+                    : null));
         }
+    }
+
+    /** Why a side has no nation to declare war against. */
+    private static String noOneToDeclareWarOn(Player source,
+                                              List<String> atWar,
+                                              List<String> allied,
+                                              List<String> unmet) {
+        final String who = nation(source);
+        final List<String> parts = new ArrayList<>();
+        if (!atWar.isEmpty()) parts.add("is already at war with " + list(atWar));
+        if (!allied.isEmpty()) parts.add("is allied with " + list(allied));
+        if (!unmet.isEmpty()) parts.add("has not met " + list(unmet));
+        if (parts.isEmpty()) return who + " has not met any other nation.";
+        return who + " " + String.join(", and ", parts) + ".";
+    }
+
+    private static String list(List<String> names) {
+        if (names.size() < 2) return String.join("", names);
+        return String.join(", ", names.subList(0, names.size() - 1))
+            + " and " + names.get(names.size() - 1);
     }
 
     private void goods(List<String> groups) {
@@ -313,8 +368,8 @@ final class Negotiation {
                     GoodsContainer.CARGO_SIZE).getLabel(true))));
         }
         groups.add(group("goods", "demand",
-            Messages.getName("model.tradeItem.goods"), null, false, null,
-            demand));
+            Messages.getName("model.tradeItem.goods"), false, null,
+            demand, null));
 
         final List<String> offer = new ArrayList<>();
         for (Goods g : ourGoods()) {
@@ -322,8 +377,9 @@ final class Negotiation {
                              Messages.message(g.getLabel(true))));
         }
         groups.add(group("goods", "offer",
-            Messages.getName("model.tradeItem.goods"), null, false, null,
-            offer));
+            Messages.getName("model.tradeItem.goods"), false, null, offer,
+            offer.isEmpty() ? nation(this.player) + " has no goods to give."
+                : null));
     }
 
     /** Our goods, one cargo load of each at most, as GoodsTradeItemPanel. */
@@ -356,8 +412,8 @@ final class Negotiation {
             choices.add(choice(u.getId(), 0, u.getDescription()));
         }
         groups.add(group("unit", "offer",
-            Messages.getName("model.tradeItem.unit"), null, false, null,
-            choices));
+            Messages.getName("model.tradeItem.unit"), false, null, choices,
+            choices.isEmpty() ? "There is no unit to give." : null));
     }
 
     private String side(Player source) {

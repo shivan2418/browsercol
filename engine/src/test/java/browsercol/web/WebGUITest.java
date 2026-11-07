@@ -35,6 +35,7 @@ import net.sf.freecol.common.model.DiplomaticTrade;
 import net.sf.freecol.common.model.DiplomaticTrade.TradeContext;
 import net.sf.freecol.common.model.DiplomaticTrade.TradeStatus;
 import net.sf.freecol.common.model.Europe;
+import net.sf.freecol.common.model.FreeColGameObject;
 import net.sf.freecol.common.model.FoundingFather;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.Goods;
@@ -1227,9 +1228,10 @@ class WebGUITest {
 
         final String question = asked.get(0);
         assertTrue(question.startsWith("negotiation {"), question);
-        assertTrue(question.contains("\"accept\":null"), "a new offer cannot be accepted: " + question);
+        assertTrue(question.contains("\"context\":\"diplomatic\",\"version\":0"), question);
         assertTrue(question.contains("\"tutorial\":null,"), "no tutorial text outside tutorial mode: " + question);
-        assertTrue(question.contains("\"clear\":\"Clear\""), question);
+        assertTrue(question.contains("{\"key\":\"" + known.getId() + "\",\"amount\":0,\"text\":\""
+            + known.getName() + "\"}"), "France's colony is on offer: " + question);
         assertTrue(question.contains("\"kind\":\"stance\",\"side\":null,\"label\":\"Stance\""), question);
         assertTrue(question.contains("{\"key\":\"PEACE\",\"amount\":0,\"text\":\"Peace\"}"), question);
         assertEquals(TradeStatus.PROPOSE_TRADE, sent.get(0).getStatus());
@@ -1305,6 +1307,261 @@ class WebGUITest {
         assertTrue(asked.get(asked.size() - 1).contains(
             "\"kind\":\"goods\",\"side\":\"demand\",\"key\":\"model.goods.food\",\"amount\":40"),
             asked.get(asked.size() - 1));
+    }
+
+    // ---- The negotiation question, per context (#357) ----
+
+    private static Map<String, Object> negotiationQuestion(
+            Player me, FreeColGameObject our, FreeColGameObject other,
+            DiplomaticTrade dt, int theirGold, boolean tutorial) {
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> q = (Map<String, Object>)JsonReader.read(
+            new Negotiation(me, our, other, dt, null, theirGold, tutorial)
+                .question());
+        return q;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> option(Map<String, Object> q,
+                                              String kind, String side) {
+        for (Object o : (List<Object>)q.get("options")) {
+            final Map<String, Object> m = (Map<String, Object>)o;
+            if (kind.equals(m.get("kind")) && java.util.Objects.equals(side, m.get("side"))) return m;
+        }
+        return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<String> keys(Map<String, Object> option) {
+        final List<String> keys = new ArrayList<>();
+        for (Object c : (List<Object>)option.get("choices")) {
+            keys.add((String)((Map<String, Object>)c).get("key"));
+        }
+        return keys;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<Map<String, Object>> items(Map<String, Object> q) {
+        final List<Map<String, Object>> items = new ArrayList<>();
+        for (Object i : (List<Object>)q.get("items")) items.add((Map<String, Object>)i);
+        return items;
+    }
+
+    /** Give the human a colony in the client's game, with no server behind it. */
+    private Colony humanColony(ClientEngine client, String name) {
+        final Colony colony = new Colony(client.getGame(), "colony:" + name);
+        colony.setName(name);
+        colony.setOwner(client.getClient().getMyPlayer());
+        client.getClient().getMyPlayer().addSettlement(colony);
+        return colony;
+    }
+
+    @Test
+    @Timeout(120)
+    @SuppressWarnings("unchecked")
+    void theFirstContactQuestionHasPeaceInTheTreatyAndNoWayOut() throws Exception {
+        final ClientEngine client = startGame();
+        final Player me = client.getClient().getMyPlayer();
+        final Colony known = seen(client, aiColony(client));
+        final Player ai = known.getOwner();
+        final Unit unit = scout(me);
+        final DiplomaticTrade offer = DiplomaticTrade.makePeaceTreaty(TradeContext.CONTACT, me, ai);
+
+        final Map<String, Object> q = negotiationQuestion(me, unit, known, offer, Player.GOLD_NOT_ACCOUNTED, true);
+        assertEquals("contact", q.get("context"));
+        assertEquals(0L, q.get("version"));
+        assertEquals(false, q.get("cancellable"), "the first offer cannot be turned down");
+        assertEquals(Messages.message("negotiationDialog.contact.tutorial"), q.get("tutorial"));
+        assertEquals(Messages.message(me.getCountryLabel()), q.get("nation"));
+        assertEquals(Messages.message(ai.getCountryLabel()), q.get("other"));
+        assertEquals(1, items(q).size(), "the treaty is one stance item");
+        assertEquals("stance", items(q).get(0).get("kind"));
+        assertNull(items(q).get(0).get("side"), "a stance has no side");
+        assertEquals("PEACE", items(q).get(0).get("key"));
+        // A counter keeps peace and adds gold, or a demand to declare war.
+        assertEquals(List.of("PEACE"), keys(option(q, "stance", null)));
+        assertNull(option(q, "colony", "demand"), "no colonies at a first meeting");
+        assertNull(option(q, "goods", "demand"));
+        assertNotNull(option(q, "gold", "offer"));
+        assertNotNull(option(q, "incite", "demand"));
+        assertNotNull(option(q, "incite", "offer"));
+        final Map<String, Object> gold = (Map<String, Object>)q.get("gold");
+        assertEquals((long)me.getGold(), gold.get("ours"));
+        assertNull(gold.get("theirs"), "an unknown treasury is null");
+        assertEquals(100000L, option(q, "gold", "demand").get("max"), "and allows what Swing does");
+
+        // Later in the same contact the player can walk away.
+        offer.incrementVersion();
+        assertEquals(true, negotiationQuestion(me, unit, known, offer, 500, false).get("cancellable"));
+        final Map<String, Object> later = negotiationQuestion(me, unit, known, offer, 500, false);
+        assertNull(later.get("tutorial"));
+        assertEquals(500L, ((Map<String, Object>)later.get("gold")).get("theirs"));
+        assertEquals(500L, option(later, "gold", "demand").get("max"));
+    }
+
+    @Test
+    @Timeout(120)
+    void eachSideOffersItsOwnColoniesAndNeverTheOthers() throws Exception {
+        final ClientEngine client = startGame();
+        final Player me = client.getClient().getMyPlayer();
+        final Colony theirs = seen(client, aiColony(client));
+        final Player ai = theirs.getOwner();
+        final Colony ours = humanColony(client, "Fort Orange");
+        final Unit unit = scout(me);
+        assertEquals(me, ours.getOwner());
+        assertEquals(ai, theirs.getOwner());
+
+        final DiplomaticTrade dt = new DiplomaticTrade(client.getGame(), TradeContext.DIPLOMATIC, me, ai, null, 0);
+        // From a scout to their colony, and from our colony to it.
+        for (FreeColGameObject our : new FreeColGameObject[] { unit, ours }) {
+            final FreeColGameObject other = theirs;
+            final Map<String, Object> q = negotiationQuestion(me, our, other, dt, 300, false);
+            assertEquals(List.of(theirs.getId()), keys(option(q, "colony", "demand")),
+                "what France could give is France's");
+            assertEquals(List.of(ours.getId()), keys(option(q, "colony", "offer")),
+                "what we could give is ours");
+            assertNull(option(q, "colony", "demand").get("empty"));
+        }
+    }
+
+    @Test
+    @Timeout(120)
+    @SuppressWarnings("unchecked")
+    void aSideWithNoColoniesOrNoOneToFightSaysWhy() throws Exception {
+        final ClientEngine client = startGame();
+        final Player me = client.getClient().getMyPlayer();
+        final Colony theirs = seen(client, aiColony(client));
+        final Player ai = theirs.getOwner();
+        final Unit unit = scout(me);
+        final DiplomaticTrade dt = new DiplomaticTrade(client.getGame(), TradeContext.DIPLOMATIC, me, ai, null, 0);
+        // The others each side could be asked to fight: at war, allied or unmet.
+        for (Player p : client.getGame().getLivePlayerList(me, ai)) {
+            if (p.isEuropean()) {
+                me.setStance(p, Stance.WAR);
+                ai.setStance(p, Stance.ALLIANCE);
+            } else {
+                me.setStance(p, Stance.UNCONTACTED);
+                ai.setStance(p, Stance.UNCONTACTED);
+            }
+        }
+        final Map<String, Object> q = negotiationQuestion(me, unit, theirs, dt, 300, false);
+        final Map<String, Object> ourColonies = option(q, "colony", "offer");
+        assertEquals(List.of(), keys(ourColonies));
+        assertEquals(Messages.message(me.getCountryLabel()) + " has no colonies.", ourColonies.get("empty"));
+        final Map<String, Object> ourWar = option(q, "incite", "offer");
+        assertEquals(List.of(), keys(ourWar));
+        assertTrue(((String)ourWar.get("empty")).contains("is already at war with"), (String)ourWar.get("empty"));
+        final Map<String, Object> theirWar = option(q, "incite", "demand");
+        assertEquals(List.of(), keys(theirWar));
+        assertTrue(((String)theirWar.get("empty")).contains("is allied with"), (String)theirWar.get("empty"));
+
+        // A nation we are at peace with can be asked about, one at war cannot.
+        final Player third = client.getGame().getLiveEuropeanPlayerList(me, ai).get(0);
+        me.setStance(third, Stance.PEACE);
+        assertEquals(List.of(third.getId()),
+            keys(option(negotiationQuestion(me, unit, theirs, dt, 300, false), "incite", "offer")));
+        // The other party is never one of the choices.
+        assertFalse(keys(option(negotiationQuestion(me, unit, theirs, dt, 300, false), "incite", "demand"))
+            .contains(me.getId()));
+    }
+
+    @Test
+    @Timeout(120)
+    @SuppressWarnings("unchecked")
+    void theStancesOfferedAreTheOnesTheOtherSideMustAgreeToAndNeverWar() throws Exception {
+        final ClientEngine client = startGame();
+        final Player me = client.getClient().getMyPlayer();
+        final Colony theirs = seen(client, aiColony(client));
+        final Player ai = theirs.getOwner();
+        final Unit unit = scout(me);
+        final DiplomaticTrade dt = new DiplomaticTrade(client.getGame(), TradeContext.DIPLOMATIC, me, ai, null, 0);
+        final Map<Stance, List<String>> expected = new java.util.EnumMap<>(Stance.class);
+        expected.put(Stance.UNCONTACTED, List.of("PEACE"));
+        expected.put(Stance.WAR, List.of("CEASE_FIRE", "PEACE"));
+        expected.put(Stance.CEASE_FIRE, List.of("PEACE"));
+        expected.put(Stance.PEACE, List.of("ALLIANCE"));
+        expected.put(Stance.ALLIANCE, List.of("PEACE"));
+        for (Map.Entry<Stance, List<String>> e : expected.entrySet()) {
+            me.setStance(ai, e.getKey());
+            final Map<String, Object> q = negotiationQuestion(me, unit, theirs, dt, 300, false);
+            assertEquals(e.getKey().name(), ((Map<String, Object>)q.get("stance")).get("key"));
+            assertEquals(e.getValue(), keys(option(q, "stance", null)), "from " + e.getKey());
+        }
+    }
+
+    @Test
+    @Timeout(120)
+    void aTradeQuestionOffersGoodsUnitsAndGoldOnly() throws Exception {
+        final ClientEngine client = startGame();
+        final Player me = client.getClient().getMyPlayer();
+        final Colony theirs = seen(client, aiColony(client));
+        final Player ai = theirs.getOwner();
+        final Unit unit = scout(me);
+        final DiplomaticTrade dt = new DiplomaticTrade(client.getGame(), TradeContext.TRADE, me, ai, null, 0);
+
+        final Map<String, Object> q = negotiationQuestion(me, unit, theirs, dt, 300, false);
+        assertEquals("trade", q.get("context"));
+        assertEquals(true, q.get("cancellable"));
+        assertNotNull(option(q, "gold", "offer"));
+        assertNotNull(option(q, "gold", "demand"));
+        assertNotNull(option(q, "goods", "demand"));
+        assertNotNull(option(q, "goods", "offer"));
+        assertNotNull(option(q, "unit", "offer"));
+        assertNull(option(q, "stance", null));
+        assertNull(option(q, "colony", "demand"));
+        assertNull(option(q, "colony", "offer"));
+        assertNull(option(q, "incite", "demand"));
+        assertNull(option(q, "incite", "offer"));
+        // We carry no goods: that is said.
+        assertEquals(List.of(), keys(option(q, "goods", "offer")));
+        assertNotNull(option(q, "goods", "offer").get("empty"));
+        assertTrue(keys(option(q, "goods", "demand")).contains("model.goods.food"));
+        assertTrue(keys(option(q, "unit", "offer")).contains(unit.getId()));
+    }
+
+    @Test
+    @Timeout(120)
+    void theirOfferIsDescribedItemBySideAndTheAnswersAreTheAgreements() throws Exception {
+        final ClientEngine client = startGame();
+        final Player me = client.getClient().getMyPlayer();
+        final Colony theirs = seen(client, aiColony(client));
+        final Player ai = theirs.getOwner();
+        final Unit unit = scout(me);
+        final DiplomaticTrade offer = new DiplomaticTrade(client.getGame(), TradeContext.DIPLOMATIC, ai, me, null, 1);
+        offer.add(new net.sf.freecol.common.model.GoldTradeItem(client.getGame(), ai, me, 150));
+        offer.add(new net.sf.freecol.common.model.ColonyTradeItem(client.getGame(), ai, me, theirs));
+        offer.add(new net.sf.freecol.common.model.StanceTradeItem(client.getGame(), ai, me, Stance.PEACE));
+
+        final Map<String, Object> q = negotiationQuestion(me, unit, theirs, offer, 500, false);
+        assertEquals(1L, q.get("version"));
+        assertEquals(true, q.get("cancellable"));
+        final Map<String, String> sides = new java.util.TreeMap<>();
+        for (Map<String, Object> i : items(q)) {
+            sides.put(i.get("kind") + ":" + i.get("key") + ":" + i.get("amount"), String.valueOf(i.get("side")));
+        }
+        assertEquals(Map.of("gold::150", "demand",
+            "colony:" + theirs.getId() + ":0", "demand", "stance:PEACE:0", "null"), sides);
+        for (Map<String, Object> i : items(q)) {
+            if ("colony".equals(i.get("kind"))) assertEquals(theirs.getName(), i.get("text"));
+        }
+
+        // Accepting an offer under way is an acceptance.
+        assertSame(offer, new Negotiation(me, unit, theirs, offer, null, 500, false).answer("accept"));
+        assertEquals(TradeStatus.ACCEPT_TRADE, offer.getStatus());
+        assertEquals(3, offer.getItems().size(), "an acceptance keeps the agreement");
+        // A counter replaces the items; a rejection leaves them.
+        new Negotiation(me, unit, theirs, offer, null, 500, false).answer("propose\nstance\t\tPEACE\t0\ngold\toffer\t\t25");
+        assertEquals(TradeStatus.PROPOSE_TRADE, offer.getStatus());
+        assertEquals(25, offer.getGoldGivenBy(me));
+        assertEquals(-1, offer.getGoldGivenBy(ai));
+        assertEquals(2, offer.getItems().size());
+        new Negotiation(me, unit, theirs, offer, null, 500, false).answer("reject");
+        assertEquals(TradeStatus.REJECT_TRADE, offer.getStatus());
+        assertEquals(2, offer.getItems().size());
+        // Another side's colony cannot be added as ours.
+        new Negotiation(me, unit, theirs, offer, null, 500, false)
+            .answer("propose\ncolony\toffer\t" + theirs.getId() + "\t0");
+        assertEquals(0, offer.getItems().size());
     }
 
     @Test

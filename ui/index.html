@@ -1201,21 +1201,199 @@
       .dialog .lots .name {
         flex: 1;
       }
-      .dialog .trade-option {
+      /* The negotiation window (src/negotiation.tsx). */
+      .dialog[data-kind='negotiation'] {
+        width: min(44em, 96vw);
+        max-width: none;
+        overflow-y: auto;
+      }
+      .dialog[data-kind='negotiation'] .lead {
+        margin-bottom: 10px;
+      }
+      .dialog[data-kind='negotiation'] .lead h3 {
+        margin: 0 0 2px;
+        font-family: var(--font-title);
+        font-size: var(--fs-h);
+      }
+      .dialog[data-kind='negotiation'] .lead p {
+        margin: 0;
+        color: var(--muted);
+      }
+      .dialog[data-kind='negotiation'] .facts {
         display: flex;
-        gap: 8px;
-        align-items: center;
-        margin-bottom: 4px;
+        flex-wrap: wrap;
+        gap: 4px 16px;
+        margin-bottom: 10px;
+        font-size: var(--fs-s);
+        color: var(--muted);
       }
-      .dialog .trade-option .text {
-        flex: 1;
+      .dialog[data-kind='negotiation'] .facts b {
+        color: var(--ink);
       }
-      .dialog .trade-option .ui-number {
-        width: 6em;
+      .dialog[data-kind='negotiation'] .box {
+        margin-bottom: 10px;
+        padding: 8px 10px;
+        background: var(--box);
+        border: 1px solid var(--line);
+        border-radius: 3px;
       }
-      .dialog .trade-item {
+      .dialog[data-kind='negotiation'] .box .cap {
+        margin-bottom: 6px;
+        font-size: var(--fs-s);
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--head);
+      }
+      .dialog[data-kind='negotiation'] .box .relations {
+        margin: 0;
+      }
+      .dialog[data-kind='negotiation'] .stance {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(10em, 1fr));
+        gap: 6px;
+      }
+      .dialog[data-kind='negotiation'] .stance button {
+        text-align: left;
+        padding: 6px 10px;
+      }
+      .dialog[data-kind='negotiation'] .stance button small {
         display: block;
-        margin: 2px 0 2px 1em;
+        font-size: var(--fs-s);
+        font-weight: 400;
+        color: var(--muted);
+      }
+      .dialog[data-kind='negotiation'] .stance button[aria-pressed='true'] {
+        border-color: var(--accent);
+        box-shadow:
+          inset 1px 1px 0 var(--btn-lo),
+          inset -1px -1px 0 var(--btn-hi);
+        font-weight: 600;
+      }
+      .dialog[data-kind='negotiation'] .cols {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+      @media (max-width: 560px) {
+        .dialog[data-kind='negotiation'] .cols {
+          grid-template-columns: 1fr;
+        }
+      }
+      .dialog[data-kind='negotiation'] .col {
+        min-width: 0;
+        padding: 8px 10px;
+        background: var(--box);
+        border: 1px solid var(--line);
+        border-radius: 3px;
+      }
+      .dialog[data-kind='negotiation'] .col h4 {
+        margin: 0;
+        font-size: var(--fs);
+        color: var(--head);
+      }
+      .dialog[data-kind='negotiation'] .col .sub {
+        margin-bottom: 6px;
+        font-size: var(--fs-s);
+        color: var(--muted);
+      }
+      .dialog[data-kind='negotiation'] .col .items {
+        min-height: 2.4em;
+        margin: 0 0 8px;
+        padding: 0;
+        list-style: none;
+      }
+      .dialog[data-kind='negotiation'] .col .items li {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 6px;
+        border-bottom: 1px solid var(--line);
+      }
+      .dialog[data-kind='negotiation'] .col .items li:nth-child(even) {
+        background: var(--stripe);
+      }
+      .dialog[data-kind='negotiation'] .col .items .tag {
+        min-width: 3.6em;
+        font-size: var(--fs-s);
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .dialog[data-kind='negotiation'] .col .items .txt {
+        flex: 1;
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+      .dialog[data-kind='negotiation'] .col .items li.bad .txt {
+        color: var(--bad);
+      }
+      .dialog[data-kind='negotiation'] .col .items .empty {
+        font-style: italic;
+        color: var(--muted);
+      }
+      .dialog[data-kind='negotiation'] .col .items .rm {
+        padding: 0 7px;
+        line-height: 1.3;
+      }
+      .dialog[data-kind='negotiation'] .adds {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px;
+      }
+      .dialog[data-kind='negotiation'] .adds .cap2 {
+        margin-right: 2px;
+        font-size: var(--fs-s);
+        color: var(--muted);
+      }
+      .dialog[data-kind='negotiation'] .adds button {
+        padding: 2px 9px;
+        font-size: var(--fs-s);
+      }
+      .dialog[data-kind='negotiation'] .why {
+        margin: 6px 0 0;
+        padding-left: 8px;
+        border-left: 3px solid var(--line);
+        font-size: var(--fs-s);
+        color: var(--muted);
+      }
+      .dialog[data-kind='negotiation'] .picker {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        margin-top: 8px;
+        padding: 8px;
+        border: 1px dashed var(--line);
+      }
+      .dialog[data-kind='negotiation'] .picker .full {
+        flex-basis: 100%;
+      }
+      .dialog[data-kind='negotiation'] .picker .ui-number {
+        width: 7em;
+      }
+      .dialog[data-kind='negotiation'] .picker .err {
+        flex-basis: 100%;
+        font-size: var(--fs-s);
+        color: var(--bad);
+      }
+      .dialog[data-kind='negotiation'] .summary {
+        margin: 0 0 10px;
+        font-size: var(--fs-s);
+        color: var(--muted);
+      }
+      .dialog[data-kind='negotiation'] .summary b {
+        color: var(--ink);
+      }
+      .dialog[data-kind='negotiation'] .buttons .hint {
+        flex: 1;
+        align-self: center;
+        min-width: 10em;
+        font-size: var(--fs-s);
+        color: var(--muted);
       }
       .dialog h3 {
         margin: 8px 0 4px;

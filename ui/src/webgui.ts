@@ -633,21 +633,21 @@ export interface GuiQuestions {
   negotiation: {
     ask: {
       title: string;
-      text: string | null;
+      /** The agreement's context: the first meeting (contact), a treaty, a trade or a tribute demand. */
+      context: 'contact' | 'diplomatic' | 'trade' | 'tribute';
+      /** 0 for a proposal not yet sent, or the server's first contact offer; above 0 for an answer to ours or theirs. */
+      version: number;
       /** The tutorial text for a first contact with a European in tutorial mode, else null. */
       tutorial: string | null;
-      /** The label of the buttons that clear one kind of item. */
-      clear: string;
-      /** The headings of what the other player gives and what we give, and the one between them. */
-      demand: string;
-      offer: string;
-      exchange: string;
-      version: number;
-      add: string;
-      send: string;
-      /** Null: this offer cannot be accepted, or cancelled. */
-      accept: string | null;
-      cancel: string | null;
+      /** Our nation and theirs, as FreeCol names them in the dialog. */
+      nation: string;
+      other: string;
+      /** The relations now. */
+      stance: { key: string; name: string };
+      /** Each treasury; theirs is null when it is not known. */
+      gold: { ours: number; theirs: number | null };
+      /** False for the first contact offer, which cannot be turned down. */
+      cancellable: boolean;
       items: TradeItem[];
       options: TradeOption[];
     };
@@ -736,10 +736,11 @@ export interface TradeOption {
   kind: TradeKind;
   side: 'offer' | 'demand' | null;
   label: string;
-  note: string | null;
   unique: boolean;
   max?: number;
   choices: { key: string; amount: number; text: string }[];
+  /** Why there is nothing to add here, when there is not. */
+  empty: string | null;
 }
 
 export interface Lot {

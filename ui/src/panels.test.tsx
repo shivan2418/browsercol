@@ -13,7 +13,7 @@ import type { Advisor } from './advisor';
 import { DialogHost, type Art, type ReportButtons, type RouteButtons } from './panels';
 import { chooseOption, listed, openSelect, shown } from './select-test';
 import { hint } from './tip-test';
-import type { Choice, EuropeUnit, GuiEvents, GuiQuestions, TradeRouteDraft } from './webgui';
+import type { Choice, EuropeUnit, GuiEvents, GuiQuestions, TradeItem, TradeOption, TradeRouteDraft } from './webgui';
 
 afterEach(cleanup);
 
@@ -554,154 +554,320 @@ describe('the goods dialog', () => {
 });
 
 describe('the negotiation dialog', () => {
-  const stance = { key: 'PEACE', amount: 0, text: 'Peace' };
-  const q = (more: Partial<GuiQuestions['negotiation']['ask']> = {}): GuiQuestions['negotiation']['ask'] => ({
+  type Ask = GuiQuestions['negotiation']['ask'];
+  const peace: TradeItem = { kind: 'stance', side: null, key: 'PEACE', amount: 0, text: 'Peace' };
+  const gold = (amount: number, side: 'offer' | 'demand'): TradeItem => ({
+    kind: 'gold',
+    side,
+    key: '',
+    amount,
+    text: `Gold ${amount}`,
+  });
+  const goldOption = (side: 'offer' | 'demand', max: number): TradeOption => ({
+    kind: 'gold',
+    side,
+    label: 'Gold',
+    unique: true,
+    max,
+    choices: [],
+    empty: null,
+  });
+  const colonies = (side: 'offer' | 'demand', names: string[]): TradeOption => ({
+    kind: 'colony',
+    side,
+    label: 'Colony',
+    unique: false,
+    choices: names.map((n) => ({ key: `colony:${n}`, amount: 0, text: n })),
+    empty: names.length === 0 ? `${side === 'offer' ? 'The Netherlands' : 'France'} has no colonies.` : null,
+  });
+  const stances = (...keys: [string, string][]): TradeOption => ({
+    kind: 'stance',
+    side: null,
+    label: 'Stance',
+    unique: true,
+    choices: keys.map(([key, text]) => ({ key, amount: 0, text })),
+    empty: null,
+  });
+  /** A treaty to propose, from the Netherlands to France, with a cease-fire to make. */
+  const q = (more: Partial<Ask> = {}): Ask => ({
     title: 'Diplomatic Negotiation',
-    text: 'Let us consider our diplomatic situation.',
-    tutorial: null,
-    clear: 'Clear',
-    demand: 'Spain requires of France',
-    offer: 'Spain offers France',
-    exchange: 'in return for',
+    context: 'diplomatic',
     version: 0,
-    add: 'Add',
-    send: 'Send',
-    accept: null,
-    cancel: 'Cancel',
+    tutorial: null,
+    nation: 'The Netherlands',
+    other: 'France',
+    stance: { key: 'WAR', name: 'War' },
+    gold: { ours: 1000, theirs: 2400 },
+    cancellable: true,
     items: [],
     options: [
-      { kind: 'gold', side: 'demand', label: 'Gold', note: '(90 gold available)', unique: true, max: 90, choices: [] },
-      { kind: 'gold', side: 'offer', label: 'Gold', note: null, unique: true, max: 50, choices: [] },
-      {
-        kind: 'colony',
-        side: 'offer',
-        label: 'Colony',
-        note: null,
-        unique: false,
-        choices: [
-          { key: 'colony:1', amount: 0, text: 'Jamestown' },
-          { key: 'colony:2', amount: 0, text: 'Plymouth' },
-        ],
-      },
-      { kind: 'stance', side: null, label: 'Stance', note: null, unique: true, choices: [stance] },
+      goldOption('demand', 2400),
+      goldOption('offer', 1000),
+      colonies('demand', ['Quebec', 'Port Royal']),
+      colonies('offer', ['Fort Orange']),
+      stances(['CEASE_FIRE', 'Cease Fire'], ['PEACE', 'Peace']),
     ],
     ...more,
   });
-  const within = (side: string, kind: string) =>
-    document.querySelector(`.trade-option[data-side="${side}"][data-kind="${kind}"]`) as HTMLElement;
-
-  it('proposes what the player added, an item replacing one of a unique kind', async () => {
-    const { box } = host();
-    const answer = ask(box, 'negotiation', q());
-    screen.getByRole('heading', { name: 'Diplomatic Negotiation' });
-    expect(screen.queryByRole('button', { name: 'Accept' })).toBeNull();
-
-    const gold = within('offer', 'gold');
-    fireEvent.change(gold.querySelector('input:not([aria-hidden])')!, { target: { value: '20' } });
-    fireEvent.click(gold.querySelector('button[data-add]')!);
-    fireEvent.change(gold.querySelector('input:not([aria-hidden])')!, { target: { value: '30' } });
-    fireEvent.click(gold.querySelector('button[data-add]')!);
-    fireEvent.click(within('', 'stance').querySelector('button[data-add]')!);
-    const colony = within('offer', 'colony');
-    await chooseOption(colony.querySelector('[role="combobox"]')!, 'Plymouth');
-    fireEvent.click(colony.querySelector('button[data-add]')!);
-    // Plymouth is on the table: Jamestown is what is left to add.
-    expect(shown(colony.querySelector('[role="combobox"]')!)).toBe('Jamestown');
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-
-    expect(await answer).toEqual({
-      status: 'propose',
-      items: [
-        { kind: 'gold', side: 'offer', key: '', amount: 30, text: 'Gold 30' },
-        { kind: 'stance', side: null, key: 'PEACE', amount: 0, text: 'Peace' },
-        { kind: 'colony', side: 'offer', key: 'colony:2', amount: 0, text: 'Plymouth' },
-      ],
+  /** A first meeting: the server's peace treaty, which can be countered with gold. */
+  const contact = (more: Partial<Ask> = {}) =>
+    q({
+      title: 'Meeting Fellow Europeans',
+      context: 'contact',
+      stance: { key: 'UNCONTACTED', name: 'Uncontacted' },
+      cancellable: false,
+      items: [peace],
+      options: [goldOption('demand', 2400), goldOption('offer', 1000), stances(['PEACE', 'Peace'])],
+      ...more,
     });
-  });
+  const column = (side: 'offer' | 'demand') =>
+    within(document.querySelector(`.col[data-side="${side}"]`) as HTMLElement);
+  const press = (name: string) => fireEvent.click(screen.getByRole('button', { name }));
+  const addGold = (side: 'offer' | 'demand', amount: string) => {
+    fireEvent.click(column(side).getByRole('button', { name: /^(Change )?[Gg]old$/ }));
+    fireEvent.change(screen.getByLabelText('Gold amount'), { target: { value: amount } });
+  };
 
-  it('clears one kind of item at a time, and shows the tutorial text', async () => {
+  it('leads a first meeting with their peace proposal: accept it, or counter, but not turn it down', async () => {
     const { box } = host();
-    const answer = ask(
-      box,
-      'negotiation',
-      q({
-        tutorial: 'You meet fellow Europeans.',
-        items: [
-          { kind: 'gold', side: 'offer', key: '', amount: 30, text: 'Gold 30' },
-          { kind: 'gold', side: 'demand', key: '', amount: 10, text: 'Gold 10' },
-          { kind: 'stance', side: 'offer', key: 'PEACE', amount: 0, text: 'Peace' },
-        ],
-      }),
-    );
+    const answer = ask(box, 'negotiation', contact({ tutorial: 'You meet fellow Europeans.' }));
+    screen.getByRole('heading', { name: 'You have met France. They propose peace.' });
     screen.getByText('You meet fellow Europeans.');
-    const clear = (side: string, kind: string) =>
-      document.querySelector(
-        `.trade-option[data-side="${side}"][data-kind="${kind}"] [data-clear]`,
-      ) as HTMLButtonElement;
-    expect(clear('offer', 'colony').disabled).toBe(true);
-    fireEvent.click(clear('offer', 'gold'));
-    expect(clear('offer', 'gold').disabled).toBe(true);
-    expect(screen.queryByRole('button', { name: 'Gold 30' })).toBeNull();
-    fireEvent.click(clear('', 'stance'));
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-    expect(await answer).toEqual({
-      status: 'propose',
-      items: [{ kind: 'gold', side: 'demand', key: '', amount: 10, text: 'Gold 10' }],
-    });
+    expect(document.querySelector('.relations')?.textContent).toMatch(/^They propose Peace\./);
+    expect(screen.queryByRole('button', { name: 'Reject offer' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Close' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Walk away' })).toBeNull();
+    expect(enterMarked()).toEqual(['Accept offer']);
+    key('Escape');
+    expect(screen.queryByRole('dialog')).not.toBeNull();
+    // Accepting sends our proposal of peace, as Swing's Send does: the other side has still to answer.
+    press('Accept offer');
+    expect(await answer).toEqual({ status: 'propose', items: [peace] });
   });
 
-  it('removes an item that is clicked, and offers only the gold there is', async () => {
+  it('opens the editor filled in with their offer to counter it, keeping peace and adding gold', async () => {
     const { box } = host();
-    const answer = ask(
-      box,
-      'negotiation',
-      q({ items: [{ kind: 'gold', side: 'demand', key: '', amount: 10, text: 'Gold 10' }] }),
-    );
-    const gold = within('demand', 'gold');
-    fireEvent.change(gold.querySelector('input:not([aria-hidden])')!, { target: { value: '91' } });
-    expect((gold.querySelector('button') as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.click(screen.getByRole('button', { name: 'Gold 10' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-    expect(await answer).toEqual({ status: 'propose', items: [] });
+    const answer = ask(box, 'negotiation', contact());
+    press('Counter-propose');
+    screen.getByRole('heading', { name: 'Your counter-proposal to France' });
+    // Peace stays: it is chosen and cannot be changed, and there is no walking away.
+    const peaceButton = screen.getByRole('button', { name: /^Peace/ }) as HTMLButtonElement;
+    expect(peaceButton.getAttribute('aria-pressed')).toBe('true');
+    expect(peaceButton.disabled).toBe(true);
+    expect(screen.queryByRole('button', { name: 'Walk away' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'No change' })).toBeNull();
+    addGold('demand', '300');
+    press('Add');
+    expect(column('demand').getByText('300 gold')).toBeTruthy();
+    screen.getByText(/Relations become/);
+    press('Send counter-offer');
+    expect(await answer).toEqual({ status: 'propose', items: [peace, gold(300, 'demand')] });
   });
 
-  it('accepts an offer that has not been changed, and rejects on Cancel or Escape', async () => {
+  it('goes back from a counter to their offer, which is as it was', async () => {
     const { box } = host();
-    const offer = q({
-      version: 1,
-      accept: 'Accept',
-      items: [{ kind: 'stance', side: null, key: 'PEACE', amount: 0, text: 'Peace' }],
+    const answer = ask(box, 'negotiation', contact());
+    press('Counter-propose');
+    addGold('offer', '50');
+    press('Add');
+    press('Back to their offer');
+    screen.getByRole('heading', { name: 'You have met France. They propose peace.' });
+    press('Accept offer');
+    expect(await answer).toEqual({ status: 'propose', items: [peace] });
+  });
+
+  it('answers a later offer with accept, reject or a counter, and rejects on Escape', async () => {
+    const { box } = host();
+    const offer = contact({
+      version: 2,
+      cancellable: true,
+      items: [peace, gold(150, 'demand')],
     });
     const accepted = ask(box, 'negotiation', offer);
-    fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
-    expect((await accepted)?.status).toBe('accept');
+    screen.getByRole('heading', { name: 'France answers your counter-proposal' });
+    expect(column('demand').getByText('150 gold')).toBeTruthy();
+    expect(column('offer').getByText('Nothing')).toBeTruthy();
+    // Their terms are read, not edited.
+    expect(screen.queryByRole('button', { name: /^Remove/ })).toBeNull();
+    expect(enterMarked()).toEqual(['Accept offer']);
+    press('Accept offer');
+    expect(await accepted).toEqual({ status: 'accept', items: offer.items });
 
     const entered = ask(box, 'negotiation', offer);
     key('Enter');
     expect((await entered)?.status).toBe('accept');
 
-    // An edited offer cannot be accepted: Enter sends it.
-    const edited = ask(box, 'negotiation', offer);
-    fireEvent.click(screen.getByRole('button', { name: 'Peace' }));
-    expect((screen.getByRole('button', { name: 'Accept' }) as HTMLButtonElement).disabled).toBe(true);
-    key('Enter');
-    expect(await edited).toEqual({ status: 'propose', items: [] });
-
-    const cancelled = ask(box, 'negotiation', offer);
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-    expect((await cancelled)?.status).toBe('reject');
+    const rejected = ask(box, 'negotiation', offer);
+    press('Reject offer');
+    expect((await rejected)?.status).toBe('reject');
     const escaped = ask(box, 'negotiation', offer);
     key('Escape');
     expect((await escaped)?.status).toBe('reject');
   });
 
-  it('cannot be cancelled when it has no cancel button', () => {
+  it('shows their proposal of a treaty first, and cannot accept what we cannot pay', async () => {
     const { box } = host();
-    void ask(box, 'negotiation', q({ cancel: null }));
-    key('Escape');
+    const answer = ask(box, 'negotiation', q({ version: 1, items: [gold(1500, 'offer')] }));
+    screen.getByRole('heading', { name: 'France proposes a treaty' });
+    screen.getByText('You cannot afford this.');
+    expect((screen.getByRole('button', { name: 'Accept offer' }) as HTMLButtonElement).disabled).toBe(true);
+    key('Enter');
     expect(screen.queryByRole('dialog')).not.toBeNull();
-    expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Close' })).toBeNull();
+    // Counter-propose opens the editor with their terms in it, the gold marked as more than we have.
+    press('Counter-propose');
+    expect(document.querySelector('[data-item="gold"].bad')).not.toBeNull();
+    expect((screen.getByRole('button', { name: 'Send counter-offer' }) as HTMLButtonElement).disabled).toBe(true);
+    screen.getByText('The Netherlands cannot pay 1500 gold.');
+    press('Remove 1500 gold');
+    press('Walk away');
+    expect((await answer)?.status).toBe('reject');
+  });
+
+  it('adds and removes items on each side, a unique kind replacing the one there', async () => {
+    const { box } = host();
+    const answer = ask(box, 'negotiation', q());
+    expect((screen.getByRole('button', { name: 'Propose treaty' }) as HTMLButtonElement).disabled).toBe(true);
+    screen.getByText('Add something to the treaty first.');
+
+    addGold('offer', '200');
+    press('Add');
+    // Gold is one item in a treaty: asking for gold instead replaces what we offered.
+    fireEvent.click(column('demand').getByRole('button', { name: 'Gold' }));
+    screen.getByText(/this replaces 200 gold/);
+    fireEvent.change(screen.getByLabelText('Gold amount'), { target: { value: '90' } });
+    press('Add');
+    expect(column('offer').queryByText('200 gold')).toBeNull();
+    expect(column('demand').getByText('90 gold')).toBeTruthy();
+
+    fireEvent.click(column('demand').getByRole('button', { name: 'Colony' }));
+    await chooseOption(screen.getByRole('combobox', { name: 'Colony' }), 'Port Royal');
+    press('Add');
+    // Port Royal is on the table: Quebec is what is left to add.
+    fireEvent.click(column('demand').getByRole('button', { name: 'Colony' }));
+    expect(shown(screen.getByRole('combobox', { name: 'Colony' }))).toBe('Quebec');
+    press('Cancel');
+    fireEvent.click(column('offer').getByRole('button', { name: 'Colony' }));
+    press('Add');
+    fireEvent.click(screen.getByRole('button', { name: /^Peace/ }));
+    screen.getByText(/Relations become/);
+    press('Remove Fort Orange');
+    expect(column('offer').queryByText('Fort Orange')).toBeNull();
+    press('Propose treaty');
+
+    expect(await answer).toEqual({
+      status: 'propose',
+      items: [
+        gold(90, 'demand'),
+        { kind: 'colony', side: 'demand', key: 'colony:Port Royal', amount: 0, text: 'Port Royal' },
+        peace,
+      ],
+    });
+  });
+
+  it('marks gold a side cannot pay, and offers only the gold a known treasury has', async () => {
+    const { box } = host();
+    const answer = ask(box, 'negotiation', q());
+    addGold('offer', '1001');
+    screen.getByText('The Netherlands only has 1000 gold.');
+    expect((column('offer').getByRole('button', { name: 'Add' }) as HTMLButtonElement).disabled).toBe(true);
+    key('Enter');
+    expect(screen.queryByRole('dialog')).not.toBeNull();
+    fireEvent.change(screen.getByLabelText('Gold amount'), { target: { value: '0' } });
+    screen.getByText('At least 1 gold.');
+    fireEvent.change(screen.getByLabelText('Gold amount'), { target: { value: '1000' } });
+    expect(screen.queryByRole('alert')).toBeNull();
+    // Enter in the picker adds, and a second Enter sends.
+    key('Enter');
+    expect(column('offer').getByText('1000 gold')).toBeTruthy();
+    key('Enter');
+    expect(await answer).toEqual({ status: 'propose', items: [gold(1000, 'offer')] });
+  });
+
+  it('allows any gold from a treasury that is not known, and says so', () => {
+    const { box } = host();
+    void ask(box, 'negotiation', q({ gold: { ours: 1000, theirs: null }, options: [goldOption('demand', 100000)] }));
+    screen.getByText("France's treasury:", { exact: false });
+    screen.getByText('unknown');
+    addGold('demand', '5000');
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect((column('demand').getByRole('button', { name: 'Add' }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('says why a list is empty instead of offering it', () => {
+    const { box } = host();
+    const empty = (o: TradeOption, who: string): TradeOption => ({ ...o, choices: [], empty: `${who} has nothing.` });
+    void ask(
+      box,
+      'negotiation',
+      q({
+        options: [
+          goldOption('offer', 1000),
+          colonies('demand', []),
+          empty({ ...colonies('offer', []), kind: 'incite' }, 'The Netherlands'),
+        ],
+      }),
+    );
+    screen.getByText('France has no colonies.');
+    screen.getByText('The Netherlands has nothing.');
+    expect(column('demand').queryByRole('button', { name: 'Colony' })).toBeNull();
+    expect(column('offer').queryByRole('button', { name: 'Declare war on…' })).toBeNull();
+    expect(column('offer').getByRole('button', { name: 'Gold' })).toBeTruthy();
+  });
+
+  it('walks away from a proposal on the button, the close button and Escape', async () => {
+    const { box } = host();
+    const walked = ask(box, 'negotiation', q());
+    press('Walk away');
+    expect((await walked)?.status).toBe('reject');
+    const closed = ask(box, 'negotiation', q());
+    press('Close');
+    expect((await closed)?.status).toBe('reject');
+    const escaped = ask(box, 'negotiation', q());
+    key('Escape');
+    expect((await escaped)?.status).toBe('reject');
+    // A picker open takes the first Escape.
+    const picker = ask(box, 'negotiation', q());
+    fireEvent.click(column('offer').getByRole('button', { name: 'Gold' }));
+    key('Escape');
+    expect(document.querySelector('.picker')).toBeNull();
+    key('Escape');
+    expect((await picker)?.status).toBe('reject');
+  });
+
+  it('trades goods, units and gold without relations, and leaves the trade', async () => {
+    const { box } = host();
+    const answer = ask(
+      box,
+      'negotiation',
+      q({
+        title: 'Trade Negotiation',
+        context: 'trade',
+        stance: { key: 'PEACE', name: 'Peace' },
+        options: [
+          goldOption('offer', 1000),
+          {
+            kind: 'goods',
+            side: 'demand',
+            label: 'Goods',
+            unique: false,
+            choices: [{ key: 'model.goods.sugar', amount: 100, text: '100 Sugar' }],
+            empty: null,
+          },
+        ],
+      }),
+    );
+    screen.getByRole('heading', { name: 'Trade with France' });
+    expect(screen.queryByText('Relations between us')).toBeNull();
+    fireEvent.click(column('demand').getByRole('button', { name: 'Goods' }));
+    press('Add');
+    expect(document.querySelector('.summary')?.textContent).toBe('We give nothing; France gives 100 Sugar.');
+    press('Propose trade');
+    expect(await answer).toEqual({
+      status: 'propose',
+      items: [{ kind: 'goods', side: 'demand', key: 'model.goods.sugar', amount: 100, text: '100 Sugar' }],
+    });
+    void ask(box, 'negotiation', q({ context: 'trade', options: [] }));
+    screen.getByRole('button', { name: 'Leave the trade' });
   });
 });
 

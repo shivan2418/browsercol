@@ -19,6 +19,7 @@ import {
 } from 'react';
 import type { Advisor } from './advisor';
 import { NumberField, Select, Tip } from './controls';
+import { useNegotiation } from './negotiation';
 import { ColonyActions, ColonyPanel } from './colony-panel';
 import { DebugContext } from './debug';
 import type { Dialog, Dialogs } from './dialogs';
@@ -30,16 +31,7 @@ import { draggableProps, dropTargetProps, type Item, type Place } from './moves'
 import { ContextMenuContext, contextMenuHandler, useContextMenu } from './popup-menu';
 import { OptionEditor } from './option-editor';
 import { ReportPanel } from './reports';
-import type {
-  ColonyView,
-  EuropeUnit,
-  GuiEvents,
-  ReportLink,
-  SettlementEntry,
-  TradeItem,
-  TradeOption,
-  TradeRouteDraft,
-} from './webgui';
+import type { ColonyView, EuropeUnit, GuiEvents, ReportLink, SettlementEntry, TradeRouteDraft } from './webgui';
 import { useCoverage } from './coverage';
 
 export type { Art };
@@ -544,151 +536,13 @@ function Goods({ d, art }: { d: Of<'goods'>; art: Art }) {
   );
 }
 
-const sameItem = (a: TradeItem, b: TradeItem) => a.kind === b.kind && a.side === b.side && a.key === b.key;
-
-/** One kind of thing that can be added to the trade: gold by amount, else one of the choices. */
-function AddItem({
-  o,
-  items,
-  add,
-  label,
-  clear,
-  clearLabel,
-}: {
-  o: TradeOption;
-  items: TradeItem[];
-  add: (i: TradeItem) => void;
-  label: string;
-  /** Take away every item of this kind and side. */
-  clear: () => void;
-  clearLabel: string;
-}) {
-  const choices = o.choices.filter(
-    (c) => !items.some((i) => sameItem(i, { kind: o.kind, side: o.side, key: c.key, amount: 0, text: '' })),
-  );
-  const [amount, setAmount] = useState<number | null>(1);
-  const [key, setKey] = useState('');
-  const chosen = choices.find((c) => c.key === key) ?? choices[0];
-  const max = o.max;
-  const n = Math.floor(amount ?? 0);
-  const valid = max !== undefined ? n >= 1 && n <= max : chosen !== undefined;
-  const submit = () => {
-    if (!valid) return;
-    if (max !== undefined) {
-      add({ kind: o.kind, side: o.side, key: '', amount: n, text: `${o.label} ${n}` });
-    } else if (chosen) {
-      add({ kind: o.kind, side: o.side, key: chosen.key, amount: chosen.amount, text: chosen.text });
-    }
-  };
-  return (
-    <div className="trade-option" data-kind={o.kind} data-side={o.side ?? ''}>
-      <span className="text">{o.label}</span>
-      {o.note !== null && <span className="note">{o.note}</span>}
-      {max !== undefined ? (
-        <NumberField min={1} max={max} value={amount} onChange={setAmount} />
-      ) : (
-        <Select
-          value={chosen?.key ?? ''}
-          disabled={choices.length === 0}
-          onChange={setKey}
-          choices={choices.map((c) => ({ value: c.key, label: c.text }))}
-        />
-      )}
-      <button data-add={o.kind} disabled={!valid} onClick={submit}>
-        {label}
-      </button>
-      <button
-        data-clear={o.kind}
-        disabled={!items.some((i) => i.kind === o.kind && i.side === (o.side ?? i.side))}
-        onClick={clear}
-      >
-        {clearLabel}
-      </button>
-    </div>
-  );
-}
-
-/** FreeCol's negotiation dialog: the trade so far (a click removes an item), what can be added, and the replies. */
+/** FreeCol's negotiation dialog, as the redesign of #357 lays it out (negotiation.tsx). */
 function Negotiation({ d }: { d: Of<'negotiation'> }) {
-  const { ask } = d;
-  const [items, setItems] = useState(ask.items);
-  const [changed, setChanged] = useState(false);
-  const edit = (next: TradeItem[]) => {
-    setItems(next);
-    setChanged(true);
-  };
-  const add = (item: TradeItem) => {
-    const unique = ask.options.some((o) => o.kind === item.kind && o.unique);
-    edit([...items.filter((i) => !(unique && i.kind === item.kind)), item]);
-  };
-  const reply = (status: 'accept' | 'propose' | 'reject') => () => d.done({ status, items });
-  // Swing: Enter accepts if it can (a new offer cannot be, nor a changed one), else sends.
-  const canAccept = ask.accept !== null && !changed;
-  useEnter(canAccept ? reply('accept') : reply('propose'));
-  const given = items.filter((i) => i.side === 'offer');
-  // A stance is traded by both; Swing lists it with what the other player gives.
-  const taken = items.filter((i) => i.side !== 'offer');
-  const list = (title: string, shown: TradeItem[]) => (
-    <>
-      <p className="text">{title}</p>
-      {shown.map((i) => (
-        <button
-          key={`${i.kind}/${i.side}/${i.key}`}
-          className="trade-item"
-          data-item={i.kind}
-          onClick={() => edit(items.filter((x) => x !== i))}
-        >
-          {i.text}
-        </button>
-      ))}
-    </>
-  );
-  const group = (side: TradeOption['side'], heading: string | null) => {
-    const options = ask.options.filter((o) => o.side === side);
-    if (options.length === 0) return null;
-    return (
-      <div className="trade-options" data-side={side ?? ''}>
-        {heading !== null && <h3>{heading}</h3>}
-        {options.map((o, i) => (
-          <AddItem
-            key={i}
-            o={o}
-            items={items}
-            add={add}
-            label={ask.add}
-            clearLabel={ask.clear}
-            clear={() => edit(items.filter((x) => !(x.kind === o.kind && x.side === (o.side ?? x.side))))}
-          />
-        ))}
-      </div>
-    );
-  };
+  const n = useNegotiation(d.ask, d.done, enterMark);
+  useEnter(n.enter);
   return (
-    <Win d={d} title={ask.title} close={ask.cancel !== null ? reply('reject') : null}>
-      {ask.text !== null && <Text text={ask.text} />}
-      {ask.tutorial !== null && <Text text={ask.tutorial} />}
-      {group('demand', ask.demand)}
-      {group('offer', ask.offer)}
-      {group(null, null)}
-      <div className="trade-summary">
-        {given.length > 0 && list(ask.offer, given)}
-        {taken.length > 0 && (given.length > 0 ? list(ask.exchange, taken) : list(ask.demand, taken))}
-      </div>
-      <div className="buttons">
-        <button data-answer="send" {...enterMark(!canAccept)} onClick={reply('propose')}>
-          {ask.send}
-        </button>
-        {ask.accept !== null && (
-          <button data-answer="accept" {...enterMark(canAccept)} disabled={changed} onClick={reply('accept')}>
-            {ask.accept}
-          </button>
-        )}
-        {ask.cancel !== null && (
-          <button data-answer="cancel" onClick={reply('reject')}>
-            {ask.cancel}
-          </button>
-        )}
-      </div>
+    <Win d={d} title={d.ask.title} close={n.close}>
+      {n.content}
     </Win>
   );
 }
