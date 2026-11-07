@@ -215,6 +215,40 @@ in the page script alone); colony panel 2.6 s to 0.23 s; Europe 1.5 s to
 Production and Trade reports were still 8 s in Firefox in the scenario while
 0.8 s alone, and the AI rounds there are not checked: both are open.
 
+**The 8 s was not the reports (second pass).** The scenario declared the setup
+done when the fleet, the preset's last block, was on the map. The page was
+not done: the server's updates (30 colonies' XML, `Colony::readChildren` is
+13% of the page's busy time) and the maps they cause keep coming for a few
+more seconds, and Playwright's click on the Report menu waits behind them
+(the "act" part of a report's time was 1.2 s of 1.4 s; the dialog itself
+opened in 0.1 s). With the page left alone for 40 s, Firefox opens the
+Production report in 0.13 s, Trade in 0.15 s and the Colony report in 0.4 s.
+`Run.quiet` in `ui/scripts/scenarios.ts` now waits for 3 s without a map
+before the panels are timed. Big empire, Firefox, the reports (Colony,
+Military, Naval, Production, Trade) and the save, before: 1.4, 1.0, 1.2, 7.1,
+5.0 s, save 1.3 s; after: 0.5-1.0, 0.2-0.4, 0.2-0.4, 0.5, 0.6 s, save 0.2-0.3 s.
+
+**Where the page's time goes in the setup** (Firefox Profiler, 24 s, page
+main thread busy 47%): drawing the Canvas 2D map on each frame 27%, handling
+the server's updates 17%, `sendDebugMap` (`MapJson.of`, JSON, the event) 8%.
+`MapJson.of` costs about 10 ms for the 40x80 map (55 KB) in Firefox, so the
+throttle keeps it at a quarter of the time at most; a played turn sends a map
+per event, a few hundred per turn.
+
+**Profiling Firefox.** `MOZ_PROFILER_STARTUP=1 MOZ_PROFILER_STARTUP_INTERVAL=2
+MOZ_PROFILER_SHUTDOWN=/work/.cache/p.json` through `./dev.sh env ...` writes
+a profile at exit that holds the page's process and the Worker only when a
+script ends the browser itself (a long scenario run got only the parent and
+an extension process). Wasm frames show as `wasm-function[N]`: the name
+section of `dist/assets/*.wasm` has the names, by function index.
+
+**Not understood: a slow setup.** In about half the Firefox runs of this
+pass the preset's setup took 70-140 s instead of 10 s, with the page idle and
+its map count stuck at 3 the whole time (the server Worker busy or waiting;
+the Worker was not profiled). It happened in `scenarios` only, never in a
+probe that did the same steps, and is not tied to the code of the run. A
+cold Wasm compile in the Worker is one candidate; unchecked.
+
 ## Open questions
 
 - AI rounds took about 2x longer in Chromium and 6x longer in Firefox than

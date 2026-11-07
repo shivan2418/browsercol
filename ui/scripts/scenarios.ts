@@ -72,6 +72,33 @@ class Run {
       timeout: 120000,
       label: 'no dialog is open',
     });
+  /**
+   * Waits until no map has come for `ms`: the page has worked through what the server sent. Resolves with the
+   * milliseconds it waited. Timing a panel before that times the page's backlog, not the panel (#353).
+   */
+  quiet = (ms: number, limit = 600000) =>
+    this.page.evaluate(
+      ([ms, limit]) =>
+        new Promise<number>((done, fail) => {
+          const start = performance.now();
+          let last = window.__maps;
+          let at = start;
+          const timer = setInterval(() => {
+            const now = performance.now();
+            if (window.__maps !== last) {
+              last = window.__maps;
+              at = now;
+            } else if (now - at >= ms) {
+              clearInterval(timer);
+              done(Math.round(now - start));
+            } else if (now - start > limit) {
+              clearInterval(timer);
+              fail(new Error(`the page was not quiet after ${limit} ms`));
+            }
+          }, 100);
+        }),
+      [ms, limit] as [number, number],
+    );
   /** Waits for the game to start or load, and the player's first turn. */
   finished = async (what: string) => {
     const r = await waitForResult(this.page, 900000);
@@ -861,7 +888,11 @@ const scenarios: Record<string, (run: Run) => Promise<void>> = {
       polling: 500,
       label: 'the preset has put its fleet on the map',
     });
-    run.note(`setup done after ${secs(Date.now() - t0)} s`);
+    run.note(`fleet on the map after ${secs(Date.now() - t0)} s`);
+    // The fleet is the setup's last block, but the page is still working through the server's updates and the maps
+    // they cause, and a click waits behind them: time the panels once it is quiet.
+    await run.quiet(3000);
+    run.note(`setup done, the page quiet, after ${secs(Date.now() - t0)} s`);
     const m = await run.view();
     const colonies = m.settlements.filter((s) => s.population >= 0).length;
     run.note(`${colonies} colonies, ${m.units.reduce((n, u) => n + u.stack, 0)} units on the map`);
