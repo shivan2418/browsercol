@@ -327,12 +327,55 @@ public final class ClientMain {
         new Thread(() -> {
                 try {
                     engine.debugApplied(answer);
-                    event("map", mapJson());
+                    mapSoon();
                 } catch (Throwable ex) {
                     ex.printStackTrace();
                     event("commandFailed", "debug: " + Failures.describe(ex));
                 }
         }, "web-debugApplied").start();
+    }
+
+    /** When the map last went out after a debug action, and how long that took (the JSON, the event and the page's part). */
+    private static long debugMapEnd;
+    private static long debugMapCost;
+    /** A later map is waiting to go out, with whatever the game is by then. */
+    private static boolean debugMapQueued;
+
+    /**
+     * Send the map after a debug action, but not after every one of a run: a
+     * preset's setup is hundreds, each answered by the server at once, and
+     * a map for each took Firefox minutes (#353), behind which every command
+     * and save waited. After a map that cost c milliseconds, the next goes out
+     * no sooner than 3c later, with the game as it is then.
+     */
+    private static void mapSoon() {
+        if (debugMapQueued) {
+            return;
+        }
+        long wait = debugMapEnd + 3 * debugMapCost - System.currentTimeMillis();
+        if (wait <= 0) {
+            sendDebugMap();
+            return;
+        }
+        debugMapQueued = true;
+        new Thread(() -> {
+                try {
+                    Thread.sleep(wait);
+                    debugMapQueued = false;
+                    sendDebugMap();
+                } catch (Throwable ex) {
+                    debugMapQueued = false;
+                    ex.printStackTrace();
+                    event("commandFailed", "debug: " + Failures.describe(ex));
+                }
+        }, "web-debugMap").start();
+    }
+
+    private static void sendDebugMap() {
+        long start = System.currentTimeMillis();
+        event("map", mapJson());
+        debugMapEnd = System.currentTimeMillis();
+        debugMapCost = debugMapEnd - start;
     }
 
     /**
