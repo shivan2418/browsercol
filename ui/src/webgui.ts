@@ -706,7 +706,14 @@ export interface GuiQuestions {
   };
   /** Text fields, each with its label and a suggestion (the new nation's names). */
   names: {
-    ask: { text: string; fields: { label: string; value: string }[]; ok: string | null; cancel: string | null };
+    ask: {
+      /** The window's title. */
+      title: string;
+      text: string;
+      fields: { label: string; value: string }[];
+      ok: string | null;
+      cancel: string | null;
+    };
     /** The fields' values, in order; null when cancelled or closed. */
     answer: string[] | null;
   };

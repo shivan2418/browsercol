@@ -1703,6 +1703,7 @@ public class WebGUI extends GUI {
             .template("confirmDeclarationDialog.defaultCountry")
             .addStringTemplate("%nation%", player.getNationLabel()));
         final String answer = this.questions.ask("names", new Json()
+            .put("title", label("declareIndependenceAction.name"))
             .put("text", Messages.message(StringTemplate
                 .template("confirmDeclarationDialog.areYouSure.text")
                 .addNamed("%monarch%", player.getMonarch())))
@@ -1740,7 +1741,7 @@ public class WebGUI extends GUI {
                     .put("defaultOk", true)
                     .put("tile", (String)null)
                     .put("object", (String)null)
-                    .put("header", (String)null)
+                    .put("header", label("model.ability.independenceDeclared.name"))
                     .toString());
                 afterClosing.run();
             });

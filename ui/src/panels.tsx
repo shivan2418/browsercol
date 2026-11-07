@@ -435,7 +435,7 @@ function Names({ d }: { d: Of<'names'> }) {
   // ConfirmDeclarationDialog's default option is No: Enter does not declare independence.
   useEnter(cancel);
   return (
-    <Win d={d} close={cancel}>
+    <Win d={d} title={ask.title} close={cancel}>
       <Text text={ask.text} />
       {ask.fields.map((f, i) => (
         <label key={i} className="field">

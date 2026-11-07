@@ -127,6 +127,7 @@ const question = {
     ],
   },
   names: {
+    title: 'Declare Independence',
     text: 'Declare?',
     fields: [
       { label: 'Nation', value: 'Free Dutch' },

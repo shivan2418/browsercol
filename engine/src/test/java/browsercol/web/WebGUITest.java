@@ -1580,6 +1580,8 @@ class WebGUITest {
         assertEquals(List.of("New England", "Britannia"), gui.showConfirmDeclarationDialog());
         String question = asked.get(asked.size() - 1);
         assertTrue(question.startsWith("names {"), question);
+        assertTrue(question.contains("\"title\":\"" + Messages.message("declareIndependenceAction.name") + "\""),
+                   question);
         assertTrue(question.contains("\"ok\":\"" + Messages.message("confirmDeclarationDialog.areYouSure.yes")
             + "\",\"cancel\":\"" + Messages.message("confirmDeclarationDialog.areYouSure.no") + "\""), question);
         assertTrue(question.contains(Messages.message("confirmDeclarationDialog.enterNation")), question);
@@ -1599,6 +1601,8 @@ class WebGUITest {
         assertTrue(question.startsWith("confirm {\"text\":\"This Day the Congress"),
                    question);
         assertTrue(question.contains("\"cancel\":null"), question);
+        assertTrue(question.contains("\"header\":\""
+            + Messages.message("model.ability.independenceDeclared.name") + "\""), question);
     }
 
     @Test

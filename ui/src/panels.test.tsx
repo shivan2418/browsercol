@@ -1229,6 +1229,7 @@ describe('the error panel', () => {
 
 describe('the names dialog', () => {
   const q = {
+    title: 'Declare Independence',
     text: 'Declare independence?',
     fields: [
       { label: 'Nation', value: 'Free Dutch' },
@@ -1241,6 +1242,7 @@ describe('the names dialog', () => {
   it('answers the fields, as edited, on ok', async () => {
     const { box } = host();
     const edited = ask(box, 'names', q);
+    expect(screen.getByText('Declare Independence')).toBeTruthy();
     fireEvent.change(screen.getByLabelText('Country'), { target: { value: 'Newland' } });
     fireEvent.click(screen.getByRole('button', { name: 'Liberty' }));
     expect(await edited).toEqual(['Free Dutch', 'Newland']);
