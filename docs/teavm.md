@@ -166,6 +166,41 @@ build uses the version in `engine/gradle.properties`, from Maven Central. The Gr
 plugin comes from the `pluginManagement` repository in
 `engine/settings.gradle`, and the libraries from `-PteavmRepo`.
 
+## Firefox in a big empire (#353)
+
+**Symptom** (#349's `big-empire` scenario, 30 colonies): in Firefox a save
+never finished and reports took 10-57 s; Chromium saved in 0.2 s.
+
+**Not a hang, and not the save.** A Firefox Profiler capture of the run
+(`MOZ_PROFILER_STARTUP=1` with `MOZ_PROFILER_SHUTDOWN=file`, which samples
+the Wasm functions of the page and the Worker in Playwright's Firefox) showed
+the Worker busy for 0.5 s on the save (XML, deflate and `readAll`), then idle,
+and the save in IndexedDB. The page's main thread was 100% busy for the
+minutes after, so it never got to the Worker's "saved" message (nor to a
+report or a click, which queue behind the same backlog).
+
+**Where the main thread's time went.** A preset's setup is hundreds of debug
+actions. The server answers them all at once, and for each the client ran
+`debugApplied` and then built the whole map as JSON, sent it to the page
+and had the page draw it. In Firefox that was 44% in `MapJson.of` and 33% in
+the Canvas 2D map's `show`; in Chromium the same is quick. Within the draw,
+setting `ctx.filter` for every tile took half (Firefox parses the filter
+string on each set), and the Canvas 2D pen redrew every image of the whole
+map each frame, on screen or not. The Canvas 2D pen is what Firefox uses
+without WebGL, as in the Playwright image.
+
+**Fixes.** `ClientMain.mapSoon` sends the map after a debug action no sooner
+than three times what the last one cost, with the game as it is then.
+`canvasPen` draws a dimmed picture from a copy made once, leaves out images
+off the screen, and does not draw a frame that shows what the last one did.
+
+Big empire, Firefox, with another full suite running on the machine, so read
+the shares rather than the seconds: save never finished, now 1.5 s (0.2 s
+in the page script alone); colony panel 2.6 s to 0.23 s; Europe 1.5 s to
+0.84 s; reports 10-57 s to 1-9 s. Chromium is unchanged (save 0.2 s).
+Production and Trade reports were still 8 s in Firefox in the scenario while
+0.8 s alone, and the AI rounds there are not checked: both are open.
+
 ## Open questions
 
 - AI rounds took about 2x longer in Chromium and 6x longer in Firefox than

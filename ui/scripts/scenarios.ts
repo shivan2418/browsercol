@@ -170,7 +170,7 @@ class Run {
   }
 
   /** The panels a late game must open quickly: Europe, a colony of ours if there is one, some reports, and a save. */
-  async tour(): Promise<boolean> {
+  async tour(): Promise<void> {
     const page = this.page;
     setStep(`${this.scenario}: the panels`);
     await this.shot('map');
@@ -208,23 +208,13 @@ class Run {
     const t0 = Date.now();
     await page.fill('#save-name', name);
     await page.click('button[data-command=save]');
-    // Firefox never finished saving the big empire in ten minutes: that is told, not thrown, so the scenario's
-    // other numbers still come out (and no turn is played in a game whose Worker is stuck saving).
-    const saved = await page
-      .waitForFunction((n) => document.querySelector('#save-note')?.textContent === `Saved: ${n}`, name, {
-        timeout: 180000,
-        label: 'the page says the game is saved',
-      })
-      .then(() => true)
-      .catch((ex: Error) => {
-        if (!/Timeout/i.test(ex.message)) throw ex;
-        return false;
-      });
-    this.note(
-      saved ? `save: ${secs(Date.now() - t0)} s` : `SLOW: the save did not finish in ${secs(Date.now() - t0)} s`,
-    );
+    // The save must finish: Firefox once never did in a big empire, its page too busy to hear the Worker (#353).
+    await page.waitForFunction((n) => document.querySelector('#save-note')?.textContent === `Saved: ${n}`, name, {
+      timeout: 180000,
+      label: 'the page says the game is saved',
+    });
+    this.note(`save: ${secs(Date.now() - t0)} s`);
     await this.shot('after-tour');
-    return saved;
   }
 }
 
@@ -399,7 +389,8 @@ const scenarios: Record<string, (run: Run) => Promise<void>> = {
     const m = await run.view();
     const colonies = m.settlements.filter((s) => s.population >= 0).length;
     run.note(`${colonies} colonies, ${m.units.reduce((n, u) => n + u.stack, 0)} units on the map`);
-    if (await run.tour()) await run.playTurns(Math.min(turns, 3));
+    await run.tour();
+    await run.playTurns(Math.min(turns, 3));
   },
   combat: async (run) => {
     await run.page.goto(`${run.url}?skipstart&debug&preset=combat`);
