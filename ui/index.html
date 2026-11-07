@@ -1978,6 +1978,11 @@
         width: 100%;
         text-align: left;
       }
+      /* A save's line (name | saved | turn | nation) fits on one line: wider than other dialogs where the screen allows. */
+      #open-game.dialog,
+      #save-game.dialog {
+        max-width: min(50em, 94vw);
+      }
       .start-window .customize .options {
         max-height: 18em;
         overflow-y: auto;
