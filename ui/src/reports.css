@@ -395,11 +395,18 @@
   max-height: 22px;
   width: auto;
 }
-/* The foreign affairs report: a column for each nation, a row for each measure. */
+/*
+ * The foreign affairs report: a column for each nation, a row for each measure. Up to eight nations, so the window
+ * widens with them, up to the screen's width, past the dialogs' usual 36em; words are never split, and a table wider
+ * than the screen scrolls sideways in the report.
+ */
+.dialog[data-kind='report'][data-report='foreign'] {
+  width: auto;
+  max-width: 96vw;
+}
 .dialog .report .foreign table {
   border-collapse: collapse;
-  width: 100%;
-  table-layout: fixed;
+  min-width: 100%;
 }
 .dialog .report .foreign th,
 .dialog .report .foreign td {
@@ -407,17 +414,27 @@
   border-bottom: 1px solid var(--line);
   text-align: right;
   font-variant-numeric: tabular-nums;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
 }
 .dialog .report .foreign tbody th {
-  width: 9em;
   text-align: left;
   font-weight: 400;
   color: var(--muted);
 }
+/* The measures' names stay in view while the nations scroll sideways under a narrow screen. */
+.dialog .report .foreign tbody th,
+.dialog .report .foreign thead th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--panel);
+}
 .dialog .report .foreign thead th {
   color: var(--head);
   text-align: center;
+  /* A name wraps only between words: "The Netherlands" takes two lines, no column grows wide for it. */
+  white-space: normal;
+  min-width: 5em;
   /* The arms line up at the top; a name that wraps, as "The Netherlands", grows downwards. */
   vertical-align: top;
   padding-top: 0;
@@ -450,9 +467,6 @@
   .dialog .report .foreign td {
     padding: 2px 3px;
     font-size: var(--fs-s);
-  }
-  .dialog .report .foreign tbody th {
-    width: 5.5em;
   }
 }
 /* The native affairs report: a tribe's facts as label and value pairs, its settlements as a table, a rule between tribes. */
