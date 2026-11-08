@@ -704,6 +704,39 @@ const scenarios: Record<string, (run: Run) => Promise<void>> = {
     await sleep(1500);
     await run.shot('after-dump');
   },
+  // #381: the debug menu sets the next monarch action to a tax raise in a war; the dialog names the goods it would
+  // boycott, with its picture and its name in bold.
+  'tax-raise': async (run) => {
+    const page = run.page;
+    await page.goto(`${run.url}?skipstart&debug&preset=tax-raise`);
+    await run.finished('tax raise');
+    await sleep(3000);
+    // The Crown only boycotts goods the player has traded: sell the galleon's rum in Europe.
+    await hold(run, 'europe');
+    await page.click('button[data-command=showEurope]');
+    await waitKind(run, 'europe', 'tax raise');
+    await page
+      .locator(`${kindSel('europe')} [data-list=cargo] [data-cargo=goods]`)
+      .first()
+      .click();
+    await sleep(1500);
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('[role=dialog][data-kind="europe"]'), null, {
+      timeout: 30000,
+    });
+    await page.getByRole('menuitem', { name: 'Debug', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Set the next Monarch action' }).click();
+    await page.getByRole('menuitem', { name: 'RAISE_TAX_WAR', exact: true }).click();
+    await hold(run, 'confirm');
+    await run.playTurns(1);
+    const text = await waitKind(run, 'confirm', 'tax raise');
+    await dialogShot(run, 'showMonarchDialog');
+    const name = await page.locator(`${kindSel('confirm')} b.goods-name`).textContent();
+    if (!name || !text.includes(name)) throw new Error(`the tax raise does not bold its goods: ${text}`);
+    if (!(await page.locator(`${kindSel('confirm')} img.goods-big`).count())) throw new Error('no goods picture');
+    await clickIn(run, 'confirm', '[data-answer=ok]');
+    await hold(run, null);
+  },
   'native-demand': async (run) => {
     const page = run.page;
     await page.addInitScript(() => (window.__hold = 'confirm'));
