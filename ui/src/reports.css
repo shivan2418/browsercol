@@ -2,8 +2,14 @@
  * The reports of the Report menu (src/reports.tsx), in the colours of theme.css's tokens.
  * Specific enough to win over the general .dialog rules in index.html whatever the order.
  */
+/*
+ * A report is as wide as its content wants (a colony's units in one row, the Congress's portraits side by side, the
+ * trade table), up to the screen's width, and no narrower than a short report needs.
+ */
 .dialog[data-kind='report'] {
-  width: min(1050px, 96vw);
+  width: max-content;
+  min-width: min(32em, 96vw);
+  max-width: 96vw;
   max-height: 94vh;
 }
 .dialog .report {
@@ -445,14 +451,8 @@
 }
 /*
  * The foreign affairs report: a column for each nation, a row for each measure. Up to eight nations, so the window
- * widens with them, up to the screen's width, past the dialogs' usual 36em; words are never split, and a table wider
- * than the screen scrolls sideways in the report.
+ * widens with them, as every report does; words are never split, and a table wider than the screen scrolls sideways.
  */
-.dialog[data-kind='report'][data-report='foreign'],
-.dialog[data-kind='report'][data-report='trade'] {
-  width: auto;
-  max-width: 96vw;
-}
 .dialog .report .foreign table {
   border-collapse: collapse;
   min-width: 100%;
