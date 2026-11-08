@@ -3,7 +3,7 @@
 // instead of a Sprite per picture that PixiJS has to walk, cull and batch each frame. Their pictures live in a few
 // atlas pages, each picture once; one no chunk uses any more gives its room back.
 //
-// The map is drawn in passes (tileset.ts: the terrain of every tile, then the transitions, the fog, the edges of the
+// The map is drawn in passes (tileset.ts passOf: the terrain of every tile, then the transitions, the fog, the edges of the
 // unexplored, then each tile's items), and a picture may cover any tile round it: a mountain's foot covers the
 // ground of the tile in front of it. So a layer draws each pass for all its chunks before the next pass, and within a
 // pass the chunks back to front. The chunks are 16x16 in the diamond grid (along the tiles' sides), not in rows and
@@ -16,7 +16,7 @@
 //
 // The tilemaps are @pixi/tilemap's, with two of its bugs mended in ChunkTilemap. They need WebGL; on PixiJS's Canvas
 // or WebGPU renderer the map draws its static layers as sprites (staticDrawing).
-import { Container, Matrix, Rectangle, Texture } from 'pixi.js';
+import { Container, Rectangle, Texture } from 'pixi.js';
 import { POINT_STRUCT_SIZE, Tilemap, settings as tilemapSettings } from '@pixi/tilemap';
 import { H, W } from './view';
 
@@ -88,19 +88,22 @@ export interface ChunkBackend {
 const ids = new WeakMap<Picture, number>();
 let nextId = 1;
 /** A number for a picture, the same each time it is asked. */
-export const picId = (p: Picture) => {
+const picId = (p: Picture) => {
   let id = ids.get(p);
   if (!id) ids.set(p, (id = nextId++));
   return id;
 };
 
+/** What a picture drawn at a place shows, to tell whether a chunk changed. */
+export const pictureKey = (p: Picture, x: number, y: number, dim: boolean) => `i${picId(p)},${x},${y},${dim}`;
+
+/** What a chunk draws, pass by pass: the same signature, the same drawing. */
+const signature = (items: Item[]) => items.map((i) => `${i.pass}:${i.key}`).join('|');
+
 /** One static layer, drawn per chunk. */
 export class ChunkLayer {
   private chunks = new Map<string, Chunk>();
   private next: Item[] | null = null;
-  /** The pass of the drawing the items pushed now are in, and the tile last pushed, by its place in the map. */
-  private pass = 0;
-  private lastTile = -1;
   /** Each pass's container in the layer, which holds the chunks' parts of that pass back to front. */
   private passes: Container[] = [];
   /** The pictures in the order they were drawn, which repicture() replaces. */
@@ -117,18 +120,13 @@ export class ChunkLayer {
 
   begin() {
     this.next = [];
-    this.pass = 0;
-    this.lastTile = -1;
   }
 
-  /** A drawing on a tile. Each pass goes over the tiles row by row: a tile before the last one starts the next pass. */
-  push(tile: [number, number], item: Item) {
+  /** A drawing on a tile, in a pass of the map's drawing (tileset.ts passOf). */
+  push(tile: [number, number], pass: number, item: Item) {
     const [cu, cv] = chunkOf(...tile);
-    const at = tile[1] * 1e6 + tile[0];
-    if (at < this.lastTile) this.pass++;
-    this.lastTile = at;
     item.chunk = `${cu},${cv}`;
-    item.pass = this.pass;
+    item.pass = pass;
     this.next!.push(item);
   }
 
@@ -151,7 +149,7 @@ export class ChunkLayer {
       }
     for (const [k, at] of by) {
       const list = at.map((i) => items[i]);
-      const sig = list.map((i) => `${i.pass}:${i.key}`).join('|');
+      const sig = signature(list);
       let c = this.chunks.get(k);
       if (!c) {
         const [cu, cv] = k.split(',').map(Number);
@@ -184,9 +182,9 @@ export class ChunkLayer {
         }
         c.box = new Rectangle(x0, y0, x1 - x0, y1 - y0);
         const passes = new Set(list.map((i) => i.pass!));
+        if (c.parts.some((part, p) => part && !passes.has(p))) this.backend.release(c);
         c.parts.forEach((part, p) => {
           if (!part || passes.has(p)) return;
-          this.backend.release(c!);
           part.destroy({ children: true });
           c!.parts[p] = undefined;
           reorder = true;
@@ -224,10 +222,10 @@ export class ChunkLayer {
       const { item, chunk } = this.images[i];
       if (item.pic === p) return;
       item.pic = p;
-      item.key = `i${picId(p)},${item.x},${item.y},${item.dim}`;
+      item.key = pictureKey(p, item.x, item.y, item.dim);
       chunk.dirty = true;
     });
-    for (const c of this.chunks.values()) if (c.dirty) c.sig = c.items.map((i) => `${i.pass}:${i.key}`).join('|');
+    for (const c of this.chunks.values()) if (c.dirty) c.sig = signature(c.items);
     this.refresh();
     return true;
   }
@@ -267,6 +265,11 @@ export class ChunkLayer {
 
 /** Room round each atlas picture, so a scaled tile samples none of its neighbours. */
 const PAD = 2;
+/**
+ * How far a whole tile's quad reaches past the tile, in map pixels: room for its bleed, which is 1.5 device pixels,
+ * 6 map pixels at the farthest zoom (0.25) and a pixel ratio of 1, half of it each side.
+ */
+const TILE_PAD = 4;
 
 /** A picture's place in the atlas, and how many chunks draw it. */
 export interface Entry {
@@ -321,7 +324,7 @@ export class Atlas {
     const map = tile ? this.tileEntries : this.entries;
     let e = map.get(pic);
     if (!e) {
-      const [w, h] = tile ? [W + 2 * PAD, H + 2 * PAD] : [pic.width, pic.height];
+      const [w, h] = tile ? [W + 2 * TILE_PAD, H + 2 * TILE_PAD] : [pic.width, pic.height];
       const slot = this.alloc(w + 2 * PAD, h + 2 * PAD);
       if (!slot) return null;
       e = {
@@ -330,8 +333,8 @@ export class Atlas {
         v: slot.y + PAD,
         w,
         h,
-        ox: tile ? -PAD : 0,
-        oy: tile ? -PAD : 0,
+        ox: tile ? -TILE_PAD : 0,
+        oy: tile ? -TILE_PAD : 0,
         pic,
         tile,
         slot,
@@ -386,8 +389,8 @@ export class Atlas {
     const p = this.pages[e.page];
     p.g.clearRect(e.slot.x, e.slot.y, e.slot.w, e.slot.h);
     if (e.tile) {
-      const b = this.bleed;
-      p.g.drawImage(e.pic, e.u + PAD - b / 2, e.v + PAD - b / 2, W + b, H + b);
+      const b = Math.min(this.bleed, 2 * TILE_PAD);
+      p.g.drawImage(e.pic, e.u + TILE_PAD - b / 2, e.v + TILE_PAD - b / 2, W + b, H + b);
     } else p.g.drawImage(e.pic, e.u, e.v);
     p.dirty = true;
   }
@@ -438,11 +441,6 @@ export class ChunkTilemap extends Tilemap {
 
   override get worldTransform() {
     return this.relativeGroupTransform;
-  }
-
-  /** Where it is on the screen: its group's world transform, then its own within the group. */
-  get screenTransform() {
-    return this.relativeGroupTransform.clone().prepend(this.parentRenderGroup?.worldTransform ?? Matrix.IDENTITY);
   }
 
   override updateBuffer(plugin: Parameters<Tilemap['updateBuffer']>[0]) {

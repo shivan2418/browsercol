@@ -406,6 +406,13 @@ export function scene(map: MapView, res: Resources, colonyLabels: ColonyLabels =
  *
  * @param baseOnly Only the animated base tiles.
  */
+/**
+ * Which pass of the map's drawing an op is in: each loop over the tiles is one, and the settlements' labels another.
+ * A picture may cover any tile round it, so what draws the map in pieces draws each pass for all of them before the
+ * next (map-tilemap.ts).
+ */
+export const passOf = new WeakMap<Op, number>();
+
 function build(
   map: MapView,
   res: Resources,
@@ -588,8 +595,17 @@ function build(
     };
   };
 
+  /** The pass the ops pushed now are in, and how many ops have their pass noted. */
+  let pass = 0;
+  let noted = 0;
+  const endPass = () => {
+    for (; noted < ops.length; noted++) passOf.set(ops[noted], pass);
+    pass++;
+  };
+  /** A pass over the tiles, row by row. */
   const each = (f: (x: number, y: number) => void) => {
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) f(x, y);
+    endPass();
   };
   const terrain = (x: number, y: number, type: TileType | null) => {
     const src = res.forSeed(terrainKey(type?.id ?? UNEXPLORED), seedOf(x, y));
@@ -764,6 +780,7 @@ function build(
       ...dim,
     });
   }
+  endPass();
   return { ops, baseEnd, unitsAt };
 }
 

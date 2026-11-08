@@ -1,5 +1,5 @@
 // Screenshots of the map at fixed views, to compare one build's drawing with another's (#407): each view is saved
-// as .cache/dialog-shots/<label>-<browser>-<preset>-<spot>-<view>.png and, with --baseline OTHER, compared pixel by
+// as .cache/map-shots/<label>-<browser>-<preset>-<spot>-<view>.png and, with --baseline OTHER, compared pixel by
 // pixel with OTHER's shot of the same view, the difference saved beside it as ...-diff.png.
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/map-shots.ts --label after [--baseline before] [--gpu] [--dpr 2]
 //     [--browsers chromium] [--preset pan-large] [--spots 45,60;120,40] [--size 1366x768] [--query k=v]
@@ -24,7 +24,7 @@ const spots = opt('spots', '')
 const [vw, vh] = opt('size', '1366x768').split('x').map(Number);
 const extra = opt('query', '');
 const chromiumArgs = opt('chromium-args', '').split(' ').filter(Boolean);
-const out = path.resolve(import.meta.dirname, '../../.cache/dialog-shots');
+const out = path.resolve(import.meta.dirname, '../../.cache/map-shots');
 fs.mkdirSync(out, { recursive: true });
 const server = await serveDist();
 

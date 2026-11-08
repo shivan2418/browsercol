@@ -5,6 +5,7 @@ import {
   debugOverlayOps,
   isCursorMarker,
   overlay,
+  passOf,
   sameStaticScene,
   scene,
   STATIC_FIELDS,
@@ -218,6 +219,24 @@ describe('scene', () => {
       { k: 'chip', x: 0, y: 0, text: '-', bg: 0xff8000, fg: 0, stack: 3 },
     ]);
     expect(ops).toContainEqual({ k: 'road', x: 0, y: 3, dirs: [], color: 0x804000 });
+  });
+});
+
+describe('passOf', () => {
+  it("numbers the static scene's ops by the pass over the tiles they are drawn in, in order", () => {
+    const { base, below, above } = staticScene(map, tileset);
+    const passes = [...base, ...below, ...above].map((op) => passOf.get(op));
+    expect(passes.every((p) => p !== undefined)).toBe(true);
+    expect(passes).toEqual(passes.toSorted((a, b) => a! - b!));
+    // The terrain, the transitions, ... each their own pass: a pass is not one tile row by row twice.
+    const terrain = passOf.get(below[0])!;
+    expect(below.filter((op) => passOf.get(op) === terrain).map((op) => op.y * 100 + op.x)).toEqual(
+      below
+        .filter((op) => passOf.get(op) === terrain)
+        .map((op) => op.y * 100 + op.x)
+        .toSorted((a, b) => a - b),
+    );
+    expect(new Set(passes).size).toBeGreaterThan(2);
   });
 });
 

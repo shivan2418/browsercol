@@ -78,7 +78,7 @@ describe('ChunkLayer', () => {
     const layer = new ChunkLayer(root, backend);
     const draw = (items: [[number, number], Item][]) => {
       layer.begin();
-      for (const [t, it] of items) layer.push(t, it);
+      for (const [t, it] of items) layer.push(t, 0, it);
       layer.end();
     };
     return { built, released, root, layer, draw };
@@ -94,6 +94,17 @@ describe('ChunkLayer', () => {
     expect(built).toEqual([chunkOf(0, 0).join()]);
     layer.setView(new Rectangle(40 * W, 0, 300, 300), new Rectangle(40 * W, 0, 300, 300));
     expect(built).toEqual([chunkOf(0, 0).join(), chunkOf(40, 0).join()]);
+  });
+
+  it('shows a chunk when only what spills off its tiles is on the screen', () => {
+    const { built, layer, draw } = setup();
+    const [[t, tall]] = [item(0, 4, grass)];
+    // A picture of tile (0,4) reaching 200 pixels up, over the tiles behind it.
+    tall.box = [tall.x, tall.y - 200, W, H + 200];
+    const view = new Rectangle(0, tall.y - 200, 50, 50);
+    layer.setView(view, view);
+    draw([[t, tall]]);
+    expect(built).toEqual([chunkOf(0, 4).join()]);
   });
 
   it('builds again only a chunk whose drawings changed, and one the water swaps a picture of', () => {
@@ -146,7 +157,7 @@ describe('ChunkLayer', () => {
     layer.begin();
     // One pass: the tiles row by row.
     for (const [t, it] of [item(0, 0, grass), item(40, 2, grass), item(20, 30, grass), item(5, 31, grass)])
-      layer.push(t, it);
+      layer.push(t, 0, it);
     layer.end();
     expect(root.children).toHaveLength(1);
     const order = root.children[0].children.map((c) => keys.get(c)!.split(',').map(Number));
@@ -158,9 +169,10 @@ describe('ChunkLayer', () => {
   it("draws a pass for every chunk before the next pass, as a mountain's foot covers the ground in front of it", () => {
     const { keys, root, layer } = keyed();
     layer.begin();
-    // The ground of tiles (0,0) and (0,1), in two chunks, then the items over them: a new pass starts at (0,0) again.
-    for (const [t, it] of [item(0, 0, grass), item(40, 2, grass), item(0, 0, water[0]), item(40, 2, water[1])])
-      layer.push(t, it);
+    // The ground of tiles (0,0) and (40,2), in two chunks, in one pass, then the items over them in the next.
+    [item(0, 0, grass), item(40, 2, grass), item(0, 0, water[0]), item(40, 2, water[1])].forEach(([t, it], i) =>
+      layer.push(t, i < 2 ? 0 : 1, it),
+    );
     layer.end();
     expect(root.children).toHaveLength(2);
     const chunks = (n: number) => root.children[n].children.map((c) => keys.get(c));

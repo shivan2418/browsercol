@@ -7,13 +7,14 @@
 // the part of the map, at the zoom, that the view state (view.ts) says, with
 // the cursor and the active unit's path drawn over it.
 import { AlphaFilter, Application, Container, Culler, Graphics, Rectangle, Sprite, Text, Texture } from 'pixi.js';
-import { Atlas, ChunkLayer, picId, staticDrawing, tilemapBackend } from './map-tilemap';
+import { Atlas, ChunkLayer, pictureKey, staticDrawing, tilemapBackend } from './map-tilemap';
 import { resources, type ArtLayer, type Resources } from './resources';
 import {
   animatedBase,
   isCursorMarker,
   NO_MODES,
   overlay,
+  passOf,
   scene,
   srcId,
   staticScenes,
@@ -156,6 +157,9 @@ type Layer = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
  */
 const STACK: readonly Layer[] = [5, 0, 6, 7, 1, 4, 2, 3];
 
+/** The layers drawn only when the static scene changes: the animated base, the scene under the units and over them. */
+const STATIC_LAYERS: readonly Layer[] = [5, 0, 7];
+
 /** The screen's pixel ratio: how many device pixels a CSS pixel covers. */
 export const pixelRatio = (dpr: number | undefined): number => (dpr && dpr > 0 ? dpr : 1);
 
@@ -175,8 +179,8 @@ interface Pen {
   readonly name?: string;
   /** Clear a layer, and draw on it from now on. */
   begin(layer: Layer): void;
-  /** The tile the draws after this belong to, which a pen that draws the map in chunks needs. */
-  tile?(x: number, y: number): void;
+  /** The tile and pass (tileset.ts passOf) the draws after this belong to, which a pen drawing in chunks needs. */
+  tile?(x: number, y: number, pass: number): void;
   /** `tile`: a whole tile's picture, which the pen overlaps its neighbours by a device pixel when the map is scaled between pixels. */
   image(pic: Picture, x: number, y: number, dim: boolean, tile?: boolean): void;
   /**
@@ -427,7 +431,6 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
       const s = app.renderer.screen;
       const near =
         camera &&
-        MARGIN > 0 &&
         culledAt !== null &&
         culledAt.scale === world.scale.x &&
         culledAt.w === s.width &&
@@ -481,7 +484,7 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
   const add = (key: string | null, make: () => Container) => {
     if (collecting) {
       const [ox, oy] = tileOrigin(...at);
-      collecting.push(at, {
+      collecting.push(at, pass, {
         key: key ?? `?${unkeyed++}`,
         x: ox,
         y: oy,
@@ -573,22 +576,23 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
   };
   if (atlas) {
     const backend = tilemapBackend(atlas, dimmed, seamBleed);
-    for (const n of [5, 0, 7] as const) chunkLayers.set(n, new ChunkLayer(layers[n], backend));
+    for (const n of STATIC_LAYERS) chunkLayers.set(n, new ChunkLayer(layers[n], backend));
   }
   /** The static layer being drawn in chunks, the tile its draws belong to, and a count to key what has no key. */
   let collecting: ChunkLayer | null = null;
   let at: [number, number] = [0, 0];
+  let pass = 0;
   let unkeyed = 0;
   const pushImage = (pic: Picture, x: number, y: number, dim: boolean, tile: boolean) => {
     const whole = tile && pic.width === W && pic.height === H;
-    collecting!.push(at, {
-      key: `i${picId(pic)},${x},${y},${dim}`,
+    collecting!.push(at, pass, {
+      key: pictureKey(pic, x, y, dim),
       pic,
       x,
       y,
       dim,
       tile: whole,
-      box: whole ? [x - 2, y - 2, W + 4, H + 4] : [x, y, pic.width, pic.height],
+      box: whole ? [x - 4, y - 4, W + 8, H + 8] : [x, y, pic.width, pic.height],
     });
   };
   /** Tell the chunks what is on the screen, in map pixels, and what to keep built round it. */
@@ -606,8 +610,9 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
   return {
     canvas: app.canvas,
     name: atlas ? 'pixi' : `pixi (${app.renderer.name}: sprites)`,
-    tile: (x, y) => {
+    tile: (x, y, p) => {
       at = [x, y];
+      pass = p;
     },
     begin: (n) => {
       settle();
@@ -1109,7 +1114,7 @@ async function paint(pen: Pen, layer: Layer, ops: Op[], pics: ReturnType<typeof 
   pen.begin(layer);
   const firstBorder = ops.findIndex((o) => o.k === 'border');
   ops.forEach((op, i) => {
-    pen.tile?.(op.x, op.y);
+    pen.tile?.(op.x, op.y, passOf.get(op) ?? 0);
     const [ox, oy] = tileOrigin(op.x, op.y);
     const shade = (c: number) => ('dim' in op && op.dim ? fogged(c) : c);
     switch (op.k) {
@@ -1220,10 +1225,18 @@ async function paint(pen: Pen, layer: Layer, ops: Op[], pics: ReturnType<typeof 
               height / 2 + r * Math.cos(((-90 + 144 * k) * Math.PI) / 180),
               height / 2 + r * Math.sin(((-90 + 144 * k) * Math.PI) / 180),
             ];
-            pen.road(x, y, 0xffffff, (p) => {
-              p.moveTo(...at(0));
-              for (let k = 1; k <= 5; k++) p.lineTo(...at(k));
-            });
+            pen.road(
+              x,
+              y,
+              0xffffff,
+              (p) => {
+                p.moveTo(...at(0));
+                for (let k = 1; k <= 5; k++) p.lineTo(...at(k));
+              },
+              undefined,
+              undefined,
+              `capital:${height}`,
+            );
           } else {
             pen.text(left.text, x + leftW / 2, y + vPad / 2, left.italic ? { ...font, italic: true } : font, true);
           }
@@ -1247,14 +1260,22 @@ async function paint(pen: Pen, layer: Layer, ops: Op[], pics: ReturnType<typeof 
             pen.line(cx - bar, top + bar, cx + bar, top + bar, shade(m.fg), 2);
             if (m.expert) {
               const r = height / 2 - 4;
-              pen.road(x, y, shade(m.fg), (p) => {
-                p.moveTo(height / 2 + r, height / 2);
-                for (let k = 1; k <= 24; k++)
-                  p.lineTo(
-                    height / 2 + r * Math.cos((k * Math.PI) / 12),
-                    height / 2 + r * Math.sin((k * Math.PI) / 12),
-                  );
-              });
+              pen.road(
+                x,
+                y,
+                shade(m.fg),
+                (p) => {
+                  p.moveTo(height / 2 + r, height / 2);
+                  for (let k = 1; k <= 24; k++)
+                    p.lineTo(
+                      height / 2 + r * Math.cos((k * Math.PI) / 12),
+                      height / 2 + r * Math.sin((k * Math.PI) / 12),
+                    );
+                },
+                undefined,
+                undefined,
+                `ring:${height}`,
+              );
             }
           } else {
             const rw = pen.measure(right.text, font) + hPad;
