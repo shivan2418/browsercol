@@ -8,7 +8,7 @@
 // To add a report: add its view to ReportView (webgui.ts), a body for it in BODIES below, and an entry
 // in REPORTS, which is the Report menu. The Engine side is Reports.java.
 import './reports.css';
-import { Fragment, createContext, useContext, useState, type ReactNode } from 'react';
+import { Fragment, createContext, useContext, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Select, Tip } from './controls';
 import type { Dialog } from './dialogs';
 import { GoodsAmount, GoodsProgressBar, WindowFrame, type Art, type Menu } from './frame';
@@ -1012,51 +1012,85 @@ function IndianReport({ e, art, go }: { e: View<'indian'>; art: Art; go: Links }
   );
 }
 
-/** ReportContinentalCongressPanel: the father being recruited, then every father by kind. */
+/**
+ * ReportContinentalCongressPanel: its tabs, the father being recruited first (his name, portrait and the bells
+ * towards him), then a tab for each kind of father with their portraits side by side, each named with its state.
+ */
 function CongressReport({ e, art, go }: { e: View<'congress'>; art: Art; go: Links }) {
   const kinds = [...new Set(e.fathers.map((f) => f.kind))];
+  const tabs = [e.labels.recruiting, ...kinds];
+  const [open, setOpen] = useState(0);
+  const onKey = (ev: KeyboardEvent<HTMLDivElement>) => {
+    const step = ev.key === 'ArrowRight' ? 1 : ev.key === 'ArrowLeft' ? -1 : 0;
+    if (step === 0) return;
+    ev.preventDefault();
+    const next = (open + step + tabs.length) % tabs.length;
+    setOpen(next);
+    (ev.currentTarget.children[next] as HTMLElement | undefined)?.focus();
+  };
+  // getFoundingFatherImage: the portrait at its own size, grey (dim) for a father not yet elected.
+  const portrait = (keys: string[], tip: string, dim = false) => {
+    const src = art(keys);
+    return src === null ? null : (
+      <Tip as="img" className="portrait" src={src} alt="" tip={tip} data-dim={dim || undefined} />
+    );
+  };
+  const name = (id: string, text: string, tip: string) => (
+    <Tip as="span" tip={tip}>
+      <Link go={() => go.colopedia(id)} data-link={id}>
+        {text}
+      </Link>
+    </Tip>
+  );
+  const kind = kinds[open - 1];
   return (
     <div className="congress">
-      <section data-section="recruiting">
-        <h3>{e.labels.recruiting}</h3>
-        {e.current ? (
-          <div data-current={e.current.id}>
-            <div className="row">
-              <Img keys={e.current.keys} art={art} title={e.current.description} />
-              <Tip as="span" tip={e.current.description}>
-                <Link go={() => go.colopedia(e.current!.id)} data-link={e.current.id}>
-                  {e.current.name}
-                </Link>
-              </Tip>
-            </div>
-            {e.current.bars.map((bar) => (
-              <GoodsProgressBar key={bar.type} need={bar} art={art} />
-            ))}
-          </div>
-        ) : (
-          <p className="muted">{e.labels.none}</p>
-        )}
-      </section>
-      {kinds.map((kind) => (
-        <section key={kind} data-kind={kind}>
-          <h3>{kind}</h3>
-          {e.fathers
-            .filter((f) => f.kind === kind)
-            .map((f) => (
-              <div key={f.id} className="row" data-father={f.id} data-state={f.state}>
-                <Img keys={f.keys} art={art} title={f.description} dim={f.state !== 'elected'} />
-                <Tip as="span" tip={f.description}>
-                  <Link go={() => go.colopedia(f.id)} data-link={f.id}>
-                    {f.name}
-                  </Link>
-                </Tip>
-                <span className="muted" data-field="status">
-                  {f.status}
-                </span>
+      <div className="tabs" role="tablist" onKeyDown={onKey}>
+        {tabs.map((t, i) => (
+          <button
+            key={t}
+            role="tab"
+            id={`congress-tab-${i}`}
+            aria-selected={i === open}
+            aria-controls="congress-tab"
+            tabIndex={i === open ? 0 : -1}
+            onClick={() => setOpen(i)}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+      <div role="tabpanel" id="congress-tab" aria-labelledby={`congress-tab-${open}`}>
+        {open === 0 ? (
+          <section data-section="recruiting">
+            {e.current ? (
+              <div data-current={e.current.id}>
+                {name(e.current.id, e.current.name, e.current.description)}
+                {portrait(e.current.keys, e.current.description)}
+                {e.current.bars.map((bar) => (
+                  <GoodsProgressBar key={bar.type} need={bar} art={art} />
+                ))}
               </div>
-            ))}
-        </section>
-      ))}
+            ) : (
+              <p className="muted">{e.labels.none}</p>
+            )}
+          </section>
+        ) : (
+          <section data-kind={kind}>
+            {e.fathers
+              .filter((f) => f.kind === kind)
+              .map((f) => (
+                <div key={f.id} className="father" data-father={f.id} data-state={f.state}>
+                  {portrait(f.keys, f.description, f.state !== 'elected')}
+                  {name(f.id, f.name, f.description)}
+                  <span className="muted" data-field="status">
+                    {f.status}
+                  </span>
+                </div>
+              ))}
+          </section>
+        )}
+      </div>
     </div>
   );
 }

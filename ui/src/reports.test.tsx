@@ -792,6 +792,10 @@ describe('the Continental Congress report', () => {
     const [now, next] = bar.querySelectorAll<HTMLElement>('i');
     expect(now.style.width).toBe('40%');
     expect(next.style).toMatchObject({ left: '40%', width: '6%' });
+    // The fathers are on their kind's tab, as Swing's JTabbedPane.
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Recruiting', 'Political']);
+    expect(document.querySelector('[data-father]')).toBeNull();
+    fireEvent.click(screen.getByRole('tab', { name: 'Political' }));
     const state = (id: string) => document.querySelector(`[data-father="${id}"]`)?.getAttribute('data-state');
     expect([state('f:1'), state('f:2'), state('f:3')]).toEqual(['elected', 'recruiting', 'available']);
     expect(document.querySelector('[data-father="f:1"] [data-field="status"]')?.textContent).toBe('Elected in 1500');
@@ -800,9 +804,10 @@ describe('the Continental Congress report', () => {
   it("opens the Colopedia on a father's name, the one being recruited too", () => {
     const { box, calls } = host();
     show(box, report);
-    fireEvent.click(within(document.querySelector('[data-father="f:1"]') as HTMLElement).getByText('Franklin'));
     fireEvent.click(within(document.querySelector('[data-current="f:2"]') as HTMLElement).getByText('Jefferson'));
-    expect(calls).toEqual(['colopedia f:1', 'colopedia f:2']);
+    fireEvent.click(screen.getByRole('tab', { name: 'Political' }));
+    fireEvent.click(within(document.querySelector('[data-father="f:1"]') as HTMLElement).getByText('Franklin'));
+    expect(calls).toEqual(['colopedia f:2', 'colopedia f:1']);
   });
 
   it('says so when no father is being recruited', () => {

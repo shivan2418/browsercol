@@ -395,10 +395,47 @@
 .dialog .report .colopedia .detail .ref img {
   height: 20px;
 }
-/* The father being recruited: a row like the others, the bar under it; the bell sits inside the bar with room. */
+/*
+ * The Continental Congress: tabs as Swing's JTabbedPane. The father being recruited centred, his name over his
+ * portrait and the bells under it; each kind's fathers side by side, a column each, scrolling sideways.
+ */
+.dialog .report .congress [role='tabpanel'] {
+  padding-top: 10px;
+}
+.dialog .report .congress .portrait {
+  display: block;
+  max-width: none;
+  max-height: none;
+}
+.dialog .report .congress .portrait[data-dim] {
+  filter: grayscale(1);
+  opacity: 0.75;
+}
+.dialog .report .congress [data-current] {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
 .dialog .report .congress [data-current] .need {
-  margin-top: 4px;
+  align-self: stretch;
+  max-width: 28em;
+  margin: 4px auto 0;
   padding: 3px 0;
+}
+.dialog .report .congress [data-kind] {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+.dialog .report .congress .father {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
 }
 .dialog .report .congress [data-current] .need .icon {
   max-height: 22px;
