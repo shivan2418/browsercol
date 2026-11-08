@@ -28,7 +28,7 @@ import { createPortal } from 'react-dom';
 import { createRoot, type Root } from 'react-dom/client';
 import './theme.css';
 import './fonts.css';
-import { colopediaBefore, startPage, type ClientExports, type Scope, type ToWorker } from './channel';
+import { colopediaBefore, snapshotter, startPage, type ClientExports, type Scope, type ToWorker } from './channel';
 import {
   chosenRequest,
   DebugContext,
@@ -62,6 +62,7 @@ import { fpsMeter } from './fps-meter';
 import { debugMenu, gameMenu, ordersMenu, reportOptionsMenu, viewMenu, type MenuActions } from './menus';
 import { commandForKey, type Command } from './input';
 import { PreferencesDialog } from './prefs-dialog';
+import { setCurrentSaveSource } from './current-save';
 import { OpenDialog, SaveDialog } from './save-picker';
 import {
   blinkMs,
@@ -111,6 +112,7 @@ import { nationName } from './fsg';
 import {
   chooseOpenFile,
   chooseSaveFile,
+  exportSaveFile,
   fileNameOf,
   hasSavePicker,
   importSave,
@@ -1088,17 +1090,10 @@ function renderSide() {
         exportSave={(id) => {
           const meta = side.saves.find((s) => s.id === id);
           if (!meta) return;
-          // The picker first, while the click still lets the browser show it.
-          chooseSaveFile(fileNameOf(meta.name))
-            .then(async (target) => {
-              if (!target) return;
-              const bytes = await store.get(id);
-              if (!bytes) throw new Error('no such save');
-              await target.write(bytes);
-              side.saveNote = `Exported: ${meta.name}`;
-            })
-            .catch((ex: unknown) => (side.saveNote = `Export failed: ${String(ex)}`))
-            .finally(renderSide);
+          void exportSaveFile(store, meta).then((note) => {
+            if (note) side.saveNote = note;
+            renderSide();
+          });
         }}
         importFile={(file) => {
           side.saveNote = 'Importing...';
@@ -1174,6 +1169,14 @@ function renderSide() {
                   renderSide();
                 })
               }
+              exportSave={(id) => {
+                const meta = side.saves.find((s) => s.id === id);
+                if (!meta) return;
+                void exportSaveFile(store, meta).then((note) => {
+                  openNote = note;
+                  renderSide();
+                });
+              }}
               note={openNote}
               close={() => {
                 openOpen = false;
@@ -1701,6 +1704,10 @@ async function chooseGame(
             key={rules}
             openFile={() => void openSaveFile().then(draw)}
             openNote={openNote}
+            exportSave={(id) => {
+              const meta = saves.find((s) => s.id === id);
+              if (meta) void exportSaveFile(store, meta).then(draw);
+            }}
             options={startOptions(data, rules)}
             rules={rules}
             changeRules={(id) => {
@@ -2045,6 +2052,14 @@ async function run() {
     worker.postMessage({ k: 'save', active: exports.activeUnitId(), name } satisfies ToWorker);
   };
   waitingSaves.splice(0).forEach(saveNamed);
+  // A game runs once its first turn has been shown.
+  setCurrentSaveSource(
+    snapshotter(
+      worker,
+      () => lastTurn !== null,
+      () => exports.activeUnitId(),
+    ),
+  );
   colonyNow = (id) => exports.colony(id);
   colonyClient = exports;
   pushFreecolOptions(prefs.freecol);

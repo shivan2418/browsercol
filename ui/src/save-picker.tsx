@@ -10,7 +10,16 @@ import { useCoverage } from './coverage';
 export const saveSummary = (s: SaveMeta) =>
   `${s.name} | ${new Date(s.date).toLocaleString()} | turn ${s.turn} (${s.year}) | ${s.nation}`;
 
-export function SaveList({ saves, open }: { saves: SaveMeta[]; open: (id: number) => void }) {
+export function SaveList({
+  saves,
+  open,
+  exportSave,
+}: {
+  saves: SaveMeta[];
+  open: (id: number) => void;
+  /** Download a save as a .fsg file; no Export button without it. */
+  exportSave?: (id: number) => void;
+}) {
   if (saves.length === 0) return <p className="quiet">No saved games</p>;
   return (
     <ul className="save-picker" data-save-picker>
@@ -19,6 +28,11 @@ export function SaveList({ saves, open }: { saves: SaveMeta[]; open: (id: number
           <button type="button" data-open-save={s.id} onClick={() => open(s.id)}>
             {saveSummary(s)}
           </button>
+          {exportSave && (
+            <button type="button" data-export-save={s.id} onClick={() => exportSave(s.id)}>
+              Export save...
+            </button>
+          )}
         </li>
       ))}
     </ul>
@@ -26,12 +40,14 @@ export function SaveList({ saves, open }: { saves: SaveMeta[]; open: (id: number
 }
 
 /** Open a .fsg file the player picks, and what became of the last one, if it would not open. */
-export function OpenFile({ openFile, note }: { openFile: () => void; note?: string }) {
+export function OpenFile({ openFile, note }: { openFile?: () => void; note?: string }) {
   return (
     <p>
-      <button type="button" data-open-file onClick={openFile}>
-        Open a file...
-      </button>{' '}
+      {openFile && (
+        <button type="button" data-open-file onClick={openFile}>
+          Open a file...
+        </button>
+      )}{' '}
       {note && <span data-open-note>{note}</span>}
     </p>
   );
@@ -42,6 +58,7 @@ export function OpenDialog({
   saves,
   open,
   openFile,
+  exportSave,
   note,
   close,
 }: {
@@ -49,15 +66,17 @@ export function OpenDialog({
   open: (id: number) => void;
   /** Ask for a .fsg file and open it. */
   openFile?: () => void;
-  /** Why the last file would not open; empty for none. */
+  /** Download a save as a .fsg file. */
+  exportSave?: (id: number) => void;
+  /** Why the last file would not open, or what became of an export; empty for none. */
   note?: string;
   close: () => void;
 }) {
   useCoverage('showLoadDialog');
   return (
     <WindowFrame title="Open Game" close={close} id="open-game" className="dialog">
-      <SaveList saves={saves} open={open} />
-      {openFile && <OpenFile openFile={openFile} note={note} />}
+      <SaveList saves={saves} open={open} exportSave={exportSave} />
+      {(openFile || note) && <OpenFile openFile={openFile} note={note} />}
       <div className="buttons">
         <button type="button" data-open-cancel onClick={close}>
           Cancel

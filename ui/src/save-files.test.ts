@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { fakeSaveStore } from './fake-saves';
 import { zip } from './fsg-fixture';
-import { chooseOpenFile, chooseSaveFile, fileNameOf, importSave } from './save-files';
+import { chooseOpenFile, chooseSaveFile, exportSaveFile, fileNameOf, importSave } from './save-files';
 
 const XML =
   '<savedGame owner="Ana"><game turn="12"><player nationId="model.nation.english" ai="false"></game></savedGame>';
@@ -114,5 +114,41 @@ describe('chooseOpenFile', () => {
     input.files = [];
     input.click = () => input.dispatchEvent(new Event('cancel'));
     expect(await chooseOpenFile({}, () => input as unknown as HTMLInputElement)).toBeNull();
+  });
+});
+
+describe('exportSaveFile', () => {
+  it('writes a stored save, unchanged, to the file the player picks, and says so', async () => {
+    const store = fakeSaveStore();
+    const bytes = await zip({ 'savegame.xml': XML });
+    const meta = await importSave(store, 'Dutch 1525.fsg', bytes, 1);
+    const w = pickerWindow('Dutch 1525.fsg');
+    const note = await exportSaveFile(store, meta, (name) => chooseSaveFile(name, w.window));
+    expect(note).toBe('Exported: Dutch 1525');
+    expect(w.written).toEqual([{ name: 'Dutch 1525.fsg', bytes: [bytes], closed: true }]);
+    expect(w.asked).toMatchObject([{ suggestedName: 'Dutch 1525.fsg' }]);
+    // What it wrote loads back: importSave accepts it.
+    expect(await importSave(fakeSaveStore(), 'x.fsg', w.written[0].bytes[0], 2)).toMatchObject({ turn: 12 });
+  });
+
+  it('downloads the save where the browser has no picker', async () => {
+    const store = fakeSaveStore();
+    const meta = await store.put({ name: 'a/b', date: 1, turn: 1, year: 1492, nation: 'Dutch' }, new Uint8Array([9]));
+    const got: [Uint8Array, string][] = [];
+    const note = await exportSaveFile(store, meta, (name) =>
+      chooseSaveFile(name, {}, (bytes, fileName) => void got.push([bytes, fileName])),
+    );
+    expect(note).toBe('Exported: a/b');
+    expect(got).toEqual([[new Uint8Array([9]), 'a_b.fsg']]);
+  });
+
+  it('says nothing when the player cancels, and why when the save is gone', async () => {
+    const store = fakeSaveStore();
+    const meta = await store.put({ name: 'x', date: 1, turn: 1, year: 1492, nation: 'Dutch' }, new Uint8Array([9]));
+    const w = pickerWindow(null);
+    expect(await exportSaveFile(store, meta, (n) => chooseSaveFile(n, w.window))).toBe('');
+    await store.remove(meta.id);
+    const w2 = pickerWindow('x.fsg');
+    expect(await exportSaveFile(store, meta, (n) => chooseSaveFile(n, w2.window))).toBe('Export failed: no such save');
   });
 });

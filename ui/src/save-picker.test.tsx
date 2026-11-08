@@ -32,6 +32,24 @@ test('the Open window opens a save file too, and says why one would not open', (
   expect(document.querySelector('#open-game')!.textContent).toContain('Could not open the file: not a zip');
 });
 
+test('the Open window offers Export save... on each save, and shows what became of it', () => {
+  const exported: number[] = [];
+  const save = { id: 4, name: 'Dutch, turn 3', date: 0, turn: 3, year: 1495, nation: 'Dutch', size: 1 };
+  render(
+    <OpenDialog
+      saves={[save]}
+      open={() => {}}
+      exportSave={(id) => exported.push(id)}
+      note="Exported: Dutch, turn 3"
+      close={() => {}}
+    />,
+  );
+  fireEvent.click(document.querySelector('[data-export-save="4"]')!);
+  expect(exported).toEqual([4]);
+  expect(document.querySelector('#open-game')!.textContent).toContain('Exported: Dutch, turn 3');
+  expect(document.querySelector('[data-open-file]')).toBeNull();
+});
+
 test('the Save window saves under the name typed, or the default one when it is left empty', () => {
   const names: string[] = [];
   render(<SaveDialog title="Save Game" save={(n) => names.push(n)} close={() => {}} />);

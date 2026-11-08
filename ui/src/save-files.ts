@@ -106,6 +106,29 @@ export async function chooseSaveFile(
 }
 
 /**
+ * Export a stored save as a .fsg file: the file the player picks, or a download. Call it from the click itself
+ * (see chooseSaveFile). Resolves to the note to show: what was exported, why it failed, or empty when the player
+ * cancels the picker.
+ */
+export async function exportSaveFile(
+  store: Pick<SaveStore, 'get'>,
+  meta: Pick<SaveMeta, 'id' | 'name'>,
+  choose: (suggestedName: string) => Promise<SaveTarget | null> = chooseSaveFile,
+): Promise<string> {
+  try {
+    // The picker first, while the click still lets the browser show it.
+    const target = await choose(fileNameOf(meta.name));
+    if (!target) return '';
+    const bytes = await store.get(meta.id);
+    if (!bytes) throw new Error('no such save');
+    await target.write(bytes);
+    return `Exported: ${meta.name}`;
+  } catch (ex) {
+    return `Export failed: ${ex instanceof Error ? ex.message : String(ex)}`;
+  }
+}
+
+/**
  * Ask for a save to open: the file the player picks in the browser's open picker, or, where there is none, in a
  * file input's. Null when the player cancels. Call it from the click itself, as for chooseSaveFile.
  */

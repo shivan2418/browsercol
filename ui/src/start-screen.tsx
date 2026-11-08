@@ -179,6 +179,7 @@ export function StartScreen({
   saves = [],
   open: openGame,
   openFile,
+  exportSave,
   openNote,
   colopedia,
   art = () => null,
@@ -198,7 +199,9 @@ export function StartScreen({
   chosen?: () => void;
   /** Ask for a .fsg file and play it, as MainPanel's Open does with its file chooser. */
   openFile?: () => void;
-  /** Why the last file would not open; empty for none. */
+  /** Download a save as a .fsg file. */
+  exportSave?: (id: number) => void;
+  /** Why the last file would not open, or what became of an export; empty for none. */
   openNote?: string;
   /**
    * The Colopedia, as the report the Engine builds from the rules alone, opened on an entry or none. Swing's
@@ -543,11 +546,11 @@ export function StartScreen({
                     </button>
                     <details className="customize" data-open>
                       <summary>Open a saved game</summary>
-                      <SaveList saves={saves} open={open} />
+                      <SaveList saves={saves} open={open} exportSave={exportSave} />
                     </details>
                   </>
                 )}
-                {openFile && <OpenFile openFile={openFile} note={openNote} />}
+                {(openFile || openNote) && <OpenFile openFile={openFile} note={openNote} />}
               </div>
             )}
             {sound && <SoundToggles sound={sound} />}

@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vite-plus/test';
-import { colopediaBefore, serveWorker, startPage, type ClientExports, type ServerExports } from './channel';
+import {
+  colopediaBefore,
+  serveWorker,
+  snapshotter,
+  startPage,
+  type ClientExports,
+  type ServerExports,
+} from './channel';
 import { fakeSaveStore } from './fake-saves';
 import type { GuiHandlers } from './webgui';
 
@@ -26,6 +33,7 @@ function fakeServer(scope: Scope, log: string[]): ServerExports {
     },
     saveGame: (active) => {
       log.push(`server save ${active}`);
+      if (active === 'fail') return scope.fcServerEvent('saveFailed', 'no game');
       scope.fcSaved(new Int8Array([1, 2, 3]));
       scope.fcServerEvent('saved', '{"turn":4,"year":1495,"nation":"Dutch","owner":"me","ms":9}');
     },
@@ -298,6 +306,42 @@ describe('the Worker channel', () => {
     expect([...t.store.blobs.get(1)!]).toEqual([1, 2, 3]);
     const saved = t.events.find(([n]) => n === 'saved')!;
     expect(JSON.parse(saved[1])).toEqual(meta);
+  });
+
+  it('hands the current game’s bytes to the page without adding a save', async () => {
+    const t = joined();
+    await t.seen('started');
+    let active = 'unit:42';
+    const current = snapshotter(
+      t.page,
+      () => true,
+      () => active,
+    );
+    expect([...(await current())]).toEqual([1, 2, 3]);
+    expect(t.log).toContain('server save unit:42');
+    expect(await t.store.list()).toEqual([]);
+    expect(t.events.map(([n]) => n)).not.toContain('saved');
+
+    // A failure reaches the asker, not the error banner, and the next request still works.
+    active = 'fail';
+    await expect(current()).rejects.toThrow('no game');
+    expect(t.events.map(([n]) => n)).not.toContain('saveFailed');
+    active = '';
+    expect([...(await current())]).toEqual([1, 2, 3]);
+    t.page.close();
+  });
+
+  it('refuses a snapshot when no game is running, without asking the Engine', async () => {
+    const t = joined();
+    await t.seen('ready');
+    const current = snapshotter(
+      t.page,
+      () => false,
+      () => '',
+    );
+    await expect(current()).rejects.toThrow('No game is running');
+    expect(t.log.filter((l) => l.startsWith('server save'))).toEqual([]);
+    t.page.close();
   });
 
   it('names a save after its nation and turn when the player gives no name', async () => {

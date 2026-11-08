@@ -2286,9 +2286,17 @@
         max-height: 14em;
         overflow-y: auto;
       }
+      .save-picker li {
+        display: flex;
+        gap: 4px;
+      }
       .save-picker button {
-        width: 100%;
+        flex: 1;
         text-align: left;
+      }
+      /* Export save... sits at the end of the save's line, as wide as its text. */
+      .save-picker button[data-export-save] {
+        flex: none;
       }
       /* A save's line (name | saved | turn | nation) fits on one line: wider than other dialogs where the screen allows. */
       #open-game.dialog,

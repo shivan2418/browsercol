@@ -204,6 +204,8 @@ export type ToWorker =
   | { k: 'start'; rules: string; preset: string; importMap?: Uint8Array }
   | { k: 'load'; id: number }
   | { k: 'save'; active: string; name: string }
+  /** The game as .fsg bytes, kept nowhere: a "snapshot" message answers. */
+  | { k: 'snapshot'; active: string }
   | { k: 'debug'; request: string }
   /** The Worker's log, which a "log" event answers (log.tsx). */
   | { k: 'log' }
@@ -211,7 +213,12 @@ export type ToWorker =
   | { k: 'connect' }
   | { k: 'fc'; xml: string };
 
-export type ToPage = { k: 'fc'; xml: string } | { k: 'event'; name: string; detail: string };
+export type ToPage =
+  | { k: 'fc'; xml: string }
+  | { k: 'event'; name: string; detail: string }
+  /** The answer to a snapshot request: the game's bytes, or why there are none. */
+  | { k: 'snapshot'; bytes: Uint8Array }
+  | { k: 'snapshot'; error: string };
 
 /** Either end of the channel: a Worker, the Worker's global scope or a MessagePort. */
 export interface Endpoint {
@@ -266,7 +273,8 @@ export function serveWorker(
   const send = (m: ToPage) => endpoint.postMessage(m);
   const event = (name: string, detail: string) => send({ k: 'event', name, detail });
   // Saves in flight: the names asked for, and the bytes of the one the Engine has made.
-  const names: string[] = [];
+  // A null name is a snapshot: its bytes go to the page, not the store.
+  const names: (string | null)[] = [];
   let bytes: Uint8Array | null = null;
   // Globals WorkerMain calls.
   scope.fcPost = (xml: string) => send({ k: 'fc', xml });
@@ -275,16 +283,17 @@ export function serveWorker(
   };
   scope.fcServerEvent = (name: string, detail: string) => {
     if (name !== 'saved') {
-      // The Engine could not save: that save's name is done with.
-      if (name === 'saveFailed') names.shift();
+      // The Engine could not save: that save's name is done with. A snapshot's failure goes to its asker alone.
+      if (name === 'saveFailed' && names.shift() === null) return send({ k: 'snapshot', error: detail });
       return event(name, detail);
     }
     // The Engine has saved: keep the bytes with what the list shows, in one transaction.
     const mine = bytes;
     bytes = null;
-    const wanted = names.shift() ?? '';
+    const wanted = names.shift();
+    if (wanted === null) return send({ k: 'snapshot', bytes: mine! });
     store
-      .put(newSave(JSON.parse(detail) as SavedInfo, wanted, Date.now()), mine!)
+      .put(newSave(JSON.parse(detail) as SavedInfo, wanted ?? '', Date.now()), mine!)
       .then((meta) => event('saved', JSON.stringify(meta)))
       .catch((ex: unknown) => event('saveFailed', describe(ex)));
   };
@@ -306,6 +315,9 @@ export function serveWorker(
         );
       case 'save':
         names.push(m.name);
+        return server!.saveGame(m.active);
+      case 'snapshot':
+        names.push(null);
         return server!.saveGame(m.active);
       case 'load':
         return void store
@@ -344,6 +356,35 @@ export function serveWorker(
       send({ k: 'event', name: 'failed', detail: 'worker load: ' + describe(ex) });
     }
   })();
+}
+
+/**
+ * Page side: a function that asks the Worker for the game being played as .fsg bytes, as Save does, and keeps
+ * them nowhere (no entry in the save list). It rejects when no game is running, or the Engine cannot save.
+ *
+ * @param running Whether a game is being played: asked each time, before the Engine is.
+ * @param activeUnitId The client's active unit, which a load of the bytes makes active again; empty for none.
+ */
+export function snapshotter(
+  worker: Endpoint,
+  running: () => boolean,
+  activeUnitId: () => string,
+): () => Promise<Uint8Array> {
+  // Requests are answered in order: the Engine saves one game at a time.
+  const waiting: { ok: (b: Uint8Array) => void; fail: (e: Error) => void }[] = [];
+  listen<ToPage>(worker, (m) => {
+    if (m.k !== 'snapshot') return;
+    const ask = waiting.shift();
+    if ('bytes' in m) ask?.ok(m.bytes);
+    else ask?.fail(new Error(m.error));
+  });
+  return () => {
+    if (!running()) return Promise.reject(new Error('No game is running'));
+    return new Promise((ok, fail) => {
+      waiting.push({ ok, fail });
+      worker.postMessage({ k: 'snapshot', active: activeUnitId() } satisfies ToWorker);
+    });
+  };
 }
 
 export interface PageOptions {
@@ -404,6 +445,7 @@ export function startPage(o: PageOptions): Promise<ClientExports> {
 
   let owner = '';
   listen<ToPage>(o.worker, (m) => {
+    if (m.k === 'snapshot') return; // snapshotter's
     if (m.k === 'fc') return client!.receive(m.xml);
     if (m.name === 'debug') client!.debugApplied(m.detail);
     if (m.name === 'started') client!.startGame(o.autoplay, '');
