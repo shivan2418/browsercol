@@ -212,23 +212,101 @@
         color: var(--muted);
       }
 
-      figure.shot {
+      /* The screenshots: a row of slides that snaps, with arrows and dots; it works by swipe and scroll without the script. */
+      .carousel {
+        position: relative;
         margin: 28px 0 0;
       }
-      figure.shot img {
+      .track {
+        display: flex;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        scrollbar-width: none;
+        border-radius: 4px;
+      }
+      .track::-webkit-scrollbar {
+        display: none;
+      }
+      .track:focus-visible {
+        outline: 3px solid var(--accent);
+        outline-offset: 3px;
+      }
+      .slide {
+        flex: 0 0 100%;
+        margin: 0;
+        scroll-snap-align: center;
+      }
+      .slide img {
         display: block;
         width: 100%;
         height: auto;
         border: 4px double var(--line);
         border-radius: 4px;
         background: var(--menubar);
-        box-shadow: 0 14px 34px -14px rgb(0 0 0 / 60%);
       }
-      figure.shot figcaption {
+      .slide figcaption {
         margin-top: 8px;
-        font-size: 0.85rem;
+        font-size: 0.9rem;
         color: var(--muted);
         text-align: center;
+      }
+      .arrow {
+        position: absolute;
+        top: calc(50% - 40px);
+        width: 44px;
+        height: 64px;
+        display: grid;
+        place-items: center;
+        padding: 0 0 4px;
+        font: 700 2.4rem/1 var(--font-title);
+        color: var(--accent-ink);
+        background: color-mix(in srgb, var(--menubar) 82%, transparent);
+        border: 2px solid var(--line);
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .arrow:hover {
+        background: var(--accent);
+      }
+      .arrow:focus-visible,
+      .dots button:focus-visible {
+        outline: 3px solid var(--accent);
+        outline-offset: 2px;
+      }
+      .arrow:disabled {
+        opacity: 0.35;
+        cursor: default;
+        background: color-mix(in srgb, var(--menubar) 82%, transparent);
+      }
+      .prev {
+        left: 12px;
+      }
+      .next {
+        right: 12px;
+      }
+      .dots {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin-top: 10px;
+      }
+      .dots button {
+        width: 12px;
+        height: 12px;
+        padding: 0;
+        border: 2px solid var(--line);
+        border-radius: 50%;
+        background: transparent;
+        cursor: pointer;
+      }
+      .dots button[aria-current='true'] {
+        background: var(--accent);
+        border-color: var(--accent);
+      }
+      /* Without the script there are no arrows or dots: the row still scrolls. */
+      .carousel:not(.ready) .arrow,
+      .carousel:not(.ready) .dots {
+        display: none;
       }
 
       section {
@@ -398,6 +476,9 @@
         .play {
           padding: 16px 40px;
         }
+        .arrow {
+          display: none;
+        }
       }
       @media (prefers-reduced-motion: no-preference) {
         .play {
@@ -432,16 +513,69 @@
           <a class="play" href="play/">Play</a>
           <p class="note">Free. Runs in current Chrome and Firefox on a computer.</p>
         </div>
-        <figure class="shot">
-          <img
-            src="./img/game.webp"
-            alt="A Dutch game of BrowserCol in 1632: colonies joined by roads around a fortified capital, native villages, the menu bar above and the minimap below."
-            width="1280"
-            height="800"
-            fetchpriority="high"
-          />
-          <figcaption>A game of BrowserCol, running in the browser.</figcaption>
-        </figure>
+        <div class="carousel" role="region" aria-roledescription="carousel" aria-label="Screenshots">
+          <div class="track" tabindex="0">
+            <figure class="slide" role="group" aria-roledescription="slide" aria-label="1 of 5">
+              <img
+                src="./img/game.webp"
+                alt="A Dutch game in 1632: colonies joined by roads around a fortified capital, native villages, the menu bar above and the minimap below."
+                width="1280"
+                height="800"
+                fetchpriority="high"
+              />
+              <figcaption>The New World in 1632: Dutch colonies joined by roads around Metropolis.</figcaption>
+            </figure>
+            <figure class="slide" role="group" aria-roledescription="slide" aria-label="2 of 5">
+              <img
+                src="./img/colony.webp"
+                alt="The colony panel of Metropolis: its buildings with colonists at work, the tiles around it, and production and building queue."
+                width="1280"
+                height="800"
+                loading="lazy"
+              />
+              <figcaption>A colony at work: buildings, the land around it and what it builds next.</figcaption>
+            </figure>
+            <figure class="slide" role="group" aria-roledescription="slide" aria-label="3 of 5">
+              <img
+                src="./img/colonies.webp"
+                alt="The Colony Advisor report, listing each colony with its colonists, production and buildings."
+                width="1280"
+                height="800"
+                loading="lazy"
+              />
+              <figcaption>The Colony Advisor: every colony, its people and production.</figcaption>
+            </figure>
+            <figure class="slide" role="group" aria-roledescription="slide" aria-label="4 of 5">
+              <img
+                src="./img/congress.webp"
+                alt="The Continental Congress report: founding fathers in trade, exploration and military, with the dates they were elected."
+                width="1280"
+                height="800"
+                loading="lazy"
+              />
+              <figcaption>The Continental Congress: founding fathers elected and still to come.</figcaption>
+            </figure>
+            <figure class="slide" role="group" aria-roledescription="slide" aria-label="5 of 5">
+              <img
+                src="./img/foreign-affairs.webp"
+                alt="The Foreign Affairs Advisor report comparing France, England and the Netherlands."
+                width="1280"
+                height="800"
+                loading="lazy"
+              />
+              <figcaption>The Foreign Affairs Advisor: how you stand against the other colonial powers.</figcaption>
+            </figure>
+          </div>
+          <button class="arrow prev" type="button" aria-label="Previous screenshot">&#8249;</button>
+          <button class="arrow next" type="button" aria-label="Next screenshot">&#8250;</button>
+          <div class="dots">
+            <button type="button" aria-label="Screenshot 1"></button>
+            <button type="button" aria-label="Screenshot 2"></button>
+            <button type="button" aria-label="Screenshot 3"></button>
+            <button type="button" aria-label="Screenshot 4"></button>
+            <button type="button" aria-label="Screenshot 5"></button>
+          </div>
+        </div>
       </div>
 
       <section aria-labelledby="what">
@@ -568,5 +702,56 @@
         <p>Fonts: Cinzel and Noto Sans, under the SIL Open Font License.</p>
       </div>
     </footer>
+    <script>
+      // The carousel's arrows and dots: each scrolls the row to a slide, and the dots follow the slide in view.
+      (function () {
+        var c = document.querySelector('.carousel');
+        var track = c.querySelector('.track');
+        var slides = track.querySelectorAll('.slide');
+        var dots = c.querySelectorAll('.dots button');
+        var prev = c.querySelector('.prev');
+        var next = c.querySelector('.next');
+        var at = 0;
+        var smooth = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+        function go(i) {
+          i = Math.max(0, Math.min(slides.length - 1, i));
+          track.scrollTo({ left: slides[i].offsetLeft - track.offsetLeft, behavior: smooth });
+        }
+        function show(i) {
+          at = i;
+          dots.forEach(function (d, j) {
+            d.setAttribute('aria-current', j === i ? 'true' : 'false');
+          });
+          prev.disabled = i === 0;
+          next.disabled = i === slides.length - 1;
+        }
+        prev.addEventListener('click', function () {
+          go(at - 1);
+        });
+        next.addEventListener('click', function () {
+          go(at + 1);
+        });
+        dots.forEach(function (d, j) {
+          d.addEventListener('click', function () {
+            go(j);
+          });
+        });
+        track.addEventListener('keydown', function (e) {
+          if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+            e.preventDefault();
+            go(at + (e.key === 'ArrowRight' ? 1 : -1));
+          }
+        });
+        track.addEventListener(
+          'scroll',
+          function () {
+            show(Math.round(track.scrollLeft / track.clientWidth));
+          },
+          { passive: true },
+        );
+        show(0);
+        c.classList.add('ready');
+      })();
+    </script>
   </body>
 </html>
