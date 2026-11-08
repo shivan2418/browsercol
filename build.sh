@@ -42,11 +42,5 @@ mode=()
 for arg in "$@"; do [[ $arg == -Prelease ]] && mode=(--mode release); done
 pnpm exec vp build "${mode[@]}"
 
-# The landing page (ui/site/, plain static files) at the site's root, with the logo and fonts it uses.
-cd "$repo"
-cp -r ui/site/. dist/
-mkdir -p dist/brand dist/fonts
-cp ui/brand/wordmark.svg ui/brand/globe-*.svg ui/brand/icon.svg dist/brand/
-cp ui/src/fonts/cinzel/cinzel-latin-{400,700}-normal.woff2 ui/src/fonts/noto-sans/noto-sans-latin-{400,700}-normal.woff2 dist/fonts/
-cp ui/src/fonts/cinzel/OFL.txt dist/fonts/OFL-cinzel.txt 2>/dev/null || true
-cp ui/src/fonts/noto-sans/OFL.txt dist/fonts/OFL-noto-sans.txt 2>/dev/null || true
+# The landing page at the site's root, around the game in play/.
+"$repo/tools/site.sh" "$repo/dist"

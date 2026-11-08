@@ -138,9 +138,12 @@ sub-path such as GitHub Pages' `/<repo>/` works.
 
 ### Deploying
 
-A push to `main` does not deploy. `just deploy` tags `origin/main` as the
-next build (`build-1`, `build-2`, ...) and pushes the tag, and the Pages
-workflow builds and deploys it. The page shows its build on the start screen
+Every push to `main` deploys the landing page (`ui/site/`) of that commit,
+around the game of the latest build (the Site workflow, about a minute). The
+game changes only with `just deploy`, which tags `origin/main` as the next
+build (`build-1`, `build-2`, ...) and pushes the tag; the Pages workflow builds
+and deploys it and makes a release, `build-N`, holding the game as
+`play.tar.gz` for later page deploys. The page shows its build on the start screen
 and in the credits, with its commit and date (a local build says `dev`). Builds are numbered rather than versioned, because the
 only promise to players is that their saves keep loading (ADR 0007).
 `SaveGameTest` loads every save in `engine/src/test/resources/saves/`; add one
@@ -166,7 +169,7 @@ after a change to what a save holds.
 | `docs/` | `adr/` decision records, `research/` notes, `parity/` the Swing parity inventory, `teavm.md` TeaVM's quirks and our workarounds, `agents/` how coding agents use the tracker, `upstream-fixes.md` FreeCol bugs our patches fix |
 | `docker/` | `dev.Dockerfile` (JDK, Gradle, Node, pnpm) and `web.Dockerfile` (Playwright with Chromium and Firefox) |
 | `.githooks/` | The commit gate: `pre-commit` compiles the Engine, `commit-msg` requires an author trailer |
-| `.github/workflows/` | `suite.yml` (the whole suite) and `pages.yml` (deploy to Pages on a `build-N` tag) |
+| `.github/workflows/` | `suite.yml` (the whole suite), `pages.yml` (deploy the game to Pages on a `build-N` tag) and `site.yml` (deploy the landing page on each push to `main`) |
 | `dev.sh`, `build.sh`, `ci.sh`, `freecol.sh` | Run in Docker; build `dist/`; the suite on Actions; pin and update `freecol/` |
 
 Gitignored: `freecol/` (the upstream clone), `ui/generated/` (built modules

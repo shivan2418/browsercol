@@ -1,8 +1,10 @@
-# Builds dist/ and deploys it to GitHub Pages, then runs the smoke script
-# against the deployed URL. A plain push to main does not deploy. Deploy with
-# `just deploy` (tools/deploy.sh), which tags origin/main build-N, one more
-# than the last build, and pushes the tag; the page shows "build N · <commit> · <date>".
-# By hand, `gh workflow run pages.yml` deploys too, shown as the commit and date.
+# Deploys the game: builds dist/ for a build-N tag, releases the game (play/)
+# as build-N with play.tar.gz, deploys it with the Site workflow, then runs the
+# smoke script against the deployed URL. Deploy with `just deploy`
+# (tools/deploy.sh), which tags origin/main build-N, one more than the last
+# build, and pushes the tag; the page shows "build N · <commit> · <date>". A push to
+# main deploys only the landing page, around the latest release's game
+# (site.yml), so the build number changes only when the game does (#374).
 # Builds are numbered, not semver: the one promise to players is that their
 # saves keep loading (docs/adr/0007-saves-are-the-compatibility-contract.md).
 # One-time setup: Settings > Pages > Source: "GitHub Actions".
@@ -11,16 +13,11 @@ name: Pages
 on:
   push:
     tags: ['build-*']
-  workflow_dispatch:
 
 permissions:
   contents: read
   pages: write
   id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: false
 
 jobs:
   build:
@@ -47,21 +44,35 @@ jobs:
           echo "first load (gzip): $((total/1024/1024)) MB; dist raw: $((raw/1024/1024)) MB" | tee -a "$GITHUB_STEP_SUMMARY"
           [ "$total" -lt $((30*1024*1024)) ] || { echo "over the 30 MB budget" >&2; exit 1; }
 
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist
+      - name: The game, for the release
+        run: tar -C dist -czf play.tar.gz play
 
-  deploy:
+      - uses: actions/upload-artifact@v4
+        with:
+          name: play
+          path: play.tar.gz
+          retention-days: 7
+
+  # The release is what the Site workflow deploys, now and on every later push to main.
+  release:
     needs: build
     runs-on: ubuntu-24.04
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    outputs:
-      page_url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      contents: write
     steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: play
+      - name: Release the build with its game
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release create "$GITHUB_REF_NAME" play.tar.gz --repo "$GITHUB_REPOSITORY"
+          --title "${GITHUB_REF_NAME/build-/Build }" --generate-notes --verify-tag
+
+  deploy:
+    needs: release
+    uses: ./.github/workflows/site.yml
 
   smoke:
     needs: deploy
