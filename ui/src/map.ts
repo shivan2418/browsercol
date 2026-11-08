@@ -134,18 +134,12 @@ export function pictures(base: string, load: (path: string) => Promise<Picture> 
     if (isAnimated(src)) return live(src);
     const id = srcId(src);
     let p = cache.get(id);
-    if (!p)
-      cache.set(
-        id,
-        (p =
-          typeof src === 'string'
-            ? src.startsWith(FADE)
-              ? Promise.resolve(fadeMask(src.slice(FADE.length) as Direction))
-              : load(src)
-            : compose(src, get)),
-      );
+    if (!p) cache.set(id, (p = typeof src === 'string' ? file(src) : compose(src, get)));
     return p;
   };
+  /** An image file, or one of the masks made here rather than loaded (tileset.ts fadeFrom). */
+  const file = (path: string): Promise<Picture> =>
+    path.startsWith(FADE) ? Promise.resolve(fadeMask(path.slice(FADE.length) as Direction)) : load(path);
 
   /**
    * The animated water's frames, composited, by id, the most lately drawn last: the frames and the recipes they are
@@ -238,14 +232,22 @@ export function pictures(base: string, load: (path: string) => Promise<Picture> 
 
 const canvas = (w: number, h: number) => Object.assign(document.createElement('canvas'), { width: w, height: h });
 
-/** tileset.ts fadeFrom: a tile's mask, opaque at the middle of its side facing `d` and gone a little past its centre. */
+/**
+ * tileset.ts fadeFrom: a tile's mask, opaque along its side facing `d` (NE, SE, SW or NW), fading at right angles to
+ * that side to nothing at the line through the tile's centre, so the whole side is as opaque.
+ */
 function fadeMask(d: Direction): HTMLCanvasElement {
   const c = canvas(W, H);
   const g = c.getContext('2d')!;
-  const [ax, ay] = CORNERS[d];
-  const [bx, by] = [ax + 1.2 * (W / 2 - ax), ay + 1.2 * (H / 2 - ay)];
-  const fade = g.createLinearGradient(ax, ay, bx, by);
-  fade.addColorStop(0.15, 'rgba(0, 0, 0, 1)');
+  const [[ax, ay], [bx, by]] = SIDES[d as keyof typeof SIDES];
+  const [mx, my] = [(ax + bx) / 2, (ay + by) / 2];
+  // The side's normal, pointing into the tile, as long as the way from the side to the centre.
+  const len = Math.hypot(bx - ax, by - ay);
+  let [nx, ny] = [-(by - ay) / len, (bx - ax) / len];
+  if (nx * (W / 2 - mx) + ny * (H / 2 - my) < 0) [nx, ny] = [-nx, -ny];
+  const dist = nx * (W / 2 - mx) + ny * (H / 2 - my);
+  const fade = g.createLinearGradient(mx, my, mx + nx * dist, my + ny * dist);
+  fade.addColorStop(0.1, 'rgba(0, 0, 0, 1)');
   fade.addColorStop(1, 'rgba(0, 0, 0, 0)');
   g.fillStyle = fade;
   g.fillRect(0, 0, W, H);
@@ -772,12 +774,21 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
           start: (look, swell, chop) => {
             surface?.surface.destroy();
             surface = new WaterSurface(look, swell, chop);
-            if (!programLinks(gl, surface.surface.program)) {
+            const mesh = surface.surface.mesh;
+            let ok = programLinks(gl, surface.surface.program);
+            if (ok) {
+              // A first draw with it, now, and WebGL's word on it: PixiJS only logs what goes wrong there.
+              world.addChildAt(mesh, 0);
+              for (let i = 0; i < 16 && gl.getError() !== gl.NO_ERROR; i++);
+              app.render();
+              ok = !gl.isContextLost() && gl.getError() === gl.NO_ERROR;
+            }
+            if (!ok) {
+              world.removeChild(mesh);
               surface.surface.destroy();
               surface = null;
               return false;
             }
-            world.addChildAt(surface.surface.mesh, 0);
             redraw(null);
             return true;
           },

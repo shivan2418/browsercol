@@ -167,17 +167,17 @@ describe('waterField', () => {
 
 describe('waterTime', () => {
   it('moves the ripples a little every moment, each offset within one turn of its texture', () => {
-    const look = 1;
-    const a = waterTime(look, 1000);
-    const b = waterTime(look, 1100);
+    const speed = 1;
+    const a = waterTime(speed, 1000);
+    const b = waterTime(speed, 1100);
     expect(b.swell).not.toEqual(a.swell);
     expect(b.chop).not.toEqual(a.chop);
     for (const ms of [0, 1000, 1e6, 1e9])
-      for (const v of [...waterTime(look, ms).swell, ...waterTime(look, ms).chop]) {
+      for (const v of [...waterTime(speed, ms).swell, ...waterTime(speed, ms).chop]) {
         expect(v).toBeGreaterThanOrEqual(0);
         expect(v).toBeLessThan(1);
       }
-    expect(waterTime(look, 1e9).lap).toBeLessThan(2 * Math.PI);
+    expect(waterTime(speed, 1e9).lap).toBeLessThan(2 * Math.PI);
   });
 
   it('stands still at a speed of 0', () => {

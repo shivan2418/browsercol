@@ -29,7 +29,7 @@ The Map mode that draws everything on the map from the chosen Tileset's images, 
 _Avoid_: classic mode, sprite mode
 
 **Shader water**:
-The water (ocean, lakes, high seas) of a Tileset that gives its look (shader.water.* keys) drawn in Tileset mode as one surface under the tiles, coloured per pixel by a shader from the Tileset's ripple images and colours, in place of FreeCol's painted frames. The water tiles draw only their coasts' sand; rivers keep their frames. Where the shader cannot run, the water is FreeCol's frames.
+The water (ocean, lakes, high seas) of a Tileset that gives its look (shader.water.* keys) drawn in Tileset mode as one surface under the tiles, coloured per pixel by a shader from the Tileset's ripple images and colours, in place of FreeCol's painted frames. Each kind of water (ocean, high seas, lake) has its own roughness, foam and speed. The water tiles draw only their coasts' sand; rivers keep their frames, and where one runs into the water its water fades into the surface. Where the shader cannot run, compile or draw, the water is FreeCol's frames.
 _Avoid_: animated water, water effect
 
 **Procedural mode**:

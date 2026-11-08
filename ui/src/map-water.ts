@@ -81,7 +81,7 @@ export function waterLook(res: Resources): WaterLook | null {
       highSeas: numberOf(res, `${KEY}highSeas.foam`, 1),
       lake: numberOf(res, `${KEY}lake.foam`, 0),
     },
-    speed: numberOf(res, `${KEY}speed`, 1),
+    speed: numberOf(res, `${KEY}ocean.speed`, 1),
     lakeSpeed: numberOf(res, `${KEY}lake.speed`, 0.5),
     swellSize: numberOf(res, `${KEY}swellSize`, 512),
     chopSize: numberOf(res, `${KEY}chopSize`, 192),
@@ -371,8 +371,11 @@ void main() {
   // The depth: a lake at 0, the ocean at a half, the high seas at 1.
   float lake = clamp(1.0 - f.g * 2.0, 0.0, 1.0);
   float high = clamp(f.g * 2.0 - 1.0, 0.0, 1.0);
-  vec3 s = texture(uSwellMap, mix(vSwell, vSwellLake, lake)).rgb;
-  vec3 c = texture(uChopMap, mix(vChop, vChopLake, lake)).rgb;
+  // A lake's ripples, slower, where the water is more lake than sea: blending the two places would make them jump
+  // whenever either offset turns over.
+  bool calm = lake > 0.5;
+  vec3 s = texture(uSwellMap, calm ? vSwellLake : vSwell).rgb;
+  vec3 c = texture(uChopMap, calm ? vChopLake : vChop).rgb;
   float rough = mix(mix(uRough.x, uRough.y, high), uRough.z, lake);
   float strength = mix(mix(uFoamStrength.x, uFoamStrength.y, high), uFoamStrength.z, lake);
   // The ripples' slope, lit from the north-west as FreeCol's art is: the swell rolls, the chop catches the light.
