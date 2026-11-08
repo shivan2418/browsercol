@@ -2884,10 +2884,25 @@
         background-repeat: no-repeat;
         background-color: var(--btn);
         color: var(--paper-ink);
+        /* Cut into the wood: dark ink with a light edge under each stroke (ticket 376). */
+        text-shadow: 0 1px 0 color-mix(in srgb, var(--menubar-ink) 55%, transparent);
         font-family: var(--font-title);
-        font-size: 32px;
+        font-size: 30px;
         font-weight: 700;
+        line-height: 1;
+        padding-top: 3px;
         pointer-events: none;
+      }
+      /* Smaller as the number gets longer. */
+      .colony .octagon.change {
+        font-size: 26px;
+      }
+      .colony .octagon:is(.size, .change)[data-len='3'] {
+        font-size: 20px;
+      }
+      .colony .octagon .pc {
+        font-size: 0.68em;
+        margin-left: 1px;
       }
       .colony .octagon.size,
       .colony .octagon.rebels {
@@ -2905,8 +2920,12 @@
       .colony .octagon.rebels,
       .colony .octagon.royalists {
         top: 158px;
-        padding-top: 28px;
-        font-size: 18px;
+        align-items: flex-end;
+        padding: 0 0 12px;
+        font-size: 17px;
+      }
+      .colony .octagon:is(.rebels, .royalists)[data-len='4'] {
+        font-size: 15px;
       }
       .colony .buildings {
         grid-column: 1;

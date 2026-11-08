@@ -8,7 +8,7 @@ import { Octagon, type OctagonPart } from './colony-panel';
 import { art } from './story-art';
 
 const TREATMENTS = {
-  now: 'The game today: Cinzel bold in dark ink, 32px; the shares 18px under the muskets and crown.',
+  now: 'The game today: Cinzel engraved, adopted in #376.',
   cinzel: 'Cinzel bold in dark ink, cut into the wood; sized to fit, the % sign small.',
   ink: 'Noto Sans bold in dark ink, cut into the wood, tabular figures; sized to fit, the % sign small.',
   outline: 'Noto Sans bold in white with a black outline, as the numbers over a pile of goods; a loss in red.',

@@ -330,9 +330,11 @@ export type OctagonPart = keyof typeof OCTAGON_AT;
  * One of the Board's octagons, cut from the wood, with its number: the colony's size, its change, or a share
  * (the % sign in its own span, so it can be set smaller). data-len is the text's length, for fitting long numbers.
  */
-export function Octagon({ part, text, art }: { part: OctagonPart; text: string; art: Art }) {
+export function Octagon({ part, text: raw, art }: { part: OctagonPart; text: string; art: Art }) {
   const wood = art([OCTAGONS]);
   const [x, y] = OCTAGON_AT[part];
+  // A real minus sign for a loss, where ColonyJson writes a hyphen.
+  const text = raw.replace('-', '−');
   const percent = text.endsWith('%');
   return (
     <span
