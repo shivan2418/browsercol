@@ -525,6 +525,8 @@ export interface Choice {
   ok: boolean;
   cancel: boolean;
   default: boolean;
+  /** The choice's picture, as Swing's ChoiceItem icon (the emigration dialog's units): its image keys, best first. */
+  images?: string[];
 }
 
 /** Questions: what is asked, and what the player answers (null: closed). */

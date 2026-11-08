@@ -337,6 +337,24 @@ describe('the choice dialog', () => {
     expect(await left).toBeNull();
   });
 
+  it("shows a choice's picture beside its text, as the emigration dialog's units", async () => {
+    const { box } = host();
+    const q = {
+      text: 'Choose an immigrant',
+      cancel: null,
+      tile: null,
+      object: null,
+      choices: [item('Caravel', { images: ['image.unit.model.unit.caravel'] }), item('Trade')],
+    };
+    const picked = ask(box, 'choice', q);
+    const [withPic, plain] = document.querySelectorAll<HTMLElement>('[data-choice]');
+    expect(withPic.querySelector('img')?.getAttribute('src')).toBe('art/caravel.png');
+    expect(withPic.textContent).toBe('Caravel');
+    expect(plain.querySelector('img')).toBeNull();
+    fireEvent.click(withPic);
+    expect(await picked).toBe(0);
+  });
+
   it('takes its cancel button on Enter when no item is the default', async () => {
     const { box } = host();
     const q = { text: 'Meet the natives', cancel: 'Leave', tile: null, object: null, choices: [item('Trade')] };

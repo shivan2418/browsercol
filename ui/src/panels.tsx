@@ -194,7 +194,7 @@ function Confirm({ d, colopedia, art }: { d: Of<'confirm'>; colopedia: (type: st
   );
 }
 
-function Choice({ d }: { d: Of<'choice'> }) {
+function Choice({ d, art }: { d: Of<'choice'>; art: Art }) {
   const { ask } = d;
   const pick = (i: number) => () => d.done(i);
   const byDefault = ask.choices.findIndex((c) => c.default && c.enabled);
@@ -212,6 +212,7 @@ function Choice({ d }: { d: Of<'choice'> }) {
       <div className="choices">
         {ask.choices.map((c, i) => (
           <button key={i} data-choice={i} disabled={!c.enabled} {...enterMark(i === enterItem)} onClick={pick(i)}>
+            {c.images && <Pic keys={c.images} art={art} className="choice-pic" />}
             {c.text}
           </button>
         ))}
@@ -2040,7 +2041,7 @@ function Body({
     case 'declaration':
       return <Declaration name={d.ask.name} title={d.ask.title} art={art} done={() => d.done(true)} />;
     case 'choice':
-      return <Choice d={d} />;
+      return <Choice d={d} art={art} />;
     case 'input':
       return <Input d={d} />;
     case 'amount':

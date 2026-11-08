@@ -1232,15 +1232,32 @@ public class WebGUI extends GUI {
     protected <T> T modalChoiceDialog(Tile tile, StringTemplate template,
                                       ImageIcon icon, String cancelKey,
                                       List<ChoiceItem<T>> choices) {
+        return choiceDialog(tile, template, icon, cancelKey, choices, null);
+    }
+
+    /**
+     * As modalChoiceDialog, with a picture for each choice: images holds
+     * an image resource key for each, as Swing's ChoiceItem icon, or null
+     * for none.
+     */
+    private <T> T choiceDialog(Tile tile, StringTemplate template,
+                               ImageIcon icon, String cancelKey,
+                               List<ChoiceItem<T>> choices,
+                               List<String> images) {
         List<String> items = new ArrayList<>();
-        for (ChoiceItem<T> c : choices) {
-            items.add(new Json()
+        for (int n = 0; n < choices.size(); n++) {
+            final ChoiceItem<T> c = choices.get(n);
+            final Json item = new Json()
                 .put("text", c.toString())
                 .put("enabled", c.isEnabled())
                 .put("ok", c.isOK())
                 .put("cancel", c.isCancel())
-                .put("default", c.isDefault())
-                .toString());
+                .put("default", c.isDefault());
+            final String image = (images == null) ? null : images.get(n);
+            if (image != null) {
+                item.putRaw("images", Json.array(List.of(Json.quote(image))));
+            }
+            items.add(item.toString());
         }
         String answer = this.questions.ask("choice", new Json()
             .put("text", Messages.message(template))
@@ -1376,10 +1393,15 @@ public class WebGUI extends GUI {
         final List<AbstractUnit> recruitables
             = player.getEurope().getExpandedRecruitables(false);
         List<ChoiceItem<Integer>> choices = new ArrayList<>();
+        // EmigrationDialog's buttons carry the unit's picture, as the
+        // Europe panel's recruits do.
+        final List<String> images = new ArrayList<>();
         int slot = Europe.MigrationType.getDefaultSlot();
         for (AbstractUnit au : recruitables) {
             choices.add(new ChoiceItem<>(Messages.message(au.getSingleLabel()),
                                          slot++));
+            images.add(ObjectImages.unitKey(
+                au.getType(player.getSpecification()), au.getRoleId()));
         }
         StringTemplate text = StringTemplate.key("emigrationDialog.chooseImmigrant");
         if (fountainOfYouth) {
@@ -1392,7 +1414,8 @@ public class WebGUI extends GUI {
         defer("showEmigrationDialog", () -> {
                 Integer chosen;
                 do {
-                    chosen = modalChoiceDialog(question, null, choices);
+                    chosen = choiceDialog(null, question, null, null,
+                                          choices, images);
                 } while (chosen == null);
                 handler.handle(chosen);
             });

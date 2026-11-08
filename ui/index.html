@@ -1441,6 +1441,19 @@
         flex-direction: column;
         gap: 4px;
       }
+      /* A choice with a picture (the emigration dialog's units): the picture left of its text, as Swing's ChoiceItem. */
+      .dialog .choices button:has(.choice-pic) {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        text-align: left;
+      }
+      .dialog .choices .choice-pic {
+        width: auto;
+        height: 48px;
+        object-fit: contain;
+        flex: none;
+      }
       .dialog .modifiers {
         border-collapse: collapse;
       }

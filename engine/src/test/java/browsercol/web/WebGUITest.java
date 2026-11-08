@@ -34,6 +34,7 @@ import net.sf.freecol.common.model.Colony;
 import net.sf.freecol.common.model.DiplomaticTrade;
 import net.sf.freecol.common.model.DiplomaticTrade.TradeContext;
 import net.sf.freecol.common.model.DiplomaticTrade.TradeStatus;
+import net.sf.freecol.common.model.AbstractUnit;
 import net.sf.freecol.common.model.Europe;
 import net.sf.freecol.common.model.FreeColGameObject;
 import net.sf.freecol.common.model.FoundingFather;
@@ -1901,6 +1902,11 @@ class WebGUITest {
         assertEquals(Integer.valueOf(slot + 1), await(got));
         final String question = asked.get(asked.size() - 1);
         assertTrue(question.contains(Messages.message("emigrationDialog.chooseImmigrant")), question);
+        // Each choice carries its unit's picture, as the Europe panel's recruits do.
+        for (AbstractUnit au : me.getEurope().getExpandedRecruitables(false)) {
+            final String key = ObjectImages.unitKey(au.getType(me.getSpecification()), au.getRoleId());
+            assertTrue(question.contains("\"images\":[\"" + key + "\"]"), key + " in " + question);
+        }
 
         // A closed dialog is asked again, as Swing ignores Escape: null, then a pick.
         final int before = asked.size();
