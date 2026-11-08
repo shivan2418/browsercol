@@ -1,6 +1,6 @@
 ---
 name: deploy
-description: Deploy main to GitHub Pages as the next build, with a developer changelog (the GitHub release) and a player changelog (WHATS-NEW.md, shown on the website).
+description: Deploy main to GitHub Pages as the next build, with a developer changelog (the GitHub release) and a player changelog (the website's changes page).
 argument-hint: "Which commit? (default: origin/main)"
 disable-model-invocation: true
 ---
@@ -8,7 +8,7 @@ disable-model-invocation: true
 You ship the next **build**: `tools/deploy.sh` tags a commit `build-N` and pushes the tag, and the tag starts the Pages workflow. Each build gets two changelogs, written from the same set of changes for two readers:
 
 - **Developer changelog**: the body of the GitHub release for `build-N`. Everything that landed, grouped by ticket, linked.
-- **Player changelog**: the build's entry at the top of `WHATS-NEW.md`, which the website shows. Written for someone who plays the game and has never seen the repo.
+- **Player changelog**: the build's entry in `site/changes.json`, which the website renders as its changes page (#402, once the website from #374 exists). Written for someone who plays the game and has never seen the repo. Until the page exists the entries still go in the file, so the page starts with the full history.
 
 Both are public once pushed. The human approves both drafts before anything leaves this machine.
 
@@ -35,19 +35,12 @@ The next build is `build-<N+1>`, where N is the number in `$last`. For each tick
 
 **Player changelog**: one entry in this shape:
 
-```
-## Build <N+1> · <YYYY-MM-DD>
-
-### New
-- …
-### Fixed
-- …
-### Changed
-- …
+```json
+{ "build": 6, "date": "2026-11-08", "new": ["…"], "fixed": ["…"], "changed": ["…"] }
 ```
 
 - Plain, concrete sentences about what a player sees or can now do: "The trade report fits its table instead of a fixed width." Name game things by their in-game names (colony, Europe, Continental Congress), never code, files or ticket numbers.
-- Merge several commits about one screen into one line. Keep only what a player would notice; internal work never appears. Omit an empty group.
+- Merge several commits about one screen into one line. Keep only what a player would notice; internal work never appears. Leave an empty group as `[]`.
 - Around 3–12 lines in all. If the build is mostly internal, a single line is fine.
 
 **Done when** both drafts exist and every player-facing change from step 1 appears in the player entry exactly once.
@@ -62,9 +55,9 @@ Show the human both drafts in full, with the target commit and the build number.
 
 The player entry ships inside the build it describes, so it goes on main before the tag.
 
-- Check the shared checkout is on main and clean for `WHATS-NEW.md`: `git -C /home/emil/freecol-online branch --show-current`. If another session has it on another branch, work in a worktree of main instead.
-- If `WHATS-NEW.md` doesn't exist yet, create it with a `# What's new in BrowserCol` heading. Insert the new entry right under the heading, above older entries.
-- Commit only that file: `git add WHATS-NEW.md`, subject `What's new: build <N+1>`. Push main: `git push origin main`. The deploy target is now this new commit, not the one from step 1. If main moved on origin in the meantime, stop and tell the human.
+- Check the shared checkout is on main and clean for `site/changes.json`: `git -C /home/emil/freecol-online branch --show-current`. If another session has it on another branch, work in a worktree of main instead.
+- `site/changes.json` is a JSON array, newest build first. If it doesn't exist yet, create it as `[]`. Insert the new entry at the front.
+- Commit only that file: `git add site/changes.json`, subject `Changes: build <N+1>`. Push main: `git push origin main`. The deploy target is now this new commit, not the one from step 1. If main moved on origin in the meantime, stop and tell the human.
 
 **Done when** `git rev-parse origin/main` is the changelog commit.
 
