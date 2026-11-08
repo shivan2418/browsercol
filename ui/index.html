@@ -3327,10 +3327,13 @@
       .colony .queue-body {
         position: absolute;
         z-index: 21;
-        left: 50%;
+        /*
+         * It sits in the board (the right column, which is positioned for its octagons), so it is anchored to the
+         * board's right edge and reaches left over the buildings: the column alone is too narrow for two lists.
+         */
+        right: 0;
         top: 40px;
-        transform: translateX(-50%);
-        width: min(900px, 96%);
+        width: 780px;
         max-height: calc(var(--screen-h) * 0.8);
         overflow-y: auto;
         box-sizing: border-box;
@@ -3379,6 +3382,15 @@
       }
       .colony .buildable-icon {
         width: 48px;
+      }
+      /* The name takes the room left; the costs keep theirs, on one line, after it. */
+      .colony .queue-body li .name {
+        flex: 1;
+        min-width: 0;
+      }
+      .colony .queue-body .cost {
+        flex: none;
+        white-space: nowrap;
       }
       .colony .queue-body .reason {
         font-size: 0.85em;

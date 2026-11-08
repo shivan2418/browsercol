@@ -804,8 +804,11 @@ function BuildableLabel({ b, art, compact = false }: { b: Buildable; art: Art; c
     <>
       <Img keys={b.keys} art={art} className="buildable-icon" />
       <span className="name">{b.name}</span>
+      {/* BuildQueuePanel's cell: each goods it takes as one small icon with the number beside it, not a pile. */}
       {b.required.map((g) => (
-        <Made key={g.type} g={g} art={art} />
+        <span key={g.type} className="made-goods cost" data-goods={g.type}>
+          <GoodsAmount keys={g.keys} name={g.name} amount={g.amount} art={art} />
+        </span>
       ))}
       {b.reason !== null && <span className="reason muted">{b.reason}</span>}
     </>
