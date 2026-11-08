@@ -82,3 +82,15 @@ dialog-coverage-run: (browser "smoke") (browser "play") (browser "saves") (brows
 # Merge the scripts' dialog counts (.cache/coverage) into docs/parity/dialog-coverage.md
 dialog-coverage:
     ./dev.sh node tools/dialog-coverage.mjs
+
+# The stable playtest server at http://localhost:5174: the playtest worktree's built dist/, no hot reload
+playtest:
+    tools/playtest.sh serve
+
+# Move the playtest server to main (or a given ref) and rebuild it; the open tab changes only when you reload it
+playtest-update *ref:
+    tools/playtest.sh update {{ref}}
+
+# Which commit the playtest server has, and what main has that it doesn't yet
+playtest-status:
+    tools/playtest.sh status
