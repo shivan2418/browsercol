@@ -260,7 +260,8 @@ addEventListener('unhandledrejection', (e) => reportError('The page hit an error
 
 const params = new URLSearchParams(location.search);
 const autoplay = Number(params.get('autoplay') ?? '0');
-const rules = params.get('rules') ?? 'classic';
+/** The ruleset: the start screen may switch it in place, before a game begins. */
+let rules = params.get('rules') ?? 'classic';
 let loadId = params.has('load') ? Number(params.get('load')) : undefined;
 /** The page picked up the autosave by itself, so a load that fails drops it rather than leave the page stuck. */
 let resumed = false;
@@ -1659,15 +1660,19 @@ async function chooseGame(data: string[], language: string): Promise<{ preset: s
         <TipProvider>
           <TooltipLayer />
           <StartScreen
+            key={rules}
             openFile={() => void openSaveFile().then(draw)}
             openNote={openNote}
             options={startOptions(data, rules)}
             rules={rules}
             changeRules={(id) => {
-              // The ruleset's nations and options differ: a new page, with the start screen of the other rules.
+              // The data bundle holds every ruleset, so the start screen switches in place; the address keeps
+              // the choice for a reload. Its nations and options differ, so the screen starts afresh (key).
+              rules = id;
               const next = new URLSearchParams(location.search);
               next.set('rules', id);
-              leavePage(next.toString());
+              history.replaceState(history.state, '', `?${next}`);
+              draw(openNote);
             }}
             saves={saves}
             open={openSave}
