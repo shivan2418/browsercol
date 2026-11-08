@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Deploy a commit to GitHub Pages as the next build: tags it build-N, one more
 # than the highest build-* tag on origin, and pushes the tag, which starts the
-# Pages workflow. The page then shows "build N · <commit>".
+# Pages workflow. The page then shows "build N · <commit> · <date>".
 # Usage: tools/deploy.sh [commit]     (default: origin/main)
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
