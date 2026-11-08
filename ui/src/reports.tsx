@@ -169,15 +169,18 @@ function ColonyReport({ e, art, go }: { e: View<'colony'>; art: Art; go: Links }
           </div>
           <div className="row" data-list="goods">
             {c.goods.map((g) => (
-              <Tip
-                as="span"
-                key={g.type}
-                className="made"
-                tip={`${g.name}: ${g.stock} in store, up to ${g.max} a turn`}
-              >
-                <GoodsAmount keys={g.keys} name={g.name} amount={g.amount} change art={art} />
-                <span className="stock">{g.stock}</span>
-              </Tip>
+              <span key={g.type} className="made" data-goods={g.type}>
+                <GoodsAmount
+                  keys={g.keys}
+                  name={g.name}
+                  amount={g.amount}
+                  stock={g.stock}
+                  expert={g.max}
+                  icons
+                  art={art}
+                  tip={`${g.name}: ${g.stock} in store, up to ${g.max} a turn`}
+                />
+              </span>
             ))}
           </div>
           <div className="row" data-list="buildings">

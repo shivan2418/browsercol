@@ -216,6 +216,22 @@ describe('the goods amount', () => {
     Object.assign(goodsIcons, { max: 7, countFrom: 7 });
   });
 
+  it('writes the store first, as the colony report does, with the most that could be made only for a gain', () => {
+    const label = (amount: number, stock: number, expert: number) => {
+      const { container } = render(
+        <GoodsAmount keys={['k']} name="Food" amount={amount} stock={stock} expert={expert} art={art} icons />,
+      );
+      return (container.lastElementChild as HTMLElement).querySelector('.amount')?.textContent ?? null;
+    };
+    expect([label(4, 95, 7), label(-40, 160, 0), label(0, 21, 0), label(8, 176, 8), label(2, 0, 2)]).toEqual([
+      '95+4/7',
+      '160-40',
+      '21+0',
+      '176+8',
+      null,
+    ]);
+  });
+
   it('puts the number of a pile over its icons, unsigned for a gain as FreeCol does', () => {
     const pile = (amount: number) => {
       const { container } = render(

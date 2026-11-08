@@ -131,8 +131,8 @@ describe('the colony report', () => {
     show(box, report);
     expect(screen.getByRole('dialog', { name: 'Title colony' })).toBeTruthy();
     expect(screen.getByAltText('Free Colonist').getAttribute('src')).toBe('art/colonist.png');
-    expect(screen.getByText('+3')).toBeTruthy();
-    expect(screen.getByText('40')).toBeTruthy();
+    // ProductionLabel's form: the store, the net production and what could be made, over the goods' icons.
+    expect(screen.getByText('40+3/5')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Jamestown' }));
     expect(calls).toEqual(['colony colony:7']);
     // The link closed the report.

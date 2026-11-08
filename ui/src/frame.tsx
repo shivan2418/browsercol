@@ -233,6 +233,7 @@ export function GoodsAmount({
   expert = null,
   art,
   icons = false,
+  stock = null,
   tip = name,
 }: {
   /** The goods icon's resource keys, best first (image.icon.model.goods.<id>, say). */
@@ -250,6 +251,11 @@ export function GoodsAmount({
    * `expert` says more is possible.
    */
   icons?: boolean;
+  /**
+   * With icons, what is in store, written first as the colony report's ProductionLabel does: "95+4/7", or
+   * "160-40" for a loss; the number then shows whenever there is some in store.
+   */
+  stock?: number | null;
   /** What the hint says, the goods type's name by default. */
   tip?: string | null;
 }) {
@@ -263,7 +269,14 @@ export function GoodsAmount({
     const step = 24 / (Math.abs(amount) <= max ? Math.max(1, Math.abs(amount)) : 16);
     // ProductionLabel writes the number over the middle of the pile, with no sign for a gain.
     const count = amount < 0 ? text : String(amount);
-    const number = amount < 0 || amount >= goodsIcons.countFrom || amount > max || (expert !== null && expert > amount);
+    const more = expert !== null && expert > amount && (stock === null || amount > 0);
+    const number = amount < 0 || amount >= goodsIcons.countFrom || amount > max || more || (stock ?? 0) > 0;
+    const label =
+      stock === null
+        ? more
+          ? `${count}/${expert}`
+          : count
+        : `${stock}${amount < 0 ? '-' : '+'}${Math.abs(amount)}${more ? `/${expert}` : ''}`;
     return (
       <Tip as="span" className="goods" data-sign={sign} tip={tip}>
         <span className="pile" style={{ width: step * (n - 1) + 24 }}>
@@ -278,9 +291,7 @@ export function GoodsAmount({
               <img key={i} src={src} alt={i === 0 ? name : ''} style={{ left: step * i }} />
             ),
           )}
-          {number && (
-            <span className="amount">{expert !== null && expert > amount ? `${count}/${expert}` : count}</span>
-          )}
+          {number && <span className="amount">{label}</span>}
         </span>
       </Tip>
     );
