@@ -433,7 +433,9 @@ describe('the religion report', () => {
     // FreeColProgressBar: the crosses so far, next turn's after them, and the turns to the next migrant.
     expect(section.querySelector('.need')?.textContent).toBe('12+3/40 (Turns: 10)');
     // Each colony's chapel with what it makes, as BuildingPanel writes it: 8, and 9 were it fully worked.
-    expect(section.querySelector('[data-colony="colony:7"] [data-field="production"] .amount')?.textContent).toBe('8/9');
+    expect(section.querySelector('[data-colony="colony:7"] [data-field="production"] .amount')?.textContent).toBe(
+      '8/9',
+    );
     const [now, next] = section.querySelectorAll<HTMLElement>('.need i');
     expect(now.style.width).toBe('30%');
     expect(next.style).toMatchObject({ left: '30%', width: '7.5%' });
