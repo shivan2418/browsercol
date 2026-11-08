@@ -21,17 +21,28 @@ const secs = Number(opt('secs', '4'));
 const query = opt('query', 'preset=pan-large');
 const tag = opt('tag', '');
 const gpu = process.argv.includes('--gpu');
+// #407's netbook settings: --size 1366x768, --throttle 4 (CDP Emulation.setCPUThrottlingRate, set once the game has
+// started), --webgl1 (Chromium without WebGL 2), --zoom (a phase of zoom steps, and a pan zoomed out).
+const [vw, vh] = opt('size', '1600x900').split('x').map(Number);
+const throttle = Number(opt('throttle', '1'));
+const webgl1 = process.argv.includes('--webgl1');
+const zoomPhases = process.argv.includes('--zoom');
 const out = path.resolve(import.meta.dirname, '../../.cache/perf');
 fs.mkdirSync(out, { recursive: true });
 const traceFile = path.join(out, `pan-trace${tag ? `-${tag}` : ''}.json`);
 
 const server = await serveDist();
 const browser = await playwright.chromium.launch({
-  args: gpu
-    ? ['--use-gl=angle', '--use-angle=gl-egl', '--ignore-gpu-blocklist', '--enable-gpu', '--enable-gpu-rasterization']
-    : [],
+  args: [
+    ...(gpu
+      ? ['--use-gl=angle', '--use-angle=gl-egl', '--ignore-gpu-blocklist', '--enable-gpu', '--enable-gpu-rasterization']
+      : []),
+    ...(webgl1 ? ['--disable-webgl2'] : []),
+    // --nowebgl: no WebGL at all, which PixiJS meets with its own Canvas renderer.
+    ...(process.argv.includes('--nowebgl') ? ['--disable-webgl'] : []),
+  ],
 });
-const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
+const page = await browser.newPage({ viewport: { width: vw, height: vh }, deviceScaleFactor: 1 });
 await answerDialogs(page);
 page.on('pageerror', (e) => console.log(`page error: ${e}`));
 
@@ -58,7 +69,15 @@ await page.addInitScript(() => {
   } catch {}
 });
 
-await page.goto(`${server.url}?skipstart&${query}`);
+// --quality N: FreeCol's graphics quality (10, low: no antialiasing); --still: no water and river animation.
+const quality = opt('quality');
+const still = process.argv.includes('--still');
+if (quality || still)
+  await page.addInitScript((o) => localStorage.setItem('freecol.prefs', JSON.stringify({ freecol: o })), {
+    ...(quality ? { 'model.option.graphicsQuality': Number(quality) } : {}),
+    ...(still ? { 'model.option.useTerrainAnimations': false } : {}),
+  });
+await page.goto(`${server.url}?skipstart&mapstats&${query}`);
 const ready = await waitForResult(page, 240000);
 if (ready.status === 'failed') {
   console.log(`the game did not start: ${ready.error}`);
@@ -129,19 +148,59 @@ await browser.startTracing(page, {
     'gpu',
   ],
 });
+if (throttle > 1) await cdp.send('Emulation.setCPUThrottlingRate', { rate: throttle });
 const phases: { name: string; hz: number; start: number; end: number; sent: number }[] = [];
+/** The map's own counts per phase (map-render.ts, ?mapstats): draw calls, render and GPU time, chunk builds. */
+const mapStats = new Map<string, Record<string, number>>();
+const statsReset = () => page.evaluate(() => (window as any).__mapStats?.reset());
+const statsTake = () => page.evaluate(() => (window as any).__mapStats?.snapshot() ?? {});
+const overdraw = async (label: string) => {
+  const o = await page.evaluate(() => (window as any).__mapStats?.overdraw());
+  if (o)
+    console.log(
+      `fill ${label}: ${o.overdraw.toFixed(2)}x the screen's pixels; ${o.objects} objects, ${o.quads} tilemap quads`,
+    );
+};
+const wheel = async (steps: number) => {
+  for (let i = 0; i < Math.abs(steps); i++) {
+    await cdp.send('Input.dispatchMouseEvent', {
+      type: 'mouseWheel',
+      x: cx,
+      y: cy,
+      deltaX: 0,
+      deltaY: steps > 0 ? -100 : 100,
+    });
+    await page.waitForTimeout(150);
+  }
+};
 const mark = (n: string) => page.evaluate((n) => (performance.mark(n), performance.now()), n);
-{
-  const start = await mark('pan-start:idle');
-  await page.waitForTimeout(2000);
-  phases.push({ name: 'idle', hz: 0, start, end: await mark('pan-end:idle'), sent: 0 });
-}
-for (const hz of rates) {
-  const name = `pan ${hz} Hz`;
+const phase = async (name: string, hz: number, run: () => Promise<number>) => {
+  await statsReset();
   const start = await mark(`pan-start:${name}`);
-  const sent = await drag(hz);
+  const sent = await run();
   phases.push({ name, hz, start, end: await mark(`pan-end:${name}`), sent });
+  mapStats.set(name, await statsTake());
+};
+await overdraw('at zoom 1');
+await phase('idle', 0, async () => (await page.waitForTimeout(2000), 0));
+for (const hz of rates) {
+  await phase(`pan ${hz} Hz`, hz, () => drag(hz));
   await page.waitForTimeout(500);
+}
+if (zoomPhases) {
+  // Zoom out twice, in four times and out twice, back to zoom 1, a step every 0.8 s.
+  await phase('zoom steps', 0, async () => {
+    for (const s of [-1, -1, 1, 1, 1, 1, -1, -1]) {
+      await wheel(s);
+      await page.waitForTimeout(800);
+    }
+    return 0;
+  });
+  await wheel(-2);
+  await page.waitForTimeout(1500);
+  await overdraw('at zoom 0.5');
+  await phase('pan 60 Hz @0.5', 60, () => drag(60));
+  await wheel(2);
 }
 await browser.stopTracing();
 const rec = (await page.evaluate(() => (window as any).__pan)) as {
@@ -157,6 +216,7 @@ const pct = (xs: number[], p: number) =>
 const within = <T extends [number, ...unknown[]]>(xs: T[], p: { start: number; end: number }) =>
   xs.filter(([t]) => t >= p.start && t <= p.end);
 
+const summary: Record<string, Record<string, number | null>> = {};
 console.log('\nphase           sent/s  ptrmove/s  coalesced  fps   p50_ms  p95_ms  max_ms  >16.7ms  >33ms  long_tasks');
 for (const p of phases) {
   const s = (p.end - p.start) / 1000;
@@ -172,6 +232,42 @@ for (const p of phases) {
       ` ${String(f.filter((d) => d > 17.5).length).padStart(8)} ${String(f.filter((d) => d > 34).length).padStart(6)}` +
       ` ${String(within(rec.long, p).length).padStart(11)}`,
   );
+  summary[p.name] = {
+    fps: f.length / s,
+    p50: pct(f, 0.5),
+    p95: pct(f, 0.95),
+    max: Math.max(0, ...f),
+    over16: f.filter((d) => d > 17.5).length,
+    over33: f.filter((d) => d > 34).length,
+    frames: f.length,
+  };
+}
+const MB = (b: number) => ((b ?? 0) / 2 ** 20).toFixed(1);
+console.log(
+  '\nphase            webgl draws/f  render_cpu_ms(avg/p95)  gpu_ms(avg/p95/n)  builds  build_ms(avg/max)  rebleed_ms(n)  tex_MB  atlas_MB  cache_MB',
+);
+for (const [name, m] of mapStats) {
+  console.log(
+    `${name.padEnd(16)} ${String(m.webgl).padStart(5)} ${(m.drawsAvg ?? 0).toFixed(0).padStart(7)}` +
+      ` ${(m.renderCpuAvg ?? 0).toFixed(2).padStart(10)}/${(m.renderCpuP95 ?? 0).toFixed(2).padEnd(12)}` +
+      ` ${m.gpuTimer ? `${m.gpuAvg.toFixed(2)}/${m.gpuP95.toFixed(2)}/${m.gpuSamples}` : 'n/a'}`.padEnd(19) +
+      ` ${String(m.builds ?? 0).padStart(6)} ${(m.builds ? m.buildMs / m.builds : 0).toFixed(2).padStart(8)}/${(m.buildMax ?? 0).toFixed(2).padEnd(8)}` +
+      ` ${(m.rebleeds ? m.rebleedMs / m.rebleeds : 0).toFixed(1).padStart(8)}(${m.rebleeds ?? 0})` +
+      ` ${MB(m.textureBytes).padStart(7)} ${MB(m.atlasBytes).padStart(9)} ${MB(m.cacheBytes).padStart(9)}`,
+  );
+  Object.assign((summary[name] ??= {}), {
+    draws: m.drawsAvg,
+    renderCpu: m.renderCpuAvg,
+    gpu: m.gpuTimer ? m.gpuAvg : null,
+    gpuP95: m.gpuTimer ? m.gpuP95 : null,
+    builds: m.builds,
+    buildAvg: m.builds ? m.buildMs / m.builds : 0,
+    buildMax: m.buildMax,
+    rebleedAvg: m.rebleeds ? m.rebleedMs / m.rebleeds : 0,
+    texMB: Number(MB(m.textureBytes)),
+    atlasMB: Number(MB(m.atlasBytes)),
+    cacheMB: Number(MB(m.cacheBytes)),
+  });
 }
 
 // --- The trace: the renderer's main thread, its CPU profile, and its trace events, per phase.
@@ -247,6 +343,7 @@ const category = (s: string[]): string | null => {
   if (leaf === '(garbage collector)') return 'GC';
   if (leaf === '(program)') return 'native (program)';
   if (has(s, 'cull', '_cullRecursive')) return 'PixiJS cull';
+  if (has(s, 'refresh', 'setBleed')) return 'map chunks: build, rebleed';
   if (has(s, 'tick', 'animateBase')) return 'map tick loop';
   if (has(s, 'showPanel', 'renderSide')) return 'pan dispatch: showPanel/renderSide (sync part)';
   if (has(s, 'renderMinimap')) return 'pan dispatch: renderMinimap (sync part)';
@@ -305,6 +402,7 @@ for (const p of phases) {
   console.log(
     `\n${p.name}: ${frames} frames in ${ms.toFixed(0)} ms; main thread busy ${busy.toFixed(0)} ms (${((100 * busy) / ms).toFixed(0)}%), ${(busy / frames).toFixed(2)} ms/frame by the CPU profile (${interval.toFixed(2)} ms samples); in tasks ${(taskUs / 1000).toFixed(0)} ms, ${(taskUs / 1000 / frames).toFixed(2)} ms/frame`,
   );
+  Object.assign((summary[p.name] ??= {}), { mainMs: taskUs / 1000 / frames, busyMs: busy / frames });
   for (const [c, t] of [...byCat].sort((a, b) => b[1] - a[1]))
     console.log(`  ${c.padEnd(50)} ${t.toFixed(0).padStart(6)} ms ${(t / frames).toFixed(2).padStart(7)} ms/frame`);
   console.log(
@@ -333,3 +431,4 @@ for (const p of phases) {
   for (const [f, t] of [...self].sort((a, b) => b[1] - a[1]).slice(0, Number(opt('top', '20'))))
     console.log(`  ${f.slice(0, 60).padEnd(60)} ${t.toFixed(0).padStart(6)} ms`);
 }
+console.log(`\nSUMMARY ${JSON.stringify({ tag, query, size: `${vw}x${vh}`, throttle, gpu, webgl1, phases: summary })}`);

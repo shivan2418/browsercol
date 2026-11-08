@@ -173,6 +173,9 @@ importers:
       '@base-ui/react':
         specifier: 1.9.0
         version: 1.9.0(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      '@pixi/tilemap':
+        specifier: 5.0.2
+        version: 5.0.2(pixi.js@8.22.0)
       pixi.js:
         specifier: 8.22.0
         version: 8.22.0
@@ -1121,6 +1124,11 @@ packages:
 
   '@pixi/colord@2.9.6':
     resolution: {integrity: sha512-nezytU2pw587fQstUu1AsJZDVEynjskwOL+kibwcdxsMBFqPsFFNA7xl0ii/gXuDi6M0xj3mfRJj8pBSc2jCfA==}
+
+  '@pixi/tilemap@5.0.2':
+    resolution: {integrity: sha512-J+K1eU7uB58WPVD33d7usXrhKA03IGq3IfPvXBFr1027Bb9ScxrGhH0NomR9VpVVUPiHkK7FcTGuOtJMVGAv6A==}
+    peerDependencies:
+      pixi.js: '>=8.5.0'
 
   '@polka/url@1.0.0-next.29':
     resolution: {integrity: sha512-wwQAWhWSuHaag8c4q/KN/vCoeOJYshAIvMQwD4GpSb3OiZklFfvAgmj0VCBBImRpuF/aFgIRzllXlVX93Jevww==}
@@ -3130,6 +3138,10 @@ snapshots:
   '@oxlint/plugins@1.89.0': {}
 
   '@pixi/colord@2.9.6': {}
+
+  '@pixi/tilemap@5.0.2(pixi.js@8.22.0)':
+    dependencies:
+      pixi.js: 8.22.0
 
   '@polka/url@1.0.0-next.29': {}
 

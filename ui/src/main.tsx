@@ -19,6 +19,8 @@
 //                preset sets the nation, difficulty, options and map seed (debug)
 //   ?tileset=ID  a Tileset built beside the default, art/<ID>.json (e.g. test)
 //   ?renderer=canvas2d  draw with the Canvas 2D fallback, not PixiJS (debug)
+//   ?maprender=NAME  the map renderer prototype of #407: sprites (default), margin, chunks or tilemap (map-render.ts)
+//   ?mapstats    count the map's draw calls, GPU time and chunk builds into window.__mapStats (scripts/pan.ts)
 //   ?theme=dark  the dark palette of theme.css, whatever the player picked in Preferences
 //   ?fps         a frame-rate meter over the map (debug; also Debug > Show Frame Rate)
 import clientUrl from '../generated/client.wasm?url';
