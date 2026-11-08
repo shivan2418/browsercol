@@ -16,4 +16,4 @@ A save's format already has its own version. Each FreeCol save records `SAVEGAME
 - After a change to what a save holds (a patched model class, a new FreeCol pin), add a fixture from the build before the change, with `-PwriteSave=<date>-<commit>`.
 - A change that must break old saves bumps `SAVEGAME_VERSION` with an upgrade step, as FreeCol does, or, failing that, shows the player a clear "made by an older version" message rather than a load error.
 - A change to the IndexedDB stores raises the database version in `idbSaveStore` and moves the old stores' saves over in `onupgradeneeded`.
-- A push to `main` deploys nothing; only a `build-*` tag or a manual run of the Pages workflow does.
+- A push to `main` deploys only the landing page, around the latest build's game; only a `build-*` tag changes the game (#374).
