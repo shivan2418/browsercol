@@ -1,0 +1,12 @@
+{
+  "rules": "classic",
+  "difficulty": "model.difficulty.medium",
+  "nation": "model.nation.english",
+  "seed": 1492,
+  "options": {
+    "model.option.mapWidth": 200,
+    "model.option.mapHeight": 120,
+    "model.option.fogOfWar": false
+  },
+  "setup": [{ "action": "revealMap" }]
+}
