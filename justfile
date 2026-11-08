@@ -30,8 +30,7 @@ preview:
     DEV_PORT={{port}} ./dev.sh -C ui pnpm exec vp preview --host 0.0.0.0 --port {{port}} --strictPort
 
 # Storybook at http://localhost:6006, with the game's own art (builds first if ui/generated/ has none)
-storybook:
-    [ -d ui/generated/public/art ] || just build
+storybook: art
     DEV_PORT=6006 ./dev.sh -C ui pnpm exec storybook dev -p 6006 --host 0.0.0.0 --no-open
 
 # Deploy origin/main (or a given commit) to GitHub Pages as the next build-N
@@ -46,8 +45,12 @@ test-engine *args:
 test-ui *args:
     ./dev.sh -C ui pnpm exec vp test {{args}}
 
-# Format, lint and type check
-check:
+# The default Tileset's art manifest, ui/generated/public/art/art.json, which src/story-art.ts imports (about 20 s; skipped when it exists, `just build` makes it too)
+art:
+    [ -f ui/generated/public/art/art.json ] || ./dev.sh node ui/scripts/build-art.ts freecol/data ui/generated/public/art
+
+# Format, lint and type check (makes the art manifest first if a fresh checkout has none)
+check: art
     ./dev.sh -C ui pnpm exec vp check
 
 # The fast checks a ticket PR needs: Engine tests, vp check, vp test
