@@ -100,6 +100,8 @@ class CommandsTest {
     private volatile String typed = null;
     private static final String CANCEL = "\0cancel";
 
+    /** The stepColony events: a colony panel handing its window to another colony. */
+    private final List<String> steppedColonies = new java.util.concurrent.CopyOnWriteArrayList<>();
     /** The ids of the colonies whose panels the WebGUI closed. */
     private final List<String> closedColonies = new java.util.concurrent.CopyOnWriteArrayList<>();
 
@@ -259,6 +261,7 @@ class CommandsTest {
                     if (kind.equals("messages")) messageEvents.add(json);
                     if (kind.equals("highScores")) highScores.add(json);
                     if (kind.equals("closeColony")) closedColonies.add(json);
+                    if (kind.equals("stepColony")) steppedColonies.add(json);
                 }
                 public void ask(int id, String kind, String json) {
                     ui.execute(() -> {
@@ -1096,6 +1099,34 @@ class CommandsTest {
         awaitTrue(() -> asked.size() == 2, "asked again");
         assertEquals(55, serverColony.getExportData(cloth).getExportLevel());
         assertFalse(commands.warehouse("nonsense"));
+    }
+
+    @Test
+    @Timeout(180)
+    void steppingColoniesSwapsTheContentOfOneWindowAndNeverClosesIt() throws Exception {
+        startGame();
+        final Commands commands = client.getCommands();
+        final Colony serverColony = foundAColony(commands);
+        final Colony ours = client.getGame()
+            .getFreeColGameObject(serverColony.getId(), Colony.class);
+        final String id = ours.getId();
+
+        // With no other colony there is nowhere to step to: nothing is sent and the panel stays.
+        closedColonies.clear();
+        assertFalse(commands.stepColony(id, 1));
+        assertFalse(commands.stepColony(id, -1));
+        assertTrue(steppedColonies.isEmpty());
+        assertTrue(closedColonies.isEmpty());
+
+        // The window hands over in one event that holds the next colony, not a close and then an open.
+        final WebGUI gui = (WebGUI)client.getClient().getGUI();
+        colonies.clear();
+        gui.stepColonyPanel("other", ours);
+        assertEquals(1, steppedColonies.size());
+        assertTrue(steppedColonies.get(0).startsWith("{\"from\":\"other\",\"colony\":{\"id\":\"" + id + "\""),
+            steppedColonies.get(0));
+        assertTrue(closedColonies.isEmpty(), "the window is not closed");
+        assertTrue(colonies.isEmpty(), "no second window is opened");
     }
 
     @Test

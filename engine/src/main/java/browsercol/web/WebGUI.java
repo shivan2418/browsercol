@@ -222,6 +222,10 @@ import net.sf.freecol.common.option.OptionGroup;
  * <tr><td>closeColonyPanel (Commands.closeColonyPanel)</td>
  *     <td>event closeColony</td>
  *     <td>{id}: the colony whose panel the player may now close</td></tr>
+ * <tr><td>stepColony (Commands.stepColony)</td>
+ *     <td>event stepColony</td>
+ *     <td>{from, colony}: the panel of colony {@code from} shows the
+ *         colony, as {@link ColonyJson} describes it, in its window</td></tr>
  * <tr><td>showTradeRoutePanel, and each change of a route</td>
  *     <td>event tradeRoutes</td>
  *     <td>{title, routes: [{id, name, silent, units, stops: [{place, label,
@@ -2171,6 +2175,20 @@ public class WebGUI extends GUI {
             .getFreeColGameObject(colonyId, Colony.class);
         if (colony != null) this.colonyWatch.unwatch(colony);
         this.ui.show("closeColony", new Json().put("id", colonyId).toString());
+    }
+
+    /**
+     * The colony panel of one colony gives its window to another's
+     * (Commands.stepColony): the window stays where it is, and shows the
+     * other colony in place.
+     */
+    void stepColonyPanel(String fromId, Colony next) {
+        final Colony from = getFreeColClient().getGame()
+            .getFreeColGameObject(fromId, Colony.class);
+        if (from != null) this.colonyWatch.unwatch(from);
+        this.colonyWatch.watch(next);
+        this.ui.show("stepColony", new Json().put("from", fromId)
+            .putRaw("colony", colonyJson(next)).toString());
     }
 
     /** The colony as the colony panel shows it (ColonyJson). */

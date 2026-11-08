@@ -283,9 +283,8 @@ describe('moving colonists in the colony panel', () => {
   };
   /** A colony of its own each time: the colonist picked stays picked per colony. */
   let n = 100;
-  function openMovable() {
+  function openMovable(box = dialogs()) {
     calls.length = 0;
-    const box = dialogs();
     render(
       <ColonyActions.Provider value={moves}>
         <DialogHost
@@ -312,6 +311,32 @@ describe('moving colonists in the colony panel', () => {
     fireEvent.keyDown(document.body, { key: 'ArrowRight' });
     fireEvent.keyDown(document.body, { key: 'w' });
     expect(calls).toEqual([`step colony:${n} -1`, `step colony:${n} 1`, `warehouse colony:${n}`]);
+  });
+
+  it('shows the next colony in the same window, which neither closes nor opens again, and keeps where it was dragged', () => {
+    const box = dialogs();
+    openMovable(box);
+    const first = box.shown('colony')[0];
+    const win = () => document.querySelector<HTMLElement>('.dialog[data-kind="colony"]')!;
+    const before = win();
+    // The player dragged the window by its title bar.
+    const bar = before.querySelector<HTMLElement>('.title')!;
+    fireEvent.pointerDown(bar, { button: 0, clientX: 10, clientY: 10, pointerId: 1 });
+    fireEvent.pointerMove(bar, { clientX: 60, clientY: 40, pointerId: 1 });
+    fireEvent.pointerUp(bar, { clientX: 60, clientY: 40, pointerId: 1 });
+    expect(before.style.transform).toBe('translate(50px, 30px)');
+    act(() =>
+      box.replace('colony', { ...jamestown, id: 'colony:next', name: 'Next Town' }, (c) => c.id === first.id, true),
+    );
+    expect(document.querySelectorAll('.dialog[data-kind="colony"]')).toHaveLength(1);
+    expect(win()).toBe(before);
+    expect(win().style.transform).toBe('translate(50px, 30px)');
+    expect(win().getAttribute('data-motion')).toBeNull();
+    expect(win().querySelector('h2')!.textContent).toBe('Next Town');
+    expect(box.shown('colony').map((c) => c.id)).toEqual(['colony:next']);
+    // Its keys now step from the new colony.
+    fireEvent.keyDown(document.body, { key: 'ArrowRight' });
+    expect(calls).toEqual(['step colony:next 1']);
   });
 
   it('opens the menu of the colony’s units with C, as ColonyPanel’s Colony Units button does', () => {
