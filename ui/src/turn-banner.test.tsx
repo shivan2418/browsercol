@@ -146,7 +146,9 @@ describe('TurnBanner', () => {
     expect(container.textContent).toBe('');
   });
   it('shows the moving player with a swatch of their colour', () => {
-    const { container } = render(<TurnBanner notice={{ kind: 'ai', text: 'The French are moving...', rgb: 0x2040c0 }} />);
+    const { container } = render(
+      <TurnBanner notice={{ kind: 'ai', text: 'The French are moving...', rgb: 0x2040c0 }} />,
+    );
     expect(container.textContent).toBe('The French are moving...');
     expect(container.querySelector<HTMLElement>('.turn-banner-swatch')?.style.background).toBe('rgb(32, 64, 192)');
   });
