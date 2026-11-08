@@ -157,6 +157,9 @@ public final class ClientMain {
                             public void holdCommands() {
                                 commands.hold();
                             }
+                            public void holdNextCommands() {
+                                commands.holdNext();
+                            }
                             public void releaseCommands() {
                                 commands.release();
                             }
@@ -284,7 +287,8 @@ public final class ClientMain {
      * a state the command has left behind.
      */
     private static void command(String name, Runnable run) {
-        commands.add(() -> {
+        // A command is a job: a dialog it opens is modal until it is done (#401).
+        commands.add(() -> engine.job(() -> {
                 try {
                     run.run();
                     engine.getCommands().afterCommand();
@@ -296,7 +300,7 @@ public final class ClientMain {
                     ex.printStackTrace();
                     event("commandFailed", name + ": " + Failures.describe(ex));
                 }
-        });
+        }));
     }
 
     /**

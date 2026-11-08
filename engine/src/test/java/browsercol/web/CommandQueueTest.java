@@ -145,6 +145,48 @@ class CommandQueueTest {
         assertEquals(List.of("first", "first done", "held", "second", "third"), log);
     }
 
+    /**
+     * A dialog that opens on another thread holds the commands that have not
+     * started, and lets the running one go on (#401). Holds count: the
+     * commands run again once each is released.
+     */
+    @Test
+    @Timeout(30)
+    void holdNextLetsTheRunningCommandFinishAndHoldsTheRest() throws Exception {
+        final List<String> log = new java.util.concurrent.CopyOnWriteArrayList<>();
+        final CountDownLatch running = new CountDownLatch(1);
+        final CountDownLatch finish = new CountDownLatch(1);
+        final CountDownLatch done = new CountDownLatch(1);
+        final CommandQueue queue = new CommandQueue(() -> {});
+        queue.add(() -> {
+            log.add("first");
+            running.countDown();
+            try {
+                finish.await(TIMEOUT, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            log.add("first done");
+        });
+        assertTrue(running.await(TIMEOUT, TimeUnit.SECONDS), "the first command did not run");
+        queue.holdNext();
+        queue.holdNext();
+        log.add("held");
+        queue.add(() -> {
+            log.add("second");
+            done.countDown();
+        });
+        finish.countDown();
+        sleep(300);
+        assertEquals(List.of("first", "held", "first done"), log, "the running command finishes, no more start");
+        queue.release();
+        sleep(300);
+        assertEquals(List.of("first", "held", "first done"), log, "one hold is left");
+        queue.release();
+        assertTrue(done.await(TIMEOUT, TimeUnit.SECONDS), "the held command did not run");
+        assertEquals(List.of("first", "held", "first done", "second"), log);
+    }
+
     /** Sleep, so that a command can run while another comes. */
     private static void sleep(long millis) {
         try {

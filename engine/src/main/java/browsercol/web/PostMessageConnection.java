@@ -274,6 +274,28 @@ public class PostMessageConnection extends Connection {
         this.replyWatcher = replyWatcher;
     }
 
+    /** Runs the handling of each message from the other end, as {@link #setAround} has it. */
+    public interface Around {
+        /**
+         * Run the handling, on this thread.
+         *
+         * @param handling Handles the message and sends the reply.
+         */
+        void run(Runnable handling);
+    }
+
+    /** Runs the handling of each message; null to run it as it is. */
+    private volatile Around around = null;
+
+    /**
+     * Have the handling of each message from the other end run through
+     * something, on its thread: e.g. as one job of the client's
+     * {@link ModalGate}, so a dialog it opens is modal until it is done.
+     */
+    public void setAround(Around around) {
+        this.around = around;
+    }
+
     /** Run after each message from the other end has been handled; null for nothing. */
     private volatile Runnable afterHandle = null;
 
@@ -295,25 +317,17 @@ public class PostMessageConnection extends Connection {
         if (message == null) return;
         this.handling.incrementAndGet();
         new Thread(() -> {
-                boolean replied = replyId < 0;
+                final Runnable handling = () -> handleAndReply(message, replyId);
+                final Around through = this.around;
                 try {
-                    Message reply = handle(message);
-                    replied = true;
-                    sendMessage((replyId < 0) ? reply
-                        : new ReplyMessage(replyId, reply));
-                } catch (Throwable ex) {
-                    logger.log(Level.WARNING, getName() + ": handling "
-                        + message.getType() + " failed: " + ex, ex);
-                    Failures.report(getName() + ": handling "
-                        + message.getType() + " failed", ex);
-                }
-                // The asker waits for a reply, however long: give an empty one.
-                if (!replied) {
-                    try {
-                        sendMessage(new ReplyMessage(replyId, null));
-                    } catch (Throwable ex) {
-                        logger.log(Level.WARNING, getName() + ": empty reply failed: " + ex, ex);
+                    if (through == null) {
+                        handling.run();
+                    } else {
+                        through.run(handling);
                     }
+                } catch (Throwable ex) {
+                    logger.log(Level.WARNING, getName() + ": after handling "
+                        + message.getType() + ": " + ex, ex);
                 }
                 try {
                     final Runnable after = this.afterHandle;
@@ -322,6 +336,33 @@ public class PostMessageConnection extends Connection {
                     this.handling.decrementAndGet();
                 }
         }, getName() + "-handle-" + message.getType()).start();
+    }
+
+    /**
+     * Handle a message and send what the handler returns, wrapped as the
+     * reply to a question when replyId is not negative.
+     */
+    private void handleAndReply(Message message, int replyId) {
+        boolean replied = replyId < 0;
+        try {
+            Message reply = handle(message);
+            replied = true;
+            sendMessage((replyId < 0) ? reply
+                : new ReplyMessage(replyId, reply));
+        } catch (Throwable ex) {
+            logger.log(Level.WARNING, getName() + ": handling "
+                + message.getType() + " failed: " + ex, ex);
+            Failures.report(getName() + ": handling "
+                + message.getType() + " failed", ex);
+        }
+        // The asker waits for a reply, however long: give an empty one.
+        if (!replied) {
+            try {
+                sendMessage(new ReplyMessage(replyId, null));
+            } catch (Throwable ex) {
+                logger.log(Level.WARNING, getName() + ": empty reply failed: " + ex, ex);
+            }
+        }
     }
 
 

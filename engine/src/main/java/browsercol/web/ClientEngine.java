@@ -75,7 +75,9 @@ public final class ClientEngine {
                 link.post(xml);
             });
             c.setAfterHandle(listener::updated);
-            c.setReplyWatcher((asked, reply) -> NativeTradeGate.replied(getClient(), asked, reply));
+            c.setReplyWatcher((asked, reply) -> ModalGate.replied(getClient(), asked, reply));
+            // Handling a message is a job: a dialog it opens is modal until it is done (#401).
+            c.setAround(this::job);
             this.connection = c;
             link.connect();
             return c;
@@ -210,6 +212,23 @@ public final class ClientEngine {
      */
     public void answer(int id, String answer) {
         this.gui.answer(id, answer);
+    }
+
+    /**
+     * Run work as one job of the {@link ModalGate}: a player's command, or
+     * the handling of a server message. A dialog it opens is modal until it
+     * is done, so its questions come one after another, and what other
+     * threads do meanwhile waits for it (#401).
+     *
+     * @param work The work.
+     */
+    public void job(Runnable work) {
+        final WebGUI g = this.gui;
+        if (g == null) {
+            work.run();
+        } else {
+            g.modalGate().job(work);
+        }
     }
 
     /** What the human player can do on their turn. */

@@ -882,18 +882,24 @@ class WebGUITest {
         while (held.size() == before) Thread.sleep(10);
         assertFalse(got.isDone());
 
+        // Another dialog waits for this one: one question at a time (#401).
         // A second end turn while one waits is not asked again.
         final Unit unit = gui.getActiveUnit();
         final int askedBefore = asked.size();
         gui.showEndTurnDialog(List.of(unit));
-        while (asked.size() == askedBefore) Thread.sleep(10);
         gui.showEndTurnDialog(List.of(unit));
         Thread.sleep(200);
-        assertEquals(askedBefore + 1, asked.size());
+        assertEquals(askedBefore, asked.size(), "the end turn dialog waits for the open one");
+
+        final int monarch = held.remove(held.size() - 1);
+        client.answer(monarch, "true");
+        assertEquals(Boolean.TRUE, await(got));
+        while (asked.size() == askedBefore) Thread.sleep(10);
+        Thread.sleep(200);
+        assertEquals(askedBefore + 1, asked.size(), "the end turn dialog is asked once");
 
         hold = false;
         for (int id : new ArrayList<>(held)) client.answer(id, "true");
-        assertEquals(Boolean.TRUE, await(got));
     }
 
     /**

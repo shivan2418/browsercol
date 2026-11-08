@@ -78,7 +78,7 @@ final class MessageReaders {
         r.put(NationSummaryMessage.TAG, NationSummaryMessage::new);
         r.put(NativeGiftMessage.TAG, NativeGiftMessage::new);
         // The client hears of the natives' answers, to keep a trade modal (#393).
-        r.put(NativeTradeMessage.TAG, NativeTradeGate.Answer::new);
+        r.put(NativeTradeMessage.TAG, ModalGate.Answer::new);
         r.put(NewLandNameMessage.TAG, NewLandNameMessage::new);
         r.put(NewRegionNameMessage.TAG, NewRegionNameMessage::new);
         r.put(NewTradeRouteMessage.TAG, NewTradeRouteMessage::new);

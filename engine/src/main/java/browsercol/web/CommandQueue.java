@@ -24,8 +24,8 @@ public final class CommandQueue {
     /** A command is running now. */
     private boolean executing;
 
-    /** Commands wait to run until released (a native trade is open, #393). */
-    private boolean held;
+    /** Commands wait to run while held: a dialog is open (#393, #401). Counts the holds not yet released. */
+    private int holds;
 
     /** The thread running the commands, while one does. */
     private Thread drainer;
@@ -73,17 +73,29 @@ public final class CommandQueue {
      * Called from the commands' own thread, it waits for nothing.
      */
     public synchronized void hold() {
+        holds++;
         while (executing && Thread.currentThread() != drainer) {
             try {
                 wait();
             } catch (InterruptedException ie) {}
         }
-        held = true;
     }
 
-    /** Run the commands again, those that came while they were held first. */
+    /**
+     * Start no more commands until {@link #release}, but let the one that is
+     * running go on: a dialog opened while it runs may be one it waits for.
+     */
+    public synchronized void holdNext() {
+        holds++;
+    }
+
+    /**
+     * Undo a {@link #hold} or {@link #holdNext}. Once every hold is
+     * released, the commands run again, those that came while they were
+     * held first.
+     */
     public synchronized void release() {
-        held = false;
+        if (holds > 0) holds--;
         notifyAll();
     }
 
@@ -98,7 +110,7 @@ public final class CommandQueue {
             final Runnable run;
             synchronized (this) {
                 // Held, a waiting command waits for the release; with none, the queue goes idle.
-                while (held && !waiting.isEmpty()) {
+                while (holds > 0 && !waiting.isEmpty()) {
                     try {
                         wait();
                     } catch (InterruptedException ie) {}

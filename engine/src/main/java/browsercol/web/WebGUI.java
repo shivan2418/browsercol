@@ -69,9 +69,9 @@ import net.sf.freecol.common.option.OptionGroup;
  * <caption>The GUI methods overridden, and what they send</caption>
  * <tr><th>GUI method</th><th>Sends</th><th>Payload; answer</th></tr>
  * <tr><td>invokeNowOrLater, invokeNowOrWait</td><td>nothing</td>
- *     <td>runs the task at once, but while a native trade is open, on a
- *         thread that runs no round of it, after the trade
- *         ({@link NativeTradeGate})</td></tr>
+ *     <td>runs the task at once, but while a dialog is open, on a thread
+ *         that has no part in it, after the dialog; neither waits
+ *         ({@link ModalGate})</td></tr>
  * <tr><td>playSound</td><td>event sound</td>
  *     <td>{key}: the sound's resource key, null to stop the sound effect;
  *         the Browser UI plays it as GUI.playSound would, on the music
@@ -334,9 +334,16 @@ import net.sf.freecol.common.option.OptionGroup;
  * a message handler, so they hold nothing but that command. The native
  * trade's dialogs are the exception: Swing asks them on the event thread
  * through {@code invokeLater}, which here runs on the thread handling the
- * natives' answer. The {@link NativeTradeGate} keeps the trade modal: while
- * it is open the other threads' questions wait, and their deferred work
- * and the player's commands run after it. A dialog that
+ * natives' answer. So are the Go To orders that updating the GUI carries
+ * out, on whatever thread updates it.
+ *
+ * Every question is modal, as Swing's event thread makes its dialogs: the
+ * {@link ModalGate} lets one dialog's work (its thread's command, message
+ * or deferred dialog, or a native trade's rounds) ask at a time. While it
+ * is open the other threads' questions wait, and their deferred work and
+ * the player's commands run after it, in the order they came. A dialog
+ * that defers holds no commands, as Swing shows it non-modally: the end
+ * turn dialog's pick of a waiting unit is a command. A dialog that
  * defers has not answered when its call returns. While an end turn dialog
  * waits for its answer another is not asked, as Swing's open panel stops
  * another end turn. The negotiation dialog (#52) defers: its handler's
@@ -367,7 +374,12 @@ public class WebGUI extends GUI {
          * from a thread that runs no command.
          */
         default void holdCommands() {}
-        /** Run the player's commands again. */
+        /**
+         * Hold the player's commands while a dialog is open: start no more
+         * until {@link #releaseCommands}, but let the one running go on.
+         */
+        default void holdNextCommands() {}
+        /** Undo one hold of the player's commands; they run again once none is left. */
         default void releaseCommands() {}
     }
 
@@ -388,8 +400,8 @@ public class WebGUI extends GUI {
     /** The page counts dialog runs (see {@link #count}); asked once, so it costs nothing when off. */
     private final boolean counting;
     private final Questions questions;
-    /** Keeps a native trade modal, as in Swing (#393). */
-    private final NativeTradeGate nativeTradeGate;
+    /** Keeps every dialog modal, as in Swing (#393, #401). */
+    private final ModalGate modalGate;
     private volatile Unit activeUnit = null;
     /** An end turn dialog has been asked and not yet answered. */
     private final AtomicBoolean endTurnDialogOpen = new AtomicBoolean(false);
@@ -412,16 +424,17 @@ public class WebGUI extends GUI {
         this.engine = engine;
         this.ui = ui;
         this.counting = ui.counting();
-        this.nativeTradeGate = new NativeTradeGate(new NativeTradeGate.Hold() {
+        this.modalGate = new ModalGate(new ModalGate.Hold() {
                 public void hold() { ui.holdCommands(); }
+                public void holdNext() { ui.holdNextCommands(); }
                 public void release() { ui.releaseCommands(); }
             });
-        this.questions = new Questions(ui::ask, this.nativeTradeGate::awaitTurn);
+        this.questions = new Questions(ui::ask, this.modalGate);
     }
 
-    /** The gate that keeps a native trade modal. */
-    NativeTradeGate nativeTradeGate() {
-        return this.nativeTradeGate;
+    /** The gate that keeps every dialog modal. */
+    ModalGate modalGate() {
+        return this.modalGate;
     }
 
     /**
@@ -657,7 +670,9 @@ public class WebGUI extends GUI {
     private void defer(String name, Runnable task) {
         new Thread(() -> {
                 try {
-                    task.run();
+                    // The dialog and its handler are one job: other questions
+                    // and deferred work wait until the handler is done.
+                    this.modalGate.deferred(task);
                 } catch (RuntimeException | Error ex) {
                     logger.log(Level.WARNING,
                                "WebGUI: " + name + " failed: " + ex, ex);
@@ -917,13 +932,15 @@ public class WebGUI extends GUI {
 
     @Override
     public void invokeNowOrLater(Runnable runnable) {
-        // At once, unless a native trade is open that this thread has no part in: then after it.
-        this.nativeTradeGate.invoke(runnable);
+        // At once, unless a dialog is open that this thread has no part in: then after it.
+        this.modalGate.invoke(runnable);
     }
 
     @Override
     public void invokeNowOrWait(Runnable runnable) {
-        this.nativeTradeGate.invokeAndWait(runnable);
+        // As invokeNowOrLater: its tasks only show things, and a message
+        // handler that waited for an open dialog could deadlock (ModalGate).
+        this.modalGate.invoke(runnable);
     }
 
     @Override

@@ -27,22 +27,38 @@ final class Questions {
         String answer = null;
     }
 
+    /**
+     * Whose turn it is to ask: a question waits until it may be asked, as
+     * while another dialog is open ({@link ModalGate}, #401).
+     */
+    interface Turn {
+        /** Wait until this thread may ask a question. */
+        void enter();
+        /** The question has been answered. */
+        void leave();
+    }
+
+    /** Any thread asks at any time. */
+    private static final Turn ANY_TIME = new Turn() {
+            public void enter() {}
+            public void leave() {}
+        };
+
     private final Asker asker;
-    /** Waits, before a question is asked, until it may be: e.g. not while a native trade is open (#393). */
-    private final Runnable turn;
+    private final Turn turn;
     private final AtomicInteger nextId = new AtomicInteger(1);
     private final Map<Integer, Pending> pending = new ConcurrentHashMap<>();
 
 
     Questions(Asker asker) {
-        this(asker, () -> {});
+        this(asker, ANY_TIME);
     }
 
     /**
      * @param asker How a question reaches the Browser UI.
-     * @param turn Waits until a question may be asked.
+     * @param turn Whose turn it is to ask.
      */
-    Questions(Asker asker, Runnable turn) {
+    Questions(Asker asker, Turn turn) {
         this.asker = asker;
         this.turn = turn;
     }
@@ -55,7 +71,16 @@ final class Questions {
      * @return The answer, or null if the player closed the dialog.
      */
     String ask(String kind, String json) {
-        this.turn.run();
+        this.turn.enter();
+        try {
+            return askNow(kind, json);
+        } finally {
+            this.turn.leave();
+        }
+    }
+
+    /** Ask, and wait for the answer. */
+    private String askNow(String kind, String json) {
         final int id = this.nextId.getAndIncrement();
         final Pending p = new Pending();
         this.pending.put(id, p);
