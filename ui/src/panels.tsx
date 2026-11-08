@@ -1464,7 +1464,6 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
                 >
                   <Pic keys={r.images} art={art} />
                   <span className="name">{r.name}</span>
-                  <span className="price" />
                 </button>
               ))
             : e[kind].units.map((o) => (
