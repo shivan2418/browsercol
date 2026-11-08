@@ -7,18 +7,7 @@
 // the part of the map, at the zoom, that the view state (view.ts) says, with
 // the cursor and the active unit's path drawn over it.
 import { AlphaFilter, Application, Container, Culler, Graphics, Rectangle, Sprite, Text, Texture } from 'pixi.js';
-import {
-  Atlas,
-  ChunkLayer,
-  cacheBackend,
-  renderStats,
-  mapRender,
-  picId,
-  tilemapBackend,
-  wantStats,
-  type Item,
-  type MapRender,
-} from './map-render';
+import { Atlas, ChunkLayer, picId, staticDrawing, tilemapBackend } from './map-tilemap';
 import { resources, type ArtLayer, type Resources } from './resources';
 import {
   animatedBase,
@@ -182,6 +171,8 @@ const screenRatio = (): number => pixelRatio(window.devicePixelRatio);
 /** What draws the map: a PixiJS scene graph or a Canvas 2D context. */
 interface Pen {
   readonly canvas: HTMLCanvasElement;
+  /** What draws it, for the page's renderer() (the browser scripts print it). */
+  readonly name?: string;
   /** Clear a layer, and draw on it from now on. */
   begin(layer: Layer): void;
   /** The tile the draws after this belong to, which a pen that draws the map in chunks needs. */
@@ -393,13 +384,7 @@ function makeText(s: string, x: number, y: number, style: TextStyle, center: boo
   return t;
 }
 
-async function pixiPen(
-  host: HTMLElement,
-  width: number,
-  height: number,
-  quality: number,
-  mode: MapRender = 'sprites',
-): Promise<Pen> {
+async function pixiPen(host: HTMLElement, width: number, height: number, quality: number): Promise<Pen> {
   const app = new Application();
   // The canvas's backing store is at the screen's pixel ratio, so the map is
   // sharp on a HiDPI screen; autoDensity keeps its CSS size the host's box.
@@ -428,17 +413,17 @@ async function pixiPen(
   let cullAll = true;
   const toCull = new Set<Container>();
   /**
-   * margin, and the live layers of chunks and tilemap: how far past the screen's edges the map is culled, in screen
-   * pixels, and where the map was then.
+   * How far past the screen's edges the map is culled, in screen pixels, and where the map was then: a pan within half
+   * of it culls nothing again (#407). Culling walks every unit, cursor and label on the map, which on a big map cost
+   * more than a frame on a slow machine.
    */
-  const MARGIN = mode === 'sprites' ? 0 : 400;
+  const MARGIN = 400;
   let culledAt: { x: number; y: number; scale: number; w: number; h: number } | null = null;
-  const stats = wantStats() ? renderStats(app, () => textureBytes) : null;
   /** Draw the map at the next frame, once however many changes come before it; what lies off the screen is skipped. */
   const redraw = (cull: Container | 'all' | null = 'all', camera = false) => {
     if (cull === 'all') {
-      // margin: a camera move within MARGIN / 2 of where the map was last culled, at the same scale and size, culls
-      // nothing again, as what is on the screen now was in the margin then.
+      // A camera move within MARGIN / 2 of where the map was last culled, at the same scale and size, culls nothing
+      // again, as what is on the screen now was in the margin then.
       const s = app.renderer.screen;
       const near =
         camera &&
@@ -455,14 +440,13 @@ async function pixiPen(
       queued = 0;
       settle();
       const s = app.renderer.screen;
-      const area = MARGIN ? new Rectangle(s.x - MARGIN, s.y - MARGIN, s.width + 2 * MARGIN, s.height + 2 * MARGIN) : s;
+      const area = new Rectangle(s.x - MARGIN, s.y - MARGIN, s.width + 2 * MARGIN, s.height + 2 * MARGIN);
       if (cullAll)
         culledAt = { x: world.position.x, y: world.position.y, scale: world.scale.x, w: s.width, h: s.height };
       for (const c of cullAll ? [app.stage] : toCull) Culler.shared.cull(c, area, false);
       cullAll = false;
       toCull.clear();
-      if (stats) stats.render(() => app.render());
-      else app.render();
+      app.render();
     });
   };
   /**
@@ -478,6 +462,7 @@ async function pixiPen(
       const c = collecting;
       collecting = null;
       c.end();
+      chunkView();
       redraw(null);
       return;
     }
@@ -546,14 +531,9 @@ async function pixiPen(
   app.stage.addChild(world);
   let layer = layers[0];
   const textures = new WeakMap<Picture, Texture>();
-  /** The pictures' textures' size, for scripts/pan.ts: what they take of the graphics memory. */
-  let textureBytes = 0;
   const texture = (pic: Picture) => {
     let t = textures.get(pic);
-    if (!t) {
-      textures.set(pic, (t = Texture.from(pic)));
-      textureBytes += pic.width * pic.height * 4;
-    }
+    if (!t) textures.set(pic, (t = Texture.from(pic)));
     return t;
   };
   const measurer = document.createElement('canvas').getContext('2d')!;
@@ -573,10 +553,11 @@ async function pixiPen(
     s.width = W + b;
     s.height = H + b;
   };
-  // chunks and tilemap: the static layers (the animated base, the scene under the units and over them) in chunks.
+  // On WebGL, the static layers (the animated base, the scene under the units and over them) as tilemaps per chunk
+  // (map-tilemap.ts); on PixiJS's Canvas or WebGPU renderer, as sprites like the other layers.
   const chunkLayers = new Map<Layer, ChunkLayer>();
   const scaleK = () => world.scale.x * app.renderer.resolution;
-  const atlas = mode === 'tilemap' ? new Atlas() : null;
+  const atlas = staticDrawing(app.renderer) === 'tilemap' ? new Atlas() : null;
   /** A picture of a shape on a tile, drawn once, for the tilemap's atlas: the fog's diamond, a road. */
   const shapes = new Map<string, HTMLCanvasElement>();
   const shape = (key: string, draw: (g: CanvasRenderingContext2D) => void) => {
@@ -590,20 +571,10 @@ async function pixiPen(
     }
     return c;
   };
-  if (mode === 'chunks' || mode === 'tilemap')
-    for (const n of [5, 0, 7] as const) {
-      const backend =
-        mode === 'tilemap'
-          ? tilemapBackend(atlas!, dimmed, seamBleed)
-          : cacheBackend((it: Item) => {
-              const s = new Sprite(texture(it.pic!));
-              s.position.set(it.x, it.y);
-              if (it.dim) s.tint = 0xcccccc;
-              if (it.tile) bleed(s);
-              return s;
-            }, scaleK);
-      chunkLayers.set(n, new ChunkLayer(layers[n], backend));
-    }
+  if (atlas) {
+    const backend = tilemapBackend(atlas, dimmed, seamBleed);
+    for (const n of [5, 0, 7] as const) chunkLayers.set(n, new ChunkLayer(layers[n], backend));
+  }
   /** The static layer being drawn in chunks, the tile its draws belong to, and a count to key what has no key. */
   let collecting: ChunkLayer | null = null;
   let at: [number, number] = [0, 0];
@@ -632,9 +603,9 @@ async function pixiPen(
     const keep = new Rectangle(x - w / 2, y - h / 2, 2 * w, 2 * h);
     for (const c of chunkLayers.values()) c.setView(view, keep);
   };
-  if (stats) stats.chunkLayers = chunkLayers;
   return {
     canvas: app.canvas,
+    name: atlas ? 'pixi' : `pixi (${app.renderer.name}: sprites)`,
     tile: (x, y) => {
       at = [x, y];
     },
@@ -1433,9 +1404,8 @@ export function mapDrawer(
     let p: Pen;
     try {
       if (canvas2d) throw new Error('asked for canvas2d');
-      const mode = mapRender();
-      p = await pixiPen(host, ...startSize, quality, mode);
-      renderer = mode === 'sprites' ? 'pixi' : `pixi (${mode})`;
+      p = await pixiPen(host, ...startSize, quality);
+      renderer = p.name ?? 'pixi';
     } catch (ex) {
       p = canvasPen(host, ...startSize, true, quality);
       renderer = `canvas2d (pixi failed: ${ex instanceof Error ? ex.message : String(ex)})`;

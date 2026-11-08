@@ -77,7 +77,7 @@ if (quality || still)
     ...(quality ? { 'model.option.graphicsQuality': Number(quality) } : {}),
     ...(still ? { 'model.option.useTerrainAnimations': false } : {}),
   });
-await page.goto(`${server.url}?skipstart&mapstats&${query}`);
+await page.goto(`${server.url}?skipstart&${query}`);
 const ready = await waitForResult(page, 240000);
 if (ready.status === 'failed') {
   console.log(`the game did not start: ${ready.error}`);
@@ -150,17 +150,6 @@ await browser.startTracing(page, {
 });
 if (throttle > 1) await cdp.send('Emulation.setCPUThrottlingRate', { rate: throttle });
 const phases: { name: string; hz: number; start: number; end: number; sent: number }[] = [];
-/** The map's own counts per phase (map-render.ts, ?mapstats): draw calls, render and GPU time, chunk builds. */
-const mapStats = new Map<string, Record<string, number>>();
-const statsReset = () => page.evaluate(() => (window as any).__mapStats?.reset());
-const statsTake = () => page.evaluate(() => (window as any).__mapStats?.snapshot() ?? {});
-const overdraw = async (label: string) => {
-  const o = await page.evaluate(() => (window as any).__mapStats?.overdraw());
-  if (o)
-    console.log(
-      `fill ${label}: ${o.overdraw.toFixed(2)}x the screen's pixels; ${o.objects} objects, ${o.quads} tilemap quads`,
-    );
-};
 const wheel = async (steps: number) => {
   for (let i = 0; i < Math.abs(steps); i++) {
     await cdp.send('Input.dispatchMouseEvent', {
@@ -175,13 +164,10 @@ const wheel = async (steps: number) => {
 };
 const mark = (n: string) => page.evaluate((n) => (performance.mark(n), performance.now()), n);
 const phase = async (name: string, hz: number, run: () => Promise<number>) => {
-  await statsReset();
   const start = await mark(`pan-start:${name}`);
   const sent = await run();
   phases.push({ name, hz, start, end: await mark(`pan-end:${name}`), sent });
-  mapStats.set(name, await statsTake());
 };
-await overdraw('at zoom 1');
 await phase('idle', 0, async () => (await page.waitForTimeout(2000), 0));
 for (const hz of rates) {
   await phase(`pan ${hz} Hz`, hz, () => drag(hz));
@@ -198,7 +184,6 @@ if (zoomPhases) {
   });
   await wheel(-2);
   await page.waitForTimeout(1500);
-  await overdraw('at zoom 0.5');
   await phase('pan 60 Hz @0.5', 60, () => drag(60));
   await wheel(2);
 }
@@ -242,34 +227,6 @@ for (const p of phases) {
     frames: f.length,
   };
 }
-const MB = (b: number) => ((b ?? 0) / 2 ** 20).toFixed(1);
-console.log(
-  '\nphase            webgl draws/f  render_cpu_ms(avg/p95)  gpu_ms(avg/p95/n)  builds  build_ms(avg/max)  rebleed_ms(n)  tex_MB  atlas_MB  cache_MB',
-);
-for (const [name, m] of mapStats) {
-  console.log(
-    `${name.padEnd(16)} ${String(m.webgl).padStart(5)} ${(m.drawsAvg ?? 0).toFixed(0).padStart(7)}` +
-      ` ${(m.renderCpuAvg ?? 0).toFixed(2).padStart(10)}/${(m.renderCpuP95 ?? 0).toFixed(2).padEnd(12)}` +
-      ` ${m.gpuTimer ? `${m.gpuAvg.toFixed(2)}/${m.gpuP95.toFixed(2)}/${m.gpuSamples}` : 'n/a'}`.padEnd(19) +
-      ` ${String(m.builds ?? 0).padStart(6)} ${(m.builds ? m.buildMs / m.builds : 0).toFixed(2).padStart(8)}/${(m.buildMax ?? 0).toFixed(2).padEnd(8)}` +
-      ` ${(m.rebleeds ? m.rebleedMs / m.rebleeds : 0).toFixed(1).padStart(8)}(${m.rebleeds ?? 0})` +
-      ` ${MB(m.textureBytes).padStart(7)} ${MB(m.atlasBytes).padStart(9)} ${MB(m.cacheBytes).padStart(9)}`,
-  );
-  Object.assign((summary[name] ??= {}), {
-    draws: m.drawsAvg,
-    renderCpu: m.renderCpuAvg,
-    gpu: m.gpuTimer ? m.gpuAvg : null,
-    gpuP95: m.gpuTimer ? m.gpuP95 : null,
-    builds: m.builds,
-    buildAvg: m.builds ? m.buildMs / m.builds : 0,
-    buildMax: m.buildMax,
-    rebleedAvg: m.rebleeds ? m.rebleedMs / m.rebleeds : 0,
-    texMB: Number(MB(m.textureBytes)),
-    atlasMB: Number(MB(m.atlasBytes)),
-    cacheMB: Number(MB(m.cacheBytes)),
-  });
-}
-
 // --- The trace: the renderer's main thread, its CPU profile, and its trace events, per phase.
 const trace = JSON.parse(fs.readFileSync(traceFile, 'utf8'));
 const events: any[] = trace.traceEvents ?? trace;
@@ -343,7 +300,7 @@ const category = (s: string[]): string | null => {
   if (leaf === '(garbage collector)') return 'GC';
   if (leaf === '(program)') return 'native (program)';
   if (has(s, 'cull', '_cullRecursive')) return 'PixiJS cull';
-  if (has(s, 'refresh', 'setBleed')) return 'map chunks: build, rebleed';
+  if (has(s, 'refresh', 'setBleed')) return 'map chunks: build, bleed';
   if (has(s, 'tick', 'animateBase')) return 'map tick loop';
   if (has(s, 'showPanel', 'renderSide')) return 'pan dispatch: showPanel/renderSide (sync part)';
   if (has(s, 'renderMinimap')) return 'pan dispatch: renderMinimap (sync part)';
