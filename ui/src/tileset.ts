@@ -177,7 +177,10 @@ export type Op =
       marker?: true;
       /** One of the animated base tiles' (MapViewer paints them first, below the rest), which animatedBase draws again. */
       base?: true;
-      /** A coast's sand over the shader water (#409), which the water foams against. */
+      /**
+       * Over the shader water (#409), what covers a water tile at the shore: its coast's sand, and the land and beach
+       * its transitions bring onto it. The water's shallows and foam reach to where it shows.
+       */
       shore?: true;
     }
   /** FreeCol's fog of war: 20% black over the tile's diamond. */
@@ -573,7 +576,9 @@ function build(
   const transitions = (x: number, y: number) => {
     for (const d of ['NE', 'SW', 'NW', 'SE'] as Direction[]) {
       const t = transition(x, y, d, true);
-      if (t) ops.push({ k: 'image', x, y, src: t, at: 'tile' });
+      // Over the shader water, a water tile's transitions (the land and the beach reaching onto it) are shore too.
+      const shore = waterDrawing === 'surface' && !land([x, y]) ? { shore: true as const } : {};
+      if (t) ops.push({ k: 'image', x, y, src: t, at: 'tile', ...shore });
     }
   };
 

@@ -9,8 +9,8 @@
 import { AlphaFilter, Application, Container, Culler, Graphics, Rectangle, Sprite, Text, Texture } from 'pixi.js';
 import { Atlas, ChunkLayer, pictureKey, staticDrawing, tilemapBackend } from './map-tilemap';
 import {
-  alphaOf,
   canDrawWater,
+  coverOf,
   fieldTexel,
   programLinks,
   sandAt,
@@ -1657,18 +1657,27 @@ export function mapDrawer(
     waterDrawing = await waterDrawingFor(waterLook(res), p.water, pics.get);
   }
 
-  /** Give the shader water the field of a map, when its tiles changed: the land, and the coasts' sand, from the base. */
-  async function waterFieldNow(map: MapView, base: Op[]) {
+  /**
+   * Give the shader water the field of a map, when its tiles changed: the land, and what covers the water tiles at
+   * the shore (their sand, and the land and beach their transitions bring onto them), where the shallows and foam meet.
+   */
+  async function waterFieldNow(map: MapView, ground: StaticScene) {
     const key = `${map.w}x${map.h}:${map.tiles}`;
     if (!pen?.water || key === fieldOf) return;
     const start = performance.now();
-    const shores = base.filter((op): op is Extract<Op, { k: 'image' }> => op.k === 'image' && op.shore === true);
+    const shores = [...ground.base, ...ground.below].filter(
+      (op): op is Extract<Op, { k: 'image' }> => op.k === 'image' && op.shore === true,
+    );
     const pictures = await Promise.all(shores.map((op) => pics.get(op.src).catch(() => null)));
-    const sands = new Map<number, Float32Array>();
+    const covering = new Map<number, Picture[]>();
     shores.forEach((op, i) => {
       const pic = pictures[i];
-      if (pic && pic.width === W && pic.height === H) sands.set(op.y * map.w + op.x, alphaOf(pic));
+      if (!pic || pic.width !== W || pic.height !== H) return;
+      const at = op.y * map.w + op.x;
+      covering.set(at, [...(covering.get(at) ?? []), pic]);
     });
+    const sands = new Map<number, Float32Array>();
+    for (const [at, list] of covering) sands.set(at, coverOf(list));
     const texel = fieldTexel(map.w, map.h, pen.water.maxField);
     // Made again only round the tiles that changed since the last.
     const next = waterField(
@@ -1949,7 +1958,7 @@ export function mapDrawer(
     const units = unitScene(map, res!);
     measure(kept ? 'map: scene, kept' : 'map: scene', start);
     if (!kept) {
-      if (waterDrawing === 'surface') await waterFieldNow(map, ground.base);
+      if (waterDrawing === 'surface') await waterFieldNow(map, ground);
       pics.retain(ground.base);
       const ops = [...ground.base, ...ground.below, ...ground.above];
       // The panels draw no units.

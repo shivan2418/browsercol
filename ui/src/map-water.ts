@@ -382,14 +382,17 @@ void main() {
   vec2 slope = (s.gb - 0.5) * 0.5 + (c.gb - 0.5);
   float lit = dot(slope, vec2(-0.6, -0.8)) * rough;
   vec3 deep = mix(mix(uOcean, uLake, lake), uHighSeas, high);
-  vec3 col = mix(deep, uShallow, smoothstep(0.0, 0.5, f.b) * 0.6);
+  // Shallower and lighter toward the shore, lightest where the sand and land fade into the water (red is how much
+  // they cover here, blue how near they are), so no deep blue shows between the shallows and the sand.
+  vec3 col = mix(deep, uShallow, max(smoothstep(0.0, 0.5, f.b) * 0.6, smoothstep(0.0, 0.4, f.r) * 0.85));
   col *= 1.0 + lit * 0.9 + (s.r - 0.5) * 0.25 * rough;
   // Light on the chop's crests, and a glint where a crest faces the light.
   col = mix(col, uLight, smoothstep(0.8, 1.0, c.r) * smoothstep(0.1, 0.45, lit) * 0.6);
-  // A line of foam where the sand fades into the water, broken up by the chop and lapping in and out.
-  float edge = f.r + (c.r - 0.6) * 0.1 + 0.04 * sin(mix(uLap.x, uLap.y, lake) + f.b * 12.0);
-  float foam = smoothstep(0.06, 0.14, edge) * (1.0 - smoothstep(0.22, 0.4, edge));
-  col = mix(col, uFoam, foam * smoothstep(0.3, 0.8, c.r + (s.r - 0.5) * 0.5) * 0.55 * strength);
+  // Foam lapping at the sand's edge (where it covers about half), reaching a little under the sand, broken up by the
+  // chop and moving in and out.
+  float edge = f.r + (c.r - 0.6) * 0.1 + 0.05 * sin(mix(uLap.x, uLap.y, lake) + f.b * 12.0);
+  float foam = smoothstep(0.15, 0.32, edge) * (1.0 - smoothstep(0.7, 0.95, edge));
+  col = mix(col, uFoam, foam * smoothstep(0.3, 0.8, c.r + (s.r - 0.5) * 0.5) * 0.75 * strength);
   finalColor = vec4(col * f.a, f.a);
 }
 `;
@@ -578,6 +581,35 @@ export function canDrawWater(gl: WebGLRenderingContext | WebGL2RenderingContext)
 /** A sand picture's alpha (alphaOf, a tile's W x H) at a point of its tile, the nearest pixel's. */
 export const sandAt = (alpha: Float32Array, u: number, v: number): number =>
   alpha[Math.min(H - 1, Math.max(0, Math.floor(v))) * W + Math.min(W - 1, Math.max(0, Math.floor(u)))] ?? 0;
+
+/**
+ * How much the pictures on a water tile cover it together, 0 to 1 per pixel of the tile: one picture's alpha, or what
+ * they leave uncovered taken away from one. Kept per set of pictures, which tiles of the same shore shape share.
+ */
+const covers = new Map<string, Float32Array>();
+const picIds = new WeakMap<HTMLImageElement | HTMLCanvasElement, number>();
+let nextPic = 1;
+export function coverOf(pics: (HTMLImageElement | HTMLCanvasElement)[]): Float32Array {
+  if (pics.length === 1) return alphaOf(pics[0]);
+  const key = pics
+    .map((p) => {
+      let id = picIds.get(p);
+      if (!id) picIds.set(p, (id = nextPic++));
+      return id;
+    })
+    .join();
+  let c = covers.get(key);
+  if (!c) {
+    c = new Float32Array(W * H).fill(1);
+    for (const p of pics) {
+      const a = alphaOf(p);
+      for (let i = 0; i < c.length; i++) c[i] *= 1 - a[i];
+    }
+    for (let i = 0; i < c.length; i++) c[i] = 1 - c[i];
+    covers.set(key, c);
+  }
+  return c;
+}
 
 /** Each sand picture's alpha, 0 to 1 per pixel, made once. */
 const alphas = new WeakMap<HTMLImageElement | HTMLCanvasElement, Float32Array>();

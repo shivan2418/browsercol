@@ -252,10 +252,15 @@ describe('the shader water (#409)', () => {
       },
     ]);
     expect(JSON.stringify(base)).not.toContain('ocean');
-    // The rest of the scene is the flipbook's.
+    // The rest of the scene is the flipbook's, but the water tile's transitions, the land and beach reaching onto it,
+    // are marked shore too: the water's foam and shallows reach to where they show.
     const { below, above } = staticScene(map, tileset, 1, 'surface');
     const flip = staticScene(map, tileset);
-    expect(ids(below)).toEqual(ids(flip.below));
+    const onWater = below.filter((op) => op.k === 'image' && op.x === 1 && op.y === 0);
+    expect(onWater.length).toBeGreaterThan(0);
+    expect(onWater.every((op) => op.k === 'image' && op.shore)).toBe(true);
+    const unmarked = below.map((op) => (op.k === 'image' ? { ...op, shore: undefined } : op));
+    expect(ids(unmarked)).toEqual(ids(flip.below));
     expect(ids(above)).toEqual(ids(flip.above));
   });
 
