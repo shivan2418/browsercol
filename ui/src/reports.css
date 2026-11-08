@@ -81,6 +81,19 @@
   align-items: center;
   text-align: left;
   padding: 4px 8px;
+  /* A plain row, as in FreeCol, not a raised button. */
+  background: none;
+  border: none;
+  box-shadow: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.dialog .report .labour-type:not(:disabled):hover {
+  background: var(--box);
+}
+.dialog .report .labour-type:disabled {
+  cursor: default;
 }
 .dialog .report .labour-type .pic {
   grid-row: span 2;

@@ -1461,7 +1461,8 @@ async function play(page: Page, url: string) {
       await type.click();
     },
     /Details/,
-    '[data-answer=close]',
+    // A detail has only a back button: its title bar's ✕ closes it.
+    '.title button.close',
     async (d) => {
       await d
         .locator('.labour-detail')

@@ -261,7 +261,9 @@ describe('the labour report', () => {
       atSea: [{ label: '(At sea)', count: 1 }],
       canTrain: null,
     });
-    fireEvent.click(screen.getByRole('button', { name: '◂' }));
+    // A detail's only button goes back: there is no OK that leaves the reports altogether.
+    expect(screen.queryByRole('button', { name: 'OK' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
     expect(calls.at(-1)).toBe('open labour');
   });
 });

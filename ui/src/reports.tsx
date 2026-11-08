@@ -1085,8 +1085,8 @@ const BODIES: { [K in ReportName]: Body<K> } = {
 };
 
 /**
- * A report in its window. Its close button closes it, and a detail's back button opens the report it came
- * from; a link closes it, then does what it says.
+ * A report in its window. Its close button closes it; a detail has a back button instead, which opens the
+ * report it came from (the title bar's ✕ still closes it); a link closes it, then does what it says.
  */
 export function ReportPanel({ d, e, art }: { d: Dialog; e: ReportView; art: Art }) {
   const actions = useContext(ReportContext);
@@ -1120,14 +1120,15 @@ export function ReportPanel({ d, e, art }: { d: Dialog; e: ReportView; art: Art 
         <Content e={e} art={art} go={go} />
       </div>
       <div className="buttons">
-        {e.back && (
+        {e.back ? (
           <button data-answer="back" onClick={() => actions.open(e.back!)}>
-            ◂
+            Back
+          </button>
+        ) : (
+          <button data-answer="close" onClick={close}>
+            {e.ok}
           </button>
         )}
-        <button data-answer="close" onClick={close}>
-          {e.ok}
-        </button>
       </div>
     </WindowFrame>
   );
