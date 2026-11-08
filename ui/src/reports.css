@@ -446,7 +446,8 @@
  * widens with them, up to the screen's width, past the dialogs' usual 36em; words are never split, and a table wider
  * than the screen scrolls sideways in the report.
  */
-.dialog[data-kind='report'][data-report='foreign'] {
+.dialog[data-kind='report'][data-report='foreign'],
+.dialog[data-kind='report'][data-report='trade'] {
   width: auto;
   max-width: 96vw;
 }
