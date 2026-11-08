@@ -296,6 +296,8 @@ describe('the Debug menu', () => {
       players: PLAYERS,
       display: NO_DISPLAY,
       setDisplay: (change) => changes.push(change),
+      fps: false,
+      toggleFps: () => clientCalls.push('fps'),
       stepRNG: () => asked.push({ action: 'stepRNG' }),
       compareMaps: () => asked.push({ action: 'compareMaps', client: {} }),
       client: (action) => clientCalls.push(action),
@@ -304,6 +306,14 @@ describe('the Debug menu', () => {
     });
     return { items, asked, answers, changes, clientCalls };
   }
+
+  it('Show Frame Rate switches the meter and is ticked while it shows', () => {
+    const { items, clientCalls } = debugActions();
+    expect(find(items, 'Show Frame Rate').checked).toBe(false);
+    find(items, 'Show Frame Rate').run();
+    expect(clientCalls).toEqual(['fps']);
+    expect(find(debugActions({ fps: true }).items, 'Show Frame Rate').checked).toBe(true);
+  });
 
   it('asks for a value and sends the cheat', () => {
     const { items, asked, answers } = debugActions();

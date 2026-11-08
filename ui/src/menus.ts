@@ -79,6 +79,9 @@ export interface DebugActions {
   /** What the map shows for the Debug menu, and a way to change it. */
   display: DebugDisplay;
   setDisplay: (change: Partial<DebugDisplay>) => void;
+  /** Whether the frame-rate meter (fps-meter.ts) shows, and a way to switch it. */
+  fps: boolean;
+  toggleFps: () => void;
   /** Step the Engine's random number generator, showing each number and asking whether to go on. */
   stepRNG: () => void;
   /** Compare the client Engine's map with the server Engine's. */
@@ -212,6 +215,7 @@ export function debugMenu(a: DebugActions): Items {
   const d = a.display;
   return [
     { label: 'Show Coordinates', run: () => a.setDisplay({ coords: !d.coords }), checked: d.coords },
+    { label: 'Show Frame Rate', run: a.toggleFps, checked: a.fps },
     { label: 'Reveal Entire Map', run: () => a.request({ action: 'revealMap', reveal: true }), disabled: off },
     { label: 'Hide Map', run: () => a.request({ action: 'revealMap', reveal: false }), disabled: off },
     pick('Show Colony Values', d.colonyValue, a.players, (colonyValue) => a.setDisplay({ colonyValue })),

@@ -20,6 +20,7 @@
 //   ?tileset=ID  a Tileset built beside the default, art/<ID>.json (e.g. test)
 //   ?renderer=canvas2d  draw with the Canvas 2D fallback, not PixiJS (debug)
 //   ?theme=dark  the dark palette of theme.css, whatever the player picked in Preferences
+//   ?fps         a frame-rate meter over the map (debug; also Debug > Show Frame Rate)
 import clientUrl from '../generated/client.wasm?url';
 import dataUrl from '../generated/data.json?url';
 import runtimeUrl from '../generated/teavm-runtime.js?url';
@@ -57,6 +58,7 @@ import { CreditsDialog } from './credits';
 import { captureConsole } from './log-buffer';
 import { CopyDetailsContext, LogDialog, ShowLogContext, joinLogs } from './log';
 import { copyText, errorDetails } from './error-details';
+import { fpsMeter } from './fps-meter';
 import { debugMenu, gameMenu, ordersMenu, reportOptionsMenu, viewMenu, type MenuActions } from './menus';
 import { commandForKey, type Command } from './input';
 import { PreferencesDialog } from './prefs-dialog';
@@ -295,6 +297,9 @@ const map = mapDrawer(
   pageOption(prefsAtLoad, 'model.option.graphicsQuality'),
   () => boot.finish('art'),
 );
+/** The frame-rate meter over the map's top-left corner: ?fps, or Debug > Show Frame Rate. */
+const fps = fpsMeter(document.getElementById('game')!, () => map.renderer());
+fps.show(params.has('fps'));
 const rounds: string[] = [];
 window.fcRounds = rounds;
 let drawn = Promise.resolve();
@@ -879,6 +884,11 @@ const currentMenus = (): Menu[] => {
       players: debugPlayers,
       display: debugDisplay,
       setDisplay: setDebugDisplay,
+      fps: fps.shown(),
+      toggleFps: () => {
+        fps.show(!fps.shown());
+        renderSide();
+      },
       stepRNG: () => stepRNG(),
       compareMaps,
       client: (action) => {
