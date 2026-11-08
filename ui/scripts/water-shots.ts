@@ -1,11 +1,11 @@
 // Screenshots and short recordings of the map's water in each Tileset, for the owner to compare the look (#409): at
 // coasts, a lake and the high seas of the pan-large map, at zoom 1 and zoomed in, in light and dark UI. Each shot is
 // .cache/water-shots/<tileset>-<browser>-<theme>-<spot>-<view>.png; with --video, a few seconds of the water moving at
-// the first spot, .cache/water-shots/<tileset>-<browser>-<theme>.webm.
+// the first spot, .cache/water-shots/<tileset>-<browser>-<theme>.webm (the run says where in it the water's part is).
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/water-shots.ts [--browsers chromium,firefox] [--tilesets freecol,freecol-plus]
 //     [--themes parchment,dark] [--spots 101,42;99,66] [--size 1366x768] [--video] [--secs 4] [--gpu]
-// Firefox draws WebGL here only with webgl.force-enabled (headless, no GPU); without WebGL, PixiJS's Canvas renderer
-// draws FreeCol's frames in either Tileset.
+// Headless Firefox in the web image gets no WebGL, even with webgl.force-enabled, which is set for a machine where it
+// would: PixiJS's Canvas renderer draws, and with it FreeCol's frames, in either Tileset (the shader water's fallback).
 import fs from 'node:fs';
 import path from 'node:path';
 import { browserNames, opt, playwright, waitForResult } from './common.ts';
@@ -48,6 +48,9 @@ for (const name of browserNames('chromium,firefox')) {
         ...(video ? { recordVideo: { dir: out, size: { width: vw, height: vh } } } : {}),
       });
       const page = await context.newPage();
+      /** When the recording started, and when the water's part of it did, in seconds into it. */
+      const recorded = Date.now();
+      let filmFrom = 0;
       await answerDialogs(page);
       page.on('pageerror', (e) => console.log(`${name}: page error: ${e}`));
       page.on('console', (m) => m.type() === 'error' && console.log(`${name}: ${m.text().slice(0, 300)}`));
@@ -79,18 +82,19 @@ for (const name of browserNames('chromium,firefox')) {
           at = steps;
           await page.waitForTimeout(1200);
           const file = path.join(out, `${tag}-${spot.join('_')}-${view}.png`);
-          await page.screenshot({ path: file });
+          // The map and the menu bar, without the debug side panel.
+          await page.screenshot({ path: file, clip: { x: 0, y: 0, width: box.x + box.width, height: vh } });
           results.push(
             `${tag} ${spot.join(',')} ${view}: renderer ${ready.renderer} -> ${path.relative(process.cwd(), file)}`,
           );
         }
         await wheel(-at);
         if (video && !filmed) {
-          // The water moving at the first spot, zoomed in.
+          // The water moving at the first spot, at zoom 1.
           filmed = true;
-          await wheel(1);
+          await page.waitForTimeout(500);
+          filmFrom = (Date.now() - recorded) / 1000;
           await page.waitForTimeout(secs * 1000);
-          await wheel(-1);
         }
       }
       await context.close();
@@ -99,7 +103,8 @@ for (const name of browserNames('chromium,firefox')) {
         const file = path.join(out, `${tag}.webm`);
         await v.saveAs(file);
         await v.delete();
-        results.push(`${tag}: video -> ${path.relative(process.cwd(), file)}`);
+        // The water moving starts filmFrom seconds in: ffmpeg -ss <it> -t <secs> cuts it out.
+        results.push(`${tag}: video -> ${path.relative(process.cwd(), file)}, the water from ${filmFrom.toFixed(1)} s`);
       }
     }
   await browser.close();
