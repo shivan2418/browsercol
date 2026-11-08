@@ -1400,6 +1400,21 @@
         font-family: var(--font-title);
         font-size: calc(var(--fs-h) * 1.5);
       }
+      /* A question about goods (the tax raise's boycott): the goods large beside the text, its name in bold. */
+      .dialog .goods-question {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+      .dialog .goods-question .text {
+        margin: 0;
+      }
+      .dialog .goods-big {
+        width: 64px;
+        height: 64px;
+        object-fit: contain;
+        flex: none;
+      }
       .dialog .picture {
         display: block;
         margin: 0 auto 8px;

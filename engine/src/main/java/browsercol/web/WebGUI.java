@@ -559,6 +559,15 @@ public class WebGUI extends GUI {
     private String confirm(String header, String text, String okKey,
                            String cancelKey, boolean defaultOk, Tile tile,
                            String object, String help, boolean escapeOk) {
+        return confirm(header, text, okKey, cancelKey, defaultOk, tile,
+                       object, help, escapeOk, null);
+    }
+
+    /** As above; goods is the JSON {type, name, keys} of goods the question is about, or null. */
+    private String confirm(String header, String text, String okKey,
+                           String cancelKey, boolean defaultOk, Tile tile,
+                           String object, String help, boolean escapeOk,
+                           String goods) {
         final Json question = new Json()
             .put("text", text)
             .put("ok", label(okKey))
@@ -569,6 +578,7 @@ public class WebGUI extends GUI {
             .put("header", header);
         if (help != null) question.putRaw("help", help);
         if (escapeOk) question.put("escapeOk", true);
+        if (goods != null) question.putRaw("goods", goods);
         return this.questions.ask("confirm", question.toString());
     }
 
@@ -1444,8 +1454,28 @@ public class WebGUI extends GUI {
         final String help = (action == MonarchAction.RAISE_TAX_ACT
             || action == MonarchAction.RAISE_TAX_WAR)
             ? helpButton("colopedia.concepts.taxes", null) : null;
+        final String goods = boycottedGoods(template);
         defer("showMonarchDialog", () -> handler.handle("true".equals(
-            confirm(header, text, yes, no, false, null, null, help))));
+            confirm(header, text, yes, no, false, null, null, help, false, goods))));
+    }
+
+    /**
+     * The goods a tax raise's template names as %goods%, as the Browser UI draws them:
+     * {type, name, keys}. Null if the template has none (an extra to FreeCol's dialog).
+     */
+    private String boycottedGoods(StringTemplate template) {
+        final StringTemplate named = (template == null) ? null : template.getReplacement("%goods%");
+        if (named == null || named.getId() == null) return null;
+        final Game game = getGame();
+        if (game == null) return null;
+        for (GoodsType type : game.getSpecification().getGoodsTypeList()) {
+            if (type.getNameKey().equals(named.getId())) {
+                return new Json().put("type", type.getId())
+                    .put("name", Messages.getName(type))
+                    .putRaw("keys", ObjectImages.json(type)).toString();
+            }
+        }
+        return null;
     }
 
     /** {@inheritDoc} Defers. The text and buttons are NativeDemandDialog's. */

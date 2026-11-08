@@ -511,6 +511,21 @@ class DebugActionsTest {
 
     @Test
     @Timeout(240)
+    void aTaxRaiseQuestionCarriesTheGoodsItWouldBoycott() throws Exception {
+        final net.sf.freecol.common.model.GoodsType sugar = client.getGame().getSpecification().getGoodsType("model.goods.sugar");
+        final net.sf.freecol.common.model.StringTemplate template = net.sf.freecol.common.model.StringTemplate
+            .template("model.monarch.action.raiseTaxWar.text")
+            .addStringTemplate("%goods%", sugar.getLabel())
+            .addAmount("%amount%", 12).add("%nation%", "model.nation.french.name");
+        client.getClient().getGUI().showMonarchDialog(net.sf.freecol.common.model.Monarch.MonarchAction.RAISE_TAX_WAR, template,
+            me().getNationId(), (Boolean b) -> { });
+        eventually("the tax raise question with its goods", () -> shown.stream().anyMatch(
+            e -> e.startsWith("ask:confirm:") && e.contains("\"goods\":{\"type\":\"model.goods.sugar\",\"name\":\"Sugar\"")
+                && e.contains("\"keys\":[")));
+    }
+
+    @Test
+    @Timeout(240)
     void aMatchingMapPassesTheCheckAndADifferingOneIsFound() throws Exception {
         final String digest = client.debugClient("{\"action\":\"digest\"}");
         final String ok = server.debug("{\"action\":\"compareMaps\",\"client\":" + digest + "}");

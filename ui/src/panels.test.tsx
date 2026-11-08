@@ -44,6 +44,7 @@ const files: Record<string, string> = {
   'image.unit.model.unit.caravel': 'art/caravel.png',
   'image.flavor.event.firstLanding': 'art/landing.png',
   'image.flavor.Victory': 'art/victory.png',
+  'image.icon.model.goods.sugar': 'art/sugar.png',
 };
 const art: Art = (keys) => {
   const key = keys.find((k) => k in files);
@@ -127,6 +128,17 @@ describe('the confirm dialog', () => {
     const no = ask(box, 'confirm', confirm);
     fireEvent.click(screen.getByRole('button', { name: 'No' }));
     expect(await no).toBe(false);
+  });
+
+  it('shows the goods a question is about large, with its name in bold', () => {
+    const { box } = host();
+    void ask(box, 'confirm', {
+      ...confirm,
+      text: 'We will be forced to boycott your Sugar!',
+      goods: { type: 'model.goods.sugar', name: 'Sugar', keys: ['image.icon.model.goods.sugar'] },
+    });
+    expect(screen.getByText('Sugar').tagName).toBe('B');
+    expect(document.querySelector('img.goods-big')).not.toBeNull();
   });
 
   it('takes the default option on Enter and cancels on Escape', async () => {
