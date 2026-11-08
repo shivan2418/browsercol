@@ -792,6 +792,21 @@
       .turn-banner.ai {
         font-style: italic;
       }
+      /* A preference that waits for a reload (src/reload-notice.tsx): small, at the foot of the map, out of the way. */
+      .reload-notice {
+        position: absolute;
+        bottom: 12px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 5;
+        padding: 3px 12px;
+        background: var(--menubar);
+        color: var(--menubar-ink);
+        border: 1px solid var(--line);
+        font: var(--fs-s) / 1.4 var(--font);
+        opacity: 0.9;
+        pointer-events: none;
+      }
       /* Errors the player must see (src/errors.tsx), over everything, until dismissed. */
       .error-banner {
         position: fixed;
