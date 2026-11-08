@@ -2402,6 +2402,18 @@ describe('the Europe panel', () => {
     expect(await hint(colonist())).toBe('Free Colonist');
   });
 
+  it('boards a colonist from one ship onto another dropped on its icon, keeping the ship it left selected (#399)', () => {
+    const calls: string[] = [];
+    Object.assign(europeButtons, { board: (u: string, s: string) => calls.push(`board ${u} ${s}`) });
+    const { box } = host();
+    act(() => box.show('europe', { ...europe, selected: 'unit:2' }));
+    const colonist = () => document.querySelector('[data-list=cargo] [data-cargo="unit"]');
+    expect(colonist()).toBeTruthy();
+    act(() => dragOnto(colonist()!, document.querySelector('[data-unit="unit:1"]')!));
+    expect(calls).toEqual(['board unit:9 unit:1']);
+    expect(colonist()).toBeTruthy();
+  });
+
   it('stays the same open panel when the Engine sends Europe again after a board', () => {
     const { box } = host();
     act(() => showEurope(box, europe));

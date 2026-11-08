@@ -105,6 +105,8 @@ export interface ColonyMoves {
   unloadAll(ship: string): void;
   /** Top up the goods a ship in port carries from the warehouse (the L key). */
   fill(ship: string): void;
+  /** Move goods of a type from a ship in port onto another in the same port (stack 0: all of the type). */
+  transfer(from: string, to: string, goods: string, stack: number): void;
 }
 /** Without it the panel only shows the colony. */
 export const ColonyActions = createContext<ColonyMoves | null>(null);
@@ -527,10 +529,25 @@ function ShipIcon({
   const menus = useContext(ContextMenuContext);
   const moves = useContext(ColonyActions);
   const boardable = new Set([...c.outside.units, ...workingIn(c)].map((x) => x.id));
-  const target = useTarget('cargo', (item) => {
+  // As in DefaultTransferHandler, the ship dropped on is chosen, except when the drop moves cargo from another
+  // carrier, which keeps its choice.
+  const target = useTarget('ship', (item) => {
     if (!moves) return;
-    if (item.kind === 'unit' && boardable.has(item.id)) moves.board(item.id, u.id);
-    else if (item.kind === 'goods' && item.from === 'warehouse') moves.load(u.id, item.type, item.ask ?? false);
+    const from = chosenShip(c);
+    if (item.kind === 'unit') {
+      const carrier = c.inPort.units.find((s) => s.cargo.units.some((x) => x.id === item.id));
+      if (carrier) {
+        if (carrier.id !== u.id) moves.board(item.id, u.id);
+      } else if (boardable.has(item.id)) {
+        choose(u.id);
+        moves.board(item.id, u.id);
+      }
+    } else if (item.from === 'warehouse') {
+      choose(u.id);
+      moves.load(u.id, item.type, item.ask ?? false);
+    } else if (item.from === 'cargo' && from && from.id !== u.id) {
+      moves.transfer(from.id, u.id, item.type, item.all ? 0 : (item.amount ?? 0));
+    }
   });
   return (
     <Tip
@@ -540,13 +557,17 @@ function ShipIcon({
       data-drop={target ? '' : undefined}
       aria-pressed={chosen}
       tip={u.name}
-      onClick={() => choose(u.id)}
       onContextMenu={(e) => {
         e.preventDefault();
         const menu = menus?.unit(u.id);
         if (menu) menus!.show(menu, e.clientX, e.clientY);
       }}
       {...target}
+      // After the target's props, so that its click (which puts down what is picked) does not replace this one.
+      onClick={() => {
+        target?.onClick();
+        choose(u.id);
+      }}
     >
       <Img keys={u.keys} art={art} className="unit" alt={u.name} />
       <Occupation u={u} />

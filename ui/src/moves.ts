@@ -48,8 +48,8 @@ const takes: Record<Place, { unit: boolean; from: readonly GoodsFrom[] }> = {
   sailing: { unit: true, from: [] },
   // Europe's docks take a unit off a ship's cargo (the panel checks that it is aboard).
   docks: { unit: true, from: [] },
-  // A ship's icon in port takes what its cargo does: a unit boards, other ships' cargo and the market's goods load.
-  ship: { unit: true, from: ['cargo', 'market'] },
+  // A ship's icon in port takes what its cargo does: a unit boards, and the warehouse's goods, other ships' cargo and the market's goods load.
+  ship: { unit: true, from: ['warehouse', 'cargo', 'market'] },
 };
 
 /**

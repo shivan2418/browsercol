@@ -560,7 +560,7 @@ public final class Commands {
      * <tr><td>colony:id, settlement:id</td><td>open the settlement's panel</td></tr>
      * <tr><td>leaveTown:unit, leaveShip:unit, board:unit,ship</td><td>as the colony panel's moves</td></tr>
      * <tr><td>work:unit,location,goods</td><td>put the colonist to work making the goods</td></tr>
-     * <tr><td>transfer:from,to,goods,amount</td><td>move goods from a ship in Europe to another</td></tr>
+     * <tr><td>transfer:from,to,goods,amount</td><td>move goods from a ship in Europe or a colony to another in the same port</td></tr>
      * <tr><td>payArrears:goods</td><td>pay the Crown's arrears on a boycotted goods</td></tr>
      * <tr><td>buy:ship,goods, sell:ship,goods</td><td>trade goods between a ship in Europe and the market</td></tr>
      * <tr><td>load:ship,goods, unload:ship,goods,amount, unloadAll:ship</td><td>move goods between a ship and the warehouse</td></tr>
@@ -1065,29 +1065,35 @@ public final class Commands {
     }
 
     /**
-     * Move goods from one ship in Europe to another (a drop of the cargo
-     * on the other ship, or its "load on to" menu entry): as much of the
-     * stack as the other ship has room for.
+     * Move goods from one ship in port to another: in Europe (a drop of the
+     * cargo on the other ship, or its "load on to" menu entry) or in the
+     * same colony (a drop of the colony panel's cargo on the other ship's
+     * icon): as much of the stack as the other ship has room for.
      *
      * @param fromShipId The id of the ship the goods are aboard.
-     * @param toShipId The id of the other ship in Europe.
+     * @param toShipId The id of the other ship in the same port.
      * @param goodsTypeId The id of the goods type.
      * @param stack The amount of the stack; 0 or less for all of the type.
      * @return True if goods were moved.
      */
     public boolean transferGoods(String fromShipId, String toShipId,
                                  String goodsTypeId, int stack) {
-        final Unit from = shipInEurope(fromShipId);
-        final Unit to = shipInEurope(toShipId);
+        final Player player = this.client.getMyPlayer();
+        final Unit from = player.getOurFreeColGameObject(fromShipId, Unit.class);
+        final Unit to = player.getOurFreeColGameObject(toShipId, Unit.class);
         final GoodsType type = goodsType(goodsTypeId);
         if (from == null || to == null || from == to || type == null
-            || !to.canCarryGoods()) return false;
+            || !from.isCarrier() || !to.isCarrier() || !to.canCarryGoods()) return false;
+        final boolean europe = from.isInEurope() && to.isInEurope();
+        if (!europe && (from.getColony() == null || from.getColony() != to.getColony())) {
+            return false;
+        }
         int amount = from.getGoodsCount(type);
         if (stack > 0) amount = Math.min(amount, stack);
         amount = Math.min(amount, to.getLoadableAmount(type));
         final boolean done = amount > 0 && igc().loadCargo(
             new Goods(this.client.getGame(), from, type, amount), to);
-        gui().showEuropePanel();
+        if (europe) gui().showEuropePanel();
         return done;
     }
 

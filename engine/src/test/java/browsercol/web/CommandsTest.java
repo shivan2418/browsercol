@@ -13,7 +13,9 @@ import static org.junit.jupiter.api.Assertions.fail;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -1424,6 +1426,61 @@ class CommandsTest {
         assertEquals(0, serverShip.getGoodsCount(cloth));
         assertEquals(150, serverColony.getGoodsCount(cloth));
         assertFalse(commands.unloadGoods(ship.getId(), cloth.getId(), 80, false), "nothing aboard");
+    }
+
+    @Test
+    @Timeout(240)
+    void theHumanMovesCargoBetweenTwoShipsInTheColony() throws Exception {
+        startGame();
+        final Commands commands = client.getCommands();
+        final Colony serverColony = foundAColony(commands);
+        final Colony ours = client.getGame()
+            .getFreeColGameObject(serverColony.getId(), Colony.class);
+        final Player player = client.getClient().getMyPlayer();
+        final Unit ship = player.getUnits().filter(Unit::isNaval).findFirst().get();
+        final Unit serverShip = serverUnit(ship);
+        final Tile land = ours.getTile();
+        select(commands, ship);
+        assertTrue(commands.move(client.getGame().getMap()
+            .getDirection(ship.getTile(), land).toString()), "the ship enters the colony");
+        final Set<String> before = new HashSet<>();
+        player.getUnits().forEach(u -> before.add(u.getId()));
+        client.debugApplied(server.debug("{\"action\":\"addUnit\",\"type\":\"model.unit.caravel\","
+            + "\"x\":" + land.getX() + ",\"y\":" + land.getY() + "}"));
+        settle();
+        awaitTrue(() -> player.getUnits().anyMatch(u -> !before.contains(u.getId())), "a second ship");
+        final Unit other = player.getUnits().filter(u -> !before.contains(u.getId()))
+            .findFirst().get();
+        final Unit serverOther = serverUnit(other);
+        assertSame(serverColony.getTile(), serverOther.getTile());
+
+        final GoodsType cloth = client.getGame().getSpecification().getGoodsType("model.goods.cloth");
+        client.debugApplied(server.debug("{\"action\":\"addGoods\",\"type\":\"model.goods.cloth\","
+            + "\"amount\":100,\"x\":" + land.getX() + ",\"y\":" + land.getY() + "}"));
+        settle();
+        awaitTrue(() -> ours.getGoodsCount(cloth) >= 100, "the colony has the cloth");
+        assertTrue(commands.loadGoods(ship.getId(), cloth.getId(), false), "loads");
+        assertEquals(100, serverShip.getGoodsCount(cloth));
+
+        // Goods go from one ship to the other, as much as asked.
+        assertTrue(commands.transferGoods(ship.getId(), other.getId(), cloth.getId(), 30), "moves 30");
+        assertEquals(70, serverShip.getGoodsCount(cloth));
+        assertEquals(30, serverOther.getGoodsCount(cloth));
+        assertTrue(commands.transferGoods(ship.getId(), other.getId(), cloth.getId(), 0), "moves the rest");
+        assertEquals(0, serverShip.getGoodsCount(cloth));
+        assertEquals(100, serverOther.getGoodsCount(cloth));
+        assertFalse(commands.transferGoods(other.getId(), other.getId(), cloth.getId(), 0), "not onto itself");
+
+        // A unit aboard one ship boards the other.
+        for (Unit u : new ArrayList<>(ship.getUnitList())) {
+            assertTrue(commands.leaveShip(u.getId()), "leaves the ship: " + u);
+        }
+        final Unit passenger = land.getUnitList().stream()
+            .filter(Unit::isColonist).findFirst().orElse(null);
+        assertNotNull(passenger);
+        assertTrue(commands.boardShip(passenger.getId(), ship.getId()), "boards the first");
+        assertTrue(commands.boardShip(passenger.getId(), other.getId()), "moves to the second");
+        assertSame(serverOther, serverUnit(passenger).getLocation());
     }
 
     private static List<BuildableType> serverQueue(Colony serverColony) {

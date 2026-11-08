@@ -280,6 +280,7 @@ describe('moving colonists in the colony panel', () => {
     unload: (s, g, n, a) => calls.push(`unload ${s} ${g} ${n}${a ? ' ask' : ''}`),
     unloadAll: (s) => calls.push(`unloadAll ${s}`),
     fill: (s) => calls.push(`fill ${s}`),
+    transfer: (f, t, g, n) => calls.push(`transfer ${f} ${t} ${g} ${n}`),
   };
   /** A colony of its own each time: the colonist picked stays picked per colony. */
   let n = 100;
@@ -418,6 +419,7 @@ describe('loading a ship in port in the colony panel', () => {
     unload: (s, g, n, a) => calls.push(`unload ${s} ${g} ${n}${a ? ' ask' : ''}`),
     unloadAll: (s) => calls.push(`unloadAll ${s}`),
     fill: (s) => calls.push(`fill ${s}`),
+    transfer: (f, t, g, n) => calls.push(`transfer ${f} ${t} ${g} ${n}`),
   };
   const caravel = {
     id: 'unit:9',
@@ -621,12 +623,57 @@ describe('loading a ship in port in the colony panel', () => {
     drag(stored('lumber'), shipIcon('unit:10'));
     drag(stored('lumber'), shipIcon('unit:9'), true);
     drag(unit('unit:3'), shipIcon('unit:10'));
-    drag(unit('unit:8'), shipIcon('unit:10'));
     expect(calls).toEqual([
       'load unit:10 model.goods.lumber',
       'load unit:9 model.goods.lumber ask',
       'board unit:3 unit:10',
     ]);
+  });
+
+  describe('with several ships in port (#399)', () => {
+    const other = {
+      ...caravel,
+      id: 'unit:10',
+      name: 'Caravel B',
+      cargo: { title: 'Cargo on Caravel B', units: [], goods: [] },
+    };
+    const two = () => openPort({ inPort: { ...port, units: [caravel, other] } });
+    const chosenId = () => part('port').querySelector('[aria-pressed="true"]')?.getAttribute('data-unit');
+
+    it('chooses a ship when it is clicked, with the panel able to move things', () => {
+      two();
+      expect(chosenId()).toBe('unit:9');
+      fireEvent.click(shipIcon('unit:10'));
+      expect(chosenId()).toBe('unit:10');
+      expect(part('cargo').getAttribute('data-ship')).toBe('unit:10');
+    });
+
+    it("moves a unit aboard one ship onto another ship's icon, keeping the chosen ship", () => {
+      two();
+      drag(unit('unit:8'), shipIcon('unit:10'));
+      expect(calls).toEqual(['board unit:8 unit:10']);
+      expect(chosenId()).toBe('unit:9');
+    });
+
+    it("moves a stack of one ship's cargo onto another ship's icon", () => {
+      two();
+      drag(stacks()[1], shipIcon('unit:10'));
+      expect(calls).toEqual(['transfer unit:9 unit:10 model.goods.cloth 30']);
+      expect(chosenId()).toBe('unit:9');
+    });
+
+    it('chooses the ship that goods of the warehouse or a colonist are dropped on', () => {
+      two();
+      drag(stored('lumber'), shipIcon('unit:10'));
+      expect(chosenId()).toBe('unit:10');
+    });
+
+    it('moves nothing onto the ship it is aboard', () => {
+      two();
+      drag(unit('unit:8'), shipIcon('unit:9'));
+      drag(stacks()[0], shipIcon('unit:9'));
+      expect(calls).toEqual([]);
+    });
   });
 
   describe("Europe's prices on goods", () => {
@@ -707,6 +754,7 @@ describe('the build queue in the colony panel', () => {
     unload: () => {},
     unloadAll: () => {},
     fill: () => {},
+    transfer: () => {},
   };
   let n = 200;
   function openQueue(colony: Partial<ColonyView> = {}) {

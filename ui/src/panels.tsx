@@ -1569,7 +1569,11 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
   const onShip = (target: EuropeUnit) => (item: Item) => {
     // As in Swing's DefaultTransferHandler, the ship dropped on is selected, except when the drop moves cargo
     // from another ship, which keeps its selection.
-    if (item.kind === 'unit' || item.from !== 'cargo') setPicked(target.id);
+    const fromCarrier =
+      item.kind === 'unit'
+        ? e.inPort.some((s) => s.cargo?.some((c) => c.kind === 'unit' && c.id === item.id))
+        : item.from === 'cargo';
+    if (!fromCarrier) setPicked(target.id);
     if (item.kind === 'unit') europeButtons.board(item.id, target.id);
     else if (item.from === 'market') europeButtons.buy(item.type, target.id, item.ask === true);
     else if (item.from === 'cargo' && ship && ship.id !== target.id) {

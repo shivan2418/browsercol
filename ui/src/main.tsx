@@ -451,6 +451,7 @@ const colonyMoves: ColonyMoves = {
   unload: (ship, goods, stack, ask) => colonyClient?.unloadGoods(ship, goods, stack, ask),
   unloadAll: (ship) => colonyClient?.menuEntry(`unloadAll:${ship}`),
   fill: (ship) => colonyClient?.menuEntry(`fill:${ship}`),
+  transfer: (from, to, goods, stack) => colonyClient?.transferGoods(from, to, goods, stack),
 };
 /** Where the colony panel's own menus open (ColonyPanel shows them at 0, 0): the top left of the open colony. */
 function colonyOrigin(): { x: number; y: number } {
