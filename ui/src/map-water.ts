@@ -18,7 +18,7 @@ import { BufferImageSource, Geometry, ImageSource, Mesh, Shader, type TextureSou
 import { MAP_KEY_FAMILIES } from './map-keys';
 import type { Resources } from './resources';
 import type { MapView } from './tileset';
-import { H, W, tileAt, tileOrigin } from './view';
+import { H, W } from './view';
 
 const KEY = MAP_KEY_FAMILIES.shaderWater;
 
@@ -100,92 +100,188 @@ export interface WaterField {
   rows: number;
   texel: number;
   data: Uint8Array;
+  /**
+   * What it was made from, unblurred, for the next field of the map to make again only round the tiles that changed.
+   * The next field takes these, and its data, over.
+   */
+  made?: {
+    w: number;
+    h: number;
+    types: string;
+    tiles: string;
+    land: Float32Array;
+    depth: Float32Array;
+    water: Float32Array;
+  };
 }
 
 /** Tile types that are high seas, and lakes (calm, inland water). */
 const HIGH_SEAS = new Set(['model.tile.highSeas']);
 const LAKES = new Set(['model.tile.lake', 'model.tile.greatRiver']);
 /** Where in a texel the sand is looked at: four points, for an edge smoother than the texels. */
-const SAMPLES: [number, number][] = [
-  [-0.25, -0.25],
-  [0.25, -0.25],
-  [-0.25, 0.25],
-  [0.25, 0.25],
-];
+const SAMPLES = [-0.25, -0.25, 0.25, -0.25, -0.25, 0.25, 0.25, 0.25];
+
+/** A rectangle of texels: columns i0 to i1 and rows j0 to j1, the ends left out. */
+interface Rect {
+  i0: number;
+  j0: number;
+  i1: number;
+  j1: number;
+}
 
 /**
  * The water field of a map. Each texel's tile, at its centre, decides it, and a coast's sand counts as land as much as
  * it covers there (`sand`: its alpha, 0 to 1, at a point of the tile, or 0 for a tile with none). Then how near land
  * is and the depth are blurred, to fade over SHALLOW_PX and DEPTH_PX, and the water's edge a little.
+ *
+ * Given the map's `last` field, it makes again only the texels round the tiles that changed (ground explored, say),
+ * reusing that field's arrays: the same field when no tile changed.
  */
 export function waterField(
   map: Pick<MapView, 'w' | 'h' | 'types' | 'tiles'>,
   texel: number,
   sand: (x: number, y: number, u: number, v: number) => number,
+  last?: WaterField | null,
 ): WaterField {
-  const [pw, ph] = mapPixels(map.w, map.h);
+  const { w, h, tiles } = map;
+  const [pw, ph] = mapPixels(w, h);
   const cols = Math.ceil(pw / texel);
   const rows = Math.ceil(ph / texel);
   const n = cols * rows;
-  const land = new Float32Array(n);
-  const depth = new Float32Array(n).fill(0.5);
-  const water = new Float32Array(n);
-  // Per tile type: land, or water and its depth, offset by one.
-  const kinds = map.types.map((t) => (t.land ? 0 : HIGH_SEAS.has(t.id) ? 2 : LAKES.has(t.id) ? 1 : 1.5));
-  for (let j = 0; j < rows; j++) {
-    const py = (j + 0.5) * texel;
-    for (let i = 0; i < cols; i++) {
-      const px = (i + 0.5) * texel;
-      const at = tileAt(map.w, map.h, px, py);
-      // Off the map, or unexplored: no water, no land, and the ocean's depth.
-      if (!at) continue;
-      const c = map.tiles.charCodeAt(at[1] * map.w + at[0]) - 65;
-      if (c < 0) continue;
-      const kind = kinds[c];
-      const k = j * cols + i;
-      if (kind === 0) {
-        land[k] = 1;
-        continue;
+  const types = map.types.map((t) => t.id).join();
+  const was = last?.made;
+  const reuse =
+    !!was &&
+    last.cols === cols &&
+    last.rows === rows &&
+    last.texel === texel &&
+    was.w === w &&
+    was.h === h &&
+    was.types === types;
+  const radius = (px: number) => Math.max(1, Math.round(px / texel / 2));
+  const [nearR, depthR] = [radius(SHALLOW_PX), radius(DEPTH_PX)];
+  // How far a blurred texel reaches: two passes of each blur.
+  const reach = 2 * Math.max(nearR, depthR, 1);
+  const all: Rect = { i0: 0, j0: 0, i1: cols, j1: rows };
+  /** The texels to make again: round the tiles that changed, with their neighbours, whose sand depends on them. */
+  let raw = all;
+  if (reuse) {
+    let [x0, y0, x1, y1] = [w, h, -1, -1];
+    for (let k = 0; k < tiles.length; k++)
+      if (tiles.charCodeAt(k) !== was.tiles.charCodeAt(k)) {
+        const [x, y] = [k % w, Math.floor(k / w)];
+        x0 = Math.min(x0, x);
+        x1 = Math.max(x1, x);
+        y0 = Math.min(y0, y);
+        y1 = Math.max(y1, y);
       }
-      water[k] = 1;
-      depth[k] = kind - 1;
-      const [ox, oy] = tileOrigin(...at);
-      let a = 0;
-      for (const [du, dv] of SAMPLES) a += sand(at[0], at[1], px - ox + du * texel, py - oy + dv * texel);
-      land[k] = a / SAMPLES.length;
+    if (x1 < 0) return last;
+    raw = clip(
+      {
+        i0: Math.floor(((x0 - 1) * W) / texel),
+        j0: Math.floor(((y0 - 2) * H) / 2 / texel),
+        i1: Math.ceil(((x1 + 2) * W + W / 2) / texel),
+        j1: Math.ceil(((y1 + 4) * H) / 2 / texel),
+      },
+      cols,
+      rows,
+    );
+  }
+  const land = reuse ? was.land : new Float32Array(n);
+  const depth = reuse ? was.depth : new Float32Array(n);
+  const water = reuse ? was.water : new Float32Array(n);
+  // Per tile type: land (0), or water and its depth, offset by one.
+  const kinds = map.types.map((t) => (t.land ? 0 : HIGH_SEAS.has(t.id) ? 2 : LAKES.has(t.id) ? 1 : 1.5));
+  for (let j = raw.j0; j < raw.j1; j++) {
+    const py = (j + 0.5) * texel;
+    const row = Math.floor(py / (H / 2));
+    for (let i = raw.i0; i < raw.i1; i++) {
+      const px = (i + 0.5) * texel;
+      const k = j * cols + i;
+      // Off the map, or unexplored: no water, no land, and the ocean's depth.
+      land[k] = 0;
+      water[k] = 0;
+      depth[k] = 0.5;
+      // The tile whose diamond holds the texel's centre, as view.ts tileAt finds it.
+      for (let y = row - 1; y <= row; y++) {
+        if (y < 0 || y >= h) continue;
+        const ox0 = (y % 2) * (W / 2);
+        const x = Math.floor((px - ox0) / W);
+        if (x < 0 || x >= w) continue;
+        const [u, v] = [px - x * W - ox0, py - (y * H) / 2];
+        if (Math.abs(u - W / 2) / (W / 2) + Math.abs(v - H / 2) / (H / 2) > 1) continue;
+        const c = tiles.charCodeAt(y * w + x) - 65;
+        if (c < 0) break;
+        const kind = kinds[c];
+        if (kind === 0) {
+          land[k] = 1;
+          break;
+        }
+        water[k] = 1;
+        depth[k] = kind - 1;
+        let a = 0;
+        for (let s = 0; s < SAMPLES.length; s += 2) a += sand(x, y, u + SAMPLES[s] * texel, v + SAMPLES[s + 1] * texel);
+        land[k] = a / (SAMPLES.length / 2);
+        break;
+      }
     }
   }
-  const near = land.slice();
-  const radius = (px: number) => Math.max(1, Math.round(px / texel / 2));
+  // The texels whose blurred values may have changed, and the texels those are blurred from.
+  const out = reuse ? clip(grow(raw, reach), cols, rows) : all;
+  const src = reuse ? clip(grow(out, reach), cols, rows) : all;
+  const sw = src.i1 - src.i0;
+  const sh = src.j1 - src.j0;
+  const part = (a: Float32Array) => {
+    const p = new Float32Array(sw * sh);
+    for (let j = 0; j < sh; j++) p.set(a.subarray((src.j0 + j) * cols + src.i0, (src.j0 + j) * cols + src.i1), j * sw);
+    return p;
+  };
+  const near = part(land);
+  const deep = part(depth);
+  const wet = part(water);
   for (let pass = 0; pass < 2; pass++) {
-    blur(near, cols, rows, radius(SHALLOW_PX));
-    blur(depth, cols, rows, radius(DEPTH_PX));
+    blur(near, sw, sh, nearR);
+    blur(deep, sw, sh, depthR);
   }
-  blur(water, cols, rows, 1);
-  const data = new Uint8Array(4 * n);
-  for (let k = 0; k < n; k++) {
-    data[4 * k] = Math.round(land[k] * 255);
-    data[4 * k + 1] = Math.round(depth[k] * 255);
-    data[4 * k + 2] = Math.round(near[k] * 255);
-    data[4 * k + 3] = Math.round(water[k] * 255);
-  }
-  return { cols, rows, texel, data };
+  blur(wet, sw, sh, 1);
+  const data = reuse ? last.data : new Uint8Array(4 * n);
+  for (let j = out.j0; j < out.j1; j++)
+    for (let i = out.i0; i < out.i1; i++) {
+      const k = j * cols + i;
+      const p = (j - src.j0) * sw + (i - src.i0);
+      data[4 * k] = Math.round(land[k] * 255);
+      data[4 * k + 1] = Math.round(deep[p] * 255);
+      data[4 * k + 2] = Math.round(near[p] * 255);
+      data[4 * k + 3] = Math.round(wet[p] * 255);
+    }
+  return { cols, rows, texel, data, made: { w, h, types, tiles, land, depth, water } };
 }
+
+const grow = (r: Rect, by: number): Rect => ({ i0: r.i0 - by, j0: r.j0 - by, i1: r.i1 + by, j1: r.j1 + by });
+const clip = (r: Rect, cols: number, rows: number): Rect => ({
+  i0: Math.max(0, r.i0),
+  j0: Math.max(0, r.j0),
+  i1: Math.min(cols, r.i1),
+  j1: Math.min(rows, r.j1),
+});
 
 /** A box blur of radius `r` across then down, in place; past the edges counts as the edge. */
 export function blur(a: Float32Array, cols: number, rows: number, r: number) {
   const line = new Float32Array(Math.max(cols, rows));
-  const run = (len: number, at: (i: number) => number) => {
-    for (let i = 0; i < len; i++) line[i] = a[at(i)];
+  const scale = 1 / (2 * r + 1);
+  const run = (len: number, start: number, step: number) => {
+    for (let i = 0, k = start; i < len; i++, k += step) line[i] = a[k];
     let sum = 0;
-    for (let i = -r; i <= r; i++) sum += line[Math.min(len - 1, Math.max(0, i))];
-    for (let i = 0; i < len; i++) {
-      a[at(i)] = sum / (2 * r + 1);
-      sum += line[Math.min(len - 1, i + r + 1)] - line[Math.max(0, i - r)];
+    for (let i = -r; i <= r; i++) sum += line[i < 0 ? 0 : i >= len ? len - 1 : i];
+    for (let i = 0, k = start; i < len; i++, k += step) {
+      a[k] = sum * scale;
+      const add = i + r + 1;
+      const drop = i - r;
+      sum += line[add >= len ? len - 1 : add] - line[drop < 0 ? 0 : drop];
     }
   };
-  for (let j = 0; j < rows; j++) run(cols, (i) => j * cols + i);
-  for (let i = 0; i < cols; i++) run(rows, (j) => j * cols + i);
+  for (let j = 0; j < rows; j++) run(cols, j * cols, 1);
+  for (let i = 0; i < cols; i++) run(rows, i, cols);
 }
 
 /** What the ripples' offsets and the foam's lapping are at a time: each offset a whole texture's turn at most. */

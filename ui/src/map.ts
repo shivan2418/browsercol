@@ -1556,7 +1556,8 @@ export function mapDrawer(
   let baseNext = 0;
   /** How the water is drawn: as the shader water once the pen and the Tileset can (#409). */
   let waterDrawing: WaterDrawing = 'flipbook';
-  /** The tiles the shader water's field was made from last. */
+  /** The shader water's field last made, and the map and tiles it was made from. */
+  let field: WaterField | null = null;
   let fieldOf = '';
 
   async function init() {
@@ -1603,11 +1604,20 @@ export function mapDrawer(
       if (pic && pic.width === W && pic.height === H) sandAt.set(op.y * map.w + op.x, alphaOf(pic));
     });
     const texel = fieldTexel(map.w, map.h, pen.water.maxField);
-    const field = waterField(map, texel, (x, y, u, v) => {
-      const a = sandAt.get(y * map.w + x);
-      return a ? (a[Math.min(H - 1, Math.floor(v)) * W + Math.min(W - 1, Math.floor(u))] ?? 0) : 0;
-    });
-    pen.water.field(field);
+    // Made again only round the tiles that changed since the last.
+    const next = waterField(
+      map,
+      texel,
+      (x, y, u, v) => {
+        const a = sandAt.get(y * map.w + x);
+        return a
+          ? (a[Math.min(H - 1, Math.max(0, Math.floor(v))) * W + Math.min(W - 1, Math.max(0, Math.floor(u)))] ?? 0)
+          : 0;
+      },
+      field,
+    );
+    if (next !== field) pen.water.field(next);
+    field = next;
     measure('map: water field', start);
   }
 

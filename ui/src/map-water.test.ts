@@ -128,6 +128,20 @@ describe('waterField', () => {
     expect(near(4, 4)).toBeGreaterThanOrEqual(near(2, 6));
   });
 
+  it('makes again only round the tiles that changed, coming out as a field made afresh would', () => {
+    const coast = (x: number, y: number, u: number, v: number) => (x === 3 && y === 3 && v < 20 ? 1 : 0);
+    const first = waterField(map, texel, coast);
+    expect(waterField(map, texel, coast, first)).toBe(first);
+    // Land explored at (6,1), and (2,6) turned to land.
+    const later = {
+      ...map,
+      tiles: [...map.tiles].map((c, i) => (i === 1 * w + 6 || i === 6 * w + 2 ? 'A' : c)).join(''),
+    };
+    const fresh = waterField(later, texel, coast);
+    const again = waterField(later, texel, coast, waterField(map, texel, coast));
+    expect([...again.data]).toEqual([...fresh.data]);
+  });
+
   it("counts a coast's sand as land, as much as it covers, where it is on its tile", () => {
     const asked: [number, number][] = [];
     // Sand over the top half of the ocean tile at (2,4).
