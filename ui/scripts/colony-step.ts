@@ -20,6 +20,18 @@ for (const browserName of browserNames()) {
   await answerDialogs(page);
   await page.addInitScript(() => {
     window.__hold = 'colony';
+    // The latest map the Engine sent, as scenarios.ts keeps it.
+    let inner: ((name: string, detail: string) => unknown) | undefined;
+    Object.defineProperty(window, 'fcClientEvent', {
+      configurable: true,
+      get: () => inner,
+      set: (f: (name: string, detail: string) => unknown) => {
+        inner = (n: string, detail: string) => {
+          if (n === 'map' || n === 'gameStarted') window.__map = JSON.parse(detail);
+          return f(n, detail);
+        };
+      },
+    });
     // What the page does to the colony windows: each one added or removed, and when.
     const log: string[] = [];
     (window as unknown as { __winlog: string[] }).__winlog = log;
