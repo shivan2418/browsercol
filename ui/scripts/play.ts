@@ -1282,14 +1282,30 @@ async function play(page: Page, url: string) {
     await page.mouse.down({ button: 'middle' });
     await page.mouse.move(cx + 150, cy + 100, { steps: 5 });
     await page.mouse.up({ button: 'middle' });
-    const dragged = await viewState();
-    if (same(dragged.centre, zoomed.centre)) throw new Error('a drag did not scroll the map');
+    // The centre, as a tile, once the view has moved off `from` (waits up to 5 s, for a slow machine).
+    const movedFrom = async (from: Tile, label: string) => {
+      await page
+        .waitForFunction(
+          ([x, y]) => {
+            const c = window.fcView!().centre;
+            return !c || c[0] !== x || c[1] !== y;
+          },
+          from,
+          { timeout: 5000, label },
+        )
+        .catch(() => {});
+      return viewState();
+    };
+    const dragged = await movedFrom(zoomed.centre!, 'a drag scrolls the map');
+    if (same(dragged.centre, zoomed.centre)) throw new Error('a drag did not scroll the map within 5 s');
     // The right edge, which only the current viewport's width finds after a resize.
     await page.mouse.move(box.x + box.width - 4, cy);
-    await page.waitForTimeout(800);
+    const edged = await movedFrom(dragged.centre!, 'resting the pointer at the right edge scrolls the map');
     await page.mouse.move(cx, cy);
-    if (same((await viewState()).centre, dragged.centre)) {
-      throw new Error('resting the pointer at the right edge did not scroll the map');
+    if (same(edged.centre, dragged.centre)) {
+      throw new Error(
+        `resting the pointer at the right edge did not scroll the map within 5 s: the view stayed at ${label(dragged.centre)}`,
+      );
     }
     await page.mouse.wheel(0, 100);
   };
