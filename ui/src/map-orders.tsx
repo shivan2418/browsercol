@@ -9,13 +9,12 @@ import { PANEL_KEY_FAMILIES } from './map-keys';
 /**
  * The buttons: the order each gives the active unit, in CornerMapControls' order, with the name of FreeCol's
  * button pictures (the order-buttons of data/base, which the action classes name in addImageIcons). Swing has no
- * button for Go to, so that one stays a text button.
+ * Go to button (the order is G, the Orders menu, or a click on the map), so neither does this row.
  */
-const BUTTONS: [string, Command, string | null][] = [
+const BUTTONS: [string, Command, string][] = [
   ['Skip', { k: 'skip' }, 'done'],
   ['Fortify', { k: 'fortify' }, 'fortify'],
   ['Sentry', { k: 'sentry' }, 'sentry'],
-  ['Go to', { k: 'selectDestination' }, null],
   ['Build colony', { k: 'buildColony' }, 'build'],
   ['Plow', { k: 'plow' }, 'plow'],
   ['Clear forest', { k: 'clearForest' }, 'clearForest'],
@@ -48,7 +47,7 @@ export function MapOrders({
   return (
     <div id="map-orders" role="toolbar" aria-label="Unit orders">
       {BUTTONS.map(([label, c, picture]) => {
-        const look = picture ? pictures(art, picture) : null;
+        const look = pictures(art, picture);
         return (
           <Tip
             as="button"

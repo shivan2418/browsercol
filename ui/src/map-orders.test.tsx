@@ -27,8 +27,8 @@ describe('MapOrders', () => {
     expect(sentry.className).toBe('pictured');
     expect(sentry.style.getPropertyValue('--normal')).toContain('image.miscicon.button.normal.sentry');
     expect(sentry.textContent).toBe('');
-    // Skip is FreeCol's "done" picture; Go to has none in Swing and stays a text button.
+    // Skip is FreeCol's "done" picture; Swing has no Go to button, so the row has none.
     expect(screen.getByRole('button', { name: 'Skip' }).style.getPropertyValue('--pressed')).toContain('pressed.done');
-    expect(screen.getByRole('button', { name: 'Go to' }).textContent).toBe('Go to');
+    expect(screen.queryByRole('button', { name: 'Go to' })).toBeNull();
   });
 });
