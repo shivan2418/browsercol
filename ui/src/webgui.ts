@@ -567,6 +567,8 @@ export interface GuiQuestions {
       headline?: boolean;
       /** The resource key of a picture under the text (image.flavor.Victory). */
       image?: string | null;
+      /** The goods the question is about (a tax raise's boycott): shown large, its name in bold in the text. */
+      goods?: { type: string; name: string; keys: string[] };
     };
     answer: boolean;
   };

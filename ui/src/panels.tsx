@@ -140,6 +140,19 @@ function Win({
 /** FreeCol's text, its line breaks kept. */
 const Text = ({ text }: { text: string }) => <p className="text">{text}</p>;
 
+/** The text with the first occurrence of `name` in bold. */
+function Bolded({ text, name }: { text: string; name: string }) {
+  const at = name === '' ? -1 : text.indexOf(name);
+  if (at < 0) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, at)}
+      <b className="goods-name">{name}</b>
+      {text.slice(at + name.length)}
+    </>
+  );
+}
+
 type Of<K extends Dialog['kind']> = Extract<Dialog, { kind: K }>;
 
 /** The ok and cancel buttons of a question, each only if it has a label. */
@@ -176,7 +189,18 @@ function Confirm({ d, colopedia, art }: { d: Of<'confirm'>; colopedia: (type: st
   useEnter(enter === 'ok' ? ok : cancel);
   return (
     <Win d={d} title={ask.header} close={ask.escapeOk && ask.ok !== null ? ok : cancel}>
-      {ask.headline ? <h3 className="headline">{ask.text}</h3> : <Text text={ask.text} />}
+      {ask.goods ? (
+        <div className="goods-question">
+          <Pic keys={ask.goods.keys} art={art} className="goods-big" />
+          <p className="text">
+            <Bolded text={ask.text} name={ask.goods.name} />
+          </p>
+        </div>
+      ) : ask.headline ? (
+        <h3 className="headline">{ask.text}</h3>
+      ) : (
+        <Text text={ask.text} />
+      )}
       {ask.image && <Pic keys={[ask.image]} art={art} className="picture" />}
       {help && ask.help?.text && <Text text={ask.help.text} />}
       <OkCancel ok={ask.ok} cancel={ask.cancel} onOk={ok} onCancel={cancel} enter={enter} />
