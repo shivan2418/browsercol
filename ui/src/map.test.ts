@@ -241,16 +241,45 @@ describe('pictures', () => {
     }
   });
 
+  it('lets go of the animated pictures a new scene no longer has', async () => {
+    const pics = setup();
+    try {
+      const a = anim('ocean', ocean);
+      await pics.get(a);
+      await pics.get(anim('beach', beach));
+      expect(pics.live()).toBe(2);
+      pics.retain([{ k: 'image', x: 0, y: 0, src: a, at: 'tile' }]);
+      expect(pics.live()).toBe(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  /** `n` animated shores, each a frame that never comes again at each tick, on the screen for `ticks` ticks. */
+  const shores = async (pics: ReturnType<typeof setup>, n: number, ticks: number) => {
+    const many = Array.from({ length: n }, (_, i) =>
+      anim(`shore${i}`, (t) => ({ id: `shore${i}:${t.water}`, steps: [{ draw: `ocean${t.water}.png` }] })),
+    );
+    const live = await Promise.all(many.map((m) => pics.get(m)));
+    for (let w = 1; w <= ticks; w++) await pics.animate({ water: w, river: 0 }, live);
+  };
+
   it("keeps no more than KEPT_FRAMES of the water's composited frames", async () => {
     const pics = setup();
     try {
-      const many = Array.from({ length: 50 }, (_, i) =>
-        anim(`shore${i}`, (t) => ({ id: `shore${i}:${t.water}`, steps: [{ draw: `ocean${t.water}.png` }] })),
-      );
-      const live = await Promise.all(many.map((m) => pics.get(m)));
-      for (let w = 1; w <= Math.ceil((2 * KEPT_FRAMES) / many.length); w++)
-        await pics.animate({ water: w, river: 0 }, live);
+      await shores(pics, 5, (2 * KEPT_FRAMES) / 5);
       expect(pics.kept()).toBe(KEPT_FRAMES);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('keeps more frames for more animated pictures on the screen: two cycles of each', async () => {
+    const pics = setup();
+    try {
+      await shores(pics, 40, 100);
+      expect(pics.kept()).toBeGreaterThan(KEPT_FRAMES);
+      expect(pics.kept()).toBeLessThan(40 * 100);
     } finally {
       vi.unstubAllGlobals();
     }

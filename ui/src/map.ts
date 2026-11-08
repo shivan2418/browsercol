@@ -90,6 +90,8 @@ const fogged = (c: number) =>
  * frame of the beaches and rivers on a screen, without keeping every frame of every one the map has (#408).
  */
 export const KEPT_FRAMES = 800;
+/** Frames kept for each animated picture on the screen: two of FreeCol's 21-frame cycles, the recipes in them too. */
+const FRAMES_EACH = 2 * 21 * 2;
 
 /**
  * Images by path and recipes by id, loaded and composited once; and the animated water's pictures, a canvas each that
@@ -123,10 +125,13 @@ export function pictures(base: string, load: (path: string) => Promise<Picture> 
   };
 
   /**
-   * The animated water's frames, composited, by id, the most lately drawn last. A frame's recipe is composited whole:
-   * the images it is made of are kept for good, as all images are, but not the recipes between.
+   * The animated water's frames, composited, by id, the most lately drawn last: the frames and the recipes they are
+   * made of (an ocean frame masked to a beach's shape, which beaches of the same frame share). The images they are
+   * made of are kept for good, as all images are.
    */
   const frames = new Map<string, Promise<Picture>>();
+  /** How many frames are kept: KEPT_FRAMES, or more for more animated pictures on the screen, two cycles of each. */
+  let keptFrames = KEPT_FRAMES;
   const frame = (src: Src): Promise<Picture> => {
     if (typeof src === 'string') return get(src);
     if (isAnimated(src)) throw new Error(`an animated picture in a frame: ${src.id}`);
@@ -135,7 +140,7 @@ export function pictures(base: string, load: (path: string) => Promise<Picture> 
     else p = compose(src, (s) => (typeof s === 'string' ? get(s) : compose(s as Recipe, frame)));
     frames.set(src.id, p);
     for (const id of frames.keys()) {
-      if (frames.size <= KEPT_FRAMES) break;
+      if (frames.size <= keptFrames) break;
       frames.delete(id);
     }
     return p;
@@ -168,13 +173,14 @@ export function pictures(base: string, load: (path: string) => Promise<Picture> 
     ticks = t;
     const key = tickKey(t);
     const due: [HTMLCanvasElement, { anim: Animated; shows: string }][] = [];
+    let live = 0;
     for (const pic of new Set(shown)) {
       const l = liveOf.get(pic);
+      if (l) live++;
       if (l && l.shows !== key) due.push([pic as HTMLCanvasElement, l]);
     }
+    keptFrames = Math.max(KEPT_FRAMES, live * FRAMES_EACH);
     const next = await Promise.all(due.map(([, l]) => frame(l.anim.animate(t))));
-    // A later call may have moved on while these were composited: the latest frame wins.
-    if (tickKey(ticks) !== key) return [];
     due.forEach(([c, l], i) => {
       const g = c.getContext('2d')!;
       g.clearRect(0, 0, c.width, c.height);
@@ -199,7 +205,12 @@ export function pictures(base: string, load: (path: string) => Promise<Picture> 
     }
     return p;
   };
-  return { get, gray, animate, kept: () => frames.size };
+  /** Let go of the animated pictures the scene no longer has (another map's, ground explored over). */
+  const retain = (ops: Op[]) => {
+    const ids = new Set(ops.flatMap((op) => (op.k === 'image' && isAnimated(op.src) ? [op.src.id] : [])));
+    for (const id of lives.keys()) if (!ids.has(id)) lives.delete(id);
+  };
+  return { get, gray, animate, retain, kept: () => frames.size, live: () => lives.size };
 }
 
 const canvas = (w: number, h: number) => Object.assign(document.createElement('canvas'), { width: w, height: h });
@@ -234,6 +245,9 @@ type Layer = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
  */
 const STACK: readonly Layer[] = [5, 0, 6, 7, 1, 4, 2, 3];
 
+/** The animated base: the water and rivers, which MapViewer paints first. */
+const BASE_LAYER: Layer = 5;
+
 /** The layers drawn only when the static scene changes: the animated base, the scene under the units and over them. */
 const STATIC_LAYERS: readonly Layer[] = [5, 0, 7];
 
@@ -260,7 +274,7 @@ interface Pen {
   tile?(x: number, y: number, pass: number): void;
   /** `tile`: a whole tile's picture, which the pen overlaps its neighbours by a device pixel when the map is scaled between pixels. */
   image(pic: Picture, x: number, y: number, dim: boolean, tile?: boolean): void;
-  /** The pictures of a layer on the screen or near it, which the animated water draws the next frame of (#408). */
+  /** The pictures of a layer on the screen, which the animated water draws the next frame of (#408). */
   shown(layer: Layer): Iterable<Picture>;
   /** A count that moves on when more of a layer comes on the screen, whose pictures may show an old frame. */
   shownVersion(layer: Layer): number;
@@ -663,7 +677,10 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
   if (atlas && baseAtlas) {
     const backend = tilemapBackend(atlas, dimmed, seamBleed);
     for (const n of STATIC_LAYERS)
-      chunkLayers.set(n, new ChunkLayer(layers[n], n === 5 ? tilemapBackend(baseAtlas, dimmed, seamBleed) : backend));
+      chunkLayers.set(
+        n,
+        new ChunkLayer(layers[n], n === BASE_LAYER ? tilemapBackend(baseAtlas, dimmed, seamBleed) : backend),
+      );
   }
   /** The static layer being drawn in chunks, the tile its draws belong to, and a count to key what has no key. */
   let collecting: ChunkLayer | null = null;
@@ -1499,6 +1516,8 @@ export function mapDrawer(
   /** The frame of the animated water last drawn, and what of the base was on the screen then; whether it is being drawn. */
   let baseKey = '';
   let baseBusy = false;
+  /** When the animated water may be drawn again (#353). */
+  let baseNext = 0;
 
   async function init() {
     const art = (await (await fetch(artBase + manifest)).json()) as Art;
@@ -1616,21 +1635,29 @@ export function mapDrawer(
    * animated pictures on the screen are drawn again, each once however many tiles show it (#408).
    */
   function animateBase() {
-    if (!drawn || !pen || baseBusy) return;
+    if (!drawn || !pen || baseBusy || performance.now() < baseNext) return;
     const t = ticksNow();
-    const key = `${t.water}:${t.river}:${pen.shownVersion(5)}`;
+    const key = `${t.water}:${t.river}:${pen.shownVersion(BASE_LAYER)}`;
     if (key === baseKey) return;
     baseKey = key;
     baseBusy = true;
     const start = performance.now();
     void pics
-      .animate(t, pen.shown(5))
+      .animate(t, pen.shown(BASE_LAYER))
       .then((changed) => {
-        if (changed.length) pen?.redrawn(changed);
+        if (changed.length) {
+          pen?.redrawn(changed);
+          // The Canvas 2D pen draws again only when shown.
+          camera();
+        }
         measure('map: water', start);
       })
       .finally(() => {
         baseBusy = false;
+        // A frame that cost a slow machine much waits three times as long before the next (#353); one that cost
+        // little, as on the screen of any machine it should, waits for nothing but its tick.
+        const end = performance.now();
+        baseNext = end + 3 * (end - start);
       });
   }
 
@@ -1772,6 +1799,7 @@ export function mapDrawer(
     const units = unitScene(map, res!);
     measure(kept ? 'map: scene, kept' : 'map: scene', start);
     if (!kept) {
+      pics.retain(ground.base);
       const ops = [...ground.base, ...ground.below, ...ground.above];
       // The panels draw no units.
       panels.forEach((render) => render(ops));

@@ -213,11 +213,14 @@ export class ChunkLayer {
     this.refresh();
   }
 
-  /** The pictures the chunks on the screen draw. */
+  /**
+   * The pictures the built chunks draw: those on the screen and those kept built round it, so a chunk coming back on
+   * the screen shows the frame the rest does.
+   */
   shownPictures(): Set<Picture> {
     const pics = new Set<Picture>();
     for (const c of this.chunks.values())
-      if (c.parts.some((part) => part?.visible)) for (const it of c.items) if (it.pic) pics.add(it.pic);
+      if (c.maps.length || c.objects.length) for (const it of c.items) if (it.pic) pics.add(it.pic);
     return pics;
   }
 

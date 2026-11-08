@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { Buffer, BufferUsage, Container, Rectangle, Texture } from 'pixi.js';
-import { TilemapGeometry } from '@pixi/tilemap';
+import { Tilemap, TilemapGeometry } from '@pixi/tilemap';
 import { describe, expect, it } from 'vite-plus/test';
 import {
   Atlas,
@@ -70,8 +70,15 @@ describe('ChunkLayer', () => {
     const built: string[] = [];
     const released: string[] = [];
     const backend: ChunkBackend = {
-      build: (c) => built.push(c.key),
-      release: (c) => released.push(c.key),
+      // What it builds stands for a tilemap, which it lets go of.
+      build: (c) => {
+        built.push(c.key);
+        c.maps = [{} as Tilemap];
+      },
+      release: (c) => {
+        released.push(c.key);
+        c.maps = [];
+      },
       rescale: () => {},
     };
     const root = new Container();
@@ -135,12 +142,9 @@ describe('ChunkLayer', () => {
 
   it('lets go of a built chunk once it is well off the screen, and builds it again when it comes back', () => {
     const { built, released, layer, draw } = setup();
-    // The fake backend builds nothing, so give the chunk something to let go of.
     layer.setView(all, all);
     draw(scene(water[0]));
     const far = new Rectangle(90000, 90000, 10, 10);
-    const chunks = (layer as unknown as { chunks: Map<string, { maps: unknown[] }> }).chunks;
-    for (const c of chunks.values()) c.maps.push({});
     layer.setView(far, far);
     expect(released.toSorted()).toEqual([chunkOf(0, 0).join(), chunkOf(40, 0).join()].toSorted());
     built.length = 0;
