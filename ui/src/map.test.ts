@@ -1,5 +1,16 @@
 import { describe, expect, it, vi } from 'vite-plus/test';
-import { backingSize, borderPaths, canvasPen, dimmed, pixelRatio, seamBleed, tileAt } from './map';
+import {
+  backingSize,
+  borderPaths,
+  canvasPen,
+  dimmed,
+  KEPT_FRAMES,
+  pictures,
+  pixelRatio,
+  seamBleed,
+  tileAt,
+} from './map';
+import type { Animated, Src, Ticks } from './tileset';
 
 // A 2x4 map of 128x64 diamonds in staggered rows, odd rows half a tile to
 // the right. Tile (0,0)'s diamond spans x 0..128 and y 0..64 with its centre
@@ -166,6 +177,80 @@ describe('canvasPen', () => {
       pen.marker(0.5);
       pen.show(-5000, -5000, 1);
       expect(drawn).toHaveLength(3);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
+
+describe('pictures', () => {
+  /** Pictures over fake canvases: each remembers what was drawn on it last, by the image's path. */
+  const setup = () => {
+    const fake = (id = ''): HTMLCanvasElement => {
+      const c = { width: 128, height: 64, id, last: '' };
+      return Object.assign(c, {
+        getContext: () => ({
+          clearRect: () => {},
+          drawImage: (pic: { id: string; last: string }) => (c.last = pic.last || pic.id),
+          globalCompositeOperation: '',
+          globalAlpha: 1,
+        }),
+      }) as unknown as HTMLCanvasElement;
+    };
+    vi.stubGlobal('document', { createElement: () => fake() });
+    return pictures('', (path) => Promise.resolve(fake(path)));
+  };
+  const ocean = (t: Ticks): string => `ocean${t.water % 3}.png`;
+  const beach = (t: Ticks): Src => ({
+    id: `beach:${ocean(t)}`,
+    steps: [{ draw: ocean(t) }, { mask: 'mask.png' }],
+  });
+  const anim = (name: string, f: (t: Ticks) => Src): Animated => ({ id: `anim:${name}`, animate: f });
+  const shows = (c: unknown) => (c as { last: string }).last;
+
+  it('gives every tile showing the same animated water one canvas, which each frame draws on once', async () => {
+    const pics = setup();
+    try {
+      const a = await pics.get(anim('ocean', ocean));
+      expect(await pics.get(anim('ocean', ocean))).toBe(a);
+      expect(shows(a)).toBe('ocean0.png');
+      expect(await pics.animate({ water: 1, river: 0 }, [a, a])).toEqual([a]);
+      expect(shows(a)).toBe('ocean1.png');
+      // The same frame again: nothing to draw.
+      expect(await pics.animate({ water: 1, river: 0 }, [a])).toEqual([]);
+      // A picture that is not animated is left alone.
+      const still = await pics.get('grass.png');
+      expect(await pics.animate({ water: 2, river: 0 }, [a, still])).toEqual([a]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('draws only the animated pictures it is given: the ones on the screen', async () => {
+    const pics = setup();
+    try {
+      const a = await pics.get(anim('ocean', ocean));
+      const b = await pics.get(anim('beach', beach));
+      expect(await pics.animate({ water: 1, river: 0 }, [b])).toEqual([b]);
+      expect(shows(a)).toBe('ocean0.png');
+      // Off the screen until now, it catches up once it comes on it.
+      expect(await pics.animate({ water: 1, river: 0 }, [a, b])).toEqual([a]);
+      expect(shows(a)).toBe('ocean1.png');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("keeps no more than KEPT_FRAMES of the water's composited frames", async () => {
+    const pics = setup();
+    try {
+      const many = Array.from({ length: 50 }, (_, i) =>
+        anim(`shore${i}`, (t) => ({ id: `shore${i}:${t.water}`, steps: [{ draw: `ocean${t.water}.png` }] })),
+      );
+      const live = await Promise.all(many.map((m) => pics.get(m)));
+      for (let w = 1; w <= Math.ceil((2 * KEPT_FRAMES) / many.length); w++)
+        await pics.animate({ water: w, river: 0 }, live);
+      expect(pics.kept()).toBe(KEPT_FRAMES);
     } finally {
       vi.unstubAllGlobals();
     }

@@ -106,8 +106,8 @@ export class ChunkLayer {
   private next: Item[] | null = null;
   /** Each pass's container in the layer, which holds the chunks' parts of that pass back to front. */
   private passes: Container[] = [];
-  /** The pictures in the order they were drawn, which repicture() replaces. */
-  private images: { item: Item; chunk: Chunk }[] = [];
+  /** A count that moves on when a chunk comes on the screen or is built again: what the animated water checks. */
+  shownVersion = 0;
   private view = new Rectangle();
   private keep = new Rectangle();
   constructor(
@@ -210,24 +210,15 @@ export class ChunkLayer {
         if (parts.length) pass.addChild(...parts);
       });
     }
-    // In the order they were drawn, as repicture() gets them.
-    this.images = items.filter((it) => it.pic).map((item) => ({ item, chunk: this.chunks.get(item.chunk!)! }));
     this.refresh();
   }
 
-  /** The animated base's next frame: the same pictures in the same places, but other pictures. */
-  repicture(pics: Picture[]): boolean {
-    if (pics.length !== this.images.length) return false;
-    pics.forEach((p, i) => {
-      const { item, chunk } = this.images[i];
-      if (item.pic === p) return;
-      item.pic = p;
-      item.key = pictureKey(p, item.x, item.y, item.dim);
-      chunk.dirty = true;
-    });
-    for (const c of this.chunks.values()) if (c.dirty) c.sig = signature(c.items);
-    this.refresh();
-    return true;
+  /** The pictures the chunks on the screen draw. */
+  shownPictures(): Set<Picture> {
+    const pics = new Set<Picture>();
+    for (const c of this.chunks.values())
+      if (c.parts.some((part) => part?.visible)) for (const it of c.items) if (it.pic) pics.add(it.pic);
+    return pics;
   }
 
   /** What is on the screen, and what to keep built round it, in map pixels. */
@@ -246,10 +237,15 @@ export class ChunkLayer {
   private refresh() {
     for (const c of this.chunks.values()) {
       const on = c.box.intersects(this.view);
-      for (const part of c.parts) if (part) part.visible = on;
+      for (const part of c.parts)
+        if (part && part.visible !== on) {
+          part.visible = on;
+          if (on) this.shownVersion++;
+        }
       if (on && c.dirty) {
         this.backend.build(c);
         c.dirty = false;
+        this.shownVersion++;
       } else if (!on && !c.box.intersects(this.keep) && (c.maps.length || c.objects.length)) {
         this.backend.release(c);
         c.dirty = true;
@@ -393,6 +389,12 @@ export class Atlas {
       p.g.drawImage(e.pic, e.u + TILE_PAD - b / 2, e.v + TILE_PAD - b / 2, W + b, H + b);
     } else p.g.drawImage(e.pic, e.u, e.v);
     p.dirty = true;
+  }
+
+  /** These pictures' pixels changed (the animated water's next frame): draw them again where the atlas holds them. */
+  repaint(pics: Iterable<Picture>) {
+    for (const pic of pics) for (const e of [this.entries.get(pic), this.tileEntries.get(pic)]) if (e) this.paint(e);
+    this.flush();
   }
 
   /** The tiles' bleed changed with the map's scale: draw the whole tiles again. */

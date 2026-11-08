@@ -132,13 +132,28 @@ export interface Chips {
   alarm: { fg: number; worthScouting: boolean } | null;
 }
 
-/** An image file, or one made by drawing others in order onto a tile-sized canvas. */
-export type Src = string | Recipe;
+/** An image file, one made by drawing others in order onto a tile-sized canvas, or one of the animated water's. */
+export type Src = string | Recipe | Animated;
 export interface Recipe {
   /** Same id, same image: map.ts's cache key. */
   id: string;
   steps: Step[];
 }
+/**
+ * A picture of the animated water or a river, which shows another image at each frame (#408): the same id at every
+ * frame, so the map draws it as one picture whose pixels change, shared by every tile it is on.
+ */
+export interface Animated {
+  id: string;
+  /** What it shows at a frame. */
+  animate(ticks: Ticks): Src;
+}
+
+export const isAnimated = (src: Src): src is Animated => typeof src !== 'string' && 'animate' in src;
+
+/** What a picture shows at a frame: an animated one's image then, else itself. */
+export const frameAt = (src: Src, ticks: Ticks): Src => (isAnimated(src) ? src.animate(ticks) : src);
+
 /** Draw an image (scaled about the centre if asked), or keep only where a mask is opaque. */
 export type Step = { draw: Src; alpha?: number; scale?: number } | { mask: Src };
 
@@ -298,9 +313,6 @@ export const TICK_MS = 125;
 /** Still water and rivers: the first frame. */
 export const STILL: Ticks = { water: 0, river: 0 };
 
-/** The animated base tiles of the scene at some frame: what animates, and nothing else. */
-export const animatedBase = (map: MapView, res: Resources, ticks: Ticks): Op[] => build(map, res, 1, ticks, true).ops;
-
 /**
  * The map's draw operations without its units, which a move that changes only units leaves as they were. The
  * scene is `base`, `below`, the units, then `above`.
@@ -315,13 +327,8 @@ export interface StaticScene {
 }
 
 /** The scene's static part: everything but the units. */
-export function staticScene(
-  map: MapView,
-  res: Resources,
-  colonyLabels: ColonyLabels = 1,
-  ticks: Ticks = STILL,
-): StaticScene {
-  const { ops, baseEnd, unitsAt } = build(map, res, colonyLabels, ticks, false);
+export function staticScene(map: MapView, res: Resources, colonyLabels: ColonyLabels = 1): StaticScene {
+  const { ops, baseEnd, unitsAt } = build(map, res, colonyLabels);
   return { base: ops.slice(0, baseEnd), below: ops.slice(baseEnd, unitsAt), above: ops.slice(unitsAt) };
 }
 
@@ -373,39 +380,24 @@ export function sameStaticScene(a: MapView, b: MapView): boolean {
 
 /**
  * What gives the static scene of a map view: the one it gave last, the same object, while the map views differ
- * only in their units, else a new one drawn at `ticks`.
+ * only in their units, else a new one.
  */
-export function staticScenes(): (
-  map: MapView,
-  res: Resources,
-  colonyLabels: ColonyLabels,
-  ticks: Ticks,
-) => StaticScene {
+export function staticScenes(): (map: MapView, res: Resources, colonyLabels: ColonyLabels) => StaticScene {
   let kept: { map: MapView; res: Resources; colonyLabels: ColonyLabels; scene: StaticScene } | null = null;
-  return (map, res, colonyLabels, ticks) => {
+  return (map, res, colonyLabels) => {
     if (kept && kept.res === res && kept.colonyLabels === colonyLabels && sameStaticScene(kept.map, map))
       return kept.scene;
-    kept = { map, res, colonyLabels, scene: staticScene(map, res, colonyLabels, ticks) };
+    kept = { map, res, colonyLabels, scene: staticScene(map, res, colonyLabels) };
     return kept.scene;
   };
 }
 
-/**
- * The map's draw operations.
- *
- * @param ticks The frame of the animated water and rivers.
- */
-export function scene(map: MapView, res: Resources, colonyLabels: ColonyLabels = 1, ticks: Ticks = STILL): Op[] {
-  const { base, below, above } = staticScene(map, res, colonyLabels, ticks);
+/** The map's draw operations; the animated water's pictures are Animated (frameAt gives one frame). */
+export function scene(map: MapView, res: Resources, colonyLabels: ColonyLabels = 1): Op[] {
+  const { base, below, above } = staticScene(map, res, colonyLabels);
   return [...base, ...below, ...unitScene(map, res), ...above];
 }
 
-/**
- * The scene's operations but the units, and where they go: after the animated base tiles (the first `baseEnd`,
- * marked `base`), at `unitsAt`.
- *
- * @param baseOnly Only the animated base tiles.
- */
 /**
  * Which pass of the map's drawing an op is in: each loop over the tiles is one, and the settlements' labels another.
  * A picture may cover any tile round it, so what draws the map in pieces draws each pass for all of them before the
@@ -413,12 +405,14 @@ export function scene(map: MapView, res: Resources, colonyLabels: ColonyLabels =
  */
 export const passOf = new WeakMap<Op, number>();
 
+/**
+ * The scene's operations but the units, and where they go: after the animated base tiles (the first `baseEnd`,
+ * marked `base`), at `unitsAt`.
+ */
 function build(
   map: MapView,
   res: Resources,
   colonyLabels: ColonyLabels,
-  ticks: Ticks,
-  baseOnly: boolean,
 ): { ops: Op[]; baseEnd: number; unitsAt: number } {
   const { w, h } = map;
   const ops: Op[] = [];
@@ -464,7 +458,7 @@ function build(
     const pre = lower(dirs.filter((d) => LONG_SIDES.includes(d)));
     return lower(dirs.filter((d) => LONG_SIDES.includes(d) || pre === '' || !pre.includes(d.toLowerCase())));
   };
-  const water = (x: number, y: number, type: TileType): Src | null => {
+  const water = (x: number, y: number, type: TileType, ticks: Ticks): Src | null => {
     const n = frame(terrainKey(type.id), ticks.water);
     const ocean = res.path(terrainKey(type.id), n);
     if (!ocean) return null;
@@ -540,7 +534,7 @@ function build(
           return !!river && Number(river.style[LONG_SIDES.indexOf(REVERSE[d])] ?? 0) > 0;
         });
   // DeltaAnimationImageCreator.
-  const delta = (d: Direction): Recipe | null => {
+  const delta = (d: Direction, ticks: Ticks): Recipe | null => {
     const dir = d.toLowerCase();
     const [pebbles, waterImg, waterMask, pebblesMask, tileMask] = [
       res.path(RIVER_PEBBLES),
@@ -562,7 +556,7 @@ function build(
 
   // RiverAnimationImageCreator: river water and pebbles in
   // the shape of the river's mask, fading out at a slightly larger mask.
-  const river = (x: number, y: number): Recipe | null => {
+  const river = (x: number, y: number, ticks: Ticks): Recipe | null => {
     const r = riverAt([x, y])!;
     const conns = LONG_SIDES.filter((_, i) => r.style[i] !== '0');
     const shape = lower(conns);
@@ -616,30 +610,41 @@ function build(
     return !!type && (!type.land || !!riverAt([x, y]));
   };
 
+  /**
+   * A picture that changes with the frame, as one Animated picture: its id is the still frame's, so tiles that show
+   * the same thing (all the open ocean of a type, a beach of the same shape) share it. Art with one frame stays a
+   * plain picture.
+   */
+  const animatedSrc = (at: (ticks: Ticks) => Src | null): Src | null => {
+    const still = at(STILL);
+    const next = at({ water: 1, river: 1 });
+    if (!still || !next || srcId(next) === srcId(still)) return still;
+    return { id: `anim:${srcId(still)}`, animate: (ticks) => at(ticks) ?? still };
+  };
+
   // MapViewer paints the animated base tiles below the rest: water with its
   // beaches and deltas, and land with a river.
   each((x, y) => {
     const type = typeAt(x, y);
     if (!type) return;
     if (!type.land) {
-      const src = water(x, y, type);
+      const src = animatedSrc((t) => water(x, y, type, t));
       if (src) ops.push({ k: 'image', x, y, src, at: 'tile' });
       const ds = deltas(x, y);
       if (ds.length) transitions(x, y);
       for (const d of ds) {
-        const src = delta(d);
+        const src = animatedSrc((t) => delta(d, t));
         if (src) ops.push({ k: 'image', x, y, src, at: 'tile' });
       }
     } else if (riverAt([x, y])) {
       terrain(x, y, type);
       transitions(x, y);
-      const src = river(x, y);
+      const src = animatedSrc((t) => river(x, y, t));
       if (src) ops.push({ k: 'image', x, y, src, at: 'tile' });
     }
   });
   for (const op of ops) if (op.k === 'image') op.base = true;
   const baseEnd = ops.length;
-  if (baseOnly) return { ops, baseEnd, unitsAt: baseEnd };
   each((x, y) => {
     if (!animated(x, y)) terrain(x, y, typeAt(x, y));
   });

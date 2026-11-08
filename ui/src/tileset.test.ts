@@ -1,13 +1,15 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { resources } from './resources';
 import {
-  animatedBase,
   debugOverlayOps,
+  frameAt,
+  isAnimated,
   isCursorMarker,
   overlay,
   passOf,
   sameStaticScene,
   scene,
+  srcId,
   STATIC_FIELDS,
   staticScene,
   staticScenes,
@@ -119,6 +121,8 @@ const tileset = resources([{ dir: 'default', props }], files);
 const art = (f: string) => `default/resources/${f}.png`;
 
 const at = (ops: Op[], x: number, y: number) => ops.filter((op) => op.x === x && op.y === y);
+/** Ops as data: an animated picture by its id, which names what it shows at every frame. */
+const ids = (x: unknown) => JSON.parse(JSON.stringify(x));
 
 describe('scene', () => {
   it("draws each tile's terrain, and unexplored tiles as unexplored", () => {
@@ -138,7 +142,8 @@ describe('scene', () => {
     // Land lies SE, S, SW and W of (1,0). FreeCol keys the beach mask by
     // the long sides (se_sw), and S and W are dropped because their names
     // occur in "se_sw". The ocean is its first frame, variation 0.
-    expect(at(scene(map, tileset), 1, 0)[0]).toEqual({
+    const [op] = at(scene(map, tileset), 1, 0);
+    expect({ ...op, src: op.k === 'image' ? frameAt(op.src, STILL) : null }).toEqual({
       k: 'image',
       x: 1,
       y: 0,
@@ -161,9 +166,10 @@ describe('scene', () => {
   });
 
   it('animates the water through its frames, the beach showing through more or less', () => {
+    const op = at(scene(map, tileset), 1, 0)[0];
     const beachAt = (ticks: number) => {
-      const op = at(scene(map, tileset, 1, { water: ticks, river: 0 }), 1, 0)[0];
-      return op.k === 'image' && typeof op.src !== 'string' ? op.src : null;
+      const src = op.k === 'image' ? frameAt(op.src, { water: ticks, river: 0 }) : null;
+      return src && typeof src !== 'string' && 'steps' in src ? src : null;
     };
     expect(beachAt(2)).toEqual(beachAt(0));
     const next = beachAt(1)!;
@@ -171,13 +177,18 @@ describe('scene', () => {
     expect(next.steps.map((s) => ('alpha' in s ? s.alpha : null)).filter((a) => a !== null)).toEqual([0.05]);
   });
 
-  it('gives the animated base tiles alone for the layer that animates', () => {
-    const base = animatedBase(map, tileset, { water: 1, river: 0 });
-    expect(base.length).toBeGreaterThan(0);
-    expect(base.every((op) => op.k === 'image' && op.base)).toBe(true);
-    expect(scene(map, tileset).filter((op) => op.k === 'image' && op.base).length).toBe(
-      animatedBase(map, tileset, { water: 0, river: 0 }).length,
-    );
+  it('gives the water one animated picture per look, shared by every tile that looks the same', () => {
+    const { base } = staticScene(map, tileset);
+    const animated = base.flatMap((op) => (op.k === 'image' && isAnimated(op.src) ? [op.src] : []));
+    expect(animated.length).toBeGreaterThan(0);
+    // Its id is the still frame's, the same at every frame; what it shows moves on with the frame.
+    const beach = animated.find((a) => a.id.startsWith('anim:beach:'))!;
+    expect(beach.id).toBe('anim:beach:default/resources/ocean02.png:se_sw');
+    expect(srcId(beach.animate(STILL))).toBe('beach:default/resources/ocean02.png:se_sw');
+    expect(srcId(beach.animate({ water: 1, river: 0 }))).toBe('beach:default/resources/ocean0.png:se_sw');
+    // Two tiles showing the same have animated pictures of the same id: the map draws them as one picture.
+    const ids = animated.map((a) => a.id);
+    expect(new Set(ids).size).toBeLessThanOrEqual(ids.length);
   });
 
   it('blends a land tile into its neighbours with masked transitions', () => {
@@ -272,7 +283,9 @@ describe('staticScene and unitScene', () => {
   it('make up the scene: base, below, the units, then above', () => {
     for (const labels of [0, 1, 2] as const) {
       const { base, below, above } = staticScene(colony, tileset, labels);
-      expect(scene(colony, tileset, labels)).toEqual([...base, ...below, ...unitScene(colony, tileset), ...above]);
+      expect(ids(scene(colony, tileset, labels))).toEqual(
+        ids([...base, ...below, ...unitScene(colony, tileset), ...above]),
+      );
     }
   });
 
@@ -336,10 +349,10 @@ describe('sameStaticScene', () => {
 
   it('lets staticScenes keep the static scene while only units change', () => {
     const statics = staticScenes();
-    const first = statics(map, tileset, 1, STILL);
-    expect(first).toEqual(staticScene(map, tileset));
+    const first = statics(map, tileset, 1);
+    expect(ids(first)).toEqual(ids(staticScene(map, tileset)));
     const moved = { ...copy(map), units: [{ ...map.units[0], x: 1, y: 3 }] };
-    expect(statics(moved, tileset, 1, STILL)).toBe(first);
+    expect(statics(moved, tileset, 1)).toBe(first);
     // The units are drawn from the new map all the same.
     expect(unitScene(moved, tileset).map((op) => [op.x, op.y])).toEqual([
       [1, 3],
@@ -347,10 +360,10 @@ describe('sameStaticScene', () => {
     ]);
     // A tile explored, or other colony labels, draw it again.
     const explored = { ...moved, tiles: 'AB' + 'AC' + 'AA' + 'AA' };
-    const again = statics(explored, tileset, 1, STILL);
+    const again = statics(explored, tileset, 1);
     expect(again).not.toBe(first);
-    expect(again).toEqual(staticScene(explored, tileset));
-    expect(statics(explored, tileset, 2, STILL)).not.toBe(again);
+    expect(ids(again)).toEqual(ids(staticScene(explored, tileset)));
+    expect(statics(explored, tileset, 2)).not.toBe(again);
   });
 
   it('minds what the player sees only while the fog of war shows', () => {

@@ -10,7 +10,7 @@ import { AlphaFilter, Application, Container, Culler, Graphics, Rectangle, Sprit
 import { Atlas, ChunkLayer, pictureKey, staticDrawing, tilemapBackend } from './map-tilemap';
 import { resources, type ArtLayer, type Resources } from './resources';
 import {
-  animatedBase,
+  isAnimated,
   isCursorMarker,
   NO_MODES,
   overlay,
@@ -31,6 +31,8 @@ import {
   type Direction,
   type MapView,
   type Op,
+  type Animated,
+  type Recipe,
   type Src,
   type StaticScene,
   type TerrainAnimation,
@@ -83,16 +85,19 @@ const css = (c: number) => '#' + c.toString(16).padStart(6, '0');
 const fogged = (c: number) =>
   [16, 8, 0].reduce((n, shift) => n | (Math.round(((c >> shift) & 0xff) * 0.8) << shift), 0);
 
-/** Images by path and recipes by id, loaded and composited once. */
-function pictures(base: string) {
+/**
+ * How many frames of the animated water's composited pictures are kept, the ones drawn most lately: enough for every
+ * frame of the beaches and rivers on a screen, without keeping every frame of every one the map has (#408).
+ */
+export const KEPT_FRAMES = 800;
+
+/**
+ * Images by path and recipes by id, loaded and composited once; and the animated water's pictures, a canvas each that
+ * animate() draws the next frame on (#408).
+ */
+export function pictures(base: string, load: (path: string) => Promise<Picture> = loadImage(base)) {
   const cache = new Map<string, Promise<Picture>>();
-  const canvas = (w: number, h: number) => Object.assign(document.createElement('canvas'), { width: w, height: h });
-  const load = (path: string) => {
-    const img = new Image();
-    img.src = base + path;
-    return img.decode().then(() => img);
-  };
-  const compose = async (src: Exclude<Src, string>): Promise<Picture> => {
+  const compose = async (src: Recipe, get: (src: Src) => Promise<Picture>): Promise<Picture> => {
     const c = canvas(W, H);
     const g = c.getContext('2d')!;
     for (const step of src.steps) {
@@ -110,10 +115,73 @@ function pictures(base: string) {
     return c;
   };
   const get = (src: Src): Promise<Picture> => {
+    if (isAnimated(src)) return live(src);
     const id = srcId(src);
     let p = cache.get(id);
-    if (!p) cache.set(id, (p = typeof src === 'string' ? load(src) : compose(src)));
+    if (!p) cache.set(id, (p = typeof src === 'string' ? load(src) : compose(src, get)));
     return p;
+  };
+
+  /**
+   * The animated water's frames, composited, by id, the most lately drawn last. A frame's recipe is composited whole:
+   * the images it is made of are kept for good, as all images are, but not the recipes between.
+   */
+  const frames = new Map<string, Promise<Picture>>();
+  const frame = (src: Src): Promise<Picture> => {
+    if (typeof src === 'string') return get(src);
+    if (isAnimated(src)) throw new Error(`an animated picture in a frame: ${src.id}`);
+    let p = frames.get(src.id);
+    if (p) frames.delete(src.id);
+    else p = compose(src, (s) => (typeof s === 'string' ? get(s) : compose(s as Recipe, frame)));
+    frames.set(src.id, p);
+    for (const id of frames.keys()) {
+      if (frames.size <= KEPT_FRAMES) break;
+      frames.delete(id);
+    }
+    return p;
+  };
+  const tickKey = (t: Ticks) => `${t.water}:${t.river}`;
+  /** Each animated picture's canvas, and the frame it shows. */
+  const lives = new Map<string, Promise<HTMLCanvasElement>>();
+  const liveOf = new WeakMap<Picture, { anim: Animated; shows: string }>();
+  /** The frame the animated pictures show now: new ones start at it. */
+  let ticks: Ticks = STILL;
+  const live = (anim: Animated): Promise<HTMLCanvasElement> => {
+    let p = lives.get(anim.id);
+    if (!p) {
+      const at = ticks;
+      p = frame(anim.animate(at)).then((pic) => {
+        const c = canvas(pic.width, pic.height);
+        c.getContext('2d')!.drawImage(pic, 0, 0);
+        liveOf.set(c, { anim, shows: tickKey(at) });
+        return c;
+      });
+      lives.set(anim.id, p);
+    }
+    return p;
+  };
+  /**
+   * Show the animated pictures among `shown` at frame `t`: each one not at it yet is drawn again, on its own canvas,
+   * the one every tile it is on draws. Returns those drawn again.
+   */
+  const animate = async (t: Ticks, shown: Iterable<Picture>): Promise<Picture[]> => {
+    ticks = t;
+    const key = tickKey(t);
+    const due: [HTMLCanvasElement, { anim: Animated; shows: string }][] = [];
+    for (const pic of new Set(shown)) {
+      const l = liveOf.get(pic);
+      if (l && l.shows !== key) due.push([pic as HTMLCanvasElement, l]);
+    }
+    const next = await Promise.all(due.map(([, l]) => frame(l.anim.animate(t))));
+    // A later call may have moved on while these were composited: the latest frame wins.
+    if (tickKey(ticks) !== key) return [];
+    due.forEach(([c, l], i) => {
+      const g = c.getContext('2d')!;
+      g.clearRect(0, 0, c.width, c.height);
+      g.drawImage(next[i], 0, 0);
+      l.shows = key;
+    });
+    return due.map(([c]) => c);
   };
   /** ImageLibrary's grayscale images: sentries and units out of sight. */
   const gray = (src: Src): Promise<Picture> => {
@@ -131,8 +199,17 @@ function pictures(base: string) {
     }
     return p;
   };
-  return { get, gray };
+  return { get, gray, animate, kept: () => frames.size };
 }
+
+const canvas = (w: number, h: number) => Object.assign(document.createElement('canvas'), { width: w, height: h });
+
+/** An image file under `base`, decoded. */
+const loadImage = (base: string) => (path: string) => {
+  const img = new Image();
+  img.src = base + path;
+  return img.decode().then(() => img);
+};
 
 interface TextStyle {
   color: number;
@@ -183,11 +260,12 @@ interface Pen {
   tile?(x: number, y: number, pass: number): void;
   /** `tile`: a whole tile's picture, which the pen overlaps its neighbours by a device pixel when the map is scaled between pixels. */
   image(pic: Picture, x: number, y: number, dim: boolean, tile?: boolean): void;
-  /**
-   * Give a layer's images, in the order they were drawn, these pictures instead, where the pen keeps its images
-   * (the animated base tiles' next frame, at the places they already are); false when it cannot, to draw it again.
-   */
-  repicture?(layer: Layer, pics: Picture[]): boolean;
+  /** The pictures of a layer on the screen or near it, which the animated water draws the next frame of (#408). */
+  shown(layer: Layer): Iterable<Picture>;
+  /** A count that moves on when more of a layer comes on the screen, whose pictures may show an old frame. */
+  shownVersion(layer: Layer): number;
+  /** These pictures' pixels changed: draw them again. */
+  redrawn(pics: Picture[]): void;
   diamond(x: number, y: number, color: number, alpha: number): void;
   /** `key`: what the path is, the same for the same path, so a pen may draw it once as a picture. */
   road(
@@ -423,6 +501,8 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
    */
   const MARGIN = 400;
   let culledAt: { x: number; y: number; scale: number; w: number; h: number } | null = null;
+  /** How many times the whole map was culled: what the sprites on the screen may have changed with. */
+  let culls = 0;
   /** Draw the map at the next frame, once however many changes come before it; what lies off the screen is skipped. */
   const redraw = (cull: Container | 'all' | null = 'all', camera = false) => {
     if (cull === 'all') {
@@ -444,8 +524,10 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
       settle();
       const s = app.renderer.screen;
       const area = new Rectangle(s.x - MARGIN, s.y - MARGIN, s.width + 2 * MARGIN, s.height + 2 * MARGIN);
-      if (cullAll)
+      if (cullAll) {
         culledAt = { x: world.position.x, y: world.position.y, scale: world.scale.x, w: s.width, h: s.height };
+        culls++;
+      }
       for (const c of cullAll ? [app.stage] : toCull) Culler.shared.cull(c, area, false);
       cullAll = false;
       toCull.clear();
@@ -534,6 +616,8 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
   app.stage.addChild(world);
   let layer = layers[0];
   const textures = new WeakMap<Picture, Texture>();
+  /** What each picture's sprite shows, for the animated water to find the pictures on the screen. */
+  const spritePics = new WeakMap<Container, Picture>();
   const texture = (pic: Picture) => {
     let t = textures.get(pic);
     if (!t) textures.set(pic, (t = Texture.from(pic)));
@@ -561,6 +645,8 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
   const chunkLayers = new Map<Layer, ChunkLayer>();
   const scaleK = () => world.scale.x * app.renderer.resolution;
   const atlas = staticDrawing(app.renderer) === 'tilemap' ? new Atlas() : null;
+  // The animated base on pages of its own, smaller ones: the water's next frame sends its pages to the GPU again.
+  const baseAtlas = atlas ? new Atlas(1024) : null;
   /** A picture of a shape on a tile, drawn once, for the tilemap's atlas: the fog's diamond, a road. */
   const shapes = new Map<string, HTMLCanvasElement>();
   const shape = (key: string, draw: (g: CanvasRenderingContext2D) => void) => {
@@ -574,9 +660,10 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
     }
     return c;
   };
-  if (atlas) {
+  if (atlas && baseAtlas) {
     const backend = tilemapBackend(atlas, dimmed, seamBleed);
-    for (const n of STATIC_LAYERS) chunkLayers.set(n, new ChunkLayer(layers[n], backend));
+    for (const n of STATIC_LAYERS)
+      chunkLayers.set(n, new ChunkLayer(layers[n], n === 5 ? tilemapBackend(baseAtlas, dimmed, seamBleed) : backend));
   }
   /** The static layer being drawn in chunks, the tile its draws belong to, and a count to key what has no key. */
   let collecting: ChunkLayer | null = null;
@@ -645,6 +732,7 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
       const key = `i${t.uid},${x},${y},${dim}`;
       add(key, () => {
         const s = keyed(key, new Sprite(t));
+        spritePics.set(s, pic);
         s.position.set(x, y);
         if (dim) s.tint = 0xcccccc;
         if (tile && pic.width === W && pic.height === H) {
@@ -654,25 +742,21 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
         return s;
       });
     },
-    repicture: (n, pics) => {
-      settle();
+    shown: (n) => {
       const chunks = chunkLayers.get(n);
-      if (chunks) {
-        if (!chunks.repicture(pics)) return false;
-        redraw(null);
-        return true;
+      if (chunks) return chunks.shownPictures();
+      const pics = new Set<Picture>();
+      for (const s of layers[n].children) {
+        const pic = !s.culled && spritePics.get(s);
+        if (pic) pics.add(pic);
       }
-      const sprites = layers[n].children;
-      if (sprites.length !== pics.length || !sprites.every((c) => c instanceof Sprite)) return false;
-      sprites.forEach((s, i) => {
-        const t = texture(pics[i]);
-        if ((s as Sprite).texture === t) return;
-        (s as Sprite).texture = t;
-        // Found again by its new picture, at the place it was.
-        keys.set(s, `i${t.uid},${s.x},${s.y},${(s as Sprite).tint !== 0xffffff}`);
-      });
+      return pics;
+    },
+    shownVersion: (n) => chunkLayers.get(n)?.shownVersion ?? culls,
+    redrawn: (pics) => {
+      for (const a of [atlas, baseAtlas]) a?.repaint(pics);
+      for (const pic of pics) textures.get(pic)?.source.update();
       redraw(null);
-      return true;
     },
     diamond: (x, y, color, alpha) => {
       if (collecting && atlas) {
@@ -831,10 +915,13 @@ export function canvasPen(host: HTMLElement, width: number, height: number, back
   // images, and Firefox spent seconds on every frame drawing them all (#353).
   type Call = ((c: CanvasRenderingContext2D) => void) & {
     box?: [number, number, number, number];
-    /** An image's picture, which repicture() swaps for the next frame without recording the call again. */
-    pic?: { cur: Picture };
+    /** An image's picture. */
+    pic?: Picture;
   };
   const layers: Call[][] = Array.from({ length: 8 }, () => []);
+  /** The pictures each layer drew last time, and how many times the canvas was drawn. */
+  const shownPics: Set<Picture>[] = Array.from({ length: 8 }, () => new Set());
+  let shows = 0;
   let fog = 1;
   let mark = 1;
   let actor = { dx: 0, dy: 0, alpha: 1 };
@@ -854,9 +941,7 @@ export function canvasPen(host: HTMLElement, width: number, height: number, back
       calls = layers[n] = [];
     },
     image: (pic, x, y, dim, tile) => {
-      const held = { cur: pic };
       const call: Call = (c) => {
-        const pic = held.cur;
         // A dimmed picture is drawn from a copy made once: setting the context's filter for every tile took
         // half of Firefox's time in a big map, since it parses the filter string each time.
         const src = dim ? dimmed(pic) : pic;
@@ -864,15 +949,13 @@ export function canvasPen(host: HTMLElement, width: number, height: number, back
         if (b) c.drawImage(src, x - b / 2, y - b / 2, W + b, H + b);
         else c.drawImage(src, x, y);
       };
-      call.pic = held;
+      call.pic = pic;
       push(call, [x, y, pic.width, pic.height]);
     },
-    repicture: (n, pics) => {
-      const layer = layers[n];
-      if (layer.length !== pics.length || !layer.every((call) => call.pic)) return false;
-      layer.forEach((call, i) => (call.pic!.cur = pics[i]));
+    shown: (n) => shownPics[n],
+    shownVersion: () => shows,
+    redrawn: () => {
       changed = true;
-      return true;
     },
     diamond: (x, y, color, alpha) =>
       push((c) => {
@@ -987,8 +1070,10 @@ export function canvasPen(host: HTMLElement, width: number, height: number, back
       if (background) c.fillRect(0, 0, width, height);
       else c.clearRect(0, 0, width, height);
       c.setTransform(scale * ratio, 0, 0, scale * ratio, dx * ratio, dy * ratio);
+      shows++;
       STACK.forEach((n) => {
         const layer = layers[n];
+        const drawn = (shownPics[n] = new Set());
         c.save();
         if (n === 2) {
           c.translate(actor.dx, actor.dy);
@@ -1003,6 +1088,7 @@ export function canvasPen(host: HTMLElement, width: number, height: number, back
           const oy = n === 2 ? actor.dy : 0;
           if (b && (b[0] + ox > right || b[0] + ox + b[2] < left || b[1] + oy > bottom || b[1] + oy + b[3] < top))
             continue;
+          if (call.pic) drawn.add(call.pic);
           call(c);
         }
         c.restore();
@@ -1410,11 +1496,9 @@ export function mapDrawer(
   let blinkMs = BLINK_MS;
   let activeStyle: ActiveStyle = 'online';
   let terrain: TerrainAnimation = 'off';
-  /** The frame of the animated base tiles last drawn, and whether the next is being drawn. */
+  /** The frame of the animated water last drawn, and what of the base was on the screen then; whether it is being drawn. */
   let baseKey = '';
   let baseBusy = false;
-  /** When the animated base may be drawn again: three times what the last frame cost after it, so a map too big for the machine animates more slowly instead of starving the page (#353). */
-  let baseNext = 0;
 
   async function init() {
     const art = (await (await fetch(artBase + manifest)).json()) as Art;
@@ -1527,34 +1611,26 @@ export function mapDrawer(
     return { water: t, river: terrain === 'all' ? t : 0 };
   };
 
-  /** Draw the animated base tiles again when their frame has moved on. */
+  /**
+   * Show the animated water's next frame when its tick has come, or when more of the base came on the screen: the
+   * animated pictures on the screen are drawn again, each once however many tiles show it (#408).
+   */
   function animateBase() {
-    if (!drawn || !res || !pen || baseBusy || performance.now() < baseNext) return;
+    if (!drawn || !pen || baseBusy) return;
     const t = ticksNow();
-    const key = `${t.water}:${t.river}`;
+    const key = `${t.water}:${t.river}:${pen.shownVersion(5)}`;
     if (key === baseKey) return;
     baseKey = key;
     baseBusy = true;
-    const map = drawn;
-    const began = performance.now();
-    drawing = drawing
-      .then(async () => {
-        if (drawn !== map || !pen || !res) return;
-        const start = performance.now();
-        // The same map's base tiles are the same images in the same places: only their pictures move on a frame.
-        const ops = animatedBase(map, res, t);
-        const images = await Promise.all(
-          ops.map((op) => (op.k === 'image' ? pics.get(op.src).catch(() => null) : Promise.resolve(null))),
-        );
-        const shown = images.filter((img) => img !== null);
-        const again = drawn !== map || shown.length !== ops.length || !pen.repicture?.(5, shown);
-        if (again) await paint(pen, 5, ops, pics);
-        measure(again ? 'map: base, painted' : 'map: base, repictured', start);
+    const start = performance.now();
+    void pics
+      .animate(t, pen.shown(5))
+      .then((changed) => {
+        if (changed.length) pen?.redrawn(changed);
+        measure('map: water', start);
       })
       .finally(() => {
         baseBusy = false;
-        const end = performance.now();
-        baseNext = end + 3 * (end - began);
       });
   }
 
@@ -1691,13 +1767,11 @@ export function mapDrawer(
     const way = found && stepTime > 0 && (found.step.speed !== null || map.ourTurn) ? found : null;
     // A map that changes only units keeps the static scene, and the layers it is drawn in.
     const start = performance.now();
-    const ticks = ticksNow();
-    const ground = statics(map, res!, colonyLabels, ticks);
+    const ground = statics(map, res!, colonyLabels);
     const kept = ground === last?.ground;
     const units = unitScene(map, res!);
     measure(kept ? 'map: scene, kept' : 'map: scene', start);
     if (!kept) {
-      baseKey = `${ticks.water}:${ticks.river}`;
       const ops = [...ground.base, ...ground.below, ...ground.above];
       // The panels draw no units.
       panels.forEach((render) => render(ops));

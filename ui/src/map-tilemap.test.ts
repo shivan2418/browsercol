@@ -107,7 +107,7 @@ describe('ChunkLayer', () => {
     expect(built).toEqual([chunkOf(0, 4).join()]);
   });
 
-  it('builds again only a chunk whose drawings changed, and one the water swaps a picture of', () => {
+  it('builds again only a chunk whose drawings changed', () => {
     const { built, layer, draw } = setup();
     layer.setView(all, all);
     draw(scene(water[0]));
@@ -117,11 +117,20 @@ describe('ChunkLayer', () => {
     // Ground explored or a forest cleared: another picture on tile (40,0).
     draw([item(0, 0, grass), item(0, 0, water[0]), item(40, 0, water[1])]);
     expect(built).toEqual([chunkOf(40, 0).join()]);
-    built.length = 0;
-    expect(layer.repicture([grass, water[1], water[1]])).toBe(true);
-    expect(built).toEqual([chunkOf(0, 0).join()]);
-    // Another count of pictures is another scene: it is drawn again instead.
-    expect(layer.repicture([grass])).toBe(false);
+  });
+
+  it('gives the pictures of the chunks on the screen, and moves its count on as more come on it', () => {
+    const { layer, draw } = setup();
+    const near = new Rectangle(0, 0, 300, 300);
+    layer.setView(near, all);
+    draw(scene(water[0]));
+    const shown = layer.shownPictures();
+    expect([shown.size, shown.has(grass), shown.has(water[0])]).toEqual([2, true, true]);
+    const v = layer.shownVersion;
+    layer.setView(near, all);
+    expect(layer.shownVersion).toBe(v);
+    layer.setView(all, all);
+    expect(layer.shownVersion).toBeGreaterThan(v);
   });
 
   it('lets go of a built chunk once it is well off the screen, and builds it again when it comes back', () => {

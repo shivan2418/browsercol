@@ -3,9 +3,11 @@
 // pixel with OTHER's shot of the same view, the difference saved beside it as ...-diff.png.
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/map-shots.ts --label after [--baseline before] [--gpu] [--dpr 2]
 //     [--browsers chromium] [--preset pan-large] [--spots 45,60;120,40] [--size 1366x768] [--query k=v]
-//     [--chromium-args "--disable-webgl"]
+//     [--chromium-args "--disable-webgl"] [--ticks 0,5,13]
 // The water stands still (no terrain animation), so the pictures can match. The views: zoom 1, zoomed out to 0.5,
 // in to 1.5 and to 2, and far out to 0.25. --gpu draws on the GPU (dev.sh's docker run needs the render node).
+// --ticks: the water animates, and each view is shot at these frames of the animation instead (#408): the page's
+// clock (Playwright's) stops, and is moved on to that tick of a cycle of the water's 21 frames, the same in any build.
 import fs from 'node:fs';
 import path from 'node:path';
 import { browserNames, opt, playwright, waitForResult } from './common.ts';
@@ -24,18 +26,29 @@ const spots = opt('spots', '')
 const [vw, vh] = opt('size', '1366x768').split('x').map(Number);
 const extra = opt('query', '');
 const chromiumArgs = opt('chromium-args', '').split(' ').filter(Boolean);
+const ticks = opt('ticks')?.split(',').map(Number);
+/** TileViewer's animation tick, and the water's frames in a cycle (FreeCol's ocean and river art). */
+const TICK_MS = 125;
+const CYCLE = 21;
 const out = path.resolve(import.meta.dirname, '../../.cache/map-shots');
 fs.mkdirSync(out, { recursive: true });
 const server = await serveDist();
 
 /** Each view and the wheel steps to it from the one before: out (-) or in (+). */
-const VIEWS: [string, number][] = [
-  ['zoom1', 0],
-  ['zoomout', -2],
-  ['zoomin', 3],
-  ['zoom2', 1],
-  ['zoomfar', -5],
-];
+const VIEWS: [string, number][] = ticks
+  ? [
+      ['zoom1', 0],
+      ['zoomout', -2],
+    ]
+  : [
+      ['zoom1', 0],
+      ['zoomout', -2],
+      ['zoomin', 3],
+      ['zoom2', 1],
+      ['zoomfar', -5],
+    ];
+/** The shots each view takes: one, or one at each tick. */
+const SHOTS = ticks ? ticks.map((t) => `-tick${t}`) : [''];
 
 const results: string[] = [];
 const fileOf = (l: string, browser: string, spot: string, view: string) =>
@@ -54,9 +67,14 @@ for (const name of browserNames('chromium')) {
   await answerDialogs(page);
   page.on('pageerror', (e) => console.log(`${name}: page error: ${e}`));
   page.on('console', (m) => m.type() === 'error' && console.log(`${name}: ${m.text().slice(0, 300)}`));
-  await page.addInitScript(() =>
-    localStorage.setItem('freecol.prefs', JSON.stringify({ freecol: { 'model.option.useTerrainAnimations': false } })),
-  );
+  if (ticks) await page.clock.install();
+  else
+    await page.addInitScript(() =>
+      localStorage.setItem(
+        'freecol.prefs',
+        JSON.stringify({ freecol: { 'model.option.useTerrainAnimations': false } }),
+      ),
+    );
   await page.goto(`${server.url}?skipstart&preset=${preset}${extra ? '&' + extra : ''}`);
   const ready = await waitForResult(page, 240000);
   if (ready.status === 'failed') throw new Error(`${name}: the game did not start: ${ready.error}`);
@@ -78,9 +96,23 @@ for (const name of browserNames('chromium')) {
       // The pointer off the map: no tile under it, no hover text.
       await page.mouse.move(0, 0);
       await page.waitForTimeout(1500);
-      const file = fileOf(label, name, spotName, view);
-      fs.writeFileSync(file, await canvas.screenshot());
-      results.push(`${name} ${spotName} ${view}: renderer ${ready.renderer} -> ${path.relative(process.cwd(), file)}`);
+      for (const [i, shot] of SHOTS.entries()) {
+        if (ticks) {
+          // Into the next cycle's tick, 40 ms after it starts; then the frame's pictures are made (the page's own
+          // work is not the clock's), and two more frames drawn, still within the tick.
+          const now = await page.evaluate(() => performance.now());
+          const to = (Math.floor(now / (TICK_MS * CYCLE)) + 1) * TICK_MS * CYCLE + ticks[i] * TICK_MS + 40;
+          await page.clock.runFor(Math.round(to - now));
+          await page.waitForTimeout(1000);
+          await page.clock.runFor(32);
+          await page.waitForTimeout(300);
+        }
+        const file = fileOf(label, name, spotName, view + shot);
+        fs.writeFileSync(file, await canvas.screenshot());
+        results.push(
+          `${name} ${spotName} ${view}${shot}: renderer ${ready.renderer} -> ${path.relative(process.cwd(), file)}`,
+        );
+      }
     }
     // Back to zoom 1 for the next spot.
     for (let i = 0; i < 3; i++) {
@@ -94,7 +126,7 @@ for (const name of browserNames('chromium')) {
     // The share of pixels off by more than 24 in a channel, and the most any channel is off.
     const cmp = await browser.newPage();
     for (const spot of spots.length ? spots : [null])
-      for (const [view] of VIEWS) {
+      for (const view of VIEWS.flatMap(([v]) => SHOTS.map((s) => v + s))) {
         const spotName = spot ? spot.join('_') : 'start';
         const [a, b] = [fileOf(baseline, name, spotName, view), fileOf(label, name, spotName, view)];
         if (!fs.existsSync(a)) continue;
