@@ -166,6 +166,17 @@ export async function latestAutosave(store: SaveStore): Promise<SaveMeta | null>
   return (await store.list()).find(isAutosave) ?? null;
 }
 
+/**
+ * The note for the start screen when the save an address names (?load=N) is no longer in the store, or null
+ * when it is there or the store cannot say (the load then reports what went wrong). A loaded autosave is
+ * replaced by the next autosave a moment later, so a reload of the page's address names a save that is gone (#394).
+ */
+export async function missingSaveNote(store: SaveStore, id: number): Promise<string | null> {
+  const all = await store.list().catch(() => null);
+  if (all === null || all.some((m) => m.id === id)) return null;
+  return `The save in the address (${id}) is no longer in this browser: pick a game below.`;
+}
+
 /** Once `kept` is stored, drop every older autosave. */
 export async function dropOlderAutosaves(store: SaveStore, kept: SaveMeta): Promise<void> {
   for (const m of await store.list()) if (isAutosave(m) && m.id !== kept.id) await store.remove(m.id);

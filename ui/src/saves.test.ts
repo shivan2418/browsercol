@@ -13,6 +13,7 @@ import {
   type AutosaveOptions,
   keepSaves,
   latestAutosave,
+  missingSaveNote,
   newestFirst,
   newSave,
   saveFailedTitle,
@@ -212,5 +213,24 @@ describe('FreeCol’s autosaves', () => {
     await put(store, AUTOSAVE_NAME);
     await dropTurnAutosaves(store, o);
     expect(await names(store)).toEqual([AUTOSAVE_NAME, 'Mine']);
+  });
+});
+
+describe('a save the address names', () => {
+  it('has no note while it is in the store, and a note naming it once it is gone', async () => {
+    const store = fakeSaveStore();
+    const old = await store.put(newSave(info, AUTOSAVE_NAME, 1), new Uint8Array([1]));
+    expect(await missingSaveNote(store, old.id)).toBeNull();
+    // The next autosave replaces it, as it does a moment after the page loaded it (#394).
+    const next = await store.put(newSave(info, AUTOSAVE_NAME, 2), new Uint8Array([2]));
+    await dropOlderAutosaves(store, next);
+    expect(await missingSaveNote(store, old.id)).toBe(
+      `The save in the address (${old.id}) is no longer in this browser: pick a game below.`,
+    );
+  });
+
+  it('leaves the load to say what is wrong when the store cannot list its saves', async () => {
+    const store = { ...fakeSaveStore(), list: () => Promise.reject(new Error('blocked')) };
+    expect(await missingSaveNote(store, 7)).toBeNull();
   });
 });
