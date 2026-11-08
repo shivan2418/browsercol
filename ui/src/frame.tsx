@@ -279,7 +279,8 @@ export function GoodsAmount({
         : `${stock}${amount < 0 ? '-' : '+'}${Math.abs(amount)}${more ? `/${expert}` : ''}`;
     return (
       <Tip as="span" className="goods" data-sign={sign} tip={tip}>
-        <span className="pile" style={{ width: step * (n - 1) + 24 }}>
+        {/* ProductionLabel: as wide as the wider of its icons and its number, both centred. */}
+        <span className="pile" style={{ minWidth: step * (n - 1) + 24 }}>
           {Array.from({ length: n }, (_, i) =>
             src === null ? (
               i === 0 && (
@@ -288,7 +289,12 @@ export function GoodsAmount({
                 </span>
               )
             ) : (
-              <img key={i} src={src} alt={i === 0 ? name : ''} style={{ left: step * i }} />
+              <img
+                key={i}
+                src={src}
+                alt={i === 0 ? name : ''}
+                style={{ left: `calc(50% - ${(step * (n - 1) + 24) / 2}px + ${step * i}px)` }}
+              />
             ),
           )}
           {number && <span className="amount">{label}</span>}

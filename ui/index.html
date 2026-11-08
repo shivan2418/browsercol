@@ -937,7 +937,9 @@
       }
       .goods .pile {
         position: relative;
-        display: inline-block;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
         height: 24px;
       }
       .goods .pile img {
@@ -949,13 +951,10 @@
         height: 24px;
         object-fit: contain;
       }
-      /* ProductionLabel's number: centred over the pile, white (red for a loss) with a dark outline, whatever the background. */
+      /* ProductionLabel's number: centred over the pile, and as wide as it needs (the pile widens for it), white (red for a loss) with a dark outline, whatever the background. */
       .goods .pile .amount {
-        position: absolute;
-        inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        position: relative;
+        padding: 0 1px;
         z-index: 1;
         white-space: nowrap;
         font-size: 13px;
