@@ -491,13 +491,47 @@ async function play(page: Page, url: string) {
       if (same(m.active, tile) || attempt === 3) return m;
     }
   };
+  /** The first end turn watches the banner: it must name a player who is moving (#382), and it is shot while it does. */
+  let bannerWatched = false;
+  const watchBanner = async (roundOver: () => boolean) => {
+    const shot = new Set<string>();
+    while (true) {
+      const text =
+        (await page
+          .locator('.turn-banner.ai')
+          .first()
+          .textContent({ timeout: 300 })
+          .catch(() => null)) ?? '';
+      if (/^The .* are moving\.\.\./.test(text)) {
+        const kind = text.startsWith('The natives') ? 'natives' : 'nation';
+        if (!shot.has(kind)) {
+          shot.add(kind);
+          const dir = path.join(dist, '../.cache/dialog-shots');
+          fs.mkdirSync(dir, { recursive: true });
+          await page.screenshot({ path: path.join(dir, `turn-banner-${kind}-${browserName}.png`) });
+          console.log(`  the banner names the mover: "${text}"`);
+        }
+      }
+      if (roundOver()) {
+        if (shot.size > 0) return;
+        throw new Error('the AI round passed without the banner naming a player');
+      }
+      await page.waitForTimeout(50);
+    }
+  };
   const endTurn = async (expectUnit = false) => {
     const turn = (await view()).turn;
+    let over = false;
+    const watching = bannerWatched ? null : watchBanner(() => over);
+    watching?.catch(() => {});
+    bannerWatched = true;
     await pressKey('Enter');
     await page.waitForFunction((t) => window.__map.turn !== t && window.__map.ourTurn, turn, {
       timeout: 120000,
       label: 'the next turn starts and play is back with the human',
     });
+    over = true;
+    await watching;
     // The client picks the unit to play with, which the map names when it comes: the map of the new
     // turn may come first, with no unit yet, and the script must not spend its turns on that.
     if (expectUnit) {

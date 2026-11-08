@@ -138,7 +138,7 @@ import { InfoPanel } from './info-panel';
 import { MinimapPanel } from './minimap-panel';
 import { MapOrders } from './map-orders';
 import { Side, type SideProps } from './side';
-import { isIdle, TurnBanner, turnNotice, type TurnFacts, type TurnNotice } from './turn-banner';
+import { isIdle, type Mover, MoverHold, TurnBanner, turnNotice, type TurnFacts, type TurnNotice } from './turn-banner';
 import { tabTitle } from './tab-title';
 import { ErrorBanner, addError, engineError, type GameError } from './errors';
 import { loading, type PartName } from './loading';
@@ -459,6 +459,19 @@ let statusLine = '';
 /** The turn the last map was of, and the banner over the map about it (turn-banner.tsx). */
 let lastTurn: TurnFacts | null = null;
 let banner: TurnNotice | null = null;
+/** The player the Engine says is moving, held on the banner long enough to read (MoverHold). */
+let mover: Mover | null = null;
+const moverHold = new MoverHold((m) => {
+  mover = m;
+  // The banner of the AI moving takes the name; nothing changes while it is our turn or the banner is hidden.
+  if (lastTurn && !lastTurn.ourTurn) showMoverBanner();
+});
+/** The banner of the AI moving, naming whoever moves now. */
+function showMoverBanner() {
+  if (!lastTurn || lastTurn.ourTurn) return;
+  banner = pageOption(prefs, 'model.option.disableGrayLayer') ? null : turnNotice(null, lastTurn, mover);
+  renderSide();
+}
 /** The map the Engine last said no unit is left to move after, undefined while one is active (isIdle in turn-banner.tsx). */
 let noUnitHeard: TurnFacts | null | undefined;
 /** What the links in a report do, once the client Engine has loaded. */
@@ -1324,6 +1337,7 @@ const gui: GuiHandlers = {
       renderSide();
       autoEndTurn();
     },
+    mover: (e) => moverHold.push(e),
     selectedTile: (e) => {
       const always = pageOption(prefs, 'model.option.alwaysCenter');
       viewChanges.change(() => dispatch({ k: 'selectedTile', ...e, always }), true);
@@ -1413,7 +1427,8 @@ function drawMap(m: MapView) {
   side.turn = `${m.turn}${m.ourTurn ? '' : ' (AI playing)'}`;
   statusLine = m.statusLine;
   // A new turn's notice stays through the maps of its turn; the AI's goes when play comes back.
-  banner = turnNotice(lastTurn, m) ?? (banner?.kind === 'new' && m.ourTurn ? banner : null);
+  if (m.ourTurn) moverHold.clear();
+  banner = turnNotice(lastTurn, m, mover) ?? (banner?.kind === 'new' && m.ourTurn ? banner : null);
   // FreeCol's disable end turn background option: no banner while the others move.
   if (banner?.kind === 'ai' && pageOption(prefs, 'model.option.disableGrayLayer')) banner = null;
   const newTurn = lastTurn?.turn !== m.turn;

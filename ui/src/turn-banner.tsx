@@ -11,14 +11,37 @@ export interface TurnFacts {
   ourTurn: boolean;
 }
 
+/** The player whose turn it is, as the Engine's mover event says (WebGUI.currentPlayer). */
+export interface Mover {
+  name: string;
+  native: boolean;
+  rgb: number;
+  fg: number;
+  ours: boolean;
+}
+
 export interface TurnNotice {
   kind: 'ai' | 'new';
   text: string;
+  /** The moving player's colour, for the swatch beside the text. */
+  rgb?: number;
 }
 
-/** The banner for a map after `prev` (null at the start of the game, which is no turn change): none, or the AI moving, or a new turn. */
-export function turnNotice(prev: TurnFacts | null, next: TurnFacts): TurnNotice | null {
-  if (!next.ourTurn) return { kind: 'ai', text: 'Other players are moving...' };
+/** What the banner says of the player moving: the nation, or one line for the whole native stretch. */
+function moverText(m: Mover) {
+  return m.native ? 'The natives are moving...' : `The ${m.name} are moving...`;
+}
+
+/**
+ * The banner for a map after `prev` (null at the start of the game, which is no turn change): none, or the AI
+ * moving (naming `mover`, once the Engine has said who), or a new turn.
+ */
+export function turnNotice(prev: TurnFacts | null, next: TurnFacts, mover: Mover | null = null): TurnNotice | null {
+  if (!next.ourTurn) {
+    return mover && !mover.ours
+      ? { kind: 'ai', text: moverText(mover), rgb: mover.native ? undefined : mover.rgb }
+      : { kind: 'ai', text: 'Other players are moving...' };
+  }
   if (prev && (!prev.ourTurn || prev.turn !== next.turn)) {
     return { kind: 'new', text: `Turn ${next.turn}, ${next.turnLabel}` };
   }
@@ -35,6 +58,60 @@ export function turnNotice(prev: TurnFacts | null, next: TurnFacts): TurnNotice 
 export function isIdle(heard: TurnFacts | null | undefined, last: TurnFacts | null) {
   if (heard === undefined || !last?.ourTurn) return false;
   return !heard?.ourTurn || heard.turn === last.turn;
+}
+
+/** The least time a player's name stays on the banner, in milliseconds, so a fast turn does not flash by. */
+export const MOVER_MIN_MS = 500;
+
+/**
+ * Holds each moving player's name for at least `MOVER_MIN_MS`. A player who comes while a name is held waits for
+ * it; one who is replaced before its turn comes is skipped. The natives are one stretch: a native player
+ * after a native player changes nothing. Our own turn clears it at once.
+ */
+export class MoverHold {
+  private shown: Mover | null = null;
+  private since = 0;
+  private waiting: Mover | null = null;
+  private timer: ReturnType<typeof setTimeout> | undefined;
+
+  constructor(
+    private readonly onShow: (m: Mover | null) => void,
+    private readonly minMs = MOVER_MIN_MS,
+    private readonly now: () => number = Date.now,
+  ) {}
+
+  push(m: Mover) {
+    if (m.ours) return this.clear();
+    if (this.shown?.native && m.native) {
+      this.waiting = null;
+      return;
+    }
+    const wait = this.since + this.minMs - this.now();
+    if (!this.shown || wait <= 0) return this.show(m);
+    this.waiting = m;
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => {
+      const next = this.waiting;
+      this.waiting = null;
+      if (next) this.show(next);
+    }, wait);
+  }
+
+  /** Our turn, or a new round: nobody is moving. */
+  clear() {
+    clearTimeout(this.timer);
+    this.waiting = null;
+    if (!this.shown) return;
+    this.shown = null;
+    this.onShow(null);
+  }
+
+  private show(m: Mover) {
+    this.shown = m;
+    this.since = this.now();
+    this.waiting = null;
+    this.onShow(m);
+  }
 }
 
 /** How long the new turn notice stays, in milliseconds. */
@@ -55,6 +132,9 @@ export function TurnBanner({ notice }: { notice: TurnNotice | null }) {
       className={`turn-banner ${notice.kind}`}
       style={notice.kind === 'new' ? { animationDuration: `${NEW_TURN_MS}ms` } : undefined}
     >
+      {notice.rgb !== undefined && (
+        <span className="turn-banner-swatch" style={{ background: `#${notice.rgb.toString(16).padStart(6, '0')}` }} />
+      )}
       {notice.text}
     </div>
   );
