@@ -129,6 +129,7 @@ import {
   lastTurnSaveName,
   latestAutosave,
   missingSaveNote,
+  resumeSearch,
   saveFailedTitle,
   shiftLastTurnSaves,
   turnAutosaveNames,
@@ -1951,6 +1952,10 @@ async function run() {
           }
           if (exitAfterSave && !saveFile && !quiet) return returnToMain();
           if (isAutosave(meta)) {
+            // A loaded game has its own autosave now, which drops the save it loaded if that was an autosave: the
+            // address resumes the autosave rather than name that save, so a reload goes on with this game (#394).
+            const resume = resumeSearch(location.search);
+            if (resume !== null) history.replaceState(history.state, '', `${location.pathname}${resume}`);
             // One slot: the new autosave replaces the old ones, quietly.
             return void dropOlderAutosaves(store, meta).catch(console.warn).finally(listSaves);
           }

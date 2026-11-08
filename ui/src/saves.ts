@@ -177,6 +177,19 @@ export async function missingSaveNote(store: SaveStore, id: number): Promise<str
   return `The save in the address (${id}) is no longer in this browser: pick a game below.`;
 }
 
+/**
+ * The address's query once a game loaded from ?load=N has its own autosave: ?resume in place of load=N, the
+ * other parameters kept, so a reload continues that autosave rather than name a save the autosave rotation
+ * may have deleted (#394). Null when the address names no save to load.
+ */
+export function resumeSearch(search: string): string | null {
+  const params = new URLSearchParams(search);
+  if (!params.has('load')) return null;
+  params.delete('load');
+  params.set('resume', '');
+  return `?${params}`;
+}
+
 /** Once `kept` is stored, drop every older autosave. */
 export async function dropOlderAutosaves(store: SaveStore, kept: SaveMeta): Promise<void> {
   for (const m of await store.list()) if (isAutosave(m) && m.id !== kept.id) await store.remove(m.id);
