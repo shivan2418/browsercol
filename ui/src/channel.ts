@@ -291,7 +291,8 @@ export function serveWorker(
     const mine = bytes;
     bytes = null;
     const wanted = names.shift();
-    if (wanted === null) return send({ k: 'snapshot', bytes: mine! });
+    if (wanted === null)
+      return send(mine ? { k: 'snapshot', bytes: mine } : { k: 'snapshot', error: 'The Engine gave no bytes' });
     store
       .put(newSave(JSON.parse(detail) as SavedInfo, wanted ?? '', Date.now()), mine!)
       .then((meta) => event('saved', JSON.stringify(meta)))
@@ -318,7 +319,12 @@ export function serveWorker(
         return server!.saveGame(m.active);
       case 'snapshot':
         names.push(null);
-        return server!.saveGame(m.active);
+        try {
+          return server!.saveGame(m.active);
+        } catch (ex) {
+          names.pop();
+          return send({ k: 'snapshot', error: describe(ex) });
+        }
       case 'load':
         return void store
           .get(m.id)

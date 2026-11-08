@@ -1,5 +1,6 @@
 // The game being played, as .fsg bytes (#368): what the feedback report attaches. main.tsx connects it to the
-// Worker once a game has begun (channel.ts snapshotter); before that, and after the game ends, there is no game.
+// Worker once a game has begun (channel.ts snapshotter); before that there is no game. A page plays one game: a
+// new or loaded one reloads the page.
 
 let source: (() => Promise<Uint8Array>) | null = null;
 
