@@ -23,6 +23,20 @@ export type Tile = [number, number];
 
 /** Where a tile's 128x64 box starts on the whole map, at zoom 1. */
 export const tileOrigin = (x: number, y: number): Tile => [x * W + (y % 2) * (W / 2), (y * H) / 2];
+
+/** The tile whose diamond holds a point of the whole map, or null off the map. */
+export function tileAt(w: number, h: number, px: number, py: number): [number, number] | null {
+  const row = Math.floor(py / (H / 2));
+  for (const y of [row - 1, row]) {
+    if (y < 0 || y >= h) continue;
+    const x = Math.floor((px - (y % 2) * (W / 2)) / W);
+    const [ox, oy] = tileOrigin(x, y);
+    if (x >= 0 && x < w && Math.abs(px - ox - W / 2) / (W / 2) + Math.abs(py - oy - H / 2) / (H / 2) <= 1) {
+      return [x, y];
+    }
+  }
+  return null;
+}
 const tileCentre = ([x, y]: Tile): [number, number] => {
   const [ox, oy] = tileOrigin(x, y);
   return [ox + W / 2, oy + H / 2];

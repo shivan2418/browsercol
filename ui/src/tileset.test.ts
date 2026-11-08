@@ -233,6 +233,47 @@ describe('scene', () => {
   });
 });
 
+describe('the shader water (#409)', () => {
+  it("draws a coast as FreeCol's beach where the beach mask cuts its ocean away, and no ocean art", () => {
+    const { base } = staticScene(map, tileset, 1, 'surface');
+    expect(at(base, 1, 0)).toEqual([
+      {
+        k: 'image',
+        x: 1,
+        y: 0,
+        at: 'tile',
+        base: true,
+        shore: true,
+        src: {
+          id: `sand:${art('beach0')}:${art('beach_se_sw')}`,
+          steps: [{ draw: art('beach0') }, { cut: art('beach_se_sw') }, { mask: art('mask') }],
+        },
+      },
+    ]);
+    expect(JSON.stringify(base)).not.toContain('ocean');
+    // The rest of the scene is the flipbook's.
+    const { below, above } = staticScene(map, tileset, 1, 'surface');
+    const flip = staticScene(map, tileset);
+    expect(ids(below)).toEqual(ids(flip.below));
+    expect(ids(above)).toEqual(ids(flip.above));
+  });
+
+  it('draws nothing for open water: the surface under the map is all of it', () => {
+    const sea = { ...map, tiles: 'BB' + 'BB' + 'BB' + 'BB', items: [], roads: [] };
+    expect(staticScene(sea, tileset, 1, 'surface').base).toEqual([]);
+    expect(staticScene(sea, tileset).base.length).toBe(8);
+  });
+
+  it('keeps one static scene per way of drawing the water', () => {
+    const statics = staticScenes();
+    const flip = statics(map, tileset, 1);
+    const surface = statics(map, tileset, 1, 'surface');
+    expect(surface).not.toBe(flip);
+    expect(statics(map, tileset, 1, 'surface')).toBe(surface);
+    expect(ids(surface)).toEqual(ids(staticScene(map, tileset, 1, 'surface')));
+  });
+});
+
 describe('passOf', () => {
   it("numbers the static scene's ops by the pass over the tiles they are drawn in, in order", () => {
     const { base, below, above } = staticScene(map, tileset);

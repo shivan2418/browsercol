@@ -34,6 +34,11 @@ export const MAP_KEY_FAMILIES = {
   settlementChip: 'indianSettlementChip.',
   /** The native alarm chip's text: indianAlarmChip.<kind> */
   alarmChip: 'indianAlarmChip.',
+  /**
+   * The shader water's look, in a Tileset that has one (#409, map-water.ts): its ripple images, colours and numbers,
+   * shader.water.<what>
+   */
+  shaderWater: 'shader.water.',
 } as const;
 
 /** The resource keys the map draws that stand alone. */

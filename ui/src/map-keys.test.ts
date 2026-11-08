@@ -10,7 +10,8 @@ import {
   PANEL_KEYS,
 } from './map-keys';
 import { resources, type Resources } from './resources';
-import { overlay, scene, type MapView } from './tileset';
+import { overlay, scene, staticScene, type MapView } from './tileset';
+import { waterLook } from './map-water';
 
 // A map with water, land, a forest, a river, a road, a colony and a native
 // settlement, so the scene asks for every kind of key it draws.
@@ -160,6 +161,8 @@ describe('the map keys', () => {
   const asked = () => {
     const { keys, res } = watching(tileset);
     scene(map, res);
+    staticScene(map, res, 1, 'surface');
+    waterLook(res);
     overlay({ at: [0, 3], kind: 'unit' }, null, res);
     overlay({ at: [0, 3], kind: 'tile' }, null, res);
     return keys;

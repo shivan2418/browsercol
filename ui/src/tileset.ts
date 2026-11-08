@@ -154,8 +154,8 @@ export const isAnimated = (src: Src): src is Animated => typeof src !== 'string'
 /** What a picture shows at a frame: an animated one's image then, else itself. */
 export const frameAt = (src: Src, ticks: Ticks): Src => (isAnimated(src) ? src.animate(ticks) : src);
 
-/** Draw an image (scaled about the centre if asked), or keep only where a mask is opaque. */
-export type Step = { draw: Src; alpha?: number; scale?: number } | { mask: Src };
+/** Draw an image (scaled about the centre if asked), keep only where a mask is opaque, or cut away where it is. */
+export type Step = { draw: Src; alpha?: number; scale?: number } | { mask: Src } | { cut: Src };
 
 /**
  * Where an image sits on its tile, as TileViewer and MapViewer place it:
@@ -177,6 +177,8 @@ export type Op =
       marker?: true;
       /** One of the animated base tiles' (MapViewer paints them first, below the rest), which animatedBase draws again. */
       base?: true;
+      /** A coast's sand over the shader water (#409), which the water foams against. */
+      shore?: true;
     }
   /** FreeCol's fog of war: 20% black over the tile's diamond. */
   | { k: 'fog'; x: number; y: number }
@@ -314,6 +316,12 @@ export const TICK_MS = 125;
 export const STILL: Ticks = { water: 0, river: 0 };
 
 /**
+ * How the map draws its water (the ocean, lakes and high seas; not rivers): FreeCol's painted frames, or a surface a
+ * shader colours under the tiles (#409, map-water.ts), over which the water tiles draw only their coasts' sand.
+ */
+export type WaterDrawing = 'flipbook' | 'surface';
+
+/**
  * The map's draw operations without its units, which a move that changes only units leaves as they were. The
  * scene is `base`, `below`, the units, then `above`.
  */
@@ -327,8 +335,13 @@ export interface StaticScene {
 }
 
 /** The scene's static part: everything but the units. */
-export function staticScene(map: MapView, res: Resources, colonyLabels: ColonyLabels = 1): StaticScene {
-  const { ops, baseEnd, unitsAt } = build(map, res, colonyLabels);
+export function staticScene(
+  map: MapView,
+  res: Resources,
+  colonyLabels: ColonyLabels = 1,
+  water: WaterDrawing = 'flipbook',
+): StaticScene {
+  const { ops, baseEnd, unitsAt } = build(map, res, colonyLabels, water);
   return { base: ops.slice(0, baseEnd), below: ops.slice(baseEnd, unitsAt), above: ops.slice(unitsAt) };
 }
 
@@ -382,12 +395,29 @@ export function sameStaticScene(a: MapView, b: MapView): boolean {
  * What gives the static scene of a map view: the one it gave last, the same object, while the map views differ
  * only in their units, else a new one.
  */
-export function staticScenes(): (map: MapView, res: Resources, colonyLabels: ColonyLabels) => StaticScene {
-  let kept: { map: MapView; res: Resources; colonyLabels: ColonyLabels; scene: StaticScene } | null = null;
-  return (map, res, colonyLabels) => {
-    if (kept && kept.res === res && kept.colonyLabels === colonyLabels && sameStaticScene(kept.map, map))
+export function staticScenes(): (
+  map: MapView,
+  res: Resources,
+  colonyLabels: ColonyLabels,
+  water?: WaterDrawing,
+) => StaticScene {
+  let kept: {
+    map: MapView;
+    res: Resources;
+    colonyLabels: ColonyLabels;
+    water: WaterDrawing;
+    scene: StaticScene;
+  } | null = null;
+  return (map, res, colonyLabels, water = 'flipbook') => {
+    if (
+      kept &&
+      kept.res === res &&
+      kept.colonyLabels === colonyLabels &&
+      kept.water === water &&
+      sameStaticScene(kept.map, map)
+    )
       return kept.scene;
-    kept = { map, res, colonyLabels, scene: staticScene(map, res, colonyLabels) };
+    kept = { map, res, colonyLabels, water, scene: staticScene(map, res, colonyLabels, water) };
     return kept.scene;
   };
 }
@@ -413,6 +443,7 @@ function build(
   map: MapView,
   res: Resources,
   colonyLabels: ColonyLabels,
+  waterDrawing: WaterDrawing,
 ): { ops: Op[]; baseEnd: number; unitsAt: number } {
   const { w, h } = map;
   const ops: Op[] = [];
@@ -474,6 +505,21 @@ function build(
       id: `beach:${ocean}:${key}`,
       steps: [{ draw: beach }, { draw: over }, ...(alpha > 0 ? [{ draw: over, alpha }] : []), { mask: tileMask }],
     };
+  };
+
+  /**
+   * Under the shader water (#409), a coast's sand: FreeCol's beach where the beach's mask cuts its ocean away, so the
+   * water shows through where FreeCol's painted ocean would be. Open water draws nothing.
+   */
+  const sand = (x: number, y: number): Recipe | null => {
+    const dirs = DIRECTIONS.filter((d) => land(step(x, y, d)));
+    if (!dirs.length) return null;
+    const key = beachKey(dirs);
+    const beach = res.path(BEACH);
+    const mask = res.path(`${MASK}beach.${key}`);
+    const tileMask = res.path(TILE_MASK);
+    if (!beach || !mask || !tileMask) return null;
+    return { id: `sand:${beach}:${mask}`, steps: [{ draw: beach }, { cut: mask }, { mask: tileMask }] };
   };
 
   // BaseTileTransitionImageCreator at normal quality: nice corners, no mask variations.
@@ -628,8 +674,13 @@ function build(
     const type = typeAt(x, y);
     if (!type) return;
     if (!type.land) {
-      const src = animatedSrc((t) => water(x, y, type, t));
-      if (src) ops.push({ k: 'image', x, y, src, at: 'tile' });
+      if (waterDrawing === 'surface') {
+        const src = sand(x, y);
+        if (src) ops.push({ k: 'image', x, y, src, at: 'tile', shore: true });
+      } else {
+        const src = animatedSrc((t) => water(x, y, type, t));
+        if (src) ops.push({ k: 'image', x, y, src, at: 'tile' });
+      }
       const ds = deltas(x, y);
       if (ds.length) transitions(x, y);
       for (const d of ds) {

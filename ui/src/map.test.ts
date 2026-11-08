@@ -241,6 +241,24 @@ describe('pictures', () => {
     }
   });
 
+  it("cuts a recipe's cut step away where it is opaque, and keeps only where a mask step is", async () => {
+    const ops: string[] = [];
+    const ctx = {
+      globalCompositeOperation: '',
+      globalAlpha: 1,
+      drawImage: (pic: { id: string }) => ops.push(`${ctx.globalCompositeOperation} ${pic.id}`),
+    };
+    const fake = (id = '') => ({ width: 128, height: 64, id, getContext: () => ctx }) as unknown as HTMLCanvasElement;
+    vi.stubGlobal('document', { createElement: () => fake() });
+    try {
+      const pics = pictures('', (path) => Promise.resolve(fake(path)));
+      await pics.get({ id: 'sand', steps: [{ draw: 'beach.png' }, { cut: 'shore.png' }, { mask: 'tile.png' }] });
+      expect(ops).toEqual(['source-over beach.png', 'destination-out shore.png', 'destination-in tile.png']);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('lets go of the animated pictures a new scene no longer has', async () => {
     const pics = setup();
     try {

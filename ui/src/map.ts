@@ -8,6 +8,16 @@
 // the cursor and the active unit's path drawn over it.
 import { AlphaFilter, Application, Container, Culler, Graphics, Rectangle, Sprite, Text, Texture } from 'pixi.js';
 import { Atlas, ChunkLayer, pictureKey, staticDrawing, tilemapBackend } from './map-tilemap';
+import {
+  alphaOf,
+  canDrawWater,
+  fieldTexel,
+  waterField,
+  waterLook,
+  WaterSurface,
+  type WaterField,
+  type WaterLook,
+} from './map-water';
 import { resources, type ArtLayer, type Resources } from './resources';
 import {
   isAnimated,
@@ -37,6 +47,7 @@ import {
   type StaticScene,
   type TerrainAnimation,
   type Ticks,
+  type WaterDrawing,
 } from './tileset';
 import type { ActiveStyle } from './prefs';
 import {
@@ -54,9 +65,10 @@ import {
   type Track,
 } from './motion';
 import { slideMark } from './timing';
-import { H, W, activeUnitFacts, cursor, tileOrigin, toMap, type ViewState } from './view';
+import { H, W, activeUnitFacts, cursor, tileAt, tileOrigin, toMap, type ViewState } from './view';
 
 export type { MapView } from './tileset';
+export { tileAt } from './view';
 /** TileViewer.STATE_OFFSET_X/Y and TileBounds' unit offsets, at scale 1. */
 const STATE_OFFSET_X = 25;
 const STATE_OFFSET_Y = 10;
@@ -64,20 +76,6 @@ const UNIT_OFFSET = 20;
 const OTHER_UNITS_OFFSET_X = -5;
 const OTHER_UNITS_WIDTH = 3;
 const MAX_OTHER_UNITS = 10;
-
-/** The tile whose diamond holds a point of the whole map, or null off the map. */
-export function tileAt(w: number, h: number, px: number, py: number): [number, number] | null {
-  const row = Math.floor(py / (H / 2));
-  for (const y of [row - 1, row]) {
-    if (y < 0 || y >= h) continue;
-    const x = Math.floor((px - (y % 2) * (W / 2)) / W);
-    const [ox, oy] = tileOrigin(x, y);
-    if (x >= 0 && x < w && Math.abs(px - ox - W / 2) / (W / 2) + Math.abs(py - oy - H / 2) / (H / 2) <= 1) {
-      return [x, y];
-    }
-  }
-  return null;
-}
 
 type Picture = HTMLImageElement | HTMLCanvasElement;
 const css = (c: number) => '#' + c.toString(16).padStart(6, '0');
@@ -103,9 +101,9 @@ export function pictures(base: string, load: (path: string) => Promise<Picture> 
     const c = canvas(W, H);
     const g = c.getContext('2d')!;
     for (const step of src.steps) {
-      if ('mask' in step) {
-        g.globalCompositeOperation = 'destination-in';
-        g.drawImage(await get(step.mask), 0, 0, W, H);
+      if ('mask' in step || 'cut' in step) {
+        g.globalCompositeOperation = 'mask' in step ? 'destination-in' : 'destination-out';
+        g.drawImage(await get('mask' in step ? step.mask : step.cut), 0, 0, W, H);
       } else {
         const s = step.scale ?? 1;
         g.globalCompositeOperation = 'source-over';
@@ -263,6 +261,18 @@ export const backingSize = (w: number, h: number, ratio: number): [number, numbe
 /** The screen's pixel ratio now, which a window moving to another screen can change. */
 const screenRatio = (): number => pixelRatio(window.devicePixelRatio);
 
+/** What draws the shader water under the map (map-water.ts). */
+interface WaterPen {
+  /** The biggest field, in texels across or down, the GPU takes. */
+  readonly maxField: number;
+  /** Draw the water in this look under the map from now on. */
+  start(look: WaterLook, swell: Picture, chop: Picture): void;
+  /** The water's field of the map now. */
+  field(f: WaterField): void;
+  /** Move the ripples to where they are at `ms`, and draw the map again. */
+  time(ms: number): void;
+}
+
 /** What draws the map: a PixiJS scene graph or a Canvas 2D context. */
 interface Pen {
   readonly canvas: HTMLCanvasElement;
@@ -308,6 +318,8 @@ interface Pen {
   fade(alpha: number): void;
   /** Show the map scaled by `scale`, then moved by (dx, dy). */
   show(dx: number, dy: number, scale: number): void;
+  /** The shader water (#409), on a pen that can draw it: none on the Canvas 2D pen or PixiJS's Canvas renderer. */
+  readonly water?: WaterPen;
   /** Make the canvas `width` by `height` CSS pixels; show() draws it again. */
   resize(width: number, height: number): void;
 }
@@ -711,9 +723,33 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
     const keep = new Rectangle(x - w / 2, y - h / 2, 2 * w, 2 * h);
     for (const c of chunkLayers.values()) c.setView(view, keep);
   };
+  /** The shader water, under the animated base, once start() gives it a look. */
+  let surface: WaterSurface | null = null;
+  const gl = atlas ? (app.renderer as unknown as { gl: WebGLRenderingContext }).gl : null;
+  const water: WaterPen | undefined =
+    gl && canDrawWater(gl)
+      ? {
+          maxField: gl.getParameter(gl.MAX_TEXTURE_SIZE) as number,
+          start: (look, swell, chop) => {
+            surface?.mesh.destroy();
+            surface = new WaterSurface(look, swell, chop);
+            world.addChildAt(surface.mesh, 0);
+            redraw(null);
+          },
+          field: (f) => {
+            surface?.setField(f);
+            redraw(null);
+          },
+          time: (ms) => {
+            surface?.setTime(ms);
+            redraw(null);
+          },
+        }
+      : undefined;
   return {
     canvas: app.canvas,
     name: atlas ? 'pixi' : `pixi (${app.renderer.name}: sprites)`,
+    water,
     tile: (x, y, p) => {
       at = [x, y];
       pass = p;
@@ -1518,6 +1554,10 @@ export function mapDrawer(
   let baseBusy = false;
   /** When the animated water may be drawn again (#353). */
   let baseNext = 0;
+  /** How the water is drawn: as the shader water once the pen and the Tileset can (#409). */
+  let waterDrawing: WaterDrawing = 'flipbook';
+  /** The tiles the shader water's field was made from last. */
+  let fieldOf = '';
 
   async function init() {
     const art = (await (await fetch(artBase + manifest)).json()) as Art;
@@ -1537,6 +1577,38 @@ export function mapDrawer(
     // The window may have changed while PixiJS started.
     if (size !== startSize) p.resize(...size);
     pen = p;
+    const look = waterLook(res);
+    if (look && p.water) {
+      try {
+        const [swell, chop] = await Promise.all([pics.get(look.swell), pics.get(look.chop)]);
+        p.water.start(look, swell, chop);
+        waterDrawing = 'surface';
+      } catch (ex) {
+        console.warn('the shader water could not start; the water is drawn from its frames', ex);
+      }
+    }
+  }
+
+  /** Give the shader water the field of a map, when its tiles changed: the land, and the coasts' sand, from the base. */
+  async function waterFieldNow(map: MapView, base: Op[]) {
+    const key = `${map.w}x${map.h}:${map.tiles}`;
+    if (!pen?.water || key === fieldOf) return;
+    fieldOf = key;
+    const start = performance.now();
+    const shores = base.filter((op): op is Extract<Op, { k: 'image' }> => op.k === 'image' && op.shore === true);
+    const sands = await Promise.all(shores.map((op) => pics.get(op.src).catch(() => null)));
+    const sandAt = new Map<number, Float32Array>();
+    shores.forEach((op, i) => {
+      const pic = sands[i];
+      if (pic && pic.width === W && pic.height === H) sandAt.set(op.y * map.w + op.x, alphaOf(pic));
+    });
+    const texel = fieldTexel(map.w, map.h, pen.water.maxField);
+    const field = waterField(map, texel, (x, y, u, v) => {
+      const a = sandAt.get(y * map.w + x);
+      return a ? (a[Math.min(H - 1, Math.floor(v)) * W + Math.min(W - 1, Math.floor(u))] ?? 0) : 0;
+    });
+    pen.water.field(field);
+    measure('map: water field', start);
   }
 
   /** The overlay's operations for a view: its cursor, and the path if the map view is about its active unit. */
@@ -1665,6 +1737,8 @@ export function mapDrawer(
   function tick() {
     frame = requestAnimationFrame(tick);
     animateBase();
+    // The shader water moves at the screen's frame rate; with the terrain's animation off, it stands still.
+    if (waterDrawing === 'surface' && terrain !== 'off') pen?.water?.time(performance.now());
     if (sliding || lifting || (view?.mode === 'units' && view.active) || (view?.mode === 'terrain' && view.selected))
       camera();
   }
@@ -1794,11 +1868,12 @@ export function mapDrawer(
     const way = found && stepTime > 0 && (found.step.speed !== null || map.ourTurn) ? found : null;
     // A map that changes only units keeps the static scene, and the layers it is drawn in.
     const start = performance.now();
-    const ground = statics(map, res!, colonyLabels);
+    const ground = statics(map, res!, colonyLabels, waterDrawing);
     const kept = ground === last?.ground;
     const units = unitScene(map, res!);
     measure(kept ? 'map: scene, kept' : 'map: scene', start);
     if (!kept) {
+      if (waterDrawing === 'surface') await waterFieldNow(map, ground.base);
       pics.retain(ground.base);
       const ops = [...ground.base, ...ground.below, ...ground.above];
       // The panels draw no units.
