@@ -67,6 +67,45 @@ await page.addInitScript(() => {
       for (const e of l.getEntries()) w.__pan.long.push([e.startTime, e.duration]);
     }).observe({ type: 'longtask', buffered: true });
   } catch {}
+  // The GPU's time per frame (#409), where WebGL 2 has EXT_disjoint_timer_query_webgl2 (a real GPU, not SwiftShader):
+  // a time query from the first draw of a task to its end, so a frame's draws, which PixiJS makes in one task.
+  w.__pan.gpu = [] as [number, number][];
+  // eslint-disable-next-line typescript/unbound-method -- called with its canvas below
+  const getContext = HTMLCanvasElement.prototype.getContext;
+  HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement, kind: string, ...rest: unknown[]) {
+    const g = (getContext as any).call(this, kind, ...rest);
+    if (kind !== 'webgl2' || !g || g.__timed) return g;
+    g.__timed = true;
+    const ext = g.getExtension('EXT_disjoint_timer_query_webgl2');
+    if (!ext) return g;
+    const pending: [WebGLQuery, number][] = [];
+    let open: WebGLQuery | null = null;
+    const collect = () => {
+      while (pending.length && g.getQueryParameter(pending[0][0], g.QUERY_RESULT_AVAILABLE)) {
+        const [q, t] = pending.shift()!;
+        if (!g.getParameter(ext.GPU_DISJOINT_EXT)) w.__pan.gpu.push([t, g.getQueryParameter(q, g.QUERY_RESULT) / 1e6]);
+        g.deleteQuery(q);
+      }
+    };
+    for (const name of ['drawElements', 'drawArrays', 'drawElementsInstanced', 'drawArraysInstanced']) {
+      const draw = g[name];
+      g[name] = function (...args: unknown[]) {
+        if (!open) {
+          collect();
+          open = g.createQuery();
+          g.beginQuery(ext.TIME_ELAPSED_EXT, open);
+          const t = performance.now();
+          setTimeout(() => {
+            g.endQuery(ext.TIME_ELAPSED_EXT);
+            pending.push([open!, t]);
+            open = null;
+          }, 0);
+        }
+        return draw.apply(g, args);
+      };
+    }
+    return g;
+  } as typeof getContext;
 });
 
 // --quality N: FreeCol's graphics quality (10, low: no antialiasing); --still: no water and river animation.
@@ -192,6 +231,7 @@ const rec = (await page.evaluate(() => (window as any).__pan)) as {
   frames: [number, number][];
   moves: [number, number][];
   long: [number, number][];
+  gpu: [number, number][];
 };
 await browser.close();
 server.close();
@@ -224,6 +264,12 @@ for (const p of phases) {
     max: Math.max(0, ...f),
     over16: f.filter((d) => d > 17.5).length,
     over33: f.filter((d) => d > 34).length,
+    ...(() => {
+      const g = within(rec.gpu, p).map(([, ms]) => ms);
+      return g.length
+        ? { gpuP50: pct(g, 0.5), gpuP95: pct(g, 0.95), gpuFrames: g.length }
+        : ({} as Record<string, number>);
+    })(),
     frames: f.length,
   };
 }
@@ -388,4 +434,13 @@ for (const p of phases) {
   for (const [f, t] of [...self].sort((a, b) => b[1] - a[1]).slice(0, Number(opt('top', '20'))))
     console.log(`  ${f.slice(0, 60).padEnd(60)} ${t.toFixed(0).padStart(6)} ms`);
 }
+if (!rec.gpu.length) console.log('\nno GPU times: no EXT_disjoint_timer_query_webgl2 (SwiftShader, or WebGL 1)');
+else
+  for (const p of phases) {
+    const g = within(rec.gpu, p).map(([, ms]) => ms);
+    if (g.length)
+      console.log(
+        `GPU ${p.name}: ${g.length} frames, p50 ${pct(g, 0.5).toFixed(2)} ms, p95 ${pct(g, 0.95).toFixed(2)} ms`,
+      );
+  }
 console.log(`\nSUMMARY ${JSON.stringify({ tag, query, size: `${vw}x${vh}`, throttle, gpu, webgl1, phases: summary })}`);
