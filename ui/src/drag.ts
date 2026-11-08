@@ -69,6 +69,13 @@ const mark = (el: Element | null) => {
 /** What a copy of the dragged thing does not take from it: where it sat on the page, and how it moved there. */
 const PLACED =
   /^(position|inset|top|right|bottom|left|margin|float|transform|translate|rotate|scale|zoom|transition|animation)/;
+/** What the copy's root takes instead of its original's: no background, outline, shadow or border colour. */
+const BARE: [string, string][] = [
+  ['background', 'none'],
+  ['outline', 'none'],
+  ['box-shadow', 'none'],
+  ['border-color', 'transparent'],
+];
 /**
  * What no part of the copy takes from its original, root or not: its pointer events. Every part is made to take
  * none (lookOf), as one given its original's `auto` would take the pointer's release, which would not reach the
@@ -89,6 +96,9 @@ function lookOf(from: Element, to: Element, root: boolean) {
   style.setProperty('transition', 'none');
   style.setProperty('animation', 'none');
   style.setProperty('pointer-events', 'none');
+  // Only the thing itself is carried, as a game (and FreeCol) drags the picture: not the box the page's hover
+  // or pick highlight gave the original as it was pressed.
+  if (root) for (const [name, value] of BARE) style.setProperty(name, value);
   for (let i = 0; i < from.children.length; i++) lookOf(from.children[i], to.children[i], false);
 }
 

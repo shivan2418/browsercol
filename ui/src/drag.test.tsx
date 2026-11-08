@@ -114,6 +114,29 @@ describe('a drag with the pointer', () => {
     fireEvent.pointerUp($('goods'), { clientX: 30, clientY: 0 });
   });
 
+  it('carries only the thing, not the box its hover or pick highlight drew behind it', () => {
+    render(
+      <div>
+        <span
+          id="goods"
+          style={{ background: 'beige', outline: '2px solid red', boxShadow: '0 0 4px red' }}
+          {...things.source(() => 'all')}
+        >
+          <img alt="" style={{ background: 'white' }} />
+        </span>
+      </div>,
+    );
+    fireEvent.pointerDown($('goods'), { clientX: 0, clientY: 0 });
+    fireEvent.pointerMove($('goods'), { clientX: 30, clientY: 0 });
+    const copy = document.querySelector<HTMLElement>('.drag-ghost > div > *')!;
+    expect(copy.style.background).toBe('none');
+    expect(copy.style.outline).toBe('none');
+    expect(copy.style.boxShadow).toBe('none');
+    // The thing's own parts keep their look.
+    expect(copy.querySelector('img')!.style.background).toBe('rgb(255, 255, 255)');
+    fireEvent.pointerUp($('goods'), { clientX: 30, clientY: 0 });
+  });
+
   it('puts the thing back on Escape, which goes no further', () => {
     const drops: string[] = [];
     const keys: string[] = [];
