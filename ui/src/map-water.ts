@@ -202,7 +202,7 @@ export function waterField(
       land[k] = 0;
       water[k] = 0;
       depth[k] = 0.5;
-      // The tile whose diamond holds the texel's centre, as view.ts tileAt finds it.
+      // The tile whose diamond holds the texel's centre, as map.ts tileAt finds it.
       for (let y = row - 1; y <= row; y++) {
         if (y < 0 || y >= h) continue;
         const ox0 = (y % 2) * (W / 2);
@@ -299,7 +299,9 @@ export function waterTime(look: Pick<WaterLook, 'speed'>, ms: number) {
 /** 0xRRGGBB as a colour's three channels, 0 to 1. */
 const rgb = (c: number): [number, number, number] => [((c >> 16) & 255) / 255, ((c >> 8) & 255) / 255, (c & 255) / 255];
 
-const VERTEX = /* glsl */ `
+// Both stages at highp, which canDrawWater checks the GPU has: PixiJS asks for mediump in a fragment shader unless the
+// source starts with its precision, and the ripples' coordinates reach tens of turns of their textures on a big map.
+const VERTEX = /* glsl */ `precision highp float;
 in vec2 aPosition;
 out vec2 vField;
 out vec2 vSwell;
@@ -321,7 +323,7 @@ void main() {
 }
 `;
 
-const FRAGMENT = /* glsl */ `
+const FRAGMENT = /* glsl */ `precision highp float;
 in vec2 vField;
 in vec2 vSwell;
 in vec2 vChop;
@@ -381,6 +383,8 @@ export class ShaderSurface {
   readonly mesh: Mesh<Geometry, Shader>;
   private field: BufferImageSource;
   private positions: Float32Array;
+  /** Its look's textures, which it destroys with itself. */
+  private textures: TextureSource[];
   constructor(
     vertex: string,
     fragment: string,
@@ -395,6 +399,7 @@ export class ShaderSurface {
       indexBuffer: [0, 1, 2, 0, 2, 3],
     });
     this.field = fieldSource({ cols: 1, rows: 1, texel: 1, data: new Uint8Array(4) });
+    this.textures = Object.values(textures);
     const shader = Shader.from({
       gl: { vertex, fragment },
       resources: {
@@ -430,9 +435,13 @@ export class ShaderSurface {
     this.uniforms.uFieldSize = [w, h];
   }
 
+  /** Destroy the mesh, its geometry and shader, the field and the look's textures. */
   destroy() {
+    this.mesh.geometry.destroy();
+    this.mesh.shader?.destroy();
     this.mesh.destroy();
     this.field.destroy();
+    for (const t of this.textures) t.destroy();
   }
 }
 
@@ -473,14 +482,6 @@ export class WaterSurface {
     );
   }
 
-  get mesh() {
-    return this.surface.mesh;
-  }
-
-  setField(f: WaterField) {
-    this.surface.setField(f);
-  }
-
   /** Move the ripples and the foam to where they are at `ms`. */
   setTime(ms: number) {
     const t = waterTime(this.look, ms);
@@ -496,6 +497,10 @@ export function canDrawWater(gl: WebGLRenderingContext | WebGL2RenderingContext)
   const p = gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.HIGH_FLOAT);
   return !!p && p.precision > 0;
 }
+
+/** A sand picture's alpha (alphaOf, a tile's W x H) at a point of its tile, the nearest pixel's. */
+export const sandAt = (alpha: Float32Array, u: number, v: number): number =>
+  alpha[Math.min(H - 1, Math.max(0, Math.floor(v))) * W + Math.min(W - 1, Math.max(0, Math.floor(u)))] ?? 0;
 
 /** Each sand picture's alpha, 0 to 1 per pixel, made once. */
 const alphas = new WeakMap<HTMLImageElement | HTMLCanvasElement, Float32Array>();

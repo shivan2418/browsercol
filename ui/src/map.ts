@@ -12,6 +12,7 @@ import {
   alphaOf,
   canDrawWater,
   fieldTexel,
+  sandAt,
   waterField,
   waterLook,
   WaterSurface,
@@ -65,10 +66,9 @@ import {
   type Track,
 } from './motion';
 import { slideMark } from './timing';
-import { H, W, activeUnitFacts, cursor, tileAt, tileOrigin, toMap, type ViewState } from './view';
+import { H, W, activeUnitFacts, cursor, tileOrigin, toMap, type ViewState } from './view';
 
 export type { MapView } from './tileset';
-export { tileAt } from './view';
 /** TileViewer.STATE_OFFSET_X/Y and TileBounds' unit offsets, at scale 1. */
 const STATE_OFFSET_X = 25;
 const STATE_OFFSET_Y = 10;
@@ -76,6 +76,20 @@ const UNIT_OFFSET = 20;
 const OTHER_UNITS_OFFSET_X = -5;
 const OTHER_UNITS_WIDTH = 3;
 const MAX_OTHER_UNITS = 10;
+
+/** The tile whose diamond holds a point of the whole map, or null off the map. */
+export function tileAt(w: number, h: number, px: number, py: number): [number, number] | null {
+  const row = Math.floor(py / (H / 2));
+  for (const y of [row - 1, row]) {
+    if (y < 0 || y >= h) continue;
+    const x = Math.floor((px - (y % 2) * (W / 2)) / W);
+    const [ox, oy] = tileOrigin(x, y);
+    if (x >= 0 && x < w && Math.abs(px - ox - W / 2) / (W / 2) + Math.abs(py - oy - H / 2) / (H / 2) <= 1) {
+      return [x, y];
+    }
+  }
+  return null;
+}
 
 type Picture = HTMLImageElement | HTMLCanvasElement;
 const css = (c: number) => '#' + c.toString(16).padStart(6, '0');
@@ -731,13 +745,13 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
       ? {
           maxField: gl.getParameter(gl.MAX_TEXTURE_SIZE) as number,
           start: (look, swell, chop) => {
-            surface?.mesh.destroy();
+            surface?.surface.destroy();
             surface = new WaterSurface(look, swell, chop);
-            world.addChildAt(surface.mesh, 0);
+            world.addChildAt(surface.surface.mesh, 0);
             redraw(null);
           },
           field: (f) => {
-            surface?.setField(f);
+            surface?.surface.setField(f);
             redraw(null);
           },
           time: (ms) => {
@@ -1594,14 +1608,13 @@ export function mapDrawer(
   async function waterFieldNow(map: MapView, base: Op[]) {
     const key = `${map.w}x${map.h}:${map.tiles}`;
     if (!pen?.water || key === fieldOf) return;
-    fieldOf = key;
     const start = performance.now();
     const shores = base.filter((op): op is Extract<Op, { k: 'image' }> => op.k === 'image' && op.shore === true);
-    const sands = await Promise.all(shores.map((op) => pics.get(op.src).catch(() => null)));
-    const sandAt = new Map<number, Float32Array>();
+    const pictures = await Promise.all(shores.map((op) => pics.get(op.src).catch(() => null)));
+    const sands = new Map<number, Float32Array>();
     shores.forEach((op, i) => {
-      const pic = sands[i];
-      if (pic && pic.width === W && pic.height === H) sandAt.set(op.y * map.w + op.x, alphaOf(pic));
+      const pic = pictures[i];
+      if (pic && pic.width === W && pic.height === H) sands.set(op.y * map.w + op.x, alphaOf(pic));
     });
     const texel = fieldTexel(map.w, map.h, pen.water.maxField);
     // Made again only round the tiles that changed since the last.
@@ -1609,15 +1622,15 @@ export function mapDrawer(
       map,
       texel,
       (x, y, u, v) => {
-        const a = sandAt.get(y * map.w + x);
-        return a
-          ? (a[Math.min(H - 1, Math.max(0, Math.floor(v))) * W + Math.min(W - 1, Math.max(0, Math.floor(u)))] ?? 0)
-          : 0;
+        const a = sands.get(y * map.w + x);
+        return a ? sandAt(a, u, v) : 0;
       },
       field,
     );
     if (next !== field) pen.water.field(next);
     field = next;
+    // Only once it is made: a field that failed is made again with the next map.
+    fieldOf = key;
     measure('map: water field', start);
   }
 

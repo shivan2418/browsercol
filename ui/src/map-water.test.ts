@@ -135,7 +135,10 @@ describe('waterField', () => {
     // Land explored at (6,1), and (2,6) turned to land.
     const later = {
       ...map,
-      tiles: [...map.tiles].map((c, i) => (i === 1 * w + 6 || i === 6 * w + 2 ? 'A' : c)).join(''),
+      tiles: map.tiles
+        .split('')
+        .map((c, i) => (i === 1 * w + 6 || i === 6 * w + 2 ? 'A' : c))
+        .join(''),
     };
     const fresh = waterField(later, texel, coast);
     const again = waterField(later, texel, coast, waterField(map, texel, coast));
