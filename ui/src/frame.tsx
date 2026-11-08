@@ -44,6 +44,8 @@ type FrameProps = {
   close: (() => void) | null;
   /** Letter keys that close the window too, as Escape does: E for Europe, the key that opened it. */
   closeKeys?: readonly string[];
+  /** Escape asks this first: true if it used the key (clearing a search, say), and the window stays open. */
+  onEscape?: () => boolean;
   children: ReactNode;
 } & Omit<HTMLAttributes<HTMLElement>, 'title' | 'children'>;
 
@@ -105,7 +107,7 @@ export const framePlaces: {
  * a close button, over the panel's body. Escape closes it too, before
  * anything else on the page sees the key.
  */
-export function WindowFrame({ title, close: closeNow, closeKeys, children, className, ...rest }: FrameProps) {
+export function WindowFrame({ title, close: closeNow, closeKeys, onEscape, children, className, ...rest }: FrameProps) {
   // The window fades out before it closes, unless it is not to animate; a second close meanwhile does nothing.
   const [motion] = useState(() => frameEffects.motion());
   const [closing, setClosing] = useState(false);
@@ -119,7 +121,13 @@ export function WindowFrame({ title, close: closeNow, closeKeys, children, class
         timer.current = setTimeout(closeNow, frameEffects.ms);
       }
     : null;
-  useEscape(close, closeKeys);
+  useEscape(
+    close &&
+      (() => {
+        if (!onEscape?.()) close();
+      }),
+    closeKeys,
+  );
   const box = useRef<HTMLElement>(null);
   // Tab goes round the newest window's buttons and fields while the focus is in it, not off the page.
   useFocusTrap(box);

@@ -2343,8 +2343,20 @@
         width: min(46em, calc(100vw - 32px));
         height: min(32em, 70vh);
       }
-      #preferences .prefs-tree {
+      #preferences .prefs-side {
         flex: 0 0 11em;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-height: 0;
+      }
+      #preferences .prefs-search {
+        width: 100%;
+        box-sizing: border-box;
+      }
+      #preferences .prefs-tree {
+        flex: 1;
+        min-height: 0;
         overflow-y: auto;
         padding: 4px;
         background: var(--box);
@@ -2369,6 +2381,25 @@
       /* The picked category: a tint, as other picks, taking the same room. */
       #preferences .prefs-tree button[aria-current] {
         background: color-mix(in srgb, var(--accent) 20%, transparent);
+      }
+      /* While searching: the categories with no match fade, and the matched text is marked. */
+      #preferences .prefs-tree [data-dim] {
+        opacity: 0.4;
+      }
+      #preferences .prefs-tree [data-match] {
+        font-weight: 700;
+      }
+      #preferences mark {
+        background: color-mix(in srgb, var(--accent) 35%, transparent);
+        color: inherit;
+        border-radius: 2px;
+      }
+      #preferences .prefs-results .result {
+        margin: 0 0 8px;
+      }
+      #preferences .prefs-results .path {
+        color: var(--muted);
+        font-size: var(--fs-s);
       }
       #preferences .prefs-tree .heading {
         color: var(--head);
