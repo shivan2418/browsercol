@@ -75,6 +75,7 @@ public final class ClientEngine {
                 link.post(xml);
             });
             c.setAfterHandle(listener::updated);
+            c.setReplyWatcher((asked, reply) -> NativeTradeGate.replied(getClient(), asked, reply));
             this.connection = c;
             link.connect();
             return c;

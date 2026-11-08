@@ -21,6 +21,15 @@ public final class CommandQueue {
     /** A thread is running the commands, or is about to. */
     private boolean running;
 
+    /** A command is running now. */
+    private boolean executing;
+
+    /** Commands wait to run until released (a native trade is open, #393). */
+    private boolean held;
+
+    /** The thread running the commands, while one does. */
+    private Thread drainer;
+
     /** What to do when the queue has run dry. */
     private final Runnable onIdle;
 
@@ -58,12 +67,42 @@ public final class CommandQueue {
     }
 
     /**
+     * Wait for the command that is running, if any, to finish, and start no
+     * more until {@link #release}: as Swing's modal dialog, shown after the
+     * action that is running, keeps the player from acting until it closes.
+     * Called from the commands' own thread, it waits for nothing.
+     */
+    public synchronized void hold() {
+        while (executing && Thread.currentThread() != drainer) {
+            try {
+                wait();
+            } catch (InterruptedException ie) {}
+        }
+        held = true;
+    }
+
+    /** Run the commands again, those that came while they were held first. */
+    public synchronized void release() {
+        held = false;
+        notifyAll();
+    }
+
+    /**
      * Run the waiting commands, one at a time, until there are none left.
      */
     private void drain() {
+        synchronized (this) {
+            drainer = Thread.currentThread();
+        }
         for (;;) {
             final Runnable run;
             synchronized (this) {
+                // Held, a waiting command waits for the release; with none, the queue goes idle.
+                while (held && !waiting.isEmpty()) {
+                    try {
+                        wait();
+                    } catch (InterruptedException ie) {}
+                }
                 run = waiting.poll();
                 if (run == null) {
                     // Nothing is left: the queue is idle, and the owner is
@@ -71,15 +110,22 @@ public final class CommandQueue {
                     // The lock keeps a command from starting until that is
                     // done, and so keeps the map out of the middle of one.
                     running = false;
+                    drainer = null;
                     onIdle.run();
                     return;
                 }
+                executing = true;
             }
             try {
                 run.run();
             } catch (Throwable ex) {
                 // A command that fails must not stop the ones after it.
                 ex.printStackTrace();
+            } finally {
+                synchronized (this) {
+                    executing = false;
+                    notifyAll();
+                }
             }
         }
     }

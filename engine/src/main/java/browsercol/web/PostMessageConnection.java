@@ -255,6 +255,25 @@ public class PostMessageConnection extends Connection {
         }
     }
 
+    /** Hears of each reply to a question this end asked. */
+    public interface ReplyWatcher {
+        /**
+         * Called on the asking thread, before the reply is handled.
+         *
+         * @param asked The question's message.
+         * @param reply The reply's message, or null for none.
+         */
+        void replied(Message asked, Message reply);
+    }
+
+    /** Hears of each reply to a question; null for no one. */
+    private volatile ReplyWatcher replyWatcher = null;
+
+    /** Have each reply to a question this end asks heard of, before it is handled. */
+    public void setReplyWatcher(ReplyWatcher replyWatcher) {
+        this.replyWatcher = replyWatcher;
+    }
+
     /** Run after each message from the other end has been handled; null for nothing. */
     private volatile Runnable afterHandle = null;
 
@@ -356,6 +375,8 @@ public class PostMessageConnection extends Connection {
         }
         ReplyMessage reply = (ReplyMessage)response;
         logMessage(reply, false);
+        final ReplyWatcher watcher = this.replyWatcher;
+        if (watcher != null) watcher.replied(message, reply.getMessage());
         return reply.getMessage();
     }
 

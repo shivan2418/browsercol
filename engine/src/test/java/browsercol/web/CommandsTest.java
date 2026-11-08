@@ -93,6 +93,9 @@ class CommandsTest {
     private volatile String warehouse = null;
     /** What the fake Browser UI answers to a confirm question, if not its usual answer. */
     private volatile Boolean confirm = null;
+    /** A test's own answers, by kind and question; USUAL leaves a question to the usual answer. */
+    private volatile java.util.function.BiFunction<String, String, String> answerer = null;
+    private static final String USUAL = "\0usual";
 
     /** The messages events (model messages and the turn report) the WebGUI showed, as their JSON. */
     private final List<String> messageEvents = new java.util.concurrent.CopyOnWriteArrayList<>();
@@ -265,7 +268,10 @@ class CommandsTest {
                 }
                 public void ask(int id, String kind, String json) {
                     ui.execute(() -> {
-                            String answer = kind.equals("names") ? names
+                            final java.util.function.BiFunction<String, String, String> own = answerer;
+                            final String mine = (own == null) ? USUAL : own.apply(kind, json);
+                            String answer = (mine != USUAL) ? mine
+                                : kind.equals("names") ? names
                                 : kind.equals("amount") ? amount
                                 : kind.equals("warehouse") ? warehouse
                                 : accept(kind, json);
@@ -635,6 +641,127 @@ class CommandsTest {
         client.getClient().getInGameController().nativeTradeHandler(
             net.sf.freecol.common.model.NativeTrade.NativeTradeAction.ACK_OPEN, nt);
         await(() -> active() == ship, () -> "the unit out of moves gives way to the next that can move, not " + active());
+    }
+
+    /**
+     * A native trade is modal, as Swing's trade dialogs are: while it is open no other unit
+     * moves and nothing else asks the player anything. Each round of a trade ends by asking
+     * the server, and the work after the round (updateGUI, which carries out the goto orders
+     * when no unit is left to select) waits until the trade is over, then runs. Here a
+     * colonist on a Go To order stands still through the whole sale, and walks on after it.
+     */
+    @Test
+    @Timeout(240)
+    void noOtherUnitMovesWhileANativeTradeIsOpen() throws Exception {
+        startGame();
+        final Commands commands = client.getCommands();
+        final Unit landed = landAColonist(commands);
+        client.debugApplied(server.debug("{\"action\":\"revealMap\",\"reveal\":true}"));
+        final Map known = server.getGame().getMap();
+        final Player us = serverUnit(landed).getOwner();
+
+        // A native camp with free land beside it, for our wagon train of trade goods.
+        Tile campTile = null, beside = null;
+        for (Tile t : known.getTileSet(t -> t.getIndianSettlement() != null)) {
+            for (Tile n : t.getSurroundingTiles(1, 1)) {
+                if (n.isLand() && !n.hasSettlement() && n.getUnitCount() == 0
+                    && !n.hasLostCityRumour()) {
+                    campTile = t;
+                    beside = n;
+                    break;
+                }
+            }
+            if (campTile != null) break;
+        }
+        assertNotNull(campTile, "a native camp with free land beside it");
+        final Player natives = campTile.getIndianSettlement().getOwner();
+        // The camp has met us (as a unit beside it would), and is content.
+        campTile.getIndianSettlement().setAlarm(us, new net.sf.freecol.common.model.Tension(0));
+        server.debug("{\"action\":\"setStance\",\"stance\":\"peace\",\"with\":\""
+            + natives.getNationId() + "\"}");
+        final String wagonId = (String)((java.util.Map<?, ?>)JsonReader.read(server.debug(
+            "{\"action\":\"addUnit\",\"type\":\"model.unit.wagonTrain\",\"x\":"
+            + beside.getX() + ",\"y\":" + beside.getY() + "}"))).get("unit");
+        server.debug("{\"action\":\"addGoods\",\"type\":\"model.goods.tradeGoods\",\"amount\":100,"
+            + "\"unit\":\"" + wagonId + "\"}");
+
+        // A colonist on land far from the camp, with a Go To order to the far side of it.
+        final Tile trader = beside;
+        Tile start = null, goal = null;
+        for (Tile t : known.getTileSet(t -> t.isLand() && !t.hasSettlement()
+                && t.getUnitCount() == 0 && !t.hasLostCityRumour()
+                && t.getDistanceTo(trader) > 4)) {
+            for (Tile g : known.getTileSet(g -> g.isLand() && !g.hasSettlement()
+                    && g.getContiguity() == t.getContiguity() && g.getDistanceTo(t) >= 6)) {
+                start = t;
+                goal = g;
+                break;
+            }
+            if (start != null) break;
+        }
+        assertNotNull(start, "land with room for a long walk");
+        final String walkerId = (String)((java.util.Map<?, ?>)JsonReader.read(server.debug(
+            "{\"action\":\"addUnit\",\"type\":\"model.unit.freeColonist\",\"x\":"
+            + start.getX() + ",\"y\":" + start.getY() + "}"))).get("unit");
+        settle();
+        final Unit wagon = client.getGame().getFreeColGameObject(wagonId, Unit.class);
+        final Unit walker = client.getGame().getFreeColGameObject(walkerId, Unit.class);
+        final Tile camp = client.getGame().getMap().getTile(campTile.getX(), campTile.getY());
+        assertNotNull(wagon, "the client has the wagon train");
+        assertNotNull(walker, "the client has the walker");
+        awaitTrue(() -> wagon.hasGoodsCargo(), "the wagon train has its goods");
+        awaitTrue(() -> wagon.getMoveType(camp) == Unit.MoveType.ENTER_SETTLEMENT_WITH_CARRIER_AND_GOODS,
+            "the wagon train may trade at the camp");
+        final Tile goalTile = client.getGame().getMap().getTile(goal.getX(), goal.getY());
+        assertNotNull(walker.findPath(goalTile), "the walker has a path");
+        walker.setDestination(goalTile);
+        final Tile walkerStart = walker.getTile();
+        // No one else is left to move: the ship's moves are spent.
+        client.getClient().getMyPlayer().getUnits().filter(Unit::isNaval)
+            .forEach(u -> u.setMovesLeft(0));
+
+        // The trade: sell the goods, take the offer, and close the trade at the next question.
+        final List<String> trade = new java.util.concurrent.CopyOnWriteArrayList<>();
+        final List<String> whatNext = List.of(Messages.message("tradeProposition.toBuy"),
+            Messages.message("tradeProposition.toSell"), Messages.message("tradeProposition.toGift"));
+        final String toSell = Messages.message("tradeProposition.toSell");
+        final String takeOffer = Messages.message("sell.takeOffer");
+        final String sellWhat = Messages.message("sellProposition.text");
+        answerer = (kind, json) -> {
+            if (!kind.equals("choice")) return USUAL;
+            final boolean choose = whatNext.stream().anyMatch(c -> choiceIndex(json, c) >= 0);
+            final int take = choiceIndex(json, takeOffer);
+            if (!choose && take < 0 && !sellWhat.equals(textOf(json))) return USUAL;
+            // While the question is open the walker has the time to move, if anything lets it.
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            trade.add(textOf(json) + " | walker at " + walker.getTile().getX()
+                + "," + walker.getTile().getY());
+            if (take >= 0) return String.valueOf(take);
+            if (choose) return (trade.size() == 1) ? String.valueOf(choiceIndex(json, toSell)) : null;
+            return "0";
+        };
+        final java.lang.reflect.Field mode = net.sf.freecol.client.control.InGameController.class
+            .getDeclaredField("moveMode");
+        mode.setAccessible(true);
+        mode.set(client.getClient().getInGameController(), enumValue(mode.getType(), "NEXT_ACTIVE_UNIT"));
+        select(commands, wagon);
+        // The trade's questions come as the natives answer, after the move returns.
+        commands.move(wagon.getTile().getDirection(camp).toString());
+
+        await(() -> trade.size() >= 4, () -> "the trade asked its four questions: " + trade
+            + "; asked " + asked + "; information " + informationPanels
+            + "; wagon at " + wagon.getTile() + " moves " + wagon.getMovesLeft());
+        await(() -> walker.getTile() != walkerStart,
+            () -> "the walker walks on once the trade is over; trade " + trade);
+        final String at = " | walker at " + walkerStart.getX() + "," + walkerStart.getY();
+        assertEquals(4, trade.size(), () -> "sell, goods, offer, and the question after the sale: " + trade);
+        for (String q : trade) {
+            assertTrue(q.endsWith(at), () -> "no unit moves while the trade is open: " + trade);
+        }
     }
 
     /** The constant of an enum class that is not visible here. */
