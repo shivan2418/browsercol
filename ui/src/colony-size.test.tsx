@@ -76,10 +76,13 @@ describe('the colony window keeps one size', () => {
     expect(declared('.colony .outside').height).toBe(declared('.colony .cargo').height);
   });
 
-  it('gives the window no height of its own to grow from', () => {
+  it('gives the window its own width and no height of its own to grow from', () => {
     const css = declared(".dialog[data-kind='colony']");
-    expect(css['width']).toBeDefined();
-    expect(css['max-height']).toBe('94vh');
+    expect(css['width']).toMatch(/^\d+px$/);
+    expect(css['height']).toBeUndefined();
+    // Not capped by the screen, which would cut off the warehouse (#377): the whole window is scaled to fit instead.
+    expect(css['max-height']).toBeUndefined();
+    expect(declared('.modal > [data-fit]').zoom).toBe('var(--fit, var(--ui-zoom, 1))');
   });
 
   for (const [what, outside, ships, cargo, stacks] of [

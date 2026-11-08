@@ -7,6 +7,7 @@ import {
   MENUS,
   MenuBar,
   WindowFrame,
+  fitScale,
   frameEffects,
   framePlaces,
   goodsIcons,
@@ -380,5 +381,43 @@ describe('the menu bar', () => {
     key('Escape');
     fireEvent.pointerEnter(view);
     expect(screen.queryByRole('menu')).toBeNull();
+  });
+});
+
+describe('a window laid out at fixed sizes fits the screen (#380, #377)', () => {
+  const colony = { w: 1184, h: 812 };
+  it('keeps the UI scale where the window fits', () => {
+    expect(fitScale(colony, { w: 1920, h: 1080 }, 1)).toBe(1);
+    expect(fitScale({ w: 530, h: 510 }, { w: 1920, h: 1080 }, 1.25)).toBe(1.25);
+  });
+  it('scales down to the screen where it would not, its height or its width', () => {
+    // 1280x720: the warehouse row would be cut off at 100%.
+    const short = fitScale(colony, { w: 1280, h: 720 }, 1)!;
+    expect(short).toBeLessThan(1);
+    expect(colony.h * short).toBeLessThanOrEqual(720 * 0.96);
+    // 200% on a 1536x695 page: the most that fits, below the UI scale.
+    const big = fitScale(colony, { w: 1536, h: 695 }, 2)!;
+    expect(colony.h * big).toBeLessThanOrEqual(695 * 0.96);
+    expect(colony.h * (big + 0.002)).toBeGreaterThan(695 * 0.96);
+    const narrow = fitScale(colony, { w: 1000, h: 2000 }, 1)!;
+    expect(colony.w * narrow).toBeLessThanOrEqual(1000 * 0.96);
+  });
+  it('leaves a window with no layout alone', () => {
+    expect(fitScale({ w: 0, h: 0 }, { w: 1280, h: 720 }, 1)).toBeNull();
+  });
+  it('marks the window, for the stylesheet to scale it', () => {
+    const { container } = render(
+      <WindowFrame title="Jamestown" close={null} fit>
+        x
+      </WindowFrame>,
+    );
+    expect(container.querySelector('[role=dialog]')!.hasAttribute('data-fit')).toBe(true);
+    cleanup();
+    const plain = render(
+      <WindowFrame title="Report" close={null}>
+        x
+      </WindowFrame>,
+    );
+    expect(plain.container.querySelector('[role=dialog]')!.hasAttribute('data-fit')).toBe(false);
   });
 });
