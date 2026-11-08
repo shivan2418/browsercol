@@ -14,7 +14,7 @@ import { serveDist } from './serve-dist.ts';
 
 const tilesets = opt('tilesets', 'freecol,freecol-plus').split(',');
 const themes = opt('themes', 'parchment,dark').split(',');
-const spots = opt('spots', '100,52;99,66;101,48;88,15;103,45')
+const spots = opt('spots', '100,52;99,66;101,48;88,15;104,41')
   .split(';')
   .filter(Boolean)
   .map((s) => s.split(',').map(Number) as [number, number]);
