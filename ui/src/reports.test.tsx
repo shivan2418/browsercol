@@ -358,6 +358,26 @@ describe('the military, naval and cargo reports', () => {
     },
   );
 
+  it('puts the units of a kind side by side in one row, a new row for the next kind', () => {
+    const { box } = host();
+    const soldier = (id: string, name: string) => ({ ...unit, id, name, goods: [], cargo: [] });
+    const report = units('military') as Extract<ReportView, { report: 'military' }>;
+    show(box, {
+      ...report,
+      locations: [
+        {
+          ...report.locations[0],
+          units: [soldier('u:1', 'Dragoon'), soldier('u:2', 'Dragoon'), soldier('u:3', 'Soldier')],
+        },
+      ],
+    });
+    const rows = [...document.querySelectorAll<HTMLElement>('.row.kind')];
+    expect(rows.map((r) => [r.dataset.kind, r.querySelectorAll('[data-list="unit"]').length])).toEqual([
+      ['Dragoon', 2],
+      ['Soldier', 1],
+    ]);
+  });
+
   it('links each place to its colony, Europe or tile', () => {
     const { box, calls } = host();
     show(box, units('military'));
@@ -382,6 +402,16 @@ describe('the religion report', () => {
         immigration: 12,
         required: 40,
         production: 3,
+        bar: {
+          type: 'model.goods.crosses',
+          name: 'Crosses',
+          keys: [],
+          amount: 40,
+          needed: 40,
+          available: 12,
+          produced: 3,
+          turns: '(Turns: 10)',
+        },
         colonies: [
           {
             id: 'colony:7',
@@ -404,16 +434,6 @@ describe('the religion report', () => {
     const [now, next] = section.querySelectorAll<HTMLElement>('.need i');
     expect(now.style.width).toBe('30%');
     expect(next.style).toMatchObject({ left: '30%', width: '7.5%' });
-        bar: {
-          type: 'model.goods.crosses',
-          name: 'Crosses',
-          keys: [],
-          amount: 40,
-          needed: 40,
-          available: 12,
-          produced: 3,
-          turns: '(Turns: 10)',
-        },
     expect(section.querySelector('[data-list="workers"] img')?.getAttribute('data-unit')).toBe('unit:1');
     fireEvent.click(within(section).getByRole('button', { name: 'Jamestown' }));
     expect(calls).toEqual(['colony colony:7']);

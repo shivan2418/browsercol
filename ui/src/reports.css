@@ -48,7 +48,8 @@
   flex: 1;
   border-top: 1px solid var(--line);
 }
-.dialog .report .colonies .row {
+.dialog .report .colonies .row,
+.dialog .report .unit-report .row.kind {
   flex-wrap: wrap;
   gap: 2px 4px;
   min-height: 34px;
@@ -569,4 +570,11 @@
   display: block;
   font-size: 0.8em;
   color: var(--muted);
+}
+/* The unit reports: a unit with what it carries beside it, the units of a kind side by side. */
+.dialog .report .unit-report .unit {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-right: 6px;
 }

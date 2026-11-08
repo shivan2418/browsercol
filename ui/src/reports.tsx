@@ -411,6 +411,17 @@ function CompactLabour({ e, art, go }: { e: View<'compactLabour'>; art: Art; go:
 }
 
 /** ReportUnitPanel: the force by kind (the king's too), then the units place by place. */
+/** Units in runs of one kind (type and role, which the Engine sorts them by), a row for each run. */
+function byKind<U extends { name: string }>(units: U[]): U[][] {
+  const runs: U[][] = [];
+  for (const u of units) {
+    const run = runs.at(-1);
+    if (run && run[0].name === u.name) run.push(u);
+    else runs.push([u]);
+  }
+  return runs;
+}
+
 function Units({ e, art, go }: { e: View<'military' | 'naval' | 'cargo'>; art: Art; go: Links }) {
   const force = (f: { name: string; units: UnitCount[] }, which: string) => (
     <section data-force={which}>
@@ -444,14 +455,18 @@ function Units({ e, art, go }: { e: View<'military' | 'naval' | 'cargo'>; art: A
             </Link>
           </h3>
           {p.units.length === 0 && <span className="muted">{e.none}</span>}
-          {p.units.map((u) => (
-            <div key={u.id} className="row" data-list="unit">
-              <Img keys={u.keys} art={art} title={u.text} unit={u.id} />
-              {u.goods.map((g) => (
-                <GoodsAmount key={g.type} keys={g.keys} name={g.name} amount={g.amount} art={art} />
-              ))}
-              {u.cargo.map((c) => (
-                <Img key={c.id} keys={c.keys} art={art} title={c.name} unit={c.id} />
+          {byKind(p.units).map((kind) => (
+            <div key={kind[0].id} className="row kind" data-kind={kind[0].name}>
+              {kind.map((u) => (
+                <span key={u.id} className="unit" data-list="unit">
+                  <Img keys={u.keys} art={art} title={u.text} unit={u.id} />
+                  {u.goods.map((g) => (
+                    <GoodsAmount key={g.type} keys={g.keys} name={g.name} amount={g.amount} art={art} />
+                  ))}
+                  {u.cargo.map((c) => (
+                    <Img key={c.id} keys={c.keys} art={art} title={c.name} unit={c.id} />
+                  ))}
+                </span>
               ))}
             </div>
           ))}
