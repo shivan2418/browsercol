@@ -3,7 +3,7 @@ import { act, cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import {
   isIdle,
-  Mover,
+  type Mover,
   MoverHold,
   MOVER_MIN_MS,
   NEW_TURN_MS,
