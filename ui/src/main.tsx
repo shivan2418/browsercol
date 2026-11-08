@@ -128,6 +128,7 @@ import {
   keepSaves,
   lastTurnSaveName,
   latestAutosave,
+  missingSaveNote,
   saveFailedTitle,
   shiftLastTurnSaves,
   turnAutosaveNames,
@@ -1659,7 +1660,12 @@ async function fetchPreset(name: string): Promise<string> {
  * The start screen, until the player starts the game: resolves to the preset JSON the choice makes, and the bytes
  * of the map or save file the player picked for the map generator to import, if any.
  */
-async function chooseGame(data: string[], language: string): Promise<{ preset: string; importMap?: Uint8Array }> {
+/** @param note Shown where the save files open, as why a save the address named did not load. */
+async function chooseGame(
+  data: string[],
+  language: string,
+  note = '',
+): Promise<{ preset: string; importMap?: Uint8Array }> {
   // FreeCol's main panel offers Continue Playing and Open: the saves in the store, newest first.
   const saves = await store.list().catch(() => []);
   const host = document.createElement('div');
@@ -1738,7 +1744,7 @@ async function chooseGame(data: string[], language: string): Promise<{ preset: s
           />
         </TipProvider>,
       );
-    draw('');
+    draw(note);
   });
 }
 
@@ -1834,6 +1840,20 @@ async function run() {
       console.warn('no autosave to resume:', ex);
     }
   }
+  // A save the address names that the store no longer has (a loaded autosave is replaced by the next one, so
+  // a reload names one that is gone, #394): the start screen, with its saves, says so instead of a failed game.
+  let missingNote = '';
+  if (loadId !== undefined && !resumed) {
+    const note = await missingSaveNote(store, loadId);
+    if (note !== null) {
+      missingNote = note;
+      loadId = undefined;
+      skipStart = params.has('skipstart') || params.has('preset');
+      const next = new URLSearchParams(location.search);
+      next.delete('load');
+      history.replaceState(history.state, '', `${location.pathname}${next.size ? `?${next}` : ''}`);
+    }
+  }
   boot.begin(startupParts());
   const bundle = (await (await fetch(dataUrl)).json()) as string[];
   const { data, language } = await withLanguage(bundle);
@@ -1847,7 +1867,7 @@ async function run() {
   if (loadId !== undefined && !resumed) await confirmLoad(loadId);
   const { preset: chosen, importMap } = skipStart
     ? { preset: '', importMap: undefined }
-    : await chooseGame(data, language);
+    : await chooseGame(data, language, missingNote);
   choice = chosen;
   const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
   // An error the Worker does not catch, such as a trap in the server Engine, stops the game's server.

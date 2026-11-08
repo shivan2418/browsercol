@@ -1,5 +1,6 @@
 // Saves and loads a game in the built site, through the page's own side panel
-// (#68, #69): start a game, play a turn, save it under a name, reload the page
+// (#68, #69): an address naming a save that is gone shows the start screen and
+// says so (#394); start a game, play a turn, save it under a name, reload the page
 // (a new game starts, and the save is in the list from IndexedDB), export the
 // save as a file, delete it, import the file again (a file that is not a save is
 // refused), check the export is byte for byte the import, load the save, check
@@ -154,6 +155,17 @@ async function run(page: Page, url: string, shot: () => Promise<unknown>, browse
     await listSettled();
     await page.click(`#saves [data-save="${id}"] [${button}]`);
   };
+
+  // 0. An address naming a save the browser no longer has (#394) shows the start screen, which says so, and drops
+  // the save from the address.
+  setStep('0. a missing save in the address');
+  await page.goto(url.replace('?skipstart', '?load=424242'));
+  await page.waitForFunction(
+    () => document.querySelector('[data-open-note]')?.textContent?.includes('(424242) is no longer in this browser'),
+    null,
+    { timeout: 60000, label: 'the start screen says the save in the address is gone' },
+  );
+  if (new URL(page.url()).searchParams.has('load')) throw new Error(`the address still names the save: ${page.url()}`);
 
   // 1. A new game, one turn played.
   setStep('1. a new game, one turn played');
