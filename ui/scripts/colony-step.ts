@@ -111,7 +111,7 @@ for (const browserName of browserNames()) {
       throw new Error('the window was replaced or moved');
   } catch (ex) {
     failed = true;
-    console.error(`${browserName}: ${ex instanceof Error ? ex.message : ex}`);
+    console.error(`${browserName}: ${ex instanceof Error ? ex.message : String(ex)}`);
   }
   if (errors.length) console.log(`page errors: ${errors.join(' | ')}`);
   await browser.close();
