@@ -17,6 +17,7 @@ import net.sf.freecol.client.gui.GUI;
 import net.sf.freecol.client.gui.panel.FreeColPanel;
 import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.model.AbstractUnit;
+import net.sf.freecol.common.model.Constants.ScoutIndianSettlementAction;
 import net.sf.freecol.common.model.Constants.TradeBuyAction;
 import net.sf.freecol.common.model.Building;
 import net.sf.freecol.common.model.Colony;
@@ -1292,6 +1293,14 @@ public class WebGUI extends GUI {
     protected <T> T modalChoiceDialog(Tile tile, StringTemplate template,
                                       ImageIcon icon, String cancelKey,
                                       List<ChoiceItem<T>> choices) {
+        // A scout at a native settlement: Enter speaks with the chief, where
+        // Swing leaves it on Cancel. Speaking is what the scout came for.
+        for (ChoiceItem<T> c : choices) {
+            if (c.getObject() == ScoutIndianSettlementAction.SCOUT_SETTLEMENT_SPEAK
+                && choices.stream().noneMatch(ChoiceItem::isDefault)) {
+                c.defaultOption();
+            }
+        }
         return choiceDialog(tile, template, icon, cancelKey, choices, null);
     }
 
