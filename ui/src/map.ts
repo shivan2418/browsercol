@@ -12,6 +12,7 @@ import {
   alphaOf,
   canDrawWater,
   fieldTexel,
+  programLinks,
   sandAt,
   waterField,
   waterLook,
@@ -21,6 +22,7 @@ import {
 } from './map-water';
 import { resources, type ArtLayer, type Resources } from './resources';
 import {
+  FADE,
   isAnimated,
   isCursorMarker,
   NO_MODES,
@@ -132,7 +134,16 @@ export function pictures(base: string, load: (path: string) => Promise<Picture> 
     if (isAnimated(src)) return live(src);
     const id = srcId(src);
     let p = cache.get(id);
-    if (!p) cache.set(id, (p = typeof src === 'string' ? load(src) : compose(src, get)));
+    if (!p)
+      cache.set(
+        id,
+        (p =
+          typeof src === 'string'
+            ? src.startsWith(FADE)
+              ? Promise.resolve(fadeMask(src.slice(FADE.length) as Direction))
+              : load(src)
+            : compose(src, get)),
+      );
     return p;
   };
 
@@ -227,6 +238,20 @@ export function pictures(base: string, load: (path: string) => Promise<Picture> 
 
 const canvas = (w: number, h: number) => Object.assign(document.createElement('canvas'), { width: w, height: h });
 
+/** tileset.ts fadeFrom: a tile's mask, opaque at the middle of its side facing `d` and gone a little past its centre. */
+function fadeMask(d: Direction): HTMLCanvasElement {
+  const c = canvas(W, H);
+  const g = c.getContext('2d')!;
+  const [ax, ay] = CORNERS[d];
+  const [bx, by] = [ax + 1.2 * (W / 2 - ax), ay + 1.2 * (H / 2 - ay)];
+  const fade = g.createLinearGradient(ax, ay, bx, by);
+  fade.addColorStop(0.15, 'rgba(0, 0, 0, 1)');
+  fade.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  g.fillStyle = fade;
+  g.fillRect(0, 0, W, H);
+  return c;
+}
+
 /** An image file under `base`, decoded. */
 const loadImage = (base: string) => (path: string) => {
   const img = new Image();
@@ -276,11 +301,11 @@ export const backingSize = (w: number, h: number, ratio: number): [number, numbe
 const screenRatio = (): number => pixelRatio(window.devicePixelRatio);
 
 /** What draws the shader water under the map (map-water.ts). */
-interface WaterPen {
+export interface WaterPen {
   /** The biggest field, in texels across or down, the GPU takes. */
   readonly maxField: number;
-  /** Draw the water in this look under the map from now on. */
-  start(look: WaterLook, swell: Picture, chop: Picture): void;
+  /** Draw the water in this look under the map from now on; false if the GPU cannot build its shader. */
+  start(look: WaterLook, swell: Picture, chop: Picture): boolean;
   /** The water's field of the map now. */
   field(f: WaterField): void;
   /** Move the ripples to where they are at `ms`, and draw the map again. */
@@ -747,8 +772,14 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
           start: (look, swell, chop) => {
             surface?.surface.destroy();
             surface = new WaterSurface(look, swell, chop);
+            if (!programLinks(gl, surface.surface.program)) {
+              surface.surface.destroy();
+              surface = null;
+              return false;
+            }
             world.addChildAt(surface.surface.mesh, 0);
             redraw(null);
+            return true;
           },
           field: (f) => {
             surface?.surface.setField(f);
@@ -945,6 +976,26 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
       redraw();
     },
   };
+}
+
+/**
+ * How the map draws its water: the shader water when the Tileset has a look for it and the pen can draw it, its
+ * ripples load, and the GPU builds its shader; else FreeCol's frames (#408), as on a netbook whose GPU cannot.
+ */
+export async function waterDrawingFor(
+  look: WaterLook | null,
+  water: WaterPen | undefined,
+  get: (src: string) => Promise<Picture>,
+): Promise<WaterDrawing> {
+  if (!look || !water) return 'flipbook';
+  try {
+    const [swell, chop] = await Promise.all([get(look.swell), get(look.chop)]);
+    if (water.start(look, swell, chop)) return 'surface';
+    console.warn("the GPU could not build the shader water's shader; the water is drawn from its frames");
+  } catch (ex) {
+    console.warn('the shader water could not start; the water is drawn from its frames', ex);
+  }
+  return 'flipbook';
 }
 
 /** Each picture's dimmed copy (ImageLibrary's darker tiles of fog), made on first use. */
@@ -1592,16 +1643,7 @@ export function mapDrawer(
     // The window may have changed while PixiJS started.
     if (size !== startSize) p.resize(...size);
     pen = p;
-    const look = waterLook(res);
-    if (look && p.water) {
-      try {
-        const [swell, chop] = await Promise.all([pics.get(look.swell), pics.get(look.chop)]);
-        p.water.start(look, swell, chop);
-        waterDrawing = 'surface';
-      } catch (ex) {
-        console.warn('the shader water could not start; the water is drawn from its frames', ex);
-      }
-    }
+    waterDrawing = await waterDrawingFor(waterLook(res), p.water, pics.get);
   }
 
   /** Give the shader water the field of a map, when its tiles changed: the land, and the coasts' sand, from the base. */

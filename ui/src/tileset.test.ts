@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vite-plus/test';
 import { resources } from './resources';
 import {
   debugOverlayOps,
+  fadeFrom,
   frameAt,
   isAnimated,
   isCursorMarker,
@@ -262,6 +263,43 @@ describe('the shader water (#409)', () => {
     const sea = { ...map, tiles: 'BB' + 'BB' + 'BB' + 'BB', items: [], roads: [] };
     expect(staticScene(sea, tileset, 1, 'surface').base).toEqual([]);
     expect(staticScene(sea, tileset).base.length).toBe(8);
+  });
+
+  it("fades a river's water out into the shader water where it runs into the sea, keeping its banks", () => {
+    // A river on the plains at (0,1) runs NE into the ocean at (1,0), which has a delta from its SW.
+    const river = { ...map, rivers: [[0, 1, 1, '1000', '0100']] as MapView['rivers'] };
+    const more = `${props}
+image.tile.river.pebbles=resources/pebbles.png
+image.tile.river.water=resources/riverwater.png
+image.mask.river.delta.sw=resources/delta-sw.png
+image.mask.river.delta.pebbles.sw=resources/delta-pebbles-sw.png
+`;
+    const extra = ['pebbles', 'riverwater', 'delta-sw', 'delta-pebbles-sw'].map(art);
+    const res = resources([{ dir: 'default', props: more }], [...files, ...extra]);
+    const deltaOf = (water?: 'surface') =>
+      staticScene(river, res, 1, water).base.find((op) => op.k === 'image' && srcId(op.src).includes('delta:'));
+    const still = (op: Op | undefined) => (op?.k === 'image' ? frameAt(op.src, STILL) : null);
+    expect(still(deltaOf('surface'))).toEqual({
+      id: `delta:${art('riverwater')}:sw:fading`,
+      steps: [
+        {
+          draw: {
+            id: `mask:${art('pebbles')}:${art('delta-pebbles-sw')}`,
+            steps: [{ draw: art('pebbles') }, { mask: art('delta-pebbles-sw') }],
+          },
+        },
+        {
+          draw: {
+            id: `mouth:${art('riverwater')}:sw`,
+            steps: [{ draw: art('riverwater') }, { mask: art('delta-sw') }, { mask: fadeFrom('SW') }],
+          },
+          alpha: 0.9,
+        },
+        { mask: art('mask') },
+      ],
+    });
+    // FreeCol's own delta, river water and all, on the flipbook.
+    expect(srcId(still(deltaOf())!)).toBe(`delta:${art('riverwater')}:sw`);
   });
 
   it('keeps one static scene per way of drawing the water', () => {

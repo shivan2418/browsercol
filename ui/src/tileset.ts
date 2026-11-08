@@ -322,6 +322,13 @@ export const STILL: Ticks = { water: 0, river: 0 };
 export type WaterDrawing = 'flipbook' | 'surface';
 
 /**
+ * A mask made by map.ts rather than loaded: opaque at the tile's side facing `d`, fading to nothing by its centre. A
+ * river's mouth over the shader water fades out with it.
+ */
+export const FADE = 'fade:';
+export const fadeFrom = (d: Direction): string => `${FADE}${d}`;
+
+/**
  * The map's draw operations without its units, which a move that changes only units leaves as they were. The
  * scene is `base`, `below`, the units, then `above`.
  */
@@ -590,6 +597,18 @@ function build(
       res.path(TILE_MASK),
     ];
     if (!pebbles || !waterImg || !waterMask || !pebblesMask || !tileMask) return null;
+    if (waterDrawing === 'surface') {
+      // Over the shader water: the river's own water fades out from the land it comes from, so the river runs into
+      // the sea or lake as one body of water rather than ending in a patch of FreeCol's darker river water.
+      const fading: Recipe = {
+        id: `mouth:${waterImg}:${dir}`,
+        steps: [{ draw: waterImg }, { mask: waterMask }, { mask: fadeFrom(d) }],
+      };
+      return {
+        id: `delta:${waterImg}:${dir}:fading`,
+        steps: [{ draw: masked(pebbles, pebblesMask) }, { draw: fading, alpha: 0.9 }, { mask: tileMask }],
+      };
+    }
     return {
       id: `delta:${waterImg}:${dir}`,
       steps: [

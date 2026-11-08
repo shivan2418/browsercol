@@ -1,9 +1,9 @@
 // Screenshots and short recordings of the map's water in each Tileset, for the owner to compare the look (#409): at
-// coasts, a lake and the high seas of the pan-large map, at zoom 1 and zoomed in, in light and dark UI. Each shot is
+// a river mouth, a lake with deltas and a coast of the pan-large map, at zoom 1 and zoomed in, in light and dark UI. Each shot is
 // .cache/water-shots/<tileset>-<browser>-<theme>-<spot>-<view>.png; with --video, a few seconds of the water moving at
 // the first spot, .cache/water-shots/<tileset>-<browser>-<theme>.webm (the run says where in it the water's part is).
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/water-shots.ts [--browsers chromium,firefox] [--tilesets freecol,freecol-plus]
-//     [--themes parchment,dark] [--spots 101,42;99,66] [--size 1366x768] [--video] [--secs 4] [--gpu]
+//     [--themes parchment,dark] [--spots 100,52;99,66] [--size 1366x768] [--video] [--secs 4] [--gpu]
 // Headless Firefox in the web image gets no WebGL, even with webgl.force-enabled, which is set for a machine where it
 // would: PixiJS's Canvas renderer draws, and with it FreeCol's frames, in either Tileset (the shader water's fallback).
 import fs from 'node:fs';
@@ -14,7 +14,7 @@ import { serveDist } from './serve-dist.ts';
 
 const tilesets = opt('tilesets', 'freecol,freecol-plus').split(',');
 const themes = opt('themes', 'parchment,dark').split(',');
-const spots = opt('spots', '101,42;99,66;9,58')
+const spots = opt('spots', '100,52;99,66;101,42')
   .split(';')
   .filter(Boolean)
   .map((s) => s.split(',').map(Number) as [number, number]);

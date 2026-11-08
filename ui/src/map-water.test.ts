@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vite-plus/test';
-import { blur, FIELD_TEXEL, fieldTexel, mapPixels, waterField, waterLook, waterTime } from './map-water';
+import { blur, FIELD_TEXEL, fieldTexel, mapPixels, programLinks, waterField, waterLook, waterTime } from './map-water';
 import { resources } from './resources';
 import type { MapView } from './tileset';
 import { tileOrigin } from './view';
@@ -21,7 +21,9 @@ shader.water.lake=urn:color:0x0e3742
 shader.water.shallow=urn:color:0x2b6a70
 shader.water.foam=urn:color:0xd8e2d6
 shader.water.light=urn:color:0x9fc8cc
-shader.water.roughness="0.4"
+shader.water.ocean.roughness="0.4"
+shader.water.lake.foam="0.1"
+shader.water.lake.speed="0.3"
 shader.water.chopSize="96"
 `;
     const look = waterLook(resources([{ dir: 'mods/plus', props }], []))!;
@@ -31,11 +33,12 @@ shader.water.chopSize="96"
       ocean: 0x0c3646,
       highSeas: 0x092838,
       foam: 0xd8e2d6,
-      roughness: 0.4,
       chopSize: 96,
     });
-    expect(look.highSeasRoughness).toBe(0.8);
-    expect(look.speed).toBe(1);
+    // Each kind of water its own roughness, foam and speed, or the defaults: lakes calm, with no breaking foam.
+    expect(look.roughness).toEqual({ ocean: 0.4, highSeas: 0.8, lake: 0.3 });
+    expect(look.foamStrength).toEqual({ ocean: 1, highSeas: 1, lake: 0.1 });
+    expect([look.speed, look.lakeSpeed]).toEqual([1, 0.3]);
   });
 });
 
@@ -164,7 +167,7 @@ describe('waterField', () => {
 
 describe('waterTime', () => {
   it('moves the ripples a little every moment, each offset within one turn of its texture', () => {
-    const look = { speed: 1 };
+    const look = 1;
     const a = waterTime(look, 1000);
     const b = waterTime(look, 1100);
     expect(b.swell).not.toEqual(a.swell);
@@ -178,6 +181,44 @@ describe('waterTime', () => {
   });
 
   it('stands still at a speed of 0', () => {
-    expect(waterTime({ speed: 0 }, 5000)).toEqual(waterTime({ speed: 0 }, 0));
+    expect(waterTime(0, 5000)).toEqual(waterTime(0, 0));
+  });
+});
+
+describe('programLinks', () => {
+  /** A WebGL context that fails to compile a shader whose source says so, to link, or throws, as told. */
+  const gl = (fail: 'compile' | 'link' | 'throw' | null) => {
+    const deleted: string[] = [];
+    const ctx = {
+      VERTEX_SHADER: 1,
+      FRAGMENT_SHADER: 2,
+      COMPILE_STATUS: 3,
+      LINK_STATUS: 4,
+      createShader: (type: number) => ({ type, source: '' }),
+      shaderSource: (s: { source: string }, source: string) => (s.source = source),
+      compileShader: () => {
+        if (fail === 'throw') throw new Error('context lost');
+      },
+      getShaderParameter: (s: { source: string }) => !(fail === 'compile' && s.source.includes('bad')),
+      createProgram: () => ({}),
+      attachShader: () => {},
+      linkProgram: () => {},
+      getProgramParameter: () => fail !== 'link',
+      deleteProgram: () => deleted.push('program'),
+      deleteShader: () => deleted.push('shader'),
+    };
+    return { ctx: ctx as unknown as WebGLRenderingContext, deleted };
+  };
+
+  it('is true for a program the GPU compiles and links, and cleans up after itself', () => {
+    const { ctx, deleted } = gl(null);
+    expect(programLinks(ctx, { vertex: 'v', fragment: 'f' })).toBe(true);
+    expect(deleted.sort()).toEqual(['program', 'shader', 'shader']);
+  });
+
+  it('is false when a shader does not compile, the program does not link, or the context throws', () => {
+    expect(programLinks(gl('compile').ctx, { vertex: 'v', fragment: 'bad' })).toBe(false);
+    expect(programLinks(gl('link').ctx, { vertex: 'v', fragment: 'f' })).toBe(false);
+    expect(programLinks(gl('throw').ctx, { vertex: 'v', fragment: 'f' })).toBe(false);
   });
 });

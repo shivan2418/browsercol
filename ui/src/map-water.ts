@@ -22,6 +22,9 @@ import { H, W } from './view';
 
 const KEY = MAP_KEY_FAMILIES.shaderWater;
 
+/** The kinds of water the shader tells apart, each with a look of its own: lakes are calm, the high seas rough. */
+export type WaterKind = 'ocean' | 'highSeas' | 'lake';
+
 /** The shader water's look, from the Tileset's shader.water.* keys. */
 export interface WaterLook {
   /** The ripple images: long swell, and short chop over it. Seamless, a power of two square. */
@@ -36,11 +39,12 @@ export interface WaterLook {
   foam: number;
   /** The light on crests and glints. */
   light: number;
-  /** How rough the coastal ocean and lakes are, and the high seas: how strongly their ripples are lit. */
-  roughness: number;
-  highSeasRoughness: number;
-  /** How fast the ripples move, 1 the Tileset's normal. */
+  /** Per kind of water: how rough it is (how strongly its ripples are lit), and how much foam breaks on its shore. */
+  roughness: Record<WaterKind, number>;
+  foamStrength: Record<WaterKind, number>;
+  /** How fast the ripples move on the ocean and high seas, and on lakes: 1 the Tileset's normal. */
   speed: number;
+  lakeSpeed: number;
   /** How long a swell and a chop texture are across, in map pixels. */
   swellSize: number;
   chopSize: number;
@@ -67,9 +71,18 @@ export function waterLook(res: Resources): WaterLook | null {
     shallow: color('shallow'),
     foam: color('foam'),
     light: color('light'),
-    roughness: numberOf(res, `${KEY}roughness`, 0.5),
-    highSeasRoughness: numberOf(res, `${KEY}highSeasRoughness`, 0.8),
+    roughness: {
+      ocean: numberOf(res, `${KEY}ocean.roughness`, 0.5),
+      highSeas: numberOf(res, `${KEY}highSeas.roughness`, 0.8),
+      lake: numberOf(res, `${KEY}lake.roughness`, 0.3),
+    },
+    foamStrength: {
+      ocean: numberOf(res, `${KEY}ocean.foam`, 1),
+      highSeas: numberOf(res, `${KEY}highSeas.foam`, 1),
+      lake: numberOf(res, `${KEY}lake.foam`, 0),
+    },
     speed: numberOf(res, `${KEY}speed`, 1),
+    lakeSpeed: numberOf(res, `${KEY}lake.speed`, 0.5),
     swellSize: numberOf(res, `${KEY}swellSize`, 512),
     chopSize: numberOf(res, `${KEY}chopSize`, 192),
   };
@@ -285,8 +298,8 @@ export function blur(a: Float32Array, cols: number, rows: number, r: number) {
 }
 
 /** What the ripples' offsets and the foam's lapping are at a time: each offset a whole texture's turn at most. */
-export function waterTime(look: Pick<WaterLook, 'speed'>, ms: number) {
-  const s = (ms / 1000) * look.speed;
+export function waterTime(speed: number, ms: number) {
+  const s = (ms / 1000) * speed;
   const turn = (x: number) => x - Math.floor(x);
   return {
     // The swell drifts east and a little south; the chop runs across it, north-east.
@@ -295,6 +308,9 @@ export function waterTime(look: Pick<WaterLook, 'speed'>, ms: number) {
     lap: (s * 1.3) % (2 * Math.PI),
   };
 }
+
+/** A value per kind of water, in the order the shader takes them: ocean, high seas, lake. */
+const kinds = (v: Record<WaterKind, number>): [number, number, number] => [v.ocean, v.highSeas, v.lake];
 
 /** 0xRRGGBB as a colour's three channels, 0 to 1. */
 const rgb = (c: number): [number, number, number] => [((c >> 16) & 255) / 255, ((c >> 8) & 255) / 255, (c & 255) / 255];
@@ -312,6 +328,10 @@ uniform mat3 uTransformMatrix;
 uniform vec2 uFieldSize;
 uniform vec4 uSwell;
 uniform vec4 uChop;
+// The ripples' offsets on lakes, which move at their own speed.
+uniform vec4 uLakeAt;
+out vec2 vSwellLake;
+out vec2 vChopLake;
 void main() {
   mat3 mvp = uProjectionMatrix * uWorldTransformMatrix * uTransformMatrix;
   gl_Position = vec4((mvp * vec3(aPosition, 1.0)).xy, 0.0, 1.0);
@@ -320,6 +340,8 @@ void main() {
   vec2 slant = vec2(aPosition.x, aPosition.y * 2.0);
   vSwell = slant * uSwell.z + uSwell.xy;
   vChop = mat2(0.98, 0.2, -0.2, 0.98) * slant * uChop.z + uChop.xy;
+  vSwellLake = slant * uSwell.z + uLakeAt.xy;
+  vChopLake = mat2(0.98, 0.2, -0.2, 0.98) * slant * uChop.z + uLakeAt.zw;
 }
 `;
 
@@ -327,6 +349,8 @@ const FRAGMENT = /* glsl */ `precision highp float;
 in vec2 vField;
 in vec2 vSwell;
 in vec2 vChop;
+in vec2 vSwellLake;
+in vec2 vChopLake;
 out vec4 finalColor;
 uniform sampler2D uField;
 uniform sampler2D uSwellMap;
@@ -337,16 +361,20 @@ uniform vec3 uLake;
 uniform vec3 uShallow;
 uniform vec3 uFoam;
 uniform vec3 uLight;
-// x: the coast's roughness, y: the high seas', z: the foam's lapping, in radians.
-uniform vec3 uSea;
+// Per kind of water, x the ocean, y the high seas, z lakes: the roughness, and the foam's strength.
+uniform vec3 uRough;
+uniform vec3 uFoamStrength;
+// The foam's lapping in radians: on the ocean and high seas, and on lakes.
+uniform vec2 uLap;
 void main() {
   vec4 f = texture(uField, vField);
-  vec3 s = texture(uSwellMap, vSwell).rgb;
-  vec3 c = texture(uChopMap, vChop).rgb;
   // The depth: a lake at 0, the ocean at a half, the high seas at 1.
   float lake = clamp(1.0 - f.g * 2.0, 0.0, 1.0);
   float high = clamp(f.g * 2.0 - 1.0, 0.0, 1.0);
-  float rough = mix(uSea.x, uSea.y, high);
+  vec3 s = texture(uSwellMap, mix(vSwell, vSwellLake, lake)).rgb;
+  vec3 c = texture(uChopMap, mix(vChop, vChopLake, lake)).rgb;
+  float rough = mix(mix(uRough.x, uRough.y, high), uRough.z, lake);
+  float strength = mix(mix(uFoamStrength.x, uFoamStrength.y, high), uFoamStrength.z, lake);
   // The ripples' slope, lit from the north-west as FreeCol's art is: the swell rolls, the chop catches the light.
   vec2 slope = (s.gb - 0.5) * 0.5 + (c.gb - 0.5);
   float lit = dot(slope, vec2(-0.6, -0.8)) * rough;
@@ -356,9 +384,9 @@ void main() {
   // Light on the chop's crests, and a glint where a crest faces the light.
   col = mix(col, uLight, smoothstep(0.8, 1.0, c.r) * smoothstep(0.1, 0.45, lit) * 0.6);
   // A line of foam where the sand fades into the water, broken up by the chop and lapping in and out.
-  float edge = f.r + (c.r - 0.6) * 0.1 + 0.04 * sin(uSea.z + f.b * 12.0);
+  float edge = f.r + (c.r - 0.6) * 0.1 + 0.04 * sin(mix(uLap.x, uLap.y, lake) + f.b * 12.0);
   float foam = smoothstep(0.06, 0.14, edge) * (1.0 - smoothstep(0.22, 0.4, edge));
-  col = mix(col, uFoam, foam * smoothstep(0.3, 0.8, c.r + (s.r - 0.5) * 0.5) * 0.55);
+  col = mix(col, uFoam, foam * smoothstep(0.3, 0.8, c.r + (s.r - 0.5) * 0.5) * 0.55 * strength);
   finalColor = vec4(col * f.a, f.a);
 }
 `;
@@ -411,6 +439,12 @@ export class ShaderSurface {
     this.mesh = new Mesh({ geometry, shader });
     // The map's chunks cull themselves; this is the whole map, which the GPU clips to the screen.
     this.mesh.cullable = false;
+  }
+
+  /** The shader's sources as PixiJS gives them to WebGL, for programLinks. */
+  get program(): { vertex: string; fragment: string } {
+    const { vertex, fragment } = this.mesh.shader!.glProgram!;
+    return { vertex: vertex ?? '', fragment: fragment ?? '' };
   }
 
   /** The surface's uniforms, to change: the shader reads them at the next draw. */
@@ -476,7 +510,10 @@ export class WaterSurface {
         uShallow: color(look.shallow),
         uFoam: color(look.foam),
         uLight: color(look.light),
-        uSea: { value: [look.roughness, look.highSeasRoughness, 0], type: 'vec3<f32>' },
+        uLakeAt: { value: [0, 0, 0, 0], type: 'vec4<f32>' },
+        uRough: { value: kinds(look.roughness), type: 'vec3<f32>' },
+        uFoamStrength: { value: kinds(look.foamStrength), type: 'vec3<f32>' },
+        uLap: { value: [0, 0], type: 'vec2<f32>' },
       },
       { uSwellMap: rippleSource(swell), uChopMap: rippleSource(chop) },
     );
@@ -484,11 +521,48 @@ export class WaterSurface {
 
   /** Move the ripples and the foam to where they are at `ms`. */
   setTime(ms: number) {
-    const t = waterTime(this.look, ms);
+    const t = waterTime(this.look.speed, ms);
+    const l = waterTime(this.look.lakeSpeed, ms);
     const u = this.surface.uniforms;
     u.uSwell = [...t.swell, 1 / this.look.swellSize, 0];
     u.uChop = [...t.chop, 1 / this.look.chopSize, 0];
-    u.uSea = [this.look.roughness, this.look.highSeasRoughness, t.lap];
+    u.uLakeAt = [...l.swell, ...l.chop];
+    u.uLap = [t.lap, l.lap];
+  }
+}
+
+/**
+ * Whether a WebGL context compiles and links a program from these sources: PixiJS compiles a shader only when it first
+ * draws it, and only logs it when that fails, which would leave the map with no water.
+ */
+export function programLinks(
+  gl: WebGLRenderingContext | WebGL2RenderingContext,
+  { vertex, fragment }: { vertex: string; fragment: string },
+): boolean {
+  const made: WebGLShader[] = [];
+  let program: WebGLProgram | null = null;
+  try {
+    for (const [type, source] of [
+      [gl.VERTEX_SHADER, vertex],
+      [gl.FRAGMENT_SHADER, fragment],
+    ] as const) {
+      const shader = gl.createShader(type);
+      if (!shader) return false;
+      made.push(shader);
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) return false;
+    }
+    program = gl.createProgram();
+    if (!program) return false;
+    for (const shader of made) gl.attachShader(program, shader);
+    gl.linkProgram(program);
+    return !!gl.getProgramParameter(program, gl.LINK_STATUS);
+  } catch {
+    return false;
+  } finally {
+    if (program) gl.deleteProgram(program);
+    for (const shader of made) gl.deleteShader(shader);
   }
 }
 

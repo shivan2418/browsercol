@@ -9,7 +9,10 @@ import {
   pixelRatio,
   seamBleed,
   tileAt,
+  waterDrawingFor,
+  type WaterPen,
 } from './map';
+import type { WaterLook } from './map-water';
 import type { Animated, Src, Ticks } from './tileset';
 
 // A 2x4 map of 128x64 diamonds in staggered rows, odd rows half a tile to
@@ -300,6 +303,57 @@ describe('pictures', () => {
       expect(pics.kept()).toBeLessThan(40 * 100);
     } finally {
       vi.unstubAllGlobals();
+    }
+  });
+});
+
+describe('waterDrawingFor', () => {
+  const look = { swell: 'swell.png', chop: 'chop.png' } as WaterLook;
+  const pic = {} as HTMLImageElement;
+  const load = () => Promise.resolve(pic);
+  const pen = (start: WaterPen['start']): WaterPen => ({ maxField: 4096, start, field: () => {}, time: () => {} });
+
+  it('draws the shader water when the Tileset has a look, the pen can draw it and the GPU builds its shader', async () => {
+    const start = vi.fn(() => true);
+    expect(await waterDrawingFor(look, pen(start), load)).toBe('surface');
+    expect(start).toHaveBeenCalledWith(look, pic, pic);
+  });
+
+  it("falls back to FreeCol's frames without a look, or on a pen that cannot draw it", async () => {
+    expect(
+      await waterDrawingFor(
+        null,
+        pen(() => true),
+        load,
+      ),
+    ).toBe('flipbook');
+    expect(await waterDrawingFor(look, undefined, load)).toBe('flipbook');
+  });
+
+  it("falls back to FreeCol's frames when the shader does not compile or link, or anything on the way fails", async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      expect(
+        await waterDrawingFor(
+          look,
+          pen(() => false),
+          load,
+        ),
+      ).toBe('flipbook');
+      const broken = () => {
+        throw new Error('WebGL program error');
+      };
+      expect(await waterDrawingFor(look, pen(broken), load)).toBe('flipbook');
+      expect(
+        await waterDrawingFor(
+          look,
+          pen(() => true),
+          () => Promise.reject(new Error('404')),
+        ),
+      ).toBe('flipbook');
+      expect(warn).toHaveBeenCalledTimes(3);
+    } finally {
+      warn.mockRestore();
     }
   });
 });
