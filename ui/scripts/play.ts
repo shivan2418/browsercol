@@ -554,6 +554,40 @@ async function play(page: Page, url: string) {
     fs.mkdirSync(dir, { recursive: true });
     return path.join(dir, `${method}-${browserName}.png`);
   };
+  /** Throw when a box reaches past the page, at whatever size it is: a window's close button and buttons stay in reach. */
+  const withinPage = async (what: string, l: Locator) => {
+    const [box, view] = [await l.boundingBox(), page.viewportSize()];
+    if (
+      box &&
+      view &&
+      (box.y < -1 || box.x < -1 || box.y + box.height > view.height + 1 || box.x + box.width > view.width + 1)
+    )
+      throw new Error(`${what} reaches past the ${view.width}x${view.height} page: ${JSON.stringify(box)}`);
+    return box;
+  };
+  /**
+   * Set the UI scale as the Preferences' display scaling does (main.tsx's applyLook sets --ui-zoom on the root),
+   * and wait for the page to lay out at it: a fitted window (frame.tsx) takes its scale as the root's style changes.
+   */
+  const setScale = async (zoom: number) => {
+    await page.evaluate((z) => document.documentElement.style.setProperty('--ui-zoom', String(z)), zoom);
+    await settle();
+  };
+  const settle = () =>
+    page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => done(null)))));
+  /**
+   * The page sizes and UI scales the windows must fit (#380, #377): a 1920x1080 screen at 125% OS scaling in a
+   * browser with its bars (1536x695), a 1366x768 laptop, and a 1280x720 page; at 100%, 125% and 200% display scaling.
+   */
+  const SCREENS = [
+    [1536, 695],
+    [1366, 768],
+    [1280, 720],
+  ] as const;
+  const SCALES = [1, 1.25, 2] as const;
+  /** A screenshot's name for a page size and scale: the plain name at 1536x695 and 100%. */
+  const scaledShot = (name: string, [w, h]: readonly [number, number], z: number) =>
+    w === 1536 && h === 695 && z === 1 ? name : `${name}-${w}x${h}-${Math.round(z * 100)}`;
   /**
    * Open a window of the page as a player does (open: a menu entry, a key, a click), and look at it before it
    * closes: it must show text with no unset value in it, matching what it should say. The dialog answerer is told
@@ -597,19 +631,39 @@ async function play(page: Page, url: string) {
     if (broken) throw new Error(`${what} shows an unset value (${broken[0]}): ${text.slice(0, 300)}`);
     const found = check ? await check(d) : (undefined as T);
     // No window reaches past the page, at whatever size it is: its close button and buttons stay in reach.
-    const [box, view] = [await d.boundingBox(), page.viewportSize()];
-    if (
-      box &&
-      view &&
-      (box.y < -1 || box.x < -1 || box.y + box.height > view.height + 1 || box.x + box.width > view.width + 1)
-    )
-      throw new Error(`${what} reaches past the ${view.width}x${view.height} page: ${JSON.stringify(box)}`);
+    await withinPage(what, d);
     await page.screenshot({ path: shot(shotName) });
     await d.locator(close).first().click();
     await d.waitFor({ state: 'detached', timeout: 10000, label: `${what} closes` });
     await page.evaluate((k) => (window.__hold = k), before);
     console.log(`  ${what}: ${text.replace(/\s+/g, ' ').slice(0, 90)}`);
     return { text, found };
+  };
+  /**
+   * The colony panel, laid out at fixed sizes, lies whole on the page at every page size and UI scale, its warehouse
+   * row included (#377): it is scaled down to fit rather than cut off (#380). Shot at each, for review.
+   */
+  const colonyFits = async (panel: Locator) => {
+    const desktop = page.viewportSize();
+    const warehouse = panel.locator('[data-part=warehouse]');
+    for (const screen of [...SCREENS, [1280, 800] as const]) {
+      await page.setViewportSize({ width: screen[0], height: screen[1] });
+      for (const z of SCALES) {
+        await setScale(z);
+        const what = `the colony panel at ${screen[0]}x${screen[1]} and ${z * 100}%`;
+        const win = (await withinPage(what, panel))!;
+        const row = (await withinPage(`${what}: its warehouse row`, warehouse))!;
+        if (row.y + row.height > win.y + win.height + 1)
+          throw new Error(`${what}: the warehouse row runs past the window: ${JSON.stringify({ win, row })}`);
+        // At 100% the window keeps the player's scale wherever it fits; only a page too small scales it down.
+        const scale = Number(await panel.evaluate((e) => getComputedStyle(e).getPropertyValue('--fit')));
+        if (!(scale > 0 && scale <= z)) throw new Error(`${what}: its scale is ${scale}`);
+        await page.screenshot({ path: shot(scaledShot('showColonyPanel', screen, z)) });
+      }
+    }
+    await setScale(1);
+    if (desktop) await page.setViewportSize(desktop);
+    await settle();
   };
   /**
    * Open the colony's panel and move colonists in it as a player would: the founder is dragged to a building,
@@ -622,6 +676,7 @@ async function play(page: Page, url: string) {
     await act(() => click(m, land));
     const panel = page.locator('[role=dialog][data-kind=colony]');
     await panel.waitFor({ timeout: 10000, label: 'the colony panel opens' });
+    await colonyFits(panel);
     // The net production is drawn as icons, one for each of the amount, and text only for a loss or a large
     // amount, so its text alone is empty for a small one: the state is each goods with its icons and text.
     const netOf = () =>
@@ -1437,61 +1492,77 @@ async function play(page: Page, url: string) {
     await page.getByRole('menuitem', { name: 'Report', exact: true }).click();
     await page.getByRole('menuitem', { name: new RegExp(`^${item}( (Ctrl\\+)?(Shift\\+)?F\\d+)?$`) }).click();
   };
-  // These reports open as on a 1920x1080 screen at 125% display scaling, in a browser window with its bars:
-  // the page is 1536x695 CSS pixels, and every window must fit in it.
+  // These reports, the tallest and widest, open at every page size and UI scale a player may have (SCREENS,
+  // SCALES): every window must fit in the page, scrolling inside where it is taller. The colony report is the one
+  // the playtest of #380 found taller than the page at 125%.
   const desktop = page.viewportSize();
-  await page.setViewportSize({ width: 1536, height: 695 });
-  await inspect(
-    'the Continental Congress report',
-    'report',
-    'showReportContinentalCongressPanel',
-    reportEntry('Continental Congress report'),
-    /Congress|Father|Liberty|Bells/i,
-    '[data-answer=close]',
-    // A kind's tab, with its row of big portraits: the window must still fit.
-    async (d) => {
-      await d.getByRole('tab').nth(1).click();
-      await d
-        .locator('[data-father] .portrait')
-        .first()
-        .waitFor({ timeout: 10000, label: "a kind's tab shows its portraits" });
-    },
-  );
-  await inspect(
-    'the foreign affairs report',
-    'report',
-    'showReportForeignAffairPanel',
-    reportEntry('Foreign affairs report'),
-    /Foreign|Dutch|English|French|Spanish/i,
-  );
-  await inspect(
-    'the native affairs report',
-    'report',
-    'showReportIndianPanel',
-    reportEntry('Native affairs report'),
-    /Native|Indian|Tribe|Arawak|Aztec|Cherokee|Inca|Iroquois|Sioux|Apache|Tupi|Contact/i,
-  );
-  await inspect(
-    'the labour detail report',
-    'report',
-    'showReportLabourDetailPanel',
-    async () => {
-      await reportEntry('Labour report')();
-      const type = page.locator('[role=dialog][data-kind=report] button.labour-type:not([disabled])').first();
-      await type.waitFor({ timeout: 10000, label: 'the labour report lists a kind of colonist we have' });
-      await type.click();
-    },
-    /Details/,
-    // A detail has only a back button: its title bar's ✕ closes it.
-    '.title button.close',
-    async (d) => {
-      await d
-        .locator('.labour-detail')
-        .waitFor({ timeout: 10000, label: 'a click on a kind of colonist opens its detail' });
-      if ((await d.locator('.labour-detail dl > div').count()) === 0)
-        throw new Error('the labour detail lists no place');
-    },
-  );
+  for (const screen of SCREENS) {
+    await page.setViewportSize({ width: screen[0], height: screen[1] });
+    for (const z of SCALES) {
+      await setScale(z);
+      const at = ` at ${screen[0]}x${screen[1]} and ${z * 100}%`;
+      const name = (n: string) => scaledShot(n, screen, z);
+      await inspect(
+        `the colony report${at}`,
+        'report',
+        name('showReportColonyPanel'),
+        reportEntry('Colony report'),
+        /\S{3}/,
+      );
+      await inspect(
+        `the Continental Congress report${at}`,
+        'report',
+        name('showReportContinentalCongressPanel'),
+        reportEntry('Continental Congress report'),
+        /Congress|Father|Liberty|Bells/i,
+        '[data-answer=close]',
+        // A kind's tab, with its row of big portraits: the window must still fit.
+        async (d) => {
+          await d.getByRole('tab').nth(1).click();
+          await d
+            .locator('[data-father] .portrait')
+            .first()
+            .waitFor({ timeout: 10000, label: "a kind's tab shows its portraits" });
+        },
+      );
+      await inspect(
+        `the foreign affairs report${at}`,
+        'report',
+        name('showReportForeignAffairPanel'),
+        reportEntry('Foreign affairs report'),
+        /Foreign|Dutch|English|French|Spanish/i,
+      );
+      await inspect(
+        `the native affairs report${at}`,
+        'report',
+        name('showReportIndianPanel'),
+        reportEntry('Native affairs report'),
+        /Native|Indian|Tribe|Arawak|Aztec|Cherokee|Inca|Iroquois|Sioux|Apache|Tupi|Contact/i,
+      );
+      await inspect(
+        `the labour detail report${at}`,
+        'report',
+        name('showReportLabourDetailPanel'),
+        async () => {
+          await reportEntry('Labour report')();
+          const type = page.locator('[role=dialog][data-kind=report] button.labour-type:not([disabled])').first();
+          await type.waitFor({ timeout: 10000, label: 'the labour report lists a kind of colonist we have' });
+          await type.click();
+        },
+        /Details/,
+        // A detail has only a back button: its title bar's ✕ closes it.
+        '.title button.close',
+        async (d) => {
+          await d
+            .locator('.labour-detail')
+            .waitFor({ timeout: 10000, label: 'a click on a kind of colonist opens its detail' });
+          if ((await d.locator('.labour-detail dl > div').count()) === 0)
+            throw new Error('the labour detail lists no place');
+        },
+      );
+    }
+  }
+  await setScale(1);
   if (desktop) await page.setViewportSize(desktop);
 
   m = await loadShip(m, land!, shipTile);
