@@ -21,6 +21,8 @@ import type { OptionGroup } from './options';
 
 export interface GuiEvents {
   refresh: Record<string, never>;
+  /** A player's turn starts (the AI players' too): its nation's name and colour, fg the text colour on it. */
+  mover: { name: string; native: boolean; rgb: number; fg: number; ours: boolean };
   /** force: after a move, SwingGUI keeps the selection and refocuses only if the unit is out of view. */
   activeUnit: { unit: Id | null; force: boolean; orders: string[]; route: string | null } & TileRef;
   /** Terrain mode: a tile is selected; the active unit is kept. */

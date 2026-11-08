@@ -104,7 +104,7 @@ final class MessageReaders {
         r.put(SetAvailableMessage.TAG, SetAvailableMessage::new);
         r.put(SetBuildQueueMessage.TAG, SetBuildQueueMessage::new);
         r.put(SetColorMessage.TAG, SetColorMessage::new);
-        r.put(SetCurrentPlayerMessage.TAG, SetCurrentPlayerMessage::new);
+        r.put(SetCurrentPlayerMessage.TAG, CurrentPlayerMessage::new);
         r.put(SetCurrentStopMessage.TAG, SetCurrentStopMessage::new);
         r.put(SetDeadMessage.TAG, SetDeadMessage::new);
         r.put(SetDestinationMessage.TAG, SetDestinationMessage::new);

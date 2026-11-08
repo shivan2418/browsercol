@@ -80,6 +80,9 @@ import net.sf.freecol.common.option.OptionGroup;
  * <tr><td>dialogIcon (browser: hook)</td><td>nothing</td>
  *     <td>an icon carrying the object, for a question's object id</td></tr>
  * <tr><td>refresh</td><td>event refresh</td><td>{}</td></tr>
+ * <tr><td>currentPlayer (browser: the setCurrentPlayer message)</td><td>event mover</td>
+ *     <td>{name, native, rgb, fg, ours}: the player whose turn starts, by its nation's name and
+ *         colour; the AI players' turns come this way too</td></tr>
  * <tr><td>updateMenuBar</td><td>event refresh</td><td>{}; the status line
  *         comes with the map, so the map is sent again</td></tr>
  * <tr><td>changeView(Unit, boolean)</td><td>event activeUnit</td>
@@ -927,6 +930,21 @@ public class WebGUI extends GUI {
     @Override
     public void updateMenuBar() {
         sendRefresh();
+    }
+
+    /**
+     * The server made a player the current one: the Browser UI names the player who is moving.
+     *
+     * @param player The player whose turn it now is.
+     */
+    void currentPlayer(Player player) {
+        final int rgb = MapJson.rgb(player);
+        this.ui.show("mover", new Json()
+            .put("name", Messages.message(player.getNationLabel()))
+            .put("native", player.isIndian())
+            .put("rgb", rgb)
+            .put("fg", MapJson.foreground(rgb))
+            .put("ours", player == getFreeColClient().getMyPlayer()).toString());
     }
 
     /** The refresh event: the Browser UI pulls the map again. */
