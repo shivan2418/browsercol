@@ -661,6 +661,16 @@ class SelectDestinationTest {
         assertTrue(client.getCommands().sellGoods(ship.getId(), cloth.getId(), false, 0),
             "all of the type is sold");
         assertEquals(0, serverShip(ship).getGoodsCount(cloth), "all the cloth is sold");
+        // A plain drag of the market's goods buys one hold, 100, as Swing's MarketLabel carries,
+        // not all the ship has room for and the gold buys.
+        assertTrue(ship.getLoadableAmount(cloth) > 100, "the ship has room for more than a hold");
+        assertTrue(player.getGold() / price > 100, "and the gold buys more");
+        assertTrue(client.getCommands().buyGoods(ship.getId(), cloth.getId(), false),
+            "a hold is bought without asking");
+        assertEquals(100, serverShip(ship).getGoodsCount(cloth), "one hold of cloth");
+        assertTrue(client.getCommands().sellGoods(ship.getId(), cloth.getId(), false, 0),
+            "and sold again");
+        assertEquals(0, serverShip(ship).getGoodsCount(cloth), "no cloth");
         // Put the ten back, asked, for what follows.
         amount = "10";
         assertTrue(client.getCommands().buyGoods(ship.getId(), cloth.getId(), true),
@@ -687,8 +697,8 @@ class SelectDestinationTest {
             "the menu's entry sells");
         assertEquals(5, ship.getGoodsCount(cloth));
         // The drag's sale, the purchase again and the menu's sale are logged.
-        assertEquals(8, logOf(parse(lastEurope())).size(),
-            "eight trades this turn: " + lastEurope());
+        assertEquals(10, logOf(parse(lastEurope())).size(),
+            "ten trades this turn: " + lastEurope());
 
         // The Europe panel shows the cargo of the ship in port.
         java.util.Map<String, Object> panel = europePanel(player);
@@ -730,7 +740,7 @@ class SelectDestinationTest {
         assertEquals(5, serverShip(ship).getGoodsCount(cloth),
             "nothing bought or sold");
         assertEquals(gold, serverPlayer.getGold(), "nothing paid");
-        assertEquals(8, logOf(parse(lastEurope())).size(),
+        assertEquals(10, logOf(parse(lastEurope())).size(),
             "a refused trade is not logged: " + lastEurope());
 
         // The market's menu offers to pay the arrears, ship or none, and

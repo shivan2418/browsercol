@@ -350,8 +350,9 @@ public final class Commands {
     /**
      * Buy goods in Europe onto a ship in port, as {@link #buyGoods(String,
      * String)} does, but asking the amount only when {@code ask}: otherwise
-     * the most the ship has room for and the gold buys is bought (a plain
-     * drag of the market's goods; shift asks).
+     * one hold's worth (100) is bought, or less if the ship has less room or
+     * the gold buys less, as Swing's MarketLabel carries 100 (a plain drag of
+     * the market's goods; shift asks).
      *
      * @param shipId The id of one of our ships in Europe.
      * @param goodsTypeId The id of the goods type.
@@ -382,7 +383,8 @@ public final class Commands {
         }
         // Paying, the dialog limits the amount to what the gold buys.
         final int amount = ask
-            ? gui().showSelectAmountDialog(type, loadable, most, true) : most;
+            ? gui().showSelectAmountDialog(type, loadable, most, true)
+            : Math.min(most, GoodsContainer.CARGO_SIZE);
         if (amount <= 0) return false;
         final boolean done = igc().buyGoods(type, amount, ship);
         gui().showEuropePanel();
