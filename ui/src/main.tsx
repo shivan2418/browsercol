@@ -981,7 +981,18 @@ const contextMenus: ContextMenus = {
   goods: (location, type, amount) => (menuClient ? parseMenu(menuClient.goodsMenu(location, type, amount)) : null),
   show: (menu, x, y) => showPopup({ menu, x, y }),
 };
-document.addEventListener('fullscreenchange', () => renderSide());
+/**
+ * In full screen, Escape closes the menu or window on top, as it does in a window, rather than leaving full
+ * screen: where the browser has the Keyboard Lock API (Chromium), the page takes Escape and the player holds it
+ * to leave. Elsewhere (Firefox, Safari) the browser keeps Escape, and it leaves full screen too.
+ */
+const keyboardLock = (navigator as { keyboard?: { lock?: (keys: string[]) => Promise<void>; unlock?: () => void } })
+  .keyboard;
+document.addEventListener('fullscreenchange', () => {
+  if (document.fullscreenElement) void keyboardLock?.lock?.(['Escape']).catch(() => {});
+  else keyboardLock?.unlock?.();
+  renderSide();
+});
 // The menus' Save entries depend on whether a window is open.
 dialogQueue.subscribe(() => renderSide());
 const sideRoot = createRoot(document.getElementById('side')!);
