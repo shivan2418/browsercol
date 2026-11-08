@@ -81,10 +81,15 @@
         z-index: 2147483647;
         pointer-events: none;
       }
+      /* FreeCol marks no place a thing is dragged over: the picture follows the pointer, which shows no-drop except over a place that takes it (drag.ts marks that one with over-target). */
       body[data-dragging],
       body[data-dragging] * {
-        cursor: default !important;
+        cursor: no-drop !important;
         user-select: none;
+      }
+      body[data-dragging] .over-target,
+      body[data-dragging] .over-target * {
+        cursor: default !important;
       }
       /* The menu bar across the window, then the map and the side panel below it. */
       #stage {
@@ -1719,10 +1724,6 @@
         align-items: center;
         cursor: grab;
       }
-      .dialog .vstop.over-target {
-        outline: 2px dashed var(--accent);
-        outline-offset: -2px;
-      }
       .dialog .vstop h3 {
         margin: 0;
         font-family: var(--font-title);
@@ -1861,16 +1862,6 @@
         outline: 2px solid var(--bad);
         outline-offset: -3px;
         background: color-mix(in srgb, var(--bad) 22%, var(--box));
-      }
-      .dialog .hold:not(.empty):hover::after {
-        content: '✕';
-        position: absolute;
-        inset: 0;
-        display: grid;
-        place-items: center;
-        background: color-mix(in srgb, var(--bad) 60%, transparent);
-        color: var(--box);
-        font-weight: bold;
       }
       /* Where a 2-, 4- or 6-hold carrier is full. */
       .dialog .mark {
@@ -2154,14 +2145,7 @@
         padding: 0;
         color: var(--ink);
       }
-      /* Goods are traded by a click, not picked: they only show they can be clicked, never in the accent colour. */
-      .europe-body button.good:hover,
-      .europe .chip[data-drag]:hover,
-      .europe button.chip:hover {
-        background: var(--box);
-        border-radius: 4px;
-        outline: none;
-      }
+      /* Goods are traded by a click, not picked: nothing lights up under the pointer, as in FreeCol. */
       /* Dragging by the icon or the name drags the chip: the picture is not a drag of its own. */
       .europe .chip img,
       .europe .chip .name {
@@ -2171,13 +2155,9 @@
       .europe .chip[data-drag] {
         cursor: grab;
       }
-      .europe [data-list='inPort'] button.chip:hover,
       .europe [data-list='inPort'] button.chip:focus-visible {
         outline: none;
         background: color-mix(in srgb, var(--accent) 10%, transparent);
-      }
-      .europe [data-list='inPort'] button.chip[aria-pressed='true']:hover {
-        background: color-mix(in srgb, var(--accent) 20%, transparent);
       }
       .europe-body .price {
         font-variant-numeric: tabular-nums;
@@ -3323,9 +3303,6 @@
       .colony [data-drag] {
         cursor: grab;
       }
-      .colony .over-target:not(.tile) {
-        background: color-mix(in srgb, var(--accent) 14%, transparent);
-      }
       /* The tiles overlap by their boxes, so only the diamond of each takes a drop, a click or the pointer. */
       .colony .tile {
         pointer-events: none;
@@ -3337,23 +3314,14 @@
         clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
         pointer-events: auto;
       }
-      /* The build queue marks no place a row is dragged over, as it never has. */
-      .colony .queue-body .over-target {
-        background: none;
-      }
-      .colony .tile.over-target .hit {
-        background: var(--accent);
-        opacity: 0.3;
-      }
       .colony .tile .who {
         z-index: 2;
         pointer-events: auto;
       }
       /* The build queue (BuildQueuePanel): the queue, then what can be added, each listed with the goods it takes. */
-      /* What is being built, and a building that can build, open the queue when clicked: a highlight shows it, not a hand. */
-      .colony .construction[role='button']:hover,
-      .colony .building[data-builds]:hover {
-        background: color-mix(in srgb, var(--accent) 15%, transparent);
+      /* What is being built, and a building that can build, open the queue when clicked: nothing lights up, as in FreeCol. */
+      .colony .building[data-builds] {
+        cursor: pointer;
       }
       .colony {
         position: relative;
