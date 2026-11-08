@@ -930,7 +930,7 @@ function refreshColonies() {
   for (const open of dialogQueue.shown('colony')) {
     const json = colonyNow(open.id);
     // JSON.parse keeps the Engine's key order, so an unchanged colony stringifies to the same text.
-    if (json === 'null' || json === JSON.stringify(open)) continue;
+    if (open.readOnly || json === 'null' || json === JSON.stringify(open)) continue;
     dialogQueue.replace('colony', JSON.parse(json) as GuiEvents['colony'], (c) => c.id === open.id, true);
   }
 }

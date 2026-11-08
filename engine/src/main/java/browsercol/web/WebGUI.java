@@ -2208,7 +2208,8 @@ public class WebGUI extends GUI {
     public FreeColPanel showColonyPanel(Colony colony, Unit unit) {
         count("showColonyPanel");
         if (colony != null) {
-            this.colonyWatch.watch(colony);
+            // A spy's copy of a foreign colony is shown as it was, and nothing changes it.
+            if (isOurs(colony)) this.colonyWatch.watch(colony);
             this.ui.show("colony", colonyJson(colony));
         }
         return null;
@@ -2242,7 +2243,13 @@ public class WebGUI extends GUI {
     /** The colony as the colony panel shows it (ColonyJson). */
     String colonyJson(Colony colony) {
         return ColonyJson.of(colony, getClientOptions()
-            .getInteger(ClientOptions.MIN_NUMBER_FOR_DISPLAYING_GOODS));
+            .getInteger(ClientOptions.MIN_NUMBER_FOR_DISPLAYING_GOODS), !isOurs(colony));
+    }
+
+    /** Whether the colony is ours; a spy's copy of another player's colony is not (by owner id: the copy is a separate object). */
+    private boolean isOurs(Colony colony) {
+        final Player me = getMyPlayer();
+        return me != null && colony.getOwner() != null && me.getId().equals(colony.getOwner().getId());
     }
 
     /**

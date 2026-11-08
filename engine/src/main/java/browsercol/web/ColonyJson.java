@@ -70,6 +70,8 @@ import net.sf.freecol.common.option.GameOptions;
  *     available, produced}]}, or null when nothing is being built, with
  *     nothing, ConstructionPanel's text for that.
  * <li>queue: the build queue panel, see {@link BuildQueues#json}.
+ * <li>readOnly: true for a colony that is not ours, one a scout spied on
+ *     (#395): the panel shows it and changes nothing;
  * <li>market: what Europe's market now pays and asks for each storable
  *     goods, [{type, sell, buy, enabled, reason}] as in EuropePanel's
  *     (sell is what Europe pays, buy what it asks; enabled is false for a
@@ -90,6 +92,15 @@ final class ColonyJson {
      *     (the minimum number for displaying goods client option).
      */
     static String of(Colony colony, int threshold) {
+        return of(colony, threshold, false);
+    }
+
+    /**
+     * @param readOnly True for a colony that is not ours (a spy's copy of
+     *     it): the owner's Market and Europe are not the client's to read,
+     *     so the buy price and the market are left out.
+     */
+    static String of(Colony colony, int threshold, boolean readOnly) {
         colony.invalidateCache();
         final Specification spec = colony.getSpecification();
         final Tile tile = colony.getTile();
@@ -105,8 +116,9 @@ final class ColonyJson {
             .putRaw("outside", outside(colony))
             .putRaw("inPort", inPort(colony))
             .putRaw("construction", construction(colony))
-            .putRaw("queue", BuildQueues.json(colony))
-            .putRaw("market", market(colony))
+            .putRaw("queue", BuildQueues.json(colony, readOnly))
+            .putRaw("market", readOnly ? null : market(colony))
+            .put("readOnly", readOnly)
             .put("nothing", Messages.message(StringTemplate
                     .template("constructionPanel.clickToBuild")))
             .toString();

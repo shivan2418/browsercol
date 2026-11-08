@@ -197,9 +197,11 @@ final class BuildQueues {
      * BuildQueuePanel's "Requires: ..." text or null; buildings and units
      * list everything the panel's show all box does, in its order, those
      * with a reason being what the colony cannot queue yet. buy is the
-     * buy button, {label, price, enabled}, or null with nothing queued.
+     * buy button, {label, price, enabled}, or null with nothing queued, or
+     * for a colony that is not ours (readOnly): the client holds no Market
+     * of another player to price it with.
      */
-    static String json(Colony colony) {
+    static String json(Colony colony, boolean readOnly) {
         final Specification spec = colony.getSpecification();
         final List<BuildableType> queue = colony.getBuildQueue();
         final List<String> queued = new ArrayList<>();
@@ -228,7 +230,7 @@ final class BuildQueues {
         }
         final BuildableType current = queue.isEmpty() ? null : queue.get(0);
         final boolean pay = spec.getBoolean(GameOptions.PAY_FOR_BUILDING);
-        final String buy = (!pay || current == null) ? "null"
+        final String buy = (!pay || current == null || readOnly) ? "null"
             : new Json().put("label", Messages.message(StringTemplate
                     .template("buildQueuePanel.buyBuilding").addNamed("%buildable%", current)))
                 .put("price", colony.getPriceForBuilding(current))

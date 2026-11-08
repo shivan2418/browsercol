@@ -579,36 +579,50 @@ function Negotiation({ d }: { d: Of<'negotiation'> }) {
   );
 }
 
-/** The colony panel; its warehouse and OK buttons sit in the right column, under the ships in port. */
+/**
+ * The colony panel; its warehouse and OK buttons sit in the right column, under the ships in port. A colony that is
+ * not ours (one a scout spied on) is shown read-only, as Swing's ColonyPanel shows it: nothing moves, no menu opens,
+ * the queue cannot be edited, and the warehouse button and the debug trace are not there.
+ */
 function ColonyDialog({ d, e, art }: { d: Dialog; e: ColonyView; art: Art }) {
-  const moves = useContext(ColonyActions);
+  const ours = useContext(ColonyActions);
+  const moves = e.readOnly ? null : ours;
   // With the means to move, the Engine closes the panel, once the player may (Commands.closeColonyPanel).
   const close = moves ? () => moves.close(e.id) : () => (d.done as () => void)();
   const debug = useContext(DebugContext);
   useEnter(close);
+  const panel = (
+    <ColonyPanel
+      // Another colony in the same window starts afresh: its pick, ship and queue are its own.
+      key={e.id}
+      colony={e}
+      art={art}
+      footer={
+        <PanelButtons
+          ok={e.ok}
+          close={close}
+          extra={moves ? { label: e.warehouse.title, run: () => moves.warehouse(e.id) } : null}
+          lead={
+            // ColonyPanel's debug "Trace work" button: log this colony's occupation decisions.
+            debug.on && !e.readOnly ? (
+              <button data-debug="traceWork" onClick={() => debug.request({ action: 'traceWork', colony: e.id })}>
+                Trace work
+              </button>
+            ) : null
+          }
+        />
+      }
+    />
+  );
   return (
     <Win d={d} title={e.name} close={close} fit>
-      <ColonyPanel
-        // Another colony in the same window starts afresh: its pick, ship and queue are its own.
-        key={e.id}
-        colony={e}
-        art={art}
-        footer={
-          <PanelButtons
-            ok={e.ok}
-            close={close}
-            extra={moves ? { label: e.warehouse.title, run: () => moves.warehouse(e.id) } : null}
-            lead={
-              // ColonyPanel's debug "Trace work" button: log this colony's occupation decisions.
-              debug.on ? (
-                <button data-debug="traceWork" onClick={() => debug.request({ action: 'traceWork', colony: e.id })}>
-                  Trace work
-                </button>
-              ) : null
-            }
-          />
-        }
-      />
+      {e.readOnly ? (
+        <ColonyActions.Provider value={null}>
+          <ContextMenuContext.Provider value={null}>{panel}</ContextMenuContext.Provider>
+        </ColonyActions.Provider>
+      ) : (
+        panel
+      )}
     </Win>
   );
 }

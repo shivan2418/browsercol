@@ -1526,6 +1526,29 @@ describe('the colony dialog', () => {
   });
 });
 
+describe('a spied colony', () => {
+  it('is shown read-only: no warehouse button, no drag, no queue, and OK closes the panel itself', () => {
+    const calls: string[] = [];
+    const moves = new Proxy({}, { get: (_, k) => (id: string) => calls.push(`${String(k)} ${id}`) }) as ColonyMoves;
+    const box = dialogs();
+    render(
+      <ColonyActions.Provider value={moves}>
+        <DialogHost dialogs={box} goTo={() => {}} art={art} report={{} as ReportButtons} routes={{} as RouteButtons} />
+      </ColonyActions.Provider>,
+    );
+    // Ours has them all, so the read-only one lacking them means something.
+    act(() => box.show('colony', jamestown));
+    expect(screen.getByRole('button', { name: jamestown.warehouse.title })).toBeTruthy();
+    expect(document.querySelector('.construction[role="button"]')).not.toBeNull();
+    act(() => box.replace('colony', { ...jamestown, readOnly: true }, (open) => open.id === jamestown.id, true));
+    expect(screen.queryByRole('button', { name: jamestown.warehouse.title })).toBeNull();
+    expect(document.querySelector('.construction[role="button"]')).toBeNull();
+    fireEvent.click(document.querySelector('[data-answer="close"]')!);
+    expect(calls).toEqual([]);
+    expect(box.shown('colony')).toEqual([]);
+  });
+});
+
 describe('the warehouse dialog', () => {
   const q: GuiQuestions['warehouse']['ask'] = {
     title: 'Warehouse',
