@@ -2792,8 +2792,11 @@
       }
       /* Buildings fill the left; the right column holds the population, tiles, production, construction and port; units outside and the warehouse run along the bottom. */
       .colony .cbody {
-        /* The fixed heights of the boxes that hold units and goods (see .colony .outside). */
-        --colony-row: 100px;
+        /*
+         * The fixed heights of the boxes that hold units and goods (see .colony .outside). A row is the tallest
+         * unit, a mounted scout or dragoon (82px), with the box's caption and padding (26px) round it.
+         */
+        --colony-row: 110px;
         --colony-warehouse: 84px;
         display: grid;
         grid-template-columns: 1fr 400px;
