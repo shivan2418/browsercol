@@ -400,3 +400,17 @@ test('Arrow down in the search field moves to the first result', () => {
   fireEvent.keyDown(field, { key: 'ArrowDown' });
   expect(document.activeElement).toBe(screen.getByLabelText('Display scaling'));
 });
+
+test("keys typed in the search field, and Ctrl+F, do not reach the game's own key handler", () => {
+  const seen: string[] = [];
+  const spy = (e: Event) => seen.push((e as KeyboardEvent).key);
+  addEventListener('keydown', spy);
+  const { container } = render(
+    <PreferencesDialog prefs={DEFAULTS} freecol={searchable} change={() => {}} close={() => {}} />,
+  );
+  const field = container.querySelector<HTMLInputElement>('[data-prefs-search]')!;
+  fireEvent.keyDown(field, { key: 's' });
+  document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'f', ctrlKey: true, bubbles: true }));
+  removeEventListener('keydown', spy);
+  expect(seen).toEqual([]);
+});

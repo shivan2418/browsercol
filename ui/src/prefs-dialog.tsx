@@ -348,7 +348,8 @@ function marked(text: string, query: string): ReactNode {
     from = at[i + q.length];
   }
   parts.push(text.slice(from));
-  return parts;
+  // One element, so a flex row keeps the label together.
+  return <span>{parts}</span>;
 }
 
 /** A search's matches, each with its place in the tree and its control, so it changes right there. */
@@ -429,7 +430,9 @@ export function PreferencesDialog({
       const slash =
         e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey && !(e.target as Element | null)?.matches?.(TEXT_ENTRY);
       if (!find && !slash) return;
+      // The game's own Ctrl+F (Find Settlement) must not see it.
       e.preventDefault();
+      e.stopPropagation();
       field.current?.focus();
       field.current?.select();
     };
@@ -461,6 +464,8 @@ export function PreferencesDialog({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => {
+                // Typing is the field's: the game's own keys (S for sentry, ...) must not see it.
+                e.stopPropagation();
                 // Down or Enter go to the first result's control.
                 if (e.key !== 'ArrowDown' && e.key !== 'Enter') return;
                 const first = detail.current?.querySelector<HTMLElement>('input, [role="combobox"], button, select');
