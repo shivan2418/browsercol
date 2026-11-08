@@ -185,6 +185,8 @@ final class Reports {
                 colonies.add(new Json().put("id", colony.getId())
                     .put("name", colony.getName())
                     .putRaw("building", building(b).toString())
+                    // BuildingPanel's ProductionLabel: what the building makes, and could.
+                    .putRaw("production", ColonyJson.buildingProduction(colony, b))
                     .putRaw("workers", ColonyJson.unitList(b.getUnitList()))
                     .toString());
             }

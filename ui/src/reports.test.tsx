@@ -417,6 +417,7 @@ describe('the religion report', () => {
             id: 'colony:7',
             name: 'Jamestown',
             building: { id: 'building:1', name: 'Chapel', keys: [] },
+            production: { type: 'model.goods.crosses', name: 'Crosses', keys: [], amount: 8, max: 9 },
             workers: [colonist],
           },
         ],
@@ -428,9 +429,11 @@ describe('the religion report', () => {
     const { box, calls } = host();
     show(box, report);
     const section = document.querySelector('[data-goods="model.goods.crosses"]') as HTMLElement;
-    expect(within(section).getByText('Crosses')).toBeTruthy();
+    expect(section.querySelector('h3')?.textContent).toBe('Crosses');
     // FreeColProgressBar: the crosses so far, next turn's after them, and the turns to the next migrant.
     expect(section.querySelector('.need')?.textContent).toBe('12+3/40 (Turns: 10)');
+    // Each colony's chapel with what it makes, as BuildingPanel writes it: 8, and 9 were it fully worked.
+    expect(section.querySelector('[data-colony="colony:7"] [data-field="production"] .amount')?.textContent).toBe('8/9');
     const [now, next] = section.querySelectorAll<HTMLElement>('.need i');
     expect(now.style.width).toBe('30%');
     expect(next.style).toMatchObject({ left: '30%', width: '7.5%' });

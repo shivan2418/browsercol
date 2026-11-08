@@ -989,7 +989,14 @@ export type ReportView =
         production: number;
         /** The same as a FreeColProgressBar draws it, with next turn's crosses and the turns to the next migrant. */
         bar: GoodsProgress;
-        colonies: { id: Id; name: string; building: { id: Id; name: string; keys: string[] }; workers: UnitRef[] }[];
+        colonies: {
+          id: Id;
+          name: string;
+          building: { id: Id; name: string; keys: string[] };
+          /** What the building makes, as BuildingPanel writes it, max being what it could; null for nothing. */
+          production: (GoodsAmount & { max: number }) | null;
+          workers: UnitRef[];
+        }[];
       })[];
     })
   | (ReportHead<'education'> & {

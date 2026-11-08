@@ -295,7 +295,7 @@ final class ColonyJson {
     private static final String BUILDING_SITE = "image.buildingicon.model.building.BuildingSite";
 
     /** BuildingPanel.update's production label: the output, and the most it could be. */
-    private static String buildingProduction(Colony colony, Building b) {
+    static String buildingProduction(Colony colony, Building b) {
         final ProductionInfo info = b.getProductionInfo();
         if (info == null || info.getProduction().isEmpty()) return "null";
         AbstractGoods output = info.getProduction().get(0);

@@ -494,6 +494,18 @@ function ReligionReport({ e, art, go }: { e: View<'religion'>; art: Art; go: Lin
                   {c.name}
                 </Link>
                 <Img keys={c.building.keys} art={art} title={c.building.name} />
+                {c.production && (
+                  <span className="made" data-field="production">
+                    <GoodsAmount
+                      keys={c.production.keys}
+                      name={c.production.name}
+                      amount={c.production.amount}
+                      expert={c.production.max}
+                      icons
+                      art={art}
+                    />
+                  </span>
+                )}
                 <span className="row" data-list="workers">
                   {c.workers.map((u) => (
                     <Img key={u.id} keys={u.keys} art={art} title={u.name} unit={u.id} />

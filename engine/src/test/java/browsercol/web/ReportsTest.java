@@ -365,6 +365,10 @@ class ReportsTest {
             assertEquals(List.of("image.buildingicon.model.building.chapel"),
                 obj(row.get("building")).get("keys"));
             assertTrue(list(row.get("workers")).isEmpty(), "nobody works the chapel yet");
+            // An empty chapel still makes a cross, as BuildingPanel writes over it.
+            final Map<String, Object> made = obj(row.get("production"));
+            assertEquals("model.goods.crosses", made.get("type"));
+            assertTrue((Long)made.get("amount") > 0, "the chapel makes crosses: " + made);
         }
     }
 
