@@ -1858,7 +1858,10 @@ async function run() {
         case 'gameStarted':
           if (debug) debugRequest({ action: 'players' });
           // PreGameController.startGame: the default playlist plays whenever no other music does.
-          void sound.then((s) => s?.startPlaylist());
+          void sound.then((s) => {
+            s?.startPlaylist();
+            s?.preloadEffects();
+          });
           // PreGameController.startGame: the delete autosaves option clears them as a new game starts.
           if (loadId === undefined && autosaveOptions(prefs).deleteOnNewGame) {
             void dropTurnAutosaves(store, autosaveOptions(prefs)).catch(console.warn).finally(listSaves);

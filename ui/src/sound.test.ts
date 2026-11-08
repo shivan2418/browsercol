@@ -257,4 +257,54 @@ describe('soundPlayer', () => {
     player.play('sound.event.loadCargo');
     expect(made[1]!.src).toBe('');
   });
+
+  describe('preloading effects (#391)', () => {
+    const withFetch = () => {
+      const fetched: string[] = [];
+      const made: FakeAudio[] = [];
+      const player = soundPlayer(manifest, {
+        base: 'audio/',
+        makeAudio: () => {
+          const a = new FakeAudio();
+          made.push(a);
+          return a;
+        },
+        random: () => 0,
+        afterGesture: () => {},
+        fetchUrl: async (url) => {
+          fetched.push(url);
+          return `blob:${url}`;
+        },
+      });
+      return { player, made, fetched };
+    };
+
+    it('fetches each effect file once and plays the first effect from what was fetched', async () => {
+      const { player, made, fetched } = withFetch();
+      player.setVolumes({ music: 50, effects: 50 });
+      player.preloadEffects();
+      player.preloadEffects();
+      await Promise.resolve();
+      expect(fetched.sort()).toEqual(['audio/default/resources/sound/event/load.ogg']);
+      player.play('sound.event.loadCargo');
+      expect(made[1]!.src).toBe('blob:audio/default/resources/sound/event/load.ogg');
+    });
+
+    it('plays from the download URL while the file has not arrived', () => {
+      const { player, made } = withFetch();
+      player.setVolumes({ music: 50, effects: 50 });
+      player.preloadEffects();
+      player.play('sound.event.loadCargo');
+      expect(made[1]!.src).toBe('audio/default/resources/sound/event/load.ogg');
+    });
+
+    it('fetches nothing while the effects volume is 0, and fetches when it is raised', () => {
+      const { player, fetched } = withFetch();
+      player.setVolumes({ music: 50, effects: 0 });
+      player.preloadEffects();
+      expect(fetched).toEqual([]);
+      player.setVolumes({ music: 50, effects: 50 });
+      expect(fetched).toHaveLength(1);
+    });
+  });
 });

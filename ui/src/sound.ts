@@ -20,6 +20,8 @@ export interface SoundPlayerDeps {
   random?: () => number;
   /** Run a function once the player next clicks or presses a key: the browser lets a page play sound only then. */
   afterGesture?: (f: () => void) => void;
+  /** Fetch an audio file, as a URL the player can set as a source without another download (a blob URL). */
+  fetchUrl?: (url: string) => Promise<string>;
 }
 
 export interface SoundPlayer {
@@ -27,6 +29,11 @@ export interface SoundPlayer {
   play(key: string | null): void;
   /** SoundController.setDefaultPlaylist, as the game starts: the playlist, shuffled, whenever no music plays. */
   startPlaylist(): void;
+  /**
+   * Fetch every sound effect file once, so that the first play of an effect (the first sale in Europe) starts at once
+   * instead of after a download (#391). Nothing is fetched while the effects volume is 0.
+   */
+  preloadEffects(): void;
   /** The music and sound effects volume options, as percentages. */
   setVolumes(v: { music: number; effects: number }): void;
   /** The page is hidden or minimised (true): the sound pauses, and goes on from where it was once it shows again. */
@@ -49,6 +56,7 @@ export function soundPlayer(manifest: AudioManifest, deps: SoundPlayerDeps): Sou
   const makeAudio: () => AudioLike = deps.makeAudio ?? (() => new Audio());
   const random = deps.random ?? Math.random;
   const afterGesture = deps.afterGesture ?? onFirstGesture;
+  const fetchUrl = deps.fetchUrl ?? fetchBlobUrl;
   const music = makeAudio();
   const effects = makeAudio();
   let musicOn = false;
@@ -64,10 +72,25 @@ export function soundPlayer(manifest: AudioManifest, deps: SoundPlayerDeps): Sou
   let pending: (() => void) | null = null;
   /** The playlist's tracks still to play this round. */
   let queue: string[] = [];
+  /** Effect files fetched ahead (by file), as URLs that play with no download. */
+  const preloaded = new Map<string, string>();
+  let preloadWanted = false;
+  const preload = () => {
+    if (!preloadWanted || effectsQuiet) return;
+    for (const { file, music } of Object.values(manifest.sounds)) {
+      if (music || preloaded.has(file)) continue;
+      // Set before the fetch lands, so a file is fetched once; the effect plays from its URL once that is known.
+      preloaded.set(file, '');
+      fetchUrl(deps.base + file).then(
+        (url) => preloaded.set(file, url),
+        () => preloaded.delete(file),
+      );
+    }
+  };
   /** Start a file; an effect the browser refuses is dropped, as it would be stale by the time it could play. */
   const start = (a: AudioLike, file: string) => {
     a.pause();
-    a.src = deps.base + file;
+    a.src = preloaded.get(file) || deps.base + file;
     return a.play();
   };
   /** Music the browser refuses, as it does until the player has clicked or pressed a key, starts after that. */
@@ -117,6 +140,7 @@ export function soundPlayer(manifest: AudioManifest, deps: SoundPlayerDeps): Sou
       effects.volume = amplitude(v.effects);
       effectsQuiet = v.effects <= 0;
       if (effectsQuiet) effects.pause();
+      else preload();
       const quiet = v.music <= 0;
       if (quiet === musicQuiet) return;
       musicQuiet = quiet;
@@ -149,11 +173,22 @@ export function soundPlayer(manifest: AudioManifest, deps: SoundPlayerDeps): Sou
       pending = null;
       run?.();
     },
+    preloadEffects() {
+      preloadWanted = true;
+      preload();
+    },
     startPlaylist() {
       playlistOn = true;
       if (!musicOn) nextTrack();
     },
   };
+}
+
+/** An audio file, fetched whole, as a blob URL. */
+async function fetchBlobUrl(url: string): Promise<string> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`${url}: ${res.status}`);
+  return URL.createObjectURL(await res.blob());
 }
 
 /** Run a function once, on the page's next click or key press. */
