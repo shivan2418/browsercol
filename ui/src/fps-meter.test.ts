@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest';
+import { expect, test } from 'vite-plus/test';
 import { frameStats, meterText } from './fps-meter';
 
 test('a steady 60 Hz second shows 60 fps and its longest frame', () => {
