@@ -5,7 +5,8 @@
 // save as a file, delete it, import the file again (a file that is not a save is
 // refused), check the export is byte for byte the import, load the save, check
 // it comes back at the saved turn with the saved active unit and the player's
-// turn (through FreeCol's Loading Save game window), and play another turn, then
+// turn (through FreeCol's Loading Save game window), check the address then resumes its autosave
+// and a reload goes on with it (#394), and play another turn, then
 // import and load a save that TeaVM's ZipFile failed on (#31). The turn autosaves FreeCol makes as each turn
 // begins are checked after the first turn. The page's autosaves sit in the list beside
 // the script's save, so the script finds its own row by name. Exits non-zero
@@ -350,6 +351,24 @@ async function run(page: Page, url: string, shot: () => Promise<unknown>, browse
     );
   }
   await shot();
+
+  // 5b. Once the loaded game has its autosave, the address resumes it rather than name the save (#394), and a
+  // reload goes on with the loaded game.
+  setStep('5b. the address resumes the autosave, and a reload goes on with the game');
+  await page.waitForFunction(
+    () => {
+      const p = new URLSearchParams(location.search);
+      return p.has('resume') && !p.has('load');
+    },
+    null,
+    { timeout: 30000, label: 'the address resumes the autosave in place of load' },
+  );
+  await page.reload();
+  await finished();
+  const resumed = await view();
+  if (resumed.turn !== played.turn) {
+    throw new Error(`the reload resumed turn ${resumed.turn}, not the loaded game's turn ${played.turn}`);
+  }
 
   // 6. Play a turn in the loaded game.
   setStep('6. play a turn in the loaded game');

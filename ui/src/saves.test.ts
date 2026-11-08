@@ -14,6 +14,7 @@ import {
   keepSaves,
   latestAutosave,
   missingSaveNote,
+  resumeSearch,
   newestFirst,
   newSave,
   saveFailedTitle,
@@ -232,5 +233,18 @@ describe('a save the address names', () => {
   it('leaves the load to say what is wrong when the store cannot list its saves', async () => {
     const store = { ...fakeSaveStore(), list: () => Promise.reject(new Error('blocked')) };
     expect(await missingSaveNote(store, 7)).toBeNull();
+  });
+});
+
+describe('the address of a loaded game', () => {
+  it('resumes the autosave in place of the save it loaded, keeping the other parameters', () => {
+    expect(resumeSearch('?load=286')).toBe('?resume=');
+    expect(resumeSearch('?load=286&tileset=test&debug')).toBe('?tileset=test&debug=&resume=');
+    expect(new URLSearchParams(resumeSearch('?debug&load=3&tileset=test')!).has('load')).toBe(false);
+  });
+
+  it('is left alone when it names no save', () => {
+    expect(resumeSearch('')).toBeNull();
+    expect(resumeSearch('?resume&tileset=test')).toBeNull();
   });
 });
