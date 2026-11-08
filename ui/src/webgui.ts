@@ -445,6 +445,8 @@ export interface ColonyView {
     required: GoodsProgress[];
   } | null;
   nothing: string;
+  /** True for a colony that is not ours, one a scout spied on (#395): the panel shows it and changes nothing. */
+  readOnly: boolean;
   /** The build queue panel: see BuildQueues.java. */
   queue: BuildQueueView;
 }

@@ -126,6 +126,7 @@ export const jamestown: ColonyView = {
     required: [{ ...goods('hammers', 80), needed: 80, available: 20, produced: 3, turns: '(Turns: 20)' }],
   },
   nothing: 'Click on the building site to select a building or unit to build.',
+  readOnly: false,
   queue: {
     title: 'Build Queue',
     buildingsTitle: 'Buildings',
