@@ -322,6 +322,30 @@ function Made({ g, art, change = false, max }: { g: Goods; art: Art; change?: bo
 const OCTAGONS = PANEL_KEYS.colonyOctagons;
 /** Where each octagon is in that image, at its 1x size: the top two empty, the lower two with the muskets and the crown. */
 const OCTAGON_AT = { size: [66, 6], change: [372, 6], rebels: [66, 152], royalists: [372, 152] } as const;
+export type OctagonPart = keyof typeof OCTAGON_AT;
+
+/**
+ * One of the Board's octagons, cut from the wood, with its number: the colony's size, its change, or a share
+ * (the % sign in its own span, so it can be set smaller). data-len is the text's length, for fitting long numbers.
+ */
+export function Octagon({ part, text, art }: { part: OctagonPart; text: string; art: Art }) {
+  const wood = art([OCTAGONS]);
+  const [x, y] = OCTAGON_AT[part];
+  const percent = text.endsWith('%');
+  return (
+    <span
+      className={`octagon ${part}`}
+      data-part={part}
+      data-len={text.length}
+      style={wood === null ? undefined : { backgroundImage: `url(${wood})`, backgroundPosition: `-${x}px -${y}px` }}
+    >
+      <span className="n">
+        {percent ? text.slice(0, -1) : text}
+        {percent && <span className="pc">%</span>}
+      </span>
+    </span>
+  );
+}
 
 /**
  * ColonyPanel's upperRightPanel: the tiles, the net production and the construction, with the octagons
@@ -330,25 +354,12 @@ const OCTAGON_AT = { size: [66, 6], change: [372, 6], rebels: [66, 152], royalis
  */
 function Board({ c, art, children }: { c: ColonyView; art: Art; children: ReactNode }) {
   const p = c.population;
-  const wood = art([OCTAGONS]);
-  const octagon = (part: keyof typeof OCTAGON_AT, text: string) => {
-    const [x, y] = OCTAGON_AT[part];
-    return (
-      <span
-        className={`octagon ${part}`}
-        data-part={part}
-        style={wood === null ? undefined : { backgroundImage: `url(${wood})`, backgroundPosition: `-${x}px -${y}px` }}
-      >
-        {text}
-      </span>
-    );
-  };
   return (
     <Tip as="div" className="board" data-part="population" tip={<RebelTipBox tip={p.tip} art={art} />}>
-      {octagon('size', String(p.size))}
-      {octagon('change', p.sizeChange)}
-      {octagon('rebels', `${p.rebelPercent}%`)}
-      {octagon('royalists', `${100 - p.rebelPercent}%`)}
+      <Octagon part="size" text={String(p.size)} art={art} />
+      <Octagon part="change" text={p.sizeChange} art={art} />
+      <Octagon part="rebels" text={`${p.rebelPercent}%`} art={art} />
+      <Octagon part="royalists" text={`${100 - p.rebelPercent}%`} art={art} />
       {children}
     </Tip>
   );
