@@ -8,6 +8,7 @@ import {
   Fragment,
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
   type HTMLAttributes,
@@ -46,6 +47,8 @@ type FrameProps = {
   closeKeys?: readonly string[];
   /** Escape asks this first: true if it used the key (clearing a search, say), and the window stays open. */
   onEscape?: () => boolean;
+  /** A panel laid out at fixed sizes (the colony's): its UI scale is lowered until the whole of it fits the screen. */
+  fit?: boolean;
   children: ReactNode;
 } & Omit<HTMLAttributes<HTMLElement>, 'title' | 'children'>;
 
@@ -90,6 +93,50 @@ function isCloseKey(e: KeyboardEvent, keys: readonly string[]): boolean {
   return keys.some((k) => k.toLowerCase() === e.key.toLowerCase());
 }
 
+/** The share of the screen a fitted window may take each way, leaving a margin round it. */
+const FIT_SHARE = 0.96;
+
+/**
+ * The scale a window laid out at fixed sizes is drawn at (#380, #377): the player's UI scale, or less, so the
+ * whole of it lies on the screen. Cut off, such a panel loses a row (the colony's warehouse); scaled down, it
+ * keeps its layout. The window's own size (offsetWidth and offsetHeight, which are in its own pixels whatever
+ * its zoom) is what it measures, so the scale settles at once. Null where the window has no layout (jsdom).
+ */
+export function fitScale(size: { w: number; h: number }, screen: { w: number; h: number }, ui: number): number | null {
+  if (!size.w || !size.h) return null;
+  const fit = Math.min(ui, (screen.w * FIT_SHARE) / size.w, (screen.h * FIT_SHARE) / size.h);
+  // Rounded down, so the window never comes out a pixel too big.
+  return Math.floor(fit * 1000) / 1000;
+}
+
+/** Keep a fitted window's scale (--fit, which index.html's .modal > [data-fit] zooms by) as the screen, the UI scale and the window change. */
+function useFitToScreen(box: { current: HTMLElement | null }, fit: boolean) {
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!fit || !el) return;
+    const apply = () => {
+      const ui = Number(getComputedStyle(document.documentElement).getPropertyValue('--ui-zoom')) || 1;
+      const root = document.documentElement;
+      const scale = fitScale(
+        { w: el.offsetWidth, h: el.offsetHeight },
+        { w: root.clientWidth, h: root.clientHeight },
+        ui,
+      );
+      if (scale !== null) el.style.setProperty('--fit', String(scale));
+    };
+    apply();
+    addEventListener('resize', apply);
+    // The UI scale and the font size, which sets a fixed-size window's own size, are set on the root's style
+    // (main.tsx). (A ResizeObserver on the window would see its own change of scale, and loop.)
+    const scaled = new MutationObserver(apply);
+    scaled.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
+    return () => {
+      removeEventListener('resize', apply);
+      scaled.disconnect();
+    };
+  }, [box, fit]);
+}
+
 /**
  * FreeCol's remember panel positions option: when on, a window dragged somewhere opens there again, by its
  * id or its kind (Canvas's saved positions). The page sets `remember` from the Preferences, and keeps the
@@ -107,7 +154,16 @@ export const framePlaces: {
  * a close button, over the panel's body. Escape closes it too, before
  * anything else on the page sees the key.
  */
-export function WindowFrame({ title, close: closeNow, closeKeys, onEscape, children, className, ...rest }: FrameProps) {
+export function WindowFrame({
+  title,
+  close: closeNow,
+  closeKeys,
+  onEscape,
+  fit = false,
+  children,
+  className,
+  ...rest
+}: FrameProps) {
   // The window fades out before it closes, unless it is not to animate; a second close meanwhile does nothing.
   const [motion] = useState(() => frameEffects.motion());
   const [closing, setClosing] = useState(false);
@@ -131,6 +187,7 @@ export function WindowFrame({ title, close: closeNow, closeKeys, onEscape, child
   const box = useRef<HTMLElement>(null);
   // Tab goes round the newest window's buttons and fields while the focus is in it, not off the page.
   useFocusTrap(box);
+  useFitToScreen(box, fit);
   const titleId = useId();
   const attrs = rest as Record<string, unknown>;
   const placeKey =
@@ -165,6 +222,7 @@ export function WindowFrame({ title, close: closeNow, closeKeys, onEscape, child
       aria-labelledby={title ? titleId : undefined}
       className={className ? `frame ${className}` : 'frame'}
       {...rest}
+      data-fit={fit || undefined}
       data-motion={motion ? (closing ? 'out' : 'in') : undefined}
       inert={closing || undefined}
       style={{ ...rest.style, transform: shift.x || shift.y ? `translate(${shift.x}px, ${shift.y}px)` : undefined }}

@@ -103,6 +103,7 @@ function Win({
   close,
   closeKeys,
   advisor = null,
+  fit = false,
   children,
 }: {
   d: Dialog;
@@ -112,11 +113,14 @@ function Win({
   closeKeys?: readonly string[];
   /** The advisor's paper as the window's whole background, as FreeCol's InformationPanel draws it. */
   advisor?: Advisor | null;
+  /** Laid out at fixed sizes: scaled down to fit the screen rather than cut off (frame.tsx). The advisor's paper always is. */
+  fit?: boolean;
   children: ReactNode;
 }) {
   return (
     <WindowFrame
       className={advisor ? 'dialog advised' : 'dialog'}
+      fit={fit || advisor !== null}
       aria-modal="true"
       data-kind={d.kind}
       title={title}
@@ -559,7 +563,7 @@ function ColonyDialog({ d, e, art }: { d: Dialog; e: ColonyView; art: Art }) {
   const debug = useContext(DebugContext);
   useEnter(close);
   return (
-    <Win d={d} title={e.name} close={close}>
+    <Win d={d} title={e.name} close={close} fit>
       <ColonyPanel
         colony={e}
         art={art}

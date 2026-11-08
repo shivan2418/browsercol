@@ -8,9 +8,9 @@
  */
 .dialog[data-kind='report'] {
   width: max-content;
-  min-width: min(32em, 96vw);
-  max-width: 96vw;
-  max-height: 94vh;
+  min-width: min(32em, calc(var(--screen-w) * 0.96));
+  max-width: calc(var(--screen-w) * 0.96);
+  max-height: calc(var(--screen-h) * 0.94);
 }
 .dialog .report {
   min-height: 12em;
@@ -344,7 +344,7 @@
   display: flex;
   gap: 12px;
   min-height: 320px;
-  max-height: 60vh;
+  max-height: calc(var(--screen-h) * 0.6);
 }
 .dialog .report .colopedia ul {
   list-style: none;
