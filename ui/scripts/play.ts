@@ -596,6 +596,14 @@ async function play(page: Page, url: string) {
     const broken = kind === 'log' ? null : /undefined|NaN|\[object|\bnull\b/.exec(text);
     if (broken) throw new Error(`${what} shows an unset value (${broken[0]}): ${text.slice(0, 300)}`);
     const found = check ? await check(d) : (undefined as T);
+    // No window reaches past the page, at whatever size it is: its close button and buttons stay in reach.
+    const [box, view] = [await d.boundingBox(), page.viewportSize()];
+    if (
+      box &&
+      view &&
+      (box.y < -1 || box.x < -1 || box.y + box.height > view.height + 1 || box.x + box.width > view.width + 1)
+    )
+      throw new Error(`${what} reaches past the ${view.width}x${view.height} page: ${JSON.stringify(box)}`);
     await page.screenshot({ path: shot(shotName) });
     await d.locator(close).first().click();
     await d.waitFor({ state: 'detached', timeout: 10000, label: `${what} closes` });
@@ -1429,12 +1437,25 @@ async function play(page: Page, url: string) {
     await page.getByRole('menuitem', { name: 'Report', exact: true }).click();
     await page.getByRole('menuitem', { name: new RegExp(`^${item}( (Ctrl\\+)?(Shift\\+)?F\\d+)?$`) }).click();
   };
+  // These reports open as on a 1920x1080 screen at 125% display scaling, in a browser window with its bars:
+  // the page is 1536x695 CSS pixels, and every window must fit in it.
+  const desktop = page.viewportSize();
+  await page.setViewportSize({ width: 1536, height: 695 });
   await inspect(
     'the Continental Congress report',
     'report',
     'showReportContinentalCongressPanel',
     reportEntry('Continental Congress report'),
     /Congress|Father|Liberty|Bells/i,
+    '[data-answer=close]',
+    // A kind's tab, with its row of big portraits: the window must still fit.
+    async (d) => {
+      await d.getByRole('tab').nth(1).click();
+      await d
+        .locator('[data-father] .portrait')
+        .first()
+        .waitFor({ timeout: 10000, label: "a kind's tab shows its portraits" });
+    },
   );
   await inspect(
     'the foreign affairs report',
@@ -1471,6 +1492,7 @@ async function play(page: Page, url: string) {
         throw new Error('the labour detail lists no place');
     },
   );
+  if (desktop) await page.setViewportSize(desktop);
 
   m = await loadShip(m, land!, shipTile);
 
