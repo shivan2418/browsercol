@@ -68,7 +68,9 @@ import net.sf.freecol.common.option.OptionGroup;
  * <caption>The GUI methods overridden, and what they send</caption>
  * <tr><th>GUI method</th><th>Sends</th><th>Payload; answer</th></tr>
  * <tr><td>invokeNowOrLater, invokeNowOrWait</td><td>nothing</td>
- *     <td>runs the task at once</td></tr>
+ *     <td>runs the task at once, but while a native trade is open, on a
+ *         thread that runs no round of it, after the trade
+ *         ({@link NativeTradeGate})</td></tr>
  * <tr><td>playSound</td><td>event sound</td>
  *     <td>{key}: the sound's resource key, null to stop the sound effect;
  *         the Browser UI plays it as GUI.playSound would, on the music
@@ -328,7 +330,12 @@ import net.sf.freecol.common.option.OptionGroup;
  * </table>
  *
  * The blocking dialogs are asked by the player's own commands, never from
- * a message handler, so they hold nothing but that command. A dialog that
+ * a message handler, so they hold nothing but that command. The native
+ * trade's dialogs are the exception: Swing asks them on the event thread
+ * through {@code invokeLater}, which here runs on the thread handling the
+ * natives' answer. The {@link NativeTradeGate} keeps the trade modal: while
+ * it is open the other threads' questions wait, and their deferred work
+ * and the player's commands run after it. A dialog that
  * defers has not answered when its call returns. While an end turn dialog
  * waits for its answer another is not asked, as Swing's open panel stops
  * another end turn. The negotiation dialog (#52) defers: its handler's
@@ -352,6 +359,15 @@ public class WebGUI extends GUI {
         default boolean counting() {
             return false;
         }
+        /**
+         * Hold the player's commands while a native trade is open: wait for
+         * the command that is running, if any, and start no more until
+         * {@link #releaseCommands}. The one call that may block. Called
+         * from a thread that runs no command.
+         */
+        default void holdCommands() {}
+        /** Run the player's commands again. */
+        default void releaseCommands() {}
     }
 
     /**
@@ -371,6 +387,8 @@ public class WebGUI extends GUI {
     /** The page counts dialog runs (see {@link #count}); asked once, so it costs nothing when off. */
     private final boolean counting;
     private final Questions questions;
+    /** Keeps a native trade modal, as in Swing (#393). */
+    private final NativeTradeGate nativeTradeGate;
     private volatile Unit activeUnit = null;
     /** An end turn dialog has been asked and not yet answered. */
     private final AtomicBoolean endTurnDialogOpen = new AtomicBoolean(false);
@@ -393,7 +411,16 @@ public class WebGUI extends GUI {
         this.engine = engine;
         this.ui = ui;
         this.counting = ui.counting();
-        this.questions = new Questions(ui::ask);
+        this.nativeTradeGate = new NativeTradeGate(new NativeTradeGate.Hold() {
+                public void hold() { ui.holdCommands(); }
+                public void release() { ui.releaseCommands(); }
+            });
+        this.questions = new Questions(ui::ask, this.nativeTradeGate::awaitTurn);
+    }
+
+    /** The gate that keeps a native trade modal. */
+    NativeTradeGate nativeTradeGate() {
+        return this.nativeTradeGate;
     }
 
     /**
@@ -889,12 +916,13 @@ public class WebGUI extends GUI {
 
     @Override
     public void invokeNowOrLater(Runnable runnable) {
-        runnable.run();
+        // At once, unless a native trade is open that this thread has no part in: then after it.
+        this.nativeTradeGate.invoke(runnable);
     }
 
     @Override
     public void invokeNowOrWait(Runnable runnable) {
-        runnable.run();
+        this.nativeTradeGate.invokeAndWait(runnable);
     }
 
     @Override

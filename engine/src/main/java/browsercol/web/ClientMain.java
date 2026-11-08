@@ -154,6 +154,12 @@ public final class ClientMain {
                             public boolean counting() {
                                 return countingDialogs();
                             }
+                            public void holdCommands() {
+                                commands.hold();
+                            }
+                            public void releaseCommands() {
+                                commands.release();
+                            }
                         });
                     synchronized (earlyOptions) {
                         for (java.util.Map.Entry<String, String> e : earlyOptions.entrySet()) {

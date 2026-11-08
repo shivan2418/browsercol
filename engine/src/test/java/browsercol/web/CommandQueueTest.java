@@ -112,6 +112,39 @@ class CommandQueueTest {
         assertEquals(List.of("after"), log);
     }
 
+    /**
+     * A native trade holds the commands (#393): the hold waits for the command
+     * that runs, a command that comes while they are held waits for the
+     * release, and then they run in the order they came.
+     */
+    @Test
+    @Timeout(30)
+    void heldCommandsWaitForTheRelease() throws Exception {
+        final List<String> log = new java.util.concurrent.CopyOnWriteArrayList<>();
+        final CountDownLatch running = new CountDownLatch(1);
+        final CountDownLatch done = new CountDownLatch(1);
+        final CommandQueue queue = new CommandQueue(() -> {});
+        queue.add(() -> {
+            log.add("first");
+            running.countDown();
+            sleep(300);
+            log.add("first done");
+        });
+        assertTrue(running.await(TIMEOUT, TimeUnit.SECONDS), "the first command did not run");
+        queue.hold();
+        log.add("held");
+        queue.add(() -> log.add("second"));
+        queue.add(() -> {
+            log.add("third");
+            done.countDown();
+        });
+        sleep(300);
+        assertEquals(List.of("first", "first done", "held"), log, "nothing runs while held");
+        queue.release();
+        assertTrue(done.await(TIMEOUT, TimeUnit.SECONDS), "the held commands did not run");
+        assertEquals(List.of("first", "first done", "held", "second", "third"), log);
+    }
+
     /** Sleep, so that a command can run while another comes. */
     private static void sleep(long millis) {
         try {

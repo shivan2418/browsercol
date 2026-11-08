@@ -28,12 +28,23 @@ final class Questions {
     }
 
     private final Asker asker;
+    /** Waits, before a question is asked, until it may be: e.g. not while a native trade is open (#393). */
+    private final Runnable turn;
     private final AtomicInteger nextId = new AtomicInteger(1);
     private final Map<Integer, Pending> pending = new ConcurrentHashMap<>();
 
 
     Questions(Asker asker) {
+        this(asker, () -> {});
+    }
+
+    /**
+     * @param asker How a question reaches the Browser UI.
+     * @param turn Waits until a question may be asked.
+     */
+    Questions(Asker asker, Runnable turn) {
         this.asker = asker;
+        this.turn = turn;
     }
 
     /**
@@ -44,6 +55,7 @@ final class Questions {
      * @return The answer, or null if the player closed the dialog.
      */
     String ask(String kind, String json) {
+        this.turn.run();
         final int id = this.nextId.getAndIncrement();
         final Pending p = new Pending();
         this.pending.put(id, p);
