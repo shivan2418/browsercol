@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { useState } from 'react';
 import { afterEach, expect, test, vi } from 'vite-plus/test';
 import css from '../index.html?raw';
-import { Select } from './controls';
+import { behindTopWindow, Select } from './controls';
 import { WindowFrame } from './frame';
 import { chooseOption, listed, openSelect, shown } from './select-test';
 
@@ -63,4 +63,21 @@ test('the list is drawn in #overlays, in the popup class that takes the UI scale
   expect(css).toMatch(/\.ui-popup\s*\{[^}]*zoom:\s*var\(--ui-zoom, 1\)/);
   expect(css).not.toMatch(/\.ui-positioner\s*\{[^}]*zoom/);
   layer.remove();
+});
+
+test('only the window on top gives hints: one under a newer window, as the colony under its build queue, does not', () => {
+  render(
+    <div>
+      <p data-testid="map">map</p>
+      <div role="dialog">
+        <span data-testid="octagon">rebels</span>
+        <div role="dialog">
+          <span data-testid="queue">Docks</span>
+        </div>
+      </div>
+    </div>,
+  );
+  expect(behindTopWindow(screen.getByTestId('octagon'))).toBe(true);
+  expect(behindTopWindow(screen.getByTestId('queue'))).toBe(false);
+  expect(behindTopWindow(screen.getByTestId('map'))).toBe(false);
 });

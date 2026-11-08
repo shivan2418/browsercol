@@ -210,6 +210,18 @@ function menuOpen(): boolean {
 }
 
 /**
+ * Whether a hint's element sits behind a window opened inside its own window, as the colony panel's octagons
+ * are under its open build queue: only the window on top gives hints, as only it takes the pointer in Swing.
+ * A window over another is in its own modal layer, whose backdrop already keeps the pointer from the one below.
+ */
+export function behindTopWindow(el: Element | null | undefined): boolean {
+  // The innermost window holding the element: any window open inside it is over the element.
+  const own = el?.closest('[role=dialog]');
+  // A window closing (inert, as WindowFrame makes it while it fades) is over nothing.
+  return own?.querySelector('[role=dialog]:not([inert])') != null;
+}
+
+/**
  * Wrap a React root whose elements use `Tip`: tips under it show the next one at once after one has shown, as
  * Swing's ToolTipManager does. (A group is the provider's: separate roots have separate groups.)
  */
@@ -245,7 +257,8 @@ export function TooltipLayer() {
       handle={tipHandle}
       disableHoverablePopup
       onOpenChange={(next, details) => {
-        if (next && (dragging() || menuOpen())) {
+        const at = details.trigger ?? (details.event?.target instanceof Element ? details.event.target : null);
+        if (next && (dragging() || menuOpen() || behindTopWindow(at))) {
           details.cancel();
           return;
         }
