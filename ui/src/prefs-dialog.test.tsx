@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, expect, test } from 'vite-plus/test';
 import type { OptionGroup } from './options';
-import { categories, OWN_CATEGORY, PreferencesDialog } from './prefs-dialog';
+import { categories, OWN_CATEGORY, PreferencesDialog, search } from './prefs-dialog';
 import { DEFAULTS, type Prefs } from './prefs';
 import { FONT_SETS } from './theme';
 import { chooseOption, listed, openSelect, shown } from './select-test';
@@ -274,4 +274,129 @@ test('Reset and Cancel go back to the preferences the window opened with, Revert
 test('the Preferences window opens with OK focused, so the focus ring marks the default', () => {
   render(<PreferencesDialog prefs={DEFAULTS} freecol={null} change={() => {}} close={() => {}} />);
   expect(document.activeElement).toBe(document.querySelector('[data-prefs-ok]'));
+});
+
+const searchable: OptionGroup = {
+  ...freecol,
+  children: [
+    {
+      id: 'clientOptions.interface',
+      label: 'Interface',
+      description: null,
+      kind: 'group',
+      children: [
+        {
+          id: 'clientOptions.display',
+          label: 'Display',
+          description: null,
+          kind: 'group',
+          children: [
+            {
+              id: 'model.option.displayScale',
+              label: 'Display scaling',
+              description: 'Makes the café menus bigger or smaller',
+              kind: 'percentage',
+              value: 100,
+              min: 50,
+              max: 200,
+            },
+          ],
+        },
+      ],
+    },
+    ...freecol.children,
+  ],
+};
+
+test('a search finds options by name or tooltip, in nested groups and in BrowserCol, ignoring case and accents', () => {
+  const ids = (q: string) => search(searchable, q).map((m) => m.key);
+  expect(ids('SCALING')).toEqual(['model.option.displayScale']);
+  expect(ids('CAFE')).toEqual(['model.option.displayScale']);
+  expect(search(searchable, 'scaling')[0].path).toEqual(['Interface', 'Display', 'Display scaling']);
+  expect(ids('blink')).toEqual(['own.blink']);
+  expect(search(searchable, 'blink')[0].path).toEqual(['BrowserCol', 'Blink speed']);
+  expect(ids('pre-combat')).toEqual(['model.option.guiShowPreCombat']);
+  expect(ids('  ')).toEqual([]);
+  expect(ids('zzz')).toEqual([]);
+});
+
+test('typing in the search shows the matches with their paths, marks the tree, and says when nothing matches', () => {
+  const { container } = render(
+    <PreferencesDialog prefs={DEFAULTS} freecol={searchable} change={() => {}} close={() => {}} />,
+  );
+  const field = container.querySelector<HTMLInputElement>('[data-prefs-search]')!;
+  fireEvent.change(field, { target: { value: 'scal' } });
+  const result = container.querySelector('[data-result="model.option.displayScale"]')!;
+  expect(result.textContent).toContain('Interface › Display');
+  expect(result.querySelector('mark')?.textContent).toBe('scal');
+  expect(container.querySelector('[data-category="clientOptions.display"]')!.hasAttribute('data-dim')).toBe(false);
+  expect(container.querySelector('[data-category="clientOptions.messages"]')!.hasAttribute('data-dim')).toBe(true);
+  expect(container.querySelector('[data-category="browsercol"]')!.hasAttribute('data-dim')).toBe(true);
+  fireEvent.change(field, { target: { value: 'nothing like it' } });
+  expect(container.querySelector('[data-search-none]')).toBeTruthy();
+  fireEvent.change(field, { target: { value: '' } });
+  expect(screen.getByText('Blink speed')).toBeTruthy();
+});
+
+test('an option changed in the results saves as it does in its category', () => {
+  const changes: Prefs[] = [];
+  const { container } = render(
+    <PreferencesDialog prefs={DEFAULTS} freecol={searchable} change={(p) => changes.push(p)} close={() => {}} />,
+  );
+  const field = container.querySelector<HTMLInputElement>('[data-prefs-search]')!;
+  fireEvent.change(field, { target: { value: 'pre-combat' } });
+  fireEvent.click(screen.getByLabelText('Pre-combat analysis'));
+  const viaSearch = changes.at(-1);
+  expect(viaSearch?.freecol).toEqual({ 'model.option.guiShowPreCombat': false });
+  fireEvent.change(field, { target: { value: '' } });
+  fireEvent.click(container.querySelector<HTMLElement>('[data-category="clientOptions.messages"]')!);
+  fireEvent.click(screen.getByLabelText('Pre-combat analysis'));
+  expect(changes.at(-1)).toEqual(viaSearch);
+  // BrowserCol's own preference too.
+  fireEvent.change(field, { target: { value: 'tutorial' } });
+  fireEvent.click(container.querySelector('[data-pref="tutorial"] input')!);
+  expect(changes.at(-1)).toEqual({ ...DEFAULTS, tutorial: !DEFAULTS.tutorial });
+});
+
+test('Escape in the search field clears it and keeps the window; a second Escape closes it', () => {
+  let closed = 0;
+  const { container } = render(
+    <PreferencesDialog prefs={DEFAULTS} freecol={searchable} change={() => {}} close={() => closed++} />,
+  );
+  const field = container.querySelector<HTMLInputElement>('[data-prefs-search]')!;
+  field.focus();
+  fireEvent.change(field, { target: { value: 'blink' } });
+  fireEvent.keyDown(field, { key: 'Escape' });
+  expect(field.value).toBe('');
+  expect(closed).toBe(0);
+  fireEvent.keyDown(field, { key: 'Escape' });
+  expect(closed).toBe(1);
+});
+
+test('Ctrl+F and / put the focus in the search field, and / typed in a field stays text', () => {
+  const { container } = render(
+    <PreferencesDialog prefs={DEFAULTS} freecol={searchable} change={() => {}} close={() => {}} />,
+  );
+  const field = container.querySelector<HTMLInputElement>('[data-prefs-search]')!;
+  expect(document.activeElement).not.toBe(field);
+  const ctrlF = new KeyboardEvent('keydown', { key: 'f', ctrlKey: true, bubbles: true, cancelable: true });
+  document.body.dispatchEvent(ctrlF);
+  expect(ctrlF.defaultPrevented).toBe(true);
+  expect(document.activeElement).toBe(field);
+  (document.activeElement as HTMLElement).blur();
+  document.body.dispatchEvent(new KeyboardEvent('keydown', { key: '/', bubbles: true, cancelable: true }));
+  expect(document.activeElement).toBe(field);
+  const typed = new KeyboardEvent('keydown', { key: '/', bubbles: true, cancelable: true });
+  field.dispatchEvent(typed);
+  expect(typed.defaultPrevented).toBe(false);
+});
+
+test('Arrow down in the search field moves to the first result', () => {
+  const { container } = render(
+    <PreferencesDialog prefs={DEFAULTS} freecol={searchable} change={() => {}} close={() => {}} />,
+  );
+  const field = container.querySelector<HTMLInputElement>('[data-prefs-search]')!;
+  fireEvent.change(field, { target: { value: 'scal' } });
+  fireEvent.keyDown(field, { key: 'ArrowDown' });
+  expect(document.activeElement).toBe(screen.getByLabelText('Display scaling'));
 });

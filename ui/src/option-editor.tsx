@@ -24,6 +24,8 @@ interface Props {
   fileNames?: Record<string, string>;
   /** Anything to show after an option's control, such as a mute button beside a volume, by option id. */
   after?: (id: string) => ReactNode;
+  /** How to show an option's name, such as with the text a search matched marked; by default as it is. */
+  mark?: (label: string) => ReactNode;
 }
 
 /**
@@ -184,6 +186,7 @@ function Row({
   onFile,
   fileNames,
   after,
+  mark,
 }: { node: Exclude<OptionNode, { kind: 'group' }> } & Omit<Props, 'root'>) {
   const set = (v: OptionValue) => onChange?.(node.id, v);
   const value = values?.[node.id] ?? node.value;
@@ -305,7 +308,7 @@ function Row({
       data-changed={(values && node.id in values) || undefined}
       tip={node.description ?? undefined}
     >
-      <span className="name">{node.label}</span>
+      <span className="name">{mark ? mark(node.label) : node.label}</span>
       {control}
       {after?.(node.id)}
     </Tip>
