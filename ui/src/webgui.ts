@@ -206,6 +206,11 @@ export interface GuiEvents {
   /** The colony panel of this colony may close: the player closed it, and said yes if asked (Commands.closeColonyPanel). */
   closeColony: { id: string };
   /**
+   * The colony panel of colony `from` shows another colony in its own window: it stays open and where the player
+   * put it, and its content is swapped (Commands.stepColony, the Left and Right keys).
+   */
+  stepColony: { from: string; colony: ColonyView };
+  /**
    * The player's trade routes (TradeRoutePanel), each with its stops, the goods loaded at each, and how many
    * units follow it, with the places a stop can be at and the goods that can be loaded (TradeRouteInputPanel).
    * It replaces the open panel: the Engine sends it again after each change. error is why the last change was

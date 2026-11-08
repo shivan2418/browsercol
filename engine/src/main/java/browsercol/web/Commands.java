@@ -1432,6 +1432,18 @@ public final class Commands {
      * @return True if the panel was closed.
      */
     public boolean closeColonyPanel(String colonyId) {
+        return leaveColonyPanel(colonyId, null);
+    }
+
+    /**
+     * Leave a colony's panel as closeColonyPanel does, for the panel of
+     * another colony to take its window (stepColony), or for none.
+     *
+     * @param colonyId The id of the colony whose panel is left.
+     * @param next The colony whose panel takes the window, or null to close it.
+     * @return True if the panel was left.
+     */
+    private boolean leaveColonyPanel(String colonyId, Colony next) {
         final Colony colony = object(colonyId, Colony.class);
         final Player player = this.client.getMyPlayer();
         boolean abandon = false;
@@ -1457,7 +1469,10 @@ public final class Commands {
                         colony, "ok", "cancel")) return false;
             }
         }
-        if (gui() instanceof WebGUI) ((WebGUI)gui()).closeColonyPanel(colonyId);
+        if (gui() instanceof WebGUI) {
+            if (next == null) ((WebGUI)gui()).closeColonyPanel(colonyId);
+            else ((WebGUI)gui()).stepColonyPanel(colonyId, next);
+        }
         if (colony != null) igc().closeColony(colony, abandon);
         return true;
     }
@@ -1681,6 +1696,7 @@ public final class Commands {
         final int at = colonies.indexOf(colony);
         if (n < 2 || at < 0) return false;
         final Colony next = colonies.get(Math.floorMod(at + (by < 0 ? -1 : 1), n));
+        if (gui() instanceof WebGUI) return leaveColonyPanel(colonyId, next);
         if (!closeColonyPanel(colonyId)) return false;
         gui().showColonyPanel(next, null);
         return true;

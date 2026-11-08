@@ -1363,6 +1363,11 @@ const gui: GuiHandlers = {
       void afterSlide(() => dialogQueue.replace('colony', e, (open) => open.id === e.id, true));
     },
     closeColony: (e) => dialogQueue.remove('colony', (open) => open.id === e.id),
+    // The window stays and shows the other colony; the other's own panel, if open too, makes way for it.
+    stepColony: (e) => {
+      if (e.colony.id !== e.from) dialogQueue.remove('colony', (open) => open.id === e.colony.id);
+      dialogQueue.replace('colony', e.colony, (open) => open.id === e.from, true);
+    },
     coverage: (e) => window.fcCoverageHit?.(e.method),
     unasked: (e) => {
       console.warn(`WebGUI: no dialog yet for ${e.method}; FreeCol's default was used`);

@@ -565,6 +565,8 @@ function ColonyDialog({ d, e, art }: { d: Dialog; e: ColonyView; art: Art }) {
   return (
     <Win d={d} title={e.name} close={close} fit>
       <ColonyPanel
+        // Another colony in the same window starts afresh: its pick, ship and queue are its own.
+        key={e.id}
         colony={e}
         art={art}
         footer={
