@@ -985,6 +985,8 @@ export type ReportView =
         immigration: number;
         required: number;
         production: number;
+        /** The same as a FreeColProgressBar draws it, with next turn's crosses and the turns to the next migrant. */
+        bar: GoodsProgress;
         colonies: { id: Id; name: string; building: { id: Id; name: string; keys: string[] }; workers: UnitRef[] }[];
       })[];
     })

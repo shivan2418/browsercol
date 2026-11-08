@@ -471,16 +471,7 @@ function ReligionReport({ e, art, go }: { e: View<'religion'>; art: Art; go: Lin
             <Img keys={g.keys} art={art} title={g.name} />
             {g.name}
           </h3>
-          <Tip
-            as="progress"
-            value={Math.min(g.immigration, g.required)}
-            max={g.required}
-            tip={`${g.immigration} / ${g.required}, ${g.production > 0 ? '+' : ''}${g.production} a turn`}
-          />
-          <span className="muted" data-field="progress">
-            {g.immigration} / {g.required} ({g.production > 0 ? '+' : ''}
-            {g.production})
-          </span>
+          <GoodsProgressBar need={g.bar} art={art} />
           <div className="places">
             {g.colonies.map((c) => (
               <div key={c.id} className="place" data-colony={c.id}>

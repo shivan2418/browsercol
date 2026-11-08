@@ -231,9 +231,10 @@
   margin: 0 0 4px;
   color: var(--head);
 }
-.dialog .report .religion progress {
-  width: 18em;
-  margin-right: 8px;
+/* The bar towards the next migrant, as wide as FreeColProgressBar's in the colony panel. */
+.dialog .report .religion .need {
+  margin-bottom: 8px;
+  padding: 3px 0;
 }
 .dialog .report .religion .places {
   display: flex;

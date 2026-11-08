@@ -192,6 +192,9 @@ final class Reports {
                 .put("immigration", player.getImmigration())
                 .put("required", player.getImmigrationRequired())
                 .put("production", player.getTotalImmigrationProduction())
+                // ReportReligiousPanel's FreeColProgressBar: the crosses so far and next turn's towards the next migrant.
+                .putRaw("bar", ColonyJson.progress(gt, player.getImmigrationRequired(),
+                        player.getImmigration(), player.getTotalImmigrationProduction()).toString())
                 .putRaw("colonies", Json.array(colonies))
                 .toString());
         }

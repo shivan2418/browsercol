@@ -352,6 +352,11 @@ class ReportsTest {
         assertEquals((long)us.getImmigration(), crosses.get("immigration"));
         assertEquals((long)us.getImmigrationRequired(), crosses.get("required"));
         assertEquals((long)us.getTotalImmigrationProduction(), crosses.get("production"));
+        final Map<String, Object> bar = obj(crosses.get("bar"));
+        assertEquals((long)us.getImmigrationRequired(), bar.get("needed"));
+        assertEquals((long)us.getImmigration(), bar.get("available"));
+        assertEquals((long)us.getTotalImmigrationProduction(), bar.get("produced"));
+        assertTrue(((String)bar.get("turns")).startsWith("(Turns: "), (String)bar.get("turns"));
         // Each colony's church or town hall is the building that makes crosses.
         final List<Map<String, Object>> rows = objs(crosses.get("colonies"));
         assertEquals(List.of("Jamestown", "Plymouth"), rows.stream()

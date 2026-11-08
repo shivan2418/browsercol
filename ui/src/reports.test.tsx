@@ -399,9 +399,21 @@ describe('the religion report', () => {
     show(box, report);
     const section = document.querySelector('[data-goods="model.goods.crosses"]') as HTMLElement;
     expect(within(section).getByText('Crosses')).toBeTruthy();
-    expect(section.querySelector('progress')?.getAttribute('value')).toBe('12');
-    expect(section.querySelector('progress')?.getAttribute('max')).toBe('40');
-    expect(section.querySelector('[data-field="progress"]')?.textContent).toBe('12 / 40 (+3)');
+    // FreeColProgressBar: the crosses so far, next turn's after them, and the turns to the next migrant.
+    expect(section.querySelector('.need')?.textContent).toBe('12+3/40 (Turns: 10)');
+    const [now, next] = section.querySelectorAll<HTMLElement>('.need i');
+    expect(now.style.width).toBe('30%');
+    expect(next.style).toMatchObject({ left: '30%', width: '7.5%' });
+        bar: {
+          type: 'model.goods.crosses',
+          name: 'Crosses',
+          keys: [],
+          amount: 40,
+          needed: 40,
+          available: 12,
+          produced: 3,
+          turns: '(Turns: 10)',
+        },
     expect(section.querySelector('[data-list="workers"] img')?.getAttribute('data-unit')).toBe('unit:1');
     fireEvent.click(within(section).getByRole('button', { name: 'Jamestown' }));
     expect(calls).toEqual(['colony colony:7']);
