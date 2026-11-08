@@ -986,6 +986,8 @@
         position: fixed;
         inset: 0;
         display: grid;
+        /* One cell the size of the screen, so no window grows past it: a tall one scrolls inside instead. */
+        grid-template: minmax(0, 1fr) / minmax(0, 1fr);
         place-items: center;
         background: var(--backdrop);
       }
@@ -994,6 +996,10 @@
         position: relative;
         grid-area: 1 / 1;
         max-width: 100%;
+        max-height: 100%;
+        /* A grid item is at least as tall as its content otherwise, whatever its max-height says. */
+        min-height: 0;
+        min-width: 0;
       }
       .dialog {
         max-width: 36em;
