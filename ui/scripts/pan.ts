@@ -149,6 +149,9 @@ await browser.startTracing(page, {
   ],
 });
 if (throttle > 1) await cdp.send('Emulation.setCPUThrottlingRate', { rate: throttle });
+// Starting the trace and the throttling stalls the page's frames for up to a second, with nothing on its main thread
+// (#419): let that pass before the idle phase, which would count it as a long frame.
+await page.waitForTimeout(1500);
 const phases: { name: string; hz: number; start: number; end: number; sent: number }[] = [];
 const wheel = async (steps: number) => {
   for (let i = 0; i < Math.abs(steps); i++) {
