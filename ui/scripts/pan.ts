@@ -373,6 +373,28 @@ for (const p of phases) {
       `    ${k.padEnd(30)} ${String(s.n).padStart(6)} ${s.ms.toFixed(0).padStart(6)} ${(s.ms / frames).toFixed(2).padStart(7)}`,
     );
 }
+// Each frame over 17.5 ms, with what the main thread spent it on: the page's clock put on the trace's by the phase's
+// start mark, which both have.
+console.log('\nlong frames (ms, then the main thread by what it was spent on):');
+for (const p of phases) {
+  const lo = marks.get(`start:${p.name}`);
+  if (!lo) continue;
+  const at = (t: number) => lo + (t - p.start) * 1000;
+  for (const [t, d] of within(rec.frames, p)) {
+    if (d <= 17.5) continue;
+    const [a, b] = [at(t - d), at(t)];
+    const by = new Map<string, number>();
+    for (const s of samples) {
+      if (s.ts < a || s.ts > b) continue;
+      const c = category(s.stack);
+      if (c) by.set(c, (by.get(c) ?? 0) + s.dt);
+    }
+    const top = [...by].sort((x, y) => y[1] - x[1]).slice(0, 4);
+    console.log(
+      `  ${p.name.padEnd(15)} ${d.toFixed(1).padStart(6)}: ${top.map(([c, v]) => `${c.slice(0, 40)} ${v.toFixed(1)}`).join(', ')}`,
+    );
+  }
+}
 // The functions with the most self time over all the pan phases.
 {
   const lo = Math.min(...phases.filter((p) => p.hz).map((p) => marks.get(`start:${p.name}`)!));
