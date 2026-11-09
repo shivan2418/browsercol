@@ -4,7 +4,7 @@
 // menu bar over the map with the status line. Panels build on these rather
 // than on markup of their own. Their colours come from the tokens in
 // theme.css; the window's, the box's and the goods' styles are beside them, in
-// window-frame.css, box.css, goods.css and popup-surface.css (docs/adr/0008), the rest still in index.html.
+// window-frame.css, box.css, goods.css, popup-surface.css and quiet-text.css (docs/adr/0008), the rest still in index.html.
 import {
   Fragment,
   useEffect,
@@ -26,6 +26,7 @@ import './window-frame.css';
 import './goods.css';
 import './box.css';
 import './popup-surface.css';
+import './quiet-text.css';
 
 /** The URL of the art for the first of some resource keys the Tileset has, or null if it has none (yet). */
 export type Art = (keys: readonly string[]) => string | null;
