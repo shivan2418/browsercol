@@ -56,12 +56,16 @@ check: art
 # The fast checks a ticket PR needs: Engine tests, vp check, vp test
 fast: test-engine check test-ui
 
-# Browser script against dist/: smoke, play, saves, tileset or rounds
+# Browser script against dist/: smoke, play, saves, tileset, looks or rounds
 browser script *args:
     DEV_VARIANT=web ./dev.sh node ui/scripts/{{script}}.ts {{args}}
 
 # The whole local suite: fast checks, build and the browser scripts
-suite: fast build (browser "smoke") (browser "play") (browser "tileset")
+suite: fast build (browser "smoke") (browser "play") (browser "tileset") (browser "looks")
+
+# Approve the key panels' screenshots (ui/looks/) after a change meant to show: look at .cache/looks/ first, then commit them
+looks-approve *args:
+    DEV_VARIANT=web ./dev.sh node ui/scripts/looks.ts --approve {{args}}
 
 # Run the whole suite on GitHub Actions for the committed HEAD
 ci:

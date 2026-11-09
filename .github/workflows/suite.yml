@@ -61,12 +61,18 @@ jobs:
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: DEV_VARIANT=web ./dev.sh node ui/scripts/tileset.ts
 
+      - name: Browser looks (screenshot comparison)
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: DEV_VARIANT=web ./dev.sh node ui/scripts/looks.ts
+
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: screenshots
-          path: .cache/*.png
+          path: |
+            .cache/*.png
+            .cache/looks/*.png
           if-no-files-found: ignore
           # .cache is a hidden directory, which upload-artifact skips unless told.
           include-hidden-files: true

@@ -22,6 +22,7 @@ import path from 'node:path';
 import { browserNames, collectPageErrors, diagnose, launchBrowser, opt, setStep, waitForResult } from './common.ts';
 import { answerDialogs } from './dialogs.ts';
 import { serveDist } from './serve-dist.ts';
+import { target } from './targets.ts';
 import type { Locator, Page } from 'playwright-core';
 
 const browsers = browserNames();
@@ -35,18 +36,6 @@ const root = path.resolve(import.meta.dirname, '../..');
 const cache = path.join(root, '.cache');
 const saves = path.join(root, 'engine/src/test/resources/saves');
 fs.mkdirSync(cache, { recursive: true });
-
-/** FreeCol's directions: the key that moves a unit that way, and the step from a tile (its row's parity matters). */
-const DIRECTIONS: { key: string; odd: [number, number]; even: [number, number] }[] = [
-  { key: 'ArrowUp', odd: [0, -2], even: [0, -2] },
-  { key: 'PageUp', odd: [1, -1], even: [0, -1] },
-  { key: 'ArrowRight', odd: [1, 0], even: [1, 0] },
-  { key: 'PageDown', odd: [1, 1], even: [0, 1] },
-  { key: 'ArrowDown', odd: [0, 2], even: [0, 2] },
-  { key: 'End', odd: [0, 1], even: [-1, 1] },
-  { key: 'ArrowLeft', odd: [-1, 0], even: [-1, 0] },
-  { key: 'Home', odd: [0, -1], even: [-1, -1] },
-];
 
 const secs = (ms: number) => (ms / 1000).toFixed(2);
 
@@ -466,29 +455,6 @@ async function loadSave(run: Run, file: string) {
 /** Dialog screenshots: the first three of each kind, with and without pictures. */
 const dialogShots = (run: () => Run | null) => (kind: string | undefined, n: number) =>
   run()?.shot(`dialog-${(kind ?? 'unknown').replace(/\W+/g, '-')}-${n}`);
-
-/** The tile a unit at (x, y) would attack with a key: an adjacent settlement or unit of another colour. */
-function target(m: Awaited<ReturnType<Run['view']>>) {
-  if (!m.active) return null;
-  const [x, y] = m.active;
-  const own = m.units.find((u) => u.x === x && u.y === y)?.rgb;
-  const [odd, even] = [(d: (typeof DIRECTIONS)[number]) => d.odd, (d: (typeof DIRECTIONS)[number]) => d.even];
-  for (const d of DIRECTIONS) {
-    const [dx, dy] = (y & 1 ? odd : even)(d);
-    const [tx, ty] = [x + dx, y + dy];
-    const there = m.units.find((u) => u.x === tx && u.y === ty && u.rgb !== own);
-    const settlement = m.settlements.find((s) => s.x === tx && s.y === ty && s.rgb !== own);
-    if (there || settlement)
-      return {
-        key: d.key,
-        at: [tx, ty],
-        what: settlement
-          ? `settlement ${settlement.name}`
-          : `unit ${there?.keys[0]?.replace('image.unit.model.unit.', '')}`,
-      };
-  }
-  return null;
-}
 
 /** Combat: every unit that has an enemy beside it attacks it; the rest skip. Until the turns or the attacks run out. */
 async function fight(run: Run) {
