@@ -1220,8 +1220,11 @@
       label:has(> input[type='radio']:disabled) {
         color: var(--muted);
       }
+      /* As specific as .dialog input[type=…], which zeroes the margin, so a label's text keeps its gap in dialogs too. */
       label > input[type='checkbox'],
-      label > input[type='radio'] {
+      label > input[type='radio'],
+      .dialog label > input[type='checkbox'],
+      .dialog label > input[type='radio'] {
         margin-right: 0.4em;
       }
       /* Clicking a label toggles its control without selecting the label's text. */
@@ -2813,13 +2816,14 @@
       .colony .cbody {
         /*
          * The fixed heights of the boxes that hold units and goods (see .colony .outside): the content (a row is
-         * the tallest unit, a mounted scout or dragoon, 82px, and 2px for its outline; the warehouse's is a line of
+         * the tallest unit, a mounted scout or dragoon, with its label, and the warehouse's goods with their amounts, sized by art plus text (in em, so a larger font still fits) as measured with box-shots.ts --sizes 1; the warehouse's is a line of
          * goods) with the caption, the padding and the border round it. A caption that wraps takes more of it, and
          * the box scrolls.
          */
-        --colony-box-frame: calc(var(--box-cap-block) + var(--box-pad) + 2 * var(--box-border));
-        --colony-row: calc(84px + var(--colony-box-frame));
-        --colony-warehouse: calc(58px + var(--colony-box-frame));
+        /* The caption's block, the 6px row gap under it (the boxes' gap), the padding at the bottom and the border. */
+        --colony-box-frame: calc(var(--box-cap-block) + 6px + var(--box-pad) + 2 * var(--box-border));
+        --colony-row: calc(85px + 0.2em + var(--colony-box-frame));
+        --colony-warehouse: calc(28px + 1.5em + var(--colony-box-frame));
         display: grid;
         grid-template-columns: 1fr 400px;
         gap: 6px;
@@ -3404,8 +3408,12 @@
       .colony .queue-body li[data-locked] .name {
         color: var(--muted);
       }
+      /* One box for every buildable's picture, so every row of the build queue is the same height whatever the art's shape. */
       .colony .buildable-icon {
         width: 48px;
+        height: 48px;
+        object-fit: contain;
+        object-position: center bottom;
       }
       /* The name takes the room left; the costs keep theirs, on one line, after it. */
       .colony .queue-body li .name {

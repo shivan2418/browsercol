@@ -19,6 +19,8 @@ const save = opt('save', '');
 const preset = opt('preset', '');
 const zoom = opt('zoom', '');
 const font = opt('font', '');
+/** Print every box's sizes, not only those that scroll (--sizes 1). */
+const sizes = opt('sizes', '') !== '';
 /** Lengthen the colony's captions to what a long ship name or another language makes of them (--long). */
 const long = opt('long', '') !== '';
 const dir = path.resolve(import.meta.dirname, '../../.cache/box-shots');
@@ -48,7 +50,16 @@ const captions = (page: Page) =>
         );
       });
       const lines = Math.round(r.height / parseFloat(getComputedStyle(cap).lineHeight));
-      return [{ cap: cap.textContent, lines, overlap }];
+      // A fixed-height box whose content does not fit scrolls: by how many pixels.
+      const overflow = Math.max(0, b.scrollHeight - b.clientHeight);
+      // The tallest item in the box and the caption's height, to size the boxes' fixed heights by.
+      const tallest = Math.max(
+        0,
+        ...[...b.children].filter((c) => c !== cap).map((c) => (c as HTMLElement).offsetHeight),
+      );
+      const cs = getComputedStyle(b);
+      const sizes = `cap ${cap.offsetHeight} tallest ${tallest} box ${b.clientHeight} pad ${cs.paddingTop}/${cs.paddingBottom} gap ${cs.rowGap}`;
+      return [{ cap: cap.textContent, lines, overlap, overflow, sizes }];
     }),
   );
 
@@ -62,9 +73,12 @@ for (const browserName of browserNames()) {
     if (el) await page.locator(el).first().screenshot({ path: file });
     else await page.screenshot({ path: file });
     const c = await captions(page);
-    const bad = c.filter((x) => x.overlap);
+    // A caption over the content fails, and so does a one-line caption's box that scrolls: the box's fixed height
+    // must hold what it is sized for (the warehouse's one line of goods) without a scroll bar.
+    const bad = c.filter((x) => x.overlap || (x.overflow > 0 && x.lines === 1));
+    const scrolls = c.filter((x) => x.overflow > 0 || sizes).map((x) => `${x.cap} +${x.overflow}px (${x.sizes})`);
     console.log(
-      `${bad.length ? 'FAIL' : 'ok  '} ${tag}/${browserName}/${name}${suffix}: ${c.length} captions, ${c.filter((x) => x.lines > 1).length} wrapped, ${bad.length} overlapping ${bad.map((x) => x.cap).join(' | ')}`,
+      `${bad.length ? 'FAIL' : 'ok  '} ${tag}/${browserName}/${name}${suffix}: ${c.length} captions, ${c.filter((x) => x.lines > 1).length} wrapped, ${c.filter((x) => x.overlap).length} overlapping, scrolling: ${scrolls.join(' | ') || 'none'}`,
     );
     failed ||= bad.length > 0;
   };
