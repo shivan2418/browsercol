@@ -210,7 +210,9 @@ export function findSpots(): Record<string, [number, number][]> {
       const n = near(x, y);
       const lands = n.filter(([, b]) => b?.land);
       if (t.land) {
-        if (n.every(([, b]) => b && !b.land)) out.island.push([x, y]);
+        // A single tile of land: water all round, bar at most one corner.
+        if (n.every(([, b]) => b) && lands.length <= 1 && lands.every(([d]) => ['N', 'E', 'S', 'W'].includes(d)))
+          out.island.push([x, y]);
         continue;
       }
       if (t.id === 'model.tile.lake' && lands.length >= 3) out.lake.push([x, y]);
