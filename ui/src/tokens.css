@@ -32,5 +32,7 @@
     /* Shadows, which darken whatever is under them: a window over the page, and the advisor's paper (a drop shadow round its painted edge). */
     --shadow-window: 0 10px 40px rgb(0 0 0 / 45%);
     --shadow-paper: 0 10px 24px rgb(0 0 0 / 45%);
+    /* A pop-up over the page: a menu, a select's list, a tooltip. */
+    --shadow-popup: 0 4px 12px rgb(0 0 0 / 40%);
   }
 }

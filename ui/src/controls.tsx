@@ -66,7 +66,7 @@ export function Select({ value, onChange, choices, disabled, className, ...rest 
       {open && <EscapeCloses close={() => setOpen(false)} />}
       <BaseSelect.Portal container={overlayContainer()}>
         <BaseSelect.Positioner {...OVERLAY_POSITIONER} alignItemWithTrigger={false} sideOffset={2}>
-          <BaseSelect.Popup className="ui-popup ui-select-popup">
+          <BaseSelect.Popup className="popup-surface ui-popup ui-select-popup">
             <BaseSelect.List className="ui-select-list">
               {choices.map((c) => (
                 <BaseSelect.Item
@@ -107,7 +107,7 @@ export function HelpButton({
       {open && <EscapeCloses close={() => setOpen(false)} />}
       <BasePopover.Portal container={overlayContainer()}>
         <BasePopover.Positioner {...OVERLAY_POSITIONER} side="bottom" align="start" sideOffset={4} collisionPadding={8}>
-          <BasePopover.Popup className="ui-popup ui-help-popup">{children}</BasePopover.Popup>
+          <BasePopover.Popup className="popup-surface ui-popup ui-help-popup">{children}</BasePopover.Popup>
         </BasePopover.Positioner>
       </BasePopover.Portal>
     </BasePopover.Root>
@@ -270,7 +270,7 @@ export function TooltipLayer() {
           {open && <EscapeCloses close={() => tipHandle.close()} />}
           <BaseTooltip.Portal container={overlayContainer()}>
             <BaseTooltip.Positioner {...OVERLAY_POSITIONER} sideOffset={6} collisionPadding={4}>
-              <BaseTooltip.Popup className="ui-popup ui-tip">{payload as ReactNode}</BaseTooltip.Popup>
+              <BaseTooltip.Popup className="popup-surface ui-popup ui-tip">{payload as ReactNode}</BaseTooltip.Popup>
             </BaseTooltip.Positioner>
           </BaseTooltip.Portal>
         </>

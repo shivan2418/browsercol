@@ -1,0 +1,13 @@
+/*
+ * The surface of a pop-up (the class `popup-surface`): the panel colour, a line round it and a shadow under it. A
+ * Base UI control's popup (.ui-popup), the menu bar's menus and the right-click menu (.popup) are one, and a
+ * theme restyles them by --shadow-popup (tokens.css). At no weight, so each one's own rules win.
+ */
+@layer components {
+  :where(.popup-surface) {
+    background: var(--panel);
+    color: var(--ink);
+    border: var(--border) solid var(--line);
+    box-shadow: var(--shadow-popup);
+  }
+}
