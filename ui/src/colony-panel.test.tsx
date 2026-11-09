@@ -357,7 +357,7 @@ describe('moving colonists in the colony panel', () => {
     open();
     expect(unit('unit:1').hasAttribute('data-drag')).toBe(false);
     fireEvent.click(unit('unit:1'));
-    expect(unit('unit:1').dataset.picked).toBeUndefined();
+    expect(unit('unit:1').getAttribute('aria-current')).toBeNull();
   });
 
   it('puts a dragged colonist to work in a building or on a tile, or outside the colony', () => {
@@ -392,7 +392,7 @@ describe('moving colonists in the colony panel', () => {
   it('picks no colonist by a click, so nothing is outlined and no row of goods opens', () => {
     openMovable();
     for (const el of [unit('unit:1'), unit('unit:2'), tileHit('colonyTile:21')]) fireEvent.click(el);
-    expect(document.querySelector('[data-picked=true]')).toBeNull();
+    expect(document.querySelector('[aria-current=true]')).toBeNull();
     expect(part('work')).toBeNull();
     fireEvent.click(tileHit('colonyTile:00'));
     fireEvent.click(building('building:1'));
@@ -558,7 +558,7 @@ describe('loading a ship in port in the colony panel', () => {
     expect(stored('cotton').hasAttribute('data-drag')).toBe(false);
     drag(stored('cotton'), part('cargo'));
     fireEvent.click(stored('cotton'));
-    expect(stored('cotton').dataset.picked).toBeUndefined();
+    expect(stored('cotton').getAttribute('aria-current')).toBeNull();
     fireEvent.click(part('cargo'));
     expect(calls).toEqual([]);
   });
@@ -591,7 +591,7 @@ describe('loading a ship in port in the colony panel', () => {
   it('moves goods picked by a click to the box clicked next', () => {
     openPort();
     fireEvent.click(stored('lumber'));
-    expect(stored('lumber').dataset.picked).toBe('true');
+    expect(stored('lumber').getAttribute('aria-current')).toBe('true');
     fireEvent.click(part('cargo'));
     fireEvent.click(stacks()[0], { shiftKey: true });
     fireEvent.click(part('warehouse'));
@@ -638,7 +638,7 @@ describe('loading a ship in port in the colony panel', () => {
       cargo: { title: 'Cargo on Caravel B', units: [], goods: [] },
     };
     const two = () => openPort({ inPort: { ...port, units: [caravel, other] } });
-    const chosenId = () => part('port').querySelector('[aria-pressed="true"]')?.getAttribute('data-unit');
+    const chosenId = () => part('port').querySelector('[aria-current="true"]')?.getAttribute('data-unit');
 
     it('chooses a ship when it is clicked, with the panel able to move things', () => {
       two();

@@ -378,10 +378,6 @@
     border: 0;
     color: inherit;
   }
-  /* The entry shown: the tinted background the colony and Preferences use for what is picked; the text keeps its weight, so nothing moves or wraps. */
-  .dialog .report .colopedia .tree [aria-selected='true'] > button {
-    background: color-mix(in srgb, var(--accent) 20%, transparent);
-  }
   .dialog .report .colopedia .tree img {
     height: 24px;
   }

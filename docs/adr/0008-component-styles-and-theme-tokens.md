@@ -32,4 +32,5 @@ The split is done a component at a time, when a panel is touched, never as one r
 
 - A new component with a visual pattern gets its own sheet beside it, in `@layer components`, using tokens; a theme never needs a component edited.
 - A new theme is a block of token values (`:root[data-theme='NAME']`, `:root[data-fonts='NAME']`), and may set any global or component token there.
+- What is selected (an item picked in a list, tree or grid) and what is pressed (a toggle button that is on) have one look each, in `selection.css`, keyed on `aria-selected`, `aria-current`, `aria-pressed` (and `data-selected` where no ARIA attribute fits) and drawn by `--selected-bg`, `--pressed-line` and `--pressed-width`. A panel never styles its own pick; `theme.test.ts` checks it (#437).
 - The patterns found in `index.html` and not yet moved are listed in #435. The box (`Box`, `box.css`) is moved: its caption reads the caption tokens, and its variants are props (`roomy`, `spaced`), not panel selectors.

@@ -208,7 +208,7 @@ function useMovable(item: Item) {
   );
   return {
     // Only goods are picked by a click: a colonist is moved by a drag or its menu, and has no pick to show.
-    'data-picked': movable && item.kind === 'goods' ? picked : undefined,
+    'aria-current': movable && item.kind === 'goods' ? picked : undefined,
     ...(movable ? drag : {}),
     // As DragListener.mousePressed, shift on the press makes the drag partial.
     onMouseDown: (e: MouseEvent) => (shiftPressed = e.shiftKey),
@@ -557,7 +557,7 @@ function ShipIcon({
       className="ship"
       data-unit={u.id}
       data-drop={target ? '' : undefined}
-      aria-pressed={chosen}
+      aria-current={chosen}
       tip={u.name}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -1038,7 +1038,6 @@ function BuildQueue({ c, art, children }: { c: ColonyView; art: Art; children: R
                         data-buildable={b.type}
                         data-locked={b.reason !== null || undefined}
                         onContextMenu={aboutIt(b.type)}
-                        data-selected={selList.includes(b.type) || undefined}
                         // Dragging one of several selected buildables takes them all.
                         {...(b.reason === null
                           ? queueDrag.source(() => ({
@@ -1051,6 +1050,8 @@ function BuildQueue({ c, art, children }: { c: ColonyView; art: Art; children: R
                           as="button"
                           disabled={b.reason !== null}
                           tip={b.reason ?? b.name}
+                          // On the button, which covers the row: the selected look is drawn behind its content.
+                          data-selected={selList.includes(b.type) || undefined}
                           onClick={(e) => {
                             if (multi(e)) {
                               setSelList(toggle(selList, b.type));

@@ -181,3 +181,20 @@ test("a component's sheet styles its own component, never a panel's", () => {
     );
   expect(reaching).toEqual([]);
 });
+
+test('what is selected or pressed is drawn by selection.css alone, and never by the text (#437)', () => {
+  // A rule whose subject (the last compound of its selector) is a selected or pressed thing, outside selection.css.
+  // A bare [aria-current] is what can be picked (aria-current is 'false' until it is), and may set its room.
+  const STATE =
+    /\[(aria-selected='true'|aria-pressed='true'|aria-current=|data-selected|data-picked)[^\]]*\][^\s>+~]*$/;
+  const subjects = (file: string, text: string) =>
+    [...bare(text).matchAll(/([^{}]+)\{/g)]
+      .flatMap((m) => m[1].split(','))
+      .map((s) => s.trim())
+      .filter((s) => STATE.test(s) && !s.includes("[role='tab']"))
+      .map((s) => `${file}: ${s}`);
+  const others = Object.entries(componentSheets).filter(([file]) => file !== './selection.css');
+  expect([...subjects('index.html', pageCss), ...others.flatMap(([file, text]) => subjects(file, text))]).toEqual([]);
+  const own = declarations(componentSheets['./selection.css']).filter((d) => d.selector !== ':root');
+  expect(own.filter((d) => /^font|^padding|^margin|^border-width/.test(d.prop))).toEqual([]);
+});

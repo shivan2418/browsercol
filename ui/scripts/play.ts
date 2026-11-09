@@ -552,7 +552,7 @@ async function play(page: Page, url: string) {
   const pickUp = async (thing: Locator, what: string) => {
     for (let i = 0; i < 5; i++) {
       await thing.click();
-      if ((await thing.getAttribute('data-picked')) === 'true') return;
+      if ((await thing.getAttribute('aria-current')) === 'true') return;
       await page.waitForTimeout(300);
     }
     throw new Error(`a click did not pick ${what}`);
@@ -966,7 +966,7 @@ async function play(page: Page, url: string) {
       const n = await page.evaluate(() => window.__maps);
       for (let i = 0; i < 5; i++) {
         await place.click();
-        if ((await panel.locator('[data-picked=true]').count()) === 0) {
+        if ((await panel.locator('[data-goods][aria-current=true]').count()) === 0) {
           await page.waitForFunction((n) => window.__maps > n, n, {
             timeout: 60000,
             label: 'the map after a pick is put down',

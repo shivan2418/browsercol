@@ -1375,7 +1375,7 @@ function UnitChip({
       className="chip"
       data-unit={u.id}
       tip={u.name}
-      aria-pressed={on}
+      aria-current={on}
       onClick={pick}
       onContextMenu={onContextMenu}
       {...props}
