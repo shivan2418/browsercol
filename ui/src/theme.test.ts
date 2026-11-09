@@ -93,10 +93,11 @@ test('index.html takes its fonts from the tokens alone', () => {
 const bare = (text: string) => text.replace(/\/\*[\s\S]*?\*\//g, '');
 
 /**
- * The sheets still to be moved into a layer: reports.css keeps its rules unlayered until #425, which changes it,
- * has landed (#435).
+ * The sheets of panels, not of a component: the reports' own rules name the dialogs they sit in and size their
+ * tables in their own lengths. They are in the components layer like the rest, but the token and panel-name
+ * checks below skip them (#435).
  */
-const UNLAYERED = ['./reports.css'];
+const PANEL_SHEETS = ['./reports.css'];
 
 /** Each declaration of a sheet, with the selector of the rule it is in. */
 function declarations(text: string) {
@@ -139,8 +140,8 @@ test('the tokens give each kind a theme may change: spacing, radii, borders, the
 });
 
 test("each component's sheet is in the components layer, and imported by a component", () => {
-  const files = Object.keys(componentSheets).filter((f) => !UNLAYERED.includes(f));
-  expect(files).toEqual(expect.arrayContaining(['./window-frame.css', './goods.css']));
+  const files = Object.keys(componentSheets);
+  expect(files).toEqual(expect.arrayContaining(['./window-frame.css', './goods.css', './reports.css']));
   for (const file of files) {
     expect(bare(componentSheets[file]).trim(), file).toMatch(/^@layer components \{[\s\S]*\}$/);
     expect(bare(componentSheets[file]).match(/@layer/g), file).toHaveLength(1);
@@ -154,7 +155,7 @@ test("each component's sheet is in the components layer, and imported by a compo
 test("a component's sheet takes its colours, fonts, spacing, radii, borders and shadows from tokens", () => {
   const problems: string[] = [];
   for (const [file, text] of Object.entries(componentSheets)) {
-    if (UNLAYERED.includes(file)) continue;
+    if (PANEL_SHEETS.includes(file)) continue;
     for (const { selector, prop, value } of declarations(text)) {
       // A component's own tokens, on :root, may hold a value of their own: a theme changes them there.
       if (selector === ':root' && prop.startsWith('--')) continue;
@@ -171,7 +172,7 @@ test("a component's sheet takes its colours, fonts, spacing, radii, borders and 
 test("a component's sheet styles its own component, never a panel's", () => {
   const PANELS = /\.dialog\b|\.colony\b|\.europe|#preferences|\.options\b|\.start-window|\[data-kind/;
   const reaching = Object.entries(componentSheets)
-    .filter(([file]) => !UNLAYERED.includes(file))
+    .filter(([file]) => !PANEL_SHEETS.includes(file))
     .flatMap(([file, text]) =>
       [...bare(text).matchAll(/([^{}]+)\{/g)]
         .map((m) => m[1].trim())

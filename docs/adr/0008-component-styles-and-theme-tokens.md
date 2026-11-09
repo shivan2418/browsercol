@@ -14,7 +14,7 @@ Almost all of the Browser UI's CSS was one 3,600-line `<style>` block in `ui/ind
 
 The split is done a component at a time, when a panel is touched, never as one rewrite. Rules still in `index.html` are in `@layer components` too, so a moved rule and the rules left behind still meet by specificity, and only their order changes: the component sheets come after `index.html`'s. Before a move, check the ties: a rule left behind with the same specificity that came after the moved one won before and loses after. A moved rule that must lose such a tie is written at no weight with `:where()` (`:where(.frame) { max-height: 100% }`, which `.dialog`'s size must override). Compare the panels' screenshots (below) and, with `--styles`, their computed styles before and after.
 
-`reports.css` is not in a layer yet: it is unlayered, so it wins over every layer, which its long selectors (`.dialog .report …`) did anyway. It moves into `@layer components` once the open report-width change (#425) has landed.
+`reports.css` is in `@layer components` like the rest. It is the sheet of the reports panels, not of one component, so it names the dialogs it sits in and `theme.test.ts` (`PANEL_SHEETS`) does not hold it to the token and panel-name rules.
 
 ## Screenshot comparison
 
