@@ -94,7 +94,7 @@ const bare = (text: string) => text.replace(/\/\*[\s\S]*?\*\//g, '');
 
 /**
  * The sheets still to be moved into a layer: reports.css keeps its rules unlayered until #425, which changes it,
- * has landed (the follow-up of #421 lists it).
+ * has landed (#435).
  */
 const UNLAYERED = ['./reports.css'];
 

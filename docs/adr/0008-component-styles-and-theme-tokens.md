@@ -32,4 +32,4 @@ The split is done a component at a time, when a panel is touched, never as one r
 
 - A new component with a visual pattern gets its own sheet beside it, in `@layer components`, using tokens; a theme never needs a component edited.
 - A new theme is a block of token values (`:root[data-theme='NAME']`, `:root[data-fonts='NAME']`), and may set any global or component token there.
-- The patterns found in `index.html` and not yet moved are listed in the follow-up issue of #421; the box (`Box`, `.box`/`.cap`) is moved by its own change, which also takes up the caption tokens.
+- The patterns found in `index.html` and not yet moved are listed in #435; the box (`Box`, `.box`/`.cap`) is moved by its own change, which also takes up the caption tokens.
