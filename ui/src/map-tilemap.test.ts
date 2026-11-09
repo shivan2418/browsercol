@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { Buffer, BufferUsage, Container, Rectangle, Texture } from 'pixi.js';
 import { Tilemap, TilemapGeometry } from '@pixi/tilemap';
-import { describe, expect, it } from 'vite-plus/test';
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import {
   Atlas,
   CHUNK,
@@ -122,13 +122,18 @@ describe('ChunkLayer', () => {
     // Tiles (0,0), (20,0) and (40,0), in three chunks along a row; the screen on the first.
     const view = new Rectangle(0, 0, 300, 300);
     layer.setView(view, all, all);
+    vi.useFakeTimers();
     draw([item(0, 0, grass), item(40, 0, grass), item(20, 0, grass)]);
     expect(built).toEqual([chunkOf(0, 0).join()]);
+    // Nothing waits for idle time until the view has been still a moment, so nothing is built mid-drag (#420).
+    expect(idle.length).toBe(0);
+    vi.advanceTimersByTime(120);
     expect(idle.length).toBe(1);
     // No time to spare: one chunk, the nearer, and the rest waits for the next idle time.
     idle.shift()!(() => false);
     expect(built).toEqual([chunkOf(0, 0).join(), chunkOf(20, 0).join()]);
     expect(flushed).toEqual([1, 2]);
+    vi.advanceTimersByTime(120);
     expect(idle.length).toBe(1);
     idle.shift()!(() => true);
     expect(built).toEqual([chunkOf(0, 0).join(), chunkOf(20, 0).join(), chunkOf(40, 0).join()]);
@@ -136,6 +141,10 @@ describe('ChunkLayer', () => {
     // Coming on the screen, they are built already.
     layer.setView(all, all, all);
     expect(built.length).toBe(3);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('builds nothing ahead beyond what it is told to, nor what it would let go of', () => {
