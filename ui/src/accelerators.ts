@@ -33,7 +33,10 @@ export function acceleratorFor(e: KeyLike): Accelerator | null {
   return null;
 }
 
-/** Whether a key press belongs to a text field, where Ctrl+X cuts and Ctrl+C copies. */
+/** What the player types into: a key pressed there is text, not a shortcut. A number field's input is an `input`; its step buttons count too. */
+export const TEXT_ENTRY = 'input, textarea, select, [role="combobox"], [contenteditable], .ui-number-step';
+
+/** Whether a key press belongs to a text field: there it types (and Ctrl+X cuts, Ctrl+C copies), so no game key runs. */
 export function inTextField(target: EventTarget | null): boolean {
-  return target instanceof Element && target.matches('input, textarea, select, [contenteditable]');
+  return target instanceof Element && target.matches(TEXT_ENTRY);
 }

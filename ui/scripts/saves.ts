@@ -202,7 +202,19 @@ async function run(page: Page, url: string, shot: () => Promise<unknown>, browse
 
   // 2. Save it.
   setStep('2. save the game');
-  await page.fill('#save-name', SAVE_NAME);
+  // Typed key by key, as a player does: the e in the name is text, not FreeCol's Europe key.
+  await page.fill('#save-name', '');
+  await page.locator('#save-name').pressSequentially(SAVE_NAME);
+  // The Europe panel, if the key had run, comes from the Engine a moment later.
+  await page.waitForTimeout(500);
+  if (
+    (await page.inputValue('#save-name')) !== SAVE_NAME ||
+    (await page.locator('[role=dialog][data-kind=europe]').count())
+  ) {
+    throw new Error(
+      `typing the save's name ran game keys: the field reads ${JSON.stringify(await page.inputValue('#save-name'))}`,
+    );
+  }
   await page.click('button[data-command=save]');
   await page.waitForFunction((n) => document.querySelector('#save-note')?.textContent === `Saved: ${n}`, SAVE_NAME, {
     timeout: 60000,

@@ -1543,6 +1543,8 @@ function playWith(client: ClientExports) {
   gotoClient = client;
   renderSide();
   addEventListener('keydown', (e) => {
+    // A key typed into a text field (a save's name, a colony's) is text: no game key runs.
+    if (inTextField(e.target)) return;
     // An open dialog has the keys (panels.tsx).
     // A report's hotkey (Shift+F3, ...) opens it over another report, but not over another dialog.
     const report = reportForKey(e);
@@ -1574,7 +1576,7 @@ function playWith(client: ClientExports) {
       const entry = act[accel];
       // Ctrl+C keeps copying a selection.
       const copying = accel === 'centre' && !!getSelection()?.toString();
-      if (entry && !inTextField(e.target) && !copying) {
+      if (entry && !copying) {
         e.preventDefault();
         entry();
         return;

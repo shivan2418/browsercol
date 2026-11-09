@@ -15,6 +15,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react';
+import { inTextField, TEXT_ENTRY } from './accelerators';
 import { Tip } from './controls';
 import { dragging } from './drag';
 import { focusFirstEntry, menuArrows, useFocusTrap } from './focus';
@@ -82,8 +83,8 @@ export function useEscape(close: (() => void) | null, keys: readonly string[] = 
   }, []);
 }
 
-/** What the player types into: a key pressed there is text, not a shortcut. A number field's input is an `input`; its step buttons count too. */
-export const TEXT_ENTRY = 'input, textarea, select, [role="combobox"], [contenteditable], .ui-number-step';
+/** What the player types into (accelerators.ts). */
+export { TEXT_ENTRY } from './accelerators';
 
 /** Whether a key press is one of a window's close keys: no modifier, and not typed into a field. */
 function isCloseKey(e: KeyboardEvent, keys: readonly string[]): boolean {
@@ -433,7 +434,7 @@ export function MenuBar({ menus, status }: { menus: Menu[]; status: string }) {
   mnemonic.current = names;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.repeat) return;
+      if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.repeat || inTextField(e.target)) return;
       const name = mnemonic.current.find((n) => e.code === `Key${n[0].toUpperCase()}`);
       if (!name) return;
       e.preventDefault();
