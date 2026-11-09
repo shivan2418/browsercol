@@ -117,6 +117,9 @@ export const whenIdle: Idle = (work) => {
     }, 16);
 };
 
+/** How long the view is still before the chunks near the screen start to be built when idle (#420). */
+const AHEAD_MS = 120;
+
 /** One static layer, drawn per chunk. */
 export class ChunkLayer {
   private chunks = new Map<string, Chunk>();
@@ -130,6 +133,8 @@ export class ChunkLayer {
   private ahead = new Rectangle();
   /** Whether chunks near the screen wait to be built when the page is idle. */
   private waiting = false;
+  /** The timer that starts the idle build once the view has been still for AHEAD_MS, so nothing is built mid-drag (#420). */
+  private still: ReturnType<typeof setTimeout> | undefined;
   constructor(
     readonly root: Container,
     private backend: ChunkBackend,
@@ -284,9 +289,13 @@ export class ChunkLayer {
       } else if (!on && c.dirty && c.box.intersects(this.keep)) ahead ||= c.box.intersects(this.ahead);
     }
     if (built) this.backend.flush();
+    // Each change of the view starts the wait again: a chunk built mid-drag costs the frame it is built in (#420).
+    clearTimeout(this.still);
     if (ahead && !this.waiting) {
-      this.waiting = true;
-      this.idle((more) => this.buildAhead(more));
+      this.still = setTimeout(() => {
+        this.waiting = true;
+        this.idle((more) => this.buildAhead(more));
+      }, AHEAD_MS);
     }
   }
 

@@ -1235,8 +1235,24 @@ let view: ViewState = { ...initialView, modes: startModes(prefs) };
 function dispatch(e: ViewEvent) {
   view = reduce(view, e);
   map.show(view);
+  // A pan moves the map and the minimap's frame and nothing the panels show: the map is the first to be drawn, and
+  // the rest waits until it has been, once however many pans come before (#420). Four React roots and the minimap
+  // redone on every move cost a slow machine the frame the drag's first moves are drawn in.
+  if (e.k === 'pan') return minimapAfterFrame();
   showPanel();
   renderMinimap();
+}
+let minimapQueued = false;
+function minimapAfterFrame() {
+  if (minimapQueued) return;
+  minimapQueued = true;
+  // After the frame that draws the map, which the map asked for in map.show.
+  requestAnimationFrame(() =>
+    setTimeout(() => {
+      minimapQueued = false;
+      renderMinimap();
+    }),
+  );
 }
 /** The last map view, which the minimap draws whole. */
 let lastMap: MapView | null = null;
