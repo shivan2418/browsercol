@@ -1,5 +1,16 @@
-import { describe, expect, it } from 'vite-plus/test';
-import { blur, FIELD_TEXEL, fieldTexel, mapPixels, programLinks, waterField, waterLook, waterTime } from './map-water';
+import { describe, expect, it, vi } from 'vite-plus/test';
+import {
+  blur,
+  coverAt,
+  coverOf,
+  FIELD_TEXEL,
+  fieldTexel,
+  mapPixels,
+  programLinks,
+  waterField,
+  waterLook,
+  waterTime,
+} from './map-water';
 import { resources } from './resources';
 import type { MapView } from './tileset';
 import { tileOrigin } from './view';
@@ -220,5 +231,37 @@ describe('programLinks', () => {
     expect(programLinks(gl('compile').ctx, { vertex: 'v', fragment: 'bad' })).toBe(false);
     expect(programLinks(gl('link').ctx, { vertex: 'v', fragment: 'f' })).toBe(false);
     expect(programLinks(gl('throw').ctx, { vertex: 'v', fragment: 'f' })).toBe(false);
+  });
+});
+
+describe('coverOf', () => {
+  /** A tile-sized picture of one alpha all over, read back through a fake canvas. */
+  const picture = (alpha: number) => ({ width: 128, height: 64, alpha }) as unknown as HTMLCanvasElement;
+  const fakeDocument = () => {
+    let drawn = 0;
+    const g = {
+      drawImage: (p: { alpha: number }) => (drawn = p.alpha),
+      getImageData: (_x: number, _y: number, w: number, h: number) => ({
+        data: new Uint8ClampedArray(4 * w * h).map((_, i) => (i % 4 === 3 ? Math.round(drawn * 255) : 0)),
+      }),
+    };
+    vi.stubGlobal('document', { createElement: () => ({ getContext: () => g }) });
+  };
+
+  it("is a picture's own alpha, or what pictures over each other leave uncovered taken from one", () => {
+    fakeDocument();
+    try {
+      const half = picture(0.5);
+      const fifth = picture(0.2);
+      expect(coverAt(coverOf([half]), 64, 32)).toBeCloseTo(0.5, 2);
+      // 1 - (1 - 0.5)(1 - 0.2)
+      const both = coverOf([half, fifth]);
+      expect(coverAt(both, 0, 0)).toBeCloseTo(0.6, 2);
+      expect(coverAt(both, 127, 63)).toBeCloseTo(0.6, 2);
+      // The same pictures again: the same cover, made once.
+      expect(coverOf([half, fifth])).toBe(both);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

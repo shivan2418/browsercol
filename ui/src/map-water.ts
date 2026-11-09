@@ -104,7 +104,8 @@ export const fieldTexel = (w: number, h: number, max = 4096): number => {
 };
 
 /**
- * The field the shader reads, a texel per `texel` map pixels, RGBA: red how much land or a coast's sand covers there,
+ * The field the shader reads, a texel per `texel` map pixels, RGBA: red how much land, or a water tile's shore cover
+ * (its sand and the land and beach its transitions bring onto it), covers there,
  * green the water's depth (0 a lake, a half the ocean, 1 the high seas), blue how near land is, and alpha whether
  * there is water there at all.
  */
@@ -143,8 +144,8 @@ interface Rect {
 }
 
 /**
- * The water field of a map. Each texel's tile, at its centre, decides it, and a coast's sand counts as land as much as
- * it covers there (`sand`: its alpha, 0 to 1, at a point of the tile, or 0 for a tile with none). Then how near land
+ * The water field of a map. Each texel's tile, at its centre, decides it, and a water tile's shore cover counts as land
+ * as much as it covers there (`sand`: its cover, 0 to 1, at a point of the tile, or 0 for a tile with none). Then how near land
  * is and the depth are blurred, to fade over SHALLOW_PX and DEPTH_PX, and the water's edge a little.
  *
  * Given the map's `last` field, it makes again only the texels round the tiles that changed (ground explored, say),
@@ -578,8 +579,8 @@ export function canDrawWater(gl: WebGLRenderingContext | WebGL2RenderingContext)
   return !!p && p.precision > 0;
 }
 
-/** A sand picture's alpha (alphaOf, a tile's W x H) at a point of its tile, the nearest pixel's. */
-export const sandAt = (alpha: Float32Array, u: number, v: number): number =>
+/** A tile's cover (coverOf, W x H) at a point of the tile, the nearest pixel's. */
+export const coverAt = (alpha: Float32Array, u: number, v: number): number =>
   alpha[Math.min(H - 1, Math.max(0, Math.floor(v))) * W + Math.min(W - 1, Math.max(0, Math.floor(u)))] ?? 0;
 
 /**

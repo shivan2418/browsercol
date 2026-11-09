@@ -577,7 +577,8 @@ function build(
     for (const d of ['NE', 'SW', 'NW', 'SE'] as Direction[]) {
       const t = transition(x, y, d, true);
       // Over the shader water, a water tile's transitions (the land and the beach reaching onto it) are shore too.
-      const shore = waterDrawing === 'surface' && !land([x, y]) ? { shore: true as const } : {};
+      const coast = waterDrawing === 'surface' && !land([x, y]) && DIRECTIONS.some((n) => land(step(x, y, n)));
+      const shore = coast ? { shore: true as const } : {};
       if (t) ops.push({ k: 'image', x, y, src: t, at: 'tile', ...shore });
     }
   };

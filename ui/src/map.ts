@@ -13,7 +13,7 @@ import {
   coverOf,
   fieldTexel,
   programLinks,
-  sandAt,
+  coverAt,
   waterField,
   waterLook,
   WaterSurface,
@@ -1676,16 +1676,16 @@ export function mapDrawer(
       const at = op.y * map.w + op.x;
       covering.set(at, [...(covering.get(at) ?? []), pic]);
     });
-    const sands = new Map<number, Float32Array>();
-    for (const [at, list] of covering) sands.set(at, coverOf(list));
+    const covers = new Map<number, Float32Array>();
+    for (const [at, list] of covering) covers.set(at, coverOf(list));
     const texel = fieldTexel(map.w, map.h, pen.water.maxField);
     // Made again only round the tiles that changed since the last.
     const next = waterField(
       map,
       texel,
       (x, y, u, v) => {
-        const a = sands.get(y * map.w + x);
-        return a ? sandAt(a, u, v) : 0;
+        const a = covers.get(y * map.w + x);
+        return a ? coverAt(a, u, v) : 0;
       },
       field,
     );
