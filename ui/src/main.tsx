@@ -155,7 +155,7 @@ import { applyTheme } from './theme';
 import { syncThemeColor } from './install';
 import { controlArt } from './control-art';
 import { cursor, initialView, panel, reduce, tileOnScreen, W, type ViewEvent, type ViewState } from './view';
-import type { GuiEvents, GuiHandlers, ReportView } from './webgui';
+import type { GuiEvents, GuiHandlers, PopupEvent, ReportView } from './webgui';
 
 declare global {
   interface Window {
@@ -437,6 +437,17 @@ let runCommand: (c: Command) => void = () => {};
 const drawColonyTiles: DrawTiles = (host, centre, tiles, top) => map.drawTiles(host, centre, tiles, top);
 /** The colonists' moves and the ships' loading in the colony panel, once the client Engine has loaded (Commands.java). */
 let colonyClient: ClientExports | null = null;
+/**
+ * What tells the client Engine that a pop-up is closed (#433): its Go To orders wait for it. Later than the
+ * Engine's call that showed it, as the Engine is not called back from within its own call.
+ */
+const popupClosed = (e: PopupEvent) => (): void => {
+  const id = e.popup;
+  if (id == null) return;
+  queueMicrotask(() => popupClient?.popupClosed(id));
+};
+/** The client Engine's popupClosed, once it has loaded. */
+let popupClient: Pick<ClientExports, 'popupClosed'> | null = null;
 const colonyMoves: ColonyMoves = {
   work: (unit, location) => colonyClient?.work(unit, location),
   putOutside: (unit) => colonyClient?.putOutsideColony(unit),
@@ -1380,12 +1391,12 @@ const gui: GuiHandlers = {
     focus: (e) => viewChanges.change(() => dispatch({ k: 'focus', ...e }), true),
     animateMove: (e) => map.moved(e),
     sound: (e) => playSound(e.key),
-    information: (e) => dialogQueue.show('information', e),
+    information: (e) => dialogQueue.show('information', e, popupClosed(e)),
     error: (e) => {
       console.error(e.text);
-      dialogQueue.show('error', e);
+      dialogQueue.show('error', e, popupClosed(e));
     },
-    eventPanel: (e) => dialogQueue.show('eventPanel', e),
+    eventPanel: (e) => dialogQueue.show('eventPanel', e, popupClosed(e)),
     indianSettlement: (e) => dialogQueue.show('indianSettlement', e),
     tilePanel: (e) => dialogQueue.show('tilePanel', e),
     findSettlement: (e) => dialogQueue.replace('findSettlement', e),
@@ -1401,7 +1412,9 @@ const gui: GuiHandlers = {
       const e = { ...raw, messages: visibleMessages(prefs, raw.messages) };
       if (e.regrouped) dialogQueue.replace('messages', e, (open) => open.title === e.title);
       // The turn report (it has the group by option) opens even with no messages, and says so.
-      else if (e.messages.length > 0 || e.groupBy) dialogQueue.show('messages', e);
+      else if (e.messages.length > 0 || e.groupBy) dialogQueue.show('messages', e, popupClosed(e));
+      // Messages the preferences hide all of are no pop-up: nothing waits for it.
+      else popupClosed(e)();
     },
     // A colony already open or queued is shown again in its place, else it opens.
     // It waits for the arriving unit's slide: a goto's arrival, a move into the colony and a landing all show it.
@@ -2082,6 +2095,7 @@ async function run() {
   );
   colonyNow = (id) => exports.colony(id);
   colonyClient = exports;
+  popupClient = exports;
   pushFreecolOptions(prefs.freecol);
   debugRequest = (r) => {
     lastDebug = r;

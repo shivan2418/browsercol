@@ -184,7 +184,8 @@ class WebGUITest {
 
         assertEquals(List.of("refresh {}",
                 "information {\"text\":\"" + Messages.message("info.enterSomeText")
-                + "\",\"object\":null,\"tile\":null,\"at\":null,\"images\":[],\"ok\":\"OK\"}"),
+                + "\",\"object\":null,\"tile\":null,\"at\":null,\"images\":[],\"ok\":\"OK\","
+                + "\"popup\":null}"),
             shown().stream().filter(e -> !e.startsWith("messages ")).collect(Collectors.toList()));
     }
 

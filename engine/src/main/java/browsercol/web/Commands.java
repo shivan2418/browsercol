@@ -1565,12 +1565,15 @@ public final class Commands {
 
     /**
      * End the turn (EndTurnAction), asking first if units still wait for
-     * orders and the client options say to.
+     * orders and the client options say to. While a pop-up is open the
+     * turn ends once it is closed, as the Go To orders go on then (#433);
+     * Swing's doEndTurn does nothing while a panel shows.
      *
      * @return True if the turn was ours to end.
      */
     public boolean endTurn() {
         if (!this.client.currentPlayerIsMyPlayer()) return false;
+        if (gui() instanceof WebGUI && ((WebGUI)gui()).endTurnWaitsForPopups()) return true;
         igc().endTurn(true);
         return true;
     }

@@ -11,6 +11,7 @@ import javax.swing.ImageIcon;
 
 import net.sf.freecol.client.ClientOptions;
 import net.sf.freecol.client.FreeColClient;
+import net.sf.freecol.client.control.InGameController;
 import net.sf.freecol.client.gui.ChoiceItem;
 import net.sf.freecol.client.gui.DialogHandler;
 import net.sf.freecol.client.gui.GUI;
@@ -114,6 +115,14 @@ import net.sf.freecol.common.option.OptionGroup;
  *         opens the Engines' log, as ErrorPanel's "Show log file"</td></tr>
  * <tr><td>showEventPanel(String, String, String)</td><td>event eventPanel</td>
  *     <td>{header, image, footer, ok}; image is a resource key</td></tr>
+ * <tr><td>information, error, eventPanel and messages events</td><td>(field)</td>
+ *     <td>also {popup}: the pop-up's id, or null for a Browser UI that does
+ *         not tell when it closes, and for the turn report shown again
+ *         regrouped. The Browser UI gives it back through popupClosed
+ *         when the player closes it; until all are closed no Go To orders
+ *         run and no turn ends ({@link #isPanelShowing}, #433)</td></tr>
+ * <tr><td>isPanelShowing</td><td>nothing</td>
+ *     <td>true while a pop-up is open</td></tr>
  * <tr><td>showEventPanel(String, String, String, Runnable) (defers)</td>
  *     <td>question event</td>
  *     <td>{header, image, footer, ok}; the callback runs once the player
@@ -390,6 +399,15 @@ public class WebGUI extends GUI {
         default void command(String name, Runnable run) {
             new Thread(run, "web-" + name).start();
         }
+        /**
+         * The Browser UI tells, through {@link WebGUI#popupClosed}, when
+         * each pop-up it was shown is closed, so the Engine can wait for
+         * them as Swing's isPanelShowing does (#433). Off by default: a
+         * Browser UI that never tells would keep the Go To orders waiting.
+         */
+        default boolean closesPopups() {
+            return false;
+        }
     }
 
     /**
@@ -411,6 +429,8 @@ public class WebGUI extends GUI {
     private final Questions questions;
     /** Keeps every dialog modal, as in Swing (#393, #401). */
     private final ModalGate modalGate;
+    /** The pop-ups open on the Browser UI's screen (#433). */
+    private final Popups popups = new Popups();
     private volatile Unit activeUnit = null;
     /** An end turn dialog has been asked and not yet answered. */
     private final AtomicBoolean endTurnDialogOpen = new AtomicBoolean(false);
@@ -439,6 +459,68 @@ public class WebGUI extends GUI {
                 public void release() { ui.releaseCommands(); }
             });
         this.questions = new Questions(ui::ask, this.modalGate);
+    }
+
+    /**
+     * A pop-up is shown: its id, for the Browser UI to give back when the
+     * player closes it, as JSON; null if the Browser UI does not tell.
+     */
+    private String popup() {
+        return this.ui.closesPopups() ? String.valueOf(this.popups.opened()) : "null";
+    }
+
+    /**
+     * The player closed a pop-up. Once none is open, what waited for them
+     * goes on, as a command after the ones waiting: the Go To orders, and
+     * a turn the player ended meanwhile.
+     *
+     * @param id The pop-up's id, from its event.
+     */
+    public void popupClosed(int id) {
+        final Popups.Then then = this.popups.closed(id);
+        if (then == Popups.Then.NOTHING) return;
+        final FreeColClient fcc = getFreeColClient();
+        this.ui.command("popupsClosed", () -> {
+                if (!fcc.currentPlayerIsMyPlayer()) return;
+                final InGameController igc = fcc.getInGameController();
+                if (then == Popups.Then.END_TURN) {
+                    igc.endTurn(true);
+                } else if (fcc.getMyPlayer().hasNextActiveUnit()) {
+                    // A unit waits for orders: it is selected, as after a move.
+                    igc.nextActiveUnit();
+                } else if (igc.executeGotoOrders()) {
+                    // None does: the Go To orders that waited go on, as
+                    // updateActiveUnit carries them out, and if all went, no
+                    // unit is left active. (updateActiveUnit itself would not:
+                    // the held orders left the move mode at EXECUTE_GOTO_ORDERS,
+                    // which it resets only while a unit is active, and does
+                    // nothing more that call.)
+                    changeView();
+                }
+            });
+    }
+
+    /**
+     * Whether a pop-up is open, so the turn the player ends now waits for
+     * it, as Swing's doEndTurn does; here it ends once they are closed.
+     */
+    boolean endTurnWaitsForPopups() {
+        if (!isPanelShowing()) return false;
+        this.popups.endTurnAfter();
+        return true;
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * True while a pop-up the Browser UI was shown is still open, as
+     * Swing's is while a panel is on the canvas: the client carries out
+     * no Go To orders then (#433), and they go on once it is closed
+     * ({@link #popupClosed}).
+     */
+    @Override
+    public boolean isPanelShowing() {
+        return this.popups.showing();
     }
 
     /** The gate that keeps every dialog modal. */
@@ -766,7 +848,9 @@ public class WebGUI extends GUI {
         final Json event = new Json()
             .put("title", title)
             .putRaw("messages", Json.array(messages))
-            .put("ok", label("ok"));
+            .put("ok", label("ok"))
+            // The report shown again in place of the open one is the same pop-up.
+            .putRaw("popup", regrouped ? "null" : popup());
         if (report) {
             final List<String> choices = new ArrayList<>();
             for (int value : GROUP_BY) {
@@ -1158,7 +1242,8 @@ public class WebGUI extends GUI {
             .put("text", Messages.message(template))
             .put("object", id(displayObject)), tileOf(displayObject))
             .putRaw("images", ObjectImages.json(displayObject))
-            .put("ok", label("ok")).toString());
+            .put("ok", label("ok"))
+            .putRaw("popup", popup()).toString());
         return null;
     }
 
@@ -1191,7 +1276,8 @@ public class WebGUI extends GUI {
             .put("detail", detail)
             .put("request", clip(this.engine.lastRequest()))
             .put("turn", turnLabel())
-            .put("player", playerName()).toString());
+            .put("player", playerName())
+            .putRaw("popup", popup()).toString());
         if (callback != null) callback.run();
         return null;
     }
@@ -1230,7 +1316,8 @@ public class WebGUI extends GUI {
             .put("header", header)
             .put("image", image)
             .put("footer", footer)
-            .put("ok", label("ok")).toString());
+            .put("ok", label("ok"))
+            .putRaw("popup", popup()).toString());
         return null;
     }
 

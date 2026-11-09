@@ -120,7 +120,8 @@ final class SettlementGoTo {
      * it does there.
      */
     void enterArrived() {
-        if (!this.client.currentPlayerIsMyPlayer()) return;
+        // An open pop-up waits for the player to close it, as the Go To orders do (#433).
+        if (!this.client.currentPlayerIsMyPlayer() || this.client.getGUI().isPanelShowing()) return;
         for (Unit u : waiting(true)) {
             // A dialog before may have changed it.
             final Tile target = settlementNextTo(u);

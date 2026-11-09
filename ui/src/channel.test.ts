@@ -155,6 +155,7 @@ function fakeClient(scope: Scope, log: string[]): ClientExports {
     refreshMap: () => {},
     reportFilter: () => {},
     reportIgnore: () => {},
+    popupClosed: () => {},
   };
 }
 

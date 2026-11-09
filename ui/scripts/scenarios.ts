@@ -11,6 +11,8 @@
 //   capture-goods, dump-cargo, native-demand, diplomacy, independence, victory (#349 part 5)
 //                      each leads the player to a dialog no game reaches by itself, answers it, and checks the
 //                      game went on; the dialog is shot open as .cache/dialog-shots/METHOD-BROWSER.png
+//   rumour-pop-up      the owner's save: a move onto a rumour, whose pop-up holds another unit's Go To into a colony
+//                      until it is closed (#433)
 // The saves are the Engine's fixtures (engine/src/test/resources/saves), which the Engine tests load too.
 // Run in the web image:
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/scenarios.ts [--only desktop-late-game,combat] [--browsers chromium,firefox] [--turns 5]
@@ -943,6 +945,47 @@ const scenarios: Record<string, (run: Run) => Promise<void>> = {
     await run.shot('after-victory');
   },
 
+  // A move's pop-up is closed before the Go To orders go on (#433). The owner's save: the petty criminal beside New
+  // Amsterdam has a Go To into it, and the indentured servant at 19,76 stands beside a rumour. With the others
+  // sentried the servant's move onto the rumour is the last; its outcome pops up, and the criminal's arrival, which
+  // opens the colony's panel, waits until the pop-up is closed.
+  'rumour-pop-up': async (run) => {
+    const page = run.page;
+    await loadSave(run, path.join(root, 'engine/src/test/resources/rumour/about-to-move-into-rumour.fsg'));
+    const servant = 'unit:6421';
+    for (let i = 0; i < 10; i++) {
+      await run.noDialog();
+      const id = (await run.view()).activeUnit?.id;
+      if (id === servant) break;
+      if (!id) throw new Error('no unit is active before the servant');
+      const before = await page.evaluate(() => window.__maps);
+      await page.keyboard.press(id === 'unit:5725' || id === 'unit:6420' ? 's' : 'w');
+      await page.waitForFunction((n: number) => window.__maps > n, before, { timeout: 8000 });
+    }
+    const active = (await run.view()).activeUnit?.id;
+    if (active !== servant) throw new Error(`the servant is not the active unit: ${active}`);
+    await hold(run, 'messages,colony');
+    // South-east onto the rumour; the page answers the question whether to explore it, yes.
+    await page.keyboard.press('PageDown');
+    await waitKind(run, 'messages', "the rumour's outcome");
+    await sleep(3000);
+    const early = await page.locator(kindSel('colony')).count();
+    await dialogShot(run, 'rumour-pop-up');
+    if (early > 0) throw new Error("the colony panel opened while the rumour's pop-up was still open");
+    await clickIn(run, 'messages', '[data-answer=close]');
+    // Here the rumour's outcome is a colonist, who waits for orders first: sentry it, as the player is done.
+    for (let i = 0; i < 5 && (await page.locator(kindSel('colony')).count()) === 0; i++) {
+      const id = (await run.view()).activeUnit?.id;
+      if (id && id !== 'unit:6324') {
+        run.note(`sentry ${id}, which the rumour gave`);
+        await page.keyboard.press('s');
+      }
+      await sleep(1500);
+    }
+    await waitKind(run, 'colony', 'once the pop-up is closed and no unit waits, the criminal arrives', 30000);
+    await hold(run, null);
+    await clickIn(run, 'colony', '[data-answer=close]');
+  },
   'desktop-late-game': async (run) => {
     await loadSave(run, path.join(saves, '2026-11-04-desktop-long-game-turn173.fsg'));
     const m = await run.view();
