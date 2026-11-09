@@ -24,6 +24,7 @@ import path from 'node:path';
 import type { Locator, Page } from 'playwright-core';
 import type { MapView, Unit } from '../src/tileset.ts';
 import { browserNames, collectPageErrors, diagnose, launchBrowser, opt, waitForResult } from './common.ts';
+import { logAudio } from './sound-log.ts';
 import { answerDialogs, dialogLog } from './dialogs.ts';
 import { dist, serveDist } from './serve-dist.ts';
 
@@ -1941,6 +1942,7 @@ for (const name of browsers) {
   const browser = await launchBrowser(name);
   const page = await browser.newPage({ viewport: { width: 1400, height: 900 }, deviceScaleFactor: scale });
   const errors = collectPageErrors(page);
+  if (opt('sound-log', '')) await logAudio(page, name);
   const t = Date.now();
   let result: Result;
   try {
