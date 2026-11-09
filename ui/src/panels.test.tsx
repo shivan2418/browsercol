@@ -2587,6 +2587,10 @@ describe('the Europe panel', () => {
     act(() => dragOnto(food(), cargo(), { shiftKey: true }));
     act(() => dragOnto(stack(), market(), { shiftKey: true }));
     expect(calls).toEqual(['buy model.goods.food unit:1 true', 'sell model.goods.food unit:1 true']);
+    // The docks sell the cargo dropped there too, where Swing refuses it.
+    calls.length = 0;
+    act(() => dragOnto(stack(), document.querySelector('[data-list=docks]')!));
+    expect(calls).toEqual(['sell model.goods.food unit:1 false']);
   });
 
   it('opens the Engine’s quick-action menu on a right-click of a ship, a docked unit, cargo and the market', () => {

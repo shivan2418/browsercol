@@ -1549,11 +1549,14 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
     if (item.kind === 'goods' && item.from === 'market') buy(item.type, item.ask === true);
     else if (item.kind === 'unit' && ship) europeButtons.board(item.id, ship.id);
   };
-  /** What a drop on the docks does: a unit aboard the ship comes ashore. */
+  /**
+   * What a drop on the docks does: a unit aboard the ship comes ashore, and the cargo's goods are sold, as on the
+   * market. Swing's docks refuse goods; selling there saves a drag across the panel.
+   */
   const onDocks = (item: Item) => {
     if (item.kind === 'unit' && ship?.cargo?.some((c) => c.kind === 'unit' && c.id === item.id)) {
       europeButtons.leave(item.id);
-    }
+    } else onMarket(item);
   };
   /**
    * What a drop on the ships sailing to America or to Europe does: a ship in port is sent, as the Sail button does
