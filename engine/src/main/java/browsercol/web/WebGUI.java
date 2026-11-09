@@ -485,6 +485,8 @@ public class WebGUI extends GUI {
                 final InGameController igc = fcc.getInGameController();
                 if (then == Popups.Then.END_TURN) {
                     igc.endTurn(true);
+                } else if (then == Popups.Then.END_TURN_ANSWERED) {
+                    igc.endTurn(false);
                 } else if (fcc.getMyPlayer().hasNextActiveUnit()) {
                     // A unit waits for orders: it is selected, as after a move.
                     igc.nextActiveUnit();
@@ -503,10 +505,17 @@ public class WebGUI extends GUI {
     /**
      * Whether a pop-up is open, so the turn the player ends now waits for
      * it, as Swing's doEndTurn does; here it ends once they are closed.
+     * FreeCol's doEndTurn returns at once while one is open, so every end
+     * of the turn the player asks for comes through here first: the End
+     * turn key, and the end turn dialog answered while a pop-up's closing
+     * is still on its way (it happened in Firefox's play script).
+     *
+     * @param ask Whether the end turn dialog is still to be asked, rather
+     *     than answered already.
      */
-    boolean endTurnWaitsForPopups() {
+    boolean endTurnWaitsForPopups(boolean ask) {
         if (!isPanelShowing()) return false;
-        this.popups.endTurnAfter();
+        this.popups.endTurnAfter(ask);
         return true;
     }
 
@@ -1762,7 +1771,7 @@ public class WebGUI extends GUI {
                         .put("cancel", label("cancel"))
                         .putRaw("units", Json.array(waiting))
                         .toString());
-                    if ("ok".equals(answer)) {
+                    if ("ok".equals(answer) && !endTurnWaitsForPopups(false)) {
                         getFreeColClient().getInGameController().endTurn(false);
                     }
                 } finally {

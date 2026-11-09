@@ -28,6 +28,11 @@ final class Popups {
     private boolean waited = false;
     /** The player ended the turn while one was open. */
     private boolean endTurn = false;
+    /**
+     * And had not yet answered the end turn dialog: it is asked once they
+     * are closed. An answered one (ok) ends the turn without asking again.
+     */
+    private boolean ask = true;
 
     /** A pop-up is shown: its id, which the Browser UI gives back when it closes. */
     synchronized int opened() {
@@ -46,14 +51,25 @@ final class Popups {
         return true;
     }
 
-    /** The player ended the turn while a pop-up was open: it ends once they are closed. */
-    synchronized void endTurnAfter() {
+    /**
+     * The player ended the turn while a pop-up was open: it ends once they
+     * are closed.
+     *
+     * @param ask Whether the end turn dialog is still to be asked; false
+     *     once the player answered it, and then it is not asked again.
+     */
+    synchronized void endTurnAfter(boolean ask) {
+        this.ask = this.endTurn ? this.ask && ask : ask;
         this.endTurn = true;
         this.waited = true;
     }
 
-    /** What to do once the last pop-up is closed. */
-    enum Then { NOTHING, GO_ON, END_TURN }
+    /**
+     * What to do once the last pop-up is closed: nothing, go on (the Go To
+     * orders), end the turn asking the end turn dialog, or end it as
+     * answered.
+     */
+    enum Then { NOTHING, GO_ON, END_TURN, END_TURN_ANSWERED }
 
     /**
      * A pop-up is closed.
@@ -63,9 +79,11 @@ final class Popups {
      */
     synchronized Then closed(int id) {
         if (!this.open.remove(id) || !this.open.isEmpty() || !this.waited) return Then.NOTHING;
-        final Then then = this.endTurn ? Then.END_TURN : Then.GO_ON;
+        final Then then = !this.endTurn ? Then.GO_ON
+            : this.ask ? Then.END_TURN : Then.END_TURN_ANSWERED;
         this.waited = false;
         this.endTurn = false;
+        this.ask = true;
         return then;
     }
 }

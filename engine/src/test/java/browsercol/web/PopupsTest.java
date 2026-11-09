@@ -35,8 +35,20 @@ class PopupsTest {
     void aTurnEndedMeanwhileEndsOnceTheyAreClosed() {
         final Popups p = new Popups();
         final int a = p.opened();
-        p.endTurnAfter();
+        p.endTurnAfter(true);
         assertEquals(Popups.Then.END_TURN, p.closed(a));
         assertEquals(Popups.Then.NOTHING, p.closed(p.opened()), "once only");
+    }
+
+    @Test
+    void anAnsweredEndTurnDialogIsNotAskedAgain() {
+        final Popups p = new Popups();
+        final int a = p.opened();
+        p.endTurnAfter(true);
+        p.endTurnAfter(false);
+        assertEquals(Popups.Then.END_TURN_ANSWERED, p.closed(a), "the player said ok");
+        final int b = p.opened();
+        p.endTurnAfter(true);
+        assertEquals(Popups.Then.END_TURN, p.closed(b), "the next turn asks afresh");
     }
 }

@@ -1573,7 +1573,7 @@ public final class Commands {
      */
     public boolean endTurn() {
         if (!this.client.currentPlayerIsMyPlayer()) return false;
-        if (gui() instanceof WebGUI && ((WebGUI)gui()).endTurnWaitsForPopups()) return true;
+        if (gui() instanceof WebGUI && ((WebGUI)gui()).endTurnWaitsForPopups(true)) return true;
         igc().endTurn(true);
         return true;
     }
