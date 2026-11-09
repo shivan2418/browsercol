@@ -32,6 +32,7 @@ import {
   type MapView,
   type Op,
   type Animated,
+  type WaterLayers,
   type Recipe,
   type Src,
   type StaticScene,
@@ -145,6 +146,25 @@ export function pictures(base: string, load: (path: string) => Promise<Picture> 
     }
     return p;
   };
+  /**
+   * A river's or delta's picture at a tick, drawn straight on its canvas (#410): the water's frame, kept
+   * in the shape (which has the water's alpha); the pebbles under it; the whole kept in the fade and the tile. The shape, pebbles and fade are
+   * the same canvases for every frame, so a frame costs no canvas of its own.
+   */
+  const paint = async (c: HTMLCanvasElement, l: WaterLayers, t: Ticks): Promise<HTMLCanvasElement> => {
+    const [water, shape, under, keep] = await Promise.all([get(l.water(t)), get(l.shape), get(l.under), get(l.keep)]);
+    const g = c.getContext('2d')!;
+    g.globalCompositeOperation = 'copy';
+    g.drawImage(water, 0, 0, W, H);
+    g.globalCompositeOperation = 'destination-in';
+    g.drawImage(shape, 0, 0, W, H);
+    g.globalCompositeOperation = 'destination-over';
+    g.drawImage(under, 0, 0, W, H);
+    g.globalCompositeOperation = 'destination-in';
+    g.drawImage(keep, 0, 0, W, H);
+    g.globalCompositeOperation = 'source-over';
+    return c;
+  };
   const tickKey = (t: Ticks) => `${t.water}:${t.river}`;
   /** Each animated picture's canvas, and the frame it shows. */
   const lives = new Map<string, Promise<HTMLCanvasElement>>();
@@ -155,9 +175,15 @@ export function pictures(base: string, load: (path: string) => Promise<Picture> 
     let p = lives.get(anim.id);
     if (!p) {
       const at = ticks;
-      p = frame(anim.animate(at)).then((pic) => {
-        const c = canvas(pic.width, pic.height);
-        c.getContext('2d')!.drawImage(pic, 0, 0);
+      p = (
+        anim.layers
+          ? paint(canvas(W, H), anim.layers, at)
+          : frame(anim.animate(at)).then((pic) => {
+              const c = canvas(pic.width, pic.height);
+              c.getContext('2d')!.drawImage(pic, 0, 0);
+              return c;
+            })
+      ).then((c) => {
         liveOf.set(c, { anim, shows: tickKey(at) });
         return c;
       });
@@ -180,11 +206,16 @@ export function pictures(base: string, load: (path: string) => Promise<Picture> 
       if (l && l.shows !== key) due.push([pic as HTMLCanvasElement, l]);
     }
     keptFrames = Math.max(KEPT_FRAMES, live * FRAMES_EACH);
-    const next = await Promise.all(due.map(([, l]) => frame(l.anim.animate(t))));
+    const next = await Promise.all(
+      due.map(([c, l]) => (l.anim.layers ? paint(c, l.anim.layers, t) : frame(l.anim.animate(t)))),
+    );
     due.forEach(([c, l], i) => {
-      const g = c.getContext('2d')!;
-      g.clearRect(0, 0, c.width, c.height);
-      g.drawImage(next[i], 0, 0);
+      // A layered picture is drawn already.
+      if (!l.anim.layers) {
+        const g = c.getContext('2d')!;
+        g.clearRect(0, 0, c.width, c.height);
+        g.drawImage(next[i], 0, 0);
+      }
       l.shows = key;
     });
     return due.map(([c]) => c);
@@ -1651,6 +1682,8 @@ export function mapDrawer(
           camera();
         }
         measure('map: water', start);
+        // What the animated pictures hold, for scripts/rivers-bench.ts: frames kept (each a tile-sized canvas) and live pictures.
+        performance.mark('map: pictures', { detail: { kept: pics.kept(), live: pics.live() } });
       })
       .finally(() => {
         baseBusy = false;

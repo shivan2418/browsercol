@@ -147,6 +147,24 @@ export interface Animated {
   id: string;
   /** What it shows at a frame. */
   animate(ticks: Ticks): Src;
+  /**
+   * A river's or delta's picture is not composited per frame: its canvas is drawn straight from these (#410), the
+   * water's frame through the shape, the pebbles under it, all in the tile's mask, which is `animate`'s recipe
+   * without a canvas per shape and frame. The same pixels, up to rounding.
+   */
+  layers?: WaterLayers;
+}
+
+/** What a river's picture is made of: the water's frame is the only part that changes. */
+export interface WaterLayers {
+  /** The water's frame at a tick: an image file. */
+  water(ticks: Ticks): string;
+  /** Where the water is kept, at the water's alpha: its mask drawn at 0.9. */
+  shape: Src;
+  /** Drawn under the water. */
+  under: Src;
+  /** Where the whole is kept: the river's fade and the tile's own shape. */
+  keep: Src;
 }
 
 export const isAnimated = (src: Src): src is Animated => typeof src !== 'string' && 'animate' in src;
@@ -533,7 +551,7 @@ function build(
           const river = land(b) ? riverAt(b) : undefined;
           return !!river && Number(river.style[LONG_SIDES.indexOf(REVERSE[d])] ?? 0) > 0;
         });
-  // DeltaAnimationImageCreator.
+  // DeltaAnimationImageCreator: the pebbles in their mask, the river water in its, both kept in the tile's.
   const delta = (d: Direction, ticks: Ticks): Recipe | null => {
     const dir = d.toLowerCase();
     const [pebbles, waterImg, waterMask, pebblesMask, tileMask] = [
@@ -551,6 +569,25 @@ function build(
         { draw: masked(waterImg, waterMask), alpha: 0.9 },
         { mask: tileMask },
       ],
+    };
+  };
+
+  /** A mask drawn at the river water's alpha, 0.9, which the water is kept in. */
+  const faded = (mask: Src): Recipe => ({ id: `faded:${srcId(mask)}`, steps: [{ draw: mask, alpha: 0.9 }] });
+  const deltaLayers = (d: Direction): WaterLayers | null => {
+    const dir = d.toLowerCase();
+    const [pebbles, waterMask, pebblesMask, tileMask] = [
+      res.path(RIVER_PEBBLES),
+      res.path(`${MASK}river.delta.${dir}`),
+      res.path(`${MASK}river.delta.pebbles.${dir}`),
+      res.path(TILE_MASK),
+    ];
+    if (!pebbles || !waterMask || !pebblesMask || !tileMask) return null;
+    return {
+      water: (t) => res.path(RIVER_WATER, frame(RIVER_WATER, t.river))!,
+      shape: faded(waterMask),
+      under: masked(pebbles, pebblesMask),
+      keep: tileMask,
     };
   };
 
@@ -588,6 +625,23 @@ function build(
       steps: [{ draw: pebbles }, { draw: masked(waterImg, mask), alpha: 0.9 }, { mask: larger }, { mask: tileMask }],
     };
   };
+  const riverLayers = (x: number, y: number): WaterLayers | null => {
+    const recipe = river(x, y, STILL);
+    if (!recipe) return null;
+    // river()'s own steps, taken apart: the pebbles, the masked water, the larger mask, the tile's mask.
+    const [under, shape, larger, tileMask] = [
+      (recipe.steps[0] as { draw: Src }).draw,
+      ((recipe.steps[1] as { draw: Recipe }).draw.steps[1] as { mask: Src }).mask,
+      (recipe.steps[2] as { mask: Src }).mask,
+      (recipe.steps[3] as { mask: Src }).mask,
+    ];
+    return {
+      water: (t) => res.path(RIVER_WATER, frame(RIVER_WATER, t.river))!,
+      shape: faded(shape),
+      under,
+      keep: { id: `keep:${srcId(larger)}:${srcId(tileMask)}`, steps: [{ draw: larger }, { mask: tileMask }] },
+    };
+  };
 
   /** The pass the ops pushed now are in, and how many ops have their pass noted. */
   let pass = 0;
@@ -615,11 +669,11 @@ function build(
    * the same thing (all the open ocean of a type, a beach of the same shape) share it. Art with one frame stays a
    * plain picture.
    */
-  const animatedSrc = (at: (ticks: Ticks) => Src | null): Src | null => {
+  const animatedSrc = (at: (ticks: Ticks) => Src | null, layers?: () => WaterLayers | null): Src | null => {
     const still = at(STILL);
     const next = at({ water: 1, river: 1 });
     if (!still || !next || srcId(next) === srcId(still)) return still;
-    return { id: `anim:${srcId(still)}`, animate: (ticks) => at(ticks) ?? still };
+    return { id: `anim:${srcId(still)}`, animate: (ticks) => at(ticks) ?? still, layers: layers?.() ?? undefined };
   };
 
   // MapViewer paints the animated base tiles below the rest: water with its
@@ -633,13 +687,19 @@ function build(
       const ds = deltas(x, y);
       if (ds.length) transitions(x, y);
       for (const d of ds) {
-        const src = animatedSrc((t) => delta(d, t));
+        const src = animatedSrc(
+          (t) => delta(d, t),
+          () => deltaLayers(d),
+        );
         if (src) ops.push({ k: 'image', x, y, src, at: 'tile' });
       }
     } else if (riverAt([x, y])) {
       terrain(x, y, type);
       transitions(x, y);
-      const src = animatedSrc((t) => river(x, y, t));
+      const src = animatedSrc(
+        (t) => river(x, y, t),
+        () => riverLayers(x, y),
+      );
       if (src) ops.push({ k: 'image', x, y, src, at: 'tile' });
     }
   });
