@@ -8,7 +8,7 @@
       name="description"
       content="BrowserCol is FreeCol, the open-source Colonization, running in your browser. Free, with no install and no account."
     />
-    <meta name="color-scheme" content="light dark" />
+    <meta name="color-scheme" content="light" />
     <meta property="og:title" content="BrowserCol: FreeCol in your browser" />
     <meta
       property="og:description"
@@ -53,7 +53,7 @@
         src: url('./fonts/noto-sans-latin-700-normal.woff2') format('woff2');
       }
 
-      /* The tokens are the game's (ui/src/theme.css): parchment by default, and a dark palette by preference. */
+      /* The tokens are the game's parchment palette (ui/src/theme.css), in light only: the logo's own look. */
       :root {
         --menubar: #3b2a17;
         --menubar-ink: #f3e6c4;
@@ -70,21 +70,6 @@
         --link: #8a2e12;
         --font: 'Noto Sans', system-ui, sans-serif;
         --font-title: 'Cinzel', 'Palatino Linotype', Georgia, serif;
-      }
-      @media (prefers-color-scheme: dark) {
-        :root {
-          --menubar: #0b0b0c;
-          --menubar-ink: #f2e6c8;
-          --page: #14110d;
-          --panel: #1d1914;
-          --ink: #efe6d2;
-          --muted: #b3a68c;
-          --head: #e8c985;
-          --line: #4a3f2e;
-          --accent: #c8582f;
-          --accent-ink: #fff4dc;
-          --link: #e8c985;
-        }
       }
       * {
         box-sizing: border-box;
