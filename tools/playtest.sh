@@ -2,7 +2,7 @@
 # A stable playtest server, apart from the checkout you work in: the built dist/ of a worktree of its own,
 # served without hot reload, so the page changes only when you reload it after an update.
 #
-#   tools/playtest.sh serve           serve the playtest worktree's dist/ at http://localhost:5174
+#   tools/playtest.sh serve           serve the playtest worktree's dist/ at http://localhost:5174, the game at play/
 #   tools/playtest.sh update [REF]    move the worktree to REF (default main), build it; reload the tab after
 #   tools/playtest.sh status          which commit the playtest server has, and what main has beyond it
 #
@@ -28,7 +28,7 @@ case "${1:-}" in
   serve)
     ensure_worktree
     [ -f "$wt/dist/index.html" ] || (cd "$wt" && ./dev.sh ./build.sh)
-    echo "Playtest server: http://localhost:$port ($(git -C "$wt" log --oneline -1))"
+    echo "Playtest server: http://localhost:$port/play/ ($(git -C "$wt" log --oneline -1))"
     cd "$wt" && DEV_PORT=$port exec ./dev.sh -C ui pnpm exec vp preview --host 0.0.0.0 --port "$port" --strictPort
     ;;
   update)
@@ -46,7 +46,7 @@ case "${1:-}" in
       echo "Build failed; see $wt/.playtest-build.log" >&2
       exit 1
     }
-    echo "Playtest updated to $(git -C "$wt" log --oneline -1). Reload the tab at http://localhost:$port to get it."
+    echo "Playtest updated to $(git -C "$wt" log --oneline -1). Reload the tab at http://localhost:$port/play/ to get it."
     ;;
   status)
     echo "Playtest: $(git -C "$wt" log --oneline -1)"

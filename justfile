@@ -90,7 +90,7 @@ dialog-coverage-run: (browser "smoke") (browser "play") (browser "saves") (brows
 dialog-coverage:
     ./dev.sh node tools/dialog-coverage.mjs
 
-# The stable playtest server at http://localhost:5174: the playtest worktree's built dist/, no hot reload
+# The stable playtest server at http://localhost:5174/play/: the playtest worktree's built dist/, no hot reload
 playtest:
     tools/playtest.sh serve
 
