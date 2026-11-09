@@ -8,7 +8,15 @@
 // To add a report: add its view to ReportView (webgui.ts), a body for it in BODIES below, and an entry
 // in REPORTS, which is the Report menu. The Engine side is Reports.java.
 import './reports.css';
-import { Fragment, createContext, useContext, useState, type KeyboardEvent, type ReactNode } from 'react';
+import {
+  Fragment,
+  createContext,
+  useContext,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
 import { Select, Tip } from './controls';
 import type { Dialog } from './dialogs';
 import { GoodsAmount, GoodsProgressBar, WindowFrame, type Art, type Menu } from './frame';
@@ -1117,6 +1125,12 @@ type Links = Pick<ReportActions, 'colony' | 'detail' | 'europe' | 'goTo' | 'colo
 type Body<K extends ReportName> = (p: { e: View<K>; art: Art; go: Links }) => ReactNode;
 
 /** The body of each report: every report the Engine sends needs one, or this does not compile. */
+/**
+ * The reports whose content changes while they stay open (an entry chosen, a tab opened) have one width, so the
+ * window does not jump (reports.css, `data-fixed`): their text wraps in it. Sized in em to follow the font.
+ */
+const FIXED_WIDTH: Partial<Record<ReportName, string>> = { colopedia: '58em', congress: '60em' };
+
 const BODIES: { [K in ReportName]: Body<K> } = {
   colony: ColonyReport,
   compactColony: CompactColonyReport,
@@ -1168,6 +1182,8 @@ export function ReportPanel({ d, e, art }: { d: Dialog; e: ReportView; art: Art 
       aria-modal="true"
       data-kind="report"
       data-report={e.report}
+      data-fixed={e.report in FIXED_WIDTH || undefined}
+      style={e.report in FIXED_WIDTH ? ({ '--window-width': FIXED_WIDTH[e.report] } as CSSProperties) : undefined}
       title={e.title}
       close={close}
     >

@@ -12,6 +12,16 @@
   max-width: calc(var(--screen-w) * 0.96);
   max-height: calc(var(--screen-h) * 0.94);
 }
+/*
+ * A window whose content changes while it stays open: one width (--window-width, in em, set by the report), and
+ * its text wraps in it instead of stretching it. A flex or grid child needs min-width: 0 to wrap, and an
+ * unbroken string breaks at the edge.
+ */
+.dialog[data-kind='report'][data-fixed] {
+  width: min(var(--window-width), calc(var(--screen-w) * 0.96));
+  max-width: none;
+  overflow-wrap: anywhere;
+}
 .dialog .report {
   min-height: 12em;
   overflow: auto;
@@ -340,8 +350,8 @@
 .dialog .report .colopedia {
   display: flex;
   gap: 12px;
-  min-height: 320px;
-  max-height: calc(var(--screen-h) * 0.6);
+  /* One height too: the tree and the detail scroll inside it, as in Swing's fixed-size ColopediaPanel. */
+  height: min(30em, calc(var(--screen-h) * 0.6));
 }
 .dialog .report .colopedia ul {
   list-style: none;
@@ -349,7 +359,7 @@
   padding: 0;
 }
 .dialog .report .colopedia .tree {
-  flex: 0 0 220px;
+  flex: 0 0 14em;
   overflow-y: auto;
 }
 .dialog .report .colopedia .tree ul ul {
@@ -374,6 +384,7 @@
 }
 .dialog .report .colopedia .detail {
   flex: 1;
+  min-width: 0;
   overflow-y: auto;
 }
 .dialog .report .colopedia .detail dl div {
@@ -381,9 +392,11 @@
   gap: 8px;
 }
 .dialog .report .colopedia .detail dt {
+  flex: none;
   color: var(--muted);
 }
 .dialog .report .colopedia .detail dd {
+  min-width: 0;
   margin: 0;
 }
 .dialog .report .colopedia .tree .group {

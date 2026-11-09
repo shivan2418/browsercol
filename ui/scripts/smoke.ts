@@ -159,6 +159,16 @@ for (const name of browsers) {
       await pedia.goto(`${server.url}?autoplay=0`);
       await pedia.click('[data-colopedia=nations]');
       await pedia.waitForSelector('.colopedia [data-entry="model.nation.dutch"]', { timeout: 120000 });
+      // The window keeps one width and one height whatever entry is shown (#423), the longest text wrapping in it.
+      const size = () =>
+        pedia.$eval('.dialog[data-kind=report]', (d) => `${Math.round(d.clientWidth)}x${Math.round(d.clientHeight)}`);
+      const entries = await pedia.$$eval('.colopedia [data-entry] button', (b) => b.map((x) => x.textContent));
+      const sizes = new Set<string>([await size()]);
+      for (let i = 0; i < Math.min(entries.length, 4); i++) {
+        await pedia.locator('.colopedia [data-entry] button').nth(i).click();
+        sizes.add(await size());
+      }
+      if (sizes.size !== 1) throw new Error(`the Colopedia's size changes with the entry: ${[...sizes].join(', ')}`);
       await pedia.click('[data-answer=close]');
       await pedia.click('[data-colopedia=nationTypes]');
       await pedia.waitForSelector('.colopedia [data-entry="model.nationType.trade"]', { timeout: 60000 });
