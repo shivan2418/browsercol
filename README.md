@@ -3,7 +3,7 @@
 **FreeCol in the browser.** No install, no server: the whole game, AI
 included, runs in the page.
 
-▶ **Play it at <https://shivan2418.github.io/browsercol/play/>** ([the landing page](https://shivan2418.github.io/browsercol/) says what it is)
+▶ **Play it at <https://browsercol.com/play/>** ([the landing page](https://browsercol.com/) says what it is)
 
 ## How it works
 
@@ -28,7 +28,7 @@ such as Engine, Browser UI and Tileset are defined in
 ## Developing
 
 > **Just want to play?** You don't need anything below: open
-> <https://shivan2418.github.io/browsercol/play/> in Chrome or Firefox. Nothing to
+> <https://browsercol.com/play/> in Chrome or Firefox. Nothing to
 > install.
 
 To work on BrowserCol itself, you need Docker and [`just`](https://github.com/casey/just). Every tool
