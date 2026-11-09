@@ -961,19 +961,43 @@
         overflow: auto;
         min-height: 0;
       }
-      /* A boxed section with its caption at the top-left. */
+      /*
+       * A boxed section with its caption at the top-left (Box in src/frame.tsx, the one way a panel draws one). The
+       * caption is the box's first row, in flow: one that wraps (a long name, another language, a larger font) pushes
+       * the content down instead of running over it. In a flex container it takes a whole row of its own, in a grid a
+       * whole row of the grid. In a box that scrolls (the colony's) it stays at the top. --box-cap-block is what the
+       * caption takes from the top of the box.
+       */
+      .box,
+      .colony .cbody {
+        --cap-fs: calc(var(--fs-s) - 1px);
+        --cap-lh: calc(var(--cap-fs) + 3px);
+        /* From the box's top padding edge: 2px above the caption, its lines, 4px of room under it. */
+        --box-cap-block: calc(2px + var(--cap-lh) + 4px);
+        --box-pad: 6px;
+        --box-border: 1px;
+      }
       .box {
         position: relative;
-        padding: 18px 6px 6px;
+        padding: var(--box-pad);
         background: var(--box);
-        border: 1px solid var(--line);
+        border: var(--box-border) solid var(--line);
         border-radius: 3px;
       }
       .box > .cap {
-        position: absolute;
-        top: 2px;
-        left: 8px;
-        font-size: 12px;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        display: block;
+        box-sizing: border-box;
+        grid-column: 1 / -1;
+        flex: 0 0 calc(100% - 4px);
+        align-self: flex-start;
+        margin: -4px 2px 0;
+        padding-bottom: 4px;
+        background: inherit;
+        font-size: var(--cap-fs);
+        line-height: var(--cap-lh);
         font-weight: 700;
         color: var(--head);
         text-transform: uppercase;
@@ -2012,13 +2036,7 @@
         overflow: auto;
       }
       .europe .box {
-        background: var(--box);
-        border: 1px solid var(--line);
-        padding: 4px 8px;
         min-height: 4.5em;
-      }
-      .europe .box h3 {
-        margin: 0 0 4px;
       }
       .europe [data-list='docks'] {
         grid-row: span 2;
@@ -2291,10 +2309,6 @@
       /* The option editor (src/option-editor.tsx), on the start screen and in the in-game panel. */
       .options .box {
         margin: 6px 0;
-        /* The top leaves room for the caption (.box > .cap). */
-        padding: 18px 8px 4px;
-        background: var(--box);
-        border: 1px solid var(--line);
       }
       .options .option {
         display: flex;
@@ -2796,20 +2810,18 @@
       /* Buildings fill the left; the right column holds the population, tiles, production, construction and port; units outside and the warehouse run along the bottom. */
       .colony .cbody {
         /*
-         * The fixed heights of the boxes that hold units and goods (see .colony .outside). A row is the tallest
-         * unit, a mounted scout or dragoon (82px), with the box's caption and padding (26px) round it.
+         * The fixed heights of the boxes that hold units and goods (see .colony .outside): the content (a row is
+         * the tallest unit, a mounted scout or dragoon, 82px, and 2px for its outline; the warehouse's is a line of
+         * goods) with the caption, the padding and the border round it. A caption that wraps takes more of it, and
+         * the box scrolls.
          */
-        --colony-row: 110px;
-        --colony-warehouse: 84px;
+        --colony-box-frame: calc(var(--box-cap-block) + var(--box-pad) + 2 * var(--box-border));
+        --colony-row: calc(84px + var(--colony-box-frame));
+        --colony-warehouse: calc(58px + var(--colony-box-frame));
         display: grid;
         grid-template-columns: 1fr 400px;
         gap: 6px;
         align-items: start;
-      }
-      /* The parts FreeCol gives no caption: no room above for one. */
-      .colony .net,
-      .colony .construction {
-        padding-top: 6px;
       }
       .colony .muted {
         color: var(--muted);

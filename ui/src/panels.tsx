@@ -24,7 +24,7 @@ import { ColonyActions, ColonyPanel } from './colony-panel';
 import { DebugContext } from './debug';
 import type { Dialog, Dialogs } from './dialogs';
 import { europeButtons } from './europe-client';
-import { GoodsAmount, TEXT_ENTRY, WindowFrame, type Art } from './frame';
+import { Box, GoodsAmount, TEXT_ENTRY, WindowFrame, type Art } from './frame';
 import { Declaration } from './declaration';
 import { CopyDetailsContext, ShowLogContext } from './log';
 import { lane } from './drag';
@@ -1510,8 +1510,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
     place: Place = 'sailing',
     unitDrop?: (u: EuropeUnit) => (item: Item) => void,
   ) => (
-    <section className="box" data-list={kind} {...(drop ? dropTargetProps(place, drop) : {})}>
-      <h3>{heading}</h3>
+    <Box caption={heading} data-list={kind} {...(drop ? dropTargetProps(place, drop) : {})}>
       <div className="chips">
         {units.map((u) => (
           <UnitChip
@@ -1525,7 +1524,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
           />
         ))}
       </div>
-    </section>
+    </Box>
   );
   /** What the market says of a goods type: whether it can be traded, and why not. */
   const trade = new Map(e.market.map((g) => [g.id, g]));
@@ -1643,8 +1642,12 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
               onDocks,
               'docks',
             )}
-            <section className="box cargo" data-list="cargo" {...(ship ? dropTargetProps('cargo', onCargo) : {})}>
-              <h3>{ship?.cargoTitle ?? e.headings.cargo}</h3>
+            <Box
+              caption={ship?.cargoTitle ?? e.headings.cargo}
+              className="cargo"
+              data-list="cargo"
+              {...(ship ? dropTargetProps('cargo', onCargo) : {})}
+            >
               <div className="chips">
                 {ship?.cargo?.map((c, i) => {
                   const goods = trade.get(c.id);
@@ -1689,7 +1692,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
                   );
                 })}
               </div>
-            </section>
+            </Box>
           </div>
           <aside className="europe-log" data-log ref={logRef}>
             <h3>{e.log.heading}</h3>
@@ -1707,7 +1710,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
             ))}
           </aside>
         </div>
-        <section className="box market" data-list="market" {...dropTargetProps('market', onMarket)}>
+        <Box className="market" data-list="market" {...dropTargetProps('market', onMarket)}>
           <div className="goods">
             {e.market.map((g) => {
               // A boycotted goods is still a button with a ship in port: buying it asks to pay the
@@ -1751,7 +1754,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
               );
             })}
           </div>
-        </section>
+        </Box>
       </div>
     </Panel>
   );

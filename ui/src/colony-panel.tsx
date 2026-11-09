@@ -415,9 +415,9 @@ function RebelTipBox({ tip, art }: { tip: RebelTip; art: Art }) {
 
 /** A part of the panel FreeCol gives no caption, named by data-part. */
 const Part = ({ part, title, children }: { part: string; title?: string; children: ReactNode }) => (
-  <Tip as="section" className={`box ${part}`} data-part={part} tip={title}>
+  <Box className={part} data-part={part} tip={title}>
     {children}
-  </Tip>
+  </Box>
 );
 
 /** TilesPanel: the colony's 3x3, drawn as the map draws them, with who works each and what it makes. */
@@ -908,9 +908,8 @@ function BuildQueue({ c, art, children }: { c: ColonyView; art: Art; children: R
   ];
   return (
     <>
-      <Tip
-        as="section"
-        className="box construction"
+      <Box
+        className="construction"
         data-part="construction"
         role="button"
         tabIndex={0}
@@ -926,7 +925,7 @@ function BuildQueue({ c, art, children }: { c: ColonyView; art: Art; children: R
         }}
       >
         {children}
-      </Tip>
+      </Box>
       {state.open && (
         <>
           <div className="queue-backdrop" onClick={() => set({ ...state, open: false })} />

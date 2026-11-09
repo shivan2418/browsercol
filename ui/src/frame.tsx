@@ -241,21 +241,40 @@ export function WindowFrame({
   );
 }
 
-/** A box with a small caption at its top-left, like FreeCol's titled borders ("In port", "Cargo"). */
+/**
+ * A boxed section, the one way the panels draw one. Its caption (FreeCol's titled borders: "In port", "Cargo") is the
+ * box's first row, so a caption that wraps pushes the content down; a part FreeCol gives no caption takes none. `as`
+ * is the element, a `section` unless it is a `div`; `tip` is a hint on the box.
+ */
 export function Box({
   caption,
+  as = 'section',
+  tip,
   children,
   className,
   ...rest
-}: { caption: string; children?: ReactNode } & Omit<HTMLAttributes<HTMLElement>, 'children'>) {
+}: {
+  caption?: string;
+  as?: 'section' | 'div';
+  tip?: string;
+  children?: ReactNode;
+} & Omit<HTMLAttributes<HTMLElement>, 'children'>) {
   const id = useId();
   return (
-    <section aria-labelledby={id} className={className ? `box ${className}` : 'box'} {...rest}>
-      <span className="cap" id={id}>
-        {caption}
-      </span>
+    <Tip
+      as={as}
+      tip={tip}
+      aria-labelledby={caption === undefined ? undefined : id}
+      className={className ? `box ${className}` : 'box'}
+      {...rest}
+    >
+      {caption !== undefined && (
+        <span className="cap" id={id}>
+          {caption}
+        </span>
+      )}
       {children}
-    </section>
+    </Tip>
   );
 }
 
