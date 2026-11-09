@@ -731,7 +731,10 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
       box: whole ? [x - 4, y - 4, W + 8, H + 8] : [x, y, pic.width, pic.height],
     });
   };
-  /** Tell the chunks what is on the screen, in map pixels, and what to keep built round it. */
+  /**
+   * Tell the chunks what is on the screen, in map pixels, what to keep built round it, and what to build ahead when
+   * the page is idle: a quarter of the screen past each edge, within what is kept.
+   */
   const chunkView = () => {
     if (!chunkLayers.size) return;
     const k = world.scale.x;
@@ -741,7 +744,8 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
     const [w, h] = [s.width / k, s.height / k];
     const view = new Rectangle(x - 32, y - 32, w + 64, h + 64);
     const keep = new Rectangle(x - w / 2, y - h / 2, 2 * w, 2 * h);
-    for (const c of chunkLayers.values()) c.setView(view, keep);
+    const ahead = new Rectangle(x - w / 4, y - h / 4, 1.5 * w, 1.5 * h);
+    for (const c of chunkLayers.values()) c.setView(view, keep, ahead);
   };
   return {
     canvas: app.canvas,

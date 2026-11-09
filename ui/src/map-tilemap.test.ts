@@ -69,6 +69,7 @@ describe('ChunkLayer', () => {
   const setup = () => {
     const built: string[] = [];
     const released: string[] = [];
+    const flushed: number[] = [];
     const backend: ChunkBackend = {
       // What it builds stands for a tilemap, which it lets go of.
       build: (c) => {
@@ -79,16 +80,20 @@ describe('ChunkLayer', () => {
         released.push(c.key);
         c.maps = [];
       },
+      // How many chunks were built before each flush.
+      flush: () => flushed.push(built.length),
       rescale: () => {},
     };
     const root = new Container();
-    const layer = new ChunkLayer(root, backend);
+    // The idle work waits until the test runs it.
+    const idle: ((more: () => boolean) => void)[] = [];
+    const layer = new ChunkLayer(root, backend, (work) => idle.push(work));
     const draw = (items: [[number, number], Item][]) => {
       layer.begin();
       for (const [t, it] of items) layer.push(t, 0, it);
       layer.end();
     };
-    return { built, released, root, layer, draw };
+    return { built, released, flushed, idle, root, layer, draw };
   };
   // Tile (0,0) and tile (40,0), in chunks far apart.
   const scene = (w: HTMLCanvasElement) => [item(0, 0, grass), item(0, 0, w), item(40, 0, grass)];
@@ -101,6 +106,46 @@ describe('ChunkLayer', () => {
     expect(built).toEqual([chunkOf(0, 0).join()]);
     layer.setView(new Rectangle(40 * W, 0, 300, 300), new Rectangle(40 * W, 0, 300, 300));
     expect(built).toEqual([chunkOf(0, 0).join(), chunkOf(40, 0).join()]);
+  });
+
+  it('sends what a refresh built to the GPU once', () => {
+    const { flushed, layer, draw } = setup();
+    layer.setView(all, all);
+    draw(scene(water[0]));
+    expect(flushed).toEqual([2]);
+    layer.setView(all, all);
+    expect(flushed).toEqual([2]);
+  });
+
+  it('builds the chunks near the screen when the page is idle, nearest first, as much as there is time for', () => {
+    const { built, flushed, idle, layer, draw } = setup();
+    // Tiles (0,0), (20,0) and (40,0), in three chunks along a row; the screen on the first.
+    const view = new Rectangle(0, 0, 300, 300);
+    layer.setView(view, all, all);
+    draw([item(0, 0, grass), item(40, 0, grass), item(20, 0, grass)]);
+    expect(built).toEqual([chunkOf(0, 0).join()]);
+    expect(idle.length).toBe(1);
+    // No time to spare: one chunk, the nearer, and the rest waits for the next idle time.
+    idle.shift()!(() => false);
+    expect(built).toEqual([chunkOf(0, 0).join(), chunkOf(20, 0).join()]);
+    expect(flushed).toEqual([1, 2]);
+    expect(idle.length).toBe(1);
+    idle.shift()!(() => true);
+    expect(built).toEqual([chunkOf(0, 0).join(), chunkOf(20, 0).join(), chunkOf(40, 0).join()]);
+    expect(idle.length).toBe(0);
+    // Coming on the screen, they are built already.
+    layer.setView(all, all, all);
+    expect(built.length).toBe(3);
+  });
+
+  it('builds nothing ahead beyond what it is told to, nor what it would let go of', () => {
+    const { built, idle, layer, draw } = setup();
+    const view = new Rectangle(0, 0, 300, 300);
+    layer.setView(view, view, all);
+    draw(scene(water[0]));
+    expect(idle.length).toBe(0);
+    layer.setView(view, all);
+    expect([built.length, idle.length]).toEqual([1, 0]);
   });
 
   it('shows a chunk when only what spills off its tiles is on the screen', () => {
@@ -159,6 +204,7 @@ describe('ChunkLayer', () => {
     const layer = new ChunkLayer(root, {
       build: (c) => c.parts.forEach((part) => part && keys.set(part, c.key)),
       release: () => {},
+      flush: () => {},
       rescale: () => {},
     });
     layer.setView(all, all);
