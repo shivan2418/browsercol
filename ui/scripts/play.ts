@@ -344,7 +344,7 @@ async function play(page: Page, url: string) {
           trains,
           buys,
           sailDisabled: d.querySelector<HTMLButtonElement>('button[data-europe=sail]')?.disabled === true,
-          headings: [...d.querySelectorAll('h2, h3')].map((h) => h.textContent),
+          headings: [...d.querySelectorAll('h2, h3, .box > .cap')].map((h) => h.textContent),
           lists: [...d.querySelectorAll<HTMLElement>('[data-list]')].map((l) => l.dataset.list),
           goods: d.querySelectorAll('[data-goods]').length,
           prices: [...d.querySelectorAll('.price')].map((p) => p.textContent),
