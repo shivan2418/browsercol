@@ -1,7 +1,10 @@
 import { expect, test } from 'vite-plus/test';
-import html from '../index.html?raw';
 import css from './theme.css?raw';
 import fontsCss from './fonts.css?raw';
+import tokensCss from './tokens.css?raw';
+import html from '../index.html?raw';
+import { layerPageStyles } from '../scripts/page-styles';
+import { componentSheets, pageCss } from './page-css.testing';
 import { applyTheme, FONT_SETS, PALETTES } from './theme';
 
 /** The components' sources, by file; tests hold made-up data, such as a nation's colour from the Engine. */
@@ -11,10 +14,10 @@ const components = import.meta.glob<string>(['./*.tsx', '!./*.test.tsx'], {
   eager: true,
 });
 
-/** The custom properties each top-level block of theme.css sets, by its selector. */
+/** The custom properties each block of a token file sets (inside its @layer), by its selector. */
 function palettes(text = css): Map<string, Set<string>> {
   const blocks = new Map<string, Set<string>>();
-  for (const [, selector, body] of text.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^}]*)\}/g)) {
+  for (const [, selector, body] of text.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     blocks.set(selector.trim(), new Set([...body.matchAll(/(--[\w-]+)\s*:/g)].map((m) => m[1])));
   }
   return blocks;
@@ -30,7 +33,7 @@ test('every palette sets every colour token of the default one', () => {
 });
 
 test('index.html takes its colours from the tokens alone', () => {
-  const style = html.slice(html.indexOf('<style>'), html.indexOf('</style>'));
+  const style = pageCss;
   // Shadows may darken whatever is under them; any other colour belongs in theme.css.
   const literals = style
     .split('\n')
@@ -77,9 +80,103 @@ test("the theme goes on the root element, a palette in the URL over the player's
 });
 
 test('index.html takes its fonts from the tokens alone', () => {
-  const style = html.slice(html.indexOf('<style>'), html.indexOf('</style>'));
+  const style = pageCss;
   const families = style
     .split('\n')
     .filter((l) => /\bfont(-family)?:/.test(l) && !/var\(--font|inherit|font-(size|weight|style|variant)/.test(l));
   expect(families).toEqual([]);
+});
+
+// ---- Cascade layers and the components' own sheets (#421, docs/adr/0008) ----
+
+/** CSS without its comments. */
+const bare = (text: string) => text.replace(/\/\*[\s\S]*?\*\//g, '');
+
+/**
+ * The sheets still to be moved into a layer: reports.css keeps its rules unlayered until #425, which changes it,
+ * has landed (the follow-up of #421 lists it).
+ */
+const UNLAYERED = ['./reports.css'];
+
+/** Each declaration of a sheet, with the selector of the rule it is in. */
+function declarations(text: string) {
+  const out: { selector: string; prop: string; value: string }[] = [];
+  for (const [, selector, body] of bare(text).matchAll(/([^{}]+)\{([^{}]*)\}/g))
+    for (const [, prop, value] of body.matchAll(/([\w-]+)\s*:\s*([^;]+);?/g))
+      out.push({ selector: selector.trim(), prop, value: value.trim() });
+  return out;
+}
+
+/** A value with its var() and the calc() round them taken out: what is left is written in the sheet itself. */
+function literal(value: string): string {
+  let v = value;
+  for (let last = ''; last !== v;) [last, v] = [v, v.replace(/var\([^()]*\)/g, 'T')];
+  for (let last = ''; last !== v;) [last, v] = [v, v.replace(/calc\([^()]*T[^()]*\)/g, 'T')];
+  return v;
+}
+
+test('the cascade layers are declared first, in their order, and the page puts its styles in them', () => {
+  const page = bare(pageCss);
+  const order = /@layer[^;{]+;/.exec(page)?.[0];
+  expect(order).toBe('@layer reset, base, components, theme;');
+  expect(page.indexOf(order!)).toBeLessThan(page.indexOf('{'));
+  expect(html).toMatch(/<style data-layer="base">/);
+  expect(html).toMatch(/<style data-layer="components">/);
+  expect(layerPageStyles(html)).not.toMatch(/<style data-layer/);
+});
+
+test('the token files are in the theme layer', () => {
+  for (const text of [css, fontsCss, tokensCss]) expect(bare(text).trim()).toMatch(/^@layer theme \{[\s\S]*\}$/);
+});
+
+test('the tokens give each kind a theme may change: spacing, radii, borders, the caption type and shadows', () => {
+  const tokens = [...(palettes(tokensCss).get(':root') ?? [])];
+  for (const kind of ['--space-', '--radius-', '--border', '--caption-size', '--caption-case', '--shadow-'])
+    expect(
+      tokens.some((t) => t.startsWith(kind)),
+      kind,
+    ).toBe(true);
+});
+
+test("each component's sheet is in the components layer, and imported by a component", () => {
+  const files = Object.keys(componentSheets).filter((f) => !UNLAYERED.includes(f));
+  expect(files).toEqual(expect.arrayContaining(['./window-frame.css', './goods.css']));
+  for (const file of files) {
+    expect(bare(componentSheets[file]).trim(), file).toMatch(/^@layer components \{[\s\S]*\}$/);
+    expect(bare(componentSheets[file]).match(/@layer/g), file).toHaveLength(1);
+    expect(
+      Object.values(components).some((src) => src.includes(`import '${file}';`)),
+      `${file} is imported by a component`,
+    ).toBe(true);
+  }
+});
+
+test("a component's sheet takes its colours, fonts, spacing, radii, borders and shadows from tokens", () => {
+  const problems: string[] = [];
+  for (const [file, text] of Object.entries(componentSheets)) {
+    if (UNLAYERED.includes(file)) continue;
+    for (const { selector, prop, value } of declarations(text)) {
+      // A component's own tokens, on :root, may hold a value of their own: a theme changes them there.
+      if (selector === ':root' && prop.startsWith('--')) continue;
+      const at = `${file}: ${selector} { ${prop}: ${value} }`;
+      if (/#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i.test(value)) problems.push(`colour: ${at}`);
+      if (/^font(-family)?$/.test(prop) && !/var\(--font/.test(value)) problems.push(`font: ${at}`);
+      const shape = /^(padding|margin|gap|row-gap|column-gap|border|outline|box-shadow)(-|$)|radius/.test(prop);
+      if (shape && /\d*\.?\d+(px|em|rem)\b/.test(literal(value))) problems.push(`length: ${at}`);
+    }
+  }
+  expect(problems).toEqual([]);
+});
+
+test("a component's sheet styles its own component, never a panel's", () => {
+  const PANELS = /\.dialog\b|\.colony\b|\.europe|#preferences|\.options\b|\.start-window|\[data-kind/;
+  const reaching = Object.entries(componentSheets)
+    .filter(([file]) => !UNLAYERED.includes(file))
+    .flatMap(([file, text]) =>
+      [...bare(text).matchAll(/([^{}]+)\{/g)]
+        .map((m) => m[1].trim())
+        .filter((s) => PANELS.test(s))
+        .map((s) => `${file}: ${s}`),
+    );
+  expect(reaching).toEqual([]);
 });

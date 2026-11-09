@@ -1067,15 +1067,15 @@ describe('the panels', () => {
     const { box } = host({ advisor: { src: 'art/doctor-paper.png', top: 205 } });
     act(() => box.show('information', { text: 'A ship.', object: null, tile: null, at: null, images: [], ok: 'OK' }));
     const panel = screen.getByRole('dialog');
-    expect(panel.classList.contains('advised')).toBe(true);
+    expect(panel.hasAttribute('data-advised')).toBe(true);
     expect(panel.style.getPropertyValue('--advisor')).toBe('url("art/doctor-paper.png")');
     expect(panel.style.getPropertyValue('--advisor-top')).toBe('205px');
     key('Enter');
     act(() => box.show('messages', { title: null, ok: 'OK', messages: [message('Taxes are up.')] }));
-    expect(screen.getByRole('dialog').classList.contains('advised')).toBe(true);
+    expect(screen.getByRole('dialog').hasAttribute('data-advised')).toBe(true);
     key('Enter');
     act(() => box.show('messages', { title: 'Turn Report', ok: 'OK', messages: [message('Taxes are up.')] }));
-    expect(screen.getByRole('dialog').classList.contains('advised')).toBe(false);
+    expect(screen.getByRole('dialog').hasAttribute('data-advised')).toBe(false);
   });
 
   it('show the flavour image of an event panel above its footer', () => {

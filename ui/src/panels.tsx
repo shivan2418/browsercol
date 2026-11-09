@@ -14,7 +14,6 @@ import {
   useState,
   useSyncExternalStore,
   type KeyboardEvent as ReactKeyboardEvent,
-  type CSSProperties,
   type ReactNode,
 } from 'react';
 import type { Advisor } from './advisor';
@@ -119,18 +118,14 @@ function Win({
 }) {
   return (
     <WindowFrame
-      className={advisor ? 'dialog advised' : 'dialog'}
-      fit={fit || advisor !== null}
+      className="dialog"
+      fit={fit}
+      advisor={advisor}
       aria-modal="true"
       data-kind={d.kind}
       title={title}
       close={close}
       closeKeys={closeKeys}
-      style={
-        advisor
-          ? ({ '--advisor': `url("${advisor.src}")`, '--advisor-top': `${advisor.top}px` } as CSSProperties)
-          : undefined
-      }
     >
       {children}
     </WindowFrame>

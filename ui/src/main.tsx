@@ -28,6 +28,7 @@ import { createPortal } from 'react-dom';
 import { createRoot, type Root } from 'react-dom/client';
 import './theme.css';
 import './fonts.css';
+import './tokens.css';
 import { colopediaBefore, snapshotter, startPage, type ClientExports, type Scope, type ToWorker } from './channel';
 import {
   chosenRequest,

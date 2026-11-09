@@ -36,6 +36,16 @@
       href="./src/fonts/cinzel/cinzel-latin-700-normal.woff2"
     />
     <style>
+      /*
+       * The cascade layers, lowest first (issue 421, docs/adr/0008). A rule in a later layer wins over one in an earlier
+       * layer whatever their specificity: a component's rules over the page's base, and a theme's over everything.
+       * The page's own styles below are put in their layer by their data-layer attribute (vite.config.ts,
+       * layerPageStyles), so the long block keeps its indentation; a component's styles are in its own .css file.
+       */
+      @layer reset, base, components, theme;
+    </style>
+    <!-- The page shell, in @layer base: the page itself, the UI scale and dragging. -->
+    <style data-layer="base">
       body {
         margin: 0;
         font: var(--fs-s) / 1.4 var(--font);
@@ -98,6 +108,12 @@
         display: flex;
         gap: 12px;
       }
+    </style>
+    <!--
+      Everything not yet moved beside its component (#421): in @layer components, so a component's own file
+      (src/*.css) and these meet by specificity and order, as they did in one sheet.
+    -->
+    <style data-layer="components">
       /* The player may hide the side panel (View menu): the map takes its room. */
       body[data-side-panel='hidden'] #side {
         display: none;
@@ -896,71 +912,6 @@
         overflow: hidden;
         text-overflow: ellipsis;
       }
-      /* A window (src/frame.tsx): a title bar in the menu bar's colours over the panel. */
-      .frame {
-        display: flex;
-        flex-direction: column;
-        max-height: 100%;
-        background: var(--panel);
-        color: var(--ink);
-        border: 2px solid var(--line);
-        font: var(--fs) / 1.4 var(--font);
-        box-shadow: 0 10px 40px rgb(0 0 0 / 45%);
-      }
-      /* Opening and closing (ticket 270): a short scale and fade; frame.tsx sets data-motion only when it animates. */
-      @keyframes frame-in {
-        from {
-          opacity: 0;
-          scale: 0.94;
-        }
-      }
-      @keyframes frame-out {
-        to {
-          opacity: 0;
-          scale: 0.94;
-        }
-      }
-      .frame[data-motion='in'] {
-        animation: frame-in 120ms ease-out;
-      }
-      .frame[data-motion='out'] {
-        animation: frame-out 120ms ease-in forwards;
-        pointer-events: none;
-      }
-      @media (prefers-reduced-motion: reduce) {
-        .frame[data-motion] {
-          animation: none;
-        }
-      }
-      .frame > .title {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        min-height: 1.6em;
-        padding: 2px 4px 2px 10px;
-        background: var(--menubar);
-        color: var(--menubar-ink);
-      }
-      .frame > .title h2 {
-        flex: 1;
-        margin: 0;
-        font-family: var(--font-title);
-        font-size: var(--fs);
-        font-weight: 700;
-        color: inherit;
-      }
-      .frame > .title .close {
-        margin-left: auto;
-        padding: 0 6px;
-        color: inherit;
-        background: none;
-        border: 0;
-      }
-      .frame > .body {
-        padding: 12px 16px;
-        overflow: auto;
-        min-height: 0;
-      }
       /*
        * A boxed section with its caption at the top-left (Box in src/frame.tsx, the one way a panel draws one). The
        * caption is the box's first row, in flow: one that wraps (a long name, another language, a larger font) pushes
@@ -1005,59 +956,6 @@
         text-transform: uppercase;
         letter-spacing: 0.05em;
       }
-      /* A goods icon and its amount: a gain, a loss, or greyed out for none. */
-      .goods {
-        display: inline-flex;
-        align-items: center;
-        gap: 2px;
-        font-weight: 700;
-        font-variant-numeric: tabular-nums;
-      }
-      .goods .pile {
-        position: relative;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        height: 24px;
-      }
-      .goods .pile img {
-        position: absolute;
-        top: 0;
-      }
-      .goods img {
-        width: 24px;
-        height: 24px;
-        object-fit: contain;
-      }
-      /* ProductionLabel's number: centred over the pile, and as wide as it needs (the pile widens for it), white (red for a loss) with a dark outline, whatever the background. */
-      .goods .pile .amount {
-        position: relative;
-        padding: 0 1px;
-        z-index: 1;
-        white-space: nowrap;
-        font-size: 13px;
-        color: var(--pile-ink);
-        text-shadow:
-          -1px -1px 0 var(--pile-outline),
-          1px -1px 0 var(--pile-outline),
-          -1px 1px 0 var(--pile-outline),
-          1px 1px 0 var(--pile-outline);
-        pointer-events: none;
-      }
-      .goods[data-sign='loss'] .pile .amount {
-        color: var(--pile-loss);
-      }
-      .goods[data-sign='gain'] {
-        color: var(--good);
-      }
-      .goods[data-sign='loss'] {
-        color: var(--bad);
-      }
-      .goods[data-sign='zero'] {
-        color: var(--muted);
-        font-weight: 400;
-        opacity: 0.6;
-      }
       /* The WebGUI's dialogs (src/panels.tsx), modal over the page. */
       .modal {
         position: fixed;
@@ -1092,46 +990,6 @@
       .dialog {
         max-width: 36em;
         max-height: calc(var(--screen-h) * 0.8);
-      }
-      /*
-       * An information panel under FreeCol's advisor (src/advisor.ts): the painted figure and paper are the
-       * window's whole background, at the skin's size as InformationPanel sets it, and the text starts below
-       * the figure. The title bar stays over the figure, empty, to drag the window by.
-       */
-      .frame.advised {
-        position: relative;
-        box-sizing: border-box;
-        width: 530px;
-        height: 510px;
-        padding-top: var(--advisor-top);
-        background: var(--advisor) center top / 100% 100% no-repeat;
-        border: 0;
-        box-shadow: none;
-        filter: drop-shadow(0 10px 24px rgb(0 0 0 / 45%));
-        --ink: var(--paper-ink);
-        --muted: var(--paper-muted);
-        --head: var(--paper-head);
-        --link: var(--paper-link);
-        color: var(--ink);
-      }
-      .frame.advised > .title {
-        position: absolute;
-        inset: 0 0 auto;
-        height: var(--advisor-top);
-        background: none;
-      }
-      .frame.advised > .title .close {
-        display: none;
-      }
-      /* The OK button at the foot of the paper, as InformationPanel lays it out, however short the text. */
-      .frame.advised > .body {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        padding: 0 28px 24px;
-      }
-      .frame.advised > .body > .buttons {
-        margin-top: auto;
       }
       .dialog h2 {
         margin: 0 0 8px;
@@ -3220,39 +3078,6 @@
         flex-direction: column;
         align-items: center;
         gap: 4px;
-      }
-      /*
-       * FreeColProgressBar: as tall as its goods icon, with the icon and its text centred over the bar. What is
-       * there shades it, what next turn adds shades it lighter.
-       */
-      .need {
-        position: relative;
-        box-sizing: border-box;
-        width: 100%;
-        max-width: 360px;
-        min-height: 30px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 6px;
-        border: 1px solid var(--progress-border);
-        background: var(--box);
-        color: var(--ink);
-      }
-      .need i {
-        position: absolute;
-        left: 0;
-        top: 0;
-        bottom: 0;
-      }
-      .need i.now {
-        background: var(--progress-now);
-      }
-      .need i.next {
-        background: var(--progress-next);
-      }
-      .need > :not(i) {
-        position: relative;
       }
       /*
        * In port beside the cargo of the ship chosen there, then the units outside, then the warehouse. A window must

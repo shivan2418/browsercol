@@ -2,10 +2,7 @@
 // bar, the side panel, the windows and the controls' popups), vw and vh are scaled with it: 94vh is 117% of the
 // screen at 125%. Those rules size themselves by --screen-w and --screen-h, which divide by the zoom.
 import { expect, test } from 'vite-plus/test';
-import html from '../index.html?raw';
-import reports from './reports.css?raw';
-import theme from './theme.css?raw';
-import fonts from './fonts.css?raw';
+import { pageCss, sheets as srcSheets } from './page-css.testing';
 
 const components = import.meta.glob<string>(['./*.tsx', '!./*.test.tsx', '!./*.stories.tsx'], {
   query: '?raw',
@@ -30,17 +27,14 @@ const UNSCALED = new Set([
 /** A length in the viewport's units: 94vh, 100dvh, 50vmin and the like. */
 const VIEWPORT = /\b\d+(\.\d+)?[dsl]?v(w|h|i|b|min|max)\b/;
 
-const sheets = {
-  'index.html': html.slice(html.indexOf('<style>') + '<style>'.length, html.indexOf('</style>')),
-  'reports.css': reports,
-  'theme.css': theme,
-  'fonts.css': fonts,
-};
+const sheets = { 'index.html': pageCss, ...srcSheets };
 
 /** Each rule of a sheet with a viewport unit in it: its selector and the declaration. */
 function viewportRules(css: string) {
   const out: { selector: string; declaration: string }[] = [];
-  for (const [, selector, body] of css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+  // Without comments and statements such as the order of the cascade layers, which are no part of a selector.
+  const rules = css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/@[\w-]+[^;{}]*;/g, '');
+  for (const [, selector, body] of rules.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     for (const declaration of body.split(';')) {
       if (VIEWPORT.test(declaration)) out.push({ selector: selector.trim(), declaration: declaration.trim() });
     }

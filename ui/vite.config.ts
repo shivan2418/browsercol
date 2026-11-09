@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { defineConfig, type Plugin } from 'vite-plus';
 import { buildId } from './scripts/build-id.ts';
+import { layerPageStyles } from './scripts/page-styles.ts';
 import { manifest } from './scripts/pwa.ts';
 
 /** The installable app (#267): beside the built site, the web app manifest. */
@@ -24,8 +25,13 @@ function installable(): Plugin {
   };
 }
 
+/** index.html's own styles in their cascade layers, by their data-layer attribute (docs/adr/0008). */
+function pageLayers(): Plugin {
+  return { name: 'page-layers', transformIndexHtml: { order: 'pre', handler: layerPageStyles } };
+}
+
 export default defineConfig(({ command }) => ({
-  plugins: [installable()],
+  plugins: [pageLayers(), installable()],
   // Relative URLs, so the site works from any path (GitHub Pages serves it under /<repo>/).
   base: './',
   define: { __BUILD__: JSON.stringify(buildId(process.env, command === 'serve')) },
@@ -57,7 +63,7 @@ export default defineConfig(({ command }) => ({
     // Vitest's 5 s default is too tight for the component tests when many workers share the machine (#304, #335);
     // select-test.ts waits up to 10 s for a drop-down list, so a test has room for two of those.
     testTimeout: 30_000,
-    // theme.test.ts reads theme.css and fonts.css as text; Vitest empties other CSS.
-    css: { include: [/(theme|fonts)\.css/] },
+    // theme.test.ts reads every sheet of src/ as text (the token files and the components' own); Vitest empties other CSS.
+    css: { include: [/src\/[\w-]+\.css/] },
   },
 }));

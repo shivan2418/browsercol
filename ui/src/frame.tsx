@@ -3,7 +3,8 @@
 // caption (FreeCol's titled borders), a goods amount with its icon, and the
 // menu bar over the map with the status line. Panels build on these rather
 // than on markup of their own. Their colours come from the tokens in
-// theme.css, through the classes index.html styles.
+// theme.css; the window's and the goods' styles are beside them, in
+// window-frame.css and goods.css (docs/adr/0008), the rest still in index.html.
 import {
   Fragment,
   useEffect,
@@ -11,6 +12,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type CSSProperties,
   type HTMLAttributes,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
@@ -20,6 +22,8 @@ import { Tip } from './controls';
 import { dragging } from './drag';
 import { focusFirstEntry, menuArrows, useFocusTrap } from './focus';
 import type { GoodsProgress } from './webgui';
+import './window-frame.css';
+import './goods.css';
 
 /** The URL of the art for the first of some resource keys the Tileset has, or null if it has none (yet). */
 export type Art = (keys: readonly string[]) => string | null;
@@ -32,7 +36,7 @@ export type Art = (keys: readonly string[]) => string | null;
 export const frameEffects: { motion: () => boolean; ms: number } = {
   motion: () =>
     typeof matchMedia === 'function' && !navigator.webdriver && !matchMedia('(prefers-reduced-motion: reduce)').matches,
-  /** How long the scale-and-fade lasts; index.html's frame-in and frame-out keyframes say the same. */
+  /** How long the scale-and-fade lasts; window-frame.css's frame-in and frame-out keyframes say the same. */
   ms: 120,
 };
 
@@ -50,6 +54,11 @@ type FrameProps = {
   onEscape?: () => boolean;
   /** A panel laid out at fixed sizes (the colony's): its UI scale is lowered until the whole of it fits the screen. */
   fit?: boolean;
+  /**
+   * The advisor's painted paper (FreeCol's InformationPanel) as the window's whole background: its image, and how
+   * far down the painted figure reaches, where the text starts. Such a window is fitted to the screen too.
+   */
+  advisor?: { src: string; top: number } | null;
   children: ReactNode;
 } & Omit<HTMLAttributes<HTMLElement>, 'title' | 'children'>;
 
@@ -161,6 +170,7 @@ export function WindowFrame({
   closeKeys,
   onEscape,
   fit = false,
+  advisor = null,
   children,
   className,
   ...rest
@@ -188,7 +198,7 @@ export function WindowFrame({
   const box = useRef<HTMLElement>(null);
   // Tab goes round the newest window's buttons and fields while the focus is in it, not off the page.
   useFocusTrap(box);
-  useFitToScreen(box, fit);
+  useFitToScreen(box, fit || advisor !== null);
   const titleId = useId();
   const attrs = rest as Record<string, unknown>;
   const placeKey =
@@ -223,10 +233,16 @@ export function WindowFrame({
       aria-labelledby={title ? titleId : undefined}
       className={className ? `frame ${className}` : 'frame'}
       {...rest}
-      data-fit={fit || undefined}
+      data-fit={fit || advisor !== null || undefined}
+      data-advised={advisor !== null || undefined}
       data-motion={motion ? (closing ? 'out' : 'in') : undefined}
       inert={closing || undefined}
-      style={{ ...rest.style, transform: shift.x || shift.y ? `translate(${shift.x}px, ${shift.y}px)` : undefined }}
+      style={{
+        ...rest.style,
+        ...(advisor &&
+          ({ '--advisor': `url("${advisor.src}")`, '--advisor-top': `${advisor.top}px` } as CSSProperties)),
+        transform: shift.x || shift.y ? `translate(${shift.x}px, ${shift.y}px)` : undefined,
+      }}
     >
       <div className="title" onPointerDown={drag} style={{ cursor: 'move', touchAction: 'none' }}>
         {title && <h2 id={titleId}>{title}</h2>}
