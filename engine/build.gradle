@@ -67,11 +67,13 @@ test {
     useJUnitPlatform()
     workingDir = freecol   // as for run: data/ is found relative to it
     jvmArgs '-Djava.awt.headless=true'
-    // Every test starts whole FreeCol games, and JUnit keeps each test's
-    // instance, with its game, until the JVM ends: Gradle's default 512 MB
-    // ran out once #80 added two more, and 2 GB once the founding father
-    // tests came. A fresh JVM every few test classes keeps the heap bounded
-    // however many tests there are.
+    // A fork that runs out of heap leaves a dump in build/ (java_pid*.hprof).
+    jvmArgs '-XX:+HeapDumpOnOutOfMemoryError', "-XX:HeapDumpPath=${layout.buildDirectory.get().asFile}"
+    // Every test starts whole FreeCol games. FreeCol's NameCache kept every
+    // game a JVM made reachable, about 17 MB each, until ClearNameCache
+    // (#439) cleared it after each test; before that the heap ran out at
+    // 512 MB, and at 2 GB under load. A fresh JVM every few test classes
+    // stays as a backstop against the next such leak.
     maxHeapSize = '2g'
     forkEvery = 6
     systemProperty 'presets.dir', file('../ui/presets').absolutePath
