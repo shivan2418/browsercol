@@ -573,7 +573,8 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
         culledAt = { x: world.position.x, y: world.position.y, scale: world.scale.x, w: s.width, h: s.height };
         culls++;
       }
-      for (const c of cullAll ? [app.stage] : toCull) Culler.shared.cull(c, area, false);
+      // A hidden layer is left as it was culled: showing it again culls it (fade).
+      for (const c of cullAll ? layers : toCull) if (c.visible) Culler.shared.cull(c, area, false);
       cullAll = false;
       toCull.clear();
       app.render();
@@ -894,7 +895,12 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
       if (alpha === fadeAlpha) return;
       fadeAlpha = alpha;
       layers[3].alpha = alpha;
-      redraw(null);
+      // Faded out, the cover is hidden: PixiJS would still draw it, and cull it at each pan, and after a big reveal
+      // (the whole map at once) it is thousands of pictures (#419).
+      const shown = alpha > 0;
+      const again = shown && !layers[3].visible;
+      layers[3].visible = shown;
+      redraw(again ? layers[3] : null);
     },
     marker: (alpha) => {
       if (alpha === markerAlpha) return;
