@@ -68,8 +68,10 @@ describe('the colony window keeps one size', () => {
 
   it('sets the heights the boxes take from as lengths', () => {
     const css = declared('.colony .cbody');
-    expect(css['--colony-row']).toMatch(/^\d+px$/);
-    expect(css['--colony-warehouse']).toMatch(/^\d+px$/);
+    // A fixed length for the content, plus the box's frame (caption, padding, border), so it follows the caption's font.
+    const fixed = /^(\d+px|calc\(\d+px \+ var\(--colony-box-frame\)\))$/;
+    expect(css['--colony-row']).toMatch(fixed);
+    expect(css['--colony-warehouse']).toMatch(fixed);
   });
 
   it('keeps the outside and cargo boxes in one row, so they have the one height', () => {

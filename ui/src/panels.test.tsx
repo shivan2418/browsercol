@@ -2188,8 +2188,9 @@ describe('the Europe panel', () => {
     const { box } = host();
     act(() => box.show('europe', europe));
     expect(screen.getByRole('heading', { name: 'Europe' })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'Sailing to America' })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'Sailing to Europe' })).toBeTruthy();
+    // Each list is a box named by its caption, as every boxed section is (Box).
+    expect(screen.getByRole('region', { name: 'Sailing to America' })).toBeTruthy();
+    expect(screen.getByRole('region', { name: 'Sailing to Europe' })).toBeTruthy();
     expect(names('toAmerica')).toEqual(['Merchantman']);
     expect(names('toEurope')).toEqual([]);
     expect(names('inPort')).toEqual(['Caravel', 'Galleon']);
@@ -2432,7 +2433,7 @@ describe('the Europe panel', () => {
         inPort: [{ ...europe.inPort[0], cargoTitle: 'Cargo on Caravel (2 holds left)' }],
       }),
     );
-    expect(document.querySelector('[data-list=cargo] h3')!.textContent).toBe('Cargo on Caravel (2 holds left)');
+    expect(document.querySelector('[data-list=cargo] > .cap')!.textContent).toBe('Cargo on Caravel (2 holds left)');
   });
 
   it('closes the purchase popup when a purchase leaves nothing affordable', () => {
