@@ -324,7 +324,7 @@ function Children({ nodes, ...rest }: { nodes: OptionNode[] } & Omit<Props, 'roo
 
 function Group({ node, ...rest }: { node: Extract<OptionNode, { kind: 'group' }> } & Omit<Props, 'root'>) {
   return (
-    <Box caption={node.label} data-group={node.id}>
+    <Box caption={node.label} spaced="normal" data-group={node.id}>
       <Children nodes={node.children} {...rest} />
     </Box>
   );

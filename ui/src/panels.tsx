@@ -1505,7 +1505,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
     place: Place = 'sailing',
     unitDrop?: (u: EuropeUnit) => (item: Item) => void,
   ) => (
-    <Box caption={heading} data-list={kind} {...(drop ? dropTargetProps(place, drop) : {})}>
+    <Box caption={heading} roomy data-list={kind} {...(drop ? dropTargetProps(place, drop) : {})}>
       <div className="chips">
         {units.map((u) => (
           <UnitChip
@@ -1640,6 +1640,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
             <Box
               caption={ship?.cargoTitle ?? e.headings.cargo}
               className="cargo"
+              roomy
               data-list="cargo"
               {...(ship ? dropTargetProps('cargo', onCargo) : {})}
             >

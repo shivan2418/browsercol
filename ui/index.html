@@ -912,50 +912,6 @@
         overflow: hidden;
         text-overflow: ellipsis;
       }
-      /*
-       * A boxed section with its caption at the top-left (Box in src/frame.tsx, the one way a panel draws one). The
-       * caption is the box's first row, in flow: one that wraps (a long name, another language, a larger font) pushes
-       * the content down instead of running over it. In a flex container it takes a whole row of its own, in a grid a
-       * whole row of the grid. In a box that scrolls (the colony's) it stays at the top. --box-cap-block is what the
-       * caption takes from the top of the box.
-       */
-      .box,
-      .colony .cbody {
-        --cap-fs: calc(var(--fs-s) - 1px);
-        --cap-lh: calc(var(--cap-fs) + 3px);
-        /* From the box's top padding edge: 2px above the caption, its lines, 4px of room under it. */
-        --box-cap-block: calc(2px + var(--cap-lh) + 4px);
-        --box-pad: 6px;
-        --box-border: 1px;
-      }
-      .box {
-        position: relative;
-        /* The caption's layer (it stays over the box's scrolling content) is the box's own: nothing in a box covers what is outside it, as the build queue's close button. */
-        isolation: isolate;
-        padding: var(--box-pad);
-        background: var(--box);
-        border: var(--box-border) solid var(--line);
-        border-radius: 3px;
-      }
-      .box > .cap {
-        position: sticky;
-        top: 0;
-        z-index: 1;
-        display: block;
-        box-sizing: border-box;
-        grid-column: 1 / -1;
-        flex: 0 0 calc(100% - 4px);
-        align-self: flex-start;
-        margin: -4px 2px 0;
-        padding-bottom: 4px;
-        background: inherit;
-        font-size: var(--cap-fs);
-        line-height: var(--cap-lh);
-        font-weight: 700;
-        color: var(--head);
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-      }
       /* The WebGUI's dialogs (src/panels.tsx), modal over the page. */
       .modal {
         position: fixed;
@@ -1184,9 +1140,6 @@
       }
       .dialog[data-kind='negotiation'] .facts b {
         color: var(--ink);
-      }
-      .dialog[data-kind='negotiation'] .box {
-        margin-bottom: 10px;
       }
       .dialog[data-kind='negotiation'] .box .relations {
         margin: 0;
@@ -1898,9 +1851,6 @@
         gap: 8px;
         overflow: auto;
       }
-      .europe .box {
-        min-height: 4.5em;
-      }
       .europe [data-list='docks'] {
         grid-row: span 2;
       }
@@ -2170,9 +2120,6 @@
         margin-top: 6px;
       }
       /* The option editor (src/option-editor.tsx), on the start screen and in the in-game panel. */
-      .options .box {
-        margin: 6px 0;
-      }
       .options .option {
         display: flex;
         gap: 8px;
@@ -2575,9 +2522,6 @@
       .new-game .more-options .options .option {
         break-inside: avoid;
       }
-      .new-game .more-options .options .box {
-        box-decoration-break: clone;
-      }
       .new-game .colour-list {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(11em, 1fr));
@@ -2612,6 +2556,8 @@
         .start-window.new-game {
           --fs: 17px;
           --fs-s: 15px;
+          /* A box's caption is one step under the small size, here as everywhere. */
+          --caption-size: calc(var(--fs-s) - 1px);
           --fs-h: 20px;
         }
       }

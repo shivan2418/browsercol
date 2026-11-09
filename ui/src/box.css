@@ -1,0 +1,69 @@
+/*
+ * A boxed section with its caption at the top-left (Box in src/frame.tsx, the one way a panel draws one). The
+ * caption is the box's first row, in flow: one that wraps (a long name, another language, a larger font) pushes
+ * the content down instead of running over it. In a flex container it takes a whole row of its own, in a grid a
+ * whole row of the grid. In a box that scrolls (the colony's) it stays at the top. --box-cap-block is what the
+ * caption takes from the top of the box. Its variants are Box's props (`roomy`, `spaced`), never a panel's selector.
+ *
+ * The rules are at no weight (:where), so a part's own rule (.port, .market) wins whatever the sheet order, as it
+ * did when these were in index.html ahead of them.
+ */
+@layer components {
+  /* The box's own tokens, each a global one by default; the caption's type is --caption-* (tokens.css). */
+  :root {
+    --box-pad: var(--space-3);
+    --box-border: var(--border);
+    --box-radius: var(--radius-s);
+    /* Room above the caption, and under it before the content. */
+    --box-cap-above: var(--space-1);
+    --box-cap-below: var(--space-2);
+    /* A roomy box (an empty list keeps its height), and a wide gap under a spaced one. */
+    --box-roomy: 4.5em;
+    --box-gap-wide: 10px;
+  }
+  /* On :root too, for the colony's body, which sizes its rows from the caption without being a box. */
+  :root,
+  :where(.box) {
+    --box-cap-lh: calc(var(--caption-size) + 3px);
+    --box-cap-block: calc(var(--box-cap-above) + var(--box-cap-lh) + var(--box-cap-below));
+  }
+  :where(.box) {
+    position: relative;
+    /* The caption's layer (it stays over the box's scrolling content) is the box's own: nothing in a box covers what is outside it, as the build queue's close button. */
+    isolation: isolate;
+    padding: var(--box-pad);
+    background: var(--box);
+    border: var(--box-border) solid var(--line);
+    border-radius: var(--box-radius);
+    /* A box that columns split (the options on the start screen) draws its frame on each part. */
+    box-decoration-break: clone;
+  }
+  :where(.box[data-roomy]) {
+    min-height: var(--box-roomy);
+  }
+  :where(.box[data-spaced='normal']) {
+    margin: var(--space-3) 0;
+  }
+  :where(.box[data-spaced='wide']) {
+    margin-bottom: var(--box-gap-wide);
+  }
+  :where(.box > .cap) {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: block;
+    box-sizing: border-box;
+    grid-column: 1 / -1;
+    flex: 0 0 calc(100% - 2 * var(--space-1));
+    align-self: flex-start;
+    margin: calc(-1 * var(--space-2)) var(--space-1) 0;
+    padding-bottom: var(--box-cap-below);
+    background: inherit;
+    font-size: var(--caption-size);
+    line-height: var(--box-cap-lh);
+    font-weight: var(--caption-weight);
+    color: var(--head);
+    text-transform: var(--caption-case);
+    letter-spacing: var(--caption-tracking);
+  }
+}

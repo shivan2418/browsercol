@@ -214,7 +214,7 @@ export function useNegotiation(
           {tutorial}
           {facts}
           {ask.context !== 'trade' && (
-            <Box as="div" caption="Relations between us">
+            <Box as="div" spaced="wide" caption="Relations between us">
               {stance ? (
                 <p className="relations">
                   They propose <b>{stance.text}</b>. {STANCE_TEXT[stance.key] ?? ''}
@@ -433,7 +433,7 @@ export function useNegotiation(
         {tutorial}
         {facts}
         {stanceOption && (
-          <Box as="div" caption="Relations between us">
+          <Box as="div" spaced="wide" caption="Relations between us">
             <div className="stance" role="group" aria-label="Relations">
               {!locked && (
                 <button aria-pressed={stance === undefined} data-stance="" onClick={() => choose(null)}>

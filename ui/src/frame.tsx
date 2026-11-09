@@ -3,8 +3,8 @@
 // caption (FreeCol's titled borders), a goods amount with its icon, and the
 // menu bar over the map with the status line. Panels build on these rather
 // than on markup of their own. Their colours come from the tokens in
-// theme.css; the window's and the goods' styles are beside them, in
-// window-frame.css and goods.css (docs/adr/0008), the rest still in index.html.
+// theme.css; the window's, the box's and the goods' styles are beside them, in
+// window-frame.css, box.css and goods.css (docs/adr/0008), the rest still in index.html.
 import {
   Fragment,
   useEffect,
@@ -24,6 +24,7 @@ import { focusFirstEntry, menuArrows, useFocusTrap } from './focus';
 import type { GoodsProgress } from './webgui';
 import './window-frame.css';
 import './goods.css';
+import './box.css';
 
 /** The URL of the art for the first of some resource keys the Tileset has, or null if it has none (yet). */
 export type Art = (keys: readonly string[]) => string | null;
@@ -260,12 +261,15 @@ export function WindowFrame({
 /**
  * A boxed section, the one way the panels draw one. Its caption (FreeCol's titled borders: "In port", "Cargo") is the
  * box's first row, so a caption that wraps pushes the content down; a part FreeCol gives no caption takes none. `as`
- * is the element, a `section` unless it is a `div`; `tip` is a hint on the box.
+ * is the element, a `section` unless it is a `div`; `tip` is a hint on the box. Its variants are props: `roomy`
+ * keeps an empty list's height, `spaced` puts the room of a stacked box round it (`wide`: under it only).
  */
 export function Box({
   caption,
   as = 'section',
   tip,
+  roomy,
+  spaced,
   children,
   className,
   ...rest
@@ -273,6 +277,8 @@ export function Box({
   caption?: string;
   as?: 'section' | 'div';
   tip?: string;
+  roomy?: boolean;
+  spaced?: 'normal' | 'wide';
   children?: ReactNode;
 } & Omit<HTMLAttributes<HTMLElement>, 'children'>) {
   const id = useId();
@@ -282,6 +288,8 @@ export function Box({
       tip={tip}
       aria-labelledby={caption === undefined ? undefined : id}
       className={className ? `box ${className}` : 'box'}
+      data-roomy={roomy ? '' : undefined}
+      data-spaced={spaced}
       {...rest}
     >
       {caption !== undefined && (
