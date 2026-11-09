@@ -44,10 +44,13 @@ import net.sf.freecol.common.model.Unit;
 public final class Commands {
 
     private final FreeColClient client;
+    /** The last step of a Go To into a foreign settlement (#400). */
+    private final SettlementGoTo intoSettlements;
 
 
     Commands(FreeColClient client) {
         this.client = client;
+        this.intoSettlements = new SettlementGoTo(client);
     }
 
     private InGameController igc() {
@@ -59,6 +62,7 @@ public final class Commands {
      * workers off work that no longer produces (ColonyPanel.updateProduction).
      */
     void afterCommand() {
+        enterSettlements();
         if (gui() instanceof WebGUI) ((WebGUI)gui()).settleColonies();
     }
 
@@ -188,7 +192,24 @@ public final class Commands {
             igc().clearGotoOrders(unit);
             return false;
         }
-        return igc().goToTile(unit, path);
+        if (!igc().goToTile(unit, path)) return false;
+        // A Go To into a foreign settlement goes on past the regions it discovers, and steps in (#400).
+        this.intoSettlements.goOn(unit);
+        return true;
+    }
+
+    /**
+     * Each unit whose Go To ends in a foreign settlement, and that stands
+     * next to it with moves left, steps in, which opens the dialog of what it
+     * does there (#400): after every command, and at the start of our turn.
+     */
+    void enterSettlements() {
+        this.intoSettlements.enterArrived();
+    }
+
+    /** Whether a unit stands next to the foreign settlement its Go To ends in, to step in at the start of our turn. */
+    boolean enteringSettlements() {
+        return !this.intoSettlements.waiting(false).isEmpty();
     }
 
     /**

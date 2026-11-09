@@ -381,6 +381,14 @@ public class WebGUI extends GUI {
         default void holdNextCommands() {}
         /** Undo one hold of the player's commands; they run again once none is left. */
         default void releaseCommands() {}
+        /**
+         * Run work of the Engine's own as a player's command, after the ones
+         * waiting, e.g. a Go To's step into a settlement at the start of our
+         * turn (#400). The default runs it on a thread of its own.
+         */
+        default void command(String name, Runnable run) {
+            new Thread(run, "web-" + name).start();
+        }
     }
 
     /**
@@ -1001,6 +1009,18 @@ public class WebGUI extends GUI {
             .put("rgb", rgb)
             .put("fg", MapJson.foreground(rgb))
             .put("ours", player == getFreeColClient().getMyPlayer()).toString());
+    }
+
+    /**
+     * Our turn has started: a unit whose Go To ends in a foreign settlement
+     * and that arrived next to it out of moves steps in now, as a command,
+     * since what it does there is asked by a dialog that blocks (#400).
+     */
+    void ourTurnStarted() {
+        final Commands commands = this.engine.getCommands();
+        if (commands != null && commands.enteringSettlements()) {
+            this.ui.command("enterSettlements", commands::enterSettlements);
+        }
     }
 
     /** The refresh event: the Browser UI pulls the map again. */

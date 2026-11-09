@@ -163,6 +163,9 @@ public final class ClientMain {
                             public void releaseCommands() {
                                 commands.release();
                             }
+                            public void command(String name, Runnable run) {
+                                ClientMain.command(name, run);
+                            }
                         });
                     synchronized (earlyOptions) {
                         for (java.util.Map.Entry<String, String> e : earlyOptions.entrySet()) {
