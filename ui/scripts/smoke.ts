@@ -130,6 +130,7 @@ for (const name of browsers) {
   }
   // FreeCol's language option (#151): German strings on the start screen and from the client Engine.
   let language = 'German ok';
+  let british = 'English (UK) ok';
   if (screen) {
     const german = await browser.newPage();
     await answerDialogs(german);
@@ -147,6 +148,22 @@ for (const name of browsers) {
         language = `German FAILED (${r.status}${r.error ? ': ' + r.error : ''}, start screen ${nation})`;
     } catch (ex) {
       language = `German FAILED (${await diagnose(ex)})`;
+    }
+    // English (UK), en_GB, a translation with a country: naming it once crashed the Engine in TeaVM's
+    // Locale.getDisplayCountry (a lookup in an empty CLDR map divides by zero). A browser set to en-GB picks it.
+    const uk = await browser.newPage();
+    await answerDialogs(uk);
+    try {
+      await uk.addInitScript(() =>
+        localStorage.setItem('freecol.prefs', JSON.stringify({ freecol: { 'model.option.languageOption': 'en_GB' } })),
+      );
+      await uk.goto(`${server.url}?autoplay=0`);
+      await uk.waitForSelector('[data-nation="model.nation.dutch"]', { timeout: 60000 });
+      await uk.click('[data-start]');
+      const r = await waitForResult(uk, timeout);
+      if (r.status !== 'finished') british = `English (UK) FAILED (${r.status}${r.error ? ': ' + r.error : ''})`;
+    } catch (ex) {
+      british = `English (UK) FAILED (${await diagnose(ex)})`;
     }
   }
   // The Colopedia from the start screen (#206), before any game: nations, then nation types, and the
@@ -207,6 +224,7 @@ for (const name of browsers) {
     unheard.length === 0 &&
     nations.every((n) => n.endsWith(' ok')) &&
     language.endsWith(' ok') &&
+    british.endsWith(' ok') &&
     colopedia.endsWith(' ok') &&
     landing.endsWith(' ok');
   failed ||= !ok;
@@ -215,7 +233,7 @@ for (const name of browsers) {
       `${result.rounds?.length ?? 0} rounds, turn ${result.turn ?? '-'}, renderer ${result.renderer ?? '-'}, ` +
       `data fetched ${fetches}x, ` +
       `sounds ${unheard.length ? 'MISSING ' + unheard.join(' ') : 'ok'} (${audio.size} files), ` +
-      (screen ? `start screen: ${nations.join(', ')}, ${language}, ${colopedia}, ${landing}, ` : '') +
+      (screen ? `start screen: ${nations.join(', ')}, ${language}, ${british}, ${colopedia}, ${landing}, ` : '') +
       `${((Date.now() - t) / 1000).toFixed(1)} s${errors.length ? ', page errors: ' + errors.join('; ') : ''}`,
   );
 }

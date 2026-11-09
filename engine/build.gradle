@@ -97,6 +97,10 @@ teavm {
         mainClass = project.findProperty('main') ?: 'browsercol.spike.SpikeMain'
         optimization = project.hasProperty('aggressive') ? org.teavm.gradle.api.OptimizationLevel.AGGRESSIVE
                                : org.teavm.gradle.api.OptimizationLevel.BALANCED
+        // The locales whose CLDR names TeaVM compiles in. Its default, en_EN, names no real country, so
+        // English's map of country names is empty, and a lookup in an empty map divides by zero under
+        // wasm-gc: LanguageOption naming FreeCol's en_GB translation crashed the Engine. en_GB fills it.
+        properties.put('java.util.Locale.available', 'en_GB')
     }
     wasmGC {
         // -Pout=<name>: the module's name, e.g. server or client with
