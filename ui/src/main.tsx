@@ -154,7 +154,7 @@ import { loadModule } from './teavm';
 import { applyTheme } from './theme';
 import { syncThemeColor } from './install';
 import { controlArt } from './control-art';
-import { cursor, initialView, panel, reduce, tileOnScreen, W, type ViewEvent, type ViewState } from './view';
+import { cursor, initialView, panel, reduce, tileOnScreen, W, ZOOMS, type ViewEvent, type ViewState } from './view';
 import type { GuiEvents, GuiHandlers, ReportView } from './webgui';
 
 declare global {
@@ -1302,6 +1302,21 @@ window.fcReveal = (x, y) => {
   }
   return tileOnScreen(view, [x, y]);
 };
+
+// PROTOTYPE (#409): ?playground=water, a panel to tune the FreeCol+ shader water live.
+if (params.get('playground') === 'water')
+  void import('./water-playground.prototype').then((m) =>
+    m.waterPlaygroundPanel({
+      jump: (x, y, zoom) => {
+        const steps = ZOOMS.indexOf(zoom) - ZOOMS.indexOf(view.zoom);
+        if (zoom && steps) dispatch({ k: 'zoom', steps, at: [view.viewport[0] / 2, view.viewport[1] / 2] });
+        dispatch({ k: 'focus', tile: null, at: [x, y] });
+      },
+      zoom: (steps) => dispatch({ k: 'zoom', steps, at: [view.viewport[0] / 2, view.viewport[1] / 2] }),
+      zoomNow: () => view.zoom,
+      showFps: () => fps.show(true),
+    }),
+  );
 
 window.fcView = () => {
   const { map: _, ...rest } = view;

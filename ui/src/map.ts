@@ -16,6 +16,7 @@ import {
   coverAt,
   waterField,
   waterLook,
+  waterPlayground,
   WaterSurface,
   type WaterField,
   type WaterLook,
@@ -312,6 +313,8 @@ export interface WaterPen {
   field(f: WaterField): void;
   /** Move the ripples to where they are at `ms`, and draw the map again. */
   time(ms: number): void;
+  /** PROTOTYPE (water playground): the surface drawing the water now. */
+  surface?(): WaterSurface | null;
 }
 
 /** What draws the map: a PixiJS scene graph or a Canvas 2D context. */
@@ -800,6 +803,7 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
             surface?.setTime(ms);
             redraw(null);
           },
+          surface: () => surface,
         }
       : undefined;
   return {
@@ -1635,6 +1639,9 @@ export function mapDrawer(
   /** The shader water's field last made, and the map and tiles it was made from. */
   let field: WaterField | null = null;
   let fieldOf = '';
+  /** PROTOTYPE (water playground): the water's look now, and the map and scene its field was last made from. */
+  let look: WaterLook | null = null;
+  let lastWater: [MapView, StaticScene] | null = null;
 
   async function init() {
     const art = (await (await fetch(artBase + manifest)).json()) as Art;
@@ -1654,7 +1661,21 @@ export function mapDrawer(
     // The window may have changed while PixiJS started.
     if (size !== startSize) p.resize(...size);
     pen = p;
-    waterDrawing = await waterDrawingFor(waterLook(res), p.water, pics.get);
+    look = waterLook(res);
+    waterDrawing = await waterDrawingFor(look, p.water, pics.get);
+    // PROTOTYPE (water playground): what the playground drives.
+    waterPlayground.look = look;
+    waterPlayground.surface = () => p.water?.surface?.() ?? null;
+    waterPlayground.restart = async (next) => {
+      if (!p.water || waterDrawing !== 'surface') return false;
+      const [swell, chop] = await Promise.all([pics.get(next.swell), pics.get(next.chop)]);
+      if (!p.water.start(next, swell, chop)) return false;
+      look = waterPlayground.look = next;
+      field = null;
+      fieldOf = '';
+      if (lastWater) await waterFieldNow(...lastWater);
+      return true;
+    };
   }
 
   /**
@@ -1662,6 +1683,8 @@ export function mapDrawer(
    * the shore (their sand, and the land and beach their transitions bring onto them), where the shallows and foam meet.
    */
   async function waterFieldNow(map: MapView, ground: StaticScene) {
+    lastWater = [map, ground];
+    waterPlayground.map = map;
     const key = `${map.w}x${map.h}:${map.tiles}`;
     if (!pen?.water || key === fieldOf) return;
     const start = performance.now();
@@ -1688,6 +1711,7 @@ export function mapDrawer(
         return a ? coverAt(a, u, v) : 0;
       },
       field,
+      look?.shore,
     );
     if (next !== field) pen.water.field(next);
     field = next;
