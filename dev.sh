@@ -36,9 +36,9 @@ fi
 # BUILD_COMMIT does the same locally: in a worktree, .git points outside /work.
 BUILD_COMMIT=$(git -C "$repo" rev-parse HEAD 2>/dev/null || true)
 export BUILD_COMMIT
-run=(docker run --rm "${tty[@]}" "${shm[@]}" "${ports[@]}" -e HOME=/work/.cache/home
+run=(docker run --rm ${tty[@]+"${tty[@]}"} ${shm[@]+"${shm[@]}"} ${ports[@]+"${ports[@]}"} -e HOME=/work/.cache/home
   -e GITHUB_SHA -e GITHUB_REF_NAME -e BUILD_COMMIT
-  -v "$repo:/work" "${extra[@]}" -w "$workdir" "$image" "$@")
+  -v "$repo:/work" ${extra[@]+"${extra[@]}"} -w "$workdir" "$image" "$@")
 # Concurrent containers share the Gradle user home in /work/.cache/gradle, and
 # Gradle gives up on its journal lock after 60 s before any build step runs
 # (#219). That failure is transient and does nothing to the build, so a Gradle
