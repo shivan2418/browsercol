@@ -979,6 +979,8 @@
       }
       .box {
         position: relative;
+        /* The caption's layer (it stays over the box's scrolling content) is the box's own: nothing in a box covers what is outside it, as the build queue's close button. */
+        isolation: isolate;
         padding: var(--box-pad);
         background: var(--box);
         border: var(--box-border) solid var(--line);
