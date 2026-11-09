@@ -180,7 +180,7 @@ for (const name of browsers) {
       colopedia = `Colopedia FAILED (${await diagnose(ex)})`;
     }
   }
-  // The landing page at the site's root (#374): the Play button goes to play/, and a root URL with game
+  // The landing page at the site's root (#374): the Play button opens play/ in a new tab, and a root URL with game
   // parameters is forwarded to the game with the same query.
   let landing = 'landing ok';
   if (screen) {
@@ -190,9 +190,11 @@ for (const name of browsers) {
       await lp.goto('about:blank');
       await lp.evaluate((u) => (location.href = u), server.root);
       const play = await lp.getAttribute('a.play', 'href', { timeout: 30000 });
+      const tab = await lp.getAttribute('a.play', 'target');
       await lp.goto(`${server.root}?preset=dutch-small&autoplay=0`);
       await lp.waitForURL(/\/play\/\?preset=dutch-small&autoplay=0/, { timeout: 30000 });
       if (play !== 'play/') landing = `landing FAILED (Play goes to ${play})`;
+      else if (tab !== '_blank') landing = `landing FAILED (Play opens in ${tab ?? 'the same tab'})`;
     } catch (ex) {
       landing = `landing FAILED (${await diagnose(ex)})`;
     }
