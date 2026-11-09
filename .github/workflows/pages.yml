@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Clone upstream FreeCol at the pinned commit
         run: ./freecol.sh
@@ -47,7 +47,7 @@ jobs:
       - name: The game, for the release
         run: tar -C dist -czf play.tar.gz play
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: play
           path: play.tar.gz
@@ -60,7 +60,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: play
       - name: Release the build with its game
@@ -79,6 +79,6 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Smoke against the Pages URL
         run: DEV_VARIANT=web ./dev.sh node ui/scripts/smoke.ts --url "${{ needs.deploy.outputs.page_url }}"
