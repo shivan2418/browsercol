@@ -5,7 +5,7 @@
 // Prints the bytes each load took (response headers and bodies, as the browser received them), and the
 // requests that were audio.
 // Run in the web image:
-//   DEV_VARIANT=web ./dev.sh node ui/scripts/audio.ts [--browsers chromium,firefox] [--url https://browsercol.com/play/]
+//   DEV_VARIANT=web ./dev.sh node ui/scripts/audio.ts [--browsers chromium,firefox] [--url https://browsercol.com/]
 import type { Page, Response } from 'playwright-core';
 import { browserNames, collectPageErrors, diagnose, launchBrowser, opt, waitForResult } from './common.ts';
 import { answerDialogs } from './dialogs.ts';

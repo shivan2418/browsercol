@@ -9,7 +9,7 @@
 // the Engine asks for as the game starts.
 // The page's dialogs are answered as scripts/dialogs.ts says.
 // Run in the web image:
-//   DEV_VARIANT=web ./dev.sh node ui/scripts/smoke.ts [--browsers chromium,firefox] [--autoplay N] [--query preset=NAME] [--url https://browsercol.com/play/]
+//   DEV_VARIANT=web ./dev.sh node ui/scripts/smoke.ts [--browsers chromium,firefox] [--autoplay N] [--query preset=NAME] [--url https://browsercol.com/]
 import fs from 'node:fs';
 import path from 'node:path';
 import {
