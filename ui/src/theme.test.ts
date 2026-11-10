@@ -208,6 +208,7 @@ const MOVED: Record<string, RegExp> = {
     /(^|,)\s*(\.dialog|\.europe-log|\.start-window|#credits|\.dialog \.vstop|\.dialog\[data-kind='negotiation'\] \.lead)\s+h[23](\.headline)?\s*$/,
   'tooltips (tooltip.css, colony-tips.css)': /^\.(ui-tip|building-tip|rebel-tip)\b/,
   'option rows (option-editor.css)': /^\.options\b|\.options\s/,
+  'tables (modifiers.css, rules-help.css)': /^\.dialog \.modifiers|^\.rules-help/,
   'pictures (pic.css)':
     /^(\.dialog \.pic(\.small)?|\.dialog \.hold \.pic\.small|\.dialog \.palette \.pic|\.shop-popup \.card \.pic|\.dialog \.goods-big)$/,
   'button rows (button-row.css)':

@@ -34,6 +34,7 @@ import { ReportPanel } from './reports';
 import { stopWork, type Work } from './route-work';
 import type { ColonyView, EuropeUnit, GuiEvents, ReportLink, SettlementEntry, TradeRouteDraft } from './webgui';
 import { useCoverage } from './coverage';
+import './modifiers.css';
 
 export type { Art };
 

@@ -4,6 +4,7 @@
 // Classic) and against the Java that reads the option, not the option's description: the file and line that
 // decide each row are listed in the pull request of #326. Only what differs is here. The wording is ours:
 // FreeCol has no strings for it.
+import './rules-help.css';
 
 interface Row {
   /** What changes, with the option's name in the Game options as FreeCol labels it. */
