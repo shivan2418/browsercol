@@ -278,7 +278,7 @@ test('the start screen offers to continue the newest save and to open another', 
     />,
   );
   fireEvent.click(document.querySelector('[data-continue]')!);
-  fireEvent.click(document.querySelector('[data-open-save="2"]')!);
+  fireEvent.doubleClick(document.querySelector('[data-open-save="2"]')!);
   expect(opened).toEqual([7, 2]);
 });
 

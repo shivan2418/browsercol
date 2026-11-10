@@ -1,19 +1,60 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, expect, test } from 'vite-plus/test';
 import { OpenDialog, SaveDialog } from './save-picker';
 
 afterEach(cleanup);
 
-test('the Open window lists the saves and opens the one picked', () => {
+test('the Open window lists the saves and opens the one selected with Open', () => {
   const opened: number[] = [];
   let closed = 0;
   const save = { id: 4, name: 'Dutch, turn 3', date: 0, turn: 3, year: 1495, nation: 'Dutch', size: 1 };
-  render(<OpenDialog saves={[save]} open={(id) => opened.push(id)} close={() => closed++} />);
-  fireEvent.click(document.querySelector('[data-open-save="4"]')!);
+  const other = { ...save, id: 5, name: 'Other' };
+  render(<OpenDialog saves={[save, other]} open={(id) => opened.push(id)} close={() => closed++} />);
+  expect(screen.getByRole('listbox')).toBeTruthy();
+  expect(screen.getAllByRole('option').map((o) => o.getAttribute('aria-selected'))).toEqual(['true', 'false']);
+  fireEvent.click(document.querySelector('[data-open-save="5"]')!);
+  expect(opened).toEqual([]);
+  expect(document.querySelector('[data-open-save="5"]')!.getAttribute('aria-selected')).toBe('true');
+  fireEvent.click(document.querySelector('[data-open-selected]')!);
   fireEvent.click(document.querySelector('[data-open-cancel]')!);
-  expect(opened).toEqual([4]);
+  expect(opened).toEqual([5]);
   expect(closed).toBe(1);
+});
+
+test('a double click opens a save, and the arrow keys and Enter pick and open one', () => {
+  const opened: number[] = [];
+  const save = { id: 4, name: 'A', date: 0, turn: 3, year: 1495, nation: 'Dutch', size: 1 };
+  const saves = [save, { ...save, id: 5, name: 'B' }, { ...save, id: 6, name: 'C' }];
+  render(<OpenDialog saves={saves} open={(id) => opened.push(id)} close={() => {}} />);
+  fireEvent.doubleClick(document.querySelector('[data-open-save="6"]')!);
+  const list = screen.getByRole('listbox');
+  fireEvent.keyDown(list, { key: 'ArrowDown' });
+  fireEvent.keyDown(list, { key: 'ArrowDown' });
+  fireEvent.keyDown(list, { key: 'ArrowDown' });
+  fireEvent.keyDown(list, { key: 'ArrowUp' });
+  fireEvent.keyDown(list, { key: 'Enter' });
+  expect(opened).toEqual([6, 5]);
+  expect(document.querySelector('[data-open-save="5"]')!.getAttribute('aria-selected')).toBe('true');
+});
+
+test('a row shows the name, the date, the turn and year, and the nation apart', () => {
+  const save = { id: 4, name: 'Dutch, turn 3', date: 0, turn: 3, year: 1495, nation: 'Dutch', size: 1 };
+  render(<OpenDialog saves={[save]} open={() => {}} close={() => {}} />);
+  expect(document.querySelector('.save-name')!.textContent).toBe('Dutch, turn 3');
+  expect(document.querySelector('[data-save-turn]')!.textContent).toBe('Turn 3 (1495)');
+  expect(document.querySelector('[data-save-nation]')!.textContent).toBe('Dutch');
+});
+
+test('the Save window lists the existing saves for reference, and picking one saves nothing', () => {
+  const names: string[] = [];
+  const save = { id: 4, name: 'Before the war', date: 0, turn: 3, year: 1495, nation: 'Dutch', size: 1 };
+  render(<SaveDialog title="Save Game" saves={[save]} save={(n) => names.push(n)} close={() => {}} />);
+  const row = document.querySelector('[data-saved="4"]')!;
+  expect(row.textContent).toContain('Before the war');
+  fireEvent.click(row);
+  fireEvent.doubleClick(row);
+  expect(names).toEqual([]);
 });
 
 test('the Open window opens a save file too, and says why one would not open', () => {

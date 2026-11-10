@@ -1198,6 +1198,7 @@ function renderSide() {
           )}
           {saveDialog && (
             <SaveDialog
+              saves={side.saves}
               title={saveDialog === 'saveAndExit' ? 'Save and Exit' : 'Save Game'}
               save={(name, download) => {
                 exitAfterSave = saveDialog === 'saveAndExit';

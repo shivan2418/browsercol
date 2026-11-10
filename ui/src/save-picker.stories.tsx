@@ -28,21 +28,6 @@ const meta = {
   title: 'Dialogs/Open Game',
   component: OpenDialog,
   args: { saves, open: () => {}, exportSave: () => {}, openFile: () => {}, close: () => {} },
-  decorators: [
-    (Story) => (
-      <>
-        {/* The save list's layout, as ui/index.html sets it: Storybook does not load that page's styles. */}
-        <style>{`
-          .save-picker { margin: 6px 0 0; padding: 0; list-style: none; }
-          .save-picker li { display: flex; gap: 4px; }
-          .save-picker button { flex: 1; text-align: left; }
-          .save-picker button[data-export-save] { flex: none; }
-          #open-game.dialog { max-width: 50em; }
-        `}</style>
-        <Story />
-      </>
-    ),
-  ],
 } satisfies Meta<typeof OpenDialog>;
 export default meta;
 

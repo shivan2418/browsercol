@@ -1541,30 +1541,6 @@
       .europe-body .price {
         font-variant-numeric: tabular-nums;
       }
-      .save-picker {
-        margin: 6px 0 0;
-        padding: 0;
-        list-style: none;
-        max-height: 14em;
-        overflow-y: auto;
-      }
-      .save-picker li {
-        display: flex;
-        gap: 4px;
-      }
-      .save-picker button {
-        flex: 1;
-        text-align: left;
-      }
-      /* Export save... sits at the end of the save's line, as wide as its text. */
-      .save-picker button[data-export-save] {
-        flex: none;
-      }
-      /* A save's line (name | saved | turn | nation) fits on one line: wider than other dialogs where the screen allows. */
-      #open-game.dialog,
-      #save-game.dialog {
-        max-width: min(50em, calc(var(--screen-w) * 0.94));
-      }
       /* The Preferences window (src/prefs-dialog.tsx): FreeCol's category tree, and the picked one's options. */
       #preferences .prefs-body {
         display: flex;
