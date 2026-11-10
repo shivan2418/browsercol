@@ -180,9 +180,9 @@ export function climateShares(zone: Float32Array, cols: number, rows: number, ra
 }
 
 /**
- * Which climate a land tile type gives the water by it: cold (tundra, arctic, boreal), tropical (savannah, desert,
- * marsh, swamp and their forests, broadleaf as the owner asked), temperate the rest; hills and mountains none (the
- * latitude decides).
+ * Which climate a land tile type gives the water by it: cold (tundra, arctic, boreal), tropical (savannah, swamp and
+ * their forests: only there do long turquoise shallows fit), temperate the rest, broadleaf, marsh and desert included;
+ * hills and mountains none (the latitude decides).
  */
 export const CLIMATE_OF: Record<string, Climate> = {
   'model.tile.tundra': 'cold',
@@ -194,14 +194,14 @@ export const CLIMATE_OF: Record<string, Climate> = {
   'model.tile.mixedForest': 'temperate',
   'model.tile.coniferForest': 'temperate',
   'model.tile.savannah': 'tropical',
-  'model.tile.desert': 'tropical',
-  'model.tile.marsh': 'tropical',
+  'model.tile.desert': 'temperate',
+  'model.tile.marsh': 'temperate',
   'model.tile.swamp': 'tropical',
-  'model.tile.broadleafForest': 'tropical',
+  'model.tile.broadleafForest': 'temperate',
   'model.tile.tropicalForest': 'tropical',
-  'model.tile.wetlandForest': 'tropical',
+  'model.tile.wetlandForest': 'temperate',
   'model.tile.rainForest': 'tropical',
-  'model.tile.scrubForest': 'tropical',
+  'model.tile.scrubForest': 'temperate',
 };
 
 /** A number from a string resource, or the fallback when the Tileset has none. */
@@ -834,7 +834,10 @@ void main() {
   float dist = (0.5 - f.b) * 384.0 - drawn * 12.67 + plume * 22.0;
   float d = max(0.0, dist);
   float deeper = uAxes.w;
-  float shelf = 1.0 - smoothstep(8.0, uRecipe.w * mix(1.0, 0.8, deeper), d + noise * 6.0);
+  // Long shallows only by tropical land: cold and temperate shelves are about half as wide, and fainter.
+  float shelfReach = dot(w, vec3(0.5, 0.55, 1.0));
+  float shelf = (1.0 - smoothstep(8.0, uRecipe.w * shelfReach * mix(1.0, 0.8, deeper), d + noise * 6.0)) *
+    dot(w, vec3(0.8, 0.75, 1.0));
   vec3 shallow = uAxes.x > 0.5 ? uShal0*w.r + uShal1*w.g + uShal2*w.b : uShallow;
   vec3 deep = art;
   if (uAxes.z > 0.5) {
