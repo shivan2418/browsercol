@@ -43,8 +43,8 @@ const RECIPES: Record<Exclude<Variant, 'Default'>, WaterRecipe> = {
     driftSpeed: 2,
     shelfWidth: 90,
     climateBlend: 3,
-    clip: 0,
-    clipAt: 2,
+    clip: 1,
+    clipAt: -2,
   },
   B: {
     shallows: 'climate',
@@ -57,8 +57,8 @@ const RECIPES: Record<Exclude<Variant, 'Default'>, WaterRecipe> = {
     driftSpeed: 2,
     shelfWidth: 90,
     climateBlend: 3,
-    clip: 0,
-    clipAt: 2,
+    clip: 1,
+    clipAt: -2,
   },
   C: {
     shallows: 'climate',
@@ -71,8 +71,8 @@ const RECIPES: Record<Exclude<Variant, 'Default'>, WaterRecipe> = {
     driftSpeed: 2,
     shelfWidth: 90,
     climateBlend: 3,
-    clip: 0,
-    clipAt: 2,
+    clip: 1,
+    clipAt: -2,
   },
   D: {
     shallows: 'climate',
@@ -85,8 +85,8 @@ const RECIPES: Record<Exclude<Variant, 'Default'>, WaterRecipe> = {
     driftSpeed: 2,
     shelfWidth: 90,
     climateBlend: 3,
-    clip: 0,
-    clipAt: 2,
+    clip: 1,
+    clipAt: -2,
   },
   E: {
     shallows: 'climate',
@@ -99,8 +99,8 @@ const RECIPES: Record<Exclude<Variant, 'Default'>, WaterRecipe> = {
     driftSpeed: 2,
     shelfWidth: 90,
     climateBlend: 3,
-    clip: 0,
-    clipAt: 2,
+    clip: 1,
+    clipAt: -2,
   },
 };
 

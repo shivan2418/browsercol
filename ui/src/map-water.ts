@@ -1271,7 +1271,7 @@ const uniformsOf = (look: WaterLook): Record<string, { value: number | number[];
     ]),
     uTime: { value: 0, type: 'f32' },
     uSplit: { value: 0, type: 'f32' },
-    uClip: { value: [look.recipe?.clip ?? 0, look.recipe?.clipAt ?? 2], type: 'vec2<f32>' },
+    uClip: { value: [look.recipe?.clip ?? 0, look.recipe?.clipAt ?? -2], type: 'vec2<f32>' },
   };
 };
 
