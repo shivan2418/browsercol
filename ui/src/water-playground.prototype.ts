@@ -380,7 +380,7 @@ export function waterPlaygroundPanel(host: Host) {
   document.body.append(divider);
   const showVariant = () => {
     const box = document.querySelector('#map canvas')?.getBoundingClientRect();
-    badge.textContent = `${split ? 'Default | ' : ''}${variant}${surface() ? '' : ' (flipbook fallback)'}`;
+    badge.textContent = `${split && variant !== 'Default' ? 'Default | ' : ''}${variant}${surface() ? '' : ' (flipbook fallback)'}`;
     divider.hidden = !split || variant === 'Default';
     if (box) {
       divider.style.left = `${box.left + box.width * split}px`;

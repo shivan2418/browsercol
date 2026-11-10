@@ -34,6 +34,8 @@ _Avoid_: animated water, water effect
 
 The water playground's painted-art recipe uses a CPU coastline field in 2:1 texels. Closing grows and shrinks the coast without cutting land, preserving sailing links between water tiles, including corner links. An edge-connected lake mask ignores rivers. Climate weights blend nearby land over a configurable distance. Exploration patches the affected region; a newly opened sea connection also updates the affected lake.
 
+Open `?tileset=freecol-plus&playground=water&water=A` to compare the painted-art variants. A uses turquoise shallows and a shader-drawn beach; B adds climate shallows; C keeps FreeCol's beach art; D uses foam without bands; E adds climate deep water to C. All five start with the darker, narrower shelf. The five axis pickers can combine them, and the old presets retain the parked ripple renderer. `water=Default` shows the flipbook; `split=0.5` puts it on the left of a draggable divider. The comparison tiles are built and animated only while shown. Terrain animation off freezes the shader too.
+
 **Procedural mode**:
 The Map mode that draws terrain (ground, water, rivers, forests) in layers, with art such as single trees placed by code; units, colonies and roads still come from the chosen Tileset.
 _Avoid_: fancy mode, HD mode, 3D mode

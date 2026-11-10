@@ -34,6 +34,9 @@ const zooms = opt('zooms', '1,2').split(',').map(Number);
 const [vw, vh] = opt('size', '1366x768').split('x').map(Number);
 const video = process.argv.includes('--video');
 const secs = Number(opt('secs', '5'));
+// The web image has Playwright's encoder, not a system ffmpeg.
+const ffmpeg =
+  fs.globSync(path.resolve(playwright.chromium.executablePath(), '../../../ffmpeg-*/ffmpeg-linux'))[0] ?? 'ffmpeg';
 const gpu = process.argv.includes('--gpu');
 const still = process.argv.includes('--still');
 const label = opt('label', '');
@@ -178,7 +181,7 @@ for (const name of browserNames('chromium,firefox')) {
           const raw = await page.video()!.path();
           for (const clip of clips) {
             const cut = spawnSync(
-              'ffmpeg',
+              ffmpeg,
               [
                 '-y',
                 '-loglevel',
@@ -199,7 +202,8 @@ for (const name of browserNames('chromium,firefox')) {
               ],
               { stdio: 'inherit' },
             );
-            if (cut.status !== 0) throw new Error(`ffmpeg failed; raw recording retained at ${raw}`);
+            if (cut.status !== 0)
+              throw new Error(`ffmpeg failed: ${cut.error ?? cut.status}; raw recording retained at ${raw}`);
           }
           await page.video()!.delete();
         }

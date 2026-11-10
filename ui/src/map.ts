@@ -776,23 +776,38 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
   let defaultOnly = false;
   const rightMask = new Graphics();
   const leftMask = new Graphics();
-  app.stage.addChild(rightMask, leftMask);
+  const shoreMask = new Graphics();
+  // Each mask belongs to the render group it clips, so its coordinates track that group's camera.
+  layers[5].addChild(rightMask);
+  layers[8].addChild(leftMask);
+  layers[9].addChild(shoreMask);
   const compare = () => {
     const recipe = surface?.look.recipe;
     const width = app.renderer.screen.width;
     const height = app.renderer.screen.height;
     const divider = defaultOnly ? width : split * width;
+    const scale = world.scale.x;
+    const x = -world.x / scale;
+    const y = -world.y / scale;
     rightMask
       .clear()
-      .rect(divider, 0, width - divider, height)
+      .rect(x + divider / scale, y, (width - divider) / scale, height / scale)
       .fill(0xffffff);
-    leftMask.clear().rect(0, 0, divider, height).fill(0xffffff);
+    leftMask
+      .clear()
+      .rect(x, y, divider / scale, height / scale)
+      .fill(0xffffff);
+    shoreMask
+      .clear()
+      .rect(x, y, divider / scale, height / scale)
+      .fill(0xffffff);
     const baseline = !!recipe && (defaultOnly || split > 0);
     layers[8].visible = layers[9].visible = baseline;
     layers[8].mask = baseline ? leftMask : null;
     layers[5].mask = recipe && baseline ? rightMask : null;
-    layers[9].mask = baseline ? leftMask : null;
-    rightMask.renderable = leftMask.renderable = false;
+    layers[9].mask = baseline ? shoreMask : null;
+    // Stencil masks must remain renderable; only exclude their ordinary scene draw.
+    rightMask.includeInBuild = leftMask.includeInBuild = shoreMask.includeInBuild = false;
     if (surface) {
       surface.surface.mesh.visible = !defaultOnly;
       surface.surface.uniforms.uSplit = divider * app.renderer.resolution;
@@ -831,6 +846,7 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
             redraw(null);
           },
           time: (ms) => {
+            if (defaultOnly) return;
             surface?.setTime(ms);
             redraw(null);
           },
@@ -1015,6 +1031,7 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
           else bleed(s);
         }
       world.position.set(snap(dx, 1), snap(dy, 1));
+      if (surface?.look.recipe && (defaultOnly || split > 0)) compare();
       if (rescaled) for (const c of chunkLayers.values()) c.rescale(scaleK());
       chunkView();
       redraw('all', !rescaled);
