@@ -899,7 +899,7 @@ const scenarios: Record<string, (run: Run) => Promise<void>> = {
     // FreeCol's VictoryDialog: the line as a header in the title font over the Continental soldier (132x275).
     const soldier = await page.evaluate(() => {
       const img = document.querySelector<HTMLImageElement>('[role=dialog][data-kind="confirm"] img.picture');
-      const head = document.querySelector('[role=dialog][data-kind="confirm"] h3.headline');
+      const head = document.querySelector('[role=dialog][data-kind="confirm"] h3[data-look=headline]');
       return img ? { w: img.naturalWidth, h: img.naturalHeight, head: head?.textContent ?? null } : null;
     });
     if (!soldier || soldier.w !== 132 || soldier.h !== 275 || !soldier.head)

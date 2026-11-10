@@ -8,6 +8,7 @@
 // [data-load-ok] and [data-load-cancel] on its buttons.
 import type { SaveMeta } from './saves';
 import { NumberField } from './controls';
+import { Heading } from './frame';
 import { useCoverage } from './coverage';
 
 /** FreeCol's choices of the save game dialog option. */
@@ -42,7 +43,9 @@ export function LoadingSaveDialog({
         }}
       >
         <h1>BrowserCol</h1>
-        <h2>Loading Save game</h2>
+        <Heading level={2} space="window">
+          Loading Save game
+        </Heading>
         {save && (
           <p className="quiet loading-save-name">
             {save.name}: turn {save.turn} ({save.year}), {save.nation}

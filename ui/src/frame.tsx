@@ -25,6 +25,7 @@ import type { GoodsProgress } from './webgui';
 import './window-frame.css';
 import './goods.css';
 import './box.css';
+import './heading.css';
 import './popup-surface.css';
 import './selection.css';
 import './quiet-text.css';
@@ -302,6 +303,28 @@ export function Box({
       )}
       {children}
     </Tip>
+  );
+}
+
+/**
+ * A heading inside a window: an h2 (a part's title) or an h3 (a section's), in the heading colour. Its variants are
+ * props: `look` (`title`: the title font and the larger size; `headline`: the centred line over a question) and
+ * `space`, the room round it (`flush`, `tight`, `low`, `window`, `section`), never a panel's selector.
+ */
+export function Heading({
+  level = 3,
+  look,
+  space,
+  className,
+  ...rest
+}: {
+  level?: 2 | 3;
+  look?: 'title' | 'headline';
+  space?: 'flush' | 'tight' | 'low' | 'window' | 'section';
+} & HTMLAttributes<HTMLHeadingElement>) {
+  const Tag = level === 2 ? 'h2' : 'h3';
+  return (
+    <Tag className={className ? `heading ${className}` : 'heading'} data-look={look} data-space={space} {...rest} />
   );
 }
 

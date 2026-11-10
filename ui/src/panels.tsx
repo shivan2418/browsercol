@@ -23,7 +23,7 @@ import { ColonyActions, ColonyPanel } from './colony-panel';
 import { DebugContext } from './debug';
 import type { Dialog, Dialogs } from './dialogs';
 import { europeButtons } from './europe-client';
-import { Box, GoodsAmount, TEXT_ENTRY, WindowFrame, type Art } from './frame';
+import { Box, GoodsAmount, Heading, TEXT_ENTRY, WindowFrame, type Art } from './frame';
 import { Declaration } from './declaration';
 import { CopyDetailsContext, ShowLogContext } from './log';
 import { lane } from './drag';
@@ -192,7 +192,7 @@ function Confirm({ d, colopedia, art }: { d: Of<'confirm'>; colopedia: (type: st
           </p>
         </div>
       ) : ask.headline ? (
-        <h3 className="headline">{ask.text}</h3>
+        <Heading look="headline">{ask.text}</Heading>
       ) : (
         <Text text={ask.text} />
       )}
@@ -425,9 +425,9 @@ function Father({ d, art }: { d: Of<'father'>; art: Art }) {
       </div>
       {f && (
         <div className="father" role="tabpanel" id="father-detail" aria-labelledby={`father-tab-${open}`}>
-          <h3>
+          <Heading>
             {f.name} ({f.kind})
-          </h3>
+          </Heading>
           <Pic keys={f.keys} art={art} className="portrait" />
           <div className="about">
             <p className="effect">{f.description}</p>
@@ -701,21 +701,20 @@ function TileText({
   /** A heading (a source's, in the turn report) rather than a paragraph. */
   heading?: boolean;
 }) {
-  const Tag = heading ? 'h3' : 'p';
-  if (!at) return <Tag className="text">{text}</Tag>;
-  return (
-    <Tag className="text">
-      <a
-        href="#"
-        data-at={at.join(',')}
-        onClick={(e) => {
-          e.preventDefault();
-          goTo(at);
-        }}
-      >
-        {text}
-      </a>
-    </Tag>
+  const wrap = (kids: ReactNode) =>
+    heading ? <Heading className="text">{kids}</Heading> : <p className="text">{kids}</p>;
+  if (!at) return wrap(text);
+  return wrap(
+    <a
+      href="#"
+      data-at={at.join(',')}
+      onClick={(e) => {
+        e.preventDefault();
+        goTo(at);
+      }}
+    >
+      {text}
+    </a>,
   );
 }
 
@@ -800,7 +799,7 @@ function MessageList({
           <div key={i} className="message" data-dim={dim || undefined}>
             {m.heading &&
               (m.heading.link ? (
-                <h3 className="text">
+                <Heading className="text">
                   <a
                     href="#"
                     data-link={m.heading.link.kind}
@@ -811,7 +810,7 @@ function MessageList({
                   >
                     {m.heading.text}
                   </a>
-                </h3>
+                </Heading>
               ) : (
                 <TileText heading text={m.heading.text} at={m.heading.at} goTo={goTo} />
               ))}
@@ -1127,7 +1126,9 @@ function RouteEditor({
                 >
                   {i + 1}
                 </Tip>
-                <h3>{s.label}</h3>
+                <Heading look="title" space="flush">
+                  {s.label}
+                </Heading>
                 {chips(i)}
                 <Tip
                   as="button"
@@ -1610,7 +1611,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
     // E, which opened Europe from the map, closes it again (not while a shop popup or a question is over it).
     <Panel d={d} ok={e.ok} lead={footer} closeKeys={EUROPE_KEYS}>
       <div className="europe-title">
-        <h2>{e.title}</h2>
+        <Heading level={2}>{e.title}</Heading>
       </div>
       {shop && shopPopup(shop)}
       <div className="europe-body">
@@ -1691,7 +1692,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
             </Box>
           </div>
           <aside className="europe-log" data-log ref={logRef}>
-            <h3>{e.log.heading}</h3>
+            <Heading space="low">{e.log.heading}</Heading>
             {e.log.entries.map((lines, i) => (
               // FreeCol's lines tab a label from its amount ("Price:\t200"): the amount goes right.
               <div key={i} className="entry" data-entry>
@@ -1783,13 +1784,13 @@ function SettlementBody({
         </span>
       </div>
       {e.missionary && entry(e.missionary)}
-      <h3>{e.labels.learnableSkill}</h3>
+      <Heading>{e.labels.learnableSkill}</Heading>
       {entry(e.skill)}
-      <h3>{e.labels.hatedNation}</h3>
+      <Heading>{e.labels.hatedNation}</Heading>
       {entry(e.mostHated)}
-      <h3>{e.labels.highlyWanted}</h3>
+      <Heading>{e.labels.highlyWanted}</Heading>
       {entry(e.wanted[0], e.wanted[0].tip)}
-      <h3>{e.labels.otherWanted}</h3>
+      <Heading>{e.labels.otherWanted}</Heading>
       <div className="wanted">
         {e.wanted.slice(1).map((w, i) => (
           <Fragment key={i}>{entry(w, w.tip)}</Fragment>
@@ -1803,7 +1804,7 @@ function SettlementBody({
 function TileBody({ e, art }: { e: GuiEvents['tilePanel']; art: Art }) {
   return (
     <div className="tile-panel">
-      <h2>{e.title}</h2>
+      <Heading level={2}>{e.title}</Heading>
       <div className="terrain-image">
         <Pic keys={e.keys} art={art} />
         {e.forest && <Pic keys={e.forest} art={art} />}
@@ -1931,7 +1932,7 @@ function WorkProduction({ d, art }: { d: Of<'workProduction'>; art: Art }) {
   return (
     <Panel d={d} ok={e.ok}>
       <div className="work-production">
-        <h2>{e.title}</h2>
+        <Heading level={2}>{e.title}</Heading>
         <div className="row">
           <div className="terrain-image">
             <Pic keys={e.keys} art={art} />
@@ -1989,7 +1990,7 @@ function TerrainBody({ e, art }: { e: GuiEvents['colopedia']; art: Art }) {
   );
   return (
     <div className="terrain">
-      <h2>{e.name}</h2>
+      <Heading level={2}>{e.name}</Heading>
       <dl>
         <dt>{e.labels.terrainImage}</dt>
         <dd className="terrain-image">
@@ -2160,9 +2161,9 @@ function Body({
           {d.event.text && <Text text={d.event.text} />}
           {d.event.scores.map((s, i) => (
             <div className="high-score" key={i}>
-              <h2>
+              <Heading level={2}>
                 {s.score} {s.headline}
-              </h2>
+              </Heading>
               <dl>
                 {s.fields.map((f) => (
                   <div key={f.label}>

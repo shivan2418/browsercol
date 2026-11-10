@@ -169,7 +169,7 @@ describe('the confirm dialog', () => {
       image: 'image.flavor.Victory',
     });
     const header = screen.getByRole('heading', { name: 'You are victorious!' });
-    expect(header.className).toBe('headline');
+    expect(header.dataset.look).toBe('headline');
     const soldier = document.querySelector('img.picture');
     expect(soldier?.getAttribute('src')).toBe('art/victory.png');
     // The header comes first, then the picture, then the buttons.

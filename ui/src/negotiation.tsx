@@ -6,7 +6,7 @@
 // to accept, reject or counter-propose, which opens the editor filled in with it.
 import { useState, type ReactNode } from 'react';
 import { EscapeCloses, NumberField, Select } from './controls';
-import { Box } from './frame';
+import { Box, Heading } from './frame';
 import type { GuiQuestions, TradeItem, TradeKind, TradeOption } from './webgui';
 
 type Ask = GuiQuestions['negotiation']['ask'];
@@ -152,7 +152,9 @@ export function useNegotiation(
 
   const lead = (title: string, text: string) => (
     <div className="lead">
-      <h3>{title}</h3>
+      <Heading look="title" space="tight">
+        {title}
+      </Heading>
       <p className="text">{text}</p>
     </div>
   );

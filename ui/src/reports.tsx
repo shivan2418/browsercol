@@ -19,7 +19,7 @@ import {
 } from 'react';
 import { Select, Tip } from './controls';
 import type { Dialog } from './dialogs';
-import { GoodsAmount, GoodsProgressBar, WindowFrame, type Art, type Menu } from './frame';
+import { GoodsAmount, GoodsProgressBar, Heading, WindowFrame, type Art, type Menu } from './frame';
 import type { CompactCell, ReportName, ReportView, UnitCount } from './webgui';
 
 /** What a link in a report does (ClientExports.report, reportDetail and showColony, and the page's). */
@@ -159,11 +159,11 @@ function ColonyReport({ e, art, go }: { e: View<'colony'>; art: Art; go: Links }
     <div className="colonies">
       {e.colonies.map((c) => (
         <section key={c.id} data-colony={c.id}>
-          <h3>
+          <Heading>
             <Link go={() => go.colony(c.id)} data-link={c.id}>
               {c.name}
             </Link>
-          </h3>
+          </Heading>
           <div className="row" data-list="colonists">
             {c.colonists.map((u) => (
               <Img key={u.id} keys={u.keys} art={art} title={u.name} unit={u.id} />
@@ -433,7 +433,7 @@ function byKind<U extends { name: string }>(units: U[]): U[][] {
 function Units({ e, art, go }: { e: View<'military' | 'naval' | 'cargo'>; art: Art; go: Links }) {
   const force = (f: { name: string; units: UnitCount[] }, which: string) => (
     <section data-force={which}>
-      <h3>{f.name}</h3>
+      <Heading>{f.name}</Heading>
       <div className="row">
         {f.units.map((u) => (
           <Tip as="span" key={`${u.type}${u.keys[0]}`} className="made" tip={u.text} data-type={u.type}>
@@ -450,7 +450,7 @@ function Units({ e, art, go }: { e: View<'military' | 'naval' | 'cargo'>; art: A
       {force(e.forces, 'ours')}
       {e.locations.map((p) => (
         <section key={p.link.id} data-place={p.link.id}>
-          <h3>
+          <Heading>
             <Link
               data-link={p.link.id}
               go={() => {
@@ -461,7 +461,7 @@ function Units({ e, art, go }: { e: View<'military' | 'naval' | 'cargo'>; art: A
             >
               {p.label}
             </Link>
-          </h3>
+          </Heading>
           {p.units.length === 0 && <span className="muted">{e.none}</span>}
           {byKind(p.units).map((kind) => (
             <div key={kind[0].id} className="row kind" data-kind={kind[0].name}>
@@ -490,10 +490,10 @@ function ReligionReport({ e, art, go }: { e: View<'religion'>; art: Art; go: Lin
     <div className="religion">
       {e.goods.map((g) => (
         <section key={g.type} data-goods={g.type}>
-          <h3>
+          <Heading>
             <Img keys={g.keys} art={art} title={g.name} />
             {g.name}
-          </h3>
+          </Heading>
           <GoodsProgressBar need={g.bar} art={art} />
           <div className="places">
             {g.colonies.map((c) => (
@@ -534,12 +534,12 @@ function EducationReport({ e, art, go }: { e: View<'education'>; art: Art; go: L
     <div className="education">
       {e.colonies.map((c, i) => (
         <section key={`${c.id}.${i}`} data-colony={c.id}>
-          <h3>
+          <Heading>
             <Link go={() => go.colony(c.id)} data-link={c.id}>
               {c.name}
             </Link>
             <Img keys={c.building.keys} art={art} title={c.building.name} />
-          </h3>
+          </Heading>
           <fieldset data-list="teachers">
             <legend>{e.headers.teachers}</legend>
             {c.teachers.map((u) => (
@@ -760,11 +760,11 @@ function RequirementsReport({ e, go }: { e: View<'requirements'>; go: Links }) {
     <div className="requirements">
       {e.colonies.map((c) => (
         <section key={c.id} data-colony={c.id}>
-          <h3>
+          <Heading>
             <Link go={() => go.colony(c.id)} data-link={c.id}>
               {c.name}
             </Link>
-          </h3>
+          </Heading>
           {c.items.map((item, i) => (
             <p key={i} data-item={i}>
               {item.text}
@@ -867,7 +867,7 @@ function Colopedia({ e, art, go: links }: { e: View<'colopedia'>; art: Art; go: 
       <article className="detail">
         {entry && (
           <>
-            <h3>{entry.name}</h3>
+            <Heading>{entry.name}</Heading>
             <Img keys={entry.keys} art={art} title={entry.name} />
             <dl>
               {entry.facts.map((f, i) => (
@@ -974,10 +974,10 @@ function IndianReport({ e, art, go }: { e: View<'indian'>; art: Art; go: Links }
     <div className="indian">
       {e.tribes.map((t) => (
         <section key={t.id} data-tribe={t.id}>
-          <h3>
+          <Heading>
             <Img keys={t.keys} art={art} title={t.kind} />
             {t.name}
-          </h3>
+          </Heading>
           <dl>
             {(
               [

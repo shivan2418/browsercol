@@ -198,3 +198,24 @@ test('what is selected or pressed is drawn by selection.css alone, and never by 
   const own = declarations(componentSheets['./selection.css']).filter((d) => d.selector !== ':root');
   expect(own.filter((d) => /^font|^padding|^margin|^border-width/.test(d.prop))).toEqual([]);
 });
+
+// ---- Patterns moved out of index.html (#435): each stays in its component's sheet, and a panel never patches it ----
+
+/** The rules that were in index.html for a pattern now beside its component: none may come back. */
+const MOVED: Record<string, RegExp> = {
+  // A part's own rule may still set what Heading does not (the father's grid column, a report's flex rule).
+  'dialog headings (heading.css)':
+    /(^|,)\s*(\.dialog|\.europe-log|\.start-window|#credits|\.dialog \.vstop|\.dialog\[data-kind='negotiation'\] \.lead)\s+h[23](\.headline)?\s*$/,
+};
+
+test('a moved pattern has no rule left in index.html', () => {
+  const left = [...bare(pageCss).matchAll(/([^{}]+)\{/g)]
+    .flatMap((m) => m[1].split(','))
+    .map((s) => s.trim())
+    .flatMap((s) =>
+      Object.entries(MOVED)
+        .filter(([, re]) => re.test(s))
+        .map(([name]) => `${name}: ${s}`),
+    );
+  expect(left).toEqual([]);
+});
