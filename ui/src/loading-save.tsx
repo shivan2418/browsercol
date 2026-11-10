@@ -9,6 +9,7 @@
 import type { SaveMeta } from './saves';
 import { NumberField } from './controls';
 import { ButtonRow, Heading } from './frame';
+import './start-window.css';
 import { useCoverage } from './coverage';
 
 /** FreeCol's choices of the save game dialog option. */

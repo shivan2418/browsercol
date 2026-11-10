@@ -28,6 +28,7 @@ import { levelFile, loadDefaults, readLevelFile, saveDefaults } from './start-op
 import { ADVANTAGES, type Advantages, type StartChoice, type StartOptions } from './start';
 import type { ReportView } from './webgui';
 import { coverageHitMethod, useCoverage } from './coverage';
+import './start-window.css';
 
 /** The map generator's import file option (MapGeneratorOptions.IMPORT_FILE). */
 const IMPORT_FILE = 'model.option.importFile';

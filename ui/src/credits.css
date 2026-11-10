@@ -1,0 +1,15 @@
+/*
+ * Credits and licence links (SourceLinks in credits.tsx).
+ */
+@layer components {
+  /* The licence, source and credits links under the start window (src/credits.tsx). */
+  .start .source-links {
+    margin: var(--space-5) var(--space-6) 0;
+    color: var(--menubar-ink);
+    font-size: var(--fs-s);
+  }
+  .start .source-links a,
+  .start .source-links .linkish {
+    color: inherit;
+  }
+}

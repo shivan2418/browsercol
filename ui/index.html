@@ -1852,94 +1852,6 @@
       .europe-body .price {
         font-variant-numeric: tabular-nums;
       }
-      /* The start screen (src/start-screen.tsx): a window of its own over the page, until a game starts. */
-      .start {
-        position: fixed;
-        inset: 0;
-        z-index: 10;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        background: var(--page);
-        color: var(--ink);
-        font: var(--fs) / 1.4 var(--font);
-      }
-      .start-window {
-        width: min(32em, 92vw);
-        /* Open option editors can make it taller than the page: it scrolls, so Start stays reachable. */
-        max-height: 96vh;
-        overflow-y: auto;
-        padding: 0 0 12px;
-        background: var(--panel);
-        border: 2px solid var(--line);
-        box-shadow: 0 10px 40px rgb(0 0 0 / 45%);
-      }
-      .start-window h1 {
-        margin: 0;
-        padding: 6px 16px;
-        font-family: var(--font-title);
-        font-size: var(--fs-h);
-        background: var(--menubar);
-        color: var(--menubar-ink);
-      }
-      .start-window fieldset {
-        margin: 8px 16px 0;
-        padding: 6px 10px 8px;
-        border: 1px solid var(--line);
-        background: var(--box);
-      }
-      .start-window legend {
-        padding: 0 4px;
-        color: var(--head);
-      }
-      .start-window .nations {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-      }
-      .start-window .nation {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        padding: 3px 6px;
-        border: 1px solid transparent;
-      }
-      .start-window .swatch {
-        /* In running text (the other nations) an inline swatch has no width, and shows as a bar. */
-        display: inline-block;
-        vertical-align: middle;
-        width: 14px;
-        height: 14px;
-        border: 1px solid var(--line);
-      }
-      .start-window .nation .name {
-        flex: 1;
-      }
-      .start-window .nation .type,
-      .start-window .quiet {
-        color: var(--muted);
-        font-size: var(--fs-s);
-        font-weight: normal;
-      }
-      .start-window .quiet {
-        margin: 6px 0 0;
-      }
-      /* The Loading Save game window (src/loading-save.tsx): one choice or field a line. */
-      .start-window fieldset > label {
-        display: block;
-        padding: 2px 0;
-      }
-      .start-window .loading-save-name {
-        margin: 0 16px;
-      }
-      .start-window fieldset > .ui-select {
-        width: 100%;
-        padding: 3px;
-      }
-      .start-window .customize {
-        margin-top: 6px;
-      }
       .save-picker {
         margin: 6px 0 0;
         padding: 0;
@@ -1963,11 +1875,6 @@
       #open-game.dialog,
       #save-game.dialog {
         max-width: min(50em, calc(var(--screen-w) * 0.94));
-      }
-      .start-window .customize .option-editor {
-        max-height: 18em;
-        overflow-y: auto;
-        margin-top: 6px;
       }
       /* The Preferences window (src/prefs-dialog.tsx): FreeCol's category tree, and the picked one's options. */
       #preferences .prefs-body {
@@ -2038,11 +1945,6 @@
         color: var(--head);
         font-weight: 700;
       }
-      .customize .tools {
-        display: flex;
-        gap: 8px;
-        margin-top: 6px;
-      }
       #preferences .prefs-detail {
         flex: 1;
         min-width: 0;
@@ -2057,68 +1959,6 @@
         max-height: calc(var(--screen-h) * 0.6);
         overflow-y: auto;
       }
-      /*
-       * The new game window (issue 311): wide, with what most players change in three columns and the rarely
-       * changed settings in a row of disclosures under them, so nothing usual needs a scroll at 1280x800.
-       */
-      .start-window.new-game {
-        width: min(78em, 96vw);
-        max-height: 94vh;
-        font-size: var(--fs);
-      }
-      /* Music and sound effects, a small row under Start. */
-      .new-game .sound-toggles {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 6px;
-      }
-      .new-game .sound-label {
-        color: var(--head);
-        margin-right: 2px;
-      }
-      .new-game .sound-toggle {
-        padding: 1px 8px;
-        font-size: var(--fs-s);
-      }
-      .new-game .sound-toggle[aria-pressed='false'] {
-        color: var(--muted);
-      }
-      .new-game .start-cols {
-        display: grid;
-        grid-template-columns: minmax(15em, 1fr) minmax(20em, 1.4fr) minmax(14em, 0.9fr);
-        gap: 12px;
-        margin: 12px 16px 0;
-        align-items: stretch;
-      }
-      .new-game .start-cols fieldset {
-        margin: 0;
-      }
-      .new-game .col-others,
-      .new-game .col-game {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-      }
-      .new-game .field-grid {
-        display: grid;
-        grid-template-columns: auto 1fr;
-        gap: 6px 10px;
-        align-items: center;
-        margin-top: 2px;
-      }
-      .new-game .field-grid .ui-select {
-        width: 100%;
-        padding: 3px;
-      }
-      .new-game .with-help {
-        display: flex;
-        gap: 4px;
-        align-items: center;
-      }
-      .new-game .with-help .ui-select {
-        flex: 1;
-      }
       .ui-help-button {
         padding: 1px 7px;
         font-weight: bold;
@@ -2130,128 +1970,6 @@
         overflow-y: auto;
         padding: 8px 12px;
         font-size: var(--fs-s);
-      }
-      .new-game .pedia {
-        display: block;
-        margin-top: 6px;
-        color: var(--link);
-        font-size: var(--fs-s);
-      }
-      .new-game .quiet .pedia {
-        display: inline;
-      }
-      .new-game .rival-groups {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 0 12px;
-      }
-      .new-game .rival-group h3 {
-        margin: 0 0 2px;
-        font-size: var(--fs);
-        font-weight: normal;
-        color: var(--head);
-      }
-      .new-game .rivals {
-        display: flex;
-        flex-direction: column;
-      }
-      .new-game .rivals > label {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        padding: 1px 0;
-      }
-      .new-game .start-button {
-        padding: 12px;
-        font-size: var(--fs-h);
-        font-weight: bold;
-        border-color: var(--accent);
-      }
-      .new-game .saved-games {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-      }
-      .new-game .saved-games p {
-        margin: 0;
-      }
-      /* The rarely changed settings: a row of tabs, and the open tab's panel under it. */
-      .new-game .more-options {
-        --tab-panel: var(--box);
-        margin: 12px 16px 0;
-      }
-      /*
-       * The open panel has the window's width, its options flow in columns, and it scrolls on its own, with a
-       * height that keeps the window within the page at 1280x800.
-       */
-      .new-game .more-options [role='tabpanel'] {
-        /* Directly under the row's line, not the 6px a .customize panel keeps from what is above. */
-        margin-top: 0;
-        max-height: max(10em, calc(100vh - 680px));
-        overflow-y: auto;
-        padding: 6px 10px;
-        border: 1px solid var(--line);
-        border-top: 0;
-        background: var(--box);
-      }
-      .new-game .more-options [role='tabpanel'][hidden] {
-        display: none;
-      }
-      .new-game .more-options .option-editor {
-        max-height: none;
-        overflow: visible;
-        margin-top: 0;
-        columns: 24em;
-        column-gap: 24px;
-      }
-      .new-game .colour-list {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(11em, 1fr));
-        gap: 4px 12px;
-        margin-top: 6px;
-      }
-      /* Narrower: the nation beside the game and Start, the other nations under them. */
-      @media (max-width: 1000px) {
-        .new-game .start-cols {
-          grid-template-columns: 1fr 1fr;
-        }
-        .new-game .col-game {
-          order: 1;
-        }
-        .new-game .col-others {
-          order: 2;
-          grid-column: 1 / -1;
-        }
-      }
-      @media (max-width: 640px) {
-        .new-game .start-cols {
-          grid-template-columns: 1fr;
-        }
-      }
-      @media (max-width: 420px) {
-        .new-game .rival-groups {
-          grid-template-columns: 1fr;
-        }
-      }
-      /* Wider and taller: the same layout, larger. */
-      @media (min-width: 1600px) and (min-height: 960px) {
-        .start-window.new-game {
-          --fs: 17px;
-          --fs-s: 15px;
-          /* A box's caption is one step under the small size, here as everywhere. */
-          --caption-size: calc(var(--fs-s) - 1px);
-          --fs-h: 20px;
-        }
-      }
-      /* The licence, source and credits links under the start window (src/credits.tsx). */
-      .start .source-links {
-        margin: 12px 16px 0;
-        color: var(--menubar-ink);
-        font-size: var(--fs-s);
-      }
-      .start .source-links a,
-      .start .source-links .linkish {
-        color: inherit;
       }
       .linkish {
         padding: 0;
