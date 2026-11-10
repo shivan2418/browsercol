@@ -8,6 +8,8 @@ import {
   FIELD_TEXEL,
   fieldTexel,
   mapPixels,
+  riverDirections,
+  type RiverMap,
   programLinks,
   waterField,
   waterLook,
@@ -17,6 +19,103 @@ import {
 import { resources } from './resources';
 import type { MapView } from './tileset';
 import { tileOrigin } from './view';
+
+describe('riverDirections', () => {
+  const network = (rivers: MapView['rivers'], water: [number, number][] = []): RiverMap => {
+    const tiles = Array<string>(36).fill('A');
+    for (const [x, y] of water) tiles[y * 6 + x] = 'B';
+    return {
+      w: 6,
+      h: 6,
+      tiles: tiles.join(''),
+      rivers,
+      types: [
+        { id: 'model.tile.plains', name: 'Plains', land: true, forested: false },
+        { id: 'model.tile.lake', name: 'Lake', land: false, forested: false },
+      ],
+    };
+  };
+  it('drains a straight river into water across staggered rows', () => {
+    const map = network(
+      [
+        [2, 4, 1, '1000', ''],
+        [2, 3, 1, '1010', ''],
+        [3, 2, 1, '1010', ''],
+      ],
+      [[3, 1]],
+    );
+    expect([...riverDirections(map).values()]).toEqual([0, 0, 0]);
+  });
+  it('turns through a bend rather than following the incoming heading', () => {
+    const map = network(
+      [
+        [2, 4, 1, '1000', ''],
+        [2, 3, 1, '0011', ''],
+        [2, 2, 1, '0101', ''],
+      ],
+      [[1, 1]],
+    );
+    expect([...riverDirections(map).values()]).toEqual([0, 3, 3]);
+  });
+  it('carries a minor tributary into the major river', () => {
+    const map = network(
+      [
+        [1, 3, 1, '2000', ''],
+        [2, 2, 2, '0212', ''],
+        [1, 1, 2, '0200', ''],
+      ],
+      [[2, 3]],
+    );
+    const flow = riverDirections(map);
+    expect(flow.get(19)).toBe(0);
+    expect(flow.get(14)).toBe(1);
+    expect(flow.get(7)).toBe(1);
+  });
+  it('prefers the larger mouth, then the nearest equally large mouth', () => {
+    const map = network(
+      [
+        [2, 4, 1, '1010', ''],
+        [2, 3, 1, '1010', ''],
+        [3, 2, 2, '2020', ''],
+      ],
+      [
+        [1, 5],
+        [3, 1],
+      ],
+    );
+    expect(riverDirections(map).get(20)).toBe(0);
+    map.rivers[2][2] = 1;
+    expect(riverDirections(map).get(26)).toBe(2);
+    expect(riverDirections(map).get(15)).toBe(0);
+    expect(riverDirections(map).get(20)).toBe(0);
+  });
+  it('drains an inland river toward its largest end, independently of input order', () => {
+    const map = network([
+      [2, 4, 1, '1000', ''],
+      [2, 3, 1, '1010', ''],
+      [3, 2, 2, '0020', ''],
+    ]);
+    const flow = riverDirections(map);
+    expect(flow.get(26)).toBe(0);
+    expect(flow.get(20)).toBe(0);
+    expect(flow.get(15)).toBe(-1);
+    map.rivers.reverse();
+    expect(riverDirections(map)).toEqual(flow);
+  });
+  it('orients a closed loop without a directed cycle', () => {
+    const map = network([
+      [2, 2, 2, '0110', ''],
+      [2, 3, 1, '0011', ''],
+      [2, 4, 1, '1001', ''],
+      [1, 3, 1, '1100', ''],
+    ]);
+    const flow = riverDirections(map);
+    expect(flow.get(14)).toBe(-1);
+    expect(flow.get(20)).toBe(3);
+    expect(flow.get(19)).toBe(0);
+    expect(flow.get(26)).toBe(0);
+  });
+});
 
 describe('waterLook', () => {
   it("is none for a Tileset without the shader water's ripples: FreeCol's own", () => {

@@ -115,6 +115,94 @@ export interface WaterRecipe {
 
 type FieldMap = Pick<MapView, 'w' | 'h' | 'types' | 'tiles'>;
 
+/** River sides in FreeCol's style order, in the staggered map and the 2:1 screen diamond. */
+export const RIVER_SIDES = ['NE', 'SE', 'SW', 'NW'] as const;
+export const RIVER_MIDPOINTS = [
+  [32, -16],
+  [32, 16],
+  [-32, 16],
+  [-32, -16],
+] as const;
+export function riverNeighbour(x: number, y: number, side: number): [number, number] {
+  return [x + (side < 2 ? y % 2 : (y % 2) - 1), y + (side === 0 || side === 3 ? -1 : 1)];
+}
+
+export type RiverMap = FieldMap & Pick<MapView, 'rivers'>;
+/** Downstream side by row-major tile index; -1 is an inland sink.
+ * Each component drains to its strongest mouth, or equally strong mouths by distance. Without a mouth it drains
+ * to its largest end (largest tile for a loop). Equal-distance parents prefer the larger river, then side order.
+ * Distances strictly decrease, so even malformed cyclic networks cannot produce cyclic flow.
+ */
+export function riverDirections(map: RiverMap): Map<number, number> {
+  const rivers = new Map(
+    map.rivers.filter(([x, y]) => map.tiles[y * map.w + x] !== '.').map((r) => [r[1] * map.w + r[0], r]),
+  );
+  const type = (x: number, y: number) =>
+    x >= 0 && y >= 0 && x < map.w && y < map.h ? map.types[map.tiles.charCodeAt(y * map.w + x) - 65] : undefined;
+  const edges = new Map<number, [number, number][]>();
+  const mouths = new Map<number, number[]>();
+  for (const [id, [x, y, , style]] of rivers) {
+    const adjacent: [number, number][] = [];
+    const outlets: number[] = [];
+    for (let side = 0; side < 4; side++) {
+      if (!(Number(style[side]) > 0)) continue;
+      const [nx, ny] = riverNeighbour(x, y, side);
+      const t = type(nx, ny);
+      if (!t) continue;
+      const next = ny * map.w + nx;
+      if (!t.land) outlets.push(side);
+      else if (Number(rivers.get(next)?.[3][(side + 2) % 4]) > 0) adjacent.push([side, next]);
+    }
+    edges.set(id, adjacent);
+    if (outlets.length) mouths.set(id, outlets);
+  }
+  const result = new Map<number, number>();
+  const visited = new Set<number>();
+  for (const start of rivers.keys()) {
+    if (visited.has(start)) continue;
+    const component = [start];
+    visited.add(start);
+    for (let i = 0; i < component.length; i++)
+      for (const [, next] of edges.get(component[i])!)
+        if (!visited.has(next)) {
+          visited.add(next);
+          component.push(next);
+        }
+    let roots = component.filter((id) => mouths.has(id));
+    const inland = !roots.length;
+    if (inland) {
+      roots = component.filter((id) => edges.get(id)!.length <= 1);
+      if (!roots.length) roots = component;
+    }
+    roots.sort((a, b) => rivers.get(b)![2] - rivers.get(a)![2] || a - b);
+    const strongest = rivers.get(roots[0])![2];
+    roots = inland ? roots.slice(0, 1) : roots.filter((id) => rivers.get(id)![2] === strongest);
+    const distance = new Map(roots.map((id) => [id, 0]));
+    const queue = [...roots];
+    for (let i = 0; i < queue.length; i++)
+      for (const [, next] of edges.get(queue[i])!)
+        if (!distance.has(next)) {
+          distance.set(next, distance.get(queue[i])! + 1);
+          queue.push(next);
+        }
+    for (const id of component) {
+      if (distance.get(id) === 0) {
+        const outlets = mouths.get(id);
+        result.set(
+          id,
+          outlets?.slice().sort((a, b) => Number(rivers.get(id)![3][b]) - Number(rivers.get(id)![3][a]) || a - b)[0] ??
+            -1,
+        );
+      } else {
+        const parents = edges.get(id)!.filter(([, next]) => distance.get(next)! < distance.get(id)!);
+        parents.sort(([a, ai], [b, bi]) => rivers.get(bi)![2] - rivers.get(ai)![2] || a - b);
+        result.set(id, parents[0][0]);
+      }
+    }
+  }
+  return result;
+}
+
 /** Edge-connected ocean only. Rivers and explicit lake terrain never drain a lake mask. */
 export function lakeMask(map: FieldMap): Uint8Array {
   const { w, h, tiles, types } = map;
