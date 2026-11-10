@@ -32,6 +32,8 @@ _Avoid_: classic mode, sprite mode
 The water (ocean, lakes, high seas) of a Tileset that gives its look (shader.water.* keys) drawn in Tileset mode as one surface under the tiles, coloured per pixel by a shader from the Tileset's ripple images and colours, in place of FreeCol's painted frames. Each kind of water (ocean, high seas, lake) has its own roughness, foam and speed. The water tiles draw only their coasts' sand; rivers keep their frames, and where one runs into the water its water fades into the surface. Where the shader cannot run, compile or draw, the water is FreeCol's frames.
 _Avoid_: animated water, water effect
 
+The water playground's painted-art recipe uses a CPU coastline field in 2:1 texels. Closing grows and shrinks the coast without cutting land, preserving sailing links between water tiles, including corner links. An edge-connected lake mask ignores rivers. Climate weights blend nearby land over a configurable distance. Exploration patches the affected region; a newly opened sea connection also updates the affected lake.
+
 **Procedural mode**:
 The Map mode that draws terrain (ground, water, rivers, forests) in layers, with art such as single trees placed by code; units, colonies and roads still come from the chosen Tileset.
 _Avoid_: fancy mode, HD mode, 3D mode

@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vite-plus/test';
 import {
   blur,
+  closeCoast,
+  lakeMask,
   coverAt,
   coverOf,
   FIELD_TEXEL,
@@ -10,6 +12,7 @@ import {
   waterField,
   waterLook,
   waterTime,
+  type WaterRecipe,
 } from './map-water';
 import { resources } from './resources';
 import type { MapView } from './tileset';
@@ -102,6 +105,18 @@ describe('waterField', () => {
     ],
     tiles,
   };
+  const recipe: WaterRecipe = {
+    shallows: 'climate',
+    shore: 'drawn',
+    motion: 'bands',
+    deep: 'plain',
+    depth: 'deeper',
+    bandSpeed: 5,
+    bandSpacing: 32,
+    driftSpeed: 2,
+    shelfWidth: 110,
+    climateBlend: 3,
+  };
   const texel = 8;
   /** The field's RGBA at a tile's centre. */
   const centre = (f: ReturnType<typeof waterField>, x: number, y: number) => {
@@ -173,6 +188,87 @@ describe('waterField', () => {
     const at = (px: number, py: number) => f.data[4 * (Math.floor(py / texel) * f.cols + Math.floor(px / texel))];
     expect(at(ox + 64, oy + 12)).toBe(255);
     expect(at(ox + 64, oy + 52)).toBe(0);
+  });
+
+  it('keeps a one-tile pond calm and does not drain it through a river or a corner', () => {
+    const types = [...map.types, { id: 'model.tile.greatRiver', land: false, forested: false, name: 'River' }];
+    const tiles = Array.from({ length: w * h }, () => 'A');
+    tiles[3 * w] = 'B'; // edge ocean
+    tiles[3 * w + 1] = 'B'; // touches the ocean at a corner only
+    tiles[3 * w + 2] = 'E'; // river
+    tiles[3 * w + 3] = 'B'; // pond, connected only through the river
+    const lakes = lakeMask({ ...map, types, tiles: tiles.join('') });
+    expect(lakes[3 * w]).toBe(0);
+    expect(lakes[3 * w + 1]).toBe(1);
+    expect(lakes[3 * w + 3]).toBe(1);
+    // A long-side opening drains the first pool.
+    tiles[2 * w + 1] = 'B';
+    expect(lakeMask({ ...map, types, tiles: tiles.join('') })[3 * w + 1]).toBe(0);
+  });
+
+  it('closing fills notches without cutting land or protected sailing channels', () => {
+    const cols = 31,
+      rows = 31;
+    const land = new Float32Array(cols * rows);
+    const channels = new Uint8Array(land.length);
+    for (let y = 0; y < rows; y++)
+      for (let x = 0; x < cols; x++) {
+        const k = y * cols + x;
+        land[k] = y < 15 && !(x >= 13 && x <= 16 && y > 9) ? 1 : 0;
+        if (x === y && y >= 15) channels[k] = 1;
+      }
+    const closed = closeCoast(land, channels, cols, rows, 2, 8);
+    expect(closed[12 * cols + 14]).toBe(1);
+    for (let k = 0; k < land.length; k++) {
+      if (land[k]) expect(closed[k]).toBe(1);
+      if (channels[k] && !land[k]) expect(closed[k]).toBe(0);
+    }
+  });
+
+  it('preserves the water passage between corner-touching tiles after closing', () => {
+    const tiles = Array.from({ length: w * h }, () => 'A');
+    tiles[3 * w + 3] = tiles[3 * w + 4] = 'B';
+    const f = waterField({ ...map, tiles: tiles.join('') }, 4, () => 0, null, 'signed', recipe);
+    const [ox, oy] = tileOrigin(3, 3);
+    const start = Math.floor((oy + 32) / f.texelY!) * f.cols + Math.floor((ox + 64) / f.texel);
+    const end = start + 32;
+    const seen = new Set([start]);
+    const queue = [start];
+    for (let head = 0; head < queue.length; head++) {
+      const k = queue[head];
+      for (const dy of [-1, 0, 1])
+        for (const dx of [-1, 0, 1]) {
+          const q = k + dy * f.cols + dx;
+          if (q >= 0 && q < f.cols * f.rows && !seen.has(q) && f.data[4 * q] === 0) {
+            seen.add(q);
+            queue.push(q);
+          }
+        }
+    }
+    expect(seen.has(end)).toBe(true);
+  });
+
+  it('blends cold and temperate coasts continuously and patches exploration like a fresh field', () => {
+    const types = [...map.types, { id: 'model.tile.tundra', land: true, forested: false, name: 'Tundra' }];
+    const tiles = Array.from({ length: w * h }, (_, k) => (Math.floor(k / w) < 3 ? (k % w < 4 ? 'E' : 'A') : 'B')).join(
+      '',
+    );
+    const mixed = { ...map, types, tiles };
+    const f = waterField(mixed, texel, () => 0, null, 'signed', recipe);
+    const row = Math.floor((4 * 32) / f.texelY!);
+    for (let x = 30; x < 95; x++) {
+      const k = 4 * (row * f.cols + x);
+      expect(Math.abs(f.climate![k] - f.climate![k - 4])).toBeLessThan(12);
+      expect(f.climate![k] + f.climate![k + 1] + f.climate![k + 2]).toBeCloseTo(255, -1);
+    }
+    const centre = 4 * (row * f.cols + Math.floor((4 * 128) / texel));
+    expect(f.climate![centre]).toBeGreaterThan(30);
+    expect(f.climate![centre + 1]).toBeGreaterThan(30);
+    const explored = { ...mixed, tiles: tiles.slice(0, 35) + 'A' + tiles.slice(36) };
+    const patched = waterField(explored, texel, () => 0, f, 'signed', recipe);
+    const fresh = waterField(explored, texel, () => 0, null, 'signed', recipe);
+    expect(patched.data).toEqual(fresh.data);
+    expect(patched.climate).toEqual(fresh.climate);
   });
 });
 

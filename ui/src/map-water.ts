@@ -79,6 +79,8 @@ export interface WaterLook {
   palettes: Record<Climate, Palette>;
   /** Ice along cold coasts, 0 to 1. */
   ice: number;
+  /** PROTOTYPE: the painted-art recipe; absent keeps the parked ripple renderer. */
+  recipe?: WaterRecipe;
 }
 
 export type WaveModel = 'slide' | 'warp' | 'flow';
@@ -91,6 +93,90 @@ export interface Palette {
   shallow: number;
   foam: number;
   foamAmount: number;
+}
+
+export interface WaterRecipe {
+  shallows: 'turquoise' | 'climate';
+  shore: 'drawn' | 'art';
+  motion: 'bands' | 'foam';
+  deep: 'plain' | 'climate';
+  depth: 'normal' | 'deeper';
+  /** Pixels per second, pixels between crests, pixels per second, shelf pixels, blend tiles. */
+  bandSpeed: number;
+  bandSpacing: number;
+  driftSpeed: number;
+  shelfWidth: number;
+  climateBlend: number;
+}
+
+type FieldMap = Pick<MapView, 'w' | 'h' | 'types' | 'tiles'>;
+
+/** Edge-connected ocean only. Rivers and explicit lake terrain never drain a lake mask. */
+export function lakeMask(map: FieldMap): Uint8Array {
+  const { w, h, tiles, types } = map;
+  const lake = new Uint8Array(w * h);
+  const seen = new Uint8Array(w * h);
+  const queue = new Int32Array(w * h);
+  const water = (k: number) => {
+    const t = types[tiles.charCodeAt(k) - 65];
+    return !!t && !t.land && t.id !== 'model.tile.greatRiver';
+  };
+  for (let k = 0; k < lake.length; k++) {
+    if (!water(k) || seen[k]) continue;
+    let count = 1;
+    let edge = false;
+    queue[0] = k;
+    seen[k] = 1;
+    for (let head = 0; head < count; head++) {
+      const q = queue[head],
+        x = q % w,
+        y = Math.floor(q / w);
+      if (x === 0 || y === 0 || x === w - 1 || y === h - 1) edge = true;
+      // The four long sides of a staggered diamond, not its four corners.
+      const left = x + (y % 2) - 1;
+      for (const yy of [y - 1, y + 1])
+        for (const xx of [left, left + 1]) {
+          if (xx < 0 || xx >= w || yy < 0 || yy >= h) continue;
+          const n = yy * w + xx;
+          if (!seen[n] && water(n)) {
+            seen[n] = 1;
+            queue[count++] = n;
+          }
+        }
+    }
+    for (let i = 0; i < count; i++) {
+      const q = queue[i];
+      if (!edge || types[tiles.charCodeAt(q) - 65].id === 'model.tile.lake') lake[q] = 1;
+    }
+  }
+  return lake;
+}
+
+/**
+ * Grow then shrink a binary land mask. The original land wins over the channel mask, so closing never cuts land.
+ * `channels` protects water centres and the segments joining all eight sailing neighbours.
+ */
+export function closeCoast(
+  land: Float32Array,
+  channels: Uint8Array,
+  cols: number,
+  rows: number,
+  texel: number,
+  radius = 20,
+): Float32Array {
+  const grown = shoreDistance(land, cols, rows, texel).map((d) => (d <= radius ? 1 : 0));
+  const shrunk = shoreDistance(grown, cols, rows, texel);
+  return land.map((v, k) => (v >= 0.5 || (shrunk[k] < -radius && !channels[k]) ? 1 : 0));
+}
+
+/** A continuous mixture, not a nearest-climate label. Two box passes give a triangular kernel. */
+export function climateShares(zone: Float32Array, cols: number, rows: number, radius: number): Float32Array[] {
+  return [1, 2, 3].map((z) => {
+    const a = zone.map((v) => (v === z ? 1 : 0));
+    blur(a, cols, rows, radius);
+    blur(a, cols, rows, radius);
+    return a;
+  });
 }
 
 /**
@@ -215,6 +301,8 @@ export interface WaterField {
   cols: number;
   rows: number;
   texel: number;
+  /** Recipe fields use 2:1 texels, matching the map diamonds. */
+  texelY?: number;
   data: Uint8Array;
   /** PROTOTYPE: per texel, how much the water is cold, temperate and tropical (RGB, adding up to 1). */
   climate?: Uint8Array;
@@ -235,6 +323,10 @@ export interface WaterField {
     seed: Uint8Array;
     /** Per texel, the climate of the land there: 0 none (water, or hills by the latitude), 1 cold, 2 temperate, 3 tropical. */
     zone: Uint8Array;
+    recipeKey: string;
+    lakes?: Uint8Array;
+    channels: Uint8Array;
+    plume: Float32Array;
   };
 }
 
@@ -263,19 +355,22 @@ interface Rect {
  * reusing that field's arrays: the same field when no tile changed.
  */
 export function waterField(
-  map: Pick<MapView, 'w' | 'h' | 'types' | 'tiles'>,
+  map: FieldMap & Partial<Pick<MapView, 'rivers'>>,
   texel: number,
   sand: (x: number, y: number, u: number, v: number) => number,
   last?: WaterField | null,
   shore: ShoreModel = 'blur',
+  recipe?: WaterRecipe,
 ): WaterField {
   const { w, h, tiles } = map;
   const [pw, ph] = mapPixels(w, h);
   const cols = Math.ceil(pw / texel);
-  const rows = Math.ceil(ph / texel);
+  const texelY = recipe ? texel / 2 : texel;
+  const rows = Math.ceil(ph / texelY);
   const n = cols * rows;
   const types = map.types.map((t) => t.id).join();
   const was = last?.made;
+  const recipeKey = recipe ? `${recipe.shore}:${recipe.climateBlend}:${JSON.stringify(map.rivers ?? [])}` : '';
   const reuse =
     !!was &&
     last.cols === cols &&
@@ -284,18 +379,28 @@ export function waterField(
     was.w === w &&
     was.h === h &&
     was.types === types &&
-    was.shore === shore;
+    was.shore === shore &&
+    was.recipeKey === recipeKey;
   const radius = (px: number) => Math.max(1, Math.round(px / texel / 2));
-  const [nearR, depthR, climateR] = [radius(SHALLOW_PX), radius(DEPTH_PX), radius(CLIMATE_PX)];
-  // How far a blurred texel reaches: two passes of each blur, or the capped shore distance.
-  const reach = Math.max(2 * Math.max(nearR, depthR, climateR, 1), Math.ceil(SHORE_PX / texel) + 1);
+  const distanceCap = recipe ? 192 : SHORE_PX;
+  const [nearR, depthR, climateR] = [
+    radius(SHALLOW_PX),
+    radius(DEPTH_PX),
+    radius(recipe ? recipe.climateBlend * W : CLIMATE_PX),
+  ];
+  // Closing reaches twice its radius, followed by the capped distance.
+  const reach = Math.max(
+    2 * Math.max(nearR, depthR, climateR, 1),
+    Math.ceil((distanceCap + (recipe ? 40 : 0)) / texel) + 1,
+  );
+  const lakes = recipe ? lakeMask(map) : undefined;
   const all: Rect = { i0: 0, j0: 0, i1: cols, j1: rows };
   /** The texels to make again: round the tiles that changed, with their neighbours, whose sand depends on them. */
   let raw = all;
   if (reuse) {
     let [x0, y0, x1, y1] = [w, h, -1, -1];
     for (let k = 0; k < tiles.length; k++)
-      if (tiles.charCodeAt(k) !== was.tiles.charCodeAt(k)) {
+      if (tiles.charCodeAt(k) !== was.tiles.charCodeAt(k) || lakes?.[k] !== was.lakes?.[k]) {
         const [x, y] = [k % w, Math.floor(k / w)];
         x0 = Math.min(x0, x);
         x1 = Math.max(x1, x);
@@ -306,9 +411,9 @@ export function waterField(
     raw = clip(
       {
         i0: Math.floor(((x0 - 1) * W) / texel),
-        j0: Math.floor(((y0 - 2) * H) / 2 / texel),
+        j0: Math.floor(((y0 - 2) * H) / 2 / texelY),
         i1: Math.ceil(((x1 + 2) * W + W / 2) / texel),
-        j1: Math.ceil(((y1 + 4) * H) / 2 / texel),
+        j1: Math.ceil(((y1 + 4) * H) / 2 / texelY),
       },
       cols,
       rows,
@@ -319,6 +424,9 @@ export function waterField(
   const water = reuse ? was.water : new Float32Array(n);
   const zone = reuse ? was.zone : new Uint8Array(n);
   const seed = reuse ? was.seed : new Uint8Array(n);
+  const channels = reuse ? was.channels : new Uint8Array(n);
+  const plume = reuse ? was.plume : new Float32Array(n);
+  const riverTiles = new Map((map.rivers ?? []).map((r) => [r[1] * w + r[0], r]));
   const points = shore === 'art' ? FINE : SAMPLES;
   // Per tile type: land (0), or water and its depth, offset by one.
   const kinds = map.types.map((t) => (t.land ? 0 : HIGH_SEAS.has(t.id) ? 2 : LAKES.has(t.id) ? 1 : 1.5));
@@ -327,7 +435,7 @@ export function waterField(
     return c ? CLIMATES.indexOf(c) + 1 : 0;
   });
   for (let j = raw.j0; j < raw.j1; j++) {
-    const py = (j + 0.5) * texel;
+    const py = (j + 0.5) * texelY;
     const row = Math.floor(py / (H / 2));
     for (let i = raw.i0; i < raw.i1; i++) {
       const px = (i + 0.5) * texel;
@@ -338,6 +446,8 @@ export function waterField(
       depth[k] = 0.5;
       zone[k] = 0;
       seed[k] = 0;
+      channels[k] = 0;
+      plume[k] = 0;
       // The tile whose diamond holds the texel's centre, as map.ts tileAt finds it.
       for (let y = row - 1; y <= row; y++) {
         if (y < 0 || y >= h) continue;
@@ -355,11 +465,48 @@ export function waterField(
           break;
         }
         water[k] = 1;
-        depth[k] = kind - 1;
+        depth[k] = lakes?.[y * w + x] ? 0 : kind - 1;
         let a = 0;
-        for (let s = 0; s < points.length; s += 2) a += sand(x, y, u + points[s] * texel, v + points[s + 1] * texel);
+        for (let s = 0; s < points.length; s += 2) a += sand(x, y, u + points[s] * texel, v + points[s + 1] * texelY);
         land[k] = a / (points.length / 2);
         if (land[k] < 0.05 && Math.abs(u - W / 2) / (W / 2) + Math.abs(v - H / 2) / (H / 2) < 0.5) seed[k] = 1;
+        if (recipe) {
+          const dx = u - W / 2,
+            dy = (v - H / 2) * 2;
+          if (Math.hypot(dx, dy) < W * 0.25) channels[k] = 1;
+          const left = x + (y % 2) - 1;
+          const neighbours = [
+            [x, y - 2],
+            [left + 1, y - 1],
+            [x + 1, y],
+            [left + 1, y + 1],
+            [x, y + 2],
+            [left, y + 1],
+            [x - 1, y],
+            [left, y - 1],
+          ];
+          for (let d = 0; d < neighbours.length; d++) {
+            const [nx, ny] = neighbours[d];
+            if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+            const nt = map.types[tiles.charCodeAt(ny * w + nx) - 65];
+            if (!nt) continue;
+            const ex = (nx - x) * W + (((ny % 2) - (y % 2)) * W) / 2;
+            const ey = (ny - y) * H;
+            const length = Math.hypot(ex, ey);
+            const along = (dx * ex + dy * ey) / length;
+            const side = Math.abs(dx * ey - dy * ex) / length;
+            if (!nt.land && along >= 0 && along <= length && side < W * 0.18) channels[k] = 1;
+            const river = riverTiles.get(ny * w + nx);
+            // River style order NE, SE, SW, NW. Only a connection toward this water tile makes a mouth.
+            if (nt.land && d % 2 === 1 && river && Number(river[3][((d - 1) / 2 + 2) % 4]) > 0) {
+              const offshore = length / 2 - along;
+              const width = (river[2] > 1 ? 10 : 6) + Math.max(0, offshore) * 0.45;
+              const amount = (1 - smooth(0, W * 0.4, offshore)) * (1 - smooth(width * 0.3, width, side));
+              plume[k] = Math.max(plume[k], amount);
+            }
+          }
+          if (recipe.shore === 'drawn') land[k] = 0;
+        }
         break;
       }
     }
@@ -369,10 +516,10 @@ export function waterField(
   const src = reuse ? clip(grow(out, reach), cols, rows) : all;
   const sw = src.i1 - src.i0;
   const sh = src.j1 - src.j0;
-  const seedPart = () => {
+  const seedPart = (source = seed) => {
     const p = new Uint8Array(sw * sh);
     for (let j = 0; j < sh; j++)
-      p.set(seed.subarray((src.j0 + j) * cols + src.i0, (src.j0 + j) * cols + src.i1), j * sw);
+      p.set(source.subarray((src.j0 + j) * cols + src.i0, (src.j0 + j) * cols + src.i1), j * sw);
     return p;
   };
   const part = (a: Float32Array) => {
@@ -380,25 +527,20 @@ export function waterField(
     for (let j = 0; j < sh; j++) p.set(a.subarray((src.j0 + j) * cols + src.i0, (src.j0 + j) * cols + src.i1), j * sw);
     return p;
   };
-  const near =
-    shore === 'blur'
-      ? part(land)
-      : shoreDistance(shore === 'art' ? fillHoles(part(land), seedPart(), sw, sh) : part(land), sw, sh, texel);
+  let cover: Float32Array = part(land);
+  if (shore === 'art' || recipe?.shore === 'art') cover = fillHoles(cover, seedPart(), sw, sh);
+  if (recipe) cover = closeCoast(cover, seedPart(channels), sw, sh, texel);
+  const near = !recipe && shore === 'blur' ? cover : shoreDistance(cover, sw, sh, texel, distanceCap);
   const deep = part(depth);
   const wet = part(water);
   for (let pass = 0; pass < 2; pass++) {
-    if (shore === 'blur') blur(near, sw, sh, nearR);
-    blur(deep, sw, sh, depthR);
+    if (!recipe && shore === 'blur') blur(near, sw, sh, nearR);
+    if (!recipe) blur(deep, sw, sh, depthR);
   }
   // Each climate's share of the land round a texel, blurred far out over the water.
   const zoneAt = new Float32Array(sw * sh);
   for (let j = 0; j < sh; j++) for (let i = 0; i < sw; i++) zoneAt[j * sw + i] = zone[(src.j0 + j) * cols + src.i0 + i];
-  const shares = [1, 2, 3].map((z) => {
-    const a = zoneAt.map((v) => (v === z ? 1 : 0));
-    blur(a, sw, sh, climateR);
-    blur(a, sw, sh, climateR);
-    return a;
-  });
+  const shares = climateShares(zoneAt, sw, sh, climateR);
   blur(wet, sw, sh, 1);
   const data = reuse ? last.data : new Uint8Array(4 * n);
   const climate = reuse && last.climate ? last.climate : new Uint8Array(4 * n);
@@ -406,12 +548,12 @@ export function waterField(
     for (let i = out.i0; i < out.i1; i++) {
       const k = j * cols + i;
       const p = (j - src.j0) * sw + (i - src.i0);
-      data[4 * k] = Math.round(land[k] * 255);
+      data[4 * k] = Math.round((recipe ? cover[p] : land[k]) * 255);
       data[4 * k + 1] = Math.round(deep[p] * 255);
-      data[4 * k + 2] = Math.round((shore === 'blur' ? near[p] : 0.5 - near[p] / (2 * SHORE_PX)) * 255);
+      data[4 * k + 2] = Math.round((!recipe && shore === 'blur' ? near[p] : 0.5 - near[p] / (2 * distanceCap)) * 255);
       data[4 * k + 3] = Math.round(wet[p] * 255);
       // Far from any land, the latitude: cold toward the poles, tropical round the equator.
-      const lat = Math.abs(((j + 0.5) * texel) / ph - 0.5) * 2;
+      const lat = Math.abs(((j + 0.5) * texelY) / ph - 0.5) * 2;
       const cold = smooth(0.62, 0.8, lat);
       const tropical = 1 - smooth(0.25, 0.45, lat);
       const byLat = [cold, Math.max(0, 1 - cold - tropical), tropical];
@@ -424,9 +566,17 @@ export function waterField(
         return v;
       });
       for (let z = 0; z < 3; z++) climate[4 * k + z] = Math.round((mixed[z] / Math.max(total, 1e-6)) * 255);
-      climate[4 * k + 3] = 255;
+      climate[4 * k + 3] = recipe ? Math.round(plume[k] * 255) : 255;
     }
-  return { cols, rows, texel, data, climate, made: { w, h, types, tiles, land, depth, water, shore, zone, seed } };
+  return {
+    cols,
+    rows,
+    texel,
+    texelY,
+    data,
+    climate,
+    made: { w, h, types, tiles, land, depth, water, shore, zone, seed, recipeKey, lakes, channels, plume },
+  };
 }
 
 const smooth = (a: number, b: number, x: number) => {
@@ -469,8 +619,14 @@ export function fillHoles(land: Float32Array, seed: Uint8Array, cols: number, ro
  * PROTOTYPE, from 409-coasts-astra: the signed distance to the cover's half-opacity contour, in map pixels, positive
  * offshore, capped at SHORE_PX. Crossings are found between texels, then spread with two chamfer passes.
  */
-export function shoreDistance(land: Float32Array, cols: number, rows: number, texel: number): Float32Array {
-  const distance = new Float32Array(land.length).fill(SHORE_PX);
+export function shoreDistance(
+  land: Float32Array,
+  cols: number,
+  rows: number,
+  texel: number,
+  cap = SHORE_PX,
+): Float32Array {
+  const distance = new Float32Array(land.length).fill(cap);
   const diagonal = texel * Math.SQRT2;
   const cross = (k: number, q: number, a: number) => {
     const b = land[q] - 0.5;
@@ -837,7 +993,7 @@ export class ShaderSurface {
 
   /** Cover the map the field covers, and read it. */
   setField(f: WaterField) {
-    const [w, h] = [f.cols * f.texel, f.rows * f.texel];
+    const [w, h] = [f.cols * f.texel, f.rows * (f.texelY ?? f.texel)];
     const old = this.field;
     if (old.width === f.cols && old.height === f.rows) {
       old.resource = f.data;
