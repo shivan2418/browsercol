@@ -28,6 +28,8 @@ import type { Page, Request } from 'playwright-core';
 const browsers = browserNames();
 const autoplay = opt('autoplay', '10');
 const timeout = Number(opt('timeout', '900')) * 1000;
+/** A game started from the start screen with no rounds to play is up in seconds; one that is not has failed (#422). */
+const startTimeout = Number(opt('start-timeout', '300')) * 1000;
 const server = await serveDist();
 /** More page parameters, e.g. preset=dutch-small to start from a preset. */
 const query = opt('query', '');
@@ -110,7 +112,7 @@ for (const name of browsers) {
       try {
         await page.goto(`${server.url}?autoplay=0`);
         await startFromScreen(page, nation, level, nation === 'model.nation.french');
-        const r = await waitForResult(page, timeout);
+        const r = await waitForResult(page, startTimeout);
         const sent = r.choice ? JSON.parse(r.choice) : {};
         nations.push(
           r.status === 'finished' &&
@@ -142,7 +144,7 @@ for (const name of browsers) {
       await german.waitForSelector('[data-nation="model.nation.dutch"]', { timeout: 60000 });
       const nation = await german.textContent('label:has([data-nation="model.nation.dutch"]) .name');
       await german.click('[data-start]');
-      const r = await waitForResult(german, timeout);
+      const r = await waitForResult(german, startTimeout);
       const units = await german.textContent('body');
       if (!nation!.includes('Niederländisch') || r.status !== 'finished' || !units!.includes('Niederländisch Soldat'))
         language = `German FAILED (${r.status}${r.error ? ': ' + r.error : ''}, start screen ${nation})`;
@@ -160,7 +162,7 @@ for (const name of browsers) {
       await uk.goto(`${server.url}?autoplay=0`);
       await uk.waitForSelector('[data-nation="model.nation.dutch"]', { timeout: 60000 });
       await uk.click('[data-start]');
-      const r = await waitForResult(uk, timeout);
+      const r = await waitForResult(uk, startTimeout);
       if (r.status !== 'finished') british = `English (UK) FAILED (${r.status}${r.error ? ': ' + r.error : ''})`;
     } catch (ex) {
       british = `English (UK) FAILED (${await diagnose(ex)})`;
@@ -191,7 +193,7 @@ for (const name of browsers) {
       await pedia.waitForSelector('.colopedia [data-entry="model.nationType.trade"]', { timeout: 60000 });
       await pedia.click('[data-answer=close]');
       await pedia.click('[data-start]');
-      const r = await waitForResult(pedia, timeout);
+      const r = await waitForResult(pedia, startTimeout);
       if (r.status !== 'finished') colopedia = `Colopedia FAILED (game ${r.status}${r.error ? ': ' + r.error : ''})`;
     } catch (ex) {
       colopedia = `Colopedia FAILED (${await diagnose(ex)})`;

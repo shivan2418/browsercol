@@ -1301,6 +1301,8 @@ function renderMinimap() {
     </TipProvider>,
   );
 }
+/** Whether the Engine has said the game started: an error before then is a game that did not start. */
+let gameStarted = false;
 /** The size the map was last given, to skip the ResizeObserver's calls that change nothing. */
 let mapGiven: [number, number] = [0, 0];
 function resize() {
@@ -1395,6 +1397,9 @@ const gui: GuiHandlers = {
     information: (e) => dialogQueue.show('information', e, popupClosed(e)),
     error: (e) => {
       console.error(e.text);
+      // The server refusing to start the game (PreGameController.requestLaunch) is the only word a game that never
+      // starts gives: show it as the failed start it is, not as a dialog behind the loading screen.
+      if (!gameStarted) show('failed', { error: e.text });
       dialogQueue.show('error', e, popupClosed(e));
     },
     eventPanel: (e) => dialogQueue.show('eventPanel', e, popupClosed(e)),
@@ -1947,6 +1952,7 @@ async function run() {
       if (failure) reportError(failure.title, failure.detail);
       switch (name) {
         case 'gameStarted':
+          gameStarted = true;
           if (debug) debugRequest({ action: 'players' });
           // PreGameController.startGame: the default playlist plays whenever no other music does.
           void sound.then((s) => s?.startPlaylist());
