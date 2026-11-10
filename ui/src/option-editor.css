@@ -1,0 +1,123 @@
+/*
+ * The option editor (OptionEditor in option-editor.tsx), on the start screen and in the in-game panel: a row for
+ * each option, its name and its control, a slider for a percentage, a Choose button and the picked name for a file.
+ * A panel sizes and scrolls the editor from outside (the start window's list, the Preferences' detail pane); the
+ * rows' own room is its `roomy` prop.
+ */
+@layer components {
+  :root {
+    --option-pad: 1px 0;
+    --option-pad-roomy: 2px 0;
+    /* The slider's knob sits centred on its groove. */
+    --slider-thumb-lift: -7px;
+  }
+  .option-editor .option {
+    display: flex;
+    gap: var(--space-4);
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--option-pad);
+    /* The start screen's columns keep a row whole. */
+    break-inside: avoid;
+  }
+  .option-editor[data-roomy] .option {
+    padding: var(--option-pad-roomy);
+  }
+  .option-editor .option .name {
+    flex: 1;
+  }
+  .option-editor .option[data-changed] .name {
+    font-weight: bold;
+  }
+  .option-editor .ui-number {
+    width: 8em;
+  }
+  .option-editor input[type='text'],
+  .option-editor .ui-select {
+    width: 14em;
+  }
+  .option-editor .slider {
+    display: flex;
+    gap: var(--space-3);
+    align-items: center;
+  }
+  /* A slider's track and handle: a framed groove and a button-like knob. */
+  .option-editor .slider input[type='range'] {
+    appearance: none;
+    width: 10em;
+    height: 1.2em;
+    padding: 0;
+    background: none;
+    border: 0;
+    cursor: pointer;
+  }
+  .option-editor .slider input[type='range']:focus-visible {
+    outline: var(--border-thick) solid var(--accent);
+    outline-offset: var(--border-thick);
+  }
+  .option-editor .slider input[type='range']:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+  .option-editor .slider input[type='range']::-webkit-slider-runnable-track {
+    height: 6px;
+    background: var(--box);
+    border: var(--border) solid var(--line);
+    border-radius: var(--radius-s);
+  }
+  .option-editor .slider input[type='range']::-moz-range-track {
+    height: 6px;
+    background: var(--box);
+    border: var(--border) solid var(--line);
+    border-radius: var(--radius-s);
+  }
+  .option-editor .slider input[type='range']::-webkit-slider-thumb {
+    appearance: none;
+    width: 0.9em;
+    height: 1.2em;
+    margin-top: var(--slider-thumb-lift);
+    background: var(--btn);
+    border: var(--border) solid var(--line);
+    border-radius: var(--radius-s);
+  }
+  .option-editor .slider input[type='range']::-moz-range-thumb {
+    box-sizing: border-box;
+    width: 0.9em;
+    height: 1.2em;
+    background: var(--btn);
+    border: var(--border) solid var(--line);
+    border-radius: var(--radius-s);
+  }
+  .option-editor .slider input[type='range']:hover::-webkit-slider-thumb {
+    border-color: var(--accent);
+  }
+  .option-editor .slider input[type='range']:hover::-moz-range-thumb {
+    border-color: var(--accent);
+  }
+  /* A file option's picked name sits beside its Choose button. */
+  .option-editor .file {
+    display: flex;
+    gap: var(--space-3);
+    align-items: center;
+  }
+  .option-editor .slider output {
+    min-width: 3.5em;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .option-editor .mute {
+    min-width: 5em;
+  }
+  .option-editor .option:has(.mute[aria-pressed='true']) .slider {
+    opacity: 0.5;
+  }
+  .option-editor input[aria-invalid] {
+    outline: var(--border-thick) solid var(--bad);
+  }
+  .option-editor .units .unit {
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+    margin: var(--space-1) 0;
+  }
+}

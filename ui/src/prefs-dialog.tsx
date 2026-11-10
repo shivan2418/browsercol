@@ -519,6 +519,7 @@ export function PreferencesDialog({
                     <OptionEditor
                       root={current.options}
                       editable
+                      roomy
                       values={prefs.freecol}
                       onChange={(id, v) => {
                         if (Array.isArray(v)) return;

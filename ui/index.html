@@ -1980,109 +1980,10 @@
       #save-game.dialog {
         max-width: min(50em, calc(var(--screen-w) * 0.94));
       }
-      .start-window .customize .options {
+      .start-window .customize .option-editor {
         max-height: 18em;
         overflow-y: auto;
         margin-top: 6px;
-      }
-      /* The option editor (src/option-editor.tsx), on the start screen and in the in-game panel. */
-      .options .option {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        justify-content: space-between;
-        padding: 1px 0;
-      }
-      .options .option .name {
-        flex: 1;
-      }
-      .options .option[data-changed] .name {
-        font-weight: bold;
-      }
-      .options .ui-number {
-        width: 8em;
-      }
-      .options input[type='text'],
-      .options .ui-select {
-        width: 14em;
-      }
-      .options .slider {
-        display: flex;
-        gap: 6px;
-        align-items: center;
-      }
-      /* A slider's track and handle: a framed groove and a button-like knob. */
-      .options .slider input[type='range'] {
-        appearance: none;
-        width: 10em;
-        height: 1.2em;
-        padding: 0;
-        background: none;
-        border: 0;
-        cursor: pointer;
-      }
-      .options .slider input[type='range']:focus-visible {
-        outline: 2px solid var(--accent);
-        outline-offset: 2px;
-      }
-      .options .slider input[type='range']:disabled {
-        opacity: 0.5;
-        cursor: default;
-      }
-      .options .slider input[type='range']::-webkit-slider-runnable-track {
-        height: 6px;
-        background: var(--box);
-        border: 1px solid var(--line);
-        border-radius: 3px;
-      }
-      .options .slider input[type='range']::-moz-range-track {
-        height: 6px;
-        background: var(--box);
-        border: 1px solid var(--line);
-        border-radius: 3px;
-      }
-      .options .slider input[type='range']::-webkit-slider-thumb {
-        appearance: none;
-        width: 0.9em;
-        height: 1.2em;
-        margin-top: -7px;
-        background: var(--btn);
-        border: 1px solid var(--line);
-        border-radius: 3px;
-      }
-      .options .slider input[type='range']::-moz-range-thumb {
-        box-sizing: border-box;
-        width: 0.9em;
-        height: 1.2em;
-        background: var(--btn);
-        border: 1px solid var(--line);
-        border-radius: 3px;
-      }
-      .options .slider input[type='range']:hover::-webkit-slider-thumb {
-        border-color: var(--accent);
-      }
-      .options .slider input[type='range']:hover::-moz-range-thumb {
-        border-color: var(--accent);
-      }
-      /* A file option's picked name sits beside its Choose button. */
-      .options .file {
-        display: flex;
-        gap: 6px;
-        align-items: center;
-      }
-      .options .slider output {
-        min-width: 3.5em;
-        text-align: right;
-        font-variant-numeric: tabular-nums;
-      }
-      .options .mute {
-        min-width: 5em;
-      }
-      .options .option:has(.mute[aria-pressed='true']) .slider {
-        opacity: 0.5;
-      }
-      .options input[aria-invalid] {
-        outline: 2px solid var(--bad);
       }
       /* The Preferences window (src/prefs-dialog.tsx): FreeCol's category tree, and the picked one's options. */
       #preferences .prefs-body {
@@ -2158,26 +2059,17 @@
         gap: 8px;
         margin-top: 6px;
       }
-      .options .units .unit {
-        display: flex;
-        gap: 4px;
-        align-items: center;
-        margin: 2px 0;
-      }
       #preferences .prefs-detail {
         flex: 1;
         min-width: 0;
         overflow-y: auto;
-      }
-      #preferences .prefs-detail .options .option {
-        padding: 2px 0;
       }
       #preferences .prefs-note {
         margin: 10px 0 0;
         color: var(--muted);
         font-size: var(--fs-s);
       }
-      .dialog[data-kind='options'] .options {
+      .dialog[data-kind='options'] .option-editor {
         max-height: calc(var(--screen-h) * 0.6);
         overflow-y: auto;
       }
@@ -2363,15 +2255,12 @@
       .new-game .more-options [role='tabpanel'][hidden] {
         display: none;
       }
-      .new-game .more-options .options {
+      .new-game .more-options .option-editor {
         max-height: none;
         overflow: visible;
         margin-top: 0;
         columns: 24em;
         column-gap: 24px;
-      }
-      .new-game .more-options .options .option {
-        break-inside: avoid;
       }
       .new-game .colour-list {
         display: grid;

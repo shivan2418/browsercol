@@ -170,7 +170,7 @@ test("a component's sheet takes its colours, fonts, spacing, radii, borders and 
 });
 
 test("a component's sheet styles its own component, never a panel's", () => {
-  const PANELS = /\.dialog\b|\.colony\b|\.europe|#preferences|\.options\b|\.start-window|\[data-kind/;
+  const PANELS = /\.dialog\b|\.colony\b|\.europe|#preferences|\.start-window|\[data-kind/;
   const reaching = Object.entries(componentSheets)
     .filter(([file]) => !PANEL_SHEETS.includes(file))
     .flatMap(([file, text]) =>
@@ -207,6 +207,7 @@ const MOVED: Record<string, RegExp> = {
   'dialog headings (heading.css)':
     /(^|,)\s*(\.dialog|\.europe-log|\.start-window|#credits|\.dialog \.vstop|\.dialog\[data-kind='negotiation'\] \.lead)\s+h[23](\.headline)?\s*$/,
   'tooltips (tooltip.css, colony-tips.css)': /^\.(ui-tip|building-tip|rebel-tip)\b/,
+  'option rows (option-editor.css)': /^\.options\b|\.options\s/,
   'pictures (pic.css)':
     /^(\.dialog \.pic(\.small)?|\.dialog \.hold \.pic\.small|\.dialog \.palette \.pic|\.shop-popup \.card \.pic|\.dialog \.goods-big)$/,
   'button rows (button-row.css)':
