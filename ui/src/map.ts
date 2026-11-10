@@ -895,6 +895,7 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
           },
           field: (f) => {
             surface?.surface.setField(f);
+            rivers?.surface.setField(f);
             redraw(null);
           },
           time: (ms, riversMoving = false) => {
@@ -1846,7 +1847,7 @@ export function mapDrawer(
       return;
     }
     const drawing = await riverDrawing(map, ground.base, pics.get);
-    const next = new RiverSurface(drawing, await pics.get(res!.path('image.tile.river.water')!));
+    const next = new RiverSurface(drawing, await pics.get(res!.path('image.tile.model.tile.ocean.center')!));
     if (field) next.surface.setField(field);
     if (pen.water.rivers(next)) riverBase = drawing.banks;
   }

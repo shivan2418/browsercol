@@ -1,6 +1,6 @@
 // PROTOTYPE (#411): one river mesh, using FreeCol's existing recipes for the masks and pebble banks.
 // The atlas packs screen-space flow in RG, minor/major speed blend in B, and the original mask in A.
-// Bends are baked once on the CPU, leaving three texture reads and no neighbour work in the shader.
+// Bends are baked once on the CPU, leaving four texture reads and no neighbour work in the shader.
 import { BufferImageSource, Geometry, ImageSource } from 'pixi.js';
 import {
   paintedWaterAtlas,
@@ -33,6 +33,11 @@ in vec2 vUv;
 out vec4 finalColor;
 uniform sampler2D uRiverAtlas;
 uniform sampler2D uWater;
+uniform sampler2D uClimate;
+uniform vec2 uFieldSize;
+uniform vec3 uShal0;
+uniform vec3 uShal1;
+uniform vec3 uShal2;
 uniform vec2 uSpeeds;
 uniform float uTime;
 uniform float uSplit;
@@ -41,12 +46,18 @@ void main() {
   vec4 mask = texture(uRiverAtlas, vUv);
   if (mask.a < 0.004) discard;
   vec2 velocity = (mask.rg * 2.0 - 1.0) * mix(uSpeeds.y, uSpeeds.x, mask.b);
-  vec2 uv = vec2(vPosition.x + 2.0 * vPosition.y, 2.0 * vPosition.y - vPosition.x) / 128.0;
-  vec2 travel = vec2(velocity.x + 2.0 * velocity.y, 2.0 * velocity.y - velocity.x) * 16.0 / 128.0;
+  vec2 uv = vec2(vPosition.x + 2.0 * vPosition.y, 2.0 * vPosition.y - vPosition.x) * 0.63 / 128.0;
+  vec2 travel = vec2(velocity.x + 2.0 * velocity.y, 2.0 * velocity.y - velocity.x) * 16.0 * 0.63 / 128.0;
   float phase = fract(uTime / 16.0);
   vec3 a = texture(uWater, uv - travel * phase).rgb;
   vec3 b = texture(uWater, uv - travel * fract(phase + 0.5)).rgb;
-  vec3 col = mix(a, b, abs(phase * 2.0 - 1.0));
+  vec3 art = mix(a, b, abs(phase * 2.0 - 1.0));
+  vec3 climate = texture(uClimate, vPosition / uFieldSize).rgb;
+  vec3 w = climate / max(dot(climate, vec3(1.0)), 0.001);
+  vec3 shallow = uShal0 * w.r + uShal1 * w.g + uShal2 * w.b;
+  // The same painted-art modulation and near-shore tint as variant D.
+  vec3 col = mix(art, shallow * (0.8 + dot(art, vec3(0.3))), dot(w, vec3(0.8, 0.75, 1.0)) * 0.92);
+  col *= 1.0 - 0.12 * (1.0 - mask.b) * smoothstep(0.45, 1.0, mask.a);
   float alpha = mask.a * 0.9;
   finalColor = vec4(col * alpha, alpha);
 }`;
@@ -201,6 +212,9 @@ export class RiverSurface {
         uTime: { value: 0, type: 'f32' },
         uSplit: { value: 0, type: 'f32' },
         uSpeeds: { value: [12, 6], type: 'vec2<f32>' },
+        uShal0: { value: [0, 0, 0], type: 'vec3<f32>' },
+        uShal1: { value: [0, 0, 0], type: 'vec3<f32>' },
+        uShal2: { value: [0, 0, 0], type: 'vec3<f32>' },
       },
       {
         uRiverAtlas: drawing.atlas,
@@ -218,5 +232,14 @@ export class RiverSurface {
     const speeds = u.uSpeeds as number[];
     speeds[0] = look.rivers?.minor ?? 12;
     speeds[1] = look.rivers?.major ?? 6;
+    this.tint('uShal0', look.palettes.cold.shallow);
+    this.tint('uShal1', look.palettes.temperate.shallow);
+    this.tint('uShal2', look.palettes.tropical.shallow);
+  }
+  private tint(name: string, color: number) {
+    const rgb = this.surface.uniforms[name] as number[];
+    rgb[0] = ((color >> 16) & 255) / 255;
+    rgb[1] = ((color >> 8) & 255) / 255;
+    rgb[2] = (color & 255) / 255;
   }
 }
