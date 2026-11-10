@@ -832,7 +832,7 @@ void main() {
   float dist = (0.5 - f.b) * 384.0 - (uAxes.y < 0.5 ? 10.0 : 0.0) + plume * 22.0;
   float d = max(0.0, dist);
   float deeper = uAxes.w;
-  float shelf = 1.0 - smoothstep(0.0, uRecipe.w * mix(1.0, 0.68, deeper), d + noise * 6.0);
+  float shelf = 1.0 - smoothstep(8.0, uRecipe.w * mix(1.0, 0.8, deeper), d + noise * 6.0);
   vec3 shallow = uAxes.x > 0.5 ? uShal0*w.r + uShal1*w.g + uShal2*w.b : uShallow;
   vec3 deep = art;
   if (uAxes.z > 0.5) {
@@ -840,12 +840,16 @@ void main() {
     deep = mix(art, tint * (0.75 + dot(art, vec3(0.33))), 0.38) * mix(1.0, uShore.z, high);
   }
   deep *= mix(vec3(1.0), vec3(0.72, 0.8, 0.92), deeper);
-  shallow *= mix(vec3(1.0), vec3(0.55, 0.74, 0.8), deeper);
-  vec3 col = mix(deep, shallow * (0.8 + dot(art, vec3(0.3))), shelf * 0.78);
-  float phase = d * 6.283185 / uRecipe.y + uTime * uRecipe.x * 6.283185 / uRecipe.y + noise * 0.75;
-  float bands = smoothstep(0.88, 1.0, sin(phase)) * smoothstep(4.0, 14.0, d) *
-    (1.0 - smoothstep(16.0, 100.0, d)) * (0.55 + 0.45 * noise) * (1.0 - lake);
-  col += vec3(0.9, 0.95, 1.0) * bands * 0.14 * step(0.0, uRecipe.x);
+  // Dim without pushing slate-green back toward the ocean's saturated blue.
+  shallow *= mix(vec3(1.0), vec3(0.82, 0.86, 0.88), deeper);
+  vec3 col = mix(deep, shallow * (0.8 + dot(art, vec3(0.3))), shelf * 0.92);
+  // In the field's uncompressed metric a diamond edge is 128 / sqrt(2) pixels.
+  float dd = d / 90.51;
+  float broken = sin(p.x * 8.3 + sin(p.y * 5.7)) * sin(p.y * 7.1 - p.x * 3.9);
+  float phase = (d + uTime * uRecipe.x) * 6.283185 / uRecipe.y + noise * 3.0 + broken;
+  float bands = smoothstep(0.65, 1.0, sin(phase)) * smoothstep(0.04, 0.15, dd) *
+    (1.0 - smoothstep(0.0, 0.6, dd)) * smoothstep(-0.15, 0.55, broken) * (1.0 - lake);
+  col += vec3(0.9, 0.95, 1.0) * bands * 0.22 * step(0.0, uRecipe.x);
   col += lake * 0.025 * (0.5 + 0.5 * sin(p.x * 0.7 + p.y * 0.4 + uTime * 0.19));
   float lap = sin(uTime * mix(1.1, 0.45, lake) + noise * 2.0);
   float reach = uShore.y * (0.7 + 0.3 * lap) * mix(1.0, 0.35, lake);
