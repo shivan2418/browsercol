@@ -116,6 +116,8 @@ describe('waterField', () => {
     driftSpeed: 2,
     shelfWidth: 110,
     climateBlend: 3,
+    clip: 0,
+    clipAt: 2,
   };
   const texel = 8;
   /** The field's RGBA at a tile's centre. */

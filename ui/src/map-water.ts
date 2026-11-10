@@ -107,6 +107,10 @@ export interface WaterRecipe {
   driftSpeed: number;
   shelfWidth: number;
   climateBlend: number;
+  /** The clipped beach: 1 draws the water again over FreeCol's beach art past a waterline, 0 not; and where the
+   * waterline sits, in pixels out from where the art covers half. */
+  clip: number;
+  clipAt: number;
 }
 
 type FieldMap = Pick<MapView, 'w' | 'h' | 'types' | 'tiles'>;
@@ -809,6 +813,7 @@ uniform vec3 uDeep2;
 uniform float uTime;
 uniform float uSplit;
 uniform float uView;
+uniform vec2 uClip;
 vec3 paint(vec2 p, float kind) {
   vec2 q = fract(p);
   return texture(uSwellMap, vec2(q.x, (kind + (q.y * 127.0 + 0.5) / 128.0) / 3.0)).rgb;
@@ -818,6 +823,12 @@ void main() {
   vec4 f = texture(uField, vField);
   if (f.a < 0.001) discard;
   vec4 climate = texture(uClimate, vField);
+#ifdef CLIP
+  // Out before any painting: the clipped beach is off, the shore is drawn, or the pixel is off the waterline's strip.
+  if (uClip.x < 0.5 || uAxes.y < 0.5) discard;
+  float strip = (0.5 - f.b) * 384.0 + climate.a * 22.0;
+  if (strip < uClip.y || strip > 34.0) discard;
+#endif
   vec3 w = climate.rgb / max(dot(climate.rgb, vec3(1.0)), 0.001);
   float lake = 1.0 - smoothstep(0.05, 0.35, f.g);
   float high = smoothstep(0.65, 0.95, f.g);
@@ -875,9 +886,23 @@ void main() {
   col = mix(col, uFoam, foam);
   col = mix(col, vec3(0.16, 0.34, 0.39), plume * 0.8);
   if (uView > 0.5) col = uView < 1.5 ? vec3(f.r, f.g, f.b) : w;
+#ifdef CLIP
+  // Drawn again over FreeCol's beach art: only the water past the waterline, so the art's fade to the sea is
+  // covered and the beach ends in a clean edge. Not at river mouths (their art stays), nor far out where no art is.
+  float over = smoothstep(uClip.y, uClip.y + 4.0, dist) * (1.0 - smoothstep(30.0, 34.0, dist)) * (1.0 - plume) *
+    uClip.x * (1.0 - drawn);
+  if (over < 0.004) discard;
+  finalColor = vec4(col * f.a * over, f.a * over);
+#else
   finalColor = vec4(col * f.a, f.a);
+#endif
 }
 `;
+/** The painted water again, over FreeCol's beach art past the waterline (the clipped beach). */
+const PAINTED_CLIP_FRAGMENT = PAINTED_FRAGMENT.replace(
+  'precision highp float;',
+  'precision highp float;\n#define CLIP 1',
+);
 
 /** The shader's compile-time choices: the wave model, the shore's encoding, climate colours or not. */
 export interface WaterVariant {
@@ -1078,6 +1103,9 @@ const fieldSource = (f: WaterField, data = f.data) =>
  */
 export class ShaderSurface {
   readonly mesh: Mesh<Geometry, Shader>;
+  /** PROTOTYPE: a second draw of the same surface, with its own fragment shader and the same uniforms and textures,
+   * for the map to place higher up (the clipped beach); null when there is none. */
+  readonly overlay: Mesh<Geometry, Shader> | null = null;
   private field: BufferImageSource;
   /** PROTOTYPE: the climate field, the same size as the field. */
   private climate: BufferImageSource;
@@ -1091,6 +1119,7 @@ export class ShaderSurface {
     uniforms: Record<string, { value: number | Float32Array | number[]; type: string }>,
     /** Its own textures, by the sampler's name. */
     textures: Record<string, TextureSource>,
+    overlayFragment?: string,
   ) {
     this.positions = new Float32Array(8);
     const geometry = new Geometry({
@@ -1112,6 +1141,20 @@ export class ShaderSurface {
     this.mesh = new Mesh({ geometry, shader });
     // The map's chunks cull themselves; this is the whole map, which the GPU clips to the screen.
     this.mesh.cullable = false;
+    if (overlayFragment) {
+      const over = Shader.from({
+        gl: { vertex, fragment: overlayFragment },
+        resources: { surface: shader.resources.surface, uField: this.field, uClimate: this.climate, ...textures },
+      });
+      this.overlay = new Mesh({ geometry, shader: over });
+      this.overlay.cullable = false;
+    }
+  }
+
+  /** The overlay's shader sources, for programLinks. */
+  get overlayProgram(): { vertex: string; fragment: string } | null {
+    const p = this.overlay?.shader?.glProgram;
+    return p ? { vertex: p.vertex ?? '', fragment: p.fragment ?? '' } : null;
   }
 
   /** The shader's sources as PixiJS gives them to WebGL, for programLinks. */
@@ -1135,6 +1178,7 @@ export class ShaderSurface {
     } else {
       this.field = fieldSource(f);
       this.mesh.shader!.resources.uField = this.field;
+      if (this.overlay) this.overlay.shader!.resources.uField = this.field;
       old.destroy();
     }
     const climate = f.climate ?? new Uint8Array(4 * f.cols * f.rows).fill(85);
@@ -1145,6 +1189,7 @@ export class ShaderSurface {
     } else {
       this.climate = fieldSource(f, climate);
       this.mesh.shader!.resources.uClimate = this.climate;
+      if (this.overlay) this.overlay.shader!.resources.uClimate = this.climate;
       oldClimate.destroy();
     }
     this.positions.set([0, 0, w, 0, w, h, 0, h]);
@@ -1154,6 +1199,8 @@ export class ShaderSurface {
 
   /** Destroy the mesh, its geometry and shader, the field and the look's textures. */
   destroy() {
+    this.overlay?.shader?.destroy();
+    this.overlay?.destroy();
     this.mesh.geometry.destroy();
     this.mesh.shader?.destroy();
     this.mesh.destroy();
@@ -1224,6 +1271,7 @@ const uniformsOf = (look: WaterLook): Record<string, { value: number | number[];
     ]),
     uTime: { value: 0, type: 'f32' },
     uSplit: { value: 0, type: 'f32' },
+    uClip: { value: [look.recipe?.clip ?? 0, look.recipe?.clipAt ?? 2], type: 'vec2<f32>' },
   };
 };
 
@@ -1247,12 +1295,16 @@ export class WaterSurface {
         : fragmentFor({ waves: look.waves, signedShore: look.shore !== 'blur', climate: look.climate }),
       uniformsOf(look),
       { uSwellMap: rippleSource(swell), uChopMap: rippleSource(chop) },
+      look.recipe ? PAINTED_CLIP_FRAGMENT : undefined,
     );
+    if (this.surface.overlay) this.surface.overlay.renderable = !!look.recipe?.clip;
   }
 
   /** PROTOTYPE: take a look's numbers and colours without building the shader again (not its waves, shore or climate). */
   setLook(next: WaterLook) {
     Object.assign(this.look, next);
+    // The clipped beach's second draw costs nothing while it is off.
+    if (this.surface.overlay) this.surface.overlay.renderable = !!next.recipe?.clip;
     const u = this.surface.uniforms;
     for (const [k, v] of Object.entries(uniformsOf(next)))
       if (!['uView', 'uTime', 'uSplit'].includes(k)) u[k] = v.value;

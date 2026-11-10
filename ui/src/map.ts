@@ -810,6 +810,7 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
     rightMask.includeInBuild = leftMask.includeInBuild = shoreMask.includeInBuild = false;
     if (surface) {
       surface.surface.mesh.visible = !defaultOnly;
+      if (surface.surface.overlay) surface.surface.overlay.visible = !defaultOnly;
       surface.surface.uniforms.uSplit = divider * app.renderer.resolution;
     }
     redraw(null);
@@ -827,12 +828,20 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
             if (ok) {
               // A first draw with it, now, and WebGL's word on it: PixiJS only logs what goes wrong there.
               world.addChildAt(mesh, look.recipe ? world.getChildIndex(layers[5]) : 0);
+              // The clipped beach: the water drawn again right over the beach art (layers 5 and 9).
+              const over = surface.surface.overlay;
+              const overProgram = surface.surface.overlayProgram;
+              if (over && overProgram) {
+                ok = programLinks(gl, overProgram);
+                if (ok) world.addChildAt(over, world.getChildIndex(layers[9]) + 1);
+              }
               for (let i = 0; i < 16 && gl.getError() !== gl.NO_ERROR; i++);
               app.render();
               ok = !gl.isContextLost() && gl.getError() === gl.NO_ERROR;
             }
             if (!ok) {
               world.removeChild(mesh);
+              if (surface.surface.overlay) world.removeChild(surface.surface.overlay);
               surface.surface.destroy();
               surface = null;
               return false;

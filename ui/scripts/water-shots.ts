@@ -1,6 +1,6 @@
 // Water comparisons (#409), against dist/. --variants Default,A,B,C,D,E uses the live playground.
 // --video records each requested spot in split view, then trims five-second webm clips with ffmpeg.
-// --still freezes terrain for baseline pixel comparisons. --headed supports Firefox under Xvfb.
+// --still freezes terrain for baseline pixel comparisons. --extra '&clip=1' adds to the page's query. --headed supports Firefox under Xvfb.
 // DEV_VARIANT=web ./dev.sh node ui/scripts/water-shots.ts --variants Default,A,B,C,D,E
 //   --out .cache/water-shots/409-lolo --browsers chromium,firefox --themes parchment,dark
 import fs from 'node:fs';
@@ -92,7 +92,7 @@ for (const name of browserNames('chromium,firefox')) {
           { tileset, theme, still },
         );
         await page.goto(
-          `${server.url}?skipstart&preset=pan-large${variants.length ? '&tileset=freecol-plus&playground=water&water=A' : ''}`,
+          `${server.url}?skipstart&preset=pan-large${variants.length ? '&tileset=freecol-plus&playground=water&water=A' : ''}${opt('extra', '')}`,
         );
         const ready = await waitForResult(page, 240000);
         if (ready.status === 'failed') throw new Error(`${name}: game did not start: ${ready.error}`);

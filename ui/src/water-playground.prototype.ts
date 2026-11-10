@@ -43,6 +43,8 @@ const RECIPES: Record<Exclude<Variant, 'Default'>, WaterRecipe> = {
     driftSpeed: 2,
     shelfWidth: 90,
     climateBlend: 3,
+    clip: 0,
+    clipAt: 2,
   },
   B: {
     shallows: 'climate',
@@ -55,6 +57,8 @@ const RECIPES: Record<Exclude<Variant, 'Default'>, WaterRecipe> = {
     driftSpeed: 2,
     shelfWidth: 90,
     climateBlend: 3,
+    clip: 0,
+    clipAt: 2,
   },
   C: {
     shallows: 'climate',
@@ -67,6 +71,8 @@ const RECIPES: Record<Exclude<Variant, 'Default'>, WaterRecipe> = {
     driftSpeed: 2,
     shelfWidth: 90,
     climateBlend: 3,
+    clip: 0,
+    clipAt: 2,
   },
   D: {
     shallows: 'climate',
@@ -79,6 +85,8 @@ const RECIPES: Record<Exclude<Variant, 'Default'>, WaterRecipe> = {
     driftSpeed: 2,
     shelfWidth: 90,
     climateBlend: 3,
+    clip: 0,
+    clipAt: 2,
   },
   E: {
     shallows: 'climate',
@@ -91,6 +99,8 @@ const RECIPES: Record<Exclude<Variant, 'Default'>, WaterRecipe> = {
     driftSpeed: 2,
     shelfWidth: 90,
     climateBlend: 3,
+    clip: 0,
+    clipAt: 2,
   },
 };
 
@@ -529,7 +539,12 @@ export function waterPlaygroundPanel(host: Host) {
     variant = name;
     s = {
       ...clone(base!),
-      recipe: clone(RECIPES[name === 'Default' ? 'A' : name]),
+      recipe: {
+        ...clone(RECIPES[name === 'Default' ? 'A' : name]),
+        // ?clip=1&clipAt=2 turns the clipped beach on from the URL, for the shot scripts.
+        ...(params.has('clip') ? { clip: Number(params.get('clip')) || 0 } : {}),
+        ...(params.has('clipAt') ? { clipAt: Number(params.get('clipAt')) || 0 } : {}),
+      },
       shore: 'signed',
       shallow: 0x52b9b5,
       foam: 0xe0e8df,
@@ -601,6 +616,8 @@ export function waterPlaygroundPanel(host: Host) {
       ['Drift px/s', 'driftSpeed', 0, 5, 0.1],
       ['Shelf width px', 'shelfWidth', 24, 192, 2],
       ['Climate blend tiles', 'climateBlend', 1, 6, 0.25],
+      ['Clip beach (0 off, 1 on)', 'clip', 0, 1, 1],
+      ['Clip at px', 'clipAt', -6, 16, 0.5],
     ] as const)
       panel.append(
         slider(
