@@ -278,8 +278,13 @@ test('the start screen offers to continue the newest save and to open another', 
     />,
   );
   fireEvent.click(document.querySelector('[data-continue]')!);
+  // The saves are in a window of their own, not on the start window (no foldout to shift its layout).
+  expect(document.querySelector('[data-save-picker]')).toBeNull();
+  fireEvent.click(document.querySelector('[data-open-saves]')!);
   fireEvent.doubleClick(document.querySelector('[data-open-save="2"]')!);
   expect(opened).toEqual([7, 2]);
+  fireEvent.click(document.querySelector('[data-open-cancel]')!);
+  expect(document.querySelector('[data-save-picker]')).toBeNull();
 });
 
 test('with no saves there is nothing to continue', () => {
