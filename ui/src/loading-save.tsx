@@ -8,7 +8,7 @@
 // [data-load-ok] and [data-load-cancel] on its buttons.
 import type { SaveMeta } from './saves';
 import { NumberField } from './controls';
-import { Heading } from './frame';
+import { ButtonRow, Heading } from './frame';
 import { useCoverage } from './coverage';
 
 /** FreeCol's choices of the save game dialog option. */
@@ -76,14 +76,14 @@ export function LoadingSaveDialog({
             Port: <NumberField value={null} onChange={() => {}} disabled />
           </label>
         </fieldset>
-        <div className="buttons">
+        <ButtonRow space="window">
           <button type="button" data-load-cancel onClick={cancel}>
             Cancel
           </button>
           <button type="submit" autoFocus data-load-ok>
             OK
           </button>
-        </div>
+        </ButtonRow>
       </form>
     </div>
   );

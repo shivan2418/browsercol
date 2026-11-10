@@ -23,7 +23,7 @@ import { ColonyActions, ColonyPanel } from './colony-panel';
 import { DebugContext } from './debug';
 import type { Dialog, Dialogs } from './dialogs';
 import { europeButtons } from './europe-client';
-import { Box, GoodsAmount, Heading, TEXT_ENTRY, WindowFrame, type Art } from './frame';
+import { Box, ButtonRow, GoodsAmount, Heading, TEXT_ENTRY, WindowFrame, type Art } from './frame';
 import { Declaration } from './declaration';
 import { CopyDetailsContext, ShowLogContext } from './log';
 import { lane } from './drag';
@@ -160,7 +160,7 @@ function OkCancel(p: {
   enter?: 'ok' | 'cancel' | null;
 }) {
   return (
-    <div className="buttons">
+    <ButtonRow>
       {p.ok !== null && (
         <button data-answer="ok" {...enterMark(p.enter === 'ok')} onClick={p.onOk}>
           {p.ok}
@@ -171,7 +171,7 @@ function OkCancel(p: {
           {p.cancel}
         </button>
       )}
-    </div>
+    </ButtonRow>
   );
 }
 
@@ -200,7 +200,7 @@ function Confirm({ d, colopedia, art }: { d: Of<'confirm'>; colopedia: (type: st
       {help && ask.help?.text && <Text text={ask.help.text} />}
       <OkCancel ok={ask.ok} cancel={ask.cancel} onOk={ok} onCancel={cancel} enter={enter} />
       {ask.help && (
-        <div className="buttons">
+        <ButtonRow>
           <button
             data-help
             onClick={() => {
@@ -211,7 +211,7 @@ function Confirm({ d, colopedia, art }: { d: Of<'confirm'>; colopedia: (type: st
           >
             {ask.help.label}
           </button>
-        </div>
+        </ButtonRow>
       )}
     </Win>
   );
@@ -241,11 +241,11 @@ function Choice({ d, art }: { d: Of<'choice'>; art: Art }) {
         ))}
       </div>
       {ask.cancel !== null && (
-        <div className="buttons">
+        <ButtonRow>
           <button data-answer="cancel" {...enterMark(enterButton)} onClick={() => d.done(null)}>
             {ask.cancel}
           </button>
-        </div>
+        </ButtonRow>
       )}
     </Win>
   );
@@ -300,7 +300,7 @@ function Amount({ d, art }: { d: Of<'amount'>; art: Art }) {
           </button>
         ))}
       </div>
-      <div className="buttons">
+      <ButtonRow>
         {ask.ok !== null && (
           <button data-answer="ok" data-enter="" disabled={!valid} onClick={ok}>
             {ask.ok}
@@ -311,7 +311,7 @@ function Amount({ d, art }: { d: Of<'amount'>; art: Art }) {
             {ask.cancel}
           </button>
         )}
-      </div>
+      </ButtonRow>
     </Win>
   );
 }
@@ -437,11 +437,11 @@ function Father({ d, art }: { d: Of<'father'>; art: Art }) {
           </div>
         </div>
       )}
-      <div className="buttons">
+      <ButtonRow>
         <button data-answer="ok" data-enter="" onClick={ok}>
           {ask.ok}
         </button>
-      </div>
+      </ButtonRow>
     </Win>
   );
 }
@@ -628,20 +628,22 @@ function PanelButtons({
   close,
   extra = null,
   lead = null,
+  spread,
 }: {
   ok: string;
   close: () => void;
   extra?: { label: string; run: () => void } | null;
   lead?: ReactNode;
+  spread?: boolean;
 }) {
   return (
-    <div className="buttons">
+    <ButtonRow spread={spread}>
       {lead}
       {extra && <button onClick={extra.run}>{extra.label}</button>}
       <button data-answer="close" data-enter="" onClick={close}>
         {ok}
       </button>
-    </div>
+    </ButtonRow>
   );
 }
 
@@ -652,6 +654,7 @@ function Panel({
   ok,
   extra = null,
   lead = null,
+  spread,
   closeKeys,
   advisor = null,
 }: {
@@ -663,8 +666,9 @@ function Panel({
   advisor?: Advisor | null;
   /** A second button beside OK. */
   extra?: { label: string; run: () => void } | null;
-  /** Buttons at the left of the footer, with OK alone at the right. */
+  /** Buttons at the left of the footer (spread: with OK alone at the right, as Europe's). */
   lead?: ReactNode;
+  spread?: boolean;
   /** Keys that close the panel as Escape does (frame.tsx). */
   closeKeys?: readonly string[];
 }) {
@@ -673,7 +677,7 @@ function Panel({
   return (
     <Win d={d} title={title} close={close} closeKeys={closeKeys} advisor={advisor}>
       {children}
-      <PanelButtons ok={ok} close={close} extra={extra} lead={lead} />
+      <PanelButtons ok={ok} close={close} extra={extra} lead={lead} spread={spread} />
     </Win>
   );
 }
@@ -1199,14 +1203,14 @@ function RouteEditor({
           );
         })}
       </div>
-      <div className="buttons">
+      <ButtonRow>
         <button data-answer="ok" data-enter="" disabled={draft.name.trim() === ''} onClick={ok}>
           {e.ok}
         </button>
         <button data-answer="cancel" onClick={cancel}>
           {e.cancel}
         </button>
-      </div>
+      </ButtonRow>
     </>
   );
 }
@@ -1275,7 +1279,7 @@ function RoutesPanel({ d, art, routes }: { d: Of<'tradeRoutes'>; art: Art; route
           </button>
         ))}
       </div>
-      <div className="buttons">
+      <ButtonRow>
         <Tip as="button" data-answer="new" tip={e.tooltips.new} onClick={() => setEditing(blank)}>
           {e.newRoute}
         </Tip>
@@ -1320,7 +1324,7 @@ function RoutesPanel({ d, art, routes }: { d: Of<'tradeRoutes'>; art: Art; route
         <button data-answer="close" data-enter="" onClick={ok}>
           {e.ok}
         </button>
-      </div>
+      </ButtonRow>
     </Win>
   );
 }
@@ -1609,7 +1613,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
   );
   return (
     // E, which opened Europe from the map, closes it again (not while a shop popup or a question is over it).
-    <Panel d={d} ok={e.ok} lead={footer} closeKeys={EUROPE_KEYS}>
+    <Panel d={d} ok={e.ok} lead={footer} spread closeKeys={EUROPE_KEYS}>
       <div className="europe-title">
         <Heading level={2}>{e.title}</Heading>
       </div>

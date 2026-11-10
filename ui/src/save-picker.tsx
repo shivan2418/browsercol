@@ -2,7 +2,7 @@
 // the browser's store, newest first, to pick one from. Shown in the start screen and, as a window, from
 // Game > Open. Hooks for the browser scripts: [data-save-picker] on the list and [data-open-save=ID] on
 // each save's button. A .fsg file on disk opens through [data-open-file], as FreeCol's file chooser (#274).
-import { WindowFrame } from './frame';
+import { ButtonRow, WindowFrame } from './frame';
 import type { SaveMeta } from './saves';
 import { useCoverage } from './coverage';
 
@@ -77,11 +77,11 @@ export function OpenDialog({
     <WindowFrame title="Open Game" close={close} id="open-game" className="dialog">
       <SaveList saves={saves} open={open} exportSave={exportSave} />
       {(openFile || note) && <OpenFile openFile={openFile} note={note} />}
-      <div className="buttons">
+      <ButtonRow>
         <button type="button" data-open-cancel onClick={close}>
           Cancel
         </button>
-      </div>
+      </ButtonRow>
     </WindowFrame>
   );
 }
@@ -119,7 +119,7 @@ export function SaveDialog({
           The save is kept in this browser only. Clearing the browser's data deletes it, so download a copy of any game
           you want to keep.
         </p>
-        <div className="buttons">
+        <ButtonRow>
           <button type="button" data-save-cancel onClick={close}>
             Cancel
           </button>
@@ -130,7 +130,7 @@ export function SaveDialog({
           <button type="submit" data-save-download>
             Save and Download
           </button>
-        </div>
+        </ButtonRow>
       </form>
     </WindowFrame>
   );

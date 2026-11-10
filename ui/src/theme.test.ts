@@ -206,6 +206,8 @@ const MOVED: Record<string, RegExp> = {
   // A part's own rule may still set what Heading does not (the father's grid column, a report's flex rule).
   'dialog headings (heading.css)':
     /(^|,)\s*(\.dialog|\.europe-log|\.start-window|#credits|\.dialog \.vstop|\.dialog\[data-kind='negotiation'\] \.lead)\s+h[23](\.headline)?\s*$/,
+  'button rows (button-row.css)':
+    /^(\.dialog|\.error-banner|\.start-window|#preferences|\.dialog\[data-kind='europe'\])\s+\.buttons(\s+\[data-answer='close'\])?$/,
 };
 
 test('a moved pattern has no rule left in index.html', () => {

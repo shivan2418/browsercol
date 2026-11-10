@@ -6,7 +6,7 @@
 // to accept, reject or counter-propose, which opens the editor filled in with it.
 import { useState, type ReactNode } from 'react';
 import { EscapeCloses, NumberField, Select } from './controls';
-import { Box, Heading } from './frame';
+import { Box, ButtonRow, Heading } from './frame';
 import type { GuiQuestions, TradeItem, TradeKind, TradeOption } from './webgui';
 
 type Ask = GuiQuestions['negotiation']['ask'];
@@ -230,7 +230,7 @@ export function useNegotiation(
             {sides('offer', 'We would give')}
             {sides('demand', `${ask.other} would give`)}
           </div>
-          <div className="buttons">
+          <ButtonRow>
             <span className="hint">{cant ? 'You cannot afford this.' : ''}</span>
             {!first && (
               <button data-answer="cancel" onClick={reply('reject', ask.items)}>
@@ -249,7 +249,7 @@ export function useNegotiation(
             >
               Accept offer
             </button>
-          </div>
+          </ButtonRow>
         </>
       ),
       enter: cant ? null : first ? reply('propose', ask.items) : reply('accept', ask.items),
@@ -467,7 +467,7 @@ export function useNegotiation(
           {column('demand')}
         </div>
         {summary}
-        <div className="buttons">
+        <ButtonRow>
           <span className="hint">{hint}</span>
           {counter && (
             <button
@@ -490,7 +490,7 @@ export function useNegotiation(
           <button data-answer="send" {...enterMark(true)} disabled={blocked} onClick={send}>
             {sendLabel}
           </button>
-        </div>
+        </ButtonRow>
       </>
     ),
     // Enter adds what is being picked, else sends.

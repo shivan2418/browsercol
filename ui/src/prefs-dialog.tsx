@@ -5,7 +5,7 @@
 // category's button, with its id; [data-mute] on a volume's mute button, with the preference it sets.
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Select, Tip } from './controls';
-import { Box, TEXT_ENTRY, WindowFrame } from './frame';
+import { Box, ButtonRow, TEXT_ENTRY, WindowFrame } from './frame';
 import { LANGUAGE_OPTION } from './language';
 import { OptionEditor } from './option-editor';
 import type { OptionGroup, OptionNode } from './options';
@@ -543,7 +543,7 @@ export function PreferencesDialog({
             )}
           </div>
         </div>
-        <div className="buttons">
+        <ButtonRow space="tight">
           <button type="button" data-prefs-reset onClick={() => change(opened.current)}>
             Reset
           </button>
@@ -563,7 +563,7 @@ export function PreferencesDialog({
           <button type="button" autoFocus data-prefs-ok onClick={close}>
             OK
           </button>
-        </div>
+        </ButtonRow>
       </WindowFrame>
     </div>
   );

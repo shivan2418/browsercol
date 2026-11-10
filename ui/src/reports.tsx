@@ -19,7 +19,7 @@ import {
 } from 'react';
 import { Select, Tip } from './controls';
 import type { Dialog } from './dialogs';
-import { GoodsAmount, GoodsProgressBar, Heading, WindowFrame, type Art, type Menu } from './frame';
+import { ButtonRow, GoodsAmount, GoodsProgressBar, Heading, WindowFrame, type Art, type Menu } from './frame';
 import type { CompactCell, ReportName, ReportView, UnitCount } from './webgui';
 
 /** What a link in a report does (ClientExports.report, reportDetail and showColony, and the page's). */
@@ -1190,7 +1190,7 @@ export function ReportPanel({ d, e, art }: { d: Dialog; e: ReportView; art: Art 
       <div className="report">
         <Content e={e} art={art} go={go} />
       </div>
-      <div className="buttons">
+      <ButtonRow>
         {e.back ? (
           <button data-answer="back" onClick={() => actions.open(e.back!)}>
             Back
@@ -1200,7 +1200,7 @@ export function ReportPanel({ d, e, art }: { d: Dialog; e: ReportView; art: Art 
             {e.ok}
           </button>
         )}
-      </div>
+      </ButtonRow>
     </WindowFrame>
   );
 }

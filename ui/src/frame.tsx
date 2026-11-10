@@ -26,6 +26,7 @@ import './window-frame.css';
 import './goods.css';
 import './box.css';
 import './heading.css';
+import './button-row.css';
 import './popup-surface.css';
 import './selection.css';
 import './quiet-text.css';
@@ -325,6 +326,28 @@ export function Heading({
   const Tag = level === 2 ? 'h2' : 'h3';
   return (
     <Tag className={className ? `heading ${className}` : 'heading'} data-look={look} data-space={space} {...rest} />
+  );
+}
+
+/**
+ * A row of buttons at the foot of a window, the answers at the right. Its variants are props: `spread` puts the
+ * first buttons at the left with the close button alone at the right (Europe's footer), and `space` the room round
+ * the row (`tight`: the Preferences', `window`: a start window's, with no gap, `flush`: none).
+ */
+export function ButtonRow({
+  spread,
+  space,
+  children,
+  ...rest
+}: {
+  spread?: boolean;
+  space?: 'tight' | 'window' | 'flush';
+  children?: ReactNode;
+} & Omit<HTMLAttributes<HTMLDivElement>, 'children'>) {
+  return (
+    <div className="buttons" data-spread={spread ? '' : undefined} data-space={space} {...rest}>
+      {children}
+    </div>
   );
 }
 
