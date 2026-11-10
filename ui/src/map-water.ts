@@ -868,8 +868,10 @@ void main() {
   // Foam washes over the beach, leaving a darker wet strip when it retreats.
   sand = mix(sand, sand * 0.82, drawn * (1.0 - smoothstep(-8.0, -1.0, dist)) *
     smoothstep(waterline - 3.0, waterline + 1.0, dist) * 0.35);
-  // The art shore keeps its painted cover. Sand underneath fills transparent holes.
-  col = mix(col, sand, 1.0 - smoothstep(-2.0, 2.0, dist));
+  // The art shore keeps its painted cover. Sand underneath fills transparent holes, but stops well inside the art's
+  // own fade to the sea: sand under the fade read as beach bleeding into the water (worst on snow and tundra).
+  float sandEdge = mix(-10.0, 0.0, drawn);
+  col = mix(col, sand, 1.0 - smoothstep(sandEdge - 2.0, sandEdge + 2.0, dist));
   col = mix(col, uFoam, foam);
   col = mix(col, vec3(0.16, 0.34, 0.39), plume * 0.8);
   if (uView > 0.5) col = uView < 1.5 ? vec3(f.r, f.g, f.b) : w;

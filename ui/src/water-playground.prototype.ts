@@ -536,7 +536,7 @@ export function waterPlaygroundPanel(host: Host) {
       foamWidth: 7,
       speed: 1,
       palettes: {
-        cold: { ...PALETTES.muted.cold, shallow: 0x839b92 },
+        cold: { ...PALETTES.muted.cold, shallow: 0x5a7378 },
         temperate: { ...PALETTES.muted.temperate, shallow: 0x4d7268 },
         tropical: { ...PALETTES.muted.tropical, shallow: 0x40c6b9 },
       },
