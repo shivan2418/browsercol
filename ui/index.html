@@ -2105,9 +2105,11 @@
       .colony .queue-body li > button:only-child {
         flex: 1;
         display: flex;
-        gap: 6px;
+        gap: 0 6px;
         align-items: center;
         text-align: left;
+        /* A locked row's requirement takes a line of its own under the picture, name and costs. */
+        flex-wrap: wrap;
       }
       .colony .queue-body li[data-locked] .name {
         color: var(--muted);
@@ -2122,13 +2124,18 @@
       /* The name takes the room left; the costs keep theirs, on one line, after it. */
       .colony .queue-body li .name {
         flex: 1;
-        min-width: 0;
+        /* Never squeezed to a word a line: the costs wrap under it first. */
+        min-width: 7em;
       }
       .colony .queue-body .cost {
         flex: none;
         white-space: nowrap;
       }
       .colony .queue-body .reason {
+        /* Its own line, indented under the name (the picture's width and the gap). */
+        flex: 1 0 100%;
+        box-sizing: border-box;
+        padding-left: 54px;
         font-size: 0.85em;
       }
       .colony .queue-body .show-all,
