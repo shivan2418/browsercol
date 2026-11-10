@@ -41,6 +41,17 @@ uniform vec3 uShal2;
 uniform vec2 uSpeeds;
 uniform float uTime;
 uniform float uSplit;
+// Fixed world-space axes keep bends from rotating a noise pattern around the map's distant origin.
+// Blend the two diamond diagonals through bends; each highlight is long along, narrow across the current.
+float streakAlong(vec2 p, vec2 axis) {
+  vec2 q = vec2(dot(p, axis) / 26.0, dot(p, vec2(-axis.y, axis.x)) / 2.8);
+  float n = sin(q.y + 0.5 * sin(q.x)) * sin(q.x + 0.35 * sin(q.y * 0.43));
+  return smoothstep(0.55, 0.88, n);
+}
+float streak(vec2 p, vec2 direction) {
+  return mix(streakAlong(p, vec2(0.894427, -0.447214)), streakAlong(p, vec2(0.894427, 0.447214)),
+    smoothstep(-0.3, 0.3, direction.x * direction.y));
+}
 void main() {
   if (gl_FragCoord.x < uSplit) discard;
   vec4 mask = texture(uRiverAtlas, vUv);
@@ -58,6 +69,11 @@ void main() {
   // The same painted-art modulation and near-shore tint as variant D.
   vec3 col = mix(art, shallow * (0.8 + dot(art, vec3(0.3))), dot(w, vec3(0.8, 0.75, 1.0)) * 0.92);
   col *= 1.0 - 0.12 * (1.0 - mask.b) * smoothstep(0.45, 1.0, mask.a);
+  vec2 direction = normalize(mask.rg * 2.0 - 1.0);
+  float first = streak(vPosition - velocity * 16.0 * phase, direction);
+  float second = streak(vPosition - velocity * 16.0 * fract(phase + 0.5), direction);
+  float current = mix(first, second, abs(phase * 2.0 - 1.0));
+  col = mix(col, vec3(0.80, 0.87, 0.85), current * 0.24);
   float alpha = mask.a * 0.9;
   finalColor = vec4(col * alpha, alpha);
 }`;
