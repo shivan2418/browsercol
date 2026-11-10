@@ -210,6 +210,8 @@ const MOVED: Record<string, RegExp> = {
   'option rows (option-editor.css)': /^\.options\b|\.options\s/,
   'tables (modifiers.css, rules-help.css)': /^\.dialog \.modifiers|^\.rules-help/,
   'start window (start-window.css, credits.css)': /^(\.start|\.new-game|\.customize)\b|^\.start-window/,
+  'form controls (form-controls.css)':
+    /^(input\[type|label\b|summary::|details\[|progress\b|\.ui-(select|positioner|popup|number|help))/,
   'pictures (pic.css)':
     /^(\.dialog \.pic(\.small)?|\.dialog \.hold \.pic\.small|\.dialog \.palette \.pic|\.shop-popup \.card \.pic|\.dialog \.goods-big)$/,
   'button rows (button-row.css)':

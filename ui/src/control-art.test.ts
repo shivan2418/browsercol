@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { expect, test } from 'vite-plus/test';
-import html from '../index.html?raw';
+import html from './form-controls.css?raw';
 import { controlArt } from './control-art';
 
 test('the control images are set as absolute URLs on the root, and removed when the art has none', () => {

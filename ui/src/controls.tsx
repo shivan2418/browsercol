@@ -10,6 +10,7 @@ import { createElement, useEffect, useState, type ComponentProps, type KeyboardE
 import { dragging } from './drag';
 import { useEscape } from './frame';
 import './tooltip.css';
+import './form-controls.css';
 
 /**
  * Where Base UI's popups go: the #overlays layer the windows are in, outside the side panel, which may be
