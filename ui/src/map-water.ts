@@ -1212,7 +1212,7 @@ const uniformsOf = (look: WaterLook): Record<string, { value: number | number[];
       look.recipe?.motion === 'foam' ? -1 : (look.recipe?.bandSpeed ?? 5),
       look.recipe?.bandSpacing ?? 32,
       look.recipe?.driftSpeed ?? 2,
-      look.recipe?.shelfWidth ?? 110,
+      look.recipe?.shelfWidth ?? 90,
     ]),
     uAxes: vec4([
       look.recipe?.shallows === 'climate' ? 1 : 0,

@@ -41,7 +41,7 @@ const RECIPES: Record<Exclude<Variant, 'Default'>, WaterRecipe> = {
     bandSpeed: 5,
     bandSpacing: 40,
     driftSpeed: 2,
-    shelfWidth: 110,
+    shelfWidth: 90,
     climateBlend: 3,
   },
   B: {
@@ -53,7 +53,7 @@ const RECIPES: Record<Exclude<Variant, 'Default'>, WaterRecipe> = {
     bandSpeed: 5,
     bandSpacing: 40,
     driftSpeed: 2,
-    shelfWidth: 110,
+    shelfWidth: 90,
     climateBlend: 3,
   },
   C: {
@@ -65,7 +65,7 @@ const RECIPES: Record<Exclude<Variant, 'Default'>, WaterRecipe> = {
     bandSpeed: 5,
     bandSpacing: 40,
     driftSpeed: 2,
-    shelfWidth: 110,
+    shelfWidth: 90,
     climateBlend: 3,
   },
   D: {
@@ -77,7 +77,7 @@ const RECIPES: Record<Exclude<Variant, 'Default'>, WaterRecipe> = {
     bandSpeed: 5,
     bandSpacing: 40,
     driftSpeed: 2,
-    shelfWidth: 110,
+    shelfWidth: 90,
     climateBlend: 3,
   },
   E: {
@@ -89,7 +89,7 @@ const RECIPES: Record<Exclude<Variant, 'Default'>, WaterRecipe> = {
     bandSpeed: 5,
     bandSpacing: 40,
     driftSpeed: 2,
-    shelfWidth: 110,
+    shelfWidth: 90,
     climateBlend: 3,
   },
 };
