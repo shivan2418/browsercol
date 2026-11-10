@@ -24,7 +24,7 @@ export interface Store {
 
 export interface Relay {
   store: Store;
-  /** The one page origin allowed to post, https://shivan2418.github.io. */
+  /** The one page origin allowed to post: the game's domain, https://browsercol.com. */
   allowedOrigin: string;
   now?: () => Date;
   reference?: () => string;

@@ -7,8 +7,8 @@ Description: BrowserCol feedback relay - beta reports into S3, nothing published
 Parameters:
   AllowedOrigin:
     Type: String
-    Default: https://shivan2418.github.io
-    Description: The only page origin allowed to post reports (CORS)
+    Default: https://browsercol.com
+    Description: The only page origin allowed to post reports (CORS); the game's domain, where Pages serves it
 
 Resources:
   Reports:

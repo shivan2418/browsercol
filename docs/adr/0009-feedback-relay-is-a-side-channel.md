@@ -14,6 +14,6 @@ This does not go against ADR 0001. That decision is about the game depending on 
 ## Consequences
 
 - The relay can only `PutObject` under `inbox/`. "Is this reference free?" is a conditional write (`If-None-Match: *`) of `report.json`, so the relay cannot read, list or delete a report, and a report is never written over. References are unique within a day's folder by that check and across days by chance (31^5 of them).
-- Guards against abuse cost money, not features: a 5 MB body limit, reserved concurrency 2, CORS for `https://shivan2418.github.io` only, and a strict check of the JSON's fields and lengths. Changing what the dialog sends means changing `relay/src/report.ts` and deploying the relay first, since it rejects unknown fields.
+- Guards against abuse cost money, not features: a 5 MB body limit, reserved concurrency 2, CORS for the game's domain `https://browsercol.com` only (the `github.io` address redirects there, so no page posts from it), and a strict check of the JSON's fields and lengths. Changing what the dialog sends means changing `relay/src/report.ts` and deploying the relay first, since it rejects unknown fields.
 - Reviewing is moving a folder from `inbox/` to `reviewed/`, where it expires after 180 days. `inbox/` is kept until reviewed.
 - Deploys are by hand (`relay/deploy.sh`, the SAM CLI from a Docker image), apart from the game's own deploy. The Pages workflow passes the relay's URL to the build from a repository variable.

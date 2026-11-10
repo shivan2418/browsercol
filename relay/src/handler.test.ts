@@ -3,7 +3,7 @@ import { createHandler, type Store, type UrlRequest } from './handler.ts';
 import { newReference, REFERENCE_ALPHABET, REFERENCE_PATTERN } from './reference.ts';
 import { MAX_BODY_BYTES, titleSlug } from './report.ts';
 
-const ORIGIN = 'https://shivan2418.github.io';
+const ORIGIN = 'https://browsercol.com';
 const NOW = new Date('2026-11-10T12:34:56Z');
 
 /** An in-memory bucket, with every write in order. */
@@ -175,7 +175,10 @@ describe('CORS', () => {
 
   it.each([
     ['another site', { origin: 'https://example.com' }],
-    ['a look-alike host', { origin: 'https://shivan2418.github.io.example.com' }],
+    ['a look-alike host', { origin: 'https://browsercol.com.example.com' }],
+    ['plain http', { origin: 'http://browsercol.com' }],
+    // Pages redirects the old address to the domain, so no page posts from it.
+    ['the github.io address', { origin: 'https://shivan2418.github.io' }],
     ['no origin at all', {}],
   ])('turns away %s, with no CORS header and nothing written', async (_, headers) => {
     const { handler, objects } = relay();
