@@ -1,6 +1,7 @@
 // Water comparisons (#409), against dist/. --variants Default,A,B,C,D,E uses the live playground.
 // --video records each requested spot in split view, then trims five-second webm clips with ffmpeg.
 // --still freezes terrain for baseline pixel comparisons. --extra '&clip=1' adds to the page's query. --headed supports Firefox under Xvfb.
+// --rivers adds the playground's discovered minor bend, major river, minor-to-major join and delta.
 // DEV_VARIANT=web ./dev.sh node ui/scripts/water-shots.ts --variants Default,A,B,C,D,E
 //   --out .cache/water-shots/409-lolo --browsers chromium,firefox --themes parchment,dark
 import fs from 'node:fs';
@@ -110,6 +111,13 @@ for (const name of browserNames('chromium,firefox')) {
             const spot = found[climate]?.[0];
             if (!spot) throw new Error(`No ${climate} coast found`);
             console.log(`${climate} coast: ${spot.join(',')}`);
+            locations.push(spot);
+          }
+        if (process.argv.includes('--rivers'))
+          for (const kind of ['minor river bend', 'major river', 'minor into major', 'delta']) {
+            const spot = found[kind]?.[0];
+            if (!spot) throw new Error(`No ${kind} found`);
+            console.log(`${kind}: ${spot.join(',')}`);
             locations.push(spot);
           }
         const renderer = variants.length

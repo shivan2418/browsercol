@@ -5,6 +5,7 @@
 import {
   CLIMATES,
   CLIMATE_OF,
+  riverNeighbour,
   waterPlayground,
   type Climate,
   type Palette,
@@ -268,7 +269,10 @@ export function findSpots(): Record<string, [number, number][]> {
     island: [],
     strait: [],
     lake: [],
-    'river mouth': [[100, 52]],
+    'minor river bend': [],
+    'major river': [],
+    'minor into major': [],
+    delta: [],
     'high seas edge': [[9, 58]],
   };
   if (!map) return out;
@@ -282,6 +286,29 @@ export function findSpots(): Record<string, [number, number][]> {
       const [dx, dy] = y % 2 ? [ox, oy] : [ex, ey];
       return [d, type(x + dx, y + dy)] as const;
     });
+  const rivers = new Map(map.rivers.map((r) => [r[1] * map.w + r[0], r]));
+  const deltas = new Set<number>();
+  for (const [x, y, magnitude, style] of map.rivers) {
+    if (!type(x, y)?.land) continue;
+    const sides = [0, 1, 2, 3].filter((s) => Number(style[s]) > 0);
+    if (magnitude > 1) out['major river'].push([x, y]);
+    else if (sides.length === 2 && (sides[0] + 2) % 4 !== sides[1]) out['minor river bend'].push([x, y]);
+    let joinsMajor = false;
+    for (const side of sides) {
+      const [nx, ny] = riverNeighbour(x, y, side);
+      const neighbour = type(nx, ny);
+      if (!neighbour) continue;
+      const id = ny * map.w + nx;
+      if (!neighbour.land) {
+        if (!deltas.has(id)) out.delta.push([nx, ny]);
+        deltas.add(id);
+      } else if (magnitude <= 1) {
+        const next = rivers.get(id);
+        if (next && next[2] > 1 && Number(next[3][(side + 2) % 4]) > 0) joinsMajor = true;
+      }
+    }
+    if (joinsMajor) out['minor into major'].push([x, y]);
+  }
   for (let y = 2; y < map.h - 2; y++)
     for (let x = 1; x < map.w - 1; x++) {
       const t = type(x, y);
@@ -308,8 +335,7 @@ export function findSpots(): Record<string, [number, number][]> {
     }
   // Nearest the middle of the map first, so the first of each kind is on screen ground.
   const mid = (a: [number, number]) => Math.abs(a[0] - map.w / 2) + Math.abs(a[1] - map.h / 2) / 2;
-  for (const k of Object.keys(out))
-    if (!['river mouth', 'high seas edge'].includes(k)) out[k].sort((a, b) => mid(a) - mid(b));
+  for (const k of Object.keys(out)) if (k !== 'high seas edge') out[k].sort((a, b) => mid(a) - mid(b));
   return out;
 }
 
