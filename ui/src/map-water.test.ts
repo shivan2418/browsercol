@@ -225,6 +225,20 @@ describe('waterField', () => {
     }
   });
 
+  it('rounds a drawn diagonal coast into a beach without covering a water centre', () => {
+    const coast = {
+      ...map,
+      tiles: Array.from({ length: w * h }, (_, k) => (k % w < 4 ? 'A' : 'B')).join(''),
+    };
+    const f = waterField(coast, 4, () => 0, null, 'signed', recipe);
+    const cover = (x: number, y: number) => f.data[4 * (Math.floor(y / f.texelY!) * f.cols + Math.floor(x / f.texel))];
+    // An inward corner between the alternating diamond tips, beyond the original tile.
+    expect(cover(524, 96)).toBe(255);
+    // The neighbouring water tile's centre remains open for ships.
+    expect(cover(576, 96)).toBe(0);
+    for (let k = 0; k < f.made!.land.length; k++) if (f.made!.land[k]) expect(f.data[4 * k]).toBe(255);
+  });
+
   it('preserves the water passage between corner-touching tiles after closing', () => {
     const tiles = Array.from({ length: w * h }, () => 'A');
     tiles[3 * w + 3] = tiles[3 * w + 4] = 'B';

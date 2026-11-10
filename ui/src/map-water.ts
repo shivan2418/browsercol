@@ -383,6 +383,7 @@ export function waterField(
     was.recipeKey === recipeKey;
   const radius = (px: number) => Math.max(1, Math.round(px / texel / 2));
   const distanceCap = recipe ? 192 : SHORE_PX;
+  const closingRadius = recipe?.shore === 'drawn' ? W / Math.SQRT2 / 2 : 20;
   const [nearR, depthR, climateR] = [
     radius(SHALLOW_PX),
     radius(DEPTH_PX),
@@ -391,7 +392,7 @@ export function waterField(
   // Closing reaches twice its radius, followed by the capped distance.
   const reach = Math.max(
     2 * Math.max(nearR, depthR, climateR, 1),
-    Math.ceil((distanceCap + (recipe ? 40 : 0)) / texel) + 1,
+    Math.ceil((distanceCap + (recipe ? 2 * closingRadius : 0)) / texel) + 1,
   );
   const lakes = recipe ? lakeMask(map) : undefined;
   const all: Rect = { i0: 0, j0: 0, i1: cols, j1: rows };
@@ -529,7 +530,7 @@ export function waterField(
   };
   let cover: Float32Array = part(land);
   if (shore === 'art' || recipe?.shore === 'art') cover = fillHoles(cover, seedPart(), sw, sh);
-  if (recipe) cover = closeCoast(cover, seedPart(channels), sw, sh, texel);
+  if (recipe) cover = closeCoast(cover, seedPart(channels), sw, sh, texel, closingRadius);
   const near = !recipe && shore === 'blur' ? cover : shoreDistance(cover, sw, sh, texel, distanceCap);
   const deep = part(depth);
   const wet = part(water);
@@ -829,7 +830,8 @@ void main() {
   float noise = sin(p.x * 1.71 + sin(p.y * 1.37)) * sin(p.y * 2.13 - p.x * 0.61);
   vec3 art = mix(a, b, 0.5 + noise * 0.12);
   float plume = climate.a;
-  float dist = (0.5 - f.b) * 384.0 - (uAxes.y < 0.5 ? 10.0 : 0.0) + plume * 22.0;
+  float drawn = 1.0 - step(0.5, uAxes.y);
+  float dist = (0.5 - f.b) * 384.0 - drawn * 12.67 + plume * 22.0;
   float d = max(0.0, dist);
   float deeper = uAxes.w;
   float shelf = 1.0 - smoothstep(8.0, uRecipe.w * mix(1.0, 0.8, deeper), d + noise * 6.0);
@@ -853,10 +855,17 @@ void main() {
   col += lake * 0.025 * (0.5 + 0.5 * sin(p.x * 0.7 + p.y * 0.4 + uTime * 0.19));
   float lap = sin(uTime * mix(1.1, 0.45, lake) + noise * 2.0);
   float reach = uShore.y * (0.7 + 0.3 * lap) * mix(1.0, 0.35, lake);
-  float foam = (1.0 - smoothstep(0.0, max(0.5, uShore.y * 0.55), abs(dist - reach * 0.35))) *
+  float waterline = mix(reach * 0.35, -reach * (0.35 + 0.65 * lap), drawn);
+  float foam = (1.0 - smoothstep(0.0, max(0.5, uShore.y * 0.55), abs(dist - waterline))) *
     (0.6 + noise * 0.3) * mix(0.5, 0.16, lake) * (1.0 - plume);
-  vec3 sand = mix(vec3(0.53, 0.48, 0.34), vec3(0.76, 0.69, 0.48), 1.0 - smoothstep(-reach-8.0, -reach, dist));
-  // The art shore keeps its painted cover. Sand underneath fills its enclosed transparent holes.
+  // Dry sand must show outside the land tile, not start behind its opaque edge.
+  float dry = 1.0 - smoothstep(-9.0, -2.0, dist);
+  vec3 sand = mix(vec3(0.64, 0.56, 0.42), vec3(0.86, 0.76, 0.55), dry);
+  sand *= 0.97 + noise * 0.03;
+  // Foam washes over the beach, leaving a darker wet strip when it retreats.
+  sand = mix(sand, sand * 0.82, drawn * (1.0 - smoothstep(-8.0, -1.0, dist)) *
+    smoothstep(waterline - 3.0, waterline + 1.0, dist) * 0.35);
+  // The art shore keeps its painted cover. Sand underneath fills transparent holes.
   col = mix(col, sand, 1.0 - smoothstep(-2.0, 2.0, dist));
   col = mix(col, uFoam, foam);
   col = mix(col, vec3(0.16, 0.34, 0.39), plume * 0.8);
