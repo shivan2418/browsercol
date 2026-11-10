@@ -1,12 +1,13 @@
 /*
- * What is selected and what is pressed: one look each, everywhere (#437).
+ * What is selected and what is pressed: one look, everywhere (#437).
  *
  * - Selected: the item picked in a list, a tree or a grid (a Colopedia entry, a Preferences category, a ship in
  *   port, goods in the colony, a settlement, a nation, a build queue row, a select's chosen item). A tint behind
  *   it. It is keyed on the ARIA attribute: aria-selected (an option or a tree item), aria-current (the one picked
  *   of a set of buttons), and data-selected where no ARIA attribute fits (a row holding buttons of its own, a
  *   label round a radio button). Tabs have their own look.
- * - Pressed: a toggle button that is on (aria-pressed). A line inside its border.
+ * - Pressed: a toggle button that is on (aria-pressed). The same tint, by its own token, so a theme can tell the
+ *   two apart.
  *
  * Neither changes the text's weight or size, nor the room the item takes, so nothing moves or wraps when it
  * changes. Keyboard focus (:focus-visible) keeps its own look. A theme changes either look by its tokens.
@@ -14,8 +15,7 @@
 @layer components {
   :root {
     --selected-bg: color-mix(in srgb, var(--accent) 20%, transparent);
-    --pressed-line: var(--accent);
-    --pressed-width: var(--border-thick);
+    --pressed-bg: var(--selected-bg);
   }
 
   /*
@@ -29,8 +29,6 @@
   }
 
   button[aria-pressed='true'] {
-    border-color: var(--pressed-line);
-    outline: var(--pressed-width) solid var(--pressed-line);
-    outline-offset: calc(-1 * (var(--pressed-width) + var(--border)));
+    background-image: linear-gradient(var(--pressed-bg), var(--pressed-bg));
   }
 }
