@@ -600,9 +600,7 @@ export function waterField(
             // River style order NE, SE, SW, NW. Only a connection toward this water tile makes a mouth.
             if (nt.land && d % 2 === 1 && river && Number(river[3][((d - 1) / 2 + 2) % 4]) > 0) {
               const offshore = length / 2 - along;
-              const width = (river[2] > 1 ? 10 : 6) + Math.max(0, offshore) * 0.45;
-              const amount = (1 - smooth(0, W * 0.4, offshore)) * (1 - smooth(width * 0.3, width, side));
-              plume[k] = Math.max(plume[k], amount);
+              plume[k] = Math.max(plume[k], riverPlume(offshore, side, river[2]));
             }
           }
           if (recipe.shore === 'drawn') land[k] = 0;
@@ -683,6 +681,12 @@ const smooth = (a: number, b: number, x: number) => {
   const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
   return t * t * (3 - 2 * t);
 };
+
+/** Mouth coverage in the field's uncompressed diamond metric, shared with the flowing delta atlas. */
+export function riverPlume(offshore: number, side: number, magnitude: number): number {
+  const width = (magnitude > 1 ? 10 : 6) + Math.max(0, offshore) * 0.45;
+  return (1 - smooth(0, W * 0.4, offshore)) * (1 - smooth(width * 0.3, width, side));
+}
 
 /**
  * PROTOTYPE, the 'art' shore: water the open sea cannot reach without crossing the art (where it covers half or more)
@@ -908,6 +912,7 @@ uniform vec3 uDeep2;
 uniform float uTime;
 uniform float uSplit;
 uniform float uView;
+uniform float uRiverFlow;
 uniform vec2 uClip;
 vec3 paint(vec2 p, float kind) {
   vec2 q = fract(p);
@@ -979,7 +984,8 @@ void main() {
   float sandEdge = mix(-10.0, 0.0, drawn);
   col = mix(col, sand, 1.0 - smoothstep(sandEdge - 2.0, sandEdge + 2.0, dist));
   col = mix(col, uFoam, foam);
-  col = mix(col, vec3(0.16, 0.34, 0.39), plume * 0.8);
+  vec3 river = mix(art, shallow * (0.8 + dot(art, vec3(0.3))), dot(w, vec3(0.8, 0.75, 1.0)) * 0.92);
+  col = mix(col, mix(vec3(0.16, 0.34, 0.39), river, uRiverFlow), plume * 0.8);
   if (uView > 0.5) col = uView < 1.5 ? vec3(f.r, f.g, f.b) : w;
 #ifdef CLIP
   // Drawn again over FreeCol's beach art: only the water past the waterline, so the art's fade to the sea is
@@ -1371,6 +1377,7 @@ const uniformsOf = (look: WaterLook): Record<string, { value: number | number[];
     ]),
     uTime: { value: 0, type: 'f32' },
     uSplit: { value: 0, type: 'f32' },
+    uRiverFlow: { value: look.rivers?.mode === 'flow' ? 1 : 0, type: 'f32' },
     uClip: { value: [look.recipe?.clip ?? 0, look.recipe?.clipAt ?? -2], type: 'vec2<f32>' },
   };
 };
