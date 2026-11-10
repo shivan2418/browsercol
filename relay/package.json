@@ -1,0 +1,20 @@
+{
+  "name": "browsercol-relay",
+  "private": true,
+  "license": "GPL-2.0-or-later",
+  "type": "module",
+  "scripts": {
+    "test": "vp test",
+    "check": "vp check",
+    "build": "vp build"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "3.1155.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "typescript": "7.0.2",
+    "vite-plus": "1.4.0"
+  },
+  "packageManager": "pnpm@12.16.1"
+}
