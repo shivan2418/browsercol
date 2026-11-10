@@ -44,6 +44,7 @@ import { accepts, draggableProps, dropTargetProps, same, type Item, type Place }
 import { ContextMenuContext, useContextMenu } from './popup-menu';
 import type { Buildable, BuildingTip, ColonyView, GoodsAmount as Goods, RebelTip, UnitRef } from './webgui';
 import { useCoverage } from './coverage';
+import './colony-tips.css';
 
 /** FreeCol's tile size, which the tiles of TilesPanel are laid out by. */
 const TILE_W = 128;

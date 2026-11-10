@@ -1,0 +1,114 @@
+/*
+ * The colony panel's two tips. BuildingToolTip (`building-tip`) is put on the page beside the building the pointer
+ * is over, on a surface of its own. RebelToolTip (`rebel-tip`, in a hint, Tip) is three columns: the label, then
+ * two numbers on the right (MigLayout "[300px][50px, right][50px, right]").
+ */
+@layer components {
+  :root {
+    --building-tip-pad: 10px 14px;
+    --building-tip-shadow: 0 2px 8px var(--backdrop);
+    --rebel-tip-gap: var(--space-3) 10px;
+  }
+  .building-tip {
+    position: fixed;
+    z-index: 1001;
+    max-width: 280px;
+    padding: var(--building-tip-pad);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-3);
+    background: var(--box);
+    color: var(--ink);
+    border: var(--border) solid var(--line);
+    border-radius: var(--radius-s);
+    box-shadow: var(--building-tip-shadow);
+    pointer-events: none;
+  }
+  .rebel-tip {
+    width: 400px;
+    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: 1fr 50px 50px;
+    align-items: center;
+    gap: var(--rebel-tip-gap);
+  }
+  .rebel-tip .tip-row {
+    display: contents;
+  }
+  .rebel-tip .num {
+    text-align: right;
+  }
+  .rebel-tip .span2 {
+    grid-column: span 2;
+    justify-self: end;
+  }
+  .rebel-tip .icon {
+    height: 24px;
+    vertical-align: middle;
+  }
+  .rebel-tip .tip-bar {
+    grid-column: 1 / -1;
+    justify-self: center;
+    position: relative;
+    width: 80%;
+    height: 26px;
+    border: var(--border) solid var(--line);
+    background: var(--panel);
+  }
+  .rebel-tip .tip-bar i {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    background: var(--line);
+    opacity: 0.55;
+  }
+  .rebel-tip .tip-bar i.step {
+    opacity: 0.3;
+  }
+  .rebel-tip .tip-bar .label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-3);
+    white-space: nowrap;
+  }
+  .building-tip .tip-name {
+    font-size: var(--fs-s);
+  }
+  .building-tip .tip-production {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+  }
+  .building-tip .art {
+    height: 70px;
+  }
+  .building-tip .tip-workers {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: end;
+    gap: var(--space-4);
+  }
+  .building-tip .tip-worker {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+  }
+  .building-tip .unit,
+  .building-tip .placeholder {
+    height: 40px;
+  }
+  .building-tip .unit.student {
+    height: 28px;
+  }
+  .building-tip .breeding {
+    margin: 0;
+    font-size: var(--fs-s);
+    text-align: center;
+  }
+}

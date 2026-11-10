@@ -9,6 +9,7 @@ import { Tooltip as BaseTooltip } from '@base-ui/react/tooltip';
 import { createElement, useEffect, useState, type ComponentProps, type KeyboardEvent, type ReactNode } from 'react';
 import { dragging } from './drag';
 import { useEscape } from './frame';
+import './tooltip.css';
 
 /**
  * Where Base UI's popups go: the #overlays layer the windows are in, outside the side panel, which may be
