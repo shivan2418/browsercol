@@ -1,0 +1,94 @@
+# The feedback relay (#370): a Lambda behind a Function URL that keeps the
+# beta's reports in a private S3 bucket. Deploy by hand with ./deploy.sh.
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: BrowserCol feedback relay - beta reports into S3, nothing published
+
+Parameters:
+  AllowedOrigin:
+    Type: String
+    Default: https://shivan2418.github.io
+    Description: The only page origin allowed to post reports (CORS)
+
+Resources:
+  Reports:
+    Type: AWS::S3::Bucket
+    # The reports outlive the stack: deleting it must not delete them.
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          # A reviewed report is moved (copied) from inbox/ to reviewed/, which
+          # makes a new object, so the 180 days count from the move. inbox/ is kept.
+          - Id: ExpireReviewed
+            Status: Enabled
+            Prefix: reviewed/
+            ExpirationInDays: 180
+          - Id: AbortUploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+
+  Relay:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: index.handler
+      Runtime: nodejs22.x
+      Architectures: [arm64]
+      MemorySize: 256
+      Timeout: 15
+      # At most two reports in flight: a flood cannot run up the bill.
+      ReservedConcurrentExecutions: 2
+      Environment:
+        Variables:
+          BUCKET: !Ref Reports
+          ALLOWED_ORIGIN: !Ref AllowedOrigin
+      # PutObject under inbox/ and nothing else. The relay's "is this reference
+      # free?" is a conditional PutObject (If-None-Match), so it needs no read.
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action: s3:PutObject
+              Resource: !Sub '${Reports.Arn}/inbox/*'
+      # CORS is the handler's (src/handler.ts), where the tests cover it.
+      FunctionUrlConfig:
+        AuthType: NONE
+
+  # Function URLs made since October 2025 need lambda:InvokeFunction granted
+  # for URL calls as well as the lambda:InvokeFunctionUrl that SAM adds.
+  RelayUrlInvoke:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref Relay
+      Action: lambda:InvokeFunction
+      Principal: '*'
+      InvokedViaFunctionUrl: true
+
+  RelayLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${Relay}
+      RetentionInDays: 30
+
+Outputs:
+  RelayUrl:
+    Description: The URL the game posts to (the Pages workflow's VITE_FEEDBACK_URL)
+    Value: !GetAtt RelayUrl.FunctionUrl
+  Bucket:
+    Description: Where the reports are kept
+    Value: !Ref Reports

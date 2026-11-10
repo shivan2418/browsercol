@@ -37,6 +37,13 @@ jobs:
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: ./dev.sh -C ui pnpm exec vp test
 
+      - name: Relay check and tests
+        if: ${{ !cancelled() }}
+        run: |
+          ./dev.sh -C relay pnpm install --frozen-lockfile
+          ./dev.sh -C relay pnpm exec vp check
+          ./dev.sh -C relay pnpm exec vp test
+
       - name: Browser smoke
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: DEV_VARIANT=web ./dev.sh node ui/scripts/smoke.ts

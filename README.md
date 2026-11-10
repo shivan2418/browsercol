@@ -166,9 +166,10 @@ after a change to what a save holds.
 | `ui/presets/` | Quick-start presets for `?preset=` |
 | `ui/tilesets/` | Tilesets: `freecol-plus`, and `test` for the tileset script |
 | `ui/.storybook/` | Storybook config |
+| `relay/` | The feedback relay (ADR 0009): a Lambda that keeps beta reports in S3; `template.yaml` (AWS SAM) and `deploy.sh` (`just deploy-relay`, by hand), tests with `just relay` |
 | `tools/` | Developer tools: `fc-swing/`, `teavm/` (TeaVM from source, the `Object.wait` reproducer), `swing-inventory.mjs`, `watch-engine.sh` (Engine rebuilds for `just dev`), `copy-modules.sh`, `desktop-check.sh` |
 | `docs/` | `adr/` decision records, `research/` notes, `parity/` the Swing parity inventory, `teavm.md` TeaVM's quirks and our workarounds, `agents/` how coding agents use the tracker, `upstream-fixes.md` FreeCol bugs our patches fix |
-| `docker/` | `dev.Dockerfile` (JDK, Gradle, Node, pnpm) and `web.Dockerfile` (Playwright with Chromium and Firefox) |
+| `docker/` | `dev.Dockerfile` (JDK, Gradle, Node, pnpm) `web.Dockerfile` (Playwright with Chromium and Firefox) and `sam.Dockerfile` (the AWS SAM CLI, for the relay's deploy) |
 | `.githooks/` | The commit gate: `pre-commit` compiles the Engine, `commit-msg` requires an author trailer |
 | `.github/workflows/` | `suite.yml` (the whole suite), `pages.yml` (deploy the game to Pages on a `build-N` tag) and `site.yml` (deploy the landing page when a push to `main` changes it) |
 | `dev.sh`, `build.sh`, `ci.sh`, `freecol.sh` | Run in Docker; build `dist/`; the suite on Actions; pin and update `freecol/` |
