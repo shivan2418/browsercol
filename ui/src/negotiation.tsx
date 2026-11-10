@@ -6,6 +6,7 @@
 // to accept, reject or counter-propose, which opens the editor filled in with it.
 import { useState, type ReactNode } from 'react';
 import { EscapeCloses, NumberField, Select } from './controls';
+import { Box, ButtonRow, Heading } from './frame';
 import type { GuiQuestions, TradeItem, TradeKind, TradeOption } from './webgui';
 
 type Ask = GuiQuestions['negotiation']['ask'];
@@ -151,7 +152,9 @@ export function useNegotiation(
 
   const lead = (title: string, text: string) => (
     <div className="lead">
-      <h3>{title}</h3>
+      <Heading look="title" space="tight">
+        {title}
+      </Heading>
       <p className="text">{text}</p>
     </div>
   );
@@ -213,8 +216,7 @@ export function useNegotiation(
           {tutorial}
           {facts}
           {ask.context !== 'trade' && (
-            <div className="box">
-              <div className="cap">Relations between us</div>
+            <Box as="div" spaced="wide" caption="Relations between us">
               {stance ? (
                 <p className="relations">
                   They propose <b>{stance.text}</b>. {STANCE_TEXT[stance.key] ?? ''}
@@ -222,13 +224,13 @@ export function useNegotiation(
               ) : (
                 <p className="relations">They do not propose a change in relations.</p>
               )}
-            </div>
+            </Box>
           )}
           <div className="cols">
             {sides('offer', 'We would give')}
             {sides('demand', `${ask.other} would give`)}
           </div>
-          <div className="buttons">
+          <ButtonRow>
             <span className="hint">{cant ? 'You cannot afford this.' : ''}</span>
             {!first && (
               <button data-answer="cancel" onClick={reply('reject', ask.items)}>
@@ -247,7 +249,7 @@ export function useNegotiation(
             >
               Accept offer
             </button>
-          </div>
+          </ButtonRow>
         </>
       ),
       enter: cant ? null : first ? reply('propose', ask.items) : reply('accept', ask.items),
@@ -433,8 +435,7 @@ export function useNegotiation(
         {tutorial}
         {facts}
         {stanceOption && (
-          <div className="box">
-            <div className="cap">Relations between us</div>
+          <Box as="div" spaced="wide" caption="Relations between us">
             <div className="stance" role="group" aria-label="Relations">
               {!locked && (
                 <button aria-pressed={stance === undefined} data-stance="" onClick={() => choose(null)}>
@@ -459,14 +460,14 @@ export function useNegotiation(
               To go to war, attack one of their units or colonies. A treaty cannot declare war: it would do exactly what
               an attack does.
             </p>
-          </div>
+          </Box>
         )}
         <div className="cols">
           {column('offer')}
           {column('demand')}
         </div>
         {summary}
-        <div className="buttons">
+        <ButtonRow>
           <span className="hint">{hint}</span>
           {counter && (
             <button
@@ -489,7 +490,7 @@ export function useNegotiation(
           <button data-answer="send" {...enterMark(true)} disabled={blocked} onClick={send}>
             {sendLabel}
           </button>
-        </div>
+        </ButtonRow>
       </>
     ),
     // Enter adds what is being picked, else sends.

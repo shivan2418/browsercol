@@ -3,7 +3,8 @@
 // caption (FreeCol's titled borders), a goods amount with its icon, and the
 // menu bar over the map with the status line. Panels build on these rather
 // than on markup of their own. Their colours come from the tokens in
-// theme.css, through the classes index.html styles.
+// theme.css; the window's, the box's and the goods' styles are beside them, in
+// window-frame.css, box.css, goods.css, popup-surface.css and quiet-text.css (docs/adr/0008), the rest still in index.html.
 import {
   Fragment,
   useEffect,
@@ -11,14 +12,26 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type CSSProperties,
   type HTMLAttributes,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react';
+import { inTextField, TEXT_ENTRY } from './accelerators';
 import { Tip } from './controls';
 import { dragging } from './drag';
 import { focusFirstEntry, menuArrows, useFocusTrap } from './focus';
 import type { GoodsProgress } from './webgui';
+import './button.css';
+import './window-frame.css';
+import './goods.css';
+import './box.css';
+import './heading.css';
+import './button-row.css';
+import './pic.css';
+import './popup-surface.css';
+import './selection.css';
+import './quiet-text.css';
 
 /** The URL of the art for the first of some resource keys the Tileset has, or null if it has none (yet). */
 export type Art = (keys: readonly string[]) => string | null;
@@ -31,7 +44,7 @@ export type Art = (keys: readonly string[]) => string | null;
 export const frameEffects: { motion: () => boolean; ms: number } = {
   motion: () =>
     typeof matchMedia === 'function' && !navigator.webdriver && !matchMedia('(prefers-reduced-motion: reduce)').matches,
-  /** How long the scale-and-fade lasts; index.html's frame-in and frame-out keyframes say the same. */
+  /** How long the scale-and-fade lasts; window-frame.css's frame-in and frame-out keyframes say the same. */
   ms: 120,
 };
 
@@ -49,6 +62,11 @@ type FrameProps = {
   onEscape?: () => boolean;
   /** A panel laid out at fixed sizes (the colony's): its UI scale is lowered until the whole of it fits the screen. */
   fit?: boolean;
+  /**
+   * The advisor's painted paper (FreeCol's InformationPanel) as the window's whole background: its image, and how
+   * far down the painted figure reaches, where the text starts. Such a window is fitted to the screen too.
+   */
+  advisor?: { src: string; top: number } | null;
   children: ReactNode;
 } & Omit<HTMLAttributes<HTMLElement>, 'title' | 'children'>;
 
@@ -82,8 +100,8 @@ export function useEscape(close: (() => void) | null, keys: readonly string[] = 
   }, []);
 }
 
-/** What the player types into: a key pressed there is text, not a shortcut. A number field's input is an `input`; its step buttons count too. */
-export const TEXT_ENTRY = 'input, textarea, select, [role="combobox"], [contenteditable], .ui-number-step';
+/** What the player types into (accelerators.ts). */
+export { TEXT_ENTRY } from './accelerators';
 
 /** Whether a key press is one of a window's close keys: no modifier, and not typed into a field. */
 function isCloseKey(e: KeyboardEvent, keys: readonly string[]): boolean {
@@ -160,6 +178,7 @@ export function WindowFrame({
   closeKeys,
   onEscape,
   fit = false,
+  advisor = null,
   children,
   className,
   ...rest
@@ -187,7 +206,7 @@ export function WindowFrame({
   const box = useRef<HTMLElement>(null);
   // Tab goes round the newest window's buttons and fields while the focus is in it, not off the page.
   useFocusTrap(box);
-  useFitToScreen(box, fit);
+  useFitToScreen(box, fit || advisor !== null);
   const titleId = useId();
   const attrs = rest as Record<string, unknown>;
   const placeKey =
@@ -222,15 +241,21 @@ export function WindowFrame({
       aria-labelledby={title ? titleId : undefined}
       className={className ? `frame ${className}` : 'frame'}
       {...rest}
-      data-fit={fit || undefined}
+      data-fit={fit || advisor !== null || undefined}
+      data-advised={advisor !== null || undefined}
       data-motion={motion ? (closing ? 'out' : 'in') : undefined}
       inert={closing || undefined}
-      style={{ ...rest.style, transform: shift.x || shift.y ? `translate(${shift.x}px, ${shift.y}px)` : undefined }}
+      style={{
+        ...rest.style,
+        ...(advisor &&
+          ({ '--advisor': `url("${advisor.src}")`, '--advisor-top': `${advisor.top}px` } as CSSProperties)),
+        transform: shift.x || shift.y ? `translate(${shift.x}px, ${shift.y}px)` : undefined,
+      }}
     >
       <div className="title" onPointerDown={drag} style={{ cursor: 'move', touchAction: 'none' }}>
         {title && <h2 id={titleId}>{title}</h2>}
         {close && (
-          <Tip as="button" className="close" aria-label="Close" tip="Close (Esc)" onClick={close}>
+          <Tip as="button" className="close" data-flat="" aria-label="Close" tip="Close (Esc)" onClick={close}>
             ✕
           </Tip>
         )}
@@ -240,22 +265,112 @@ export function WindowFrame({
   );
 }
 
-/** A box with a small caption at its top-left, like FreeCol's titled borders ("In port", "Cargo"). */
+/**
+ * A boxed section, the one way the panels draw one. Its caption (FreeCol's titled borders: "In port", "Cargo") is the
+ * box's first row, so a caption that wraps pushes the content down; a part FreeCol gives no caption takes none. `as`
+ * is the element, a `section` unless it is a `div`; `tip` is a hint on the box. Its variants are props: `roomy`
+ * keeps an empty list's height, `spaced` puts the room of a stacked box round it (`wide`: under it only).
+ */
 export function Box({
   caption,
+  as = 'section',
+  tip,
+  roomy,
+  spaced,
   children,
   className,
   ...rest
-}: { caption: string; children?: ReactNode } & Omit<HTMLAttributes<HTMLElement>, 'children'>) {
+}: {
+  caption?: string;
+  as?: 'section' | 'div';
+  tip?: string;
+  roomy?: boolean;
+  spaced?: 'normal' | 'wide';
+  children?: ReactNode;
+} & Omit<HTMLAttributes<HTMLElement>, 'children'>) {
   const id = useId();
   return (
-    <section aria-labelledby={id} className={className ? `box ${className}` : 'box'} {...rest}>
-      <span className="cap" id={id}>
-        {caption}
-      </span>
+    <Tip
+      as={as}
+      tip={tip}
+      aria-labelledby={caption === undefined ? undefined : id}
+      className={className ? `box ${className}` : 'box'}
+      data-roomy={roomy ? '' : undefined}
+      data-spaced={spaced}
+      {...rest}
+    >
+      {caption !== undefined && (
+        <span className="cap" id={id}>
+          {caption}
+        </span>
+      )}
       {children}
-    </section>
+    </Tip>
   );
+}
+
+/**
+ * A heading inside a window: an h2 (a part's title) or an h3 (a section's), in the heading colour. Its variants are
+ * props: `look` (`title`: the title font and the larger size; `headline`: the centred line over a question) and
+ * `space`, the room round it (`flush`, `tight`, `low`, `window`, `section`), never a panel's selector.
+ */
+export function Heading({
+  level = 3,
+  look,
+  space,
+  className,
+  ...rest
+}: {
+  level?: 2 | 3;
+  look?: 'title' | 'headline';
+  space?: 'flush' | 'tight' | 'low' | 'window' | 'section';
+} & HTMLAttributes<HTMLHeadingElement>) {
+  const Tag = level === 2 ? 'h2' : 'h3';
+  return (
+    <Tag className={className ? `heading ${className}` : 'heading'} data-look={look} data-space={space} {...rest} />
+  );
+}
+
+/**
+ * A row of buttons at the foot of a window, the answers at the right. Its variants are props: `spread` puts the
+ * first buttons at the left with the close button alone at the right (Europe's footer), and `space` the room round
+ * the row (`tight`: the Preferences', `window`: a start window's, with no gap, `flush`: none).
+ */
+export function ButtonRow({
+  spread,
+  space,
+  children,
+  ...rest
+}: {
+  spread?: boolean;
+  space?: 'tight' | 'window' | 'flush';
+  children?: ReactNode;
+} & Omit<HTMLAttributes<HTMLDivElement>, 'children'>) {
+  return (
+    <div className="buttons" data-spread={spread ? '' : undefined} data-space={space} {...rest}>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * An image of a game object or event, if the Tileset has one. Its variants are props: `size` is `small` (in a line of
+ * text), `medium` (in a slot), `card` (a card's picture, a slot of its own height) or `large` (a goods' picture over a
+ * question). A `className` of its own (the portrait, the flavour image) takes the place of the picture's look.
+ */
+export function Pic({
+  keys,
+  art,
+  size,
+  className = 'pic',
+}: {
+  keys: readonly string[];
+  art: Art;
+  size?: 'small' | 'medium' | 'card' | 'large';
+  className?: string;
+}) {
+  const src = art(keys);
+  return src === null ? null : <img className={className} data-size={size} src={src} alt="" />;
 }
 
 /**
@@ -433,7 +548,7 @@ export function MenuBar({ menus, status }: { menus: Menu[]; status: string }) {
   mnemonic.current = names;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.repeat) return;
+      if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.repeat || inTextField(e.target)) return;
       const name = mnemonic.current.find((n) => e.code === `Key${n[0].toUpperCase()}`);
       if (!name) return;
       e.preventDefault();
@@ -449,6 +564,7 @@ export function MenuBar({ menus, status }: { menus: Menu[]; status: string }) {
           <div className="menu" key={m.name}>
             <button
               role="menuitem"
+              data-flat=""
               aria-haspopup="menu"
               aria-expanded={open === m.name}
               // While a menu is open, pointing at another title opens that one, as a desktop menu bar does.
@@ -466,6 +582,7 @@ export function MenuBar({ menus, status }: { menus: Menu[]; status: string }) {
             </button>
             {open === m.name && (
               <div
+                className="popup-surface"
                 role="menu"
                 aria-label={m.name}
                 ref={dropdown}
@@ -481,6 +598,7 @@ export function MenuBar({ menus, status }: { menus: Menu[]; status: string }) {
                 {m.items.map((item) => {
                   const entry = (e: MenuItem, nested: boolean) => (
                     <button
+                      data-flat=""
                       role={e.checked === undefined ? 'menuitem' : 'menuitemcheckbox'}
                       className={nested ? 'nested' : undefined}
                       key={e.label}

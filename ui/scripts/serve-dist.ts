@@ -1,4 +1,4 @@
-// Serves dist/ statically under a sub-path, as GitHub Pages does, for the
+// Serves dist/ (the landing page, with the game under play/) statically under a sub-path, as GitHub Pages does, for the
 // browser scripts. Counts fetches of the data bundle.
 import fs from 'node:fs';
 import http from 'node:http';
@@ -23,9 +23,11 @@ const TYPES: Record<string, string> = {
   '.ogg': 'audio/ogg',
 };
 
-/** The site under test: its URL, and the data bundle fetches so far. */
+/** The site under test: the game's URL (the site's play/ page), the site's root, and the data bundle fetches so far. */
 export interface Site {
+  /** The game, at <root>play/ (the site's root is the landing page, #374). */
   url: string;
+  root: string;
   /** Counts a deployed site's data bundle fetches from the page's own requests; absent when the site is served here. */
   watch?: (page: Page) => unknown;
   dataFetches: () => number;
@@ -39,8 +41,10 @@ export interface Site {
  */
 function remoteSite(raw: string): Site {
   let dataFetches = 0;
+  const root = raw.endsWith('/') ? raw : raw + '/';
   return {
-    url: raw.endsWith('/') ? raw : raw + '/',
+    url: root + 'play/',
+    root,
     watch: (page: Page) =>
       page.on('request', (r: Request) => {
         if (/\/assets\/data-[^/]*\.json$/.test(new URL(r.url()).pathname)) dataFetches++;
@@ -60,14 +64,16 @@ export async function serveDist(): Promise<Site> {
     const name = decodeURIComponent(new URL(req.url!, 'http://x').pathname);
     if (/\/assets\/data-[^/]*\.json$/.test(name)) dataFetches++;
     if (!name.startsWith(base)) return res.writeHead(404).end();
-    const file = path.join(dist, path.normalize(name.slice(base.length) || 'index.html'));
+    const file = path.join(dist, path.normalize(name.slice(base.length) + (name.endsWith('/') ? 'index.html' : '')));
     if (!file.startsWith(dist) || !fs.existsSync(file) || !fs.statSync(file).isFile()) return res.writeHead(404).end();
     res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] ?? 'application/octet-stream' });
     fs.createReadStream(file).pipe(res);
   });
   await new Promise<void>((ok) => server.listen(0, '127.0.0.1', ok));
+  const root = `http://127.0.0.1:${(server.address() as AddressInfo).port}${base}`;
   return {
-    url: `http://127.0.0.1:${(server.address() as AddressInfo).port}${base}`,
+    url: `${root}play/`,
+    root,
     dataFetches: () => dataFetches,
     resetDataFetches: () => (dataFetches = 0),
     close: () => server.close(),

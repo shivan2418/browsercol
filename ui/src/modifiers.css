@@ -1,0 +1,25 @@
+/*
+ * The modifiers table (the class `modifiers`, in the pre-combat dialog and the tile's production): a label and a
+ * value on each line, the values at the right, and a caption over each list.
+ */
+@layer components {
+  :root {
+    --modifiers-cell: var(--space-1) var(--space-4);
+  }
+  .modifiers {
+    border-collapse: collapse;
+  }
+  .modifiers th,
+  .modifiers td {
+    padding: var(--modifiers-cell);
+    text-align: left;
+  }
+  .modifiers .value {
+    text-align: right;
+  }
+  .modifiers caption {
+    text-align: left;
+    font-weight: bold;
+    padding-top: var(--space-5);
+  }
+}

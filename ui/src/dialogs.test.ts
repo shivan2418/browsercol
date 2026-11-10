@@ -131,6 +131,23 @@ describe('dialogs', () => {
     expect(d.current(), 'and closing it closes the panel').toBeNull();
   });
 
+  it('tells once when a shown panel is closed, also as the panel that replaced it (#433)', () => {
+    const d = dialogs();
+    let closed = 0;
+    d.show('information', information, () => closed++);
+    d.replace('information', { ...information, text: 'Regrouped' });
+    expect(closed, 'replaced is still open').toBe(0);
+    const open = d.current()!;
+    const close = open.done as () => void;
+    close();
+    close();
+    expect(closed).toBe(1);
+
+    d.show('error', error, () => closed++);
+    d.remove('error', () => true);
+    expect(closed, 'removed is closed').toBe(2);
+  });
+
   it('takes only the first answer to a dialog', async () => {
     const d = dialogs();
     const answer = d.ask('choice', { text: 'Pick', cancel: null, tile: null, object: null, choices: [] });

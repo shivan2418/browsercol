@@ -1,0 +1,10 @@
+/*
+ * Quiet text (the class `muted`): the secondary colour, for a note beside what it explains ("nothing to do", a
+ * price in brackets). At no weight, so a panel's own colour for it wins. The start screen's `quiet` paragraphs and
+ * the trade-route chips' own size are still in index.html (#435).
+ */
+@layer components {
+  :where(.muted) {
+    color: var(--muted);
+  }
+}

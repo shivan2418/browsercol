@@ -94,7 +94,7 @@ export function PopupMenu({
   useEffect(() => focusFirstEntry(box.current), [popup]);
   return (
     <div
-      className="popup"
+      className="popup popup-surface"
       role="menu"
       aria-label={popup.menu.title}
       ref={box}
@@ -104,6 +104,7 @@ export function PopupMenu({
       {popup.menu.entries.map((e, i) => (
         <button
           key={i}
+          data-flat=""
           role="menuitem"
           data-entry={e.id}
           data-gap={e.gap || undefined}

@@ -1,0 +1,21 @@
+/*
+ * A hint (Tip in controls.tsx, Base UI's Tooltip): small text on the pop-up surface, as FreeColToolTipUI draws one.
+ * A hint that holds a colony's rebel tip (colony-tips.css) is as wide and as roomy as its content.
+ */
+@layer components {
+  :root {
+    --tip-pad: var(--space-1) var(--space-3);
+    --tip-pad-roomy: 10px 14px;
+  }
+  .ui-tip {
+    box-sizing: border-box;
+    max-width: 28em;
+    padding: var(--tip-pad);
+    white-space: pre-line;
+    pointer-events: none;
+  }
+  .ui-tip:has(.rebel-tip) {
+    max-width: none;
+    padding: var(--tip-pad-roomy);
+  }
+}

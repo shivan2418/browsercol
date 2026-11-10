@@ -14,7 +14,6 @@ import {
   useState,
   useSyncExternalStore,
   type KeyboardEvent as ReactKeyboardEvent,
-  type CSSProperties,
   type ReactNode,
 } from 'react';
 import type { Advisor } from './advisor';
@@ -24,7 +23,7 @@ import { ColonyActions, ColonyPanel } from './colony-panel';
 import { DebugContext } from './debug';
 import type { Dialog, Dialogs } from './dialogs';
 import { europeButtons } from './europe-client';
-import { GoodsAmount, TEXT_ENTRY, WindowFrame, type Art } from './frame';
+import { Box, ButtonRow, GoodsAmount, Heading, Pic, TEXT_ENTRY, WindowFrame, type Art } from './frame';
 import { Declaration } from './declaration';
 import { CopyDetailsContext, ShowLogContext } from './log';
 import { lane } from './drag';
@@ -35,6 +34,7 @@ import { ReportPanel } from './reports';
 import { stopWork, type Work } from './route-work';
 import type { ColonyView, EuropeUnit, GuiEvents, ReportLink, SettlementEntry, TradeRouteDraft } from './webgui';
 import { useCoverage } from './coverage';
+import './modifiers.css';
 
 export type { Art };
 
@@ -58,12 +58,6 @@ export interface RouteButtons {
    * `show` false, as from OK, the Engine does not send the panel again.
    */
   assign: (unit: string, route: string | null, show?: boolean) => void;
-}
-
-/** An image of a game object or event, if the Tileset has one. */
-function Pic({ keys, art, className = 'pic' }: { keys: readonly string[]; art: Art; className?: string }) {
-  const src = art(keys);
-  return src === null ? null : <img className={className} src={src} alt="" />;
 }
 
 /**
@@ -119,18 +113,14 @@ function Win({
 }) {
   return (
     <WindowFrame
-      className={advisor ? 'dialog advised' : 'dialog'}
-      fit={fit || advisor !== null}
+      className="dialog"
+      fit={fit}
+      advisor={advisor}
       aria-modal="true"
       data-kind={d.kind}
       title={title}
       close={close}
       closeKeys={closeKeys}
-      style={
-        advisor
-          ? ({ '--advisor': `url("${advisor.src}")`, '--advisor-top': `${advisor.top}px` } as CSSProperties)
-          : undefined
-      }
     >
       {children}
     </WindowFrame>
@@ -165,7 +155,7 @@ function OkCancel(p: {
   enter?: 'ok' | 'cancel' | null;
 }) {
   return (
-    <div className="buttons">
+    <ButtonRow>
       {p.ok !== null && (
         <button data-answer="ok" {...enterMark(p.enter === 'ok')} onClick={p.onOk}>
           {p.ok}
@@ -176,7 +166,7 @@ function OkCancel(p: {
           {p.cancel}
         </button>
       )}
-    </div>
+    </ButtonRow>
   );
 }
 
@@ -191,13 +181,13 @@ function Confirm({ d, colopedia, art }: { d: Of<'confirm'>; colopedia: (type: st
     <Win d={d} title={ask.header} close={ask.escapeOk && ask.ok !== null ? ok : cancel}>
       {ask.goods ? (
         <div className="goods-question">
-          <Pic keys={ask.goods.keys} art={art} className="goods-big" />
+          <Pic keys={ask.goods.keys} art={art} size="large" />
           <p className="text">
             <Bolded text={ask.text} name={ask.goods.name} />
           </p>
         </div>
       ) : ask.headline ? (
-        <h3 className="headline">{ask.text}</h3>
+        <Heading look="headline">{ask.text}</Heading>
       ) : (
         <Text text={ask.text} />
       )}
@@ -205,7 +195,7 @@ function Confirm({ d, colopedia, art }: { d: Of<'confirm'>; colopedia: (type: st
       {help && ask.help?.text && <Text text={ask.help.text} />}
       <OkCancel ok={ask.ok} cancel={ask.cancel} onOk={ok} onCancel={cancel} enter={enter} />
       {ask.help && (
-        <div className="buttons">
+        <ButtonRow>
           <button
             data-help
             onClick={() => {
@@ -216,7 +206,7 @@ function Confirm({ d, colopedia, art }: { d: Of<'confirm'>; colopedia: (type: st
           >
             {ask.help.label}
           </button>
-        </div>
+        </ButtonRow>
       )}
     </Win>
   );
@@ -246,11 +236,11 @@ function Choice({ d, art }: { d: Of<'choice'>; art: Art }) {
         ))}
       </div>
       {ask.cancel !== null && (
-        <div className="buttons">
+        <ButtonRow>
           <button data-answer="cancel" {...enterMark(enterButton)} onClick={() => d.done(null)}>
             {ask.cancel}
           </button>
-        </div>
+        </ButtonRow>
       )}
     </Win>
   );
@@ -305,7 +295,7 @@ function Amount({ d, art }: { d: Of<'amount'>; art: Art }) {
           </button>
         ))}
       </div>
-      <div className="buttons">
+      <ButtonRow>
         {ask.ok !== null && (
           <button data-answer="ok" data-enter="" disabled={!valid} onClick={ok}>
             {ask.ok}
@@ -316,7 +306,7 @@ function Amount({ d, art }: { d: Of<'amount'>; art: Art }) {
             {ask.cancel}
           </button>
         )}
-      </div>
+      </ButtonRow>
     </Win>
   );
 }
@@ -430,9 +420,9 @@ function Father({ d, art }: { d: Of<'father'>; art: Art }) {
       </div>
       {f && (
         <div className="father" role="tabpanel" id="father-detail" aria-labelledby={`father-tab-${open}`}>
-          <h3>
+          <Heading>
             {f.name} ({f.kind})
-          </h3>
+          </Heading>
           <Pic keys={f.keys} art={art} className="portrait" />
           <div className="about">
             <p className="effect">{f.description}</p>
@@ -442,11 +432,11 @@ function Father({ d, art }: { d: Of<'father'>; art: Art }) {
           </div>
         </div>
       )}
-      <div className="buttons">
+      <ButtonRow>
         <button data-answer="ok" data-enter="" onClick={ok}>
           {ask.ok}
         </button>
-      </div>
+      </ButtonRow>
     </Win>
   );
 }
@@ -633,20 +623,22 @@ function PanelButtons({
   close,
   extra = null,
   lead = null,
+  spread,
 }: {
   ok: string;
   close: () => void;
   extra?: { label: string; run: () => void } | null;
   lead?: ReactNode;
+  spread?: boolean;
 }) {
   return (
-    <div className="buttons">
+    <ButtonRow spread={spread}>
       {lead}
       {extra && <button onClick={extra.run}>{extra.label}</button>}
       <button data-answer="close" data-enter="" onClick={close}>
         {ok}
       </button>
-    </div>
+    </ButtonRow>
   );
 }
 
@@ -657,6 +649,7 @@ function Panel({
   ok,
   extra = null,
   lead = null,
+  spread,
   closeKeys,
   advisor = null,
 }: {
@@ -668,8 +661,9 @@ function Panel({
   advisor?: Advisor | null;
   /** A second button beside OK. */
   extra?: { label: string; run: () => void } | null;
-  /** Buttons at the left of the footer, with OK alone at the right. */
+  /** Buttons at the left of the footer (spread: with OK alone at the right, as Europe's). */
   lead?: ReactNode;
+  spread?: boolean;
   /** Keys that close the panel as Escape does (frame.tsx). */
   closeKeys?: readonly string[];
 }) {
@@ -678,7 +672,7 @@ function Panel({
   return (
     <Win d={d} title={title} close={close} closeKeys={closeKeys} advisor={advisor}>
       {children}
-      <PanelButtons ok={ok} close={close} extra={extra} lead={lead} />
+      <PanelButtons ok={ok} close={close} extra={extra} lead={lead} spread={spread} />
     </Win>
   );
 }
@@ -706,21 +700,20 @@ function TileText({
   /** A heading (a source's, in the turn report) rather than a paragraph. */
   heading?: boolean;
 }) {
-  const Tag = heading ? 'h3' : 'p';
-  if (!at) return <Tag className="text">{text}</Tag>;
-  return (
-    <Tag className="text">
-      <a
-        href="#"
-        data-at={at.join(',')}
-        onClick={(e) => {
-          e.preventDefault();
-          goTo(at);
-        }}
-      >
-        {text}
-      </a>
-    </Tag>
+  const wrap = (kids: ReactNode) =>
+    heading ? <Heading className="text">{kids}</Heading> : <p className="text">{kids}</p>;
+  if (!at) return wrap(text);
+  return wrap(
+    <a
+      href="#"
+      data-at={at.join(',')}
+      onClick={(e) => {
+        e.preventDefault();
+        goTo(at);
+      }}
+    >
+      {text}
+    </a>,
   );
 }
 
@@ -805,7 +798,7 @@ function MessageList({
           <div key={i} className="message" data-dim={dim || undefined}>
             {m.heading &&
               (m.heading.link ? (
-                <h3 className="text">
+                <Heading className="text">
                   <a
                     href="#"
                     data-link={m.heading.link.kind}
@@ -816,7 +809,7 @@ function MessageList({
                   >
                     {m.heading.text}
                   </a>
-                </h3>
+                </Heading>
               ) : (
                 <TileText heading text={m.heading.text} at={m.heading.at} goTo={goTo} />
               ))}
@@ -943,7 +936,9 @@ function RouteEditor({
   const label = (id: string) => e.places.find((p) => p.id === id)?.label ?? id;
   const goods = (id: string) => e.goods.find((g) => g.id === id);
   const nameOf = (id: string) => goods(id)?.name ?? id;
-  const icon = (id: string) => <Pic keys={[goods(id)?.icon ?? id]} art={art} className="pic small" />;
+  const icon = (id: string, size: 'small' | 'medium' = 'small') => (
+    <Pic keys={[goods(id)?.icon ?? id]} art={art} size={size} />
+  );
   const at = stops.findIndex((s) => s.key === editing);
 
   // Unfolding a leg and editing it go together: a folded leg is never the one edited.
@@ -1014,7 +1009,7 @@ function RouteEditor({
                 )
               }
             >
-              {icon(g)}
+              {icon(g, 'medium')}
             </Tip>
             {HOLD_MARKS[k + 1] !== undefined && k + 1 < cargo.length && (
               <Tip as="span" className="mark" tip={HOLD_MARKS[k + 1]}>
@@ -1132,7 +1127,9 @@ function RouteEditor({
                 >
                   {i + 1}
                 </Tip>
-                <h3>{s.label}</h3>
+                <Heading look="title" space="flush">
+                  {s.label}
+                </Heading>
                 {chips(i)}
                 <Tip
                   as="button"
@@ -1190,7 +1187,7 @@ function RouteEditor({
                               tip={`${g.name} (shift-click: fill to the next mark)`}
                               onClick={(ev) => load(i, g.id, ev.shiftKey)}
                             >
-                              <Pic keys={[g.icon]} art={art} className="pic" />
+                              <Pic keys={[g.icon]} art={art} size="medium" />
                             </Tip>
                           ))}
                         </div>
@@ -1203,14 +1200,14 @@ function RouteEditor({
           );
         })}
       </div>
-      <div className="buttons">
+      <ButtonRow>
         <button data-answer="ok" data-enter="" disabled={draft.name.trim() === ''} onClick={ok}>
           {e.ok}
         </button>
         <button data-answer="cancel" onClick={cancel}>
           {e.cancel}
         </button>
-      </div>
+      </ButtonRow>
     </>
   );
 }
@@ -1269,7 +1266,7 @@ function RoutesPanel({ d, art, routes }: { d: Of<'tradeRoutes'>; art: Art; route
     <Win d={d} title={e.title} close={close}>
       {e.unit?.location != null && (
         <p className="text unit">
-          <Pic keys={e.unit.images} art={art} className="pic small" /> {e.unit.name} {e.unit.location}
+          <Pic keys={e.unit.images} art={art} size="small" /> {e.unit.name} {e.unit.location}
         </p>
       )}
       <div className="routes">
@@ -1279,7 +1276,7 @@ function RoutesPanel({ d, art, routes }: { d: Of<'tradeRoutes'>; art: Art; route
           </button>
         ))}
       </div>
-      <div className="buttons">
+      <ButtonRow>
         <Tip as="button" data-answer="new" tip={e.tooltips.new} onClick={() => setEditing(blank)}>
           {e.newRoute}
         </Tip>
@@ -1324,7 +1321,7 @@ function RoutesPanel({ d, art, routes }: { d: Of<'tradeRoutes'>; art: Art; route
         <button data-answer="close" data-enter="" onClick={ok}>
           {e.ok}
         </button>
-      </div>
+      </ButtonRow>
     </Win>
   );
 }
@@ -1378,9 +1375,10 @@ function UnitChip({
     <Tip
       as="button"
       className="chip"
+      data-flat=""
       data-unit={u.id}
       tip={u.name}
-      aria-pressed={on}
+      aria-current={on}
       onClick={pick}
       onContextMenu={onContextMenu}
       {...props}
@@ -1476,7 +1474,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
                     europeButtons.recruit(r.index);
                   }}
                 >
-                  <Pic keys={r.images} art={art} />
+                  <Pic keys={r.images} art={art} size="card" />
                   <span className="name">{r.name}</span>
                 </button>
               ))
@@ -1491,7 +1489,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
                     europeButtons.train(o.id);
                   }}
                 >
-                  <Pic keys={o.images} art={art} />
+                  <Pic keys={o.images} art={art} size="card" />
                   <span className="name">{o.name}</span>
                   <span className="price">{o.priceLabel}</span>
                 </button>
@@ -1510,8 +1508,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
     place: Place = 'sailing',
     unitDrop?: (u: EuropeUnit) => (item: Item) => void,
   ) => (
-    <section className="box" data-list={kind} {...(drop ? dropTargetProps(place, drop) : {})}>
-      <h3>{heading}</h3>
+    <Box caption={heading} roomy data-list={kind} {...(drop ? dropTargetProps(place, drop) : {})}>
       <div className="chips">
         {units.map((u) => (
           <UnitChip
@@ -1525,7 +1522,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
           />
         ))}
       </div>
-    </section>
+    </Box>
   );
   /** What the market says of a goods type: whether it can be traded, and why not. */
   const trade = new Map(e.market.map((g) => [g.id, g]));
@@ -1549,11 +1546,14 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
     if (item.kind === 'goods' && item.from === 'market') buy(item.type, item.ask === true);
     else if (item.kind === 'unit' && ship) europeButtons.board(item.id, ship.id);
   };
-  /** What a drop on the docks does: a unit aboard the ship comes ashore. */
+  /**
+   * What a drop on the docks does: a unit aboard the ship comes ashore, and the cargo's goods are sold, as on the
+   * market. Swing's docks refuse goods; selling there saves a drag across the panel.
+   */
   const onDocks = (item: Item) => {
     if (item.kind === 'unit' && ship?.cargo?.some((c) => c.kind === 'unit' && c.id === item.id)) {
       europeButtons.leave(item.id);
-    }
+    } else onMarket(item);
   };
   /**
    * What a drop on the ships sailing to America or to Europe does: a ship in port is sent, as the Sail button does
@@ -1611,9 +1611,9 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
   );
   return (
     // E, which opened Europe from the map, closes it again (not while a shop popup or a question is over it).
-    <Panel d={d} ok={e.ok} lead={footer} closeKeys={EUROPE_KEYS}>
+    <Panel d={d} ok={e.ok} lead={footer} spread closeKeys={EUROPE_KEYS}>
       <div className="europe-title">
-        <h2>{e.title}</h2>
+        <Heading level={2}>{e.title}</Heading>
       </div>
       {shop && shopPopup(shop)}
       <div className="europe-body">
@@ -1640,8 +1640,13 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
               onDocks,
               'docks',
             )}
-            <section className="box cargo" data-list="cargo" {...(ship ? dropTargetProps('cargo', onCargo) : {})}>
-              <h3>{ship?.cargoTitle ?? e.headings.cargo}</h3>
+            <Box
+              caption={ship?.cargoTitle ?? e.headings.cargo}
+              className="cargo"
+              roomy
+              data-list="cargo"
+              {...(ship ? dropTargetProps('cargo', onCargo) : {})}
+            >
               <div className="chips">
                 {ship?.cargo?.map((c, i) => {
                   const goods = trade.get(c.id);
@@ -1662,6 +1667,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
                       as="button"
                       key={`${c.kind}/${c.id}`}
                       className="chip"
+                      data-flat=""
                       data-cargo={c.kind}
                       data-disabled={goods?.enabled === false || undefined}
                       tip={goods?.reason ?? c.name}
@@ -1686,10 +1692,10 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
                   );
                 })}
               </div>
-            </section>
+            </Box>
           </div>
           <aside className="europe-log" data-log ref={logRef}>
-            <h3>{e.log.heading}</h3>
+            <Heading space="low">{e.log.heading}</Heading>
             {e.log.entries.map((lines, i) => (
               // FreeCol's lines tab a label from its amount ("Price:\t200"): the amount goes right.
               <div key={i} className="entry" data-entry>
@@ -1704,7 +1710,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
             ))}
           </aside>
         </div>
-        <section className="box market" data-list="market" {...dropTargetProps('market', onMarket)}>
+        <Box className="market" data-list="market" {...dropTargetProps('market', onMarket)}>
           <div className="goods">
             {e.market.map((g) => {
               // A boycotted goods is still a button with a ship in port: buying it asks to pay the
@@ -1724,6 +1730,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
                   as="button"
                   key={g.id}
                   className="good"
+                  data-flat=""
                   data-goods={g.id}
                   data-disabled={!g.enabled || undefined}
                   tip={marketTitle(g)}
@@ -1748,7 +1755,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
               );
             })}
           </div>
-        </section>
+        </Box>
       </div>
     </Panel>
   );
@@ -1781,13 +1788,13 @@ function SettlementBody({
         </span>
       </div>
       {e.missionary && entry(e.missionary)}
-      <h3>{e.labels.learnableSkill}</h3>
+      <Heading>{e.labels.learnableSkill}</Heading>
       {entry(e.skill)}
-      <h3>{e.labels.hatedNation}</h3>
+      <Heading>{e.labels.hatedNation}</Heading>
       {entry(e.mostHated)}
-      <h3>{e.labels.highlyWanted}</h3>
+      <Heading>{e.labels.highlyWanted}</Heading>
       {entry(e.wanted[0], e.wanted[0].tip)}
-      <h3>{e.labels.otherWanted}</h3>
+      <Heading>{e.labels.otherWanted}</Heading>
       <div className="wanted">
         {e.wanted.slice(1).map((w, i) => (
           <Fragment key={i}>{entry(w, w.tip)}</Fragment>
@@ -1801,7 +1808,7 @@ function SettlementBody({
 function TileBody({ e, art }: { e: GuiEvents['tilePanel']; art: Art }) {
   return (
     <div className="tile-panel">
-      <h2>{e.title}</h2>
+      <Heading level={2}>{e.title}</Heading>
       <div className="terrain-image">
         <Pic keys={e.keys} art={art} />
         {e.forest && <Pic keys={e.forest} art={art} />}
@@ -1929,7 +1936,7 @@ function WorkProduction({ d, art }: { d: Of<'workProduction'>; art: Art }) {
   return (
     <Panel d={d} ok={e.ok}>
       <div className="work-production">
-        <h2>{e.title}</h2>
+        <Heading level={2}>{e.title}</Heading>
         <div className="row">
           <div className="terrain-image">
             <Pic keys={e.keys} art={art} />
@@ -1987,7 +1994,7 @@ function TerrainBody({ e, art }: { e: GuiEvents['colopedia']; art: Art }) {
   );
   return (
     <div className="terrain">
-      <h2>{e.name}</h2>
+      <Heading level={2}>{e.name}</Heading>
       <dl>
         <dt>{e.labels.terrainImage}</dt>
         <dd className="terrain-image">
@@ -2158,9 +2165,9 @@ function Body({
           {d.event.text && <Text text={d.event.text} />}
           {d.event.scores.map((s, i) => (
             <div className="high-score" key={i}>
-              <h2>
+              <Heading level={2}>
                 {s.score} {s.headline}
-              </h2>
+              </Heading>
               <dl>
                 {s.fields.map((f) => (
                   <div key={f.label}>

@@ -163,6 +163,12 @@ public final class ClientMain {
                             public void releaseCommands() {
                                 commands.release();
                             }
+                            public void command(String name, Runnable run) {
+                                ClientMain.command(name, run);
+                            }
+                            public boolean closesPopups() {
+                                return true;
+                            }
                         });
                     synchronized (earlyOptions) {
                         for (java.util.Map.Entry<String, String> e : earlyOptions.entrySet()) {
@@ -230,6 +236,16 @@ public final class ClientMain {
     @JSExport
     public static void answer(int id, String answer) {
         engine.answer(id, answer);
+    }
+
+    /**
+     * The player closed a pop-up: an information, error or event panel or
+     * the messages, by the popup id of its event. Once none is open, the
+     * Go To orders that waited for them go on (#433).
+     */
+    @JSExport
+    public static void popupClosed(int id) {
+        if (engine != null) engine.popupClosed(id);
     }
 
     /**

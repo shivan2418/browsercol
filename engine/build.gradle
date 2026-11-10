@@ -67,11 +67,13 @@ test {
     useJUnitPlatform()
     workingDir = freecol   // as for run: data/ is found relative to it
     jvmArgs '-Djava.awt.headless=true'
-    // Every test starts whole FreeCol games, and JUnit keeps each test's
-    // instance, with its game, until the JVM ends: Gradle's default 512 MB
-    // ran out once #80 added two more, and 2 GB once the founding father
-    // tests came. A fresh JVM every few test classes keeps the heap bounded
-    // however many tests there are.
+    // A fork that runs out of heap leaves a dump in build/ (java_pid*.hprof).
+    jvmArgs '-XX:+HeapDumpOnOutOfMemoryError', "-XX:HeapDumpPath=${layout.buildDirectory.get().asFile}"
+    // Every test starts whole FreeCol games. FreeCol's NameCache kept every
+    // game a JVM made reachable, about 17 MB each, until ClearNameCache
+    // (#439) cleared it after each test; before that the heap ran out at
+    // 512 MB, and at 2 GB under load. A fresh JVM every few test classes
+    // stays as a backstop against the next such leak.
     maxHeapSize = '2g'
     forkEvery = 6
     systemProperty 'presets.dir', file('../ui/presets').absolutePath
@@ -95,6 +97,13 @@ teavm {
         mainClass = project.findProperty('main') ?: 'browsercol.spike.SpikeMain'
         optimization = project.hasProperty('aggressive') ? org.teavm.gradle.api.OptimizationLevel.AGGRESSIVE
                                : org.teavm.gradle.api.OptimizationLevel.BALANCED
+        // The locales whose CLDR names TeaVM compiles in. Its default, en_EN, names no real country, so
+        // English's map of country names is empty, and a lookup in an empty map divides by zero under
+        // wasm-gc: LanguageOption naming FreeCol's en_GB translation crashed the Engine. en_GB fills it.
+        // `delegate.properties`, not `properties`: this closure's owner is the Project, whose own `properties`
+        // (a plain Map of the project's properties) shadows TeaVM's, and ea065d7's put went into that, so
+        // TeaVM never saw it.
+        delegate.properties.put('java.util.Locale.available', 'en_GB')
     }
     wasmGC {
         // -Pout=<name>: the module's name, e.g. server or client with

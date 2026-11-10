@@ -30,6 +30,12 @@ final class SalesLog implements TransactionListener {
     /** The turn the entries are of. */
     private int turn = -1;
     private final List<List<String>> entries = new ArrayList<>();
+    /** True while a trade is being reported that is not one (#441). */
+    private final java.util.function.BooleanSupplier muted;
+
+    SalesLog(java.util.function.BooleanSupplier muted) {
+        this.muted = muted;
+    }
 
     /**
      * Listen to the player's market, if not already: the game has started
@@ -87,6 +93,7 @@ final class SalesLog implements TransactionListener {
 
     @Override
     public void logSale(GoodsType goodsType, int amount, int price, int tax) {
+        if (this.muted.getAsBoolean()) return;
         final int beforeTax = amount * price;
         final int totalTax = beforeTax * tax / 100;
         add(List.of(

@@ -44,10 +44,13 @@ import net.sf.freecol.common.model.Unit;
 public final class Commands {
 
     private final FreeColClient client;
+    /** The last step of a Go To into a foreign settlement (#400). */
+    private final SettlementGoTo intoSettlements;
 
 
     Commands(FreeColClient client) {
         this.client = client;
+        this.intoSettlements = new SettlementGoTo(client);
     }
 
     private InGameController igc() {
@@ -59,6 +62,7 @@ public final class Commands {
      * workers off work that no longer produces (ColonyPanel.updateProduction).
      */
     void afterCommand() {
+        enterSettlements();
         if (gui() instanceof WebGUI) ((WebGUI)gui()).settleColonies();
     }
 
@@ -188,7 +192,24 @@ public final class Commands {
             igc().clearGotoOrders(unit);
             return false;
         }
-        return igc().goToTile(unit, path);
+        if (!igc().goToTile(unit, path)) return false;
+        // A Go To into a foreign settlement goes on past the regions it discovers, and steps in (#400).
+        this.intoSettlements.goOn(unit);
+        return true;
+    }
+
+    /**
+     * Each unit whose Go To ends in a foreign settlement, and that stands
+     * next to it with moves left, steps in, which opens the dialog of what it
+     * does there (#400): after every command, and at the start of our turn.
+     */
+    void enterSettlements() {
+        this.intoSettlements.enterArrived();
+    }
+
+    /** Whether a unit stands next to the foreign settlement its Go To ends in, to step in at the start of our turn. */
+    boolean enteringSettlements() {
+        return !this.intoSettlements.waiting(false).isEmpty();
     }
 
     /**
@@ -453,8 +474,7 @@ public final class Commands {
             if (act == BoycottAction.BOYCOTT_PAY_ARREARS) {
                 igc().payArrears(type);
             } else if (act == BoycottAction.BOYCOTT_DUMP_CARGO) {
-                dumped = igc().unloadCargo(
-                    new Goods(this.client.getGame(), ship, type, aboard), true);
+                dumped = dump(new Goods(this.client.getGame(), ship, type, aboard));
             }
             gui().showEuropePanel();
             return dumped;
@@ -928,8 +948,7 @@ public final class Commands {
         if (ship == null || type == null) return false;
         final int amount = Math.min(stack, ship.getGoodsCount(type));
         if (amount <= 0) return false;
-        final boolean done = igc().unloadCargo(
-            new Goods(this.client.getGame(), ship, type, amount), true);
+        final boolean done = dump(new Goods(this.client.getGame(), ship, type, amount));
         if (ship.isInEurope()) gui().showEuropePanel();
         return done;
     }
@@ -957,6 +976,21 @@ public final class Commands {
             }
         }
         return any;
+    }
+
+    /**
+     * Dump goods from a carrier. In Europe FreeCol's client routes this
+     * through sellGoods, which plays the sale sound and logs a sale; the
+     * server sells nothing for boycotted goods, so neither is wanted (#441).
+     */
+    private boolean dump(Goods goods) {
+        final Player player = this.client.getMyPlayer();
+        final Unit ship = (Unit)goods.getLocation();
+        if (ship.isInEurope() && !player.canTrade(goods.getType())
+            && gui() instanceof WebGUI) {
+            return ((WebGUI)gui()).notASale(() -> igc().unloadCargo(goods, true));
+        }
+        return igc().unloadCargo(goods, true);
     }
 
     /** One of our carriers, anywhere, by id, else null. */
@@ -1544,12 +1578,15 @@ public final class Commands {
 
     /**
      * End the turn (EndTurnAction), asking first if units still wait for
-     * orders and the client options say to.
+     * orders and the client options say to. While a pop-up is open the
+     * turn ends once it is closed, as the Go To orders go on then (#433);
+     * Swing's doEndTurn does nothing while a panel shows.
      *
      * @return True if the turn was ours to end.
      */
     public boolean endTurn() {
         if (!this.client.currentPlayerIsMyPlayer()) return false;
+        if (gui() instanceof WebGUI && ((WebGUI)gui()).endTurnWaitsForPopups(true)) return true;
         igc().endTurn(true);
         return true;
     }

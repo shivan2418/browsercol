@@ -36,6 +36,16 @@
       href="./src/fonts/cinzel/cinzel-latin-700-normal.woff2"
     />
     <style>
+      /*
+       * The cascade layers, lowest first (issue 421, docs/adr/0008). A rule in a later layer wins over one in an earlier
+       * layer whatever their specificity: a component's rules over the page's base, and a theme's over everything.
+       * The page's own styles below are put in their layer by their data-layer attribute (vite.config.ts,
+       * layerPageStyles), so the long block keeps its indentation; a component's styles are in its own .css file.
+       */
+      @layer reset, base, components, theme;
+    </style>
+    <!-- The page shell, in @layer base: the page itself, the UI scale and dragging. -->
+    <style data-layer="base">
       body {
         margin: 0;
         font: var(--fs-s) / 1.4 var(--font);
@@ -98,6 +108,12 @@
         display: flex;
         gap: 12px;
       }
+    </style>
+    <!--
+      Everything not yet moved beside its component (#421): in @layer components, so a component's own file
+      (src/*.css) and these meet by specificity and order, as they did in one sheet.
+    -->
+    <style data-layer="components">
       /* The player may hide the side panel (View menu): the map takes its room. */
       body[data-side-panel='hidden'] #side {
         display: none;
@@ -186,6 +202,8 @@
         padding: 0;
         border: 0;
         box-shadow: none;
+        /* The skin's pictures show a toggle's state; no pressed line over them. */
+        outline: none;
         opacity: 1;
         background: var(--normal) center / contain no-repeat;
         pointer-events: auto;
@@ -431,208 +449,6 @@
         border-left: 2px solid var(--line);
         overflow: auto;
       }
-      /* Buttons and fields, in the side panel and in dialogs. */
-      /*
-       * A button has FreeCol's bevel (FreeColButtonUI, ticket 268): square corners, the line round it, a lit edge inside
-       * at the top and left and a shaded one at the bottom and right, from the tokens. Under the pointer it darkens
-       * by a tenth, as FreeCol's does; pressed, the bevel turns over and the label moves in by a pixel. The two
-       * states are also set by data-state (hover, pressed) for the stories. A button that is no bevel (the menu
-       * bar's, a chip) takes its own padding, border or shadow, and the :where() keeps these states at the weight of
-       * this rule, so such a button's own rules win.
-       */
-      button {
-        font: inherit;
-        color: var(--btn-ink);
-        background: var(--btn);
-        border: 1px solid var(--line);
-        border-radius: 0;
-        box-shadow:
-          inset 1px 1px 0 var(--btn-hi),
-          inset -1px -1px 0 var(--btn-lo);
-        padding: 4px 12px;
-        cursor: pointer;
-      }
-      button:hover,
-      button:focus-visible {
-        border-color: var(--accent);
-      }
-      button:where(:hover:enabled, [data-state='hover'], [data-state='pressed']) {
-        background-image: linear-gradient(var(--btn-hover), var(--btn-hover));
-      }
-      button:where(:active:enabled, [data-state='pressed']) {
-        box-shadow:
-          inset 1px 1px 0 var(--btn-lo),
-          inset -1px -1px 0 var(--btn-hi);
-        padding: 5px 11px 3px 13px;
-      }
-      /* What looks as a label or a menu entry, not as a button: no bevel. */
-      .menubar button,
-      .popup button,
-      .frame > .title .close,
-      .linkish,
-      .europe-body button.good,
-      .europe button.chip,
-      .colony .ship,
-      .colony [data-picked],
-      #preferences .prefs-tree button {
-        box-shadow: none;
-      }
-      /* Whatever a click does shows the pointer, a disabled one does not. A control with its own look needs no cursor of its own. */
-      summary,
-      select,
-      [role='button'],
-      [role='tab'],
-      [role='menuitem'],
-      [role='option'],
-      .linkish {
-        cursor: pointer;
-      }
-      /*
-       * Tabs, for every tablist (role=tablist, role=tab): never a button. The tabs stand on a line, as Swing's
-       * JTabbedPane does in FreeCol's Continental Congress panel. An unselected tab is flat and recessed, with
-       * muted text; the selected one has the panel's own background (--tab-panel, the panel under the row), the
-       * line round it, a bar of the accent colour on top, and no line under it, so it opens into its panel. No
-       * bevel, no button fill. The top corners are rounded a little (4px). Under the pointer a tab's text darkens,
-       * with no underline; with keyboard focus it has the accent outline inside, following the rounding. The
-       * lines make one outline: the row has no side padding, so the line under it spans the panel's width, the
-       * selected tab's sides stand on it, and the panel's side borders (the same 1px, at the same x) carry on
-       * from it. A panel under the row draws its sides and bottom, not its top.
-       */
-      [role='tablist'] {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: flex-end;
-        gap: 2px;
-        padding: 0;
-        border-bottom: 1px solid var(--line);
-      }
-      button[role='tab'] {
-        margin-bottom: -1px;
-        padding: 5px 14px 4px;
-        color: var(--muted);
-        background: color-mix(in srgb, var(--line) 12%, transparent);
-        border: 1px solid transparent;
-        border-bottom: 0;
-        border-radius: 4px 4px 0 0;
-        box-shadow: none;
-      }
-      button[role='tab']:hover:enabled,
-      button[role='tab'][data-state='hover'] {
-        color: var(--ink);
-        background-image: none;
-        border-color: transparent;
-        text-decoration: none;
-      }
-      button[role='tab']:active:enabled {
-        padding: 5px 14px 4px;
-        box-shadow: none;
-      }
-      button[role='tab'][aria-selected='true'] {
-        color: var(--head);
-        background: var(--tab-panel, var(--panel));
-        border-color: var(--line);
-        /* Covers the line under the row, so the tab joins its panel. */
-        padding-bottom: 5px;
-        box-shadow: inset 0 3px 0 var(--accent);
-        text-decoration: none;
-      }
-      button[role='tab']:focus-visible {
-        border-color: var(--line);
-        outline: 2px solid var(--accent);
-        outline-offset: -3px;
-      }
-      button:disabled {
-        opacity: 0.5;
-      }
-      button:disabled,
-      [aria-disabled='true'] {
-        cursor: default;
-      }
-      input,
-      textarea {
-        font: inherit;
-        color: var(--ink);
-        background: var(--box);
-        border: 1px solid var(--line);
-        border-radius: 3px;
-      }
-      /* A drop-down list (src/controls.tsx, Base UI's Select): the button, then its list in #overlays. */
-      .ui-select {
-        display: inline-flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 6px;
-        font: inherit;
-        text-align: left;
-        color: var(--ink);
-        background: var(--box);
-        border: 1px solid var(--line);
-        border-radius: 3px;
-        padding: 2px 4px;
-        cursor: default;
-      }
-      .ui-select:focus-visible,
-      .ui-select[data-popup-open] {
-        border-color: var(--accent);
-        outline: none;
-      }
-      .ui-select:disabled {
-        opacity: 0.5;
-      }
-      .ui-select-icon {
-        flex: none;
-      }
-      /* The popups of Base UI's controls sit in #overlays above every window; the player's UI scale goes on the popup, not on the positioner Base UI places in real pixels. */
-      .ui-positioner {
-        z-index: 1100;
-      }
-      .ui-popup {
-        zoom: var(--ui-zoom, 1);
-        font: inherit;
-        color: var(--ink);
-        background: var(--panel);
-        border: 1px solid var(--line);
-        box-shadow: 0 4px 12px rgb(0 0 0 / 40%);
-      }
-      .ui-select-popup {
-        box-sizing: border-box;
-        /* The button's width, in the popup's own (scaled) pixels. */
-        min-width: calc(var(--anchor-width) / var(--ui-zoom, 1));
-        max-height: calc(var(--available-height) / var(--ui-zoom, 1));
-        overflow-y: auto;
-      }
-      .ui-select-list {
-        padding: 2px;
-      }
-      .ui-select-item {
-        padding: 2px 6px;
-        cursor: pointer;
-        white-space: nowrap;
-        outline: none;
-      }
-      .ui-select-item[data-highlighted] {
-        background: var(--btn);
-        color: var(--btn-ink);
-      }
-      .ui-select-item[data-selected] {
-        font-weight: bold;
-      }
-      .ui-select-item[data-disabled] {
-        cursor: default;
-        opacity: 0.5;
-      }
-      /* A hint (src/controls.tsx, Base UI's Tooltip): small text on the panel, as FreeColToolTipUI draws one. */
-      .ui-tip {
-        box-sizing: border-box;
-        max-width: 28em;
-        padding: 2px 6px;
-        white-space: pre-line;
-        pointer-events: none;
-      }
-      .ui-tip:has(.rebel-tip) {
-        max-width: none;
-        padding: 10px 14px;
-      }
       #info {
         white-space: pre;
         overflow: auto;
@@ -718,10 +534,6 @@
         display: flex;
         flex-direction: column;
         padding: 2px;
-        background: var(--panel);
-        color: var(--ink);
-        border: 1px solid var(--line);
-        box-shadow: 0 4px 12px rgb(0 0 0 / 40%);
       }
       .menubar [role='menu'] button {
         text-align: left;
@@ -754,10 +566,6 @@
         display: flex;
         flex-direction: column;
         padding: 2px;
-        background: var(--panel);
-        color: var(--ink);
-        border: 1px solid var(--line);
-        box-shadow: 0 4px 12px rgb(0 0 0 / 40%);
         font-size: var(--fs-s);
       }
       .popup button {
@@ -884,153 +692,12 @@
         white-space: pre-wrap;
         overflow-wrap: anywhere;
       }
-      .error-banner .buttons {
-        display: flex;
-        gap: 8px;
-        justify-content: flex-end;
-      }
       .menubar .status {
         margin-left: auto;
         padding-right: 8px;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-      }
-      /* A window (src/frame.tsx): a title bar in the menu bar's colours over the panel. */
-      .frame {
-        display: flex;
-        flex-direction: column;
-        max-height: 100%;
-        background: var(--panel);
-        color: var(--ink);
-        border: 2px solid var(--line);
-        font: var(--fs) / 1.4 var(--font);
-        box-shadow: 0 10px 40px rgb(0 0 0 / 45%);
-      }
-      /* Opening and closing (ticket 270): a short scale and fade; frame.tsx sets data-motion only when it animates. */
-      @keyframes frame-in {
-        from {
-          opacity: 0;
-          scale: 0.94;
-        }
-      }
-      @keyframes frame-out {
-        to {
-          opacity: 0;
-          scale: 0.94;
-        }
-      }
-      .frame[data-motion='in'] {
-        animation: frame-in 120ms ease-out;
-      }
-      .frame[data-motion='out'] {
-        animation: frame-out 120ms ease-in forwards;
-        pointer-events: none;
-      }
-      @media (prefers-reduced-motion: reduce) {
-        .frame[data-motion] {
-          animation: none;
-        }
-      }
-      .frame > .title {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        min-height: 1.6em;
-        padding: 2px 4px 2px 10px;
-        background: var(--menubar);
-        color: var(--menubar-ink);
-      }
-      .frame > .title h2 {
-        flex: 1;
-        margin: 0;
-        font-family: var(--font-title);
-        font-size: var(--fs);
-        font-weight: 700;
-        color: inherit;
-      }
-      .frame > .title .close {
-        margin-left: auto;
-        padding: 0 6px;
-        color: inherit;
-        background: none;
-        border: 0;
-      }
-      .frame > .body {
-        padding: 12px 16px;
-        overflow: auto;
-        min-height: 0;
-      }
-      /* A boxed section with its caption at the top-left. */
-      .box {
-        position: relative;
-        padding: 18px 6px 6px;
-        background: var(--box);
-        border: 1px solid var(--line);
-        border-radius: 3px;
-      }
-      .box > .cap {
-        position: absolute;
-        top: 2px;
-        left: 8px;
-        font-size: 12px;
-        font-weight: 700;
-        color: var(--head);
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-      }
-      /* A goods icon and its amount: a gain, a loss, or greyed out for none. */
-      .goods {
-        display: inline-flex;
-        align-items: center;
-        gap: 2px;
-        font-weight: 700;
-        font-variant-numeric: tabular-nums;
-      }
-      .goods .pile {
-        position: relative;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        height: 24px;
-      }
-      .goods .pile img {
-        position: absolute;
-        top: 0;
-      }
-      .goods img {
-        width: 24px;
-        height: 24px;
-        object-fit: contain;
-      }
-      /* ProductionLabel's number: centred over the pile, and as wide as it needs (the pile widens for it), white (red for a loss) with a dark outline, whatever the background. */
-      .goods .pile .amount {
-        position: relative;
-        padding: 0 1px;
-        z-index: 1;
-        white-space: nowrap;
-        font-size: 13px;
-        color: var(--pile-ink);
-        text-shadow:
-          -1px -1px 0 var(--pile-outline),
-          1px -1px 0 var(--pile-outline),
-          -1px 1px 0 var(--pile-outline),
-          1px 1px 0 var(--pile-outline);
-        pointer-events: none;
-      }
-      .goods[data-sign='loss'] .pile .amount {
-        color: var(--pile-loss);
-      }
-      .goods[data-sign='gain'] {
-        color: var(--good);
-      }
-      .goods[data-sign='loss'] {
-        color: var(--bad);
-      }
-      .goods[data-sign='zero'] {
-        color: var(--muted);
-        font-weight: 400;
-        opacity: 0.6;
       }
       /* The WebGUI's dialogs (src/panels.tsx), modal over the page. */
       .modal {
@@ -1067,51 +734,6 @@
         max-width: 36em;
         max-height: calc(var(--screen-h) * 0.8);
       }
-      /*
-       * An information panel under FreeCol's advisor (src/advisor.ts): the painted figure and paper are the
-       * window's whole background, at the skin's size as InformationPanel sets it, and the text starts below
-       * the figure. The title bar stays over the figure, empty, to drag the window by.
-       */
-      .frame.advised {
-        position: relative;
-        box-sizing: border-box;
-        width: 530px;
-        height: 510px;
-        padding-top: var(--advisor-top);
-        background: var(--advisor) center top / 100% 100% no-repeat;
-        border: 0;
-        box-shadow: none;
-        filter: drop-shadow(0 10px 24px rgb(0 0 0 / 45%));
-        --ink: var(--paper-ink);
-        --muted: var(--paper-muted);
-        --head: var(--paper-head);
-        --link: var(--paper-link);
-        color: var(--ink);
-      }
-      .frame.advised > .title {
-        position: absolute;
-        inset: 0 0 auto;
-        height: var(--advisor-top);
-        background: none;
-      }
-      .frame.advised > .title .close {
-        display: none;
-      }
-      /* The OK button at the foot of the paper, as InformationPanel lays it out, however short the text. */
-      .frame.advised > .body {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        padding: 0 28px 24px;
-      }
-      .frame.advised > .body > .buttons {
-        margin-top: auto;
-      }
-      .dialog h2 {
-        margin: 0 0 8px;
-        font-size: var(--fs-h);
-        color: var(--head);
-      }
       .dialog .text {
         white-space: pre-wrap;
       }
@@ -1122,127 +744,6 @@
         width: 100%;
         box-sizing: border-box;
       }
-      /*
-       * Checkboxes and radio buttons in FreeCol's look (FreeColCheckBoxUI, FreeColRadioButtonUI): a box
-       * 1.5 times the text, framed like a button. The tick and the radio's dot are FreeCol's art as a mask filled
-       * with a token, so they show in every palette; control-art.ts sets --img-checkmark and --img-radio-dot once
-       * the art has loaded. Until then (the start screen comes before it) the tick is a drawn one and the
-       * dot a plain disc: with no mask the mark would fill the whole box, which reads as neither state.
-       */
-      input[type='checkbox'],
-      input[type='radio'],
-      .dialog input[type='checkbox'],
-      .dialog input[type='radio'] {
-        appearance: none;
-        position: relative;
-        flex: none;
-        width: 1.5em;
-        height: 1.5em;
-        margin: 0;
-        padding: 0;
-        vertical-align: middle;
-        background: var(--btn);
-        border: 1px solid var(--line);
-        border-radius: 3px;
-        cursor: pointer;
-      }
-      input[type='radio'],
-      .dialog input[type='radio'] {
-        border-radius: 50%;
-      }
-      input[type='checkbox']::after,
-      input[type='radio']::after {
-        content: '';
-        position: absolute;
-        inset: 10%;
-        background: var(--btn-ink);
-        mask: var(
-            --img-checkmark,
-            url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M1 8.6l2.3-2.3 3 3L12.7 2 15 4.3 6.3 13.9z'/%3E%3C/svg%3E")
-          )
-          center / contain no-repeat;
-        visibility: hidden;
-      }
-      input[type='radio']::after {
-        inset: 25%;
-        border-radius: 50%;
-        mask-image: var(--img-radio-dot, none);
-      }
-      input[type='checkbox']:checked::after,
-      input[type='radio']:checked::after {
-        visibility: visible;
-      }
-      /* Under the pointer the box is shaded as a button is, and its frame takes the accent. */
-      input[type='checkbox']:not(:disabled):hover,
-      input[type='radio']:not(:disabled):hover,
-      label:hover > input[type='checkbox']:not(:disabled),
-      label:hover > input[type='radio']:not(:disabled) {
-        background-image: linear-gradient(var(--btn-hover), var(--btn-hover));
-        border-color: var(--accent);
-      }
-      input[type='checkbox']:focus-visible,
-      input[type='radio']:focus-visible {
-        outline: 2px solid var(--accent);
-        outline-offset: 1px;
-      }
-      input[type='checkbox']:disabled,
-      input[type='radio']:disabled {
-        opacity: 0.5;
-        cursor: default;
-      }
-      label:has(> input[type='checkbox']:disabled),
-      label:has(> input[type='radio']:disabled) {
-        color: var(--muted);
-      }
-      label > input[type='checkbox'],
-      label > input[type='radio'] {
-        margin-right: 0.4em;
-      }
-      /* Clicking a label toggles its control without selecting the label's text. */
-      label:has(> input[type='checkbox']),
-      label:has(> input[type='radio']) {
-        user-select: none;
-        cursor: pointer;
-      }
-      /* Disclosure triangles: our own marker in place of the browser's. */
-      summary {
-        list-style: none;
-      }
-      summary::-webkit-details-marker {
-        display: none;
-      }
-      summary::before {
-        content: '';
-        display: inline-block;
-        width: 0.6em;
-        height: 0.6em;
-        margin-right: 0.4em;
-        background: currentColor;
-        clip-path: polygon(15% 0, 100% 50%, 15% 100%);
-        transition: transform 0.1s;
-      }
-      details[open] > summary::before {
-        transform: rotate(90deg);
-      }
-      /* Progress bars as FreeColProgressBarUI draws them: paper with a fill. */
-      progress {
-        appearance: none;
-        height: 1em;
-        vertical-align: middle;
-        background: var(--box);
-        border: 1px solid var(--line);
-        border-radius: 3px;
-        overflow: hidden;
-      }
-      progress::-webkit-progress-bar {
-        background: var(--box);
-      }
-      progress::-webkit-progress-value {
-        background: var(--accent);
-      }
-      progress::-moz-progress-bar {
-        background: var(--accent);
-      }
       /* Scroll bars, selected text and the caret, from the tokens. */
       * {
         scrollbar-width: thin;
@@ -1251,10 +752,6 @@
       ::selection {
         background: var(--accent);
         color: var(--panel);
-      }
-      input,
-      textarea {
-        caret-color: var(--accent);
       }
       .dialog .lots {
         display: flex;
@@ -1278,11 +775,6 @@
       .dialog[data-kind='negotiation'] .lead {
         margin-bottom: 10px;
       }
-      .dialog[data-kind='negotiation'] .lead h3 {
-        margin: 0 0 2px;
-        font-family: var(--font-title);
-        font-size: var(--fs-h);
-      }
       .dialog[data-kind='negotiation'] .lead p {
         margin: 0;
         color: var(--muted);
@@ -1297,9 +789,6 @@
       }
       .dialog[data-kind='negotiation'] .facts b {
         color: var(--ink);
-      }
-      .dialog[data-kind='negotiation'] .box {
-        margin-bottom: 10px;
       }
       .dialog[data-kind='negotiation'] .box .relations {
         margin: 0;
@@ -1318,13 +807,6 @@
         font-size: var(--fs-s);
         font-weight: 400;
         color: var(--muted);
-      }
-      .dialog[data-kind='negotiation'] .stance button[aria-pressed='true'] {
-        border-color: var(--accent);
-        box-shadow:
-          inset 1px 1px 0 var(--btn-lo),
-          inset -1px -1px 0 var(--btn-hi);
-        font-weight: 600;
       }
       .dialog[data-kind='negotiation'] .cols {
         display: grid;
@@ -1451,18 +933,7 @@
         font-size: var(--fs-s);
         color: var(--muted);
       }
-      .dialog h3 {
-        margin: 8px 0 4px;
-        font-size: var(--fs);
-        color: var(--head);
-      }
       /* VictoryDialog: the line is a header in the title font, centred above the Continental soldier. */
-      .dialog h3.headline {
-        margin: 4px 0 16px;
-        text-align: center;
-        font-family: var(--font-title);
-        font-size: calc(var(--fs-h) * 1.5);
-      }
       /* A question about goods (the tax raise's boycott): the goods large beside the text, its name in bold. */
       .dialog .goods-question {
         display: flex;
@@ -1471,12 +942,6 @@
       }
       .dialog .goods-question .text {
         margin: 0;
-      }
-      .dialog .goods-big {
-        width: 64px;
-        height: 64px;
-        object-fit: contain;
-        flex: none;
       }
       .dialog .picture {
         display: block;
@@ -1531,22 +996,6 @@
         object-fit: contain;
         flex: none;
       }
-      .dialog .modifiers {
-        border-collapse: collapse;
-      }
-      .dialog .modifiers th,
-      .dialog .modifiers td {
-        padding: 1px 8px;
-        text-align: left;
-      }
-      .dialog .modifiers .value {
-        text-align: right;
-      }
-      .dialog .modifiers caption {
-        text-align: left;
-        font-weight: bold;
-        padding-top: 12px;
-      }
       /* The Find Settlement list: a scrolling column of rows, the picked one marked. */
       .dialog .settlements {
         display: flex;
@@ -1562,9 +1011,6 @@
         align-items: center;
         gap: 8px;
         text-align: left;
-      }
-      .dialog .settlements button[aria-selected='true'] {
-        outline: 2px solid var(--head);
       }
       .dialog .settlements img {
         height: 32px;
@@ -1582,10 +1028,6 @@
         flex-direction: row;
         flex-wrap: wrap;
         margin-top: 6px;
-      }
-      .dialog .amounts [aria-pressed='true'] {
-        outline: 2px solid var(--accent);
-        outline-offset: -3px;
       }
       /* The choose founding father dialog: a tab per kind, then the open tab's father. */
       .dialog[data-kind='father'] {
@@ -1673,11 +1115,6 @@
         flex-wrap: wrap;
         gap: 4px 16px;
       }
-      .dialog .pic {
-        max-width: 48px;
-        max-height: 48px;
-        object-fit: contain;
-      }
       .dialog .flavour {
         display: block;
         max-width: 100%;
@@ -1724,11 +1161,6 @@
         align-items: center;
         cursor: grab;
       }
-      .dialog .vstop h3 {
-        margin: 0;
-        font-family: var(--font-title);
-        font-size: var(--fs-h);
-      }
       .dialog .vstop .pin {
         justify-self: center;
         width: 26px;
@@ -1753,7 +1185,6 @@
         align-items: center;
       }
       .dialog .chips .muted {
-        color: var(--muted);
         font-size: var(--fs-s);
       }
       .dialog .chip {
@@ -1848,10 +1279,6 @@
         border: 1px solid var(--line);
         border-radius: 2px;
       }
-      .dialog .hold .pic.small {
-        max-width: 28px;
-        max-height: 28px;
-      }
       .dialog .hold.empty {
         background: transparent;
         border-style: dashed;
@@ -1902,10 +1329,6 @@
         height: 34px;
         padding: 0;
       }
-      .dialog .palette .pic {
-        max-width: 28px;
-        max-height: 28px;
-      }
       @media (max-width: 480px) {
         .dialog .vstop {
           grid-template-columns: 34px 1fr auto;
@@ -1922,19 +1345,8 @@
         gap: 4px;
         margin-top: 8px;
       }
-      /* A pick never changes the room a thing takes: colour, outline (drawn inside) and shadow only, never weight, padding, border width or margin. */
-      .dialog button[aria-pressed='true'] {
-        border-color: var(--accent);
-        outline: 2px solid var(--accent);
-        outline-offset: -3px;
-      }
       .dialog .error {
         color: var(--bad);
-      }
-      .dialog .pic.small {
-        max-width: 20px;
-        max-height: 20px;
-        vertical-align: middle;
       }
       /* Europe (src/panels.tsx), as EuropePanel lays it out: the ships, the docks and cargo, the market. */
       /* Europe is a large window over the map. The top bar stays clear above its backdrop, as the gold is read there. */
@@ -1988,9 +1400,6 @@
         border: 1px solid var(--line);
         padding: 4px 8px;
       }
-      .europe-log h3 {
-        margin: 0 0 4px;
-      }
       .europe-log .entry + .entry {
         margin-top: 8px;
       }
@@ -2011,15 +1420,6 @@
         gap: 8px;
         overflow: auto;
       }
-      .europe .box {
-        background: var(--box);
-        border: 1px solid var(--line);
-        padding: 4px 8px;
-        min-height: 4.5em;
-      }
-      .europe .box h3 {
-        margin: 0 0 4px;
-      }
       .europe [data-list='docks'] {
         grid-row: span 2;
       }
@@ -2029,16 +1429,6 @@
         padding: 8px;
       }
       /* Europe's footer: its buttons at the left, Close alone at the right. */
-      .dialog[data-kind='europe'] .buttons {
-        justify-content: flex-start;
-      }
-      .dialog[data-kind='europe'] .buttons [data-answer='close'] {
-        margin-left: auto;
-      }
-      .dialog[data-kind='europe'] .buttons button[aria-pressed='true'] {
-        outline: 2px solid var(--accent);
-        outline-offset: -3px;
-      }
       .dialog .shop {
         background: var(--box);
         border: 1px solid var(--line);
@@ -2074,15 +1464,6 @@
         color: var(--ink);
       }
       /* The picture has a slot of its own height, and the name room for two lines, so a one-line name or a short picture moves nothing. */
-      .shop-popup .card .pic {
-        flex: none;
-        width: 48px;
-        height: 48px;
-        max-width: none;
-        max-height: none;
-        object-fit: contain;
-        object-position: center bottom;
-      }
       .shop-popup .card .name {
         min-height: 2.4em;
         display: flex;
@@ -2106,21 +1487,17 @@
         border-radius: 4px;
       }
       /*
-       * What is picked (a ship, or goods in the colony) takes a tint of the accent colour. Everything that can be
-       * picked has the same 4px of room on every side, so the tint never sits tight against the content.
+       * What can be picked (a ship, or goods in the colony) takes the selected look when it is (src/selection.css).
+       * Everything that can be picked has the same 4px of room on every side, so the tint never sits tight against
+       * the content.
        */
       .europe [data-list='inPort'] button.chip,
       .colony .ship,
-      .colony [data-picked] {
+      .colony [aria-current] {
         padding: 4px;
         border: none;
         border-radius: 4px;
         box-sizing: border-box;
-      }
-      .europe [data-list='inPort'] button.chip[aria-pressed='true'] {
-        background: color-mix(in srgb, var(--accent) 20%, transparent);
-        outline: none;
-        box-shadow: none;
       }
       .europe-body .goods {
         display: grid;
@@ -2139,7 +1516,8 @@
       }
       /* The market's goods and the cargo's stacks are buttons (they trade), but look as Swing's labels do. */
       .europe-body button.good,
-      .europe button.chip {
+      /* At less weight than the selected look, so a picked chip shows it. */
+      :where(.europe) button.chip {
         background: none;
         border: none;
         padding: 0;
@@ -2155,109 +1533,13 @@
       .europe .chip[data-drag] {
         cursor: grab;
       }
+      /* Focus is a line, never a tint, so it is not taken for a pick. */
       .europe [data-list='inPort'] button.chip:focus-visible {
-        outline: none;
-        background: color-mix(in srgb, var(--accent) 10%, transparent);
+        outline: 2px solid var(--accent);
+        outline-offset: -2px;
       }
       .europe-body .price {
         font-variant-numeric: tabular-nums;
-      }
-      /* The start screen (src/start-screen.tsx): a window of its own over the page, until a game starts. */
-      .start {
-        position: fixed;
-        inset: 0;
-        z-index: 10;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        background: var(--page);
-        color: var(--ink);
-        font: var(--fs) / 1.4 var(--font);
-      }
-      .start-window {
-        width: min(32em, 92vw);
-        /* Open option editors can make it taller than the page: it scrolls, so Start stays reachable. */
-        max-height: 96vh;
-        overflow-y: auto;
-        padding: 0 0 12px;
-        background: var(--panel);
-        border: 2px solid var(--line);
-        box-shadow: 0 10px 40px rgb(0 0 0 / 45%);
-      }
-      .start-window h1 {
-        margin: 0;
-        padding: 6px 16px;
-        font-family: var(--font-title);
-        font-size: var(--fs-h);
-        background: var(--menubar);
-        color: var(--menubar-ink);
-      }
-      .start-window h2 {
-        margin: 12px 16px 4px;
-        font-size: var(--fs-h);
-        color: var(--head);
-      }
-      .start-window fieldset {
-        margin: 8px 16px 0;
-        padding: 6px 10px 8px;
-        border: 1px solid var(--line);
-        background: var(--box);
-      }
-      .start-window legend {
-        padding: 0 4px;
-        color: var(--head);
-      }
-      .start-window .nations {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-      }
-      .start-window .nation {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        padding: 3px 6px;
-        border: 1px solid transparent;
-      }
-      .start-window .nation[data-selected] {
-        border-color: var(--accent);
-        font-weight: bold;
-      }
-      .start-window .swatch {
-        /* In running text (the other nations) an inline swatch has no width, and shows as a bar. */
-        display: inline-block;
-        vertical-align: middle;
-        width: 14px;
-        height: 14px;
-        border: 1px solid var(--line);
-      }
-      .start-window .nation .name {
-        flex: 1;
-      }
-      .start-window .nation .type,
-      .start-window .quiet {
-        color: var(--muted);
-        font-size: var(--fs-s);
-        font-weight: normal;
-      }
-      .start-window .quiet {
-        margin: 6px 0 0;
-      }
-      /* The Loading Save game window (src/loading-save.tsx): one choice or field a line. */
-      .start-window fieldset > label {
-        display: block;
-        padding: 2px 0;
-      }
-      .start-window .loading-save-name {
-        margin: 0 16px;
-      }
-      .start-window fieldset > .ui-select {
-        width: 100%;
-        padding: 3px;
-      }
-      .start-window .customize {
-        margin-top: 6px;
       }
       .save-picker {
         margin: 6px 0 0;
@@ -2282,120 +1564,6 @@
       #open-game.dialog,
       #save-game.dialog {
         max-width: min(50em, calc(var(--screen-w) * 0.94));
-      }
-      .start-window .customize .options {
-        max-height: 18em;
-        overflow-y: auto;
-        margin-top: 6px;
-      }
-      /* The option editor (src/option-editor.tsx), on the start screen and in the in-game panel. */
-      .options .box {
-        margin: 6px 0;
-        /* The top leaves room for the caption (.box > .cap). */
-        padding: 18px 8px 4px;
-        background: var(--box);
-        border: 1px solid var(--line);
-      }
-      .options .option {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        justify-content: space-between;
-        padding: 1px 0;
-      }
-      .options .option .name {
-        flex: 1;
-      }
-      .options .option[data-changed] .name {
-        font-weight: bold;
-      }
-      .options .ui-number {
-        width: 8em;
-      }
-      .options input[type='text'],
-      .options .ui-select {
-        width: 14em;
-      }
-      .options .slider {
-        display: flex;
-        gap: 6px;
-        align-items: center;
-      }
-      /* A slider's track and handle: a framed groove and a button-like knob. */
-      .options .slider input[type='range'] {
-        appearance: none;
-        width: 10em;
-        height: 1.2em;
-        padding: 0;
-        background: none;
-        border: 0;
-        cursor: pointer;
-      }
-      .options .slider input[type='range']:focus-visible {
-        outline: 2px solid var(--accent);
-        outline-offset: 2px;
-      }
-      .options .slider input[type='range']:disabled {
-        opacity: 0.5;
-        cursor: default;
-      }
-      .options .slider input[type='range']::-webkit-slider-runnable-track {
-        height: 6px;
-        background: var(--box);
-        border: 1px solid var(--line);
-        border-radius: 3px;
-      }
-      .options .slider input[type='range']::-moz-range-track {
-        height: 6px;
-        background: var(--box);
-        border: 1px solid var(--line);
-        border-radius: 3px;
-      }
-      .options .slider input[type='range']::-webkit-slider-thumb {
-        appearance: none;
-        width: 0.9em;
-        height: 1.2em;
-        margin-top: -7px;
-        background: var(--btn);
-        border: 1px solid var(--line);
-        border-radius: 3px;
-      }
-      .options .slider input[type='range']::-moz-range-thumb {
-        box-sizing: border-box;
-        width: 0.9em;
-        height: 1.2em;
-        background: var(--btn);
-        border: 1px solid var(--line);
-        border-radius: 3px;
-      }
-      .options .slider input[type='range']:hover::-webkit-slider-thumb {
-        border-color: var(--accent);
-      }
-      .options .slider input[type='range']:hover::-moz-range-thumb {
-        border-color: var(--accent);
-      }
-      /* A file option's picked name sits beside its Choose button. */
-      .options .file {
-        display: flex;
-        gap: 6px;
-        align-items: center;
-      }
-      .options .slider output {
-        min-width: 3.5em;
-        text-align: right;
-        font-variant-numeric: tabular-nums;
-      }
-      .options .mute {
-        min-width: 5em;
-      }
-      .options .mute[aria-pressed='true'] {
-        font-weight: bold;
-      }
-      .options .option:has(.mute[aria-pressed='true']) .slider {
-        opacity: 0.5;
-      }
-      .options input[aria-invalid] {
-        outline: 2px solid var(--bad);
       }
       /* The Preferences window (src/prefs-dialog.tsx): FreeCol's category tree, and the picked one's options. */
       #preferences .prefs-body {
@@ -2432,17 +1600,16 @@
         padding: 3px 6px;
         border: 0;
         border-radius: 2px;
-        background: none;
         color: inherit;
         font: inherit;
         text-align: left;
       }
-      #preferences .prefs-tree button:hover {
-        background: color-mix(in srgb, var(--accent) 10%, transparent);
+      /* The picked category takes the selected look (src/selection.css); these are at less weight, so it shows. */
+      :where(#preferences .prefs-tree) button {
+        background: none;
       }
-      /* The picked category: a tint, as other picks, taking the same room. */
-      #preferences .prefs-tree button[aria-current] {
-        background: color-mix(in srgb, var(--accent) 20%, transparent);
+      :where(#preferences .prefs-tree) button:hover {
+        background: color-mix(in srgb, var(--accent) 10%, transparent);
       }
       /* While searching: the categories with no match fade, and the matched text is marked. */
       #preferences .prefs-tree [data-dim] {
@@ -2467,286 +1634,19 @@
         color: var(--head);
         font-weight: 700;
       }
-      #preferences .buttons {
-        display: flex;
-        justify-content: flex-end;
-        gap: 8px;
-        margin: 8px 0 0;
-      }
-      .customize .tools {
-        display: flex;
-        gap: 8px;
-        margin-top: 6px;
-      }
-      .options .units .unit {
-        display: flex;
-        gap: 4px;
-        align-items: center;
-        margin: 2px 0;
-      }
       #preferences .prefs-detail {
         flex: 1;
         min-width: 0;
         overflow-y: auto;
-      }
-      #preferences .prefs-detail .options .option {
-        padding: 2px 0;
       }
       #preferences .prefs-note {
         margin: 10px 0 0;
         color: var(--muted);
         font-size: var(--fs-s);
       }
-      .dialog[data-kind='options'] .options {
+      .dialog[data-kind='options'] .option-editor {
         max-height: calc(var(--screen-h) * 0.6);
         overflow-y: auto;
-      }
-      .start-window .buttons {
-        display: flex;
-        justify-content: flex-end;
-        margin: 12px 16px 0;
-      }
-      /*
-       * The new game window (issue 311): wide, with what most players change in three columns and the rarely
-       * changed settings in a row of disclosures under them, so nothing usual needs a scroll at 1280x800.
-       */
-      .start-window.new-game {
-        width: min(78em, 96vw);
-        max-height: 94vh;
-        font-size: var(--fs);
-      }
-      /* Music and sound effects, a small row under Start. */
-      .new-game .sound-toggles {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 6px;
-      }
-      .new-game .sound-label {
-        color: var(--head);
-        margin-right: 2px;
-      }
-      .new-game .sound-toggle {
-        padding: 1px 8px;
-        font-size: var(--fs-s);
-      }
-      .new-game .sound-toggle[aria-pressed='false'] {
-        color: var(--muted);
-      }
-      .new-game .start-cols {
-        display: grid;
-        grid-template-columns: minmax(15em, 1fr) minmax(20em, 1.4fr) minmax(14em, 0.9fr);
-        gap: 12px;
-        margin: 12px 16px 0;
-        align-items: stretch;
-      }
-      .new-game .start-cols fieldset {
-        margin: 0;
-      }
-      .new-game .col-others,
-      .new-game .col-game {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-      }
-      .new-game .field-grid {
-        display: grid;
-        grid-template-columns: auto 1fr;
-        gap: 6px 10px;
-        align-items: center;
-        margin-top: 2px;
-      }
-      .new-game .field-grid .ui-select {
-        width: 100%;
-        padding: 3px;
-      }
-      .new-game .with-help {
-        display: flex;
-        gap: 4px;
-        align-items: center;
-      }
-      .new-game .with-help .ui-select {
-        flex: 1;
-      }
-      .ui-help-button {
-        padding: 1px 7px;
-        font-weight: bold;
-      }
-      .ui-help-popup {
-        box-sizing: border-box;
-        width: min(46em, var(--screen-w) - 24px);
-        max-height: calc(var(--available-height) / var(--ui-zoom, 1));
-        overflow-y: auto;
-        padding: 8px 12px;
-        font-size: var(--fs-s);
-      }
-      .rules-help p {
-        margin: 4px 0;
-      }
-      .rules-help table {
-        width: 100%;
-        border-collapse: collapse;
-        table-layout: fixed;
-      }
-      .rules-help thead th {
-        position: sticky;
-        top: 0;
-        z-index: 1;
-        padding: 4px 0;
-        text-align: left;
-        background: var(--panel);
-        border-bottom: 1px solid var(--line);
-      }
-      .rules-help thead th:first-child {
-        width: 30%;
-      }
-      .rules-help td,
-      .rules-help-theme th {
-        padding: 1px 10px 1px 0;
-        vertical-align: top;
-        text-align: left;
-      }
-      .rules-help tbody tr:nth-child(even) {
-        background: var(--stripe);
-      }
-      .rules-help tbody tr.rules-help-theme {
-        background: none;
-      }
-      .rules-help-theme th {
-        padding-top: 10px;
-        border-bottom: 1px solid var(--line);
-      }
-      .rules-help th.rules-help-what {
-        padding: 1px 10px 1px 0;
-        vertical-align: top;
-        text-align: left;
-        overflow-wrap: anywhere;
-      }
-      .new-game .pedia {
-        display: block;
-        margin-top: 6px;
-        color: var(--link);
-        font-size: var(--fs-s);
-      }
-      .new-game .quiet .pedia {
-        display: inline;
-      }
-      .new-game .rival-groups {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 0 12px;
-      }
-      .new-game .rival-group h3 {
-        margin: 0 0 2px;
-        font-size: var(--fs);
-        font-weight: normal;
-        color: var(--head);
-      }
-      .new-game .rivals {
-        display: flex;
-        flex-direction: column;
-      }
-      .new-game .rivals > label {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        padding: 1px 0;
-      }
-      .new-game .start-button {
-        padding: 12px;
-        font-size: var(--fs-h);
-        font-weight: bold;
-        border-color: var(--accent);
-      }
-      .new-game .saved-games {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-      }
-      .new-game .saved-games p {
-        margin: 0;
-      }
-      /* The rarely changed settings: a row of tabs, and the open tab's panel under it. */
-      .new-game .more-options {
-        --tab-panel: var(--box);
-        margin: 12px 16px 0;
-      }
-      /*
-       * The open panel has the window's width, its options flow in columns, and it scrolls on its own, with a
-       * height that keeps the window within the page at 1280x800.
-       */
-      .new-game .more-options [role='tabpanel'] {
-        /* Directly under the row's line, not the 6px a .customize panel keeps from what is above. */
-        margin-top: 0;
-        max-height: max(10em, calc(100vh - 680px));
-        overflow-y: auto;
-        padding: 6px 10px;
-        border: 1px solid var(--line);
-        border-top: 0;
-        background: var(--box);
-      }
-      .new-game .more-options [role='tabpanel'][hidden] {
-        display: none;
-      }
-      .new-game .more-options .options {
-        max-height: none;
-        overflow: visible;
-        margin-top: 0;
-        columns: 24em;
-        column-gap: 24px;
-      }
-      .new-game .more-options .options .option {
-        break-inside: avoid;
-      }
-      .new-game .more-options .options .box {
-        box-decoration-break: clone;
-      }
-      .new-game .colour-list {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(11em, 1fr));
-        gap: 4px 12px;
-        margin-top: 6px;
-      }
-      /* Narrower: the nation beside the game and Start, the other nations under them. */
-      @media (max-width: 1000px) {
-        .new-game .start-cols {
-          grid-template-columns: 1fr 1fr;
-        }
-        .new-game .col-game {
-          order: 1;
-        }
-        .new-game .col-others {
-          order: 2;
-          grid-column: 1 / -1;
-        }
-      }
-      @media (max-width: 640px) {
-        .new-game .start-cols {
-          grid-template-columns: 1fr;
-        }
-      }
-      @media (max-width: 420px) {
-        .new-game .rival-groups {
-          grid-template-columns: 1fr;
-        }
-      }
-      /* Wider and taller: the same layout, larger. */
-      @media (min-width: 1600px) and (min-height: 960px) {
-        .start-window.new-game {
-          --fs: 17px;
-          --fs-s: 15px;
-          --fs-h: 20px;
-        }
-      }
-      /* The licence, source and credits links under the start window (src/credits.tsx). */
-      .start .source-links {
-        margin: 12px 16px 0;
-        color: var(--menubar-ink);
-        font-size: var(--fs-s);
-      }
-      .start .source-links a,
-      .start .source-links .linkish {
-        color: inherit;
       }
       .linkish {
         padding: 0;
@@ -2774,18 +1674,9 @@
         white-space: pre-wrap;
         overflow-wrap: anywhere;
       }
-      #credits h3 {
-        margin: 12px 0 4px;
-      }
       #credits ul {
         margin: 0;
         padding-left: 1.2em;
-      }
-      .dialog .buttons {
-        display: flex;
-        justify-content: flex-end;
-        gap: 8px;
-        margin-top: 12px;
       }
       /* The colony panel (src/colony-panel.tsx), laid out as Swing's ColonyPanel (look E, docs/adr/0004). */
       .dialog[data-kind='colony'] {
@@ -2796,23 +1687,19 @@
       /* Buildings fill the left; the right column holds the population, tiles, production, construction and port; units outside and the warehouse run along the bottom. */
       .colony .cbody {
         /*
-         * The fixed heights of the boxes that hold units and goods (see .colony .outside). A row is the tallest
-         * unit, a mounted scout or dragoon (82px), with the box's caption and padding (26px) round it.
+         * The fixed heights of the boxes that hold units and goods (see .colony .outside): the content (a row is
+         * the tallest unit, a mounted scout or dragoon, with its label, and the warehouse's goods with their amounts, sized by art plus text (in em, so a larger font still fits) as measured with box-shots.ts --sizes 1; the warehouse's is a line of
+         * goods) with the caption, the padding and the border round it. A caption that wraps takes more of it, and
+         * the box scrolls.
          */
-        --colony-row: 110px;
-        --colony-warehouse: 84px;
+        /* The caption's block, the 6px row gap under it (the boxes' gap), the padding at the bottom and the border. */
+        --colony-box-frame: calc(var(--box-cap-block) + 6px + var(--box-pad) + 2 * var(--box-border));
+        --colony-row: calc(85px + 0.2em + var(--colony-box-frame));
+        --colony-warehouse: calc(28px + 1.5em + var(--colony-box-frame));
         display: grid;
         grid-template-columns: 1fr 400px;
         gap: 6px;
         align-items: start;
-      }
-      /* The parts FreeCol gives no caption: no room above for one. */
-      .colony .net,
-      .colony .construction {
-        padding-top: 6px;
-      }
-      .colony .muted {
-        color: var(--muted);
       }
       .colony .icon {
         width: 24px;
@@ -2976,110 +1863,6 @@
         align-items: center;
         font-weight: 700;
       }
-      /* BuildingToolTip, put on the page beside the building the pointer is over. */
-      .building-tip {
-        position: fixed;
-        z-index: 1001;
-        max-width: 280px;
-        padding: 10px 14px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 6px;
-        background: var(--box);
-        color: var(--ink);
-        border: 1px solid var(--line);
-        border-radius: 3px;
-        box-shadow: 0 2px 8px var(--backdrop);
-        pointer-events: none;
-      }
-      /* RebelToolTip (a hint, Tip): three columns, the label, then two numbers on the right (MigLayout "[300px][50px, right][50px, right]"). */
-      .rebel-tip {
-        width: 400px;
-        box-sizing: border-box;
-        display: grid;
-        grid-template-columns: 1fr 50px 50px;
-        align-items: center;
-        gap: 6px 10px;
-      }
-      .rebel-tip .tip-row {
-        display: contents;
-      }
-      .rebel-tip .num {
-        text-align: right;
-      }
-      .rebel-tip .span2 {
-        grid-column: span 2;
-        justify-self: end;
-      }
-      .rebel-tip .icon {
-        height: 24px;
-        vertical-align: middle;
-      }
-      .rebel-tip .tip-bar {
-        grid-column: 1 / -1;
-        justify-self: center;
-        position: relative;
-        width: 80%;
-        height: 26px;
-        border: 1px solid var(--line);
-        background: var(--panel);
-      }
-      .rebel-tip .tip-bar i {
-        position: absolute;
-        top: 0;
-        bottom: 0;
-        left: 0;
-        background: var(--line);
-        opacity: 0.55;
-      }
-      .rebel-tip .tip-bar i.step {
-        opacity: 0.3;
-      }
-      .rebel-tip .tip-bar .label {
-        position: absolute;
-        inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
-        white-space: nowrap;
-      }
-      .building-tip .tip-name {
-        font-size: var(--fs-s);
-      }
-      .building-tip .tip-production {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-      }
-      .building-tip .art {
-        height: 70px;
-      }
-      .building-tip .tip-workers {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
-        align-items: end;
-        gap: 8px;
-      }
-      .building-tip .tip-worker {
-        display: inline-flex;
-        align-items: center;
-        gap: 2px;
-      }
-      .building-tip .unit,
-      .building-tip .placeholder {
-        height: 40px;
-      }
-      .building-tip .unit.student {
-        height: 28px;
-      }
-      .building-tip .breeding {
-        margin: 0;
-        font-size: var(--fs-s);
-        text-align: center;
-      }
       .colony .building.site {
         opacity: 0.6;
       }
@@ -3204,39 +1987,6 @@
         gap: 4px;
       }
       /*
-       * FreeColProgressBar: as tall as its goods icon, with the icon and its text centred over the bar. What is
-       * there shades it, what next turn adds shades it lighter.
-       */
-      .need {
-        position: relative;
-        box-sizing: border-box;
-        width: 100%;
-        max-width: 360px;
-        min-height: 30px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 6px;
-        border: 1px solid var(--progress-border);
-        background: var(--box);
-        color: var(--ink);
-      }
-      .need i {
-        position: absolute;
-        left: 0;
-        top: 0;
-        bottom: 0;
-      }
-      .need i.now {
-        background: var(--progress-now);
-      }
-      .need i.next {
-        background: var(--progress-next);
-      }
-      .need > :not(i) {
-        position: relative;
-      }
-      /*
        * In port beside the cargo of the ship chosen there, then the units outside, then the warehouse. A window must
        * not change size with what is in it: each of these boxes has the one height FreeCol's scroll panes
        * give it, and more than fits wraps and scrolls inside the box.
@@ -3288,16 +2038,12 @@
         margin-top: 0;
       }
 
-      .colony .ship {
+      /* At less weight than the selected look, so a picked ship shows it. */
+      :where(.colony) .ship {
         background: none;
       }
       .colony .ship img {
         display: block;
-      }
-      .colony .ship[aria-pressed='true'],
-      .colony [data-picked='true'] {
-        background: color-mix(in srgb, var(--accent) 20%, transparent);
-        outline: none;
       }
       /* Moving colonists and goods (colony-panel.tsx): units and goods are dragged, or picked by a click; places take drops and clicks. */
       .colony [data-drag] {
@@ -3390,8 +2136,12 @@
       .colony .queue-body li[data-locked] .name {
         color: var(--muted);
       }
+      /* One box for every buildable's picture, so every row of the build queue is the same height whatever the art's shape. */
       .colony .buildable-icon {
         width: 48px;
+        height: 48px;
+        object-fit: contain;
+        object-position: center bottom;
       }
       /* The name takes the room left; the costs keep theirs, on one line, after it. */
       .colony .queue-body li .name {
@@ -3408,10 +2158,6 @@
       .colony .queue-body .show-all,
       .colony .queue-body .buy {
         grid-column: 1 / -1;
-      }
-      .colony .queue-body li[data-selected] {
-        outline: 2px solid var(--ink);
-        outline-offset: -2px;
       }
       .colony .queue-body li[data-drag] {
         cursor: grab;
@@ -3568,48 +2314,6 @@
         #loading [data-loading-bar] {
           transition: none;
         }
-      }
-      /* A number field (src/controls.tsx, Base UI's NumberField): the input with a ▲ and a ▼ button beside it. */
-      .ui-number {
-        display: inline-block;
-      }
-      .ui-number-group {
-        display: flex;
-        align-items: stretch;
-      }
-      .ui-number .ui-number-input {
-        flex: 1;
-        min-width: 0;
-        width: auto;
-        border-top-right-radius: 0;
-        border-bottom-right-radius: 0;
-        padding: 2px 4px;
-      }
-      .ui-number-input:focus-visible {
-        border-color: var(--accent);
-        outline: none;
-      }
-      .ui-number-input:disabled {
-        opacity: 0.5;
-      }
-      .ui-number-step {
-        flex: none;
-        width: 1.6em;
-        padding: 0;
-        font-size: 0.6em;
-        line-height: 1;
-        color: var(--btn-ink);
-        background: var(--btn);
-        border: 1px solid var(--line);
-        border-left-width: 0;
-        border-radius: 0;
-        cursor: pointer;
-      }
-      .ui-number-step:last-child {
-        border-radius: 0 3px 3px 0;
-      }
-      .ui-number-step:disabled {
-        opacity: 0.5;
       }
     </style>
   </head>

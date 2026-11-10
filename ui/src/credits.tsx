@@ -4,7 +4,8 @@
 // Opened from the start screen and from the Colopedia menu (FreeCol's About entry sits there too).
 import type { ReactNode } from 'react';
 import { BUILD } from './build';
-import { WindowFrame } from './frame';
+import { Heading, WindowFrame } from './frame';
+import './credits.css';
 // The fonts' licence texts, shipped in dist/ with the fonts (fonts.css).
 import cinzelOfl from './fonts/cinzel/OFL.txt?url';
 import notoSansOfl from './fonts/noto-sans/OFL.txt?url';
@@ -138,7 +139,7 @@ export function SourceLinks({ credits }: { credits: () => void }) {
   return (
     <p className="source-links">
       Free software under the <Link href={GPL}>GNU GPL</Link> · <Link href={SOURCE_URL}>Source code</Link> ·{' '}
-      <button type="button" className="linkish" data-credits onClick={credits}>
+      <button type="button" className="linkish" data-flat="" data-credits onClick={credits}>
         Credits
       </button>{' '}
       · <span data-build>{BUILD}</span>
@@ -162,7 +163,7 @@ export function CreditsDialog({ close }: { close: () => void }) {
             option) any later version. It comes with no warranty.
           </p>
           <p>Build: {BUILD}</p>
-          <h3>Source code</h3>
+          <Heading space="section">Source code</Heading>
           <ul>
             <li>
               BrowserCol: <Link href={SOURCE_URL}>{SOURCE_URL}</Link>
@@ -171,13 +172,13 @@ export function CreditsDialog({ close }: { close: () => void }) {
               FreeCol: <Link href={FREECOL_URL}>{FREECOL_URL}</Link>
             </li>
           </ul>
-          <h3>Art, fonts, music and sounds</h3>
+          <Heading space="section">Art, fonts, music and sounds</Heading>
           <p>
             Most of FreeCol’s art, music and sounds are by the FreeCol Team under the GPL v2. These are by others, or
             under other licences:
           </p>
           <Credits list={ASSET_CREDITS} />
-          <h3>Libraries</h3>
+          <Heading space="section">Libraries</Heading>
           <Credits list={LIBRARY_CREDITS} />
         </div>
       </WindowFrame>

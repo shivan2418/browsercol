@@ -8,6 +8,7 @@
 import { useRef, useState, type ReactNode } from 'react';
 import { NumberField as NumberFieldControl, Select, Tip } from './controls';
 import { Box } from './frame';
+import './option-editor.css';
 import type { OptionNode, OptionValue, UnitEntry } from './options';
 
 interface Props {
@@ -26,6 +27,8 @@ interface Props {
   after?: (id: string) => ReactNode;
   /** How to show an option's name, such as with the text a search matched marked; by default as it is. */
   mark?: (label: string) => ReactNode;
+  /** More room above and below each row (the Preferences' detail pane). */
+  roomy?: boolean;
 }
 
 /**
@@ -324,16 +327,16 @@ function Children({ nodes, ...rest }: { nodes: OptionNode[] } & Omit<Props, 'roo
 
 function Group({ node, ...rest }: { node: Extract<OptionNode, { kind: 'group' }> } & Omit<Props, 'root'>) {
   return (
-    <Box caption={node.label} data-group={node.id}>
+    <Box caption={node.label} spaced="normal" data-group={node.id}>
       <Children nodes={node.children} {...rest} />
     </Box>
   );
 }
 
 /** An option group with its options and subgroups, each in a box with the group's name as its caption. */
-export function OptionEditor({ root, ...rest }: Props) {
+export function OptionEditor({ root, roomy, ...rest }: Props) {
   return (
-    <div className="options">
+    <div className="option-editor" data-roomy={roomy ? '' : undefined}>
       <Children nodes={root.kind === 'group' ? root.children : [root]} {...rest} />
     </div>
   );

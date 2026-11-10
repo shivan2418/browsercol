@@ -24,6 +24,7 @@ import path from 'node:path';
 import type { Locator, Page } from 'playwright-core';
 import type { MapView, Unit } from '../src/tileset.ts';
 import { browserNames, collectPageErrors, diagnose, launchBrowser, opt, waitForResult } from './common.ts';
+import { logAudio } from './sound-log.ts';
 import { answerDialogs, dialogLog } from './dialogs.ts';
 import { dist, serveDist } from './serve-dist.ts';
 
@@ -344,7 +345,7 @@ async function play(page: Page, url: string) {
           trains,
           buys,
           sailDisabled: d.querySelector<HTMLButtonElement>('button[data-europe=sail]')?.disabled === true,
-          headings: [...d.querySelectorAll('h2, h3')].map((h) => h.textContent),
+          headings: [...d.querySelectorAll('h2, h3, .box > .cap')].map((h) => h.textContent),
           lists: [...d.querySelectorAll<HTMLElement>('[data-list]')].map((l) => l.dataset.list),
           goods: d.querySelectorAll('[data-goods]').length,
           prices: [...d.querySelectorAll('.price')].map((p) => p.textContent),
@@ -460,12 +461,31 @@ async function play(page: Page, url: string) {
     }
     throw new Error(`the order buttons are not on top ${what}: ${bad.join(', ')}`);
   };
-  /** Do something that ends with a new map view, and return that view. */
-  const act = async (doIt: () => Promise<unknown>) => {
-    await noDialog('a command');
-    const n = await page.evaluate(() => window.__maps);
-    await doIt();
-    await page.waitForFunction((n) => window.__maps > n, n, { timeout: 60000, label: 'the map after a command' });
+  /**
+   * Do something that ends with a new map view, and return that view. A click can be lost without a trace: it
+   * lands on a dialog the Engine queued after noDialog looked, or on a tile that was still sliding under the
+   * pointer (the same reason `select` clicks again). So with `again`, a command that has sent no map view in 8 s
+   * is done again, up to three times, and the last one is waited for 60 s. A key press needs none: pressKey sees
+   * whether the page took the key.
+   */
+  const act = async (doIt: () => Promise<unknown>, { again = false } = {}) => {
+    for (let attempt = 1; ; attempt++) {
+      await noDialog('a command');
+      const n = await page.evaluate(() => window.__maps);
+      await doIt();
+      const last = !again || attempt === 3;
+      const sent = await page
+        .waitForFunction((n) => window.__maps > n, n, {
+          timeout: last ? 60000 : 8000,
+          label: 'the map after a command',
+        })
+        .then(
+          () => true,
+          (ex) => (last ? Promise.reject(ex) : false),
+        );
+      if (sent) break;
+      console.log(`  no map view followed the command; doing it again (${attempt})`);
+    }
     await settled();
     return view();
   };
@@ -551,7 +571,7 @@ async function play(page: Page, url: string) {
   const pickUp = async (thing: Locator, what: string) => {
     for (let i = 0; i < 5; i++) {
       await thing.click();
-      if ((await thing.getAttribute('data-picked')) === 'true') return;
+      if ((await thing.getAttribute('aria-current')) === 'true') return;
       await page.waitForTimeout(300);
     }
     throw new Error(`a click did not pick ${what}`);
@@ -707,7 +727,7 @@ async function play(page: Page, url: string) {
   const moveColonists = async (m: MapView, land: Tile, founder: string) => {
     await noDialog('opening the colony panel');
     await page.evaluate(() => (window.__hold = 'colony'));
-    await act(() => click(m, land));
+    await act(() => click(m, land), { again: true });
     const panel = page.locator('[role=dialog][data-kind=colony]');
     await panel.waitFor({ timeout: 10000, label: 'the colony panel opens' });
     await colonyFits(panel);
@@ -947,7 +967,7 @@ async function play(page: Page, url: string) {
 
     await noDialog('opening the colony panel to load the ship');
     await page.evaluate(() => (window.__hold = 'colony'));
-    await act(() => click(m, land));
+    await act(() => click(m, land), { again: true });
     const panel = page.locator('[role=dialog][data-kind=colony]');
     await panel.waitFor({ timeout: 10000, label: 'the colony panel opens to load the ship' });
     const cargo = panel.locator(`[data-part=cargo][data-ship="${shipId}"]`);
@@ -965,7 +985,7 @@ async function play(page: Page, url: string) {
       const n = await page.evaluate(() => window.__maps);
       for (let i = 0; i < 5; i++) {
         await place.click();
-        if ((await panel.locator('[data-picked=true]').count()) === 0) {
+        if ((await panel.locator('[data-goods][aria-current=true]').count()) === 0) {
           await page.waitForFunction((n) => window.__maps > n, n, {
             timeout: 60000,
             label: 'the map after a pick is put down',
@@ -1282,14 +1302,30 @@ async function play(page: Page, url: string) {
     await page.mouse.down({ button: 'middle' });
     await page.mouse.move(cx + 150, cy + 100, { steps: 5 });
     await page.mouse.up({ button: 'middle' });
-    const dragged = await viewState();
-    if (same(dragged.centre, zoomed.centre)) throw new Error('a drag did not scroll the map');
+    // The centre, as a tile, once the view has moved off `from` (waits up to 5 s, for a slow machine).
+    const movedFrom = async (from: Tile, label: string) => {
+      await page
+        .waitForFunction(
+          ([x, y]) => {
+            const c = window.fcView!().centre;
+            return !c || c[0] !== x || c[1] !== y;
+          },
+          from,
+          { timeout: 5000, label },
+        )
+        .catch(() => {});
+      return viewState();
+    };
+    const dragged = await movedFrom(zoomed.centre!, 'a drag scrolls the map');
+    if (same(dragged.centre, zoomed.centre)) throw new Error('a drag did not scroll the map within 5 s');
     // The right edge, which only the current viewport's width finds after a resize.
     await page.mouse.move(box.x + box.width - 4, cy);
-    await page.waitForTimeout(800);
+    const edged = await movedFrom(dragged.centre!, 'resting the pointer at the right edge scrolls the map');
     await page.mouse.move(cx, cy);
-    if (same((await viewState()).centre, dragged.centre)) {
-      throw new Error('resting the pointer at the right edge did not scroll the map');
+    if (same(edged.centre, dragged.centre)) {
+      throw new Error(
+        `resting the pointer at the right edge did not scroll the map within 5 s: the view stayed at ${label(dragged.centre)}`,
+      );
     }
     await page.mouse.wheel(0, 100);
   };
@@ -1418,7 +1454,7 @@ async function play(page: Page, url: string) {
   // The panel is held open to open the route editor from its New button.
   await noDialog('the Trade routes button');
   await page.evaluate(() => (window.__hold = 'tradeRoutes'));
-  m = await act(() => page.click('button[data-command=tradeRoutes]'));
+  m = await act(() => page.click('button[data-command=tradeRoutes]'), { again: true });
   const routesShown = await page
     .waitForFunction(() => (window.__dialogs ?? []).some((d) => d.startsWith('tradeRoutes: ')), null, {
       timeout: 10000,
@@ -1925,6 +1961,7 @@ for (const name of browsers) {
   const browser = await launchBrowser(name);
   const page = await browser.newPage({ viewport: { width: 1400, height: 900 }, deviceScaleFactor: scale });
   const errors = collectPageErrors(page);
+  if (opt('sound-log', '')) await logAudio(page, name);
   const t = Date.now();
   let result: Result;
   try {

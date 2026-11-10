@@ -1,0 +1,127 @@
+/*
+ * A window (WindowFrame, frame.tsx): a title bar in the menu bar's colours over the panel. Its variant, the
+ * advisor's paper, is WindowFrame's `advisor` prop (data-advised), not a class a panel adds.
+ */
+@layer components {
+  /* The window's own tokens, each a global one by default: a theme may change every window here, or every spacing through --space-*. */
+  :root {
+    --frame-border: var(--border-thick);
+    --frame-shadow: var(--shadow-window);
+    --frame-pad: var(--space-5) var(--space-6);
+    --frame-title-pad: var(--space-1) var(--space-2) var(--space-1) 10px;
+    --frame-title-gap: var(--space-4);
+    /* The window title's case: as FreeCol writes it. */
+    --frame-title-case: none;
+    /* The advisor's paper: the text's margins inside the painted edge, as InformationPanel lays it out. */
+    --frame-paper-pad: 0 28px 24px;
+  }
+  /* At no weight, so that a window's own size (.dialog's, in index.html) wins whichever sheet comes first. */
+  :where(.frame) {
+    max-height: 100%;
+  }
+  .frame {
+    display: flex;
+    flex-direction: column;
+    background: var(--panel);
+    color: var(--ink);
+    border: var(--frame-border) solid var(--line);
+    font: var(--fs) / 1.4 var(--font);
+    box-shadow: var(--frame-shadow);
+  }
+  /* Opening and closing (ticket 270): a short scale and fade; frame.tsx sets data-motion only when it animates. */
+  @keyframes frame-in {
+    from {
+      opacity: 0;
+      scale: 0.94;
+    }
+  }
+  @keyframes frame-out {
+    to {
+      opacity: 0;
+      scale: 0.94;
+    }
+  }
+  .frame[data-motion='in'] {
+    animation: frame-in 120ms ease-out;
+  }
+  .frame[data-motion='out'] {
+    animation: frame-out 120ms ease-in forwards;
+    pointer-events: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .frame[data-motion] {
+      animation: none;
+    }
+  }
+  .frame > .title {
+    display: flex;
+    align-items: center;
+    gap: var(--frame-title-gap);
+    min-height: 1.6em;
+    padding: var(--frame-title-pad);
+    background: var(--menubar);
+    color: var(--menubar-ink);
+  }
+  .frame > .title h2 {
+    flex: 1;
+    margin: 0;
+    font-family: var(--font-title);
+    font-size: var(--fs);
+    font-weight: 700;
+    text-transform: var(--frame-title-case);
+    color: inherit;
+  }
+  .frame > .title .close {
+    margin-left: auto;
+    padding: 0 var(--space-3);
+    color: inherit;
+    background: none;
+    border: 0;
+  }
+  .frame > .body {
+    padding: var(--frame-pad);
+    overflow: auto;
+    min-height: 0;
+  }
+
+  /*
+   * An information panel under FreeCol's advisor (src/advisor.ts): the painted figure and paper are the
+   * window's whole background, at the skin's size as InformationPanel sets it, and the text starts below
+   * the figure. The title bar stays over the figure, empty, to drag the window by.
+   */
+  .frame[data-advised] {
+    position: relative;
+    box-sizing: border-box;
+    width: 530px;
+    height: 510px;
+    padding-top: var(--advisor-top);
+    background: var(--advisor) center top / 100% 100% no-repeat;
+    border: 0;
+    box-shadow: none;
+    filter: drop-shadow(var(--shadow-paper));
+    --ink: var(--paper-ink);
+    --muted: var(--paper-muted);
+    --head: var(--paper-head);
+    --link: var(--paper-link);
+    color: var(--ink);
+  }
+  .frame[data-advised] > .title {
+    position: absolute;
+    inset: 0 0 auto;
+    height: var(--advisor-top);
+    background: none;
+  }
+  .frame[data-advised] > .title .close {
+    display: none;
+  }
+  /* The OK button at the foot of the paper, as InformationPanel lays it out, however short the text. */
+  .frame[data-advised] > .body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: var(--frame-paper-pad);
+  }
+  .frame[data-advised] > .body > .buttons {
+    margin-top: auto;
+  }
+}

@@ -1,0 +1,47 @@
+/*
+ * A heading inside a window (Heading in frame.tsx): an h2 is a part's title, an h3 a section's. Both are in the heading
+ * colour; the room round them and the title font are Heading's props (`space`, `look`), never a panel's selector.
+ * The rules are at no weight (:where), so a part's own rule (a report's h3 with its rule after it) wins whatever the
+ * sheet order.
+ */
+@layer components {
+  :where(.heading) {
+    color: var(--head);
+  }
+  :where(h2.heading) {
+    margin: 0 0 var(--space-4);
+    font-size: var(--fs-h);
+  }
+  :where(h3.heading) {
+    margin: var(--space-4) 0 var(--space-2);
+    font-size: var(--fs);
+  }
+  /* The room round it: none, a little under it, a bit more, a window's own (a loading screen's), a section's. */
+  :where(.heading[data-space='flush']) {
+    margin: 0;
+  }
+  :where(.heading[data-space='tight']) {
+    margin: 0 0 var(--space-1);
+  }
+  :where(.heading[data-space='low']) {
+    margin: 0 0 var(--space-2);
+  }
+  :where(.heading[data-space='window']) {
+    margin: var(--space-5) var(--space-6) var(--space-2);
+  }
+  :where(.heading[data-space='section']) {
+    margin: var(--space-5) 0 var(--space-2);
+  }
+  /* A name over what it describes (a stop's, a negotiation's). */
+  :where(.heading[data-look='title']) {
+    font-family: var(--font-title);
+    font-size: var(--fs-h);
+  }
+  /* The centred line over a question. */
+  :where(.heading[data-look='headline']) {
+    margin: var(--space-2) 0 var(--space-6);
+    text-align: center;
+    font-family: var(--font-title);
+    font-size: calc(var(--fs-h) * 1.5);
+  }
+}

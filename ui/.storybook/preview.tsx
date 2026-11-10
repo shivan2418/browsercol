@@ -1,6 +1,7 @@
 /// <reference types="vite-plus/client" />
 import '../src/theme.css';
 import '../src/fonts.css';
+import '../src/tokens.css';
 import type { Preview } from '@storybook/react-vite';
 import { TipProvider, TooltipLayer } from '../src/controls';
 

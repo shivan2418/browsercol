@@ -1,0 +1,97 @@
+/*
+ * Goods: an icon and its amount (GoodsAmount, frame.tsx), and FreeCol's progress bar of goods towards a need
+ * (GoodsProgressBar, frame.tsx).
+ */
+@layer components {
+  :root {
+    /* The room either side of the number over a pile of icons. */
+    --goods-amount-pad: 0 1px;
+  }
+  /* A goods icon and its amount: a gain, a loss, or greyed out for none. */
+  .goods {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .goods .pile {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 24px;
+  }
+  .goods .pile img {
+    position: absolute;
+    top: 0;
+  }
+  .goods img {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+  }
+  /* ProductionLabel's number: centred over the pile, and as wide as it needs (the pile widens for it), white (red for a loss) with a dark outline, whatever the background. */
+  .goods .pile .amount {
+    position: relative;
+    padding: var(--goods-amount-pad);
+    z-index: 1;
+    white-space: nowrap;
+    font-size: 13px;
+    color: var(--pile-ink);
+    text-shadow:
+      -1px -1px 0 var(--pile-outline),
+      1px -1px 0 var(--pile-outline),
+      -1px 1px 0 var(--pile-outline),
+      1px 1px 0 var(--pile-outline);
+    pointer-events: none;
+  }
+  .goods[data-sign='loss'] .pile .amount {
+    color: var(--pile-loss);
+  }
+  .goods[data-sign='gain'] {
+    color: var(--good);
+  }
+  .goods[data-sign='loss'] {
+    color: var(--bad);
+  }
+  .goods[data-sign='zero'] {
+    color: var(--muted);
+    font-weight: 400;
+    opacity: 0.6;
+  }
+
+  /*
+   * FreeColProgressBar: as tall as its goods icon, with the icon and its text centred over the bar. What is
+   * there shades it, what next turn adds shades it lighter.
+   */
+  .need {
+    position: relative;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 360px;
+    min-height: 30px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: var(--space-3);
+    border: var(--border) solid var(--progress-border);
+    background: var(--box);
+    color: var(--ink);
+  }
+  .need i {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+  }
+  .need i.now {
+    background: var(--progress-now);
+  }
+  .need i.next {
+    background: var(--progress-next);
+  }
+  .need > :not(i) {
+    position: relative;
+  }
+}

@@ -39,6 +39,8 @@ const VIEWS: [string, number][] = ticks
   ? [
       ['zoom1', 0],
       ['zoomout', -2],
+      ['zoomin', 3],
+      ['zoom2', 1],
     ]
   : [
       ['zoom1', 0],

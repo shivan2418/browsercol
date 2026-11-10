@@ -16,6 +16,15 @@ export interface TileRef {
 /** What a turn report's link opens: our colony's panel, or Europe's (WebGUI.link). */
 export type ReportLink = { kind: 'colony'; id: Id } | { kind: 'europe' };
 
+/**
+ * A pop-up the player reads and closes (information, error, event panel, messages). Its id goes back through
+ * the client's popupClosed export once it is closed, or at once if it is not shown: until then the Engine
+ * carries out no Go To orders and ends no turn, as Swing's open panel holds them (#433). Null for none.
+ */
+export interface PopupEvent {
+  popup?: number | null;
+}
+
 /** Events: shown, nothing comes back. */
 import type { OptionGroup } from './options';
 
@@ -47,7 +56,7 @@ export interface GuiEvents {
   /** GUI.playSound: a sound's resource key, or null to stop the sound effect. */
   sound: { key: string | null };
   /** ok: the close button's label, as for the other panels. The tile is the object's, if it has one. */
-  information: { text: string; object: Id | null; images: string[]; ok: string } & TileRef;
+  information: { text: string; object: Id | null; images: string[]; ok: string } & TileRef & PopupEvent;
   /**
    * showLog: the label of the button that opens the log (ErrorPanel's "Show log file"). The rest is for the
    * Copy details button: the non-i18n detail the server sent, the last message the client sent it (XML), and
@@ -61,8 +70,8 @@ export interface GuiEvents {
     request?: string | null;
     turn?: string | null;
     player?: string | null;
-  };
-  eventPanel: { header: string; image: string | null; footer: string | null; ok: string };
+  } & PopupEvent;
+  eventPanel: { header: string; image: string | null; footer: string | null; ok: string } & PopupEvent;
   /**
    * A tile, as FreeCol's TilePanel shows it: the title, its terrain image (keys, with the forest's over
    * it), the lines it has (region, owner, settlement, defence bonus, movement cost) and what a colonist
@@ -202,7 +211,7 @@ export interface GuiEvents {
     groupBy?: { label: string; value: number; choices: { value: number; text: string }[] };
     /** The report again, as it was regrouped: it replaces the open one. */
     regrouped?: boolean;
-  };
+  } & PopupEvent;
   /** A colony, as FreeCol's colony panel shows it (ColonyJson.java). */
   colony: ColonyView;
   /** The colony panel of this colony may close: the player closed it, and said yes if asked (Commands.closeColonyPanel). */

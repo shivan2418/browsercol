@@ -1,6 +1,6 @@
 // The error dialog's log (FreeCol's ErrorPanel "Show log file"): what both Engines logged, in a window.
 import { createContext } from 'react';
-import { WindowFrame } from './frame';
+import { ButtonRow, WindowFrame } from './frame';
 import type { GuiEvents } from './webgui';
 import { useCoverage } from './coverage';
 
@@ -30,11 +30,11 @@ export function LogDialog({ text, close }: { text: string; close: () => void }) 
         >
           {text}
         </pre>
-        <div className="buttons">
+        <ButtonRow>
           <button data-answer="close" onClick={close}>
             OK
           </button>
-        </div>
+        </ButtonRow>
       </WindowFrame>
     </div>
   );

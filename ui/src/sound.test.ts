@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { audioManifest } from './resources';
-import { soundPlayer } from './sound';
+import { soundPlayer, type EffectsOutput } from './sound';
 
 // Layers as FreeCol loads them: data/base, then the "default" TC.
 const base = {
@@ -27,6 +27,7 @@ const files = [
   'base/resources/sound/intro.ogg',
   'default/resources/sound/intro/generic.ogg',
   'default/resources/sound/event/load.ogg',
+  'default/resources/sound/attack/naval.ogg',
   'default/resources/music/default/tailwind.ogg',
   'default/resources/music/default/founders.ogg',
   'default/resources/music/default/README.md',
@@ -37,6 +38,7 @@ describe('audioManifest', () => {
 
   it("resolves each sound's resource key to its file, music where FreeCol types it so", () => {
     expect(m.sounds).toEqual({
+      'sound.attack.naval': { file: 'default/resources/sound/attack/naval.ogg', music: false },
       'sound.intro.general': { file: 'base/resources/sound/intro.ogg', music: true },
       'sound.intro.model.nation.dutch': { file: 'default/resources/sound/intro/generic.ogg', music: true },
       'sound.event.loadCargo': { file: 'default/resources/sound/event/load.ogg', music: false },
@@ -79,10 +81,45 @@ class FakeAudio {
   }
 }
 
+/** A stand-in for the Web Audio effects: a load settles when the test says, and a play is recorded. */
+class FakeEffects implements EffectsOutput {
+  loads: { url: string; done: (b: unknown) => void; fail: () => void }[] = [];
+  played: string[] = [];
+  volume = 1;
+  suspended = false;
+  stops = 0;
+  load(url: string) {
+    return new Promise<unknown>((ok, no) => this.loads.push({ url, done: ok, fail: () => no(new Error('x')) }));
+  }
+  play(buffer: unknown) {
+    if (!this.suspended) this.played.push(buffer as string);
+  }
+  stopAll() {
+    this.stops++;
+  }
+  setVolume(a: number) {
+    this.volume = a;
+  }
+  suspend() {
+    this.suspended = true;
+  }
+  resume() {
+    this.suspended = false;
+  }
+  /** Settle every load asked for so far, its buffer the file's name. */
+  async decodeAll() {
+    for (const l of this.loads.splice(0)) l.done(l.url.replace(/^.*\//, ''));
+    await Promise.resolve();
+    await Promise.resolve();
+  }
+}
+
 describe('soundPlayer', () => {
   const manifest = audioManifest([base, tc], files);
   const setup = () => {
     const made: FakeAudio[] = [];
+    const fx = new FakeEffects();
+    let clock = 0;
     let gesture = () => {};
     const player = soundPlayer(manifest, {
       base: 'audio/',
@@ -91,20 +128,66 @@ describe('soundPlayer', () => {
         made.push(a);
         return a;
       },
+      makeEffects: () => fx,
+      now: () => clock,
       random: () => 0,
       afterGesture: (f) => (gesture = f),
     });
     const playing = () => made.filter((a) => a.playing).map((a) => a.src);
-    return { player, made, playing, gesture: () => gesture() };
+    return { player, made, playing, fx, tick: (ms: number) => (clock += ms), gesture: () => gesture() };
   };
 
-  it('plays music and an effect at once, and a null key stops only the effect', () => {
-    const { player, playing } = setup();
+  it('plays music and an effect at once, and a null key stops only the effect', async () => {
+    const { player, playing, fx } = setup();
+    player.preloadEffects();
+    await fx.decodeAll();
     player.play('sound.intro.general');
     player.play('sound.event.loadCargo');
-    expect(playing()).toEqual(['audio/base/resources/sound/intro.ogg', 'audio/default/resources/sound/event/load.ogg']);
-    player.play(null);
     expect(playing()).toEqual(['audio/base/resources/sound/intro.ogg']);
+    expect(fx.played).toEqual(['load.ogg']);
+    player.play(null);
+    expect(fx.stops).toBe(1);
+    expect(playing()).toEqual(['audio/base/resources/sound/intro.ogg']);
+  });
+
+  it('plays the first effect asked for before it is decoded as soon as it is, if still fresh (#391)', async () => {
+    const { player, fx, tick } = setup();
+    player.play('sound.event.loadCargo');
+    expect(fx.played).toEqual([]);
+    tick(100);
+    await fx.decodeAll();
+    expect(fx.played).toEqual(['load.ogg']);
+  });
+
+  it('drops an effect that waited for its decoding too long', async () => {
+    const { player, fx, tick } = setup();
+    player.play('sound.event.loadCargo');
+    tick(400);
+    await fx.decodeAll();
+    expect(fx.played).toEqual([]);
+    player.play('sound.event.loadCargo'); // the buffer is there now
+    expect(fx.played).toEqual(['load.ogg']);
+  });
+
+  it('lets effects overlap instead of cutting each other off (#391)', async () => {
+    const { player, fx } = setup();
+    player.preloadEffects();
+    await fx.decodeAll();
+    player.play('sound.event.loadCargo');
+    player.play('sound.attack.naval');
+    player.play('sound.event.unloadCargo');
+    expect(fx.played).toEqual(['load.ogg', 'naval.ogg', 'load.ogg']);
+    expect(fx.stops).toBe(0);
+  });
+
+  it('fetches each effect file once, music none, when the game starts', () => {
+    const { player, fx } = setup();
+    player.preloadEffects();
+    player.preloadEffects();
+    expect(fx.loads.map((l) => l.url)).toEqual([
+      'audio/default/resources/sound/event/load.ogg',
+      'audio/default/resources/sound/attack/naval.ogg',
+    ]);
   });
 
   it('lets new music replace the old, and ignores a key with no sound', () => {
@@ -118,11 +201,25 @@ describe('soundPlayer', () => {
   it('pauses the sound while the page is hidden and goes on from there when it shows again', () => {
     const { player, playing } = setup();
     player.play('sound.intro.general');
-    player.play('sound.event.loadCargo');
     player.setHidden(true);
     expect(playing()).toEqual([]);
     player.setHidden(false);
-    expect(playing()).toEqual(['audio/base/resources/sound/intro.ogg']); // the effect is stale by now
+    expect(playing()).toEqual(['audio/base/resources/sound/intro.ogg']);
+  });
+
+  it('suspends the effects while the page is hidden and plays none then', async () => {
+    const { player, fx } = setup();
+    player.preloadEffects();
+    await fx.decodeAll();
+    player.setHidden(true);
+    expect(fx.suspended).toBe(true);
+    expect(fx.stops).toBe(1);
+    player.play('sound.event.loadCargo');
+    expect(fx.played).toEqual([]);
+    player.setHidden(false);
+    expect(fx.suspended).toBe(false);
+    player.play('sound.event.loadCargo');
+    expect(fx.played).toEqual(['load.ogg']);
   });
 
   it('holds music asked for while the page is hidden until it shows', () => {
@@ -186,30 +283,28 @@ describe('soundPlayer', () => {
   });
 
   it("sets each player to its volume option, at once and on FreeCol's logarithmic curve", () => {
-    const { player, made } = setup();
-    const [music, effects] = made;
+    const { player, made, fx } = setup();
+    const [music] = made;
+    player.preloadEffects();
     player.play('sound.intro.general');
     player.setVolumes({ music: 50, effects: 100 });
     // FreeCol's gain over -80..0 dB: -80 + 40 log10(50) dB, a quarter of full amplitude.
     expect(music.volume).toBeCloseTo(0.25);
-    expect(effects.volume).toBe(1);
+    expect(fx.volume).toBe(1);
     player.setVolumes({ music: 0, effects: 10 });
     expect(music.volume).toBe(0);
-    expect(effects.volume).toBeCloseTo(0.01);
+    expect(fx.volume).toBeCloseTo(0.01);
   });
 
   it('starts music the browser refused once the player clicks or presses a key', async () => {
     const { player, made, playing, gesture } = setup();
     made[0].blocked = true;
-    made[1].blocked = true;
     player.play('sound.intro.general');
-    player.play('sound.event.loadCargo');
-    await Promise.resolve(); // the refusals settle
+    await Promise.resolve(); // the refusal settles
     expect(playing()).toEqual([]);
     made[0].blocked = false;
-    made[1].blocked = false;
     gesture();
-    // The effect is stale by then and is dropped; the music starts.
+    // The music starts.
     expect(playing()).toEqual(['audio/base/resources/sound/intro.ogg']);
   });
 
@@ -232,7 +327,7 @@ describe('soundPlayer', () => {
     player.setVolumes({ music: 0, effects: 100 });
     player.play('sound.intro.general');
     player.startPlaylist();
-    expect(made.map((a) => a.src)).toEqual(['', '']);
+    expect(made.map((a) => a.src)).toEqual(['']);
     expect(playing()).toEqual([]);
     player.setVolumes({ music: 50, effects: 100 });
     expect(playing()).toEqual(['audio/base/resources/sound/intro.ogg']);
@@ -251,10 +346,13 @@ describe('soundPlayer', () => {
     expect(playing()).toEqual(['audio/base/resources/sound/intro.ogg']);
   });
 
-  it('downloads no sound effect while the effects volume is 0', () => {
-    const { player, made } = setup();
+  it('downloads no sound effect while the effects volume is 0, and fetches them when it is raised (#347)', () => {
+    const { player, fx } = setup();
     player.setVolumes({ music: 50, effects: 0 });
+    player.preloadEffects();
     player.play('sound.event.loadCargo');
-    expect(made[1]!.src).toBe('');
+    expect(fx.loads).toEqual([]);
+    player.setVolumes({ music: 50, effects: 50 });
+    expect(fx.loads.length).toBe(2);
   });
 });

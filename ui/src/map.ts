@@ -49,6 +49,7 @@ import {
   type MapView,
   type Op,
   type Animated,
+  type WaterLayers,
   type Recipe,
   type Src,
   type StaticScene,
@@ -166,6 +167,25 @@ export function pictures(base: string, load: (path: string) => Promise<Picture> 
     }
     return p;
   };
+  /**
+   * A river's or delta's picture at a tick, drawn straight on its canvas (#410): the water's frame, kept
+   * in the shape (which has the water's alpha); the pebbles under it; the whole kept in the fade and the tile. The shape, pebbles and fade are
+   * the same canvases for every frame, so a frame costs no canvas of its own.
+   */
+  const paint = async (c: HTMLCanvasElement, l: WaterLayers, t: Ticks): Promise<HTMLCanvasElement> => {
+    const [water, shape, under, keep] = await Promise.all([get(l.water(t)), get(l.shape), get(l.under), get(l.keep)]);
+    const g = c.getContext('2d')!;
+    g.globalCompositeOperation = 'copy';
+    g.drawImage(water, 0, 0, W, H);
+    g.globalCompositeOperation = 'destination-in';
+    g.drawImage(shape, 0, 0, W, H);
+    g.globalCompositeOperation = 'destination-over';
+    g.drawImage(under, 0, 0, W, H);
+    g.globalCompositeOperation = 'destination-in';
+    g.drawImage(keep, 0, 0, W, H);
+    g.globalCompositeOperation = 'source-over';
+    return c;
+  };
   const tickKey = (t: Ticks) => `${t.water}:${t.river}`;
   /** Each animated picture's canvas, and the frame it shows. */
   const lives = new Map<string, Promise<HTMLCanvasElement>>();
@@ -176,9 +196,15 @@ export function pictures(base: string, load: (path: string) => Promise<Picture> 
     let p = lives.get(anim.id);
     if (!p) {
       const at = ticks;
-      p = frame(anim.animate(at)).then((pic) => {
-        const c = canvas(pic.width, pic.height);
-        c.getContext('2d')!.drawImage(pic, 0, 0);
+      p = (
+        anim.layers
+          ? paint(canvas(W, H), anim.layers, at)
+          : frame(anim.animate(at)).then((pic) => {
+              const c = canvas(pic.width, pic.height);
+              c.getContext('2d')!.drawImage(pic, 0, 0);
+              return c;
+            })
+      ).then((c) => {
         liveOf.set(c, { anim, shows: tickKey(at) });
         return c;
       });
@@ -201,11 +227,16 @@ export function pictures(base: string, load: (path: string) => Promise<Picture> 
       if (l && l.shows !== key) due.push([pic as HTMLCanvasElement, l]);
     }
     keptFrames = Math.max(KEPT_FRAMES, live * FRAMES_EACH);
-    const next = await Promise.all(due.map(([, l]) => frame(l.anim.animate(t))));
+    const next = await Promise.all(
+      due.map(([c, l]) => (l.anim.layers ? paint(c, l.anim.layers, t) : frame(l.anim.animate(t)))),
+    );
     due.forEach(([c, l], i) => {
-      const g = c.getContext('2d')!;
-      g.clearRect(0, 0, c.width, c.height);
-      g.drawImage(next[i], 0, 0);
+      // A layered picture is drawn already.
+      if (!l.anim.layers) {
+        const g = c.getContext('2d')!;
+        g.clearRect(0, 0, c.width, c.height);
+        g.drawImage(next[i], 0, 0);
+      }
       l.shows = key;
     });
     return due.map(([c]) => c);
@@ -603,7 +634,8 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
         culledAt = { x: world.position.x, y: world.position.y, scale: world.scale.x, w: s.width, h: s.height };
         culls++;
       }
-      for (const c of cullAll ? [app.stage] : toCull) Culler.shared.cull(c, area, false);
+      // A hidden layer is left as it was culled: showing it again culls it (fade).
+      for (const c of cullAll ? layers : toCull) if (c.visible) Culler.shared.cull(c, area, false);
       cullAll = false;
       toCull.clear();
       app.render();
@@ -760,7 +792,10 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
       box: whole ? [x - 4, y - 4, W + 8, H + 8] : [x, y, pic.width, pic.height],
     });
   };
-  /** Tell the chunks what is on the screen, in map pixels, and what to keep built round it. */
+  /**
+   * Tell the chunks what is on the screen, in map pixels, what to keep built round it, and what to build ahead when
+   * the page is idle: a quarter of the screen past each edge, within what is kept.
+   */
   const chunkView = () => {
     if (!chunkLayers.size) return;
     const k = world.scale.x;
@@ -770,7 +805,8 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
     const [w, h] = [s.width / k, s.height / k];
     const view = new Rectangle(x - 32, y - 32, w + 64, h + 64);
     const keep = new Rectangle(x - w / 2, y - h / 2, 2 * w, 2 * h);
-    for (const c of chunkLayers.values()) c.setView(view, keep);
+    const ahead = new Rectangle(x - w / 4, y - h / 4, 1.5 * w, 1.5 * h);
+    for (const c of chunkLayers.values()) c.setView(view, keep, ahead);
   };
   /** The shader water, under the animated base, once start() gives it a look. */
   let surface: WaterSurface | null = null;
@@ -1042,7 +1078,12 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
       if (alpha === fadeAlpha) return;
       fadeAlpha = alpha;
       layers[3].alpha = alpha;
-      redraw(null);
+      // Faded out, the cover is hidden: PixiJS would still draw it, and cull it at each pan, and after a big reveal
+      // (the whole map at once) it is thousands of pictures (#419).
+      const shown = alpha > 0;
+      const again = shown && !layers[3].visible;
+      layers[3].visible = shown;
+      redraw(again ? layers[3] : null);
     },
     marker: (alpha) => {
       if (alpha === markerAlpha) return;
@@ -1966,6 +2007,8 @@ export function mapDrawer(
           camera();
         }
         measure('map: water', start);
+        // What the animated pictures hold, for scripts/rivers-bench.ts: frames kept (each a tile-sized canvas) and live pictures.
+        performance.mark('map: pictures', { detail: { kept: pics.kept(), live: pics.live() } });
       })
       .finally(() => {
         baseBusy = false;

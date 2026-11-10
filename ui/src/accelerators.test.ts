@@ -50,4 +50,17 @@ describe('inTextField', () => {
     expect(inTextField(document.body)).toBe(false);
     expect(inTextField(null)).toBe(false);
   });
+
+  it("counts every field the player types into: a select, a combobox, an editable box, a number field's steps", () => {
+    const el = (html: string) => {
+      const box = document.createElement('div');
+      box.innerHTML = html;
+      return box.firstElementChild;
+    };
+    expect(inTextField(el('<select></select>'))).toBe(true);
+    expect(inTextField(el('<div role="combobox"></div>'))).toBe(true);
+    expect(inTextField(el('<div contenteditable="true"></div>'))).toBe(true);
+    expect(inTextField(el('<button class="ui-number-step"></button>'))).toBe(true);
+    expect(inTextField(el('<button>Europe</button>'))).toBe(false);
+  });
 });

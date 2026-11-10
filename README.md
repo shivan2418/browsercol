@@ -3,7 +3,7 @@
 **FreeCol in the browser.** No install, no server: the whole game, AI
 included, runs in the page.
 
-▶ **Play it at <https://shivan2418.github.io/browsercol/>**
+▶ **Play it at <https://browsercol.com/play/>** ([the landing page](https://browsercol.com/) says what it is)
 
 ## How it works
 
@@ -28,7 +28,7 @@ such as Engine, Browser UI and Tileset are defined in
 ## Developing
 
 > **Just want to play?** You don't need anything below: open
-> <https://shivan2418.github.io/browsercol/> in Chrome or Firefox. Nothing to
+> <https://browsercol.com/play/> in Chrome or Firefox. Nothing to
 > install.
 
 To work on BrowserCol itself, you need Docker and [`just`](https://github.com/casey/just). Every tool
@@ -130,14 +130,21 @@ FreeCol's rules and English strings into a data file and copies FreeCol's
 translations to `strings/`, which the page fetches for the player's
 language. It also copies the default Tileset's art
 (`ui/scripts/build-art.ts`, which prints the art budget) and runs
-`vp build` into `dist/`. Serve `dist/` from any static host: its URLs are
-relative, so a sub-path such as GitHub Pages' `/<repo>/` works.
+`vp build` into `dist/play/`, the game. The site's root, `dist/index.html`,
+is the landing page (`ui/site/`, plain HTML and CSS, with the logo and fonts
+copied beside it); a root URL carrying game parameters is forwarded to
+`play/`. Serve `dist/` from any static host: its URLs are relative, so a
+sub-path such as GitHub Pages' `/<repo>/` works.
 
 ### Deploying
 
-A push to `main` does not deploy. `just deploy` tags `origin/main` as the
-next build (`build-1`, `build-2`, ...) and pushes the tag, and the Pages
-workflow builds and deploys it. The page shows its build on the start screen
+A push to `main` that changes the landing page (`ui/site/`, or the logo and
+fonts it uses) deploys it around the game of the latest build (the Site
+workflow, about a minute). The
+game changes only with `just deploy`, which tags `origin/main` as the next
+build (`build-1`, `build-2`, ...) and pushes the tag; the Pages workflow builds
+and deploys it and makes a release, `build-N`, holding the game as
+`play.tar.gz` for later page deploys. The page shows its build on the start screen
 and in the credits, with its commit and date (a local build says `dev`). Builds are numbered rather than versioned, because the
 only promise to players is that their saves keep loading (ADR 0007).
 `SaveGameTest` loads every save in `engine/src/test/resources/saves/`; add one
@@ -163,7 +170,7 @@ after a change to what a save holds.
 | `docs/` | `adr/` decision records, `research/` notes, `parity/` the Swing parity inventory, `teavm.md` TeaVM's quirks and our workarounds, `agents/` how coding agents use the tracker, `upstream-fixes.md` FreeCol bugs our patches fix |
 | `docker/` | `dev.Dockerfile` (JDK, Gradle, Node, pnpm) and `web.Dockerfile` (Playwright with Chromium and Firefox) |
 | `.githooks/` | The commit gate: `pre-commit` compiles the Engine, `commit-msg` requires an author trailer |
-| `.github/workflows/` | `suite.yml` (the whole suite) and `pages.yml` (deploy to Pages on a `build-N` tag) |
+| `.github/workflows/` | `suite.yml` (the whole suite), `pages.yml` (deploy the game to Pages on a `build-N` tag) and `site.yml` (deploy the landing page when a push to `main` changes it) |
 | `dev.sh`, `build.sh`, `ci.sh`, `freecol.sh` | Run in Docker; build `dist/`; the suite on Actions; pin and update `freecol/` |
 
 Gitignored: `freecol/` (the upstream clone), `ui/generated/` (built modules
@@ -219,6 +226,8 @@ unit can't take it.
   `--check-savegame` on a save.
 
 ### URL parameters
+
+The game's URL is `play/`; the parameters go on it (a site root URL that carries one is forwarded there).
 
 | Parameter | Effect |
 | --- | --- |

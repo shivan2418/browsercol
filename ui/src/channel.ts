@@ -183,6 +183,8 @@ export interface ClientExports {
   assignTradeRoute(unit: string, route: string): void;
   /** As assignTradeRoute, but the panel is not sent again: its OK button closes it. */
   confirmTradeRoute(unit: string, route: string): void;
+  /** A pop-up is closed, by its event's popup id: once none is open, the Go To orders go on (#433). */
+  popupClosed(id: number): void;
   // The turn report's buttons (WebGUI.reportGroupBy and the others). Each message is named by its
   // place in the report as shown.
   /** Group the report by 0 nothing, 1 type or 2 source; the report is shown again, regrouped. */

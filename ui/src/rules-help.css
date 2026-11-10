@@ -1,0 +1,52 @@
+/*
+ * What the rule sets change (RulesHelp in rules-help.tsx), in the new game window's help pop-up: a table with its
+ * header held at the top as it scrolls, striped lines, and a line over each group of rules.
+ */
+@layer components {
+  :root {
+    --rules-help-cell: var(--space-1) 10px var(--space-1) 0;
+    --rules-help-group-top: 10px;
+  }
+  .rules-help p {
+    margin: var(--space-2) 0;
+  }
+  .rules-help table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+  .rules-help thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: var(--space-2) 0;
+    text-align: left;
+    background: var(--panel);
+    border-bottom: var(--border) solid var(--line);
+  }
+  .rules-help thead th:first-child {
+    width: 30%;
+  }
+  .rules-help td,
+  .rules-help-theme th {
+    padding: var(--rules-help-cell);
+    vertical-align: top;
+    text-align: left;
+  }
+  .rules-help tbody tr:nth-child(even) {
+    background: var(--stripe);
+  }
+  .rules-help tbody tr.rules-help-theme {
+    background: none;
+  }
+  .rules-help-theme th {
+    padding-top: var(--rules-help-group-top);
+    border-bottom: var(--border) solid var(--line);
+  }
+  .rules-help th.rules-help-what {
+    padding: var(--rules-help-cell);
+    vertical-align: top;
+    text-align: left;
+    overflow-wrap: anywhere;
+  }
+}

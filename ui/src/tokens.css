@@ -1,0 +1,38 @@
+/*
+ * The theme's tokens other than its colours (theme.css) and fonts (fonts.css): spacing steps, corner radii,
+ * border widths, the caption's type and shadows (#421, docs/adr/0008).
+ *
+ * Tokens are the only way a theme speaks to the components: a component reads these, often through a token of
+ * its own that defaults to one of them (frame.css's --frame-pad is var(--space-5) var(--space-6)), and never
+ * hard-codes a spacing, radius, border width or shadow a theme might change. A theme changes them in one rule,
+ * here or beside its palette, on :root[data-theme='NAME']: --space-4 for every gap at once, --frame-pad for the
+ * windows alone. They are in the theme layer, the last, so a theme's rule wins over a component's own default
+ * without a fight over specificity.
+ */
+@layer theme {
+  :root {
+    /* Spacing steps, smallest first: the gaps and paddings of windows, boxes, buttons and rows. */
+    --space-1: 2px;
+    --space-2: 4px;
+    --space-3: 6px;
+    --space-4: 8px;
+    --space-5: 12px;
+    --space-6: 16px;
+    /* Corners: a field's or a box's, and a tab's top. FreeCol's windows and buttons are square. */
+    --radius-s: 3px;
+    --radius-m: 4px;
+    /* Border widths: a line round a box or a button, and a window's frame. */
+    --border: 1px;
+    --border-thick: 2px;
+    /* A box's caption (FreeCol's titled borders, "IN PORT"): its size, weight, case and letter spacing. */
+    --caption-size: 12px;
+    --caption-weight: 700;
+    --caption-case: uppercase;
+    --caption-tracking: 0.05em;
+    /* Shadows, which darken whatever is under them: a window over the page, and the advisor's paper (a drop shadow round its painted edge). */
+    --shadow-window: 0 10px 40px rgb(0 0 0 / 45%);
+    --shadow-paper: 0 10px 24px rgb(0 0 0 / 45%);
+    /* A pop-up over the page: a menu, a select's list, a tooltip. */
+    --shadow-popup: 0 4px 12px rgb(0 0 0 / 40%);
+  }
+}

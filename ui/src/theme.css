@@ -11,101 +11,105 @@
  * Preferences (or ?theme=dark). A new palette is one more
  * :root[data-theme='NAME'] block that sets every token, and an entry in
  * PALETTES (theme.ts); theme.test.ts checks that each palette sets them all.
+ *
+ * They are in the theme layer (docs/adr/0008), the last, so a palette wins over any component's rule.
  */
-:root {
-  /* The menu bar over the map, and the title bars of windows. */
-  --menubar: #3b2a17;
-  --menubar-ink: #f3e6c4;
-  /* What is behind the map and the panels. */
-  --page: #1d4357;
-  /* A window or panel, and a boxed section inside one. */
-  --panel: #e9dcb8;
-  --box: #f4ead0;
-  /* Every other row of a table (the rules summary), a shade over the panel. */
-  --stripe: rgb(0 0 0 / 7%);
-  /* Text: normal, quiet (secondary) and headings. */
-  --ink: #2a1c0c;
-  --muted: #6e5634;
-  --head: #5a3714;
-  /* Borders and dividers. */
-  --line: #8c6c3c;
-  /* Buttons and their text. */
-  --btn: #cdb27a;
-  --btn-ink: #2a1c0c;
-  /* A button's bevel (FreeColButtonUI): the lit edge, the shaded edge, and the shade over it under the pointer. */
-  --btn-hi: rgb(255 255 255 / 50%);
-  --btn-lo: rgb(70 40 10 / 45%);
-  --btn-hover: rgb(0 0 0 / 10%);
-  /* The default button, focus, progress bars. */
-  --accent: #8a2e12;
-  /* Links. */
-  --link: #1f4f8b;
-  /*
-   * FreeColProgressBar: its border, the shade over what is there, and the lighter one over what next turn adds
-   * (Swing's black at alpha 70 and 40).
-   */
-  --progress-border: #7a6d52;
-  --progress-now: rgb(0 0 0 / 27%);
-  --progress-next: rgb(0 0 0 / 16%);
-  /* Gains and losses (+3, −2), and warnings. */
-  --good: #1f6b1f;
-  --bad: #b01e10;
-  --warn: #8a5a00;
-  /* The dimming behind a modal dialog. */
-  --backdrop: rgb(0 0 0 / 40%);
-  /* The border round a chip on a unit, drawn on its owner's colour (ImageLibrary.createChip). */
-  --chip-border: #000000;
-  /* The number over a pile of goods icons (ProductionLabel): white, red for a loss, outlined so it reads on any icon. */
-  --pile-ink: #ffffff;
-  --pile-loss: #e02020;
-  --pile-outline: #000000;
-  /*
-   * Text on FreeCol's painted paper (the advisor's sheet, the info panel's): the paper is light in every
-   * palette, so these stay dark ink.
-   */
-  --paper-ink: #2a1c0c;
-  --paper-muted: #6e5634;
-  --paper-head: #5a3714;
-  --paper-link: #1f4f8b;
+@layer theme {
+  :root {
+    /* The menu bar over the map, and the title bars of windows. */
+    --menubar: #3b2a17;
+    --menubar-ink: #f3e6c4;
+    /* What is behind the map and the panels. */
+    --page: #1d4357;
+    /* A window or panel, and a boxed section inside one. */
+    --panel: #e9dcb8;
+    --box: #f4ead0;
+    /* Every other row of a table (the rules summary), a shade over the panel. */
+    --stripe: rgb(0 0 0 / 7%);
+    /* Text: normal, quiet (secondary) and headings. */
+    --ink: #2a1c0c;
+    --muted: #6e5634;
+    --head: #5a3714;
+    /* Borders and dividers. */
+    --line: #8c6c3c;
+    /* Buttons and their text. */
+    --btn: #cdb27a;
+    --btn-ink: #2a1c0c;
+    /* A button's bevel (FreeColButtonUI): the lit edge, the shaded edge, and the shade over it under the pointer. */
+    --btn-hi: rgb(255 255 255 / 50%);
+    --btn-lo: rgb(70 40 10 / 45%);
+    --btn-hover: rgb(0 0 0 / 10%);
+    /* The default button, focus, progress bars. */
+    --accent: #8a2e12;
+    /* Links. */
+    --link: #1f4f8b;
+    /*
+     * FreeColProgressBar: its border, the shade over what is there, and the lighter one over what next turn adds
+     * (Swing's black at alpha 70 and 40).
+     */
+    --progress-border: #7a6d52;
+    --progress-now: rgb(0 0 0 / 27%);
+    --progress-next: rgb(0 0 0 / 16%);
+    /* Gains and losses (+3, −2), and warnings. */
+    --good: #1f6b1f;
+    --bad: #b01e10;
+    --warn: #8a5a00;
+    /* The dimming behind a modal dialog. */
+    --backdrop: rgb(0 0 0 / 40%);
+    /* The border round a chip on a unit, drawn on its owner's colour (ImageLibrary.createChip). */
+    --chip-border: #000000;
+    /* The number over a pile of goods icons (ProductionLabel): white, red for a loss, outlined so it reads on any icon. */
+    --pile-ink: #ffffff;
+    --pile-loss: #e02020;
+    --pile-outline: #000000;
+    /*
+     * Text on FreeCol's painted paper (the advisor's sheet, the info panel's): the paper is light in every
+     * palette, so these stay dark ink.
+     */
+    --paper-ink: #2a1c0c;
+    --paper-muted: #6e5634;
+    --paper-head: #5a3714;
+    --paper-link: #1f4f8b;
 
-  /* --font and --font-title come from the font set, in fonts.css. */
-  --font-mono: ui-monospace, 'DejaVu Sans Mono', monospace;
-  --fs: 15px;
-  --fs-s: 13px;
-  --fs-h: 17px;
-}
+    /* --font and --font-title come from the font set, in fonts.css. */
+    --font-mono: ui-monospace, 'DejaVu Sans Mono', monospace;
+    --fs: 15px;
+    --fs-s: 13px;
+    --fs-h: 17px;
+  }
 
-:root[data-theme='dark'] {
-  --menubar: #0b0b0c;
-  --menubar-ink: #f2f2f2;
-  --page: #111214;
-  --panel: #16171a;
-  --box: #202227;
-  --stripe: rgb(255 255 255 / 6%);
-  --ink: #f1f1f1;
-  --muted: #a9abb3;
-  --head: #ffd60a;
-  --line: #3d4049;
-  --btn: #2c2f36;
-  --btn-ink: #ffffff;
-  --btn-hi: rgb(255 255 255 / 16%);
-  --btn-lo: rgb(0 0 0 / 60%);
-  --btn-hover: rgb(255 255 255 / 8%);
-  --accent: #ffd60a;
-  --link: #8cc4ff;
-  --progress-border: #3d4049;
-  --progress-now: rgb(255 255 255 / 27%);
-  --progress-next: rgb(255 255 255 / 14%);
-  --good: #4ade80;
-  --bad: #ff6b6b;
-  --warn: #ffb020;
-  --backdrop: rgb(0 0 0 / 55%);
-  --chip-border: #000000;
-  --pile-ink: #ffffff;
-  --pile-loss: #ff4d4d;
-  --pile-outline: #000000;
-  --paper-ink: #2a1c0c;
-  --paper-muted: #6e5634;
-  --paper-head: #5a3714;
-  --paper-link: #1f4f8b;
+  :root[data-theme='dark'] {
+    --menubar: #0b0b0c;
+    --menubar-ink: #f2f2f2;
+    --page: #111214;
+    --panel: #16171a;
+    --box: #202227;
+    --stripe: rgb(255 255 255 / 6%);
+    --ink: #f1f1f1;
+    --muted: #a9abb3;
+    --head: #ffd60a;
+    --line: #3d4049;
+    --btn: #2c2f36;
+    --btn-ink: #ffffff;
+    --btn-hi: rgb(255 255 255 / 16%);
+    --btn-lo: rgb(0 0 0 / 60%);
+    --btn-hover: rgb(255 255 255 / 8%);
+    --accent: #ffd60a;
+    --link: #8cc4ff;
+    --progress-border: #3d4049;
+    --progress-now: rgb(255 255 255 / 27%);
+    --progress-next: rgb(255 255 255 / 14%);
+    --good: #4ade80;
+    --bad: #ff6b6b;
+    --warn: #ffb020;
+    --backdrop: rgb(0 0 0 / 55%);
+    --chip-border: #000000;
+    --pile-ink: #ffffff;
+    --pile-loss: #ff4d4d;
+    --pile-outline: #000000;
+    --paper-ink: #2a1c0c;
+    --paper-muted: #6e5634;
+    --paper-head: #5a3714;
+    --paper-link: #1f4f8b;
+  }
 }

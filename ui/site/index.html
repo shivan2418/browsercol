@@ -1,0 +1,770 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BrowserCol: FreeCol in your browser</title>
+    <meta
+      name="description"
+      content="BrowserCol is FreeCol, the open-source Colonization, running in your browser. Free, with no install and no account."
+    />
+    <meta name="color-scheme" content="light" />
+    <meta property="og:title" content="BrowserCol: FreeCol in your browser" />
+    <meta
+      property="og:description"
+      content="Found colonies, trade with the natives and win independence. Free, no install, no account."
+    />
+    <meta property="og:image" content="https://browsercol.com/img/game.webp" />
+    <link rel="icon" type="image/svg+xml" href="./play/icons/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="./play/icons/favicon-32.png" />
+    <link rel="apple-touch-icon" href="./play/icons/apple-touch-icon.png" />
+    <link rel="preload" href="./fonts/cinzel-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <script>
+      // Old links to the site's root that carry game parameters go to the game with the same query.
+      (function () {
+        var game =
+          /[?&](preset|autoplay|load|rules|resume|skipstart|new|debug|renderer|theme|tileset|slidetiming|perfnominimap)(=|&|$)/;
+        if (game.test(location.search)) location.replace('play/' + location.search + location.hash);
+      })();
+    </script>
+    <style>
+      @font-face {
+        font-family: 'Cinzel';
+        font-weight: 400;
+        font-display: swap;
+        src: url('./fonts/cinzel-latin-400-normal.woff2') format('woff2');
+      }
+      @font-face {
+        font-family: 'Cinzel';
+        font-weight: 700;
+        font-display: swap;
+        src: url('./fonts/cinzel-latin-700-normal.woff2') format('woff2');
+      }
+      @font-face {
+        font-family: 'Noto Sans';
+        font-weight: 400;
+        font-display: swap;
+        src: url('./fonts/noto-sans-latin-400-normal.woff2') format('woff2');
+      }
+      @font-face {
+        font-family: 'Noto Sans';
+        font-weight: 700;
+        font-display: swap;
+        src: url('./fonts/noto-sans-latin-700-normal.woff2') format('woff2');
+      }
+
+      /* The tokens are the game's parchment palette (ui/src/theme.css), in light only: the logo's own look. */
+      :root {
+        --menubar: #3b2a17;
+        --menubar-ink: #f3e6c4;
+        --page: #e9dcb8;
+        --panel: #f4ead0;
+        --ink: #2a1c0c;
+        --muted: #6e5634;
+        --head: #5a3714;
+        --line: #8c6c3c;
+        --btn-hi: rgb(255 255 255 / 50%);
+        --btn-lo: rgb(70 40 10 / 45%);
+        --accent: #8a2e12;
+        --accent-ink: #f8ecd0;
+        --link: #8a2e12;
+        --font: 'Noto Sans', system-ui, sans-serif;
+        --font-title: 'Cinzel', 'Palatino Linotype', Georgia, serif;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        background: var(--page);
+        color: var(--ink);
+        font: 17px/1.6 var(--font);
+        -webkit-text-size-adjust: 100%;
+      }
+      body {
+        margin: 0;
+        background: var(--page);
+      }
+      a {
+        color: var(--link);
+        text-underline-offset: 3px;
+      }
+      a:focus-visible,
+      summary:focus-visible {
+        outline: 3px solid var(--accent);
+        outline-offset: 3px;
+      }
+      .wrap {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 0 20px;
+      }
+
+      /* The title bar, as the game's menu bar. */
+      header.bar {
+        background: var(--menubar);
+        color: var(--menubar-ink);
+        border-bottom: 3px double color-mix(in srgb, var(--menubar-ink) 45%, transparent);
+      }
+      header.bar .wrap {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        min-height: 52px;
+      }
+      header.bar img {
+        height: 30px;
+        width: auto;
+        display: block;
+        border-radius: 4px;
+      }
+      header.bar nav {
+        display: flex;
+        gap: 18px;
+        font: 700 13px/1 var(--font-title);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      header.bar nav a {
+        color: var(--menubar-ink);
+        text-decoration: none;
+      }
+      header.bar nav {
+        align-items: center;
+      }
+      header.bar nav .gh svg {
+        display: block;
+      }
+      header.bar nav a:hover {
+        text-decoration: underline;
+      }
+
+      /* The wordmark stands on a parchment cartouche in both palettes: its letters are sepia ink. */
+      .hero {
+        padding: 40px 0 20px;
+        text-align: center;
+      }
+      .cartouche {
+        background: #efe2bf;
+        color: #2a1c0c;
+        border: 4px double #8c6c3c;
+        border-radius: 6px;
+        padding: clamp(18px, 4vw, 36px) clamp(16px, 5vw, 48px);
+        box-shadow:
+          0 2px 0 rgb(0 0 0 / 15%),
+          0 12px 30px -12px rgb(0 0 0 / 45%);
+      }
+      .cartouche img {
+        display: block;
+        width: min(100%, 640px);
+        height: auto;
+        margin: 0 auto;
+      }
+      .cartouche p {
+        margin: clamp(10px, 2vw, 18px) auto 0;
+        max-width: 34em;
+        font: 400 clamp(1.1rem, 2.4vw, 1.4rem) / 1.45 var(--font);
+      }
+      .cartouche p strong {
+        color: #8a2e12;
+      }
+      .actions {
+        margin: 28px 0 8px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+      }
+      .play {
+        display: inline-block;
+        padding: 16px 56px;
+        font: 700 clamp(1.4rem, 4vw, 1.9rem) / 1 var(--font-title);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        text-decoration: none;
+        color: var(--accent-ink);
+        background: var(--accent);
+        border: 2px solid var(--line);
+        border-radius: 4px;
+        box-shadow:
+          inset 2px 2px 0 var(--btn-hi),
+          inset -2px -2px 0 var(--btn-lo),
+          0 6px 16px -6px rgb(0 0 0 / 55%);
+      }
+      .play:hover {
+        filter: brightness(1.12);
+      }
+      .play:active {
+        transform: translateY(1px);
+      }
+      .note {
+        margin: 0;
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+
+      /* The screenshots: a row of slides that snaps, with arrows and dots; it works by swipe and scroll without the script. */
+      .carousel {
+        position: relative;
+        margin: 28px 0 0;
+      }
+      .track {
+        display: flex;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        scrollbar-width: none;
+        border-radius: 4px;
+      }
+      .track::-webkit-scrollbar {
+        display: none;
+      }
+      .track:focus-visible {
+        outline: 3px solid var(--accent);
+        outline-offset: 3px;
+      }
+      .slide {
+        flex: 0 0 100%;
+        margin: 0;
+        scroll-snap-align: center;
+      }
+      .slide img {
+        display: block;
+        width: 100%;
+        height: auto;
+        border: 4px double var(--line);
+        border-radius: 4px;
+        background: var(--menubar);
+      }
+      .slide figcaption {
+        margin-top: 8px;
+        font-size: 0.9rem;
+        color: var(--muted);
+        text-align: center;
+      }
+      .arrow {
+        position: absolute;
+        top: calc(50% - 40px);
+        width: 44px;
+        height: 64px;
+        display: grid;
+        place-items: center;
+        padding: 0 0 4px;
+        font: 700 2.4rem/1 var(--font-title);
+        color: var(--accent-ink);
+        background: color-mix(in srgb, var(--menubar) 82%, transparent);
+        border: 2px solid var(--line);
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .arrow:hover {
+        background: var(--accent);
+      }
+      .arrow:focus-visible,
+      .dots button:focus-visible {
+        outline: 3px solid var(--accent);
+        outline-offset: 2px;
+      }
+      .arrow:disabled {
+        opacity: 0.35;
+        cursor: default;
+        background: color-mix(in srgb, var(--menubar) 82%, transparent);
+      }
+      .prev {
+        left: 12px;
+      }
+      .next {
+        right: 12px;
+      }
+      .dots {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin-top: 10px;
+      }
+      .dots button {
+        width: 12px;
+        height: 12px;
+        padding: 0;
+        border: 2px solid var(--line);
+        border-radius: 50%;
+        background: transparent;
+        cursor: pointer;
+      }
+      .dots button[aria-current='true'] {
+        background: var(--accent);
+        border-color: var(--accent);
+      }
+      /* Without the script there are no arrows or dots: the row still scrolls. */
+      .carousel:not(.ready) .arrow,
+      .carousel:not(.ready) .dots {
+        display: none;
+      }
+
+      section {
+        padding: 36px 0 4px;
+      }
+      h2 {
+        margin: 0 0 14px;
+        font: 700 1.35rem/1.2 var(--font-title);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--head);
+        padding-bottom: 8px;
+        border-bottom: 3px double var(--line);
+      }
+      .lede {
+        margin: 0 0 14px;
+        font-size: 1.05rem;
+      }
+      .features {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 14px;
+      }
+      .features li {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        padding: 14px 16px;
+        font-size: 0.95rem;
+        line-height: 1.5;
+      }
+      .features b {
+        display: block;
+        margin-bottom: 2px;
+        font: 700 0.95rem/1.3 var(--font-title);
+        letter-spacing: 0.06em;
+        color: var(--head);
+      }
+
+      /* The roadmap: three stages left to right, joined by a rule, stacked on narrow screens. */
+      .roadmap {
+        list-style: none;
+        margin: 0 0 12px;
+        padding: 0;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 14px;
+      }
+      .roadmap > li {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-top: 6px solid var(--line);
+        border-radius: 4px;
+        padding: 14px 16px;
+      }
+      .roadmap > li.now {
+        border-top-color: var(--accent);
+      }
+      .roadmap h3 {
+        margin: 0 0 8px;
+        font: 700 1.6rem/1.2 var(--font-title);
+        letter-spacing: 0.06em;
+        color: var(--head);
+      }
+      .roadmap h3 span {
+        display: block;
+        font: 700 0.75rem/1.4 var(--font);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .roadmap .now h3 span {
+        color: var(--accent);
+      }
+      .roadmap p {
+        margin: 0;
+        font-size: 0.95rem;
+        line-height: 1.5;
+      }
+      #roadmap .note a {
+        color: var(--link);
+      }
+
+      details {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        margin-bottom: 8px;
+      }
+      summary {
+        cursor: pointer;
+        padding: 12px 16px;
+        font-weight: 700;
+        list-style: none;
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      summary::-webkit-details-marker {
+        display: none;
+      }
+      summary::after {
+        content: '+';
+        font-family: var(--font-title);
+        color: var(--accent);
+      }
+      details[open] > summary::after {
+        content: '\2212';
+      }
+      details > div {
+        padding: 0 16px 14px;
+      }
+      details p {
+        margin: 0 0 8px;
+      }
+      details p:last-child {
+        margin-bottom: 0;
+      }
+
+      .credit {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-left: 6px solid var(--accent);
+        border-radius: 4px;
+        padding: 16px 20px;
+      }
+      .credit p {
+        margin: 0 0 10px;
+      }
+      .credit p:last-child {
+        margin-bottom: 0;
+      }
+
+      footer {
+        margin-top: 48px;
+        background: var(--menubar);
+        color: var(--menubar-ink);
+        border-top: 3px double color-mix(in srgb, var(--menubar-ink) 45%, transparent);
+        padding: 28px 0 36px;
+        font-size: 0.95rem;
+      }
+      footer a {
+        color: var(--menubar-ink);
+      }
+      footer ul {
+        list-style: none;
+        margin: 0 0 16px;
+        padding: 0;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 26px;
+        font-weight: 700;
+      }
+      footer p {
+        margin: 0 0 8px;
+        opacity: 0.8;
+        font-size: 0.85rem;
+      }
+
+      @media (max-width: 520px) {
+        html {
+          font-size: 16px;
+        }
+        header.bar nav {
+          gap: 12px;
+          font-size: 11px;
+        }
+        .play {
+          padding: 16px 40px;
+        }
+        .arrow {
+          display: none;
+        }
+      }
+      @media (prefers-reduced-motion: no-preference) {
+        .play {
+          transition: filter 0.15s;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="bar">
+      <div class="wrap">
+        <img src="./brand/icon.svg" alt="BrowserCol" width="30" height="30" />
+        <nav aria-label="Site">
+          <a href="#roadmap">Roadmap</a>
+          <a href="#faq">FAQ</a>
+          <a href="https://github.com/shivan2418/browsercol/releases">Changes</a>
+          <a
+            class="gh"
+            href="https://github.com/shivan2418/browsercol"
+            aria-label="BrowserCol on GitHub"
+            title="BrowserCol on GitHub"
+          >
+            <svg viewBox="0 0 16 16" width="20" height="20" aria-hidden="true" focusable="false">
+              <path
+                fill="currentColor"
+                d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"
+              />
+            </svg>
+          </a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <div class="hero">
+        <div class="cartouche">
+          <img src="./brand/wordmark.svg" alt="BrowserCol" width="640" height="68" />
+          <p>
+            <strong>FreeCol</strong>, the open-source Colonization, in your browser. Found colonies, trade with the
+            natives and win your independence. No install, no account.
+          </p>
+        </div>
+        <div class="actions">
+          <a class="play" href="play/" target="_blank">Play</a>
+          <p class="note">Free. Runs in current Chrome and Firefox on a computer.</p>
+        </div>
+        <div class="carousel" role="region" aria-roledescription="carousel" aria-label="Screenshots">
+          <div class="track" tabindex="0">
+            <figure class="slide" role="group" aria-roledescription="slide" aria-label="1 of 5">
+              <img
+                src="./img/game.webp"
+                alt="A Dutch game in 1632: colonies joined by roads around a fortified capital, native villages, the menu bar above and the minimap below."
+                width="1280"
+                height="800"
+                fetchpriority="high"
+              />
+              <figcaption>The New World in 1632: Dutch colonies joined by roads around Metropolis.</figcaption>
+            </figure>
+            <figure class="slide" role="group" aria-roledescription="slide" aria-label="2 of 5">
+              <img
+                src="./img/colony.webp"
+                alt="The colony panel of Metropolis: its buildings with colonists at work, the tiles around it, and production and building queue."
+                width="1280"
+                height="800"
+                loading="lazy"
+              />
+              <figcaption>A colony at work: buildings, the land around it and what it builds next.</figcaption>
+            </figure>
+            <figure class="slide" role="group" aria-roledescription="slide" aria-label="3 of 5">
+              <img
+                src="./img/colonies.webp"
+                alt="The Colony Advisor report, listing each colony with its colonists, production and buildings."
+                width="1280"
+                height="800"
+                loading="lazy"
+              />
+              <figcaption>The Colony Advisor: every colony, its people and production.</figcaption>
+            </figure>
+            <figure class="slide" role="group" aria-roledescription="slide" aria-label="4 of 5">
+              <img
+                src="./img/congress.webp"
+                alt="The Continental Congress report: the portrait of Jacob Fugger, the founding father being recruited, with the bells still needed, and tabs for trade, exploration, military, political and religious fathers."
+                width="1280"
+                height="800"
+                loading="lazy"
+              />
+              <figcaption>The Continental Congress: the founding father your colonies are recruiting next.</figcaption>
+            </figure>
+            <figure class="slide" role="group" aria-roledescription="slide" aria-label="5 of 5">
+              <img
+                src="./img/foreign-affairs.webp"
+                alt="The Foreign Affairs Advisor report comparing France, England and the Netherlands."
+                width="1280"
+                height="800"
+                loading="lazy"
+              />
+              <figcaption>The Foreign Affairs Advisor: how you stand against the other colonial powers.</figcaption>
+            </figure>
+          </div>
+          <button class="arrow prev" type="button" aria-label="Previous screenshot">&#8249;</button>
+          <button class="arrow next" type="button" aria-label="Next screenshot">&#8250;</button>
+          <div class="dots">
+            <button type="button" aria-label="Screenshot 1"></button>
+            <button type="button" aria-label="Screenshot 2"></button>
+            <button type="button" aria-label="Screenshot 3"></button>
+            <button type="button" aria-label="Screenshot 4"></button>
+            <button type="button" aria-label="Screenshot 5"></button>
+          </div>
+        </div>
+      </div>
+
+      <section aria-labelledby="what">
+        <h2 id="what">What it is</h2>
+        <p class="lede">
+          BrowserCol is <a href="https://github.com/FreeCol/freecol">FreeCol</a>, the open-source implementation of
+          <a href="https://www.gog.com/en/game/sid_meiers_colonization">Sid Meier's Colonization</a> (1994), in your
+          browser.
+        </p>
+        <ul class="features">
+          <li>
+            <b>The real game</b>FreeCol's own rules and engine, compiled to WebAssembly. It is the same game, not a
+            lookalike.
+          </li>
+          <li>
+            <b>Nothing to install</b>Open the page and play. No signup, no credit card, no bullshit. Your games are
+            saved locally in your browser, and you can also download them.
+          </li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="roadmap-h" id="roadmap">
+        <h2 id="roadmap-h">Roadmap</h2>
+        <ol class="roadmap">
+          <li class="now">
+            <h3><span>Now: in beta</span>1.0</h3>
+            <p>FreeCol 1.2, faithfully, in the browser. The same rules, the same AI and the same game.</p>
+          </li>
+          <li>
+            <h3><span>Next</span>1.1</h3>
+            <p>Still FreeCol, with many quality-of-life additions, a better AI and optional new graphics.</p>
+          </li>
+          <li>
+            <h3><span>Later</span>2.0</h3>
+            <p>An evolution that is no longer the same game. It adds slavery, mixed cargo holds and more.</p>
+          </li>
+        </ol>
+        <p class="note">
+          Plans change. What is being worked on is in the
+          <a href="https://github.com/shivan2418/browsercol/issues">issue tracker</a>.
+        </p>
+      </section>
+
+      <section aria-labelledby="faq-h" id="faq">
+        <h2 id="faq-h">Questions</h2>
+        <details>
+          <summary>Is it free?</summary>
+          <div>
+            <p>
+              Yes. There is nothing to pay for and no account to make. BrowserCol is open source, under the GPL, like
+              FreeCol.
+            </p>
+          </div>
+        </details>
+        <details>
+          <summary>Which browsers does it work in?</summary>
+          <div>
+            <p>
+              Current Chrome and Firefox on a desktop or laptop. It needs a browser with WebAssembly GC, which the
+              current versions have. It is not made for phones yet.
+            </p>
+          </div>
+        </details>
+        <details>
+          <summary>Where are my saves?</summary>
+          <div>
+            <p>
+              In your browser, on this site. Clearing the site's data, or using another browser or computer, leaves them
+              behind. To keep a game safe, save it as a file from the load dialog, and import it again whenever you
+              like.
+            </p>
+          </div>
+        </details>
+        <details>
+          <summary>Can I open my desktop FreeCol saves?</summary>
+          <div>
+            <p>
+              Yes, and the other way round too. Underneath, BrowserCol is FreeCol: the game's engine, rules and computer
+              players are FreeCol's own code, compiled to run in the browser. Only the front end, the screens you see
+              and click, is new. So a save is an ordinary FreeCol <code>.fsg</code> file. Import one from the desktop
+              game and play on in the browser, or export a browser game and carry on in desktop FreeCol.
+            </p>
+            <p>Use a current FreeCol on the desktop: an older version may not read a save from a newer one.</p>
+          </div>
+        </details>
+        <details>
+          <summary>How does it differ from FreeCol?</summary>
+          <div>
+            <p>
+              The game logic is FreeCol's: its engine, rules and computer players are FreeCol's own code, compiled to
+              run in the browser. What BrowserCol brings is a new front end, a browser UI that draws the map and screens
+              and handles the mouse and keyboard, with your saves kept in the browser.
+            </p>
+          </div>
+        </details>
+      </section>
+
+      <section aria-labelledby="credit">
+        <h2 id="credit">Built on FreeCol</h2>
+        <div class="credit">
+          <p>
+            BrowserCol is an unofficial fan project. It is built on <a href="https://www.freecol.org/">FreeCol</a>, the
+            open-source game made by the FreeCol Team and released under the
+            <a href="https://www.gnu.org/licenses/gpl-2.0.html">GNU General Public License</a>. The game's rules and
+            data are theirs; BrowserCol is FreeCol in the browser.
+          </p>
+          <p>
+            FreeCol is itself based on, and inspired by, the 1994 original, Sid Meier's Colonization by MicroProse. If
+            you want to play that one, it is sold on
+            <a href="https://www.gog.com/en/game/sid_meiers_colonization">GOG</a>.
+          </p>
+          <p>
+            BrowserCol is not affiliated with or endorsed by the rights holders of Colonization, by GOG, or by the
+            FreeCol Team.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        <ul>
+          <li><a href="play/" target="_blank">Play</a></li>
+          <li><a href="https://github.com/shivan2418/browsercol">Source on GitHub</a></li>
+          <li><a href="https://github.com/shivan2418/browsercol/issues">Report a bug</a></li>
+          <li><a href="https://github.com/shivan2418/browsercol/releases">Changes</a></li>
+          <li><a href="https://www.freecol.org/">FreeCol</a></li>
+        </ul>
+        <p>BrowserCol is free software under the GNU General Public License, like FreeCol.</p>
+        <p>Fonts: Cinzel and Noto Sans, under the SIL Open Font License.</p>
+      </div>
+    </footer>
+    <script>
+      // The carousel's arrows and dots: each scrolls the row to a slide, and the dots follow the slide in view.
+      (function () {
+        var c = document.querySelector('.carousel');
+        var track = c.querySelector('.track');
+        var slides = track.querySelectorAll('.slide');
+        var dots = c.querySelectorAll('.dots button');
+        var prev = c.querySelector('.prev');
+        var next = c.querySelector('.next');
+        var at = 0;
+        var smooth = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+        function go(i) {
+          i = Math.max(0, Math.min(slides.length - 1, i));
+          track.scrollTo({ left: slides[i].offsetLeft - track.offsetLeft, behavior: smooth });
+        }
+        function show(i) {
+          at = i;
+          dots.forEach(function (d, j) {
+            d.setAttribute('aria-current', j === i ? 'true' : 'false');
+          });
+          prev.disabled = i === 0;
+          next.disabled = i === slides.length - 1;
+        }
+        prev.addEventListener('click', function () {
+          go(at - 1);
+        });
+        next.addEventListener('click', function () {
+          go(at + 1);
+        });
+        dots.forEach(function (d, j) {
+          d.addEventListener('click', function () {
+            go(j);
+          });
+        });
+        track.addEventListener('keydown', function (e) {
+          if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+            e.preventDefault();
+            go(at + (e.key === 'ArrowRight' ? 1 : -1));
+          }
+        });
+        track.addEventListener(
+          'scroll',
+          function () {
+            show(Math.round(track.scrollLeft / track.clientWidth));
+          },
+          { passive: true },
+        );
+        show(0);
+        c.classList.add('ready');
+      })();
+    </script>
+  </body>
+</html>

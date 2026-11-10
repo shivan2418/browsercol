@@ -276,6 +276,52 @@ describe('pictures', () => {
     }
   });
 
+  it("draws a river's frame straight on its canvas, with no composited frame kept (#410)", async () => {
+    const drawn: string[] = [];
+    const fake = (id = '') => {
+      const c = { width: 128, height: 64, id };
+      let op = 'source-over';
+      return Object.assign(c, {
+        getContext: () => ({
+          clearRect: () => {},
+          drawImage: (pic: { id: string }) => drawn.push(`${op} ${pic.id}`),
+          set globalCompositeOperation(v: string) {
+            op = v;
+          },
+          globalAlpha: 1,
+        }),
+      }) as unknown as HTMLCanvasElement;
+    };
+    vi.stubGlobal('document', { createElement: () => fake() });
+    try {
+      const pics = pictures('', (path) => Promise.resolve(fake(path)));
+      const river: Animated = {
+        id: 'anim:river',
+        animate: (t) => ({ id: `river:${t.river}`, steps: [{ draw: `water${t.river}.png` }] }),
+        layers: {
+          water: (t) => `water${t.river}.png`,
+          shape: 'shape.png',
+          under: 'pebbles.png',
+          keep: { id: 'keep', steps: [{ draw: 'fade.png' }] },
+        },
+      };
+      const a = await pics.get(river);
+      // The fade is composited once (a recipe), then the frame is drawn through it.
+      expect(drawn.slice(1)).toEqual([
+        'copy water0.png',
+        'destination-in shape.png',
+        'destination-over pebbles.png',
+        'destination-in ',
+      ]);
+      drawn.length = 0;
+      expect(await pics.animate({ water: 0, river: 1 }, [a])).toEqual([a]);
+      expect(drawn[0]).toBe('copy water1.png');
+      expect(pics.kept()).toBe(0);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   /** `n` animated shores, each a frame that never comes again at each tick, on the screen for `ticks` ticks. */
   const shores = async (pics: ReturnType<typeof setup>, n: number, ticks: number) => {
     const many = Array.from({ length: n }, (_, i) =>

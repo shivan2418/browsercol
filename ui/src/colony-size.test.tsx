@@ -3,14 +3,14 @@
 // gives the boxes their height, and that the boxes are the same ones however many units and goods they hold.
 import { cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vite-plus/test';
-import html from '../index.html?raw';
 import { ColonyPanel } from './colony-panel';
 import { colonist, goods, jamestown } from './colony-fixture';
+import { pageCss } from './page-css.testing';
 import type { ColonyView } from './webgui';
 
 afterEach(cleanup);
 
-const style = html.slice(html.indexOf('<style>'), html.indexOf('</style>')).replace(/\/\*[\s\S]*?\*\//g, '');
+const style = pageCss.replace(/\/\*[\s\S]*?\*\//g, '');
 
 /** The declarations of every rule whose selector list names the selector, in order, as one map (a later wins). */
 function declared(selector: string): Record<string, string> {
@@ -68,8 +68,11 @@ describe('the colony window keeps one size', () => {
 
   it('sets the heights the boxes take from as lengths', () => {
     const css = declared('.colony .cbody');
-    expect(css['--colony-row']).toMatch(/^\d+px$/);
-    expect(css['--colony-warehouse']).toMatch(/^\d+px$/);
+    // A fixed length for the content (art in px, text in em), plus the box's frame (caption, padding, border), so it
+    // follows the font and not what is in the box.
+    const fixed = /^(\d+px|calc\(\d+px( \+ [\d.]+em)? \+ var\(--colony-box-frame\)\))$/;
+    expect(css['--colony-row']).toMatch(fixed);
+    expect(css['--colony-warehouse']).toMatch(fixed);
   });
 
   it('keeps the outside and cargo boxes in one row, so they have the one height', () => {

@@ -123,6 +123,7 @@ public final class ServerEngine {
         Session.clearAll();
         FreeColServer made = new FreeColServer(false, true, spec, null, 0, "browser");
         preset.applyTo(made);
+        made.setMapGenerator(new ReportingMapGenerator(made.getMapGenerator()));
         this.server = made;
     }
 

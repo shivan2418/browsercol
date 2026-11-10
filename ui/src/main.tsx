@@ -28,6 +28,7 @@ import { createPortal } from 'react-dom';
 import { createRoot, type Root } from 'react-dom/client';
 import './theme.css';
 import './fonts.css';
+import './tokens.css';
 import { colopediaBefore, snapshotter, startPage, type ClientExports, type Scope, type ToWorker } from './channel';
 import {
   chosenRequest,
@@ -155,7 +156,7 @@ import { applyTheme } from './theme';
 import { syncThemeColor } from './install';
 import { controlArt } from './control-art';
 import { cursor, initialView, panel, reduce, tileOnScreen, W, ZOOMS, type ViewEvent, type ViewState } from './view';
-import type { GuiEvents, GuiHandlers, ReportView } from './webgui';
+import type { GuiEvents, GuiHandlers, PopupEvent, ReportView } from './webgui';
 
 declare global {
   interface Window {
@@ -437,6 +438,17 @@ let runCommand: (c: Command) => void = () => {};
 const drawColonyTiles: DrawTiles = (host, centre, tiles, top) => map.drawTiles(host, centre, tiles, top);
 /** The colonists' moves and the ships' loading in the colony panel, once the client Engine has loaded (Commands.java). */
 let colonyClient: ClientExports | null = null;
+/**
+ * What tells the client Engine that a pop-up is closed (#433): its Go To orders wait for it. Later than the
+ * Engine's call that showed it, as the Engine is not called back from within its own call.
+ */
+const popupClosed = (e: PopupEvent) => (): void => {
+  const id = e.popup;
+  if (id == null) return;
+  queueMicrotask(() => popupClient?.popupClosed(id));
+};
+/** The client Engine's popupClosed, once it has loaded. */
+let popupClient: Pick<ClientExports, 'popupClosed'> | null = null;
 const colonyMoves: ColonyMoves = {
   work: (unit, location) => colonyClient?.work(unit, location),
   putOutside: (unit) => colonyClient?.putOutsideColony(unit),
@@ -1235,8 +1247,24 @@ let view: ViewState = { ...initialView, modes: startModes(prefs) };
 function dispatch(e: ViewEvent) {
   view = reduce(view, e);
   map.show(view);
+  // A pan moves the map and the minimap's frame and nothing the panels show: the map is the first to be drawn, and
+  // the rest waits until it has been, once however many pans come before (#420). Four React roots and the minimap
+  // redone on every move cost a slow machine the frame the drag's first moves are drawn in.
+  if (e.k === 'pan') return minimapAfterFrame();
   showPanel();
   renderMinimap();
+}
+let minimapQueued = false;
+function minimapAfterFrame() {
+  if (minimapQueued) return;
+  minimapQueued = true;
+  // After the frame that draws the map, which the map asked for in map.show.
+  requestAnimationFrame(() =>
+    setTimeout(() => {
+      minimapQueued = false;
+      renderMinimap();
+    }),
+  );
 }
 /** The last map view, which the minimap draws whole. */
 let lastMap: MapView | null = null;
@@ -1273,6 +1301,8 @@ function renderMinimap() {
     </TipProvider>,
   );
 }
+/** Whether the Engine has said the game started: an error before then is a game that did not start. */
+let gameStarted = false;
 /** The size the map was last given, to skip the ResizeObserver's calls that change nothing. */
 let mapGiven: [number, number] = [0, 0];
 function resize() {
@@ -1379,12 +1409,15 @@ const gui: GuiHandlers = {
     focus: (e) => viewChanges.change(() => dispatch({ k: 'focus', ...e }), true),
     animateMove: (e) => map.moved(e),
     sound: (e) => playSound(e.key),
-    information: (e) => dialogQueue.show('information', e),
+    information: (e) => dialogQueue.show('information', e, popupClosed(e)),
     error: (e) => {
       console.error(e.text);
-      dialogQueue.show('error', e);
+      // The server refusing to start the game (PreGameController.requestLaunch) is the only word a game that never
+      // starts gives: show it as the failed start it is, not as a dialog behind the loading screen.
+      if (!gameStarted) show('failed', { error: e.text });
+      dialogQueue.show('error', e, popupClosed(e));
     },
-    eventPanel: (e) => dialogQueue.show('eventPanel', e),
+    eventPanel: (e) => dialogQueue.show('eventPanel', e, popupClosed(e)),
     indianSettlement: (e) => dialogQueue.show('indianSettlement', e),
     tilePanel: (e) => dialogQueue.show('tilePanel', e),
     findSettlement: (e) => dialogQueue.replace('findSettlement', e),
@@ -1400,7 +1433,9 @@ const gui: GuiHandlers = {
       const e = { ...raw, messages: visibleMessages(prefs, raw.messages) };
       if (e.regrouped) dialogQueue.replace('messages', e, (open) => open.title === e.title);
       // The turn report (it has the group by option) opens even with no messages, and says so.
-      else if (e.messages.length > 0 || e.groupBy) dialogQueue.show('messages', e);
+      else if (e.messages.length > 0 || e.groupBy) dialogQueue.show('messages', e, popupClosed(e));
+      // Messages the preferences hide all of are no pop-up: nothing waits for it.
+      else popupClosed(e)();
     },
     // A colony already open or queued is shown again in its place, else it opens.
     // It waits for the arriving unit's slide: a goto's arrival, a move into the colony and a landing all show it.
@@ -1558,6 +1593,8 @@ function playWith(client: ClientExports) {
   gotoClient = client;
   renderSide();
   addEventListener('keydown', (e) => {
+    // A key typed into a text field (a save's name, a colony's) is text: no game key runs.
+    if (inTextField(e.target)) return;
     // An open dialog has the keys (panels.tsx).
     // A report's hotkey (Shift+F3, ...) opens it over another report, but not over another dialog.
     const report = reportForKey(e);
@@ -1589,7 +1626,7 @@ function playWith(client: ClientExports) {
       const entry = act[accel];
       // Ctrl+C keeps copying a selection.
       const copying = accel === 'centre' && !!getSelection()?.toString();
-      if (entry && !inTextField(e.target) && !copying) {
+      if (entry && !copying) {
         e.preventDefault();
         entry();
         return;
@@ -1930,9 +1967,12 @@ async function run() {
       if (failure) reportError(failure.title, failure.detail);
       switch (name) {
         case 'gameStarted':
+          gameStarted = true;
           if (debug) debugRequest({ action: 'players' });
           // PreGameController.startGame: the default playlist plays whenever no other music does.
           void sound.then((s) => s?.startPlaylist());
+          // The sound effects are fetched and decoded now, so that the first one asked for plays at once (#391).
+          void sound.then((s) => s?.preloadEffects());
           // PreGameController.startGame: the delete autosaves option clears them as a new game starts.
           if (loadId === undefined && autosaveOptions(prefs).deleteOnNewGame) {
             void dropTurnAutosaves(store, autosaveOptions(prefs)).catch(console.warn).finally(listSaves);
@@ -2077,6 +2117,7 @@ async function run() {
   );
   colonyNow = (id) => exports.colony(id);
   colonyClient = exports;
+  popupClient = exports;
   pushFreecolOptions(prefs.freecol);
   debugRequest = (r) => {
     lastDebug = r;

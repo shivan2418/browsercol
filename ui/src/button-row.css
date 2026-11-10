@@ -1,0 +1,30 @@
+/*
+ * A row of buttons at the foot of a window (ButtonRow in frame.tsx): the answers at the right, a gap between them,
+ * room above. Its variants are ButtonRow's props (`spread`, `space`), never a panel's selector. At no weight
+ * (:where), so a part's own rule (the advisor paper's footer pushed down) wins whatever the sheet order.
+ */
+@layer components {
+  :where(.buttons) {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-4);
+    margin-top: var(--space-5);
+  }
+  /* The first buttons at the left, the close button alone at the right. */
+  :where(.buttons[data-spread]) {
+    justify-content: flex-start;
+  }
+  :where(.buttons[data-spread] [data-answer='close']) {
+    margin-left: auto;
+  }
+  :where(.buttons[data-space='tight']) {
+    margin: var(--space-4) 0 0;
+  }
+  :where(.buttons[data-space='window']) {
+    gap: 0;
+    margin: var(--space-5) var(--space-6) 0;
+  }
+  :where(.buttons[data-space='flush']) {
+    margin: 0;
+  }
+}

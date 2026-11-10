@@ -798,10 +798,18 @@ class SelectDestinationTest {
             "paying the arrears stays: " + boycottedMenu);
         gold = serverPlayer.getGold();
         wanted = Messages.message("boycottedGoods.dumpGoods");
+        final int loggedBefore = logOf(parse(lastEurope())).size();
+        shown.clear();
         assertTrue(client.getCommands().sellGoods(ship.getId(), cloth.getId()),
             "the stack is dumped");
         assertEquals(0, serverShip(ship).getGoodsCount(cloth), "the cloth is gone");
         assertEquals(gold, serverPlayer.getGold(), "and not paid for");
+        // A dump is not a sale: no entry in the log and no sale sound (#441).
+        client.getClient().getGUI().showEuropePanel();
+        assertEquals(loggedBefore, logOf(parse(lastEurope())).size(),
+            "a dump is not logged as a sale: " + lastEurope());
+        assertFalse(shown.stream().anyMatch(e -> e.startsWith("sound ")
+            && e.contains("sellCargo")), "no sale sound for a dump: " + shown);
 
         // The Europe panel's Unload button sells every stack the Crown
         // trades, and takes the units ashore.
@@ -814,6 +822,10 @@ class SelectDestinationTest {
         assertTrue(client.getCommands().menuEntry("unloadEurope:" + ship.getId()), "unloaded");
         assertEquals(0, serverShip(ship).getGoodsCount(cloth), "the cloth is sold");
         assertTrue(serverPlayer.getGold() > gold, "and paid for");
+        assertEquals(loggedBefore + 2, logOf(parse(lastEurope())).size(),
+            "the purchase and the real sale are logged: " + lastEurope());
+        assertTrue(shown.stream().anyMatch(e -> e.startsWith("sound ")
+            && e.contains("sellCargo")), "a real sale sounds: " + shown);
 
         // A new turn starts with an empty log.
         endTurnAndWait();

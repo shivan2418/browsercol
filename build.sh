@@ -32,6 +32,7 @@ cp ui/brand/globe-*.svg "$gen/public/brand/"
 mkdir -p "$gen/public/presets"
 cp ui/presets/*.json "$gen/public/presets/"
 
+rm -rf dist
 cd ui
 pnpm install --frozen-lockfile
 # The favicon and the web app icons, rendered from BrowserCol's icon (brand/), served as icons/.
@@ -40,3 +41,6 @@ node scripts/build-icons.ts brand "generated/public/icons"
 mode=()
 for arg in "$@"; do [[ $arg == -Prelease ]] && mode=(--mode release); done
 pnpm exec vp build "${mode[@]}"
+
+# The landing page at the site's root, around the game in play/.
+"$repo/tools/site.sh" "$repo/dist"

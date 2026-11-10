@@ -1,0 +1,44 @@
+/*
+ * A picture of a game object (Pic in frame.tsx): the Tileset's image kept inside a square, whole. Its sizes are Pic's
+ * `size` prop, never a panel's selector, each from a token a theme may change. At no weight (:where), so a
+ * part's own rule (a report's 32px pictures) wins whatever the sheet order.
+ */
+@layer components {
+  :root {
+    --pic-size: 48px;
+    --pic-small: 20px;
+    --pic-medium: 28px;
+    --pic-large: 64px;
+  }
+  :where(.pic) {
+    max-width: var(--pic-size);
+    max-height: var(--pic-size);
+    object-fit: contain;
+  }
+  :where(.pic[data-size='small']) {
+    max-width: var(--pic-small);
+    max-height: var(--pic-small);
+    vertical-align: middle;
+  }
+  :where(.pic[data-size='medium']) {
+    max-width: var(--pic-medium);
+    max-height: var(--pic-medium);
+    vertical-align: middle;
+  }
+  /* A card's picture has a slot of its own height, standing on the card's floor. */
+  :where(.pic[data-size='card']) {
+    flex: none;
+    width: var(--pic-size);
+    height: var(--pic-size);
+    max-width: none;
+    max-height: none;
+    object-position: center bottom;
+  }
+  :where(.pic[data-size='large']) {
+    flex: none;
+    width: var(--pic-large);
+    height: var(--pic-large);
+    max-width: none;
+    max-height: none;
+  }
+}

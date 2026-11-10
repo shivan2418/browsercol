@@ -1,8 +1,14 @@
 import { readFileSync } from 'node:fs';
+import { layerPageStyles } from '../scripts/page-styles.ts';
 
-/** The page's own CSS lives in index.html's <style> blocks; stories take it from there so they look as the game does. */
+/**
+ * The page's own CSS lives in index.html's <style> blocks, in their cascade layers; stories take it from there so
+ * they look as the game does.
+ */
 const pageStyles = [
-  ...readFileSync(new URL('../index.html', import.meta.url), 'utf8').matchAll(/<style[^>]*>[\s\S]*?<\/style>/g),
+  ...layerPageStyles(readFileSync(new URL('../index.html', import.meta.url), 'utf8')).matchAll(
+    /<style[^>]*>[\s\S]*?<\/style>/g,
+  ),
 ]
   .map((m) => m[0])
   .join('\n');

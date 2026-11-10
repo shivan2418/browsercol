@@ -78,7 +78,10 @@ export interface Chunk {
 
 /** What builds a chunk's drawing. */
 export interface ChunkBackend {
+  /** Build a chunk's drawing; flush() then sends what it drew to the GPU. */
   build(c: Chunk): void;
+  /** Send the pictures the chunks built since the last time drew to the GPU, once for them all. */
+  flush(): void;
   /** The chunk is well off the screen, or gone: let go of what it holds; it is built again when it comes back. */
   release(c: Chunk): void;
   /** The map's scale (times the screen's pixel ratio) changed. */
@@ -100,6 +103,23 @@ export const pictureKey = (p: Picture, x: number, y: number, dim: boolean) => `i
 /** What a chunk draws, pass by pass: the same signature, the same drawing. */
 const signature = (items: Item[]) => items.map((i) => `${i.pass}:${i.key}`).join('|');
 
+/** Runs `work` when the page is idle; `more()` tells whether there is time left for more of it. */
+export type Idle = (work: (more: () => boolean) => void) => void;
+
+/** requestIdleCallback, waiting at most half a second; without it, a timer and 4 ms. */
+export const whenIdle: Idle = (work) => {
+  if (typeof requestIdleCallback === 'function')
+    requestIdleCallback((d) => work(() => d.timeRemaining() > 1), { timeout: 500 });
+  else
+    setTimeout(() => {
+      const end = performance.now() + 4;
+      work(() => performance.now() < end);
+    }, 16);
+};
+
+/** How long the view is still before the chunks near the screen start to be built when idle (#420). */
+const AHEAD_MS = 120;
+
 /** One static layer, drawn per chunk. */
 export class ChunkLayer {
   private chunks = new Map<string, Chunk>();
@@ -110,9 +130,15 @@ export class ChunkLayer {
   shownVersion = 0;
   private view = new Rectangle();
   private keep = new Rectangle();
+  private ahead = new Rectangle();
+  /** Whether chunks near the screen wait to be built when the page is idle. */
+  private waiting = false;
+  /** The timer that starts the idle build once the view has been still for AHEAD_MS, so nothing is built mid-drag (#420). */
+  private still: ReturnType<typeof setTimeout> | undefined;
   constructor(
     readonly root: Container,
     private backend: ChunkBackend,
+    private idle: Idle = whenIdle,
   ) {
     // The chunks cull themselves (see setView): PixiJS's culler need not walk the layer.
     root.cullableChildren = false;
@@ -224,10 +250,14 @@ export class ChunkLayer {
     return pics;
   }
 
-  /** What is on the screen, and what to keep built round it, in map pixels. */
-  setView(view: Rectangle, keep: Rectangle) {
+  /**
+   * What is on the screen, and what to keep built round it, in map pixels; and what to build ahead, when the page is
+   * idle, so a pan seldom has to build a chunk in the frame it comes on the screen (#419).
+   */
+  setView(view: Rectangle, keep: Rectangle, ahead: Rectangle = view) {
     this.view = view;
     this.keep = keep;
+    this.ahead = ahead;
     this.refresh();
   }
 
@@ -236,8 +266,13 @@ export class ChunkLayer {
     this.refresh();
   }
 
-  /** Each chunk shown or hidden, built if shown and changed, and let go of when far off. */
+  /**
+   * Each chunk shown or hidden, built if shown and changed, and let go of when far off; those near the screen are
+   * built when the page is idle.
+   */
   private refresh() {
+    let built = false;
+    let ahead = false;
     for (const c of this.chunks.values()) {
       const on = c.box.intersects(this.view);
       for (const part of c.parts)
@@ -246,14 +281,42 @@ export class ChunkLayer {
           if (on) this.shownVersion++;
         }
       if (on && c.dirty) {
-        this.backend.build(c);
-        c.dirty = false;
-        this.shownVersion++;
+        this.build(c);
+        built = true;
       } else if (!on && !c.box.intersects(this.keep) && (c.maps.length || c.objects.length)) {
         this.backend.release(c);
         c.dirty = true;
-      }
+      } else if (!on && c.dirty && c.box.intersects(this.keep)) ahead ||= c.box.intersects(this.ahead);
     }
+    if (built) this.backend.flush();
+    // Each change of the view starts the wait again: a chunk built mid-drag costs the frame it is built in (#420).
+    clearTimeout(this.still);
+    if (ahead && !this.waiting) {
+      this.still = setTimeout(() => {
+        this.waiting = true;
+        this.idle((more) => this.buildAhead(more));
+      }, AHEAD_MS);
+    }
+  }
+
+  private build(c: Chunk) {
+    this.backend.build(c);
+    c.dirty = false;
+    this.shownVersion++;
+  }
+
+  /** Build the chunks near the screen not built yet, nearest first, at least one, while the page has time. */
+  private buildAhead(more: () => boolean) {
+    this.waiting = false;
+    const [x, y] = [this.view.x + this.view.width / 2, this.view.y + this.view.height / 2];
+    const far = (c: Chunk) => Math.hypot(c.box.x + c.box.width / 2 - x, c.box.y + c.box.height / 2 - y);
+    const todo = [...this.chunks.values()]
+      .filter((c) => c.dirty && c.box.intersects(this.ahead) && c.box.intersects(this.keep))
+      .sort((a, b) => far(a) - far(b));
+    let n = 0;
+    while (n < todo.length && (n === 0 || more())) this.build(todo[n++]);
+    if (n) this.backend.flush();
+    if (n < todo.length) this.refresh();
   }
 
   private destroy(c: Chunk) {
@@ -486,7 +549,6 @@ export function tilemapBackend(
       const entries = c.items.map((it) => (it.pic ? atlas.acquire(it.dim ? dimmed(it.pic) : it.pic, it.tile) : null));
       for (const e of c.entries) atlas.release(e);
       c.entries = entries.filter((e) => e !== null);
-      atlas.flush();
       const textures = atlas.textures();
       let seg: Tilemap | null = null;
       let pass = -1;
@@ -515,6 +577,9 @@ export function tilemapBackend(
         }
       });
       for (const m of c.maps.splice(used)) m.destroy();
+    },
+    flush() {
+      atlas.flush();
     },
     release(c) {
       clear(c);

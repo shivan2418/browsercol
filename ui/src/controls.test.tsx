@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, expect, test, vi } from 'vite-plus/test';
-import css from '../index.html?raw';
+import css from './form-controls.css?raw';
 import { behindTopWindow, Select } from './controls';
 import { WindowFrame } from './frame';
 import { chooseOption, listed, openSelect, shown } from './select-test';
@@ -59,7 +59,7 @@ test('the list is drawn in #overlays, in the popup class that takes the UI scale
   await openSelect(screen.getByLabelText('Fruit'));
   const popup = layer.querySelector('.ui-popup');
   expect(popup?.querySelectorAll('[role="option"]')).toHaveLength(3);
-  // index.html scales the popup, not the positioner Base UI places in real pixels.
+  // form-controls.css scales the popup, not the positioner Base UI places in real pixels.
   expect(css).toMatch(/\.ui-popup\s*\{[^}]*zoom:\s*var\(--ui-zoom, 1\)/);
   expect(css).not.toMatch(/\.ui-positioner\s*\{[^}]*zoom/);
   layer.remove();

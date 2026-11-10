@@ -55,3 +55,11 @@ _Avoid_: settings panel, options dialog
 **Command**:
 One thing the player asks the Engine to do on their turn (a move, a colonist put to work, a ship loaded), as `Commands.java` has them. The Engine runs the commands one at a time, in a queue (`CommandQueue.java`), and a command that comes while another runs waits its turn.
 _Avoid_: action, order, request
+
+**Theme**:
+How the Browser UI's windows and bars look, as the player picks it in Preferences: a palette and a font set. A theme changes only tokens, never a component (docs/adr/0008).
+_Avoid_: skin, style (and not the Tileset, which is the map's art)
+
+**Token**:
+A named value a theme may change, as a CSS custom property on the root: a colour, a font, a spacing step, a radius, a border width, the caption's type or a shadow (`--panel`, `--space-4`). A component may name its own, defaulting to a global one (`--frame-pad`).
+_Avoid_: variable, design constant

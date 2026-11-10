@@ -2,6 +2,7 @@
 // the console or the side panel's status, which may be hidden, and the game looked fine while it had stopped.
 // The banner over the page lists them until the player dismisses it, each with its details to copy.
 import { useState } from 'react';
+import { ButtonRow } from './frame';
 
 export interface GameError {
   /** What failed, for the player. */
@@ -86,12 +87,12 @@ export function ErrorBanner({
           </li>
         ))}
       </ul>
-      <div className="buttons">
+      <ButtonRow space="flush">
         <button onClick={copy}>{copied ? 'Copied' : 'Copy details'}</button>
         {showLog && <button onClick={showLog}>Show log</button>}
         <button onClick={() => location.reload()}>Reload</button>
         <button onClick={dismiss}>Dismiss</button>
-      </div>
+      </ButtonRow>
     </div>
   );
 }

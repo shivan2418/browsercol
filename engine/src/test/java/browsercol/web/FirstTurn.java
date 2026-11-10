@@ -66,8 +66,48 @@ final class FirstTurn {
             failures.clear();
             return;
         }
-        throw new AssertionFailedError("our first turn did not come in " + SECONDS + " s.\nReported failures: "
-            + failures + "\nThe threads:\n" + threads());
+        final String report = "our first turn did not come in " + SECONDS + " s.\nReported failures: "
+            + failures + "\n" + machine() + "\nThe threads:\n" + threads();
+        throw new AssertionFailedError(report + keep(report));
+    }
+
+    /**
+     * Keep a report where the next test run does not overwrite it, as it
+     * does the test results (#440): build/first-turn/ in the Engine.
+     *
+     * @return A line saying where it is, or why it could not be kept.
+     */
+    private static String keep(String report) {
+        final String src = System.getProperty("engine.src");
+        if (src == null) return "";
+        final java.io.File file = new java.io.File(new java.io.File(src, "../build/first-turn"),
+            "first-turn-" + ProcessHandle.current().pid() + "-" + System.currentTimeMillis() + ".txt");
+        try {
+            file.getParentFile().mkdirs();
+            java.nio.file.Files.writeString(file.toPath(), report);
+            return "\nKept in " + file.toPath().normalize();
+        } catch (java.io.IOException ex) {
+            return "\nCould not keep this report: " + ex;
+        }
+    }
+
+    /**
+     * How loaded the JVM and the machine were: a game slowed by a heap
+     * near its limit or a busy machine (#439, #440) says so here, and a
+     * game that hung while both were fine points at a lost message.
+     */
+    static String machine() {
+        final Runtime rt = Runtime.getRuntime();
+        final long mb = 1024 * 1024;
+        long gcMillis = 0;
+        for (java.lang.management.GarbageCollectorMXBean gc
+                 : java.lang.management.ManagementFactory.getGarbageCollectorMXBeans()) {
+            gcMillis += Math.max(0, gc.getCollectionTime());
+        }
+        return "Heap: " + (rt.totalMemory() - rt.freeMemory()) / mb + " MB used of " + rt.maxMemory() / mb
+            + " MB, " + gcMillis / 1000 + " s in GC since the JVM started; load average "
+            + java.lang.management.ManagementFactory.getOperatingSystemMXBean().getSystemLoadAverage()
+            + " on " + rt.availableProcessors() + " CPUs.";
     }
 
     /** Every live thread and its stack. */

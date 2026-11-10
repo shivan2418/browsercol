@@ -30,8 +30,7 @@ preview:
     DEV_PORT={{port}} ./dev.sh -C ui pnpm exec vp preview --host 0.0.0.0 --port {{port}} --strictPort
 
 # Storybook at http://localhost:6006, with the game's own art (builds first if ui/generated/ has none)
-storybook:
-    [ -d ui/generated/public/art ] || just build
+storybook: art
     DEV_PORT=6006 ./dev.sh -C ui pnpm exec storybook dev -p 6006 --host 0.0.0.0 --no-open
 
 # Deploy origin/main (or a given commit) to GitHub Pages as the next build-N
@@ -46,19 +45,27 @@ test-engine *args:
 test-ui *args:
     ./dev.sh -C ui pnpm exec vp test {{args}}
 
-# Format, lint and type check
-check:
+# The default Tileset's art manifest, ui/generated/public/art/art.json, which src/story-art.ts imports (about 20 s; skipped when it exists, `just build` makes it too)
+art:
+    [ -f ui/generated/public/art/art.json ] || ./dev.sh node ui/scripts/build-art.ts freecol/data ui/generated/public/art
+
+# Format, lint and type check (makes the art manifest first if a fresh checkout has none)
+check: art
     ./dev.sh -C ui pnpm exec vp check
 
 # The fast checks a ticket PR needs: Engine tests, vp check, vp test
 fast: test-engine check test-ui
 
-# Browser script against dist/: smoke, play, saves, tileset or rounds
+# Browser script against dist/: smoke, play, saves, tileset, looks or rounds
 browser script *args:
     DEV_VARIANT=web ./dev.sh node ui/scripts/{{script}}.ts {{args}}
 
 # The whole local suite: fast checks, build and the browser scripts
-suite: fast build (browser "smoke") (browser "play") (browser "tileset")
+suite: fast build (browser "smoke") (browser "play") (browser "tileset") (browser "looks")
+
+# Approve the key panels' screenshots (ui/looks/) after a change meant to show: look at .cache/looks/ first, then commit them
+looks-approve *args:
+    DEV_VARIANT=web ./dev.sh node ui/scripts/looks.ts --approve {{args}}
 
 # Run the whole suite on GitHub Actions for the committed HEAD
 ci:
@@ -83,7 +90,7 @@ dialog-coverage-run: (browser "smoke") (browser "play") (browser "saves") (brows
 dialog-coverage:
     ./dev.sh node tools/dialog-coverage.mjs
 
-# The stable playtest server at http://localhost:5174: the playtest worktree's built dist/, no hot reload
+# The stable playtest server at http://localhost:5174/play/: the playtest worktree's built dist/, no hot reload
 playtest:
     tools/playtest.sh serve
 

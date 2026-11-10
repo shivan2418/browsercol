@@ -215,6 +215,15 @@ public final class ClientEngine {
     }
 
     /**
+     * The player closed a pop-up (WebGUI.popupClosed, #433).
+     *
+     * @param id The pop-up's id, from its event.
+     */
+    public void popupClosed(int id) {
+        if (this.gui != null) this.gui.popupClosed(id);
+    }
+
+    /**
      * Run work as one job of the {@link ModalGate}: a player's command, or
      * the handling of a server message. A dialog it opens is modal until it
      * is done, so its questions come one after another, and what other

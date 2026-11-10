@@ -1,577 +1,590 @@
 /*
  * The reports of the Report menu (src/reports.tsx), in the colours of theme.css's tokens.
- * Specific enough to win over the general .dialog rules in index.html whatever the order.
+ * Specific enough to win over the general .dialog rules in index.html whatever the order, in the components layer
+ * like them (#435). A sheet of panels: it names them, as theme.test.ts's PANEL_SHEETS allows.
  */
-/*
+@layer components {
+  /*
  * A report is as wide as its content wants (a colony's units in one row, the Congress's portraits side by side, the
  * trade table), up to the screen's width, and no narrower than a short report needs.
  */
-.dialog[data-kind='report'] {
-  width: max-content;
-  min-width: min(32em, calc(var(--screen-w) * 0.96));
-  max-width: calc(var(--screen-w) * 0.96);
-  max-height: calc(var(--screen-h) * 0.94);
-}
-.dialog .report {
-  min-height: 12em;
-  overflow: auto;
-}
-.dialog .report .pic {
-  width: 32px;
-  height: 32px;
-  max-width: none;
-  max-height: none;
-  object-fit: contain;
-}
-.dialog .report .pic[data-dim] {
-  opacity: 0.4;
-}
-.dialog .report .link {
-  padding: 0 2px;
-  color: var(--link);
-  background: none;
-  border: 0;
-  /* A link, not a button: no bevel. */
-  box-shadow: none;
-  text-decoration: underline;
-}
-.dialog .report .muted {
-  color: var(--muted);
-}
-/* The colony report: a heading with a rule, then rows of people, goods and buildings. */
-.dialog .report .colonies section {
-  margin-bottom: 14px;
-}
-.dialog .report .colonies h3 {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0 0 4px;
-  color: var(--head);
-}
-.dialog .report .colonies h3::after {
-  content: '';
-  flex: 1;
-  border-top: 1px solid var(--line);
-}
-.dialog .report .colonies .row,
-.dialog .report .unit-report .row.kind {
-  flex-wrap: wrap;
-  gap: 2px 4px;
-  min-height: 34px;
-}
-.dialog .report .made {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 2px;
-  margin-right: 10px;
-}
-.dialog .report .goods {
-  display: inline-flex;
-  margin: 0;
-}
-/* The labour report: one button per kind of person. */
-.dialog .report .labour-types {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(11em, 1fr));
-  gap: 6px;
-}
-.dialog .report .labour-type {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  grid-template-rows: auto auto;
-  column-gap: 8px;
-  align-items: center;
-  text-align: left;
-  padding: 4px 8px;
-  /* A plain row, as in FreeCol, not a raised button. */
-  background: none;
-  border: none;
-  box-shadow: none;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-}
-.dialog .report .labour-type:disabled {
-  cursor: default;
-}
-.dialog .report .labour-type .pic {
-  grid-row: span 2;
-}
-.dialog .report .labour-type .count {
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-.dialog .report .labour-type:disabled {
-  color: var(--muted);
-}
-.dialog .report .head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 8px;
-}
-.dialog .report .head .count {
-  font-weight: 700;
-}
-.dialog .report .labour-detail dl {
-  display: grid;
-  grid-template-columns: max-content max-content;
-  gap: 2px 28px;
-  margin: 0 0 8px;
-}
-.dialog .report .labour-detail dl > div {
-  display: contents;
-}
-.dialog .report .labour-detail dd {
-  margin: 0;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-/* The compact colony report: a row for each colony, coloured by how it is doing. */
-.dialog .report .compact-colonies {
-  border-collapse: collapse;
-  width: 100%;
-}
-.dialog .report .compact-colonies th,
-.dialog .report .compact-colonies td {
-  padding: 1px 4px;
-  text-align: center;
-  white-space: nowrap;
-  font-weight: 400;
-}
-.dialog .report .compact-colonies [data-left='true'] {
-  text-align: left;
-}
-.dialog .report .compact-colonies tr.heads th {
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
-  background: var(--box);
-}
-.dialog .report .compact-colonies tr.summary td {
-  border-top: 1px solid var(--line);
-}
-.dialog .report .compact-colonies th[data-dim='true'] {
-  opacity: 0.4;
-}
-.dialog .report .compact-colonies .pic {
-  width: 18px;
-  height: 18px;
-  vertical-align: middle;
-}
-.dialog .report .compact-colonies .item {
-  margin-right: 6px;
-}
-.dialog .report .compact-colonies .item[data-bold='true'] {
-  font-weight: 700;
-}
-.dialog .report .compact-colonies [data-tone='alarm'] {
-  color: var(--bad);
-}
-.dialog .report .compact-colonies [data-tone='warn'] {
-  color: var(--warn);
-}
-.dialog .report .compact-colonies [data-tone='plain'] {
-  color: var(--muted);
-}
-.dialog .report .compact-colonies [data-tone='export'] {
-  color: var(--good);
-}
-.dialog .report .compact-colonies [data-tone='good'] {
-  color: var(--link);
-}
-.dialog .report .compact-colonies .link {
-  text-decoration: none;
-  font: inherit;
-}
-/* The compact labour report: a table, a group of rows for each kind or place. */
-.dialog .report .compact-labour {
-  border-collapse: collapse;
-  width: 100%;
-}
-.dialog .report .compact-labour th,
-.dialog .report .compact-labour td {
-  padding: 2px 8px;
-  border: 1px solid var(--line);
-  vertical-align: middle;
-}
-.dialog .report .compact-labour th {
-  text-align: left;
-  font-weight: 400;
-  background: var(--box);
-  white-space: nowrap;
-}
-.dialog .report .compact-labour .pic {
-  width: 24px;
-  height: 24px;
-  vertical-align: middle;
-  margin-right: 4px;
-}
-.dialog .report .compact-labour .num {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-.dialog .report .compact-labour .total {
-  font-weight: 700;
-}
-.dialog .report .compact-labour td[data-counted='false'] {
-  color: var(--muted);
-}
-.dialog .report .compact-labour td[data-sign='loss'] {
-  color: var(--bad);
-}
-/* The religion and education reports: a heading for each kind or school, then its people. */
-.dialog .report .religion section,
-.dialog .report .education section,
-.dialog .report .requirements section {
-  margin-bottom: 14px;
-}
-.dialog .report .religion h3,
-.dialog .report .education h3,
-.dialog .report .requirements h3 {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0 0 4px;
-  color: var(--head);
-}
-/* The bar towards the next migrant, as wide as FreeColProgressBar's in the colony panel. */
-.dialog .report .religion .need {
-  margin-bottom: 8px;
-  padding: 3px 0;
-}
-.dialog .report .religion .places {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 18px;
-  margin-top: 6px;
-}
-.dialog .report .religion .place {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-.dialog .report .education fieldset {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px 4px;
-  min-height: 44px;
-  margin: 0 0 6px;
-  border: 1px solid var(--line);
-}
-.dialog .report .education legend {
-  color: var(--muted);
-  font-size: var(--fs-s);
-}
-/* The exploration and history reports: plain tables. */
-.dialog .report .exploration,
-.dialog .report .history {
-  border-collapse: collapse;
-  width: 100%;
-}
-.dialog .report .exploration th,
-.dialog .report .exploration td,
-.dialog .report .history th,
-.dialog .report .history td {
-  padding: 2px 10px;
-  text-align: left;
-  border-bottom: 1px solid var(--line);
-}
-.dialog .report .exploration .num {
-  text-align: right;
-}
-.dialog .report .history th {
-  white-space: nowrap;
-  font-weight: normal;
-  color: var(--muted);
-}
-/* The trade report: goods across the top, a row of stock and net production for each colony. */
-.dialog .report .trade,
-.dialog .report .production-table {
-  border-collapse: collapse;
-}
-.dialog .report .trade th,
-.dialog .report .trade td,
-.dialog .report .production-table th,
-.dialog .report .production-table td {
-  padding: 2px 6px;
-  border: 1px solid var(--line);
-  text-align: left;
-}
-.dialog .report .trade td.num,
-.dialog .report .production-table td.num {
-  text-align: right;
-}
-.dialog .report .trade td[data-sign='loss'],
-.dialog .report .production-table td[data-sign='loss'] {
-  color: var(--bad);
-}
-.dialog .report .trade td[data-warn] .net {
-  color: var(--bad);
-}
-.dialog .report .trade .cell {
-  white-space: nowrap;
-}
-.dialog .report .trade .cell .net {
-  display: block;
-  color: var(--muted);
-  font-size: var(--fs-s);
-}
-.dialog .report .trade .stock[data-exported] {
-  text-decoration: underline;
-}
-.dialog .report .trade .prices {
-  display: block;
-  color: var(--muted);
-  font-size: var(--fs-s);
-}
-/* The production report: the goods pickers above a table of colonies. */
-.dialog .report .production .picks {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 10px;
-}
-.dialog .report .requirements p {
-  margin: 0 0 8px;
-}
-/* The Colopedia: the tree of sections beside the chosen entry. */
-.dialog .report .colopedia {
-  display: flex;
-  gap: 12px;
-  min-height: 320px;
-  max-height: calc(var(--screen-h) * 0.6);
-}
-.dialog .report .colopedia ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.dialog .report .colopedia .tree {
-  flex: 0 0 220px;
-  overflow-y: auto;
-}
-.dialog .report .colopedia .tree ul ul {
-  padding-left: 14px;
-}
-.dialog .report .colopedia .tree button {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  width: 100%;
-  text-align: left;
-  background: none;
-  border: 0;
-  color: inherit;
-}
-.dialog .report .colopedia .tree [aria-selected='true'] > button {
-  font-weight: bold;
-  color: var(--accent, inherit);
-}
-.dialog .report .colopedia .tree img {
-  height: 24px;
-}
-.dialog .report .colopedia .detail {
-  flex: 1;
-  overflow-y: auto;
-}
-.dialog .report .colopedia .detail dl div {
-  display: flex;
-  gap: 8px;
-}
-.dialog .report .colopedia .detail dt {
-  color: var(--muted);
-}
-.dialog .report .colopedia .detail dd {
-  margin: 0;
-}
-.dialog .report .colopedia .tree .group {
-  margin-top: 6px;
-  color: var(--muted);
-  font-size: var(--fs-s);
-}
-.dialog .report .colopedia .detail .ref {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  margin-right: 10px;
-}
-.dialog .report .colopedia .detail .ref img {
-  height: 20px;
-}
-/*
+  .dialog[data-kind='report'] {
+    width: max-content;
+    min-width: min(32em, calc(var(--screen-w) * 0.96));
+    max-width: calc(var(--screen-w) * 0.96);
+    max-height: calc(var(--screen-h) * 0.94);
+  }
+  /*
+ * A window whose content changes while it stays open: one width (--window-width, in em, set by the report), and
+ * its text wraps in it instead of stretching it. A flex or grid child needs min-width: 0 to wrap, and an
+ * unbroken string breaks at the edge.
+ */
+  .dialog[data-kind='report'][data-fixed] {
+    width: min(var(--window-width), calc(var(--screen-w) * 0.96));
+    max-width: none;
+    overflow-wrap: anywhere;
+  }
+  .dialog .report {
+    min-height: 12em;
+    overflow: auto;
+  }
+  .dialog .report .pic {
+    width: 32px;
+    height: 32px;
+    max-width: none;
+    max-height: none;
+    object-fit: contain;
+  }
+  .dialog .report .pic[data-dim] {
+    opacity: 0.4;
+  }
+  .dialog .report .link {
+    padding: 0 2px;
+    color: var(--link);
+    background: none;
+    border: 0;
+    /* A link, not a button: no bevel. */
+    box-shadow: none;
+    text-decoration: underline;
+  }
+  .dialog .report .muted {
+    color: var(--muted);
+  }
+  /* The colony report: a heading with a rule, then rows of people, goods and buildings. */
+  .dialog .report .colonies section {
+    margin-bottom: 14px;
+  }
+  .dialog .report .colonies h3 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 4px;
+    color: var(--head);
+  }
+  .dialog .report .colonies h3::after {
+    content: '';
+    flex: 1;
+    border-top: 1px solid var(--line);
+  }
+  .dialog .report .colonies .row,
+  .dialog .report .unit-report .row.kind {
+    flex-wrap: wrap;
+    gap: 2px 4px;
+    min-height: 34px;
+  }
+  .dialog .report .made {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 2px;
+    margin-right: 10px;
+  }
+  .dialog .report .goods {
+    display: inline-flex;
+    margin: 0;
+  }
+  /* The labour report: one button per kind of person. */
+  .dialog .report .labour-types {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(11em, 1fr));
+    gap: 6px;
+  }
+  .dialog .report .labour-type {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-rows: auto auto;
+    column-gap: 8px;
+    align-items: center;
+    text-align: left;
+    padding: 4px 8px;
+    /* A plain row, as in FreeCol, not a raised button. */
+    background: none;
+    border: none;
+    box-shadow: none;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+  .dialog .report .labour-type:disabled {
+    cursor: default;
+  }
+  .dialog .report .labour-type .pic {
+    grid-row: span 2;
+  }
+  .dialog .report .labour-type .count {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .dialog .report .labour-type:disabled {
+    color: var(--muted);
+  }
+  .dialog .report .head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .dialog .report .head .count {
+    font-weight: 700;
+  }
+  .dialog .report .labour-detail dl {
+    display: grid;
+    grid-template-columns: max-content max-content;
+    gap: 2px 28px;
+    margin: 0 0 8px;
+  }
+  .dialog .report .labour-detail dl > div {
+    display: contents;
+  }
+  .dialog .report .labour-detail dd {
+    margin: 0;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  /* The compact colony report: a row for each colony, coloured by how it is doing. */
+  .dialog .report .compact-colonies {
+    border-collapse: collapse;
+    width: 100%;
+  }
+  .dialog .report .compact-colonies th,
+  .dialog .report .compact-colonies td {
+    padding: 1px 4px;
+    text-align: center;
+    white-space: nowrap;
+    font-weight: 400;
+  }
+  .dialog .report .compact-colonies [data-left='true'] {
+    text-align: left;
+  }
+  .dialog .report .compact-colonies tr.heads th {
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    background: var(--box);
+  }
+  .dialog .report .compact-colonies tr.summary td {
+    border-top: 1px solid var(--line);
+  }
+  .dialog .report .compact-colonies th[data-dim='true'] {
+    opacity: 0.4;
+  }
+  .dialog .report .compact-colonies .pic {
+    width: 18px;
+    height: 18px;
+    vertical-align: middle;
+  }
+  .dialog .report .compact-colonies .item {
+    margin-right: 6px;
+  }
+  .dialog .report .compact-colonies .item[data-bold='true'] {
+    font-weight: 700;
+  }
+  .dialog .report .compact-colonies [data-tone='alarm'] {
+    color: var(--bad);
+  }
+  .dialog .report .compact-colonies [data-tone='warn'] {
+    color: var(--warn);
+  }
+  .dialog .report .compact-colonies [data-tone='plain'] {
+    color: var(--muted);
+  }
+  .dialog .report .compact-colonies [data-tone='export'] {
+    color: var(--good);
+  }
+  .dialog .report .compact-colonies [data-tone='good'] {
+    color: var(--link);
+  }
+  .dialog .report .compact-colonies .link {
+    text-decoration: none;
+    font: inherit;
+  }
+  /* The compact labour report: a table, a group of rows for each kind or place. */
+  .dialog .report .compact-labour {
+    border-collapse: collapse;
+    width: 100%;
+  }
+  .dialog .report .compact-labour th,
+  .dialog .report .compact-labour td {
+    padding: 2px 8px;
+    border: 1px solid var(--line);
+    vertical-align: middle;
+  }
+  .dialog .report .compact-labour th {
+    text-align: left;
+    font-weight: 400;
+    background: var(--box);
+    white-space: nowrap;
+  }
+  .dialog .report .compact-labour .pic {
+    width: 24px;
+    height: 24px;
+    vertical-align: middle;
+    margin-right: 4px;
+  }
+  .dialog .report .compact-labour .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .dialog .report .compact-labour .total {
+    font-weight: 700;
+  }
+  .dialog .report .compact-labour td[data-counted='false'] {
+    color: var(--muted);
+  }
+  .dialog .report .compact-labour td[data-sign='loss'] {
+    color: var(--bad);
+  }
+  /* The religion and education reports: a heading for each kind or school, then its people. */
+  .dialog .report .religion section,
+  .dialog .report .education section,
+  .dialog .report .requirements section {
+    margin-bottom: 14px;
+  }
+  .dialog .report .religion h3,
+  .dialog .report .education h3,
+  .dialog .report .requirements h3 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 4px;
+    color: var(--head);
+  }
+  /* The bar towards the next migrant, as wide as FreeColProgressBar's in the colony panel. */
+  .dialog .report .religion .need {
+    margin-bottom: 8px;
+    padding: 3px 0;
+  }
+  .dialog .report .religion .places {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 18px;
+    margin-top: 6px;
+  }
+  .dialog .report .religion .place {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .dialog .report .education fieldset {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 4px;
+    min-height: 44px;
+    margin: 0 0 6px;
+    border: 1px solid var(--line);
+  }
+  .dialog .report .education legend {
+    color: var(--muted);
+    font-size: var(--fs-s);
+  }
+  /* The exploration and history reports: plain tables. */
+  .dialog .report .exploration,
+  .dialog .report .history {
+    border-collapse: collapse;
+    width: 100%;
+  }
+  .dialog .report .exploration th,
+  .dialog .report .exploration td,
+  .dialog .report .history th,
+  .dialog .report .history td {
+    padding: 2px 10px;
+    text-align: left;
+    border-bottom: 1px solid var(--line);
+  }
+  .dialog .report .exploration .num {
+    text-align: right;
+  }
+  .dialog .report .history th {
+    white-space: nowrap;
+    font-weight: normal;
+    color: var(--muted);
+  }
+  /* The trade report: goods across the top, a row of stock and net production for each colony. */
+  .dialog .report .trade,
+  .dialog .report .production-table {
+    border-collapse: collapse;
+  }
+  .dialog .report .trade th,
+  .dialog .report .trade td,
+  .dialog .report .production-table th,
+  .dialog .report .production-table td {
+    padding: 2px 6px;
+    border: 1px solid var(--line);
+    text-align: left;
+  }
+  .dialog .report .trade td.num,
+  .dialog .report .production-table td.num {
+    text-align: right;
+  }
+  .dialog .report .trade td[data-sign='loss'],
+  .dialog .report .production-table td[data-sign='loss'] {
+    color: var(--bad);
+  }
+  .dialog .report .trade td[data-warn] .net {
+    color: var(--bad);
+  }
+  .dialog .report .trade .cell {
+    white-space: nowrap;
+  }
+  .dialog .report .trade .cell .net {
+    display: block;
+    color: var(--muted);
+    font-size: var(--fs-s);
+  }
+  .dialog .report .trade .stock[data-exported] {
+    text-decoration: underline;
+  }
+  .dialog .report .trade .prices {
+    display: block;
+    color: var(--muted);
+    font-size: var(--fs-s);
+  }
+  /* The production report: the goods pickers above a table of colonies. */
+  .dialog .report .production .picks {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  .dialog .report .requirements p {
+    margin: 0 0 8px;
+  }
+  /* The Colopedia: the tree of sections beside the chosen entry. */
+  .dialog .report .colopedia {
+    display: flex;
+    gap: 12px;
+    /* One height too: the tree and the detail scroll inside it, as in Swing's fixed-size ColopediaPanel. */
+    height: min(30em, calc(var(--screen-h) * 0.6));
+  }
+  .dialog .report .colopedia ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .dialog .report .colopedia .tree {
+    /* Room for the longest names (Master Tobacco Planter, Firebrand Preacher) on one line, with the scroll bar. */
+    flex: 0 0 19em;
+    overflow-y: auto;
+  }
+  .dialog .report .colopedia .tree ul ul {
+    padding-left: 14px;
+  }
+  .dialog .report .colopedia .tree button {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: 0;
+    color: inherit;
+  }
+  .dialog .report .colopedia .tree img {
+    height: 24px;
+  }
+  .dialog .report .colopedia .detail {
+    flex: 1;
+    min-width: 0;
+    overflow-y: auto;
+  }
+  .dialog .report .colopedia .detail dl div {
+    display: flex;
+    gap: 8px;
+  }
+  .dialog .report .colopedia .detail dt {
+    flex: none;
+    color: var(--muted);
+  }
+  .dialog .report .colopedia .detail dd {
+    min-width: 0;
+    margin: 0;
+  }
+  .dialog .report .colopedia .tree .group {
+    margin-top: 6px;
+    color: var(--muted);
+    font-size: var(--fs-s);
+  }
+  .dialog .report .colopedia .detail .ref {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin-right: 10px;
+  }
+  .dialog .report .colopedia .detail .ref img {
+    height: 20px;
+  }
+  /*
  * The Continental Congress: tabs as Swing's JTabbedPane. The father being recruited centred, his name over his
  * portrait and the bells under it; each kind's fathers side by side, a column each, scrolling sideways.
  */
-.dialog .report .congress [role='tabpanel'] {
-  padding-top: 10px;
-}
-.dialog .report .congress .portrait {
-  display: block;
-  max-width: none;
-  max-height: none;
-}
-.dialog .report .congress .portrait[data-dim] {
-  filter: grayscale(1);
-  opacity: 0.75;
-}
-.dialog .report .congress [data-current] {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-}
-.dialog .report .congress [data-current] .need {
-  align-self: stretch;
-  max-width: 28em;
-  margin: 4px auto 0;
-  padding: 3px 0;
-}
-.dialog .report .congress [data-kind] {
-  display: flex;
-  gap: 16px;
-  overflow-x: auto;
-  padding-bottom: 6px;
-}
-.dialog .report .congress .father {
-  display: flex;
-  flex: none;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  text-align: center;
-}
-.dialog .report .congress [data-current] .need .icon {
-  max-height: 22px;
-  width: auto;
-}
-/*
+  .dialog .report .congress [role='tabpanel'] {
+    padding-top: 10px;
+  }
+  .dialog .report .congress .portrait {
+    display: block;
+    max-width: none;
+    max-height: none;
+  }
+  .dialog .report .congress .portrait[data-dim] {
+    filter: grayscale(1);
+    opacity: 0.75;
+  }
+  .dialog .report .congress [data-current] {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .dialog .report .congress [data-current] .need {
+    align-self: stretch;
+    max-width: 28em;
+    margin: 4px auto 0;
+    padding: 3px 0;
+  }
+  .dialog .report .congress [data-kind] {
+    display: flex;
+    gap: 16px;
+    overflow-x: auto;
+    padding-bottom: 6px;
+  }
+  .dialog .report .congress .father {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    text-align: center;
+  }
+  .dialog .report .congress [data-current] .need .icon {
+    max-height: 22px;
+    width: auto;
+  }
+  /*
  * The foreign affairs report: a column for each nation, a row for each measure. Up to eight nations, so the window
  * widens with them, as every report does; words are never split, and a table wider than the screen scrolls sideways.
  */
-.dialog .report .foreign table {
-  border-collapse: collapse;
-  min-width: 100%;
-}
-.dialog .report .foreign th,
-.dialog .report .foreign td {
-  padding: 3px 8px;
-  border-bottom: 1px solid var(--line);
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-.dialog .report .foreign tbody th {
-  text-align: left;
-  font-weight: 400;
-  color: var(--muted);
-}
-/* The measures' names stay in view while the nations scroll sideways under a narrow screen. */
-.dialog .report .foreign tbody th,
-.dialog .report .foreign thead th:first-child {
-  position: sticky;
-  left: 0;
-  z-index: 1;
-  background: var(--panel);
-}
-.dialog .report .foreign thead th {
-  color: var(--head);
-  text-align: center;
-  /* A name wraps only between words: "The Netherlands" takes two lines, no column grows wide for it. */
-  white-space: normal;
-  min-width: 5em;
-  /* The arms line up at the top; a name that wraps, as "The Netherlands", grows downwards. */
-  vertical-align: top;
-  padding-top: 0;
-}
-.dialog .report .foreign thead th .pic {
-  display: block;
-  margin: 0 auto 2px;
-}
-.dialog .report .foreign td[data-stance] {
-  font-weight: 700;
-}
-.dialog .report .foreign td[data-stance='war'] {
-  color: var(--bad);
-}
-.dialog .report .foreign td[data-stance='cease_fire'] {
-  color: var(--warn);
-}
-.dialog .report .foreign td[data-stance='alliance'] {
-  color: var(--good);
-}
-.dialog .report .foreign td[data-stance='peace'] {
-  color: var(--link);
-}
-.dialog .report .foreign td[data-known='false']::after {
-  content: '\2013';
-  color: var(--muted);
-}
-@media (max-width: 700px) {
+  .dialog .report .foreign table {
+    border-collapse: collapse;
+    min-width: 100%;
+  }
   .dialog .report .foreign th,
   .dialog .report .foreign td {
-    padding: 2px 3px;
-    font-size: var(--fs-s);
+    padding: 3px 8px;
+    border-bottom: 1px solid var(--line);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
   }
-}
-/* The native affairs report: a tribe's facts as label and value pairs, its settlements as a table, a rule between tribes. */
-.dialog .report .indian section {
-  padding: 8px 0 12px;
-  border-top: 1px solid var(--line);
-}
-.dialog .report .indian section:first-child {
-  border-top: 0;
-}
-.dialog .report .indian dl {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 2px 20px;
-  margin: 0 0 8px;
-}
-.dialog .report .indian dl > div {
-  display: contents;
-}
-.dialog .report .indian dt {
-  color: var(--muted);
-}
-.dialog .report .indian dd {
-  margin: 0;
-}
-.dialog .report .indian table {
-  border-collapse: collapse;
-  width: 100%;
-}
-.dialog .report .indian th {
-  padding: 2px 8px;
-  border-bottom: 1px solid var(--line);
-  color: var(--head);
-  text-align: left;
-  font-weight: 700;
-}
-.dialog .report .indian td {
-  padding: 2px 8px;
-  vertical-align: middle;
-}
-.dialog .report .indian td .pic {
-  width: 24px;
-  height: 24px;
-  vertical-align: middle;
-}
-/* The trade goods stay on one line: wrapped, the third sat under the first and touched the row above. */
-.dialog .report .indian td[data-cell='wanted'] {
-  white-space: nowrap;
-}
-/* What FreeCol marks with "*" (capital) and "$" (worth scouting) after a settlement's name. */
-.dialog .report .indian .tag {
-  display: block;
-  font-size: 0.8em;
-  color: var(--muted);
-}
-/* The unit reports: a unit with what it carries beside it, the units of a kind side by side. */
-.dialog .report .unit-report .unit {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  margin-right: 6px;
+  .dialog .report .foreign tbody th {
+    text-align: left;
+    font-weight: 400;
+    color: var(--muted);
+  }
+  /* The measures' names stay in view while the nations scroll sideways under a narrow screen. */
+  .dialog .report .foreign tbody th,
+  .dialog .report .foreign thead th:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: var(--panel);
+  }
+  .dialog .report .foreign thead th {
+    color: var(--head);
+    text-align: center;
+    /* A name wraps only between words: "The Netherlands" takes two lines, no column grows wide for it. */
+    white-space: normal;
+    min-width: 5em;
+    /* The arms line up at the top; a name that wraps, as "The Netherlands", grows downwards. */
+    vertical-align: top;
+    padding-top: 0;
+  }
+  .dialog .report .foreign thead th .pic {
+    display: block;
+    margin: 0 auto 2px;
+  }
+  .dialog .report .foreign td[data-stance] {
+    font-weight: 700;
+  }
+  .dialog .report .foreign td[data-stance='war'] {
+    color: var(--bad);
+  }
+  .dialog .report .foreign td[data-stance='cease_fire'] {
+    color: var(--warn);
+  }
+  .dialog .report .foreign td[data-stance='alliance'] {
+    color: var(--good);
+  }
+  .dialog .report .foreign td[data-stance='peace'] {
+    color: var(--link);
+  }
+  .dialog .report .foreign td[data-known='false']::after {
+    content: '\2013';
+    color: var(--muted);
+  }
+  @media (max-width: 700px) {
+    .dialog .report .foreign th,
+    .dialog .report .foreign td {
+      padding: 2px 3px;
+      font-size: var(--fs-s);
+    }
+  }
+  /* The native affairs report: a tribe's facts as label and value pairs, its settlements as a table, a rule between tribes. */
+  .dialog .report .indian section {
+    padding: 8px 0 12px;
+    border-top: 1px solid var(--line);
+  }
+  .dialog .report .indian section:first-child {
+    border-top: 0;
+  }
+  .dialog .report .indian dl {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 2px 20px;
+    margin: 0 0 8px;
+  }
+  .dialog .report .indian dl > div {
+    display: contents;
+  }
+  .dialog .report .indian dt {
+    color: var(--muted);
+  }
+  .dialog .report .indian dd {
+    margin: 0;
+  }
+  .dialog .report .indian table {
+    border-collapse: collapse;
+    width: 100%;
+  }
+  .dialog .report .indian th {
+    padding: 2px 8px;
+    border-bottom: 1px solid var(--line);
+    color: var(--head);
+    text-align: left;
+    font-weight: 700;
+  }
+  .dialog .report .indian td {
+    padding: 2px 8px;
+    vertical-align: middle;
+  }
+  .dialog .report .indian td .pic {
+    width: 24px;
+    height: 24px;
+    vertical-align: middle;
+  }
+  /* The trade goods stay on one line: wrapped, the third sat under the first and touched the row above. */
+  .dialog .report .indian td[data-cell='wanted'] {
+    white-space: nowrap;
+  }
+  /* What FreeCol marks with "*" (capital) and "$" (worth scouting) after a settlement's name. */
+  .dialog .report .indian .tag {
+    display: block;
+    font-size: 0.8em;
+    color: var(--muted);
+  }
+  /* The unit reports: a unit with what it carries beside it, the units of a kind side by side. */
+  .dialog .report .unit-report .unit {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    margin-right: 6px;
+  }
 }

@@ -12,10 +12,14 @@ RUN apt-get update \
  && unzip -q /tmp/gradle.zip -d /opt && rm /tmp/gradle.zip \
  && ln -s /opt/gradle-${GRADLE_VERSION}/bin/gradle /usr/local/bin/gradle
 
+# Node's build for the image's architecture: x64 on CI, arm64 on Apple
+# silicon, where an x64 Node under emulation crashes (exit 133).
 ARG NODE_VERSION=24.18.0
-RUN curl -fsSL https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz \
+ARG TARGETARCH
+RUN arch=$([ "$TARGETARCH" = arm64 ] && echo arm64 || echo x64) \
+ && curl -fsSL https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${arch}.tar.xz \
   | tar -xJ -C /opt \
- && ln -s /opt/node-v${NODE_VERSION}-linux-x64/bin/* /usr/local/bin/
+ && ln -s /opt/node-v${NODE_VERSION}-linux-${arch}/bin/* /usr/local/bin/
 
 # pnpm, at the version ui/package.json's packageManager pins, through Node's Corepack.
 ENV COREPACK_HOME=/work/.cache/corepack

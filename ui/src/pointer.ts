@@ -1,6 +1,7 @@
 // The player's pointer on the map: drags pan it, the wheel zooms it, a
 // pointer resting at its edge scrolls it, and the tile under the pointer is
 // hovered. Each turns into a view event (view.ts) for the page to dispatch.
+import { inTextField } from './accelerators';
 import type { Id } from './webgui';
 import { edgeScroll, type Tile, type ViewEvent, type ViewState } from './view';
 
@@ -144,7 +145,7 @@ export function gotoKeyInput(
     if (choosing) show();
   });
   addEventListener('keydown', (e) => {
-    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    if (e.altKey || e.ctrlKey || e.metaKey || inTextField(e.target)) return;
     if (choosing && e.key === 'Escape') {
       e.preventDefault();
       stop();

@@ -200,6 +200,9 @@ await browser.startTracing(page, {
   ],
 });
 if (throttle > 1) await cdp.send('Emulation.setCPUThrottlingRate', { rate: throttle });
+// Starting the trace and the throttling stalls the page's frames for up to a second, with nothing on its main thread
+// (#419): let that pass before the idle phase, which would count it as a long frame.
+await page.waitForTimeout(1500);
 const phases: { name: string; hz: number; start: number; end: number; sent: number }[] = [];
 const wheel = async (steps: number) => {
   for (let i = 0; i < Math.abs(steps); i++) {
@@ -431,6 +434,28 @@ for (const p of phases) {
     console.log(
       `    ${k.padEnd(30)} ${String(s.n).padStart(6)} ${s.ms.toFixed(0).padStart(6)} ${(s.ms / frames).toFixed(2).padStart(7)}`,
     );
+}
+// Each frame over 17.5 ms, with what the main thread spent it on: the page's clock put on the trace's by the phase's
+// start mark, which both have.
+console.log('\nlong frames (ms, then the main thread by what it was spent on):');
+for (const p of phases) {
+  const lo = marks.get(`start:${p.name}`);
+  if (!lo) continue;
+  const at = (t: number) => lo + (t - p.start) * 1000;
+  for (const [t, d] of within(rec.frames, p)) {
+    if (d <= 17.5) continue;
+    const [a, b] = [at(t - d), at(t)];
+    const by = new Map<string, number>();
+    for (const s of samples) {
+      if (s.ts < a || s.ts > b) continue;
+      const c = category(s.stack);
+      if (c) by.set(c, (by.get(c) ?? 0) + s.dt);
+    }
+    const top = [...by].sort((x, y) => y[1] - x[1]).slice(0, 4);
+    console.log(
+      `  ${p.name.padEnd(15)} ${d.toFixed(1).padStart(6)}: ${top.map(([c, v]) => `${c.slice(0, 40)} ${v.toFixed(1)}`).join(', ')}`,
+    );
+  }
 }
 // The functions with the most self time over all the pan phases.
 {

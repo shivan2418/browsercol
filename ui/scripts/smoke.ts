@@ -9,7 +9,7 @@
 // the Engine asks for as the game starts.
 // The page's dialogs are answered as scripts/dialogs.ts says.
 // Run in the web image:
-//   DEV_VARIANT=web ./dev.sh node ui/scripts/smoke.ts [--browsers chromium,firefox] [--autoplay N] [--query preset=NAME] [--url https://deployed.site/path/]
+//   DEV_VARIANT=web ./dev.sh node ui/scripts/smoke.ts [--browsers chromium,firefox] [--autoplay N] [--query preset=NAME] [--url https://browsercol.com/]
 import fs from 'node:fs';
 import path from 'node:path';
 import {
@@ -28,6 +28,8 @@ import type { Page, Request } from 'playwright-core';
 const browsers = browserNames();
 const autoplay = opt('autoplay', '10');
 const timeout = Number(opt('timeout', '900')) * 1000;
+/** A game started from the start screen with no rounds to play is up in seconds; one that is not has failed (#422). */
+const startTimeout = Number(opt('start-timeout', '300')) * 1000;
 const server = await serveDist();
 /** More page parameters, e.g. preset=dutch-small to start from a preset. */
 const query = opt('query', '');
@@ -110,7 +112,7 @@ for (const name of browsers) {
       try {
         await page.goto(`${server.url}?autoplay=0`);
         await startFromScreen(page, nation, level, nation === 'model.nation.french');
-        const r = await waitForResult(page, timeout);
+        const r = await waitForResult(page, startTimeout);
         const sent = r.choice ? JSON.parse(r.choice) : {};
         nations.push(
           r.status === 'finished' &&
@@ -130,6 +132,7 @@ for (const name of browsers) {
   }
   // FreeCol's language option (#151): German strings on the start screen and from the client Engine.
   let language = 'German ok';
+  let british = 'English (UK) ok';
   if (screen) {
     const german = await browser.newPage();
     await answerDialogs(german);
@@ -141,12 +144,28 @@ for (const name of browsers) {
       await german.waitForSelector('[data-nation="model.nation.dutch"]', { timeout: 60000 });
       const nation = await german.textContent('label:has([data-nation="model.nation.dutch"]) .name');
       await german.click('[data-start]');
-      const r = await waitForResult(german, timeout);
+      const r = await waitForResult(german, startTimeout);
       const units = await german.textContent('body');
       if (!nation!.includes('Niederländisch') || r.status !== 'finished' || !units!.includes('Niederländisch Soldat'))
         language = `German FAILED (${r.status}${r.error ? ': ' + r.error : ''}, start screen ${nation})`;
     } catch (ex) {
       language = `German FAILED (${await diagnose(ex)})`;
+    }
+    // English (UK), en_GB, a translation with a country: naming it once crashed the Engine in TeaVM's
+    // Locale.getDisplayCountry (a lookup in an empty CLDR map divides by zero). A browser set to en-GB picks it.
+    const uk = await browser.newPage();
+    await answerDialogs(uk);
+    try {
+      await uk.addInitScript(() =>
+        localStorage.setItem('freecol.prefs', JSON.stringify({ freecol: { 'model.option.languageOption': 'en_GB' } })),
+      );
+      await uk.goto(`${server.url}?autoplay=0`);
+      await uk.waitForSelector('[data-nation="model.nation.dutch"]', { timeout: 60000 });
+      await uk.click('[data-start]');
+      const r = await waitForResult(uk, startTimeout);
+      if (r.status !== 'finished') british = `English (UK) FAILED (${r.status}${r.error ? ': ' + r.error : ''})`;
+    } catch (ex) {
+      british = `English (UK) FAILED (${await diagnose(ex)})`;
     }
   }
   // The Colopedia from the start screen (#206), before any game: nations, then nation types, and the
@@ -159,15 +178,44 @@ for (const name of browsers) {
       await pedia.goto(`${server.url}?autoplay=0`);
       await pedia.click('[data-colopedia=nations]');
       await pedia.waitForSelector('.colopedia [data-entry="model.nation.dutch"]', { timeout: 120000 });
+      // The window keeps one width and one height whatever entry is shown (#423), the longest text wrapping in it.
+      const size = () =>
+        pedia.$eval('.dialog[data-kind=report]', (d) => `${Math.round(d.clientWidth)}x${Math.round(d.clientHeight)}`);
+      const entries = await pedia.$$eval('.colopedia [data-entry] button', (b) => b.map((x) => x.textContent));
+      const sizes = new Set<string>([await size()]);
+      for (let i = 0; i < Math.min(entries.length, 4); i++) {
+        await pedia.locator('.colopedia [data-entry] button').nth(i).click();
+        sizes.add(await size());
+      }
+      if (sizes.size !== 1) throw new Error(`the Colopedia's size changes with the entry: ${[...sizes].join(', ')}`);
       await pedia.click('[data-answer=close]');
       await pedia.click('[data-colopedia=nationTypes]');
       await pedia.waitForSelector('.colopedia [data-entry="model.nationType.trade"]', { timeout: 60000 });
       await pedia.click('[data-answer=close]');
       await pedia.click('[data-start]');
-      const r = await waitForResult(pedia, timeout);
+      const r = await waitForResult(pedia, startTimeout);
       if (r.status !== 'finished') colopedia = `Colopedia FAILED (game ${r.status}${r.error ? ': ' + r.error : ''})`;
     } catch (ex) {
       colopedia = `Colopedia FAILED (${await diagnose(ex)})`;
+    }
+  }
+  // The landing page at the site's root (#374): the Play button opens play/ in a new tab, and a root URL with game
+  // parameters is forwarded to the game with the same query.
+  let landing = 'landing ok';
+  if (screen) {
+    const lp = await browser.newPage();
+    try {
+      // Not goto: in Firefox it adds ?renderer=canvas2d, which is a game parameter, so the root would forward.
+      await lp.goto('about:blank');
+      await lp.evaluate((u) => (location.href = u), server.root);
+      const play = await lp.getAttribute('a.play', 'href', { timeout: 30000 });
+      const tab = await lp.getAttribute('a.play', 'target');
+      await lp.goto(`${server.root}?preset=dutch-small&autoplay=0`);
+      await lp.waitForURL(/\/play\/\?preset=dutch-small&autoplay=0/, { timeout: 30000 });
+      if (play !== 'play/') landing = `landing FAILED (Play goes to ${play})`;
+      else if (tab !== '_blank') landing = `landing FAILED (Play opens in ${tab ?? 'the same tab'})`;
+    } catch (ex) {
+      landing = `landing FAILED (${await diagnose(ex)})`;
     }
   }
   await browser.close();
@@ -178,14 +226,16 @@ for (const name of browsers) {
     unheard.length === 0 &&
     nations.every((n) => n.endsWith(' ok')) &&
     language.endsWith(' ok') &&
-    colopedia.endsWith(' ok');
+    british.endsWith(' ok') &&
+    colopedia.endsWith(' ok') &&
+    landing.endsWith(' ok');
   failed ||= !ok;
   console.log(
     `${name} ${browser.version()}: ${result.status}${result.error ? ': ' + result.error : ''}, ` +
       `${result.rounds?.length ?? 0} rounds, turn ${result.turn ?? '-'}, renderer ${result.renderer ?? '-'}, ` +
       `data fetched ${fetches}x, ` +
       `sounds ${unheard.length ? 'MISSING ' + unheard.join(' ') : 'ok'} (${audio.size} files), ` +
-      (screen ? `start screen: ${nations.join(', ')}, ${language}, ${colopedia}, ` : '') +
+      (screen ? `start screen: ${nations.join(', ')}, ${language}, ${british}, ${colopedia}, ${landing}, ` : '') +
       `${((Date.now() - t) / 1000).toFixed(1)} s${errors.length ? ', page errors: ' + errors.join('; ') : ''}`,
   );
 }

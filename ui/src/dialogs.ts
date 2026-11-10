@@ -44,8 +44,11 @@ export type Dialog = (Asked | Shown) & { id: number };
 export interface Dialogs {
   /** Ask a question; it goes over the panel on screen, if there is one; resolves to the player's answer. */
   ask: <K extends keyof GuiQuestions>(kind: K, ask: GuiQuestions[K]['ask']) => Promise<GuiQuestions[K]['answer']>;
-  /** Show a panel; it goes over the panel on screen, if there is one. */
-  show: <K extends PanelKind>(kind: K, event: GuiEvents[K]) => void;
+  /**
+   * Show a panel; it goes over the panel on screen, if there is one. `closed` runs once the panel is closed
+   * (a panel put in its place by `replace` is the same panel, and closes in its stead).
+   */
+  show: <K extends PanelKind>(kind: K, event: GuiEvents[K], closed?: () => void) => void;
   /**
    * Put a panel in the place of the first of its kind that is queued or open and that `same` says it is
    * (any, by default), as the same panel shown differently; queue it if there is none. The panel starts
@@ -76,14 +79,18 @@ export function dialogs(): Dialogs {
   let nextId = 1;
   /** The panels a dialog was put in front of: they were on screen. */
   const covered = new Set<number>();
+  /** What each open dialog does once it is answered or closed, by its id. */
+  const settles = new Map<number, (a: unknown) => void>();
 
   const make = (kind: string, payload: unknown, key: 'ask' | 'event', settle: (a: unknown) => void): Dialog => {
     const id = nextId++;
+    settles.set(id, settle);
     const done = (a?: unknown) => {
       const i = queue.findIndex((d) => d.id === id);
       if (i < 0) return;
       queue.splice(i, 1);
       covered.delete(id);
+      settles.delete(id);
       settle(a);
       for (const l of listeners) l();
     };
@@ -105,7 +112,7 @@ export function dialogs(): Dialogs {
 
   return {
     ask: (kind, ask) => new Promise((ok) => add(kind, ask, 'ask', ok as (a: unknown) => void)),
-    show: (kind, event) => add(kind, event, 'event', () => {}),
+    show: (kind, event, closed) => add(kind, event, 'event', () => closed?.()),
     replace: (kind, event, same = () => true, keep = false) => {
       const i = queue.findIndex((d) => d.kind === kind && same((d as unknown as { event: typeof event }).event));
       if (i < 0) return add(kind, event, 'event', () => {});
@@ -116,7 +123,9 @@ export function dialogs(): Dialogs {
         return;
       }
       // A new dialog id, so that the panel starts afresh rather than keeping what React held.
-      const next = make(kind, event, 'event', () => {});
+      // It is the same panel, though: it closes as the one it replaces would.
+      const next = make(kind, event, 'event', settles.get(queue[i].id) ?? (() => {}));
+      settles.delete(queue[i].id);
       if (covered.has(queue[i].id)) {
         covered.delete(queue[i].id);
         covered.add(next.id);

@@ -138,7 +138,7 @@ describe('the confirm dialog', () => {
       goods: { type: 'model.goods.sugar', name: 'Sugar', keys: ['image.icon.model.goods.sugar'] },
     });
     expect(screen.getByText('Sugar').tagName).toBe('B');
-    expect(document.querySelector('img.goods-big')).not.toBeNull();
+    expect(document.querySelector('img[data-size=large]')).not.toBeNull();
   });
 
   it('takes the default option on Enter and cancels on Escape', async () => {
@@ -169,7 +169,7 @@ describe('the confirm dialog', () => {
       image: 'image.flavor.Victory',
     });
     const header = screen.getByRole('heading', { name: 'You are victorious!' });
-    expect(header.className).toBe('headline');
+    expect(header.dataset.look).toBe('headline');
     const soldier = document.querySelector('img.picture');
     expect(soldier?.getAttribute('src')).toBe('art/victory.png');
     // The header comes first, then the picture, then the buttons.
@@ -1067,15 +1067,15 @@ describe('the panels', () => {
     const { box } = host({ advisor: { src: 'art/doctor-paper.png', top: 205 } });
     act(() => box.show('information', { text: 'A ship.', object: null, tile: null, at: null, images: [], ok: 'OK' }));
     const panel = screen.getByRole('dialog');
-    expect(panel.classList.contains('advised')).toBe(true);
+    expect(panel.hasAttribute('data-advised')).toBe(true);
     expect(panel.style.getPropertyValue('--advisor')).toBe('url("art/doctor-paper.png")');
     expect(panel.style.getPropertyValue('--advisor-top')).toBe('205px');
     key('Enter');
     act(() => box.show('messages', { title: null, ok: 'OK', messages: [message('Taxes are up.')] }));
-    expect(screen.getByRole('dialog').classList.contains('advised')).toBe(true);
+    expect(screen.getByRole('dialog').hasAttribute('data-advised')).toBe(true);
     key('Enter');
     act(() => box.show('messages', { title: 'Turn Report', ok: 'OK', messages: [message('Taxes are up.')] }));
-    expect(screen.getByRole('dialog').classList.contains('advised')).toBe(false);
+    expect(screen.getByRole('dialog').hasAttribute('data-advised')).toBe(false);
   });
 
   it('show the flavour image of an event panel above its footer', () => {
@@ -2188,8 +2188,9 @@ describe('the Europe panel', () => {
     const { box } = host();
     act(() => box.show('europe', europe));
     expect(screen.getByRole('heading', { name: 'Europe' })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'Sailing to America' })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'Sailing to Europe' })).toBeTruthy();
+    // Each list is a box named by its caption, as every boxed section is (Box).
+    expect(screen.getByRole('region', { name: 'Sailing to America' })).toBeTruthy();
+    expect(screen.getByRole('region', { name: 'Sailing to Europe' })).toBeTruthy();
     expect(names('toAmerica')).toEqual(['Merchantman']);
     expect(names('toEurope')).toEqual([]);
     expect(names('inPort')).toEqual(['Caravel', 'Galleon']);
@@ -2432,7 +2433,7 @@ describe('the Europe panel', () => {
         inPort: [{ ...europe.inPort[0], cargoTitle: 'Cargo on Caravel (2 holds left)' }],
       }),
     );
-    expect(document.querySelector('[data-list=cargo] h3')!.textContent).toBe('Cargo on Caravel (2 holds left)');
+    expect(document.querySelector('[data-list=cargo] > .cap')!.textContent).toBe('Cargo on Caravel (2 holds left)');
   });
 
   it('closes the purchase popup when a purchase leaves nothing affordable', () => {
@@ -2587,6 +2588,10 @@ describe('the Europe panel', () => {
     act(() => dragOnto(food(), cargo(), { shiftKey: true }));
     act(() => dragOnto(stack(), market(), { shiftKey: true }));
     expect(calls).toEqual(['buy model.goods.food unit:1 true', 'sell model.goods.food unit:1 true']);
+    // The docks sell the cargo dropped there too, where Swing refuses it.
+    calls.length = 0;
+    act(() => dragOnto(stack(), document.querySelector('[data-list=docks]')!));
+    expect(calls).toEqual(['sell model.goods.food unit:1 false']);
   });
 
   it('opens the Engine’s quick-action menu on a right-click of a ship, a docked unit, cargo and the market', () => {
