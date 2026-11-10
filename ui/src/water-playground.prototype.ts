@@ -213,6 +213,8 @@ export function propertiesOf(s: Settings): string {
     ]),
     num('ocean.speed', s.speed),
     num('lake.speed', s.lakeSpeed),
+    num('river.minorSpeed', s.rivers?.minor ?? 12),
+    num('river.majorSpeed', s.rivers?.major ?? 6),
     `# Waves: slide, warp or flow.`,
     num('waves', s.waves),
     num('flowSize', s.flowSize),
@@ -399,6 +401,7 @@ export function waterPlaygroundPanel(host: Host) {
     }
     const url = new URL(location.href);
     url.searchParams.set('water', variant);
+    url.searchParams.set('rivers', s?.rivers?.mode ?? 'flipbook');
     if (split) url.searchParams.set('split', String(+split.toFixed(3)));
     else url.searchParams.delete('split');
     history.replaceState(null, '', url);
@@ -426,6 +429,7 @@ export function waterPlaygroundPanel(host: Host) {
   const surface = () => waterPlayground.surface?.() ?? null;
   const structural = (a: Settings, b: Settings) =>
     a.waves !== b.waves ||
+    a.rivers?.mode !== b.rivers?.mode ||
     a.shore !== b.shore ||
     a.climate !== b.climate ||
     !!a.recipe !== !!b.recipe ||
@@ -539,6 +543,18 @@ export function waterPlaygroundPanel(host: Host) {
     variant = name;
     s = {
       ...clone(base!),
+      rivers: {
+        mode:
+          params.get('rivers') === 'flow'
+            ? 'flow'
+            : params.get('rivers') === 'flipbook'
+              ? 'flipbook'
+              : name === 'D' || name === 'E'
+                ? 'flow'
+                : 'flipbook',
+        minor: base?.rivers?.minor ?? 12,
+        major: base?.rivers?.major ?? 6,
+      },
       recipe: {
         ...clone(RECIPES[name === 'Default' ? 'A' : name]),
         // ?clip=1&clipAt=2 turns the clipped beach on from the URL, for the shot scripts.
@@ -610,6 +626,33 @@ export function waterPlaygroundPanel(host: Host) {
         void showVariant();
       }),
     );
+    panel.append(
+      select(
+        'Rivers',
+        () => s!.rivers?.mode ?? 'flipbook',
+        (mode) => {
+          s!.rivers = { minor: 12, major: 6, ...s!.rivers, mode };
+        },
+        [
+          ['flipbook', 'flipbook'],
+          ['flow', 'flow'],
+        ],
+      ),
+    );
+    for (const kind of ['minor', 'major'] as const)
+      panel.append(
+        slider(
+          `${kind} river px/s`,
+          () => s!.rivers?.[kind] ?? (kind === 'minor' ? 12 : 6),
+          (v) => {
+            s!.rivers ??= { mode: 'flipbook', minor: 12, major: 6 };
+            s!.rivers[kind] = v;
+          },
+          0,
+          30,
+          0.5,
+        ),
+      );
     for (const [name, key, min, max, step] of [
       ['Band speed px/s', 'bandSpeed', 0, 20, 0.5],
       ['Band spacing px', 'bandSpacing', 16, 100, 1],

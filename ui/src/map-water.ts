@@ -81,6 +81,8 @@ export interface WaterLook {
   ice: number;
   /** PROTOTYPE: the painted-art recipe; absent keeps the parked ripple renderer. */
   recipe?: WaterRecipe;
+  /** PROTOTYPE river axis; absent preserves the flipbook. Speeds are screen pixels per second. */
+  rivers?: { mode: 'flipbook' | 'flow'; minor: number; major: number };
 }
 
 export type WaveModel = 'slide' | 'warp' | 'flow';
@@ -362,6 +364,11 @@ export function waterLook(res: Resources): WaterLook | null {
       ]),
     ) as Record<Climate, Palette>,
     ice: numberOf(res, `${KEY}ice`, 0),
+    rivers: {
+      mode: 'flipbook',
+      minor: numberOf(res, `${KEY}river.minorSpeed`, 12),
+      major: numberOf(res, `${KEY}river.majorSpeed`, 6),
+    },
   };
 }
 
@@ -842,9 +849,9 @@ void main() {
 /** Unproject FreeCol's diamond into tile coordinates, then make its edges periodic once, not per frame. */
 export function paintedWaterAtlas(pictures: (HTMLImageElement | HTMLCanvasElement)[]): HTMLCanvasElement {
   const size = 128;
-  const canvas = Object.assign(document.createElement('canvas'), { width: size, height: size * 3 });
+  const canvas = Object.assign(document.createElement('canvas'), { width: size, height: size * pictures.length });
   const g = canvas.getContext('2d')!;
-  const output = g.createImageData(size, size * 3);
+  const output = g.createImageData(size, size * pictures.length);
   pictures.forEach((pic, kind) => {
     const source = Object.assign(document.createElement('canvas'), { width: pic.width, height: pic.height });
     const ctx = source.getContext('2d', { willReadFrequently: true })!;
@@ -1208,12 +1215,15 @@ export class ShaderSurface {
     /** Its own textures, by the sampler's name. */
     textures: Record<string, TextureSource>,
     overlayFragment?: string,
+    private readonly customGeometry?: Geometry,
   ) {
     this.positions = new Float32Array(8);
-    const geometry = new Geometry({
-      attributes: { aPosition: { buffer: this.positions, format: 'float32x2' } },
-      indexBuffer: [0, 1, 2, 0, 2, 3],
-    });
+    const geometry =
+      customGeometry ??
+      new Geometry({
+        attributes: { aPosition: { buffer: this.positions, format: 'float32x2' } },
+        indexBuffer: [0, 1, 2, 0, 2, 3],
+      });
     this.field = fieldSource({ cols: 1, rows: 1, texel: 1, data: new Uint8Array(4) });
     this.climate = fieldSource({ cols: 1, rows: 1, texel: 1, data: new Uint8Array([0, 255, 0, 255]) });
     this.textures = Object.values(textures);
@@ -1280,8 +1290,10 @@ export class ShaderSurface {
       if (this.overlay) this.overlay.shader!.resources.uClimate = this.climate;
       oldClimate.destroy();
     }
-    this.positions.set([0, 0, w, 0, w, h, 0, h]);
-    this.mesh.geometry.getBuffer('aPosition').update();
+    if (!this.customGeometry) {
+      this.positions.set([0, 0, w, 0, w, h, 0, h]);
+      this.mesh.geometry.getBuffer('aPosition').update();
+    }
     this.uniforms.uFieldSize = [w, h];
   }
 
@@ -1549,5 +1561,5 @@ export const waterPlayground: {
   /** Flipbook under the recipe; split is a fraction of the map canvas. */
   compare?: (split: number, defaultOnly: boolean) => void | Promise<void>;
   /** The map the field was last made from. */
-  map?: Pick<MapView, 'w' | 'h' | 'types' | 'tiles'>;
+  map?: RiverMap;
 } = {};

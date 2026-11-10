@@ -8,6 +8,7 @@
 // the cursor and the active unit's path drawn over it.
 import { AlphaFilter, Application, Container, Culler, Graphics, Rectangle, Sprite, Text, Texture } from 'pixi.js';
 import { Atlas, ChunkLayer, pictureKey, staticDrawing, tilemapBackend } from './map-tilemap';
+import { riverDrawing, RiverSurface } from './map-rivers';
 import {
   canDrawWater,
   coverOf,
@@ -314,10 +315,11 @@ export interface WaterPen {
   /** The water's field of the map now. */
   field(f: WaterField): void;
   /** Move the ripples to where they are at `ms`, and draw the map again. */
-  time(ms: number): void;
+  time(ms: number, riversMoving?: boolean): void;
   /** PROTOTYPE (water playground): the surface drawing the water now. */
   surface?(): WaterSurface | null;
   comparison?(split: number, defaultOnly: boolean): void;
+  rivers?(next: RiverSurface | null): boolean;
 }
 
 /** What draws the map: a PixiJS scene graph or a Canvas 2D context. */
@@ -772,6 +774,7 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
   };
   /** The shader water, under the animated base, once start() gives it a look. */
   let surface: WaterSurface | null = null;
+  let rivers: RiverSurface | null = null;
   let split = 0;
   let defaultOnly = false;
   const rightMask = new Graphics();
@@ -812,6 +815,10 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
       surface.surface.mesh.visible = !defaultOnly;
       if (surface.surface.overlay) surface.surface.overlay.visible = !defaultOnly;
       surface.surface.uniforms.uSplit = divider * app.renderer.resolution;
+    }
+    if (rivers) {
+      rivers.surface.mesh.visible = !defaultOnly;
+      rivers.surface.uniforms.uSplit = divider * app.renderer.resolution;
     }
     redraw(null);
   };
@@ -854,12 +861,27 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
             surface?.surface.setField(f);
             redraw(null);
           },
-          time: (ms) => {
+          time: (ms, riversMoving = false) => {
             if (defaultOnly) return;
             surface?.setTime(ms);
+            if (surface) rivers?.setTime(ms, riversMoving, surface.look, surface.rate);
             redraw(null);
           },
           surface: () => surface,
+          rivers: (next) => {
+            rivers?.surface.destroy();
+            rivers = null;
+            if (next) {
+              if (!programLinks(gl, next.surface.program)) {
+                next.surface.destroy();
+                return false;
+              }
+              rivers = next;
+              world.addChildAt(next.surface.mesh, world.getChildIndex(layers[0]));
+            }
+            compare();
+            return true;
+          },
           comparison: (fraction, only) => {
             split = fraction;
             defaultOnly = only;
@@ -1707,6 +1729,8 @@ export function mapDrawer(
   let lastWater: [MapView, StaticScene] | null = null;
   let paintedAtlas: HTMLCanvasElement | null = null;
   let comparison = false;
+  let riverBase: Op[] | null = null;
+  let riverKey = '';
   // The playground chooses its recipe as soon as the first map is available.
   // Do not allocate a parked field just to discard it on that first selection.
   const waterParams = new URLSearchParams(location.search);
@@ -1767,6 +1791,23 @@ export function mapDrawer(
       painted = null;
       return (drawing = drawing.then(() => (drawn ? drawNow(drawn, []) : undefined)));
     };
+  }
+
+  async function riversNow(map: MapView, ground: StaticScene) {
+    if (!pen?.water?.rivers) return;
+    const enabled = waterDrawing === 'surface' && look?.rivers?.mode === 'flow';
+    const key = enabled ? `${map.w}:${map.h}:${map.tiles}:${JSON.stringify(map.rivers)}` : '';
+    if (key === riverKey) return;
+    riverKey = key;
+    riverBase = null;
+    if (!enabled) {
+      pen.water.rivers(null);
+      return;
+    }
+    const drawing = await riverDrawing(map, ground.base, pics.get);
+    const next = new RiverSurface(drawing, await pics.get(res!.path('image.tile.river.water')!));
+    if (field) next.surface.setField(field);
+    if (pen.water.rivers(next)) riverBase = drawing.banks;
   }
 
   /**
@@ -1940,7 +1981,7 @@ export function mapDrawer(
     frame = requestAnimationFrame(tick);
     animateBase();
     // The shader water moves at the screen's frame rate; with the terrain's animation off, it stands still.
-    if (waterDrawing === 'surface' && terrain !== 'off') pen?.water?.time(performance.now());
+    if (waterDrawing === 'surface' && terrain !== 'off') pen?.water?.time(performance.now(), terrain === 'all');
     if (sliding || lifting || (view?.mode === 'units' && view.active) || (view?.mode === 'terrain' && view.selected))
       camera();
   }
@@ -1997,6 +2038,8 @@ export function mapDrawer(
     if (painted !== ground) {
       // Not kept until all three are drawn: a draw cut short leaves them to be drawn again.
       painted = null;
+      await riversNow(map, ground);
+      const base = riverBase ?? ground.base;
       if (look?.recipe && waterDrawing === 'surface') {
         const baseline = comparison ? staticScene(map, res!, colonyLabels, 'flipbook') : null;
         await paint(pen!, 8, baseline?.base ?? [], pics);
@@ -2006,7 +2049,7 @@ export function mapDrawer(
         await paint(
           pen!,
           5,
-          look.recipe.shore === 'drawn' ? ground.base.filter((op) => !(op.k === 'image' && op.shore)) : ground.base,
+          look.recipe.shore === 'drawn' ? base.filter((op) => !(op.k === 'image' && op.shore)) : base,
           pics,
         );
         await paint(
@@ -2018,7 +2061,7 @@ export function mapDrawer(
       } else {
         await paint(pen!, 8, [], pics);
         await paint(pen!, 9, [], pics);
-        await paint(pen!, 5, ground.base, pics);
+        await paint(pen!, 5, base, pics);
         await paint(pen!, 0, ground.below, pics);
       }
       await paint(pen!, 7, ground.above, pics);
