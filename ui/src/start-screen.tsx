@@ -287,6 +287,7 @@ export function StartScreen({
       <button
         type="button"
         className="linkish pedia"
+        data-flat=""
         data-colopedia={section}
         disabled={opening}
         onClick={() => openPedia(section)}

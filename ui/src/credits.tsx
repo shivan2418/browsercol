@@ -139,7 +139,7 @@ export function SourceLinks({ credits }: { credits: () => void }) {
   return (
     <p className="source-links">
       Free software under the <Link href={GPL}>GNU GPL</Link> · <Link href={SOURCE_URL}>Source code</Link> ·{' '}
-      <button type="button" className="linkish" data-credits onClick={credits}>
+      <button type="button" className="linkish" data-flat="" data-credits onClick={credits}>
         Credits
       </button>{' '}
       · <span data-build>{BUILD}</span>

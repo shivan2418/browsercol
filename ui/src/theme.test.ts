@@ -212,6 +212,7 @@ const MOVED: Record<string, RegExp> = {
   'start window (start-window.css, credits.css)': /^(\.start|\.new-game|\.customize)\b|^\.start-window/,
   'form controls (form-controls.css)':
     /^(input\[type|label\b|summary::|details\[|progress\b|\.ui-(select|positioner|popup|number|help))/,
+  'buttons and tabs (button.css)': /^(button(:|\[| *$)|\[role='tablist'\])/,
   'pictures (pic.css)':
     /^(\.dialog \.pic(\.small)?|\.dialog \.hold \.pic\.small|\.dialog \.palette \.pic|\.shop-popup \.card \.pic|\.dialog \.goods-big)$/,
   'button rows (button-row.css)':

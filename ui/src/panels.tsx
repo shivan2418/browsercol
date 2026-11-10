@@ -1375,6 +1375,7 @@ function UnitChip({
     <Tip
       as="button"
       className="chip"
+      data-flat=""
       data-unit={u.id}
       tip={u.name}
       aria-current={on}
@@ -1666,6 +1667,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
                       as="button"
                       key={`${c.kind}/${c.id}`}
                       className="chip"
+                      data-flat=""
                       data-cargo={c.kind}
                       data-disabled={goods?.enabled === false || undefined}
                       tip={goods?.reason ?? c.name}
@@ -1728,6 +1730,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
                   as="button"
                   key={g.id}
                   className="good"
+                  data-flat=""
                   data-goods={g.id}
                   data-disabled={!g.enabled || undefined}
                   tip={marketTitle(g)}

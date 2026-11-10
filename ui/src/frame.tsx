@@ -22,6 +22,7 @@ import { Tip } from './controls';
 import { dragging } from './drag';
 import { focusFirstEntry, menuArrows, useFocusTrap } from './focus';
 import type { GoodsProgress } from './webgui';
+import './button.css';
 import './window-frame.css';
 import './goods.css';
 import './box.css';
@@ -254,7 +255,7 @@ export function WindowFrame({
       <div className="title" onPointerDown={drag} style={{ cursor: 'move', touchAction: 'none' }}>
         {title && <h2 id={titleId}>{title}</h2>}
         {close && (
-          <Tip as="button" className="close" aria-label="Close" tip="Close (Esc)" onClick={close}>
+          <Tip as="button" className="close" data-flat="" aria-label="Close" tip="Close (Esc)" onClick={close}>
             ✕
           </Tip>
         )}
@@ -563,6 +564,7 @@ export function MenuBar({ menus, status }: { menus: Menu[]; status: string }) {
           <div className="menu" key={m.name}>
             <button
               role="menuitem"
+              data-flat=""
               aria-haspopup="menu"
               aria-expanded={open === m.name}
               // While a menu is open, pointing at another title opens that one, as a desktop menu bar does.
@@ -596,6 +598,7 @@ export function MenuBar({ menus, status }: { menus: Menu[]; status: string }) {
                 {m.items.map((item) => {
                   const entry = (e: MenuItem, nested: boolean) => (
                     <button
+                      data-flat=""
                       role={e.checked === undefined ? 'menuitem' : 'menuitemcheckbox'}
                       className={nested ? 'nested' : undefined}
                       key={e.label}

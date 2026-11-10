@@ -104,6 +104,7 @@ export function PopupMenu({
       {popup.menu.entries.map((e, i) => (
         <button
           key={i}
+          data-flat=""
           role="menuitem"
           data-entry={e.id}
           data-gap={e.gap || undefined}

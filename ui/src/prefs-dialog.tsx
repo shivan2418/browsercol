@@ -485,6 +485,7 @@ export function PreferencesDialog({
                   <button
                     key={c.id}
                     type="button"
+                    data-flat=""
                     data-category={c.id}
                     data-match={(searching && !dim) || undefined}
                     data-dim={dim || undefined}

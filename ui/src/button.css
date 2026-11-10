@@ -1,0 +1,127 @@
+/*
+ * Buttons and tabs (the elements; Tip as="button" and the rest draw them). A button has FreeCol's bevel
+ * (FreeColButtonUI, ticket 268): square corners, the line round it, a lit edge inside at the top and left and a
+ * shaded one at the bottom and right, from the tokens. Under the pointer it darkens by a tenth, as FreeCol's does;
+ * pressed, the bevel turns over and the label moves in by a pixel. The two states are also set by data-state
+ * (hover, pressed) for the stories. The base and the two states are at no weight (:where), so any rule of a
+ * panel's own for its buttons wins whatever the sheet order, as it did while these were ahead of them in index.html.
+ *
+ * Its variant is a prop of the button, the attribute `data-flat`: no bevel, for what looks as a label or a menu entry
+ * (the menu bar's buttons, a chip, a link), which then takes its own padding, border and background from its own
+ * rules. The states below are at the weight of the button rule (:where), so such a rule wins.
+ *
+ * The rules are in the components layer, after index.html's, at the weights they had there: `button:hover` (an
+ * accent border) still beats a class rule such as .ui-select's, which it did before. A move to the base layer
+ * waits for those controls to carry their own hover.
+ */
+@layer components {
+  :root {
+    --button-pad: var(--space-2) var(--space-5);
+    /* The label moves in by a pixel when pressed. */
+    --button-pad-pressed: 5px 11px 3px 13px;
+    /* The lit edge at the top and left, the shaded one at the bottom and right; turned over when pressed. */
+    --button-bevel: inset 1px 1px 0 var(--btn-hi), inset -1px -1px 0 var(--btn-lo);
+    --button-bevel-pressed: inset 1px 1px 0 var(--btn-lo), inset -1px -1px 0 var(--btn-hi);
+    /* A tab: its room, the bar of the accent colour on the selected one, and where its focus line sits. */
+    --tab-pad: 5px 14px 4px;
+    --tab-pad-selected: 5px;
+    --tab-bar: inset 0 3px 0 var(--accent);
+    --tab-focus-gap: -3px;
+  }
+  :where(button) {
+    font: inherit;
+    color: var(--btn-ink);
+    background: var(--btn);
+    border: var(--border) solid var(--line);
+    border-radius: 0;
+    box-shadow: var(--button-bevel);
+    padding: var(--button-pad);
+    cursor: pointer;
+  }
+  button:hover,
+  button:focus-visible {
+    border-color: var(--accent);
+  }
+  :where(button:hover:enabled, button[data-state='hover'], button[data-state='pressed']) {
+    background-image: linear-gradient(var(--btn-hover), var(--btn-hover));
+  }
+  :where(button:active:enabled, button[data-state='pressed']) {
+    box-shadow: var(--button-bevel-pressed);
+    padding: var(--button-pad-pressed);
+  }
+  /* What looks as a label or a menu entry, not as a button: no bevel. */
+  button[data-flat] {
+    box-shadow: none;
+  }
+  /* Whatever a click does shows the pointer, a disabled one does not. A control with its own look needs no cursor of its own. */
+  summary,
+  select,
+  [role='button'],
+  [role='tab'],
+  [role='menuitem'],
+  [role='option'],
+  .linkish {
+    cursor: pointer;
+  }
+  /*
+   * Tabs, for every tablist (role=tablist, role=tab): never a button. The tabs stand on a line, as Swing's
+   * JTabbedPane does in FreeCol's Continental Congress panel. An unselected tab is flat and recessed, with
+   * muted text; the selected one has the panel's own background (--tab-panel, the panel under the row), the
+   * line round it, a bar of the accent colour on top, and no line under it, so it opens into its panel. No
+   * bevel, no button fill. The top corners are rounded a little. Under the pointer a tab's text darkens,
+   * with no underline; with keyboard focus it has the accent outline inside, following the rounding. The
+   * lines make one outline: the row has no side padding, so the line under it spans the panel's width, the
+   * selected tab's sides stand on it, and the panel's side borders (the same 1px, at the same x) carry on
+   * from it. A panel under the row draws its sides and bottom, not its top.
+   */
+  [role='tablist'] {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--space-1);
+    padding: 0;
+    border-bottom: var(--border) solid var(--line);
+  }
+  button[role='tab'] {
+    margin-bottom: calc(-1 * var(--border));
+    padding: var(--tab-pad);
+    color: var(--muted);
+    background: color-mix(in srgb, var(--line) 12%, transparent);
+    border: var(--border) solid transparent;
+    border-bottom: 0;
+    border-radius: var(--radius-m) var(--radius-m) 0 0;
+    box-shadow: none;
+  }
+  button[role='tab']:hover:enabled,
+  button[role='tab'][data-state='hover'] {
+    color: var(--ink);
+    background-image: none;
+    border-color: transparent;
+    text-decoration: none;
+  }
+  button[role='tab']:active:enabled {
+    padding: var(--tab-pad);
+    box-shadow: none;
+  }
+  button[role='tab'][aria-selected='true'] {
+    color: var(--head);
+    background: var(--tab-panel, var(--panel));
+    border-color: var(--line);
+    /* Covers the line under the row, so the tab joins its panel. */
+    padding-bottom: var(--tab-pad-selected);
+    box-shadow: var(--tab-bar);
+    text-decoration: none;
+  }
+  button[role='tab']:focus-visible {
+    border-color: var(--line);
+    outline: var(--border-thick) solid var(--accent);
+    outline-offset: var(--tab-focus-gap);
+  }
+  button:disabled {
+    opacity: 0.5;
+  }
+  button:disabled,
+  [aria-disabled='true'] {
+    cursor: default;
+  }
+}

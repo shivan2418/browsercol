@@ -556,6 +556,7 @@ function ShipIcon({
     <Tip
       as="button"
       className="ship"
+      data-flat=""
       data-unit={u.id}
       data-drop={target ? '' : undefined}
       aria-current={chosen}
