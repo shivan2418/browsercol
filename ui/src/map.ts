@@ -14,6 +14,7 @@ import {
   fieldTexel,
   programLinks,
   coverAt,
+  paintedWaterAtlas,
   waterField,
   waterLook,
   waterPlayground,
@@ -32,6 +33,7 @@ import {
   scene,
   srcId,
   staticScenes,
+  staticScene,
   STILL,
   TICK_MS,
   unitOps,
@@ -277,19 +279,19 @@ interface TextStyle {
  * being lifted off ground just explored, the animated water and rivers under the scene (5), the other units (6), and
  * the scene over the units (7). A move that changes only units draws 6 and 2 again, and leaves the rest of the scene.
  */
-type Layer = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
+type Layer = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 /**
  * The order the layers are stacked in, bottom first: the animated base tiles (5) under all, as MapViewer paints them
  * first, then the scene with the units between its two parts, and the unit cursor (4) between the overlay and the
  * units that move or blink.
  */
-const STACK: readonly Layer[] = [5, 0, 6, 7, 1, 4, 2, 3];
+const STACK: readonly Layer[] = [8, 5, 9, 0, 6, 7, 1, 4, 2, 3];
 
 /** The animated base: the water and rivers, which MapViewer paints first. */
 const BASE_LAYER: Layer = 5;
 
 /** The layers drawn only when the static scene changes: the animated base, the scene under the units and over them. */
-const STATIC_LAYERS: readonly Layer[] = [5, 0, 7];
+const STATIC_LAYERS: readonly Layer[] = [8, 5, 9, 0, 7];
 
 /** The screen's pixel ratio: how many device pixels a CSS pixel covers. */
 export const pixelRatio = (dpr: number | undefined): number => (dpr && dpr > 0 ? dpr : 1);
@@ -315,6 +317,7 @@ export interface WaterPen {
   time(ms: number): void;
   /** PROTOTYPE (water playground): the surface drawing the water now. */
   surface?(): WaterSurface | null;
+  comparison?(split: number, defaultOnly: boolean): void;
 }
 
 /** What draws the map: a PixiJS scene graph or a Canvas 2D context. */
@@ -679,7 +682,7 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
   cssSize(width, height);
   const world = new Container();
   // Each layer its own render group: moving or fading one (the slide, the blink) does not rebuild the others' draws.
-  const layers = Array.from({ length: 8 }, () => new Container({ isRenderGroup: true }));
+  const layers = Array.from({ length: 10 }, () => new Container({ isRenderGroup: true }));
   // The actors are few and slide off the tile they were culled at: they are never culled.
   layers[2].cullableChildren = false;
   world.addChild(...STACK.map((n) => layers[n]));
@@ -735,7 +738,7 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
     for (const n of STATIC_LAYERS)
       chunkLayers.set(
         n,
-        new ChunkLayer(layers[n], n === BASE_LAYER ? tilemapBackend(baseAtlas, dimmed, seamBleed) : backend),
+        new ChunkLayer(layers[n], n === BASE_LAYER || n === 8 ? tilemapBackend(baseAtlas, dimmed, seamBleed) : backend),
       );
   }
   /** The static layer being drawn in chunks, the tile its draws belong to, and a count to key what has no key. */
@@ -769,6 +772,33 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
   };
   /** The shader water, under the animated base, once start() gives it a look. */
   let surface: WaterSurface | null = null;
+  let split = 0;
+  let defaultOnly = false;
+  const rightMask = new Graphics();
+  const leftMask = new Graphics();
+  app.stage.addChild(rightMask, leftMask);
+  const compare = () => {
+    const recipe = surface?.look.recipe;
+    const width = app.renderer.screen.width;
+    const height = app.renderer.screen.height;
+    const divider = defaultOnly ? width : split * width;
+    rightMask
+      .clear()
+      .rect(divider, 0, width - divider, height)
+      .fill(0xffffff);
+    leftMask.clear().rect(0, 0, divider, height).fill(0xffffff);
+    const baseline = !!recipe && (defaultOnly || split > 0);
+    layers[8].visible = layers[9].visible = baseline;
+    layers[8].mask = baseline ? leftMask : null;
+    layers[5].mask = recipe && baseline ? rightMask : null;
+    layers[9].mask = baseline ? leftMask : null;
+    rightMask.renderable = leftMask.renderable = false;
+    if (surface) {
+      surface.surface.mesh.visible = !defaultOnly;
+      surface.surface.uniforms.uSplit = divider * app.renderer.resolution;
+    }
+    redraw(null);
+  };
   const gl = atlas ? (app.renderer as unknown as { gl: WebGLRenderingContext }).gl : null;
   const water: WaterPen | undefined =
     gl && canDrawWater(gl)
@@ -781,7 +811,7 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
             let ok = programLinks(gl, surface.surface.program);
             if (ok) {
               // A first draw with it, now, and WebGL's word on it: PixiJS only logs what goes wrong there.
-              world.addChildAt(mesh, 0);
+              world.addChildAt(mesh, look.recipe ? world.getChildIndex(layers[5]) : 0);
               for (let i = 0; i < 16 && gl.getError() !== gl.NO_ERROR; i++);
               app.render();
               ok = !gl.isContextLost() && gl.getError() === gl.NO_ERROR;
@@ -793,6 +823,7 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
               return false;
             }
             redraw(null);
+            compare();
             return true;
           },
           field: (f) => {
@@ -804,6 +835,11 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
             redraw(null);
           },
           surface: () => surface,
+          comparison: (fraction, only) => {
+            split = fraction;
+            defaultOnly = only;
+            compare();
+          },
         }
       : undefined;
   return {
@@ -987,6 +1023,7 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
     resize: (w, h) => {
       app.renderer.resize(w, h, ratioAt(quality));
       cssSize(w, h);
+      compare();
       chunkView();
       redraw();
     },
@@ -1051,9 +1088,9 @@ export function canvasPen(host: HTMLElement, width: number, height: number, back
     /** An image's picture. */
     pic?: Picture;
   };
-  const layers: Call[][] = Array.from({ length: 8 }, () => []);
+  const layers: Call[][] = Array.from({ length: 10 }, () => []);
   /** The pictures each layer drew last time, and how many times the canvas was drawn. */
-  const shownPics: Set<Picture>[] = Array.from({ length: 8 }, () => new Set());
+  const shownPics: Set<Picture>[] = Array.from({ length: 10 }, () => new Set());
   let shows = 0;
   let fog = 1;
   let mark = 1;
@@ -1642,6 +1679,8 @@ export function mapDrawer(
   /** PROTOTYPE (water playground): the water's look now, and the map and scene its field was last made from. */
   let look: WaterLook | null = null;
   let lastWater: [MapView, StaticScene] | null = null;
+  let paintedAtlas: HTMLCanvasElement | null = null;
+  let comparison = false;
 
   async function init() {
     const art = (await (await fetch(artBase + manifest)).json()) as Art;
@@ -1668,13 +1707,32 @@ export function mapDrawer(
     waterPlayground.surface = () => p.water?.surface?.() ?? null;
     waterPlayground.restart = async (next) => {
       if (!p.water || waterDrawing !== 'surface') return false;
-      const [swell, chop] = await Promise.all([pics.get(next.swell), pics.get(next.chop)]);
+      let swell: Picture, chop: Picture;
+      if (next.recipe) {
+        if (!paintedAtlas) {
+          const pictures = await Promise.all(
+            ['ocean', 'highSeas', 'lake'].map((kind) => pics.get(res!.path(`image.tile.model.tile.${kind}.center`)!)),
+          );
+          paintedAtlas = paintedWaterAtlas(pictures);
+        }
+        swell = chop = paintedAtlas;
+      } else [swell, chop] = await Promise.all([pics.get(next.swell), pics.get(next.chop)]);
       if (!p.water.start(next, swell, chop)) return false;
       look = waterPlayground.look = next;
       field = null;
       fieldOf = '';
       if (lastWater) await waterFieldNow(...lastWater);
+      painted = null;
+      if (drawn) await drawNow(drawn, []);
       return true;
+    };
+    waterPlayground.compare = (split, only) => {
+      p.water?.comparison?.(split, only);
+      const shown = only || split > 0;
+      if (shown === comparison) return drawing;
+      comparison = shown;
+      painted = null;
+      return (drawing = drawing.then(() => (drawn ? drawNow(drawn, []) : undefined)));
     };
   }
 
@@ -1685,7 +1743,7 @@ export function mapDrawer(
   async function waterFieldNow(map: MapView, ground: StaticScene) {
     lastWater = [map, ground];
     waterPlayground.map = map;
-    const key = `${map.w}x${map.h}:${map.tiles}`;
+    const key = `${map.w}x${map.h}:${map.tiles}:${look?.recipe ? JSON.stringify(map.rivers) : ''}`;
     if (!pen?.water || key === fieldOf) return;
     const start = performance.now();
     const shores = [...ground.base, ...ground.below].filter(
@@ -1712,6 +1770,7 @@ export function mapDrawer(
       },
       field,
       look?.shore,
+      look?.recipe,
     );
     if (next !== field) pen.water.field(next);
     field = next;
@@ -1818,13 +1877,14 @@ export function mapDrawer(
   function animateBase() {
     if (!drawn || !pen || baseBusy || performance.now() < baseNext) return;
     const t = ticksNow();
-    const key = `${t.water}:${t.river}:${pen.shownVersion(BASE_LAYER)}`;
+    const baseline = !!look?.recipe && comparison;
+    const key = `${t.water}:${t.river}:${pen.shownVersion(BASE_LAYER)}:${baseline ? pen.shownVersion(8) : 0}`;
     if (key === baseKey) return;
     baseKey = key;
     baseBusy = true;
     const start = performance.now();
     void pics
-      .animate(t, pen.shown(BASE_LAYER))
+      .animate(t, baseline ? [...pen.shown(BASE_LAYER), ...pen.shown(8)] : pen.shown(BASE_LAYER))
       .then((changed) => {
         if (changed.length) {
           pen?.redrawn(changed);
@@ -1904,8 +1964,30 @@ export function mapDrawer(
     if (painted !== ground) {
       // Not kept until all three are drawn: a draw cut short leaves them to be drawn again.
       painted = null;
-      await paint(pen!, 5, ground.base, pics);
-      await paint(pen!, 0, ground.below, pics);
+      if (look?.recipe && waterDrawing === 'surface') {
+        const baseline = comparison ? staticScene(map, res!, colonyLabels, 'flipbook') : null;
+        await paint(pen!, 8, baseline?.base ?? [], pics);
+        const drawnShore = look.recipe.shore === 'drawn';
+        const shores = comparison && drawnShore ? ground.below.filter((op) => op.k === 'image' && op.shore) : [];
+        await paint(pen!, 9, shores, pics);
+        await paint(
+          pen!,
+          5,
+          look.recipe.shore === 'drawn' ? ground.base.filter((op) => !(op.k === 'image' && op.shore)) : ground.base,
+          pics,
+        );
+        await paint(
+          pen!,
+          0,
+          drawnShore ? ground.below.filter((op) => !(op.k === 'image' && op.shore)) : ground.below,
+          pics,
+        );
+      } else {
+        await paint(pen!, 8, [], pics);
+        await paint(pen!, 9, [], pics);
+        await paint(pen!, 5, ground.base, pics);
+        await paint(pen!, 0, ground.below, pics);
+      }
       await paint(pen!, 7, ground.above, pics);
       painted = ground;
     }
@@ -1968,6 +2050,7 @@ export function mapDrawer(
   async function drawNow(map: MapView, moved: Step[]) {
     const before = drawn;
     drawn = map;
+    waterPlayground.map = map;
     if (!pen) await init();
     // What slides is what the Engine says the player's unit did, during their turn. A map with no steps (the server
     // often sends several in a row) leaves a slide under way alone.

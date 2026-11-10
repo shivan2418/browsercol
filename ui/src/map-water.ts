@@ -746,6 +746,121 @@ void main() {
 }
 `;
 
+/** Unproject FreeCol's diamond into tile coordinates, then make its edges periodic once, not per frame. */
+export function paintedWaterAtlas(pictures: (HTMLImageElement | HTMLCanvasElement)[]): HTMLCanvasElement {
+  const size = 128;
+  const canvas = Object.assign(document.createElement('canvas'), { width: size, height: size * 3 });
+  const g = canvas.getContext('2d')!;
+  const output = g.createImageData(size, size * 3);
+  pictures.forEach((pic, kind) => {
+    const source = Object.assign(document.createElement('canvas'), { width: pic.width, height: pic.height });
+    const ctx = source.getContext('2d', { willReadFrequently: true })!;
+    ctx.drawImage(pic, 0, 0);
+    const pixels = ctx.getImageData(0, 0, pic.width, pic.height).data;
+    const square = new Uint8Array(size * size * 3);
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        const u = (x + 0.5) / size,
+          v = (y + 0.5) / size;
+        const sx = Math.min(pic.width - 1, Math.max(0, Math.floor(((1 + u - v) * pic.width) / 2)));
+        const sy = Math.min(pic.height - 1, Math.floor(((u + v) * pic.height) / 2));
+        for (let c = 0; c < 3; c++) square[(y * size + x) * 3 + c] = pixels[(sy * pic.width + sx) * 4 + c];
+      }
+    // Near an edge use the middle of the shifted image. Both opposite edges therefore have the same colour/slope.
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        const wx = smooth(0, 24, Math.min(x, size - 1 - x));
+        const wy = smooth(0, 24, Math.min(y, size - 1 - y));
+        const xx = (x + size / 2) % size,
+          yy = (y + size / 2) % size;
+        const k = ((kind * size + y) * size + x) * 4;
+        for (let c = 0; c < 3; c++) {
+          const a = square[(y * size + x) * 3 + c] * wx + square[(y * size + xx) * 3 + c] * (1 - wx);
+          const b = square[(yy * size + x) * 3 + c] * wx + square[(yy * size + xx) * 3 + c] * (1 - wx);
+          output.data[k + c] = a * wy + b * (1 - wy);
+        }
+        output.data[k + 3] = 255;
+      }
+  });
+  g.putImageData(output, 0, 0);
+  return canvas;
+}
+
+// Four reads: distance/depth/cover, climate/plume, and two slowly drifting painted layers.
+const PAINTED_FRAGMENT = /* glsl */ `precision highp float;
+in vec2 vField;
+in vec2 vSlant;
+out vec4 finalColor;
+uniform sampler2D uField;
+uniform sampler2D uClimate;
+uniform sampler2D uSwellMap;
+uniform vec4 uRecipe;
+uniform vec4 uAxes;
+uniform vec4 uShore;
+uniform vec3 uShallow;
+uniform vec3 uFoam;
+uniform vec3 uShal0;
+uniform vec3 uShal1;
+uniform vec3 uShal2;
+uniform vec3 uDeep0;
+uniform vec3 uDeep1;
+uniform vec3 uDeep2;
+uniform float uTime;
+uniform float uSplit;
+uniform float uView;
+vec3 paint(vec2 p, float kind) {
+  vec2 q = fract(p);
+  return texture(uSwellMap, vec2(q.x, (kind + (q.y * 127.0 + 0.5) / 128.0) / 3.0)).rgb;
+}
+void main() {
+  if (gl_FragCoord.x < uSplit) discard;
+  vec4 f = texture(uField, vField);
+  if (f.a < 0.001) discard;
+  vec4 climate = texture(uClimate, vField);
+  vec3 w = climate.rgb / max(dot(climate.rgb, vec3(1.0)), 0.001);
+  float lake = 1.0 - smoothstep(0.05, 0.35, f.g);
+  float high = smoothstep(0.65, 0.95, f.g);
+  float kind = lake > 0.5 ? 2.0 : high > 0.5 ? 1.0 : 0.0;
+  vec2 p = vec2(vSlant.x + vSlant.y, vSlant.y - vSlant.x) / 128.0;
+  float t = uTime * mix(1.0, 0.04, lake);
+  vec2 drift = vec2(t * uRecipe.z / 128.0, t * uRecipe.z * 0.37 / 128.0);
+  vec3 a = paint(p * 0.63 + drift, kind);
+  vec3 b = paint(mat2(0.8, -0.6, 0.6, 0.8) * p * 0.47 - drift * vec2(0.43, 0.79), kind);
+  float noise = sin(p.x * 1.71 + sin(p.y * 1.37)) * sin(p.y * 2.13 - p.x * 0.61);
+  vec3 art = mix(a, b, 0.5 + noise * 0.12);
+  float plume = climate.a;
+  float dist = (0.5 - f.b) * 384.0 - (uAxes.y < 0.5 ? 10.0 : 0.0) + plume * 22.0;
+  float d = max(0.0, dist);
+  float deeper = uAxes.w;
+  float shelf = 1.0 - smoothstep(0.0, uRecipe.w * mix(1.0, 0.68, deeper), d + noise * 6.0);
+  vec3 shallow = uAxes.x > 0.5 ? uShal0*w.r + uShal1*w.g + uShal2*w.b : uShallow;
+  vec3 deep = art;
+  if (uAxes.z > 0.5) {
+    vec3 tint = uDeep0*w.r + uDeep1*w.g + uDeep2*w.b;
+    deep = mix(art, tint * (0.75 + dot(art, vec3(0.33))), 0.38) * mix(1.0, uShore.z, high);
+  }
+  deep *= mix(vec3(1.0), vec3(0.72, 0.8, 0.92), deeper);
+  shallow *= mix(vec3(1.0), vec3(0.55, 0.74, 0.8), deeper);
+  vec3 col = mix(deep, shallow * (0.8 + dot(art, vec3(0.3))), shelf * 0.78);
+  float phase = d * 6.283185 / uRecipe.y + uTime * uRecipe.x * 6.283185 / uRecipe.y + noise * 0.75;
+  float bands = smoothstep(0.88, 1.0, sin(phase)) * smoothstep(4.0, 14.0, d) *
+    (1.0 - smoothstep(16.0, 100.0, d)) * (0.55 + 0.45 * noise) * (1.0 - lake);
+  col += vec3(0.9, 0.95, 1.0) * bands * 0.14 * step(0.0, uRecipe.x);
+  col += lake * 0.025 * (0.5 + 0.5 * sin(p.x * 0.7 + p.y * 0.4 + uTime * 0.19));
+  float lap = sin(uTime * mix(1.1, 0.45, lake) + noise * 2.0);
+  float reach = uShore.y * (0.7 + 0.3 * lap) * mix(1.0, 0.35, lake);
+  float foam = (1.0 - smoothstep(0.0, max(0.5, uShore.y * 0.55), abs(dist - reach * 0.35))) *
+    (0.6 + noise * 0.3) * mix(0.5, 0.16, lake) * (1.0 - plume);
+  vec3 sand = mix(vec3(0.53, 0.48, 0.34), vec3(0.76, 0.69, 0.48), 1.0 - smoothstep(-reach-8.0, -reach, dist));
+  // The art shore keeps its painted cover. Sand underneath fills its enclosed transparent holes.
+  col = mix(col, sand, 1.0 - smoothstep(-2.0, 2.0, dist));
+  col = mix(col, uFoam, foam);
+  col = mix(col, vec3(0.16, 0.34, 0.39), plume * 0.8);
+  if (uView > 0.5) col = uView < 1.5 ? vec3(f.r, f.g, f.b) : w;
+  finalColor = vec4(col * f.a, f.a);
+}
+`;
+
 /** The shader's compile-time choices: the wave model, the shore's encoding, climate colours or not. */
 export interface WaterVariant {
   waves: WaveModel;
@@ -933,6 +1048,7 @@ const fieldSource = (f: WaterField, data = f.data) =>
     width: f.cols,
     height: f.rows,
     format: 'rgba8unorm',
+    alphaMode: 'no-premultiply-alpha',
     scaleMode: 'linear',
     addressMode: 'clamp-to-edge',
   });
@@ -1076,6 +1192,20 @@ const uniformsOf = (look: WaterLook): Record<string, { value: number | number[];
     uFoam2: color(p.tropical.foam),
     uFoamAmt: vec3(CLIMATES.map((k) => p[k].foamAmount)),
     uView: { value: 0, type: 'f32' },
+    uRecipe: vec4([
+      look.recipe?.motion === 'foam' ? -1 : (look.recipe?.bandSpeed ?? 5),
+      look.recipe?.bandSpacing ?? 32,
+      look.recipe?.driftSpeed ?? 2,
+      look.recipe?.shelfWidth ?? 110,
+    ]),
+    uAxes: vec4([
+      look.recipe?.shallows === 'climate' ? 1 : 0,
+      look.recipe?.shore === 'art' ? 1 : 0,
+      look.recipe?.deep === 'climate' ? 1 : 0,
+      look.recipe?.depth === 'deeper' ? 1 : 0,
+    ]),
+    uTime: { value: 0, type: 'f32' },
+    uSplit: { value: 0, type: 'f32' },
   };
 };
 
@@ -1094,7 +1224,9 @@ export class WaterSurface {
   ) {
     this.surface = new ShaderSurface(
       VERTEX,
-      fragmentFor({ waves: look.waves, signedShore: look.shore !== 'blur', climate: look.climate }),
+      look.recipe
+        ? PAINTED_FRAGMENT
+        : fragmentFor({ waves: look.waves, signedShore: look.shore !== 'blur', climate: look.climate }),
       uniformsOf(look),
       { uSwellMap: rippleSource(swell), uChopMap: rippleSource(chop) },
     );
@@ -1104,7 +1236,8 @@ export class WaterSurface {
   setLook(next: WaterLook) {
     Object.assign(this.look, next);
     const u = this.surface.uniforms;
-    for (const [k, v] of Object.entries(uniformsOf(next))) if (k !== 'uView') u[k] = v.value;
+    for (const [k, v] of Object.entries(uniformsOf(next)))
+      if (!['uView', 'uTime', 'uSplit'].includes(k)) u[k] = v.value;
   }
 
   /** Move the ripples and the foam to where they are at `ms`. */
@@ -1116,6 +1249,10 @@ export class WaterSurface {
     c.t += dt;
     const u = this.surface.uniforms;
     u.uView = this.view;
+    if (look.recipe) {
+      u.uTime = c.t * look.speed;
+      return;
+    }
     if (look.waves === 'slide') {
       const t = waterTime(look.speed, c.t * 1000);
       const l = waterTime(look.lakeSpeed, c.t * 1000);
@@ -1251,6 +1388,8 @@ export const waterPlayground: {
   surface?: () => WaterSurface | null;
   /** Draw the water in another look: a new shader, and the field made again. */
   restart?: (look: WaterLook) => Promise<boolean>;
+  /** Flipbook under the recipe; split is a fraction of the map canvas. */
+  compare?: (split: number, defaultOnly: boolean) => void | Promise<void>;
   /** The map the field was last made from. */
   map?: Pick<MapView, 'w' | 'h' | 'types' | 'tiles'>;
 } = {};

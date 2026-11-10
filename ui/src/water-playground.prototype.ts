@@ -10,6 +10,7 @@ import {
   type Palette,
   type ShoreModel,
   type WaterLook,
+  type WaterRecipe,
   type WaveModel,
 } from './map-water';
 
@@ -27,6 +28,71 @@ type Settings = WaterLook;
 const hex = (c: number) => `#${c.toString(16).padStart(6, '0')}`;
 const fromHex = (s: string) => parseInt(s.slice(1), 16);
 const clone = <T>(v: T): T => structuredClone(v);
+
+const VARIANTS = ['Default', 'A', 'B', 'C', 'D', 'E'] as const;
+type Variant = (typeof VARIANTS)[number];
+const RECIPES: Record<Exclude<Variant, 'Default'>, WaterRecipe> = {
+  A: {
+    shallows: 'turquoise',
+    shore: 'drawn',
+    motion: 'bands',
+    deep: 'plain',
+    depth: 'deeper',
+    bandSpeed: 5,
+    bandSpacing: 32,
+    driftSpeed: 2,
+    shelfWidth: 110,
+    climateBlend: 3,
+  },
+  B: {
+    shallows: 'climate',
+    shore: 'drawn',
+    motion: 'bands',
+    deep: 'plain',
+    depth: 'deeper',
+    bandSpeed: 5,
+    bandSpacing: 32,
+    driftSpeed: 2,
+    shelfWidth: 110,
+    climateBlend: 3,
+  },
+  C: {
+    shallows: 'climate',
+    shore: 'art',
+    motion: 'bands',
+    deep: 'plain',
+    depth: 'deeper',
+    bandSpeed: 5,
+    bandSpacing: 32,
+    driftSpeed: 2,
+    shelfWidth: 110,
+    climateBlend: 3,
+  },
+  D: {
+    shallows: 'climate',
+    shore: 'art',
+    motion: 'foam',
+    deep: 'plain',
+    depth: 'deeper',
+    bandSpeed: 5,
+    bandSpacing: 32,
+    driftSpeed: 2,
+    shelfWidth: 110,
+    climateBlend: 3,
+  },
+  E: {
+    shallows: 'climate',
+    shore: 'art',
+    motion: 'bands',
+    deep: 'climate',
+    depth: 'deeper',
+    bandSpeed: 5,
+    bandSpacing: 32,
+    driftSpeed: 2,
+    shelfWidth: 110,
+    climateBlend: 3,
+  },
+};
 
 /** The starting looks: each a change to the Tileset's own (the first look, PR #418). */
 const PALETTES: Record<string, Record<Climate, Palette>> = {
@@ -162,6 +228,7 @@ export function propertiesOf(s: Settings): string {
       col(`${k}.foam`, s.palettes[k].foam),
       num(`${k}.foamAmount`, s.palettes[k].foamAmount),
     ]),
+    ...(s.recipe ? Object.entries(s.recipe).map(([k, v]) => num(`recipe.${k}`, v)) : []),
   ];
   return lines.join('\n');
 }
@@ -298,6 +365,46 @@ export function waterPlaygroundPanel(host: Host) {
   let busy: Promise<unknown> = Promise.resolve();
   const spotIndex: Record<string, number> = {};
   let spots: Record<string, [number, number][]> = {};
+  const params = new URLSearchParams(location.search);
+  let variant = params.get('water') ?? 'A';
+  let split = params.has('split') ? Math.max(0, Math.min(1, Number(params.get('split')) || 0)) : 0;
+  const badge = document.createElement('div');
+  badge.style.cssText =
+    'position:fixed;left:12px;top:44px;z-index:9000;background:#18232ddd;color:white;padding:4px 8px;font:12px system-ui;pointer-events:none';
+  document.body.append(badge);
+  const divider = document.createElement('div');
+  divider.style.cssText =
+    'position:fixed;z-index:9001;width:8px;margin-left:-4px;border-left:2px solid white;cursor:ew-resize;touch-action:none';
+  divider.setAttribute('role', 'separator');
+  divider.setAttribute('aria-label', 'Default and variant divider');
+  document.body.append(divider);
+  const showVariant = () => {
+    const box = document.querySelector('#map canvas')?.getBoundingClientRect();
+    badge.textContent = `${split ? 'Default | ' : ''}${variant}${surface() ? '' : ' (flipbook fallback)'}`;
+    divider.hidden = !split || variant === 'Default';
+    if (box) {
+      divider.style.left = `${box.left + box.width * split}px`;
+      divider.style.top = `${box.top}px`;
+      divider.style.height = `${box.height}px`;
+    }
+    const url = new URL(location.href);
+    url.searchParams.set('water', variant);
+    if (split) url.searchParams.set('split', String(+split.toFixed(3)));
+    else url.searchParams.delete('split');
+    history.replaceState(null, '', url);
+    return waterPlayground.compare?.(split, variant === 'Default');
+  };
+  divider.addEventListener('pointerdown', (e) => {
+    divider.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  divider.addEventListener('pointermove', (e) => {
+    if (!divider.hasPointerCapture(e.pointerId)) return;
+    const box = document.querySelector('#map canvas')!.getBoundingClientRect();
+    split = Math.max(0.02, Math.min(0.98, (e.clientX - box.left) / box.width));
+    void showVariant();
+  });
+  addEventListener('resize', showVariant);
 
   const save = () => {
     try {
@@ -308,9 +415,18 @@ export function waterPlaygroundPanel(host: Host) {
   };
   const surface = () => waterPlayground.surface?.() ?? null;
   const structural = (a: Settings, b: Settings) =>
-    a.waves !== b.waves || a.shore !== b.shore || a.climate !== b.climate;
+    a.waves !== b.waves ||
+    a.shore !== b.shore ||
+    a.climate !== b.climate ||
+    !!a.recipe !== !!b.recipe ||
+    a.recipe?.shore !== b.recipe?.shore ||
+    a.recipe?.climateBlend !== b.recipe?.climateBlend;
   /** Apply the settings: a new shader and field when the model changed, else only its uniforms. */
-  const apply = (rebuild: boolean) => {
+  const apply = (rebuild: boolean, preset = false) => {
+    if (!preset) {
+      variant = 'custom';
+      refresh();
+    }
     save();
     const next = clone(s!);
     const run = async () => {
@@ -328,6 +444,7 @@ export function waterPlaygroundPanel(host: Host) {
         now.rate = paused ? 0 : rate;
         now.view = view;
       }
+      await showVariant();
     };
     busy = busy.then(run, run);
   };
@@ -408,12 +525,92 @@ export function waterPlaygroundPanel(host: Host) {
   };
   const refreshers: (() => void)[] = [];
   const refresh = () => refreshers.forEach((r) => r());
+  const choose = (name: Variant) => {
+    variant = name;
+    s = {
+      ...clone(base!),
+      recipe: clone(RECIPES[name === 'Default' ? 'A' : name]),
+      shore: 'signed',
+      shallow: 0x52b9b5,
+      foam: 0xe0e8df,
+      foamWidth: 7,
+      speed: 1,
+      palettes: clone(PALETTES.muted),
+    };
+    refresh();
+    apply(true, true);
+    return busy;
+  };
+  addEventListener(
+    'keydown',
+    (e) => {
+      if (e.target instanceof HTMLElement && e.target.closest('input,select,textarea,[contenteditable]')) return;
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      const index = VARIANTS.indexOf(variant as Variant);
+      void choose(VARIANTS[(index + (e.key === 'ArrowRight' ? 1 : -1) + VARIANTS.length) % VARIANTS.length]);
+    },
+    true,
+  );
 
   const build = () => {
     panel.replaceChildren();
     refreshers.length = 0;
     const min = button('–', () => panel.classList.toggle('min'), 'Fold the panel');
     panel.append(el('header', {}, el('span', { textContent: 'Water playground (#409)' }), min));
+    const variants = el('div', { className: 'row' });
+    for (const name of VARIANTS) {
+      const b = button(name, () => void choose(name));
+      refreshers.push(() => b.classList.toggle('on', variant === name));
+      variants.append(b);
+    }
+    panel.append(variants, note('Left/right arrows cycle variants. Pick axes to combine looks.'));
+    const axis = <K extends 'shallows' | 'shore' | 'motion' | 'deep' | 'depth'>(
+      name: string,
+      key: K,
+      choices: WaterRecipe[K][],
+    ) =>
+      select(
+        name,
+        () => s!.recipe?.[key] ?? RECIPES.A[key],
+        (v) => {
+          s!.recipe ??= clone(RECIPES.A);
+          s!.recipe[key] = v;
+        },
+        choices.map((v) => [v, v]),
+      );
+    panel.append(
+      axis('Shallows', 'shallows', ['turquoise', 'climate']),
+      axis('Shore', 'shore', ['drawn', 'art']),
+      axis('Motion', 'motion', ['bands', 'foam']),
+      axis('Deep water', 'deep', ['plain', 'climate']),
+      axis('Depth', 'depth', ['normal', 'deeper']),
+      button('Side by side', () => {
+        split = split ? 0 : 0.5;
+        void showVariant();
+      }),
+    );
+    for (const [name, key, min, max, step] of [
+      ['Band speed px/s', 'bandSpeed', 0, 20, 0.5],
+      ['Band spacing px', 'bandSpacing', 16, 100, 1],
+      ['Drift px/s', 'driftSpeed', 0, 5, 0.1],
+      ['Shelf width px', 'shelfWidth', 24, 192, 2],
+      ['Climate blend tiles', 'climateBlend', 1, 6, 0.25],
+    ] as const)
+      panel.append(
+        slider(
+          name,
+          () => s!.recipe?.[key] ?? RECIPES.A[key],
+          (v) => {
+            s!.recipe ??= clone(RECIPES.A);
+            s!.recipe[key] = v;
+          },
+          min,
+          max,
+          step,
+        ),
+      );
 
     // Presets and output.
     panel.append(h4('Presets'));
@@ -828,7 +1025,7 @@ export function waterPlaygroundPanel(host: Host) {
   // Wait for the water to start, then build the panel.
   const start = () => {
     const look = waterPlayground.look;
-    if (!look || !surface() || !waterPlayground.map) return void setTimeout(start, 300);
+    if (!look || !waterPlayground.map) return void setTimeout(start, 300);
     base = clone(look);
     let saved: Settings | null = null;
     try {
@@ -839,7 +1036,8 @@ export function waterPlaygroundPanel(host: Host) {
     }
     s = saved ? { ...clone(base), ...saved } : clone(base);
     build();
-    apply(true);
+    if (VARIANTS.includes(variant as Variant)) void choose(variant as Variant);
+    else apply(true, true);
     host.showFps();
     expose();
   };
@@ -850,6 +1048,12 @@ export function waterPlaygroundPanel(host: Host) {
     ((window as unknown as { fcWaterPlayground: unknown }).fcWaterPlayground = {
       spots: () => findSpots(),
       jump: (x: number, y: number, zoom: number) => host.jump(x, y, zoom),
+      variant: (name: Variant) => choose(name),
+      split: (fraction: number) => {
+        split = Math.max(0, Math.min(1, fraction));
+        return showVariant();
+      },
+      renderer: () => (surface() ? 'WebGL shader' : 'flipbook fallback'),
       preset: (name: string) => {
         s = clone(PRESETS[name](clone(base!)));
         refresh();
