@@ -542,7 +542,7 @@ export function waterPlaygroundPanel(host: Host) {
       },
     };
     refresh();
-    apply(true, true);
+    apply(false, true);
     return busy;
   };
   addEventListener(

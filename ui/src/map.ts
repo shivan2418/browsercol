@@ -1698,6 +1698,12 @@ export function mapDrawer(
   let lastWater: [MapView, StaticScene] | null = null;
   let paintedAtlas: HTMLCanvasElement | null = null;
   let comparison = false;
+  // The playground chooses its recipe as soon as the first map is available.
+  // Do not allocate a parked field just to discard it on that first selection.
+  const waterParams = new URLSearchParams(location.search);
+  let waitingForRecipe =
+    waterParams.get('playground') === 'water' &&
+    ['Default', 'A', 'B', 'C', 'D', 'E'].includes(waterParams.get('water') ?? 'A');
 
   async function init() {
     const art = (await (await fetch(artBase + manifest)).json()) as Art;
@@ -1736,6 +1742,7 @@ export function mapDrawer(
       } else [swell, chop] = await Promise.all([pics.get(next.swell), pics.get(next.chop)]);
       if (!p.water.start(next, swell, chop)) return false;
       look = waterPlayground.look = next;
+      waitingForRecipe = false;
       field = null;
       fieldOf = '';
       if (lastWater) await waterFieldNow(...lastWater);
@@ -1761,7 +1768,7 @@ export function mapDrawer(
     lastWater = [map, ground];
     waterPlayground.map = map;
     const key = `${map.w}x${map.h}:${map.tiles}:${look?.recipe ? JSON.stringify(map.rivers) : ''}`;
-    if (!pen?.water || key === fieldOf) return;
+    if (!pen?.water || waitingForRecipe || key === fieldOf) return;
     const start = performance.now();
     const shores = [...ground.base, ...ground.below].filter(
       (op): op is Extract<Op, { k: 'image' }> => op.k === 'image' && op.shore === true,
