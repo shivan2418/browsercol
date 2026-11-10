@@ -461,12 +461,31 @@ async function play(page: Page, url: string) {
     }
     throw new Error(`the order buttons are not on top ${what}: ${bad.join(', ')}`);
   };
-  /** Do something that ends with a new map view, and return that view. */
-  const act = async (doIt: () => Promise<unknown>) => {
-    await noDialog('a command');
-    const n = await page.evaluate(() => window.__maps);
-    await doIt();
-    await page.waitForFunction((n) => window.__maps > n, n, { timeout: 60000, label: 'the map after a command' });
+  /**
+   * Do something that ends with a new map view, and return that view. A click can be lost without a trace: it
+   * lands on a dialog the Engine queued after noDialog looked, or on a tile that was still sliding under the
+   * pointer (the same reason `select` clicks again). So with `again`, a command that has sent no map view in 8 s
+   * is done again, up to three times, and the last one is waited for 60 s. A key press needs none: pressKey sees
+   * whether the page took the key.
+   */
+  const act = async (doIt: () => Promise<unknown>, { again = false } = {}) => {
+    for (let attempt = 1; ; attempt++) {
+      await noDialog('a command');
+      const n = await page.evaluate(() => window.__maps);
+      await doIt();
+      const last = !again || attempt === 3;
+      const sent = await page
+        .waitForFunction((n) => window.__maps > n, n, {
+          timeout: last ? 60000 : 8000,
+          label: 'the map after a command',
+        })
+        .then(
+          () => true,
+          (ex) => (last ? Promise.reject(ex) : false),
+        );
+      if (sent) break;
+      console.log(`  no map view followed the command; doing it again (${attempt})`);
+    }
     await settled();
     return view();
   };
@@ -708,7 +727,7 @@ async function play(page: Page, url: string) {
   const moveColonists = async (m: MapView, land: Tile, founder: string) => {
     await noDialog('opening the colony panel');
     await page.evaluate(() => (window.__hold = 'colony'));
-    await act(() => click(m, land));
+    await act(() => click(m, land), { again: true });
     const panel = page.locator('[role=dialog][data-kind=colony]');
     await panel.waitFor({ timeout: 10000, label: 'the colony panel opens' });
     await colonyFits(panel);
@@ -948,7 +967,7 @@ async function play(page: Page, url: string) {
 
     await noDialog('opening the colony panel to load the ship');
     await page.evaluate(() => (window.__hold = 'colony'));
-    await act(() => click(m, land));
+    await act(() => click(m, land), { again: true });
     const panel = page.locator('[role=dialog][data-kind=colony]');
     await panel.waitFor({ timeout: 10000, label: 'the colony panel opens to load the ship' });
     const cargo = panel.locator(`[data-part=cargo][data-ship="${shipId}"]`);
@@ -1435,7 +1454,7 @@ async function play(page: Page, url: string) {
   // The panel is held open to open the route editor from its New button.
   await noDialog('the Trade routes button');
   await page.evaluate(() => (window.__hold = 'tradeRoutes'));
-  m = await act(() => page.click('button[data-command=tradeRoutes]'));
+  m = await act(() => page.click('button[data-command=tradeRoutes]'), { again: true });
   const routesShown = await page
     .waitForFunction(() => (window.__dialogs ?? []).some((d) => d.startsWith('tradeRoutes: ')), null, {
       timeout: 10000,
