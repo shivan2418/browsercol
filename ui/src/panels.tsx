@@ -23,7 +23,7 @@ import { ColonyActions, ColonyPanel } from './colony-panel';
 import { DebugContext } from './debug';
 import type { Dialog, Dialogs } from './dialogs';
 import { europeButtons } from './europe-client';
-import { Box, ButtonRow, GoodsAmount, Heading, TEXT_ENTRY, WindowFrame, type Art } from './frame';
+import { Box, ButtonRow, GoodsAmount, Heading, Pic, TEXT_ENTRY, WindowFrame, type Art } from './frame';
 import { Declaration } from './declaration';
 import { CopyDetailsContext, ShowLogContext } from './log';
 import { lane } from './drag';
@@ -57,12 +57,6 @@ export interface RouteButtons {
    * `show` false, as from OK, the Engine does not send the panel again.
    */
   assign: (unit: string, route: string | null, show?: boolean) => void;
-}
-
-/** An image of a game object or event, if the Tileset has one. */
-function Pic({ keys, art, className = 'pic' }: { keys: readonly string[]; art: Art; className?: string }) {
-  const src = art(keys);
-  return src === null ? null : <img className={className} src={src} alt="" />;
 }
 
 /**
@@ -186,7 +180,7 @@ function Confirm({ d, colopedia, art }: { d: Of<'confirm'>; colopedia: (type: st
     <Win d={d} title={ask.header} close={ask.escapeOk && ask.ok !== null ? ok : cancel}>
       {ask.goods ? (
         <div className="goods-question">
-          <Pic keys={ask.goods.keys} art={art} className="goods-big" />
+          <Pic keys={ask.goods.keys} art={art} size="large" />
           <p className="text">
             <Bolded text={ask.text} name={ask.goods.name} />
           </p>
@@ -941,7 +935,9 @@ function RouteEditor({
   const label = (id: string) => e.places.find((p) => p.id === id)?.label ?? id;
   const goods = (id: string) => e.goods.find((g) => g.id === id);
   const nameOf = (id: string) => goods(id)?.name ?? id;
-  const icon = (id: string) => <Pic keys={[goods(id)?.icon ?? id]} art={art} className="pic small" />;
+  const icon = (id: string, size: 'small' | 'medium' = 'small') => (
+    <Pic keys={[goods(id)?.icon ?? id]} art={art} size={size} />
+  );
   const at = stops.findIndex((s) => s.key === editing);
 
   // Unfolding a leg and editing it go together: a folded leg is never the one edited.
@@ -1012,7 +1008,7 @@ function RouteEditor({
                 )
               }
             >
-              {icon(g)}
+              {icon(g, 'medium')}
             </Tip>
             {HOLD_MARKS[k + 1] !== undefined && k + 1 < cargo.length && (
               <Tip as="span" className="mark" tip={HOLD_MARKS[k + 1]}>
@@ -1190,7 +1186,7 @@ function RouteEditor({
                               tip={`${g.name} (shift-click: fill to the next mark)`}
                               onClick={(ev) => load(i, g.id, ev.shiftKey)}
                             >
-                              <Pic keys={[g.icon]} art={art} className="pic" />
+                              <Pic keys={[g.icon]} art={art} size="medium" />
                             </Tip>
                           ))}
                         </div>
@@ -1269,7 +1265,7 @@ function RoutesPanel({ d, art, routes }: { d: Of<'tradeRoutes'>; art: Art; route
     <Win d={d} title={e.title} close={close}>
       {e.unit?.location != null && (
         <p className="text unit">
-          <Pic keys={e.unit.images} art={art} className="pic small" /> {e.unit.name} {e.unit.location}
+          <Pic keys={e.unit.images} art={art} size="small" /> {e.unit.name} {e.unit.location}
         </p>
       )}
       <div className="routes">
@@ -1476,7 +1472,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
                     europeButtons.recruit(r.index);
                   }}
                 >
-                  <Pic keys={r.images} art={art} />
+                  <Pic keys={r.images} art={art} size="card" />
                   <span className="name">{r.name}</span>
                 </button>
               ))
@@ -1491,7 +1487,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
                     europeButtons.train(o.id);
                   }}
                 >
-                  <Pic keys={o.images} art={art} />
+                  <Pic keys={o.images} art={art} size="card" />
                   <span className="name">{o.name}</span>
                   <span className="price">{o.priceLabel}</span>
                 </button>

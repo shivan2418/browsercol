@@ -701,7 +701,8 @@ const scenarios: Record<string, (run: Run) => Promise<void>> = {
     await dialogShot(run, 'showMonarchDialog');
     const name = await page.locator(`${kindSel('confirm')} b.goods-name`).textContent();
     if (!name || !text.includes(name)) throw new Error(`the tax raise does not bold its goods: ${text}`);
-    if (!(await page.locator(`${kindSel('confirm')} img.goods-big`).count())) throw new Error('no goods picture');
+    if (!(await page.locator(`${kindSel('confirm')} img[data-size=large]`).count()))
+      throw new Error('no goods picture');
     await clickIn(run, 'confirm', '[data-answer=ok]');
     await hold(run, null);
   },

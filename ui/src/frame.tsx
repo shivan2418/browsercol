@@ -27,6 +27,7 @@ import './goods.css';
 import './box.css';
 import './heading.css';
 import './button-row.css';
+import './pic.css';
 import './popup-surface.css';
 import './selection.css';
 import './quiet-text.css';
@@ -349,6 +350,26 @@ export function ButtonRow({
       {children}
     </div>
   );
+}
+
+/**
+ * An image of a game object or event, if the Tileset has one. Its variants are props: `size` is `small` (in a line of
+ * text), `medium` (in a slot), `card` (a card's picture, a slot of its own height) or `large` (a goods' picture over a
+ * question). A `className` of its own (the portrait, the flavour image) takes the place of the picture's look.
+ */
+export function Pic({
+  keys,
+  art,
+  size,
+  className = 'pic',
+}: {
+  keys: readonly string[];
+  art: Art;
+  size?: 'small' | 'medium' | 'card' | 'large';
+  className?: string;
+}) {
+  const src = art(keys);
+  return src === null ? null : <img className={className} data-size={size} src={src} alt="" />;
 }
 
 /**

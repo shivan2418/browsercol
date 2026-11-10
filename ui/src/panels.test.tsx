@@ -138,7 +138,7 @@ describe('the confirm dialog', () => {
       goods: { type: 'model.goods.sugar', name: 'Sugar', keys: ['image.icon.model.goods.sugar'] },
     });
     expect(screen.getByText('Sugar').tagName).toBe('B');
-    expect(document.querySelector('img.goods-big')).not.toBeNull();
+    expect(document.querySelector('img[data-size=large]')).not.toBeNull();
   });
 
   it('takes the default option on Enter and cancels on Escape', async () => {
