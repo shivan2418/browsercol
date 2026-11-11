@@ -20,15 +20,13 @@ import {
 } from 'pixi.js';
 import { Atlas, ChunkLayer, pictureKey, staticDrawing, tilemapBackend } from './map-tilemap';
 import { riverDrawing, RiverSurface } from './map-rivers';
-import type { FieldReply, FieldRequest } from './water-field.worker';
+import { fieldMaker, latest } from './water-field-client';
 import {
   canDrawWater,
   coverOf,
   fieldTexel,
   programLinks,
-  coverAt,
   paintedWaterAtlas,
-  waterField,
   waterLook,
   WaterSurface,
   type WaterField,
@@ -888,12 +886,21 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
             rivers?.surface.destroy();
             rivers = null;
             if (next) {
-              if (!programLinks(gl, next.surface.program)) {
+              let ok = programLinks(gl, next.surface.program);
+              if (ok) {
+                // A first draw with it, now, and WebGL's word on it, as for the water.
+                world.addChildAt(next.surface.mesh, world.getChildIndex(layers[0]));
+                for (let i = 0; i < 16 && gl.getError() !== gl.NO_ERROR; i++);
+                app.render();
+                ok = !gl.isContextLost() && gl.getError() === gl.NO_ERROR;
+                if (!ok) world.removeChild(next.surface.mesh);
+              }
+              if (!ok) {
                 next.surface.destroy();
+                redraw(null);
                 return false;
               }
               rivers = next;
-              world.addChildAt(next.surface.mesh, world.getChildIndex(layers[0]));
             }
             redraw(null);
             return true;
@@ -1102,6 +1109,13 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
     },
   };
 }
+
+/**
+ * What of the shader water moves with the terrain's animation, as of FreeCol's frames: the water unless the animation
+ * is off (null: nothing moves), and the rivers only with all of it.
+ */
+export const waterMotion = (terrain: TerrainAnimation): { rivers: boolean } | null =>
+  terrain === 'off' ? null : { rivers: terrain === 'all' };
 
 /**
  * How the map draws its water: the shader water when the Tileset has a look for it and the pen can draw it, its
@@ -1836,56 +1850,18 @@ export function mapDrawer(
    * drops no frames on it (#411); else here. One request at a time, the latest map state queued behind it. The map
    * waits for it before painting the ground just explored, so no water tile shows there without its water.
    */
-  let fieldWorker: Worker | null | undefined;
-  let fieldReply: ((r: FieldReply | null) => void) | null = null;
-  const coverIds = new WeakMap<Float32Array, number>();
-  const sentCovers = new Set<number>();
-  let nextCoverId = 1;
-  let fieldWanted: [MapView, StaticScene] | null = null;
-  let fieldWork: Promise<void> | null = null;
-  const workerOf = (): Worker | null => {
-    if (fieldWorker !== undefined) return fieldWorker;
-    try {
-      fieldWorker = new Worker(new URL('./water-field.worker.ts', import.meta.url), { type: 'module' });
-      fieldWorker.onmessage = (e: MessageEvent<FieldReply>) => fieldReply?.(e.data);
-      fieldWorker.onerror = (e) => {
-        console.warn('the water field worker failed; the field is made on the page', e.message);
-        fieldWorker?.terminate();
-        fieldWorker = null;
-        fieldReply?.(null);
-      };
-    } catch {
-      fieldWorker = null;
-    }
-    return fieldWorker;
-  };
+  const fields = fieldMaker();
+  /** Give the shader water the field of a map; resolves once the latest map's field is in. */
+  const waterFieldNow = latest(([map, ground]: [MapView, StaticScene]) => makeField(map, ground));
 
   /**
    * Give the shader water the field of a map, when its tiles changed: the land, and what covers the water tiles at
    * the shore (their sand, and the land and beach their transitions bring onto them), where the shallows and foam meet.
-   * Resolves once the latest map's field is in.
    */
-  function waterFieldNow(map: MapView, ground: StaticScene): Promise<void> {
-    fieldWanted = [map, ground];
-    fieldWork ??= (async () => {
-      try {
-        while (fieldWanted) {
-          const [m, g] = fieldWanted;
-          fieldWanted = null;
-          await makeField(m, g);
-        }
-      } finally {
-        fieldWork = null;
-      }
-    })();
-    return fieldWork;
-  }
-
   async function makeField(map: MapView, ground: StaticScene) {
     const key = `${map.w}x${map.h}:${map.tiles}:${JSON.stringify(map.rivers)}`;
     if (!pen?.water || !look || key === fieldOf) return;
     const water = pen.water;
-    const climateBlend = look.climateBlend;
     const start = performance.now();
     const shores = [...ground.base, ...ground.below].filter(
       (op): op is Extract<Op, { k: 'image' }> => op.k === 'image' && op.shore === true,
@@ -1901,49 +1877,10 @@ export function mapDrawer(
     const covers = new Map<number, Float32Array>();
     for (const [at, list] of covering) covers.set(at, coverOf(list));
     const texel = fieldTexel(map.w, map.h, water.maxField);
-    const worker = workerOf();
-    let next: WaterField | null | undefined;
-    if (worker) {
-      const request: FieldRequest = {
-        reset: field === null,
-        map: { w: map.w, h: map.h, types: map.types, tiles: map.tiles, rivers: map.rivers },
-        texel,
-        covers: [],
-        newCovers: [],
-        climateBlend,
-      };
-      for (const [at, a] of covers) {
-        let id = coverIds.get(a);
-        if (id === undefined) coverIds.set(a, (id = nextCoverId++));
-        if (!sentCovers.has(id)) {
-          sentCovers.add(id);
-          request.newCovers.push([id, a]);
-        }
-        request.covers.push([at, id]);
-      }
-      const reply = new Promise<FieldReply | null>((resolve) => (fieldReply = resolve));
-      worker.postMessage(request);
-      measure('map: water field', start);
-      const r = await reply;
-      fieldReply = null;
-      if (r) next = r.field ?? field;
-      else sentCovers.clear(); // The worker failed: made here instead, below.
-    }
-    if (next === undefined) {
-      // Made again only round the tiles that changed since the last.
-      next = waterField(
-        map,
-        texel,
-        (x, y, u, v) => {
-          const a = covers.get(y * map.w + x);
-          return a ? coverAt(a, u, v) : 0;
-        },
-        field,
-        climateBlend,
-      );
-      measure('map: water field', start);
-    }
-    if (!next || pen?.water !== water) return;
+    const next = await fields.make(map, texel, covers, look.climateBlend, field);
+    measure('map: water field', start);
+    // A field made for a pen that has gone since (the map drawn again from the start) is dropped.
+    if (pen?.water !== water) return;
     if (next !== field) water.field(next);
     field = next;
     // Only once it is made: a field that failed is made again with the next map.
@@ -2079,8 +2016,9 @@ export function mapDrawer(
   function tick() {
     frame = requestAnimationFrame(tick);
     animateBase();
-    // The shader water moves at the screen's frame rate; with the terrain's animation off, it stands still.
-    if (waterDrawing === 'surface' && terrain !== 'off') pen?.water?.time(performance.now(), terrain === 'all');
+    // The shader water moves at the screen's frame rate.
+    const moving = waterMotion(terrain);
+    if (waterDrawing === 'surface' && moving) pen?.water?.time(performance.now(), moving.rivers);
     if (sliding || lifting || (view?.mode === 'units' && view.active) || (view?.mode === 'terrain' && view.selected))
       camera();
   }
@@ -2216,7 +2154,7 @@ export function mapDrawer(
     const units = unitScene(map, res!);
     measure(kept ? 'map: scene, kept' : 'map: scene', start);
     if (!kept) {
-      if (waterDrawing === 'surface') await waterFieldNow(map, ground);
+      if (waterDrawing === 'surface') await waterFieldNow([map, ground]);
       pics.retain(ground.base);
       const ops = [...ground.base, ...ground.below, ...ground.above];
       // The panels draw no units.

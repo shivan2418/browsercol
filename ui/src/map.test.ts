@@ -10,6 +10,7 @@ import {
   seamBleed,
   tileAt,
   waterDrawingFor,
+  waterMotion,
   type WaterPen,
 } from './map';
 import type { WaterLook } from './map-water';
@@ -350,6 +351,14 @@ describe('pictures', () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+});
+
+describe('waterMotion', () => {
+  it("moves the shader water as FreeCol's frames move: rivers only with all the terrain, nothing when it is off", () => {
+    expect(waterMotion('all')).toEqual({ rivers: true });
+    expect(waterMotion('water')).toEqual({ rivers: false });
+    expect(waterMotion('off')).toBe(null);
   });
 });
 

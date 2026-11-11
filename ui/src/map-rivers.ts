@@ -96,7 +96,8 @@ void main() {
   finalColor = vec4(col * alpha, alpha);
 }`;
 
-interface Patch {
+/** A river tile's water to draw on the mesh: its shape, which way it flows, and how big it is. */
+export interface Patch {
   x: number;
   y: number;
   mask: Recipe;
@@ -116,14 +117,11 @@ export interface RiverDrawing {
   atlas?: BufferImageSource;
 }
 
-/** Strip only the water draw from a river recipe. All bank masks and their soft edges remain FreeCol's. */
-export async function riverDrawing(
-  map: RiverMap,
-  base: Op[],
-  get: (src: Src) => Promise<Picture>,
-  /** The key of the mesh already drawn: when the rivers come out the same, only the banks are made (#411). */
-  drawn = '',
-): Promise<RiverDrawing> {
+/**
+ * The ground's river and river-mouth ops without their water, which the mesh draws: their pebble banks and soft edges
+ * stay FreeCol's. With them, each river tile's patch of water for the mesh, and the key of what the mesh shows.
+ */
+export function riverPatches(map: RiverMap, base: Op[]): { banks: Op[]; patches: Patch[]; key: string } {
   const directions = riverDirections(map);
   const tiles = new Map(map.rivers.map((r) => [r[1] * map.w + r[0], r]));
   const patches: Patch[] = [];
@@ -165,6 +163,18 @@ export async function riverDrawing(
   });
   // Exploring more of the map changes the base ops, not the rivers: keep the mesh, which takes a shader to build.
   const key = patches.map((p) => `${p.x},${p.y},${p.mask.id},${p.downstream},${p.style},${p.magnitude}`).join(';');
+  return { banks, patches, key };
+}
+
+/** The river mesh for the ground's ops: its banks (riverPatches), and the mesh and its atlas of flow and shape. */
+export async function riverDrawing(
+  map: RiverMap,
+  base: Op[],
+  get: (src: Src) => Promise<Picture>,
+  /** The key of the mesh already drawn: when the rivers come out the same, only the banks are made (#411). */
+  drawn = '',
+): Promise<RiverDrawing> {
+  const { banks, patches, key } = riverPatches(map, base);
   if (!patches.length || key === drawn) return { banks, key };
   const entries = new Map<string, { patch: Patch; slot: number }>();
   const slots = patches.map((patch) => {
