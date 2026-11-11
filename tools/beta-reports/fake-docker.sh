@@ -6,7 +6,11 @@ set -euo pipefail
 echo "docker $*" >>"$FAKE_LOG"
 fail() { echo "fake docker: $*" >&2; exit 97; }
 
-[[ ${1-} == run ]] || fail "only run is faked: $*"
+if [[ ${1-} == info ]]; then
+  [[ -n "${FAKE_ROOTLESS-}" ]] && echo '[name=seccomp,profile=builtin name=rootless]' || echo '[name=seccomp,profile=builtin]'
+  exit 0
+fi
+[[ ${1-} == run ]] || fail "only info and run are faked: $*"
 shift
 user='' reports='' config=0 envs=()
 while [[ ${1-} == -* ]]; do
@@ -25,7 +29,11 @@ while [[ ${1-} == -* ]]; do
     *) fail "unexpected option $1" ;;
   esac
 done
-[[ $user == "$(id -u):$(id -g)" ]] || fail "not run as the host user: '$user'"
+if [[ -n "${FAKE_ROOTLESS-}" ]]; then
+  [[ -z $user ]] || fail "rootless docker run with --user $user"
+else
+  [[ $user == "$(id -u):$(id -g)" ]] || fail "not run as the host user: '$user'"
+fi
 ((config)) || fail "$HOME/.aws is not mounted read-only"
 [[ "${envs[*]}" == "HOME AWS_PROFILE AWS_REGION" ]] || fail "unexpected environment: ${envs[*]}"
 [[ ${1-} == amazon/aws-cli:2.* ]] || fail "unpinned or unexpected image ${1-}"

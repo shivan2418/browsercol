@@ -68,9 +68,17 @@ reference() {
 
 # `aws s3 ...` in the image, as the host user so files it writes are ours.
 # Only ~/.aws (read-only), the profile and the region go in.
+# Who the CLI runs as inside the container, so it can read ~/.aws (mode 600)
+# and what it downloads belongs to the host user. Under rootless Docker the
+# container's root is the host user, and any other uid maps to a subuid that
+# can't read the credentials; under ordinary Docker that's --user.
 s3() {
+  local user_args=()
+  if [[ "$(docker info --format '{{.SecurityOptions}}' 2>/dev/null)" != *rootless* ]]; then
+    user_args=(--user "$(id -u):$(id -g)")
+  fi
   mkdir -p "$reports/inbox" "$reports/reviewed"
-  docker run --rm --user "$(id -u):$(id -g)" \
+  docker run --rm ${user_args[@]+"${user_args[@]}"} \
     -e HOME=/home/beta -v "$HOME/.aws:/home/beta/.aws:ro" \
     -e AWS_PROFILE="$BETA_AWS_PROFILE" -e AWS_REGION="$BETA_AWS_REGION" \
     -v "$reports:/reports" -w /reports \
