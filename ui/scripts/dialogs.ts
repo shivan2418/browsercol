@@ -34,7 +34,8 @@ export async function answerDialogs(
     window.__dialogUnits = [];
     const shots: Record<string, number> = {};
     const loadedImages = async (d: HTMLElement) => {
-      const imgs = [...d.querySelectorAll('img')];
+      // Not a hidden template's (the colony's boxes size a row from a dragoon's picture, #454): nothing shows it.
+      const imgs = [...d.querySelectorAll('img')].filter((img) => !img.closest('[aria-hidden=true]'));
       // Firefox once left the Europe panel open for good on a late-game turn, as if an image never loaded nor
       // failed: wait for the images at most five seconds, and say in the console which were not done.
       const loaded = await Promise.race([
