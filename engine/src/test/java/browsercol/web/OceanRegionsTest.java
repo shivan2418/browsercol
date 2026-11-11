@@ -19,6 +19,8 @@ import net.sf.freecol.FreeCol;
 import net.sf.freecol.common.io.FreeColRules;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.Map;
+import net.sf.freecol.common.model.Player;
+import net.sf.freecol.common.model.Stance;
 import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.server.FreeColServer;
 
@@ -110,9 +112,19 @@ class OceanRegionsTest {
     void theMapOfAClientWithASettlementThatHasNoTileComes() throws Exception {
         play(Files.readAllBytes(new File("data/maps/XL_GigaEarth_Mazim.fsm").toPath()), 2);
         Tile tile = lastClient.getGame().getMap().getTile(125, 29);
+        // FreeCol's client copy of a native settlement the player has not seen has no
+        // tile. If FreeCol ever gives it one, this assertion fails, and the test no
+        // longer tests anything: the guards it covers may then go.
         assertTrue(tile.getSettlement() != null && tile.getSettlement().getTile() == null,
             "the client's settlement has no tile: " + tile.getSettlement());
-        String json = MapJson.of(lastClient.getGame(), lastClient.getClient().getMyPlayer(), null, false);
+        final Player me = lastClient.getClient().getMyPlayer();
+        String json = MapJson.of(lastClient.getGame(), me, null, false);
         assertTrue(json.contains("\"x\":125,\"y\":29"), "the settlement is on the map");
+        // The readers of a player's settlements: met the tribe, not seen the settlement.
+        me.setStance(tile.getSettlement().getOwner(), Stance.PEACE);
+        String natives = Reports.indian(lastClient.getClient());
+        assertTrue(natives.contains("\"tribes\""), natives);
+        String find = FindSettlementJson.of(lastClient.getGame(), me).toString();
+        assertTrue(find.contains("\"settlements\""), find);
     }
 }
