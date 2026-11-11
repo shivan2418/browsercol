@@ -96,7 +96,6 @@ function fakeClient(scope: Scope, log: string[]): ClientExports {
     findSettlement: () => {},
     showGameOptions: () => {},
     retire: () => {},
-    showHighScores: () => {},
     showMapGeneratorOptions: () => {},
     showDifficulty: () => {},
     recruitUnit: () => {},

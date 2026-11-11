@@ -18,7 +18,6 @@ export type Command =
   | { k: 'showMapGeneratorOptions' }
   | { k: 'showDifficulty' }
   | { k: 'retire' }
-  | { k: 'showHighScores' }
   | { k: 'fortify' }
   | { k: 'sentry' }
   | { k: 'skip' }

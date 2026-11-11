@@ -1574,16 +1574,10 @@ class CommandsTest {
 
     @Test
     @Timeout(240)
-    void theHumanShowsTheHighScoresOnRequestAndRetires() throws Exception {
+    void theHumanRetiresAndSeesTheHighScores() throws Exception {
         startGame();
         final Commands commands = client.getCommands();
         final Player player = client.getClient().getMyPlayer();
-
-        // On request, the table is shown with no header text.
-        assertTrue(commands.showHighScores());
-        awaitTrue(() -> !highScores.isEmpty(), "the high scores are shown");
-        assertTrue(highScores.get(0).contains("\"scores\":["), highScores.get(0));
-        assertTrue(highScores.get(0).contains("\"text\":null"), highScores.get(0));
 
         // Cancelling the confirmation keeps the player in the game.
         asked.clear();
@@ -1591,13 +1585,13 @@ class CommandsTest {
         assertFalse(commands.retire(), "cancelled");
         assertEquals(Messages.message("retireDialog.areYouSure.text"), textOf(lastAsked()));
         assertNotEquals(Player.PlayerType.RETIRED, player.getPlayerType());
-        assertEquals(1, highScores.size(), "no scores for a cancel");
+        assertTrue(highScores.isEmpty(), "no scores for a cancel");
 
         // Confirming retires and shows the scores with the new-score verdict.
         confirm = true;
         assertTrue(commands.retire(), "retired");
         assertEquals(Player.PlayerType.RETIRED, player.getPlayerType());
-        awaitTrue(() -> highScores.size() == 2, "the scores are shown after retiring");
+        awaitTrue(() -> highScores.size() == 1, "the scores are shown after retiring");
     }
 
     @Test

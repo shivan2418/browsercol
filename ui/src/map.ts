@@ -6,7 +6,18 @@
 // diamonds in staggered rows, odd rows half a tile to the right. It shows
 // the part of the map, at the zoom, that the view state (view.ts) says, with
 // the cursor and the active unit's path drawn over it.
-import { AlphaFilter, Application, Container, Culler, Graphics, Rectangle, Sprite, Text, Texture } from 'pixi.js';
+import {
+  AlphaFilter,
+  Application,
+  CanvasTextMetrics,
+  Container,
+  Culler,
+  Graphics,
+  Rectangle,
+  Sprite,
+  Text,
+  Texture,
+} from 'pixi.js';
 import { Atlas, ChunkLayer, pictureKey, staticDrawing, tilemapBackend } from './map-tilemap';
 import { riverDrawing, RiverSurface } from './map-rivers';
 import type { FieldReply, FieldRequest } from './water-field.worker';
@@ -390,6 +401,8 @@ interface Pen {
   circle(x: number, y: number, r: number, fill: number, outline: number, outlineAlpha: number): void;
   /** Text with a black outline, its top centred on (x, y) or starting there. */
   text(s: string, x: number, y: number, style: TextStyle, center: boolean): void;
+  /** Text with its ink (the glyphs as drawn, not the font's box) centred on (x, y), such as a number in a circle. */
+  label(s: string, x: number, y: number, style: TextStyle): void;
   measure(s: string, style: TextStyle): number;
   /** Move the third layer by (dx, dy) map pixels and fade it to `alpha`. */
   actors(dx: number, dy: number, alpha: number): void;
@@ -557,6 +570,21 @@ const fontOf = (s: TextStyle) => `${s.italic ? 'italic ' : ''}${s.bold ? 'bold '
 const ratioAt = (quality: number): number => (quality <= 0 ? 1 : screenRatio());
 
 /** A Text with a black outline, its top centred on (x, y) or starting there. */
+/**
+ * Where to draw `s` so its ink is centred on (x, y): the left end of its alphabetic baseline. The font's box puts
+ * a digit's ink below its middle, so centring the box leaves a number low in its circle.
+ */
+function inkCentred(c: CanvasRenderingContext2D, s: string, x: number, y: number, style: TextStyle) {
+  c.font = fontOf(style);
+  c.textAlign = 'left';
+  c.textBaseline = 'alphabetic';
+  const m = c.measureText(s);
+  return {
+    left: x - (m.actualBoundingBoxRight - m.actualBoundingBoxLeft) / 2,
+    baseline: y + (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2,
+  };
+}
+
 function makeText(s: string, x: number, y: number, style: TextStyle, center: boolean): Text {
   const t = new Text({
     text: s,
@@ -1063,6 +1091,17 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
       const key = `t${s}|${JSON.stringify(style)},${x},${y},${center}`;
       add(key, () => keyed(key, makeText(s, x, y, style, center)));
     },
+    label: (s, x, y, style) => {
+      const key = `l${s}|${JSON.stringify(style)},${x},${y}`;
+      add(key, () => {
+        const t = makeText(s, 0, 0, style, false);
+        // Pixi draws the baseline the font's ascent (and half the outline) below the text's top.
+        const { left, baseline } = inkCentred(measurer, s, x, y, style);
+        const edge = style.plain ? 0 : 1;
+        t.position.set(left - edge, baseline - CanvasTextMetrics.measureText(s, t.style).fontProperties.ascent - edge);
+        return keyed(key, t);
+      });
+    },
     measure: (s, style) => {
       measurer.font = fontOf(style);
       return measurer.measureText(s).width;
@@ -1306,6 +1345,17 @@ export function canvasPen(host: HTMLElement, width: number, height: number, back
         }
         c.fillStyle = css(style.color);
         c.fillText(s, x, y);
+      }),
+    label: (s, x, y, style) =>
+      push((c) => {
+        const { left, baseline } = inkCentred(c, s, x, y, style);
+        if (!style.plain) {
+          c.lineWidth = 2;
+          c.strokeStyle = '#000';
+          c.strokeText(s, left, baseline);
+        }
+        c.fillStyle = css(style.color);
+        c.fillText(s, left, baseline);
       }),
     measure: (s, style) => {
       c.font = fontOf(style);
@@ -1651,7 +1701,7 @@ async function paint(pen: Pen, layer: Layer, ops: Op[], pics: ReturnType<typeof 
       }
       case 'pathMark':
         pen.circle(ox + W / 2, oy + H / 2, 10, pathColor(op.turns), 0x000000, 0.5);
-        if (op.turns > 0) pen.text(String(op.turns), ox + W / 2, oy + H / 2 - PATH_TURNS.size / 2, PATH_TURNS, true);
+        if (op.turns > 0) pen.label(String(op.turns), ox + W / 2, oy + H / 2, PATH_TURNS);
         return;
     }
   });

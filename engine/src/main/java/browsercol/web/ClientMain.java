@@ -545,12 +545,6 @@ public final class ClientMain {
         command("retire", () -> engine.getCommands().retire());
     }
 
-    /** Show the high score table (ReportHighScoresAction). */
-    @JSExport
-    public static void showHighScores() {
-        command("showHighScores", () -> engine.getCommands().showHighScores());
-    }
-
     /** Fortify the active unit (FortifyAction). */
     @JSExport
     public static void fortify() {

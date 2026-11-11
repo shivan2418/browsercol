@@ -107,7 +107,6 @@ export function gameMenu(a: MenuActions): Items {
     cmd('End Turn', { k: 'endTurn' }),
     { ...cmd('Declare Independence', { k: 'declareIndependence' }), disabled: !a.ready || !a.canDeclare },
     { label: 'Return to Main', run: a.returnToMain },
-    cmd('High Scores', { k: 'showHighScores' }),
     cmd('Retire', { k: 'retire' }),
     { label: 'Save and Exit', run: a.saveAndExit, disabled: !a.ready || a.panelShowing, hint: 'Ctrl+X' },
     // FreeCol's Quit leaves the program; the page has none, so it goes to the title screen, as Return to Main does.
