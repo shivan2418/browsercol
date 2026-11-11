@@ -70,14 +70,19 @@ The player entry ships inside the build it describes, so it goes on main before 
 
 ```
 just deploy <changelog commit sha>
-gh release create build-<N+1> --verify-tag --title "Build <N+1>" --notes-file <developer changelog file>
 ```
 
-Check `deploy.sh` printed the tag you expected. If it numbered the build differently (someone deployed in between), retitle the player entry and the release to match before going on.
+Check `deploy.sh` printed the tag you expected. If it numbered the build differently (someone deployed in between), retitle the player entry to match before going on.
 
-Follow the Pages run in the background (`gh run watch $(gh run list --workflow pages.yml -L 1 --json databaseId --jq '.[0].databaseId') --exit-status`). It builds, deploys and smoke-tests the live page.
+Follow the Pages run in the background (`gh run watch $(gh run list --workflow pages.yml -L 1 --json databaseId --jq '.[0].databaseId') --exit-status`). It builds, then its `release` job creates the `build-<N+1>` release with `play.tar.gz` and generated notes, then it deploys and smoke-tests the live page.
 
-**Done when** the release exists and the Pages run has finished.
+Don't create the release yourself: the `release` job fails on a release that already exists, and the deploy and smoke jobs are skipped with it. Once that job has made the release, put the developer changelog on it:
+
+```
+gh release edit build-<N+1> --notes-file <developer changelog file>
+```
+
+**Done when** the release carries the developer changelog and the Pages run has finished.
 
 ## 6. Report
 
