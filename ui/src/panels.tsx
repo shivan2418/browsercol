@@ -987,9 +987,16 @@ function RouteEditor({
       },
     );
 
-  // The holds the carrier leaves stop i with: a full one empties on click; marks show where carriers fill up.
+  // The holds the carrier leaves stop i with: a full one empties on click, and is dragged to change the order
+  // goods load in; marks show where carriers fill up.
   const holds = (i: number) => {
     const cargo = stops[i].cargo;
+    const reorder = (from: number, to: number) => {
+      const next = [...cargo];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      setCargo(i, next);
+    };
     return (
       <div className="holds">
         {cargo.map((g, k) => (
@@ -1000,7 +1007,8 @@ function RouteEditor({
               data-held={g}
               data-over={k >= MOST_HOLDS || undefined}
               aria-label={`× ${nameOf(g)}`}
-              tip={`${k + 1}. ${nameOf(g)} (click to empty)${k >= MOST_HOLDS ? ': no carrier has this many holds' : ''}`}
+              tip={`${k + 1}. ${nameOf(g)} (click to empty, drag to load it sooner or later)${k >= MOST_HOLDS ? ': no carrier has this many holds' : ''}`}
+              {...sortHandle(k, (hold) => hold.closest('.holds'), reorder, { grid: true, items: '[data-held]' })}
               onClick={() =>
                 setCargo(
                   i,
@@ -1139,8 +1147,9 @@ function RouteEditor({
                       <div className="legedit">
                         <p className="hint">
                           <b>Load at {s.label}: </b>click goods to add a hold of them; the first goods load first, and
-                          loading stops at the first that do not fit. Shift-click fills to the next mark.{' '}
-                          <b>Unload: </b>click a hold to empty it; {s.label} unloads whatever is no longer in the holds.
+                          loading stops at the first that do not fit; drag a hold to change the order. Shift-click fills
+                          to the next mark. <b>Unload: </b>click a hold to empty it; {s.label} unloads whatever is no
+                          longer in the holds.
                         </p>
                         <div className="palette">
                           {e.goods.map((g) => (

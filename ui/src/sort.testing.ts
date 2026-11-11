@@ -25,3 +25,25 @@ export function sortBy(handle: Element, rows: number, before: () => void = () =>
   fire(window, 'pointerup', start + rows * ROW);
   return SLIDE_MS;
 }
+
+/**
+ * Press a hold-like item of a grid (its own handle, among its parent's children that match `items`) and
+ * move the pointer by `steps` items' widths along its row, then let go. The items are laid out in one row,
+ * ROW apart; as with sortBy, the caller advances fake timers past the settling.
+ */
+export function slideBy(handle: Element, items: string, steps: number, before: () => void = () => {}) {
+  const row = Array.from(handle.parentElement!.children).filter((el) => el.matches(items));
+  row.forEach((el, j) => {
+    el.getBoundingClientRect = () => ({ left: j * ROW, right: j * ROW + ROW - 10, top: 0, bottom: 40 }) as DOMRect;
+  });
+  const start = row.indexOf(handle) * ROW + ROW / 2;
+  const fire = (el: Element | Window, type: string, x: number) =>
+    el.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: 20 }));
+  fire(handle, 'pointerdown', start);
+  fire(window, 'pointermove', start + THRESHOLD);
+  fire(window, 'pointermove', start + steps * ROW);
+  before();
+  fire(window, 'pointerup', start + steps * ROW);
+  fire(handle, 'click', start + steps * ROW);
+  return SLIDE_MS;
+}
