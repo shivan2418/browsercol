@@ -87,6 +87,52 @@ import { H, W, activeUnitFacts, cursor, tileOrigin, toMap, type ViewState } from
 export type { MapView } from './tileset';
 /** The whole map's terrain, explored or not (MapJson.terrain, the server's): what the shader water's field is made of. */
 export type Terrain = Pick<MapView, 'w' | 'h' | 'types' | 'tiles' | 'rivers'>;
+
+/** How many rows of the whole map's terrain a strip of its shore covers takes (wholeCovers). */
+const COVER_STRIP_ROWS = 8;
+/** Let the page draw and take input before going on. */
+const yieldToPage = () => new Promise<void>((done) => setTimeout(done, 0));
+
+/**
+ * A whole map in strips of `rows` rows, each strip a map with only its rows and the rows round them explored: the
+ * strips' shore ops in rows y0 to y1 are the whole map's, made a strip at a time.
+ */
+export function* terrainStrips(
+  all: MapView,
+  rows = COVER_STRIP_ROWS,
+): Generator<{ strip: MapView; y0: number; y1: number }> {
+  const { w, h } = all;
+  for (let y0 = 0; y0 < h; y0 += rows) {
+    const y1 = Math.min(h, y0 + rows);
+    // A tile's beach looks two tiles (four rows) away at most (tileset.ts specialBeach).
+    const [lo, hi] = [Math.max(0, y0 - 4), Math.min(h, y1 + 4)];
+    const strip: MapView = {
+      ...all,
+      tiles: '.'.repeat(lo * w) + all.tiles.slice(lo * w, hi * w) + '.'.repeat((h - hi) * w),
+      rivers: all.rivers.filter((r) => r[1] >= lo && r[1] < hi),
+    };
+    yield { strip, y0, y1 };
+  }
+}
+
+/** A map with every tile of `terrain` explored and seen, and nothing on it: what the whole map's shore covers come from. */
+export function wholeMapView(map: MapView, terrain: Terrain): MapView {
+  const n = terrain.w * terrain.h;
+  return {
+    ...map,
+    ...terrain,
+    seen: '1'.repeat(n),
+    fog: false,
+    owners: '.'.repeat(n),
+    regions: undefined,
+    roads: [],
+    items: [],
+    settlements: [],
+    units: [],
+    active: null,
+    activeUnit: null,
+  };
+}
 /** TileViewer.STATE_OFFSET_X/Y and TileBounds' unit offsets, at scale 1. */
 const STATE_OFFSET_X = 25;
 const STATE_OFFSET_Y = 10;
@@ -1868,8 +1914,9 @@ export function mapDrawer(
 
   /**
    * The field is made by a worker (water-field.worker.ts) where the browser has one, so a move that explores a coast
-   * drops no frames on it (#411); else here. One request at a time, the latest map state queued behind it. The map
-   * waits for it before painting the ground just explored, so no water tile shows there without its water.
+   * drops no frames on it (#411); else here. One request at a time, the latest map state queued behind it. Only a
+   * map's first field is waited for, so the map never shows without water; the ground explored after is painted at
+   * once, and the field made again fades in when it is in (WaterPen.field).
    */
   const fields = fieldMaker();
   /** Give the shader water the field of a map; resolves once the latest map's field is in. */
@@ -1885,42 +1932,68 @@ export function mapDrawer(
     // From the whole map's terrain once it is in: made once, as exploring changes nothing of it. The edge of what is
     // explored then shows the shore beyond, under the black.
     const whole = terrainNow && terrainNow.w === map.w && terrainNow.h === map.h ? terrainNow : null;
-    if (whole) {
-      if (terrainCovers?.of !== whole) {
-        const start = performance.now();
-        const n = whole.w * whole.h;
-        const all: MapView = {
-          ...map,
-          ...whole,
-          seen: '1'.repeat(n),
-          fog: false,
-          owners: '.'.repeat(n),
-          regions: undefined,
-          roads: [],
-          items: [],
-          settlements: [],
-          units: [],
-          active: null,
-          activeUnit: null,
-        };
-        const covers = await coversOf(all, staticScene(all, res!, colonyLabels, 'surface'));
-        terrainCovers = { of: whole, key: `terrain:${whole.w}x${whole.h}:${whole.tiles}`, covers };
-        measure('map: terrain covers', start);
-      }
+    // Until its shore covers are made (startWholeCovers, a little at a time), the field is the explored tiles'.
+    if (whole && terrainCovers?.of === whole) {
       if (terrainCovers.key === fieldOf) return;
       return fieldFrom(water, whole, terrainCovers.covers, terrainCovers.key);
     }
+    if (whole) startWholeCovers(map, whole);
     const key = `${map.w}x${map.h}:${map.tiles}:${JSON.stringify(map.rivers)}`;
     if (key === fieldOf) return;
     return fieldFrom(water, map, await coversOf(map, ground), key);
   }
 
-  /** The shore cover of each covered water tile of a map's scene (coverOf), by tile index. */
-  async function coversOf(map: MapView, ground: StaticScene) {
+  /** The terrain whose shore covers are being made now. */
+  let coveringTerrain: Terrain | null = null;
+  /**
+   * Make the shore covers of the whole map's terrain, outside the queue of fields, so the fields of the explored
+   * tiles go on being made meanwhile; then the field of the whole map, which fades in.
+   */
+  function startWholeCovers(map: MapView, whole: Terrain) {
+    if (coveringTerrain === whole || terrainCovers?.of === whole) return;
+    coveringTerrain = whole;
+    const start = performance.now();
+    wholeCovers(map, whole)
+      .then((covers) => {
+        if (terrainNow !== whole) return;
+        terrainCovers = { of: whole, key: `terrain:${whole.w}x${whole.h}:${whole.tiles}`, covers };
+        measure('map: terrain covers', start);
+        const [now, ground] = [drawn, last?.ground];
+        if (now && ground) return waterFieldNow([now, ground]);
+      })
+      .catch(console.warn)
+      .finally(() => {
+        if (coveringTerrain === whole) coveringTerrain = null;
+      });
+  }
+
+  /**
+   * The shore covers of the whole map's terrain, every tile explored: its scene made in strips of rows, each with the
+   * rows round it it depends on, with the page let go between them, so play that has started does not stall on it.
+   */
+  async function wholeCovers(map: MapView, whole: Terrain) {
+    const covers = new Map<number, Float32Array>();
+    for (const { strip, y0, y1 } of terrainStrips(wholeMapView(map, whole))) {
+      const start = performance.now();
+      const scene = staticScene(strip, res!, colonyLabels, 'surface');
+      measure('map: terrain scene', start);
+      for (const [k, c] of await coversOf(strip, scene, y0, y1)) covers.set(k, c);
+      await yieldToPage();
+    }
+    return covers;
+  }
+
+  /** The shore cover of each covered water tile of a map's scene (coverOf) in rows y0 to y1, by tile index. */
+  async function coversOf(map: MapView, ground: StaticScene, y0 = 0, y1 = map.h) {
     const shores = [...ground.base, ...ground.below].filter(
-      (op): op is Extract<Op, { k: 'image' }> => op.k === 'image' && op.shore === true,
+      (op): op is Extract<Op, { k: 'image' }> => op.k === 'image' && op.shore === true && op.y >= y0 && op.y < y1,
     );
-    const pictures = await Promise.all(shores.map((op) => pics.get(op.src).catch(() => null)));
+    const pictures: (Picture | null)[] = [];
+    for (let i = 0; i < shores.length; i += 64) {
+      const batch = shores.slice(i, i + 64);
+      pictures.push(...(await Promise.all(batch.map((op) => pics.get(op.src).catch(() => null)))));
+      await yieldToPage();
+    }
     const covering = new Map<number, Picture[]>();
     shores.forEach((op, i) => {
       const pic = pictures[i];
@@ -1928,8 +2001,18 @@ export function mapDrawer(
       const at = op.y * map.w + op.x;
       covering.set(at, [...(covering.get(at) ?? []), pic]);
     });
+    const start = performance.now();
+    let since = start;
     const covers = new Map<number, Float32Array>();
-    for (const [at, list] of covering) covers.set(at, coverOf(list));
+    for (const [at, list] of covering) {
+      covers.set(at, coverOf(list));
+      if (performance.now() - since > 16) {
+        measure('map: shore covers slice', since);
+        await yieldToPage();
+        since = performance.now();
+      }
+    }
+    measure('map: shore covers', start);
     return covers;
   }
 

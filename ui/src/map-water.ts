@@ -1015,7 +1015,14 @@ export class ShaderSurface {
     if (this.fadeFrom < 0) return false;
     const t = Math.min(1, Math.max(0, (now - this.fadeFrom) / FIELD_FADE_MS));
     this.uniforms.uFade = t;
-    if (t >= 1) this.fadeFrom = -1;
+    if (t >= 1) {
+      // Faded in: the field before is let go, so only a fade holds a second field.
+      this.fadeFrom = -1;
+      const before = this.before;
+      this.before = this.field;
+      for (const m of [this.mesh, this.overlay]) if (m) m.shader!.resources.uFieldBefore = this.field;
+      if (before !== this.field) before.destroy();
+    }
     return true;
   }
 
