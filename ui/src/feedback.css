@@ -6,7 +6,7 @@
   :root {
     --feedback-field-gap: var(--space-4);
     --feedback-preview-height: 12em;
-    /* The Beta tag: in the page's corner, over the map and the start screen. */
+    /* The Beta tag: in the start screen's corner; in a game it is in the menu bar (index.html's .menubar .beta-tag). */
     --beta-tag-pad: var(--space-2) var(--space-4);
     --beta-tag-inset: var(--space-4);
     /* Under the menu bar (33px at its tallest), clear of the minimap and the info panel at the bottom. */
@@ -177,7 +177,7 @@
     user-select: all;
   }
   /* "Beta · Send feedback", the corner tag. */
-  .beta-tag {
+  .beta-tag.corner {
     position: fixed;
     top: var(--beta-tag-top);
     right: var(--beta-tag-inset);
@@ -190,18 +190,22 @@
     font-size: var(--fs-s);
     cursor: pointer;
   }
-  /* Over the start screen (z-index 10), but not over a window: the tag hides while one is open. */
-  body:has(.start) .beta-tag {
+  /*
+   * Over the start screen (z-index 10), but not over a window: the tag hides while one is open. Without the start
+   * screen, in a game, the menu bar has the tag instead.
+   */
+  body:has(.start) .beta-tag.corner {
     z-index: 11;
   }
-  body:has(.modal) .beta-tag {
+  body:not(:has(.start)) .beta-tag.corner,
+  body:has(.modal) .beta-tag.corner {
     display: none;
   }
   .beta-tag b {
     letter-spacing: var(--caption-tracking);
     text-transform: var(--caption-case);
   }
-  .beta-tag:hover {
+  .beta-tag.corner:hover {
     border-color: var(--menubar-ink);
   }
 }

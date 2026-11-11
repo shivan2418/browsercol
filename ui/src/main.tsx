@@ -65,6 +65,7 @@ import { debugMenu, gameMenu, ordersMenu, reportOptionsMenu, viewMenu, type Menu
 import { commandForKey, type Command } from './input';
 import { PreferencesDialog } from './prefs-dialog';
 import { setCurrentSaveSource } from './current-save';
+import { BetaTag } from './feedback-dialog';
 import { feedbackOpen, openFeedback, setFeedbackSources, startFeedback } from './feedback-host';
 import { OpenDialog, SaveDialog } from './save-picker';
 import {
@@ -1081,7 +1082,13 @@ function renderSide() {
   const showing = panelShowing();
   if (windowWasOpen && !showing && !mapHost.contains(document.activeElement)) mapHost.focus({ preventScroll: true });
   windowWasOpen = showing;
-  menuRoot.render(<MenuBar menus={currentMenus()} status={statusLine} />);
+  menuRoot.render(
+    <MenuBar
+      menus={currentMenus()}
+      status={statusLine}
+      trailing={<BetaTag inBar open={() => openFeedback('bug')} />}
+    />,
+  );
   infoRoot.render(
     lastMap && (
       <TipProvider>

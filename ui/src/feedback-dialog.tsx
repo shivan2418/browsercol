@@ -360,11 +360,18 @@ export function FeedbackDialog({ kind: firstKind, load, send, download, close }:
   );
 }
 
-/** The small "Beta · Send feedback" tag in a corner of the start screen and the game view. */
-export function BetaTag({ open }: { open: () => void }) {
+/**
+ * The small "Beta · Send feedback" tag: in the start screen's corner, and in a game at the menu bar's right end
+ * (`inBar`), so it is not over the map all the time.
+ */
+export function BetaTag({ open, inBar = false }: { open: () => void; inBar?: boolean }) {
   if (!BETA_TAG) return null;
-  return (
-    <button type="button" className="beta-tag" data-beta-tag data-flat="" onClick={open}>
+  return inBar ? (
+    <button type="button" className="beta-tag" data-beta-menu data-flat="" onClick={open}>
+      <b>Beta</b> · Send feedback
+    </button>
+  ) : (
+    <button type="button" className="beta-tag corner" data-beta-tag data-flat="" onClick={open}>
       <b>Beta</b> · Send feedback
     </button>
   );

@@ -523,7 +523,7 @@ export const MENUS: readonly string[] = ['Game', 'View', 'Orders', 'Report', 'Co
  * status line (Score ✧ Gold ✧ Tax ✧ Year) on the right. A menu with entries
  * opens on a click and closes on a pick, a click elsewhere or Escape.
  */
-export function MenuBar({ menus, status }: { menus: Menu[]; status: string }) {
+export function MenuBar({ menus, status, trailing }: { menus: Menu[]; status: string; trailing?: ReactNode }) {
   const [open, setOpen] = useState<string | null>(null);
   /** The submenu that is opened, by its label. */
   const [sub, setSub] = useState<string | null>(null);
@@ -642,6 +642,7 @@ export function MenuBar({ menus, status }: { menus: Menu[]; status: string }) {
       <span id="statusLine" className="status">
         {status}
       </span>
+      {trailing}
     </nav>
   );
 }
