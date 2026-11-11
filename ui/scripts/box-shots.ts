@@ -6,7 +6,8 @@
 // and --font set the UI scale and the font size (the Preferences' display scaling and font size) for a second pass.
 // Run against dist/ (the negotiation windows are the diplomacy scenario's, scenarios.ts --only diplomacy):
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/box-shots.ts [--browsers chromium,firefox] [--tag before|after]
-//     [--save PATH.fsg | --preset NAME] [--long 1] [--zoom 1.5] [--font 1.5]
+//     [--save PATH.fsg | --preset NAME] [--long 1] [--widest 1] [--zoom 1.5] [--font 1.5]
+// --widest sets every amount in the colony's warehouse to 300 and checks it is one row, with nothing cut off or scrolling.
 import fs from 'node:fs';
 import path from 'node:path';
 import type { Page } from 'playwright-core';
@@ -23,6 +24,8 @@ const font = opt('font', '');
 const sizes = opt('sizes', '') !== '';
 /** Lengthen the colony's captions to what a long ship name or another language makes of them (--long). */
 const long = opt('long', '') !== '';
+/** Make every amount in the colony's warehouse 300, the widest the game shows (--widest). */
+const widest = opt('widest', '') !== '';
 const dir = path.resolve(import.meta.dirname, '../../.cache/box-shots');
 fs.mkdirSync(dir, { recursive: true });
 const server = await serveDist();
@@ -63,12 +66,40 @@ const captions = (page: Page) =>
     }),
   );
 
+/** The warehouse's goods: how many, in how many rows, and whether any is cut off or the box scrolls (#449). */
+const warehouse = (page: Page) =>
+  page.evaluate(() => {
+    const w = document.querySelector<HTMLElement>('.colony .warehouse');
+    if (!w) return null;
+    const items = [...w.querySelectorAll<HTMLElement>('.stored')];
+    const box = w.getBoundingClientRect();
+    const rows = new Set(items.map((i) => Math.round(i.getBoundingClientRect().top))).size;
+    const cut = items.filter((i) => {
+      const r = i.getBoundingClientRect();
+      return r.right > box.right + 0.5 || r.bottom > box.bottom + 0.5 || r.left < box.left - 0.5;
+    }).length;
+    return {
+      goods: items.length,
+      width: Math.round(items.reduce((n, i) => n + i.getBoundingClientRect().width, 0)),
+      box: Math.round(box.width),
+      rows,
+      cut,
+      vscroll: w.scrollHeight - w.clientHeight,
+      hscroll: w.scrollWidth - w.clientWidth,
+      overflowY: getComputedStyle(w).overflowY,
+    };
+  });
+
 for (const browserName of browserNames()) {
   const browser = await launchBrowser(browserName);
   const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
   const errors = collectPageErrors(page);
   const suffix = (zoom || font ? `-z${zoom || 1}f${font || 1}` : '') + (long ? '-long' : '');
   const shot = async (name: string, el?: string) => {
+    if (widest)
+      await page.evaluate(() => {
+        for (const a of document.querySelectorAll('.colony .warehouse .stored .amount')) a.textContent = '300';
+      });
     const file = path.join(dir, `${tag}-${browserName}-${name}${suffix}.png`);
     if (el) await page.locator(el).first().screenshot({ path: file });
     else await page.screenshot({ path: file });
@@ -80,7 +111,9 @@ for (const browserName of browserNames()) {
     console.log(
       `${bad.length ? 'FAIL' : 'ok  '} ${tag}/${browserName}/${name}${suffix}: ${c.length} captions, ${c.filter((x) => x.lines > 1).length} wrapped, ${c.filter((x) => x.overlap).length} overlapping, scrolling: ${scrolls.join(' | ') || 'none'}`,
     );
-    failed ||= bad.length > 0;
+    const wh = await warehouse(page);
+    if (wh) console.log(`     warehouse ${tag}/${browserName}/${name}${suffix}: ${JSON.stringify(wh)}`);
+    failed ||= bad.length > 0 || (!!wh && (wh.rows > 1 || wh.cut > 0 || wh.vscroll > 0 || wh.hscroll > 0));
   };
   const look = () =>
     page.evaluate(
@@ -155,7 +188,8 @@ for (const browserName of browserNames()) {
       await look();
 
       // Europe.
-      await page.click('button[data-command=showEurope]');
+      // Not a pointer click: at a small zoom the Beta tag lies over this button.
+      await page.locator('button[data-command=showEurope]').dispatchEvent('click');
       await page.locator('[role=dialog][data-kind=europe]').waitFor({ timeout: 20000 });
       await sleep(1000);
       await shot('europe');
