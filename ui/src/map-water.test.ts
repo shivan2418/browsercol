@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vite-plus/test';
 import {
   blur,
@@ -152,6 +153,30 @@ shader.water.chopSize="96"
     expect(look.roughness).toEqual({ ocean: 0.4, highSeas: 0.8, lake: 0.3 });
     expect(look.foamStrength).toEqual({ ocean: 1, highSeas: 1, lake: 0.1 });
     expect([look.speed, look.lakeSpeed]).toEqual([1, 0.3]);
+    // FreeCol+ names no painted-art recipe and keeps FreeCol's flipbook rivers.
+    expect(look.recipe).toBeUndefined();
+    expect(look.rivers?.mode).toBe('flipbook');
+  });
+
+  it("gives BrowserCol (#411) the playground's variant E, its climate palettes and flowing rivers", () => {
+    const props = readFileSync(new URL('../tilesets/browsercol/resources.properties', import.meta.url), 'utf8');
+    const look = waterLook(resources([{ dir: 'mods/browsercol', props }], []))!;
+    expect(look.recipe).toEqual({
+      shallows: 'climate',
+      shore: 'art',
+      motion: 'bands',
+      deep: 'climate',
+      depth: 'deeper',
+      bandSpeed: 5,
+      bandSpacing: 40,
+      driftSpeed: 2,
+      shelfWidth: 90,
+      climateBlend: 3,
+      clip: 1,
+      clipAt: -2,
+    });
+    expect(look.palettes.tropical).toEqual({ deep: 0x0c3a4c, shallow: 0x40c6b9, foam: 0xe6eee6, foamAmount: 1 });
+    expect(look.rivers).toEqual({ mode: 'flow', minor: 6, major: 3, streakStrength: 0.1 });
   });
 });
 

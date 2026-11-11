@@ -1128,10 +1128,15 @@ export async function waterDrawingFor(
   look: WaterLook | null,
   water: WaterPen | undefined,
   get: (src: string) => Promise<Picture>,
+  painted?: () => Promise<Picture>,
 ): Promise<WaterDrawing> {
   if (!look || !water) return 'flipbook';
   try {
-    const [swell, chop] = await Promise.all([get(look.swell), get(look.chop)]);
+    // A painted-art recipe draws FreeCol's own ocean, high seas and lake art in place of the ripple textures.
+    const [swell, chop] =
+      look.recipe && painted
+        ? [await painted(), await painted()]
+        : await Promise.all([get(look.swell), get(look.chop)]);
     if (water.start(look, swell, chop)) return 'surface';
     console.warn("the GPU could not build the shader water's shader; the water is drawn from its frames");
   } catch (ex) {
@@ -1799,22 +1804,24 @@ export function mapDrawer(
     if (size !== startSize) p.resize(...size);
     pen = p;
     look = waterLook(res);
-    waterDrawing = await waterDrawingFor(look, p.water, pics.get);
+    const paintedArt = async () => {
+      if (!paintedAtlas) {
+        const pictures = await Promise.all(
+          ['ocean', 'highSeas', 'lake'].map((kind) => pics.get(res!.path(`image.tile.model.tile.${kind}.center`)!)),
+        );
+        paintedAtlas = paintedWaterAtlas(pictures);
+      }
+      return paintedAtlas;
+    };
+    waterDrawing = await waterDrawingFor(look, p.water, pics.get, paintedArt);
     // PROTOTYPE (water playground): what the playground drives.
     waterPlayground.look = look;
     waterPlayground.surface = () => p.water?.surface?.() ?? null;
     waterPlayground.restart = async (next) => {
       if (!p.water || waterDrawing !== 'surface') return false;
       let swell: Picture, chop: Picture;
-      if (next.recipe) {
-        if (!paintedAtlas) {
-          const pictures = await Promise.all(
-            ['ocean', 'highSeas', 'lake'].map((kind) => pics.get(res!.path(`image.tile.model.tile.${kind}.center`)!)),
-          );
-          paintedAtlas = paintedWaterAtlas(pictures);
-        }
-        swell = chop = paintedAtlas;
-      } else [swell, chop] = await Promise.all([pics.get(next.swell), pics.get(next.chop)]);
+      if (next.recipe) swell = chop = await paintedArt();
+      else [swell, chop] = await Promise.all([pics.get(next.swell), pics.get(next.chop)]);
       if (!p.water.start(next, swell, chop)) return false;
       look = waterPlayground.look = next;
       waitingForRecipe = false;

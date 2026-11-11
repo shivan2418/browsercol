@@ -28,6 +28,7 @@ export const ACTIVE_STYLES: readonly ActiveStyle[] = ['freecol', 'online'];
 export const TILESETS = [
   { id: 'freecol', label: 'FreeCol' },
   { id: 'freecol-plus', label: 'FreeCol+' },
+  { id: 'browsercol', label: 'BrowserCol' },
 ] as const;
 export type Tileset = (typeof TILESETS)[number]['id'];
 const isTileset = (v: unknown): v is Tileset => TILESETS.some((t) => t.id === v);

@@ -356,16 +356,33 @@ export function waterLook(res: Resources): WaterLook | null {
       CLIMATES.map((k) => [
         k,
         {
-          deep: res.has(`${KEY}${k}.deep`) ? res.color(`${KEY}${k}.deep`) : color('ocean'),
-          shallow: res.has(`${KEY}${k}.shallow`) ? res.color(`${KEY}${k}.shallow`) : color('shallow'),
-          foam: res.has(`${KEY}${k}.foam`) ? res.color(`${KEY}${k}.foam`) : color('foam'),
+          deep: res.color(`${KEY}${k}.deep`, color('ocean')),
+          shallow: res.color(`${KEY}${k}.shallow`, color('shallow')),
+          foam: res.color(`${KEY}${k}.foam`, color('foam')),
           foamAmount: numberOf(res, `${KEY}${k}.foamAmount`, 1),
         },
       ]),
     ) as Record<Climate, Palette>,
     ice: numberOf(res, `${KEY}ice`, 0),
+    // The painted-art recipe (#409) from the Tileset, when it names one: BrowserCol's water (#411).
+    recipe: ['bands', 'foam'].includes(res.string(`${KEY}recipe.motion`))
+      ? {
+          shallows: oneOf(res.string(`${KEY}recipe.shallows`), ['turquoise', 'climate'] as const, 'climate'),
+          shore: oneOf(res.string(`${KEY}recipe.shore`), ['drawn', 'art'] as const, 'art'),
+          motion: oneOf(res.string(`${KEY}recipe.motion`), ['bands', 'foam'] as const, 'bands'),
+          deep: oneOf(res.string(`${KEY}recipe.deep`), ['plain', 'climate'] as const, 'climate'),
+          depth: oneOf(res.string(`${KEY}recipe.depth`), ['normal', 'deeper'] as const, 'deeper'),
+          bandSpeed: numberOf(res, `${KEY}recipe.bandSpeed`, 5),
+          bandSpacing: numberOf(res, `${KEY}recipe.bandSpacing`, 40),
+          driftSpeed: numberOf(res, `${KEY}recipe.driftSpeed`, 2),
+          shelfWidth: numberOf(res, `${KEY}recipe.shelfWidth`, 90),
+          climateBlend: numberOf(res, `${KEY}recipe.climateBlend`, 3),
+          clip: numberOf(res, `${KEY}recipe.clip`, 1),
+          clipAt: numberOf(res, `${KEY}recipe.clipAt`, -2),
+        }
+      : undefined,
     rivers: {
-      mode: 'flipbook',
+      mode: oneOf(res.string(`${KEY}river.mode`), ['flipbook', 'flow'] as const, 'flipbook'),
       minor: numberOf(res, `${KEY}river.minorSpeed`, 6),
       major: numberOf(res, `${KEY}river.majorSpeed`, 3),
       streakStrength: numberOf(res, `${KEY}river.streakStrength`, 0.1),

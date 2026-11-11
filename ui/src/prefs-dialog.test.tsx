@@ -109,7 +109,7 @@ test("the colours and the fonts are among BrowserCol's own, and a pick changes t
   expect(shown(fonts)).toBe(FONT_SETS.find((f) => f.id === 'cinzel-noto')!.label);
 });
 
-test('the Tileset is picked among FreeCol and FreeCol+, and shows on reload', async () => {
+test('the Tileset is picked among FreeCol, FreeCol+ and BrowserCol, and shows on reload', async () => {
   const changed: Prefs[] = [];
   const { container } = render(
     <PreferencesDialog prefs={DEFAULTS} freecol={null} change={(p) => changed.push(p)} close={() => {}} />,
@@ -118,7 +118,7 @@ test('the Tileset is picked among FreeCol and FreeCol+, and shows on reload', as
   expect(row.textContent).toContain('Tileset (on reload)');
   const tileset = row.querySelector<HTMLElement>('[role="combobox"]')!;
   await openSelect(tileset);
-  expect(listed()).toEqual(['FreeCol', 'FreeCol+']);
+  expect(listed()).toEqual(['FreeCol', 'FreeCol+', 'BrowserCol']);
   await chooseOption(tileset, 'FreeCol+');
   expect(changed.at(-1)).toEqual({ ...DEFAULTS, tileset: 'freecol-plus' });
 });
