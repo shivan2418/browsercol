@@ -1660,6 +1660,7 @@ describe('the trade routes panel', () => {
     ...more,
   });
   const press = (name: string | RegExp) => act(() => void fireEvent.click(screen.getByRole('button', { name })));
+  const pick = (name: string | RegExp) => act(() => void fireEvent.click(screen.getByRole('option', { name })));
 
   it('assigns the picked route to the unit it was opened for, and drops it again', () => {
     const { box, assigned } = host();
@@ -1671,7 +1672,7 @@ describe('the trade routes panel', () => {
     );
     expect((screen.getByRole('button', { name: 'Assign Trade Route' }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByRole('button', { name: 'Drop Trade Route' }) as HTMLButtonElement).disabled).toBe(true);
-    press('Fur run (2)');
+    pick('Fur run (2)');
     press('Assign Trade Route');
     expect(assigned).toEqual(['unit:9 tradeRoute:1']);
     act(() =>
@@ -1692,7 +1693,7 @@ describe('the trade routes panel', () => {
         routes({ unit: { id: 'unit:9', name: 'Caravel', images: [], location: null, route: 'tradeRoute:1' } }),
       ),
     );
-    expect(screen.getByRole('button', { name: 'Fur run (2)' }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('option', { name: 'Fur run (2)' }).getAttribute('aria-selected')).toBe('true');
     // Its own route is already its route: OK assigns nothing.
     press('OK');
     expect(assigned).toEqual([]);
@@ -1703,7 +1704,7 @@ describe('the trade routes panel', () => {
         routes({ unit: { id: 'unit:9', name: 'Caravel', images: [], location: null, route: 'tradeRoute:1' } }),
       ),
     );
-    press('Rum run');
+    pick('Rum run');
     press('OK');
     expect(assigned).toEqual(['unit:9 tradeRoute:2 hidden']);
   });
@@ -1731,10 +1732,10 @@ describe('the trade routes panel', () => {
   it('lists the routes with the units that follow them, and deletes the picked one', () => {
     const { box, removed } = host();
     act(() => box.replace('tradeRoutes', routes()));
-    expect(screen.getByRole('button', { name: 'Fur run (2)' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Rum run' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'Fur run (2)' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'Rum run' })).toBeTruthy();
     expect((screen.getByRole('button', { name: 'Delete Trade Route' }) as HTMLButtonElement).disabled).toBe(true);
-    press('Rum run');
+    pick('Rum run');
     press('Delete Trade Route');
     expect(removed).toEqual(['tradeRoute:2']);
   });
@@ -1771,7 +1772,7 @@ describe('the trade routes panel', () => {
   it('edits a route and removes a stop', () => {
     const { box, saved } = host();
     act(() => box.replace('tradeRoutes', routes()));
-    press('Fur run (2)');
+    pick('Fur run (2)');
     press('Edit Trade Route');
     expect((screen.getByRole('textbox') as HTMLInputElement).value).toBe('Fur run');
     fireEvent.click(screen.getByLabelText(/Silence messages/));
@@ -1831,7 +1832,7 @@ describe('the trade routes panel', () => {
         }),
       ),
     );
-    press('Fur run');
+    pick('Fur run');
     press('Edit Trade Route');
     return saved;
   };
@@ -1880,7 +1881,7 @@ describe('the trade routes panel', () => {
         }),
       ),
     );
-    press('Sugar run');
+    pick('Sugar run');
     press('Edit Trade Route');
     // Jamestown is reached with two holds of tools and furs, and leaves with one tools: one tools stays.
     expect(chipsAt(1)).toEqual([`unload ${T} −1`, `unload ${F} −1`]);
@@ -2051,7 +2052,7 @@ describe('the trade routes panel', () => {
         }),
       ),
     );
-    press(/^Fur run/);
+    pick(/^Fur run/);
     press('Edit Trade Route');
     const carriers = () => document.querySelector('.carriers');
     expect(carriers()!.textContent).toBe('Only ships can follow this route: wagon trains cannot go to Europe.');
@@ -2067,6 +2068,23 @@ describe('the trade routes panel', () => {
     expect(carriers()!.textContent).toBe(
       'Only wagon trains can follow this route: ships cannot reach Fort Orange, inland.',
     );
+  });
+
+  it('lists the routes: the arrow keys move the pick, and a double-click edits one', () => {
+    const { box } = host();
+    act(() => box.replace('tradeRoutes', routes()));
+    const list = screen.getByRole('listbox', { name: 'Trade Routes' });
+    const selected = () => within(list).getByRole('option', { selected: true }).getAttribute('data-route');
+    pick('Fur run (2)');
+    act(() => void fireEvent.keyDown(list, { key: 'ArrowDown' }));
+    expect(selected()).toBe('tradeRoute:2');
+    expect(document.activeElement?.getAttribute('data-route')).toBe('tradeRoute:2');
+    act(() => void fireEvent.keyDown(list, { key: 'ArrowDown' }));
+    expect(selected()).toBe('tradeRoute:2');
+    act(() => void fireEvent.keyDown(list, { key: 'ArrowUp' }));
+    expect(selected()).toBe('tradeRoute:1');
+    act(() => void fireEvent.doubleClick(screen.getByRole('option', { name: 'Rum run' })));
+    expect((screen.getByRole('textbox', { name: 'Name' }) as HTMLInputElement).value).toBe('Rum run');
   });
 
   it('disables Add Stop once the route has a stop for every place', async () => {
@@ -2119,7 +2137,7 @@ describe('the trade routes panel', () => {
     expect((screen.getByRole('textbox') as HTMLInputElement).value).toBe('Short');
     // Cancel goes back to the routes.
     press('Cancel');
-    expect(screen.getByRole('button', { name: 'Fur run (2)' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'Fur run (2)' })).toBeTruthy();
   });
 
   it('closes on Enter or Escape from the list, and goes back from the editor on Escape', () => {
@@ -2128,7 +2146,7 @@ describe('the trade routes panel', () => {
     press('New Trade Route');
     key('Escape');
     expect(box.current()?.kind).toBe('tradeRoutes');
-    expect(screen.getByRole('button', { name: 'Fur run (2)' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'Fur run (2)' })).toBeTruthy();
     key('Escape');
     expect(box.current()).toBeNull();
   });

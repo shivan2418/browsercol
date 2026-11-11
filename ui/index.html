@@ -1165,15 +1165,45 @@
       .dialog[data-kind='tradeRoutes'] {
         min-width: min(28em, 100%);
       }
+      /* The routes, as a list: flat rows with a rule between them; the picked one is tinted (selection.css). */
       .dialog .routes {
         display: flex;
         flex-direction: column;
-        gap: 4px;
         margin: 8px 0;
-        padding: 4px;
         min-height: 4em;
+        max-height: calc(var(--screen-h) * 0.5);
+        overflow-y: auto;
         background: var(--box);
         border: 1px solid var(--line);
+      }
+      .dialog .routes [role='option'] {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        padding: 6px 10px;
+        text-align: left;
+        background: none;
+        border: 0;
+        border-bottom: 1px solid color-mix(in srgb, var(--line) 45%, transparent);
+        box-shadow: none;
+      }
+      .dialog .routes [role='option']:last-child {
+        border-bottom: 0;
+      }
+      .dialog .routes [role='option']:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: -2px;
+      }
+      .dialog .routes .name {
+        flex: 1;
+      }
+      .dialog .routes .units,
+      .dialog .routes .none {
+        font-size: var(--fs-s);
+        opacity: 0.75;
+      }
+      .dialog .routes .none {
+        padding: 6px 10px;
       }
       .dialog .route-top {
         display: flex;
