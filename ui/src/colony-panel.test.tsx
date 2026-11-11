@@ -154,11 +154,11 @@ describe('the colony panel', () => {
     // Below 7 (ProductionLabel's display goods amounts at) an amount is only icons, with no number.
     expect(at('colonyTile:11').querySelector('[data-goods="model.goods.cotton"] .amount')).toBeNull();
     expect(at('colonyTile:22').dataset.ours).toBe('false');
-    // TileViewer.displayColonyTile: the tile taken image, native land, and a worker with no occupation chip.
+    // TileViewer.displayColonyTile: the tile taken image, native land, and a worker with no occupation badge.
     expect(at('colonyTile:22').querySelector('img.taken')?.getAttribute('src')).toBe('art/taken.png');
     expect(at('colonyTile:02').querySelector('img.natives')?.getAttribute('src')).toBe('art/native.png');
     expect(at('colonyTile:11').querySelector('img.taken')).toBeNull();
-    expect(at('colonyTile:21').querySelector('.chip')).toBeNull();
+    expect(at('colonyTile:21').querySelector('.occupation-badge')).toBeNull();
     // With no map to draw from, each tile shows its terrain image.
     expect(at('colonyTile:11').querySelector('img.terrain')?.getAttribute('src')).toBe('art/plains.png');
   });
@@ -463,7 +463,7 @@ describe('loading a ship in port in the colony panel', () => {
     expect(calls).toEqual(['equip unit:3 model.goods.lumber']);
   });
 
-  it('shows the occupation chip and the red repair status of units outside and ships in port', async () => {
+  it('shows the occupation badge and the red repair status of units outside and ships in port', async () => {
     openPort({
       outside: {
         title: 'Outside',
@@ -474,13 +474,13 @@ describe('loading a ship in port in the colony panel', () => {
         units: [{ ...caravel, occupation: 'R', occupationFull: 'Under repair', repair: 'Repair(3)' }],
       },
     });
-    expect(unit('unit:3').querySelector('.chip')?.textContent).toBe('F');
-    expect(await hint(unit('unit:3').querySelector('.chip')!)).toBe('Fortified');
+    expect(unit('unit:3').querySelector('.occupation-badge')?.textContent).toBe('F');
+    expect(await hint(unit('unit:3').querySelector('.occupation-badge')!)).toBe('Fortified');
     // On the owner's nation colour, as ImageLibrary.getOccupationIndicatorChip draws it.
-    const chip = unit('unit:3').querySelector<HTMLElement>('.chip');
-    expect(chip?.style.getPropertyValue('--nation')).toBe('#ff8000');
-    expect(chip?.style.getPropertyValue('--nation-ink')).toBe('#808080');
-    expect(unit('unit:9').querySelector('.chip')?.textContent).toBe('R');
+    const badge = unit('unit:3').querySelector<HTMLElement>('.occupation-badge');
+    expect(badge?.style.getPropertyValue('--nation')).toBe('#ff8000');
+    expect(badge?.style.getPropertyValue('--nation-ink')).toBe('#808080');
+    expect(unit('unit:9').querySelector('.occupation-badge')?.textContent).toBe('R');
     expect(unit('unit:9').querySelector('.repair')?.textContent).toBe('Repair(3)');
   });
 

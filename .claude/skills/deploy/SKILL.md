@@ -70,15 +70,34 @@ The player entry ships inside the build it describes, so it goes on main before 
 
 ```
 just deploy <changelog commit sha>
-gh release create build-<N+1> --verify-tag --title "Build <N+1>" --notes-file <developer changelog file>
 ```
 
-Check `deploy.sh` printed the tag you expected. If it numbered the build differently (someone deployed in between), retitle the player entry and the release to match before going on.
+Check `deploy.sh` printed the tag you expected. If it numbered the build differently (someone deployed in between), retitle the player entry to match before going on.
 
-Follow the Pages run in the background (`gh run watch $(gh run list --workflow pages.yml -L 1 --json databaseId --jq '.[0].databaseId') --exit-status`). It builds, deploys and smoke-tests the live page.
+Follow the Pages run in the background (`gh run watch $(gh run list --workflow pages.yml -L 1 --json databaseId --jq '.[0].databaseId') --exit-status`). It builds, then its `release` job creates the `build-<N+1>` release with `play.tar.gz` and generated notes, then it deploys and smoke-tests the live page.
 
-**Done when** the release exists and the Pages run has finished.
+Don't create the release yourself: the `release` job fails on a release that already exists, and the deploy and smoke jobs are skipped with it. Once that job has made the release, put the developer changelog on it:
 
-## 6. Report
+```
+gh release edit build-<N+1> --notes-file <developer changelog file>
+```
 
-The build number, the commit, the release URL, the Pages run URL and its result (with the failing step if it failed), and the player entry as published.
+**Done when** the release carries the developer changelog and the Pages run has finished.
+
+## 6. Check the live build
+
+The run's "The live game is this build" step already fails when Pages serves another build's game. Check it yourself anyway, as the player sees it: the live game names its build in `main-*.js`.
+
+```
+idx=$(curl -s "https://browsercol.com/play/?v=$RANDOM" | grep -o 'assets/index-[^"]*\.js')
+main=$(curl -s "https://browsercol.com/play/$idx" | grep -oE 'main-[A-Za-z0-9_-]+\.js' | head -1)
+curl -s "https://browsercol.com/play/assets/$main" | grep -oE 'build [0-9]+ · [0-9a-f]{7}' | head -1
+```
+
+It must print `build <N+1> · <short sha>`. If it shows the last build, the deploy did not take, which is what happened when build 8 was deployed from a re-run of the Pages workflow. Run the Site workflow (`gh workflow run site.yml --ref main`); it deploys main's landing page around the latest release's game. Then check again.
+
+**Done when** the live game reports this build.
+
+## 7. Report
+
+The build number, the commit, the release URL, the Pages run URL and its result (with the failing step if it failed), the build the live game reports, and the player entry as published.

@@ -54,29 +54,51 @@ function colony(outside: number, ships: number, cargo: number, stacks: number): 
 }
 
 describe('the colony window keeps one size', () => {
-  for (const part of ['outside', 'cargo', 'port', 'warehouse']) {
-    it(`gives the ${part} box a height of its own, and scrolls what does not fit (the warehouse's line always fits)`, () => {
+  for (const part of ['outside', 'cargo', 'port']) {
+    it(`sizes the ${part} box by construction: no height of its own, one row from a hidden template, a list that scrolls`, () => {
       const css = declared(`.colony .${part}`);
-      // The box's height, not the content's: a fixed length or a token holding one, and no min-height to grow from.
-      expect(css.height, 'height').toMatch(/^(\d+px|var\(--colony-[\w-]+\))$/);
-      expect(css['min-height']).toBeUndefined();
-      expect(css['max-height']).toBeUndefined();
+      // The box takes its height from its content, never from a length measured for it.
+      for (const name of ['height', 'min-height', 'max-height', 'overflow-y']) expect(css[name], name).toBeUndefined();
       expect(css['box-sizing']).toBe('border-box');
-      expect(css['overflow-y']).toBe(part === 'warehouse' ? 'hidden' : 'auto');
     });
   }
 
-  it('sets the heights the boxes take from as lengths', () => {
-    const css = declared('.colony .cbody');
-    // A fixed length for the content (art in px, text in em), plus the box's frame (caption, padding, border), so it
-    // follows the font and not what is in the box.
-    const fixed = /^(\d+px|calc\(\d+px( \+ [\d.]+em)? \+ var\(--colony-box-frame\)\))$/;
-    expect(css['--colony-row']).toMatch(fixed);
-    expect(css['--colony-warehouse']).toMatch(fixed);
+  it("gives the cell the template's height, and has the list fill it and scroll from the second row", () => {
+    const fit = declared('.colony .row-fit');
+    const template = declared('.colony .row-template');
+    const list = declared('.colony .row-list');
+    // The template is in flow, so the cell is one row high; hidden, so nothing shows of it.
+    expect(fit.position).toBe('relative');
+    expect(template.visibility).toBe('hidden');
+    expect(template.display).toBe('flex');
+    expect(template.position).toBeUndefined();
+    expect(template.height).toBeUndefined();
+    // The list is out of flow, filling the cell, so what it holds never grows it.
+    expect(list.position).toBe('absolute');
+    expect(list.inset).toBe('0');
+    expect(list['overflow-y']).toBe('auto');
+    expect(list['overflow-x']).toBe('hidden');
+    expect(list.height).toBeUndefined();
   });
 
-  it('keeps the outside and cargo boxes in one row, so they have the one height', () => {
-    expect(declared('.colony .outside').height).toBe(declared('.colony .cargo').height);
+  it('measures nothing: no length for a row or a box frame is left', () => {
+    expect(pageCss).not.toContain('--colony-row');
+    expect(pageCss).not.toContain('--colony-box-frame');
+  });
+
+  it('gives the warehouse no height of its own, and the three boxes one template each', () => {
+    const css = declared('.colony .warehouse');
+    for (const name of ['height', 'min-height', 'max-height']) expect(css[name], name).toBeUndefined();
+    const { container } = render(<ColonyPanel colony={colony(3, 2, 2, 2)} art={() => 'x.png'} />);
+    for (const part of ['outside', 'cargo', 'port']) {
+      const box = container.querySelector(`[data-part="${part}"]`)!;
+      const template = box.querySelectorAll('.row-fit > .row-template');
+      expect(template, part).toHaveLength(1);
+      expect(template[0].getAttribute('aria-hidden'), part).toBe('true');
+      // It is not a unit of the box: nothing counts or finds it as one, and nothing in it can be picked.
+      expect(template[0].querySelector('[data-unit]'), part).toBeNull();
+      expect(box.querySelectorAll('.row-list > *').length, part).toBeGreaterThan(0);
+    }
   });
 
   it('gives the window its own width and no height of its own to grow from', () => {

@@ -65,6 +65,24 @@ relay:
 deploy-relay *args:
     relay/deploy.sh {{args}}
 
+# Download new beta reports from S3 into beta-reports/inbox/ (gitignored; setup in tools/beta-reports/README.md)
+beta-pull:
+    tools/beta-reports/pull.sh
+
+# Move a beta report from inbox/ to reviewed/, in S3 (expires in 180 days) and locally
+[positional-arguments]
+beta-reviewed ref:
+    tools/beta-reports/reviewed.sh "$1"
+
+# Delete a beta report from S3 and locally, on a tester's request (lists the keys and asks first)
+[positional-arguments]
+beta-delete ref:
+    tools/beta-reports/delete.sh "$1"
+
+# Tests for the beta-report scripts, against a fake S3 (no AWS)
+beta-test:
+    tools/beta-reports/test.sh
+
 # The fast checks a ticket PR needs: Engine tests, vp check, vp test (the UI's and the relay's)
 fast: test-engine check test-ui relay
 

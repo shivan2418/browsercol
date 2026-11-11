@@ -28,10 +28,12 @@ import { Declaration } from './declaration';
 import { CopyDetailsContext, ShowLogContext } from './log';
 import { lane } from './drag';
 import { draggableProps, dropTargetProps, type Item, type Place } from './moves';
-import { ContextMenuContext, contextMenuHandler, useContextMenu } from './popup-menu';
+import { ContextMenuContext, contextMenuHandler } from './popup-menu';
 import { OptionEditor } from './option-editor';
 import { ReportPanel } from './reports';
-import { stopWork, type Work } from './route-work';
+import { EuropeEntry, unitDrag } from './europe-entry';
+import { PlanPills } from './plan-pills';
+import { stopWork } from './route-work';
 import type { ColonyView, EuropeUnit, GuiEvents, ReportLink, SettlementEntry, TradeRouteDraft } from './webgui';
 import { useCoverage } from './coverage';
 import './modifiers.css';
@@ -1030,48 +1032,6 @@ function RouteEditor({
       </div>
     );
   };
-  const chips = (i: number) => {
-    const { unload, load, keep } = stopWork(stops, i);
-    const verb = { unload: 'Unload', load: 'Load', keep: 'Keep aboard' };
-    const chip = (work: 'unload' | 'load' | 'keep', [g, k]: Work) => (
-      <Tip
-        as="span"
-        key={`${work} ${g}`}
-        className="chip"
-        data-work={work}
-        data-type={g}
-        tip={`${verb[work]} ${k > 1 ? `${k} holds of ` : ''}${nameOf(g)} (the plan: real amounts depend on the colony's stock and export level)`}
-      >
-        {icon(g)}
-        {work === 'load' ? '+' : work === 'unload' ? '−' : '='}
-        {k}
-      </Tip>
-    );
-    const group = (work: 'unload' | 'load' | 'keep', list: Work[], arrow: string) =>
-      list.length > 0 && (
-        <span className="work" data-group={work}>
-          <span className="arrow" aria-hidden="true">
-            {arrow}
-          </span>
-          {list.map((x) => chip(work, x))}
-        </span>
-      );
-    return (
-      <div className="chips">
-        {unload.length + load.length + keep.length === 0 ? (
-          <span className="muted">nothing to do</span>
-        ) : (
-          <>
-            {group('unload', unload, '↓ off')}
-            {group('load', load, '↑ on')}
-            {group('keep', keep, 'kept')}
-            {unload.length + load.length === 0 && <span className="muted">nothing to do</span>}
-          </>
-        )}
-      </div>
-    );
-  };
-
   const n = stops.length;
   return (
     <>
@@ -1130,7 +1090,7 @@ function RouteEditor({
                 <Heading look="title" space="flush">
                   {s.label}
                 </Heading>
-                {chips(i)}
+                <PlanPills {...stopWork(stops, i)} icon={icon} nameOf={nameOf} />
                 <Tip
                   as="button"
                   className="icon"
@@ -1339,59 +1299,6 @@ const goodsDrag = (item: Item) =>
     // A stack of cargo shows its goods and amount; the market's goods show alone, not their price beside them.
     (el) => (item.kind === 'goods' && item.from === 'market' ? el.querySelector('img') : null),
   );
-/** A unit's drag shows its picture, not its name beside it. */
-const unitDrag = (id: string) => draggableProps({ kind: 'unit', id }, undefined, (el) => el.querySelector('img'));
-
-/** A unit or ship of Europe's panel, with its picture. */
-function UnitChip({
-  u,
-  art,
-  pick,
-  on,
-  drag,
-  drop,
-}: {
-  u: EuropeUnit;
-  art: Art;
-  pick?: () => void;
-  on?: boolean;
-  /** Whether the unit can be dragged somewhere, as a dock's unit can board. */
-  drag?: boolean;
-  /** What a drop on the unit's icon does, as a ship in port takes cargo. */
-  drop?: (item: Item) => void;
-}) {
-  const inner = (
-    <>
-      <Pic keys={u.images} art={art} />
-      <span className="name">{u.name}</span>
-    </>
-  );
-  const props = {
-    ...(drag ? unitDrag(u.id) : {}),
-    ...(drop ? dropTargetProps('ship', drop) : {}),
-  };
-  const onContextMenu = useContextMenu((m) => m.unit(u.id));
-  return pick ? (
-    <Tip
-      as="button"
-      className="chip"
-      data-flat=""
-      data-unit={u.id}
-      tip={u.name}
-      aria-current={on}
-      onClick={pick}
-      onContextMenu={onContextMenu}
-      {...props}
-    >
-      {inner}
-    </Tip>
-  ) : (
-    <Tip as="div" className="chip" data-unit={u.id} tip={u.name} onContextMenu={onContextMenu} {...props}>
-      {inner}
-    </Tip>
-  );
-}
-
 /**
  * Europe, arranged as EuropePanel arranges it: the ships sailing to America and to Europe, the
  * ships in port with the cargo of the one picked, the docks, and the market with each goods' sell/buy price
@@ -1509,9 +1416,9 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
     unitDrop?: (u: EuropeUnit) => (item: Item) => void,
   ) => (
     <Box caption={heading} roomy data-list={kind} {...(drop ? dropTargetProps(place, drop) : {})}>
-      <div className="chips">
+      <div className="europe-entries">
         {units.map((u) => (
-          <UnitChip
+          <EuropeEntry
             key={u.id}
             u={u}
             art={art}
@@ -1647,7 +1554,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
               data-list="cargo"
               {...(ship ? dropTargetProps('cargo', onCargo) : {})}
             >
-              <div className="chips">
+              <div className="europe-entries">
                 {ship?.cargo?.map((c, i) => {
                   const goods = trade.get(c.id);
                   // A boycotted stack is still a button: selling it asks to pay the arrears, as Swing does.
@@ -1666,7 +1573,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
                     <Tip
                       as="button"
                       key={`${c.kind}/${c.id}`}
-                      className="chip"
+                      className="europe-entry"
                       data-flat=""
                       data-cargo={c.kind}
                       data-disabled={goods?.enabled === false || undefined}
@@ -1681,7 +1588,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
                     <Tip
                       as="div"
                       key={`${c.kind}/${c.id}`}
-                      className="chip"
+                      className="europe-entry"
                       data-cargo={c.kind}
                       tip={goods?.reason ?? c.name}
                       onContextMenu={cargoMenu(c)}
@@ -1711,7 +1618,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
           </aside>
         </div>
         <Box className="market" data-list="market" {...dropTargetProps('market', onMarket)}>
-          <div className="goods">
+          <div className="market-goods">
             {e.market.map((g) => {
               // A boycotted goods is still a button with a ship in port: buying it asks to pay the
               // arrears, as Swing's MarketLabel does.

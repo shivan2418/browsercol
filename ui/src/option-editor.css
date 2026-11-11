@@ -8,8 +8,10 @@
   :root {
     --option-pad: 1px 0;
     --option-pad-roomy: 2px 0;
-    /* The slider's knob sits centred on its groove. */
-    --slider-thumb-lift: -7px;
+    /* The slider's knob sits centred on its groove: half the difference of the groove (6px) and the knob (1.2em), less the 1px
+       the knob's frame adds. In em, so it stays centred, and inside the slider's box, at any font size (a fixed lift let the
+       knob hang below it and the option's box scroll, #456). It is -7px at the default font. */
+    --slider-thumb-lift: calc((6px - 1.2em) / 2 - 1px);
   }
   .option-editor .option {
     display: flex;

@@ -1794,7 +1794,7 @@ describe('the trade routes panel', () => {
   // The leg being edited.
   const edited = () => [...document.querySelectorAll('[data-leg]')].find((l) => l.hasAttribute('data-open'));
   const heldAt = (i: number) => [...legAt(i)!.querySelectorAll('[data-held]')].map((h) => h.getAttribute('data-held'));
-  // A stop's worked-out chips: unload or load, goods type, and how many holds.
+  // A stop's worked-out plan pills: unload or load, goods type, and how many holds.
   const chipsAt = (i: number) =>
     [...stopAt(i).querySelectorAll('[data-work]:not([data-work=keep])')].map(
       (c) => `${c.getAttribute('data-work')} ${c.getAttribute('data-type')} ${c.textContent}`,
@@ -1968,7 +1968,7 @@ describe('the trade routes panel', () => {
     act(() => void fireEvent.click(pinAt(0)));
     expect(pinAt(0).getAttribute('aria-expanded')).toBe('false');
     expect(legAt(0)).toBeNull();
-    // The stop row and its chips stay; no leg is being edited now.
+    // The stop row and its plan pills stay; no leg is being edited now.
     expect(chipsAt(0)).toEqual([`load ${T} +1`]);
     expect(edited()).toBeUndefined();
     expect(document.querySelector('[data-goods]')).toBeNull();
@@ -2184,7 +2184,7 @@ describe('the Europe panel', () => {
   };
   /** The names in one of the panel's lists. */
   const names = (list: string) =>
-    [...document.querySelectorAll(`[data-list=${list}] .chip .name`)].map((n) => n.textContent);
+    [...document.querySelectorAll(`[data-list=${list}] .europe-entry .name`)].map((n) => n.textContent);
 
   it('lists the ships, the docks and every goods’ prices under FreeCol’s headings', () => {
     const { box } = host();

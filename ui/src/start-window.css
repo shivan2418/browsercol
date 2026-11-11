@@ -88,6 +88,13 @@
   .start-window .quiet {
     margin: var(--space-3) 0 0;
   }
+  /* What the chosen nation's type gives (start.ts, bonus): its modifiers a line each, then its starting units. */
+  .start-window .nation-bonus ul,
+  .start-window .nation-bonus p {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
   /* The Loading Save game window (src/loading-save.tsx): one choice or field a line. */
   .start-window fieldset > label {
     display: block;

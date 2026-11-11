@@ -1,0 +1,40 @@
+/*
+ * An entry of Europe's lists (EuropeEntry, src/europe-entry.tsx): a ship, a unit on the docks, or a stack of cargo,
+ * its picture and, for goods, the amount. A unit shows its picture alone (its name is the hint). Which of them can be
+ * picked, and the room that takes, are Europe's rules in index.html.
+ */
+@layer components {
+  :root {
+    --europe-entries-gap: var(--space-3);
+    /* An empty list keeps a line's height (it had the trade route's row rule by its class name). */
+    --europe-entries-min: 22px;
+    --europe-entry-gap: var(--space-2);
+    --europe-entry-radius: var(--radius-m);
+  }
+  .europe-entries {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--europe-entries-gap);
+    align-items: center;
+    min-height: var(--europe-entries-min);
+  }
+  .europe-entry {
+    display: flex;
+    align-items: center;
+    gap: var(--europe-entry-gap);
+    color: var(--ink);
+    border-radius: var(--europe-entry-radius);
+  }
+  .europe-entry[data-unit] .name {
+    display: none;
+  }
+  /* Dragging by the icon or the name drags the entry: the picture is not a drag of its own. */
+  .europe-entry img,
+  .europe-entry .name {
+    pointer-events: none;
+    user-select: none;
+  }
+  .europe-entry[data-drag] {
+    cursor: grab;
+  }
+}
