@@ -12,6 +12,8 @@ import notoSansOfl from './fonts/noto-sans/OFL.txt?url';
 import { useCoverage } from './coverage';
 
 export const SOURCE_URL = 'https://github.com/shivan2418/browsercol';
+/** The website's changes page. The game runs at <site>/play/, so it is one level up (#402). */
+export const CHANGES_URL = '../changes/';
 export const FREECOL_URL = 'https://github.com/FreeCol/freecol';
 
 const GPL = 'https://www.gnu.org/licenses/old-licenses/gpl-2.0.html';
@@ -162,7 +164,9 @@ export function CreditsDialog({ close }: { close: () => void }) {
             modify it under the terms of the <Link href={GPL}>GNU General Public License</Link>, version 2 or (at your
             option) any later version. It comes with no warranty.
           </p>
-          <p>Build: {BUILD}</p>
+          <p>
+            Build: {BUILD} · <Link href={CHANGES_URL}>What’s new</Link>
+          </p>
           <Heading space="section">Source code</Heading>
           <ul>
             <li>

@@ -42,6 +42,8 @@ export interface MenuActions {
   centreOnUnit: () => void;
   /** Open the Preferences window. */
   preferences: () => void;
+  /** Open the Send feedback window (#369). */
+  feedback: () => void;
   /** Which of the grid, borders and tile names are on. */
   modes: ViewModes;
   toggleMode: (mode: 'grid' | 'borders') => void;
@@ -110,6 +112,8 @@ export function gameMenu(a: MenuActions): Items {
     { label: 'Save and Exit', run: a.saveAndExit, disabled: !a.ready || a.panelShowing, hint: 'Ctrl+X' },
     // FreeCol's Quit leaves the program; the page has none, so it goes to the title screen, as Return to Main does.
     { label: 'Quit', run: a.returnToMain, hint: 'Ctrl+Q' },
+    // Not FreeCol's: the beta's way to report a bug or send an idea.
+    { label: 'Send feedback…', run: a.feedback },
   ];
 }
 

@@ -22,7 +22,7 @@ import type { Art } from './frame';
 import { OptionEditor } from './option-editor';
 import { leaves, sameValue, type OptionGroup, type OptionValue } from './options';
 import { ReportContext, ReportPanel, startColopediaAt, type ReportActions } from './reports';
-import { OpenFile, SaveList } from './save-picker';
+import { OpenDialog, OpenFile } from './save-picker';
 import type { SaveMeta } from './saves';
 import { levelFile, loadDefaults, readLevelFile, saveDefaults } from './start-options';
 import { ADVANTAGES, type Advantages, type StartChoice, type StartOptions } from './start';
@@ -177,6 +177,7 @@ export function StartScreen({
   start,
   rules,
   changeRules,
+  tab: firstTab = null,
   saves = [],
   open: openGame,
   openFile,
@@ -189,9 +190,14 @@ export function StartScreen({
 }: {
   options: StartOptions;
   start: (choice: StartChoice) => void;
-  /** The ruleset the options are of, and a way to another one (a new page: its options differ). */
+  /**
+   * The ruleset the options are of, and a way to another one (the screen is drawn afresh: its options differ). The
+   * switch hands back the open More options tab, so the new screen opens on it and the window keeps its size.
+   */
   rules?: string;
-  changeRules?: (rules: string) => void;
+  changeRules?: (rules: string, tab: string | null) => void;
+  /** The More options tab open at first; none by default. */
+  tab?: string | null;
   /** The saved games, newest first: the first is the one Continue plays. */
   saves?: SaveMeta[];
   /** Play a saved game. */
@@ -250,6 +256,8 @@ export function StartScreen({
   const [credits, setCredits] = useState(false);
   const [pedia, setPedia] = useState<ReportView | null>(null);
   const [opening, setOpening] = useState(false);
+  // The saves open in a window of their own, as Game > Open's, not a foldout that pushes the start window about.
+  const [savesShown, setSavesShown] = useState(false);
   const [pediaError, setPediaError] = useState<string | null>(null);
   /** Open the Colopedia on a section or entry; a link in it goes on in the same window. */
   const openPedia = (section: string | null, select: string | null = null) => {
@@ -322,7 +330,7 @@ export function StartScreen({
         </div>
       </div>
     );
-  const [tab, setTab] = useState<string | null>(null);
+  const [tab, setTab] = useState<string | null>(firstTab);
   const count = (o: object) => Object.keys(o).length;
   /** The tabs under the columns: the options of the level, the game and the map, and the nation colours. */
   const moreTabs: { kind: string; label: string; count: number; body: ReactNode }[] = [
@@ -510,7 +518,7 @@ export function StartScreen({
                         data-rules
                         aria-label="Rules"
                         value={rules}
-                        onChange={changeRules}
+                        onChange={(r) => changeRules(r, tab)}
                         choices={options.rulesets.map((r) => ({
                           value: r,
                           label: r === 'classic' ? 'Classic' : r === 'freecol' ? 'FreeCol' : r,
@@ -546,14 +554,23 @@ export function StartScreen({
                     <button type="button" data-continue onClick={() => open(saves[0].id)}>
                       Continue Playing
                     </button>
-                    <details className="customize" data-open>
-                      <summary>Open a saved game</summary>
-                      <SaveList saves={saves} open={open} exportSave={exportSave} />
-                    </details>
+                    <button type="button" data-open-saves onClick={() => setSavesShown(true)}>
+                      Open a saved game...
+                    </button>
                   </>
                 )}
-                {(openFile || openNote) && <OpenFile openFile={openFile} note={openNote} />}
+                {saves.length === 0 && (openFile || openNote) && <OpenFile openFile={openFile} note={openNote} />}
               </div>
+            )}
+            {open && savesShown && saves.length > 0 && (
+              <OpenDialog
+                saves={saves}
+                open={open}
+                openFile={openFile}
+                exportSave={exportSave}
+                note={openNote}
+                close={() => setSavesShown(false)}
+              />
             )}
             {sound && <SoundToggles sound={sound} />}
           </div>

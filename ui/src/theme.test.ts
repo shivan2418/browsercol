@@ -161,7 +161,8 @@ test("a component's sheet takes its colours, fonts, spacing, radii, borders and 
       if (selector === ':root' && prop.startsWith('--')) continue;
       const at = `${file}: ${selector} { ${prop}: ${value} }`;
       if (/#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i.test(value)) problems.push(`colour: ${at}`);
-      if (/^font(-family)?$/.test(prop) && !/var\(--font/.test(value)) problems.push(`font: ${at}`);
+      // `font: inherit` is a reset that takes the page's font, which comes from the tokens (#451).
+      if (/^font(-family)?$/.test(prop) && !/var\(--font|^inherit$/.test(value)) problems.push(`font: ${at}`);
       const shape = /^(padding|margin|gap|row-gap|column-gap|border|outline|box-shadow)(-|$)|radius/.test(prop);
       if (shape && /\d*\.?\d+(px|em|rem)\b/.test(literal(value))) problems.push(`length: ${at}`);
     }

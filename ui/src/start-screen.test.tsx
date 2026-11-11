@@ -266,6 +266,25 @@ test('another ruleset is a choice of the start screen', async () => {
   expect(rules).toEqual(['freecol']);
 });
 
+test('the open options tab stays open across a ruleset switch, so the window does not jump', async () => {
+  const switched: [string, string | null][] = [];
+  const { rerender } = render(
+    <StartScreen
+      key="classic"
+      options={options}
+      start={() => {}}
+      rules="classic"
+      changeRules={(r, tab) => switched.push([r, tab])}
+    />,
+  );
+  fireEvent.click(document.querySelector('[data-customize-tab="game"]')!);
+  await chooseOption(document.querySelector('[data-rules]')!, 'FreeCol');
+  expect(switched).toEqual([['freecol', 'game']]);
+  // main.tsx draws the new ruleset's screen afresh (a new key), opened on the tab handed back.
+  rerender(<StartScreen key="freecol" options={options} start={() => {}} rules="freecol" tab="game" />);
+  expect(document.querySelector('[data-customize-tab="game"]')!.getAttribute('aria-selected')).toBe('true');
+});
+
 test('the start screen offers to continue the newest save and to open another', () => {
   const opened: number[] = [];
   const save = (id: number, name: string) => ({ id, name, date: 0, turn: 3, year: 1495, nation: 'Dutch', size: 1 });
@@ -278,8 +297,13 @@ test('the start screen offers to continue the newest save and to open another', 
     />,
   );
   fireEvent.click(document.querySelector('[data-continue]')!);
-  fireEvent.click(document.querySelector('[data-open-save="2"]')!);
+  // The saves are in a window of their own, not on the start window (no foldout to shift its layout).
+  expect(document.querySelector('[data-save-picker]')).toBeNull();
+  fireEvent.click(document.querySelector('[data-open-saves]')!);
+  fireEvent.doubleClick(document.querySelector('[data-open-save="2"]')!);
   expect(opened).toEqual([7, 2]);
+  fireEvent.click(document.querySelector('[data-open-cancel]')!);
+  expect(document.querySelector('[data-save-picker]')).toBeNull();
 });
 
 test('with no saves there is nothing to continue', () => {

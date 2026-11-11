@@ -53,8 +53,20 @@ art:
 check: art
     ./dev.sh -C ui pnpm exec vp check
 
-# The fast checks a ticket PR needs: Engine tests, vp check, vp test
-fast: test-engine check test-ui
+# The feedback relay's format, lint, type check and tests (relay/, #370)
+relay:
+    ./dev.sh -C relay pnpm install --frozen-lockfile
+    ./dev.sh -C relay pnpm exec vp check
+    ./dev.sh -C relay pnpm exec vp test
+    ./dev.sh -C relay pnpm exec vp build
+    relay/check-bundle.sh
+
+# Build and deploy the feedback relay to AWS (by hand; see relay/deploy.sh)
+deploy-relay *args:
+    relay/deploy.sh {{args}}
+
+# The fast checks a ticket PR needs: Engine tests, vp check, vp test (the UI's and the relay's)
+fast: test-engine check test-ui relay
 
 # Browser script against dist/: smoke, play, saves, tileset, looks or rounds
 browser script *args:

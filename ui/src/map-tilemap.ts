@@ -356,10 +356,14 @@ export interface Page {
   texture: Texture;
 }
 
-/** A new page of `size` pixels square: a canvas and a texture of it. */
+/**
+ * A new page of `size` pixels square: a canvas and a texture of it. The canvas is kept in memory, not on the GPU
+ * (willReadFrequently): Firefox on some Mesa drivers swaps red and blue when it copies an accelerated canvas into a
+ * WebGL texture, which turned the ocean brown and the grass cyan (#424).
+ */
 const canvasPage = (size: number): Page => {
   const canvas = Object.assign(document.createElement('canvas'), { width: size, height: size });
-  return { g: canvas.getContext('2d')!, texture: Texture.from(canvas) };
+  return { g: canvas.getContext('2d', { willReadFrequently: true })!, texture: Texture.from(canvas) };
 };
 
 /**

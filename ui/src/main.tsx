@@ -64,6 +64,7 @@ import { debugMenu, gameMenu, ordersMenu, reportOptionsMenu, viewMenu, type Menu
 import { commandForKey, type Command } from './input';
 import { PreferencesDialog } from './prefs-dialog';
 import { setCurrentSaveSource } from './current-save';
+import { feedbackOpen, openFeedback, setFeedbackSources, startFeedback } from './feedback-host';
 import { OpenDialog, SaveDialog } from './save-picker';
 import {
   blinkMs,
@@ -190,6 +191,8 @@ let workerLogWaiters: ((text: string) => void)[] = [];
 /** The Worker's log as text: nothing when there is no Worker, or when it does not answer in a second. */
 function fetchWorkerLog(): Promise<string> {
   return new Promise((resolve) => {
+    // The start screen has no Worker to ask.
+    if (!askWorkerLogQuietly) return resolve('');
     const waiter = (text: string) => {
       clearTimeout(timer);
       resolve(text);
@@ -199,10 +202,10 @@ function fetchWorkerLog(): Promise<string> {
       resolve('');
     }, 1000);
     workerLogWaiters.push(waiter);
-    askWorkerLogQuietly();
+    askWorkerLogQuietly?.();
   });
 }
-let askWorkerLogQuietly: () => void = () => {};
+let askWorkerLogQuietly: (() => void) | null = null;
 /** The error panel's Copy details: what errorDetails lists, with the Engines' logs as they are now. */
 async function copyErrorDetails(e: GuiEvents['error']) {
   const server = await fetchWorkerLog();
@@ -245,6 +248,7 @@ function renderErrors() {
     <ErrorBanner
       errors={errors}
       showLog={() => askWorkerLog()}
+      report={() => openFeedback('bug')}
       dismiss={() => {
         errors = [];
         renderErrors();
@@ -260,6 +264,12 @@ function reportError(title: string, detail: string) {
   window.fcErrors = addError(window.fcErrors ?? [], title, detail);
   renderErrors();
 }
+// The Send feedback window attaches the banner's errors and both Engines' logs; the Beta tag opens it.
+setFeedbackSources({
+  errors: () => errors,
+  logs: async () => joinLogs(await fetchWorkerLog(), pageLog.text()),
+});
+startFeedback();
 const describeError = (ex: unknown) => (ex instanceof Error ? (ex.stack ?? ex.message) : String(ex));
 // The page's own errors, which would otherwise show only in the console.
 addEventListener('error', (e) => reportError('The page hit an error', describeError(e.error ?? e.message)));
@@ -269,6 +279,8 @@ const params = new URLSearchParams(location.search);
 const autoplay = Number(params.get('autoplay') ?? '0');
 /** The ruleset: the start screen may switch it in place, before a game begins. */
 let rules = params.get('rules') ?? 'classic';
+/** The start screen's open More options tab, kept across a ruleset switch so the window does not jump. */
+let startTab: string | null = null;
 let loadId = params.has('load') ? Number(params.get('load')) : undefined;
 /** The page picked up the autosave by itself, so a load that fails drops it rather than leave the page stuck. */
 let resumed = false;
@@ -559,7 +571,13 @@ function askToSave(then: 'save' | 'saveAndExit') {
 }
 /** FreeCol's isPanelShowing: a window is open over the map. */
 const panelShowing = () =>
-  dialogQueue.current() !== null || prefsOpen || creditsOpen || logText !== null || openOpen || saveDialog !== null;
+  dialogQueue.current() !== null ||
+  prefsOpen ||
+  creditsOpen ||
+  logText !== null ||
+  openOpen ||
+  saveDialog !== null ||
+  feedbackOpen();
 /** Whether a window was open at the last render, to see it close (renderSide). */
 let windowWasOpen = false;
 /** Asks before the page is left with play since the last save (leave-guard.ts). */
@@ -848,6 +866,7 @@ const menuActions = (): MenuActions => ({
       openNote = '';
       renderSide();
     }),
+  feedback: () => openFeedback('bug'),
   preferences: () => {
     prefsOpen = true;
     renderSide();
@@ -1198,6 +1217,7 @@ function renderSide() {
           )}
           {saveDialog && (
             <SaveDialog
+              saves={side.saves}
               title={saveDialog === 'saveAndExit' ? 'Save and Exit' : 'Save Game'}
               save={(name, download) => {
                 exitAfterSave = saveDialog === 'saveAndExit';
@@ -1593,8 +1613,9 @@ function playWith(client: ClientExports) {
   gotoClient = client;
   renderSide();
   addEventListener('keydown', (e) => {
-    // A key typed into a text field (a save's name, a colony's) is text: no game key runs.
-    if (inTextField(e.target)) return;
+    // A key typed into a text field (a save's name, a colony's) is text: no game key runs. The feedback window has
+    // its own radio buttons and checkboxes, whose keys are not the game's either.
+    if (inTextField(e.target) || (e.target instanceof Element && e.target.closest('#feedback-host'))) return;
     // An open dialog has the keys (panels.tsx).
     // A report's hotkey (Shift+F3, ...) opens it over another report, but not over another dialog.
     const report = reportForKey(e);
@@ -1762,10 +1783,12 @@ async function chooseGame(
             }}
             options={startOptions(data, rules)}
             rules={rules}
-            changeRules={(id) => {
+            tab={startTab}
+            changeRules={(id, tab) => {
               // The data bundle holds every ruleset, so the start screen switches in place; the address keeps
               // the choice for a reload. Its nations and options differ, so the screen starts afresh (key).
               rules = id;
+              startTab = tab;
               const next = new URLSearchParams(location.search);
               next.set('rules', id);
               history.replaceState(history.state, '', `?${next}`);

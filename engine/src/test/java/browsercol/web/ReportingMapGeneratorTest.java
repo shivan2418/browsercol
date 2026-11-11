@@ -54,4 +54,39 @@ class ReportingMapGeneratorTest {
         assertThrows(NullPointerException.class, () -> reporting.generateEmptyMap(null, 1, 1, null));
         assertEquals(2, reports.size());
     }
+
+    /** A river delta at the map's edge throws in FreeCol's River.delta; another map is drawn instead (#452). */
+    @Test
+    void aMapThatThrowsIsDrawnAgainAndOnlyTheLastFailureIsReported() {
+        Failures.reportTo((what, detail) -> reports.add(what + "\n" + detail));
+        int[] calls = {0};
+        MapGenerator onceBroken = new MapGenerator() {
+            public Map generateEmptyMap(Game game, int width, int height, LogBuilder lb) {
+                return null;
+            }
+            public Map generateMap(Game game, Map importMap, boolean units, LogBuilder lb) {
+                if (++calls[0] == 1) breakInTheRivers();
+                return null;
+            }
+        };
+        new ReportingMapGenerator(onceBroken).generateMap(null, null, true, null);
+        assertEquals(2, calls[0]);
+        assertEquals(0, reports.size(), "a map made on the second attempt reports nothing to the player");
+
+        calls[0] = 0;
+        MapGenerator alwaysBroken = new MapGenerator() {
+            public Map generateEmptyMap(Game game, int width, int height, LogBuilder lb) {
+                return null;
+            }
+            public Map generateMap(Game game, Map importMap, boolean units, LogBuilder lb) {
+                calls[0]++;
+                breakInTheRivers();
+                return null;
+            }
+        };
+        assertThrows(NullPointerException.class,
+            () -> new ReportingMapGenerator(alwaysBroken).generateMap(null, null, true, null));
+        assertEquals(ReportingMapGenerator.ATTEMPTS, calls[0]);
+        assertEquals(1, reports.size());
+    }
 }

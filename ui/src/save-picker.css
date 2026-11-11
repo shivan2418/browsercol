@@ -1,0 +1,85 @@
+/*
+ * The saved games (save-picker.tsx): a list to pick from, as FreeCol's file chooser is, on the start screen and
+ * in Game > Open, and the same rows for reference in Game > Save (#450). A row is the save's name and, under it,
+ * when it was made, its turn and its nation. The selected row takes the look of selection.css.
+ */
+@layer components {
+  :root {
+    --save-row-pad: var(--space-3) var(--space-5);
+    --save-row-gap: var(--space-1);
+    /* The list takes the window's height where the screen has it, and no more. */
+    --save-list-height: min(26em, calc(var(--screen-h) * 0.4));
+  }
+  .save-picker,
+  .save-list {
+    box-sizing: border-box;
+    max-height: var(--save-list-height);
+    margin: var(--space-3) 0 var(--space-4);
+    padding: var(--space-1);
+    overflow-y: auto;
+    background: var(--box);
+    border: var(--border) solid var(--line);
+  }
+  .save-picker {
+    min-height: min(10em, var(--save-list-height));
+  }
+  .save-row {
+    display: flex;
+    flex-direction: column;
+    gap: var(--save-row-gap);
+    padding: var(--save-row-pad);
+    cursor: default;
+    outline: none;
+  }
+  .save-picker .save-row {
+    cursor: pointer;
+  }
+  .save-row + .save-row {
+    border-top: var(--border) solid var(--stripe);
+  }
+  .save-picker .save-row:focus-visible {
+    outline: var(--border-thick) solid var(--accent);
+    outline-offset: calc(-1 * var(--border-thick));
+  }
+  .save-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-5);
+  }
+  .save-name {
+    font-weight: 700;
+    overflow-wrap: anywhere;
+  }
+  .save-nation {
+    flex: none;
+    color: var(--muted);
+    font-size: var(--fs-s);
+  }
+  .save-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 var(--space-6);
+    color: var(--muted);
+    font-size: var(--fs-s);
+  }
+  /* Open and Export save... under the list. */
+  .save-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    margin: 0 0 var(--space-4);
+  }
+  /* A save's rows are long: wider than other dialogs where the screen allows. */
+  #open-game,
+  #save-game {
+    max-width: min(40em, calc(var(--screen-w) * 0.94));
+  }
+  #save-game .save-list-caption {
+    margin: var(--space-5) 0 0;
+  }
+  #save-game label {
+    display: block;
+    margin-bottom: var(--space-3);
+  }
+}

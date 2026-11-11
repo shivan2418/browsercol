@@ -13,3 +13,5 @@ cp ui/brand/wordmark.svg ui/brand/globe-*.svg ui/brand/icon.svg "$out/brand/"
 cp ui/src/fonts/cinzel/cinzel-latin-{400,700}-normal.woff2 ui/src/fonts/noto-sans/noto-sans-latin-{400,700}-normal.woff2 "$out/fonts/"
 cp ui/src/fonts/cinzel/OFL.txt "$out/fonts/OFL-cinzel.txt" 2>/dev/null || true
 cp ui/src/fonts/noto-sans/OFL.txt "$out/fonts/OFL-noto-sans.txt" 2>/dev/null || true
+# The changes page, and the latest builds on the landing page, from ui/site/changes.json (#402).
+node ui/scripts/build-changes.ts ui/site/changes.json "$out"

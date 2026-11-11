@@ -27,6 +27,7 @@ function actions(over: Partial<MenuActions> = {}) {
     zoom: (n) => log.push(`zoom ${n}`),
     centreOnUnit: () => log.push('centre'),
     preferences: () => log.push('prefs'),
+    feedback: () => log.push('feedback'),
     modes: { grid: false, borders: true, tileText: 0 },
     toggleMode: (m) => log.push(`mode ${m}`),
     setTileText: (t) => log.push(`tileText ${t}`),
@@ -62,7 +63,15 @@ describe('the Game menu', () => {
       'Retire',
       'Save and Exit',
       'Quit',
+      'Send feedback…',
     ]);
+  });
+
+  it('opens the feedback window from Send feedback…, whether or not a game is ready', () => {
+    const { a, log } = actions({ ready: false });
+    find(gameMenu(a), 'Send feedback…').run();
+    expect(log).toEqual(['feedback']);
+    expect(find(gameMenu(a), 'Send feedback…').disabled).toBeFalsy();
   });
 
   it('runs what the Browser UI can do, and disables what it cannot', () => {

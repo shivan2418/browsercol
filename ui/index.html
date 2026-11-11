@@ -465,6 +465,34 @@
         overflow: auto;
         flex: 1;
       }
+      /* One save per line, striped; the line is cut short with an ellipsis and its title holds the whole of it. */
+      #saves > div {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        padding: 1px 2px;
+        font-size: 9.5px;
+        font-stretch: condensed;
+        letter-spacing: -0.02em;
+      }
+      #saves > div:nth-child(even) {
+        background: var(--stripe);
+      }
+      #saves > div > span {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      #saves {
+        --button-pad: 0 3px;
+        --button-pad-pressed: 1px 2px 0 4px;
+      }
+      #saves button {
+        flex: none;
+        line-height: 1.5;
+      }
       #unasked {
         color: var(--warn);
       }
@@ -1165,7 +1193,12 @@
         justify-self: center;
         width: 26px;
         height: 26px;
-        padding: 0;
+        /*
+         * Cinzel's digits sit 0.5-1px above the middle of their line box, so a 1px top padding centres them. A round
+         * pin takes no button bevel, whose light top-left edge made the disc look shifted under its number.
+         */
+        padding: 1px 0 0;
+        box-shadow: none;
         border-radius: 50%;
         background: var(--head);
         color: var(--panel);
@@ -1540,30 +1573,6 @@
       }
       .europe-body .price {
         font-variant-numeric: tabular-nums;
-      }
-      .save-picker {
-        margin: 6px 0 0;
-        padding: 0;
-        list-style: none;
-        max-height: 14em;
-        overflow-y: auto;
-      }
-      .save-picker li {
-        display: flex;
-        gap: 4px;
-      }
-      .save-picker button {
-        flex: 1;
-        text-align: left;
-      }
-      /* Export save... sits at the end of the save's line, as wide as its text. */
-      .save-picker button[data-export-save] {
-        flex: none;
-      }
-      /* A save's line (name | saved | turn | nation) fits on one line: wider than other dialogs where the screen allows. */
-      #open-game.dialog,
-      #save-game.dialog {
-        max-width: min(50em, calc(var(--screen-w) * 0.94));
       }
       /* The Preferences window (src/prefs-dialog.tsx): FreeCol's category tree, and the picked one's options. */
       #preferences .prefs-body {
@@ -2129,9 +2138,11 @@
       .colony .queue-body li > button:only-child {
         flex: 1;
         display: flex;
-        gap: 6px;
+        gap: 0 6px;
         align-items: center;
         text-align: left;
+        /* A locked row's requirement takes a line of its own under the picture, name and costs. */
+        flex-wrap: wrap;
       }
       .colony .queue-body li[data-locked] .name {
         color: var(--muted);
@@ -2146,13 +2157,18 @@
       /* The name takes the room left; the costs keep theirs, on one line, after it. */
       .colony .queue-body li .name {
         flex: 1;
-        min-width: 0;
+        /* Never squeezed to a word a line: the costs wrap under it first. */
+        min-width: 7em;
       }
       .colony .queue-body .cost {
         flex: none;
         white-space: nowrap;
       }
       .colony .queue-body .reason {
+        /* Its own line, indented under the name (the picture's width and the gap). */
+        flex: 1 0 100%;
+        box-sizing: border-box;
+        padding-left: 54px;
         font-size: 0.85em;
       }
       .colony .queue-body .show-all,

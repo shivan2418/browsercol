@@ -72,7 +72,7 @@ function counts(list: string[]): [string, number][] {
 
 /** A save's line in the list: its name, when it was made, the turn and the nation. */
 const saveLine = (s: SaveMeta) =>
-  `${s.name} | ${new Date(s.date).toLocaleString()} | turn ${s.turn} (${s.year}) | ${s.nation}`;
+  `${s.name} | ${new Date(s.date).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })} | turn ${s.turn} (${s.year}) | ${s.nation}`;
 
 export function Side({
   turn,
@@ -153,7 +153,7 @@ export function Side({
           {saves.length === 0 && 'No saved games'}
           {saves.map((s) => (
             <div key={s.id} data-save={s.id}>
-              {saveLine(s)}{' '}
+              <span title={saveLine(s)}>{saveLine(s)}</span>{' '}
               <button data-load={s.id} onClick={() => load(s.id)}>
                 Load
               </button>{' '}

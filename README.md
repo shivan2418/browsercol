@@ -132,7 +132,8 @@ language. It also copies the default Tileset's art
 (`ui/scripts/build-art.ts`, which prints the art budget) and runs
 `vp build` into `dist/play/`, the game. The site's root, `dist/index.html`,
 is the landing page (`ui/site/`, plain HTML and CSS, with the logo and fonts
-copied beside it); a root URL carrying game parameters is forwarded to
+copied beside it) and `changes/`, the player changelog
+rendered from `ui/site/changes.json` (`ui/scripts/build-changes.ts`, #402); a root URL carrying game parameters is forwarded to
 `play/`. Serve `dist/` from any static host: its URLs are relative, so a
 sub-path such as GitHub Pages' `/<repo>/` works.
 
@@ -166,9 +167,10 @@ after a change to what a save holds.
 | `ui/presets/` | Quick-start presets for `?preset=` |
 | `ui/tilesets/` | Tilesets: `freecol-plus`, and `test` for the tileset script |
 | `ui/.storybook/` | Storybook config |
+| `relay/` | The feedback relay (ADR 0009): a Lambda that keeps beta reports in S3; `template.yaml` (AWS SAM) and `deploy.sh` (`just deploy-relay`, by hand), tests with `just relay` |
 | `tools/` | Developer tools: `fc-swing/`, `teavm/` (TeaVM from source, the `Object.wait` reproducer), `swing-inventory.mjs`, `watch-engine.sh` (Engine rebuilds for `just dev`), `copy-modules.sh`, `desktop-check.sh` |
 | `docs/` | `adr/` decision records, `research/` notes, `parity/` the Swing parity inventory, `teavm.md` TeaVM's quirks and our workarounds, `agents/` how coding agents use the tracker, `upstream-fixes.md` FreeCol bugs our patches fix |
-| `docker/` | `dev.Dockerfile` (JDK, Gradle, Node, pnpm) and `web.Dockerfile` (Playwright with Chromium and Firefox) |
+| `docker/` | `dev.Dockerfile` (JDK, Gradle, Node, pnpm) `web.Dockerfile` (Playwright with Chromium and Firefox) and `sam.Dockerfile` (the AWS SAM CLI, for the relay's deploy) |
 | `.githooks/` | The commit gate: `pre-commit` compiles the Engine, `commit-msg` requires an author trailer |
 | `.github/workflows/` | `suite.yml` (the whole suite), `pages.yml` (deploy the game to Pages on a `build-N` tag) and `site.yml` (deploy the landing page when a push to `main` changes it) |
 | `dev.sh`, `build.sh`, `ci.sh`, `freecol.sh` | Run in Docker; build `dist/`; the suite on Actions; pin and update `freecol/` |

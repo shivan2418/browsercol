@@ -50,3 +50,39 @@ export const ShipInPort: StoryObj<typeof ColonyPanel> = {
     },
   },
 };
+
+const lockedQueue = {
+  ...jamestown.queue,
+  buildings: [
+    ...jamestown.queue.buildings,
+    ...['Iron works', 'Cigar factory', 'Textile mill', 'University'].map((name, i) => ({
+      ...jamestown.queue.buildings[1],
+      type: `model.building.locked${i}`,
+      name,
+      required:
+        i % 2
+          ? jamestown.queue.buildings[0].required
+          : [...jamestown.queue.buildings[0].required, ...jamestown.queue.buildings[0].required],
+      reason: i % 2 ? 'Requires: Adam Smith' : "Requires: Adam Smith/Blacksmith's shop",
+    })),
+  ],
+  units: [
+    ...jamestown.queue.units,
+    ...['Merchantman', 'Privateer', 'Man of War'].map((name, i) => ({
+      ...jamestown.queue.units[0],
+      type: `model.unit.locked${i}`,
+      name,
+      reason: i === 2 ? 'Requires: Declare independence/Shipyard' : 'Requires: Shipyard',
+    })),
+  ],
+};
+
+/** The build queue open with "Show all" ticked: rows that cannot be built yet keep name, costs and requirement apart. */
+export const BuildQueueLocked: StoryObj<typeof ColonyPanel> = {
+  args: { colony: { ...jamestown, buildings, queue: lockedQueue } },
+  play: async ({ canvasElement }) => {
+    canvasElement.querySelector<HTMLElement>('.building[data-builds]')?.click();
+    await new Promise((ok) => setTimeout(ok, 100));
+    canvasElement.querySelector<HTMLInputElement>('.show-all input')?.click();
+  },
+};
