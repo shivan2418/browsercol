@@ -148,6 +148,20 @@ public final class WorkerMain {
         }, "web-setup").start();
     }
 
+    /**
+     * Report "terrain" with the whole map's terrain (ServerEngine.terrain),
+     * once the game has started: the server makes its map only then. A
+     * failure is logged, and the map goes on without it.
+     */
+    @JSExport
+    public static void terrain() {
+        try {
+            event("terrain", engine.terrain());
+        } catch (Throwable ex) {
+            ex.printStackTrace();
+        }
+    }
+
     @JSExport
     public static void connect() {
         engine.connect();

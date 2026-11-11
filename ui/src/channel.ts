@@ -1,6 +1,6 @@
 // The postMessage routing between the page, which hosts the client Engine
 // (client.wasm), and the Worker, which hosts the server Engine (server.wasm).
-//   page -> worker: data (the bundle, once) | start | load | save | debug | log | connect | fc
+//   page -> worker: data (the bundle, once) | start | load | save | debug | log | connect | terrain | fc
 //   worker -> page: fc | event
 // A debug request (debug mode only, debug.ts) goes to the server Engine, which
 // changes its game and answers with a "debug" event, or "debugFailed"; the
@@ -25,6 +25,8 @@ export interface ServerExports {
   saveGame(activeUnitId: string): void;
   /** Replace the game with the one in a savegame; a "loaded" event follows. */
   loadGame(savegame: Int8Array): void;
+  /** The whole map's terrain, once the game has started (MapJson.terrain); a "terrain" event follows. */
+  terrain(): void;
   /** Run a debug action (DebugActions.java); a "debug" or "debugFailed" event follows. */
   debug(request: string): void;
   /** Run the preset's setup requests; "debug" events follow, or "debugFailed". */
@@ -211,6 +213,7 @@ export type ToWorker =
   | { k: 'log' }
   | { k: 'setup' }
   | { k: 'connect' }
+  | { k: 'terrain' }
   | { k: 'fc'; xml: string };
 
 export type ToPage =
@@ -337,6 +340,8 @@ export function serveWorker(
         return server!.debug(m.request);
       case 'setup':
         return server!.setup();
+      case 'terrain':
+        return server!.terrain();
       case 'connect':
         return server!.connect();
       case 'fc':
@@ -438,6 +443,8 @@ export function startPage(o: PageOptions): Promise<ClientExports> {
           : { k: 'load', id: o.load },
       );
     // A new game's preset may set up the game state, once the game has started.
+    // The shader water's field is made from the whole map's terrain, which the server has once the game started.
+    if (name === 'gameStarted') send({ k: 'terrain' });
     if (name === 'gameStarted' && o.load === undefined && !setupAsked) {
       setupAsked = true;
       send({ k: 'setup' });

@@ -203,6 +203,28 @@ class MapJsonTest {
 
     @Test
     @Timeout(120)
+    void theTerrainHasEveryTileExploredOrNot() throws Exception {
+        startGame();
+        final Map map = client.getGame().getMap();
+        final int w = map.getWidth(), h = map.getHeight();
+        final String json = server.terrain();
+        assertEquals(String.valueOf(w), field(json, "w"));
+        assertEquals(String.valueOf(h), field(json, "h"));
+        final String tiles = field(json, "tiles");
+        assertEquals(w * h + 2, tiles.length());
+        assertEquals(-1, tiles.indexOf('.'), "the server knows every tile");
+        // A tile we have not explored is there too, as the server's type.
+        final Tile unexplored = map.getTileSet(t -> !t.isExplored()).stream().findFirst().get();
+        final Tile truth = server.getGame().getMap().getTile(unexplored.getX(), unexplored.getY());
+        final String types = field(json, "types");
+        final int i = tiles.charAt(1 + unexplored.getY() * w + unexplored.getX()) - 'A';
+        assertTrue(types.split("\\{\"id\":")[i + 1].startsWith(
+            "\"" + truth.getType().getId() + "\""), types);
+        assertTrue(field(json, "rivers").startsWith("["));
+    }
+
+    @Test
+    @Timeout(120)
     void theMapCarriesFreeColsStatusLine() throws Exception {
         startGame();
         final Game game = client.getGame();

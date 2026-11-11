@@ -89,7 +89,7 @@ import {
 } from './prefs';
 import { LANGUAGE_OPTION, languageName, languages, pickLanguage, translationFiles } from './language';
 import { clientOptionsGroup, leaves, type OptionGroup } from './options';
-import { mapDrawer, type MapView } from './map';
+import { mapDrawer, type MapView, type Terrain } from './map';
 import { europeButtons, showEurope } from './europe-client';
 import { DialogHost, type Art, type ReportButtons, type RouteButtons } from './panels';
 import { acceleratorFor, inTextField, type Accelerator } from './accelerators';
@@ -1989,6 +1989,9 @@ async function run() {
           return drawMap(JSON.parse(detail) as MapView);
         case 'map':
           return drawMap(JSON.parse(detail) as MapView);
+        case 'terrain':
+          // The whole map's terrain, from the server Engine as a game starts or loads: the shader water's field.
+          return map.setTerrain(JSON.parse(detail) as Terrain);
         case 'log':
           // The Worker's log, asked for by the error dialog or the banner.
           return showWorkerLog(detail);

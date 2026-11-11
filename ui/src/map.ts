@@ -42,6 +42,7 @@ import {
   passOf,
   scene,
   srcId,
+  staticScene,
   staticScenes,
   STILL,
   TICK_MS,
@@ -84,6 +85,8 @@ import { slideMark } from './timing';
 import { H, W, activeUnitFacts, cursor, tileOrigin, toMap, type ViewState } from './view';
 
 export type { MapView } from './tileset';
+/** The whole map's terrain, explored or not (MapJson.terrain, the server's): what the shader water's field is made of. */
+export type Terrain = Pick<MapView, 'w' | 'h' | 'types' | 'tiles' | 'rivers'>;
 /** TileViewer.STATE_OFFSET_X/Y and TileBounds' unit offsets, at scale 1. */
 const STATE_OFFSET_X = 25;
 const STATE_OFFSET_Y = 10;
@@ -1717,6 +1720,8 @@ export function mapDrawer(
   setTerrainAnimation(mode: TerrainAnimation): void;
   /** FreeCol's colony labels option; the map is drawn again when it changes. */
   setColonyLabels(labels: ColonyLabels): void;
+  /** The whole map's terrain, explored or not, which the shader water's field is made from from then on. */
+  setTerrain(terrain: Terrain): void;
   /** The tile under a pixel of the canvas, or null off the map or before the first draw. */
   tileAt(px: number, py: number): [number, number] | null;
   /** The resolver, once the art manifest has loaded. */
@@ -1780,6 +1785,9 @@ export function mapDrawer(
   /** The shader water's field last made, and the map and tiles it was made from. */
   let field: WaterField | null = null;
   let fieldOf = '';
+  /** The whole map's terrain (setTerrain), and the shore covers of its water tiles, made once from it. */
+  let terrainNow: Terrain | null = null;
+  let terrainCovers: { of: Terrain; key: string; covers: Map<number, Float32Array> } | null = null;
   /** The Tileset's water look, null for FreeCol's frames. */
   let look: WaterLook | null = null;
   /** The banks of the rivers the river mesh draws, in place of the ground's river ops; null without the mesh. */
@@ -1865,10 +1873,43 @@ export function mapDrawer(
    * the shore (their sand, and the land and beach their transitions bring onto them), where the shallows and foam meet.
    */
   async function makeField(map: MapView, ground: StaticScene) {
-    const key = `${map.w}x${map.h}:${map.tiles}:${JSON.stringify(map.rivers)}`;
-    if (!pen?.water || !look || key === fieldOf) return;
+    if (!pen?.water || !look) return;
     const water = pen.water;
-    const start = performance.now();
+    // From the whole map's terrain once it is in: made once, as exploring changes nothing of it. The edge of what is
+    // explored then shows the shore beyond, under the black.
+    const whole = terrainNow && terrainNow.w === map.w && terrainNow.h === map.h ? terrainNow : null;
+    if (whole) {
+      if (terrainCovers?.of !== whole) {
+        const start = performance.now();
+        const n = whole.w * whole.h;
+        const all: MapView = {
+          ...map,
+          ...whole,
+          seen: '1'.repeat(n),
+          fog: false,
+          owners: '.'.repeat(n),
+          regions: undefined,
+          roads: [],
+          items: [],
+          settlements: [],
+          units: [],
+          active: null,
+          activeUnit: null,
+        };
+        const covers = await coversOf(all, staticScene(all, res!, colonyLabels, 'surface'));
+        terrainCovers = { of: whole, key: `terrain:${whole.w}x${whole.h}:${whole.tiles}`, covers };
+        measure('map: terrain covers', start);
+      }
+      if (terrainCovers.key === fieldOf) return;
+      return fieldFrom(water, whole, terrainCovers.covers, terrainCovers.key);
+    }
+    const key = `${map.w}x${map.h}:${map.tiles}:${JSON.stringify(map.rivers)}`;
+    if (key === fieldOf) return;
+    return fieldFrom(water, map, await coversOf(map, ground), key);
+  }
+
+  /** The shore cover of each covered water tile of a map's scene (coverOf), by tile index. */
+  async function coversOf(map: MapView, ground: StaticScene) {
     const shores = [...ground.base, ...ground.below].filter(
       (op): op is Extract<Op, { k: 'image' }> => op.k === 'image' && op.shore === true,
     );
@@ -1882,8 +1923,19 @@ export function mapDrawer(
     });
     const covers = new Map<number, Float32Array>();
     for (const [at, list] of covering) covers.set(at, coverOf(list));
+    return covers;
+  }
+
+  /** Give the shader water the field of a map (or the whole map's terrain) and its shore covers. */
+  async function fieldFrom(
+    water: NonNullable<Pen['water']>,
+    map: Terrain,
+    covers: Map<number, Float32Array>,
+    key: string,
+  ) {
+    const start = performance.now();
     const texel = fieldTexel(map.w, map.h, water.maxField);
-    const next = await fields.make(map, texel, covers, look.climateBlend, field);
+    const next = await fields.make(map, texel, covers, look!.climateBlend, field);
     measure('map: water field', start);
     // A field made for a pen that has gone since (the map drawn again from the start) is dropped.
     if (pen?.water !== water) return;
@@ -2233,6 +2285,13 @@ export function mapDrawer(
     },
     setTerrainAnimation(mode) {
       terrain = mode;
+    },
+    setTerrain(t) {
+      terrainNow = t;
+      // The field made from the explored tiles is made again from the whole map, behind whatever is drawn.
+      const now = drawn;
+      const ground = last?.ground;
+      if (now && ground && waterDrawing === 'surface') void waterFieldNow([now, ground]).catch(console.warn);
     },
     setColonyLabels(labels) {
       if (labels === colonyLabels) return;

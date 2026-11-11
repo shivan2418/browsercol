@@ -379,6 +379,11 @@ public final class ServerEngine {
         return sb.toString();
     }
 
+    /** The whole map's terrain, explored or not (MapJson.terrain). */
+    public String terrain() {
+        return MapJson.terrain(getGame().getMap());
+    }
+
     public FreeColServer getServer() {
         return this.server;
     }

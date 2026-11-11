@@ -275,6 +275,48 @@ final class MapJson {
         return Json.array(nodes);
     }
 
+    /**
+     * The whole map's terrain, explored or not, for the shader water's field
+     * (ui/src/map-water.ts, #411): {w, h, types, tiles, rivers}, as of() gives
+     * them but for every tile. The server's map, which the browser runs too:
+     * the field is made once from it, so exploring a coast makes it no more.
+     * The water at the edge of what is explored shows the shore beyond.
+     */
+    static String terrain(Map map) {
+        final int w = map.getWidth(), h = map.getHeight();
+        final List<TileType> types = new ArrayList<>();
+        final StringBuilder tiles = new StringBuilder(w * h);
+        final List<String> rivers = new ArrayList<>(), ignored = new ArrayList<>();
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                final Tile t = map.getTile(x, y);
+                final TileType type = (t == null) ? null : t.getType();
+                if (type == null) {
+                    tiles.append('.');
+                    continue;
+                }
+                int i = types.indexOf(type);
+                if (i < 0) { i = types.size(); types.add(type); }
+                tiles.append((char)('A' + i));
+                tileItems(t, rivers, ignored, ignored);
+                ignored.clear();
+            }
+        }
+        final List<String> typeJson = new ArrayList<>();
+        for (TileType type : types) {
+            typeJson.add(new Json().put("id", type.getId())
+                .put("land", !type.isWater())
+                .put("forested", type.isForested())
+                // The server Worker has no messages; the field needs no names.
+                .put("name", type.getId()).toString());
+        }
+        return new Json().put("w", w).put("h", h)
+            .putRaw("types", Json.array(typeJson))
+            .put("tiles", tiles.toString())
+            .putRaw("rivers", Json.array(rivers))
+            .toString();
+    }
+
     private static void tileItems(Tile t, List<String> rivers, List<String> roads,
                                   List<String> items) {
         final String xy = t.getX() + "," + t.getY();

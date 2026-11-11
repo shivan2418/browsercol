@@ -41,6 +41,10 @@ function fakeServer(scope: Scope, log: string[]): ServerExports {
       log.push(`server debug ${request}`);
       scope.fcServerEvent('debug', '{"action":"addGold"}');
     },
+    terrain: () => {
+      log.push('server terrain');
+      scope.fcServerEvent('terrain', '{"w":1,"h":1}');
+    },
     setup: () => {
       log.push('server setup');
       scope.fcServerEvent('debug', '{"action":"addColony"}');
@@ -412,6 +416,15 @@ describe('the Worker channel', () => {
     await t.seen('debug');
     t.page.close();
     expect(t.log.filter((l) => l === 'server setup')).toHaveLength(1);
+  });
+
+  it("asks the server Engine for the whole map's terrain each time a game has started", async () => {
+    const t = joined();
+    await t.seen('started');
+    t.pageScope.fcClientEvent('gameStarted', '{}');
+    await t.seen('terrain');
+    t.page.close();
+    expect(t.log).toContain('server terrain');
   });
 
   it('does not run the setup for a loaded game', async () => {
