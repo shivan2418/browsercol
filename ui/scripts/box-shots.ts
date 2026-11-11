@@ -7,7 +7,8 @@
 // Run against dist/ (the negotiation windows are the diplomacy scenario's, scenarios.ts --only diplomacy):
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/box-shots.ts [--browsers chromium,firefox] [--tag before|after]
 //     [--save PATH.fsg | --preset NAME] [--long 1] [--widest 1] [--zoom 1.5] [--font 1.5]
-// --widest sets every amount in the colony's warehouse to 300 and checks it is one row, with nothing cut off or scrolling.
+// --widest sets every amount in the colony's warehouse to 300 and checks nothing is cut off or scrolls, and that at the
+// default font it is one row (a bigger font may wrap it to a second, and the box grows).
 import fs from 'node:fs';
 import path from 'node:path';
 import type { Page } from 'playwright-core';
@@ -113,7 +114,7 @@ for (const browserName of browserNames()) {
     );
     const wh = await warehouse(page);
     if (wh) console.log(`     warehouse ${tag}/${browserName}/${name}${suffix}: ${JSON.stringify(wh)}`);
-    failed ||= bad.length > 0 || (!!wh && (wh.rows > 1 || wh.cut > 0 || wh.vscroll > 0 || wh.hscroll > 0));
+    failed ||= bad.length > 0 || (!!wh && ((wh.rows > 1 && !font) || wh.cut > 0 || wh.vscroll > 0 || wh.hscroll > 0));
   };
   const look = () =>
     page.evaluate(

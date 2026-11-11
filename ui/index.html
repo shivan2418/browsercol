@@ -1964,12 +1964,16 @@
         align-items: center;
         overflow: hidden;
       }
-      /* Never a second line (the box has no height of its own to grow into): the goods share the width, and the room between them is what is left. */
+      /*
+       * The goods share the width, and the room between them is what is left. At a font too big for one line they
+       * wrap to a second, and the box, with no height of its own, grows to hold it: nothing is cut off or scrolls.
+       */
       .colony .warehouse-line {
         flex: 1 1 100%;
         min-width: 0;
         display: flex;
-        flex-wrap: nowrap;
+        flex-wrap: wrap;
+        row-gap: 6px;
         align-items: center;
         justify-content: space-between;
       }
