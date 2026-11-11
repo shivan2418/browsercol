@@ -104,8 +104,17 @@ export interface StartChoice {
   builtInMap?: string;
 }
 
-/** The map files FreeCol comes with (freecol/data/maps), by file name: their URLs, fetched only when picked. */
-const freecolMapUrls = import.meta.glob<string>('../../freecol/data/maps/*.fsm', {
+/**
+ * The one FreeCol map the game leaves out: Giga Earth has FreeCol's ocean regions with no tile in them, so FreeCol
+ * takes all its water for lake (no high seas, and over a minute to start in the browser) (#459).
+ */
+export const LEFT_OUT = 'XL_GigaEarth_Mazim.fsm';
+
+/**
+ * The map files FreeCol comes with (freecol/data/maps) but LEFT_OUT, by file name: their URLs, fetched only when
+ * picked. Vite takes only a literal pattern, so LEFT_OUT is spelled out in it; LEFT_OUT is not bundled at all.
+ */
+const freecolMapUrls = import.meta.glob<string>(['../../freecol/data/maps/*.fsm', '!**/XL_GigaEarth_Mazim.fsm'], {
   query: '?url',
   import: 'default',
   eager: true,
@@ -134,7 +143,6 @@ export const FREECOL_MAP_SIZES: Record<string, [number, number]> = {
   'S_FeudalJapan_Mazim.fsm': [30, 120],
   'S_SouthEastAsia_Mazim.fsm': [40, 100],
   'S_USA_Mazim.fsm': [40, 100],
-  'XL_GigaEarth_Mazim.fsm': [127, 230],
   'XXL_HugeWorld_Mazim.fsm': [180, 300],
 };
 
@@ -153,7 +161,7 @@ export function freecolMapName(file: string): string {
 
 /**
  * Maps of more tiles than this are heavy: slow to start and to play on an older machine, where FreeCol's maps are
- * up to 17,408 tiles (Asia) and Giga Earth and Huge World 29,210 and 54,000.
+ * up to 17,408 tiles (Asia) and Huge World 54,000.
  */
 export const HEAVY_TILES = 20_000;
 

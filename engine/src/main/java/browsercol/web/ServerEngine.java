@@ -128,7 +128,7 @@ public final class ServerEngine {
         preset.applyTo(made);
         made.setMapGenerator(new ReportingMapGenerator(dosMap
                 ? DosMap.importing(made.getMapGenerator(), importMap)
-                : OceanRegions.filling(made.getMapGenerator())));
+                : made.getMapGenerator()));
         this.server = made;
     }
 

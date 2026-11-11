@@ -2,7 +2,16 @@
 import { expect, test } from 'vite-plus/test';
 import fs from 'node:fs';
 import zlib from 'node:zlib';
-import { FREECOL_MAP_SIZES, MAPS, explainModifier, freecolMapName, presetJson, sized, startOptions } from './start';
+import {
+  FREECOL_MAP_SIZES,
+  LEFT_OUT,
+  MAPS,
+  explainModifier,
+  freecolMapName,
+  presetJson,
+  sized,
+  startOptions,
+} from './start';
 
 const spec = `<freecol-specification id="classic">
   <nations>
@@ -234,7 +243,7 @@ function unzipEntry(zip: Buffer, name: string): string {
 
 test("the start screen lists every map FreeCol comes with, with its size from the map's file", () => {
   const dir = '../freecol/data/maps';
-  const files = fs.readdirSync(dir).filter((f) => f.endsWith('.fsm'));
+  const files = fs.readdirSync(dir).filter((f) => f.endsWith('.fsm') && f !== LEFT_OUT);
   expect(Object.keys(FREECOL_MAP_SIZES).sort()).toEqual(files.sort());
   for (const f of files) {
     const props = unzipEntry(fs.readFileSync(`${dir}/${f}`), 'savegame.properties');
@@ -253,8 +262,9 @@ test("a FreeCol map's name is its file name's place and author", () => {
   expect(freecolMapName('XXL_HugeWorld_Mazim.fsm')).toBe('Huge World (Mazim)');
 });
 
-test('the two giant maps, and only they, are marked heavy in the Map list', () => {
+test('Huge World, and only it, is marked heavy in the Map list, and Giga Earth is left out', () => {
   const heavy = MAPS.filter((m) => m.name.endsWith(' (heavy)')).map((m) => m.id);
-  expect(heavy.sort()).toEqual(['XL_GigaEarth_Mazim.fsm', 'XXL_HugeWorld_Mazim.fsm']);
-  expect(MAPS.find((m) => m.id === 'XL_GigaEarth_Mazim.fsm')?.name).toBe('Giga Earth (Mazim), 127×230 (heavy)');
+  expect(heavy).toEqual(['XXL_HugeWorld_Mazim.fsm']);
+  expect(MAPS.find((m) => m.id === 'XXL_HugeWorld_Mazim.fsm')?.name).toBe('Huge World (Mazim), 180×300 (heavy)');
+  expect(MAPS.some((m) => m.id === LEFT_OUT)).toBe(false);
 });
