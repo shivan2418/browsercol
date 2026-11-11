@@ -6,6 +6,7 @@ import java.util.List;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.model.Colony;
+import net.sf.freecol.common.option.GameOptions;
 import net.sf.freecol.common.model.FreeColGameObject;
 import net.sf.freecol.common.model.GoodsType;
 import net.sf.freecol.common.model.Location;
@@ -95,6 +96,11 @@ final class TradeRoutes {
             .putRaw("routes", Json.array(routes))
             .putRaw("places", Json.array(places))
             .putRaw("goods", Json.array(goods))
+            // With the enhanced trade routes option a carrier loads the goods
+            // a later stop takes, the largest amount first, whatever the order
+            // of the holds (InGameController.loadUnitAtStop).
+            .put("enhanced", client.getGame().getSpecification()
+                 .getBoolean(GameOptions.ENHANCED_TRADE_ROUTES))
             .put("error", error)
             .put("newRoute", Messages.message("tradeRoutePanel.newRoute"))
             // The name the server gives a new route, which TradeRouteInputPanel starts with.

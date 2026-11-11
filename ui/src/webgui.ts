@@ -245,6 +245,8 @@ export interface GuiEvents {
      */
     places: { id: Id; label: string; port: boolean; land: number | null }[];
     goods: { id: string; name: string; icon: string }[];
+    /** Whether the enhanced trade routes option is on: carriers then load the largest amount first, in any order. */
+    enhanced: boolean;
     error: string | null;
     newRoute: string;
     /** The name the server would give a new route (Player.getNameForTradeRoute), which the editor starts with. */
