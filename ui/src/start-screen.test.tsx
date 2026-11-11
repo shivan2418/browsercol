@@ -223,7 +223,8 @@ test('the more options are tabs: none open at first, a click opens one, a second
   const started = screenWith();
   const panel = (kind: string) => document.querySelector<HTMLElement>(`[data-customize=${kind}]`)!;
   const tab = (kind: string) => document.querySelector<HTMLElement>(`[data-customize-tab=${kind}]`)!;
-  expect(['difficulty', 'game', 'map', 'colours'].map((k) => panel(k).hidden)).toEqual([true, true, true, true]);
+  expect(['difficulty', 'game', 'map'].map((k) => panel(k).hidden)).toEqual([true, true, true]);
+  expect(tab('colours')).toBeNull();
   fireEvent.click(tab('game'));
   expect(panel('game').hidden).toBe(false);
   expect(tab('game').getAttribute('aria-selected')).toBe('true');

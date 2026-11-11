@@ -76,6 +76,23 @@
     height: 14px;
     border: var(--border) solid var(--line);
   }
+  /* A European nation's swatch is its colour picker: the browser's input, drawn as the plain swatch. */
+  .start-window input.swatch {
+    appearance: none;
+    padding: 0;
+    margin: 0;
+    background: none;
+    cursor: pointer;
+  }
+  .start-window input.swatch::-webkit-color-swatch-wrapper {
+    padding: 0;
+  }
+  .start-window input.swatch::-webkit-color-swatch {
+    border: none;
+  }
+  .start-window input.swatch::-moz-color-swatch {
+    border: none;
+  }
   .start-window .nation .name {
     flex: 1;
   }
@@ -254,12 +271,6 @@
     margin-top: 0;
     columns: 24em;
     column-gap: var(--start-columns-gap);
-  }
-  .new-game .colour-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(11em, 1fr));
-    gap: var(--space-2) var(--space-5);
-    margin-top: var(--space-3);
   }
   /* Narrower: the nation beside the game and Start, the other nations under them. */
   @media (max-width: 1000px) {

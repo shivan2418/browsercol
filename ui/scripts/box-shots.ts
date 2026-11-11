@@ -174,11 +174,11 @@ for (const browserName of browserNames()) {
       [zoom, font],
     );
   try {
-    // The start screen: the option editor's tabs (difficulty, game, map, colours), as new game's more options.
+    // The start screen: the option editor's tabs (difficulty, game, map), as new game's more options.
     await page.goto(server.url);
     await page.waitForSelector('[data-start]', { timeout: 60000 });
     await look();
-    for (const t of ['difficulty', 'game', 'map', 'colours']) {
+    for (const t of ['difficulty', 'game', 'map']) {
       await page.click(`[data-customize-tab=${t}]`);
       await sleep(300);
       await shot(`start-${t}`);

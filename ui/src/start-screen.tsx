@@ -7,12 +7,13 @@
 // open in the option editor (#56) under [data-customize=difficulty] and
 // [data-customize=game]; the map generator's options (#57) under
 // [data-customize=map], each a tab panel opened by its tab
-// [data-customize-tab=difficulty|game|map|colours]; what the player changes
-// goes to the Engine in the preset's options.
+// [data-customize-tab=difficulty|game|map]; what the player changes
+// goes to the Engine in the preset's options. A European nation's swatch is
+// its colour picker, [data-colour] in the player's nation list.
 //
 // The layout (#311) is one wide window that shows what most players change without scrolling: their nation,
 // the advantages and the other nations, and the game's rules and difficulty beside Start. The rarely changed
-// settings (the level's and the game's options, the map's, the nation colours) are tabs under them.
+// settings (the level's and the game's options, the map's) are tabs under them.
 import { Tabs } from '@base-ui/react/tabs';
 import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { HelpButton, Select } from './controls';
@@ -313,6 +314,22 @@ export function StartScreen({
         {label}
       </button>
     );
+  /**
+   * A European nation's swatch, which opens the browser's colour picker: the nation's colour in the game, as
+   * Swing's player table edits it (ColorCellEditor). Inside the nation's label, a click on it picks the colour and
+   * not the nation.
+   */
+  const colourPicker = (n: { id: string; name: string; color: string }, hook = false) => (
+    <input
+      type="color"
+      className="swatch"
+      data-colour={hook ? n.id : undefined}
+      aria-label={`${n.name} colour`}
+      title={`${n.name} colour`}
+      value={colors[n.id] ?? n.color}
+      onChange={(e) => setColors({ ...colors, [n.id]: e.target.value })}
+    />
+  );
   const changed = (n: number) => (n > 0 ? ` (${n} changed)` : '');
   /** The nations that may be left out, under a heading that counts those taking part. */
   const rivalList = (heading: string, list: typeof others) =>
@@ -334,7 +351,7 @@ export function StartScreen({
                   setRemoved(e.target.checked ? removed.filter((id) => id !== r.id) : [...removed, r.id])
                 }
               />
-              <span className="swatch" style={{ background: colors[r.id] ?? r.color }} /> {r.name}
+              {r.native ? <span className="swatch" style={{ background: r.color }} /> : colourPicker(r)} {r.name}
             </label>
           ))}
         </div>
@@ -342,7 +359,7 @@ export function StartScreen({
     );
   const [tab, setTab] = useState<string | null>(firstTab);
   const count = (o: object) => Object.keys(o).length;
-  /** The tabs under the columns: the options of the level, the game and the map, and the nation colours. */
+  /** The tabs under the columns: the options of the level, the game and the map. */
   const moreTabs: { kind: string; label: string; count: number; body: ReactNode }[] = [
     ...(levelGroup
       ? [
@@ -393,27 +410,6 @@ export function StartScreen({
           },
         ]
       : []),
-    {
-      kind: 'colours',
-      label: 'Nation colours',
-      count: count(colors),
-      body: (
-        <div className="colour-list">
-          {options.nations.map((n) => (
-            <label key={n.id}>
-              <input
-                type="color"
-                data-colour={n.id}
-                aria-label={`${n.name} colour`}
-                value={colors[n.id] ?? n.color}
-                onChange={(e) => setColors({ ...colors, [n.id]: e.target.value })}
-              />{' '}
-              {n.name}
-            </label>
-          ))}
-        </div>
-      ),
-    },
   ];
   return (
     <div className="start" data-testid="start">
@@ -452,7 +448,7 @@ export function StartScreen({
                     checked={n.id === nation}
                     onChange={() => setNation(n.id)}
                   />
-                  <span className="swatch" style={{ background: colors[n.id] ?? n.color }} />
+                  {colourPicker(n, true)}
                   <span className="name">{n.name}</span>
                   <span className="type">{n.id === nation && ownType ? ownType.name : n.type}</span>
                 </label>
