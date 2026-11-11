@@ -59,7 +59,6 @@ describe('the Game menu', () => {
       'End Turn',
       'Declare Independence',
       'Return to Main',
-      'High Scores',
       'Retire',
       'Save and Exit',
       'Quit',
@@ -77,8 +76,8 @@ describe('the Game menu', () => {
   it('runs what the Browser UI can do, and disables what it cannot', () => {
     const { a, log } = actions();
     const items = gameMenu(a);
-    for (const l of ['New', 'Open', 'Save', 'Preferences', 'End Turn', 'High Scores', 'Retire']) find(items, l).run();
-    expect(log).toEqual(['newGame', 'open', 'save', 'prefs', 'endTurn', 'showHighScores', 'retire']);
+    for (const l of ['New', 'Open', 'Save', 'Preferences', 'End Turn', 'Retire']) find(items, l).run();
+    expect(log).toEqual(['newGame', 'open', 'save', 'prefs', 'endTurn', 'retire']);
     expect(items.filter((i) => i.disabled).map((i) => i.label)).toEqual(['Reconnect']);
   });
 

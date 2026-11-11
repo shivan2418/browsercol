@@ -1175,11 +1175,6 @@ public final class Commands {
         return me != null && me.getPlayerType() == Player.PlayerType.RETIRED;
     }
 
-    /** Show the high score table on request (ReportHighScoresAction). */
-    public boolean showHighScores() {
-        return igc().highScore(null);
-    }
-
     /** Fortify the active unit (FortifyAction). */
     public boolean fortify() {
         return changeState(Unit.UnitState.FORTIFYING);

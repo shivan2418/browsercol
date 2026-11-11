@@ -102,8 +102,6 @@ export interface ClientExports {
   declareIndependence(): void;
   /** Retire from the game (RetireAction). */
   retire(): void;
-  /** Show the high score table (ReportHighScoresAction). */
-  showHighScores(): void;
   /** Show the Europe panel (EuropeAction). */
   showEurope(): void;
   /** Open the Find Settlement panel (FindSettlementAction). */
