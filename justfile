@@ -58,6 +58,8 @@ relay:
     ./dev.sh -C relay pnpm install --frozen-lockfile
     ./dev.sh -C relay pnpm exec vp check
     ./dev.sh -C relay pnpm exec vp test
+    ./dev.sh -C relay pnpm exec vp build
+    relay/check-bundle.sh
 
 # Build and deploy the feedback relay to AWS (by hand; see relay/deploy.sh)
 deploy-relay *args:

@@ -13,6 +13,7 @@ stack="${RELAY_STACK:-browsercol-feedback-relay}"
 "$repo/dev.sh" -C relay pnpm install --frozen-lockfile
 "$repo/dev.sh" -C relay pnpm exec vp test
 "$repo/dev.sh" -C relay pnpm exec vp build
+"$relay/check-bundle.sh"
 
 image=browsercol-sam
 sum=$(sha256sum "$repo/docker/sam.Dockerfile" | cut -c1-16)
