@@ -58,7 +58,7 @@ export const hasSavePicker = (w: object = globalThis) => typeof (w as PickerWind
 const cancelled = (ex: unknown) => ex instanceof DOMException && ex.name === 'AbortError';
 
 /** Hand the bytes to the browser as a file download. */
-function download(bytes: Uint8Array, fileName: string) {
+export function download(bytes: Uint8Array, fileName: string) {
   const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'application/octet-stream' }));
   const a = document.createElement('a');
   a.href = url;

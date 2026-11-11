@@ -28,7 +28,7 @@ export function turnYear(turn: number): number {
 }
 
 /** The bytes of a zip's entry by name, or null if the zip has none. */
-async function zipEntry(bytes: Uint8Array, wanted: string): Promise<Uint8Array | null> {
+export async function zipEntry(bytes: Uint8Array, wanted: string): Promise<Uint8Array | null> {
   const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   // The end of central directory record: its signature, searched from the end past a comment.
   let end = -1;
