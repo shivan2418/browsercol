@@ -263,6 +263,51 @@ export function closeCoast(
   return land.map((v, k) => (v >= 0.5 || (shrunk[k] < -radius && !channels[k]) ? 1 : 0));
 }
 
+/**
+ * Each climate's share of the land round each texel, from cells of `f` by `f` texels over the whole map: the cells'
+ * shares are blurred twice by `r` cells and read back bilinearly. The whole map's cells cost less than the texels
+ * round one explored tile, and a field patched after exploring comes out as a fresh one, as both see every cell.
+ */
+export function coarseClimate(zone: Uint8Array, cols: number, rows: number, f: number, r: number) {
+  const cw = Math.ceil(cols / f);
+  const ch = Math.ceil(rows / f);
+  const cells = [new Float32Array(cw * ch), new Float32Array(cw * ch), new Float32Array(cw * ch)];
+  const count = new Float32Array(cw * ch);
+  for (let j = 0; j < rows; j++) {
+    const row = Math.floor(j / f) * cw;
+    for (let i = 0; i < cols; i++) {
+      const c = row + Math.floor(i / f);
+      count[c]++;
+      const z = zone[j * cols + i];
+      if (z) cells[z - 1][c]++;
+    }
+  }
+  for (const a of cells) {
+    for (let c = 0; c < a.length; c++) a[c] /= count[c];
+    blur(a, cw, ch, r);
+    blur(a, cw, ch, r);
+  }
+  return {
+    /** The three shares at texel (i, j), into `to`. */
+    at(i: number, j: number, to: Float64Array) {
+      const x = Math.min(cw - 1, Math.max(0, (i + 0.5) / f - 0.5));
+      const y = Math.min(ch - 1, Math.max(0, (j + 0.5) / f - 0.5));
+      const x0 = Math.floor(x),
+        y0 = Math.floor(y);
+      const x1 = Math.min(cw - 1, x0 + 1),
+        y1 = Math.min(ch - 1, y0 + 1);
+      const fx = x - x0,
+        fy = y - y0;
+      for (let z = 0; z < 3; z++) {
+        const a = cells[z];
+        const top = a[y0 * cw + x0] * (1 - fx) + a[y0 * cw + x1] * fx;
+        const bottom = a[y1 * cw + x0] * (1 - fx) + a[y1 * cw + x1] * fx;
+        to[z] = top * (1 - fy) + bottom * fy;
+      }
+    },
+  };
+}
+
 /** A continuous mixture, not a nearest-climate label. Two box passes give a triangular kernel. */
 export function climateShares(zone: Float32Array, cols: number, rows: number, radius: number): Float32Array[] {
   return [1, 2, 3].map((z) => {
@@ -511,8 +556,12 @@ export function waterField(
     radius(recipe ? recipe.climateBlend * W : CLIMATE_PX),
   ];
   // Closing reaches twice its radius, followed by the capped distance.
+  // A recipe's climate comes from a coarse grid over the whole map (coarseClimate), so the shore's passes need not
+  // reach as far as the climate blends: a move that explores a tile then makes far fewer texels again (#411).
+  const coarse = recipe ? Math.max(1, Math.round(W / 2 / texel)) : 0;
+  const coarseR = Math.max(1, Math.round(climateR / Math.max(coarse, 1)));
   const reach = Math.max(
-    2 * Math.max(nearR, depthR, climateR, 1),
+    2 * Math.max(nearR, depthR, recipe ? 0 : climateR, 1),
     Math.ceil((distanceCap + (recipe ? 2 * closingRadius : 0)) / texel) + 1,
   );
   const lakes = recipe ? lakeMask(map) : undefined;
@@ -636,6 +685,8 @@ export function waterField(
   }
   // The texels whose blurred values may have changed, and the texels those are blurred from.
   const out = reuse ? clip(grow(raw, reach), cols, rows) : all;
+  // The coarse climate changes within its two blurs and the bilinear step of a changed tile.
+  const outClimate = !recipe ? out : reuse ? clip(grow(raw, (2 * coarseR + 2) * coarse), cols, rows) : all;
   const src = reuse ? clip(grow(out, reach), cols, rows) : all;
   const sw = src.i1 - src.i0;
   const sh = src.j1 - src.j0;
@@ -661,20 +712,18 @@ export function waterField(
     if (!recipe) blur(deep, sw, sh, depthR);
   }
   // Each climate's share of the land round a texel, blurred far out over the water.
-  const zoneAt = new Float32Array(sw * sh);
-  for (let j = 0; j < sh; j++) for (let i = 0; i < sw; i++) zoneAt[j * sw + i] = zone[(src.j0 + j) * cols + src.i0 + i];
-  const shares = climateShares(zoneAt, sw, sh, climateR);
+  let shares: Float32Array[] = [];
+  if (!recipe) {
+    const zoneAt = new Float32Array(sw * sh);
+    for (let j = 0; j < sh; j++)
+      for (let i = 0; i < sw; i++) zoneAt[j * sw + i] = zone[(src.j0 + j) * cols + src.i0 + i];
+    shares = climateShares(zoneAt, sw, sh, climateR);
+  }
+  const grid = recipe ? coarseClimate(zone, cols, rows, coarse, coarseR) : null;
   blur(wet, sw, sh, 1);
   const data = reuse ? last.data : new Uint8Array(4 * n);
   const climate = reuse && last.climate ? last.climate : new Uint8Array(4 * n);
-  const [coldShare, temperateShare, tropicalShare] = shares;
-  for (let j = out.j0; j < out.j1; j++) {
-    // Far from any land, the latitude: cold toward the poles, tropical round the equator. Per row, and without
-    // arrays per texel: this loop runs over every texel made again when a move explores a tile.
-    const lat = Math.abs(((j + 0.5) * texelY) / ph - 0.5) * 2;
-    const cold = smooth(0.62, 0.8, lat);
-    const tropical = 1 - smooth(0.25, 0.45, lat);
-    const temperate = Math.max(0, 1 - cold - tropical);
+  for (let j = out.j0; j < out.j1; j++)
     for (let i = out.i0; i < out.i1; i++) {
       const k = j * cols + i;
       const p = (j - src.j0) * sw + (i - src.i0);
@@ -682,10 +731,26 @@ export function waterField(
       data[4 * k + 1] = Math.round(deep[p] * 255);
       data[4 * k + 2] = Math.round((!recipe && shore === 'blur' ? near[p] : 0.5 - near[p] / (2 * distanceCap)) * 255);
       data[4 * k + 3] = Math.round(wet[p] * 255);
-      const far = Math.max(0, 1 - (coldShare[p] + temperateShare[p] + tropicalShare[p]) / 0.25) * 0.25;
-      const a = coldShare[p] + far * cold,
-        b = temperateShare[p] + far * temperate,
-        c = tropicalShare[p] + far * tropical;
+    }
+  const share = new Float64Array(3);
+  for (let j = outClimate.j0; j < outClimate.j1; j++) {
+    // Far from any land, the latitude: cold toward the poles, tropical round the equator. Per row, and without
+    // arrays per texel: this loop runs over every texel made again when a move explores a tile.
+    const lat = Math.abs(((j + 0.5) * texelY) / ph - 0.5) * 2;
+    const cold = smooth(0.62, 0.8, lat);
+    const tropical = 1 - smooth(0.25, 0.45, lat);
+    const temperate = Math.max(0, 1 - cold - tropical);
+    for (let i = outClimate.i0; i < outClimate.i1; i++) {
+      const k = j * cols + i;
+      if (grid) grid.at(i, j, share);
+      else {
+        const p = (j - src.j0) * sw + (i - src.i0);
+        for (let z = 0; z < 3; z++) share[z] = shares[z][p];
+      }
+      const far = Math.max(0, 1 - (share[0] + share[1] + share[2]) / 0.25) * 0.25;
+      const a = share[0] + far * cold,
+        b = share[1] + far * temperate,
+        c = share[2] + far * tropical;
       const total = Math.max(a + b + c, 1e-6);
       climate[4 * k] = Math.round((a / total) * 255);
       climate[4 * k + 1] = Math.round((b / total) * 255);
