@@ -15,7 +15,7 @@
 // the advantages and the other nations, and the game's rules and difficulty beside Start. The rarely changed
 // settings (the level's and the game's options, the map's) are tabs under them.
 import { Tabs } from '@base-ui/react/tabs';
-import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { HelpButton, Select } from './controls';
 import { RulesHelp } from './rules-help';
 import { CreditsDialog, SourceLinks } from './credits';
@@ -36,6 +36,49 @@ const IMPORT_FILE = 'model.option.importFile';
 
 /** The difficulty option that gives expert starting units (GameOptions.EXPERT_STARTING_UNITS). */
 const EXPERT_UNITS = 'model.option.expertStartingUnits';
+
+/**
+ * A nation's colour as a swatch that opens the browser's colour picker. While the player drags in the picker, only
+ * the swatch follows: the input fires on every move, and the whole start screen (its option editor's rows and their
+ * tooltips) took 20 ms to draw again for each, 85 ms at the low-end target's speed. The colour is picked once, when
+ * the picker closes (the input's native change event).
+ */
+function ColourSwatch({
+  hook,
+  name,
+  value,
+  pick,
+}: {
+  hook?: string;
+  name: string;
+  value: string;
+  pick: (colour: string) => void;
+}) {
+  const [shown, setShown] = useState(value);
+  useEffect(() => setShown(value), [value]);
+  const input = useRef<HTMLInputElement>(null);
+  const picked = useRef(pick);
+  picked.current = pick;
+  useEffect(() => {
+    const el = input.current;
+    if (!el) return;
+    const done = () => picked.current(el.value);
+    el.addEventListener('change', done);
+    return () => el.removeEventListener('change', done);
+  }, []);
+  return (
+    <input
+      ref={input}
+      type="color"
+      className="swatch"
+      data-colour={hook}
+      aria-label={`${name} colour`}
+      title={`${name} colour`}
+      value={shown}
+      onChange={(e) => setShown(e.target.value)}
+    />
+  );
+}
 
 /** FreeCol's names for the National Advantages choices (advantages.* in FreeColMessages). */
 const ADVANTAGE_NAMES: Record<Advantages, string> = { SELECTABLE: 'Selectable', FIXED: 'Fixed', NONE: 'None' };
@@ -320,14 +363,11 @@ export function StartScreen({
    * not the nation.
    */
   const colourPicker = (n: { id: string; name: string; color: string }, hook = false) => (
-    <input
-      type="color"
-      className="swatch"
-      data-colour={hook ? n.id : undefined}
-      aria-label={`${n.name} colour`}
-      title={`${n.name} colour`}
+    <ColourSwatch
+      hook={hook ? n.id : undefined}
+      name={n.name}
       value={colors[n.id] ?? n.color}
-      onChange={(e) => setColors({ ...colors, [n.id]: e.target.value })}
+      pick={(colour) => setColors((c) => ({ ...c, [n.id]: colour }))}
     />
   );
   const changed = (n: number) => (n > 0 ? ` (${n} changed)` : '');

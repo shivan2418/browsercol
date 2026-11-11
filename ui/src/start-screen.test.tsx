@@ -265,6 +265,24 @@ test('the player removes nations from the game, and the own nation cannot be rem
   expect(started[0].unavailable).toEqual(['model.nation.inca']);
 });
 
+test('dragging in the colour picker moves only the swatch; the colour is picked when the picker closes', () => {
+  const started = screenWith();
+  const swatch = document.querySelector<HTMLInputElement>('[data-colour="model.nation.dutch"]')!;
+  const bonus = document.querySelector('[data-nation-bonus]')!;
+  const before = bonus.textContent;
+  // The drag: input events only. The swatch follows, and nothing else hears of it.
+  fireEvent.input(swatch, { target: { value: '#112233' } });
+  fireEvent.input(swatch, { target: { value: '#445566' } });
+  expect(swatch.value).toBe('#445566');
+  expect(bonus.textContent).toBe(before);
+  fireEvent.click(document.querySelector('[data-start]')!);
+  expect(started[0].colors).toEqual({});
+  // The picker closes: the input's change event picks the colour.
+  fireEvent.change(swatch, { target: { value: '#445566' } });
+  fireEvent.click(document.querySelector('[data-start]')!);
+  expect(started[1].colors).toEqual({ 'model.nation.dutch': '#445566' });
+});
+
 test('the player picks the advantages, the own nation’s type and a nation colour', async () => {
   const started = screenWith();
   await chooseOption(document.querySelector('[data-nation-type]')!, 'Conquest');
