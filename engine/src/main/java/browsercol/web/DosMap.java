@@ -4,8 +4,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.ArrayDeque;
-import java.util.Deque;
 
 import net.sf.freecol.common.model.Direction;
 import net.sf.freecol.common.model.Game;
@@ -13,7 +11,6 @@ import net.sf.freecol.common.model.Map;
 import net.sf.freecol.common.model.Specification;
 import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.TileImprovement;
-import net.sf.freecol.common.model.TileType;
 import net.sf.freecol.common.util.LogBuilder;
 import net.sf.freecol.server.generator.MapGenerator;
 import net.sf.freecol.server.model.ServerGame;
@@ -39,6 +36,10 @@ import net.sf.freecol.server.model.ServerGame;
  * DOS tile: DOS (dx, dy) is FreeCol (dx / 2, 2 * dy) for even dx and
  * ((dx - 1) / 2, 2 * dy - 1) for odd dx. DOS east and west neighbours are
  * then FreeCol diagonal neighbours, and DOS north and south FreeCol's.
+ *
+ * The DOS map has only ocean. Its water closed off from the sea (the
+ * Great Lakes) becomes lake when FreeCol imports the map: the water with
+ * no region is the lakes (TerrainGenerator.createLakeRegions).
  *
  * The game does not come with the DOS file. Its America map comes as a
  * map of our own made from it (MAGIC, see text()): FreeCol's tile type and
@@ -197,7 +198,11 @@ final class DosMap {
             }
             for (int x = 0; x < grid.width; x++) {
                 grid.types[y * grid.width + x] = typeOf(line.charAt(x));
-                grid.rivers[y * grid.width + x] = line.charAt(grid.width + 1 + x) - '0';
+                final int river = line.charAt(grid.width + 1 + x) - '0';
+                if (river < 0 || river > TileImprovement.LARGE_RIVER) {
+                    throw new IllegalArgumentException("row " + y + " has no river size at " + x);
+                }
+                grid.rivers[y * grid.width + x] = river;
             }
         }
         return grid;
@@ -232,7 +237,6 @@ final class DosMap {
         game.changeMap(map);
         map.populateTiles((x, y) -> new Tile(game,
                 spec.getTileType("model.tile." + grid.types[y * grid.width + x]), x, y));
-        makeLakes(map, spec.getTileType("model.tile.lake"));
         addRivers(map, grid);
         return map;
     }
@@ -262,36 +266,6 @@ final class DosMap {
         if ((b & 0x1f) >= ARCTIC || (b & HILLS) != 0) return 0;
         return ((b & MAJOR_RIVER) != 0) ? TileImprovement.LARGE_RIVER
             : ((b & RIVER) != 0) ? TileImprovement.SMALL_RIVER : 0;
-    }
-
-    /**
-     * Make water that has no way to the high seas lake. The DOS map has
-     * only ocean; FreeCol's lakes are water closed off from the sea.
-     */
-    private static void makeLakes(Map map, TileType lake) {
-        final boolean[] sea = new boolean[map.getWidth() * map.getHeight()];
-        final Deque<Tile> open = new ArrayDeque<>();
-        map.forEachTile(t -> {
-                if (t.getType().isHighSeasConnected()) {
-                    sea[t.getY() * map.getWidth() + t.getX()] = true;
-                    open.add(t);
-                }
-            });
-        while (!open.isEmpty()) {
-            Tile t = open.poll();
-            for (Direction d : Direction.values()) {
-                Tile n = t.getNeighbourOrNull(d);
-                if (n == null || n.isLand()) continue;
-                int i = n.getY() * map.getWidth() + n.getX();
-                if (!sea[i]) {
-                    sea[i] = true;
-                    open.add(n);
-                }
-            }
-        }
-        map.forEachTile(t -> {
-                if (!t.isLand() && !sea[t.getY() * map.getWidth() + t.getX()]) t.changeType(lake);
-            });
     }
 
     /**

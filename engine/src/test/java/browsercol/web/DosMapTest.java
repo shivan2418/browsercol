@@ -160,6 +160,8 @@ class DosMapTest {
         assertFalse(map.getTile(1, 72).isLand());
         assertEquals("model.tile.arctic", map.getTile(5, 0).getType().getId());
         assertEquals("model.tile.highSeas", map.getTile(28, 71).getType().getId());
+        // DOS (18, 12), in the Great Lakes: ocean in the DOS map, lake once FreeCol imports it.
+        assertEquals("model.tile.lake", map.getTile(9, 24).getType().getId());
         long rivers = map.getTileList(Tile::hasRiver).size();
         assertTrue(rivers > 50, rivers + " river tiles");
         long joined = map.getTileList(t -> t.hasRiver()
