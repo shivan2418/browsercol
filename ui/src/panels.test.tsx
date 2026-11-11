@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vite-plus/test';
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { ColonyActions, type ColonyMoves } from './colony-panel';
 import { jamestown } from './colony-fixture';
 import { DebugContext } from './debug';
 import { dialogs } from './dialogs';
 import { dragOnto } from './drag.testing';
+import { sortBy } from './sort.testing';
 import { europeButtons, showEurope } from './europe-client';
 import { CopyDetailsContext, ShowLogContext } from './log';
 import { ContextMenuContext, type ContextMenus } from './popup-menu';
@@ -2003,18 +2004,34 @@ describe('the trade routes panel', () => {
     expect(placesOf(saved)).toEqual(['colony:7', 'colony:8']);
   });
 
-  it('moves a stop dragged onto another to its place, with its goods, folding and editing', () => {
+  it('moves a stop dragged up or down to its place, with its goods, folding and editing', () => {
     const saved = threeStops();
     act(() => void fireEvent.click(pinAt(1)));
-    // Europe, edited, goes where Jamestown is: last.
-    act(() => dragOnto(stopAt(0), stopAt(2)));
-    expect(stopAt(2).classList.contains('over-target')).toBe(false);
-    expect(stopAt(2).textContent).toContain('Europe');
-    expect(edited()).toBe(legAt(2));
-    // New Amsterdam, folded, is now first and still folded.
-    expect(pinAt(0).getAttribute('aria-expanded')).toBe('false');
-    // Jamestown goes first.
-    act(() => dragOnto(stopAt(1), stopAt(0)));
+    vi.useFakeTimers();
+    try {
+      // Europe, edited, is dragged down past Jamestown: the others slide up out of its way as it goes.
+      const settle = sortBy(stopAt(0), 2, () => {
+        expect(stopAt(0).closest('.vitem')!.classList.contains('lifted')).toBe(true);
+        expect((stopAt(1).closest('.vitem') as HTMLElement).style.transform).toBe('translateY(-100px)');
+        expect((stopAt(2).closest('.vitem') as HTMLElement).style.transform).toBe('translateY(-100px)');
+      });
+      // The order changes once Europe has settled in its gap; the release clicks no button.
+      expect(stopAt(0).textContent).toContain('Europe');
+      act(() => void vi.advanceTimersByTime(settle));
+      expect(stopAt(2).textContent).toContain('Europe');
+      expect((stopAt(2).closest('.vitem') as HTMLElement).style.transform).toBe('');
+      expect(edited()).toBe(legAt(2));
+      // New Amsterdam, folded, is now first and still folded.
+      expect(pinAt(0).getAttribute('aria-expanded')).toBe('false');
+      // Jamestown goes first; Escape puts a lifted stop back.
+      act(() => void vi.advanceTimersByTime(settle + sortBy(stopAt(1), -1)));
+      act(() => {
+        sortBy(stopAt(0), 2, () => void fireEvent.keyDown(window, { key: 'Escape' }));
+        vi.advanceTimersByTime(settle);
+      });
+    } finally {
+      vi.useRealTimers();
+    }
     press('OK');
     expect(placesOf(saved)).toEqual(['colony:8', 'colony:7', 'europe:1']);
     expect(saved[0].stops.map((s) => s.cargo)).toEqual([[], [F], [T]]);
