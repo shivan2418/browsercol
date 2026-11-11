@@ -26,6 +26,7 @@ import { europeButtons } from './europe-client';
 import { Box, ButtonRow, GoodsAmount, Heading, Pic, TEXT_ENTRY, WindowFrame, type Art } from './frame';
 import { Declaration } from './declaration';
 import { CopyDetailsContext, ShowLogContext } from './log';
+import { reachText } from './route-reach';
 import { sortHandle } from './sort';
 import { draggableProps, dropTargetProps, type Item, type Place } from './moves';
 import { ContextMenuContext, contextMenuHandler } from './popup-menu';
@@ -1068,6 +1069,9 @@ function RouteEditor({
     );
   };
   const n = stops.length;
+  // Which carriers can follow the route; nothing is said if a stop's place is not one the Engine sent.
+  const reachable = stops.map((s) => e.places.find((p) => p.id === s.place));
+  const carriers = reachable.every((p) => p !== undefined) ? reachText(reachable) : null;
   return (
     <>
       {e.error !== null && (
@@ -1102,6 +1106,11 @@ function RouteEditor({
           </button>
         </span>
       </div>
+      {carriers && (
+        <p className={carriers.ok ? 'text carriers' : 'text carriers error'} role={carriers.ok ? undefined : 'alert'}>
+          {carriers.text}
+        </p>
+      )}
       <div className="voyage">
         {stops.map((s, i) => {
           const prev = stops[(i - 1 + n) % n];

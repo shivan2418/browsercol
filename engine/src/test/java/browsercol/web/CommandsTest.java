@@ -1877,6 +1877,15 @@ class CommandsTest {
         assertTrue(routePanels.get(routePanels.size() - 1)
                        .contains("\"defaultName\":\"New Trade Route\""),
                    "the first new route's name");
+        // Each place says whether ships reach it and which landmass it is on, so the editor can tell a
+        // route no carrier can follow.
+        final String panel = routePanels.get(routePanels.size() - 1);
+        assertTrue(panel.matches("(?s).*\"id\":\"" + europe + "\",\"label\":\"[^\"]*\",\"port\":true,\"land\":null.*"),
+                   "Europe is reached by ships, and is on no landmass: " + panel);
+        assertTrue(panel.matches("(?s).*\"id\":\"" + home + "\",\"label\":\"[^\"]*\",\"port\":"
+                                    + colony.isConnectedPort() + ",\"land\":"
+                                    + colony.getTile().getContiguity() + "[,}].*"),
+                   "a colony says whether it is a port, and its landmass: " + panel);
         assertNull(commands.saveTradeRoute(null, "New Trade Route", false,
             List.of(europe, home), List.of(List.of(tools), List.of(furs))));
         assertTrue(routePanels.get(routePanels.size() - 1)

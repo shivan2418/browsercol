@@ -239,7 +239,11 @@ export interface GuiEvents {
     tooltips: { new: string; edit: string; delete: string; deassign: string };
     assign: string;
     unassign: string;
-    places: { id: Id; label: string }[];
+    /**
+     * The places a stop can be at: whether ships reach each (Europe, or a colony that is a port), and the
+     * landmass a colony is on, null for Europe; the editor tells from them which carriers can follow a route.
+     */
+    places: { id: Id; label: string; port: boolean; land: number | null }[];
     goods: { id: string; name: string; icon: string }[];
     error: string | null;
     newRoute: string;

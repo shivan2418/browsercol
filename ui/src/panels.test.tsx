@@ -1703,8 +1703,8 @@ describe('the trade routes panel', () => {
       { id: 'tradeRoute:2', name: 'Rum run', silent: true, units: 0, stops: [] },
     ],
     places: [
-      { id: 'europe:1', label: 'Europe' },
-      { id: 'colony:7', label: 'New Amsterdam' },
+      { id: 'europe:1', label: 'Europe', port: true, land: null },
+      { id: 'colony:7', label: 'New Amsterdam', port: true, land: 1 },
     ],
     goods: [
       { id: 'model.goods.tools', name: 'Tools', icon: 'image.icon.model.goods.tools' },
@@ -1889,10 +1889,10 @@ describe('the trade routes panel', () => {
             },
           ],
           places: [
-            { id: 'europe:1', label: 'Europe' },
-            { id: 'colony:7', label: 'New Amsterdam' },
-            { id: 'colony:8', label: 'Jamestown' },
-            { id: 'colony:9', label: 'Plymouth' },
+            { id: 'europe:1', label: 'Europe', port: true, land: null },
+            { id: 'colony:7', label: 'New Amsterdam', port: true, land: 1 },
+            { id: 'colony:8', label: 'Jamestown', port: true, land: 1 },
+            { id: 'colony:9', label: 'Plymouth', port: true, land: 1 },
           ],
         }),
       ),
@@ -1939,9 +1939,9 @@ describe('the trade routes panel', () => {
             },
           ],
           places: [
-            { id: 'europe:1', label: 'Europe' },
-            { id: 'colony:7', label: 'New Amsterdam' },
-            { id: 'colony:8', label: 'Jamestown' },
+            { id: 'europe:1', label: 'Europe', port: true, land: null },
+            { id: 'colony:7', label: 'New Amsterdam', port: true, land: 1 },
+            { id: 'colony:8', label: 'Jamestown', port: true, land: 1 },
           ],
         }),
       ),
@@ -2101,6 +2101,38 @@ describe('the trade routes panel', () => {
     press('OK');
     expect(placesOf(saved)).toEqual(['colony:8', 'colony:7', 'europe:1']);
     expect(saved[0].stops.map((s) => s.cargo)).toEqual([[], [F], [T]]);
+  });
+
+  it('says which carriers can follow the route, and when none can', async () => {
+    const { box } = host();
+    act(() =>
+      box.replace(
+        'tradeRoutes',
+        routes({
+          places: [
+            { id: 'europe:1', label: 'Europe', port: true, land: null },
+            { id: 'colony:7', label: 'New Amsterdam', port: true, land: 1 },
+            { id: 'colony:10', label: 'Fort Orange', port: false, land: 1 },
+          ],
+        }),
+      ),
+    );
+    press(/^Fur run/);
+    press('Edit Trade Route');
+    const carriers = () => document.querySelector('.carriers');
+    expect(carriers()!.textContent).toBe('Only ships can follow this route: wagon trains cannot go to Europe.');
+    expect(carriers()!.getAttribute('role')).toBeNull();
+    // An inland colony as well: no ship reaches it, and no wagon train reaches Europe.
+    await chooseOption(screen.getByRole('combobox'), 'Fort Orange');
+    press('Add new stop');
+    expect(screen.getByRole('alert').textContent).toBe(
+      'No carrier can follow this route: ships cannot reach Fort Orange, inland, and wagon trains cannot go to Europe.',
+    );
+    // Without Europe, wagon trains can.
+    press('Remove stop: Europe');
+    expect(carriers()!.textContent).toBe(
+      'Only wagon trains can follow this route: ships cannot reach Fort Orange, inland.',
+    );
   });
 
   it('disables Add Stop once the route has a stop for every place', async () => {

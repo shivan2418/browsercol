@@ -1305,6 +1305,14 @@
         color: var(--muted);
         font-size: var(--fs-s);
       }
+      /* Which carriers can follow the route: a quiet line, or in red when none can. */
+      .dialog .carriers {
+        margin: 10px 0 0;
+        font-size: var(--fs-s);
+      }
+      .dialog .carriers:not(.error) {
+        color: var(--muted);
+      }
       .dialog .vleg .copy {
         font-size: var(--fs-s);
       }
