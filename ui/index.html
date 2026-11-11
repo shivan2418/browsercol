@@ -1210,48 +1210,6 @@
         color: var(--head);
         border: 2px solid var(--head);
       }
-      .dialog .chips {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 3px;
-        min-height: 22px;
-        align-items: center;
-      }
-      .dialog .chips .muted {
-        font-size: var(--fs-s);
-      }
-      .dialog .chip {
-        display: inline-flex;
-        align-items: center;
-        gap: 2px;
-        padding: 1px 6px 1px 2px;
-        border-radius: 10px;
-        font-size: var(--fs-s);
-      }
-      .dialog .chip[data-work='unload'] {
-        background: color-mix(in srgb, var(--bad) 22%, var(--box));
-        color: var(--bad);
-      }
-      .dialog .chip[data-work='load'] {
-        background: color-mix(in srgb, var(--good) 22%, var(--box));
-        color: var(--good);
-      }
-      .dialog .chips .work {
-        display: inline-flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 3px;
-        margin-right: 6px;
-      }
-      .dialog .chips .arrow {
-        color: var(--muted);
-        font-size: var(--fs-s);
-      }
-      .dialog .chip[data-work='keep'] {
-        background: transparent;
-        color: var(--muted);
-        opacity: 0.7;
-      }
       .dialog .vleg {
         display: grid;
         grid-template-columns: 34px minmax(0, 1fr);
@@ -1366,8 +1324,8 @@
         .dialog .vstop {
           grid-template-columns: 34px 1fr auto;
         }
-        /* On a phone the chips go under the name, the ✕ stays beside it. */
-        .dialog .vstop .chips {
+        /* On a phone the plan pills go under the name, the ✕ stays beside it. */
+        .dialog .vstop .plan-pills {
           grid-row: 2;
           grid-column: 2 / -1;
         }
@@ -1442,10 +1400,6 @@
         gap: 8px;
         font-variant-numeric: tabular-nums;
       }
-      /* A unit of Europe's lists is its picture alone; the name is its tooltip. */
-      .europe .chip[data-unit] .name {
-        display: none;
-      }
       .europe {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -1507,24 +1461,12 @@
         min-height: 1.4em;
         font-variant-numeric: tabular-nums;
       }
-      .europe .chips {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-      }
-      .europe .chip {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        color: var(--ink);
-        border-radius: 4px;
-      }
       /*
        * What can be picked (a ship, or goods in the colony) takes the selected look when it is (src/selection.css).
        * Everything that can be picked has the same 4px of room on every side, so the tint never sits tight against
        * the content.
        */
-      .europe [data-list='inPort'] button.chip,
+      .europe [data-list='inPort'] button.europe-entry,
       .colony .ship,
       .colony [aria-current] {
         padding: 4px;
@@ -1549,25 +1491,16 @@
       }
       /* The market's goods and the cargo's stacks are buttons (they trade), but look as Swing's labels do. */
       .europe-body button.good,
-      /* At less weight than the selected look, so a picked chip shows it. */
-      :where(.europe) button.chip {
+      /* At less weight than the selected look, so a picked entry shows it. */
+      :where(.europe) button.europe-entry {
         background: none;
         border: none;
         padding: 0;
         color: var(--ink);
       }
       /* Goods are traded by a click, not picked: nothing lights up under the pointer, as in FreeCol. */
-      /* Dragging by the icon or the name drags the chip: the picture is not a drag of its own. */
-      .europe .chip img,
-      .europe .chip .name {
-        pointer-events: none;
-        user-select: none;
-      }
-      .europe .chip[data-drag] {
-        cursor: grab;
-      }
       /* Focus is a line, never a tint, so it is not taken for a pick. */
-      .europe [data-list='inPort'] button.chip:focus-visible {
+      .europe [data-list='inPort'] button.europe-entry:focus-visible {
         outline: 2px solid var(--accent);
         outline-offset: -2px;
       }
@@ -1720,23 +1653,7 @@
       .colony .unit {
         height: 48px;
       }
-      /*
-       * UnitLabel's occupation chip in the label's top-left corner, beside the figure (ImageLibrary.createChip: a
-       * black border round the owner's colour, which the Engine sends), and a damaged unit's repair status.
-       */
-      .colony .chip {
-        position: absolute;
-        left: 0;
-        top: 0;
-        padding: 3px;
-        border: 1px solid var(--chip-border);
-        background: var(--nation, var(--box));
-        color: var(--nation-ink, var(--ink));
-        font-family: var(--font);
-        font-weight: bold;
-        font-size: 10px;
-        line-height: 10px;
-      }
+      /* A damaged unit's repair status (the occupation badge, src/occupation-badge.css, sits beside it). */
       .colony .repair {
         position: absolute;
         left: 2px;
@@ -1751,7 +1668,7 @@
       .colony .port .ship {
         position: relative;
       }
-      /* UnitLabel: the unit at its own size with a 5px margin each side, so the chip sits beside the figure. */
+      /* UnitLabel: the unit at its own size with a 5px margin each side, so the badge sits beside the figure. */
       .colony .outside [data-unit] {
         padding: 0 5px;
       }
@@ -1933,7 +1850,7 @@
         top: 50%;
         transform: translate(-50%, -50%);
       }
-      /* TileViewer: the worker smaller, in the middle of the tile, without a chip. */
+      /* TileViewer: the worker smaller, in the middle of the tile, without a badge. */
       .colony .tile .who {
         position: absolute;
         left: 50%;

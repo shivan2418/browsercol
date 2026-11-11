@@ -171,7 +171,7 @@ test("a component's sheet takes its colours, fonts, spacing, radii, borders and 
 });
 
 test("a component's sheet styles its own component, never a panel's", () => {
-  const PANELS = /\.dialog\b|\.colony\b|\.europe|#preferences|\[data-kind/;
+  const PANELS = /\.dialog\b|\.colony\b|\.europe(?!-entr)|#preferences|\[data-kind/;
   const reaching = Object.entries(componentSheets)
     .filter(([file]) => !PANEL_SHEETS.includes(file))
     .flatMap(([file, text]) =>
@@ -216,6 +216,7 @@ const MOVED: Record<string, RegExp> = {
   'buttons and tabs (button.css)': /^(button(:|\[| *$)|\[role='tablist'\])/,
   'pictures (pic.css)':
     /^(\.dialog \.pic(\.small)?|\.dialog \.hold \.pic\.small|\.dialog \.palette \.pic|\.shop-popup \.card \.pic|\.dialog \.goods-big)$/,
+  'unit chips, now three components (plan-pills.css, europe-entry.css, occupation-badge.css)': /(^|\s)\.chips?\b/,
   'button rows (button-row.css)':
     /^(\.dialog|\.error-banner|\.start-window|#preferences|\.dialog\[data-kind='europe'\])\s+\.buttons(\s+\[data-answer='close'\])?$/,
 };

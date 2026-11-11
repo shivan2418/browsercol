@@ -1,0 +1,58 @@
+/*
+ * A trade route stop's plan (PlanPills, src/plan-pills.tsx): small pills for the goods unloaded (red), loaded
+ * (green) and kept aboard (muted), each group after its arrow. Where the row sits in a stop (under the name, or on
+ * a phone under it in its own grid row) is the route panel's rule in index.html.
+ */
+@layer components {
+  :root {
+    --plan-pills-gap: 3px;
+    --plan-pills-min: 22px;
+    --plan-pill-pad: 1px 6px 1px 2px;
+    --plan-pill-gap: 2px;
+    --plan-pill-radius: 10px;
+    /* The room after a group, before the next. */
+    --plan-group-after: 6px;
+  }
+  .plan-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--plan-pills-gap);
+    min-height: var(--plan-pills-min);
+    align-items: center;
+  }
+  .plan-pills .muted {
+    font-size: var(--fs-s);
+  }
+  .plan-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--plan-pill-gap);
+    padding: var(--plan-pill-pad);
+    border-radius: var(--plan-pill-radius);
+    font-size: var(--fs-s);
+  }
+  .plan-pill[data-work='unload'] {
+    background: color-mix(in srgb, var(--bad) 22%, var(--box));
+    color: var(--bad);
+  }
+  .plan-pill[data-work='load'] {
+    background: color-mix(in srgb, var(--good) 22%, var(--box));
+    color: var(--good);
+  }
+  .plan-group {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--plan-pills-gap);
+    margin-right: var(--plan-group-after);
+  }
+  .plan-arrow {
+    color: var(--muted);
+    font-size: var(--fs-s);
+  }
+  .plan-pill[data-work='keep'] {
+    background: transparent;
+    color: var(--muted);
+    opacity: 0.7;
+  }
+}

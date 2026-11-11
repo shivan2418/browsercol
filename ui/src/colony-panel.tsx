@@ -45,6 +45,7 @@ import { ContextMenuContext, useContextMenu } from './popup-menu';
 import type { Buildable, BuildingTip, ColonyView, GoodsAmount as Goods, RebelTip, UnitRef } from './webgui';
 import { useCoverage } from './coverage';
 import './colony-tips.css';
+import { Occupation } from './occupation-badge';
 
 /** FreeCol's tile size, which the tiles of TilesPanel are laid out by. */
 const TILE_W = 128;
@@ -162,30 +163,6 @@ function Img({
 }) {
   const src = art(keys);
   return src === null ? null : <Tip as="img" className={className} src={src} alt={alt} tip={alt || undefined} />;
-}
-
-/** An Engine colour (0xRRGGBB, game data such as a nation's colour) as CSS. */
-const hex = (rgb: number) => `#${rgb.toString(16).padStart(6, '0')}`;
-/**
- * ImageLibrary.getOccupationIndicatorChip's colours, the owner's nation colour and the text drawn on it, as the
- * --nation and --nation-ink properties the chip's style reads.
- */
-const chipColours = (u: UnitRef) =>
-  u.rgb === undefined ? undefined : ({ '--nation': hex(u.rgb), '--nation-ink': hex(u.fg ?? 0) } as CSSProperties);
-
-/** UnitLabel's occupation chip, and for a damaged unit its repair status in red; only units outside the colony and ships in port have them. */
-function Occupation({ u }: { u: UnitRef }) {
-  if (!u.occupation && !u.repair) return null;
-  return (
-    <>
-      {u.occupation && (
-        <Tip as="span" className="chip" tip={u.occupationFull} style={chipColours(u)}>
-          {u.occupation}
-        </Tip>
-      )}
-      {u.repair && <span className="repair">{u.repair}</span>}
-    </>
-  );
 }
 
 /**
