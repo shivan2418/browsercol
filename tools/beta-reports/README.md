@@ -13,36 +13,35 @@ Agents never run these: they need AWS credentials.
 
 ## Setup, once
 
-1. In the BrowserCol AWS account (never work's), make an IAM user, say
-   `browsercol-review`, with only this inline policy (#371 step 6), the
-   bucket name filled in:
+1. The relay's deploy user in the BrowserCol AWS account (never work's),
+   profile `browsercol`, already lists the bucket through
+   `relay/deploy-policy.json`. Give it this extra inline policy (#371 step 6)
+   so it can read, move and delete reports:
 
    ```json
    {
      "Version": "2012-10-17",
      "Statement": [
-       { "Effect": "Allow", "Action": "s3:ListBucket", "Resource": "arn:aws:s3:::BUCKET" },
        {
          "Effect": "Allow",
          "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
-         "Resource": "arn:aws:s3:::BUCKET/*"
+         "Resource": "arn:aws:s3:::browsercol-feedback-relay-reports-*/*"
        }
      ]
    }
    ```
 
-   The bucket is the relay stack's `Reports` resource
-   (`browsercol-feedback-relay-reports-...`; the stack's Resources tab in the
-   CloudFormation console names it).
+   If it ever lacks `s3:ListBucket` on the bucket itself
+   (`arn:aws:s3:::browsercol-feedback-relay-reports-*`), add that too.
+   Optionally, a separate IAM user with only these permissions keeps report
+   handling apart from deploys; give it its own profile and use that below.
 
-2. Make an access key for the user and add it as a profile:
-   `aws configure --profile browsercol-review` (or write the
-   `[browsercol-review]` section of `~/.aws/credentials` by hand).
-
-3. Copy `config.env.example` to `config.env` (gitignored) and fill in the
-   profile, the stack's region and the bucket. Or set `BETA_AWS_PROFILE`,
-   `BETA_AWS_REGION` and `BETA_BUCKET` in the environment, which wins over
-   the file.
+2. Copy `config.env.example` to `config.env` (gitignored) and fill in the
+   profile (`browsercol`), the stack's region and the bucket, the relay
+   stack's `Reports` resource (`browsercol-feedback-relay-reports-...`; the
+   stack's Resources tab in the CloudFormation console names it). Or set
+   `BETA_AWS_PROFILE`, `BETA_AWS_REGION` and `BETA_BUCKET` in the
+   environment, which wins over the file.
 
 The scripts refuse the profiles `default`, `dev` and `prod`, and any profile
 whose `~/.aws/config` section has `sso_session = herasight`.
