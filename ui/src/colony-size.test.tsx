@@ -55,14 +55,14 @@ function colony(outside: number, ships: number, cargo: number, stacks: number): 
 
 describe('the colony window keeps one size', () => {
   for (const part of ['outside', 'cargo', 'port', 'warehouse']) {
-    it(`gives the ${part} box a height of its own, and scrolls what does not fit`, () => {
+    it(`gives the ${part} box a height of its own, and scrolls what does not fit (the warehouse's line always fits)`, () => {
       const css = declared(`.colony .${part}`);
       // The box's height, not the content's: a fixed length or a token holding one, and no min-height to grow from.
       expect(css.height, 'height').toMatch(/^(\d+px|var\(--colony-[\w-]+\))$/);
       expect(css['min-height']).toBeUndefined();
       expect(css['max-height']).toBeUndefined();
       expect(css['box-sizing']).toBe('border-box');
-      expect(css['overflow-y']).toBe('auto');
+      expect(css['overflow-y']).toBe(part === 'warehouse' ? 'hidden' : 'auto');
     });
   }
 

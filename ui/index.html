@@ -1704,7 +1704,8 @@
         /* The caption's block, the 6px row gap under it (the boxes' gap), the padding at the bottom and the border. */
         --colony-box-frame: calc(var(--box-cap-block) + 6px + var(--box-pad) + 2 * var(--box-border));
         --colony-row: calc(85px + 0.2em + var(--colony-box-frame));
-        --colony-warehouse: calc(28px + 1.5em + var(--colony-box-frame));
+        /* 4px over the measured line, so the rounding of a window scaled to fit the screen never makes it scroll. */
+        --colony-warehouse: calc(32px + 1.5em + var(--colony-box-frame));
         display: grid;
         grid-template-columns: 1fr 400px;
         gap: 6px;
@@ -2018,8 +2019,10 @@
       .colony .outside {
         height: var(--colony-row);
       }
+      /* The warehouse holds one line of every goods, in a window of fixed width, so it never needs to scroll. */
       .colony .warehouse {
         height: var(--colony-warehouse);
+        overflow-y: hidden;
       }
       .colony .upper .buttons {
         width: 100%;
