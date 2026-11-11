@@ -62,6 +62,15 @@ describe('ErrorBanner', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Show log' }));
     expect(shown).toBe(1);
   });
+  it('offers Report this, which opens the feedback window, when it can', () => {
+    const errors = addError([], 'Ending turn 3', 'trace');
+    const { rerender } = render(<ErrorBanner errors={errors} dismiss={() => {}} />);
+    expect(screen.queryByRole('button', { name: 'Report this' })).toBeNull();
+    let reported = 0;
+    rerender(<ErrorBanner errors={errors} dismiss={() => {}} report={() => reported++} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Report this' }));
+    expect(reported).toBe(1);
+  });
   it('gives the errors as text for a bug report', () => {
     expect(errorText(addError(addError([], 'a', 'x'), 'b', 'y'))).toBe('a\nx\n\nb\ny');
   });

@@ -55,11 +55,14 @@ export function ErrorBanner({
   errors,
   dismiss,
   showLog,
+  report,
 }: {
   errors: readonly GameError[];
   dismiss: () => void;
   /** Open the Engines' log (FreeCol's error panel has "Show log file"). */
   showLog?: () => void;
+  /** Open the Send feedback window as a bug with these errors (#369). */
+  report?: () => void;
 }) {
   const [copied, setCopied] = useState(false);
   if (errors.length === 0) return null;
@@ -89,6 +92,11 @@ export function ErrorBanner({
       </ul>
       <ButtonRow space="flush">
         <button onClick={copy}>{copied ? 'Copied' : 'Copy details'}</button>
+        {report && (
+          <button data-report-this onClick={report}>
+            Report this
+          </button>
+        )}
         {showLog && <button onClick={showLog}>Show log</button>}
         <button onClick={() => location.reload()}>Reload</button>
         <button onClick={dismiss}>Dismiss</button>

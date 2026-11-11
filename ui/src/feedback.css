@@ -1,0 +1,207 @@
+/*
+ * The Send feedback window and the Beta tag (feedback-dialog.tsx, #369), on the colour and spacing tokens only
+ * (ADR 0004, 0008). The window is over the error banner it may be opened from (z-index 1000), and over the log.
+ */
+@layer components {
+  :root {
+    --feedback-field-gap: var(--space-4);
+    --feedback-preview-height: 12em;
+    /* The Beta tag: in the page's corner, over the map and the start screen. */
+    --beta-tag-pad: var(--space-2) var(--space-4);
+    --beta-tag-inset: var(--space-4);
+    /* Under the menu bar (33px at its tallest), clear of the minimap and the info panel at the bottom. */
+    --beta-tag-top: calc(33px + var(--space-4));
+  }
+  .modal:has(#feedback) {
+    z-index: 1002;
+  }
+  #feedback {
+    max-width: min(36em, calc(var(--screen-w) * 0.94));
+    /* Taller than a dialog: its form is long, and the buttons are in sight under it. */
+    max-height: calc(var(--screen-h) * 0.94);
+  }
+  #feedback > .body {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .feedback-form {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: var(--feedback-field-gap);
+    min-height: 0;
+  }
+  /* The fields, and what will be sent: one under the other, and side by side where the screen is wide. */
+  .feedback-scroll {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: var(--feedback-field-gap);
+    min-height: 0;
+    padding-right: var(--space-2);
+    overflow-y: auto;
+  }
+  .feedback-inputs {
+    display: flex;
+    flex-direction: column;
+    gap: var(--feedback-field-gap);
+  }
+  @media (min-width: 900px) {
+    #feedback {
+      max-width: min(58em, calc(var(--screen-w) * 0.94));
+    }
+    .feedback-scroll {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      align-items: start;
+    }
+    .feedback-preview {
+      position: sticky;
+      top: 0;
+    }
+  }
+  .feedback-form > .buttons {
+    margin-top: 0;
+  }
+  .feedback-kind {
+    display: flex;
+    gap: var(--space-6);
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+  .feedback-kind label {
+    display: flex;
+    align-items: center;
+    gap: var(--control-label-gap);
+  }
+  .feedback-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    color: var(--head);
+    font-weight: 700;
+  }
+  .feedback-field input,
+  .feedback-field textarea {
+    box-sizing: border-box;
+    width: 100%;
+    padding: var(--space-3) var(--space-4);
+    font-weight: 400;
+    resize: vertical;
+  }
+  .feedback-attachments {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    margin: 0;
+    padding: var(--space-3) var(--space-5) var(--space-4);
+    border: var(--border) solid var(--line);
+  }
+  .feedback-attachments legend {
+    padding: 0 var(--space-2);
+    color: var(--head);
+    font-size: var(--caption-size);
+    font-weight: var(--caption-weight);
+    letter-spacing: var(--caption-tracking);
+    text-transform: var(--caption-case);
+  }
+  .feedback-attach {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+  }
+  .feedback-note {
+    overflow-wrap: anywhere;
+  }
+  .feedback-preview {
+    box-sizing: border-box;
+    padding: var(--space-3) var(--space-5);
+    background: var(--box);
+    border: var(--border) solid var(--line);
+  }
+  .feedback-preview h3 {
+    margin: 0 0 var(--space-3);
+    color: var(--head);
+    font-size: var(--caption-size);
+    letter-spacing: var(--caption-tracking);
+    text-transform: var(--caption-case);
+  }
+  .feedback-preview dl {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: var(--space-2) var(--space-5);
+    margin: 0;
+  }
+  .feedback-preview dt {
+    color: var(--muted);
+  }
+  .feedback-preview dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+  .feedback-text {
+    white-space: pre-wrap;
+  }
+  .feedback-preview pre {
+    max-height: var(--feedback-preview-height);
+    margin: var(--space-2) 0 0;
+    padding: var(--space-3);
+    overflow: auto;
+    background: var(--panel);
+    font: var(--fs-s) / 1.3 var(--font-mono);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .feedback-privacy,
+  .feedback-failed,
+  .feedback-thanks p {
+    margin: 0;
+  }
+  .feedback-failed {
+    color: var(--bad);
+  }
+  .feedback-thanks {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    margin-bottom: var(--space-5);
+  }
+  .feedback-reference {
+    padding: 0 var(--space-3);
+    background: var(--box);
+    border: var(--border) solid var(--line);
+    font-family: var(--font-mono);
+    letter-spacing: 0.08em;
+    user-select: all;
+  }
+  /* "Beta · Send feedback", the corner tag. */
+  .beta-tag {
+    position: fixed;
+    top: var(--beta-tag-top);
+    right: var(--beta-tag-inset);
+    z-index: 1;
+    padding: var(--beta-tag-pad);
+    color: var(--menubar-ink);
+    background: var(--menubar);
+    border: var(--border) solid var(--line);
+    border-radius: var(--radius-s);
+    font-size: var(--fs-s);
+    cursor: pointer;
+  }
+  /* Over the start screen (z-index 10), but not over a window: the tag hides while one is open. */
+  body:has(.start) .beta-tag {
+    z-index: 11;
+  }
+  body:has(.modal) .beta-tag {
+    display: none;
+  }
+  .beta-tag b {
+    letter-spacing: var(--caption-tracking);
+    text-transform: var(--caption-case);
+  }
+  .beta-tag:hover {
+    border-color: var(--menubar-ink);
+  }
+}
