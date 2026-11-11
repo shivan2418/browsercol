@@ -1618,7 +1618,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
           </aside>
         </div>
         <Box className="market" data-list="market" {...dropTargetProps('market', onMarket)}>
-          <div className="goods">
+          <div className="market-goods">
             {e.market.map((g) => {
               // A boycotted goods is still a button with a ship in port: buying it asks to pay the
               // arrears, as Swing's MarketLabel does.

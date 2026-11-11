@@ -1330,12 +1330,6 @@
           grid-column: 2 / -1;
         }
       }
-      .dialog .goods {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(8em, 1fr));
-        gap: 4px;
-        margin-top: 8px;
-      }
       .dialog .error {
         color: var(--bad);
       }
@@ -1474,10 +1468,20 @@
         border-radius: 4px;
         box-sizing: border-box;
       }
-      .europe-body .goods {
+      /* The market's goods, eight to a row (it took bold, centred rows and 24px pictures from GoodsAmount's rules by its class name). */
+      .europe-body .market-goods {
         display: grid;
         grid-template-columns: repeat(8, 1fr);
         gap: 4px 8px;
+        margin-top: 8px;
+        align-items: center;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+      }
+      .europe-body .market-goods img {
+        width: 24px;
+        height: 24px;
+        object-fit: contain;
       }
       .europe-body .good {
         display: flex;
@@ -1629,16 +1633,15 @@
       /* Buildings fill the left; the right column holds the population, tiles, production, construction and port; units outside and the warehouse run along the bottom. */
       .colony .cbody {
         /*
-         * The fixed heights of the boxes that hold units and goods (see .colony .outside): the content (a row is
-         * the tallest unit, a mounted scout or dragoon, with its label, and the warehouse's goods with their amounts, sized by art plus text (in em, so a larger font still fits) as measured with box-shots.ts --sizes 1; the warehouse's is a line of
-         * goods) with the caption, the padding and the border round it. A caption that wraps takes more of it, and
-         * the box scrolls.
+         * The fixed heights of the boxes that hold units (see .colony .outside): the content (a row is the tallest
+         * unit, a mounted scout or dragoon, with its label, sized by art plus text, in em so a larger font still
+         * fits, as measured with box-shots.ts --sizes 1) with the caption, the padding and the border round it. A
+         * caption that wraps takes more of it, and the box scrolls. The warehouse has no height of its own: it holds
+         * one line of every goods type, so its content is always the same height, and it never scrolls.
          */
         /* The caption's block, the 6px row gap under it (the boxes' gap), the padding at the bottom and the border. */
         --colony-box-frame: calc(var(--box-cap-block) + 6px + var(--box-pad) + 2 * var(--box-border));
         --colony-row: calc(85px + 0.2em + var(--colony-box-frame));
-        /* 4px over the measured line, so the rounding of a window scaled to fit the screen never makes it scroll. */
-        --colony-warehouse: calc(32px + 1.5em + var(--colony-box-frame));
         display: grid;
         grid-template-columns: 1fr 400px;
         gap: 6px;
@@ -1914,14 +1917,13 @@
         gap: 4px;
       }
       /*
-       * In port beside the cargo of the ship chosen there, then the units outside, then the warehouse. A window must
-       * not change size with what is in it: each of these boxes has the one height FreeCol's scroll panes
-       * give it, and more than fits wraps and scrolls inside the box.
+       * In port beside the cargo of the ship chosen there, then the units outside. A window must not change size with
+       * what is in it: each of these boxes has the one height FreeCol's scroll panes give it, and more than fits
+       * wraps and scrolls inside the box. (The warehouse is below: a line of every goods, with no height of its own.)
        */
       .colony .port,
       .colony .cargo,
-      .colony .outside,
-      .colony .warehouse {
+      .colony .outside {
         box-sizing: border-box;
         display: flex;
         flex-wrap: wrap;
@@ -1935,11 +1937,6 @@
       .colony .cargo,
       .colony .outside {
         height: var(--colony-row);
-      }
-      /* The warehouse holds one line of every goods, in a window of fixed width, so it never needs to scroll. */
-      .colony .warehouse {
-        height: var(--colony-warehouse);
-        overflow-y: hidden;
       }
       .colony .upper .buttons {
         width: 100%;
@@ -1956,15 +1953,25 @@
       .colony .cargo {
         grid-column: 2;
       }
+      /* The warehouse: its caption, then one line of every goods, each its icon and number side by side. The box has no height of its own, and never scrolls. */
       .colony .warehouse {
         grid-column: 1 / -1;
-        gap: 6px 14px;
-        justify-content: space-between;
+        box-sizing: border-box;
+        min-width: 0;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+        overflow: hidden;
       }
-      /* The dialogs' goods grid (.dialog .goods) is not the colony's: a goods amount stays as wide as it is. */
-      .colony .goods {
-        display: inline-flex;
-        margin-top: 0;
+      /* Never a second line (the box has no height of its own to grow into): the goods share the width, and the room between them is what is left. */
+      .colony .warehouse-line {
+        flex: 1 1 100%;
+        min-width: 0;
+        display: flex;
+        flex-wrap: nowrap;
+        align-items: center;
+        justify-content: space-between;
       }
 
       /* At less weight than the selected look, so a picked ship shows it. */
@@ -2097,12 +2104,6 @@
       }
       .colony .queue-body li[data-drag] {
         cursor: grab;
-      }
-      .colony .warehouse {
-        align-items: center;
-      }
-      .colony .stored .goods {
-        flex-direction: column;
       }
       .colony .stored[data-over='true'] .goods {
         color: var(--bad);

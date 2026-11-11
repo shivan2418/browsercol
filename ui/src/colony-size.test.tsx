@@ -54,15 +54,15 @@ function colony(outside: number, ships: number, cargo: number, stacks: number): 
 }
 
 describe('the colony window keeps one size', () => {
-  for (const part of ['outside', 'cargo', 'port', 'warehouse']) {
-    it(`gives the ${part} box a height of its own, and scrolls what does not fit (the warehouse's line always fits)`, () => {
+  for (const part of ['outside', 'cargo', 'port']) {
+    it(`gives the ${part} box a height of its own, and scrolls what does not fit`, () => {
       const css = declared(`.colony .${part}`);
       // The box's height, not the content's: a fixed length or a token holding one, and no min-height to grow from.
       expect(css.height, 'height').toMatch(/^(\d+px|var\(--colony-[\w-]+\))$/);
       expect(css['min-height']).toBeUndefined();
       expect(css['max-height']).toBeUndefined();
       expect(css['box-sizing']).toBe('border-box');
-      expect(css['overflow-y']).toBe(part === 'warehouse' ? 'hidden' : 'auto');
+      expect(css['overflow-y']).toBe('auto');
     });
   }
 
@@ -72,7 +72,16 @@ describe('the colony window keeps one size', () => {
     // follows the font and not what is in the box.
     const fixed = /^(\d+px|calc\(\d+px( \+ [\d.]+em)? \+ var\(--colony-box-frame\)\))$/;
     expect(css['--colony-row']).toMatch(fixed);
-    expect(css['--colony-warehouse']).toMatch(fixed);
+  });
+
+  // The warehouse always holds one line of every goods type, so its content is the same height whatever is stored.
+  // A length of its own could never be sure to fit it at every font size and zoom, and a box that scrolls hides goods:
+  // so it takes its height from its content, and never shows a scroll bar (#449).
+  it('gives the warehouse no height of its own, and never scrolls it', () => {
+    const css = declared('.colony .warehouse');
+    for (const p of ['height', 'min-height', 'max-height']) expect(css[p], p).toBeUndefined();
+    for (const p of ['overflow', 'overflow-y']) expect(css[p] ?? 'hidden', p).not.toMatch(/auto|scroll/);
+    expect(declared('.colony .cbody')['--colony-warehouse']).toBeUndefined();
   });
 
   it('keeps the outside and cargo boxes in one row, so they have the one height', () => {

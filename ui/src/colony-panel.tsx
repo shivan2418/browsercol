@@ -641,18 +641,20 @@ function Warehouse({ c, art }: { c: ColonyView; art: Art }) {
       data-drop={target ? '' : undefined}
       {...target}
     >
-      {c.warehouse.goods.map((g) => (
-        <MovableGoods
-          key={g.type}
-          g={g}
-          art={art}
-          at={c.id}
-          market={c.market}
-          className="stored"
-          item={{ kind: 'goods', from: 'warehouse', type: g.type, ask: false }}
-          over={g.over}
-        />
-      ))}
+      <div className="warehouse-line">
+        {c.warehouse.goods.map((g) => (
+          <MovableGoods
+            key={g.type}
+            g={g}
+            art={art}
+            at={c.id}
+            market={c.market}
+            className="stored"
+            item={{ kind: 'goods', from: 'warehouse', type: g.type, ask: false }}
+            over={g.over}
+          />
+        ))}
+      </div>
     </Box>
   );
 }
