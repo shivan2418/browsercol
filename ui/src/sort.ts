@@ -5,6 +5,10 @@
 // everything back. Near the edge of the window that scrolls the list, the
 // window scrolls.
 //
+// A list is a column of items of any height, as the trade route's stops, or
+// a grid of items of one size that may wrap, as a leg's holds: there an item
+// follows the pointer both ways and the others step into each other's places.
+//
 // This is not drag.ts's lane: there a thing is carried onto a place that takes
 // it, here the list itself moves. Both count as a drag (drag.ts, dragging), so
 // Escape closes no window and no hint shows.
@@ -34,10 +38,14 @@ interface Sort {
   bottoms: number[];
   /** The space between two items. */
   gap: number;
+  /** A grid's slots: the middle of each item on the screen as the lift starts; null for a column. */
+  slots: { x: number[]; y: number[] } | null;
   /** The UI scale (CSS zoom) of the list: transforms are in its pixels, the pointer in the screen's. */
   zoom: number;
+  x: number;
   y: number;
-  /** The pointer's screen y as the press started, and the scroll of the window that scrolls the list. */
+  /** The pointer on the screen as the press started, and the scroll of the window that scrolls the list. */
+  startX: number;
   startY: number;
   scroller: HTMLElement | null;
   startScroll: number;
@@ -45,7 +53,22 @@ interface Sort {
   move: (from: number, to: number) => void;
 }
 
-let press: { list: HTMLElement; index: number; x: number; y: number; move: Sort['move'] } | null = null;
+/** How a list is laid out, and which of its children are its items. */
+export interface SortOptions {
+  /** Items of one size that may wrap: they move both ways. A column by default. */
+  grid?: boolean;
+  /** The list's items, as a selector of its children; all of them by default. */
+  items?: string;
+}
+
+let press: {
+  list: HTMLElement;
+  index: number;
+  x: number;
+  y: number;
+  move: Sort['move'];
+  options: SortOptions;
+} | null = null;
 let sort: Sort | null = null;
 /** An item that was lifted and is still settling: its list changes order once it is in its gap. */
 let settling: ReturnType<typeof setTimeout> | null = null;
@@ -61,8 +84,8 @@ function scrollerOf(el: HTMLElement): HTMLElement | null {
   return null;
 }
 
-const shift = (el: HTMLElement, px: number, zoom: number) => {
-  el.style.transform = px === 0 ? '' : `translateY(${px / zoom}px)`;
+const shift = (el: HTMLElement, dx: number, dy: number, zoom: number) => {
+  el.style.transform = dx === 0 && dy === 0 ? '' : `translate(${dx / zoom}px, ${dy / zoom}px)`;
 };
 
 /** How far, in screen pixels, the pointer has taken the lifted item from where it was. */
@@ -78,8 +101,29 @@ function gapAt(s: Sort, to: number) {
   return to > s.from ? px : -px;
 }
 
+/** The slot an item at j takes while the lifted one is held over `to`: the one next to it, for those it passed. */
+const slotOf = (s: Sort, j: number) => (j > s.from && j <= s.to ? j - 1 : j < s.from && j >= s.to ? j + 1 : j);
+
+/** Where the lifted item of a grid would go: the slot nearest its middle; the others step aside. */
+function layoutGrid(s: Sort, slots: NonNullable<Sort['slots']>) {
+  const dx = s.x - s.startX;
+  const dy = offset(s);
+  const x = slots.x[s.from] + dx;
+  const y = slots.y[s.from] + dy;
+  const far = (k: number) => Math.hypot(x - slots.x[k], y - slots.y[k]);
+  let to = s.from;
+  for (let k = 0; k < s.items.length; k++) if (far(k) < far(to)) to = k;
+  s.to = to;
+  s.items.forEach((el, j) => {
+    if (j === s.from) return shift(el, dx, dy, s.zoom);
+    const k = slotOf(s, j);
+    shift(el, slots.x[k] - slots.x[j], slots.y[k] - slots.y[j], s.zoom);
+  });
+}
+
 /** Where the lifted item, moved by dy, would go, and the other items out of its way. */
 function layout(s: Sort) {
+  if (s.slots) return layoutGrid(s, s.slots);
   const dy = offset(s);
   // The lifted item goes to the gap nearest where it is held, which items of any height make the same way.
   let to = s.from;
@@ -89,8 +133,8 @@ function layout(s: Sort) {
   s.to = to;
   const h = room(s, s.from);
   s.items.forEach((el, j) => {
-    if (j === s.from) return shift(el, dy, s.zoom);
-    shift(el, j > s.from && j <= to ? -h : j < s.from && j >= to ? h : 0, s.zoom);
+    if (j === s.from) return shift(el, 0, dy, s.zoom);
+    shift(el, 0, j > s.from && j <= to ? -h : j < s.from && j >= to ? h : 0, s.zoom);
   });
 }
 
@@ -111,7 +155,9 @@ function edgeScroll() {
 }
 
 function lift(p: NonNullable<typeof press>) {
-  const items = Array.from(p.list.children) as HTMLElement[];
+  const items = Array.from(p.list.children).filter(
+    (el) => !p.options.items || el.matches(p.options.items),
+  ) as HTMLElement[];
   const boxes = items.map((el) => el.getBoundingClientRect());
   const scroller = scrollerOf(p.list);
   sort = {
@@ -122,8 +168,13 @@ function lift(p: NonNullable<typeof press>) {
     tops: boxes.map((b) => b.top),
     bottoms: boxes.map((b) => b.bottom),
     gap: boxes.length > 1 ? Math.max(0, boxes[1].top - boxes[0].bottom) : 0,
+    slots: p.options.grid
+      ? { x: boxes.map((b) => (b.left + b.right) / 2), y: boxes.map((b) => (b.top + b.bottom) / 2) }
+      : null,
     zoom: (p.list as HTMLElement & { currentCSSZoom?: number }).currentCSSZoom ?? 1,
+    x: p.x,
     y: p.y,
+    startX: p.x,
     startY: p.y,
     scroller,
     startScroll: scroller?.scrollTop ?? 0,
@@ -145,6 +196,7 @@ function moving(e: PointerEvent) {
     lift(press);
   }
   const s = sort!;
+  s.x = e.clientX;
   s.y = e.clientY;
   layout(s);
   if (!s.frame) s.frame = requestAnimationFrame(edgeScroll);
@@ -162,8 +214,10 @@ function settle(commit: boolean) {
   const lifted = s.items[s.from];
   const quick = reduced();
   lifted.style.transition = quick ? 'none' : `transform ${SLIDE_MS}ms ease`;
-  shift(lifted, gapAt(s, to), s.zoom);
-  if (!commit) s.items.forEach((el) => shift(el, 0, s.zoom));
+  s.to = to;
+  if (s.slots) shift(lifted, s.slots.x[to] - s.slots.x[s.from], s.slots.y[to] - s.slots.y[s.from], s.zoom);
+  else shift(lifted, 0, gapAt(s, to), s.zoom);
+  if (!commit) s.items.forEach((el, j) => j !== s.from && shift(el, 0, 0, s.zoom));
   const done = () => {
     settling = null;
     // The new order and the items back in their places in one frame, so nothing jumps.
@@ -221,14 +275,16 @@ export const sortBusy = () => sort !== null || settling !== null;
  * The props of an item's handle in a list that can be reordered: the item is the list's child that holds
  * the handle, and the list is the element `list` names.
  *
- * @param index The item's place in the list.
+ * @param index The item's place among the list's items.
  * @param list The list, from the handle.
  * @param move Put the item at `from` at `to`.
+ * @param options The list's layout, and which of its children are its items.
  */
 export function sortHandle(
   index: number,
   list: (handle: HTMLElement) => HTMLElement | null,
   move: (from: number, to: number) => void,
+  options: SortOptions = {},
 ) {
   return {
     'data-sort': '',
@@ -238,7 +294,7 @@ export function sortHandle(
       if (!l) return;
       // A touch captures the pointer where it pressed; the moves are wanted wherever they go.
       if (e.pointerType === 'touch') (e.target as Element).releasePointerCapture?.(e.pointerId);
-      press = { list: l, index, x: e.clientX, y: e.clientY, move };
+      press = { list: l, index, x: e.clientX, y: e.clientY, move, options };
       addEventListener('pointermove', moving, true);
       addEventListener('pointerup', released, true);
       addEventListener('pointercancel', cancelled, true);

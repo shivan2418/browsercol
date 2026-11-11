@@ -6,7 +6,7 @@ import { jamestown } from './colony-fixture';
 import { DebugContext } from './debug';
 import { dialogs } from './dialogs';
 import { dragOnto } from './drag.testing';
-import { sortBy } from './sort.testing';
+import { slideBy, sortBy } from './sort.testing';
 import { europeButtons, showEurope } from './europe-client';
 import { CopyDetailsContext, ShowLogContext } from './log';
 import { ContextMenuContext, type ContextMenus } from './popup-menu';
@@ -2079,8 +2079,8 @@ describe('the trade routes panel', () => {
       // Europe, edited, is dragged down past Jamestown: the others slide up out of its way as it goes.
       const settle = sortBy(stopAt(0), 2, () => {
         expect(stopAt(0).closest('.vitem')!.classList.contains('lifted')).toBe(true);
-        expect((stopAt(1).closest('.vitem') as HTMLElement).style.transform).toBe('translateY(-100px)');
-        expect((stopAt(2).closest('.vitem') as HTMLElement).style.transform).toBe('translateY(-100px)');
+        expect((stopAt(1).closest('.vitem') as HTMLElement).style.transform).toBe('translate(0px, -100px)');
+        expect((stopAt(2).closest('.vitem') as HTMLElement).style.transform).toBe('translate(0px, -100px)');
       });
       // The order changes once Europe has settled in its gap; the release clicks no button.
       expect(stopAt(0).textContent).toContain('Europe');
@@ -2151,6 +2151,31 @@ describe('the trade routes panel', () => {
     expect(selected()).toBe('tradeRoute:1');
     act(() => void fireEvent.doubleClick(screen.getByRole('option', { name: 'Rum run' })));
     expect((screen.getByRole('textbox', { name: 'Name' }) as HTMLInputElement).value).toBe('Rum run');
+  });
+
+  it('drags a hold along the leg to load its goods sooner, and the release empties nothing', () => {
+    const saved = threeStops();
+    // Europe's leg: tools, then two holds of furs.
+    const leg = () => legAt(0)!;
+    const held = () => Array.from(leg().querySelectorAll('[data-held]')).map((h) => h.getAttribute('data-held'));
+    act(() => void fireEvent.click(within(leg()).getByRole('button', { name: 'Furs' })));
+    act(() => void fireEvent.click(within(leg()).getByRole('button', { name: 'Furs' })));
+    expect(held()).toEqual([T, F, F]);
+    vi.useFakeTimers();
+    try {
+      const holds = () => leg().querySelectorAll('[data-held]');
+      // The last furs go first: the tools and the other furs step right into the next holds as it passes them.
+      const settle = slideBy(holds()[2], '[data-held]', -2, () => {
+        expect((holds()[0] as HTMLElement).style.transform).toBe('translate(100px, 0px)');
+        expect((holds()[1] as HTMLElement).style.transform).toBe('translate(100px, 0px)');
+      });
+      act(() => void vi.advanceTimersByTime(settle));
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(held()).toEqual([F, T, F]);
+    press('OK');
+    expect(saved[0].stops[0].cargo).toEqual([F, T, F]);
   });
 
   it('disables Add Stop once the route has a stop for every place', async () => {

@@ -1268,6 +1268,11 @@
       .dialog .voyage.sorting .vitem {
         will-change: transform;
       }
+      /* A hold lifted to load its goods sooner or later rides over the others, which step into its place. */
+      .dialog .holds .lifted {
+        z-index: 1;
+        box-shadow: 0 4px 10px rgb(0 0 0 / 0.35);
+      }
       .dialog .vitem.lifted {
         z-index: 1;
         background: var(--panel);
