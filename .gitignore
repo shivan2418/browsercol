@@ -6,3 +6,6 @@ build/
 /dist/
 /ui/generated/
 node_modules/
+# Beta reports pulled from S3 (#372) and the local config for pulling them
+/beta-reports/
+/tools/beta-reports/config.env
