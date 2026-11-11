@@ -1231,6 +1231,10 @@
       .dialog .vitem {
         position: relative;
       }
+      /* A touch on a stop's row drags it rather than scrolling the window; its leg still scrolls. */
+      .dialog [data-sort] {
+        touch-action: none;
+      }
       .dialog .voyage.sorting .vitem {
         will-change: transform;
       }
