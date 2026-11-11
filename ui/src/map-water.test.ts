@@ -388,6 +388,21 @@ describe('waterField', () => {
     expect(seen.has(end)).toBe(true);
   });
 
+  it('patches a coast explored on a big map like a fresh field, as far as the shore distance reaches (#411)', () => {
+    // 20 by 60 tiles of ocean, a land block explored later: the shore distance reaches 192 map pixels, which is more
+    // texel rows than columns, a recipe's texels being half as tall.
+    const [bw, bh] = [20, 60];
+    const land = (k: number) => k % bw >= 8 && k % bw < 12 && Math.floor(k / bw) >= 24 && Math.floor(k / bw) < 36;
+    const unexplored = Array.from({ length: bw * bh }, (_, k) => (land(k) ? '.' : 'B')).join('');
+    const explored = Array.from({ length: bw * bh }, (_, k) => (land(k) ? 'A' : 'B')).join('');
+    const big = { w: bw, h: bh, types: map.types, tiles: unexplored };
+    const before = waterField(big, texel, () => 0, null, 'signed', recipe);
+    const patched = waterField({ ...big, tiles: explored }, texel, () => 0, before, 'signed', recipe);
+    const fresh = waterField({ ...big, tiles: explored }, texel, () => 0, null, 'signed', recipe);
+    expect(patched.data).toEqual(fresh.data);
+    expect(patched.climate).toEqual(fresh.climate);
+  });
+
   it('blends cold and temperate coasts continuously and patches exploration like a fresh field', () => {
     const types = [...map.types, { id: 'model.tile.tundra', land: true, forested: false, name: 'Tundra' }];
     const tiles = Array.from({ length: w * h }, (_, k) => (Math.floor(k / w) < 3 ? (k % w < 4 ? 'E' : 'A') : 'B')).join(
