@@ -6,12 +6,15 @@
 // and --font set the UI scale and the font size (the Preferences' display scaling and font size) for a second pass.
 // Run against dist/ (the negotiation windows are the diplomacy scenario's, scenarios.ts --only diplomacy):
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/box-shots.ts [--browsers chromium,firefox] [--tag before|after]
-//     [--save PATH.fsg | --preset NAME] [--long 1] [--widest 1] [--zoom 1.5] [--font 1.5]
+//     [--save PATH.fsg | --preset NAME] [--long 1] [--widest 1] [--zoom 1.5] [--font 1.5] [--rows 1|2]
+// --rows leaves one row (or two) of items in the colony's outside, port and cargo boxes, and the boxes' scroll bars
+// are measured on that: one row must not scroll, two must (the outside and port boxes; a box with nothing in it is skipped). For
+// two rows, copies are added until the box scrolls, which for the cargo's small goods takes more than two lines.
 // --widest sets every amount in the colony's warehouse to 300 and checks nothing is cut off or scrolls, and that at the
 // default font it is one row (a bigger font may wrap it to a second, and the box grows).
 import fs from 'node:fs';
 import path from 'node:path';
-import type { Page } from 'playwright-core';
+import type { Locator, Page } from 'playwright-core';
 import { browserNames, collectPageErrors, launchBrowser, opt, waitForResult } from './common.ts';
 import { answerDialogs } from './dialogs.ts';
 import { serveDist } from './serve-dist.ts';
@@ -25,6 +28,8 @@ const font = opt('font', '');
 const sizes = opt('sizes', '') !== '';
 /** Lengthen the colony's captions to what a long ship name or another language makes of them (--long). */
 const long = opt('long', '') !== '';
+/** Show this many rows of units in the colony's outside, port and cargo boxes (--rows 1 or 2): one item, or enough copies to wrap. */
+const rows = Number(opt('rows', '0'));
 /** Make every amount in the colony's warehouse 300, the widest the game shows (--widest). */
 const widest = opt('widest', '') !== '';
 const dir = path.resolve(import.meta.dirname, '../../.cache/box-shots');
@@ -55,8 +60,13 @@ const captions = (page: Page) =>
       });
       const lines = Math.round(r.height / parseFloat(getComputedStyle(cap).lineHeight));
       // A fixed-height box whose content does not fit scrolls: by how many pixels.
-      const overflow = Math.max(0, b.scrollHeight - b.clientHeight);
-      // The tallest item in the box and the caption's height, to size the boxes' fixed heights by.
+      // The colony's unit boxes scroll in their list (.row-list), the others in the box itself.
+      const overflow = Math.max(
+        0,
+        b.scrollHeight - b.clientHeight,
+        ...[...b.querySelectorAll<HTMLElement>('.row-list')].map((l) => l.scrollHeight - l.clientHeight),
+      );
+      // The tallest item in the box and the caption's height (the row's template is what sizes the unit boxes).
       const tallest = Math.max(
         0,
         ...[...b.children].filter((c) => c !== cap).map((c) => (c as HTMLElement).offsetHeight),
@@ -91,6 +101,29 @@ const warehouse = (page: Page) =>
     };
   });
 
+/** Leave one row of items in each of the colony's unit boxes, or two (copies of its last item, made until the list wraps). */
+const fillRows = (win: Locator) =>
+  win.evaluate(async (_win, n: number) => {
+    const counts: string[] = [];
+    const frame = () => new Promise((ok) => requestAnimationFrame(ok));
+    for (const part of ['outside', 'port', 'cargo']) {
+      const box = document.querySelector<HTMLElement>(`.colony [data-part="${part}"]`);
+      // The items are in the list, or, before the lists, in the box beside the caption.
+      const list = box?.querySelector<HTMLElement>('.row-list') ?? box;
+      if (!list) continue;
+      const items = () => [...list.children].filter((c) => !c.matches('.cap, .row-template'));
+      for (const extra of items().slice(1)) extra.remove();
+      const first = items()[0];
+      if (!first) continue;
+      // For two rows, copies of the one item until it holds more than a row's height: the first that scrolls.
+      for (let i = 0; i < 300 && n > 1 && list.scrollHeight <= list.clientHeight + 8; i++)
+        list.append(first.cloneNode(true));
+      await frame();
+      counts.push(`${part} ${items().length}`);
+    }
+    return counts.join(', ');
+  }, rows);
+
 for (const browserName of browserNames()) {
   const browser = await launchBrowser(browserName);
   const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
@@ -107,7 +140,14 @@ for (const browserName of browserNames()) {
     const c = await captions(page);
     // A caption over the content fails, and so does a one-line caption's box that scrolls: the box's fixed height
     // must hold what it is sized for (the warehouse's one line of goods) without a scroll bar.
-    const bad = c.filter((x) => x.overlap || (x.overflow > 0 && x.lines === 1));
+    // With two rows (--rows 2) the outside and port boxes must scroll, and the cargo may (its goods are small); with
+    // one row none may.
+    const bad = c.filter((x) => {
+      if (x.overlap) return true;
+      if (rows > 1 && /^(Outside Colony|In Port)/.test(x.cap ?? '')) return x.overflow === 0;
+      if (rows > 1 && (x.cap ?? '').startsWith('Cargo')) return false;
+      return x.overflow > 0 && x.lines === 1;
+    });
     const scrolls = c.filter((x) => x.overflow > 0 || sizes).map((x) => `${x.cap} +${x.overflow}px (${x.sizes})`);
     console.log(
       `${bad.length ? 'FAIL' : 'ok  '} ${tag}/${browserName}/${name}${suffix}: ${c.length} captions, ${c.filter((x) => x.lines > 1).length} wrapped, ${c.filter((x) => x.overlap).length} overlapping, scrolling: ${scrolls.join(' | ') || 'none'}`,
@@ -211,6 +251,7 @@ for (const browserName of browserNames()) {
             for (const c of w.querySelectorAll('.box > .cap'))
               c.textContent = `${c.textContent} of the Fortuyn (Dutch Merchantman) (3 holds left)`;
           });
+        if (rows) console.log(`     items kept: ${await fillRows(win)}`);
         const ship = await win.locator('.port .ship').count();
         const outside = await win.locator('.outside [data-unit]').count();
         await shot(`colony-${i}-ship${ship}-outside${outside}`, '[role=dialog][data-kind=colony]');

@@ -282,6 +282,28 @@ export function priceTip(g: Goods, market: ColonyView['market']): string | null 
   return `${g.name}: ${m.sell}/${m.buy} (${g.amount * m.sell})`;
 }
 
+/** The tallest thing a row of these boxes holds: a mounted dragoon (the Tileset's art, with the one before it as fallback). */
+const DRAGOON = ['image.unit.model.unit.veteranSoldier.dragoon', 'image.unit.model.unit.veteranSoldier'];
+
+/**
+ * What a box of units, ships or cargo holds, sized by construction (#454): a hidden template of the tallest item (a
+ * dragoon, with its label) and the real list share one cell of a grid. The template gives the cell the height of one
+ * row, at any font, UI scale or rounding; the list fills the cell and scrolls from the second row.
+ */
+function Row({ art, children }: { art: Art; children: ReactNode }) {
+  return (
+    <div className="row-fit">
+      <div className="row-template" aria-hidden="true">
+        <span className="template-unit">
+          <Img keys={DRAGOON} art={art} className="unit" />
+          <span className="occupation-badge">Fortify</span>
+        </span>
+      </div>
+      <div className="row-list">{children}</div>
+    </div>
+  );
+}
+
 const Units = ({ units, art }: { units: UnitRef[]; art: Art }) => units.map((u) => <Unit key={u.id} u={u} art={art} />);
 
 /** The props that make an element a place things go to, or none when the panel cannot move them. */
@@ -482,9 +504,11 @@ function InPort({ c, art, choose }: { c: ColonyView; art: Art; choose: (id: stri
   const ship = chosenShip(c);
   return (
     <Box caption={port.title} data-part="port" className="port">
-      {port.units.map((u) => (
-        <ShipIcon key={u.id} c={c} u={u} art={art} chosen={u.id === ship?.id} choose={choose} />
-      ))}
+      <Row art={art}>
+        {port.units.map((u) => (
+          <ShipIcon key={u.id} c={c} u={u} art={art} chosen={u.id === ship?.id} choose={choose} />
+        ))}
+      </Row>
     </Box>
   );
 }
@@ -579,22 +603,24 @@ function Cargo({ c, art }: { c: ColonyView; art: Art }) {
       data-drop={target && ship ? '' : undefined}
       {...(ship ? target : undefined)}
     >
-      {ship && (
-        <>
-          <Units units={ship.cargo.units} art={art} />
-          {ship.cargo.goods.map((g, i) => (
-            <MovableGoods
-              key={i}
-              g={g}
-              art={art}
-              at={ship.id}
-              market={c.market}
-              className="made-goods"
-              item={{ kind: 'goods', from: 'cargo', type: g.type, index: i, amount: g.amount, ask: false }}
-            />
-          ))}
-        </>
-      )}
+      <Row art={art}>
+        {ship && (
+          <>
+            <Units units={ship.cargo.units} art={art} />
+            {ship.cargo.goods.map((g, i) => (
+              <MovableGoods
+                key={i}
+                g={g}
+                art={art}
+                at={ship.id}
+                market={c.market}
+                className="made-goods"
+                item={{ kind: 'goods', from: 'cargo', type: g.type, index: i, amount: g.amount, ask: false }}
+              />
+            ))}
+          </>
+        )}
+      </Row>
     </Box>
   );
 }
@@ -796,7 +822,9 @@ function Outside({ c, art }: { c: ColonyView; art: Art }) {
       data-drop={target ? '' : undefined}
       {...target}
     >
-      <Units units={c.outside.units} art={art} />
+      <Row art={art}>
+        <Units units={c.outside.units} art={art} />
+      </Row>
     </Box>
   );
 }

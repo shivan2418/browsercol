@@ -1632,16 +1632,6 @@
       }
       /* Buildings fill the left; the right column holds the population, tiles, production, construction and port; units outside and the warehouse run along the bottom. */
       .colony .cbody {
-        /*
-         * The fixed heights of the boxes that hold units (see .colony .outside): the content (a row is the tallest
-         * unit, a mounted scout or dragoon, with its label, sized by art plus text, in em so a larger font still
-         * fits, as measured with box-shots.ts --sizes 1) with the caption, the padding and the border round it. A
-         * caption that wraps takes more of it, and the box scrolls. The warehouse has no height of its own: it holds
-         * one line of every goods type, so its content is always the same height, and it never scrolls.
-         */
-        /* The caption's block, the 6px row gap under it (the boxes' gap), the padding at the bottom and the border. */
-        --colony-box-frame: calc(var(--box-cap-block) + 6px + var(--box-pad) + 2 * var(--box-border));
-        --colony-row: calc(85px + 0.2em + var(--colony-box-frame));
         display: grid;
         grid-template-columns: 1fr 400px;
         gap: 6px;
@@ -1918,8 +1908,10 @@
       }
       /*
        * In port beside the cargo of the ship chosen there, then the units outside. A window must not change size with
-       * what is in it: each of these boxes has the one height FreeCol's scroll panes give it, and more than fits
-       * wraps and scrolls inside the box. (The warehouse is below: a line of every goods, with no height of its own.)
+       * what is in it: each of these boxes is one row high, by construction (Row in colony-panel.tsx). A hidden
+       * template of the tallest item, a mounted dragoon with its label, and the real list share the one cell of
+       * a grid; the template gives the cell its height, at any font or scale, and the list fills it and wraps and
+       * scrolls inside it from the second row. (The warehouse is below: a line of every goods, with no scroll.)
        */
       .colony .port,
       .colony .cargo,
@@ -1930,13 +1922,34 @@
         gap: 6px;
         align-items: end;
         align-content: flex-start;
+      }
+      .colony .row-fit {
+        flex: 1 1 100%;
+        min-width: 0;
+        position: relative;
+      }
+      .colony .row-template {
+        display: flex;
+        visibility: hidden;
+        pointer-events: none;
+      }
+      .colony .template-unit {
+        position: relative;
+        padding: 0 5px;
+      }
+      .colony .template-unit > .unit {
+        height: auto;
+      }
+      .colony .row-list {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: end;
+        align-content: flex-start;
         overflow-x: hidden;
         overflow-y: auto;
-      }
-      .colony .port,
-      .colony .cargo,
-      .colony .outside {
-        height: var(--colony-row);
       }
       .colony .upper .buttons {
         width: 100%;
