@@ -2,7 +2,7 @@
  * A boxed section with its caption at the top-left (Box in src/frame.tsx, the one way a panel draws one). The
  * caption is the box's first row, in flow: one that wraps (a long name, another language, a larger font) pushes
  * the content down instead of running over it. In a flex container it takes a whole row of its own, in a grid a
- * whole row of the grid. In a box that scrolls (the colony's) it stays at the top. --box-cap-block is what the
+ * whole row of the grid. A box whose content scrolls (the colony's) scrolls a list under it, so it stays put. --box-cap-block is what the
  * caption takes from the top of the box. Its variants are Box's props (`roomy`, `spaced`), never a panel's selector.
  *
  * The rules are at no weight (:where), so a part's own rule (.port, .market) wins whatever the sheet order, as it

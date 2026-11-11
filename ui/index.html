@@ -1909,9 +1909,9 @@
       /*
        * In port beside the cargo of the ship chosen there, then the units outside. A window must not change size with
        * what is in it: each of these boxes is one row high, by construction (Row in colony-panel.tsx). A hidden
-       * template of the tallest item, a mounted dragoon with its label, and the real list share the one cell of
-       * a grid; the template gives the cell its height, at any font or scale, and the list fills it and wraps and
-       * scrolls inside it from the second row. (The warehouse is below: a line of every goods, with no scroll.)
+       * template of the tallest item, a mounted dragoon with its label, is in flow and gives the box its height, at
+       * any font or scale; the real list lies over it (absolute, inset 0), so it can never make the box taller, and
+       * wraps and scrolls inside it from the second row. (The warehouse is below: a line of every goods, with no scroll.)
        */
       .colony .port,
       .colony .cargo,

@@ -287,8 +287,8 @@ const DRAGOON = ['image.unit.model.unit.veteranSoldier.dragoon', 'image.unit.mod
 
 /**
  * What a box of units, ships or cargo holds, sized by construction (#454): a hidden template of the tallest item (a
- * dragoon, with its label) and the real list share one cell of a grid. The template gives the cell the height of one
- * row, at any font, UI scale or rounding; the list fills the cell and scrolls from the second row.
+ * dragoon, with its label) in flow gives the box the height of one row, at any font, UI scale or rounding; the real list
+ * lies over it, so it can never make the box taller, and scrolls from the second row.
  */
 function Row({ art, children }: { art: Art; children: ReactNode }) {
   return (
