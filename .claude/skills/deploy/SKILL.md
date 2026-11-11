@@ -84,6 +84,20 @@ gh release edit build-<N+1> --notes-file <developer changelog file>
 
 **Done when** the release carries the developer changelog and the Pages run has finished.
 
-## 6. Report
+## 6. Check the live build
 
-The build number, the commit, the release URL, the Pages run URL and its result (with the failing step if it failed), and the player entry as published.
+The run's "The live game is this build" step already fails when Pages serves another build's game. Check it yourself anyway, as the player sees it: the live game names its build in `main-*.js`.
+
+```
+idx=$(curl -s "https://browsercol.com/play/?v=$RANDOM" | grep -o 'assets/index-[^"]*\.js')
+main=$(curl -s "https://browsercol.com/play/$idx" | grep -oE 'main-[A-Za-z0-9_-]+\.js' | head -1)
+curl -s "https://browsercol.com/play/assets/$main" | grep -oE 'build [0-9]+ · [0-9a-f]{7}' | head -1
+```
+
+It must print `build <N+1> · <short sha>`. If it shows the last build, the deploy did not take, which is what happened when build 8 was deployed from a re-run of the Pages workflow. Run the Site workflow (`gh workflow run site.yml --ref main`); it deploys main's landing page around the latest release's game. Then check again.
+
+**Done when** the live game reports this build.
+
+## 7. Report
+
+The build number, the commit, the release URL, the Pages run URL and its result (with the failing step if it failed), the build the live game reports, and the player entry as published.
