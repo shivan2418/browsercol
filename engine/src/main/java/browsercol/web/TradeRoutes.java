@@ -131,8 +131,22 @@ final class TradeRoutes {
         return routes;
     }
 
+    /**
+     * A place a stop can be at, with what decides which carriers reach it:
+     * whether ships do (Europe, or a colony that is a port connected to the
+     * high seas, as FreeCol's SelectDestinationDialog asks of a ship), and
+     * the landmass a colony is on (its tile's contiguity), which a wagon
+     * train does not leave. Europe has no landmass.
+     */
     private static String place(Location l) {
-        return new Json().put("id", l.getId()).put("label", label(l)).toString();
+        final Colony colony = (l instanceof Colony c) ? c : null;
+        return new Json()
+            .put("id", l.getId())
+            .put("label", label(l))
+            .put("port", colony == null || colony.isConnectedPort())
+            .putRaw("land", (colony == null || colony.getTile() == null) ? "null"
+                            : String.valueOf(colony.getTile().getContiguity()))
+            .toString();
     }
 
     private static String label(Location l) {

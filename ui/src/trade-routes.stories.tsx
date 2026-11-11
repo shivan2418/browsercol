@@ -1,5 +1,5 @@
 // The trade routes panel as the game shows it, with the game's own art: a route of four stops to edit and
-// reorder by dragging. Saving and closing do nothing.
+// reorder by dragging, and one from an inland colony to Europe that no carrier can follow. Saving and closing do nothing.
 import { useMemo } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { dialogs } from './dialogs';
@@ -37,12 +37,23 @@ const panel: Routes = {
         { place: 'colony:9', label: 'Plymouth', cargo: [] },
       ],
     },
+    {
+      id: 'tradeRoute:2',
+      name: 'Inland furs',
+      silent: false,
+      units: 0,
+      stops: [
+        { place: 'colony:10', label: 'Fort Orange', cargo: ['model.goods.furs'] },
+        { place: 'europe:1', label: 'Europe', cargo: ['model.goods.tools'] },
+      ],
+    },
   ],
   places: [
-    { id: 'europe:1', label: 'Europe' },
-    { id: 'colony:7', label: 'New Amsterdam' },
-    { id: 'colony:8', label: 'Jamestown' },
-    { id: 'colony:9', label: 'Plymouth' },
+    { id: 'europe:1', label: 'Europe', port: true, land: null },
+    { id: 'colony:7', label: 'New Amsterdam', port: true, land: 1 },
+    { id: 'colony:8', label: 'Jamestown', port: true, land: 1 },
+    { id: 'colony:9', label: 'Plymouth', port: true, land: 1 },
+    { id: 'colony:10', label: 'Fort Orange', port: false, land: 1 },
   ],
   goods: [goods('tools', 'Tools'), goods('furs', 'Furs'), goods('sugar', 'Sugar'), goods('food', 'Food')],
   error: null,
