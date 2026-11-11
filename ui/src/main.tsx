@@ -269,6 +269,8 @@ const params = new URLSearchParams(location.search);
 const autoplay = Number(params.get('autoplay') ?? '0');
 /** The ruleset: the start screen may switch it in place, before a game begins. */
 let rules = params.get('rules') ?? 'classic';
+/** The start screen's open More options tab, kept across a ruleset switch so the window does not jump. */
+let startTab: string | null = null;
 let loadId = params.has('load') ? Number(params.get('load')) : undefined;
 /** The page picked up the autosave by itself, so a load that fails drops it rather than leave the page stuck. */
 let resumed = false;
@@ -1748,10 +1750,12 @@ async function chooseGame(
             }}
             options={startOptions(data, rules)}
             rules={rules}
-            changeRules={(id) => {
+            tab={startTab}
+            changeRules={(id, tab) => {
               // The data bundle holds every ruleset, so the start screen switches in place; the address keeps
               // the choice for a reload. Its nations and options differ, so the screen starts afresh (key).
               rules = id;
+              startTab = tab;
               const next = new URLSearchParams(location.search);
               next.set('rules', id);
               history.replaceState(history.state, '', `?${next}`);

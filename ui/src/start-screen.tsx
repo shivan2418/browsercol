@@ -177,6 +177,7 @@ export function StartScreen({
   start,
   rules,
   changeRules,
+  tab: firstTab = null,
   saves = [],
   open: openGame,
   openFile,
@@ -189,9 +190,14 @@ export function StartScreen({
 }: {
   options: StartOptions;
   start: (choice: StartChoice) => void;
-  /** The ruleset the options are of, and a way to another one (a new page: its options differ). */
+  /**
+   * The ruleset the options are of, and a way to another one (the screen is drawn afresh: its options differ). The
+   * switch hands back the open More options tab, so the new screen opens on it and the window keeps its size.
+   */
   rules?: string;
-  changeRules?: (rules: string) => void;
+  changeRules?: (rules: string, tab: string | null) => void;
+  /** The More options tab open at first; none by default. */
+  tab?: string | null;
   /** The saved games, newest first: the first is the one Continue plays. */
   saves?: SaveMeta[];
   /** Play a saved game. */
@@ -324,7 +330,7 @@ export function StartScreen({
         </div>
       </div>
     );
-  const [tab, setTab] = useState<string | null>(null);
+  const [tab, setTab] = useState<string | null>(firstTab);
   const count = (o: object) => Object.keys(o).length;
   /** The tabs under the columns: the options of the level, the game and the map, and the nation colours. */
   const moreTabs: { kind: string; label: string; count: number; body: ReactNode }[] = [
@@ -512,7 +518,7 @@ export function StartScreen({
                         data-rules
                         aria-label="Rules"
                         value={rules}
-                        onChange={changeRules}
+                        onChange={(r) => changeRules(r, tab)}
                         choices={options.rulesets.map((r) => ({
                           value: r,
                           label: r === 'classic' ? 'Classic' : r === 'freecol' ? 'FreeCol' : r,
