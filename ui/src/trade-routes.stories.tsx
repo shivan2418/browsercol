@@ -56,6 +56,7 @@ const panel: Routes = {
     { id: 'colony:10', label: 'Fort Orange', port: false, land: 1 },
   ],
   goods: [goods('tools', 'Tools'), goods('furs', 'Furs'), goods('sugar', 'Sugar'), goods('food', 'Food')],
+  enhanced: false,
   error: null,
   newRoute: 'New Trade Route',
   defaultName: 'Trade route 2',

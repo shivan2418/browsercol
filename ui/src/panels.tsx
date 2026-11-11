@@ -34,7 +34,7 @@ import { OptionEditor } from './option-editor';
 import { ReportPanel } from './reports';
 import { EuropeEntry, unitDrag } from './europe-entry';
 import { PlanPills } from './plan-pills';
-import { stopWork } from './route-work';
+import { holdsOf, stopWork } from './route-work';
 import type { ColonyView, EuropeUnit, GuiEvents, ReportLink, SettlementEntry, TradeRouteDraft } from './webgui';
 import { useCoverage } from './coverage';
 import './modifiers.css';
@@ -938,10 +938,16 @@ const HOLD_MARKS: Readonly<Record<number, string>> = {
 /** The most holds any carrier has: a hold past this is never filled. */
 const MOST_HOLDS = 6;
 
+/**
+ * A stop's holds as FreeCol loads them (TradeRouteStop.getCompactCargo): grouped by goods type, in the order
+ * each type first appears. Holds of one goods are loaded together, so the editor keeps them together.
+ */
+const grouped = (cargo: readonly string[]) => [...holdsOf(cargo)].flatMap(([g, k]) => Array<string>(k).fill(g));
+
 /** A stop as the editor keeps it: with a key of its own, so folding and editing follow it when it moves. */
 type Leg = Stop & { key: number };
 let legKeys = 0;
-const keyed = (s: Stop): Leg => ({ ...s, key: ++legKeys });
+const keyed = (s: Stop): Leg => ({ ...s, cargo: grouped(s.cargo), key: ++legKeys });
 
 /**
  * FreeCol's trade route input panel, laid out as a voyage: each stop with what it unloads and loads, worked
@@ -990,7 +996,10 @@ function RouteEditor({
     setFolded(new Set([...folded, key]));
     if (editing === key) setEditing(null);
   };
-  const setCargo = (i: number, cargo: string[]) => setStops(stops.map((s, j) => (j === i ? { ...s, cargo } : s)));
+  const setCargo = (i: number, cargo: string[]) =>
+    setStops(stops.map((s, j) => (j === i ? { ...s, cargo: grouped(cargo) } : s)));
+  // Europe, where a carrier buys what it loads and sells what it unloads.
+  const inEurope = (i: number) => e.places.find((p) => p.id === stops[i].place)?.land === null;
   // A click adds a hold of the goods; shift-click fills holds up to the next mark.
   const load = (i: number, g: string, fill: boolean) => {
     const cargo = [...stops[i].cargo];
@@ -1026,15 +1035,17 @@ function RouteEditor({
       },
     );
 
-  // The holds the carrier leaves stop i with: a full one empties on click, and is dragged to change the order
-  // goods load in; marks show where carriers fill up.
+  // The holds the carrier leaves stop i with: a full one empties on click; marks show where carriers fill up.
+  // A hold is dragged to load its goods sooner or later: all the holds of those goods move with it, as FreeCol
+  // loads them together. With the enhanced trade routes option the order means nothing, and holds do not drag.
   const holds = (i: number) => {
     const cargo = stops[i].cargo;
     const reorder = (from: number, to: number) => {
-      const next = [...cargo];
-      const [moved] = next.splice(from, 1);
-      next.splice(to, 0, moved);
-      setCargo(i, next);
+      const g = cargo[from];
+      const rest = cargo.filter((x) => x !== g);
+      // Where the hold lands among the other goods' holds, its goods go, all of them.
+      const at = cargo.slice(0, to + (to > from ? 1 : 0)).filter((x) => x !== g).length;
+      setCargo(i, [...rest.slice(0, at), ...cargo.filter((x) => x === g), ...rest.slice(at)]);
     };
     return (
       <div className="holds">
@@ -1046,8 +1057,9 @@ function RouteEditor({
               data-held={g}
               data-over={k >= MOST_HOLDS || undefined}
               aria-label={`× ${nameOf(g)}`}
-              tip={`${k + 1}. ${nameOf(g)} (click to empty, drag to load it sooner or later)${k >= MOST_HOLDS ? ': no carrier has this many holds' : ''}`}
-              {...sortHandle(k, (hold) => hold.closest('.holds'), reorder, { grid: true, items: '[data-held]' })}
+              tip={`${k + 1}. ${nameOf(g)} (click to empty${e.enhanced ? '' : ', drag to load it sooner or later'})${k >= MOST_HOLDS ? ': no carrier has this many holds' : ''}`}
+              {...(!e.enhanced &&
+                sortHandle(k, (hold) => hold.closest('.holds'), reorder, { grid: true, items: '[data-held]' }))}
               onClick={() =>
                 setCargo(
                   i,
@@ -1142,7 +1154,7 @@ function RouteEditor({
                 <Heading look="title" space="flush">
                   {s.label}
                 </Heading>
-                <PlanPills {...stopWork(stops, i)} icon={icon} nameOf={nameOf} />
+                <PlanPills {...stopWork(stops, i)} icon={icon} nameOf={nameOf} europe={inEurope(i)} />
                 <Tip
                   as="button"
                   className="icon"
@@ -1185,10 +1197,23 @@ function RouteEditor({
                     {open && (
                       <div className="legedit">
                         <p className="hint">
-                          <b>Load at {s.label}: </b>click goods to add a hold of them; the first goods load first, and
-                          loading stops at the first that do not fit; drag a hold to change the order. Shift-click fills
-                          to the next mark. <b>Unload: </b>click a hold to empty it; {s.label} unloads whatever is no
-                          longer in the holds.
+                          <b>{inEurope(i) ? 'Buy in Europe' : `Load at ${s.label}`}: </b>click goods to add a hold of
+                          them.{' '}
+                          {e.enhanced ? (
+                            <>
+                              Enhanced trade routes are on: the goods a later stop takes load the largest amount first,
+                              whatever the order of the holds.
+                            </>
+                          ) : (
+                            <>
+                              Goods load in the order of their holds, and loading stops at the first that do not fit;
+                              drag a hold to load its goods sooner or later.
+                            </>
+                          )}{' '}
+                          {inEurope(i) &&
+                            'Each hold is 100 bought at the market’s price, and buying stops when the gold runs out. '}
+                          Shift-click fills to the next mark. <b>{inEurope(i) ? 'Sell' : 'Unload'}: </b>click a hold to
+                          empty it; {s.label} {inEurope(i) ? 'sells' : 'unloads'} whatever is no longer in the holds.
                         </p>
                         <div className="palette">
                           {e.goods.map((g) => (

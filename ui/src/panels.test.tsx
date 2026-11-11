@@ -1710,6 +1710,7 @@ describe('the trade routes panel', () => {
       { id: 'model.goods.tools', name: 'Tools', icon: 'image.icon.model.goods.tools' },
       { id: 'model.goods.furs', name: 'Furs', icon: 'image.icon.model.goods.furs' },
     ],
+    enhanced: false,
     error: null,
     newRoute: 'New Trade Route',
     defaultName: 'Trade route 2',
@@ -1910,7 +1911,7 @@ describe('the trade routes panel', () => {
     threeStops();
     // Europe is reached from Jamestown, empty, and loads tools; New Amsterdam unloads them and loads furs;
     // Jamestown lists nothing, so it unloads the furs.
-    expect(chipsAt(0)).toEqual([`load ${T} +1`]);
+    expect(chipsAt(0)).toEqual([`load ${T} Buy+1`]);
     expect(chipsAt(1)).toEqual([`unload ${T} −1`, `load ${F} +1`]);
     expect(chipsAt(2)).toEqual([`unload ${F} −1`]);
     // A stop that keeps what it arrived with has nothing to do.
@@ -1953,7 +1954,7 @@ describe('the trade routes panel', () => {
     expect(chipsAt(1)).toEqual([`unload ${T} −1`, `unload ${F} −1`]);
     expect(keptAt(1)).toEqual([`${T} =1`]);
     // Europe unloads the tools and loads furs; New Amsterdam is reached with furs only.
-    expect(chipsAt(2)).toEqual([`unload ${T} −1`, `load ${F} +1`]);
+    expect(chipsAt(2)).toEqual([`unload ${T} Sell−1`, `load ${F} Buy+1`]);
     expect(chipsAt(0)).toEqual([`load ${T} +2`]);
     expect(keptAt(0)).toEqual([`${F} =1`]);
   });
@@ -2015,7 +2016,8 @@ describe('the trade routes panel', () => {
     ]);
     expect(marks()).toEqual(['2', '4', '6']);
     press('OK');
-    expect(saved[0].stops[0].cargo).toEqual([T, T, F, F, F, F, T]);
+    // Holds of one goods are kept together, as FreeCol loads them.
+    expect(saved[0].stops[0].cargo).toEqual([T, T, T, F, F, F, F]);
   });
 
   it("copies the previous stop's goods, and is disabled once they are the same", () => {
@@ -2037,7 +2039,7 @@ describe('the trade routes panel', () => {
     expect(pinAt(0).getAttribute('aria-expanded')).toBe('false');
     expect(legAt(0)).toBeNull();
     // The stop row and its plan pills stay; no leg is being edited now.
-    expect(chipsAt(0)).toEqual([`load ${T} +1`]);
+    expect(chipsAt(0)).toEqual([`load ${T} Buy+1`]);
     expect(edited()).toBeUndefined();
     expect(document.querySelector('[data-goods]')).toBeNull();
     act(() => void fireEvent.click(pinAt(0)));
@@ -2153,7 +2155,7 @@ describe('the trade routes panel', () => {
     expect((screen.getByRole('textbox', { name: 'Name' }) as HTMLInputElement).value).toBe('Rum run');
   });
 
-  it('drags a hold along the leg to load its goods sooner, and the release empties nothing', () => {
+  it('drags a hold along the leg to load its goods sooner, all its holds with it, and the release empties nothing', () => {
     const saved = threeStops();
     // Europe's leg: tools, then two holds of furs.
     const leg = () => legAt(0)!;
@@ -2173,9 +2175,29 @@ describe('the trade routes panel', () => {
     } finally {
       vi.useRealTimers();
     }
-    expect(held()).toEqual([F, T, F]);
+    expect(held()).toEqual([F, F, T]);
     press('OK');
-    expect(saved[0].stops[0].cargo).toEqual([F, T, F]);
+    expect(saved[0].stops[0].cargo).toEqual([F, F, T]);
+  });
+
+  it('says Europe buys and sells, and with enhanced trade routes, that the order of the holds does not count', () => {
+    const { box } = host();
+    act(() => box.replace('tradeRoutes', routes()));
+    pick('Fur run (2)');
+    press('Edit Trade Route');
+    // Europe buys tools, while the gold lasts, and sells the furs from New Amsterdam.
+    expect(chipsAt(0)).toEqual([`unload ${F} Sell−1`, `load ${T} Buy+1`]);
+    expect(legAt(0)!.querySelector('.hint')!.textContent).toContain('buying stops when the gold runs out');
+    expect(legAt(0)!.querySelector('[data-held]')!.hasAttribute('data-sort')).toBe(true);
+    // New Amsterdam loads and unloads.
+    expect(chipsAt(1)).toEqual([`unload ${T} −1`, `load ${F} +1`]);
+
+    // A new panel from the Engine opens on the list again.
+    act(() => box.replace('tradeRoutes', routes({ enhanced: true })));
+    pick('Fur run (2)');
+    press('Edit Trade Route');
+    expect(legAt(0)!.querySelector('.hint')!.textContent).toContain('the largest amount first');
+    expect(legAt(0)!.querySelector('[data-held]')!.hasAttribute('data-sort')).toBe(false);
   });
 
   it('disables Add Stop once the route has a stop for every place', async () => {

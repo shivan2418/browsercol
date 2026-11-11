@@ -1886,6 +1886,8 @@ class CommandsTest {
                                     + colony.isConnectedPort() + ",\"land\":"
                                     + colony.getTile().getContiguity() + "[,}].*"),
                    "a colony says whether it is a port, and its landmass: " + panel);
+        assertTrue(panel.contains("\"enhanced\":false"),
+                   "the classic rules leave the enhanced trade routes off: " + panel);
         assertNull(commands.saveTradeRoute(null, "New Trade Route", false,
             List.of(europe, home), List.of(List.of(tools), List.of(furs))));
         assertTrue(routePanels.get(routePanels.size() - 1)
