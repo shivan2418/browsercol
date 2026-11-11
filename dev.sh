@@ -34,10 +34,12 @@ fi
 # GITHUB_SHA and GITHUB_REF_NAME, when CI sets them, name the build the page
 # shows (ui/scripts/build-id.ts); git in the container cannot tell it there.
 # BUILD_COMMIT does the same locally: in a worktree, .git points outside /work.
+# VITE_FEEDBACK_URL (the relay's URL, #369) and VITE_BETA_TAG reach the Vite build the same way; unset, they are
+# left out of the container, so a local build has no relay.
 BUILD_COMMIT=$(git -C "$repo" rev-parse HEAD 2>/dev/null || true)
 export BUILD_COMMIT
 run=(docker run --rm ${tty[@]+"${tty[@]}"} ${shm[@]+"${shm[@]}"} ${ports[@]+"${ports[@]}"} -e HOME=/work/.cache/home
-  -e GITHUB_SHA -e GITHUB_REF_NAME -e BUILD_COMMIT
+  -e GITHUB_SHA -e GITHUB_REF_NAME -e BUILD_COMMIT -e VITE_FEEDBACK_URL -e VITE_BETA_TAG
   -v "$repo:/work" ${extra[@]+"${extra[@]}"} -w "$workdir" "$image" "$@")
 # Concurrent containers share the Gradle user home in /work/.cache/gradle, and
 # Gradle gives up on its journal lock after 60 s before any build step runs
