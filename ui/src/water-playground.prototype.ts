@@ -216,8 +216,8 @@ export function propertiesOf(s: Settings): string {
     ]),
     num('ocean.speed', s.speed),
     num('lake.speed', s.lakeSpeed),
-    num('river.minorSpeed', s.rivers?.minor ?? 12),
-    num('river.majorSpeed', s.rivers?.major ?? 6),
+    num('river.minorSpeed', s.rivers?.minor ?? 6),
+    num('river.majorSpeed', s.rivers?.major ?? 3),
     num('river.streakStrength', s.rivers?.streakStrength ?? 0.16),
     `# Waves: slide, warp or flow.`,
     num('waves', s.waves),
@@ -582,8 +582,8 @@ export function waterPlaygroundPanel(host: Host) {
               : name === 'D' || name === 'E'
                 ? 'flow'
                 : 'flipbook',
-        minor: base?.rivers?.minor ?? 12,
-        major: base?.rivers?.major ?? 6,
+        minor: base?.rivers?.minor ?? 6,
+        major: base?.rivers?.major ?? 3,
         streakStrength: params.has('riverStreakStrength')
           ? Math.max(0, Math.min(0.5, Number(params.get('riverStreakStrength')) || 0))
           : (base?.rivers?.streakStrength ?? 0.16),

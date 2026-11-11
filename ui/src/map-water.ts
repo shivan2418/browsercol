@@ -366,8 +366,8 @@ export function waterLook(res: Resources): WaterLook | null {
     ice: numberOf(res, `${KEY}ice`, 0),
     rivers: {
       mode: 'flipbook',
-      minor: numberOf(res, `${KEY}river.minorSpeed`, 12),
-      major: numberOf(res, `${KEY}river.majorSpeed`, 6),
+      minor: numberOf(res, `${KEY}river.minorSpeed`, 6),
+      major: numberOf(res, `${KEY}river.majorSpeed`, 3),
       streakStrength: numberOf(res, `${KEY}river.streakStrength`, 0.16),
     },
   };

@@ -50,23 +50,20 @@ uniform float uTime;
 uniform float uSplit;
 uniform float uDeeper;
 uniform float uStreakStrength;
-// Fixed world-space axes keep bends from rotating a noise pattern around the map's distant origin.
-// Blend the two diamond diagonals through bends; each highlight is long along, narrow across the current.
-float streakAlong(vec2 p, vec2 axis, vec2 direction, float speed) {
-  // Stagger 16px-long highlights in narrow lanes. Periodic longitudinal motion needs no phase reset.
-  // Do not advect the cross-stream coordinate: long flow-map offsets shear it into shimmer at bends.
-  float across = dot(p, vec2(-axis.y, axis.x)) / 5.0;
-  float lane = floor(across);
-  float offset = fract(sin(lane * 127.1) * 43758.5453);
-  float along = (dot(p, axis) - sign(dot(direction, axis)) * speed * uTime) / 32.0 + offset;
-  float length = smoothstep(-0.1, 0.5, cos(along * 6.283185));
-  float width = 1.0 - smoothstep(0.35, 1.15, abs(fract(across) - 0.5) * 5.0);
-  return length * width;
+// Soft dappled light carried by the river's own flow field, so it follows bends. Analytic noise: no texture reads.
+// The ground is drawn at 2:1, so the noise is stretched across the screen to sit flat on it.
+float hash(vec2 p) {
+  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
 }
-float streak(vec2 p, vec2 direction, float speed) {
-  return mix(streakAlong(p, vec2(0.894427, -0.447214), direction, speed),
-    streakAlong(p, vec2(0.894427, 0.447214), direction, speed),
-    smoothstep(-0.3, 0.3, direction.x * direction.y));
+float vnoise(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+float ripple(vec2 q) {
+  float n = vnoise(q / 5.0) * 0.6 + vnoise(q / 2.5 + 17.0) * 0.4;
+  return smoothstep(0.56, 0.82, n);
 }
 void main() {
   if (gl_FragCoord.x < uSplit) discard;
@@ -86,7 +83,11 @@ void main() {
   // The same painted-art modulation and near-shore tint as variant D.
   vec3 col = mix(art, shallow * (0.8 + dot(art, vec3(0.3))), dot(w, vec3(0.8, 0.75, 1.0)) * 0.92);
   col *= 1.0 - 0.12 * (1.0 - mask.b) * smoothstep(0.45, 1.0, mask.a);
-  float current = streak(vPosition, normalize(mask.rg * 2.0 - 1.0), mix(uSpeeds.y, uSpeeds.x, mask.b));
+  // Two phases a short cycle apart, as for the art: offsets stay small, so bends don't shear the pattern.
+  vec2 q = vec2(vPosition.x, vPosition.y * 2.0);
+  vec2 drift = vec2(velocity.x, velocity.y * 2.0) * 1.5;
+  float rp = fract(uTime / 1.5);
+  float current = mix(ripple(q - drift * rp), ripple(q - drift * fract(rp + 0.5) + vec2(37.0, 11.0)), abs(rp * 2.0 - 1.0));
   col += vec3(current * uStreakStrength);
   // Broken, faint foam only at the mixing edge of a mouth, never bands along the river.
   float foam = vMouth * 4.0 * climate.a * (1.0 - climate.a) * current * 0.16;
@@ -279,7 +280,7 @@ export class RiverSurface {
         uSplit: { value: 0, type: 'f32' },
         uDeeper: { value: 0, type: 'f32' },
         uStreakStrength: { value: 0.16, type: 'f32' },
-        uSpeeds: { value: [12, 6], type: 'vec2<f32>' },
+        uSpeeds: { value: [6, 3], type: 'vec2<f32>' },
         uShal0: { value: [0, 0, 0], type: 'vec3<f32>' },
         uShal1: { value: [0, 0, 0], type: 'vec3<f32>' },
         uShal2: { value: [0, 0, 0], type: 'vec3<f32>' },
@@ -300,8 +301,8 @@ export class RiverSurface {
     u.uDeeper = look.recipe?.depth === 'deeper' ? 1 : 0;
     u.uStreakStrength = look.rivers?.streakStrength ?? 0.16;
     const speeds = u.uSpeeds as number[];
-    speeds[0] = look.rivers?.minor ?? 12;
-    speeds[1] = look.rivers?.major ?? 6;
+    speeds[0] = look.rivers?.minor ?? 6;
+    speeds[1] = look.rivers?.major ?? 3;
     this.tint('uShal0', look.palettes.cold.shallow);
     this.tint('uShal1', look.palettes.temperate.shallow);
     this.tint('uShal2', look.palettes.tropical.shallow);
