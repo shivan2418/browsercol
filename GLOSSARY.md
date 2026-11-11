@@ -44,6 +44,18 @@ _Avoid_: asset id, sprite name
 The Browser UI's first page, where the player picks a European nation and a difficulty level before the game starts (FreeCol's NewPanel and StartGamePanel, single player). Its choices reach the Engine as a preset.
 _Avoid_: new game dialog, lobby
 
+**Room**:
+One multiplayer game as the Multiplayer relay knows it: its host, its Seats and the long random ID in the invite link. A Room outlives a closed tab only through the host's save, which keeps its ID (docs/adr/0010).
+_Avoid_: lobby, session, match
+
+**Seat**:
+One human's place in a Room, the host's or a guest's, held by a token the player's browser keeps so that reopening the link brings them back to the same nation.
+_Avoid_: slot, client
+
+**Multiplayer relay**:
+The API Gateway WebSocket API and Lambda that carry FreeCol's protocol messages between the host's browser, which runs the server Engine, and the guests' browsers. It reads only which Seat a message is for, never the game (docs/adr/0010). Not the feedback relay in `relay/` (docs/adr/0009).
+_Avoid_: game server, multiplayer server, backend
+
 **Option editor**:
 The one Browser UI editor for FreeCol option groups (a difficulty level, the game options): editable on the Start screen, where changes go to the Engine in the preset, read-only during play (FreeCol's DifficultyDialog and GameOptionsDialog).
 _Avoid_: settings panel, options dialog
