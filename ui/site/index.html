@@ -122,6 +122,7 @@
           </div>
           <button class="arrow prev" type="button" aria-label="Previous screenshot">&#8249;</button>
           <button class="arrow next" type="button" aria-label="Next screenshot">&#8250;</button>
+          <dialog class="zoom" aria-label="Screenshot at full size"><img alt="" /></dialog>
           <div class="dots">
             <button type="button" aria-label="Screenshot 1"></button>
             <button type="button" aria-label="Screenshot 2"></button>
@@ -317,6 +318,25 @@
           },
           { passive: true },
         );
+        // A click on a screenshot, or Enter on the row, shows it at its own size; a click or Escape closes it.
+        var zoom = c.querySelector('.zoom');
+        var big = zoom.querySelector('img');
+        function open(img) {
+          big.src = img.currentSrc || img.src;
+          big.alt = img.alt;
+          zoom.showModal();
+        }
+        slides.forEach(function (s) {
+          s.querySelector('img').addEventListener('click', function (e) {
+            open(e.currentTarget);
+          });
+        });
+        track.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') open(slides[at].querySelector('img'));
+        });
+        zoom.addEventListener('click', function () {
+          zoom.close();
+        });
         show(0);
         c.classList.add('ready');
       })();

@@ -265,6 +265,34 @@ header.bar nav a:hover {
   background: var(--accent);
   border-color: var(--accent);
 }
+/* A screenshot at its own size, over the page; a smaller screen scrolls it. */
+.carousel.ready .slide img {
+  cursor: zoom-in;
+}
+.zoom {
+  width: 100vw;
+  height: 100vh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: none;
+  overflow: auto;
+  background: transparent;
+  cursor: zoom-out;
+}
+.zoom[open] {
+  display: grid;
+}
+.zoom::backdrop {
+  background: rgb(0 0 0 / 80%);
+}
+.zoom img {
+  margin: auto;
+  max-width: none;
+  border: 4px double var(--line);
+  border-radius: 4px;
+}
 /* Without the script there are no arrows or dots: the row still scrolls. */
 .carousel:not(.ready) .arrow,
 .carousel:not(.ready) .dots {
