@@ -52,7 +52,7 @@ describe('the Send feedback window', () => {
     expect(document.body.textContent).toContain(
       'Reports go privately to the developer; nothing is published without review.',
     );
-    expect(document.body.textContent).toContain('Mention your reference to have your report deleted.');
+    expect(document.body.textContent).not.toContain('deleted');
   });
 
   it('opened as an idea, ticks only the version and the browser, and a kind picked later resets the ticks', async () => {

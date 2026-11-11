@@ -150,7 +150,6 @@ export function FeedbackDialog({ kind: firstKind, load, send, download, close }:
                 . Send that file to whoever asked for your feedback, and mention the reference.
               </p>
             )}
-            <p className="quiet">Mention your reference to have your report deleted.</p>
           </div>
           <ButtonRow>
             <button type="button" data-feedback-copy onClick={() => copy(reference)}>
@@ -335,8 +334,7 @@ export function FeedbackDialog({ kind: firstKind, load, send, download, close }:
             </section>
           </div>
           <p className="quiet feedback-privacy">
-            Reports go privately to the developer; nothing is published without review. Mention your reference to have
-            your report deleted.
+            Reports go privately to the developer; nothing is published without review.
           </p>
           {phase.k === 'failed' && (
             <p role="alert" className="feedback-failed" data-feedback-failed>
