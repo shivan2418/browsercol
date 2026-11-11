@@ -147,7 +147,7 @@ final class MapJson {
                 tiles.append((char)('A' + i));
                 tileItems(t, rivers, roads, items);
                 final Settlement s = t.getSettlement();
-                if (s != null) settlements.add(settlement(s, player));
+                if (s != null) settlements.add(settlement(s, t, player));
                 final Unit u = unitInFront(t, active);
                 if (u != null) units.add(unit(u, player, fog));
             }
@@ -370,7 +370,12 @@ final class MapJson {
         return keys;
     }
 
-    private static String settlement(Settlement s, Player player) {
+    /**
+     * A settlement on the tile {@code t}. The settlement's own tile is not
+     * used: the client's copy of a native settlement it has not seen has
+     * none, which stalled the start of a game on Giga Earth (#459).
+     */
+    private static String settlement(Settlement s, Tile t, Player player) {
         int population = -1, bonus = 0, sizeChange = 0;
         String building = null;
         String chips = "null";
@@ -388,7 +393,6 @@ final class MapJson {
         } else if (s instanceof IndianSettlement) {
             chips = chips((IndianSettlement)s, player);
         }
-        final Tile t = s.getTile();
         return new Json().put("x", t.getX()).put("y", t.getY())
             .putRaw("keys", keys(keys))
             .put("rgb", rgb(s.getOwner()))

@@ -36,6 +36,8 @@ final class FindSettlementJson {
         final List<String> rows = new ArrayList<>();
         for (Player player : game.getLivePlayerList()) {
             for (Settlement s : player.getSettlementList()) {
+                // The client's copy of a settlement it has not seen may have no tile (#459).
+                if (s.getTile() == null) continue;
                 final boolean open = (s instanceof Colony && s.getOwner() == me)
                     || s instanceof IndianSettlement;
                 rows.add(new Json()

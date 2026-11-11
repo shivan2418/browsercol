@@ -146,9 +146,10 @@ final class Destinations {
         // Quick check for whether a settlement is reachable by the unit.
         // Used to knock out obviously impossible candidates before
         // invoking the expensive full path search.
-        final Predicate<Settlement> canReach = s ->
-            (unit.isNaval()) ? s.isConnectedPort()
-                : Map.isSameContiguity(unit.getLocation(), s.getTile());
+        // The client's copy of a settlement it has not seen may have no tile (#459).
+        final Predicate<Settlement> canReach = s -> s.getTile() != null
+            && ((unit.isNaval()) ? s.isConnectedPort()
+                : Map.isSameContiguity(unit.getLocation(), s.getTile()));
         // Add Europe or "New World" (the map) depending where the unit is.
         final List<Destination> td = new ArrayList<>();
         if (unit.isInEurope()) {

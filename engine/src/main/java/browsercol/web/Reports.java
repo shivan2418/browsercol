@@ -1309,6 +1309,8 @@ final class Reports {
             }
             final List<String> rows = new ArrayList<>();
             for (IndianSettlement is : ordered) {
+                // The client's copy of a settlement it has not seen may have no tile (#459).
+                if (is.getTile() == null) continue;
                 final boolean visited = is.hasVisited(player);
                 final boolean contacted = is.hasContacted(player);
                 // FreeCol appends "*" for a capital and "$" for a settlement worth scouting to the name; the
