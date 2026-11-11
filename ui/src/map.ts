@@ -818,6 +818,12 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
       box: whole ? [x - 4, y - 4, W + 8, H + 8] : [x, y, pic.width, pic.height],
     });
   };
+  // A lost WebGL context (a GPU reset, the browser reclaiming it) needs nothing of the shader water: while it is lost
+  // PixiJS's draws and ours do nothing, and when it is restored PixiJS drops every GPU object it made (programs,
+  // textures, buffers, vertex arrays) and makes them again from their sources at the next draw, the shaders and the
+  // field textures included (the field's data stays in their BufferImageSources). The map draws only on demand, so a
+  // still map would stay blank after the restore until something changed on it: draw it then.
+  app.canvas.addEventListener('webglcontextrestored', () => redraw(null));
   /**
    * Tell the chunks what is on the screen, in map pixels, what to keep built round it, and what to build ahead when
    * the page is idle: a quarter of the screen past each edge, within what is kept.
