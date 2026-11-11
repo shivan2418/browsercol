@@ -20,7 +20,7 @@ const rates = opt('rates', '60,250,1000').split(',').map(Number);
 const secs = Number(opt('secs', '4'));
 const variant = opt('water', '');
 const query =
-  opt('query', 'preset=pan-large') + (variant ? `&tileset=freecol-plus&playground=water&water=${variant}` : '');
+  opt('query', 'preset=pan-large') + (variant ? `&tileset=browsercol&playground=water&water=${variant}` : '');
 const tag = opt('tag', '');
 const gpu = process.argv.includes('--gpu');
 // #407's netbook settings: --size 1366x768, --throttle 4 (CDP Emulation.setCPUThrottlingRate, set once the game has

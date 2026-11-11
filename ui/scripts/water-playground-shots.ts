@@ -29,8 +29,8 @@ page.on(
   'console',
   (m) => (m.type() === 'error' || m.text().startsWith('[water]')) && console.log(m.text().slice(0, 400)),
 );
-await page.addInitScript(() => localStorage.setItem('freecol.prefs', JSON.stringify({ tileset: 'freecol-plus' })));
-await page.goto(`${url}?skipstart&preset=pan-large&tileset=freecol-plus&${query}`);
+await page.addInitScript(() => localStorage.setItem('freecol.prefs', JSON.stringify({ tileset: 'browsercol' })));
+await page.goto(`${url}?skipstart&preset=pan-large&tileset=browsercol&${query}`);
 const ready = await waitForResult(page, 240000);
 if (ready.status === 'failed') throw new Error(`the game did not start: ${ready.error}`);
 await page.waitForFunction(() => !!(window as unknown as { fcWaterPlayground?: unknown }).fcWaterPlayground, null, {

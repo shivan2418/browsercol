@@ -1,6 +1,6 @@
-// PROTOTYPE, throwaway (#409): the water playground, ?playground=water on the game page (with ?tileset=freecol-plus).
-// A panel over the real map to tune FreeCol+'s shader water live: the wave model, the climate palettes, the shore,
-// presets, and a Copy settings button that gives the shader.water.* block for ui/tilesets/freecol-plus. The settings
+// PROTOTYPE, throwaway (#409): the water playground, ?playground=water on the game page (with ?tileset=browsercol).
+// A panel over the real map to tune BrowserCol's shader water live: the wave model, the climate palettes, the shore,
+// presets, and a Copy settings button that gives the shader.water.* block for ui/tilesets/browsercol. The settings
 // stay in this browser's localStorage. Plain DOM, no React, so it adds next to nothing to the frame it measures.
 // River current (#411): &rivers=flow&riverStreakStrength=0.10. Strength is additive brightness, 0–0.5;
 // zero hides the streaks without stopping the painted water. Copy settings exports shader.water.river.streakStrength.
@@ -748,7 +748,7 @@ export function waterPlaygroundPanel(host: Host) {
             out.select();
             void navigator.clipboard?.writeText(out.value).catch(() => {});
           },
-          'The shader.water.* block for ui/tilesets/freecol-plus/resources.properties',
+          'The shader.water.* block for ui/tilesets/browsercol/resources.properties',
         ),
         button('Reset to the tileset', () => {
           s = clone(base!);

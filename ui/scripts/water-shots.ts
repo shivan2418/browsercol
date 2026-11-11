@@ -25,7 +25,7 @@ declare global {
   }
 }
 const variants = opt('variants', '').split(',').filter(Boolean);
-const tilesets = variants.length ? ['freecol-plus'] : opt('tilesets', 'freecol,freecol-plus').split(',');
+const tilesets = variants.length ? ['browsercol'] : opt('tilesets', 'freecol,browsercol').split(',');
 const themes = opt('themes', 'parchment,dark').split(',');
 const spots = opt('spots', '100,52;99,66;101,48;88,15;104,41')
   .split(';')
@@ -93,7 +93,7 @@ for (const name of browserNames('chromium,firefox')) {
           { tileset, theme, still },
         );
         await page.goto(
-          `${server.url}?skipstart&preset=pan-large${variants.length ? '&tileset=freecol-plus&playground=water&water=A' : ''}${opt('extra', '')}`,
+          `${server.url}?skipstart&preset=pan-large${variants.length ? '&tileset=browsercol&playground=water&water=A' : ''}${opt('extra', '')}`,
         );
         const ready = await waitForResult(page, 240000);
         if (ready.status === 'failed') throw new Error(`${name}: game did not start: ${ready.error}`);
