@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { expect, test } from 'vite-plus/test';
-import { presetJson, startOptions } from './start';
+import { explainModifier, presetJson, startOptions } from './start';
 
 const spec = `<freecol-specification id="classic">
   <nations>
@@ -35,6 +35,9 @@ const spec = `<freecol-specification id="classic">
     <european-nation-type id="model.nationType.naval" extends="model.nationType.default">
       <modifier id="model.modifier.movementBonus" type="additive" value="3"><scope ability-id="model.ability.navalUnit"/></modifier>
     </european-nation-type>
+    <european-nation-type id="model.nationType.bombard" extends="model.nationType.default">
+      <modifier id="model.modifier.bombardBonus" type="percentage" value="50"/>
+    </european-nation-type>
     <european-nation-type id="model.nationType.agriculture" extends="model.nationType.default">
       <unit id="pioneer" type="model.unit.expertFarmer" role="model.role.pioneer"/>
       <modifier id="model.goods.grain" type="additive" value="2"><scope ability-id="model.ability.person"/></modifier>
@@ -50,6 +53,7 @@ model.difficulty.veryEasy.name=Very Easy
 model.difficulty.medium.name=Medium
 model.modifier.tradeBonus.name=Trade Bonus
 model.modifier.movementBonus.name=Movement Bonus
+model.modifier.bombardBonus.name=Bombard Bonus
 model.ability.navalUnit.name=Naval unit
 model.goods.grain.name={{plural:%amount%|one=Grain|other=Grain|default=Grain}}
 model.unit.freeColonist.name={{plural:%number%|one=Free Colonist|other=Free Colonists|default=Free Colonist}}
@@ -79,17 +83,51 @@ test('the start screen offers the selectable nations, with names and types as Fr
 test('a nation type gives its own modifiers and starting units, over the ones it extends', () => {
   const { bonus } = startOptions(data, 'classic');
   expect(bonus('model.nationType.trade', false)).toEqual({
-    modifiers: ['Trade Bonus: -50%'],
+    modifiers: ['Your buying and selling in Europe moves prices there 50% less.'],
     units: ['Free Colonist (Pioneer)', 'Free Colonist (Soldier)', 'Merchantman'],
   });
   // The settlement's defence is the colony's, not the nation's.
   expect(bonus('model.nationType.default', false).modifiers).toEqual([]);
-  expect(bonus('model.nationType.naval', false).modifiers).toEqual(['Movement Bonus (Naval unit): +3']);
+  expect(bonus('model.nationType.naval', false).modifiers).toEqual(['Your ships move 1 more tile a turn.']);
+  // One it cannot put in words shows as the Colopedia shows it.
+  expect(bonus('model.nationType.bombard', false).modifiers).toEqual(['Bombard Bonus: +50%']);
   // A goods type's bonus by the goods' name alone, as the Colopedia's goods button shows it.
   expect(bonus('model.nationType.agriculture', false)).toEqual({
-    modifiers: ['Grain: +2'],
+    modifiers: ['Each colonist making Grain makes 2 more.'],
     units: ['Expert Farmer (Pioneer)', 'Free Colonist (Soldier)', 'Caravel'],
   });
+});
+
+test('each of the Classic nation types’ modifiers reads as what it does', () => {
+  const say = (id: string, value: number, type: string, scopes: string[] = [], goods: string | null = null) =>
+    explainModifier(id, value, type, scopes, goods);
+  expect(say('model.modifier.tradeBonus', -50, 'percentage')).toBe(
+    'Your buying and selling in Europe moves prices there 50% less.',
+  );
+  expect(say('model.modifier.religiousUnrestBonus', -33, 'percentage')).toBe(
+    'Each new colonist from Europe takes 33% fewer crosses.',
+  );
+  expect(say('model.modifier.nativeAlarmModifier', -50, 'percentage')).toBe(
+    'Natives grow alarmed at you 50% more slowly.',
+  );
+  expect(say('model.modifier.nativeConvertBonus', 200, 'percentage')).toBe(
+    'Winning an attack on a native settlement that has your missionary is 200% more likely to win you a convert.',
+  );
+  expect(say('model.modifier.offenceAgainst', 50, 'percentage', ['scope.method.isIndian'])).toBe(
+    'Your units attack natives with 50% more strength.',
+  );
+  expect(say('model.modifier.movementBonus', 3, 'additive', ['model.ability.navalUnit'])).toBe(
+    'Your ships move 1 more tile a turn.',
+  );
+  expect(say('model.modifier.movementBonus', 2, 'additive', ['model.ability.navalUnit'])).toBe(
+    'Your ships have 2 more movement points a turn.',
+  );
+  expect(say('model.goods.hammers', 2, 'additive', ['model.ability.person'], 'Hammers')).toBe(
+    'Each colonist making Hammers makes 2 more.',
+  );
+  // A scope or a kind of value the sentence does not cover is left to the Colopedia's form.
+  expect(say('model.modifier.offenceAgainst', 50, 'percentage', ['model.unit.artillery'])).toBeNull();
+  expect(say('model.modifier.tradeBonus', 2, 'multiplicative')).toBeNull();
 });
 
 test('at a difficulty with expert starting units, the expert ones replace the others', () => {

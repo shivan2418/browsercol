@@ -19,7 +19,7 @@ const options: StartOptions = {
   bonus: (type, expert) => ({
     modifiers:
       type === 'model.nationType.trade'
-        ? ['Trade Bonus: -50%']
+        ? ['Your buying and selling in Europe moves prices there 50% less.']
         : type === 'model.nationType.cooperation'
           ? ['Native Alarm Bonus: -50%']
           : type === 'model.nationType.conquest'
@@ -146,7 +146,9 @@ test('the player picks a nation and a level and starts', async () => {
 test('it shows what the nation type the player starts with gives, not a summary of it', async () => {
   screenWith();
   const bonus = () => document.querySelector('[data-nation-bonus]')!.textContent;
-  expect(bonus()).toBe('Trade Bonus: -50%Starting units: Free Colonist (Soldier), Caravel');
+  expect(bonus()).toBe(
+    'Your buying and selling in Europe moves prices there 50% less.Starting units: Free Colonist (Soldier), Caravel',
+  );
   expect(bonus()).not.toContain('Prices are more favorable');
   await chooseOption(screen.getByLabelText('Advantage of your nation'), 'Conquest');
   expect(bonus()).toContain('Native Convert Bonus: +200%');

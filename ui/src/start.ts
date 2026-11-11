@@ -120,6 +120,57 @@ function plain(message: string): string {
   return message.replace(/\{\{(?:tag|plural):[^}]*?\bdefault=([^}|]*)[^}]*\}\}/g, '$1');
 }
 
+/**
+ * What a nation type's modifier does to the player, in a plain sentence, from what FreeCol's code does with it; null
+ * for one this does not know, which then shows as the Colopedia shows it.
+ *
+ * @param scopes The keys of the modifier's scopes: a type, an ability or scope.method.<name>.
+ * @param goods The goods' name when the modifier is a goods type's production bonus.
+ */
+export function explainModifier(
+  id: string,
+  value: number,
+  type: string | null,
+  scopes: string[],
+  goods: string | null,
+): string | null {
+  const n = String(Math.round(Math.abs(value) * 100) / 100);
+  const less = value < 0;
+  if (goods !== null) {
+    // An additive bonus to the goods each unit makes (a colonist on a tile or in a building).
+    return type === 'additive' && !less ? `Each colonist making ${goods} makes ${n} more.` : null;
+  }
+  const only = (...keys: string[]) => scopes.length === keys.length && keys.every((k) => scopes.includes(k));
+  if (type === 'percentage' && only()) {
+    switch (id) {
+      // ServerPlayer.buy and sell: the goods a trade adds to or takes from the market, which move its prices.
+      case 'model.modifier.tradeBonus':
+        return `Your buying and selling in Europe moves prices there ${n}% ${less ? 'less' : 'more'}.`;
+      // Player.updateImmigrationRequired: the crosses the next immigrant takes.
+      case 'model.modifier.religiousUnrestBonus':
+        return `Each new colonist from Europe takes ${n}% ${less ? 'fewer' : 'more'} crosses.`;
+      // ServerPlayer.csNativeTension: how much each thing that alarms the natives alarms them.
+      case 'model.modifier.nativeAlarmModifier':
+        return `Natives grow alarmed at you ${n}% ${less ? 'more slowly' : 'faster'}.`;
+      // Unit.getConvertProbability: the chance that winning an attack on a native settlement wins a convert, which
+      // SimpleCombatModel allows only where the attacker's nation has a missionary (and not from a ship).
+      case 'model.modifier.nativeConvertBonus':
+        return `Winning an attack on a native settlement that has your missionary is ${n}% ${less ? 'less' : 'more'} likely to win you a convert.`;
+    }
+  }
+  if (id === 'model.modifier.offenceAgainst' && type === 'percentage' && only('scope.method.isIndian')) {
+    return `Your units attack natives with ${n}% ${less ? 'less' : 'more'} strength.`;
+  }
+  // Unit.getInitialMovesLeft: movement points, three to a tile.
+  if (id === 'model.modifier.movementBonus' && type === 'additive' && only('model.ability.navalUnit') && !less) {
+    const tiles = value / 3;
+    return Number.isInteger(tiles)
+      ? `Your ships move ${tiles} more tile${tiles === 1 ? '' : 's'} a turn.`
+      : `Your ships have ${n} more movement points a turn.`;
+  }
+  return null;
+}
+
 /** FreeCol's ModifierFormat: a sign, the value without trailing zeros, and % for a percentage; × for a multiplier. */
 function modifierValue(value: number, type: string | null): string {
   const n = String(Math.round(Math.abs(value) * 100) / 100);
@@ -232,23 +283,26 @@ export function startOptions(data: string[], rules: string, defaultLevel = 'mode
       const role = u.getAttribute('role');
       return role && role !== 'model.role.default' ? `${name} (${say(`${role}.name`, role)})` : name;
     });
-    // ColopediaGameObjectTypePanel.getModifierComponent: a goods type's bonus by the goods' name, any other by the
+    // Each modifier as a plain sentence (explainModifier); one it does not know as the Colopedia shows it
+    // (ColopediaGameObjectTypePanel.getModifierComponent): a goods type's bonus by the goods' name, any other by the
     // modifier's name and its scope (ModifierFormat.getFeatureAsString), e.g. "Movement Bonus (Naval unit): +3".
     const modifiers = types.flatMap((t) =>
       [...t.querySelectorAll(':scope > modifier')].map((m) => {
         const id = m.getAttribute('id') ?? '';
-        const goods = !!spec.querySelector(`goods-type[id="${id}"]`);
-        const scopes = goods
-          ? []
-          : [...m.querySelectorAll(':scope > scope')].map((sc) => {
-              const key =
-                sc.getAttribute('type') ??
-                sc.getAttribute('ability-id') ??
-                (sc.getAttribute('method-name') ? `scope.method.${sc.getAttribute('method-name')}` : '');
-              return say(`${key}.name`, key);
-            });
-        const name = say(`${id}.name`, id) + (scopes.length ? ` (${scopes.join(', ')})` : '');
-        return `${name}: ${modifierValue(Number(m.getAttribute('value')), m.getAttribute('type'))}`;
+        const value = Number(m.getAttribute('value'));
+        const type = m.getAttribute('type');
+        const goods = spec.querySelector(`goods-type[id="${id}"]`) ? say(`${id}.name`, id) : null;
+        const keys = [...m.querySelectorAll(':scope > scope')].map(
+          (sc) =>
+            sc.getAttribute('type') ??
+            sc.getAttribute('ability-id') ??
+            (sc.getAttribute('method-name') ? `scope.method.${sc.getAttribute('method-name')}` : ''),
+        );
+        const plainly = explainModifier(id, value, type, keys, goods);
+        if (plainly) return plainly;
+        const scopes = goods === null ? keys.map((k) => say(`${k}.name`, k)) : [];
+        const name = (goods ?? say(`${id}.name`, id)) + (scopes.length ? ` (${scopes.join(', ')})` : '');
+        return `${name}: ${modifierValue(value, type)}`;
       }),
     );
     return { units: unitText, modifiers };
