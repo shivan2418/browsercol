@@ -1165,7 +1165,12 @@
         justify-self: center;
         width: 26px;
         height: 26px;
-        padding: 0;
+        /*
+         * Cinzel's digits sit 0.5-1px above the middle of their line box, so a 1px top padding centres them. A round
+         * pin takes no button bevel, whose light top-left edge made the disc look shifted under its number.
+         */
+        padding: 1px 0 0;
+        box-shadow: none;
         border-radius: 50%;
         background: var(--head);
         color: var(--panel);
