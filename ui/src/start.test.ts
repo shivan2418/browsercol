@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { expect, test } from 'vite-plus/test';
-import { explainModifier, presetJson, startOptions } from './start';
+import fs from 'node:fs';
+import zlib from 'node:zlib';
+import { FREECOL_MAP_SIZES, MAPS, explainModifier, freecolMapName, presetJson, startOptions } from './start';
 
 const spec = `<freecol-specification id="classic">
   <nations>
@@ -208,4 +210,45 @@ test('the nations, advantages and colours the player chose go to the Engine', ()
   expect(
     JSON.parse(presetJson({ nation: null, difficulty: 'model.difficulty.medium', options: {}, advantages: 'NONE' })),
   ).toEqual({ difficulty: 'model.difficulty.medium', advantages: 'NONE' });
+});
+
+/** A file of a zip archive, by name, found through the archive's central directory. */
+function unzipEntry(zip: Buffer, name: string): string {
+  const end = zip.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
+  const count = zip.readUInt16LE(end + 10);
+  let at = zip.readUInt32LE(end + 16);
+  for (let i = 0; i < count; i++) {
+    const method = zip.readUInt16LE(at + 10);
+    const size = zip.readUInt32LE(at + 20);
+    const nameLength = zip.readUInt16LE(at + 28);
+    const local = zip.readUInt32LE(at + 42);
+    if (zip.toString('utf8', at + 46, at + 46 + nameLength) === name) {
+      const start = local + 30 + zip.readUInt16LE(local + 26) + zip.readUInt16LE(local + 28);
+      const data = zip.subarray(start, start + size);
+      return (method === 8 ? zlib.inflateRawSync(data) : data).toString('utf8');
+    }
+    at += 46 + nameLength + zip.readUInt16LE(at + 30) + zip.readUInt16LE(at + 32);
+  }
+  throw new Error(`${name} not found`);
+}
+
+test("the start screen lists every map FreeCol comes with, with its size from the map's file", () => {
+  const dir = '../freecol/data/maps';
+  const files = fs.readdirSync(dir).filter((f) => f.endsWith('.fsm'));
+  expect(Object.keys(FREECOL_MAP_SIZES).sort()).toEqual(files.sort());
+  for (const f of files) {
+    const props = unzipEntry(fs.readFileSync(`${dir}/${f}`), 'savegame.properties');
+    const w = Number(/map\.width=(\d+)/.exec(props)?.[1]);
+    const h = Number(/map\.height=(\d+)/.exec(props)?.[1]);
+    expect([f, w, h]).toEqual([f, ...FREECOL_MAP_SIZES[f]!]);
+    expect(MAPS.find((m) => m.id === f)?.name).toBe(`${freecolMapName(f)}, ${w}×${h}`);
+  }
+  expect(MAPS[0]!.name).toBe('America (1492), 29×143');
+});
+
+test("a FreeCol map's name is its file name's place and author", () => {
+  expect(freecolMapName('M_NorthAmerica2_Mazim.fsm')).toBe('North America 2 (Mazim)');
+  expect(freecolMapName('L_America_JsTheDude.fsm')).toBe('America (JsTheDude)');
+  expect(freecolMapName('L_TheOldWorld_Mazim.fsm')).toBe('The Old World (Mazim)');
+  expect(freecolMapName('XXL_HugeWorld_Mazim.fsm')).toBe('Huge World (Mazim)');
 });

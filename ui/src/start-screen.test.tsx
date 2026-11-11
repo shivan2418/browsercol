@@ -375,7 +375,7 @@ test('the map chosen stays chosen across a ruleset switch', async () => {
       changeRules={(r, setup) => switched.push([r, setup])}
     />,
   );
-  await chooseOption(document.querySelector('[data-map]')!, 'America (1492)');
+  await chooseOption(document.querySelector('[data-map]')!, MAPS[0].name);
   await chooseOption(document.querySelector('[data-rules]')!, 'FreeCol');
   expect(switched.map(([r, s]) => [r, s.map])).toEqual([['freecol', 'america']]);
   // main.tsx draws the new ruleset's screen afresh with the setup handed back, and the game starts on its map.

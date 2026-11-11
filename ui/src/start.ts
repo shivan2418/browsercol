@@ -104,12 +104,69 @@ export interface StartChoice {
   builtInMap?: string;
 }
 
+/** The map files FreeCol comes with (freecol/data/maps), by file name: their URLs, fetched only when picked. */
+const freecolMapUrls = import.meta.glob<string>('../../freecol/data/maps/*.fsm', {
+  query: '?url',
+  import: 'default',
+  eager: true,
+});
+
+/** Each FreeCol map's size in tiles, width by height (its savegame.properties; start.test.ts checks them). */
+export const FREECOL_MAP_SIZES: Record<string, [number, number]> = {
+  'L_America_JsTheDude.fsm': [58, 261],
+  'L_America_Mazim.fsm': [58, 261],
+  'L_Asia_Mazim.fsm': [68, 256],
+  'L_PacificSouth_Mazim.fsm': [70, 200],
+  'L_TheOldWorld_Mazim.fsm': [88, 140],
+  'M_Africa_Gilolat.fsm': [37, 192],
+  'M_Africa_Mazim.fsm': [40, 160],
+  'M_America_Mazim.fsm': [40, 180],
+  'M_AustraliaOceania_Mazim.fsm': [50, 160],
+  'M_CaribbeanIslands_Mazim.fsm': [80, 160],
+  'M_Caribbean_Piotrus.fsm': [60, 140],
+  'M_Eurasia_Mazim.fsm': [45, 120],
+  'M_NorthAmerica2_Mazim.fsm': [36, 160],
+  'M_NorthAmerica_Mazim.fsm': [52, 130],
+  'M_SouthAmerica_Mazim.fsm': [35, 153],
+  'S_Arabias_Mazim.fsm': [40, 100],
+  'S_AustraliaOceania_Gilolat.fsm': [28, 128],
+  'S_Caribbean_Phil.fsm': [48, 48],
+  'S_FeudalJapan_Mazim.fsm': [30, 120],
+  'S_SouthEastAsia_Mazim.fsm': [40, 100],
+  'S_USA_Mazim.fsm': [40, 100],
+  'XL_GigaEarth_Mazim.fsm': [127, 230],
+  'XXL_HugeWorld_Mazim.fsm': [180, 300],
+};
+
 /**
- * The maps the game comes with, besides the generated one: the original DOS Colonization's America (#459), as a map
- * of our own made from the DOS game's AMER2.MP (DosMap.java).
+ * A FreeCol map's name from its file name, which is size_Place_Author.fsm: "M_NorthAmerica2_Mazim.fsm" is "North
+ * America 2 (Mazim)".
+ */
+export function freecolMapName(file: string): string {
+  const [, place = file, author] = /^[A-Z]+_(.+?)(?:_([^_]+))?\.fsm$/.exec(file) ?? [];
+  const words = place
+    .replace(/([a-z])([A-Z0-9])/g, '$1 $2')
+    .replace(/([A-Z])([A-Z][a-z])/g, '$1 $2')
+    .replace(/_/g, ' ');
+  return author ? `${words} (${author})` : words;
+}
+
+/** A map's name with its size after it, as the start screen lists it. */
+const sized = (name: string, [w, h]: [number, number]) => `${name}, ${w}×${h}`;
+
+/**
+ * The maps the game comes with, besides the generated one: first the original DOS Colonization's America (#459), as
+ * a map of our own made from the DOS game's AMER2.MP (DosMap.java, laid out 29x143), then FreeCol's own maps by name.
  */
 export const MAPS: { id: string; name: string; url: string }[] = [
-  { id: 'america', name: 'America (1492)', url: americaMap },
+  { id: 'america', name: sized('America (1492)', [29, 143]), url: americaMap },
+  ...Object.entries(freecolMapUrls)
+    .map(([path, url]) => {
+      const file = path.slice(path.lastIndexOf('/') + 1);
+      const size = FREECOL_MAP_SIZES[file];
+      return { id: file, name: size ? sized(freecolMapName(file), size) : freecolMapName(file), url };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name)),
 ];
 
 /** A .properties file's lines, as FreeCol reads them: key=value, # comments. */
