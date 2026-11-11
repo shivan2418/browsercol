@@ -4,6 +4,8 @@
 # image (docker/sam.Dockerfile), so neither is installed on the host.
 # Uses the host's AWS credentials, read-only from ~/.aws: set AWS_PROFILE
 # and AWS_REGION as you would for the aws CLI (or AWS_ACCESS_KEY_ID etc.).
+# The deploying user needs only deploy-policy.json (a managed policy, #371):
+# this stack, its function, role, log group and bucket, and SAM's uploads.
 # Usage: relay/deploy.sh [extra sam deploy options, e.g. --parameter-overrides AllowedOrigin=...]
 set -euo pipefail
 relay="$(cd "$(dirname "$0")" && pwd)"
