@@ -80,10 +80,10 @@ describe('the minimap panel', () => {
     const borders = button(/political and economic/);
     expect(borders.textContent).toBe('');
     expect(borders.style.getPropertyValue('--normal')).toBe(
-      'url("art/image.miscicon.button.normal.toggle_view_economic.png")',
+      `url("${new URL('art/image.miscicon.button.normal.toggle_view_economic.png', document.baseURI).href}")`,
     );
     expect(button(/fog of war/).style.getPropertyValue('--disabled')).toBe(
-      'url("art/image.miscicon.button.disabled.toggle_fog_of_war.png")',
+      `url("${new URL('art/image.miscicon.button.disabled.toggle_fog_of_war.png', document.baseURI).href}")`,
     );
   });
 

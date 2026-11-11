@@ -3,7 +3,7 @@
 // properties on the root, and index.html uses them as masks filled with a token's colour, which
 // lets the tick follow the palette.
 import { PANEL_KEYS } from './map-keys';
-import type { Art } from './frame';
+import { cssUrl, type Art } from './frame';
 
 /** The custom property each control image goes in, by resource key. */
 export const CONTROL_ART = {
@@ -15,7 +15,7 @@ export const CONTROL_ART = {
 export function controlArt(root: HTMLElement, art: Art) {
   for (const [key, property] of Object.entries(CONTROL_ART)) {
     const url = art([key]);
-    if (url) root.style.setProperty(property, `url("${new URL(url, document.baseURI).href}")`);
+    if (url) root.style.setProperty(property, cssUrl(url));
     else root.style.removeProperty(property);
   }
 }

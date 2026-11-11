@@ -83,7 +83,9 @@ describe('the info panel', () => {
     const skinArt: Art = (keys) => (keys[0] === 'image.skin.InfoPanel' ? 'art/infopanel-skin.png' : art(keys));
     const { panel } = shown({ unit: soldier, art: skinArt });
     expect(panel.classList.contains('skinned')).toBe(true);
-    expect(panel.style.getPropertyValue('--skin')).toBe('url("art/infopanel-skin.png")');
+    expect(panel.style.getPropertyValue('--skin')).toBe(
+      `url("${new URL('art/infopanel-skin.png', document.baseURI).href}")`,
+    );
     cleanup();
     expect(shown({ idle: true }).panel.classList.contains('skinned')).toBe(false);
   });

@@ -6,7 +6,7 @@
 // pictures on the left leg, where image.skin.MiniMap.properties puts them.
 import { useEffect, useMemo, useRef, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { Tip } from './controls';
-import type { Art } from './frame';
+import { cssUrl, type Art } from './frame';
 import {
   BACKGROUNDS,
   css,
@@ -48,7 +48,7 @@ function buttonPictures(art: Art, name: string): CSSProperties | null {
   const states = ['normal', 'highlighted', 'pressed', 'disabled'] as const;
   const srcs = states.map((state) => art([`${PANEL_KEY_FAMILIES.button}${state}.${name}`]));
   if (srcs.some((src) => !src)) return null;
-  return Object.fromEntries(states.map((state, i) => [`--${state}`, `url("${srcs[i]}")`])) as CSSProperties;
+  return Object.fromEntries(states.map((state, i) => [`--${state}`, cssUrl(srcs[i] as string)])) as CSSProperties;
 }
 
 export function MinimapPanel({ map, res, view, options, centre, setOption, art = () => null }: MinimapProps) {
@@ -115,7 +115,7 @@ export function MinimapPanel({ map, res, view, options, centre, setOption, art =
     <div
       id="minimap"
       className={pictured ? 'skinned' : undefined}
-      style={pictured ? ({ '--skin': `url("${skin}")` } as CSSProperties) : undefined}
+      style={pictured ? ({ '--skin': cssUrl(skin) } as CSSProperties) : undefined}
     >
       <div className="minimap-buttons">
         <Tip

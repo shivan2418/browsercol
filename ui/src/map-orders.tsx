@@ -2,7 +2,7 @@
 // there. They stay in normal play, where the side panel (a debug scaffold) is hidden.
 import type { CSSProperties } from 'react';
 import { Tip } from './controls';
-import type { Art } from './frame';
+import { cssUrl, type Art } from './frame';
 import { orderOf, type Command } from './input';
 import { PANEL_KEY_FAMILIES } from './map-keys';
 
@@ -27,7 +27,7 @@ function pictures(art: Art, name: string): CSSProperties | null {
   const states = ['normal', 'highlighted', 'pressed', 'disabled'] as const;
   const srcs = states.map((state) => art([`${PANEL_KEY_FAMILIES.button}${state}.${name}`]));
   if (srcs.some((src) => !src)) return null;
-  return Object.fromEntries(states.map((state, i) => [`--${state}`, `url("${srcs[i]}")`])) as CSSProperties;
+  return Object.fromEntries(states.map((state, i) => [`--${state}`, cssUrl(srcs[i] as string)])) as CSSProperties;
 }
 
 /** The orders the active unit can take (`orders`, by the Engine's names); nothing is drawn with no active unit. */

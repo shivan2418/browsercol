@@ -5,7 +5,7 @@
 // it, FreeCol's skin is the panel's background: a desk with a skull on it, over a sheet of paper.
 import type { CSSProperties, ReactNode } from 'react';
 import { Tip } from './controls';
-import type { Art } from './frame';
+import { cssUrl, type Art } from './frame';
 import { PANEL_KEYS } from './map-keys';
 import type { ActiveUnit } from './tileset';
 
@@ -59,7 +59,7 @@ function Skinned({
       id="info-panel"
       aria-label="Information"
       className={classes || undefined}
-      style={skin ? ({ '--skin': `url("${skin}")` } as CSSProperties) : undefined}
+      style={skin ? ({ '--skin': cssUrl(skin) } as CSSProperties) : undefined}
       onPointerDown={onPointerDown}
     >
       {children}

@@ -37,6 +37,15 @@ import './quiet-text.css';
 export type Art = (keys: readonly string[]) => string | null;
 
 /**
+ * An art URL as a CSS url() to put in a custom property. Made absolute: a relative url() given through var()
+ * resolves against the sheet that uses the var(), and the built sheets sit in assets/, so "art/x.png" would load
+ * assets/art/x.png, which is not there, and the image would be missing.
+ */
+export function cssUrl(src: string): string {
+  return `url("${new URL(src, document.baseURI).href}")`;
+}
+
+/**
  * What a window does as it opens and closes (#270): `motion` says whether to animate, and is off for a player who asks the
  * system for reduced motion, for an automated browser (navigator.webdriver, so the browser scripts never
  * wait on an animation) and where there is no matchMedia (the unit tests).
@@ -247,8 +256,7 @@ export function WindowFrame({
       inert={closing || undefined}
       style={{
         ...rest.style,
-        ...(advisor &&
-          ({ '--advisor': `url("${advisor.src}")`, '--advisor-top': `${advisor.top}px` } as CSSProperties)),
+        ...(advisor && ({ '--advisor': cssUrl(advisor.src), '--advisor-top': `${advisor.top}px` } as CSSProperties)),
         transform: shift.x || shift.y ? `translate(${shift.x}px, ${shift.y}px)` : undefined,
       }}
     >

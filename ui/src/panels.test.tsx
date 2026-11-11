@@ -1068,7 +1068,9 @@ describe('the panels', () => {
     act(() => box.show('information', { text: 'A ship.', object: null, tile: null, at: null, images: [], ok: 'OK' }));
     const panel = screen.getByRole('dialog');
     expect(panel.hasAttribute('data-advised')).toBe(true);
-    expect(panel.style.getPropertyValue('--advisor')).toBe('url("art/doctor-paper.png")');
+    expect(panel.style.getPropertyValue('--advisor')).toBe(
+      `url("${new URL('art/doctor-paper.png', document.baseURI).href}")`,
+    );
     expect(panel.style.getPropertyValue('--advisor-top')).toBe('205px');
     key('Enter');
     act(() => box.show('messages', { title: null, ok: 'OK', messages: [message('Taxes are up.')] }));
