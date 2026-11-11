@@ -93,6 +93,8 @@ void main() {
   float foam = vMouth * 4.0 * climate.a * (1.0 - climate.a) * current * 0.16;
   col = mix(col, vec3(0.83, 0.88, 0.85), foam);
   // The soft mask keeps the pebble banks; opaque channel centres must not show stationary gravel.
+  // Real rivers carry silt and shade: darker than the sunlit shallows they borrow their tint from.
+  col *= 0.72;
   float alpha = mask.a;
   finalColor = vec4(col * alpha, alpha);
 }`;
@@ -279,7 +281,7 @@ export class RiverSurface {
         uTime: { value: 0, type: 'f32' },
         uSplit: { value: 0, type: 'f32' },
         uDeeper: { value: 0, type: 'f32' },
-        uStreakStrength: { value: 0.16, type: 'f32' },
+        uStreakStrength: { value: 0.1, type: 'f32' },
         uSpeeds: { value: [6, 3], type: 'vec2<f32>' },
         uShal0: { value: [0, 0, 0], type: 'vec3<f32>' },
         uShal1: { value: [0, 0, 0], type: 'vec3<f32>' },
@@ -299,7 +301,7 @@ export class RiverSurface {
     const u = this.surface.uniforms;
     u.uTime = this.time;
     u.uDeeper = look.recipe?.depth === 'deeper' ? 1 : 0;
-    u.uStreakStrength = look.rivers?.streakStrength ?? 0.16;
+    u.uStreakStrength = look.rivers?.streakStrength ?? 0.1;
     const speeds = u.uSpeeds as number[];
     speeds[0] = look.rivers?.minor ?? 6;
     speeds[1] = look.rivers?.major ?? 3;
