@@ -65,6 +65,11 @@ export interface Prefs {
   muteEffects: boolean;
   /** Whether the sound goes on while the tab is hidden or the app minimised; off, it pauses and resumes on return. */
   playHidden: boolean;
+  /**
+   * Whether debug mode, and with it the Debug menu's cheats, can be switched on (View > Debug Mode, Ctrl+Shift+D,
+   * `?debug`). Off, the player is kept from temptation, as RimWorld's development mode switch does (#464).
+   */
+  allowDebug: boolean;
   /** FreeCol's client options the player changed, by id (FREECOL_OPTIONS); the others keep FreeCol's default. */
   freecol: Record<string, FreeColValue>;
 }
@@ -87,6 +92,8 @@ export const DEFAULTS: Prefs = {
   muteMusic: true,
   muteEffects: false,
   playHidden: false,
+  // Off on the released site (build.sh -Prelease, Vite's release mode), on in a dev build and its scripts (#464).
+  allowDebug: import.meta.env.MODE !== 'release',
   freecol: {},
 };
 
@@ -452,6 +459,7 @@ export function parsePrefs(text: string | null): Prefs {
       muteMusic: typeof o.muteMusic === 'boolean' ? o.muteMusic : DEFAULTS.muteMusic,
       muteEffects: typeof o.muteEffects === 'boolean' ? o.muteEffects : DEFAULTS.muteEffects,
       playHidden: typeof o.playHidden === 'boolean' ? o.playHidden : DEFAULTS.playHidden,
+      allowDebug: typeof o.allowDebug === 'boolean' ? o.allowDebug : DEFAULTS.allowDebug,
       freecol: freecolValues(o.freecol),
     };
   } catch {

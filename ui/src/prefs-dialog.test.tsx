@@ -251,6 +251,17 @@ test('the audio category has a switch for playing sound while the tab is hidden,
   expect(changes.at(-1)).toMatchObject({ playHidden: true });
 });
 
+test("the debug mode switch is one of BrowserCol's own preferences (#464)", () => {
+  const changes: Prefs[] = [];
+  const { container } = render(
+    <PreferencesDialog prefs={DEFAULTS} freecol={null} change={(p) => changes.push(p)} close={() => {}} />,
+  );
+  const box = container.querySelector<HTMLInputElement>('[data-pref="allowDebug"] input')!;
+  expect(box.checked).toBe(DEFAULTS.allowDebug);
+  fireEvent.click(box);
+  expect(changes.at(-1)).toEqual({ ...DEFAULTS, allowDebug: !DEFAULTS.allowDebug });
+});
+
 test('Reset and Cancel go back to the preferences the window opened with, Revert to Defaults to the defaults', () => {
   const changes: Prefs[] = [];
   let closed = 0;

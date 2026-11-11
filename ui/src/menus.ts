@@ -64,6 +64,8 @@ export interface MenuActions {
   /** Whether debug mode is on (FreeCol's DebugMode.MENUS), and a switch for it (Ctrl+Shift+D). */
   debug: boolean;
   toggleDebug: () => void;
+  /** Whether the player allows debug mode (Preferences); not allowed, the View menu leaves its switch out (#464). */
+  allowDebug: boolean;
 }
 
 /** What the Debug menu does (FreeCol's DebugMenu): it asks a number or an id, then sends a request to the Engine. */
@@ -179,7 +181,7 @@ export function viewMenu(a: MenuActions): Items {
       run: () => a.setTileText(a.modes.tileText === 3 ? 0 : 3),
       checked: a.modes.tileText === 3,
     },
-    { label: 'Debug Mode', run: a.toggleDebug, checked: a.debug, hint: 'Ctrl+Shift+D' },
+    ...(a.allowDebug ? [{ label: 'Debug Mode', run: a.toggleDebug, checked: a.debug, hint: 'Ctrl+Shift+D' }] : []),
     { label: 'Map Controls', run: a.toggleMapControls, checked: a.mapControls, hint: 'Ctrl+M' },
     { label: 'Show Side Panel', run: a.toggleSidePanel, checked: a.sidePanel, hint: 'Shift+F11' },
     { label: 'Full Screen', run: a.toggleFullScreen, checked: a.fullScreen, hint: 'Alt+Enter' },

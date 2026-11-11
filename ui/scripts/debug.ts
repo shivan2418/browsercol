@@ -1,6 +1,7 @@
 // Browser check of debug mode on the built site: with ?debug the side panel has
 // the debug menu and each action reaches the server Engine in the Worker and
-// comes back as the client's update; without it there is no menu.
+// comes back as the client's update; without it, or with debug mode not allowed
+// in Preferences, there is no menu.
 // Run in the web image:
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/debug.ts [--browsers chromium,firefox]
 import { browserNames, collectPageErrors, playwright, trackCoverage } from './common.ts';
@@ -34,6 +35,18 @@ for (const name of browsers) {
   await plain.waitForFunction(() => window.fcResult?.status === 'finished', null, { timeout });
   check(`${name}: no debug menu without ?debug`, (await plain.$('#debug')) === null);
   await plain.close();
+
+  // Debug mode not allowed in Preferences (#464): neither ?debug nor Ctrl+Shift+D turns it on.
+  const barred = await browser.newPage();
+  await answerDialogs(barred);
+  await barred.addInitScript(() => localStorage.setItem('freecol.prefs', JSON.stringify({ allowDebug: false })));
+  await barred.goto(`${base}&debug&autoplay=0`);
+  await barred.waitForFunction(() => window.fcResult?.status === 'finished', null, { timeout });
+  check(`${name}: no debug menu with ?debug when debug mode is not allowed`, (await barred.$('#debug')) === null);
+  await barred.keyboard.press('Control+Shift+D');
+  await barred.waitForTimeout(500);
+  check(`${name}: Ctrl+Shift+D does nothing when debug mode is not allowed`, (await barred.$('#debug')) === null);
+  await barred.close();
 
   // In debug mode: the menu, and its actions.
   const page = await browser.newPage();

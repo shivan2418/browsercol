@@ -2,7 +2,7 @@
 import clientOptionsXml from '../../freecol/data/base/client-options.xml?raw';
 import freecolMessages from '../../freecol/data/strings/FreeColMessages.properties?raw';
 import germanMessages from '../../freecol/data/strings/FreeColMessages_de.properties?raw';
-import { describe, expect, it } from 'vite-plus/test';
+import { describe, expect, it, vi } from 'vite-plus/test';
 import {
   autosaveOptions,
   blinkMs,
@@ -113,6 +113,22 @@ describe('prefs', () => {
   it('keeps auto end turn off unless stored on', () => {
     expect(parsePrefs(null).autoEndTurn).toBe(false);
     expect(parsePrefs('{"autoEndTurn":true}').autoEndTurn).toBe(true);
+  });
+
+  it('allows debug mode in a dev build, not on the released site, and keeps the choice (#464)', async () => {
+    expect(DEFAULTS.allowDebug).toBe(true);
+    expect(parsePrefs('{"allowDebug":false}').allowDebug).toBe(false);
+    expect(parsePrefs('{"allowDebug":"no"}').allowDebug).toBe(true);
+    vi.stubEnv('MODE', 'release');
+    vi.resetModules();
+    try {
+      const release = await import('./prefs');
+      expect(release.DEFAULTS.allowDebug).toBe(false);
+      expect(release.parsePrefs(null).allowDebug).toBe(false);
+      expect(release.parsePrefs('{"allowDebug":true}').allowDebug).toBe(true);
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it('maps speeds to durations, with off as 0', () => {

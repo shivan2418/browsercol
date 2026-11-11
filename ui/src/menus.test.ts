@@ -41,6 +41,7 @@ function actions(over: Partial<MenuActions> = {}) {
     toggleMapControls: () => log.push('mapControls'),
     debug: false,
     toggleDebug: () => log.push('debug'),
+    allowDebug: true,
     ...over,
   };
   return { a, log };
@@ -268,6 +269,12 @@ describe('the View menu', () => {
       'Map Controls',
       'Show Side Panel',
     ]);
+  });
+
+  it('leaves Debug Mode out when the player does not allow debug mode', () => {
+    const items = viewMenu(actions({ allowDebug: false }).a);
+    expect(labels(items)).not.toContain('Debug Mode');
+    expect(labels(items)).toContain('Map Controls');
   });
 
   it('shows one tile text at a time, and a second pick of it turns it off', () => {

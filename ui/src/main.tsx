@@ -13,7 +13,8 @@
 //   ?rules=ID    the ruleset (default classic)
 //   ?load=ID     continue the saved game with this id, in place of a new game
 //   (dev server) the page resumes the autosave; ?new starts afresh, ?resume resumes in a built site too
-//   ?debug       the debug menu (or Ctrl+Shift+D in the game): reveal the map, add gold, units and goods, skip turns, show the AI's view
+//   ?debug       the debug menu (or Ctrl+Shift+D in the game): reveal the map, add gold, units and goods, skip turns, show the AI's view;
+//                only while Preferences allows debug mode (off by default on the released site, #464)
 //   ?skipstart   no start screen: start a game with FreeCol's defaults (debug; the browser scripts use it)
 //   ?preset=NAME start straight away from presets/NAME.json (or a URL ending .json): a
 //                preset sets the nation, difficulty, options and map seed (debug)
@@ -287,8 +288,13 @@ let resumed = false;
 const preset = params.get('preset');
 /** No start screen: a debug start, a loaded game, or ?skipstart. */
 let skipStart = params.has('skipstart') || params.has('preset') || loadId !== undefined;
-/** Debug mode: `?debug`, or switched on and off with Ctrl+Shift+D or the View menu (FreeCol's Debug action). */
-let debug = debugMode(params);
+/** The preferences as the page loads: some are read only then. */
+const prefsAtLoad = loadPrefs();
+/**
+ * Debug mode: `?debug`, or switched on and off with Ctrl+Shift+D or the View menu (FreeCol's Debug action), each only
+ * while the player allows debug mode in Preferences (#464).
+ */
+let debug = debugMode(params) && prefsAtLoad.allowDebug;
 /** A Tileset named in the URL (scripts use ?tileset=test), over the player's own; links within the page keep it. */
 const tileset = params.get('tileset');
 /** A palette named in the URL, over the player's own. */
@@ -296,8 +302,6 @@ const urlPalette = params.get('theme');
 const mapHost = document.getElementById('map')!;
 /** The map's size: its host's box, which the page's CSS gives what the side panel leaves. */
 const mapSize = (): [number, number] => [mapHost.clientWidth, mapHost.clientHeight];
-/** The preferences as the page loads: some are read only then. */
-const prefsAtLoad = loadPrefs();
 /** The loading screen of index.html, up from the first paint: the bar follows the parts the page waits for. */
 const boot = loading();
 // A phone is told the game is not made for it yet (#319).
@@ -718,6 +722,8 @@ function setPrefs(p: Prefs) {
   if (view.modes.tileText !== modes.tileText) dispatch({ k: 'tileText', text: modes.tileText });
   // The minimap and the info panel are FreeCol's map controls.
   applyMapControls(p);
+  // Debug mode no longer allowed: it goes off, its menu and overlays with it.
+  if (debug && !p.allowDebug) toggleDebug();
   renderSide();
   renderMinimap();
 }
@@ -799,6 +805,7 @@ addEventListener(
 );
 /** Switch debug mode; the page's address keeps it, so a reload stays as it is. */
 function toggleDebug() {
+  if (!debug && !prefs.allowDebug) return;
   debug = !debug;
   const next = new URLSearchParams(location.search);
   if (debug) next.set('debug', '1');
@@ -889,6 +896,7 @@ const menuActions = (): MenuActions => ({
   toggleMapControls,
   debug,
   toggleDebug,
+  allowDebug: prefs.allowDebug,
   fullScreen: document.fullscreenElement !== null,
   toggleFullScreen: () => {
     // The browser may refuse (no gesture, or not allowed); the menu follows fullscreenchange.

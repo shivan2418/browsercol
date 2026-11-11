@@ -123,6 +123,11 @@ export const OWN_OPTIONS = [
   { pref: 'palette', label: 'Colours' },
   { pref: 'fonts', label: 'Fonts' },
   { pref: 'tileset', label: 'Tileset (on reload)' },
+  {
+    pref: 'allowDebug',
+    label: 'Allow debug mode',
+    description: 'The Debug menu: reveal the map, add gold, units and goods. Off, Ctrl+Shift+D and ?debug do nothing.',
+  },
 ] as const satisfies readonly { pref: keyof Prefs; label: string; description?: string }[];
 
 type OwnPref = (typeof OWN_OPTIONS)[number]['pref'];
@@ -168,6 +173,7 @@ function OwnRow({
       );
     case 'autoEndTurn':
     case 'tutorial':
+    case 'allowDebug':
       return (
         <label data-pref={pref} style={ROW}>
           {label}

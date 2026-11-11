@@ -238,7 +238,7 @@ The game's URL is `play/`; the parameters go on it (a site root URL that carries
 | `?load=ID` | Load a saved game |
 | `?new` / `?resume` | Start afresh / resume the autosave (in a built site too) |
 | `?autoplay=N` | Auto-end N turns first |
-| `?debug` | Add the debug menu |
+| `?debug` | Add the debug menu (when Preferences allows debug mode) |
 
 ### Presets
 
@@ -270,6 +270,11 @@ playing, and show the AI players' units and missions. These are FreeCol's
 own `DebugUtils` actions. The server Engine runs them in the Worker
 (`DebugActions.java`), because `DebugUtils` reaches into the server's game
 from the client, which the browser can't do.
+
+Debug mode needs **Allow debug mode** in Preferences (BrowserCol's own
+options). It is on by default in a dev build and off on the released site
+(`build.sh -Prelease`); while it is off, `?debug`, Ctrl+Shift+D and the View
+menu's Debug Mode do nothing, so players aren't one keystroke from the cheats.
 
 ## Licence
 
