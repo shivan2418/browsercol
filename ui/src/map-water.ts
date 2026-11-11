@@ -232,6 +232,8 @@ export function lakeMask(map: FieldMap): Uint8Array {
         for (const xx of [left, left + 1]) {
           if (xx < 0 || xx >= w || yy < 0 || yy >= h) continue;
           const n = yy * w + xx;
+          // Unexplored water may go on to the open sea: a body by it is no lake until it is known to be shut in.
+          if (!types[tiles.charCodeAt(n) - 65]) edge = true;
           if (!seen[n] && water(n)) {
             seen[n] = 1;
             queue[count++] = n;

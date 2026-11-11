@@ -332,6 +332,19 @@ describe('waterField', () => {
     expect(lakeMask({ ...map, types, tiles: tiles.join('') })[3 * w + 1]).toBe(0);
   });
 
+  it('takes explored sea by unexplored tiles for open sea, not a lake', () => {
+    // A new game's sight: a pocket of ocean away from the map's edge, by land and by the unexplored rest.
+    const tiles = Array.from({ length: w * h }, () => '.');
+    for (const k of [3 * w + 2, 3 * w + 3, 4 * w + 2]) tiles[k] = 'B';
+    tiles[5 * w + 2] = 'A';
+    const sea = lakeMask({ ...map, tiles: tiles.join('') });
+    expect(sea[3 * w + 2]).toBe(0);
+    expect(sea[4 * w + 2]).toBe(0);
+    // Shut in by land all round, the same water is a lake.
+    const shut = tiles.map((c) => (c === '.' ? 'A' : c));
+    expect(lakeMask({ ...map, tiles: shut.join('') })[3 * w + 2]).toBe(1);
+  });
+
   it('closing fills notches without cutting land or protected sailing channels', () => {
     const cols = 31,
       rows = 31;
