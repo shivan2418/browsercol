@@ -1239,6 +1239,16 @@ function RoutesPanel({ d, art, routes }: { d: Of<'tradeRoutes'>; art: Art; route
     stops: r.stops.map((s) => ({ place: s.place, label: s.label, cargo: [...s.cargo] })),
   });
   useEnter(editing === null ? ok : null);
+  // The routes are a list: the arrow keys move the pick, double-click edits.
+  const onKey = (ev: ReactKeyboardEvent) => {
+    const step = ev.key === 'ArrowDown' ? 1 : ev.key === 'ArrowUp' ? -1 : 0;
+    if (step === 0 || e.routes.length === 0) return;
+    ev.preventDefault();
+    const at = e.routes.findIndex((r) => r.id === picked);
+    const next = e.routes[at < 0 ? 0 : Math.min(e.routes.length - 1, Math.max(0, at + step))];
+    setPicked(next.id);
+    (ev.currentTarget.querySelector(`[data-route="${CSS.escape(next.id)}"]`) as HTMLElement | null)?.focus();
+  };
   if (editing !== null) {
     const leave = () => {
       refused = null;
@@ -1273,10 +1283,24 @@ function RoutesPanel({ d, art, routes }: { d: Of<'tradeRoutes'>; art: Art; route
           <Pic keys={e.unit.images} art={art} size="small" /> {e.unit.name} {e.unit.location}
         </p>
       )}
-      <div className="routes">
-        {e.routes.map((r) => (
-          <button key={r.id} data-route={r.id} aria-pressed={r.id === picked} onClick={() => setPicked(r.id)}>
-            {r.units > 0 ? `${r.name}  (${r.units})` : r.name}
+      <div className="routes" role="listbox" aria-label={e.title} onKeyDown={onKey}>
+        {e.routes.length === 0 && <span className="none">No trade routes yet</span>}
+        {e.routes.map((r, i) => (
+          <button
+            key={r.id}
+            role="option"
+            data-route={r.id}
+            aria-label={r.units > 0 ? `${r.name} (${r.units})` : r.name}
+            aria-selected={r.id === picked}
+            tabIndex={(route ? r.id === picked : i === 0) ? 0 : -1}
+            onClick={() => setPicked(r.id)}
+            onDoubleClick={() => {
+              setPicked(r.id);
+              setEditing(edit(r));
+            }}
+          >
+            <span className="name">{r.name}</span>
+            {r.units > 0 && <span className="units">{r.units === 1 ? '1 unit' : `${r.units} units`}</span>}
           </button>
         ))}
       </div>
