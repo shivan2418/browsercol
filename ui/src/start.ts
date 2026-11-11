@@ -151,8 +151,15 @@ export function freecolMapName(file: string): string {
   return author ? `${words} (${author})` : words;
 }
 
-/** A map's name with its size after it, as the start screen lists it. */
-const sized = (name: string, [w, h]: [number, number]) => `${name}, ${w}×${h}`;
+/**
+ * Maps of more tiles than this are heavy: slow to start and to play on an older machine, where FreeCol's maps are
+ * up to 17,408 tiles (Asia) and Giga Earth and Huge World 29,210 and 54,000.
+ */
+export const HEAVY_TILES = 20_000;
+
+/** A map's name with its size after it, and "heavy" for a heavy one, as the start screen lists it. */
+export const sized = (name: string, [w, h]: [number, number]) =>
+  `${name}, ${w}×${h}${w * h > HEAVY_TILES ? ' (heavy)' : ''}`;
 
 /**
  * The maps the game comes with, besides the generated one: first the original DOS Colonization's America (#459), as

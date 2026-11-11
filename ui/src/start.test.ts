@@ -2,7 +2,7 @@
 import { expect, test } from 'vite-plus/test';
 import fs from 'node:fs';
 import zlib from 'node:zlib';
-import { FREECOL_MAP_SIZES, MAPS, explainModifier, freecolMapName, presetJson, startOptions } from './start';
+import { FREECOL_MAP_SIZES, MAPS, explainModifier, freecolMapName, presetJson, sized, startOptions } from './start';
 
 const spec = `<freecol-specification id="classic">
   <nations>
@@ -241,7 +241,7 @@ test("the start screen lists every map FreeCol comes with, with its size from th
     const w = Number(/map\.width=(\d+)/.exec(props)?.[1]);
     const h = Number(/map\.height=(\d+)/.exec(props)?.[1]);
     expect([f, w, h]).toEqual([f, ...FREECOL_MAP_SIZES[f]!]);
-    expect(MAPS.find((m) => m.id === f)?.name).toBe(`${freecolMapName(f)}, ${w}×${h}`);
+    expect(MAPS.find((m) => m.id === f)?.name).toBe(sized(freecolMapName(f), [w, h]));
   }
   expect(MAPS[0]!.name).toBe('America (1492), 29×143');
 });
@@ -251,4 +251,10 @@ test("a FreeCol map's name is its file name's place and author", () => {
   expect(freecolMapName('L_America_JsTheDude.fsm')).toBe('America (JsTheDude)');
   expect(freecolMapName('L_TheOldWorld_Mazim.fsm')).toBe('The Old World (Mazim)');
   expect(freecolMapName('XXL_HugeWorld_Mazim.fsm')).toBe('Huge World (Mazim)');
+});
+
+test('the two giant maps, and only they, are marked heavy in the Map list', () => {
+  const heavy = MAPS.filter((m) => m.name.endsWith(' (heavy)')).map((m) => m.id);
+  expect(heavy.sort()).toEqual(['XL_GigaEarth_Mazim.fsm', 'XXL_HugeWorld_Mazim.fsm']);
+  expect(MAPS.find((m) => m.id === 'XL_GigaEarth_Mazim.fsm')?.name).toBe('Giga Earth (Mazim), 127×230 (heavy)');
 });
