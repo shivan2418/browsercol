@@ -43,7 +43,9 @@ class OceanRegionsTest {
         toServer.shutdownNow();
     }
 
-    private Game play(byte[] importMap) throws Exception {
+    private Game play(byte[] importMap) throws Exception { return play(importMap, 1); }
+
+    private Game play(byte[] importMap, int seed) throws Exception {
         final CountDownLatch finished = new CountDownLatch(1);
         final ClientEngine[] client = new ClientEngine[1];
         ServerEngine server = new ServerEngine(
@@ -63,11 +65,15 @@ class OceanRegionsTest {
                     client[0].answer(id, null);
                 }
             });
-        server.startGame("classic", GamePreset.parse("{ \"seed\": 1 }"), importMap);
+        server.startGame("classic", GamePreset.parse("{ \"seed\": " + seed + " }"), importMap);
         assertTrue(client[0].startGame(0), "login");
         finished.await();
+        lastClient = client[0];
         return server.getGame();
     }
+
+    /** The client of the last game played. */
+    private ClientEngine lastClient;
 
     private static int count(Map map, String type) {
         return map.getTileList(t -> type.equals(t.getType().getId())).size();
@@ -92,5 +98,21 @@ class OceanRegionsTest {
         assertTrue(map.getTileList(t -> !t.isLand() && t.getRegion() == null).isEmpty(), "all water has a region");
         Tile entry = game.getPlayerByNationId("model.nation.dutch").getEntryTile();
         assertTrue(entry.isDirectlyHighSeasConnected(), "the Dutch enter from the high seas: " + entry);
+    }
+
+    /**
+     * Seed 2 of Giga Earth puts a native settlement on (125,29) that the
+     * client has no tile for, and the map JSON of the start of the game threw
+     * (#459): the page stayed on "Loading the art".
+     */
+    @Test
+    @Timeout(240)
+    void theMapOfAClientWithASettlementThatHasNoTileComes() throws Exception {
+        play(Files.readAllBytes(new File("data/maps/XL_GigaEarth_Mazim.fsm").toPath()), 2);
+        Tile tile = lastClient.getGame().getMap().getTile(125, 29);
+        assertTrue(tile.getSettlement() != null && tile.getSettlement().getTile() == null,
+            "the client's settlement has no tile: " + tile.getSettlement());
+        String json = MapJson.of(lastClient.getGame(), lastClient.getClient().getMyPlayer(), null, false);
+        assertTrue(json.contains("\"x\":125,\"y\":29"), "the settlement is on the map");
     }
 }
