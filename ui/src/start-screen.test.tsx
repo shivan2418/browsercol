@@ -4,7 +4,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vite-plus/test';
 import { BUILD } from './build';
 import { startOptions, type StartChoice, type StartOptions } from './start';
 import fs from 'node:fs';
-import { StartScreen } from './start-screen';
+import { StartScreen, type StartSetup } from './start-screen';
 import { chooseOption } from './select-test';
 
 afterEach(cleanup);
@@ -311,23 +311,57 @@ test('another ruleset is a choice of the start screen', async () => {
   expect(rules).toEqual(['freecol']);
 });
 
-test('the open options tab stays open across a ruleset switch, so the window does not jump', async () => {
-  const switched: [string, string | null][] = [];
+test('a ruleset switch keeps the setup the new ruleset still has, and the open options tab', async () => {
+  const switched: [string, StartSetup][] = [];
   const { rerender } = render(
     <StartScreen
       key="classic"
       options={options}
       start={() => {}}
       rules="classic"
-      changeRules={(r, tab) => switched.push([r, tab])}
+      changeRules={(r, setup) => switched.push([r, setup])}
     />,
   );
+  fireEvent.click(document.querySelector('[data-nation="model.nation.french"]')!);
+  await chooseOption(screen.getByLabelText('Difficulty'), 'Easy');
+  await chooseOption(screen.getByLabelText('Advantage of your nation'), 'Conquest');
+  fireEvent.click(document.querySelector('[data-rival="model.nation.inca"] input')!);
+  fireEvent.change(screen.getByLabelText('Land price factor'), { target: { value: '250' } });
+  fireEvent.change(screen.getByLabelText('Map width'), { target: { value: '120' } });
   fireEvent.click(document.querySelector('[data-customize-tab="game"]')!);
   await chooseOption(document.querySelector('[data-rules]')!, 'FreeCol');
-  expect(switched).toEqual([['freecol', 'game']]);
-  // main.tsx draws the new ruleset's screen afresh (a new key), opened on the tab handed back.
-  rerender(<StartScreen key="freecol" options={options} start={() => {}} rules="freecol" tab="game" />);
+  expect(switched.map(([r, s]) => [r, s.tab])).toEqual([['freecol', 'game']]);
+  // main.tsx draws the new ruleset's screen afresh (a new key) with the setup handed back. This one has the
+  // Spanish too, which start as its default has them, and no map width option.
+  const freecol: StartOptions = {
+    ...options,
+    nations: [...options.nations, { ...options.nations[0], id: 'model.nation.spanish', name: 'Spanish' }],
+    defaultUnavailable: ['model.nation.spanish'],
+    groups: { ...options.groups, mapGenerator: () => null },
+  };
+  const started: StartChoice[] = [];
+  rerender(
+    <StartScreen
+      key="freecol"
+      options={freecol}
+      start={(c) => started.push(c)}
+      rules="freecol"
+      setup={switched[0][1]}
+    />,
+  );
   expect(document.querySelector('[data-customize-tab="game"]')!.getAttribute('aria-selected')).toBe('true');
+  fireEvent.click(document.querySelector('[data-start]')!);
+  expect(started).toEqual([
+    {
+      ...plain,
+      nation: 'model.nation.french',
+      difficulty: 'model.difficulty.easy',
+      advantages: 'SELECTABLE',
+      nationType: 'model.nationType.conquest',
+      options: { 'model.option.landPriceFactor': 250 },
+      unavailable: ['model.nation.spanish', 'model.nation.inca'],
+    },
+  ]);
 });
 
 test('the start screen offers to continue the newest save and to open another', () => {

@@ -219,12 +219,41 @@ function SoundToggles({
   );
 }
 
+/**
+ * The setup the player has made on the start screen, handed across a ruleset switch so the new ruleset's screen
+ * opens with it: what the new ruleset lacks (a nation, a level, an option) falls back to its default there.
+ */
+export interface StartSetup {
+  /** The More options tab open, so the window keeps its size. */
+  tab: string | null;
+  nation: string | null;
+  advantages: Advantages;
+  nationType: string;
+  colors: Record<string, string>;
+  removed: string[];
+  /** The nations the screen offered to leave out: one the new ruleset adds starts as its default has it. */
+  offered: string[];
+  difficulty: string;
+  levelEdits: Record<string, OptionValue>;
+  gameEdits: Record<string, OptionValue>;
+  mapEdits: Record<string, OptionValue>;
+  mapFiles: Record<string, File>;
+}
+
+/** The edits a group still has an option for, other than the ones now at the group's own value. */
+function keptEdits(group: OptionGroup | null, edits: Record<string, OptionValue>): Record<string, OptionValue> {
+  const base = group ? leaves(group) : new Map();
+  return Object.fromEntries(
+    Object.entries(edits).filter(([id, v]) => base.has(id) && !sameValue(base.get(id)?.value, v)),
+  );
+}
+
 export function StartScreen({
   options,
   start,
   rules,
   changeRules,
-  tab: firstTab = null,
+  setup,
   saves = [],
   open: openGame,
   openFile,
@@ -239,12 +268,12 @@ export function StartScreen({
   start: (choice: StartChoice) => void;
   /**
    * The ruleset the options are of, and a way to another one (the screen is drawn afresh: its options differ). The
-   * switch hands back the open More options tab, so the new screen opens on it and the window keeps its size.
+   * switch hands back the setup made so far, for the new screen to open with.
    */
   rules?: string;
-  changeRules?: (rules: string, tab: string | null) => void;
-  /** The More options tab open at first; none by default. */
-  tab?: string | null;
+  changeRules?: (rules: string, setup: StartSetup) => void;
+  /** The setup carried over from another ruleset's screen; the ruleset's defaults without it. */
+  setup?: StartSetup;
   /** The saved games, newest first: the first is the one Continue plays. */
   saves?: SaveMeta[];
   /** Play a saved game. */
@@ -274,14 +303,32 @@ export function StartScreen({
       gameChosen?.();
       openGame(id);
     });
-  const [advantages, setAdvantages] = useState<Advantages>('SELECTABLE');
-  const [nationType, setNationType] = useState<string>('');
-  const [colors, setColors] = useState<Record<string, string>>({});
-  const [removed, setRemoved] = useState<string[]>(options.defaultUnavailable ?? []);
-  const [nation, setNation] = useState<string | null>(options.nations[0]?.id ?? null);
+  const nationIds = [...options.nations, ...options.rivals].map((n) => n.id);
+  const [advantages, setAdvantages] = useState<Advantages>(setup?.advantages ?? 'SELECTABLE');
+  const [nationType, setNationType] = useState<string>(() =>
+    setup && options.nationTypes.some((t) => t.id === setup.nationType) ? setup.nationType : '',
+  );
+  const [colors, setColors] = useState<Record<string, string>>(() =>
+    Object.fromEntries(Object.entries(setup?.colors ?? {}).filter(([id]) => nationIds.includes(id))),
+  );
+  const [removed, setRemoved] = useState<string[]>(() => {
+    const byDefault = options.defaultUnavailable ?? [];
+    if (!setup) return byDefault;
+    // A nation both rulesets have keeps the player's tick; one only this ruleset has starts as its default.
+    return nationIds.filter((id) => (setup.offered.includes(id) ? setup.removed.includes(id) : byDefault.includes(id)));
+  });
+  const [nation, setNation] = useState<string | null>(() =>
+    setup?.nation && options.nations.some((n) => n.id === setup.nation)
+      ? setup.nation
+      : (options.nations[0]?.id ?? null),
+  );
   const levels = options.levels;
-  const [difficulty, setDifficulty] = useState(
-    levels.some((l) => l.id === options.defaultLevel) ? options.defaultLevel : (levels[0]?.id ?? options.defaultLevel),
+  const [difficulty, setDifficulty] = useState(() =>
+    setup && levels.some((l) => l.id === setup.difficulty)
+      ? setup.difficulty
+      : levels.some((l) => l.id === options.defaultLevel)
+        ? options.defaultLevel
+        : (levels[0]?.id ?? options.defaultLevel),
   );
   const chosen = options.nations.find((n) => n.id === nation);
   // Every nation but the player's own may be left out: the other Europeans, then the natives.
@@ -290,16 +337,26 @@ export function StartScreen({
     ...options.rivals,
   ];
   const ownType = advantages === 'SELECTABLE' ? options.nationTypes.find((t) => t.id === nationType) : undefined;
-  const [levelEdits, setLevelEdits] = useState<Record<string, OptionValue>>({});
+  const levelGroup = useMemo(() => options.groups.level(difficulty), [options, difficulty]);
+  // An option the new ruleset has keeps the value the player gave it under the other.
+  const [levelEdits, setLevelEdits] = useState<Record<string, OptionValue>>(() =>
+    setup && setup.difficulty === difficulty ? keptEdits(levelGroup, setup.levelEdits) : {},
+  );
   const gameGroup = useMemo(() => options.groups.game(), [options]);
   const mapGroup = useMemo(() => options.groups.mapGenerator(), [options]);
   // The game and map options the player OK'd for an earlier game are the defaults of this one.
-  const [gameEdits, setGameEdits] = useState(() => loadDefaults('game', gameGroup));
-  const [mapEdits, setMapEdits] = useState(() => loadDefaults('map', mapGroup));
+  const [gameEdits, setGameEdits] = useState(() =>
+    setup ? keptEdits(gameGroup, setup.gameEdits) : loadDefaults('game', gameGroup),
+  );
+  const [mapEdits, setMapEdits] = useState(() =>
+    setup ? keptEdits(mapGroup, setup.mapEdits) : loadDefaults('map', mapGroup),
+  );
   // The files picked for the map generator's file options (the import file): a file is not an option value,
   // so it is not kept as a default.
-  const [mapFiles, setMapFiles] = useState<Record<string, File>>({});
-  const levelGroup = useMemo(() => options.groups.level(difficulty), [options, difficulty]);
+  const [mapFiles, setMapFiles] = useState<Record<string, File>>(() => {
+    const base = mapGroup ? leaves(mapGroup) : new Map();
+    return Object.fromEntries(Object.entries(setup?.mapFiles ?? {}).filter(([id]) => base.has(id)));
+  });
   // The nation type the player starts with, as the server gives it (NationOptions): the one picked, the nation's own,
   // or none at all; and its starting units at this difficulty (expertStartingUnits, as edited).
   const playedType =
@@ -397,7 +454,7 @@ export function StartScreen({
         </div>
       </div>
     );
-  const [tab, setTab] = useState<string | null>(firstTab);
+  const [tab, setTab] = useState<string | null>(setup?.tab ?? null);
   const count = (o: object) => Object.keys(o).length;
   /** The tabs under the columns: the options of the level, the game and the map. */
   const moreTabs: { kind: string; label: string; count: number; body: ReactNode }[] = [
@@ -575,7 +632,22 @@ export function StartScreen({
                         data-rules
                         aria-label="Rules"
                         value={rules}
-                        onChange={(r) => changeRules(r, tab)}
+                        onChange={(r) =>
+                          changeRules(r, {
+                            tab,
+                            nation,
+                            advantages,
+                            nationType,
+                            colors,
+                            removed,
+                            offered: nationIds,
+                            difficulty,
+                            levelEdits,
+                            gameEdits,
+                            mapEdits,
+                            mapFiles,
+                          })
+                        }
                         choices={options.rulesets.map((r) => ({
                           value: r,
                           label: r === 'classic' ? 'Classic' : r === 'freecol' ? 'FreeCol' : r,
