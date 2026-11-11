@@ -6,7 +6,7 @@
 // and --font set the UI scale and the font size (the Preferences' display scaling and font size) for a second pass.
 // Run against dist/ (the negotiation windows are the diplomacy scenario's, scenarios.ts --only diplomacy):
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/box-shots.ts [--browsers chromium,firefox] [--tag before|after]
-//     [--save PATH.fsg | --preset NAME] [--long 1] [--widest 1] [--zoom 1.5] [--font 1.5] [--rows 1|2]
+//     [--save PATH.fsg | --preset NAME] [--long 1] [--widest 1] [--zoom 1.5] [--font 1.5] [--rows 1|2] [--options-only 1]
 // --rows leaves one row (or two) of items in the colony's outside, port and cargo boxes, and the boxes' scroll bars
 // are measured on that: one row must not scroll, two must (the outside and port boxes; a box with nothing in it is skipped). For
 // two rows, copies are added until the box scrolls, which for the cargo's small goods takes more than two lines.
@@ -32,6 +32,8 @@ const long = opt('long', '') !== '';
 const rows = Number(opt('rows', '0'));
 /** Make every amount in the colony's warehouse 300, the widest the game shows (--widest). */
 const widest = opt('widest', '') !== '';
+/** Skip Europe and the colonies, shoot only the preferences and the game's options (--options-only 1). */
+const optionsOnly = opt('options-only', '') !== '';
 const dir = path.resolve(import.meta.dirname, '../../.cache/box-shots');
 fs.mkdirSync(dir, { recursive: true });
 const server = await serveDist();
@@ -228,36 +230,38 @@ for (const browserName of browserNames()) {
       await sleep(3000);
       await look();
 
-      // Europe.
-      // Not a pointer click: at a small zoom the Beta tag lies over this button.
-      await page.locator('button[data-command=showEurope]').dispatchEvent('click');
-      await page.locator('[role=dialog][data-kind=europe]').waitFor({ timeout: 20000 });
-      await sleep(1000);
-      await shot('europe');
-      await page.keyboard.press('Escape');
-      await sleep(500);
-
-      // The colony with a ship in port: each of the player's colonies in turn until one has one.
-      const mine = (await page.evaluate(() => window.__map.settlements)).filter((s) => s.population >= 0);
-      const box = (await page.locator('#map canvas').boundingBox())!;
-      for (const [i, s] of mine.entries()) {
-        const [px, py] = await page.evaluate(([x, y]) => window.fcReveal!(x, y), [s.x, s.y]);
-        await page.mouse.click(box.x + px, box.y + py);
-        const win = page.locator('[role=dialog][data-kind=colony]');
-        await win.waitFor({ timeout: 20000 });
-        await sleep(1500);
-        if (long)
-          await win.evaluate((w) => {
-            for (const c of w.querySelectorAll('.box > .cap'))
-              c.textContent = `${c.textContent} of the Fortuyn (Dutch Merchantman) (3 holds left)`;
-          });
-        if (rows) console.log(`     items kept: ${await fillRows(win)}`);
-        const ship = await win.locator('.port .ship').count();
-        const outside = await win.locator('.outside [data-unit]').count();
-        await shot(`colony-${i}-ship${ship}-outside${outside}`, '[role=dialog][data-kind=colony]');
+      if (!optionsOnly) {
+        // Europe.
+        // Not a pointer click: at a small zoom the Beta tag lies over this button.
+        await page.locator('button[data-command=showEurope]').dispatchEvent('click');
+        await page.locator('[role=dialog][data-kind=europe]').waitFor({ timeout: 20000 });
+        await sleep(1000);
+        await shot('europe');
         await page.keyboard.press('Escape');
         await sleep(500);
-        if (i >= 3) break;
+
+        // The colony with a ship in port: each of the player's colonies in turn until one has one.
+        const mine = (await page.evaluate(() => window.__map.settlements)).filter((s) => s.population >= 0);
+        const box = (await page.locator('#map canvas').boundingBox())!;
+        for (const [i, s] of mine.entries()) {
+          const [px, py] = await page.evaluate(([x, y]) => window.fcReveal!(x, y), [s.x, s.y]);
+          await page.mouse.click(box.x + px, box.y + py);
+          const win = page.locator('[role=dialog][data-kind=colony]');
+          await win.waitFor({ timeout: 20000 });
+          await sleep(1500);
+          if (long)
+            await win.evaluate((w) => {
+              for (const c of w.querySelectorAll('.box > .cap'))
+                c.textContent = `${c.textContent} of the Fortuyn (Dutch Merchantman) (3 holds left)`;
+            });
+          if (rows) console.log(`     items kept: ${await fillRows(win)}`);
+          const ship = await win.locator('.port .ship').count();
+          const outside = await win.locator('.outside [data-unit]').count();
+          await shot(`colony-${i}-ship${ship}-outside${outside}`, '[role=dialog][data-kind=colony]');
+          await page.keyboard.press('Escape');
+          await sleep(500);
+          if (i >= 3) break;
+        }
       }
 
       // The preferences and the game's options, read-only.
