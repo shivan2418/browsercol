@@ -1778,6 +1778,8 @@ export function mapDrawer(
   let comparison = false;
   let riverBase: Op[] | null = null;
   let riverKey = '';
+  /** The key of the river mesh drawn now, '' for none. */
+  let riverMesh = '';
   // The playground chooses its recipe as soon as the first map is available.
   // Do not allocate a parked field just to discard it on that first selection.
   const waterParams = new URLSearchParams(location.search);
@@ -1848,15 +1850,32 @@ export function mapDrawer(
     const key = enabled ? `${map.w}:${map.h}:${map.tiles}:${JSON.stringify(map.rivers)}` : '';
     if (key === riverKey) return;
     riverKey = key;
-    riverBase = null;
     if (!enabled) {
+      riverBase = null;
+      riverMesh = '';
       pen.water.rivers(null);
       return;
     }
-    const drawing = await riverDrawing(map, ground.base, pics.get);
-    const next = new RiverSurface(drawing, await pics.get(res!.path('image.tile.model.tile.ocean.center')!));
-    if (field) next.surface.setField(field);
-    if (pen.water.rivers(next)) riverBase = drawing.banks;
+    const start = performance.now();
+    const drawing = await riverDrawing(map, ground.base, pics.get, riverMesh);
+    if (drawing.key && drawing.key === riverMesh) {
+      // The same rivers: the mesh drawn stays, under the banks of the ground as it is now.
+      riverBase = drawing.banks;
+    } else if (!drawing.geometry || !drawing.atlas) {
+      riverBase = null;
+      riverMesh = '';
+      pen.water.rivers(null);
+    } else {
+      const next = new RiverSurface(
+        { geometry: drawing.geometry, atlas: drawing.atlas },
+        await pics.get(res!.path('image.tile.model.tile.ocean.center')!),
+      );
+      if (field) next.surface.setField(field);
+      const shown = pen.water.rivers(next);
+      riverBase = shown ? drawing.banks : null;
+      riverMesh = shown ? drawing.key : '';
+    }
+    measure('map: rivers', start);
   }
 
   /**

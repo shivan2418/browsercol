@@ -112,8 +112,11 @@ interface Patch {
 
 export interface RiverDrawing {
   banks: Op[];
-  geometry: Geometry;
-  atlas: BufferImageSource;
+  /** What the mesh shows: the same key draws the same mesh, whatever else on the map changed. */
+  key: string;
+  /** The mesh, absent when there is no river to draw or the key is the one asked to skip. */
+  geometry?: Geometry;
+  atlas?: BufferImageSource;
 }
 
 /** Strip only the water draw from a river recipe. All bank masks and their soft edges remain FreeCol's. */
@@ -121,6 +124,8 @@ export async function riverDrawing(
   map: RiverMap,
   base: Op[],
   get: (src: Src) => Promise<Picture>,
+  /** The key of the mesh already drawn: when the rivers come out the same, only the banks are made (#411). */
+  drawn = '',
 ): Promise<RiverDrawing> {
   const directions = riverDirections(map);
   const tiles = new Map(map.rivers.map((r) => [r[1] * map.w + r[0], r]));
@@ -161,6 +166,9 @@ export async function riverDrawing(
     passOf.set(bank, passOf.get(op) ?? 0);
     return bank;
   });
+  // Exploring more of the map changes the base ops, not the rivers: keep the mesh, which takes a shader to build.
+  const key = patches.map((p) => `${p.x},${p.y},${p.mask.id},${p.downstream},${p.style},${p.magnitude}`).join(';');
+  if (!patches.length || key === drawn) return { banks, key };
   const entries = new Map<string, { patch: Patch; slot: number }>();
   const slots = patches.map((patch) => {
     const key = `${patch.mask.id}:${patch.downstream}:${patch.style}:${patch.magnitude}`;
@@ -250,6 +258,7 @@ export async function riverDrawing(
   });
   return {
     banks,
+    key,
     geometry: new Geometry({
       attributes: {
         aPosition: { buffer: positions, format: 'float32x2' },
@@ -273,7 +282,7 @@ export class RiverSurface {
   readonly surface: ShaderSurface;
   private last = -1;
   private time = 0;
-  constructor(drawing: RiverDrawing, water: Picture) {
+  constructor(drawing: { geometry: Geometry; atlas: BufferImageSource }, water: Picture) {
     this.surface = new ShaderSurface(
       VERTEX,
       FRAGMENT,

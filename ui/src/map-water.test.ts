@@ -409,6 +409,13 @@ describe('waterField', () => {
     const fresh = waterField(explored, texel, () => 0, null, 'signed', recipe);
     expect(patched.data).toEqual(fresh.data);
     expect(patched.climate).toEqual(fresh.climate);
+    // A river explored at the coast makes the field again round its tile alone (#411), its plume as a fresh field's.
+    const river = { ...explored, rivers: [[2, 2, 1, '0110', '0110']] as MapView['rivers'] };
+    const withRiver = waterField(river, texel, () => 0, patched, 'signed', recipe);
+    const freshRiver = waterField(river, texel, () => 0, null, 'signed', recipe);
+    expect(withRiver.climate).toEqual(freshRiver.climate);
+    expect(withRiver.climate).not.toEqual(fresh.climate);
+    expect(withRiver.data).toEqual(freshRiver.data);
   });
 });
 

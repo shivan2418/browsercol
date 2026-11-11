@@ -444,6 +444,8 @@ export interface WaterField {
     lakes?: Uint8Array;
     channels: Uint8Array;
     plume: Float32Array;
+    /** Each river tile's entry, by tile index: a river explored or changed is made again round its tile. */
+    rivers: Map<number, string>;
   };
 }
 
@@ -487,7 +489,9 @@ export function waterField(
   const n = cols * rows;
   const types = map.types.map((t) => t.id).join();
   const was = last?.made;
-  const recipeKey = recipe ? `${recipe.shore}:${recipe.climateBlend}:${JSON.stringify(map.rivers ?? [])}` : '';
+  const recipeKey = recipe ? `${recipe.shore}:${recipe.climateBlend}` : '';
+  // A river's plume reaches only the water tiles by it: a river explored makes the field again round its tile alone.
+  const riverEntries = new Map((recipe ? (map.rivers ?? []) : []).map((r) => [r[1] * w + r[0], r.join()]));
   const reuse =
     !!was &&
     last.cols === cols &&
@@ -517,14 +521,17 @@ export function waterField(
   let raw = all;
   if (reuse) {
     let [x0, y0, x1, y1] = [w, h, -1, -1];
+    const changed = (k: number) => {
+      const [x, y] = [k % w, Math.floor(k / w)];
+      x0 = Math.min(x0, x);
+      x1 = Math.max(x1, x);
+      y0 = Math.min(y0, y);
+      y1 = Math.max(y1, y);
+    };
     for (let k = 0; k < tiles.length; k++)
-      if (tiles.charCodeAt(k) !== was.tiles.charCodeAt(k) || lakes?.[k] !== was.lakes?.[k]) {
-        const [x, y] = [k % w, Math.floor(k / w)];
-        x0 = Math.min(x0, x);
-        x1 = Math.max(x1, x);
-        y0 = Math.min(y0, y);
-        y1 = Math.max(y1, y);
-      }
+      if (tiles.charCodeAt(k) !== was.tiles.charCodeAt(k) || lakes?.[k] !== was.lakes?.[k]) changed(k);
+    for (const [k, r] of riverEntries) if (was.rivers.get(k) !== r) changed(k);
+    for (const k of was.rivers.keys()) if (!riverEntries.has(k)) changed(k);
     if (x1 < 0) return last;
     raw = clip(
       {
@@ -691,7 +698,23 @@ export function waterField(
     texelY,
     data,
     climate,
-    made: { w, h, types, tiles, land, depth, water, shore, zone, seed, recipeKey, lakes, channels, plume },
+    made: {
+      w,
+      h,
+      types,
+      tiles,
+      land,
+      depth,
+      water,
+      shore,
+      zone,
+      seed,
+      recipeKey,
+      lakes,
+      channels,
+      plume,
+      rivers: riverEntries,
+    },
   };
 }
 
