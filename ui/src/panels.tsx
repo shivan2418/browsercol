@@ -26,7 +26,7 @@ import { europeButtons } from './europe-client';
 import { Box, ButtonRow, GoodsAmount, Heading, Pic, TEXT_ENTRY, WindowFrame, type Art } from './frame';
 import { Declaration } from './declaration';
 import { CopyDetailsContext, ShowLogContext } from './log';
-import { lane } from './drag';
+import { sortHandle } from './sort';
 import { draggableProps, dropTargetProps, type Item, type Place } from './moves';
 import { ContextMenuContext, contextMenuHandler } from './popup-menu';
 import { OptionEditor } from './option-editor';
@@ -922,9 +922,6 @@ type Routes = GuiEvents['tradeRoutes'];
 type Stop = TradeRouteDraft['stops'][number] & { label: string };
 type Draft = Omit<TradeRouteDraft, 'stops'> & { stops: Stop[] };
 
-/** The drag of a trade route's stops: the index of the stop dragged. */
-const stopsDrag = lane<number>();
-
 /** The route the player last tried to save, which the Engine refused: the editor opens on it again. */
 let refused: Draft | null = null;
 
@@ -948,8 +945,8 @@ const keyed = (s: Stop): Leg => ({ ...s, key: ++legKeys });
 /**
  * FreeCol's trade route input panel, laid out as a voyage: each stop with what it unloads and loads, worked
  * out from the route, and under it the leg to the next stop with the holds the carrier leaves with. One leg
- * is edited at a time, with the goods under it; a stop's number folds its leg away. Stops are dragged onto
- * each other to reorder them. Saving leaves the panel to the Engine, which sends the routes again.
+ * is edited at a time, with the goods under it; a stop's number folds its leg away. Stops are dragged up and
+ * down to reorder them. Saving leaves the panel to the Engine, which sends the routes again.
  */
 function RouteEditor({
   e,
@@ -1015,19 +1012,18 @@ function RouteEditor({
     // The stop that takes the removed one's place is edited next, if the removed one was.
     if (stops[i].key === editing) setEditing(rest[Math.min(i, rest.length - 1)]?.key ?? null);
   };
-  // Drag a stop onto another to put it there; the stop that would take it is marked, as the colony panel's are.
-  const dragProps = (i: number) => ({
-    ...stopsDrag.source(() => i),
-    ...stopsDrag.target(
-      (from) => from !== i,
-      (from) => {
+  // Drag a stop by its row to move it, with its leg: the other stops slide out of its way as it goes.
+  const dragProps = (i: number) =>
+    sortHandle(
+      i,
+      (row) => row.closest('.voyage'),
+      (from, to) => {
         const next = [...stops];
         const [moved] = next.splice(from, 1);
-        next.splice(i, 0, moved);
+        next.splice(to, 0, moved);
         setStops(next);
       },
-    ),
-  });
+    );
 
   // The holds the carrier leaves stop i with: a full one empties on click; marks show where carriers fill up.
   const holds = (i: number) => {
@@ -1114,7 +1110,7 @@ function RouteEditor({
           const shut = folded.has(s.key);
           const same = prev.cargo.join() === s.cargo.join();
           return (
-            <Fragment key={s.key}>
+            <div className="vitem" key={s.key}>
               <div className="vstop" data-stop={i} {...dragProps(i)}>
                 <Tip
                   as="button"
@@ -1195,7 +1191,7 @@ function RouteEditor({
                   </div>
                 </div>
               )}
-            </Fragment>
+            </div>
           );
         })}
       </div>

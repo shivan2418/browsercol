@@ -1227,6 +1227,19 @@
         align-items: center;
         cursor: grab;
       }
+      /* A stop lifted to move it (sort.ts) rides over the others with its leg, which slide out of its way. */
+      .dialog .vitem {
+        position: relative;
+      }
+      .dialog .voyage.sorting .vitem {
+        will-change: transform;
+      }
+      .dialog .vitem.lifted {
+        z-index: 1;
+        background: var(--panel);
+        border-radius: 3px;
+        box-shadow: 0 6px 16px rgb(0 0 0 / 0.35);
+      }
       .dialog .vstop .pin {
         justify-self: center;
         width: 26px;

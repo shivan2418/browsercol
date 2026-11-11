@@ -155,8 +155,16 @@ function moved() {
   if (carry) mark(claim);
 }
 
+/** Whether a list's item is lifted to reorder it (sort.ts): that is a drag too. */
+let sortingNow = false;
+export const sorting = (on: boolean) => {
+  sortingNow = on;
+  if (on) document.body.dataset.dragging = '';
+  else if (!carry) delete document.body.dataset.dragging;
+};
+
 /** Whether a thing is being dragged: Escape is the drag's then, and closes no window (frame.tsx's useEscape). */
-export const dragging = () => carry !== null;
+export const dragging = () => carry !== null || sortingNow;
 
 /** Escape puts the thing back, and does nothing else; the press ends as the pointer lets go. */
 function key(e: KeyboardEvent) {
