@@ -37,6 +37,9 @@ const MONTHS = [
 ];
 
 export const LATEST_MARKER = '<!-- latest-changes -->';
+/** Around the landing page's "What's new" section, which is left out while there is nothing to show. */
+export const SECTION_START = '<!-- changes-section -->';
+export const SECTION_END = '<!-- /changes-section -->';
 
 /** Text for an HTML body or a quoted attribute. */
 export function escapeHtml(text: string): string {
@@ -107,6 +110,10 @@ export function renderLatest(entries: readonly Entry[], count = 2): string {
   return renderEntries(newestFirst(entries).slice(0, count), 'h3');
 }
 
+/** The page before the first public release: the list starts there, with no history before it. */
+export const NOTHING_YET =
+  '      <p class="note">Nothing yet. Changes are listed here from the first public release on.</p>';
+
 /** The whole changes page, served at changes/. Its links climb one level to the site's root. */
 export function renderChangesPage(entries: readonly Entry[]): string {
   return `<!doctype html>
@@ -137,7 +144,7 @@ export function renderChangesPage(entries: readonly Entry[]): string {
     <main class="wrap changes">
       <h1>What's new</h1>
       <p class="lede">What changed in each build of BrowserCol, newest first.</p>
-${renderEntries(entries, 'h2')}
+${entries.length > 0 ? renderEntries(entries, 'h2') : NOTHING_YET}
     </main>
 
     <footer>
@@ -156,9 +163,15 @@ ${renderEntries(entries, 'h2')}
 `;
 }
 
-/** The landing page with its marker replaced by the latest builds. */
+/** The landing page with its marker replaced by the latest builds, or its "What's new" section left out when there are none. */
 export function fillLanding(html: string, entries: readonly Entry[]): string {
-  if (!html.includes(LATEST_MARKER)) throw new Error(`the landing page has no ${LATEST_MARKER}`);
+  for (const marker of [LATEST_MARKER, SECTION_START, SECTION_END]) {
+    if (!html.includes(marker)) throw new Error(`the landing page has no ${marker}`);
+  }
+  if (entries.length === 0) {
+    const start = html.indexOf(SECTION_START);
+    return html.slice(0, start) + html.slice(html.indexOf(SECTION_END) + SECTION_END.length);
+  }
   return html.replace(LATEST_MARKER, renderLatest(entries));
 }
 
@@ -170,5 +183,7 @@ if (process.argv[1]?.endsWith('build-changes.ts')) {
   writeFileSync(join(site, 'changes', 'index.html'), renderChangesPage(entries));
   const landing = join(site, 'index.html');
   writeFileSync(landing, fillLanding(readFileSync(landing, 'utf8'), entries));
-  console.log(`changes: ${entries.length} builds, newest build ${newestFirst(entries)[0]?.build}`);
+  console.log(
+    `changes: ${entries.length} builds${entries.length ? `, newest build ${newestFirst(entries)[0].build}` : ''}`,
+  );
 }

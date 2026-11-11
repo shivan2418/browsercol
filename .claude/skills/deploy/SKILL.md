@@ -12,6 +12,11 @@ You ship the next **build**: `tools/deploy.sh` tags a commit `build-N` and pushe
 
 Both are public once pushed. The human approves both drafts before anything leaves this machine.
 
+**Before the launch** the player changelog stays empty: players read only what changes after BrowserCol's first public release, not the history before it. While `ui/site/changes.json` is `[]`, ask the human whether this build is the launch.
+- Not the launch: write the developer changelog only, and skip the player entry (its drafting, approval and step 4).
+- The launch: the player entry is one line, `"new": ["The first public release of BrowserCol."]`, or the human's wording; no list of what came before it.
+- Every build after the launch gets a normal player entry.
+
 ## 1. Collect the changes
 
 ```

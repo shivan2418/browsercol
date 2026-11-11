@@ -3,6 +3,9 @@ import { readFileSync } from 'node:fs';
 import { expect, test } from 'vite-plus/test';
 import {
   LATEST_MARKER,
+  NOTHING_YET,
+  SECTION_END,
+  SECTION_START,
   fillLanding,
   formatDate,
   parseChanges,
@@ -64,15 +67,23 @@ test('the landing page gets the latest two builds, and the changes page all of t
   const page = renderChangesPage(entries);
   expect(page).toContain('Build 1');
   expect(page).toContain('href="../site.css"');
-  const landing = fillLanding(`<p>a</p>${LATEST_MARKER}<p>b</p>`, entries);
+  const landing = fillLanding(`<p>a</p>${SECTION_START}<p>new</p>${LATEST_MARKER}${SECTION_END}<p>b</p>`, entries);
   expect(landing).not.toContain(LATEST_MARKER);
   expect(landing).toContain('Build 3');
+  expect(landing).toContain('<p>new</p>');
   expect(() => fillLanding('<p>none</p>', entries)).toThrow();
+});
+
+test('before the first public release the changes page says so, and the landing page has no "What\'s new"', () => {
+  const page = renderChangesPage([]);
+  expect(page).toContain(NOTHING_YET.trim());
+  expect(page).not.toContain('Build ');
+  const landing = fillLanding(`<p>a</p>${SECTION_START}<p>new</p>${LATEST_MARKER}${SECTION_END}<p>b</p>`, []);
+  expect(landing).toBe('<p>a</p><p>b</p>');
 });
 
 test('the file in ui/site has the shape the page needs, newest first', () => {
   const real = parseChanges(JSON.parse(readFileSync(new URL('../site/changes.json', import.meta.url), 'utf8')));
-  expect(real.length).toBeGreaterThan(0);
   expect(real.map((e) => e.build)).toEqual(real.map((e) => e.build).sort((a, b) => b - a));
   for (const e of real) expect(e.new.length + e.fixed.length + e.changed.length).toBeGreaterThan(0);
 });
