@@ -40,8 +40,9 @@ async function run(page: Page, url: string, browserName: string) {
     await page.screenshot({ path: path.join(shotsDir, `${browserName}-${name}.png`) });
   };
   const dialog = page.locator('[data-feedback]');
-  const open = async () => {
-    await page.click('[data-beta-tag]');
+  /** Open the window from the Beta tag: the start screen's corner tag, or in a game the menu bar's. */
+  const open = async (tag = '[data-beta-tag]') => {
+    await page.click(tag);
     await dialog.waitFor({ timeout: 10000 });
   };
   const fill = async (title: string) => {
@@ -120,6 +121,9 @@ async function run(page: Page, url: string, browserName: string) {
   // A release build hides the side panel at first; the shots show the game as a tester sees it.
   await page.keyboard.press('Shift+F11');
   await shot('game-tag');
+  // In a game the Beta tag is in the menu bar, not in a corner over the map.
+  check(await page.locator('#menubar [data-beta-menu]').isVisible(), 'the menu bar has the Beta tag in a game');
+  check(!(await page.locator('[data-beta-tag]').isVisible()), 'the corner tag is hidden in a game');
 
   // Game > Send feedback... opens it, as a bug with the game's save ready to attach.
   await page.click('#menubar [role=menuitem]:text-is("Game")');
@@ -163,7 +167,7 @@ async function run(page: Page, url: string, browserName: string) {
 
   // An idea sends only the version and the browser.
   posted.length = 0;
-  await open();
+  await open('[data-beta-menu]');
   await page.click('[data-feedback-kind=idea]');
   await fill('Let me rename a colony');
   await page.click('[data-feedback-send]');
@@ -181,7 +185,7 @@ async function run(page: Page, url: string, browserName: string) {
 
   // A relay that fails leaves the download.
   answer = { status: 503, body: { error: 'no free reference, try again' } };
-  await open();
+  await open('[data-beta-menu]');
   await fill('The relay is down');
   await page.click('[data-feedback-send]');
   await page.waitForSelector('[data-feedback-failed]', { timeout: 20000 });
