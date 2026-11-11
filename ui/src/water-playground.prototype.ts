@@ -2,6 +2,8 @@
 // A panel over the real map to tune FreeCol+'s shader water live: the wave model, the climate palettes, the shore,
 // presets, and a Copy settings button that gives the shader.water.* block for ui/tilesets/freecol-plus. The settings
 // stay in this browser's localStorage. Plain DOM, no React, so it adds next to nothing to the frame it measures.
+// River current (#411): &rivers=flow&riverStreakStrength=0.16. Strength is additive brightness, 0–0.5;
+// zero hides the streaks without stopping the painted water. Copy settings exports shader.water.river.streakStrength.
 import {
   CLIMATES,
   CLIMATE_OF,
@@ -216,6 +218,7 @@ export function propertiesOf(s: Settings): string {
     num('lake.speed', s.lakeSpeed),
     num('river.minorSpeed', s.rivers?.minor ?? 12),
     num('river.majorSpeed', s.rivers?.major ?? 6),
+    num('river.streakStrength', s.rivers?.streakStrength ?? 0.16),
     `# Waves: slide, warp or flow.`,
     num('waves', s.waves),
     num('flowSize', s.flowSize),
@@ -428,6 +431,7 @@ export function waterPlaygroundPanel(host: Host) {
     const url = new URL(location.href);
     url.searchParams.set('water', variant);
     url.searchParams.set('rivers', s?.rivers?.mode ?? 'flipbook');
+    url.searchParams.set('riverStreakStrength', String(s?.rivers?.streakStrength ?? 0.16));
     if (split) url.searchParams.set('split', String(+split.toFixed(3)));
     else url.searchParams.delete('split');
     history.replaceState(null, '', url);
@@ -580,6 +584,9 @@ export function waterPlaygroundPanel(host: Host) {
                 : 'flipbook',
         minor: base?.rivers?.minor ?? 12,
         major: base?.rivers?.major ?? 6,
+        streakStrength: params.has('riverStreakStrength')
+          ? Math.max(0, Math.min(0.5, Number(params.get('riverStreakStrength')) || 0))
+          : (base?.rivers?.streakStrength ?? 0.16),
       },
       recipe: {
         ...clone(RECIPES[name === 'Default' ? 'A' : name]),
@@ -679,6 +686,20 @@ export function waterPlaygroundPanel(host: Host) {
           0.5,
         ),
       );
+    panel.append(
+      slider(
+        'River streak strength',
+        () => s!.rivers?.streakStrength ?? 0.16,
+        (v) => {
+          s!.rivers ??= { mode: 'flipbook', minor: 12, major: 6 };
+          s!.rivers.streakStrength = v;
+        },
+        0,
+        0.5,
+        0.01,
+        'Brightness added by the downstream streaks. URL: riverStreakStrength.',
+      ),
+    );
     for (const [name, key, min, max, step] of [
       ['Band speed px/s', 'bandSpeed', 0, 20, 0.5],
       ['Band spacing px', 'bandSpacing', 16, 100, 1],

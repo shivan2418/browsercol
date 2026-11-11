@@ -82,7 +82,7 @@ export interface WaterLook {
   /** PROTOTYPE: the painted-art recipe; absent keeps the parked ripple renderer. */
   recipe?: WaterRecipe;
   /** PROTOTYPE river axis; absent preserves the flipbook. Speeds are screen pixels per second. */
-  rivers?: { mode: 'flipbook' | 'flow'; minor: number; major: number };
+  rivers?: { mode: 'flipbook' | 'flow'; minor: number; major: number; streakStrength?: number };
 }
 
 export type WaveModel = 'slide' | 'warp' | 'flow';
@@ -368,6 +368,7 @@ export function waterLook(res: Resources): WaterLook | null {
       mode: 'flipbook',
       minor: numberOf(res, `${KEY}river.minorSpeed`, 12),
       major: numberOf(res, `${KEY}river.majorSpeed`, 6),
+      streakStrength: numberOf(res, `${KEY}river.streakStrength`, 0.16),
     },
   };
 }
