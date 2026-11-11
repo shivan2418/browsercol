@@ -1,8 +1,8 @@
 // Water comparisons (#409, #411), against dist/: shots of spots on pan-large in each Tileset, browser and theme.
 // --still freezes the terrain's animation, for pixel comparisons between builds. --video records each spot instead,
-// at zoom 1, and keeps the last --secs seconds of it as a webm clip, once the map has settled there; --gif also makes
-// a gif of the map's middle from each clip. --gpu draws Chromium on a real GPU (the container must see one), which
-// records without dropped or blank frames. --extra '&x=1' adds to the page's query; --headed runs Firefox under Xvfb.
+// at zoom 1, and keeps the last --secs seconds of it as a webm clip, once the map has settled there (the web image's
+// ffmpeg writes no gif: make one on the host, ffmpeg -i clip.webm -vf fps=15 clip.gif). --gpu draws Chromium on a real GPU (the container must see one), which
+// records without dropped or blank frames. --settle MS waits longer before each shot. --extra '&x=1' adds to the page's query; --headed runs Firefox under Xvfb.
 // DEV_VARIANT=web ./dev.sh node ui/scripts/water-shots.ts --tilesets freecol,browsercol
 //   --out .cache/water-shots/409 --browsers chromium,firefox --themes parchment,dark
 import fs from 'node:fs';
@@ -22,7 +22,6 @@ const spots = opt('spots', '100,52;99,66;101,48;88,15;104,41')
 const zooms = opt('zooms', '1,2').split(',').map(Number);
 const [vw, vh] = opt('size', '1366x768').split('x').map(Number);
 const video = process.argv.includes('--video');
-const gif = process.argv.includes('--gif');
 const secs = Number(opt('secs', '5'));
 // The web image has Playwright's encoder, not a system ffmpeg.
 const ffmpeg =
@@ -30,6 +29,8 @@ const ffmpeg =
 const gpu = process.argv.includes('--gpu');
 const still = process.argv.includes('--still');
 const label = opt('label', '');
+// How long the map gets to draw a spot before its shot, in ms: more for a software GPU (Firefox's llvmpipe).
+const settle = Number(opt('settle', '1200'));
 const out = path.resolve(opt('out', '.cache/water-shots'));
 fs.mkdirSync(out, { recursive: true });
 const server = await serveDist();
@@ -119,16 +120,6 @@ for (const name of browserNames('chromium,firefox')) {
             const raw = await page.video()!.path();
             const file = path.join(out, `${tag}-${spot.join('_')}.webm`);
             run(['-sseof', String(-(secs + 1)), '-i', raw, '-t', String(secs), '-c:v', 'libvpx-vp9', file]);
-            if (gif)
-              run([
-                '-i',
-                file,
-                '-vf',
-                'crop=600:400:150:120,fps=15,split[a][b];[a]palettegen[p];[b][p]paletteuse=dither=bayer:bayer_scale=4',
-                '-loop',
-                '0',
-                file.replace(/\.webm$/, '.gif'),
-              ]);
             await page.video()!.delete();
             results.push({ file: path.relative(process.cwd(), file), tileset, browser: name, theme, spot, renderer });
             console.log(`${tag} ${spot.join(',')} -> ${file}`);
@@ -145,7 +136,7 @@ for (const name of browserNames('chromium,firefox')) {
         for (const spot of spots)
           for (const zoom of zooms) {
             const box = await goTo(page, spot, zoom);
-            await page.waitForTimeout(1200);
+            await page.waitForTimeout(settle);
             const file = path.join(out, `${tag}-${spot.join('_')}-zoom${zoom}.png`);
             await page.screenshot({ path: file, clip: { x: 0, y: 0, width: box.x + box.width, height: vh } });
             results.push({
