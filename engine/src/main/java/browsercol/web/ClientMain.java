@@ -112,6 +112,8 @@ public final class ClientMain {
     /** Load the data files, (path, text) pairs, and make the client. */
     public static void main(String[] args) {
         Failures.reportTo((what, detail) -> event("error", what + "\n" + detail));
+        Failures.reportFatalTo(detail -> event("failed", detail));
+        browsercol.shim.TaskFailures.listen(StartupFailures::taskFailed);
         new Thread(() -> {
                 try {
                     writeData(args);
@@ -120,6 +122,7 @@ public final class ClientMain {
                             public void post(String xml) { toServer(xml); }
                         }, new ClientEngine.Listener() {
                             public void gameStarted(Game game) {
+                                StartupFailures.gameStarted();
                                 event("gameStarted", mapJson());
                             }
                             public void roundDone(int round, long millis) {

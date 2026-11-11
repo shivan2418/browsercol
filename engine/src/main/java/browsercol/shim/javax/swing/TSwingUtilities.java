@@ -41,6 +41,7 @@ public class TSwingUtilities {
                 // An uncaught exception would end this thread with draining
                 // still set, and no later task would ever run.
                 logger.log(Level.WARNING, "invokeLater task failed: " + ex, ex);
+                browsercol.shim.TaskFailures.failed(ex);
             }
         }
     }

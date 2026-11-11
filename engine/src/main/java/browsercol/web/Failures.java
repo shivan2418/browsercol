@@ -28,6 +28,29 @@ final class Failures {
         sink = to;
     }
 
+    /** Where {@link #reportFatal} sends a failure: its description. */
+    private static volatile java.util.function.Consumer<String> fatalSink = detail -> {};
+
+    /** Send the failures {@link #reportFatal} is given to {@code to}. */
+    static void reportFatalTo(java.util.function.Consumer<String> to) {
+        fatalSink = to;
+    }
+
+    /**
+     * Report a failure the game cannot go on after: ClientMain sends it as
+     * a "failed" event, which puts the page's loading screen in its failed
+     * state instead of leaving it to wait for a game that never starts.
+     *
+     * @param ex What went wrong.
+     */
+    static void reportFatal(Throwable ex) {
+        try {
+            fatalSink.accept(describe(ex));
+        } catch (Throwable ignored) {
+            // A report that cannot be sent must not break the caller as well.
+        }
+    }
+
     /**
      * Report a failure the game goes on after, such as a message from the
      * other end that could not be handled.
