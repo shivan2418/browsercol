@@ -667,7 +667,14 @@ export function waterField(
   blur(wet, sw, sh, 1);
   const data = reuse ? last.data : new Uint8Array(4 * n);
   const climate = reuse && last.climate ? last.climate : new Uint8Array(4 * n);
-  for (let j = out.j0; j < out.j1; j++)
+  const [coldShare, temperateShare, tropicalShare] = shares;
+  for (let j = out.j0; j < out.j1; j++) {
+    // Far from any land, the latitude: cold toward the poles, tropical round the equator. Per row, and without
+    // arrays per texel: this loop runs over every texel made again when a move explores a tile.
+    const lat = Math.abs(((j + 0.5) * texelY) / ph - 0.5) * 2;
+    const cold = smooth(0.62, 0.8, lat);
+    const tropical = 1 - smooth(0.25, 0.45, lat);
+    const temperate = Math.max(0, 1 - cold - tropical);
     for (let i = out.i0; i < out.i1; i++) {
       const k = j * cols + i;
       const p = (j - src.j0) * sw + (i - src.i0);
@@ -675,22 +682,17 @@ export function waterField(
       data[4 * k + 1] = Math.round(deep[p] * 255);
       data[4 * k + 2] = Math.round((!recipe && shore === 'blur' ? near[p] : 0.5 - near[p] / (2 * distanceCap)) * 255);
       data[4 * k + 3] = Math.round(wet[p] * 255);
-      // Far from any land, the latitude: cold toward the poles, tropical round the equator.
-      const lat = Math.abs(((j + 0.5) * texelY) / ph - 0.5) * 2;
-      const cold = smooth(0.62, 0.8, lat);
-      const tropical = 1 - smooth(0.25, 0.45, lat);
-      const byLat = [cold, Math.max(0, 1 - cold - tropical), tropical];
-      const sum = shares[0][p] + shares[1][p] + shares[2][p];
-      const far = Math.max(0, 1 - sum / 0.25);
-      let total = 0;
-      const mixed = byLat.map((l, z) => {
-        const v = shares[z][p] + far * 0.25 * l;
-        total += v;
-        return v;
-      });
-      for (let z = 0; z < 3; z++) climate[4 * k + z] = Math.round((mixed[z] / Math.max(total, 1e-6)) * 255);
+      const far = Math.max(0, 1 - (coldShare[p] + temperateShare[p] + tropicalShare[p]) / 0.25) * 0.25;
+      const a = coldShare[p] + far * cold,
+        b = temperateShare[p] + far * temperate,
+        c = tropicalShare[p] + far * tropical;
+      const total = Math.max(a + b + c, 1e-6);
+      climate[4 * k] = Math.round((a / total) * 255);
+      climate[4 * k + 1] = Math.round((b / total) * 255);
+      climate[4 * k + 2] = Math.round((c / total) * 255);
       climate[4 * k + 3] = recipe ? Math.round(plume[k] * 255) : 255;
     }
+  }
   return {
     cols,
     rows,
