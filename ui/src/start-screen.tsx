@@ -33,6 +33,9 @@ import './start-window.css';
 /** The map generator's import file option (MapGeneratorOptions.IMPORT_FILE). */
 const IMPORT_FILE = 'model.option.importFile';
 
+/** The difficulty option that gives expert starting units (GameOptions.EXPERT_STARTING_UNITS). */
+const EXPERT_UNITS = 'model.option.expertStartingUnits';
+
 /** FreeCol's names for the National Advantages choices (advantages.* in FreeColMessages). */
 const ADVANTAGE_NAMES: Record<Advantages, string> = { SELECTABLE: 'Selectable', FIXED: 'Fixed', NONE: 'None' };
 
@@ -253,6 +256,13 @@ export function StartScreen({
   // so it is not kept as a default.
   const [mapFiles, setMapFiles] = useState<Record<string, File>>({});
   const levelGroup = useMemo(() => options.groups.level(difficulty), [options, difficulty]);
+  // The nation type the player starts with, as the server gives it (NationOptions): the one picked, the nation's own,
+  // or none at all; and its starting units at this difficulty (expertStartingUnits, as edited).
+  const playedType =
+    advantages === 'NONE' ? 'model.nationType.default' : (ownType?.id ?? chosen?.typeId ?? 'model.nationType.default');
+  const expertLeaf = levelGroup ? leaves(levelGroup).get(EXPERT_UNITS) : undefined;
+  const expert = (levelEdits[EXPERT_UNITS] ?? expertLeaf?.value) === true;
+  const bonus = chosen ? options.bonus(playedType, expert) : null;
   const [credits, setCredits] = useState(false);
   const [pedia, setPedia] = useState<ReportView | null>(null);
   const [opening, setOpening] = useState(false);
@@ -448,9 +458,20 @@ export function StartScreen({
                 </label>
               ))}
             </div>
-            {chosen?.description || ownType?.description ? (
-              <p className="quiet">{ownType?.description ?? chosen?.description}</p>
-            ) : null}
+            {bonus && (
+              <div className="quiet nation-bonus" data-nation-bonus>
+                {bonus.modifiers.length > 0 ? (
+                  <ul>
+                    {bonus.modifiers.map((m) => (
+                      <li key={m}>{m}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>No national advantages.</p>
+                )}
+                {bonus.units.length > 0 && <p>Starting units: {bonus.units.join(', ')}</p>}
+              </div>
+            )}
             {pediaLink('nations', 'The nations in the Colopedia')}
           </fieldset>
           <div className="col-others">

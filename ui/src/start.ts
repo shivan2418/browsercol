@@ -15,7 +15,8 @@ export interface NationChoice {
   id: string;
   /** The name, e.g. Dutch. */
   name: string;
-  /** The nation type's name, e.g. Trade, and what it means for the player. */
+  /** The nation type's id (model.nationType.trade), its name (Trade) and FreeCol's summary of it. */
+  typeId: string;
   type: string;
   description: string;
   /** The nation's colour as CSS. */
@@ -47,12 +48,23 @@ export interface LevelChoice {
   name: string;
 }
 
+/**
+ * What a nation type gives a player, as FreeCol's Colopedia lists it (NationTypeDetailPanel): its starting units, and
+ * its modifiers as text, e.g. "Trade Bonus: -50%". A type with no modifiers has none.
+ */
+export interface NationBonus {
+  units: string[];
+  modifiers: string[];
+}
+
 export interface StartOptions {
   nations: NationChoice[];
   /** The other nations, which the player may remove from the game (FreeCol's availability column). */
   rivals: RivalChoice[];
   /** The advantages a European nation may be given when they are selectable. */
   nationTypes: NationTypeChoice[];
+  /** What a nation type gives, with or without expert starting units (the difficulty's expertStartingUnits). */
+  bonus: (type: string, expert: boolean) => NationBonus;
   /** The rulesets the data bundle has, e.g. classic and freecol. */
   rulesets: string[];
   levels: LevelChoice[];
@@ -100,9 +112,19 @@ function properties(text: string): Map<string, string> {
   return out;
 }
 
-/** A message with FreeCol's {{tag:|country=..|people=..|default=X}} reduced to its default, as the Swing lists show it. */
+/**
+ * A message with FreeCol's {{tag:|country=..|people=..|default=X}} or {{plural:%n%|one=..|default=X}} reduced to its
+ * default, as the Swing lists show it.
+ */
 function plain(message: string): string {
-  return message.replace(/\{\{tag:[^}]*?\bdefault=([^}|]*)[^}]*\}\}/g, '$1');
+  return message.replace(/\{\{(?:tag|plural):[^}]*?\bdefault=([^}|]*)[^}]*\}\}/g, '$1');
+}
+
+/** FreeCol's ModifierFormat: a sign, the value without trailing zeros, and % for a percentage; × for a multiplier. */
+function modifierValue(value: number, type: string | null): string {
+  const n = String(Math.round(Math.abs(value) * 100) / 100);
+  if (type === 'multiplicative') return `\u00d7${n}`;
+  return `${value < 0 ? '-' : '+'}${n}${type === 'percentage' ? '%' : ''}`;
 }
 
 /** `0xrrggbb`, as the specification writes a colour, as CSS. */
@@ -133,6 +155,7 @@ export function startOptions(data: string[], rules: string, defaultLevel = 'mode
       return {
         id,
         name: say(`${id}.name`, id),
+        typeId: type,
         type: say(`${type}.name`),
         description: say(`${type}.shortDescription`),
         color: css(n.getAttribute('color')),
@@ -182,7 +205,55 @@ export function startOptions(data: string[], rules: string, defaultLevel = 'mode
   // available and the rest not (FreeCol.EUROPEANS_DEFAULT), whatever the ruleset; the spec has no flag
   // for it.
   const defaultUnavailable = nations.slice(EUROPEANS_DEFAULT).map((n) => n.id);
-  return { nations, rivals, nationTypes, rulesets, levels, defaultLevel, defaultUnavailable, groups };
+  // A nation type with the ones it extends, the type itself first.
+  const lineage = (id: string): Element[] => {
+    const out: Element[] = [];
+    for (let t = spec.querySelector(`european-nation-type[id="${id}"]`); t && !out.includes(t);) {
+      out.push(t);
+      const parent = t.getAttribute('extends');
+      t = parent ? spec.querySelector(`european-nation-type[id="${parent}"]`) : null;
+    }
+    return out;
+  };
+  // EuropeanNationType.getStartingUnits: the units by their id, the type's own over its parent's, and the expert
+  // ones over the others when the difficulty gives expert starting units.
+  const bonus = (type: string, expert: boolean): NationBonus => {
+    const types = lineage(type).reverse();
+    const units = new Map<string, Element>();
+    for (const pass of expert ? [false, true] : [false]) {
+      for (const t of types) {
+        for (const u of t.querySelectorAll(':scope > unit')) {
+          if ((u.getAttribute('expert-starting-units') === 'true') === pass) units.set(u.getAttribute('id') ?? '', u);
+        }
+      }
+    }
+    const unitText = [...units.values()].map((u) => {
+      const name = say(`${u.getAttribute('type')}.name`, u.getAttribute('type') ?? '');
+      const role = u.getAttribute('role');
+      return role && role !== 'model.role.default' ? `${name} (${say(`${role}.name`, role)})` : name;
+    });
+    // ColopediaGameObjectTypePanel.getModifierComponent: a goods type's bonus by the goods' name, any other by the
+    // modifier's name and its scope (ModifierFormat.getFeatureAsString), e.g. "Movement Bonus (Naval unit): +3".
+    const modifiers = types.flatMap((t) =>
+      [...t.querySelectorAll(':scope > modifier')].map((m) => {
+        const id = m.getAttribute('id') ?? '';
+        const goods = !!spec.querySelector(`goods-type[id="${id}"]`);
+        const scopes = goods
+          ? []
+          : [...m.querySelectorAll(':scope > scope')].map((sc) => {
+              const key =
+                sc.getAttribute('type') ??
+                sc.getAttribute('ability-id') ??
+                (sc.getAttribute('method-name') ? `scope.method.${sc.getAttribute('method-name')}` : '');
+              return say(`${key}.name`, key);
+            });
+        const name = say(`${id}.name`, id) + (scopes.length ? ` (${scopes.join(', ')})` : '');
+        return `${name}: ${modifierValue(Number(m.getAttribute('value')), m.getAttribute('type'))}`;
+      }),
+    );
+    return { units: unitText, modifiers };
+  };
+  return { nations, rivals, nationTypes, bonus, rulesets, levels, defaultLevel, defaultUnavailable, groups };
 }
 
 /** The GamePreset JSON for the Engine: the level, and the options changed from the level's own values. */

@@ -16,11 +16,23 @@ const options: StartOptions = {
     { id: 'model.nationType.trade', name: 'Trade', description: 'Prices are more favorable' },
     { id: 'model.nationType.conquest', name: 'Conquest', description: 'Stronger soldiers' },
   ],
+  bonus: (type, expert) => ({
+    modifiers:
+      type === 'model.nationType.trade'
+        ? ['Trade Bonus: -50%']
+        : type === 'model.nationType.cooperation'
+          ? ['Native Alarm Bonus: -50%']
+          : type === 'model.nationType.conquest'
+            ? ['Native Convert Bonus: +200%']
+            : [],
+    units: [expert ? 'Veteran Soldier (Soldier)' : 'Free Colonist (Soldier)', 'Caravel'],
+  }),
   rulesets: ['classic', 'freecol'],
   nations: [
     {
       id: 'model.nation.dutch',
       name: 'Dutch',
+      typeId: 'model.nationType.trade',
       type: 'Trade',
       description: 'Prices are more favorable',
       color: 'orange',
@@ -28,6 +40,7 @@ const options: StartOptions = {
     {
       id: 'model.nation.french',
       name: 'French',
+      typeId: 'model.nationType.cooperation',
       type: 'Cooperation',
       description: 'Friendlier natives',
       color: 'blue',
@@ -123,11 +136,22 @@ test('the player picks a nation and a level and starts', async () => {
   const started = screenWith();
   fireEvent.click(document.querySelector('[data-nation="model.nation.french"]')!);
   await chooseOption(screen.getByLabelText('Difficulty'), 'Easy');
-  expect(screen.getByText('Friendlier natives')).toBeTruthy();
+  expect(screen.getByText('Native Alarm Bonus: -50%')).toBeTruthy();
   fireEvent.click(document.querySelector('[data-start]')!);
   expect(started).toEqual([
     { ...plain, nation: 'model.nation.french', difficulty: 'model.difficulty.easy', options: {} },
   ]);
+});
+
+test('it shows what the nation type the player starts with gives, not a summary of it', async () => {
+  screenWith();
+  const bonus = () => document.querySelector('[data-nation-bonus]')!.textContent;
+  expect(bonus()).toBe('Trade Bonus: -50%Starting units: Free Colonist (Soldier), Caravel');
+  expect(bonus()).not.toContain('Prices are more favorable');
+  await chooseOption(screen.getByLabelText('Advantage of your nation'), 'Conquest');
+  expect(bonus()).toContain('Native Convert Bonus: +200%');
+  await chooseOption(screen.getByLabelText('National Advantages'), 'None');
+  expect(bonus()).toBe('No national advantages.Starting units: Free Colonist (Soldier), Caravel');
 });
 
 test('the level’s options and the game options are changed in the editor and sent as the preset’s options', () => {
@@ -241,7 +265,7 @@ test('the player removes nations from the game, and the own nation cannot be rem
 test('the player picks the advantages, the own nation’s type and a nation colour', async () => {
   const started = screenWith();
   await chooseOption(document.querySelector('[data-nation-type]')!, 'Conquest');
-  expect(screen.getByText('Stronger soldiers')).toBeTruthy();
+  expect(screen.getByText('Native Convert Bonus: +200%')).toBeTruthy();
   fireEvent.change(document.querySelector('[data-colour="model.nation.dutch"]')!, { target: { value: '#336699' } });
   fireEvent.click(document.querySelector('[data-start]')!);
   expect(started[0]).toMatchObject({
