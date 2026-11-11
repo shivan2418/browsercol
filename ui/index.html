@@ -465,6 +465,34 @@
         overflow: auto;
         flex: 1;
       }
+      /* One save per line, striped; the line is cut short with an ellipsis and its title holds the whole of it. */
+      #saves > div {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        padding: 1px 2px;
+        font-size: 9.5px;
+        font-stretch: condensed;
+        letter-spacing: -0.02em;
+      }
+      #saves > div:nth-child(even) {
+        background: var(--stripe);
+      }
+      #saves > div > span {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      #saves {
+        --button-pad: 0 3px;
+        --button-pad-pressed: 1px 2px 0 4px;
+      }
+      #saves button {
+        flex: none;
+        line-height: 1.5;
+      }
       #unasked {
         color: var(--warn);
       }
