@@ -76,11 +76,11 @@ const canvas2d = (url: string) =>
  * diagnose(). Without this a closed browser shows only "Target page, context
  * or browser has been closed".
  */
-export async function launchBrowser(name: BrowserName): Promise<Browser> {
+export async function launchBrowser(name: BrowserName, args: string[] = []): Promise<Browser> {
   gone.length = 0;
   lastStep = '(nothing logged yet for ' + name + ')';
   browserLog.length = 0;
-  const browser = await playwright[name].launch();
+  const browser = await playwright[name].launch({ args });
   browser.on('disconnected', () => closing.has(browser) || note(`${name} browser disconnected`));
   const close = browser.close.bind(browser);
   browser.close = (...args: Parameters<Browser['close']>) => (closing.add(browser), close(...args));

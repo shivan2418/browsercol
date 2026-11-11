@@ -6,7 +6,7 @@
 // does, in the stored preferences, and starts a game. Exits non-zero unless
 // every browser finds the cyan tiles and the test town hall with the test
 // Tileset and neither without, and the page loads FreeCol+'s manifest and
-// starts a game without page errors.
+// starts a game without page errors. Also runs Chromium without WebGL (PixiJS's sprites path) through resizes.
 // Run in the web image:
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/tileset.ts [--browsers chromium,firefox]
 import path from 'node:path';
@@ -109,8 +109,66 @@ async function townHall(page: Page) {
   return picture.src!;
 }
 
+/**
+ * The map on PixiJS's sprites path, which a browser with no WebGL gets (#411): a Chromium launched without it draws a
+ * game, and keeps drawing through resizes of its window, a zoom and a pan. A mask on a layer once did not survive the
+ * first paint, and every resize after it threw. Run with the default Tileset and with the BrowserCol Tileset.
+ */
+async function withoutWebgl(url: string, prefs: object | null) {
+  const browser = await launchBrowser('chromium', ['--disable-gpu', '--disable-3d-apis', '--disable-webgl']);
+  try {
+    const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
+    const errors = collectPageErrors(page);
+    await answerDialogs(page);
+    if (prefs) await page.addInitScript((p) => localStorage.setItem('freecol.prefs', p), JSON.stringify(prefs));
+    await page.goto(url);
+    const result = await waitForResult(page, 120000);
+    if (result.status !== 'finished') throw new Error(`${result.status}: ${result.error}`);
+    if (!result.renderer?.includes('sprites')) throw new Error(`not the sprites path: renderer ${result.renderer}`);
+    await page.waitForFunction(() => !document.querySelector('[role=dialog]'), null, { timeout: 10000 });
+    // Let the map paint, then change what it paints to.
+    await page.waitForTimeout(500);
+    for (const [width, height] of [
+      [1000, 700],
+      [1500, 950],
+      [800, 600],
+      [1400, 900],
+    ]) {
+      await page.setViewportSize({ width, height });
+      await page.waitForTimeout(200);
+    }
+    const box = (await page.locator('#map canvas').boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.wheel(0, -300);
+    await page.waitForTimeout(200);
+    await page.mouse.wheel(0, 300);
+    await page.keyboard.press('ArrowRight');
+    await page.setViewportSize({ width: 1200, height: 800 });
+    await page.waitForTimeout(500);
+    if (errors.length) throw new Error(`page errors: ${errors.join('; ')}`);
+    return result.renderer;
+  } finally {
+    await browser.close();
+  }
+}
+
 const server = await serveDist();
 let failed = false;
+if (browsers.includes('chromium')) {
+  for (const [what, prefs] of [
+    ['the default Tileset', null],
+    ['the BrowserCol Tileset', { tileset: 'browsercol' }],
+  ] as const) {
+    try {
+      console.log(
+        `ok: with no WebGL and ${what}, renderer ${await withoutWebgl(`${server.url}?skipstart`, prefs)}, the map survives resizes`,
+      );
+    } catch (ex) {
+      failed = true;
+      console.log(`failed: with no WebGL and ${what}: ${await diagnose(ex)}`);
+    }
+  }
+}
 for (const name of browsers) {
   const browser = await launchBrowser(name);
   const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
