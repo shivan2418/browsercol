@@ -366,7 +366,13 @@ describe('waterDrawingFor', () => {
   const look = { shelfWidth: 90 } as WaterLook;
   const pic = {} as HTMLImageElement;
   const load = () => Promise.resolve(pic);
-  const pen = (start: WaterPen['start']): WaterPen => ({ maxField: 4096, start, field: () => {}, time: () => {} });
+  const pen = (start: WaterPen['start']): WaterPen => ({
+    maxField: 4096,
+    start,
+    field: () => {},
+    fading: () => {},
+    time: () => {},
+  });
 
   it('draws the shader water when the Tileset has a look, the pen can draw it and the GPU builds its shader', async () => {
     const start = vi.fn(() => true);

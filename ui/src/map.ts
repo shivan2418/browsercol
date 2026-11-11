@@ -357,8 +357,10 @@ export interface WaterPen {
    * false if the GPU cannot build its shader.
    */
   start(look: WaterLook, art: Picture): boolean;
-  /** The water's field of the map now. */
-  field(f: WaterField): void;
+  /** The water's field of the map now: at `now` (ms) it fades in from the one before, else it shows at once. */
+  field(f: WaterField, now?: number): void;
+  /** Move the field's fade in on to `now` (ms), drawing the map again while it fades. */
+  fading(now: number): void;
   /** Move the water to where it is at `ms`, and the rivers' ripples if `riversMoving`, and draw the map again. */
   time(ms: number, riversMoving?: boolean): void;
   /** Draw these rivers over the water from now on, or none; false if the GPU cannot build their shader. */
@@ -881,10 +883,13 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
             redraw(null);
             return true;
           },
-          field: (f) => {
-            surface?.surface.setField(f);
+          field: (f, now) => {
+            surface?.surface.setField(f, now);
             rivers?.surface.setField(f);
             redraw(null);
+          },
+          fading: (now) => {
+            if (surface?.surface.fading(now)) redraw(null);
           },
           time: (ms, riversMoving = false) => {
             surface?.setTime(ms);
@@ -1785,6 +1790,8 @@ export function mapDrawer(
   /** The shader water's field last made, and the map and tiles it was made from. */
   let field: WaterField | null = null;
   let fieldOf = '';
+  /** The size of the map the field was made for, `${w}x${h}`: another map's first field is waited for. */
+  let fieldMap = '';
   /** The whole map's terrain (setTerrain), and the shore covers of its water tiles, made once from it. */
   let terrainNow: Terrain | null = null;
   let terrainCovers: { of: Terrain; key: string; covers: Map<number, Float32Array> } | null = null;
@@ -1939,10 +1946,13 @@ export function mapDrawer(
     measure('map: water field', start);
     // A field made for a pen that has gone since (the map drawn again from the start) is dropped.
     if (pen?.water !== water) return;
-    if (next !== field) water.field(next);
+    // A field made again from the one before (the map explored) fades in; the first of a map shows at once.
+    const again = field !== null && fieldMap === `${map.w}x${map.h}`;
+    if (next !== field) water.field(next, again ? performance.now() : undefined);
     field = next;
     // Only once it is made: a field that failed is made again with the next map.
     fieldOf = key;
+    fieldMap = `${map.w}x${map.h}`;
     measure('map: water field (made)', start);
   }
 
@@ -2077,6 +2087,7 @@ export function mapDrawer(
     // The shader water moves at the screen's frame rate.
     const moving = waterMotion(terrain);
     if (waterDrawing === 'surface' && moving) pen?.water?.time(performance.now(), moving.rivers);
+    if (waterDrawing === 'surface') pen?.water?.fading(performance.now());
     if (sliding || lifting || (view?.mode === 'units' && view.active) || (view?.mode === 'terrain' && view.selected))
       camera();
   }
@@ -2212,7 +2223,13 @@ export function mapDrawer(
     const units = unitScene(map, res!);
     measure(kept ? 'map: scene, kept' : 'map: scene', start);
     if (!kept) {
-      if (waterDrawing === 'surface') await waterFieldNow([map, ground]);
+      // The ground just explored is painted at once, never waiting for the water's field: it fades in when made
+      // (WaterPen.field). Only the first field of a map is waited for, so the map does not show without water.
+      if (waterDrawing === 'surface') {
+        const made = waterFieldNow([map, ground]);
+        if (field && fieldMap === `${map.w}x${map.h}`) void made.catch(console.warn);
+        else await made;
+      }
       pics.retain(ground.base);
       const ops = [...ground.base, ...ground.below, ...ground.above];
       // The panels draw no units.

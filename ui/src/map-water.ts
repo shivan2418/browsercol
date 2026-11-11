@@ -751,6 +751,8 @@ in vec2 vField;
 in vec2 vSlant;
 out vec4 finalColor;
 uniform sampler2D uField;
+uniform sampler2D uFieldBefore;
+uniform float uFade;
 uniform sampler2D uClimate;
 uniform sampler2D uSwellMap;
 uniform vec4 uRecipe;
@@ -770,6 +772,9 @@ vec3 paint(vec2 p, float kind) {
 }
 void main() {
   vec4 f = texture(uField, vField);
+  // A field just made fades in from the one before: the shelf, the coast and new water grow rather than pop in.
+  // Once it is in, the field before is not read.
+  if (uFade < 1.0) f = mix(texture(uFieldBefore, vField), f, uFade);
   if (f.a < 0.001) discard;
   vec4 climate = texture(uClimate, vField);
 #ifdef CLIP
@@ -844,6 +849,9 @@ const PAINTED_CLIP_FRAGMENT = PAINTED_FRAGMENT.replace(
   'precision highp float;\n#define CLIP 1',
 );
 
+/** How long a field just made takes to fade in from the one before, in ms. */
+export const FIELD_FADE_MS = 500;
+
 /** A field texture: one texel per field texel, smoothed between them. */
 const fieldSource = (cols: number, rows: number, data: Uint8Array) =>
   new BufferImageSource({
@@ -867,6 +875,9 @@ export class ShaderSurface {
    * to place higher up (the clipped beach); null when there is none. */
   readonly overlay: Mesh<Geometry, Shader> | null = null;
   private field: BufferImageSource;
+  /** The field before, which the field fades in from (uFieldBefore, uFade), and when that fade began. */
+  private before: BufferImageSource;
+  private fadeFrom = -1;
   /** The climate field, the same size as the field. */
   private climate: BufferImageSource;
   private positions: Float32Array;
@@ -890,13 +901,15 @@ export class ShaderSurface {
         indexBuffer: [0, 1, 2, 0, 2, 3],
       });
     this.field = fieldSource(1, 1, new Uint8Array(4));
+    this.before = this.field;
     this.climate = fieldSource(1, 1, new Uint8Array([0, 255, 0, 255]));
     this.textures = Object.values(textures);
     const shader = Shader.from({
       gl: { vertex, fragment },
       resources: {
-        surface: { uFieldSize: { value: [1, 1], type: 'vec2<f32>' }, ...uniforms },
+        surface: { uFieldSize: { value: [1, 1], type: 'vec2<f32>' }, uFade: { value: 1, type: 'f32' }, ...uniforms },
         uField: this.field,
+        uFieldBefore: this.before,
         uClimate: this.climate,
         ...textures,
       },
@@ -907,7 +920,13 @@ export class ShaderSurface {
     if (overlayFragment) {
       const over = Shader.from({
         gl: { vertex, fragment: overlayFragment },
-        resources: { surface: shader.resources.surface, uField: this.field, uClimate: this.climate, ...textures },
+        resources: {
+          surface: shader.resources.surface,
+          uField: this.field,
+          uFieldBefore: this.before,
+          uClimate: this.climate,
+          ...textures,
+        },
       });
       this.overlay = new Mesh({ geometry, shader: over });
       this.overlay.cullable = false;
@@ -931,19 +950,48 @@ export class ShaderSurface {
     return (this.mesh.shader!.resources.surface as { uniforms: Record<string, unknown> }).uniforms;
   }
 
-  /** Cover the map the field covers, and read it. */
-  setField(f: WaterField) {
+  /**
+   * Cover the map the field covers, and read it: at `now` (ms) it starts fading in from the field before, over
+   * FIELD_FADE_MS (fading()), or at once without a `now` or when the field's size changed (another map).
+   */
+  setField(f: WaterField, now?: number) {
     const [w, h] = [f.cols * f.texel, f.rows * f.texelY];
-    const old = this.field;
-    if (old.width === f.cols && old.height === f.rows) {
-      old.resource = f.data;
-      old.update();
+    const shown = this.field;
+    const sameSize = shown.width === f.cols && shown.height === f.rows;
+    const fade = sameSize && now !== undefined;
+    /** What is let go, destroyed once the shaders no longer read it. */
+    const gone: BufferImageSource[] = [];
+    if (sameSize && now !== undefined) {
+      // The field shown now becomes the one before; the new one goes into the texture that was before, if it fits.
+      const spare = this.before;
+      this.before = shown;
+      if (spare !== shown && spare.width === f.cols && spare.height === f.rows) {
+        spare.resource = f.data;
+        spare.update();
+        this.field = spare;
+      } else {
+        if (spare !== shown) gone.push(spare);
+        this.field = fieldSource(f.cols, f.rows, f.data);
+      }
     } else {
-      this.field = fieldSource(f.cols, f.rows, f.data);
-      this.mesh.shader!.resources.uField = this.field;
-      if (this.overlay) this.overlay.shader!.resources.uField = this.field;
-      old.destroy();
+      if (this.before !== shown) gone.push(this.before);
+      if (sameSize) {
+        shown.resource = f.data;
+        shown.update();
+      } else {
+        this.field = fieldSource(f.cols, f.rows, f.data);
+        gone.push(shown);
+      }
+      this.before = this.field;
     }
+    for (const m of [this.mesh, this.overlay]) {
+      if (!m) continue;
+      m.shader!.resources.uField = this.field;
+      m.shader!.resources.uFieldBefore = this.before;
+    }
+    for (const g of gone) g.destroy();
+    this.fadeFrom = fade ? now : -1;
+    this.uniforms.uFade = fade ? 0 : 1;
     const climate = f.climate;
     const oldClimate = this.climate;
     if (oldClimate.width === f.cols && oldClimate.height === f.rows) {
@@ -962,6 +1010,15 @@ export class ShaderSurface {
     this.uniforms.uFieldSize = [w, h];
   }
 
+  /** Move the field's fade in on to `now` (ms); whether it is still fading, and the map must be drawn again. */
+  fading(now: number): boolean {
+    if (this.fadeFrom < 0) return false;
+    const t = Math.min(1, Math.max(0, (now - this.fadeFrom) / FIELD_FADE_MS));
+    this.uniforms.uFade = t;
+    if (t >= 1) this.fadeFrom = -1;
+    return true;
+  }
+
   /** Destroy the mesh, its geometry and shader, the field and the look's textures. */
   destroy() {
     this.overlay?.shader?.destroy();
@@ -969,6 +1026,7 @@ export class ShaderSurface {
     this.mesh.geometry.destroy();
     this.mesh.shader?.destroy();
     this.mesh.destroy();
+    if (this.before !== this.field) this.before.destroy();
     this.field.destroy();
     this.climate.destroy();
     for (const t of this.textures) t.destroy();
