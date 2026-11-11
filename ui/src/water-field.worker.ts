@@ -2,7 +2,7 @@
 // shore distance and the climate again round it, tens of milliseconds a slow machine would otherwise drop frames for.
 // The worker keeps the last field, so it makes again only round the tiles that changed, and the shore covers it was
 // sent, which the page sends each once. Each reply is a copy of the field, handed over without another copy.
-import { coverAt, waterField, type ShoreModel, type WaterField, type WaterRecipe } from './map-water';
+import { coverAt, waterField, type WaterField } from './map-water';
 import type { MapView } from './tileset';
 
 export interface FieldRequest {
@@ -14,8 +14,8 @@ export interface FieldRequest {
   covers: [number, number][];
   /** The covers this worker has not been sent yet, by id. */
   newCovers: [number, Float32Array][];
-  shore?: ShoreModel;
-  recipe?: WaterRecipe;
+  /** The look's climateBlend: how many tiles the land's climates blend over. */
+  climateBlend: number;
 }
 
 /** The field made, without what it was made from; null when nothing changed. */
@@ -40,8 +40,7 @@ self.onmessage = (e: MessageEvent<FieldRequest>) => {
       return a ? coverAt(a, u, v) : 0;
     },
     last,
-    r.shore,
-    r.recipe,
+    r.climateBlend,
   );
   if (next === last) {
     postMessage({ field: null } satisfies FieldReply);
@@ -50,7 +49,7 @@ self.onmessage = (e: MessageEvent<FieldRequest>) => {
   last = next;
   // The worker patches its own arrays next time, so the page gets copies.
   const data = next.data.slice();
-  const climate = next.climate?.slice();
+  const climate = next.climate.slice();
   const field: WaterField = { cols: next.cols, rows: next.rows, texel: next.texel, texelY: next.texelY, data, climate };
-  postMessage({ field } satisfies FieldReply, { transfer: climate ? [data.buffer, climate.buffer] : [data.buffer] });
+  postMessage({ field } satisfies FieldReply, { transfer: [data.buffer, climate.buffer] });
 };

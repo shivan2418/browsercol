@@ -17,7 +17,7 @@ The Engine-side implementation of FreeCol's `GUI` interface that hands every sho
 _Avoid_: bridge, adapter, glue
 
 **Tileset**:
-A full set of map art (images, plus the colours and chip texts the map draws) addressed by resource keys and containing no rules changes. FreeCol's own art is the default Tileset; a player can provide another as an art-only mod. A Tileset may also give the look of **Shader water** (FreeCol+ does).
+A full set of map art (images, plus the colours and chip texts the map draws) addressed by resource keys and containing no rules changes. FreeCol's own art is the default Tileset; a player can provide another as an art-only mod. A Tileset may also give the look of **Shader water** (BrowserCol does).
 _Avoid_: skin, theme, art pack
 
 **Map mode**:
@@ -29,12 +29,8 @@ The Map mode that draws everything on the map from the chosen Tileset's images, 
 _Avoid_: classic mode, sprite mode
 
 **Shader water**:
-The water (ocean, lakes, high seas) of a Tileset that gives its look (shader.water.* keys) drawn in Tileset mode as one surface under the tiles, coloured per pixel by a shader from the Tileset's ripple images and colours, in place of FreeCol's painted frames. Each kind of water (ocean, high seas, lake) has its own roughness, foam and speed. The water tiles draw only their coasts' sand; rivers keep their frames, and where one runs into the water its water fades into the surface. Where the shader cannot run, compile or draw, the water is FreeCol's frames.
+The water (ocean, lakes, high seas) of a Tileset that gives its look (shader.water.* keys) drawn in Tileset mode as one surface under the tiles, in place of FreeCol's painted frames: FreeCol's own water art, coloured per pixel by a shader by the climate of the nearest land, with a shallow shelf, bands moving ashore and foam at the beach. The water tiles draw only their coasts' sand. Its rivers flow too: one surface in FreeCol's river shapes and banks, carried downstream and fading into the sea at their mouths. Where the shader cannot run, compile or draw, the water and rivers are FreeCol's frames.
 _Avoid_: animated water, water effect
-
-The water playground's painted-art recipe uses a CPU coastline field in 2:1 texels. Closing grows and shrinks the coast without cutting land, preserving sailing links between water tiles, including corner links. Climate weights blend nearby land over a configurable distance. Exploration patches the affected region.
-
-Open `?tileset=freecol-plus&playground=water&water=A` to compare the painted-art variants. A uses turquoise shallows and a shader-drawn beach; B adds climate shallows; C keeps FreeCol's beach art; D uses foam without bands; E adds climate deep water to C. All five start with the darker, narrower shelf. The five axis pickers can combine them, and the old presets retain the parked ripple renderer. `water=Default` shows the flipbook; `split=0.5` puts it on the left of a draggable divider. The comparison tiles are built and animated only while shown. Terrain animation off freezes the shader too.
 
 **Procedural mode**:
 The Map mode that draws terrain (ground, water, rivers, forests) in layers, with art such as single trees placed by code; units, colonies and roads still come from the chosen Tileset.

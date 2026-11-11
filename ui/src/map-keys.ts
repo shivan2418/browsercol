@@ -35,7 +35,7 @@ export const MAP_KEY_FAMILIES = {
   /** The native alarm chip's text: indianAlarmChip.<kind> */
   alarmChip: 'indianAlarmChip.',
   /**
-   * The shader water's look, in a Tileset that has one (#409, map-water.ts): its ripple images, colours and numbers,
+   * The shader water's look, in a Tileset that has one (#409, map-water.ts): its colours and numbers, and its rivers',
    * shader.water.<what>
    */
   shaderWater: 'shader.water.',

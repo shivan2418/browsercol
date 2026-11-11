@@ -30,7 +30,6 @@ import {
   paintedWaterAtlas,
   waterField,
   waterLook,
-  waterPlayground,
   WaterSurface,
   type WaterField,
   type WaterLook,
@@ -46,7 +45,6 @@ import {
   scene,
   srcId,
   staticScenes,
-  staticScene,
   STILL,
   TICK_MS,
   unitOps,
@@ -323,19 +321,19 @@ interface TextStyle {
  * being lifted off ground just explored, the animated water and rivers under the scene (5), the other units (6), and
  * the scene over the units (7). A move that changes only units draws 6 and 2 again, and leaves the rest of the scene.
  */
-type Layer = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+type Layer = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
 /**
  * The order the layers are stacked in, bottom first: the animated base tiles (5) under all, as MapViewer paints them
  * first, then the scene with the units between its two parts, and the unit cursor (4) between the overlay and the
  * units that move or blink.
  */
-const STACK: readonly Layer[] = [8, 5, 9, 0, 6, 7, 1, 4, 2, 3];
+const STACK: readonly Layer[] = [5, 0, 6, 7, 1, 4, 2, 3];
 
 /** The animated base: the water and rivers, which MapViewer paints first. */
 const BASE_LAYER: Layer = 5;
 
 /** The layers drawn only when the static scene changes: the animated base, the scene under the units and over them. */
-const STATIC_LAYERS: readonly Layer[] = [8, 5, 9, 0, 7];
+const STATIC_LAYERS: readonly Layer[] = [5, 0, 7];
 
 /** The screen's pixel ratio: how many device pixels a CSS pixel covers. */
 export const pixelRatio = (dpr: number | undefined): number => (dpr && dpr > 0 ? dpr : 1);
@@ -353,15 +351,16 @@ const screenRatio = (): number => pixelRatio(window.devicePixelRatio);
 export interface WaterPen {
   /** The biggest field, in texels across or down, the GPU takes. */
   readonly maxField: number;
-  /** Draw the water in this look under the map from now on; false if the GPU cannot build its shader. */
-  start(look: WaterLook, swell: Picture, chop: Picture): boolean;
+  /**
+   * Draw the water in this look under the map from now on, painting `art` (FreeCol's water art, paintedWaterAtlas);
+   * false if the GPU cannot build its shader.
+   */
+  start(look: WaterLook, art: Picture): boolean;
   /** The water's field of the map now. */
   field(f: WaterField): void;
-  /** Move the ripples to where they are at `ms`, and draw the map again. */
+  /** Move the water to where it is at `ms`, and the rivers' ripples if `riversMoving`, and draw the map again. */
   time(ms: number, riversMoving?: boolean): void;
-  /** PROTOTYPE (water playground): the surface drawing the water now. */
-  surface?(): WaterSurface | null;
-  comparison?(split: number, defaultOnly: boolean): void;
+  /** Draw these rivers over the water from now on, or none; false if the GPU cannot build their shader. */
   rivers?(next: RiverSurface | null): boolean;
 }
 
@@ -745,7 +744,7 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
   cssSize(width, height);
   const world = new Container();
   // Each layer its own render group: moving or fading one (the slide, the blink) does not rebuild the others' draws.
-  const layers = Array.from({ length: 10 }, () => new Container({ isRenderGroup: true }));
+  const layers = Array.from({ length: 8 }, () => new Container({ isRenderGroup: true }));
   // The actors are few and slide off the tile they were culled at: they are never culled.
   layers[2].cullableChildren = false;
   world.addChild(...STACK.map((n) => layers[n]));
@@ -801,7 +800,7 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
     for (const n of STATIC_LAYERS)
       chunkLayers.set(
         n,
-        new ChunkLayer(layers[n], n === BASE_LAYER || n === 8 ? tilemapBackend(baseAtlas, dimmed, seamBleed) : backend),
+        new ChunkLayer(layers[n], n === BASE_LAYER ? tilemapBackend(baseAtlas, dimmed, seamBleed) : backend),
       );
   }
   /** The static layer being drawn in chunks, the tile its draws belong to, and a count to key what has no key. */
@@ -840,72 +839,26 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
   /** The shader water, under the animated base, once start() gives it a look. */
   let surface: WaterSurface | null = null;
   let rivers: RiverSurface | null = null;
-  let split = 0;
-  let defaultOnly = false;
-  const rightMask = new Graphics();
-  const leftMask = new Graphics();
-  const shoreMask = new Graphics();
-  // Each mask belongs to the render group it clips, so its coordinates track that group's camera.
-  layers[5].addChild(rightMask);
-  layers[8].addChild(leftMask);
-  layers[9].addChild(shoreMask);
-  const compare = () => {
-    const recipe = surface?.look.recipe;
-    const width = app.renderer.screen.width;
-    const height = app.renderer.screen.height;
-    const divider = defaultOnly ? width : split * width;
-    const scale = world.scale.x;
-    const x = -world.x / scale;
-    const y = -world.y / scale;
-    rightMask
-      .clear()
-      .rect(x + divider / scale, y, (width - divider) / scale, height / scale)
-      .fill(0xffffff);
-    leftMask
-      .clear()
-      .rect(x, y, divider / scale, height / scale)
-      .fill(0xffffff);
-    shoreMask
-      .clear()
-      .rect(x, y, divider / scale, height / scale)
-      .fill(0xffffff);
-    const baseline = !!recipe && (defaultOnly || split > 0);
-    layers[8].visible = layers[9].visible = baseline;
-    layers[8].mask = baseline ? leftMask : null;
-    layers[5].mask = recipe && baseline ? rightMask : null;
-    layers[9].mask = baseline ? shoreMask : null;
-    // Stencil masks must remain renderable; only exclude their ordinary scene draw.
-    rightMask.includeInBuild = leftMask.includeInBuild = shoreMask.includeInBuild = false;
-    if (surface) {
-      surface.surface.mesh.visible = !defaultOnly;
-      if (surface.surface.overlay) surface.surface.overlay.visible = !defaultOnly;
-      surface.surface.uniforms.uSplit = divider * app.renderer.resolution;
-    }
-    if (rivers) {
-      rivers.surface.mesh.visible = !defaultOnly;
-      rivers.surface.uniforms.uSplit = divider * app.renderer.resolution;
-    }
-    redraw(null);
-  };
   const gl = atlas ? (app.renderer as unknown as { gl: WebGLRenderingContext }).gl : null;
   const water: WaterPen | undefined =
     gl && canDrawWater(gl)
       ? {
           maxField: gl.getParameter(gl.MAX_TEXTURE_SIZE) as number,
-          start: (look, swell, chop) => {
+          start: (look, art) => {
             surface?.surface.destroy();
-            surface = new WaterSurface(look, swell, chop);
+            surface = new WaterSurface(look, art);
             const mesh = surface.surface.mesh;
             let ok = programLinks(gl, surface.surface.program);
             if (ok) {
               // A first draw with it, now, and WebGL's word on it: PixiJS only logs what goes wrong there.
-              world.addChildAt(mesh, look.recipe ? world.getChildIndex(layers[5]) : 0);
-              // The clipped beach: the water drawn again right over the beach art (layers 5 and 9).
+              // Under the animated base (5), which draws the coasts' sand over it.
+              world.addChildAt(mesh, world.getChildIndex(layers[5]));
+              // The clipped beach: the water drawn again right over the sand (5), under the scene's transitions (0).
               const over = surface.surface.overlay;
               const overProgram = surface.surface.overlayProgram;
               if (over && overProgram) {
                 ok = programLinks(gl, overProgram);
-                if (ok) world.addChildAt(over, world.getChildIndex(layers[9]) + 1);
+                if (ok) world.addChildAt(over, world.getChildIndex(layers[5]) + 1);
               }
               for (let i = 0; i < 16 && gl.getError() !== gl.NO_ERROR; i++);
               app.render();
@@ -919,7 +872,6 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
               return false;
             }
             redraw(null);
-            compare();
             return true;
           },
           field: (f) => {
@@ -928,12 +880,10 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
             redraw(null);
           },
           time: (ms, riversMoving = false) => {
-            if (defaultOnly) return;
             surface?.setTime(ms);
-            if (surface) rivers?.setTime(ms, riversMoving, surface.look, surface.rate);
+            rivers?.setTime(ms, riversMoving);
             redraw(null);
           },
-          surface: () => surface,
           rivers: (next) => {
             rivers?.surface.destroy();
             rivers = null;
@@ -945,13 +895,8 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
               rivers = next;
               world.addChildAt(next.surface.mesh, world.getChildIndex(layers[0]));
             }
-            compare();
+            redraw(null);
             return true;
-          },
-          comparison: (fraction, only) => {
-            split = fraction;
-            defaultOnly = only;
-            compare();
           },
         }
       : undefined;
@@ -1144,7 +1089,6 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
           else bleed(s);
         }
       world.position.set(snap(dx, 1), snap(dy, 1));
-      if (surface?.look.recipe && (defaultOnly || split > 0)) compare();
       if (rescaled) for (const c of chunkLayers.values()) c.rescale(scaleK());
       chunkView();
       redraw('all', !rescaled);
@@ -1153,7 +1097,6 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
     resize: (w, h) => {
       app.renderer.resize(w, h, ratioAt(quality));
       cssSize(w, h);
-      compare();
       chunkView();
       redraw();
     },
@@ -1167,17 +1110,12 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
 export async function waterDrawingFor(
   look: WaterLook | null,
   water: WaterPen | undefined,
-  get: (src: string) => Promise<Picture>,
-  painted?: () => Promise<Picture>,
+  /** FreeCol's ocean, high seas and lake art, unprojected (paintedWaterAtlas), which the shader paints. */
+  art: () => Promise<Picture>,
 ): Promise<WaterDrawing> {
   if (!look || !water) return 'flipbook';
   try {
-    // A painted-art recipe draws FreeCol's own ocean, high seas and lake art in place of the ripple textures.
-    const [swell, chop] =
-      look.recipe && painted
-        ? [await painted(), await painted()]
-        : await Promise.all([get(look.swell), get(look.chop)]);
-    if (water.start(look, swell, chop)) return 'surface';
+    if (water.start(look, await art())) return 'surface';
     console.warn("the GPU could not build the shader water's shader; the water is drawn from its frames");
   } catch (ex) {
     console.warn('the shader water could not start; the water is drawn from its frames', ex);
@@ -1223,9 +1161,9 @@ export function canvasPen(host: HTMLElement, width: number, height: number, back
     /** An image's picture. */
     pic?: Picture;
   };
-  const layers: Call[][] = Array.from({ length: 10 }, () => []);
+  const layers: Call[][] = Array.from({ length: 8 }, () => []);
   /** The pictures each layer drew last time, and how many times the canvas was drawn. */
-  const shownPics: Set<Picture>[] = Array.from({ length: 10 }, () => new Set());
+  const shownPics: Set<Picture>[] = Array.from({ length: 8 }, () => new Set());
   let shows = 0;
   let fog = 1;
   let mark = 1;
@@ -1822,21 +1760,13 @@ export function mapDrawer(
   /** The shader water's field last made, and the map and tiles it was made from. */
   let field: WaterField | null = null;
   let fieldOf = '';
-  /** PROTOTYPE (water playground): the water's look now, and the map and scene its field was last made from. */
+  /** The Tileset's water look, null for FreeCol's frames. */
   let look: WaterLook | null = null;
-  let lastWater: [MapView, StaticScene] | null = null;
-  let paintedAtlas: HTMLCanvasElement | null = null;
-  let comparison = false;
+  /** The banks of the rivers the river mesh draws, in place of the ground's river ops; null without the mesh. */
   let riverBase: Op[] | null = null;
   let riverKey = '';
   /** The key of the river mesh drawn now, '' for none. */
   let riverMesh = '';
-  // The playground chooses its recipe as soon as the first map is available.
-  // Do not allocate a parked field just to discard it on that first selection.
-  const waterParams = new URLSearchParams(location.search);
-  let waitingForRecipe =
-    waterParams.get('playground') === 'water' &&
-    ['Default', 'A', 'B', 'C', 'D', 'E'].includes(waterParams.get('water') ?? 'A');
 
   async function init() {
     const art = (await (await fetch(artBase + manifest)).json()) as Art;
@@ -1857,48 +1787,18 @@ export function mapDrawer(
     if (size !== startSize) p.resize(...size);
     pen = p;
     look = waterLook(res);
-    const paintedArt = async () => {
-      if (!paintedAtlas) {
-        const pictures = await Promise.all(
+    const waterArt = async () =>
+      paintedWaterAtlas(
+        await Promise.all(
           ['ocean', 'highSeas', 'lake'].map((kind) => pics.get(res!.path(`image.tile.model.tile.${kind}.center`)!)),
-        );
-        paintedAtlas = paintedWaterAtlas(pictures);
-      }
-      return paintedAtlas;
-    };
-    waterDrawing = await waterDrawingFor(look, p.water, pics.get, paintedArt);
-    // PROTOTYPE (water playground): what the playground drives.
-    waterPlayground.look = look;
-    waterPlayground.surface = () => p.water?.surface?.() ?? null;
-    waterPlayground.restart = async (next) => {
-      if (!p.water || waterDrawing !== 'surface') return false;
-      let swell: Picture, chop: Picture;
-      if (next.recipe) swell = chop = await paintedArt();
-      else [swell, chop] = await Promise.all([pics.get(next.swell), pics.get(next.chop)]);
-      if (!p.water.start(next, swell, chop)) return false;
-      look = waterPlayground.look = next;
-      waitingForRecipe = false;
-      fieldGen++;
-      field = null;
-      fieldOf = '';
-      if (lastWater) await waterFieldNow(...lastWater);
-      painted = null;
-      if (drawn) await drawNow(drawn, []);
-      return true;
-    };
-    waterPlayground.compare = (split, only) => {
-      p.water?.comparison?.(split, only);
-      const shown = only || split > 0;
-      if (shown === comparison) return drawing;
-      comparison = shown;
-      painted = null;
-      return (drawing = drawing.then(() => (drawn ? drawNow(drawn, []) : undefined)));
-    };
+        ),
+      );
+    waterDrawing = await waterDrawingFor(look, p.water, waterArt);
   }
 
   async function riversNow(map: MapView, ground: StaticScene) {
     if (!pen?.water?.rivers) return;
-    const enabled = waterDrawing === 'surface' && look?.rivers?.mode === 'flow';
+    const enabled = waterDrawing === 'surface';
     const key = enabled ? `${map.w}:${map.h}:${map.tiles}:${JSON.stringify(map.rivers)}` : '';
     if (key === riverKey) return;
     riverKey = key;
@@ -1921,6 +1821,7 @@ export function mapDrawer(
       const next = new RiverSurface(
         { geometry: drawing.geometry, atlas: drawing.atlas },
         await pics.get(res!.path('image.tile.model.tile.ocean.center')!),
+        look!,
       );
       if (field) next.surface.setField(field);
       const shown = pen.water.rivers(next);
@@ -1931,12 +1832,9 @@ export function mapDrawer(
   }
 
   /**
-   * Give the shader water the field of a map, when its tiles changed: the land, and what covers the water tiles at
-   * the shore (their sand, and the land and beach their transitions bring onto them), where the shallows and foam meet.
-   */
-  /**
    * The field is made by a worker (water-field.worker.ts) where the browser has one, so a move that explores a coast
-   * never waits on it (#411); else here. One request at a time, the latest map state queued behind it.
+   * drops no frames on it (#411); else here. One request at a time, the latest map state queued behind it. The map
+   * waits for it before painting the ground just explored, so no water tile shows there without its water.
    */
   let fieldWorker: Worker | null | undefined;
   let fieldReply: ((r: FieldReply | null) => void) | null = null;
@@ -1944,8 +1842,6 @@ export function mapDrawer(
   const sentCovers = new Set<number>();
   let nextCoverId = 1;
   let fieldWanted: [MapView, StaticScene] | null = null;
-  /** Counts the looks started: a field made for an earlier one is dropped. */
-  let fieldGen = 0;
   let fieldWork: Promise<void> | null = null;
   const workerOf = (): Worker | null => {
     if (fieldWorker !== undefined) return fieldWorker;
@@ -1970,8 +1866,6 @@ export function mapDrawer(
    * Resolves once the latest map's field is in.
    */
   function waterFieldNow(map: MapView, ground: StaticScene): Promise<void> {
-    lastWater = [map, ground];
-    waterPlayground.map = map;
     fieldWanted = [map, ground];
     fieldWork ??= (async () => {
       try {
@@ -1988,10 +1882,10 @@ export function mapDrawer(
   }
 
   async function makeField(map: MapView, ground: StaticScene) {
-    const key = `${map.w}x${map.h}:${map.tiles}:${look?.recipe ? JSON.stringify(map.rivers) : ''}`;
-    if (!pen?.water || waitingForRecipe || key === fieldOf) return;
+    const key = `${map.w}x${map.h}:${map.tiles}:${JSON.stringify(map.rivers)}`;
+    if (!pen?.water || !look || key === fieldOf) return;
     const water = pen.water;
-    const gen = fieldGen;
+    const climateBlend = look.climateBlend;
     const start = performance.now();
     const shores = [...ground.base, ...ground.below].filter(
       (op): op is Extract<Op, { k: 'image' }> => op.k === 'image' && op.shore === true,
@@ -2016,8 +1910,7 @@ export function mapDrawer(
         texel,
         covers: [],
         newCovers: [],
-        shore: look?.shore,
-        recipe: look?.recipe,
+        climateBlend,
       };
       for (const [at, a] of covers) {
         let id = coverIds.get(a);
@@ -2046,13 +1939,11 @@ export function mapDrawer(
           return a ? coverAt(a, u, v) : 0;
         },
         field,
-        look?.shore,
-        look?.recipe,
+        climateBlend,
       );
       measure('map: water field', start);
     }
-    // A look started while the worker was busy wants a fresh field: this one is dropped.
-    if (!next || pen?.water !== water || gen !== fieldGen) return;
+    if (!next || pen?.water !== water) return;
     if (next !== field) water.field(next);
     field = next;
     // Only once it is made: a field that failed is made again with the next map.
@@ -2158,14 +2049,13 @@ export function mapDrawer(
   function animateBase() {
     if (!drawn || !pen || baseBusy || performance.now() < baseNext) return;
     const t = ticksNow();
-    const baseline = !!look?.recipe && comparison;
-    const key = `${t.water}:${t.river}:${pen.shownVersion(BASE_LAYER)}:${baseline ? pen.shownVersion(8) : 0}`;
+    const key = `${t.water}:${t.river}:${pen.shownVersion(BASE_LAYER)}`;
     if (key === baseKey) return;
     baseKey = key;
     baseBusy = true;
     const start = performance.now();
     void pics
-      .animate(t, baseline ? [...pen.shown(BASE_LAYER), ...pen.shown(8)] : pen.shown(BASE_LAYER))
+      .animate(t, pen.shown(BASE_LAYER))
       .then((changed) => {
         if (changed.length) {
           pen?.redrawn(changed);
@@ -2248,31 +2138,8 @@ export function mapDrawer(
       // Not kept until all three are drawn: a draw cut short leaves them to be drawn again.
       painted = null;
       await riversNow(map, ground);
-      const base = riverBase ?? ground.base;
-      if (look?.recipe && waterDrawing === 'surface') {
-        const baseline = comparison ? staticScene(map, res!, colonyLabels, 'flipbook') : null;
-        await paint(pen!, 8, baseline?.base ?? [], pics);
-        const drawnShore = look.recipe.shore === 'drawn';
-        const shores = comparison && drawnShore ? ground.below.filter((op) => op.k === 'image' && op.shore) : [];
-        await paint(pen!, 9, shores, pics);
-        await paint(
-          pen!,
-          5,
-          look.recipe.shore === 'drawn' ? base.filter((op) => !(op.k === 'image' && op.shore)) : base,
-          pics,
-        );
-        await paint(
-          pen!,
-          0,
-          drawnShore ? ground.below.filter((op) => !(op.k === 'image' && op.shore)) : ground.below,
-          pics,
-        );
-      } else {
-        await paint(pen!, 8, [], pics);
-        await paint(pen!, 9, [], pics);
-        await paint(pen!, 5, base, pics);
-        await paint(pen!, 0, ground.below, pics);
-      }
+      await paint(pen!, 5, riverBase ?? ground.base, pics);
+      await paint(pen!, 0, ground.below, pics);
       await paint(pen!, 7, ground.above, pics);
       painted = ground;
     }
@@ -2335,7 +2202,6 @@ export function mapDrawer(
   async function drawNow(map: MapView, moved: Step[]) {
     const before = drawn;
     drawn = map;
-    waterPlayground.map = map;
     if (!pen) await init();
     // What slides is what the Engine says the player's unit did, during their turn. A map with no steps (the server
     // often sends several in a row) leaves a slide under way alone.

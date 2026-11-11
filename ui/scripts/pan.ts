@@ -18,9 +18,7 @@ import { serveDist } from './serve-dist.ts';
 
 const rates = opt('rates', '60,250,1000').split(',').map(Number);
 const secs = Number(opt('secs', '4'));
-const variant = opt('water', '');
-const query =
-  opt('query', 'preset=pan-large') + (variant ? `&tileset=browsercol&playground=water&water=${variant}` : '');
+const query = opt('query', 'preset=pan-large');
 const tag = opt('tag', '');
 const gpu = process.argv.includes('--gpu');
 // #407's netbook settings: --size 1366x768, --throttle 4 (CDP Emulation.setCPUThrottlingRate, set once the game has
@@ -136,16 +134,6 @@ console.log(
 );
 // Let the opening draws and dialogs settle.
 await page.waitForTimeout(3000);
-if (variant) {
-  await page.waitForFunction(() => 'fcWaterPlayground' in window, null, { timeout: 60000 });
-  await page.evaluate(async () => {
-    // The playground installs this in-process hook after its first field is ready.
-    const w = window as unknown as { fcWaterPlayground: { ready(): Promise<unknown> } };
-    await w.fcWaterPlayground.ready();
-    for (const el of document.querySelectorAll<HTMLElement>('.wp,.wp-fps')) el.style.display = 'none';
-  });
-  await page.waitForTimeout(2000);
-}
 
 const box = (await page.locator('#map canvas').boundingBox())!;
 const [cx, cy] = [box.x + box.width / 2, box.y + box.height / 2];
@@ -277,6 +265,7 @@ for (const p of phases) {
     p50: pct(f, 0.5),
     p95: pct(f, 0.95),
     max: Math.max(0, ...f),
+    // Frames over one 60 Hz frame (16.7 ms) since #409; runs before it counted over 17.5 ms, which over17_5 still does.
     over16: f.filter((d) => d > 16.7 + 1e-6).length,
     over17_5: f.filter((d) => d > 17.5).length,
     over33: f.filter((d) => d > 34).length,

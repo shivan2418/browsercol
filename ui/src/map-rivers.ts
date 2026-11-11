@@ -1,4 +1,5 @@
-// PROTOTYPE (#411): one river mesh, using FreeCol's existing recipes for the masks and pebble banks.
+// BrowserCol's flowing rivers (#411): one mesh for all the map's rivers, in FreeCol's own river shapes and pebble
+// banks (their recipes), its water the sea's painted art in the climate's shallows, carried downstream.
 // The atlas packs screen-space flow in RG, minor/major speed blend in B, and the original mask in A.
 // Bends are baked once on the CPU, leaving four texture reads and no neighbour work in the shader.
 import { BufferImageSource, Geometry, ImageSource } from 'pixi.js';
@@ -47,8 +48,6 @@ uniform vec3 uShal1;
 uniform vec3 uShal2;
 uniform vec2 uSpeeds;
 uniform float uTime;
-uniform float uSplit;
-uniform float uDeeper;
 uniform float uStreakStrength;
 // Soft dappled light carried by the river's own flow field, so it follows bends. Analytic noise: no texture reads.
 // The ground is drawn at 2:1, so the noise is stretched across the screen to sit flat on it.
@@ -66,7 +65,6 @@ float ripple(vec2 q) {
   return smoothstep(0.56, 0.82, n);
 }
 void main() {
-  if (gl_FragCoord.x < uSplit) discard;
   vec4 mask = texture(uRiverAtlas, vUv);
   if (mask.a < 0.004) discard;
   vec2 velocity = (mask.rg * 2.0 - 1.0) * mix(uSpeeds.y, uSpeeds.x, mask.b);
@@ -78,9 +76,8 @@ void main() {
   vec3 art = mix(a, b, abs(phase * 2.0 - 1.0));
   vec4 climate = texture(uClimate, vPosition / uFieldSize);
   vec3 w = climate.rgb / max(dot(climate.rgb, vec3(1.0)), 0.001);
-  vec3 shallow = (uShal0 * w.r + uShal1 * w.g + uShal2 * w.b) *
-    mix(vec3(1.0), vec3(0.82, 0.86, 0.88), uDeeper);
-  // The same painted-art modulation and near-shore tint as variant D.
+  vec3 shallow = (uShal0 * w.r + uShal1 * w.g + uShal2 * w.b) * vec3(0.82, 0.86, 0.88);
+  // The same painted-art modulation and near-shore tint as the sea's shallows.
   vec3 col = mix(art, shallow * (0.8 + dot(art, vec3(0.3))), dot(w, vec3(0.8, 0.75, 1.0)) * 0.92);
   col *= 1.0 - 0.12 * (1.0 - mask.b) * smoothstep(0.45, 1.0, mask.a);
   // Two phases a short cycle apart, as for the art: offsets stay small, so bends don't shear the pattern.
@@ -282,19 +279,22 @@ export class RiverSurface {
   readonly surface: ShaderSurface;
   private last = -1;
   private time = 0;
-  constructor(drawing: { geometry: Geometry; atlas: BufferImageSource }, water: Picture) {
+  constructor(drawing: { geometry: Geometry; atlas: BufferImageSource }, water: Picture, look: WaterLook) {
+    const shallow = (c: number) => ({
+      value: [((c >> 16) & 255) / 255, ((c >> 8) & 255) / 255, (c & 255) / 255],
+      type: 'vec3<f32>',
+    });
+    const { rivers, palettes } = look;
     this.surface = new ShaderSurface(
       VERTEX,
       FRAGMENT,
       {
         uTime: { value: 0, type: 'f32' },
-        uSplit: { value: 0, type: 'f32' },
-        uDeeper: { value: 0, type: 'f32' },
-        uStreakStrength: { value: 0.1, type: 'f32' },
-        uSpeeds: { value: [6, 3], type: 'vec2<f32>' },
-        uShal0: { value: [0, 0, 0], type: 'vec3<f32>' },
-        uShal1: { value: [0, 0, 0], type: 'vec3<f32>' },
-        uShal2: { value: [0, 0, 0], type: 'vec3<f32>' },
+        uStreakStrength: { value: rivers.streakStrength, type: 'f32' },
+        uSpeeds: { value: [rivers.minor, rivers.major], type: 'vec2<f32>' },
+        uShal0: shallow(palettes.cold.shallow),
+        uShal1: shallow(palettes.temperate.shallow),
+        uShal2: shallow(palettes.tropical.shallow),
       },
       {
         uRiverAtlas: drawing.atlas,
@@ -304,24 +304,11 @@ export class RiverSurface {
       drawing.geometry,
     );
   }
-  setTime(ms: number, moving: boolean, look: WaterLook, rate: number) {
-    if (this.last >= 0 && moving) this.time += Math.min(0.1, Math.max(0, (ms - this.last) / 1000)) * rate;
+  /** Move the ripples to where they are at `ms`; while not `moving` (the terrain's animation set to water only or
+   * off) they stand still. */
+  setTime(ms: number, moving: boolean) {
+    if (this.last >= 0 && moving) this.time += Math.min(0.1, Math.max(0, (ms - this.last) / 1000));
     this.last = ms;
-    const u = this.surface.uniforms;
-    u.uTime = this.time;
-    u.uDeeper = look.recipe?.depth === 'deeper' ? 1 : 0;
-    u.uStreakStrength = look.rivers?.streakStrength ?? 0.1;
-    const speeds = u.uSpeeds as number[];
-    speeds[0] = look.rivers?.minor ?? 6;
-    speeds[1] = look.rivers?.major ?? 3;
-    this.tint('uShal0', look.palettes.cold.shallow);
-    this.tint('uShal1', look.palettes.temperate.shallow);
-    this.tint('uShal2', look.palettes.tropical.shallow);
-  }
-  private tint(name: string, color: number) {
-    const rgb = this.surface.uniforms[name] as number[];
-    rgb[0] = ((color >> 16) & 255) / 255;
-    rgb[1] = ((color >> 8) & 255) / 255;
-    rgb[2] = (color & 255) / 255;
+    this.surface.uniforms.uTime = this.time;
   }
 }

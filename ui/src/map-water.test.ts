@@ -13,8 +13,6 @@ import {
   programLinks,
   waterField,
   waterLook,
-  waterTime,
-  type WaterRecipe,
 } from './map-water';
 import { resources } from './resources';
 import type { MapView } from './tileset';
@@ -118,54 +116,38 @@ describe('riverDirections', () => {
 });
 
 describe('waterLook', () => {
-  it("is none for a Tileset without the shader water's ripples: FreeCol's own", () => {
+  it("is none for a Tileset without the shader water: FreeCol's own, and FreeCol+", () => {
     expect(waterLook(resources([{ dir: 'default', props: 'image.tile.model.tile.ocean.center=o.png' }], []))).toBe(
       null,
     );
+    const props = readFileSync(new URL('../tilesets/freecol-plus/resources.properties', import.meta.url), 'utf8');
+    expect(waterLook(resources([{ dir: 'mods/freecol-plus', props }], []))).toBe(null);
   });
 
   it("reads the look from the Tileset's shader.water keys, with numbers it leaves out at their defaults", () => {
     const props = `
-shader.water.swell=water/swell.png
-shader.water.chop=water/chop.png
-shader.water.ocean=urn:color:0x0c3646
-shader.water.highSeas=urn:color:0x092838
-shader.water.lake=urn:color:0x0e3742
-shader.water.shallow=urn:color:0x2b6a70
+shader.water.shelfWidth="120"
 shader.water.foam=urn:color:0xd8e2d6
-shader.water.light=urn:color:0x9fc8cc
-shader.water.ocean.roughness="0.4"
-shader.water.lake.foam="0.1"
-shader.water.lake.speed="0.3"
-shader.water.chopSize="96"
+shader.water.tropical.shallow=urn:color:0x40c6b9
 `;
     const look = waterLook(resources([{ dir: 'mods/plus', props }], []))!;
-    expect(look).toMatchObject({
-      swell: 'mods/plus/water/swell.png',
-      chop: 'mods/plus/water/chop.png',
-      ocean: 0x0c3646,
-      highSeas: 0x092838,
-      foam: 0xd8e2d6,
-      chopSize: 96,
-    });
-    // Each kind of water its own roughness, foam and speed, or the defaults: lakes calm, with no breaking foam.
-    expect(look.roughness).toEqual({ ocean: 0.4, highSeas: 0.8, lake: 0.3 });
-    expect(look.foamStrength).toEqual({ ocean: 1, highSeas: 1, lake: 0.1 });
-    expect([look.speed, look.lakeSpeed]).toEqual([1, 0.3]);
-    // FreeCol+ names no painted-art recipe and keeps FreeCol's flipbook rivers.
-    expect(look.recipe).toBeUndefined();
-    expect(look.rivers?.mode).toBe('flipbook');
+    expect(look).toMatchObject({ shelfWidth: 120, foam: 0xd8e2d6, bandSpeed: 5, climateBlend: 3, clip: 1 });
+    expect(look.palettes.tropical.shallow).toBe(0x40c6b9);
+    expect(look.rivers).toEqual({ minor: 6, major: 3, streakStrength: 0.1 });
   });
 
-  it("gives BrowserCol (#411) the playground's variant E, its climate palettes and flowing rivers", () => {
+  it('gives BrowserCol (#411) its water, climate palettes and flowing rivers', () => {
     const props = readFileSync(new URL('../tilesets/browsercol/resources.properties', import.meta.url), 'utf8');
     const look = waterLook(resources([{ dir: 'mods/browsercol', props }], []))!;
-    expect(look.recipe).toEqual({
-      shallows: 'climate',
-      shore: 'art',
-      motion: 'bands',
-      deep: 'climate',
-      depth: 'deeper',
+    expect(look).toEqual({
+      foam: 0xe0e8df,
+      foamWidth: 7,
+      highSeasShade: 0.72,
+      palettes: {
+        cold: { deep: 0x1b2a33, shallow: 0x5a7378 },
+        temperate: { deep: 0x123640, shallow: 0x4d7268 },
+        tropical: { deep: 0x0c3a4c, shallow: 0x40c6b9 },
+      },
       bandSpeed: 5,
       bandSpacing: 40,
       driftSpeed: 2,
@@ -173,9 +155,8 @@ shader.water.chopSize="96"
       climateBlend: 3,
       clip: 1,
       clipAt: -2,
+      rivers: { minor: 6, major: 3, streakStrength: 0.1 },
     });
-    expect(look.palettes.tropical).toEqual({ deep: 0x0c3a4c, shallow: 0x40c6b9, foam: 0xe6eee6, foamAmount: 1 });
-    expect(look.rivers).toEqual({ mode: 'flow', minor: 6, major: 3, streakStrength: 0.1 });
   });
 });
 
@@ -228,37 +209,23 @@ describe('waterField', () => {
     ],
     tiles,
   };
-  const recipe: WaterRecipe = {
-    shallows: 'climate',
-    shore: 'drawn',
-    motion: 'bands',
-    deep: 'plain',
-    depth: 'deeper',
-    bandSpeed: 5,
-    bandSpacing: 32,
-    driftSpeed: 2,
-    shelfWidth: 110,
-    climateBlend: 3,
-    clip: 0,
-    clipAt: 2,
-  };
   const texel = 8;
   /** The field's RGBA at a tile's centre. */
   const centre = (f: ReturnType<typeof waterField>, x: number, y: number) => {
     const [ox, oy] = tileOrigin(x, y);
-    const k = Math.floor((oy + 32) / texel) * f.cols + Math.floor((ox + 64) / texel);
+    const k = Math.floor((oy + 32) / f.texelY) * f.cols + Math.floor((ox + 64) / texel);
     return f.data.slice(4 * k, 4 * k + 4);
   };
 
-  it('covers the whole map, a texel per `texel` map pixels', () => {
-    const f = waterField(map, texel, () => 0);
+  it('covers the whole map, in 2:1 texels of `texel` by half that', () => {
+    const f = waterField(map, texel, () => 0, null, 3);
     const [pw, ph] = mapPixels(w, h);
-    expect([f.cols, f.rows, f.texel]).toEqual([Math.ceil(pw / texel), Math.ceil(ph / texel), texel]);
+    expect([f.cols, f.rows, f.texel, f.texelY]).toEqual([Math.ceil(pw / texel), Math.ceil(ph / 4), texel, 4]);
     expect(f.data.length).toBe(4 * f.cols * f.rows);
   });
 
   it('marks land, the depth of the water, and where there is water at all', () => {
-    const f = waterField(map, texel, () => 0);
+    const f = waterField(map, texel, () => 0, null, 3);
     const [land, depth, , water] = [0, 1, 2, 3];
     // Land: no water.
     expect(centre(f, 4, 2)[land]).toBe(255);
@@ -276,7 +243,7 @@ describe('waterField', () => {
   });
 
   it('says how near land is, fading out from it', () => {
-    const f = waterField(map, texel, () => 0);
+    const f = waterField(map, texel, () => 0, null, 3);
     const near = (x: number, y: number) => centre(f, x, y)[2];
     expect(near(4, 2)).toBeGreaterThan(near(4, 4));
     expect(near(4, 4)).toBeGreaterThanOrEqual(near(2, 6));
@@ -284,8 +251,8 @@ describe('waterField', () => {
 
   it('makes again only round the tiles that changed, coming out as a field made afresh would', () => {
     const coast = (x: number, y: number, u: number, v: number) => (x === 3 && y === 3 && v < 20 ? 1 : 0);
-    const first = waterField(map, texel, coast);
-    expect(waterField(map, texel, coast, first)).toBe(first);
+    const first = waterField(map, texel, coast, null, 3);
+    expect(waterField(map, texel, coast, first, 3)).toBe(first);
     // Land explored at (6,1), and (2,6) turned to land.
     const later = {
       ...map,
@@ -294,23 +261,29 @@ describe('waterField', () => {
         .map((c, i) => (i === 1 * w + 6 || i === 6 * w + 2 ? 'A' : c))
         .join(''),
     };
-    const fresh = waterField(later, texel, coast);
-    const again = waterField(later, texel, coast, waterField(map, texel, coast));
+    const fresh = waterField(later, texel, coast, null, 3);
+    const again = waterField(later, texel, coast, waterField(map, texel, coast, null, 3), 3);
     expect([...again.data]).toEqual([...fresh.data]);
   });
 
   it("counts a coast's sand as land, as much as it covers, where it is on its tile", () => {
     const asked: [number, number][] = [];
     // Sand over the top half of the ocean tile at (2,4).
-    const f = waterField(map, texel, (x, y, u, v) => {
-      if (x !== 2 || y !== 4) return 0;
-      asked.push([u, v]);
-      return v < 32 ? 1 : 0;
-    });
+    const f = waterField(
+      map,
+      texel,
+      (x, y, u, v) => {
+        if (x !== 2 || y !== 4) return 0;
+        asked.push([u, v]);
+        return v < 32 ? 1 : 0;
+      },
+      null,
+      3,
+    );
     expect(asked.length).toBeGreaterThan(0);
     expect(asked.every(([u, v]) => u >= 0 && u <= 128 && v >= 0 && v <= 64)).toBe(true);
     const [ox, oy] = tileOrigin(2, 4);
-    const at = (px: number, py: number) => f.data[4 * (Math.floor(py / texel) * f.cols + Math.floor(px / texel))];
+    const at = (px: number, py: number) => f.data[4 * (Math.floor(py / f.texelY) * f.cols + Math.floor(px / texel))];
     expect(at(ox + 64, oy + 12)).toBe(255);
     expect(at(ox + 64, oy + 52)).toBe(0);
   });
@@ -321,11 +294,10 @@ describe('waterField', () => {
     for (const k of [3 * w + 2, 3 * w + 3, 4 * w + 2]) tiles[k] = 'B';
     tiles[5 * w + 2] = 'A';
     tiles[7 * w + 2] = 'D';
-    const f = waterField({ ...map, tiles: tiles.join('') }, texel, () => 0, null, 'signed', recipe);
-    // A recipe's texels are half as tall.
+    const f = waterField({ ...map, tiles: tiles.join('') }, texel, () => 0, null, 3);
     const depthAt = (x: number, y: number) => {
       const [ox, oy] = tileOrigin(x, y);
-      return f.data[4 * (Math.floor((oy + 32) / (texel / 2)) * f.cols + Math.floor((ox + 64) / texel)) + 1];
+      return f.data[4 * (Math.floor((oy + 32) / f.texelY) * f.cols + Math.floor((ox + 64) / texel)) + 1];
     };
     expect(depthAt(2, 3)).toBeGreaterThan(100);
     expect(depthAt(2, 7)).toBeLessThan(30);
@@ -350,15 +322,13 @@ describe('waterField', () => {
     }
   });
 
-  it('rounds a drawn diagonal coast into a beach without covering a water centre', () => {
+  it('closes a diagonal coast without uncovering land or covering a water centre', () => {
     const coast = {
       ...map,
       tiles: Array.from({ length: w * h }, (_, k) => (k % w < 4 ? 'A' : 'B')).join(''),
     };
-    const f = waterField(coast, 4, () => 0, null, 'signed', recipe);
-    const cover = (x: number, y: number) => f.data[4 * (Math.floor(y / f.texelY!) * f.cols + Math.floor(x / f.texel))];
-    // An inward corner between the alternating diamond tips, beyond the original tile.
-    expect(cover(524, 96)).toBe(255);
+    const f = waterField(coast, 4, () => 0, null, 3);
+    const cover = (x: number, y: number) => f.data[4 * (Math.floor(y / f.texelY) * f.cols + Math.floor(x / f.texel))];
     // The neighbouring water tile's centre remains open for ships.
     expect(cover(576, 96)).toBe(0);
     for (let k = 0; k < f.made!.land.length; k++) if (f.made!.land[k]) expect(f.data[4 * k]).toBe(255);
@@ -367,9 +337,9 @@ describe('waterField', () => {
   it('preserves the water passage between corner-touching tiles after closing', () => {
     const tiles = Array.from({ length: w * h }, () => 'A');
     tiles[3 * w + 3] = tiles[3 * w + 4] = 'B';
-    const f = waterField({ ...map, tiles: tiles.join('') }, 4, () => 0, null, 'signed', recipe);
+    const f = waterField({ ...map, tiles: tiles.join('') }, 4, () => 0, null, 3);
     const [ox, oy] = tileOrigin(3, 3);
-    const start = Math.floor((oy + 32) / f.texelY!) * f.cols + Math.floor((ox + 64) / f.texel);
+    const start = Math.floor((oy + 32) / f.texelY) * f.cols + Math.floor((ox + 64) / f.texel);
     const end = start + 32;
     const seen = new Set([start]);
     const queue = [start];
@@ -389,15 +359,15 @@ describe('waterField', () => {
 
   it('patches a coast explored on a big map like a fresh field, as far as the shore distance reaches (#411)', () => {
     // 20 by 60 tiles of ocean, a land block explored later: the shore distance reaches 192 map pixels, which is more
-    // texel rows than columns, a recipe's texels being half as tall.
+    // texel rows than columns, the texels being half as tall.
     const [bw, bh] = [20, 60];
     const land = (k: number) => k % bw >= 8 && k % bw < 12 && Math.floor(k / bw) >= 24 && Math.floor(k / bw) < 36;
     const unexplored = Array.from({ length: bw * bh }, (_, k) => (land(k) ? '.' : 'B')).join('');
     const explored = Array.from({ length: bw * bh }, (_, k) => (land(k) ? 'A' : 'B')).join('');
     const big = { w: bw, h: bh, types: map.types, tiles: unexplored };
-    const before = waterField(big, texel, () => 0, null, 'signed', recipe);
-    const patched = waterField({ ...big, tiles: explored }, texel, () => 0, before, 'signed', recipe);
-    const fresh = waterField({ ...big, tiles: explored }, texel, () => 0, null, 'signed', recipe);
+    const before = waterField(big, texel, () => 0, null, 3);
+    const patched = waterField({ ...big, tiles: explored }, texel, () => 0, before, 3);
+    const fresh = waterField({ ...big, tiles: explored }, texel, () => 0, null, 3);
     expect(patched.data).toEqual(fresh.data);
     expect(patched.climate).toEqual(fresh.climate);
   });
@@ -408,48 +378,28 @@ describe('waterField', () => {
       '',
     );
     const mixed = { ...map, types, tiles };
-    const f = waterField(mixed, texel, () => 0, null, 'signed', recipe);
-    const row = Math.floor((4 * 32) / f.texelY!);
+    const f = waterField(mixed, texel, () => 0, null, 3);
+    const row = Math.floor((4 * 32) / f.texelY);
     for (let x = 30; x < 95; x++) {
       const k = 4 * (row * f.cols + x);
-      expect(Math.abs(f.climate![k] - f.climate![k - 4])).toBeLessThan(12);
-      expect(f.climate![k] + f.climate![k + 1] + f.climate![k + 2]).toBeCloseTo(255, -1);
+      expect(Math.abs(f.climate[k] - f.climate[k - 4])).toBeLessThan(12);
+      expect(f.climate[k] + f.climate[k + 1] + f.climate[k + 2]).toBeCloseTo(255, -1);
     }
     const centre = 4 * (row * f.cols + Math.floor((4 * 128) / texel));
-    expect(f.climate![centre]).toBeGreaterThan(30);
-    expect(f.climate![centre + 1]).toBeGreaterThan(30);
+    expect(f.climate[centre]).toBeGreaterThan(30);
+    expect(f.climate[centre + 1]).toBeGreaterThan(30);
     const explored = { ...mixed, tiles: tiles.slice(0, 35) + 'A' + tiles.slice(36) };
-    const patched = waterField(explored, texel, () => 0, f, 'signed', recipe);
-    const fresh = waterField(explored, texel, () => 0, null, 'signed', recipe);
+    const patched = waterField(explored, texel, () => 0, f, 3);
+    const fresh = waterField(explored, texel, () => 0, null, 3);
     expect(patched.data).toEqual(fresh.data);
     expect(patched.climate).toEqual(fresh.climate);
     // A river explored at the coast makes the field again round its tile alone (#411), its plume as a fresh field's.
     const river = { ...explored, rivers: [[2, 2, 1, '0110', '0110']] as MapView['rivers'] };
-    const withRiver = waterField(river, texel, () => 0, patched, 'signed', recipe);
-    const freshRiver = waterField(river, texel, () => 0, null, 'signed', recipe);
+    const withRiver = waterField(river, texel, () => 0, patched, 3);
+    const freshRiver = waterField(river, texel, () => 0, null, 3);
     expect(withRiver.climate).toEqual(freshRiver.climate);
     expect(withRiver.climate).not.toEqual(fresh.climate);
     expect(withRiver.data).toEqual(freshRiver.data);
-  });
-});
-
-describe('waterTime', () => {
-  it('moves the ripples a little every moment, each offset within one turn of its texture', () => {
-    const speed = 1;
-    const a = waterTime(speed, 1000);
-    const b = waterTime(speed, 1100);
-    expect(b.swell).not.toEqual(a.swell);
-    expect(b.chop).not.toEqual(a.chop);
-    for (const ms of [0, 1000, 1e6, 1e9])
-      for (const v of [...waterTime(speed, ms).swell, ...waterTime(speed, ms).chop]) {
-        expect(v).toBeGreaterThanOrEqual(0);
-        expect(v).toBeLessThan(1);
-      }
-    expect(waterTime(speed, 1e9).lap).toBeLessThan(2 * Math.PI);
-  });
-
-  it('stands still at a speed of 0', () => {
-    expect(waterTime(0, 5000)).toEqual(waterTime(0, 0));
   });
 });
 

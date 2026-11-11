@@ -1,19 +1,19 @@
-// The shader water (#409): in a Tileset that has the look for it (FreeCol+), the ocean, lakes and high seas are one
-// surface under the land, coloured per pixel by a fragment shader, in place of FreeCol's 21 painted frames.
+// The shader water (#409, #411): in a Tileset that has the look for it (BrowserCol), the ocean, lakes and high seas
+// are one surface under the land, coloured per pixel by a fragment shader, in place of FreeCol's 21 painted frames.
 //
-// Two seamless ripple textures from the Tileset slide over each other in different directions, so the pattern never
-// visibly repeats; their slopes light the crests from the north-west, as FreeCol's art is lit, and where both crest
-// together they glint. A field over the whole map, a texel per FIELD_TEXEL map pixels, says where the land and the
-// coasts' sand are, how near they are, how deep the water is (a lake, the ocean, the high seas), and where there is
-// water at all: near land the water is shallower and lighter, and foams where the sand fades into it; the high seas
-// are darker and rougher.
+// The shader paints FreeCol's own ocean, high seas and lake art (paintedWaterAtlas), drifting slowly, and colours it by
+// the climate of the nearest land: a shallow shelf by the coast, wide and turquoise only by tropical land, bands moving
+// ashore, and foam lapping the beach. A field over the whole map, in 2:1 texels, says how far the shore is (a signed
+// distance to the edge of FreeCol's beach art), how deep the water is (a lake, the ocean, the high seas), and where
+// there is water at all; a second field gives each texel's climate and river plume. The field is made on the CPU
+// (waterField), off the main thread where the browser has a worker (water-field.worker.ts).
 //
-// It is a few texture reads (the field and two ripples) and a little arithmetic per pixel, for a netbook's GPU. Where
-// it cannot run (PixiJS's Canvas renderer, the Canvas 2D pen, a GPU without highp floats in its fragment shaders), the
-// map draws FreeCol's frames (tileset.ts WaterDrawing).
+// It is four texture reads and a little arithmetic per pixel, for a netbook's GPU. Where it cannot run (PixiJS's
+// Canvas renderer, the Canvas 2D pen, a GPU without highp floats in its fragment shaders), the map draws FreeCol's
+// frames (tileset.ts WaterDrawing).
 //
-// ShaderSurface is the part another surface reuses (#411's rivers): a mesh over the map's pixels with a shader, a field
-// texture of the map, and textures and uniforms for its look.
+// ShaderSurface is the part another surface reuses (#411's rivers, map-rivers.ts): a mesh over the map's pixels with a
+// shader, the field textures of the map, and textures and uniforms for its look.
 import { BufferImageSource, Geometry, ImageSource, Mesh, Shader, type TextureSource } from 'pixi.js';
 import { MAP_KEY_FAMILIES } from './map-keys';
 import type { Resources } from './resources';
@@ -22,97 +22,38 @@ import { H, W } from './view';
 
 const KEY = MAP_KEY_FAMILIES.shaderWater;
 
-/** The kinds of water the shader tells apart, each with a look of its own: lakes are calm, the high seas rough. */
-export type WaterKind = 'ocean' | 'highSeas' | 'lake';
-
 /** The shader water's look, from the Tileset's shader.water.* keys. */
 export interface WaterLook {
-  /** The ripple images: long swell, and short chop over it. Seamless, a power of two square. */
-  swell: string;
-  chop: string;
-  /** Open coastal ocean, the high seas, and lakes and great rivers. */
-  ocean: number;
-  highSeas: number;
-  lake: number;
-  /** The water near land, which the deep colour lightens toward. */
-  shallow: number;
+  /** The foam's colour, and how far it laps out from the beach art's edge, in map pixels. */
   foam: number;
-  /** The light on crests and glints. */
-  light: number;
-  /** Per kind of water: how rough it is (how strongly its ripples are lit), and how much foam breaks on its shore. */
-  roughness: Record<WaterKind, number>;
-  foamStrength: Record<WaterKind, number>;
-  /** How fast the ripples move on the ocean and high seas, and on lakes: 1 the Tileset's normal. */
-  speed: number;
-  lakeSpeed: number;
-  /** How long a swell and a chop texture are across, in map pixels. */
-  swellSize: number;
-  chopSize: number;
-  /**
-   * PROTOTYPE (water playground): the wave model. 'slide' two textures sliding in straight lines (the first look);
-   * 'warp' the same two textures, their coordinates bent by a slowly drifting swirl; 'flow' a flow map: the chop
-   * carried along the swirl, two phases crossfaded, each area on its own phase, and two swells crossing.
-   */
-  waves: WaveModel;
-  /** The swirl: how big its eddies are in map pixels, how hard it bends the ripples, how far it carries the chop. */
-  flowSize: number;
-  warp: number;
-  flowStrength: number;
-  /** How fast the swirl itself drifts and changes, and how fast a 'flow' phase turns over, against the ripples' speed. */
-  flowSpeed: number;
-  /** How much the drift's heading wanders (radians), and its speed (0 steady, 0.5 half again and back). */
-  wander: number;
-  gust: number;
-  /** How much the swell and the chop tilt the light, and how much light the crests catch. */
-  swellAmount: number;
-  chopAmount: number;
-  crest: number;
-  /** How the shore distance is made: 'blur' (the first look), 'signed' (409-coasts-astra), 'art' (the art's own edge). */
-  shore: ShoreModel;
-  /** For 'signed' and 'art': the shallows' and foam's widths out from the art's edge, in map pixels. */
-  shallowWidth: number;
   foamWidth: number;
-  /** The high seas' deep colour, as a share of the coast's deep colour (with climate). */
+  /** The high seas' deep colour, as a share of the coast's deep colour. */
   highSeasShade: number;
-  /** Colour by the nearest land's climate, or not (the ocean, shallow and foam colours above). */
-  climate: boolean;
+  /** Each climate's deep water and shallows. */
   palettes: Record<Climate, Palette>;
-  /** Ice along cold coasts, 0 to 1. */
-  ice: number;
-  /** PROTOTYPE: the painted-art recipe; absent keeps the parked ripple renderer. */
-  recipe?: WaterRecipe;
-  /** PROTOTYPE river axis; absent preserves the flipbook. Speeds are screen pixels per second. */
-  rivers?: { mode: 'flipbook' | 'flow'; minor: number; major: number; streakStrength?: number };
-}
-
-export type WaveModel = 'slide' | 'warp' | 'flow';
-export type ShoreModel = 'blur' | 'signed' | 'art';
-export type Climate = 'cold' | 'temperate' | 'tropical';
-export const CLIMATES: Climate[] = ['cold', 'temperate', 'tropical'];
-/** A climate's water: deep, shallow and foam colours, and how much foam breaks. */
-export interface Palette {
-  deep: number;
-  shallow: number;
-  foam: number;
-  foamAmount: number;
-}
-
-export interface WaterRecipe {
-  shallows: 'turquoise' | 'climate';
-  shore: 'drawn' | 'art';
-  motion: 'bands' | 'foam';
-  deep: 'plain' | 'climate';
-  depth: 'normal' | 'deeper';
-  /** Pixels per second, pixels between crests, pixels per second, shelf pixels, blend tiles. */
+  /** The bands moving ashore: pixels per second, and pixels between crests. */
   bandSpeed: number;
   bandSpacing: number;
+  /** How fast FreeCol's art drifts, in pixels per second. */
   driftSpeed: number;
+  /** How far the shallow shelf reaches from land, in map pixels, by tropical land (about half that by other land). */
   shelfWidth: number;
+  /** How many tiles the land's climates blend over, out over the water. */
   climateBlend: number;
   /** The clipped beach: 1 draws the water again over FreeCol's beach art past a waterline, 0 not; and where the
    * waterline sits, in pixels out from where the art covers half. */
   clip: number;
   clipAt: number;
+  /** The rivers' flow, in screen pixels per second, and how much the ripples on them brighten it. */
+  rivers: { minor: number; major: number; streakStrength: number };
+}
+
+export type Climate = 'cold' | 'temperate' | 'tropical';
+export const CLIMATES: Climate[] = ['cold', 'temperate', 'tropical'];
+/** A climate's water: its deep and shallow colours. */
+export interface Palette {
+  deep: number;
+  shallow: number;
 }
 
 type FieldMap = Pick<MapView, 'w' | 'h' | 'types' | 'tiles'>;
@@ -267,16 +208,6 @@ export function coarseClimate(zone: Uint8Array, cols: number, rows: number, f: n
   };
 }
 
-/** A continuous mixture, not a nearest-climate label. Two box passes give a triangular kernel. */
-export function climateShares(zone: Float32Array, cols: number, rows: number, radius: number): Float32Array[] {
-  return [1, 2, 3].map((z) => {
-    const a = zone.map((v) => (v === z ? 1 : 0));
-    blur(a, cols, rows, radius);
-    blur(a, cols, rows, radius);
-    return a;
-  });
-}
-
 /**
  * Which climate a land tile type gives the water by it: cold (tundra, arctic, boreal), tropical (savannah, swamp and
  * their forests: only there do long turquoise shallows fit), temperate the rest, broadleaf, marsh and desert included;
@@ -308,85 +239,25 @@ const numberOf = (res: Resources, key: string, fallback: number) => {
   return Number.isFinite(n) ? n : fallback;
 };
 
-/** A string resource that is one of `values`, or the fallback. */
-const oneOf = <T extends string>(v: string, values: readonly T[], fallback: T): T =>
-  values.includes(v as T) ? (v as T) : fallback;
-
 /** The Tileset's water look, or null when it has none (FreeCol's own: its water stays FreeCol's frames). */
 export function waterLook(res: Resources): WaterLook | null {
-  const swell = res.path(`${KEY}swell`);
-  const chop = res.path(`${KEY}chop`);
-  if (!swell || !chop) return null;
-  const color = (k: string) => res.color(`${KEY}${k}`);
+  // A Tileset has the look when it says how wide its shelf is; FreeCol's own and FreeCol+ do not.
+  if (!Number.isFinite(Number(res.string(`${KEY}shelfWidth`)))) return null;
   return {
-    swell,
-    chop,
-    ocean: color('ocean'),
-    highSeas: color('highSeas'),
-    lake: color('lake'),
-    shallow: color('shallow'),
-    foam: color('foam'),
-    light: color('light'),
-    roughness: {
-      ocean: numberOf(res, `${KEY}ocean.roughness`, 0.5),
-      highSeas: numberOf(res, `${KEY}highSeas.roughness`, 0.8),
-      lake: numberOf(res, `${KEY}lake.roughness`, 0.3),
-    },
-    foamStrength: {
-      ocean: numberOf(res, `${KEY}ocean.foam`, 1),
-      highSeas: numberOf(res, `${KEY}highSeas.foam`, 1),
-      lake: numberOf(res, `${KEY}lake.foam`, 0),
-    },
-    speed: numberOf(res, `${KEY}ocean.speed`, 1),
-    lakeSpeed: numberOf(res, `${KEY}lake.speed`, 0.5),
-    swellSize: numberOf(res, `${KEY}swellSize`, 512),
-    chopSize: numberOf(res, `${KEY}chopSize`, 192),
-    waves: oneOf(res.string(`${KEY}waves`), ['slide', 'warp', 'flow'] as const, 'slide'),
-    flowSize: numberOf(res, `${KEY}flowSize`, 1400),
-    warp: numberOf(res, `${KEY}warp`, 0.35),
-    flowStrength: numberOf(res, `${KEY}flowStrength`, 0.25),
-    flowSpeed: numberOf(res, `${KEY}flowSpeed`, 0.3),
-    wander: numberOf(res, `${KEY}wander`, 0.6),
-    gust: numberOf(res, `${KEY}gust`, 0.3),
-    swellAmount: numberOf(res, `${KEY}swellAmount`, 0.5),
-    chopAmount: numberOf(res, `${KEY}chopAmount`, 1),
-    crest: numberOf(res, `${KEY}crest`, 0.6),
-    shore: oneOf(res.string(`${KEY}shore`), ['blur', 'signed', 'art'] as const, 'blur'),
-    shallowWidth: numberOf(res, `${KEY}shallowWidth`, 36),
-    foamWidth: numberOf(res, `${KEY}foamWidth`, 6),
+    foam: res.color(`${KEY}foam`),
+    foamWidth: numberOf(res, `${KEY}foamWidth`, 7),
     highSeasShade: numberOf(res, `${KEY}highSeasShade`, 0.72),
-    climate: res.string(`${KEY}climate`) === 'true',
     palettes: Object.fromEntries(
-      CLIMATES.map((k) => [
-        k,
-        {
-          deep: res.color(`${KEY}${k}.deep`, color('ocean')),
-          shallow: res.color(`${KEY}${k}.shallow`, color('shallow')),
-          foam: res.color(`${KEY}${k}.foam`, color('foam')),
-          foamAmount: numberOf(res, `${KEY}${k}.foamAmount`, 1),
-        },
-      ]),
+      CLIMATES.map((k) => [k, { deep: res.color(`${KEY}${k}.deep`), shallow: res.color(`${KEY}${k}.shallow`) }]),
     ) as Record<Climate, Palette>,
-    ice: numberOf(res, `${KEY}ice`, 0),
-    // The painted-art recipe (#409) from the Tileset, when it names one: BrowserCol's water (#411).
-    recipe: ['bands', 'foam'].includes(res.string(`${KEY}recipe.motion`))
-      ? {
-          shallows: oneOf(res.string(`${KEY}recipe.shallows`), ['turquoise', 'climate'] as const, 'climate'),
-          shore: oneOf(res.string(`${KEY}recipe.shore`), ['drawn', 'art'] as const, 'art'),
-          motion: oneOf(res.string(`${KEY}recipe.motion`), ['bands', 'foam'] as const, 'bands'),
-          deep: oneOf(res.string(`${KEY}recipe.deep`), ['plain', 'climate'] as const, 'climate'),
-          depth: oneOf(res.string(`${KEY}recipe.depth`), ['normal', 'deeper'] as const, 'deeper'),
-          bandSpeed: numberOf(res, `${KEY}recipe.bandSpeed`, 5),
-          bandSpacing: numberOf(res, `${KEY}recipe.bandSpacing`, 40),
-          driftSpeed: numberOf(res, `${KEY}recipe.driftSpeed`, 2),
-          shelfWidth: numberOf(res, `${KEY}recipe.shelfWidth`, 90),
-          climateBlend: numberOf(res, `${KEY}recipe.climateBlend`, 3),
-          clip: numberOf(res, `${KEY}recipe.clip`, 1),
-          clipAt: numberOf(res, `${KEY}recipe.clipAt`, -2),
-        }
-      : undefined,
+    bandSpeed: numberOf(res, `${KEY}bandSpeed`, 5),
+    bandSpacing: numberOf(res, `${KEY}bandSpacing`, 40),
+    driftSpeed: numberOf(res, `${KEY}driftSpeed`, 2),
+    shelfWidth: numberOf(res, `${KEY}shelfWidth`, 90),
+    climateBlend: numberOf(res, `${KEY}climateBlend`, 3),
+    clip: numberOf(res, `${KEY}clip`, 1),
+    clipAt: numberOf(res, `${KEY}clipAt`, -2),
     rivers: {
-      mode: oneOf(res.string(`${KEY}river.mode`), ['flipbook', 'flow'] as const, 'flipbook'),
       minor: numberOf(res, `${KEY}river.minorSpeed`, 6),
       major: numberOf(res, `${KEY}river.majorSpeed`, 3),
       streakStrength: numberOf(res, `${KEY}river.streakStrength`, 0.1),
@@ -396,12 +267,11 @@ export function waterLook(res: Resources): WaterLook | null {
 
 /** The map pixels a field texel covers, at the least: a tile is 16 by 8 of them, and a coast's sand fades over 3. */
 export const FIELD_TEXEL = 8;
-/** How far from land the water is shallower, and how far the high seas and lakes fade into the ocean, in map pixels. */
-const SHALLOW_PX = 48;
-const DEPTH_PX = 96;
-/** PROTOTYPE: the signed shore distance's cap either side, and how far land's climate reaches over the water. */
-export const SHORE_PX = 48;
-const CLIMATE_PX = 160;
+/** The shore distance's cap either side when closing the coast, and the field's cap offshore, in map pixels. */
+const CLOSE_CAP = 48;
+const SHORE_CAP = 192;
+/** How far closing the coast grows and shrinks it, in map pixels. */
+const CLOSING_PX = 20;
 
 /** The whole map's size in map pixels: odd rows stick out half a tile, and each row is half a tile down. */
 export const mapPixels = (w: number, h: number): [number, number] => [w * W + W / 2, ((h + 1) * H) / 2];
@@ -413,20 +283,19 @@ export const fieldTexel = (w: number, h: number, max = 4096): number => {
 };
 
 /**
- * The field the shader reads, a texel per `texel` map pixels, RGBA: red how much land, or a water tile's shore cover
- * (its sand and the land and beach its transitions bring onto it), covers there,
- * green the water's depth (0 a lake, a half the ocean, 1 the high seas), blue how near land is, and alpha whether
- * there is water there at all.
+ * The field the shader reads, in 2:1 texels of `texel` by `texel / 2` map pixels, RGBA: red how much land, or a water
+ * tile's shore cover (its sand and the land and beach its transitions bring onto it), with holes in the art filled and
+ * the coast closed; green the water's depth (0 a lake, a half the ocean, 1 the high seas); blue the signed distance to
+ * the shore, 0.5 at it and less offshore; and alpha whether there is water there at all.
  */
 export interface WaterField {
   cols: number;
   rows: number;
   texel: number;
-  /** Recipe fields use 2:1 texels, matching the map diamonds. */
-  texelY?: number;
+  texelY: number;
   data: Uint8Array;
-  /** PROTOTYPE: per texel, how much the water is cold, temperate and tropical (RGB, adding up to 1). */
-  climate?: Uint8Array;
+  /** Per texel, how much the water is cold, temperate and tropical (RGB, adding up to 1), and a river's plume (A). */
+  climate: Uint8Array;
   /**
    * What it was made from, unblurred, for the next field of the map to make again only round the tiles that changed.
    * The next field takes these, and its data, over.
@@ -436,15 +305,15 @@ export interface WaterField {
     h: number;
     types: string;
     tiles: string;
+    climateBlend: number;
     land: Float32Array;
     depth: Float32Array;
     water: Float32Array;
-    shore: ShoreModel;
     /** Per texel, whether open water is sure to show there: a water tile's middle that nothing covers. */
     seed: Uint8Array;
     /** Per texel, the climate of the land there: 0 none (water, or hills by the latitude), 1 cold, 2 temperate, 3 tropical. */
     zone: Uint8Array;
-    recipeKey: string;
+    /** Per texel, a sailing channel closing the coast must leave open. */
     channels: Uint8Array;
     plume: Float32Array;
     /** Each river tile's entry, by tile index: a river explored or changed is made again round its tile. */
@@ -457,8 +326,6 @@ const HIGH_SEAS = new Set(['model.tile.highSeas']);
 const LAKES = new Set(['model.tile.lake', 'model.tile.greatRiver']);
 /** Where in a texel the sand is looked at: four points, for an edge smoother than the texels. */
 const SAMPLES = [-0.25, -0.25, 0.25, -0.25, -0.25, 0.25, 0.25, 0.25];
-/** PROTOTYPE, the 'art' shore: sixteen points a texel, for the art's edge to a pixel or two. */
-const FINE = [-0.375, -0.125, 0.125, 0.375].flatMap((a) => [-0.375, -0.125, 0.125, 0.375].flatMap((b) => [a, b]));
 
 /** A rectangle of texels: columns i0 to i1 and rows j0 to j1, the ends left out. */
 interface Rect {
@@ -470,8 +337,9 @@ interface Rect {
 
 /**
  * The water field of a map. Each texel's tile, at its centre, decides it, and a water tile's shore cover counts as land
- * as much as it covers there (`sand`: its cover, 0 to 1, at a point of the tile, or 0 for a tile with none). Then how near land
- * is and the depth are blurred, to fade over SHALLOW_PX and DEPTH_PX, and the water's edge a little.
+ * as much as it covers there (`sand`: its cover, 0 to 1, at a point of the tile, or 0 for a tile with none). Holes in
+ * the cover are filled and the coast closed, and the signed distance to its edge taken; the climate comes from a
+ * coarse grid over the whole map, blended over `climateBlend` tiles.
  *
  * Given the map's `last` field, it makes again only the texels round the tiles that changed (ground explored, say),
  * reusing that field's arrays: the same field when no tile changed.
@@ -480,21 +348,19 @@ export function waterField(
   map: FieldMap & Partial<Pick<MapView, 'rivers'>>,
   texel: number,
   sand: (x: number, y: number, u: number, v: number) => number,
-  last?: WaterField | null,
-  shore: ShoreModel = 'blur',
-  recipe?: WaterRecipe,
+  last: WaterField | null | undefined,
+  climateBlend: number,
 ): WaterField {
   const { w, h, tiles } = map;
   const [pw, ph] = mapPixels(w, h);
   const cols = Math.ceil(pw / texel);
-  const texelY = recipe ? texel / 2 : texel;
+  const texelY = texel / 2;
   const rows = Math.ceil(ph / texelY);
   const n = cols * rows;
   const types = map.types.map((t) => t.id).join();
   const was = last?.made;
-  const recipeKey = recipe ? `${recipe.shore}:${recipe.climateBlend}` : '';
   // A river's plume reaches only the water tiles by it: a river explored makes the field again round its tile alone.
-  const riverEntries = new Map((recipe ? (map.rivers ?? []) : []).map((r) => [r[1] * w + r[0], r.join()]));
+  const riverEntries = new Map((map.rivers ?? []).map((r) => [r[1] * w + r[0], r.join()]));
   const reuse =
     !!was &&
     last.cols === cols &&
@@ -503,25 +369,14 @@ export function waterField(
     was.w === w &&
     was.h === h &&
     was.types === types &&
-    was.shore === shore &&
-    was.recipeKey === recipeKey;
-  const radius = (px: number) => Math.max(1, Math.round(px / texel / 2));
-  const distanceCap = recipe ? 192 : SHORE_PX;
-  const closingRadius = recipe?.shore === 'drawn' ? W / Math.SQRT2 / 2 : 20;
-  const [nearR, depthR, climateR] = [
-    radius(SHALLOW_PX),
-    radius(DEPTH_PX),
-    radius(recipe ? recipe.climateBlend * W : CLIMATE_PX),
-  ];
+    was.climateBlend === climateBlend;
+  const climateR = Math.max(1, Math.round((climateBlend * W) / texel / 2));
+  // The climate comes from a coarse grid over the whole map (coarseClimate), so the shore's passes need not reach as
+  // far as the climate blends: a move that explores a tile then makes far fewer texels again (#411).
+  const coarse = Math.max(1, Math.round(W / 2 / texel));
+  const coarseR = Math.max(1, Math.round(climateR / coarse));
   // Closing reaches twice its radius, followed by the capped distance.
-  // A recipe's climate comes from a coarse grid over the whole map (coarseClimate), so the shore's passes need not
-  // reach as far as the climate blends: a move that explores a tile then makes far fewer texels again (#411).
-  const coarse = recipe ? Math.max(1, Math.round(W / 2 / texel)) : 0;
-  const coarseR = Math.max(1, Math.round(climateR / Math.max(coarse, 1)));
-  const reach = Math.max(
-    2 * Math.max(nearR, depthR, recipe ? 0 : climateR, 1),
-    Math.ceil((distanceCap + (recipe ? 2 * closingRadius : 0)) / texel) + 1,
-  );
+  const reach = Math.ceil((SHORE_CAP + 2 * CLOSING_PX) / texel) + 1;
   const all: Rect = { i0: 0, j0: 0, i1: cols, j1: rows };
   /** The texels to make again: round the tiles that changed, with their neighbours, whose sand depends on them. */
   let raw = all;
@@ -557,8 +412,8 @@ export function waterField(
   const channels = reuse ? was.channels : new Uint8Array(n);
   const plume = reuse ? was.plume : new Float32Array(n);
   const riverTiles = new Map((map.rivers ?? []).map((r) => [r[1] * w + r[0], r]));
-  const points = shore === 'art' ? FINE : SAMPLES;
-  // Per tile type: land (0), or water and its depth, offset by one.
+  // Per tile type: land (0), or water and its depth, offset by one. Lakes by their type: FreeCol makes all water shut
+  // off from the ocean lake tiles.
   const kinds = map.types.map((t) => (t.land ? 0 : HIGH_SEAS.has(t.id) ? 2 : LAKES.has(t.id) ? 1 : 1.5));
   const zones = map.types.map((t) => {
     const c = CLIMATE_OF[t.id];
@@ -595,59 +450,56 @@ export function waterField(
           break;
         }
         water[k] = 1;
-        // Lakes by their tile type: FreeCol makes all water shut off from the ocean lake tiles.
         depth[k] = kind - 1;
         let a = 0;
-        for (let s = 0; s < points.length; s += 2) a += sand(x, y, u + points[s] * texel, v + points[s + 1] * texelY);
-        land[k] = a / (points.length / 2);
+        for (let s = 0; s < SAMPLES.length; s += 2)
+          a += sand(x, y, u + SAMPLES[s] * texel, v + SAMPLES[s + 1] * texelY);
+        land[k] = a / (SAMPLES.length / 2);
         if (land[k] < 0.05 && Math.abs(u - W / 2) / (W / 2) + Math.abs(v - H / 2) / (H / 2) < 0.5) seed[k] = 1;
-        if (recipe) {
-          const dx = u - W / 2,
-            dy = (v - H / 2) * 2;
-          if (Math.hypot(dx, dy) < W * 0.25) channels[k] = 1;
-          const left = x + (y % 2) - 1;
-          const neighbours = [
-            [x, y - 2],
-            [left + 1, y - 1],
-            [x + 1, y],
-            [left + 1, y + 1],
-            [x, y + 2],
-            [left, y + 1],
-            [x - 1, y],
-            [left, y - 1],
-          ];
-          for (let d = 0; d < neighbours.length; d++) {
-            const [nx, ny] = neighbours[d];
-            if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-            const nt = map.types[tiles.charCodeAt(ny * w + nx) - 65];
-            if (!nt) continue;
-            const ex = (nx - x) * W + (((ny % 2) - (y % 2)) * W) / 2;
-            const ey = (ny - y) * H;
-            const length = Math.hypot(ex, ey);
-            const along = (dx * ex + dy * ey) / length;
-            const side = Math.abs(dx * ey - dy * ex) / length;
-            if (!nt.land && along >= 0 && along <= length && side < W * 0.18) channels[k] = 1;
-            const river = riverTiles.get(ny * w + nx);
-            // River style order NE, SE, SW, NW. Only a connection toward this water tile makes a mouth.
-            if (nt.land && d % 2 === 1 && river && Number(river[3][((d - 1) / 2 + 2) % 4]) > 0) {
-              const offshore = length / 2 - along;
-              plume[k] = Math.max(plume[k], riverPlume(offshore, side, river[2]));
-            }
+        const dx = u - W / 2,
+          dy = (v - H / 2) * 2;
+        if (Math.hypot(dx, dy) < W * 0.25) channels[k] = 1;
+        const left = x + (y % 2) - 1;
+        const neighbours = [
+          [x, y - 2],
+          [left + 1, y - 1],
+          [x + 1, y],
+          [left + 1, y + 1],
+          [x, y + 2],
+          [left, y + 1],
+          [x - 1, y],
+          [left, y - 1],
+        ];
+        for (let d = 0; d < neighbours.length; d++) {
+          const [nx, ny] = neighbours[d];
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+          const nt = map.types[tiles.charCodeAt(ny * w + nx) - 65];
+          if (!nt) continue;
+          const ex = (nx - x) * W + (((ny % 2) - (y % 2)) * W) / 2;
+          const ey = (ny - y) * H;
+          const length = Math.hypot(ex, ey);
+          const along = (dx * ex + dy * ey) / length;
+          const side = Math.abs(dx * ey - dy * ex) / length;
+          if (!nt.land && along >= 0 && along <= length && side < W * 0.18) channels[k] = 1;
+          const river = riverTiles.get(ny * w + nx);
+          // River style order NE, SE, SW, NW. Only a connection toward this water tile makes a mouth.
+          if (nt.land && d % 2 === 1 && river && Number(river[3][((d - 1) / 2 + 2) % 4]) > 0) {
+            const offshore = length / 2 - along;
+            plume[k] = Math.max(plume[k], riverPlume(offshore, side, river[2]));
           }
-          if (recipe.shore === 'drawn') land[k] = 0;
         }
         break;
       }
     }
   }
-  // The texels whose blurred values may have changed, and the texels those are blurred from.
+  // The texels whose values may have changed, and the texels those are made from.
   const out = reuse ? clip(grow(raw, reach), cols, rows) : all;
   // The coarse climate changes within its two blurs and the bilinear step of a changed tile.
-  const outClimate = !recipe ? out : reuse ? clip(grow(raw, (2 * coarseR + 2) * coarse), cols, rows) : all;
+  const outClimate = reuse ? clip(grow(raw, (2 * coarseR + 2) * coarse), cols, rows) : all;
   const src = reuse ? clip(grow(out, reach), cols, rows) : all;
   const sw = src.i1 - src.i0;
   const sh = src.j1 - src.j0;
-  const seedPart = (source = seed) => {
+  const seedPart = (source: Uint8Array) => {
     const p = new Uint8Array(sw * sh);
     for (let j = 0; j < sh; j++)
       p.set(source.subarray((src.j0 + j) * cols + src.i0, (src.j0 + j) * cols + src.i1), j * sw);
@@ -658,35 +510,22 @@ export function waterField(
     for (let j = 0; j < sh; j++) p.set(a.subarray((src.j0 + j) * cols + src.i0, (src.j0 + j) * cols + src.i1), j * sw);
     return p;
   };
-  let cover: Float32Array = part(land);
-  if (shore === 'art' || recipe?.shore === 'art') cover = fillHoles(cover, seedPart(), sw, sh);
-  if (recipe) cover = closeCoast(cover, seedPart(channels), sw, sh, texel, closingRadius);
-  const near = !recipe && shore === 'blur' ? cover : shoreDistance(cover, sw, sh, texel, distanceCap);
+  let cover = fillHoles(part(land), seedPart(seed), sw, sh);
+  cover = closeCoast(cover, seedPart(channels), sw, sh, texel, CLOSING_PX);
+  const near = shoreDistance(cover, sw, sh, texel, SHORE_CAP);
   const deep = part(depth);
   const wet = part(water);
-  for (let pass = 0; pass < 2; pass++) {
-    if (!recipe && shore === 'blur') blur(near, sw, sh, nearR);
-    if (!recipe) blur(deep, sw, sh, depthR);
-  }
-  // Each climate's share of the land round a texel, blurred far out over the water.
-  let shares: Float32Array[] = [];
-  if (!recipe) {
-    const zoneAt = new Float32Array(sw * sh);
-    for (let j = 0; j < sh; j++)
-      for (let i = 0; i < sw; i++) zoneAt[j * sw + i] = zone[(src.j0 + j) * cols + src.i0 + i];
-    shares = climateShares(zoneAt, sw, sh, climateR);
-  }
-  const grid = recipe ? coarseClimate(zone, cols, rows, coarse, coarseR) : null;
+  const grid = coarseClimate(zone, cols, rows, coarse, coarseR);
   blur(wet, sw, sh, 1);
   const data = reuse ? last.data : new Uint8Array(4 * n);
-  const climate = reuse && last.climate ? last.climate : new Uint8Array(4 * n);
+  const climate = reuse ? last.climate : new Uint8Array(4 * n);
   for (let j = out.j0; j < out.j1; j++)
     for (let i = out.i0; i < out.i1; i++) {
       const k = j * cols + i;
       const p = (j - src.j0) * sw + (i - src.i0);
-      data[4 * k] = Math.round((recipe ? cover[p] : land[k]) * 255);
+      data[4 * k] = Math.round(cover[p] * 255);
       data[4 * k + 1] = Math.round(deep[p] * 255);
-      data[4 * k + 2] = Math.round((!recipe && shore === 'blur' ? near[p] : 0.5 - near[p] / (2 * distanceCap)) * 255);
+      data[4 * k + 2] = Math.round((0.5 - near[p] / (2 * SHORE_CAP)) * 255);
       data[4 * k + 3] = Math.round(wet[p] * 255);
     }
   const share = new Float64Array(3);
@@ -699,11 +538,7 @@ export function waterField(
     const temperate = Math.max(0, 1 - cold - tropical);
     for (let i = outClimate.i0; i < outClimate.i1; i++) {
       const k = j * cols + i;
-      if (grid) grid.at(i, j, share);
-      else {
-        const p = (j - src.j0) * sw + (i - src.i0);
-        for (let z = 0; z < 3; z++) share[z] = shares[z][p];
-      }
+      grid.at(i, j, share);
       const far = Math.max(0, 1 - (share[0] + share[1] + share[2]) / 0.25) * 0.25;
       const a = share[0] + far * cold,
         b = share[1] + far * temperate,
@@ -712,7 +547,7 @@ export function waterField(
       climate[4 * k] = Math.round((a / total) * 255);
       climate[4 * k + 1] = Math.round((b / total) * 255);
       climate[4 * k + 2] = Math.round((c / total) * 255);
-      climate[4 * k + 3] = recipe ? Math.round(plume[k] * 255) : 255;
+      climate[4 * k + 3] = Math.round(plume[k] * 255);
     }
   }
   return {
@@ -722,22 +557,7 @@ export function waterField(
     texelY,
     data,
     climate,
-    made: {
-      w,
-      h,
-      types,
-      tiles,
-      land,
-      depth,
-      water,
-      shore,
-      zone,
-      seed,
-      recipeKey,
-      channels,
-      plume,
-      rivers: riverEntries,
-    },
+    made: { w, h, types, tiles, climateBlend, land, depth, water, zone, seed, channels, plume, rivers: riverEntries },
   };
 }
 
@@ -753,7 +573,7 @@ export function riverPlume(offshore: number, side: number, magnitude: number): n
 }
 
 /**
- * PROTOTYPE, the 'art' shore: water the open sea cannot reach without crossing the art (where it covers half or more)
+ * Water the open sea cannot reach without crossing the art (where it covers half or more)
  * is a hole in the art (the sand's and the land's masks leave a few), and counts as covered: the shallows and foam keep
  * to the coast's outer edge instead of ringing each hole, and the shader colours a hole as the shallowest water.
  */
@@ -784,15 +604,14 @@ export function fillHoles(land: Float32Array, seed: Uint8Array, cols: number, ro
 }
 
 /**
- * PROTOTYPE, from 409-coasts-astra: the signed distance to the cover's half-opacity contour, in map pixels, positive
- * offshore, capped at SHORE_PX. Crossings are found between texels, then spread with two chamfer passes.
+ * The signed distance to the cover's half-opacity contour, in map pixels, positive offshore, capped at `cap`. Crossings are found between texels, then spread with two chamfer passes.
  */
 export function shoreDistance(
   land: Float32Array,
   cols: number,
   rows: number,
   texel: number,
-  cap = SHORE_PX,
+  cap = CLOSE_CAP,
 ): Float32Array {
   const distance = new Float32Array(land.length).fill(cap);
   const diagonal = texel * Math.SQRT2;
@@ -864,21 +683,6 @@ export function blur(a: Float32Array, cols: number, rows: number, r: number) {
   for (let i = 0; i < cols; i++) run(rows, i, cols);
 }
 
-/** What the ripples' offsets and the foam's lapping are at a time: each offset a whole texture's turn at most. */
-export function waterTime(speed: number, ms: number) {
-  const s = (ms / 1000) * speed;
-  const turn = (x: number) => x - Math.floor(x);
-  return {
-    // The swell drifts east and a little south; the chop runs across it, north-east.
-    swell: [turn(s * 0.011), turn(s * 0.004)] as [number, number],
-    chop: [turn(-s * 0.017), turn(s * 0.029)] as [number, number],
-    lap: (s * 1.3) % (2 * Math.PI),
-  };
-}
-
-/** A value per kind of water, in the order the shader takes them: ocean, high seas, lake. */
-const kinds = (v: Record<WaterKind, number>): [number, number, number] => [v.ocean, v.highSeas, v.lake];
-
 /** 0xRRGGBB as a colour's three channels, 0 to 1. */
 const rgb = (c: number): [number, number, number] => [((c >> 16) & 255) / 255, ((c >> 8) & 255) / 255, (c & 255) / 255];
 
@@ -887,30 +691,17 @@ const rgb = (c: number): [number, number, number] => [((c >> 16) & 255) / 255, (
 const VERTEX = /* glsl */ `precision highp float;
 in vec2 aPosition;
 out vec2 vField;
-out vec2 vSwell;
-out vec2 vChop;
 out vec2 vSlant;
 uniform mat3 uProjectionMatrix;
 uniform mat3 uWorldTransformMatrix;
 uniform mat3 uTransformMatrix;
 uniform vec2 uFieldSize;
-uniform vec4 uSwell;
-uniform vec4 uChop;
-// The ripples' offsets on lakes, which move at their own speed.
-uniform vec4 uLakeAt;
-out vec2 vSwellLake;
-out vec2 vChopLake;
 void main() {
   mat3 mvp = uProjectionMatrix * uWorldTransformMatrix * uTransformMatrix;
   gl_Position = vec4((mvp * vec3(aPosition, 1.0)).xy, 0.0, 1.0);
   vField = aPosition / uFieldSize;
-  // The map is seen at a slant, its tiles twice as wide as tall: so are the waves.
-  vec2 slant = vec2(aPosition.x, aPosition.y * 2.0);
-  vSlant = slant;
-  vSwell = slant * uSwell.z + uSwell.xy;
-  vChop = mat2(0.98, 0.2, -0.2, 0.98) * slant * uChop.z + uChop.xy;
-  vSwellLake = slant * uSwell.z + uLakeAt.xy;
-  vChopLake = mat2(0.98, 0.2, -0.2, 0.98) * slant * uChop.z + uLakeAt.zw;
+  // The map is seen at a slant, its tiles twice as wide as tall: so is the water's pattern.
+  vSlant = vec2(aPosition.x, aPosition.y * 2.0);
 }
 `;
 
@@ -963,9 +754,7 @@ uniform sampler2D uField;
 uniform sampler2D uClimate;
 uniform sampler2D uSwellMap;
 uniform vec4 uRecipe;
-uniform vec4 uAxes;
 uniform vec4 uShore;
-uniform vec3 uShallow;
 uniform vec3 uFoam;
 uniform vec3 uShal0;
 uniform vec3 uShal1;
@@ -974,22 +763,18 @@ uniform vec3 uDeep0;
 uniform vec3 uDeep1;
 uniform vec3 uDeep2;
 uniform float uTime;
-uniform float uSplit;
-uniform float uView;
-uniform float uRiverFlow;
 uniform vec2 uClip;
 vec3 paint(vec2 p, float kind) {
   vec2 q = fract(p);
   return texture(uSwellMap, vec2(q.x, (kind + (q.y * 127.0 + 0.5) / 128.0) / 3.0)).rgb;
 }
 void main() {
-  if (gl_FragCoord.x < uSplit) discard;
   vec4 f = texture(uField, vField);
   if (f.a < 0.001) discard;
   vec4 climate = texture(uClimate, vField);
 #ifdef CLIP
-  // Out before any painting: the clipped beach is off, the shore is drawn, or the pixel is off the waterline's strip.
-  if (uClip.x < 0.5 || uAxes.y < 0.5) discard;
+  // Out before any painting: the clipped beach is off, or the pixel is off the waterline's strip.
+  if (uClip.x < 0.5) discard;
   float strip = (0.5 - f.b) * 384.0 + climate.a * 22.0;
   if (strip < uClip.y || strip > 34.0) discard;
 #endif
@@ -1005,23 +790,18 @@ void main() {
   float noise = sin(p.x * 1.71 + sin(p.y * 1.37)) * sin(p.y * 2.13 - p.x * 0.61);
   vec3 art = mix(a, b, 0.5 + noise * 0.12);
   float plume = climate.a;
-  float drawn = 1.0 - step(0.5, uAxes.y);
-  float dist = (0.5 - f.b) * 384.0 - drawn * 12.67 + plume * 22.0;
+  float dist = (0.5 - f.b) * 384.0 + plume * 22.0;
   float d = max(0.0, dist);
-  float deeper = uAxes.w;
   // Long shallows only by tropical land: cold and temperate shelves are about half as wide, and fainter.
   float shelfReach = dot(w, vec3(0.5, 0.55, 1.0));
-  float shelf = (1.0 - smoothstep(8.0, uRecipe.w * shelfReach * mix(1.0, 0.8, deeper), d + noise * 6.0)) *
+  float shelf = (1.0 - smoothstep(8.0, uRecipe.w * shelfReach * 0.8, d + noise * 6.0)) *
     dot(w, vec3(0.8, 0.75, 1.0));
-  vec3 shallow = uAxes.x > 0.5 ? uShal0*w.r + uShal1*w.g + uShal2*w.b : uShallow;
-  vec3 deep = art;
-  if (uAxes.z > 0.5) {
-    vec3 tint = uDeep0*w.r + uDeep1*w.g + uDeep2*w.b;
-    deep = mix(art, tint * (0.75 + dot(art, vec3(0.33))), 0.38) * mix(1.0, uShore.z, high);
-  }
-  deep *= mix(vec3(1.0), vec3(0.72, 0.8, 0.92), deeper);
+  vec3 shallow = uShal0*w.r + uShal1*w.g + uShal2*w.b;
+  vec3 tint = uDeep0*w.r + uDeep1*w.g + uDeep2*w.b;
+  vec3 deep = mix(art, tint * (0.75 + dot(art, vec3(0.33))), 0.38) * mix(1.0, uShore.z, high);
+  deep *= vec3(0.72, 0.8, 0.92);
   // Dim without pushing slate-green back toward the ocean's saturated blue.
-  shallow *= mix(vec3(1.0), vec3(0.82, 0.86, 0.88), deeper);
+  shallow *= vec3(0.82, 0.86, 0.88);
   vec3 col = mix(deep, shallow * (0.8 + dot(art, vec3(0.3))), shelf * 0.92);
   // In the field's uncompressed metric a diamond edge is 128 / sqrt(2) pixels.
   float dd = d / 90.51;
@@ -1029,33 +809,28 @@ void main() {
   float phase = (d + uTime * uRecipe.x) * 6.283185 / uRecipe.y + noise * 3.0 + broken;
   float bands = smoothstep(0.65, 1.0, sin(phase)) * smoothstep(0.04, 0.15, dd) *
     (1.0 - smoothstep(0.0, 0.6, dd)) * smoothstep(-0.15, 0.55, broken) * (1.0 - lake);
-  col += vec3(0.9, 0.95, 1.0) * bands * 0.22 * step(0.0, uRecipe.x);
+  col += vec3(0.9, 0.95, 1.0) * bands * 0.22;
   col += lake * 0.025 * (0.5 + 0.5 * sin(p.x * 0.7 + p.y * 0.4 + uTime * 0.19));
   float lap = sin(uTime * mix(1.1, 0.45, lake) + noise * 2.0);
   float reach = uShore.y * (0.7 + 0.3 * lap) * mix(1.0, 0.35, lake);
-  float waterline = mix(reach * 0.35, -reach * (0.35 + 0.65 * lap), drawn);
+  float waterline = reach * 0.35;
   float foam = (1.0 - smoothstep(0.0, max(0.5, uShore.y * 0.55), abs(dist - waterline))) *
     (0.6 + noise * 0.3) * mix(0.5, 0.16, lake) * (1.0 - plume);
   // Dry sand must show outside the land tile, not start behind its opaque edge.
   float dry = 1.0 - smoothstep(-9.0, -2.0, dist);
   vec3 sand = mix(vec3(0.64, 0.56, 0.42), vec3(0.86, 0.76, 0.55), dry);
   sand *= 0.97 + noise * 0.03;
-  // Foam washes over the beach, leaving a darker wet strip when it retreats.
-  sand = mix(sand, sand * 0.82, drawn * (1.0 - smoothstep(-8.0, -1.0, dist)) *
-    smoothstep(waterline - 3.0, waterline + 1.0, dist) * 0.35);
   // The art shore keeps its painted cover. Sand underneath fills transparent holes, but stops well inside the art's
   // own fade to the sea: sand under the fade read as beach bleeding into the water (worst on snow and tundra).
-  float sandEdge = mix(-10.0, 0.0, drawn);
-  col = mix(col, sand, 1.0 - smoothstep(sandEdge - 2.0, sandEdge + 2.0, dist));
+  col = mix(col, sand, 1.0 - smoothstep(-12.0, -8.0, dist));
   col = mix(col, uFoam, foam);
   vec3 river = mix(art, shallow * (0.8 + dot(art, vec3(0.3))), dot(w, vec3(0.8, 0.75, 1.0)) * 0.92);
-  col = mix(col, mix(vec3(0.16, 0.34, 0.39), river, uRiverFlow), plume * 0.8);
-  if (uView > 0.5) col = uView < 1.5 ? vec3(f.r, f.g, f.b) : w;
+  col = mix(col, river, plume * 0.8);
 #ifdef CLIP
   // Drawn again over FreeCol's beach art: only the water past the waterline, so the art's fade to the sea is
   // covered and the beach ends in a clean edge. Not at river mouths (their art stays), nor far out where no art is.
   float over = smoothstep(uClip.y, uClip.y + 4.0, dist) * (1.0 - smoothstep(30.0, 34.0, dist)) * (1.0 - plume) *
-    uClip.x * (1.0 - drawn);
+    uClip.x;
   if (over < 0.004) discard;
   finalColor = vec4(col * f.a * over, f.a * over);
 #else
@@ -1069,192 +844,12 @@ const PAINTED_CLIP_FRAGMENT = PAINTED_FRAGMENT.replace(
   'precision highp float;\n#define CLIP 1',
 );
 
-/** The shader's compile-time choices: the wave model, the shore's encoding, climate colours or not. */
-export interface WaterVariant {
-  waves: WaveModel;
-  signedShore: boolean;
-  climate: boolean;
-}
-
-/**
- * The fragment shader for a variant. Texture reads per pixel: the field, the climate field (with climate), and the
- * ripples: 'slide' 2 (swell, chop), 'warp' 3 (swirl, swell, chop), 'flow' 5 (swirl, two crossing swells, two chop
- * phases).
- */
-export const fragmentFor = (v: WaterVariant) => /* glsl */ `precision highp float;
-#define WAVES ${v.waves === 'slide' ? 0 : v.waves === 'warp' ? 1 : 2}
-#define SIGNED_SHORE ${v.signedShore ? 1 : 0}
-#define CLIMATE ${v.climate ? 1 : 0}
-#define SHORE_PX ${SHORE_PX}.0
-in vec2 vField;
-in vec2 vSwell;
-in vec2 vChop;
-in vec2 vSwellLake;
-in vec2 vChopLake;
-in vec2 vSlant;
-out vec4 finalColor;
-uniform sampler2D uField;
-uniform sampler2D uClimate;
-uniform sampler2D uSwellMap;
-uniform sampler2D uChopMap;
-uniform vec3 uOcean;
-uniform vec3 uHighSeas;
-uniform vec3 uLake;
-uniform vec3 uShallow;
-uniform vec3 uFoam;
-uniform vec3 uLight;
-// Per kind of water, x the ocean, y the high seas, z lakes: the roughness, and the foam's strength.
-uniform vec3 uRough;
-uniform vec3 uFoamStrength;
-// The foam's lapping in radians: on the ocean and high seas, and on lakes.
-uniform vec2 uLap;
-// x 1/swell size, y 1/chop size, z 1/swirl size (per map pixel), w how hard the swirl bends the ripples (turns).
-uniform vec4 uScale;
-// On the sea and on lakes: the swirl's offset (xy), the flow's phase (z).
-uniform vec4 uSea;
-uniform vec4 uCalm;
-// On the sea and on lakes: the swell's offset (xy) and the chop's (zw).
-uniform vec4 uSeaAt;
-uniform vec4 uCalmAt;
-// x how far the flow carries the chop in a phase (turns), y crest light, z swell's tilt, w chop's tilt.
-uniform vec4 uWave;
-// x shallows' width, y foam's width (map pixels from the art's edge), z the high seas' shade, w ice.
-uniform vec4 uShore;
-// Per climate (cold, temperate, tropical): deep, shallow, foam colours, and the foam's amount.
-uniform vec3 uDeep0;
-uniform vec3 uDeep1;
-uniform vec3 uDeep2;
-uniform vec3 uShal0;
-uniform vec3 uShal1;
-uniform vec3 uShal2;
-uniform vec3 uFoam0;
-uniform vec3 uFoam1;
-uniform vec3 uFoam2;
-uniform vec3 uFoamAmt;
-// PROTOTYPE: 0 the water, 1 the field, 2 the climate, 3 the swirl.
-uniform float uView;
-
-const mat2 ROT = mat2(0.98, 0.2, -0.2, 0.98);
-const mat2 CROSS = mat2(0.6, -0.8, 0.8, 0.6);
-
-void main() {
-  vec4 f = texture(uField, vField);
-  // The depth: a lake at 0, the ocean at a half, the high seas at 1.
-  float lake = clamp(1.0 - f.g * 2.0, 0.0, 1.0);
-  float high = clamp(f.g * 2.0 - 1.0, 0.0, 1.0);
-  // A lake's ripples, slower, where the water is more lake than sea: blending the two places would make them jump
-  // whenever either offset turns over.
-  bool calm = lake > 0.5;
-  vec3 s;
-  vec3 c;
-  vec2 flow = vec2(0.0);
-#if WAVES == 0
-  s = texture(uSwellMap, calm ? vSwellLake : vSwell).rgb;
-  c = texture(uChopMap, calm ? vChopLake : vChop).rgb;
-#else
-  vec4 m = calm ? uCalm : uSea;
-  vec4 at = calm ? uCalmAt : uSeaAt;
-  // The swirl: the swell texture seen very large, drifting slowly. Its slope turned a quarter is a curl, a flow that
-  // goes round and round with no sources or sinks, so the ripples it carries neither bunch up nor thin out.
-  vec3 sw = texture(uSwellMap, vSlant * uScale.z + m.xy).rgb;
-  flow = vec2(sw.b - 0.5, 0.5 - sw.g) * 2.0;
-  vec2 bend = flow * uScale.w;
-  s = texture(uSwellMap, vSlant * uScale.x + at.xy + bend * 0.5).rgb;
-#if WAVES == 1
-  // Warp: the chop bent by the swirl and by the swell under it, so its crests change shape as both drift.
-  c = texture(uChopMap, ROT * vSlant * uScale.y + at.zw + bend + (s.gb - 0.5) * uScale.w * 0.5).rgb;
-#else
-  // A second swell crossing the first: where they meet the crests rise and fall, and the pattern never repeats.
-  vec3 s2 = texture(uSwellMap, CROSS * vSlant * uScale.x * 1.37 + vec2(-at.y, at.x * 1.3) - bend * 0.3).rgb;
-  s = vec3((s.r + s2.r - 1.0) * 0.75 + 0.5, (s.gb + s2.gb) * 0.5);
-  // Flow: the chop carried along the swirl, a phase at a time; two phases half a turn apart, crossfaded so neither's
-  // jump back shows. Each area runs on its own phase (from the swirl's height), so nothing pulses in step.
-  float ph = fract(m.z + sw.r * 1.7);
-  float ph2 = fract(ph + 0.5);
-  float k = abs(1.0 - 2.0 * ph);
-  vec2 base = ROT * vSlant * uScale.y + at.zw + (s.gb - 0.5) * uScale.w * 0.3;
-  vec2 carry = flow * uWave.x;
-  vec3 c0 = texture(uChopMap, base + carry * ph).rgb;
-  vec3 c1 = texture(uChopMap, base + carry * ph2 + vec2(0.37, 0.61)).rgb;
-  // Two patterns crossfaded are flatter than either: give back their contrast.
-  c = (mix(c0, c1, k) - 0.5) * inversesqrt(k * k + (1.0 - k) * (1.0 - k)) + 0.5;
-#endif
-#endif
-  float rough = mix(mix(uRough.x, uRough.y, high), uRough.z, lake);
-  float strength = mix(mix(uFoamStrength.x, uFoamStrength.y, high), uFoamStrength.z, lake);
-#if CLIMATE
-  vec3 w = texture(uClimate, vField).rgb;
-  w /= max(w.r + w.g + w.b, 0.001);
-  vec3 deepC = uDeep0 * w.r + uDeep1 * w.g + uDeep2 * w.b;
-  vec3 shalC = uShal0 * w.r + uShal1 * w.g + uShal2 * w.b;
-  vec3 foamC = uFoam0 * w.r + uFoam1 * w.g + uFoam2 * w.b;
-  float foamAmt = dot(w, uFoamAmt);
-  float cold = w.r;
-  vec3 highC = deepC * uShore.z;
-#else
-  vec3 w = vec3(0.0, 1.0, 0.0);
-  vec3 deepC = uOcean;
-  vec3 shalC = uShallow;
-  vec3 foamC = uFoam;
-  float foamAmt = 1.0;
-  float cold = 0.0;
-  vec3 highC = uHighSeas;
-#endif
-  // The ripples' slope, lit from the north-west as FreeCol's art is: the swell rolls, the chop catches the light.
-  vec2 slope = (s.gb - 0.5) * uWave.z + (c.gb - 0.5) * uWave.w;
-  float lit = dot(slope, vec2(-0.6, -0.8)) * rough;
-  // Lakes take the lake colour: all of it on flat colours, more than half of it over the climate's deep.
-  vec3 deep = mix(mix(deepC, mix(deepC, uLake, CLIMATE == 1 ? 0.6 : 1.0), lake), highC, high);
-#if SIGNED_SHORE
-  // Map pixels out from the edge of the art over the water (the sand, the beach and land transitions): negative under it.
-  float shore = (0.5 - f.b) * 2.0 * SHORE_PX;
-  float shallows = 1.0 - smoothstep(0.0, uShore.x, max(shore, 0.0));
-  vec3 col = mix(deep, shalC, shallows * 0.9);
-#else
-  // Shallower and lighter toward the shore, lightest where the sand and land fade into the water (red is how much
-  // they cover here, blue how near they are), so no deep blue shows between the shallows and the sand.
-  vec3 col = mix(deep, shalC, max(smoothstep(0.0, 0.5, f.b) * 0.6, smoothstep(0.0, 0.4, f.r) * 0.85));
-#endif
-  col *= 1.0 + lit * 0.9 + (s.r - 0.5) * 0.25 * rough;
-  // Light on the chop's crests, and a glint where a crest faces the light.
-  col = mix(col, uLight, smoothstep(0.8, 1.0, c.r) * smoothstep(0.1, 0.45, lit) * uWave.y);
-  float lap = mix(uLap.x, uLap.y, lake);
-#if SIGNED_SHORE
-  // Foam lapping out from the art's edge and back, broken by the chop; it starts under the art, so no water shows
-  // between them.
-  float reach = uShore.y * (0.75 + 0.25 * sin(lap + s.r * 6.0)) * (0.8 + 0.4 * c.r);
-  float foam = (1.0 - smoothstep(0.0, reach, shore)) * smoothstep(0.25, 0.7, c.r + (s.r - 0.5) * 0.5 + 0.25);
-  // Ice along cold coasts: a pale shelf out from the shore, its edge rough with the swell.
-  float ice = cold * uShore.w * (1.0 - smoothstep(uShore.y * 0.6, uShore.y * 1.6, shore + (s.r - 0.5) * uShore.y));
-#else
-  // Foam lapping at the sand's edge (where it covers about half), reaching a little under the sand, broken up by the
-  // chop and moving in and out.
-  float edge = f.r + (c.r - 0.6) * 0.1 + 0.05 * sin(lap + f.b * 12.0);
-  float foam = smoothstep(0.15, 0.32, edge) * (1.0 - smoothstep(0.7, 0.95, edge)) *
-    smoothstep(0.3, 0.8, c.r + (s.r - 0.5) * 0.5);
-  float ice = cold * uShore.w * smoothstep(0.1, 0.3, f.r + (s.r - 0.5) * 0.1);
-#endif
-  col = mix(col, foamC, clamp(foam * 0.75 * strength * foamAmt, 0.0, 1.0));
-  col = mix(col, mix(foamC, vec3(0.85, 0.9, 0.95), 0.4), clamp(ice, 0.0, 0.9));
-  if (uView > 0.5) {
-#if SIGNED_SHORE
-    float b = clamp(0.5 - shore / (2.0 * SHORE_PX), 0.0, 1.0);
-#else
-    float b = f.b;
-#endif
-    col = uView < 1.5 ? vec3(f.r, f.g * 0.5, b) : uView < 2.5 ? w : vec3(flow * 0.5 + 0.5, 0.5);
-    if (uView < 1.5 && abs(f.r - 0.5) < 0.03) col = vec3(1.0, 1.0, 0.0);
-  }
-  finalColor = vec4(col * f.a, f.a);
-}
-`;
-
 /** A field texture: one texel per field texel, smoothed between them. */
-const fieldSource = (f: WaterField, data = f.data) =>
+const fieldSource = (cols: number, rows: number, data: Uint8Array) =>
   new BufferImageSource({
     resource: data,
-    width: f.cols,
-    height: f.rows,
+    width: cols,
+    height: rows,
     format: 'rgba8unorm',
     alphaMode: 'no-premultiply-alpha',
     scaleMode: 'linear',
@@ -1268,11 +863,11 @@ const fieldSource = (f: WaterField, data = f.data) =>
  */
 export class ShaderSurface {
   readonly mesh: Mesh<Geometry, Shader>;
-  /** PROTOTYPE: a second draw of the same surface, with its own fragment shader and the same uniforms and textures,
-   * for the map to place higher up (the clipped beach); null when there is none. */
+  /** A second draw of the same surface, with its own fragment shader and the same uniforms and textures, for the map
+   * to place higher up (the clipped beach); null when there is none. */
   readonly overlay: Mesh<Geometry, Shader> | null = null;
   private field: BufferImageSource;
-  /** PROTOTYPE: the climate field, the same size as the field. */
+  /** The climate field, the same size as the field. */
   private climate: BufferImageSource;
   private positions: Float32Array;
   /** Its look's textures, which it destroys with itself. */
@@ -1294,8 +889,8 @@ export class ShaderSurface {
         attributes: { aPosition: { buffer: this.positions, format: 'float32x2' } },
         indexBuffer: [0, 1, 2, 0, 2, 3],
       });
-    this.field = fieldSource({ cols: 1, rows: 1, texel: 1, data: new Uint8Array(4) });
-    this.climate = fieldSource({ cols: 1, rows: 1, texel: 1, data: new Uint8Array([0, 255, 0, 255]) });
+    this.field = fieldSource(1, 1, new Uint8Array(4));
+    this.climate = fieldSource(1, 1, new Uint8Array([0, 255, 0, 255]));
     this.textures = Object.values(textures);
     const shader = Shader.from({
       gl: { vertex, fragment },
@@ -1338,24 +933,24 @@ export class ShaderSurface {
 
   /** Cover the map the field covers, and read it. */
   setField(f: WaterField) {
-    const [w, h] = [f.cols * f.texel, f.rows * (f.texelY ?? f.texel)];
+    const [w, h] = [f.cols * f.texel, f.rows * f.texelY];
     const old = this.field;
     if (old.width === f.cols && old.height === f.rows) {
       old.resource = f.data;
       old.update();
     } else {
-      this.field = fieldSource(f);
+      this.field = fieldSource(f.cols, f.rows, f.data);
       this.mesh.shader!.resources.uField = this.field;
       if (this.overlay) this.overlay.shader!.resources.uField = this.field;
       old.destroy();
     }
-    const climate = f.climate ?? new Uint8Array(4 * f.cols * f.rows).fill(85);
+    const climate = f.climate;
     const oldClimate = this.climate;
     if (oldClimate.width === f.cols && oldClimate.height === f.rows) {
       oldClimate.resource = climate;
       oldClimate.update();
     } else {
-      this.climate = fieldSource(f, climate);
+      this.climate = fieldSource(f.cols, f.rows, climate);
       this.mesh.shader!.resources.uClimate = this.climate;
       if (this.overlay) this.overlay.shader!.resources.uClimate = this.climate;
       oldClimate.destroy();
@@ -1380,8 +975,9 @@ export class ShaderSurface {
   }
 }
 
-/** A ripple image as a texture that repeats, with mipmaps so it does not shimmer zoomed out. */
-const rippleSource = (pic: HTMLImageElement | HTMLCanvasElement) =>
+/** FreeCol's water art, unprojected (paintedWaterAtlas), as a texture that repeats, with mipmaps so it does not
+ * shimmer zoomed out. */
+const artSource = (pic: HTMLImageElement | HTMLCanvasElement) =>
   new ImageSource({
     resource: pic,
     addressMode: 'repeat',
@@ -1394,140 +990,49 @@ const rippleSource = (pic: HTMLImageElement | HTMLCanvasElement) =>
 const uniformsOf = (look: WaterLook): Record<string, { value: number | number[]; type: string }> => {
   const color = (c: number) => ({ value: rgb(c), type: 'vec3<f32>' });
   const vec4 = (value: number[]) => ({ value, type: 'vec4<f32>' });
-  const vec3 = (value: number[]) => ({ value, type: 'vec3<f32>' });
   const p = look.palettes;
   return {
-    uSwell: vec4([0, 0, 1 / look.swellSize, 0]),
-    uChop: vec4([0, 0, 1 / look.chopSize, 0]),
-    uOcean: color(look.ocean),
-    uHighSeas: color(look.highSeas),
-    uLake: color(look.lake),
-    uShallow: color(look.shallow),
     uFoam: color(look.foam),
-    uLight: color(look.light),
-    uLakeAt: vec4([0, 0, 0, 0]),
-    uRough: vec3(kinds(look.roughness)),
-    uFoamStrength: vec3(kinds(look.foamStrength)),
-    uLap: { value: [0, 0], type: 'vec2<f32>' },
-    uScale: vec4([1 / look.swellSize, 1 / look.chopSize, 1 / look.flowSize, look.warp]),
-    uSea: vec4([0, 0, 0, 0]),
-    uCalm: vec4([0, 0, 0, 0]),
-    uSeaAt: vec4([0, 0, 0, 0]),
-    uCalmAt: vec4([0, 0, 0, 0]),
-    uWave: vec4([look.flowStrength, look.crest, look.swellAmount, look.chopAmount]),
-    uShore: vec4([look.shallowWidth, look.foamWidth, look.highSeasShade, look.ice]),
+    uShore: vec4([0, look.foamWidth, look.highSeasShade, 0]),
     uDeep0: color(p.cold.deep),
     uDeep1: color(p.temperate.deep),
     uDeep2: color(p.tropical.deep),
     uShal0: color(p.cold.shallow),
     uShal1: color(p.temperate.shallow),
     uShal2: color(p.tropical.shallow),
-    uFoam0: color(p.cold.foam),
-    uFoam1: color(p.temperate.foam),
-    uFoam2: color(p.tropical.foam),
-    uFoamAmt: vec3(CLIMATES.map((k) => p[k].foamAmount)),
-    uView: { value: 0, type: 'f32' },
-    uRecipe: vec4([
-      look.recipe?.motion === 'foam' ? -1 : (look.recipe?.bandSpeed ?? 5),
-      look.recipe?.bandSpacing ?? 32,
-      look.recipe?.driftSpeed ?? 2,
-      look.recipe?.shelfWidth ?? 90,
-    ]),
-    uAxes: vec4([
-      look.recipe?.shallows === 'climate' ? 1 : 0,
-      look.recipe?.shore === 'art' ? 1 : 0,
-      look.recipe?.deep === 'climate' ? 1 : 0,
-      look.recipe?.depth === 'deeper' ? 1 : 0,
-    ]),
+    uRecipe: vec4([look.bandSpeed, look.bandSpacing, look.driftSpeed, look.shelfWidth]),
     uTime: { value: 0, type: 'f32' },
-    uSplit: { value: 0, type: 'f32' },
-    uRiverFlow: { value: look.rivers?.mode === 'flow' ? 1 : 0, type: 'f32' },
-    uClip: { value: [look.recipe?.clip ?? 0, look.recipe?.clipAt ?? -2], type: 'vec2<f32>' },
+    uClip: { value: [look.clip, look.clipAt], type: 'vec2<f32>' },
   };
 };
 
-/** The shader water: a ShaderSurface with the water's shader and look, whose time moves the ripples. */
+/** The shader water: a ShaderSurface with the water's shader and look, whose time moves the water. */
 export class WaterSurface {
   readonly surface: ShaderSurface;
-  /** PROTOTYPE: how fast its time runs (0 stands still), and what the playground shows (0 the water). */
-  rate = 1;
-  view = 0;
-  /** Its own clock, in seconds of water time, and the drifts integrated over it, so speed and heading can wander. */
-  private clock = { ms: -1, t: 0, sea: new Float64Array(6), calm: new Float64Array(6) };
+  /** Its own clock, in seconds of water time. */
+  private clock = { ms: -1, t: 0 };
   constructor(
     readonly look: WaterLook,
-    swell: HTMLImageElement | HTMLCanvasElement,
-    chop: HTMLImageElement | HTMLCanvasElement,
+    /** FreeCol's ocean, high seas and lake art, unprojected (paintedWaterAtlas). */
+    art: HTMLImageElement | HTMLCanvasElement,
   ) {
     this.surface = new ShaderSurface(
       VERTEX,
-      look.recipe
-        ? PAINTED_FRAGMENT
-        : fragmentFor({ waves: look.waves, signedShore: look.shore !== 'blur', climate: look.climate }),
+      PAINTED_FRAGMENT,
       uniformsOf(look),
-      { uSwellMap: rippleSource(swell), uChopMap: rippleSource(chop) },
-      look.recipe ? PAINTED_CLIP_FRAGMENT : undefined,
+      { uSwellMap: artSource(art) },
+      PAINTED_CLIP_FRAGMENT,
     );
-    if (this.surface.overlay) this.surface.overlay.renderable = !!look.recipe?.clip;
-  }
-
-  /** PROTOTYPE: take a look's numbers and colours without building the shader again (not its waves, shore or climate). */
-  setLook(next: WaterLook) {
-    Object.assign(this.look, next);
     // The clipped beach's second draw costs nothing while it is off.
-    if (this.surface.overlay) this.surface.overlay.renderable = !!next.recipe?.clip;
-    const u = this.surface.uniforms;
-    for (const [k, v] of Object.entries(uniformsOf(next)))
-      if (!['uView', 'uTime', 'uSplit'].includes(k)) u[k] = v.value;
+    if (this.surface.overlay) this.surface.overlay.renderable = !!look.clip;
   }
 
-  /** Move the ripples and the foam to where they are at `ms`. */
+  /** Move the water to where it is at `ms`: a frame's step at most, so a tab in the background does not jump it. */
   setTime(ms: number) {
-    const look = this.look;
     const c = this.clock;
-    const dt = c.ms < 0 ? 0 : Math.min(0.1, Math.max(0, (ms - c.ms) / 1000)) * this.rate;
+    c.t += c.ms < 0 ? 0 : Math.min(0.1, Math.max(0, (ms - c.ms) / 1000));
     c.ms = ms;
-    c.t += dt;
-    const u = this.surface.uniforms;
-    u.uView = this.view;
-    if (look.recipe) {
-      u.uTime = c.t * look.speed;
-      return;
-    }
-    if (look.waves === 'slide') {
-      const t = waterTime(look.speed, c.t * 1000);
-      const l = waterTime(look.lakeSpeed, c.t * 1000);
-      u.uSwell = [...t.swell, 1 / look.swellSize, 0];
-      u.uChop = [...t.chop, 1 / look.chopSize, 0];
-      u.uLakeAt = [...l.swell, ...l.chop];
-      u.uLap = [t.lap, l.lap];
-      return;
-    }
-    // The drift's heading and pace wander slowly, on a few incommensurate sines, so no direction or speed holds.
-    const t = c.t;
-    const heading = look.wander * (Math.sin(t * 0.031) + 0.6 * Math.sin(t * 0.077 + 1.3));
-    const pace = 1 + look.gust * Math.sin(t * 0.053 + 0.4) * Math.sin(t * 0.021 + 2.1);
-    const [hc, hs] = [Math.cos(heading), Math.sin(heading)];
-    const step = (a: Float64Array, speed: number) => {
-      const d = dt * speed * pace;
-      // The swell drifts east and a little south, the chop north-east, both turned by the heading.
-      a[0] += d * (0.011 * hc - 0.004 * hs);
-      a[1] += d * (0.011 * hs + 0.004 * hc);
-      a[2] += d * (-0.017 * hc - 0.029 * hs);
-      a[3] += d * (-0.017 * hs + 0.029 * hc);
-      // The swirl drifts, and the flow's phase turns over, at their own pace.
-      a[4] += d * 0.004 * look.flowSpeed;
-      a[5] += d * 0.35 * look.flowSpeed;
-      for (let i = 0; i < 6; i++) a[i] -= Math.floor(a[i]);
-    };
-    step(c.sea, look.speed);
-    step(c.calm, look.lakeSpeed);
-    const [s, l] = [c.sea, c.calm];
-    u.uSeaAt = [s[0], s[1], s[2], s[3]];
-    u.uCalmAt = [l[0], l[1], l[2], l[3]];
-    u.uSea = [s[4], s[4], s[5], 0];
-    u.uCalm = [l[4], l[4], l[5], 0];
-    u.uLap = [(t * look.speed * 1.3) % (2 * Math.PI), (t * look.lakeSpeed * 1.3) % (2 * Math.PI)];
+    this.surface.uniforms.uTime = c.t;
   }
 }
 
@@ -1620,17 +1125,3 @@ export function alphaOf(pic: HTMLImageElement | HTMLCanvasElement): Float32Array
   }
   return a;
 }
-
-/** PROTOTYPE (water playground, ?playground=water): what map.ts hands the playground to drive the water. */
-export const waterPlayground: {
-  /** The look the water is drawn in now. */
-  look?: WaterLook | null;
-  /** The surface drawing it. */
-  surface?: () => WaterSurface | null;
-  /** Draw the water in another look: a new shader, and the field made again. */
-  restart?: (look: WaterLook) => Promise<boolean>;
-  /** Flipbook under the recipe; split is a fraction of the map canvas. */
-  compare?: (split: number, defaultOnly: boolean) => void | Promise<void>;
-  /** The map the field was last made from. */
-  map?: RiverMap;
-} = {};

@@ -354,7 +354,7 @@ describe('pictures', () => {
 });
 
 describe('waterDrawingFor', () => {
-  const look = { swell: 'swell.png', chop: 'chop.png' } as WaterLook;
+  const look = { shelfWidth: 90 } as WaterLook;
   const pic = {} as HTMLImageElement;
   const load = () => Promise.resolve(pic);
   const pen = (start: WaterPen['start']): WaterPen => ({ maxField: 4096, start, field: () => {}, time: () => {} });
@@ -362,7 +362,8 @@ describe('waterDrawingFor', () => {
   it('draws the shader water when the Tileset has a look, the pen can draw it and the GPU builds its shader', async () => {
     const start = vi.fn(() => true);
     expect(await waterDrawingFor(look, pen(start), load)).toBe('surface');
-    expect(start).toHaveBeenCalledWith(look, pic, pic);
+    // FreeCol's water art, which the shader paints.
+    expect(start).toHaveBeenCalledWith(look, pic);
   });
 
   it("falls back to FreeCol's frames without a look, or on a pen that cannot draw it", async () => {
