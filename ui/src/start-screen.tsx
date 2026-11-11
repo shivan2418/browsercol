@@ -238,6 +238,8 @@ export interface StartSetup {
   gameEdits: Record<string, OptionValue>;
   mapEdits: Record<string, OptionValue>;
   mapFiles: Record<string, File>;
+  /** The map chosen: a MAPS id, or 'generated'. */
+  map: string;
 }
 
 /** The edits a group still has an option for, other than the ones now at the group's own value. */
@@ -358,7 +360,7 @@ export function StartScreen({
     return Object.fromEntries(Object.entries(setup?.mapFiles ?? {}).filter(([id]) => base.has(id)));
   });
   // A map the game comes with (MAPS), or 'generated' for none.
-  const [builtInMap, setBuiltInMap] = useState('generated');
+  const [builtInMap, setBuiltInMap] = useState(setup?.map ?? 'generated');
   // The nation type the player starts with, as the server gives it (NationOptions): the one picked, the nation's own,
   // or none at all; and its starting units at this difficulty (expertStartingUnits, as edited).
   const playedType =
@@ -649,6 +651,7 @@ export function StartScreen({
                             gameEdits,
                             mapEdits,
                             mapFiles,
+                            map: builtInMap,
                           })
                         }
                         choices={options.rulesets.map((r) => ({

@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vite-plus/test';
 import { BUILD } from './build';
-import { startOptions, type StartChoice, type StartOptions } from './start';
+import { MAPS, startOptions, type StartChoice, type StartOptions } from './start';
 import fs from 'node:fs';
 import { StartScreen, type StartSetup } from './start-screen';
 import { chooseOption } from './select-test';
@@ -362,6 +362,36 @@ test('a ruleset switch keeps the setup the new ruleset still has, and the open o
       unavailable: ['model.nation.spanish', 'model.nation.inca'],
     },
   ]);
+});
+
+test('the map chosen stays chosen across a ruleset switch', async () => {
+  const switched: [string, StartSetup][] = [];
+  const { rerender } = render(
+    <StartScreen
+      key="classic"
+      options={options}
+      start={() => {}}
+      rules="classic"
+      changeRules={(r, setup) => switched.push([r, setup])}
+    />,
+  );
+  await chooseOption(document.querySelector('[data-map]')!, 'America (1492)');
+  await chooseOption(document.querySelector('[data-rules]')!, 'FreeCol');
+  expect(switched.map(([r, s]) => [r, s.map])).toEqual([['freecol', 'america']]);
+  // main.tsx draws the new ruleset's screen afresh with the setup handed back, and the game starts on its map.
+  const started: StartChoice[] = [];
+  rerender(
+    <StartScreen
+      key="freecol"
+      options={options}
+      start={(c) => started.push(c)}
+      rules="freecol"
+      setup={switched[0][1]}
+    />,
+  );
+  expect(document.querySelector('[data-map]')!.textContent).toContain('America (1492)');
+  fireEvent.click(document.querySelector('[data-start]')!);
+  expect(started[0].builtInMap).toBe(MAPS[0].url);
 });
 
 test('the start screen offers to continue the newest save and to open another', () => {
