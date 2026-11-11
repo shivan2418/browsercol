@@ -138,12 +138,22 @@ process.on('exit', () => {
 const BANNER = 'Error banner: ';
 
 /**
- * Collects the page's uncaught errors, and the Engine's and the Worker's errors its banner showed the player,
- * as strings, into the returned array.
+ * Collects the page's uncaught errors, the Engine's and the Worker's errors its banner showed the player, and
+ * any file of the site's own that failed to load, as strings, into the returned array.
  */
 export function collectPageErrors(page: Page): string[] {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(String(e)));
+  // A file of the site that is not there: an image a style asks for fails with no error on the page, and the
+  // window just draws without it (the advisor's paper, resolved against assets/). Other origins (a faked relay
+  // that answers 503 on purpose) are the script's own business.
+  page.on('response', (r) => {
+    if (r.status() < 400) return;
+    const url = new URL(r.url());
+    const at = page.url();
+    if (!at.startsWith('http') || url.origin !== new URL(at).origin) return;
+    errors.push(`${r.status()} for ${url.pathname}`);
+  });
   page.on('console', (m) => {
     const text = m.type() === 'error' ? m.text() : '';
     // The page's own uncaught errors are on the banner too, but pageerror has them already.
