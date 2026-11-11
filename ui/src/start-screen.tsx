@@ -26,7 +26,7 @@ import { ReportContext, ReportPanel, startColopediaAt, type ReportActions } from
 import { OpenDialog, OpenFile } from './save-picker';
 import type { SaveMeta } from './saves';
 import { levelFile, loadDefaults, readLevelFile, saveDefaults } from './start-options';
-import { ADVANTAGES, type Advantages, type StartChoice, type StartOptions } from './start';
+import { ADVANTAGES, MAPS, type Advantages, type StartChoice, type StartOptions } from './start';
 import type { ReportView } from './webgui';
 import { coverageHitMethod, useCoverage } from './coverage';
 import './start-window.css';
@@ -357,6 +357,8 @@ export function StartScreen({
     const base = mapGroup ? leaves(mapGroup) : new Map();
     return Object.fromEntries(Object.entries(setup?.mapFiles ?? {}).filter(([id]) => base.has(id)));
   });
+  // A map the game comes with (MAPS), or 'generated' for none.
+  const [builtInMap, setBuiltInMap] = useState('generated');
   // The nation type the player starts with, as the server gives it (NationOptions): the one picked, the nation's own,
   // or none at all; and its starting units at this difficulty (expertStartingUnits, as edited).
   const playedType =
@@ -526,6 +528,7 @@ export function StartScreen({
             colors,
             unavailable: removed.filter((id) => id !== nation),
             importMap: mapFiles[IMPORT_FILE],
+            builtInMap: MAPS.find((m) => m.id === builtInMap)?.url,
           });
         }}
       >
@@ -670,6 +673,17 @@ export function StartScreen({
                     setLevelEdits({});
                   }}
                   choices={levels.map((l) => ({ value: l.id, label: l.name }))}
+                />
+                <span>Map</span>
+                <Select
+                  data-map
+                  aria-label="Map"
+                  value={builtInMap}
+                  onChange={setBuiltInMap}
+                  choices={[
+                    { value: 'generated', label: 'Generated' },
+                    ...MAPS.map((m) => ({ value: m.id, label: m.name })),
+                  ]}
                 />
               </div>
             </fieldset>

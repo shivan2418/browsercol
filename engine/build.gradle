@@ -78,6 +78,7 @@ test {
     forkEvery = 6
     systemProperty 'presets.dir', file('../ui/presets').absolutePath
     systemProperty 'engine.src', file('src').absolutePath
+    systemProperty 'maps.dir', file('../ui/maps').absolutePath
     // -PwriteSave=NAME: SaveGameTest writes a fixture save from this build.
     if (project.hasProperty('writeSave')) systemProperty 'saves.write', project.property('writeSave')
     testLogging { events 'failed'; exceptionFormat 'full'; showStandardStreams = project.hasProperty('verbose') }
@@ -141,3 +142,11 @@ tasks.register('modules') {
     dependsOn 'serverModule', 'clientModule'
 }
 tasks.named('clientModule') { mustRunAfter 'serverModule' }
+
+// A map of our own of a DOS Colonization map (DosMap, #459), e.g.
+// gradle dosMap -Pin=/path/to/AMER2.MP -Pout=../ui/maps/america-1492.txt
+tasks.register('dosMap', JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'browsercol.web.DosMap'
+    args = [project.findProperty('in'), project.findProperty('out')]
+}

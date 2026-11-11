@@ -9,6 +9,7 @@
 import { messageFiles } from './language';
 import { bundleFile as file, rulesStrings, specification } from './specification';
 import { specificationGroup, type OptionGroup, type OptionValue } from './options';
+import americaMap from '../maps/america-1492.txt?url';
 
 export interface NationChoice {
   /** FreeCol's id, e.g. model.nation.dutch. */
@@ -99,7 +100,17 @@ export interface StartChoice {
   unavailable?: string[];
   /** The map or save file the map generator imports in place of a generated map (its import file option). */
   importMap?: File;
+  /** The URL of a map the game comes with (MAPS), imported as importMap is; importMap wins when both are set. */
+  builtInMap?: string;
 }
+
+/**
+ * The maps the game comes with, besides the generated one: the original DOS Colonization's America (#459), as a map
+ * of our own made from the DOS game's AMER2.MP (DosMap.java).
+ */
+export const MAPS: { id: string; name: string; url: string }[] = [
+  { id: 'america', name: 'America (1492)', url: americaMap },
+];
 
 /** A .properties file's lines, as FreeCol reads them: key=value, # comments. */
 function properties(text: string): Map<string, string> {

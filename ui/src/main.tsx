@@ -1812,7 +1812,15 @@ async function chooseGame(
               host.remove();
               boot.begin(gameParts);
               // The browser has no file system for the server Engine to read the file from: hand it the bytes.
-              void (c.importMap?.arrayBuffer() ?? Promise.resolve(undefined)).then(
+              void (
+                c.importMap?.arrayBuffer() ??
+                (c.builtInMap
+                  ? fetch(c.builtInMap).then((r) => {
+                      if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+                      return r.arrayBuffer();
+                    })
+                  : Promise.resolve(undefined))
+              ).then(
                 (bytes) => done({ preset: presetJson(c), importMap: bytes && new Uint8Array(bytes) }),
                 (ex: unknown) => {
                   // A file the browser can no longer read: start on a generated map and say so.

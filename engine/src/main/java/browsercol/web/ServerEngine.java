@@ -86,14 +86,14 @@ public final class ServerEngine {
      * Start a new single-player server game on a map from a file, as the
      * map generator's import file option does on desktop FreeCol: the map
      * of a map file (.fsm) or of a savegame (.fsg) takes the place of a
-     * generated one. The page hands over the file's bytes because the
+     * generated one, as does a map of the DOS game (.MP) or one of our own made from it (DosMap). The page hands over the file's bytes because the
      * browser has no file system for the server to read it from.
      *
      * @param rules The rules id, e.g. "classic", unless the preset names
      *     its own.
      * @param preset What to set before the game is made.
-     * @param importMap The bytes of the map or savegame file to take the
-     *     map from, or null or empty for a generated map.
+     * @param importMap The bytes of the map, savegame or DOS map file to
+     *     take the map from, or null or empty for a generated map.
      * @exception IllegalArgumentException if the preset names something
      *     the rules do not have, or the file holds no map.
      * @exception Exception if the rules or the server fail.
@@ -115,7 +115,9 @@ public final class ServerEngine {
         // Everything the preset can get wrong fails here, before a server
         // is made.
         preset.applyTo(spec);
-        if (importMap != null && importMap.length > 0) setImportFile(spec, importMap);
+        // A DOS Colonization map or a map of our own made from one (#459) is no FreeCol file: the generator reads it itself.
+        final boolean dosMap = DosMap.isMap(importMap);
+        if (!dosMap && importMap != null && importMap.length > 0) setImportFile(spec, importMap);
         // FreeCol forgets the open sessions (a monarch's offer, a trade)
         // only when it loads a game; a new one in the same Worker would
         // otherwise meet the last game's, keyed by the same player ids, as
@@ -123,7 +125,9 @@ public final class ServerEngine {
         Session.clearAll();
         FreeColServer made = new FreeColServer(false, true, spec, null, 0, "browser");
         preset.applyTo(made);
-        made.setMapGenerator(new ReportingMapGenerator(made.getMapGenerator()));
+        made.setMapGenerator(new ReportingMapGenerator(dosMap
+                ? DosMap.importing(made.getMapGenerator(), importMap)
+                : made.getMapGenerator()));
         this.server = made;
     }
 
