@@ -8,7 +8,7 @@ disable-model-invocation: true
 You ship the next **build**: `tools/deploy.sh` tags a commit `build-N` and pushes the tag, and the tag starts the Pages workflow. Each build gets two changelogs, written from the same set of changes for two readers:
 
 - **Developer changelog**: the body of the GitHub release for `build-N`. Everything that landed, grouped by ticket, linked.
-- **Player changelog**: the build's entry in `site/changes.json`, which the website renders as its changes page (#402, once the website from #374 exists). Written for someone who plays the game and has never seen the repo. Until the page exists the entries still go in the file, so the page starts with the full history.
+- **Player changelog**: the build's entry in `ui/site/changes.json`, which the website renders as its changes page at `/changes/` and in the landing page's "What's new" (#402). Written for someone who plays the game and has never seen the repo.
 
 Both are public once pushed. The human approves both drafts before anything leaves this machine.
 
@@ -55,9 +55,9 @@ Show the human both drafts in full, with the target commit and the build number.
 
 The player entry ships inside the build it describes, so it goes on main before the tag.
 
-- Check the shared checkout is on main and clean for `site/changes.json`: `git -C /home/emil/freecol-online branch --show-current`. If another session has it on another branch, work in a worktree of main instead.
-- `site/changes.json` is a JSON array, newest build first. If it doesn't exist yet, create it as `[]`. Insert the new entry at the front.
-- Commit only that file: `git add site/changes.json`, subject `Changes: build <N+1>`. Push main: `git push origin main`. The deploy target is now this new commit, not the one from step 1. If main moved on origin in the meantime, stop and tell the human.
+- Check the shared checkout is on main and clean for `ui/site/changes.json`: `git -C /home/emil/freecol-online branch --show-current`. If another session has it on another branch, work in a worktree of main instead.
+- `ui/site/changes.json` is a JSON array, newest build first. Insert the new entry at the front.
+- Commit only that file: `git add ui/site/changes.json`, subject `Changes: build <N+1>`. Push main: `git push origin main`. The deploy target is now this new commit, not the one from step 1. If main moved on origin in the meantime, stop and tell the human.
 
 **Done when** `git rev-parse origin/main` is the changelog commit.
 
