@@ -3,7 +3,6 @@ import { describe, expect, it, vi } from 'vite-plus/test';
 import {
   blur,
   closeCoast,
-  lakeMask,
   coverAt,
   coverOf,
   FIELD_TEXEL,
@@ -316,33 +315,20 @@ describe('waterField', () => {
     expect(at(ox + 64, oy + 52)).toBe(0);
   });
 
-  it('keeps a one-tile pond calm and does not drain it through a river or a corner', () => {
-    const types = [...map.types, { id: 'model.tile.greatRiver', land: false, forested: false, name: 'River' }];
-    const tiles = Array.from({ length: w * h }, () => 'A');
-    tiles[3 * w] = 'B'; // edge ocean
-    tiles[3 * w + 1] = 'B'; // touches the ocean at a corner only
-    tiles[3 * w + 2] = 'E'; // river
-    tiles[3 * w + 3] = 'B'; // pond, connected only through the river
-    const lakes = lakeMask({ ...map, types, tiles: tiles.join('') });
-    expect(lakes[3 * w]).toBe(0);
-    expect(lakes[3 * w + 1]).toBe(1);
-    expect(lakes[3 * w + 3]).toBe(1);
-    // A long-side opening drains the first pool.
-    tiles[2 * w + 1] = 'B';
-    expect(lakeMask({ ...map, types, tiles: tiles.join('') })[3 * w + 1]).toBe(0);
-  });
-
-  it('takes explored sea by unexplored tiles for open sea, not a lake', () => {
-    // A new game's sight: a pocket of ocean away from the map's edge, by land and by the unexplored rest.
+  it('takes lakes from the tile type: explored sea by the unexplored stays ocean', () => {
+    // A new game's sight: a pocket of ocean away from the map's edge, by land and by the unexplored rest, and a lake.
     const tiles = Array.from({ length: w * h }, () => '.');
     for (const k of [3 * w + 2, 3 * w + 3, 4 * w + 2]) tiles[k] = 'B';
     tiles[5 * w + 2] = 'A';
-    const sea = lakeMask({ ...map, tiles: tiles.join('') });
-    expect(sea[3 * w + 2]).toBe(0);
-    expect(sea[4 * w + 2]).toBe(0);
-    // Shut in by land all round, the same water is a lake.
-    const shut = tiles.map((c) => (c === '.' ? 'A' : c));
-    expect(lakeMask({ ...map, tiles: shut.join('') })[3 * w + 2]).toBe(1);
+    tiles[7 * w + 2] = 'D';
+    const f = waterField({ ...map, tiles: tiles.join('') }, texel, () => 0, null, 'signed', recipe);
+    // A recipe's texels are half as tall.
+    const depthAt = (x: number, y: number) => {
+      const [ox, oy] = tileOrigin(x, y);
+      return f.data[4 * (Math.floor((oy + 32) / (texel / 2)) * f.cols + Math.floor((ox + 64) / texel)) + 1];
+    };
+    expect(depthAt(2, 3)).toBeGreaterThan(100);
+    expect(depthAt(2, 7)).toBeLessThan(30);
   });
 
   it('closing fills notches without cutting land or protected sailing channels', () => {

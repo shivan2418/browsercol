@@ -205,49 +205,6 @@ export function riverDirections(map: RiverMap): Map<number, number> {
   return result;
 }
 
-/** Edge-connected ocean only. Rivers and explicit lake terrain never drain a lake mask. */
-export function lakeMask(map: FieldMap): Uint8Array {
-  const { w, h, tiles, types } = map;
-  const lake = new Uint8Array(w * h);
-  const seen = new Uint8Array(w * h);
-  const queue = new Int32Array(w * h);
-  const water = (k: number) => {
-    const t = types[tiles.charCodeAt(k) - 65];
-    return !!t && !t.land && t.id !== 'model.tile.greatRiver';
-  };
-  for (let k = 0; k < lake.length; k++) {
-    if (!water(k) || seen[k]) continue;
-    let count = 1;
-    let edge = false;
-    queue[0] = k;
-    seen[k] = 1;
-    for (let head = 0; head < count; head++) {
-      const q = queue[head],
-        x = q % w,
-        y = Math.floor(q / w);
-      if (x === 0 || y === 0 || x === w - 1 || y === h - 1) edge = true;
-      // The four long sides of a staggered diamond, not its four corners.
-      const left = x + (y % 2) - 1;
-      for (const yy of [y - 1, y + 1])
-        for (const xx of [left, left + 1]) {
-          if (xx < 0 || xx >= w || yy < 0 || yy >= h) continue;
-          const n = yy * w + xx;
-          // Unexplored water may go on to the open sea: a body by it is no lake until it is known to be shut in.
-          if (!types[tiles.charCodeAt(n) - 65]) edge = true;
-          if (!seen[n] && water(n)) {
-            seen[n] = 1;
-            queue[count++] = n;
-          }
-        }
-    }
-    for (let i = 0; i < count; i++) {
-      const q = queue[i];
-      if (!edge || types[tiles.charCodeAt(q) - 65].id === 'model.tile.lake') lake[q] = 1;
-    }
-  }
-  return lake;
-}
-
 /**
  * Grow then shrink a binary land mask. The original land wins over the channel mask, so closing never cuts land.
  * `channels` protects water centres and the segments joining all eight sailing neighbours.
@@ -488,7 +445,6 @@ export interface WaterField {
     /** Per texel, the climate of the land there: 0 none (water, or hills by the latitude), 1 cold, 2 temperate, 3 tropical. */
     zone: Uint8Array;
     recipeKey: string;
-    lakes?: Uint8Array;
     channels: Uint8Array;
     plume: Float32Array;
     /** Each river tile's entry, by tile index: a river explored or changed is made again round its tile. */
@@ -566,7 +522,6 @@ export function waterField(
     2 * Math.max(nearR, depthR, recipe ? 0 : climateR, 1),
     Math.ceil((distanceCap + (recipe ? 2 * closingRadius : 0)) / texel) + 1,
   );
-  const lakes = recipe ? lakeMask(map) : undefined;
   const all: Rect = { i0: 0, j0: 0, i1: cols, j1: rows };
   /** The texels to make again: round the tiles that changed, with their neighbours, whose sand depends on them. */
   let raw = all;
@@ -579,8 +534,7 @@ export function waterField(
       y0 = Math.min(y0, y);
       y1 = Math.max(y1, y);
     };
-    for (let k = 0; k < tiles.length; k++)
-      if (tiles.charCodeAt(k) !== was.tiles.charCodeAt(k) || lakes?.[k] !== was.lakes?.[k]) changed(k);
+    for (let k = 0; k < tiles.length; k++) if (tiles.charCodeAt(k) !== was.tiles.charCodeAt(k)) changed(k);
     for (const [k, r] of riverEntries) if (was.rivers.get(k) !== r) changed(k);
     for (const k of was.rivers.keys()) if (!riverEntries.has(k)) changed(k);
     if (x1 < 0) return last;
@@ -641,7 +595,8 @@ export function waterField(
           break;
         }
         water[k] = 1;
-        depth[k] = lakes?.[y * w + x] ? 0 : kind - 1;
+        // Lakes by their tile type: FreeCol makes all water shut off from the ocean lake tiles.
+        depth[k] = kind - 1;
         let a = 0;
         for (let s = 0; s < points.length; s += 2) a += sand(x, y, u + points[s] * texel, v + points[s + 1] * texelY);
         land[k] = a / (points.length / 2);
@@ -779,7 +734,6 @@ export function waterField(
       zone,
       seed,
       recipeKey,
-      lakes,
       channels,
       plume,
       rivers: riverEntries,
