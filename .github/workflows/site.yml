@@ -1,4 +1,4 @@
-# Deploys the site to GitHub Pages: the landing page (ui/site/) of main's
+# Deploys the site to GitHub Pages: the landing page and changes page (ui/site/) of main's
 # latest commit, around the game of the latest release (play.tar.gz, which
 # pages.yml attaches to each build-N). A push to main that changes the page
 # (the paths below, which tools/site.sh copies) runs it, and so does pages.yml
@@ -16,6 +16,7 @@ on:
       - 'ui/src/fonts/cinzel/**'
       - 'ui/src/fonts/noto-sans/**'
       - 'tools/site.sh'
+      - 'ui/scripts/build-changes.ts'
       - '.github/workflows/site.yml'
   workflow_dispatch:
   workflow_call:
@@ -57,7 +58,8 @@ jobs:
           echo "The landing page of $(git rev-parse --short HEAD) around the game of $tag" | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: The landing page around it
-        run: tools/site.sh dist
+        # In the dev image: build-changes.ts is TypeScript, which its Node runs.
+        run: ./dev.sh tools/site.sh dist
 
       - uses: actions/upload-pages-artifact@v5
         with:

@@ -1,0 +1,133 @@
+[
+  {
+    "build": 7,
+    "date": "2026-11-10",
+    "new": [],
+    "fixed": ["English (UK) now starts. Before, choosing it stopped the game from loading."],
+    "changed": [
+      "A pressed button and a selected item share one look, so you can tell at a glance what you have picked."
+    ]
+  },
+  {
+    "build": 6,
+    "date": "2026-11-09",
+    "new": [
+      "A search box in Preferences finds an option in any category.",
+      "Every window fits the screen at any interface size from 100% to 200%.",
+      "The colony window stays in place when you step to the next colony, and you can spy on a colony without the game failing.",
+      "The turn banner names the player who is moving, and the monarch's tax-raise message shows the goods that would be boycotted.",
+      "A frame-rate meter for the map, under Debug, for checking performance.",
+      "The start screen explains what Classic and FreeCol change in the rules, and Classic starts with its four European nations.",
+      "BrowserCol has a front page at browsercol.com, with the game at /play/."
+    ],
+    "fixed": [
+      "Panning a large map is smooth: the map is drawn in chunks and no longer stalls at the start of a drag.",
+      "Sound effects are heard from the first one, and they can overlap.",
+      "A ship sailing for Europe is no longer left as your active unit.",
+      "Pressing E while typing a save's name no longer opens Europe.",
+      "Goods dropped on the docks are sold, and dumping boycotted goods is no longer logged or heard as a sale.",
+      "Reports and dialogs fit their content, never grow past the screen, and scroll when they are tall.",
+      "Long numbers on goods piles no longer overlap.",
+      "A scout meeting a native settlement answers Enter with a request to speak with the chief, not Cancel.",
+      "A saved game's address resumes your autosave, and an address naming a save that is gone tells you so.",
+      "Escape closes the menu or window on top instead of leaving full screen."
+    ],
+    "changed": [
+      "Windows open one at a time, and other units' moves wait until the open one is closed.",
+      "Switching the rules on the start screen redraws it in place.",
+      "You can export a save as a file from the Open Game window and the start screen.",
+      "Nothing is shown under the pointer while you hover or drag, as in FreeCol.",
+      "The Colopedia has a fixed size, with its text wrapped."
+    ]
+  },
+  {
+    "build": 5,
+    "date": "2026-11-07",
+    "new": ["Hovering a rule on the start screen explains it."],
+    "fixed": [],
+    "changed": ["Terrain animation on the map is lighter on slow machines."]
+  },
+  {
+    "build": 4,
+    "date": "2026-11-07",
+    "new": [
+      "BrowserCol has its own icon, and a wordmark with two globes on the loading screen.",
+      "A redesigned window for meeting other nations, treaties and trade.",
+      "The Continental Congress shows the father being recruited with the colony's bell bar.",
+      "The foreign affairs report is a table, with a column for each nation and a row for each measure.",
+      "Trade route stops show the goods they unload, load and keep, by hold.",
+      "Price tooltips in the colony window give what Europe would pay and charge, for example Cotton: 3/5 (6).",
+      "Buying goods from natives also says what Europe would pay for them.",
+      "Music and sound effects are not downloaded while their volume is 0.",
+      "Declaring independence and victory use FreeCol's own art.",
+      "A ? beside Rules on the start screen explains what each rule set changes."
+    ],
+    "fixed": [
+      "Placing a colonist on land that belongs to no colony claims it for the colony.",
+      "A ship battle no longer fails in the browser.",
+      "Dragging a unit or goods drops it on the place under the pointer.",
+      "If saving fails, the game says so. Firefox and Safari players can download a copy of their game.",
+      "The Open Game and Save Game windows are wide enough for a save's line.",
+      "The Declare Independence windows have titles.",
+      "Europe's open panel is no longer reset when the game sends it again."
+    ],
+    "changed": [
+      "Tabs have their own look: flat labels with rounded tops and one joined outline.",
+      "The map grid is thin and faint when on, and tiles show no seams when it is off.",
+      "The default option in a dialog is marked with the focus ring only, and Preferences, Load and the start screen focus their default button.",
+      "Colony windows keep a fixed size as you change what is inside.",
+      "The Colopedia shows each nation type's abilities and modifiers, the tiles a resource's bonus is for, and units' natives, requirements and production bonuses.",
+      "Title music starts with New Game or Continue, and sound keeps playing in the background.",
+      "Preferences offers only the graphics quality levels that change the map.",
+      "Big empires and animated terrain run faster in Firefox."
+    ]
+  },
+  {
+    "build": 3,
+    "date": "2026-11-06",
+    "new": [
+      "Music and sound effects have toggles on the start screen. Music is off until you turn it on, and it pauses while the page is hidden.",
+      "A wide start screen that fits at 1280×800, with the further options in tabs.",
+      "The loading screen shows the build, and warns phones that the game is not made for them."
+    ],
+    "fixed": [
+      "A ticked checkbox shows a tick, and a picked radio button shows a dot.",
+      "The colonists in Europe's buy menu line up.",
+      "The unit order buttons are centred and use FreeCol's icons.",
+      "Windows no longer make a sound as they open."
+    ],
+    "changed": [
+      "Every clickable thing shows the pointer cursor, and a disabled one does not.",
+      "Units ease out of a slide, a diagonal step takes half the time, and the camera waits for a move to finish before it goes on to the next unit.",
+      "Animations run as long as FreeCol's own, fast by default."
+    ]
+  },
+  {
+    "build": 2,
+    "date": "2026-11-06",
+    "new": ["An old browser is told which browsers run the game."],
+    "fixed": [],
+    "changed": [
+      "Buttons have FreeCol's bevel instead of flat rounded corners.",
+      "Windows open and close with a short scale and fade, and a click on opening.",
+      "Hints appear as tooltips that follow the pointer, including on the trade route editor's stops and holds."
+    ]
+  },
+  {
+    "build": 1,
+    "date": "2026-11-06",
+    "new": [
+      "The first public build: FreeCol's own rules and engine, running in your browser with a new interface that follows FreeCol's layout.",
+      "Found colonies, plow, clear forest and build roads, with FreeCol's menu bar, key commands and tile menus.",
+      "The colony window: put colonists to work, edit the build queue and buy what is being built, load and unload a ship in the port, and open a colony's tiles.",
+      "Europe: buy and sell goods, recruit colonists, sail ships to the New World and back, and pay off a boycott.",
+      "Trade routes with an editor, and reports for colonies, labour, trade, religion, requirements and more.",
+      "A minimap, a native settlement window, the Colopedia and the Continental Congress.",
+      "Saves: autosaves, Save and Open Game, and export and import of FreeCol's .fsg files.",
+      "Preferences: FreeCol's own client options, animation speeds, volume and the choice between the FreeCol and FreeCol+ graphics.",
+      "Music and sound effects from FreeCol."
+    ],
+    "fixed": [],
+    "changed": []
+  }
+]

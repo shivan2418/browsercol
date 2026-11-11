@@ -132,7 +132,8 @@ language. It also copies the default Tileset's art
 (`ui/scripts/build-art.ts`, which prints the art budget) and runs
 `vp build` into `dist/play/`, the game. The site's root, `dist/index.html`,
 is the landing page (`ui/site/`, plain HTML and CSS, with the logo and fonts
-copied beside it); a root URL carrying game parameters is forwarded to
+copied beside it) and `changes/`, the player changelog
+rendered from `ui/site/changes.json` (`ui/scripts/build-changes.ts`, #402); a root URL carrying game parameters is forwarded to
 `play/`. Serve `dist/` from any static host: its URLs are relative, so a
 sub-path such as GitHub Pages' `/<repo>/` works.
 
