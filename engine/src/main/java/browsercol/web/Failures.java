@@ -3,6 +3,7 @@ package browsercol.web;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 
 /**
@@ -29,10 +30,10 @@ final class Failures {
     }
 
     /** Where {@link #reportFatal} sends a failure: its description. */
-    private static volatile java.util.function.Consumer<String> fatalSink = detail -> {};
+    private static volatile Consumer<String> fatalSink = detail -> {};
 
     /** Send the failures {@link #reportFatal} is given to {@code to}. */
-    static void reportFatalTo(java.util.function.Consumer<String> to) {
+    static void reportFatalTo(Consumer<String> to) {
         fatalSink = to;
     }
 

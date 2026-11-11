@@ -86,8 +86,9 @@ public final class ServerEngine {
      * Start a new single-player server game on a map from a file, as the
      * map generator's import file option does on desktop FreeCol: the map
      * of a map file (.fsm) or of a savegame (.fsg) takes the place of a
-     * generated one, as does a map of the DOS game (.MP) or one of our own made from it (DosMap). The page hands over the file's bytes because the
-     * browser has no file system for the server to read it from.
+     * generated one, as does a map of the DOS game (.MP) or one of our own
+     * made from it (DosMap). The page hands over the file's bytes because
+     * the browser has no file system for the server to read it from.
      *
      * @param rules The rules id, e.g. "classic", unless the preset names
      *     its own.
