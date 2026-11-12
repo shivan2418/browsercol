@@ -2396,17 +2396,18 @@ class CommandsTest {
 
     /**
      * What the route editor is told of a colony's goods, as {have, keep,
-     * give, room}, from the last routes panel.
+     * give, upTo, room}, from the last routes panel.
      */
     private int[] stockShown(Colony colony, String type) {
         final String panel = routePanels.get(routePanels.size() - 1);
         final Matcher m = Pattern.compile("\"id\":\"" + colony.getId() + "\"[^{]*\"stock\":\\{.*?\""
-            + Pattern.quote(type) + "\":\\{\"have\":(\\d+),\"keep\":(\\d+),\"give\":(\\d+),\"room\":(\\d+|null)\\}")
+            + Pattern.quote(type) + "\":\\{\"have\":(\\d+),\"keep\":(\\d+),\"give\":(\\d+),\"upTo\":(\\d+|null),\"room\":(\\d+|null)\\}")
             .matcher(panel);
         assertTrue(m.find(), "the panel tells the editor of the colony's " + type + ": " + panel);
         return new int[] { Integer.parseInt(m.group(1)), Integer.parseInt(m.group(2)),
                            Integer.parseInt(m.group(3)),
-                           m.group(4).equals("null") ? -1 : Integer.parseInt(m.group(4)) };
+                           m.group(4).equals("null") ? -1 : Integer.parseInt(m.group(4)),
+                           m.group(5).equals("null") ? -1 : Integer.parseInt(m.group(5)) };
     }
 
     /**
@@ -2446,7 +2447,9 @@ class CommandsTest {
         final int[] fursShown = stockShown(colony, furs);
         final int fursHad = colony.getGoodsCount(fursType);
         final int room = Math.max(0, (enhanced ? 70 : colony.getWarehouseCapacity()) - fursHad);
-        assertEquals(room, fursShown[3], "the room for furs");
+        assertEquals(enhanced ? 70 : colony.getWarehouseCapacity(), fursShown[3],
+                     "furs are unloaded up to the import level, or the warehouse's capacity");
+        assertEquals(room, fursShown[4], "the room for furs");
 
         // A merchantman with 100 furs aboard calls at the colony, which lists only cloth: it unloads the
         // furs it has room for, keeps the rest, and takes the cloth above what the colony keeps.
