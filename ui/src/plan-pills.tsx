@@ -43,7 +43,7 @@ function PlanPill({
   const tip = !europe
     ? `${VERB[kind]} ${holds > 1 ? `${holds} holds of ` : ''}${name} (the plan: real amounts depend on the colony's stock and export level)`
     : kind === 'load'
-      ? `Buy ${holds * 100} ${name} at the market's price, while the gold lasts`
+      ? `Buy ${holds * 100} ${name} at the market's price, all at once: if the gold does not cover them, none are bought, nor the goods after them, and the carrier waits in Europe`
       : kind === 'unload'
         ? `Sell the ${name} on board, less tax`
         : `Keep the ${name} aboard`;
