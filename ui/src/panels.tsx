@@ -1111,16 +1111,17 @@ function RouteEditor({
       const w = place?.stock?.[g];
       if (!w || !place) return null;
       if (kind === 'load') {
+        const short = w.give < k * 100;
         return {
-          figure: `${w.give} spare`,
-          short: w.give < k * 100,
+          figure: `${short ? 'only ' : ''}${w.give} available`,
+          short,
           tip: `${place.label} has ${w.have} ${nameOf(g)} now and keeps ${w.keep}: a carrier may take ${w.give}. What it keeps is set in its warehouse.`,
         };
       }
       if (kind !== 'unload' || w.room === null) return null;
       const where = e.enhanced ? `up to its import level, set in its warehouse` : 'in its warehouse';
       return {
-        figure: `room ${w.room}`,
+        figure: `${w.room < k * 100 ? 'only ' : ''}${w.room} fit`,
         short: w.room < k * 100,
         tip: `${place.label} has room for ${w.room} more ${nameOf(g)} now, ${where}.${w.room < k * 100 ? ` A carrier with more unloads ${w.room}, and ${overflow}.` : ''}`,
       };
