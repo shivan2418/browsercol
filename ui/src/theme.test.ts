@@ -97,7 +97,21 @@ const bare = (text: string) => text.replace(/\/\*[\s\S]*?\*\//g, '');
  * tables in their own lengths. They are in the components layer like the rest, but the token and panel-name
  * checks below skip them (#435).
  */
-const PANEL_SHEETS = ['./reports.css', './colony-panel.css', './dialog.css', './panels.css', './negotiation.css'];
+const PANEL_SHEETS = [
+  './reports.css',
+  './colony-panel.css',
+  './dialog.css',
+  './panels.css',
+  './negotiation.css',
+  // The map chrome, moved out of index.html as it was (#498): its lengths are its own until a theme takes them.
+  './minimap-panel.css',
+  './info-panel.css',
+  './side.css',
+  './menubar.css',
+  './popup-menu.css',
+  './turn-banner.css',
+  './log.css',
+];
 
 /** Each declaration of a sheet, with the selector of the rule it is in. */
 function declarations(text: string) {
@@ -221,6 +235,8 @@ const MOVED: Record<string, RegExp> = {
     /^(\.dialog|\.error-banner|\.start-window|#preferences|\.dialog\[data-kind='europe'\])\s+\.buttons(\s+\[data-answer='close'\])?$/,
   'the colony panel (colony-panel.css)': /(^|[\s(])\.colony(?![\w-])|^\.dialog\[data-kind='colony'\]/,
   'the dialogs (dialog.css, panels.css, negotiation.css)': /^\.dialog(?![\w-])(?!$)/,
+  'the map chrome (minimap-panel.css, info-panel.css, side.css, menubar.css, popup-menu.css, turn-banner.css, log.css)':
+    /(^|[\s(])(#minimap|#info-panel|#info|#out|#log|\.minimap-buttons|\.menubar|\.popup|\.info-[\w-]+|\.turn-banner(-swatch)?)(?![\w-])/,
 };
 
 test('a moved pattern has no rule left in index.html', () => {

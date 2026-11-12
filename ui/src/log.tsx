@@ -3,6 +3,7 @@ import { createContext } from 'react';
 import { ButtonRow, WindowFrame } from './frame';
 import type { GuiEvents } from './webgui';
 import { useCoverage } from './coverage';
+import './log.css';
 
 /** Open the log: the error panel's "Show log file" button asks for it. */
 export const ShowLogContext = createContext<() => void>(() => {});

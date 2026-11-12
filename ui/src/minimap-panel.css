@@ -1,0 +1,112 @@
+/*
+ * FreeCol's minimap's rules (src/minimap-panel.tsx), moved out of index.html in their order (#498).
+ */
+@layer components {
+  /* FreeCol's minimap (src/minimap-panel.tsx), at the map's bottom-left as CornerMapControls puts it; one of the map controls. */
+  #minimap {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    display: flex;
+    gap: 6px;
+    padding: 6px;
+    background: var(--panel);
+    border: 2px solid var(--line);
+    border-width: 2px 2px 0 0;
+    border-radius: 0 6px 0 0;
+  }
+  body[data-map-controls='hidden'] #minimap {
+    display: none;
+  }
+  #minimap canvas {
+    display: block;
+    border: 1px solid var(--line);
+    cursor: crosshair;
+  }
+  .minimap-buttons {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+  }
+  .minimap-buttons button {
+    padding: 2px 6px;
+    min-width: 28px;
+  }
+  .minimap-buttons button[aria-pressed='false'] {
+    opacity: 0.6;
+  }
+  /*
+   * With FreeCol's skin (image.skin.MiniMap): the desk with the globe at the skin's size, drawn over the
+   * minimap so the desk's legs frame it, and the buttons on the left leg. The places are
+   * image.skin.MiniMap.properties': the minimap at 41, 203, each button centred on its point. Only the
+   * minimap and the buttons take the pointer, so the map under the globe can still be clicked.
+   */
+  #minimap.skinned {
+    display: block;
+    width: 310px;
+    height: 359px;
+    padding: 0;
+    background: none;
+    border: 0;
+    border-radius: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  #minimap.skinned canvas {
+    position: absolute;
+    left: 41px;
+    top: 203px;
+    border: 0;
+    pointer-events: auto;
+  }
+  #minimap .minimap-skin {
+    position: absolute;
+    inset: 0;
+    background: var(--skin) left top / 100% 100% no-repeat;
+  }
+  #minimap.skinned .minimap-buttons {
+    display: contents;
+  }
+  #minimap .pictured {
+    position: absolute;
+    z-index: 1;
+    left: 6px;
+    width: 32px;
+    height: 32px;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    box-shadow: none;
+    /* The skin's pictures show a toggle's state; no pressed line over them. */
+    outline: none;
+    opacity: 1;
+    background: var(--normal) center / contain no-repeat;
+    pointer-events: auto;
+  }
+  #minimap .pictured:nth-child(1) {
+    top: 218px;
+  }
+  #minimap .pictured:nth-child(2) {
+    top: 254px;
+  }
+  #minimap .pictured:nth-child(3) {
+    top: 290px;
+  }
+  #minimap .pictured:nth-child(4) {
+    top: 321px;
+  }
+  #minimap .pictured:hover:not(:disabled) {
+    background-image: var(--highlighted);
+  }
+  #minimap .pictured:active:not(:disabled) {
+    background-image: var(--pressed);
+  }
+  #minimap .pictured:disabled {
+    background-image: var(--disabled);
+    opacity: 1;
+  }
+  #minimap .pictured:focus-visible {
+    outline: 2px solid var(--accent);
+  }
+}

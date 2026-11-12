@@ -1,0 +1,126 @@
+/*
+ * FreeCol's InfoPanel's rules (src/info-panel.tsx), moved out of index.html in their order (#498).
+ */
+@layer components {
+  /* FreeCol's InfoPanel (src/info-panel.tsx), at the map's bottom-right as CornerMapControls puts it; one of the map controls. */
+  #info-panel {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    box-sizing: border-box;
+    width: var(--info-panel-w);
+    min-height: 150px;
+    padding: 8px 10px;
+    background: var(--panel);
+    color: var(--ink);
+    border: 2px solid var(--line);
+    border-width: 2px 0 0 2px;
+    border-radius: 6px 0 0 0;
+    font-size: var(--fs-s);
+  }
+  /*
+   * With FreeCol's skin (image.skin.InfoPanel): the desk with the skull on it over the paper, at the skin's
+   * size; the panel's contents go in the paper as image.skin.InfoPanel.properties places them. Only the
+   * contents take the pointer, so the map under the desk's empty corners can still be clicked.
+   */
+  #info-panel.skinned {
+    width: 310px;
+    height: 298px;
+    min-height: 0;
+    padding: 146px 8px 14px 52px;
+    background: var(--skin) left top / 100% 100% no-repeat;
+    border: 0;
+    border-radius: 0;
+    pointer-events: none;
+    --ink: var(--paper-ink);
+    --muted: var(--paper-muted);
+    --head: var(--paper-head);
+    --link: var(--paper-link);
+  }
+  #info-panel.skinned > * {
+    pointer-events: auto;
+    max-height: 100%;
+    overflow: hidden;
+  }
+  #info-panel.skinned .info-end {
+    min-height: 100%;
+  }
+  body[data-map-controls='hidden'] #info-panel {
+    display: none;
+  }
+  #info-panel p {
+    margin: 0 0 4px;
+  }
+  #info-panel.info-unit {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  .info-picture {
+    flex: none;
+    min-width: 64px;
+    display: flex;
+    justify-content: center;
+    align-self: center;
+  }
+  .info-picture img {
+    display: block;
+    max-width: 96px;
+  }
+  .info-text {
+    flex: 1;
+    min-width: 0;
+  }
+  .info-label {
+    font-size: var(--fs);
+    color: var(--head);
+  }
+  .info-units,
+  .info-goods {
+    list-style: none;
+    margin: 4px 0 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 6px;
+    align-items: center;
+  }
+  .info-units img {
+    height: 32px;
+  }
+  .info-goods li {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+  .info-goods img {
+    height: 20px;
+  }
+  .info-end {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 130px;
+    text-align: center;
+  }
+  /* The end turn message fades slowly out and back in, over and over, to draw the eye while the turn waits. */
+  .info-end p {
+    animation: info-end-pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes info-end-pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.15;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .info-end p {
+      animation: none;
+    }
+  }
+}

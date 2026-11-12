@@ -1,0 +1,52 @@
+/*
+ * The right-click menu's rules (src/popup-menu.tsx), moved out of index.html in their order (#498).
+ */
+@layer components {
+  /* A right-click menu (src/popup-menu.tsx): at the pointer, over the map and every dialog. */
+  .popup {
+    position: fixed;
+    z-index: 100;
+    min-width: 12em;
+    max-width: 28em;
+    max-height: 90vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    padding: 2px;
+    font-size: var(--fs-s);
+  }
+  /*
+   * At a class's weight (:where), so button.css's button:hover and button:focus-visible, which beat it when it was in
+   * index.html before them, still win now that it comes after them (#498).
+   */
+  .popup :where(button) {
+    text-align: left;
+    padding: 3px 10px;
+    background: transparent;
+    color: inherit;
+    border: 0;
+    font: inherit;
+  }
+  /* A work entry's goods, before its label. */
+  .popup button .icon {
+    height: 1.3em;
+    width: auto;
+    vertical-align: middle;
+    margin-right: 6px;
+  }
+  .popup button:hover:enabled {
+    background: var(--btn);
+    color: var(--btn-ink);
+  }
+  .popup button:disabled {
+    color: var(--muted);
+    cursor: default;
+  }
+  .popup button[data-gap] {
+    border-top: 1px solid var(--line);
+  }
+  .popup button[data-indent] {
+    padding-left: 24px;
+    font-style: italic;
+  }
+}

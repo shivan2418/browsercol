@@ -6,6 +6,7 @@ import { useRef } from 'react';
 import { DebugMenu, type DebugMenuProps } from './debug-menu';
 import { orderOf, type Command } from './input';
 import type { SaveMeta } from './saves';
+import './side.css';
 
 export interface SideProps {
   turn: string;

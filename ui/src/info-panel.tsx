@@ -9,6 +9,7 @@ import { Tip } from './controls';
 import { cssUrl, type Art } from './frame';
 import { PANEL_KEYS } from './map-keys';
 import type { ActiveUnit } from './tileset';
+import './info-panel.css';
 
 export interface InfoPanelProps {
   /** The active unit, once a map view about it has come. */

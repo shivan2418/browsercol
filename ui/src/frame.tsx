@@ -25,6 +25,8 @@ import { dragging } from './drag';
 import { focusFirstEntry, menuArrows, useFocusTrap } from './focus';
 import { barSegments } from './progress-bar';
 import type { GoodsProgress } from './webgui';
+// Before button.css, as its rules were in index.html: button:hover's accent border still beats .menubar button (#498).
+import './menubar.css';
 import './button.css';
 import './window-frame.css';
 import './goods.css';

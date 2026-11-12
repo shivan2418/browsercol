@@ -1,0 +1,21 @@
+/*
+ * The side panel's text boxes (src/side.tsx), moved out of index.html in their order (#498).
+ */
+@layer components {
+  #info {
+    white-space: pre;
+    overflow: auto;
+    min-height: 8em;
+    border: 1px solid var(--line);
+    background: var(--box);
+    font-family: var(--font-mono);
+    padding: 4px;
+  }
+  #out {
+    font-family: var(--font-mono);
+    color: var(--muted);
+    white-space: pre;
+    overflow: auto;
+    flex: 1;
+  }
+}

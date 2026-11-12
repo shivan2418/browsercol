@@ -24,6 +24,7 @@ import {
 import { PANEL_KEY_FAMILIES, PANEL_KEYS } from './map-keys';
 import type { Resources } from './resources';
 import type { MapView } from './tileset';
+import './minimap-panel.css';
 
 /** The minimap's size, as image.skin.MiniMap.properties gives it. */
 const BOX: [number, number] = [224, 160];

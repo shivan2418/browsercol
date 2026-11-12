@@ -1,0 +1,44 @@
+/*
+ * The turn change banner's rules (src/turn-banner.tsx), moved out of index.html in their order (#498).
+ */
+@layer components {
+  /* The turn change banner (src/turn-banner.tsx), over the top of the map, centred on the map, not the window. */
+  .turn-banner {
+    position: absolute;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 5;
+    padding: 6px 18px;
+    background: var(--menubar);
+    color: var(--menubar-ink);
+    border: 2px solid var(--line);
+    font: var(--fs-h) / 1.4 var(--font);
+    pointer-events: none;
+  }
+  /* A new turn's banner stays solid, then fades out over its last stretch; its length is set inline. */
+  .turn-banner.new {
+    animation: turn-banner-fade linear forwards;
+  }
+  @keyframes turn-banner-fade {
+    0%,
+    70% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+  .turn-banner.ai {
+    font-style: italic;
+  }
+  /* The nation's colour beside the name of the player who is moving. */
+  .turn-banner-swatch {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    margin-right: 8px;
+    border: 1px solid var(--line);
+    vertical-align: baseline;
+  }
+}

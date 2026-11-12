@@ -8,6 +8,7 @@ import { focusFirstEntry, menuArrows, useFocusTrap } from './focus';
 import { useEscape, type Art } from './frame';
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from 'react';
 import { useCoverage } from './coverage';
+import './popup-menu.css';
 
 /** One entry: its id (the Engine runs it), its label, and how it is drawn (Menus.java). */
 export interface MenuEntry {

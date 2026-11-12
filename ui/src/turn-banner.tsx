@@ -3,6 +3,7 @@
 // player's turn starts it shows "Turn N, Spring 1493" for a moment. Once no unit is left to move only the
 // info panel (info-panel.tsx) says to end the turn, as FreeCol's does.
 import { useEffect, useState } from 'react';
+import './turn-banner.css';
 
 /** What the last map said about the turn. */
 export interface TurnFacts {
