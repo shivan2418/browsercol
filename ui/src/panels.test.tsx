@@ -1677,7 +1677,7 @@ describe('the warehouse dialog', () => {
 
   it('lays the goods out as a table: a row for each, the headings named and hinted as FreeCol does', async () => {
     const { box } = host();
-    ask(box, 'warehouse', q);
+    void ask(box, 'warehouse', q);
     const headings = screen.getAllByRole('columnheader');
     expect(headings.map((h) => h.textContent)).toEqual(['Goods', 'Low', 'High', 'Import', 'Export']);
     expect(headings[4].getAttribute('colspan')).toBe('2');
@@ -1694,7 +1694,7 @@ describe('the warehouse dialog', () => {
 
   it('has no import column unless a goods has an import level', () => {
     const { box } = host();
-    ask(box, 'warehouse', { ...q, goods: q.goods.map((g) => ({ ...g, import: null })) });
+    void ask(box, 'warehouse', { ...q, goods: q.goods.map((g) => ({ ...g, import: null })) });
     expect(screen.getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['Goods', 'Low', 'High', 'Export']);
   });
 
