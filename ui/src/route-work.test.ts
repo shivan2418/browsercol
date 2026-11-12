@@ -17,16 +17,9 @@ describe('stopWork', () => {
     expect(stopWork(route, 0)).toEqual({ unload: [[S, 2]], load: [[R, 1]], keep: [] });
   });
 
-  it('counts holds per goods type: two holds arriving and one leaving unloads one', () => {
+  it('keeps every hold of a goods the stop lists, even beyond its holds, as FreeCol unloads only goods it does not list', () => {
     const route = [stop(S, S, R), stop(S)];
-    expect(stopWork(route, 1)).toEqual({
-      unload: [
-        [S, 1],
-        [R, 1],
-      ],
-      load: [],
-      keep: [[S, 1]],
-    });
+    expect(stopWork(route, 1)).toEqual({ unload: [[R, 1]], load: [], keep: [[S, 2]] });
     expect(stopWork(route, 0)).toEqual({
       unload: [],
       load: [

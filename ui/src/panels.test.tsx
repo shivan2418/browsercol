@@ -1857,7 +1857,7 @@ describe('the trade routes panel', () => {
     expect(stopAt(2).textContent).toContain('nothing to do');
   });
 
-  it('counts holds: a stop that leaves with fewer holds of a goods type unloads the rest, and keeps the others', () => {
+  it('counts holds: a stop keeps every hold of a goods it lists, even beyond its holds, and unloads the others', () => {
     const { box } = host();
     act(() =>
       box.replace(
@@ -1886,9 +1886,10 @@ describe('the trade routes panel', () => {
     );
     pick('Sugar run');
     press('Edit Trade Route');
-    // Jamestown is reached with two holds of tools and furs, and leaves with one tools: one tools stays.
-    expect(chipsAt(1)).toEqual([`unload ${T} −1`, `unload ${F} −1`]);
-    expect(keptAt(1)).toEqual([`${T} =1`]);
+    // Jamestown is reached with two holds of tools and furs, and lists one tools: FreeCol unloads only goods a
+    // stop does not list, so both holds of tools stay aboard and the furs are unloaded.
+    expect(chipsAt(1)).toEqual([`unload ${F} −1`]);
+    expect(keptAt(1)).toEqual([`${T} =2`]);
     // Europe unloads the tools and loads furs; New Amsterdam is reached with furs only.
     expect(chipsAt(2)).toEqual([`unload ${T} Sell−1`, `load ${F} Buy+1`]);
     expect(chipsAt(0)).toEqual([`load ${T} +2`]);

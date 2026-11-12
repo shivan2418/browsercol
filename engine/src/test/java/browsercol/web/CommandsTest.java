@@ -2678,6 +2678,43 @@ class CommandsTest {
     }
 
     /**
+     * A carrier unloads at a stop only the goods the stop does not list,
+     * all of them, and keeps aboard every hold of a goods it lists, even
+     * beyond its holds (InGameController.unloadUnitAtStop), as the route
+     * editor's plan shows: a ship with two holds of tools at a stop that
+     * lists one unloads none of them.
+     */
+    @Test
+    @Timeout(300)
+    void aCarrierKeepsEveryHoldOfAGoodsTheStopLists() throws Exception {
+        startGame();
+        final Commands commands = commands();
+        final Player player = client.getClient().getMyPlayer();
+        final Colony colonyA = foundAColony(commands);
+        final Colony colonyB = secondColony(colonyA, "Tradeville");
+        final String tools = "model.goods.tools";
+        final GoodsType toolsType = server.getGame().getSpecification().getGoodsType(tools);
+        // A lists one hold of tools, Tradeville two: a carrier reaches A from Tradeville with two.
+        final Unit ship = merchantmanIn(colonyA);
+        debug("{\"action\":\"addGoods\",\"type\":\"" + tools + "\",\"amount\":200,\"unit\":\"" + ship.getId() + "\"}");
+        awaitTrue(() -> ship.getGoodsCount(client.getGame().getSpecification().getGoodsType(tools)) == 200,
+                  "the client sees the tools aboard");
+        final int had = colonyA.getGoodsCount(toolsType);
+        assertNull(commands.saveTradeRoute(null, "Tool loop", true,
+            List.of(colonyA.getId(), player.getEurope().getId(), colonyB.getId()),
+            List.of(List.of(tools), List.of(), List.of(tools, tools))), "the route is saved");
+        assertTrue(commands.assignTradeRoute(ship.getId(), serverRoutes(player).get(0).getId()));
+        final Unit ours = client.getGame().getFreeColGameObject(ship.getId(), Unit.class);
+        int turns = 0;
+        while (ours.getStop().getLocation().getId().equals(colonyA.getId())) {
+            endTurnAndWait(commands);
+            assertTrue(++turns < 4, "the ship is done at A within 4 turns");
+        }
+        assertEquals(200, serverUnit(ship).getGoodsCount(toolsType), "both holds of tools stay aboard");
+        assertEquals(had, colonyA.getGoodsCount(toolsType), "A was given none");
+    }
+
+    /**
      * A ship on a route between two colonies loads at the first and
      * unloads into the second.
      */
