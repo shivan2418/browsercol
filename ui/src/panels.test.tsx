@@ -2304,6 +2304,49 @@ describe('the trade routes panel', () => {
     },
   );
 
+  it.each([false, true])(
+    'with enhanced trade routes %s, says a load is capped by what the stop that unloads it takes in',
+    async (enhanced) => {
+      const { box } = host();
+      act(() =>
+        box.replace(
+          'tradeRoutes',
+          routes({
+            enhanced,
+            places: [
+              { id: 'europe:1', label: 'Europe', port: true, land: null, stock: null },
+              {
+                id: 'colony:7',
+                label: 'New Amsterdam',
+                port: true,
+                land: 1,
+                stock: {
+                  [T]: { have: 0, keep: 0, give: 0, upTo: 100, room: 100 },
+                  [F]: { have: 300, keep: 50, give: 250, upTo: 100, room: 0 },
+                },
+              },
+            ],
+          }),
+        ),
+      );
+      pick('Fur run (2)');
+      press('Edit Trade Route');
+      // New Amsterdam loads furs, which Europe takes (it keeps none on board): Europe has no cap. Europe buys
+      // tools, which New Amsterdam takes in up to 100, and has none of: about 100 fit there.
+      const tools = stopAt(0).querySelector(`[data-work=load][data-type="${T}"]`)!;
+      const furs = stopAt(1).querySelector(`[data-work=load][data-type="${F}"]`)!;
+      expect(await hint(furs)).not.toContain('With enhanced trade routes');
+      const said = await hint(tools);
+      if (enhanced) {
+        expect(said).toContain(
+          'With enhanced trade routes it loads no more than New Amsterdam takes in, where it is unloaded: up to 100, and it has 0 now, so about 100, less what New Amsterdam makes before the carrier arrives',
+        );
+      } else {
+        expect(said).not.toContain('With enhanced trade routes');
+      }
+    },
+  );
+
   it('disables Add Stop once the route has a stop for every place', async () => {
     const { box } = host();
     act(() => box.replace('tradeRoutes', routes()));
