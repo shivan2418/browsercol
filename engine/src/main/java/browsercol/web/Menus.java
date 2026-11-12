@@ -432,6 +432,20 @@ final class Menus {
             text(StringTemplate.template("quickActionMenu.clearSpeciality")), fits, false);
     }
 
+    /**
+     * QuickActionMenu's "Assign to teacher", naming what the teacher teaches
+     * (Swing shows it only by the teacher's picture), and, when the teacher
+     * has a student, the turns of that training: "Assign to teacher: Master
+     * Carpenter (2/4)".
+     */
+    static String assignToTeacher(Unit teacher) {
+        return Messages.message("quickActionMenu.assignToTeacher") + ": "
+            + Messages.getName(teacher.getType())
+            + (teacher.getStudent() != null
+               ? " (" + teacher.getTurnsOfTraining() + "/" + teacher.getNeededTurnsOfTraining() + ")"
+               : "");
+    }
+
     /** QuickActionMenu.addEducationItems: the teachers that may take the unit, and its own lessons. */
     private void addEducation(Builder b, Unit unit, Colony colony) {
         boolean any = false;
@@ -439,17 +453,16 @@ final class Menus {
                 net.sf.freecol.common.option.GameOptions.ALLOW_STUDENT_SELECTION)) {
             for (Unit teacher : colony.getTeachers().collect(java.util.stream.Collectors.toList())) {
                 if (!unit.canBeStudent(teacher) || !teacher.isInColony()) continue;
-                final String name = Messages.getName(teacher.getType());
-                final String progress = " (" + teacher.getTurnsOfTraining() + "/"
-                    + teacher.getNeededTurnsOfTraining() + ")";
+                // Swing draws the teacher's picture before each entry; it goes as the entry's icons.
+                final String icons = MapJson.unitKeyJson(teacher);
                 if (teacher.getStudent() == unit) {
                     b.add("none", text(StringTemplate.template("quickActionMenu.apprentice")
-                        .addName("%unit%", name)) + ":" + progress, false, false);
+                        .addName("%unit%", Messages.getName(teacher.getType())))
+                        + ": " + teacher.getTurnsOfTraining() + "/"
+                        + teacher.getNeededTurnsOfTraining(), false, false, null, icons);
                 } else {
                     b.add("assign:" + unit.getId() + "," + teacher.getId(),
-                        text(StringTemplate.template("quickActionMenu.assignToTeacher")
-                            .addName("%unit%", name))
-                        + (teacher.getStudent() != null ? progress : ""));
+                        assignToTeacher(teacher), true, false, null, icons);
                 }
                 any = true;
             }

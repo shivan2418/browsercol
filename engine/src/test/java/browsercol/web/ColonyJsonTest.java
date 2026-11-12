@@ -546,4 +546,28 @@ class ColonyJsonTest {
         assertEquals(List.of("Rebel:", "0", "0%"), list(members.get(0)));
         assertEquals(List.of("Royalist:", "0", "100%"), list(members.get(1)));
     }
+
+    /**
+     * "Assign to teacher" names what the teacher teaches, as Swing shows it
+     * only by the teacher's picture.
+     */
+    @Test
+    @Timeout(120)
+    void assignToTeacherNamesTheTeachersProfession() throws Exception {
+        startGame();
+        final Game game = server.getGame();
+        final Specification spec = game.getSpecification();
+        final Player us = game.getFreeColGameObject(
+            client.getClient().getMyPlayer().getId(), Player.class);
+        final Tile land = game.getMap().getTileSet(t -> t.isLand() && !t.hasSettlement()
+                && t.getOwner() == null && t.getUnitCount() == 0).stream().findFirst().get();
+        final Unit teacher = new ServerUnit(game, land, us, spec.getUnitType("model.unit.masterCarpenter"));
+        final Colony colony = new ServerColony(game, us, "Jamestown", land);
+        us.addSettlement(colony);
+        colony.placeSettlement(true);
+        teacher.setLocation(colony);
+        final String assign = Messages.message("quickActionMenu.assignToTeacher");
+
+        assertEquals(assign + ": Master Carpenter", Menus.assignToTeacher(teacher));
+    }
 }
