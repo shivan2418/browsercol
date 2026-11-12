@@ -994,16 +994,41 @@ async function play(page: Page, url: string) {
         // The queue is mostly two or three items: its pane stops at about three rows and leaves the rest to the
         // buildings and units, which the player picks from.
         p.height > first.height * 3.8 ? `the queue pane is ${Math.round(p.height / first.height)} rows tall` : '',
-        p.height > win.querySelector('[data-part=buildings]')!.getBoundingClientRect().height
-          ? 'the queue pane is taller than the buildings list'
-          : '',
+        (() => {
+          // The queue never crowds out a buildings list that has to scroll.
+          const b = win.querySelector<HTMLElement>('[data-part=buildings]')!;
+          return b.scrollHeight > b.clientHeight + 1 && p.height > b.getBoundingClientRect().height
+            ? 'the queue pane is taller than the scrolling buildings list'
+            : '';
+        })(),
         pane.scrollHeight > pane.clientHeight + 1 || !stray ? '' : 'a queued row overflows sideways',
       ].filter((x) => x !== '');
     });
-    await page.screenshot({
-      path: path.join(dist, `../.cache/play-${page.context().browser()!.browserType().name()}-build-queue.png`),
-    });
+    const browser = page.context().browser()!.browserType().name();
+    await page.screenshot({ path: path.join(dist, `../.cache/play-${browser}-build-queue.png`) });
     if (fit.length > 0) throw new Error(`the build queue window does not fit: ${fit.join('; ')}`);
+    // The buildings and the units take the room their rows need: a list scrolls only if it has at least the other's
+    // room. Show all lists everything, units the colony cannot build yet too, so both lists are long.
+    const shared = () =>
+      panel.locator('.queue-lists').evaluate((lists) => {
+        const boxes = [...lists.querySelectorAll<HTMLElement>(':scope > .box')];
+        return boxes.flatMap((a) =>
+          boxes
+            .filter((b) => b !== a)
+            .filter((b) => a.scrollHeight > a.clientHeight + 1 && a.clientHeight < b.clientHeight - 2)
+            .map(
+              (b) => `${a.dataset.part} scrolls in ${a.clientHeight}px while ${b.dataset.part} has ${b.clientHeight}px`,
+            ),
+        );
+      });
+    const cramped = await shared();
+    const showAll = panel.locator('label.show-all:not(.compact) input');
+    await showAll.check();
+    await panel.locator('[data-part=units] [data-locked]').first().waitFor({ timeout: 20000, label: 'Show all' });
+    cramped.push(...(await shared()));
+    await page.screenshot({ path: path.join(dist, `../.cache/play-${browser}-build-queue-all.png`) });
+    await showAll.uncheck();
+    if (cramped.length > 0) throw new Error(`the build lists do not share their room: ${cramped.join('; ')}`);
     // The queue's popup covers the panel until it is closed.
     await panel.locator('button.queue-close').click();
     await page.evaluate(() => (window.__hold = null));

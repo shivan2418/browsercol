@@ -2318,22 +2318,22 @@
       .colony .queue-body .queued li .name {
         min-width: 4em;
       }
+      /*
+       * The buildings and the units take the room their rows need. Grid track sizing shares the height out evenly
+       * up to each list's own size (minmax(0, max-content)): a short list keeps all its rows and gives the rest to
+       * the other, and only when both are long do they split it, each scrolling by itself.
+       */
       .colony .queue-lists {
         flex: 1 1 0;
         min-height: 0;
-        display: flex;
-        flex-direction: column;
+        display: grid;
+        grid-template-rows: minmax(0, max-content) minmax(0, max-content);
+        align-content: start;
         gap: 8px;
       }
       .colony .queue-lists .box {
         min-height: 0;
         overflow-y: auto;
-      }
-      .colony .queue-lists .box[data-part='buildings'] {
-        flex: 4 1 0;
-      }
-      .colony .queue-lists .box[data-part='units'] {
-        flex: 2 1 0;
       }
       .colony .queue-foot {
         flex: none;
