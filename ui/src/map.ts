@@ -2314,9 +2314,12 @@ export function mapDrawer(
         else await made;
       }
       pics.retain(ground.base);
-      const ops = [...ground.base, ...ground.below, ...ground.above];
-      // The panels draw no units.
-      panels.forEach((render) => render(ops));
+      // The panels draw no units, and FreeCol's water pictures: under the shader water the ground has none.
+      if (panels.size) {
+        const still = waterDrawing === 'flipbook' ? ground : staticScene(map, res!, colonyLabels);
+        const ops = [...still.base, ...still.below, ...still.above];
+        panels.forEach((render) => render(ops));
+      }
     }
     // A slide that set off early, on the Engine's word of the step, goes on: this map puts the unit on the tile it
     // slides to, and the slide is offset from there. A map from before the step leaves the unit on its old tile.
