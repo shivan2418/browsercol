@@ -1688,10 +1688,18 @@
         flex-direction: column;
         align-items: center;
         gap: 6px;
+        isolation: isolate;
+      }
+      /* The board's hint (RebelToolTip) is on this backdrop, under its parts, so theirs win; the octagons let it through. */
+      .colony .board-tip {
+        position: absolute;
+        inset: 0;
+        z-index: -1;
       }
       .colony .octagon {
         position: absolute;
         z-index: 1;
+        pointer-events: none;
         width: 68px;
         height: 66px;
         box-sizing: border-box;

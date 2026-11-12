@@ -311,11 +311,25 @@ function useTarget(place: Place, drop: (item: Item) => void): PlaceProps | null 
   return useContext(HandContext).target(place, drop);
 }
 
-/** A ProductionLabel: the shared goods amount, named by its type (data-goods); `max` is what an expert would make. */
+/**
+ * A ProductionLabel: the shared goods amount, named by its type (data-goods); `max` is what an expert would make.
+ * Its hint is the amount and the goods, "4 Food" (AbstractGoods.getLabel), as the pile of icons hides the number
+ * up to 7; none for nothing made.
+ */
 function Made({ g, art, change = false, max }: { g: Goods; art: Art; change?: boolean; max?: number }) {
+  const tip = g.amount === 0 ? null : `${g.amount < 0 ? `−${-g.amount}` : g.amount} ${g.name}`;
   return (
     <span className="made-goods" data-goods={g.type}>
-      <GoodsAmount keys={g.keys} name={g.name} amount={g.amount} change={change} art={art} icons expert={max ?? null} />
+      <GoodsAmount
+        keys={g.keys}
+        name={g.name}
+        amount={g.amount}
+        change={change}
+        art={art}
+        icons
+        expert={max ?? null}
+        tip={tip}
+      />
     </span>
   );
 }
@@ -354,18 +368,21 @@ export function Octagon({ part, text: raw, art }: { part: OctagonPart; text: str
 /**
  * ColonyPanel's upperRightPanel: the tiles, the net production and the construction, with the octagons
  * paintComponent writes the population in, round the tiles (the colony's size, its preferred size change, and the
- * shares of rebels and royalists); RebelToolTip shows while the pointer rests on it, as in Swing.
+ * shares of rebels and royalists); RebelToolTip shows while the pointer rests on it, as in Swing. As in Swing, a
+ * part with a hint of its own (a tile's or the net production's goods) shows that one instead: the board's hint is
+ * on a backdrop behind its parts, since a hint inside another's trigger never opens.
  */
 function Board({ c, art, children }: { c: ColonyView; art: Art; children: ReactNode }) {
   const p = c.population;
   return (
-    <Tip as="div" className="board" data-part="population" tip={<RebelTipBox tip={p.tip} art={art} />}>
+    <div className="board" data-part="population">
+      <Tip as="span" className="board-tip" tip={<RebelTipBox tip={p.tip} art={art} />} />
       <Octagon part="size" text={String(p.size)} art={art} />
       <Octagon part="change" text={p.sizeChange} art={art} />
       <Octagon part="rebels" text={`${p.rebelPercent}%`} art={art} />
       <Octagon part="royalists" text={`${100 - p.rebelPercent}%`} art={art} />
       {children}
-    </Tip>
+    </div>
   );
 }
 

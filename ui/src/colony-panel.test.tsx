@@ -176,6 +176,13 @@ describe('the colony panel', () => {
     expect(removed).toBe(1);
   });
 
+  it("names a production's amount in its hint, as ProductionLabel does, over the board's own hint", async () => {
+    open();
+    const net = part('net');
+    expect(await hint(net.querySelector('[data-goods="model.goods.food"] .goods')!)).toBe('4 Food');
+    expect(await hint(net.querySelector('[data-goods="model.goods.lumber"] .goods')!)).toBe('\u22123 Lumber');
+  });
+
   it('shows the net production, the warehouse, the units outside and the build', () => {
     open();
     const net = part('net');
@@ -488,7 +495,8 @@ describe('loading a ship in port in the colony panel', () => {
     open();
     mountLayer();
     expect(shownHint()).toBeNull();
-    const board = part('population');
+    // The hint is on the board's backdrop, behind the tiles, the net production and the build, which have their own.
+    const board = part('population').querySelector<HTMLElement>('.board-tip')!;
     fireEvent.pointerEnter(board, { pointerType: 'mouse' });
     fireEvent.mouseEnter(board);
     fireEvent.pointerMove(board, { pointerType: 'mouse' });
