@@ -86,3 +86,6 @@ const meta: Meta<typeof TradeRoutes> = { component: TradeRoutes, args: { routes:
 export default meta;
 
 export const Default: StoryObj<typeof TradeRoutes> = {};
+
+/** With the enhanced trade routes option: holds show in the order they load, and do not drag. */
+export const Enhanced: StoryObj<typeof TradeRoutes> = { args: { routes: { ...panel, enhanced: true } } };

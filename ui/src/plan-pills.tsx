@@ -6,7 +6,18 @@ import { Tip } from './controls';
 import type { Work } from './route-work';
 import './plan-pills.css';
 
-type Kind = 'unload' | 'load' | 'keep';
+export type PillKind = 'unload' | 'load' | 'keep';
+type Kind = PillKind;
+
+/**
+ * What the route editor adds to a pill from what it knows beyond the plan: a mark that the work may not
+ * happen, and the tip that says why, after the pill's own or instead of it.
+ */
+export interface PillExtra {
+  maybe?: boolean;
+  tip?: string;
+  instead?: boolean;
+}
 const VERB: Record<Kind, string> = { unload: 'Unload', load: 'Load', keep: 'Keep aboard' };
 const SIGN: Record<Kind, string> = { unload: '−', load: '+', keep: '=' };
 
@@ -18,6 +29,7 @@ function PlanPill({
   icon,
   name,
   europe,
+  extra,
 }: {
   kind: Kind;
   goods: string;
@@ -25,6 +37,7 @@ function PlanPill({
   icon: ReactNode;
   name: string;
   europe: boolean;
+  extra: PillExtra | null;
 }) {
   const verb = europe && kind !== 'keep' ? (kind === 'load' ? 'Buy' : 'Sell') : null;
   const tip = !europe
@@ -35,7 +48,14 @@ function PlanPill({
         ? `Sell the ${name} on board, less tax`
         : `Keep the ${name} aboard`;
   return (
-    <Tip as="span" className="plan-pill" data-work={kind} data-type={goods} tip={tip}>
+    <Tip
+      as="span"
+      className="plan-pill"
+      data-work={kind}
+      data-type={goods}
+      data-maybe={extra?.maybe || undefined}
+      tip={extra?.tip ? (extra.instead ? extra.tip : `${tip}. ${extra.tip}`) : tip}
+    >
       {verb && <span className="plan-verb">{verb}</span>}
       {icon}
       {SIGN[kind]}
@@ -52,6 +72,7 @@ export function PlanPills({
   icon,
   nameOf,
   europe = false,
+  extra = () => null,
 }: {
   unload: Work[];
   load: Work[];
@@ -60,6 +81,8 @@ export function PlanPills({
   nameOf: (goods: string) => string;
   /** Whether the stop is Europe, where a carrier buys and sells. */
   europe?: boolean;
+  /** What the route editor adds to a pill. */
+  extra?: (kind: PillKind, goods: string, holds: number) => PillExtra | null;
 }) {
   const group = (kind: Kind, list: Work[], arrow: string) =>
     list.length > 0 && (
@@ -76,6 +99,7 @@ export function PlanPills({
             icon={icon(g)}
             name={nameOf(g)}
             europe={europe}
+            extra={extra(kind, g, k)}
           />
         ))}
       </span>
