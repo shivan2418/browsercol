@@ -5,7 +5,9 @@ import java.util.List;
 
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.i18n.Messages;
+import net.sf.freecol.client.ClientOptions;
 import net.sf.freecol.common.model.Colony;
+import net.sf.freecol.common.model.GoodsContainer;
 import net.sf.freecol.common.option.GameOptions;
 import net.sf.freecol.common.model.FreeColGameObject;
 import net.sf.freecol.common.model.GoodsType;
@@ -62,6 +64,8 @@ final class TradeRoutes {
         final List<String> places = new ArrayList<>();
         if (player.getEurope() != null) places.add(place(player.getEurope()));
         for (Colony c : player.getColonyList()) places.add(place(c));
+        final int overflow = client.getClientOptions()
+            .getInteger(ClientOptions.UNLOAD_OVERFLOW_RESPONSE);
         final List<String> goods = new ArrayList<>();
         for (GoodsType gt : client.getGame().getSpecification().getGoodsTypeList()) {
             if (!gt.isStorable()) continue;
@@ -96,6 +100,11 @@ final class TradeRoutes {
             .putRaw("routes", Json.array(routes))
             .putRaw("places", Json.array(places))
             .putRaw("goods", Json.array(goods))
+            // What a carrier does with goods a colony has no room for (the
+            // unload overflow response client option): ask, never unload
+            // them, or always (InGameController.unloadUnitAtStop).
+            .put("overflow", overflow == ClientOptions.UNLOAD_OVERFLOW_RESPONSE_NEVER ? "never"
+                 : overflow == ClientOptions.UNLOAD_OVERFLOW_RESPONSE_ALWAYS ? "always" : "ask")
             // With the enhanced trade routes option a carrier loads the goods
             // a later stop takes, the largest amount first, whatever the order
             // of the holds (InGameController.loadUnitAtStop).
@@ -152,7 +161,31 @@ final class TradeRoutes {
             .put("port", colony == null || colony.isConnectedPort())
             .putRaw("land", (colony == null || colony.getTile() == null) ? "null"
                             : String.valueOf(colony.getTile().getContiguity()))
+            .putRaw("stock", (colony == null) ? "null" : stock(colony))
             .toString();
+    }
+
+    /**
+     * A colony's warehouse as a carrier finds it now, for each storable
+     * goods: how much it has, how much it keeps (its export level), how much
+     * a carrier may take (Colony.getExportAmount), and how much more it takes
+     * in (Colony.getImportAmount: the room left in the warehouse, or with the
+     * enhanced trade routes option the room up to its import level; null
+     * for goods without a limit).
+     */
+    private static String stock(Colony colony) {
+        final Json json = new Json();
+        for (GoodsType type : colony.getSpecification().getStorableGoodsTypeList()) {
+            final int in = colony.getImportAmount(type, 0);
+            json.putRaw(type.getId(), new Json()
+                .put("have", colony.getGoodsCount(type))
+                .put("keep", colony.getExportData(type).getExportLevel())
+                .put("give", colony.getExportAmount(type, 0))
+                .putRaw("room", (in >= GoodsContainer.HUGE_CARGO_SIZE || in == Integer.MAX_VALUE)
+                                ? "null" : String.valueOf(in))
+                .toString());
+        }
+        return json.toString();
     }
 
     private static String label(Location l) {

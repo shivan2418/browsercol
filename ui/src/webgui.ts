@@ -243,10 +243,26 @@ export interface GuiEvents {
      * The places a stop can be at: whether ships reach each (Europe, or a colony that is a port), and the
      * landmass a colony is on, null for Europe; the editor tells from them which carriers can follow a route.
      */
-    places: { id: Id; label: string; port: boolean; land: number | null }[];
+    places: {
+      id: Id;
+      label: string;
+      port: boolean;
+      land: number | null;
+      /**
+       * A colony's warehouse as a carrier finds it now, by goods type (null for Europe): how much it has, how
+       * much it keeps (its export level), how much a carrier may take, and how much more it takes in (the room
+       * left in the warehouse, or with enhanced trade routes up to its import level; null with no limit).
+       */
+      stock: Record<string, { have: number; keep: number; give: number; room: number | null }> | null;
+    }[];
     goods: { id: string; name: string; icon: string }[];
     /** Whether the enhanced trade routes option is on: carriers then load the largest amount first, in any order. */
     enhanced: boolean;
+    /**
+     * What a carrier does with goods a colony has no room for (the unload overflow response option): asks the
+     * player, never unloads them, or always does, and what the warehouse cannot hold is lost.
+     */
+    overflow: 'ask' | 'never' | 'always';
     error: string | null;
     newRoute: string;
     /** The name the server would give a new route (Player.getNameForTradeRoute), which the editor starts with. */

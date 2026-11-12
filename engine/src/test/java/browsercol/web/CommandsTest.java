@@ -2395,6 +2395,80 @@ class CommandsTest {
     }
 
     /**
+     * What the route editor is told of a colony's goods, as {have, keep,
+     * give, room}, from the last routes panel.
+     */
+    private int[] stockShown(Colony colony, String type) {
+        final String panel = routePanels.get(routePanels.size() - 1);
+        final Matcher m = Pattern.compile("\"id\":\"" + colony.getId() + "\"[^{]*\"stock\":\\{.*?\""
+            + Pattern.quote(type) + "\":\\{\"have\":(\\d+),\"keep\":(\\d+),\"give\":(\\d+),\"room\":(\\d+|null)\\}")
+            .matcher(panel);
+        assertTrue(m.find(), "the panel tells the editor of the colony's " + type + ": " + panel);
+        return new int[] { Integer.parseInt(m.group(1)), Integer.parseInt(m.group(2)),
+                           Integer.parseInt(m.group(3)),
+                           m.group(4).equals("null") ? -1 : Integer.parseInt(m.group(4)) };
+    }
+
+    /**
+     * The route editor shows, for each colony, how much of a goods a carrier
+     * may take (what is above the amount the colony keeps, its export level)
+     * and how much it unloads there (the room left in the warehouse, or with
+     * the enhanced trade routes option the room up to the colony's import
+     * level). A merchantman takes and unloads just that, under each rule.
+     */
+    @ParameterizedTest(name = "enhanced trade routes {0}")
+    @ValueSource(booleans = { false, true })
+    @Timeout(300)
+    void aCarrierTakesAndUnloadsWhatTheEditorShows(boolean enhanced) throws Exception {
+        startGame();
+        final Commands commands = commands();
+        final Player player = client.getClient().getMyPlayer();
+        final Colony colony = foundAColony(commands);
+        enhancedTradeRoutes(enhanced);
+        client.getClient().getClientOptions().setInteger(ClientOptions.UNLOAD_OVERFLOW_RESPONSE,
+            ClientOptions.UNLOAD_OVERFLOW_RESPONSE_NEVER);
+        final String cloth = "model.goods.cloth";
+        final String furs = "model.goods.furs";
+        final GoodsType clothType = server.getGame().getSpecification().getGoodsType(cloth);
+        final GoodsType fursType = server.getGame().getSpecification().getGoodsType(furs);
+        stock(colony, cloth, 90);
+        // The colony keeps 30 cloth; with the enhanced option it takes in furs up to 70.
+        assertTrue(commands.setGoodsLevels(colony.getId(), cloth, false, 0, 100, -1, 30));
+        assertTrue(commands.setGoodsLevels(colony.getId(), furs, false, 0, 100, enhanced ? 70 : -1, 50));
+        awaitTrue(() -> colony.getExportData(clothType).getExportLevel() == 30, "the server has the levels");
+
+        assertTrue(commands.tradeRoutes());
+        final int[] clothShown = stockShown(colony, cloth);
+        final int have = colony.getGoodsCount(clothType);
+        assertEquals(have, clothShown[0], "the cloth the colony has");
+        assertEquals(30, clothShown[1], "the cloth it keeps");
+        assertEquals(have - 30, clothShown[2], "the cloth a carrier may take");
+        final int[] fursShown = stockShown(colony, furs);
+        final int fursHad = colony.getGoodsCount(fursType);
+        final int room = Math.max(0, (enhanced ? 70 : colony.getWarehouseCapacity()) - fursHad);
+        assertEquals(room, fursShown[3], "the room for furs");
+
+        // A merchantman with 100 furs aboard calls at the colony, which lists only cloth: it unloads the
+        // furs it has room for, keeps the rest, and takes the cloth above what the colony keeps.
+        final Unit ship = merchantmanIn(colony);
+        final Unit onServer = serverUnit(ship);
+        debug("{\"action\":\"addGoods\",\"type\":\"" + furs + "\",\"amount\":100,\"unit\":\"" + ship.getId() + "\"}");
+        awaitTrue(() -> ship.getGoodsCount(client.getGame().getSpecification().getGoodsType(furs)) == 100,
+                  "the client sees the furs aboard");
+        assertNull(commands.saveTradeRoute(null, "Warehouse run", true,
+            List.of(colony.getId(), player.getEurope().getId()),
+            List.of(List.of(cloth), List.of())), "the route is saved");
+        assertTrue(commands.assignTradeRoute(ship.getId(), serverRoutes(player).get(0).getId()));
+        int turns = 0;
+        while (onServer.getGoodsCount(clothType) == 0) {
+            endTurnAndWait(commands);
+            assertTrue(++turns < 4, "the ship calls at the colony within 4 turns");
+        }
+        assertEquals(clothShown[2], onServer.getGoodsCount(clothType), "it took what the editor showed");
+        assertEquals(100 - room, onServer.getGoodsCount(fursType), "it unloaded the room the editor showed");
+    }
+
+    /**
      * A goods kept on board at every stop: with the enhanced trade routes
      * option off FreeCol refuses the route, as the editor warns; with it on
      * the route is saved, and a carrier does not load the goods, as no later
