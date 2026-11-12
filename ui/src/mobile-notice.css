@@ -1,0 +1,29 @@
+/*
+ * The notice for phones (src/mobile-notice.ts), moved out of index.html in its order (#498).
+ */
+@layer components {
+  /* The notice for phones (src/mobile-notice.ts, issue 319): over the loading screen, which takes no click. */
+  #mobile-notice {
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    z-index: 950;
+    box-sizing: border-box;
+    max-width: 460px;
+    margin: 0 auto;
+    padding: 14px 16px;
+    background: var(--box);
+    color: var(--ink);
+    border: 2px solid var(--line);
+    border-radius: 4px;
+    font: var(--fs-s) / 1.4 var(--font);
+  }
+  #mobile-notice h2 {
+    margin: 0 0 6px;
+    font: 700 var(--fs-h) / 1.2 var(--font-title);
+  }
+  #mobile-notice p {
+    margin: 0 0 10px;
+  }
+}

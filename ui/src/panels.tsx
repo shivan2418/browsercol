@@ -40,6 +40,7 @@ import type { ColonyView, EuropeUnit, GuiEvents, ReportLink, SettlementEntry, Tr
 import { useCoverage } from './coverage';
 import './modifiers.css';
 import './panels.css';
+import './europe-panel.css';
 
 export type { Art };
 

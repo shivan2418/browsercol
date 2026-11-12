@@ -6,6 +6,8 @@
 // Neither check alone is robust: the width alone would catch a narrow desktop window, and `pointer: coarse`
 // alone would catch a tablet or a touch laptop. The user-agent string is not read; it is easy to get wrong.
 
+import './mobile-notice.css';
+
 /** The shorter side of the page, in CSS pixels, from which a screen is a tablet's, not a phone's. */
 export const PHONE_MAX_SHORT_SIDE = 600;
 

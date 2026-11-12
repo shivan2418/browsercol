@@ -1,0 +1,32 @@
+/*
+ * The Declaration (src/declaration.tsx), moved out of index.html in its order (#498).
+ */
+@layer components {
+  /*
+   * DeclarationPanel: the window is the picture of the Declaration, at FreeCol's size and shrunk only to fit
+   * the page. The signature is a canvas over it, placed in the script.
+   */
+  .modal > .declaration {
+    position: relative;
+    max-width: none;
+    flex: none;
+    cursor: pointer;
+    filter: drop-shadow(0 10px 24px rgb(0 0 0 / 45%));
+  }
+  .declaration img,
+  .declaration .paper {
+    display: block;
+    width: 100%;
+    height: 100%;
+    user-select: none;
+  }
+  .declaration .paper {
+    background: var(--paper-ink);
+    opacity: 0.1;
+  }
+  .declaration canvas {
+    color: var(--paper-ink);
+    position: absolute;
+    pointer-events: none;
+  }
+}

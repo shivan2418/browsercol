@@ -12,4 +12,11 @@
   .start .source-links .linkish {
     color: inherit;
   }
+  .linkish {
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    text-decoration: underline;
+  }
 }

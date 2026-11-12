@@ -25,6 +25,8 @@ import { dragging } from './drag';
 import { focusFirstEntry, menuArrows, useFocusTrap } from './focus';
 import { barSegments } from './progress-bar';
 import type { GoodsProgress } from './webgui';
+// First of the sheets, as the backdrop's rules were ahead of all of them in index.html (#498).
+import './modal.css';
 // Before button.css, as its rules were in index.html: button:hover's accent border still beats .menubar button (#498).
 import './menubar.css';
 import './button.css';
@@ -142,7 +144,7 @@ export function fitScale(size: { w: number; h: number }, screen: { w: number; h:
   return Math.floor(fit * 1000) / 1000;
 }
 
-/** Keep a fitted window's scale (--fit, which index.html's .modal > [data-fit] zooms by) as the screen, the UI scale and the window change. */
+/** Keep a fitted window's scale (--fit, which modal.css's .modal > [data-fit] zooms by) as the screen, the UI scale and the window change. */
 function useFitToScreen(box: { current: HTMLElement | null }, fit: boolean) {
   useLayoutEffect(() => {
     const el = box.current;

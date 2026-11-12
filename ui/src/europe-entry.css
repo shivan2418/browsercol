@@ -1,7 +1,7 @@
 /*
  * An entry of Europe's lists (EuropeEntry, src/europe-entry.tsx): a ship, a unit on the docks, or a stack of cargo,
  * its picture and, for goods, the amount; a ship at sea has the turns before it arrives beside it. A unit shows its picture alone (its name is the hint). Which of them can be
- * picked, and the room that takes, are Europe's rules in index.html.
+ * picked, and the room that takes, are Europe's rules in europe-panel.css.
  */
 @layer components {
   :root {

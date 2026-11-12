@@ -3,6 +3,7 @@
 // The banner over the page lists them until the player dismisses it, each with its details to copy.
 import { useState } from 'react';
 import { ButtonRow } from './frame';
+import './errors.css';
 
 export interface GameError {
   /** What failed, for the player. */

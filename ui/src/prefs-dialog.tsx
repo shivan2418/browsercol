@@ -25,6 +25,7 @@ import {
 } from './prefs';
 import { FONT_SETS, PALETTES, type FontSet, type Palette } from './theme';
 import { useCoverage } from './coverage';
+import './prefs-dialog.css';
 
 const LABEL: Record<Speed, string> = { off: 'Off', slow: 'Slow', normal: 'Normal', fast: 'Fast' };
 

@@ -10,8 +10,11 @@ import type { ColonyView } from './webgui';
 
 afterEach(cleanup);
 
-// The page's own rules, then the colony panel's sheet, which comes after them (#498).
-const style = (pageCss + componentSheets['./colony-panel.css']).replace(/\/\*[\s\S]*?\*\//g, '');
+// The page's own rules, then the windows' backdrop and the colony panel's sheets, which come after them (#498).
+const style = (pageCss + componentSheets['./modal.css'] + componentSheets['./colony-panel.css']).replace(
+  /\/\*[\s\S]*?\*\//g,
+  '',
+);
 
 /** The declarations of every rule whose selector list names the selector, in order, as one map (a later wins). */
 function declared(selector: string): Record<string, string> {

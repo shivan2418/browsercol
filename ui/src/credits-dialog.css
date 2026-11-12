@@ -1,0 +1,13 @@
+/*
+ * The credits window (CreditsDialog, src/credits.tsx), moved out of index.html in its order (#498).
+ */
+@layer components {
+  #credits .credits-body {
+    max-height: calc(var(--screen-h) * 0.7);
+    overflow-y: auto;
+  }
+  #credits ul {
+    margin: 0;
+    padding-left: 1.2em;
+  }
+}

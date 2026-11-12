@@ -1,0 +1,153 @@
+/*
+ * Europe's rules (EuropePanel and the shop popup, src/panels.tsx), moved out of index.html in their order (#498). A
+ * sheet of a panel: it names the panel, as theme.test.ts's PANEL_SHEETS allows.
+ */
+@layer components {
+  /* As Swing's EuropePanel: the name centred, the lists and the sales above the market, the buttons below. */
+  .europe-title {
+    display: flex;
+    justify-content: center;
+    align-items: baseline;
+  }
+  .europe-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+    min-height: 0;
+  }
+  .europe-top {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+    flex: 1;
+    min-height: 0;
+  }
+  .europe-top > .europe {
+    flex: 1;
+    min-width: 0;
+  }
+  /* The turn's purchases and sales (EuropePanel's transaction log), newest last; it scrolls when long. */
+  .europe-log {
+    flex: 0 0 25%;
+    box-sizing: border-box;
+    overflow: auto;
+    background: var(--box);
+    border: 1px solid var(--line);
+    padding: 4px 8px;
+  }
+  .europe-log .entry + .entry {
+    margin-top: 8px;
+  }
+  .europe-log .line {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    font-variant-numeric: tabular-nums;
+  }
+  .europe {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: minmax(auto, 1fr) minmax(auto, 1fr) minmax(auto, 1fr);
+    gap: 8px;
+    overflow: auto;
+  }
+  .europe [data-list='docks'] {
+    grid-row: span 2;
+  }
+  .europe-body > .market {
+    background: var(--box);
+    border: 1px solid var(--line);
+    padding: 8px;
+  }
+  /* The shop popup: every unit a card of the same size, its picture, name and price stacked. */
+  .shop-modal {
+    z-index: 5;
+  }
+  .shop-popup {
+    max-width: min(40em, calc(var(--screen-w) * 0.94));
+  }
+  .shop-popup .cards {
+    display: grid;
+    /* auto-fit: columns no card fills take no room, so the cards sit centred in the window. */
+    grid-template-columns: repeat(auto-fit, 9em);
+    gap: 8px;
+    justify-content: center;
+    overflow: auto;
+  }
+  .shop-popup .card {
+    box-sizing: border-box;
+    width: 9em;
+    height: 8.6em;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 6px;
+    text-align: center;
+    color: var(--ink);
+  }
+  /* The picture has a slot of its own height, and the name room for two lines, so a one-line name or a short picture moves nothing. */
+  .shop-popup .card .name {
+    min-height: 2.4em;
+    display: flex;
+    align-items: center;
+    line-height: 1.2;
+  }
+  .shop-popup .card .price {
+    min-height: 1.4em;
+    font-variant-numeric: tabular-nums;
+  }
+  /*
+   * What can be picked in Europe (a ship in port) takes the selected look when it is (src/selection.css), with the
+   * same 4px of room on every side as in the colony (src/colony-panel.css), so the tint never sits tight against
+   * the content.
+   */
+  .europe [data-list='inPort'] button.europe-entry {
+    padding: 4px;
+    border: none;
+    border-radius: 4px;
+    box-sizing: border-box;
+  }
+  /* The market's goods, eight to a row (it took bold, centred rows and 24px pictures from GoodsAmount's rules by its class name). */
+  .europe-body .market-goods {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 4px 8px;
+    margin-top: 8px;
+    align-items: center;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .europe-body .market-goods img {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+  }
+  .europe-body .good {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+  /* The market's goods and the cargo's stacks are buttons (they trade), but look as Swing's labels do. */
+  .europe-body button.good,
+  /* At no weight: under the selected look, so a picked entry shows it, and under the focus line (button.css). */
+  :where(.europe button.europe-entry) {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--ink);
+  }
+  /* Goods are traded by a click, not picked: nothing lights up under the pointer, as in FreeCol. */
+  /* Focus is a line, never a tint, so it is not taken for a pick. */
+  .europe [data-list='inPort'] button.europe-entry:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
+  .europe-body .price {
+    font-variant-numeric: tabular-nums;
+  }
+}

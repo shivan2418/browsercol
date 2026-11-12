@@ -1,0 +1,85 @@
+/*
+ * The Preferences window's rules (src/prefs-dialog.tsx), moved out of index.html in their order (#498). A sheet of a
+ * panel: it names the panel, as theme.test.ts's PANEL_SHEETS allows.
+ */
+@layer components {
+  /* The Preferences window (src/prefs-dialog.tsx): FreeCol's category tree, and the picked one's options. */
+  #preferences .prefs-body {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+    width: min(46em, var(--screen-w) - 32px);
+    height: min(32em, calc(var(--screen-h) * 0.7));
+  }
+  #preferences .prefs-side {
+    flex: 0 0 11em;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-height: 0;
+  }
+  #preferences .prefs-search {
+    width: 100%;
+    box-sizing: border-box;
+  }
+  #preferences .prefs-tree {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 4px;
+    background: var(--box);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+  }
+  #preferences .prefs-tree button,
+  #preferences .prefs-tree .heading {
+    display: block;
+    width: 100%;
+    padding: 3px 6px;
+    border: 0;
+    border-radius: 2px;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+  }
+  /* The picked category takes the selected look (src/selection.css); these are at less weight, so it shows. */
+  :where(#preferences .prefs-tree) button {
+    background: none;
+  }
+  :where(#preferences .prefs-tree) button:hover {
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+  }
+  /* While searching: the categories with no match fade, and the matched text is marked. */
+  #preferences .prefs-tree [data-dim] {
+    opacity: 0.4;
+  }
+  #preferences .prefs-tree [data-match] {
+    font-weight: 700;
+  }
+  #preferences mark {
+    background: color-mix(in srgb, var(--accent) 35%, transparent);
+    color: inherit;
+    border-radius: 2px;
+  }
+  #preferences .prefs-results .result {
+    margin: 0 0 8px;
+  }
+  #preferences .prefs-results .path {
+    color: var(--muted);
+    font-size: var(--fs-s);
+  }
+  #preferences .prefs-tree .heading {
+    color: var(--head);
+    font-weight: 700;
+  }
+  #preferences .prefs-detail {
+    flex: 1;
+    min-width: 0;
+    overflow-y: auto;
+  }
+  #preferences .prefs-note {
+    margin: 10px 0 0;
+    color: var(--muted);
+    font-size: var(--fs-s);
+  }
+}

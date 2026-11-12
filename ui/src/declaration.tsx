@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { SIGNATURE_FONT_FILE, PANEL_KEYS } from './map-keys';
 import { parseFAF, signatureName, type FAFont } from './signature';
 import type { Art } from './frame';
+import './declaration.css';
 
 /** The picture's size (image.flavor.Declaration), at FreeCol's scale 1. */
 export const DECLARATION_SIZE = { width: 525, height: 624 };

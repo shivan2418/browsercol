@@ -1,0 +1,40 @@
+/*
+ * The backdrop every window opens over (.modal: the WebGUI's dialogs in src/panels.tsx and the other windows), moved
+ * out of index.html in its order (#498). frame.tsx, whose windows sit in it, imports it first of the sheets.
+ */
+@layer components {
+  /* The WebGUI's dialogs (src/panels.tsx), modal over the page. */
+  .modal {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    /* One cell the size of the screen, so no window grows past it: a tall one scrolls inside instead. */
+    grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+    place-items: center;
+    background: var(--backdrop);
+  }
+  /*
+   * A dialog over a panel sits in the same place, on top of it. At no weight, so a window's own size (.dialog) wins
+   * as it did when this came ahead of it in index.html.
+   */
+  :where(.modal > *) {
+    position: relative;
+    grid-area: 1 / 1;
+    max-width: 100%;
+    max-height: 100%;
+    /* A grid item is at least as tall as its content otherwise, whatever its max-height says. */
+    min-height: 0;
+    min-width: 0;
+  }
+  /*
+   * A window laid out at fixed sizes (frame.tsx's fit: the colony panel, an advisor's paper) keeps its own size
+   * and is scaled to fit the screen instead: --fit is the UI scale, or less where the window would not fit.
+   */
+  .modal > [data-fit] {
+    zoom: var(--fit, var(--ui-zoom, 1));
+    --screen-w: calc(100vw / var(--fit, var(--ui-zoom, 1)));
+    --screen-h: calc(100dvh / var(--fit, var(--ui-zoom, 1)));
+    max-width: none;
+    max-height: none;
+  }
+}

@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import { BUILD } from './build';
 import { Heading, WindowFrame } from './frame';
 import './credits.css';
+import './credits-dialog.css';
 // The fonts' licence texts, shipped in dist/ with the fonts (fonts.css).
 import cinzelOfl from './fonts/cinzel/OFL.txt?url';
 import notoSansOfl from './fonts/noto-sans/OFL.txt?url';

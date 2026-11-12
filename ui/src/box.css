@@ -66,4 +66,19 @@
     text-transform: var(--caption-case);
     letter-spacing: var(--caption-tracking);
   }
+  /*
+   * A caption with two lines' room (Box twoLines): a long ship's name wraps into room already kept, so picking
+   * another ship never shifts the layout. Longer still, it is cut at two lines.
+   */
+  .box > .cap[data-two-lines] {
+    flex: 1 1 100%;
+    min-width: 0;
+    min-height: 2lh;
+    max-height: 2lh;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
 }

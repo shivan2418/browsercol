@@ -7,6 +7,13 @@ import { layerPageStyles } from '../scripts/page-styles';
 import { componentSheets, pageCss } from './page-css.testing';
 import { applyTheme, FONT_SETS, PALETTES } from './theme';
 
+/** The page's other scripts, which may build an element of their own and import its sheet (mobile-notice.ts). */
+const scripts = import.meta.glob<string>(['./*.ts', '!./*.test.ts', '!./*.testing.ts'], {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+});
+
 /** The components' sources, by file; tests hold made-up data, such as a nation's colour from the Engine. */
 const components = import.meta.glob<string>(['./*.tsx', '!./*.test.tsx'], {
   query: '?raw',
@@ -111,6 +118,15 @@ const PANEL_SHEETS = [
   './popup-menu.css',
   './turn-banner.css',
   './log.css',
+  './europe-panel.css',
+  './prefs-dialog.css',
+  // Screens of their own, moved out of index.html as they were, in their own lengths and colours (#498).
+  './side-lists.css',
+  './reload-notice.css',
+  './errors.css',
+  './declaration.css',
+  './mobile-notice.css',
+  './credits-dialog.css',
 ];
 
 /** Each declaration of a sheet, with the selector of the rule it is in. */
@@ -160,7 +176,7 @@ test("each component's sheet is in the components layer, and imported by a compo
     expect(bare(componentSheets[file]).trim(), file).toMatch(/^@layer components \{[\s\S]*\}$/);
     expect(bare(componentSheets[file]).match(/@layer/g), file).toHaveLength(1);
     expect(
-      Object.values(components).some((src) => src.includes(`import '${file}';`)),
+      [...Object.values(components), ...Object.values(scripts)].some((src) => src.includes(`import '${file}';`)),
       `${file} is imported by a component`,
     ).toBe(true);
   }
@@ -237,6 +253,11 @@ const MOVED: Record<string, RegExp> = {
   'the dialogs (dialog.css, panels.css, negotiation.css)': /^\.dialog(?![\w-])(?!$)/,
   'the map chrome (minimap-panel.css, info-panel.css, side.css, menubar.css, popup-menu.css, turn-banner.css, log.css)':
     /(^|[\s(])(#minimap|#info-panel|#info|#out|#log|\.minimap-buttons|\.menubar|\.popup|\.info-[\w-]+|\.turn-banner(-swatch)?)(?![\w-])/,
+  'Europe and its shop (europe-panel.css)':
+    /(^|[\s(])\.(europe|europe-(body|log|top|title)|shop-popup|shop-modal)(?![\w-])/,
+  'the Preferences window (prefs-dialog.css)': /(^|[\s(])#preferences\b/,
+  'the other screens (#498)':
+    /^(\.modal(\s*>\s*(\[data-fit\]|\.declaration))?|\.declaration\b.*|\.error-banner\b.*|\.reload-notice|#mobile-notice\b.*|\.linkish|#credits \.credits-body|#credits ul|#saves\b.*|#unasked\b.*|\.box > \.cap\[data-two-lines\])$/,
 };
 
 test('a moved pattern has no rule left in index.html', () => {

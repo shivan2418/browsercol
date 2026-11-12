@@ -3,6 +3,7 @@
 // but that is easy to miss once the Preferences window is closed. Setting it back takes the note away.
 import { leaves, type OptionGroup } from './options';
 import { ON_RELOAD, type Prefs } from './prefs';
+import './reload-notice.css';
 
 /**
  * The names of the preferences changed since the page loaded that show only on reload, the Tileset first.

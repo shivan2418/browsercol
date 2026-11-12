@@ -7,6 +7,7 @@ import { DebugMenu, type DebugMenuProps } from './debug-menu';
 import { orderOf, type Command } from './input';
 import type { SaveMeta } from './saves';
 import './side.css';
+import './side-lists.css';
 
 export interface SideProps {
   turn: string;
