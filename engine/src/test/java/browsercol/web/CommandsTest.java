@@ -2559,6 +2559,78 @@ class CommandsTest {
     }
 
     /**
+     * A second colony of ours, on a coastal tile well away from the first,
+     * put on the map directly, once the client has it.
+     */
+    private Colony secondColony(Colony first, String name) throws Exception {
+        final Game game = server.getGame();
+        final Player us = game.getFreeColGameObject(first.getOwner().getId(), Player.class);
+        final Tile at = first.getTile();
+        final Tile land = game.getMap().getTileSet(t -> t.isLand() && !t.hasSettlement()
+                && t.getUnitCount() == 0 && t.getOwner() == null
+                && t.getDistanceTo(at) >= 9 && t.getDistanceTo(at) <= 16
+                && t.getSurroundingTiles(1, 1).stream().anyMatch(n -> !n.isLand()))
+            .stream().min(Comparator.comparingInt(t -> t.getDistanceTo(at))).get();
+        final Colony colony = new ServerColony(game, us, name, land);
+        land.setSettlement(colony);
+        debug("{\"action\":\"revealMap\"}");
+        awaitTrue(() -> client.getGame().getMap().getTile(land.getX(), land.getY()).getColony() != null,
+                  "the client has " + name);
+        return colony;
+    }
+
+    /**
+     * With the enhanced trade routes option a carrier loads no more than the
+     * stop where it unloads the goods takes in: that colony's import level,
+     * less what it is expected to have when the carrier arrives (its stock,
+     * and its production on the way). Without the option it loads its holds.
+     * The editor's tip says so under the one rule and not the other.
+     */
+    @ParameterizedTest(name = "enhanced trade routes {0}")
+    @ValueSource(booleans = { false, true })
+    @Timeout(300)
+    void theStopThatTakesTheGoodsCapsTheLoadUnderTheEnhancedRule(boolean enhanced) throws Exception {
+        startGame();
+        final Commands commands = commands();
+        final Player player = client.getClient().getMyPlayer();
+        final Colony colonyA = foundAColony(commands);
+        final Colony colonyB = secondColony(colonyA, "Tradeville");
+        enhancedTradeRoutes(enhanced);
+        final String furs = "model.goods.furs";
+        final GoodsType fursType = client.getGame().getSpecification().getGoodsType(furs);
+        stock(colonyA, furs, 300);
+        // B takes furs in only up to 70: an import level, which only the enhanced rule has.
+        if (enhanced) {
+            assertTrue(commands.setGoodsLevels(colonyB.getId(), furs, false, 0, 100, 70, 50));
+            awaitTrue(() -> client.getGame().getFreeColGameObject(colonyB.getId(), Colony.class)
+                          .getExportData(fursType).getImportLevel() == 70, "the client has B's level");
+        }
+
+        final Unit ship = merchantmanIn(colonyA);
+        final Unit ours = client.getGame().getFreeColGameObject(ship.getId(), Unit.class);
+        final Colony oursB = client.getGame().getFreeColGameObject(colonyB.getId(), Colony.class);
+        final Colony oursA = client.getGame().getFreeColGameObject(colonyA.getId(), Colony.class);
+        // Two holds of furs at A, unloaded at B.
+        assertNull(commands.saveTradeRoute(null, "Fur ferry", true,
+            List.of(colonyA.getId(), colonyB.getId()), List.of(List.of(furs, furs), List.of())));
+        assertTrue(commands.assignTradeRoute(ship.getId(), serverRoutes(player).get(0).getId()));
+        final int available = oursA.getExportAmount(fursType, 0);
+        final int takes = oursB.getImportAmount(fursType, ours.getTurnsToReach(ours.getLocation(), oursB));
+        final int expected = enhanced ? Math.min(200, Math.min(available, takes)) : Math.min(200, available);
+        assertTrue(expected > 0, "something is to load: " + available + " available, B takes " + takes);
+        if (enhanced) assertTrue(expected <= 70, "B's import level caps the load: " + expected);
+
+        // The editor's tip on A's load chip names B and what it takes, under the enhanced rule only.
+        assertTrue(commands.tradeRoutes());
+        final int[] atB = stockShown(colonyB, furs);
+        assertEquals(enhanced ? 70 : colonyB.getWarehouseCapacity(), atB[3], "B fills up to its level");
+
+        untilLoaded(commands, ship);
+        assertEquals(expected, serverUnit(ship).getGoodsCount(fursType),
+                     enhanced ? "no more than B takes" : "both holds, whatever B takes");
+    }
+
+    /**
      * A ship on a route between two colonies loads at the first and
      * unloads into the second.
      */

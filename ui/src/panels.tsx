@@ -1090,6 +1090,23 @@ function RouteEditor({
         tip: `A carrier unloads until ${place.label} has ${w.upTo} (${level}). It has ${w.have} now, so ${short ? 'only ' : ''}${w.room} fit.${short ? ` A carrier with more unloads ${w.room}, and ${overflow}.` : ''}`,
       };
     };
+    // With the enhanced trade routes option a carrier loads no more than the stop that takes the goods takes in:
+    // the first later stop that does not keep them on board (InGameController.loadUnitAtStop). For a colony that
+    // is what fits up to its level, less what it makes before the carrier arrives, which the editor cannot know.
+    const taker = (g: string, k: number) => {
+      for (let d = 1; d < stops.length; d++) {
+        const j = (i + d) % stops.length;
+        if (stops[j].cargo.includes(g)) continue;
+        const at = e.places.find((p) => p.id === stops[j].place);
+        const w = at?.stock?.[g];
+        if (!at || !w || w.room === null || w.upTo === null) return null;
+        return {
+          short: w.room < k * 100,
+          tip: `With enhanced trade routes it loads no more than ${at.label} takes in, where it is unloaded: up to ${w.upTo}, and it has ${w.have} now, so about ${w.room}, less what ${at.label} makes before the carrier arrives`,
+        };
+      }
+      return null;
+    };
     return (kind: PillKind, g: string, k: number): PillExtra | null => {
       // With the enhanced trade routes option a carrier loads only goods a later stop takes: one that does not
       // keep them on board, or whose warehouse imports them. If every stop keeps them, that is up to the
@@ -1104,7 +1121,13 @@ function RouteEditor({
           figure: w?.figure,
         };
       }
-      return w;
+      const t = kind === 'load' && e.enhanced ? taker(g, k) : null;
+      if (!w && !t) return null;
+      return {
+        figure: w?.figure,
+        short: w?.short || t?.short,
+        tip: [w?.tip, t?.tip].filter(Boolean).join('. '),
+      };
     };
   };
   const n = stops.length;
