@@ -62,13 +62,14 @@
   }
 
   /*
-   * A boycotted goods (GoodsLabel's disabled icon, MarketLabel's setEnabled(false)): Swing's disabled look, greyscale and
-   * faded. Whatever draws a stack gives it data-boycotted: GoodsAmount, the market's goods, Europe's cargo.
+   * A boycotted goods (GoodsLabel's disabled icon): the icon alone is greyscale and faded; its amount or price stays as
+   * it is (the owner's call, #492). Whatever draws a stack gives it data-boycotted: GoodsAmount, the market's goods,
+   * Europe's cargo.
    */
   :root {
     --boycotted-fade: 0.55;
   }
-  [data-boycotted] :is(img, .amount, .name, .price) {
+  [data-boycotted] img {
     filter: grayscale(1);
     opacity: var(--boycotted-fade);
   }
