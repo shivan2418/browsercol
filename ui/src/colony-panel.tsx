@@ -344,14 +344,27 @@ export type OctagonPart = keyof typeof OCTAGON_AT;
  * One of the Board's octagons, cut from the wood, with its number: the colony's size, its change, or a share
  * (the % sign in its own span, so it can be set smaller). data-len is the text's length, for fitting long numbers.
  */
-export function Octagon({ part, text: raw, art }: { part: OctagonPart; text: string; art: Art }) {
+export function Octagon({
+  part,
+  text: raw,
+  art,
+  tip = null,
+}: {
+  part: OctagonPart;
+  text: string;
+  art: Art;
+  /** The board's hint (RebelToolTip), shown over the octagon as Swing shows the panel's over its wood. */
+  tip?: ReactNode;
+}) {
   const wood = art([OCTAGONS]);
   const [x, y] = OCTAGON_AT[part];
   // A real minus sign for a loss, where ColonyJson writes a hyphen.
   const text = raw.replace('-', '−');
   const percent = text.endsWith('%');
   return (
-    <span
+    <Tip
+      as="span"
+      tip={tip}
       className={`octagon ${part}`}
       data-part={part}
       data-len={text.length}
@@ -361,7 +374,7 @@ export function Octagon({ part, text: raw, art }: { part: OctagonPart; text: str
         {percent ? text.slice(0, -1) : text}
         {percent && <span className="pc">%</span>}
       </span>
-    </span>
+    </Tip>
   );
 }
 
@@ -370,17 +383,18 @@ export function Octagon({ part, text: raw, art }: { part: OctagonPart; text: str
  * paintComponent writes the population in, round the tiles (the colony's size, its preferred size change, and the
  * shares of rebels and royalists); RebelToolTip shows while the pointer rests on it, as in Swing. As in Swing, a
  * part with a hint of its own (a tile's or the net production's goods) shows that one instead: the board's hint is
- * on a backdrop behind its parts, since a hint inside another's trigger never opens.
+ * on the octagons and on a backdrop behind its parts, since a hint inside another's trigger never opens.
  */
 function Board({ c, art, children }: { c: ColonyView; art: Art; children: ReactNode }) {
   const p = c.population;
+  const tip = <RebelTipBox tip={p.tip} art={art} />;
   return (
     <div className="board" data-part="population">
-      <Tip as="span" className="board-tip" tip={<RebelTipBox tip={p.tip} art={art} />} />
-      <Octagon part="size" text={String(p.size)} art={art} />
-      <Octagon part="change" text={p.sizeChange} art={art} />
-      <Octagon part="rebels" text={`${p.rebelPercent}%`} art={art} />
-      <Octagon part="royalists" text={`${100 - p.rebelPercent}%`} art={art} />
+      <Tip as="span" className="board-tip" tip={tip} />
+      <Octagon part="size" text={String(p.size)} art={art} tip={tip} />
+      <Octagon part="change" text={p.sizeChange} art={art} tip={tip} />
+      <Octagon part="rebels" text={`${p.rebelPercent}%`} art={art} tip={tip} />
+      <Octagon part="royalists" text={`${100 - p.rebelPercent}%`} art={art} tip={tip} />
       {children}
     </div>
   );

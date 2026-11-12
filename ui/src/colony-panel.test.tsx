@@ -495,8 +495,10 @@ describe('loading a ship in port in the colony panel', () => {
     open();
     mountLayer();
     expect(shownHint()).toBeNull();
-    // The hint is on the board's backdrop, behind the tiles, the net production and the build, which have their own.
-    const board = part('population').querySelector<HTMLElement>('.board-tip')!;
+    // The hint is on the octagons, and on the board's backdrop behind the tiles, the net production and the build,
+    // which have their own.
+    expect(await hint(part('population').querySelector('.board-tip')!)).toContain('Rebel:');
+    const board = part('population').querySelector<HTMLElement>('.octagon.rebels')!;
     fireEvent.pointerEnter(board, { pointerType: 'mouse' });
     fireEvent.mouseEnter(board);
     fireEvent.pointerMove(board, { pointerType: 'mouse' });

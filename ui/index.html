@@ -1688,18 +1688,23 @@
         flex-direction: column;
         align-items: center;
         gap: 6px;
-        isolation: isolate;
       }
-      /* The board's hint (RebelToolTip) is on this backdrop, under its parts, so theirs win; the octagons let it through. */
+      /*
+       * The board's hint (RebelToolTip) is on the octagons and on this backdrop, under its parts, so theirs win. It
+       * is first in the board and its parts are positioned, so they paint over it by order alone: no
+       * z-index or isolation, which would make the board a stacking context and trap the build queue window in it,
+       * under the panels after the board.
+       */
       .colony .board-tip {
         position: absolute;
         inset: 0;
-        z-index: -1;
+      }
+      .colony .board > :is(.net, .construction) {
+        position: relative;
       }
       .colony .octagon {
         position: absolute;
         z-index: 1;
-        pointer-events: none;
         width: 68px;
         height: 66px;
         box-sizing: border-box;
@@ -1717,7 +1722,6 @@
         font-weight: 700;
         line-height: 1;
         padding-top: 3px;
-        pointer-events: none;
       }
       /* Smaller as the number gets longer. */
       .colony .octagon.change {
@@ -1975,12 +1979,17 @@
         width: 100%;
         box-sizing: border-box;
       }
-      /* Units outside the colony and the cargo of the chosen ship share a line; the cargo sits under the right column. */
+      /*
+       * Units outside the colony and the cargo of the chosen ship share a line; the cargo sits under the right column.
+       * Both are as tall as the taller (a long ship's caption wraps to two lines).
+       */
       .colony .outside {
         grid-column: 1;
+        align-self: stretch;
       }
       .colony .cargo {
         grid-column: 2;
+        align-self: stretch;
       }
       /* The warehouse: its caption, then one line of every goods, each its icon and number side by side. The box has no height of its own, and never scrolls. */
       .colony .warehouse {

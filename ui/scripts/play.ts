@@ -922,6 +922,24 @@ async function play(page: Page, url: string) {
     // Queue a building the colony can build, from the build queue; the panel must list it as queued. (What
     // the server's colony does with the queue, and paying for it, are CommandsTest's to check.)
     await panel.locator('[data-part=construction]').click();
+    // The queue's window is over every part of the colony panel, also the warehouse and the units outside under
+    // it, which once painted over it while the board it sits in was a stacking context of its own.
+    const buried = await panel.locator('.queue-body').evaluate((queue) => {
+      const r = queue.getBoundingClientRect();
+      const at = [
+        [0.5, 0.5],
+        [0.1, 0.9],
+        [0.9, 0.9],
+        [0.9, 0.6],
+      ];
+      return at
+        .map(([fx, fy]) => [r.left + r.width * fx, r.top + r.height * fy])
+        .filter(([x, y]) => x < innerWidth && y < innerHeight)
+        .map(([x, y]) => document.elementFromPoint(x, y))
+        .filter((e) => e !== null && !queue.contains(e))
+        .map((e) => e!.closest('[data-part]')?.getAttribute('data-part') ?? e!.tagName);
+    });
+    if (buried.length > 0) throw new Error(`the build queue window is under ${buried.join(', ')}`);
     const addable = panel.locator('[data-part=buildings] [data-buildable] button:not([disabled])');
     if ((await addable.count()) > 0) {
       const type = await addable.first().evaluate((e) => e.closest<HTMLElement>('[data-buildable]')!.dataset.buildable);
