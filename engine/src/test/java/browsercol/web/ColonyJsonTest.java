@@ -513,4 +513,37 @@ class ColonyJsonTest {
             .noneMatch(t -> !ids(t.get("workers")).isEmpty()),
             "the founder works on no tile");
     }
+
+    /**
+     * A colony with no colonists inside (they all walked out) has no share of
+     * rebels: FreeCol's Colony.getSonsOfLiberty() is -1 then, which Swing
+     * draws as -1% rebels and 101% royalists. The panel shows 0% and 100%.
+     */
+    @Test
+    @Timeout(120)
+    void anEmptyColonyHasNoRebelsRatherThanMinusOnePercent() throws Exception {
+        startGame();
+        final Game game = server.getGame();
+        final Specification spec = game.getSpecification();
+        final Player us = game.getFreeColGameObject(
+            client.getClient().getMyPlayer().getId(), Player.class);
+        final Tile land = game.getMap().getTileSet(t -> t.isLand() && !t.hasSettlement()
+                && t.getOwner() == null && t.getUnitCount() == 0).stream().findFirst().get();
+        final Colony colony = new ServerColony(game, us, "Jamestown", land);
+        us.addSettlement(colony);
+        colony.placeSettlement(true);
+        final Unit founder = new ServerUnit(game, land, us, spec.getDefaultUnitType(us));
+        founder.setLocation(colony);
+        founder.setLocation(land);
+        colony.updateSoL();
+        assertEquals(0, colony.getUnitCount());
+        assertEquals(-1, colony.getSonsOfLiberty(), "FreeCol's value for an empty colony");
+
+        final Map<String, Object> population = obj(
+            obj(JsonReader.read(ColonyJson.of(colony, 0))).get("population"));
+        assertEquals(0L, population.get("rebelPercent"));
+        final List<Object> members = list(obj(population.get("tip")).get("members"));
+        assertEquals(List.of("Rebel:", "0", "0%"), list(members.get(0)));
+        assertEquals(List.of("Royalist:", "0", "100%"), list(members.get(1)));
+    }
 }

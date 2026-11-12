@@ -155,9 +155,18 @@ final class ColonyJson {
         return new Json()
             .put("size", colony.getUnitCount())
             .put("sizeChange", (grow > 9) ? ">9" : (grow >= 0) ? "+" + grow : String.valueOf(grow))
-            .put("rebelPercent", colony.getSonsOfLiberty())
+            .put("rebelPercent", rebelPercent(colony))
             .putRaw("tip", rebelTip(colony))
             .toString();
+    }
+
+    /**
+     * The colony's share of rebels. Colony.getSonsOfLiberty() is -1 for a
+     * colony with no colonists inside, which Swing draws as -1% rebels and
+     * 101% royalists; an empty colony has no rebels, so 0.
+     */
+    static int rebelPercent(Colony colony) {
+        return Math.max(0, colony.getSonsOfLiberty());
     }
 
     /**
@@ -174,7 +183,7 @@ final class ColonyJson {
         final Specification spec = colony.getSpecification();
         final List<GoodsType> libertyGoods = spec.getLibertyGoodsTypeList();
         final int population = colony.getUnitCount();
-        final int sol = colony.getSonsOfLiberty();
+        final int sol = rebelPercent(colony);
         final int rebels = Colony.calculateRebelCount(population, sol);
         final Turn turn = colony.getGame().getTurn();
         final List<String> members = List.of(
