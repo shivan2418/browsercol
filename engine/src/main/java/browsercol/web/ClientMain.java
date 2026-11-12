@@ -579,6 +579,12 @@ public final class ClientMain {
                 () -> engine.getCommands().selectDestination());
     }
 
+    /** Top up the active carrier's cargo from its colony (LoadAction). */
+    @JSExport
+    public static void load() {
+        command("load", () -> engine.getCommands().load());
+    }
+
     /** Unload the active carrier's cargo (UnloadAction). */
     @JSExport
     public static void unload() {

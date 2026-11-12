@@ -119,6 +119,7 @@ export interface ClientExports {
   sentry(): void;
   skip(): void;
   disband(): void;
+  load(): void;
   unload(): void;
   plow(): void;
   clearForest(): void;

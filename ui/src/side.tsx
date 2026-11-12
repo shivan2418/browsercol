@@ -59,6 +59,7 @@ const ORDERS: [string, Command][] = [
   ['Plow (P)', { k: 'plow' }],
   ['Clear forest (C)', { k: 'clearForest' }],
   ['Road (R)', { k: 'road' }],
+  ['Load (L)', { k: 'load' }],
   ['Go to (H)', { k: 'selectDestination' }],
   ['Assign trade route (A)', { k: 'assignRoute' }],
 ];

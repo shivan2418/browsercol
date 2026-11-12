@@ -150,6 +150,7 @@ describe('the Orders menu', () => {
       'Plow',
       'Clear Forest',
       'Build Road',
+      'Load',
       'Unload',
       'Go To',
       'Execute Go To Orders',

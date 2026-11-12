@@ -2178,6 +2178,75 @@ class CommandsTest {
     }
 
     /**
+     * Orders > Load (the L key, LoadAction, #477): a carrier in a colony
+     * with room left is topped up with the goods it already carries, up to
+     * 100 of each from what the warehouse has; an empty ship loads nothing,
+     * and the order is not offered at sea or to a full ship.
+     */
+    @Test
+    @Timeout(240)
+    void loadTopsUpACarrierFromTheColony() throws Exception {
+        startGame();
+        final Commands commands = client.getCommands();
+        final Colony serverColony = foundAColony(commands);
+        final Colony ours = client.getGame()
+            .getFreeColGameObject(serverColony.getId(), Colony.class);
+        final Player player = client.getClient().getMyPlayer();
+        final Unit ship = player.getUnits().filter(Unit::isNaval).findFirst().get();
+        assertFalse(UnitOrders.valid(player, ship).contains("load"), "no Load at sea");
+        select(commands, ship);
+        assertTrue(commands.move(client.getGame().getMap()
+            .getDirection(ship.getTile(), ours.getTile()).toString()), "into port");
+        client.getClient().getGUI().changeView(ship, false);
+        assertNotNull(ship.getColony(), "the ship is in the colony");
+        assertTrue(UnitOrders.valid(player, ship).contains("load"), "Load in port with room");
+
+        // An empty ship loads nothing.
+        assertFalse(commands.load(), "an empty ship loads nothing");
+        assertEquals(0, ship.getCargoSpaceTaken());
+
+        // Leave 30 furs aboard and 200 in the warehouse.
+        final GoodsType food = client.getGame().getSpecification().getGoodsType("model.goods.furs");
+        final String at = "\"x\":" + ours.getTile().getX() + ",\"y\":" + ours.getTile().getY() + "}";
+        final int had = ours.getGoodsCount(food);
+        client.debugApplied(server.debug("{\"action\":\"addGoods\",\"type\":\"model.goods.furs\","
+            + "\"amount\":130," + at));
+        awaitTrue(() -> ours.getGoodsCount(food) == had + 130, "the colony has furs");
+        assertTrue(commands.loadGoods(ship.getId(), food.getId(), false), "loads a stack");
+        final int loaded = ship.getGoodsCount(food);
+        assertEquals(100, loaded);
+        assertTrue(commands.unloadGoods(ship.getId(), food.getId(), loaded - 30, false), "keeps 30");
+        assertEquals(30, ship.getGoodsCount(food));
+        final int more = 200 - ours.getGoodsCount(food);
+        client.debugApplied(server.debug("{\"action\":\"addGoods\",\"type\":\"model.goods.furs\","
+            + "\"amount\":" + more + "," + at));
+        awaitTrue(() -> ours.getGoodsCount(food) == 200, "200 furs in the warehouse");
+        final int present = ours.getGoodsCount(food);
+        final int expected = 30 + Math.min(Math.min(ship.getLoadableAmount(food), present), 100);
+
+        client.getClient().getGUI().changeView(ship, false);
+        assertSame(ship, client.getClient().getGUI().getActiveUnit(), "the ship is active");
+        assertTrue(commands.load(), "L tops the ship up");
+        assertEquals(expected, ship.getGoodsCount(food), "the ship is topped up, at most 100 at a time");
+        assertEquals(130, ship.getGoodsCount(food), "LoadAction loads 100 of the 200");
+        assertEquals(present - (expected - 30), ours.getGoodsCount(food), "the warehouse gave it");
+
+        // A ship with no room left is not offered Load.
+        while (ship.hasSpaceLeft()) {
+            boolean any = false;
+            for (GoodsType g : client.getGame().getSpecification().getGoodsTypeList()) {
+                if (ship.hasSpaceLeft() && ours.getGoodsCount(g) > 0) {
+                    any |= commands.loadGoods(ship.getId(), g.getId(), false);
+                }
+            }
+            if (!any) break;
+        }
+        if (!ship.hasSpaceLeft()) {
+            assertFalse(UnitOrders.valid(player, ship).contains("load"), "no Load for a full ship");
+        }
+    }
+
+    /**
      * The trade routes panel opens with no unit from the menu, for a
      * carrier from its quick menu entry or the A key, and a route saved
      * from the carrier's panel is given to the carrier.

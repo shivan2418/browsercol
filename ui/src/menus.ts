@@ -135,6 +135,7 @@ export function ordersMenu(a: MenuActions): Items {
     order('Plow', { k: 'plow' }),
     order('Clear Forest', { k: 'clearForest' }),
     order('Build Road', { k: 'road' }),
+    order('Load', { k: 'load' }),
     order('Unload', { k: 'unload' }),
     order('Go To', { k: 'selectDestination' }),
     // MapboardAction: needs no unit, only the game (and our turn, which the Engine checks).

@@ -34,6 +34,9 @@ import net.sf.freecol.common.model.Unit;
  *     <td>always (an action on a unit of ours)</td></tr>
  * <tr><td>assignRoute</td><td>AssignTradeRouteAction</td>
  *     <td>the unit is a carrier</td></tr>
+ * <tr><td>load</td><td>LoadAction</td>
+ *     <td>the unit is a carrier with space left, in a colony (Swing also
+ *         enables it elsewhere, where it does nothing)</td></tr>
  * <tr><td>unload</td><td>UnloadAction</td>
  *     <td>the unit is a carrier with cargo aboard</td></tr>
  * <tr><td>buildColony</td><td>BuildColonyAction</td>
@@ -60,6 +63,9 @@ public final class UnitOrders {
      * tile the player clicks on the map, which is GotoTileAction.
      */
     public static final String GOTO = "goto";
+
+    /** Top up the carrier's cargo from the colony, as LoadAction does. */
+    public static final String LOAD = "load";
 
     /** Unload the carrier's cargo, as UnloadAction does. */
     public static final String UNLOAD = "unload";
@@ -104,6 +110,11 @@ public final class UnitOrders {
         orders.add(GOTO);
         // AssignTradeRouteAction: the active unit must be a carrier.
         if (unit.isCarrier()) orders.add(ASSIGN_ROUTE);
+        // LoadAction: a carrier with space left; it acts only in a colony, so
+        // the order is offered only there.
+        if (unit.isCarrier() && unit.hasSpaceLeft() && unit.getColony() != null) {
+            orders.add(LOAD);
+        }
         // UnloadAction: a carrier with something aboard.
         if (unit.isCarrier() && unit.getCargoSpaceTaken() > 0) {
             orders.add(UNLOAD);

@@ -893,6 +893,33 @@ public final class Commands {
     }
 
     /**
+     * Top up the active carrier from its colony (LoadAction, the L key and
+     * Orders > Load): for each goods the carrier already carries, as much
+     * as it has room for and the warehouse has, but at most 100 (a cargo
+     * stack), is loaded. Unlike {@link #fillShip}, which has no such cap.
+     * An empty ship, or one outside a colony, loads nothing.
+     *
+     * @return True if anything was loaded.
+     */
+    public boolean load() {
+        final Unit unit = gui().getActiveUnit();
+        if (unit == null || !unit.isCarrier() || !unit.hasSpaceLeft()) return false;
+        final Colony colony = unit.getColony();
+        if (colony == null) return false;
+        boolean any = false;
+        for (Goods g : unit.getCompactGoodsList()) {
+            final GoodsType type = g.getType();
+            final int loadable = unit.getLoadableAmount(type);
+            final int present = colony.getGoodsCount(type);
+            if (loadable > 0 && present > 0) {
+                final int n = Math.min(Math.min(loadable, present), GoodsContainer.CARGO_SIZE);
+                any |= igc().loadCargo(new Goods(this.client.getGame(), colony, type, n), unit);
+            }
+        }
+        return any;
+    }
+
+    /**
      * Unload the active unit's cargo (UnloadAction, the U key and Orders >
      * Unload), wherever it is.
      *

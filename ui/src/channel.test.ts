@@ -118,6 +118,7 @@ function fakeClient(scope: Scope, log: string[]): ClientExports {
     sentry: () => {},
     skip: () => {},
     disband: () => {},
+    load: () => {},
     unload: () => {},
     plow: () => {},
     work: () => {},

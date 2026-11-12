@@ -8,6 +8,7 @@ const ALL = [
   'sentry',
   'skip',
   'disband',
+  'load',
   'unload',
   'plow',
   'clearForest',
@@ -61,6 +62,9 @@ describe('commandForKey', () => {
     expect(key(' ', 'Space')).toEqual({ k: 'skip' });
     expect(key('d', 'KeyD')).toEqual({ k: 'disband' });
     expect(key('D', 'KeyD')).toEqual({ k: 'disband' });
+    expect(key('l', 'KeyL')).toEqual({ k: 'load' });
+    expect(key('L', 'KeyL')).toEqual({ k: 'load' });
+    expect(key('l', 'KeyL', [])).toBeNull();
     expect(key('u', 'KeyU')).toEqual({ k: 'unload' });
     expect(key('U', 'KeyU')).toEqual({ k: 'unload' });
     expect(key('p', 'KeyP')).toEqual({ k: 'plow' });

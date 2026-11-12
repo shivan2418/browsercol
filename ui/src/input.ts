@@ -22,6 +22,7 @@ export type Command =
   | { k: 'sentry' }
   | { k: 'skip' }
   | { k: 'disband' }
+  | { k: 'load' }
   | { k: 'unload' }
   | { k: 'plow' }
   | { k: 'clearForest' }
@@ -61,6 +62,9 @@ const BY_KEY: Record<string, Command> = {
   ' ': { k: 'skip' },
   d: { k: 'disband' },
   D: { k: 'disband' },
+  // LoadAction: a carrier in a colony is topped up from the warehouse.
+  l: { k: 'load' },
+  L: { k: 'load' },
   // UnloadAction: a carrier unloads (dumps, off a colony or Europe).
   u: { k: 'unload' },
   U: { k: 'unload' },
@@ -110,6 +114,7 @@ const ORDER_OF: Partial<Record<Command['k'], string>> = {
   sentry: 'sentry',
   skip: 'skip',
   disband: 'disband',
+  load: 'load',
   unload: 'unload',
   plow: 'plow',
   clearForest: 'clearForest',
