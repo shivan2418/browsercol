@@ -33,7 +33,7 @@ import { ContextMenuContext, contextMenuHandler } from './popup-menu';
 import { OptionEditor } from './option-editor';
 import { ReportPanel } from './reports';
 import { EuropeEntry, unitDrag } from './europe-entry';
-import { PlanPills } from './plan-pills';
+import { PlanPills, type PillExtra, type PillKind } from './plan-pills';
 import { holdsOf, stopWork } from './route-work';
 import type { ColonyView, EuropeUnit, GuiEvents, ReportLink, SettlementEntry, TradeRouteDraft } from './webgui';
 import { useCoverage } from './coverage';
@@ -905,6 +905,13 @@ const MOST_HOLDS = 6;
  */
 const grouped = (cargo: readonly string[]) => [...holdsOf(cargo)].flatMap(([g, k]) => Array<string>(k).fill(g));
 
+/**
+ * A stop's holds in the order the enhanced trade routes option loads them: the most holds of a goods first (it
+ * sorts by the amount to load, which the holds set before the colonies' warehouse levels limit it).
+ */
+const byAmount = (cargo: readonly string[]) =>
+  [...holdsOf(cargo)].sort((a, b) => b[1] - a[1]).flatMap(([g, k]) => Array<string>(k).fill(g));
+
 /** A stop as the editor keeps it: with a key of its own, so folding and editing follow it when it moves. */
 type Leg = Stop & { key: number };
 let legKeys = 0;
@@ -1000,7 +1007,7 @@ function RouteEditor({
   // A hold is dragged to load its goods sooner or later: all the holds of those goods move with it, as FreeCol
   // loads them together. With the enhanced trade routes option the order means nothing, and holds do not drag.
   const holds = (i: number) => {
-    const cargo = stops[i].cargo;
+    const cargo = e.enhanced ? byAmount(stops[i].cargo) : stops[i].cargo;
     const reorder = (from: number, to: number) => {
       const g = cargo[from];
       const rest = cargo.filter((x) => x !== g);
@@ -1021,10 +1028,11 @@ function RouteEditor({
               tip={`${k + 1}. ${nameOf(g)} (click to empty${e.enhanced ? '' : ', drag to load it sooner or later'})${k >= MOST_HOLDS ? ': no carrier has this many holds' : ''}`}
               {...(!e.enhanced &&
                 sortHandle(k, (hold) => hold.closest('.holds'), reorder, { grid: true, items: '[data-held]' }))}
+              // Holds of a goods are alike: emptying one empties the last of them.
               onClick={() =>
                 setCargo(
                   i,
-                  cargo.filter((_, j) => j !== k),
+                  stops[i].cargo.filter((_, j) => j !== stops[i].cargo.lastIndexOf(g)),
                 )
               }
             >
@@ -1049,6 +1057,20 @@ function RouteEditor({
       </div>
     );
   };
+  // What the editor adds to a stop's pills. With the enhanced trade routes option a carrier loads only goods a
+  // later stop takes: one that does not keep them on board, or whose warehouse imports them. If every stop
+  // keeps them, that is up to the warehouses.
+  const pillExtra =
+    (i: number) =>
+    (kind: PillKind, g: string): PillExtra | null => {
+      const kept = e.enhanced && stops.every((s, j) => j === i || s.cargo.includes(g));
+      if (kind !== 'load' || !kept) return null;
+      return {
+        maybe: true,
+        tip: `${inEurope(i) ? 'Buy' : 'Load'} ${nameOf(g)} only if a later colony's warehouse imports it: every stop keeps it on board`,
+        instead: true,
+      };
+    };
   const n = stops.length;
   // Which carriers can follow the route; nothing is said if a stop's place is not one the Engine sent.
   const reachable = stops.map((s) => e.places.find((p) => p.id === s.place));
@@ -1115,7 +1137,13 @@ function RouteEditor({
                 <Heading look="title" space="flush">
                   {s.label}
                 </Heading>
-                <PlanPills {...stopWork(stops, i)} icon={icon} nameOf={nameOf} europe={inEurope(i)} />
+                <PlanPills
+                  {...stopWork(stops, i)}
+                  icon={icon}
+                  nameOf={nameOf}
+                  europe={inEurope(i)}
+                  extra={pillExtra(i)}
+                />
                 <Tip
                   as="button"
                   className="icon"

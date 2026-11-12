@@ -37,6 +37,11 @@
     background: color-mix(in srgb, var(--bad) 22%, var(--box));
     color: var(--bad);
   }
+  /* A load that happens only if a later colony's warehouse imports the goods (enhanced trade routes). */
+  .plan-pill[data-maybe] {
+    outline: var(--border) dashed currentColor;
+    outline-offset: calc(-1 * var(--border));
+  }
   /* In Europe: Buy or Sell before the goods. */
   .plan-pill .plan-verb {
     margin: var(--plan-verb-margin);

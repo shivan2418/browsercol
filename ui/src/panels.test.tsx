@@ -2132,6 +2132,18 @@ describe('the trade routes panel', () => {
     press('Edit Trade Route');
     expect(legAt(0)!.querySelector('.hint')!.textContent).toContain('the largest amount first');
     expect(legAt(0)!.querySelector('[data-held]')!.hasAttribute('data-sort')).toBe(false);
+    // The holds show in the order they load, the most first; emptying one empties a hold of its goods.
+    act(() => void fireEvent.click(within(legAt(0)!).getByRole('button', { name: 'Furs' })));
+    act(() => void fireEvent.click(within(legAt(0)!).getByRole('button', { name: 'Furs' })));
+    const held = () => [...legAt(0)!.querySelectorAll('[data-held]')].map((h) => h.getAttribute('data-held'));
+    expect(held()).toEqual([F, F, T]);
+    act(() => void fireEvent.click(legAt(0)!.querySelectorAll('[data-held]')[2]));
+    expect(held()).toEqual([F, F]);
+    // Both stops keep furs on board, so whether Europe buys them is up to New Amsterdam's warehouse.
+    const furs = stopAt(0).querySelector(`[data-work=load][data-type="${F}"]`)!;
+    expect(furs.hasAttribute('data-maybe')).toBe(true);
+    // New Amsterdam's tools are unloaded at Europe, which keeps none: they load.
+    expect(stopAt(1).querySelector('[data-maybe]')).toBeNull();
   });
 
   it('disables Add Stop once the route has a stop for every place', async () => {
