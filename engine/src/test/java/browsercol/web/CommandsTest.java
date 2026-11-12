@@ -1189,6 +1189,21 @@ class CommandsTest {
 
     @Test
     @Timeout(180)
+    void theWarehouseDialogSaysWhyAColonyCannotExport() throws Exception {
+        startGame();
+        final Colony serverColony = foundAColony(client.getCommands());
+        final Colony ours = client.getGame()
+            .getFreeColGameObject(serverColony.getId(), Colony.class);
+        // A new colony has no custom house: the box is off, and the hint names the building that turns it on.
+        assertFalse(ours.hasAbility(net.sf.freecol.common.model.Ability.EXPORT));
+        assertEquals("Needs a Custom house", Warehouses.exportOffTip(ours));
+        final String question = Warehouses.question(ours);
+        assertTrue(question.contains("\"canExport\":false"), question);
+        assertTrue(question.contains("\"exportOff\":\"Needs a Custom house\""), question);
+    }
+
+    @Test
+    @Timeout(180)
     void theHumanSetsTheColonysExportLevelsInTheWarehouseDialog() throws Exception {
         startGame();
         final Commands commands = client.getCommands();

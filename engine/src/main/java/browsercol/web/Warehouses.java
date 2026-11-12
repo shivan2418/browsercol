@@ -6,6 +6,7 @@ import java.util.List;
 import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.model.Ability;
 import net.sf.freecol.common.model.Colony;
+import net.sf.freecol.common.model.BuildingType;
 import net.sf.freecol.common.model.ExportData;
 import net.sf.freecol.common.model.GoodsType;
 import net.sf.freecol.common.option.GameOptions;
@@ -31,6 +32,19 @@ final class Warehouses {
     /** The most an import or export level may be: the capacity, or 300 for goods that ignore it. */
     static int maxLevel(Colony colony, GoodsType type) {
         return type.limitIgnored() ? 300 : colony.getWarehouseCapacity();
+    }
+
+    /**
+     * Why the Export check box is off, composed from FreeCol's names (it has no string for it): "Needs a Custom
+     * house". Null when the colony can export.
+     */
+    static String exportOffTip(Colony colony) {
+        if (colony.hasAbility(Ability.EXPORT)) return null;
+        final List<String> names = new ArrayList<>();
+        for (BuildingType type : colony.getSpecification().getTypesWithAbility(BuildingType.class, Ability.EXPORT)) {
+            names.add(Messages.getName(type));
+        }
+        return names.isEmpty() ? null : "Needs a " + String.join(" or a ", names);
     }
 
     static String question(Colony colony) {
@@ -74,6 +88,7 @@ final class Warehouses {
                 .put("import", Messages.message("warehouseDialog.importLevel.shortDescription"))
                 .put("export", Messages.message("warehouseDialog.exportLevel.shortDescription"))
                 .put("exported", Messages.message("warehouseDialog.export.shortDescription"))
+                .put("exportOff", exportOffTip(colony))
                 .toString())
             .putRaw("goods", Json.array(goods))
             .toString();

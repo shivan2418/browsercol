@@ -1730,6 +1730,24 @@ describe('the warehouse dialog', () => {
     expect(await closed).toBeNull();
   });
 
+  it('hints why the Export box is off, on a wrapper that takes the pointer in place of the disabled box', async () => {
+    const { box } = host();
+    void ask(box, 'warehouse', {
+      ...q,
+      canExport: false,
+      tips: { ...q.tips, exportOff: 'Needs a Custom house' },
+    });
+    const check = screen.getByLabelText('Food Export') as HTMLInputElement;
+    expect(check.disabled).toBe(true);
+    expect(await hint(check.parentElement!)).toBe('Needs a Custom house');
+  });
+
+  it('keeps FreeCol’s hint on the Export box when it can export', async () => {
+    const { box } = host();
+    void ask(box, 'warehouse', q);
+    expect(await hint(screen.getByLabelText('Food Export').parentElement!)).toBe('Whether');
+  });
+
   it('cannot export without a custom house, and answers null on cancel', async () => {
     const { box } = host();
     const later = ask(box, 'warehouse', { ...q, canExport: false });

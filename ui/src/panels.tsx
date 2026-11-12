@@ -589,15 +589,16 @@ function Warehouse({ d, art }: { d: Of<'warehouse'>; art: Art }) {
                 <td>{level(i, 'high', 100, ask.tips.high)}</td>
                 {imports && <td>{g.import !== null && level(i, 'import', g.max, ask.tips.import)}</td>}
                 <td className="check">
-                  <Tip
-                    as="input"
-                    tip={ask.tips.exported}
-                    type="checkbox"
-                    aria-label={`${g.name} ${ask.export}`}
-                    checked={g.exported}
-                    disabled={!ask.canExport}
-                    onChange={(e) => set(i, { exported: e.target.checked })}
-                  />
+                  {/* A disabled box takes no pointer events in some browsers: the hint goes on a wrapper. */}
+                  <Tip as="span" className="check-box" tip={ask.canExport ? ask.tips.exported : ask.tips.exportOff}>
+                    <input
+                      type="checkbox"
+                      aria-label={`${g.name} ${ask.export}`}
+                      checked={g.exported}
+                      disabled={!ask.canExport}
+                      onChange={(e) => set(i, { exported: e.target.checked })}
+                    />
+                  </Tip>
                 </td>
                 <td>{level(i, 'export', g.max, ask.tips.export)}</td>
               </tr>

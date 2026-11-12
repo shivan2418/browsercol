@@ -1164,6 +1164,26 @@ async function play(page: Page, url: string) {
       if (!okBox || okBox.y < 0 || okBox.y + okBox.height > win.height) {
         throw new Error(`the warehouse dialog's OK is not in view: ${JSON.stringify({ okBox, win })}`);
       }
+      // The heading row stays whole and on top at the bottom of the scroll, which the focus on the first export level
+      // (Firefox scrolls it into view) must not push out of sight either.
+      const heading = await warehouseDialog.locator('.warehouse-goods').evaluate((box) => {
+        box.scrollTop = box.scrollHeight;
+        const area = box.getBoundingClientRect();
+        return [...box.querySelectorAll('thead th')].map((th) => {
+          const r = th.getBoundingClientRect();
+          const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+          return {
+            inside: r.top >= area.top - 0.5 && r.bottom <= area.bottom + 0.5 && r.height > 8,
+            hit: hit === th || th.contains(hit),
+            over: hit ? `${hit.tagName}.${hit.className}` : null,
+          };
+        });
+      });
+      if (heading.length === 0 || heading.some((h) => !h.inside || !h.hit)) {
+        throw new Error(
+          `the warehouse dialog's heading row is not whole at the bottom of the scroll: ${JSON.stringify(heading)}`,
+        );
+      }
       await exportLevel.fill(level);
       await warehouseDialog.locator('[data-answer=ok]').click();
       await warehouseDialog.waitFor({ state: 'detached', timeout: 10000, label: 'the warehouse dialog closes' });
