@@ -1158,6 +1158,12 @@ async function play(page: Page, url: string) {
       if (level === '38' && (await exportLevel.inputValue()) !== '37') {
         throw new Error('the warehouse dialog did not keep the export level set before');
       }
+      // OK is in the footer: in view without scrolling the table.
+      const okBox = await warehouseDialog.locator('[data-answer=ok]').boundingBox();
+      const win = page.viewportSize()!;
+      if (!okBox || okBox.y < 0 || okBox.y + okBox.height > win.height) {
+        throw new Error(`the warehouse dialog's OK is not in view: ${JSON.stringify({ okBox, win })}`);
+      }
       await exportLevel.fill(level);
       await warehouseDialog.locator('[data-answer=ok]').click();
       await warehouseDialog.waitFor({ state: 'detached', timeout: 10000, label: 'the warehouse dialog closes' });

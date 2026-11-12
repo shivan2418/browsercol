@@ -1624,6 +1624,9 @@ describe('the warehouse dialog', () => {
     ok: 'OK',
     cancel: 'Cancel',
     export: 'Export',
+    discard: 'Discard your changes?',
+    discardYes: 'Yes',
+    discardNo: 'No',
     canExport: true,
     labels: { goods: 'Goods', low: 'Low', high: 'High', import: 'Import' },
     tips: {
@@ -1696,6 +1699,35 @@ describe('the warehouse dialog', () => {
     const { box } = host();
     void ask(box, 'warehouse', { ...q, goods: q.goods.map((g) => ({ ...g, import: null })) });
     expect(screen.getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['Goods', 'Low', 'High', 'Export']);
+  });
+
+  it('keeps OK and Cancel in a footer outside the scrolling table', () => {
+    const { box } = host();
+    void ask(box, 'warehouse', q);
+    const ok = screen.getByRole('button', { name: 'OK' });
+    expect(ok.closest('.warehouse-goods')).toBeNull();
+    expect(screen.getByRole('table').closest('.warehouse-goods')).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'Cancel' }).closest('.warehouse-goods')).toBeNull();
+  });
+
+  it('closes at once when nothing was edited, and asks before throwing an edit away', async () => {
+    const { box } = host();
+    const closed = ask(box, 'warehouse', q);
+    fireEvent.change(screen.getByLabelText('Food low'), { target: { value: '15' } });
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    expect(screen.getByText('Discard your changes?')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'No' }));
+    expect(screen.queryByText('Discard your changes?')).toBeNull();
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    fireEvent.click(screen.getByRole('button', { name: 'Yes' }));
+    expect(await closed).toBeNull();
+  });
+
+  it('answers null on Escape without asking when nothing changed', async () => {
+    const { box } = host();
+    const closed = ask(box, 'warehouse', q);
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    expect(await closed).toBeNull();
   });
 
   it('cannot export without a custom house, and answers null on cancel', async () => {

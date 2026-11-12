@@ -761,6 +761,10 @@ export interface GuiQuestions {
       cancel: string | null;
       /** The export check box's label. */
       export: string;
+      /** What the close box and Escape ask after an edit, and its Yes and No. */
+      discard: string;
+      discardYes: string;
+      discardNo: string;
       canExport: boolean;
       /** The column headings of the levels. */
       labels: { goods: string; low: string; high: string; import: string };

@@ -106,6 +106,9 @@ const question = {
     ok: 'OK',
     cancel: 'Cancel',
     export: 'Export',
+    discard: 'Discard your changes?',
+    discardYes: 'Yes',
+    discardNo: 'No',
     canExport: true,
     labels: { goods: 'Goods', low: 'Low', high: 'High', import: 'Import' },
     tips: {

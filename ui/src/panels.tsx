@@ -528,7 +528,12 @@ function Warehouse({ d, art }: { d: Of<'warehouse'>; art: Art }) {
       })),
     );
   const cancel = () => d.done(null);
-  useEnter(ok);
+  // FreeCol's WarehouseDialog cancels on Escape (its escape action is Cancel), and so does the close box; here an edit
+  // is not thrown away unasked: the first close asks, in the footer that is always in view.
+  const [discarding, setDiscarding] = useState(false);
+  const edited = JSON.stringify(rows) !== JSON.stringify(ask.goods);
+  const close = () => (edited && !discarding ? setDiscarding(true) : cancel());
+  useEnter(discarding ? () => setDiscarding(false) : ok);
   const level = (i: number, field: 'low' | 'high' | 'import' | 'export', max: number, tip: string) => (
     <NumberField
       min={0}
@@ -541,7 +546,7 @@ function Warehouse({ d, art }: { d: Of<'warehouse'>; art: Art }) {
   );
   const imports = rows.some((g) => g.import !== null);
   return (
-    <Win d={d} title={ask.title} close={cancel}>
+    <Win d={d} title={ask.title} close={close}>
       <div className="warehouse-goods">
         <table>
           <colgroup>
@@ -600,7 +605,21 @@ function Warehouse({ d, art }: { d: Of<'warehouse'>; art: Art }) {
           </tbody>
         </table>
       </div>
-      <OkCancel ok={ask.ok} cancel={ask.cancel} onOk={ok} onCancel={cancel} enter="ok" />
+      {discarding ? (
+        <div className="warehouse-discard" role="alert">
+          <span>{ask.discard}</span>
+          <ButtonRow>
+            <button data-answer="discard" onClick={cancel}>
+              {ask.discardYes}
+            </button>
+            <button data-answer="keep" data-enter onClick={() => setDiscarding(false)}>
+              {ask.discardNo}
+            </button>
+          </ButtonRow>
+        </div>
+      ) : (
+        <OkCancel ok={ask.ok} cancel={ask.cancel} onOk={ok} onCancel={cancel} enter="ok" />
+      )}
     </Win>
   );
 }
