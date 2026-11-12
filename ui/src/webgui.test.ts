@@ -108,7 +108,13 @@ const question = {
     export: 'Export',
     canExport: true,
     labels: { goods: 'Goods', low: 'Low', high: 'High', import: 'Import' },
-    tips: { low: 'Low level tip', high: 'High level tip', import: 'Import level tip', export: 'Export above', exported: 'Whether' },
+    tips: {
+      low: 'Low level tip',
+      high: 'High level tip',
+      import: 'Import level tip',
+      export: 'Export above',
+      exported: 'Whether',
+    },
     goods: [
       {
         type: 'model.goods.food',

@@ -1626,7 +1626,13 @@ describe('the warehouse dialog', () => {
     export: 'Export',
     canExport: true,
     labels: { goods: 'Goods', low: 'Low', high: 'High', import: 'Import' },
-    tips: { low: 'Low level tip', high: 'High level tip', import: 'Import level tip', export: 'Export above', exported: 'Whether' },
+    tips: {
+      low: 'Low level tip',
+      high: 'High level tip',
+      import: 'Import level tip',
+      export: 'Export above',
+      exported: 'Whether',
+    },
     goods: [
       {
         type: 'model.goods.food',
@@ -1689,12 +1695,7 @@ describe('the warehouse dialog', () => {
   it('has no import column unless a goods has an import level', () => {
     const { box } = host();
     ask(box, 'warehouse', { ...q, goods: q.goods.map((g) => ({ ...g, import: null })) });
-    expect(screen.getAllByRole('columnheader').map((h) => h.textContent)).toEqual([
-      'Goods',
-      'Low',
-      'High',
-      'Export',
-    ]);
+    expect(screen.getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['Goods', 'Low', 'High', 'Export']);
   });
 
   it('cannot export without a custom house, and answers null on cancel', async () => {
