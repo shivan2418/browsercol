@@ -19,6 +19,7 @@
     min-height: var(--europe-entries-min);
   }
   .europe-entry {
+    position: relative;
     display: flex;
     align-items: center;
     gap: var(--europe-entry-gap);
@@ -34,6 +35,16 @@
   .europe-entry .turns {
     pointer-events: none;
     user-select: none;
+  }
+  /* UnitLabel's repair status of a damaged ship, red over the ship's picture. */
+  .europe-entry .repair {
+    position: absolute;
+    left: 2px;
+    bottom: 2px;
+    color: var(--bad);
+    font-size: 10px;
+    line-height: 11px;
+    pointer-events: none;
   }
   .europe-entry .turns {
     font-variant-numeric: tabular-nums;

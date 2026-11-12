@@ -2662,6 +2662,14 @@ describe('the Europe panel', () => {
     expect(document.querySelector('[data-list=inPort] .turns, [data-list=docks] .turns')).toBeNull();
   });
 
+  it('shows a damaged ship in port with its repair and the turns it has left, in red over it', () => {
+    const { box } = host();
+    act(() => box.show('europe', { ...europe, inPort: [{ ...caravel, repair: 'Repair(3)' }, galleon] }));
+    expect(document.querySelector('[data-unit="unit:1"] .repair')?.textContent).toBe('Repair(3)');
+    // A sound ship has none.
+    expect(document.querySelector('[data-unit="unit:2"] .repair')).toBeNull();
+  });
+
   it('closes on E, the key that opened it, but not while a shop list is open over it', () => {
     const { box } = host();
     act(() => box.show('europe', europe));

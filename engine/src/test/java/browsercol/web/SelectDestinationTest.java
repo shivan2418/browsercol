@@ -284,6 +284,33 @@ class SelectDestinationTest {
         }
     }
 
+    /**
+     * A damaged ship in Europe is in port with its repair status, which
+     * Swing's UnitLabel draws over it in red: Unit.getRepairLabel, the turns
+     * the repair has left. A sound ship has none.
+     */
+    @Test
+    @Timeout(120)
+    void aShipUnderRepairInEuropeSaysHowManyTurnsTheRepairHasLeft() throws Exception {
+        startGame();
+        final Game game = server.getGame();
+        final Player us = game.getFreeColGameObject(
+            client.getClient().getMyPlayer().getId(), Player.class);
+        final UnitType caravel = game.getSpecification().getUnitType("model.unit.caravel");
+        final Unit damaged = new ServerUnit(game, us.getEurope(), us, caravel);
+        damaged.setHitPoints(1);
+        final Unit sound = new ServerUnit(game, us.getEurope(), us, caravel);
+        assertTrue(damaged.isDamaged() && damaged.getTurnsForRepair() > 0);
+
+        final java.util.Map<String, Object> panel = parse(EuropeJson.of(us, null, List.of()));
+        final List<String> ids = unitIds(panel, "inPort");
+        final List<Object> repair = field(panel, "inPort", "repair");
+        assertEquals(Messages.message(damaged.getRepairLabel()), repair.get(ids.indexOf(damaged.getId())));
+        assertTrue(((String)repair.get(ids.indexOf(damaged.getId())))
+            .contains(String.valueOf(damaged.getTurnsForRepair())), "the turns left: " + repair);
+        assertNull(repair.get(ids.indexOf(sound.getId())));
+    }
+
     /** The labels of the choices of a choice question. */
     private static List<String> choiceTexts(String json) {
         final Matcher c = CHOICES.matcher(json);

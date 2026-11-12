@@ -10,7 +10,7 @@ import './europe-entry.css';
 export const unitDrag = (id: string) =>
   draggableProps({ kind: 'unit', id }, undefined, (el) => el.querySelector('img'));
 
-/** A unit or ship of Europe's panel, with its picture, and the turns left of a ship at sea. */
+/** A unit or ship of Europe's panel, with its picture, the turns left of a ship at sea, and a damaged ship's repair. */
 export function EuropeEntry({
   u,
   art,
@@ -33,10 +33,11 @@ export function EuropeEntry({
       <Pic keys={u.images} art={art} />
       <span className="name">{u.name}</span>
       {u.turns !== undefined && <span className="turns">{u.turns}</span>}
+      {u.repair && <span className="repair">{u.repair}</span>}
     </>
   );
-  // A sailing ship's hint says its turns left as well as its name.
-  const tip = u.turnsLabel ? `${u.name} ${u.turnsLabel}` : u.name;
+  // A sailing ship's hint says its turns left as well as its name, a damaged ship's its repair.
+  const tip = [u.name, u.turnsLabel, u.repair].filter(Boolean).join(' ');
   const props = {
     ...(drag ? unitDrag(u.id) : {}),
     ...(drop ? dropTargetProps('ship', drop) : {}),

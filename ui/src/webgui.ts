@@ -556,6 +556,8 @@ export interface EuropeUnit {
   turns?: number;
   /** The turns as FreeCol's progress bar says them, "(Turns: 2)". */
   turnsLabel?: string;
+  /** A damaged ship: its repair status and the turns it has left, "Repair(3)", drawn red over it (UnitLabel). */
+  repair?: string;
 }
 
 /** Goods of a type and how much a terrain makes of them. */

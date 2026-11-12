@@ -40,7 +40,8 @@ import net.sf.freecol.common.model.UnitType;
  * offer: {id, name, images, price, priceLabel, enabled}
  * unit: {id, name, images, selected, cargo: [{kind: "unit"|"goods", id,
  *  name, images, amount}],   (cargo on a carrier only)
- *  turns, turnsLabel}        (a ship sailing either way only)
+ *  turns, turnsLabel,        (a ship sailing either way only)
+ *  repair}                   (a damaged ship only: "Repair(3)", the turns left)
  * </pre>
  *
  * A sailing ship's {@code turns} are the turns left before it arrives (its
@@ -241,6 +242,8 @@ final class EuropeJson {
                     .template("freeColProgressBar.turnsToComplete")
                     .addAmount("%number%", turns)));
         }
+        // UnitLabel draws a damaged ship's repair status over it, in red.
+        if (u.isDamaged()) json.put("repair", Messages.message(u.getRepairLabel()));
         if (u.isCarrier()) {
             final List<String> cargo = new ArrayList<>();
             for (Unit aboard : u.getUnitList()) {
