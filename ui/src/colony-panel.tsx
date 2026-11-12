@@ -629,6 +629,7 @@ function Cargo({ c, art }: { c: ColonyView; art: Art }) {
   return (
     <Box
       caption={ship ? ship.cargo.title : c.inPort.cargo}
+      twoLines
       data-part="cargo"
       className="cargo"
       data-ship={ship?.id}
@@ -849,6 +850,7 @@ function Outside({ c, art }: { c: ColonyView; art: Art }) {
   return (
     <Box
       caption={c.outside.title}
+      twoLines
       data-part="outside"
       className="outside"
       data-drop={target ? '' : undefined}

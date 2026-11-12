@@ -2081,8 +2081,23 @@
         box-sizing: border-box;
       }
       /*
+       * A caption with two lines' room (Box twoLines): a long ship's name wraps into room already kept, so picking
+       * another ship never shifts the layout. Longer still, it is cut at two lines.
+       */
+      .box > .cap[data-two-lines] {
+        flex: 1 1 100%;
+        min-width: 0;
+        min-height: 2lh;
+        max-height: 2lh;
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+      }
+      /*
        * Units outside the colony and the cargo of the chosen ship share a line; the cargo sits under the right column.
-       * Both are as tall as the taller (a long ship's caption wraps to two lines).
+       * Both are as tall as the taller; the captions keep two lines' room, whatever the ship's name.
        */
       .colony .outside {
         grid-column: 1;

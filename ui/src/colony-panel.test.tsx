@@ -239,7 +239,10 @@ describe('the colony panel', () => {
     expect(within(cargo()).getByText('Cargo on Caravel B (1 hold left)')).toBeTruthy();
     expect(cargo().querySelector('[data-goods="model.goods.food"]')?.textContent).toBe('50');
     fireEvent.click(part('port').querySelector('[data-unit="unit:7"]')!);
-    expect(within(cargo()).getByText('Cargo on Caravel A (1 hold left)')).toBeTruthy();
+    const caption = within(cargo()).getByText('Cargo on Caravel A (1 hold left)');
+    // The caption keeps two lines' room whatever the ship's name (index.html), as does the box beside it.
+    expect(caption.hasAttribute('data-two-lines')).toBe(true);
+    expect(part('outside').querySelector('.cap')?.hasAttribute('data-two-lines')).toBe(true);
     expect(cargo().querySelector('[data-unit="unit:8"]')).toBeTruthy();
     // The choice stays as the panel is shown again.
     act(() => box.replace('colony', box.shown('colony')[0], () => true));

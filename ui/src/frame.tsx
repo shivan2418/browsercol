@@ -286,6 +286,7 @@ export function Box({
   tip,
   roomy,
   spaced,
+  twoLines,
   children,
   className,
   ...rest
@@ -295,6 +296,8 @@ export function Box({
   tip?: string;
   roomy?: boolean;
   spaced?: 'normal' | 'wide';
+  /** The caption always takes two lines' room, so a longer caption (up to two lines) never makes the box taller. */
+  twoLines?: boolean;
   children?: ReactNode;
 } & Omit<HTMLAttributes<HTMLElement>, 'children'>) {
   const id = useId();
@@ -309,7 +312,7 @@ export function Box({
       {...rest}
     >
       {caption !== undefined && (
-        <span className="cap" id={id}>
+        <span className="cap" id={id} data-two-lines={twoLines ? '' : undefined}>
           {caption}
         </span>
       )}
