@@ -186,6 +186,8 @@ export interface ClientExports {
   confirmTradeRoute(unit: string, route: string): void;
   /** A pop-up is closed, by its event's popup id: once none is open, the Go To orders go on (#433). */
   popupClosed(id: number): void;
+  /** Whether any window is open (a panel, dialog, report): no Go To runs and no turn ends meanwhile (#480). */
+  windowsChanged(open: boolean): void;
   // The turn report's buttons (WebGUI.reportGroupBy and the others). Each message is named by its
   // place in the report as shown.
   /** Group the report by 0 nothing, 1 type or 2 source; the report is shown again, regrouped. */

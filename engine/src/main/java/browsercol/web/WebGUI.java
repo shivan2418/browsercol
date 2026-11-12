@@ -479,7 +479,11 @@ public class WebGUI extends GUI {
      * @param id The pop-up's id, from its event.
      */
     public void popupClosed(int id) {
-        final Popups.Then then = this.popups.closed(id);
+        then(this.popups.closed(id));
+    }
+
+    /** What waited for the open windows goes on, as a command after the ones waiting. */
+    private void then(Popups.Then then) {
         if (then == Popups.Then.NOTHING) return;
         final FreeColClient fcc = getFreeColClient();
         this.ui.command("popupsClosed", () -> {
@@ -502,6 +506,14 @@ public class WebGUI extends GUI {
                     changeView();
                 }
             });
+    }
+
+    /**
+     * The Browser UI says whether any window is open (#480). While one is,
+     * no Go To runs and no turn ends; they go on when the last closes.
+     */
+    public void windowsChanged(boolean open) {
+        then(this.popups.windows(open));
     }
 
     /**

@@ -224,6 +224,15 @@ public final class ClientEngine {
     }
 
     /**
+     * The Browser UI's windows opened or all closed (WebGUI.windowsChanged, #480).
+     *
+     * @param open Whether a window is open.
+     */
+    public void windowsChanged(boolean open) {
+        if (this.gui != null) this.gui.windowsChanged(open);
+    }
+
+    /**
      * Run work as one job of the {@link ModalGate}: a player's command, or
      * the handling of a server message. A dialog it opens is modal until it
      * is done, so its questions come one after another, and what other

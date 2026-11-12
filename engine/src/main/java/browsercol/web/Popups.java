@@ -24,6 +24,8 @@ final class Popups {
     private final Set<Integer> open = new HashSet<>();
     /** The last id given. */
     private int last = 0;
+    /** A window of the Browser UI is open: a panel, a dialog, a report (#480). */
+    private boolean windows = false;
     /** Something asked while one was open, and so waits for them to close. */
     private boolean waited = false;
     /** The player ended the turn while one was open. */
@@ -46,7 +48,7 @@ final class Popups {
      * Engine goes on once they are all closed.
      */
     synchronized boolean showing() {
-        if (this.open.isEmpty()) return false;
+        if (this.open.isEmpty() && !this.windows) return false;
         this.waited = true;
         return true;
     }
@@ -78,7 +80,23 @@ final class Popups {
      * @return What waited for it, if it was the last one open.
      */
     synchronized Then closed(int id) {
-        if (!this.open.remove(id) || !this.open.isEmpty() || !this.waited) return Then.NOTHING;
+        if (!this.open.remove(id)) return Then.NOTHING;
+        return settle();
+    }
+
+    /**
+     * The Browser UI's windows: whether any is open, as it reports on each
+     * change (#480). Swing's isPanelShowing is true for any panel on the canvas.
+     *
+     * @return What waited for them, if that was the last thing open.
+     */
+    synchronized Then windows(boolean open) {
+        this.windows = open;
+        return open ? Then.NOTHING : settle();
+    }
+
+    private Then settle() {
+        if (!this.open.isEmpty() || this.windows || !this.waited) return Then.NOTHING;
         final Then then = !this.endTurn ? Then.GO_ON
             : this.ask ? Then.END_TURN : Then.END_TURN_ANSWERED;
         this.waited = false;

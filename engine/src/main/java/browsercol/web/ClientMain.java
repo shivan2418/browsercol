@@ -252,6 +252,16 @@ public final class ClientMain {
     }
 
     /**
+     * Whether a window is open in the Browser UI (a panel, the colony panel,
+     * Europe, a report, preferences...): no Go To orders run and no turn ends
+     * while one is, and they go on when the last closes (#480).
+     */
+    @JSExport
+    public static void windowsChanged(boolean open) {
+        if (engine != null) engine.windowsChanged(open);
+    }
+
+    /**
      * Group the turn report as the group by client option says: 0 as it
      * comes, 1 by type, 2 by source. The report is shown again, regrouped.
      */

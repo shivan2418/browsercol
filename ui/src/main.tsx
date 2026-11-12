@@ -466,7 +466,7 @@ const popupClosed = (e: PopupEvent) => (): void => {
   queueMicrotask(() => popupClient?.popupClosed(id));
 };
 /** The client Engine's popupClosed, once it has loaded. */
-let popupClient: Pick<ClientExports, 'popupClosed'> | null = null;
+let popupClient: Pick<ClientExports, 'popupClosed' | 'windowsChanged'> | null = null;
 const colonyMoves: ColonyMoves = {
   work: (unit, location) => colonyClient?.work(unit, location),
   putOutside: (unit) => colonyClient?.putOutsideColony(unit),
@@ -1072,6 +1072,11 @@ function renderSide() {
   // When the last window closes the focus goes back to the map, so the next arrow key moves the unit.
   const showing = panelShowing();
   if (windowWasOpen && !showing && !mapHost.contains(document.activeElement)) mapHost.focus({ preventScroll: true });
+  if (showing !== windowWasOpen) {
+    // The Engine's Go To orders and end of turn wait while a window is open (#480). Later than the call that
+    // changed it, as the Engine is not called back from within its own call.
+    queueMicrotask(() => popupClient?.windowsChanged(showing));
+  }
   windowWasOpen = showing;
   menuRoot.render(
     <MenuBar
@@ -2146,6 +2151,7 @@ async function run() {
   colonyNow = (id) => exports.colony(id);
   colonyClient = exports;
   popupClient = exports;
+  if (windowWasOpen) exports.windowsChanged(true); // a window opened before the Engine had loaded
   pushFreecolOptions(prefs.freecol);
   debugRequest = (r) => {
     lastDebug = r;

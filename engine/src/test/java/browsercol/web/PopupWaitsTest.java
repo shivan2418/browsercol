@@ -145,6 +145,35 @@ class PopupWaitsTest {
             "the question, its outcome, then the arrival");
     }
 
+    /**
+     * A window the Browser UI shows that is no pop-up (the colony panel,
+     * Europe, a report) keeps the Go To orders waiting too, as Swing's
+     * isPanelShowing is true for any panel on the canvas (#480).
+     */
+    @Test
+    @Timeout(240)
+    void theGoToOrdersWaitWhileAnyWindowIsOpen() throws Exception {
+        client.windowsChanged(true);
+        final Direction d = servant.getTile().getDirection(rumour);
+        final Thread move = new Thread(() -> client.job(() -> {
+                client.getCommands().move(d.toString());
+                client.getCommands().afterCommand();
+            }), "web-move");
+        move.start();
+        move.join(60_000);
+        eventually(() -> !popups.isEmpty(), () -> "the rumour's outcome pops up: " + log);
+        for (Integer id : popups) client.popupClosed(id);
+        Thread.sleep(1500);
+        assertSame(besideTheColony, criminal.getTile(),
+            () -> "the criminal's Go To waits for the window: " + log);
+        assertFalse(log.contains("colony"), () -> "no colony panel over the window: " + log);
+
+        client.windowsChanged(false);
+        eventually(() -> criminal.getTile() != besideTheColony,
+            () -> "the criminal goes on once the window is closed: " + log);
+        eventually(() -> log.contains("colony"), () -> "New Amsterdam's panel opens: " + log);
+    }
+
     private Unit unit(String id) {
         final Unit u = client.getClient().getMyPlayer().getOurFreeColGameObject(id, Unit.class);
         assertNotNull(u, id);

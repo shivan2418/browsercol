@@ -160,6 +160,7 @@ function fakeClient(scope: Scope, log: string[]): ClientExports {
     reportFilter: () => {},
     reportIgnore: () => {},
     popupClosed: () => {},
+    windowsChanged: () => {},
   };
 }
 
