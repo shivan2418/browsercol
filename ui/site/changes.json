@@ -1,1 +1,9 @@
-[]
+[
+  {
+    "build": 14,
+    "date": "2026-11-12",
+    "new": ["The first public release of BrowserCol."],
+    "fixed": [],
+    "changed": []
+  }
+]
