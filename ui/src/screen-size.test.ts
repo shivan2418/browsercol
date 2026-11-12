@@ -4,11 +4,11 @@
 import { expect, test } from 'vite-plus/test';
 import { pageCss, sheets as srcSheets } from './page-css.testing';
 
-const components = import.meta.glob<string>(['./*.tsx', '!./*.test.tsx', '!./*.stories.tsx'], {
+const components = import.meta.glob(['./*.tsx', '!./*.test.tsx', '!./*.stories.tsx'], {
   query: '?raw',
   import: 'default',
   eager: true,
-});
+}) as Record<string, string>;
 
 /**
  * The rules that may use the viewport's units as they are: those of elements outside every scaled one (the page, the start screen, the loading screen, the right-click menu and the error

@@ -8,18 +8,18 @@ import { componentSheets, pageCss } from './page-css.testing';
 import { applyTheme, FONT_SETS, PALETTES } from './theme';
 
 /** The page's other scripts, which may build an element of their own and import its sheet (mobile-notice.ts). */
-const scripts = import.meta.glob<string>(['./*.ts', '!./*.test.ts', '!./*.testing.ts'], {
+const scripts = import.meta.glob(['./*.ts', '!./*.test.ts', '!./*.testing.ts'], {
   query: '?raw',
   import: 'default',
   eager: true,
-});
+}) as Record<string, string>;
 
 /** The components' sources, by file; tests hold made-up data, such as a nation's colour from the Engine. */
-const components = import.meta.glob<string>(['./*.tsx', '!./*.test.tsx'], {
+const components = import.meta.glob(['./*.tsx', '!./*.test.tsx'], {
   query: '?raw',
   import: 'default',
   eager: true,
-});
+}) as Record<string, string>;
 
 /** The custom properties each block of a token file sets (inside its @layer), by its selector. */
 function palettes(text = css): Map<string, Set<string>> {

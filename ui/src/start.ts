@@ -114,11 +114,11 @@ export const LEFT_OUT = 'XL_GigaEarth_Mazim.fsm';
  * The map files FreeCol comes with (freecol/data/maps) but LEFT_OUT, by file name: their URLs, fetched only when
  * picked. Vite takes only a literal pattern, so LEFT_OUT is spelled out in it; LEFT_OUT is not bundled at all.
  */
-const freecolMapUrls = import.meta.glob<string>(['../../freecol/data/maps/*.fsm', '!**/XL_GigaEarth_Mazim.fsm'], {
+const freecolMapUrls = import.meta.glob(['../../freecol/data/maps/*.fsm', '!**/XL_GigaEarth_Mazim.fsm'], {
   query: '?url',
   import: 'default',
   eager: true,
-});
+}) as Record<string, string>;
 
 /** Each FreeCol map's size in tiles, width by height (its savegame.properties; start.test.ts checks them). */
 export const FREECOL_MAP_SIZES: Record<string, [number, number]> = {

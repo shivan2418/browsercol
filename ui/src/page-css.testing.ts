@@ -8,7 +8,12 @@ export const pageCss = [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].ma
 export const TOKEN_FILES = ['./theme.css', './fonts.css', './tokens.css'];
 
 /** Every sheet of src/ (the token files and the components' own), by file. */
-export const sheets = import.meta.glob<string>('./*.css', { query: '?raw', import: 'default', eager: true });
+// No type argument on import.meta.glob: Vitest keeps a module out of its file cache only when its source says
+// "import.meta.glob(", and a cached one keeps the files there were when it was cached (#500). glob-cache.test.ts checks.
+export const sheets = import.meta.glob('./*.css', { query: '?raw', import: 'default', eager: true }) as Record<
+  string,
+  string
+>;
 
 /** The components' own sheets, beside their components, by file. */
 export const componentSheets = Object.fromEntries(Object.entries(sheets).filter(([f]) => !TOKEN_FILES.includes(f)));
