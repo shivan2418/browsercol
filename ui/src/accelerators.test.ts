@@ -25,9 +25,9 @@ describe('acceleratorFor', () => {
     expect(acceleratorFor(key(k.toUpperCase(), { ctrlKey: true }))).toBe(entry);
   });
 
-  it('takes Alt+Enter and F11 for full screen', () => {
+  it('takes Alt+Enter for full screen, and leaves F11 to the turn report', () => {
     expect(acceleratorFor(key('Enter', { altKey: true }))).toBe('fullScreen');
-    expect(acceleratorFor(key('F11'))).toBe('fullScreen');
+    expect(acceleratorFor(key('F11'))).toBeNull();
   });
 
   it('leaves Shift+F11 to the side panel, and Enter to End Turn', () => {

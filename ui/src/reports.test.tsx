@@ -6,7 +6,7 @@ import { MENUS, MenuBar, type Art } from './frame';
 import { DialogHost } from './panels';
 import { chooseOption } from './select-test';
 import { ReportContext, REPORTS, reportMenu, type ReportActions } from './reports';
-import { reportForKey } from './report-keys';
+import { handleReportKey, reportForKey } from './report-keys';
 import { hint } from './tip-test';
 import type { GuiEvents, ReportName, ReportView } from './webgui';
 
@@ -99,12 +99,13 @@ describe('the Report menu', () => {
     fireEvent.click(within(menu).getByRole('menuitem', { name: /^Compact labour report/ }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Report' }));
     fireEvent.click(screen.getByRole('menuitem', { name: /^Colony report/ }));
-    expect(within(menu).getByRole('menuitem', { name: /^Religion report/ }).textContent).toContain('Shift+F1');
+    expect(within(menu).getByRole('menuitem', { name: /^Religion report/ }).textContent).toContain('F1');
+    expect(within(menu).getByRole('menuitem', { name: /^Cargo report/ }).textContent).toContain('Shift+F1');
     expect(opened).toEqual(['compactLabour', 'colony']);
-    // The turn report is not a report of Commands.showReport but shows this turn's messages again, on Ctrl+Shift+F11.
+    // The turn report is not a report of Commands.showReport but shows this turn's messages again, on F11.
     fireEvent.click(screen.getByRole('menuitem', { name: 'Report' }));
     const turn = within(screen.getByRole('menu', { name: 'Report' })).getByRole('menuitem', { name: /^Turn report/ });
-    expect(turn.textContent).toContain('Ctrl+Shift+F11');
+    expect(turn.textContent).toContain('F11');
     fireEvent.click(turn);
     expect(opened.at(-1)).toBe('turn');
   });
@@ -945,17 +946,82 @@ describe('report hotkeys', () => {
   const press = (code: string, mods: { shiftKey?: boolean; ctrlKey?: boolean; altKey?: boolean } = {}) =>
     reportForKey({ code, shiftKey: false, ctrlKey: false, altKey: false, metaKey: false, ...mods });
 
-  it("opens FreeCol's plain F-key reports on Shift+F, and its Shift+F reports on Ctrl+Shift+F", () => {
-    expect(press('F1', { shiftKey: true })).toBe('religion');
-    expect(press('F3', { shiftKey: true })).toBe('colony');
-    expect(press('F1', { shiftKey: true, ctrlKey: true })).toBe('cargo');
-    expect(press('F4', { shiftKey: true, ctrlKey: true })).toBe('production');
+  it("opens FreeCol's own keys: F1..F12 for most reports, Shift+F1..F5 for the other five", () => {
+    const plain = { F1: 'religion', F2: 'labour', F3: 'colony', F4: 'foreign', F5: 'indian', F6: 'congress' } as const;
+    for (const [code, name] of Object.entries(plain)) expect(press(code), code).toBe(name);
+    expect(press('F7')).toBe('military');
+    expect(press('F8')).toBe('naval');
+    expect(press('F9')).toBe('trade');
+    expect(press('F12')).toBe('requirements');
+    expect(press('F1', { shiftKey: true })).toBe('cargo');
+    expect(press('F2', { shiftKey: true })).toBe('exploration');
+    expect(press('F3', { shiftKey: true })).toBe('history');
+    expect(press('F4', { shiftKey: true })).toBe('production');
+    expect(press('F5', { shiftKey: true })).toBe('education');
   });
 
-  it('leaves the plain F keys and other modifiers to the browser', () => {
-    expect(press('F3')).toBeNull();
-    expect(press('F3', { shiftKey: true, altKey: true })).toBeNull();
-    expect(press('KeyB', { shiftKey: true })).toBeNull();
+  it('leaves F10, the Ctrl and Alt chords and other keys alone', () => {
+    expect(press('F10')).toBeNull();
+    expect(press('F5', { ctrlKey: true })).toBeNull();
+    expect(press('F3', { shiftKey: true, ctrlKey: true })).toBeNull();
+    expect(press('F3', { altKey: true })).toBeNull();
+    expect(press('KeyB')).toBeNull();
+    expect(press('F6', { shiftKey: true })).toBeNull();
+  });
+
+  const fire = (code: string, mods: { shiftKey?: boolean; repeat?: boolean } = {}) => {
+    const e = new KeyboardEvent('keydown', { code, cancelable: true, ...mods });
+    const opened: string[] = [];
+    const used = (canOpen: boolean) =>
+      handleReportKey(
+        e,
+        canOpen,
+        (r) => opened.push(r),
+        () => opened.push('turn'),
+      );
+    return { e, opened, used };
+  };
+
+  it('prevents the default of F5 and opens the report when it can', () => {
+    const { e, opened, used } = fire('F5');
+    expect(used(true)).toBe(true);
+    expect(e.defaultPrevented).toBe(true);
+    expect(opened).toEqual(['indian']);
+  });
+
+  it('prevents the default of every bound key even when a non-report dialog is open', () => {
+    // The game's handler passes canOpen false while a dialog other than a report (or a text field) has the keys.
+    const dialog = dialogs();
+    dialog.show('information', { text: 'A message' } as never);
+    expect(dialog.current()?.kind).toBe('information');
+    for (const [code, shiftKey] of [
+      ['F5', false],
+      ['F5', true],
+      ['F1', false],
+      ['F3', false],
+      ['F11', false],
+    ] as const) {
+      const { e, opened, used } = fire(code, { shiftKey });
+      expect(used([undefined, 'report'].includes(dialog.current()?.kind)), code).toBe(true);
+      expect(e.defaultPrevented, code).toBe(true);
+      expect(opened, code).toEqual([]);
+    }
+  });
+
+  it('swallows a held key without opening again, and shows the turn report on F11', () => {
+    const held = fire('F2', { repeat: true });
+    expect(held.used(true)).toBe(true);
+    expect(held.e.defaultPrevented).toBe(true);
+    expect(held.opened).toEqual([]);
+    const turn = fire('F11');
+    turn.used(true);
+    expect(turn.opened).toEqual(['turn']);
+  });
+
+  it('does not touch a key that is not a report key', () => {
+    const { e, used } = fire('F10');
+    expect(used(true)).toBe(false);
+    expect(e.defaultPrevented).toBe(false);
   });
 
   it('gives every hotkey to one report only', () => {

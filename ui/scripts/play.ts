@@ -1555,6 +1555,41 @@ async function play(page: Page, url: string) {
     }
   }
 
+  // FreeCol's own keys open the reports too (#465): F1..F9 and F12, Shift+F1..F5. The browser's own use of
+  // each (F5 reload, F3 find, F1 help) must be prevented, which a later listener sees as defaultPrevented; the
+  // page must stay the same page (a marker on window survives F5).
+  await page.evaluate(() => {
+    const seen: [string, boolean][] = ((window as any).__keysSeen = []);
+    (window as any).__samePage = true;
+    addEventListener('keydown', (e) => seen.push([`${e.shiftKey ? 'Shift+' : ''}${e.code}`, e.defaultPrevented]));
+  });
+  for (const key of [
+    'F1',
+    'F2',
+    'F3',
+    'F4',
+    'F5',
+    'F6',
+    'F7',
+    'F8',
+    'F9',
+    'F12',
+    'Shift+F1',
+    'Shift+F2',
+    'Shift+F3',
+    'Shift+F4',
+    'Shift+F5',
+  ]) {
+    await noDialog(`opening a report with ${key}`);
+    const logged = await page.evaluate(() => window.__dialogs.length);
+    await page.keyboard.press(key);
+    await waitForDialog(logged, 'report: ', `${key} did not open a report`);
+  }
+  const keysSeen: [string, boolean][] = await page.evaluate(() => (window as any).__keysSeen);
+  const grabbed = keysSeen.filter(([, prevented]) => !prevented).map(([k]) => k);
+  if (grabbed.length || keysSeen.length < 15) throw new Error(`report keys left to the browser: ${grabbed.join(', ')}`);
+  if (!(await page.evaluate(() => (window as any).__samePage))) throw new Error('F5 reloaded the page');
+
   // The three reports the loop above leaves out are looked at, held open and shot: the Continental Congress,
   // the foreign powers and the natives (the Report menu's entries), and the labour report's click on a kind
   // of colonist, which opens the labour detail report.

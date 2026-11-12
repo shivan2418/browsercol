@@ -95,7 +95,8 @@ import { mapDrawer, type MapView, type Terrain } from './map';
 import { europeButtons, showEurope } from './europe-client';
 import { DialogHost, type Art, type ReportButtons, type RouteButtons } from './panels';
 import { acceleratorFor, inTextField, type Accelerator } from './accelerators';
-import { isTurnReportKey, reportForKey } from './report-keys';
+import { handleReportKey } from './report-keys';
+import { lockEscapeInFullScreen, type KeyboardLock } from './fullscreen-lock';
 import { ReportContext, colopediaMenu, reportMenu, type ReportActions } from './reports';
 import { NO_OVERLAY, type ColonyLabels, type PathStep } from './tileset';
 import {
@@ -772,7 +773,7 @@ addEventListener(
   },
   { capture: true },
 );
-// Alt+Enter (FreeCol's windowed mode accelerator) and F11 switch full screen, as the View menu does.
+// Alt+Enter (FreeCol's windowed mode accelerator) switches full screen, as the View menu does.
 addEventListener(
   'keydown',
   (e) => {
@@ -1051,18 +1052,8 @@ const contextMenus: ContextMenus = {
   goods: (location, type, amount) => (menuClient ? parseMenu(menuClient.goodsMenu(location, type, amount)) : null),
   show: (menu, x, y) => showPopup({ menu, x, y }),
 };
-/**
- * In full screen, Escape closes the menu or window on top, as it does in a window, rather than leaving full
- * screen: where the browser has the Keyboard Lock API (Chromium), the page takes Escape and the player holds it
- * to leave. Elsewhere (Firefox, Safari) the browser keeps Escape, and it leaves full screen too.
- */
-const keyboardLock = (navigator as { keyboard?: { lock?: (keys: string[]) => Promise<void>; unlock?: () => void } })
-  .keyboard;
-document.addEventListener('fullscreenchange', () => {
-  if (document.fullscreenElement) void keyboardLock?.lock?.(['Escape']).catch(() => {});
-  else keyboardLock?.unlock?.();
-  renderSide();
-});
+// Escape closes a window in full screen, where the browser can lock it (fullscreen-lock.ts).
+lockEscapeInFullScreen(document, (navigator as { keyboard?: KeyboardLock }).keyboard, renderSide);
 // The menus' Save entries depend on whether a window is open.
 dialogQueue.subscribe(() => renderSide());
 const sideRoot = createRoot(document.getElementById('side')!);
@@ -1612,24 +1603,26 @@ function playWith(client: ClientExports) {
   menuReady = true;
   gotoClient = client;
   renderSide();
+  // FreeCol's report keys (F1..F12, Shift+F1..F5): a capture listener, so a dialog or a text field can't let the
+  // browser act on them (F5 reload, F3 find, F1 help). The report opens over another report, not over another dialog.
+  addEventListener(
+    'keydown',
+    (e) => {
+      const typing = inTextField(e.target) || (e.target instanceof Element && !!e.target.closest('#feedback-host'));
+      handleReportKey(
+        e,
+        !typing && [undefined, 'report'].includes(dialogQueue.current()?.kind),
+        reportActions.open,
+        () => run({ k: 'showTurnReport' }),
+      );
+    },
+    { capture: true },
+  );
   addEventListener('keydown', (e) => {
     // A key typed into a text field (a save's name, a colony's) is text: no game key runs. The feedback window has
     // its own radio buttons and checkboxes, whose keys are not the game's either.
     if (inTextField(e.target) || (e.target instanceof Element && e.target.closest('#feedback-host'))) return;
     // An open dialog has the keys (panels.tsx).
-    // A report's hotkey (Shift+F3, ...) opens it over another report, but not over another dialog.
-    const report = reportForKey(e);
-    if (report && !e.repeat && [undefined, 'report'].includes(dialogQueue.current()?.kind)) {
-      e.preventDefault();
-      reportActions.open(report);
-      return;
-    }
-    // ReportTurnAction's key shows this turn's report again, over another report or over the report itself.
-    if (isTurnReportKey(e) && !e.repeat && [undefined, 'report'].includes(dialogQueue.current()?.kind)) {
-      e.preventDefault();
-      run({ k: 'showTurnReport' });
-      return;
-    }
     // FreeCol's accelerators for the Game menu and Centre on the active unit (accelerators.ts). They keep the
     // browser's own save, open, print and new window away, and leave Ctrl+X and Ctrl+C to a text field.
     const accel = acceleratorFor(e);

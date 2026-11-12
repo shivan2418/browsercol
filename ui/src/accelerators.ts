@@ -26,9 +26,8 @@ const CTRL_KEYS: Record<string, Accelerator> = {
 
 /** The entry a key press is the accelerator of, or null for any other key. */
 export function acceleratorFor(e: KeyLike): Accelerator | null {
-  // changeWindowedModeAction: Alt+Enter. F11 is the browser's own full screen key, which the page takes over.
+  // changeWindowedModeAction: Alt+Enter. F11 is FreeCol's turn report key, so the browser's full screen key is left alone.
   if (e.key === 'Enter' && e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) return 'fullScreen';
-  if (e.key === 'F11' && !e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) return 'fullScreen';
   if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey) return CTRL_KEYS[e.key.toLowerCase()] ?? null;
   return null;
 }

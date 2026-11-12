@@ -51,31 +51,31 @@ export const ReportContext = createContext<ReportActions>({
 
 /**
  * The Report menu's entries, in order: the report's name, which Commands.showReport knows, its label, and
- * its hotkey. FreeCol's reports sit on F keys, which a browser keeps for itself, so each is Shift with
- * its F key; the five FreeCol has on Shift+F (cargo, education, exploration, history, production) would
- * then meet the report on the plain F key, so those take Ctrl+Shift. See report-keys.ts.
+ * its hotkey, FreeCol's own: the plain F key (F1 religion, F2 labour, ...) and, for the five FreeCol puts
+ * on Shift+F (cargo, education, exploration, history, production), Shift with it. The page takes these
+ * keys from the browser while a game runs (report-keys.ts).
  */
 export const REPORTS: readonly {
   name: Exclude<ReportName, 'labourDetail' | 'colopedia'>;
   label: string;
   key?: string;
 }[] = [
-  { name: 'colony', label: 'Colony report', key: 'Shift+F3' },
-  { name: 'labour', label: 'Labour report', key: 'Shift+F2' },
+  { name: 'colony', label: 'Colony report', key: 'F3' },
+  { name: 'labour', label: 'Labour report', key: 'F2' },
   { name: 'compactLabour', label: 'Compact labour report' },
-  { name: 'military', label: 'Military report', key: 'Shift+F7' },
-  { name: 'naval', label: 'Naval report', key: 'Shift+F8' },
-  { name: 'cargo', label: 'Cargo report', key: 'Ctrl+Shift+F1' },
-  { name: 'congress', label: 'Continental Congress report', key: 'Shift+F6' },
-  { name: 'education', label: 'Education report', key: 'Ctrl+Shift+F5' },
-  { name: 'exploration', label: 'Exploration report', key: 'Ctrl+Shift+F2' },
-  { name: 'foreign', label: 'Foreign affairs report', key: 'Shift+F4' },
-  { name: 'history', label: 'History report', key: 'Ctrl+Shift+F3' },
-  { name: 'indian', label: 'Native affairs report', key: 'Shift+F5' },
-  { name: 'production', label: 'Production report', key: 'Ctrl+Shift+F4' },
-  { name: 'religion', label: 'Religion report', key: 'Shift+F1' },
-  { name: 'requirements', label: 'Requirements report', key: 'Shift+F12' },
-  { name: 'trade', label: 'Trade report', key: 'Shift+F9' },
+  { name: 'military', label: 'Military report', key: 'F7' },
+  { name: 'naval', label: 'Naval report', key: 'F8' },
+  { name: 'cargo', label: 'Cargo report', key: 'Shift+F1' },
+  { name: 'congress', label: 'Continental Congress report', key: 'F6' },
+  { name: 'education', label: 'Education report', key: 'Shift+F5' },
+  { name: 'exploration', label: 'Exploration report', key: 'Shift+F2' },
+  { name: 'foreign', label: 'Foreign affairs report', key: 'F4' },
+  { name: 'history', label: 'History report', key: 'Shift+F3' },
+  { name: 'indian', label: 'Native affairs report', key: 'F5' },
+  { name: 'production', label: 'Production report', key: 'Shift+F4' },
+  { name: 'religion', label: 'Religion report', key: 'F1' },
+  { name: 'requirements', label: 'Requirements report', key: 'F12' },
+  { name: 'trade', label: 'Trade report', key: 'F9' },
 ];
 
 /** The section the Colopedia opens on, set by the Colopedia menu before it asks for the report. */
@@ -106,8 +106,8 @@ export const colopediaMenu = (open: ReportActions['open']): Menu['items'] =>
     },
   }));
 
-/** The key of the Turn Report entry: FreeCol's F11, which is Shift+F11 for the side panel here, so Ctrl+Shift. */
-export const TURN_REPORT_KEY = 'Ctrl+Shift+F11';
+/** The key of the Turn Report entry: FreeCol's F11 (full screen is FreeCol's Alt+Enter, not F11). */
+export const TURN_REPORT_KEY = 'F11';
 
 /**
  * The Report menu's items, each opening its report, and the Turn Report (ReportTurnAction, after the
