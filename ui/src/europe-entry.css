@@ -1,6 +1,6 @@
 /*
  * An entry of Europe's lists (EuropeEntry, src/europe-entry.tsx): a ship, a unit on the docks, or a stack of cargo,
- * its picture and, for goods, the amount. A unit shows its picture alone (its name is the hint). Which of them can be
+ * its picture and, for goods, the amount; a ship at sea has the turns before it arrives beside it. A unit shows its picture alone (its name is the hint). Which of them can be
  * picked, and the room that takes, are Europe's rules in index.html.
  */
 @layer components {
@@ -30,9 +30,13 @@
   }
   /* Dragging by the icon or the name drags the entry: the picture is not a drag of its own. */
   .europe-entry img,
-  .europe-entry .name {
+  .europe-entry .name,
+  .europe-entry .turns {
     pointer-events: none;
     user-select: none;
+  }
+  .europe-entry .turns {
+    font-variant-numeric: tabular-nums;
   }
   .europe-entry[data-drag] {
     cursor: grab;

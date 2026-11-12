@@ -33,6 +33,7 @@ import net.sf.freecol.common.model.Player;
 import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.Unit;
 import net.sf.freecol.common.model.UnitType;
+import net.sf.freecol.server.model.ServerUnit;
 
 
 /**
@@ -232,6 +233,54 @@ class SelectDestinationTest {
             ids.add((String)((java.util.Map<String, Object>)u).get("id"));
         }
         return ids;
+    }
+
+    /** What a Europe panel lists under a heading: each entry's field. */
+    @SuppressWarnings("unchecked")
+    private static List<Object> field(java.util.Map<String, Object> panel, String list, String key) {
+        final List<Object> values = new ArrayList<>();
+        for (Object u : (List<Object>)panel.get(list)) {
+            values.add(((java.util.Map<String, Object>)u).get(key));
+        }
+        return values;
+    }
+
+    @Test
+    @Timeout(120)
+    void theShipsAtSeaAreListedSoonestFirstWithTheirTurnsLeft() throws Exception {
+        startGame();
+        final Game game = server.getGame();
+        final Player us = game.getFreeColGameObject(
+            client.getClient().getMyPlayer().getId(), Player.class);
+        final UnitType caravel = game.getSpecification().getUnitType("model.unit.caravel");
+        // Ships on the high seas, as FreeCol puts them there: a destination, and the turns left as work left.
+        final List<Unit> toEurope = new ArrayList<>();
+        final List<Unit> toAmerica = new ArrayList<>();
+        for (int turns : new int[] { 3, 1, 2 }) {
+            final Unit e = new ServerUnit(game, us.getHighSeas(), us, caravel);
+            e.setDestination(us.getEurope());
+            e.setWorkLeft(turns);
+            toEurope.add(e);
+            final Unit a = new ServerUnit(game, us.getHighSeas(), us, caravel);
+            a.setDestination(game.getMap());
+            a.setWorkLeft(turns + 1);
+            toAmerica.add(a);
+        }
+        final java.util.Map<String, Object> panel = parse(EuropeJson.of(us, null, List.of()));
+        // Soonest first, each with its turns left, said as FreeCol's progress bar says them.
+        assertEquals(List.of(toEurope.get(1).getId(), toEurope.get(2).getId(), toEurope.get(0).getId()),
+            unitIds(panel, "toEurope").subList(0, 3));
+        assertEquals(List.of(1L, 2L, 3L), field(panel, "toEurope", "turns").subList(0, 3));
+        assertEquals(List.of(toAmerica.get(1).getId(), toAmerica.get(2).getId(), toAmerica.get(0).getId()),
+            unitIds(panel, "toAmerica").subList(0, 3));
+        assertEquals(List.of(2L, 3L, 4L), field(panel, "toAmerica", "turns"));
+        assertEquals(Messages.message(net.sf.freecol.common.model.StringTemplate
+                .template("freeColProgressBar.turnsToComplete").addAmount("%number%", 2)),
+            field(panel, "toAmerica", "turnsLabel").get(0));
+        // Ships in port and units on the docks have no turns.
+        for (String list : List.of("inPort", "docks")) {
+            for (Object t : field(panel, list, "turns")) assertNull(t, list);
+        }
     }
 
     /** The labels of the choices of a choice question. */

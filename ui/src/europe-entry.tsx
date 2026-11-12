@@ -10,7 +10,7 @@ import './europe-entry.css';
 export const unitDrag = (id: string) =>
   draggableProps({ kind: 'unit', id }, undefined, (el) => el.querySelector('img'));
 
-/** A unit or ship of Europe's panel, with its picture. */
+/** A unit or ship of Europe's panel, with its picture, and the turns left of a ship at sea. */
 export function EuropeEntry({
   u,
   art,
@@ -32,8 +32,11 @@ export function EuropeEntry({
     <>
       <Pic keys={u.images} art={art} />
       <span className="name">{u.name}</span>
+      {u.turns !== undefined && <span className="turns">{u.turns}</span>}
     </>
   );
+  // A sailing ship's hint says its turns left as well as its name.
+  const tip = u.turnsLabel ? `${u.name} ${u.turnsLabel}` : u.name;
   const props = {
     ...(drag ? unitDrag(u.id) : {}),
     ...(drop ? dropTargetProps('ship', drop) : {}),
@@ -45,7 +48,7 @@ export function EuropeEntry({
       className="europe-entry"
       data-flat=""
       data-unit={u.id}
-      tip={u.name}
+      tip={tip}
       aria-current={on}
       onClick={pick}
       onContextMenu={onContextMenu}
@@ -54,7 +57,7 @@ export function EuropeEntry({
       {inner}
     </Tip>
   ) : (
-    <Tip as="div" className="europe-entry" data-unit={u.id} tip={u.name} onContextMenu={onContextMenu} {...props}>
+    <Tip as="div" className="europe-entry" data-unit={u.id} tip={tip} onContextMenu={onContextMenu} {...props}>
       {inner}
     </Tip>
   );

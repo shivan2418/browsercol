@@ -521,6 +521,10 @@ export interface EuropeUnit {
   cargo?: { kind: 'unit' | 'goods'; id: Id; name: string; images: string[]; amount: number }[];
   /** A carrier's cargo box title: its name and the holds left (CargoPanel). */
   cargoTitle?: string;
+  /** A ship sailing to America or to Europe: the turns before it arrives (1 is next turn). */
+  turns?: number;
+  /** The turns as FreeCol's progress bar says them, "(Turns: 2)". */
+  turnsLabel?: string;
 }
 
 /** Goods of a type and how much a terrain makes of them. */

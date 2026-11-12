@@ -39,8 +39,15 @@ import net.sf.freecol.common.model.UnitType;
  *  purchase: {heading, units: [offer]}}
  * offer: {id, name, images, price, priceLabel, enabled}
  * unit: {id, name, images, selected, cargo: [{kind: "unit"|"goods", id,
- *  name, images, amount}]}   (cargo on a carrier only)
+ *  name, images, amount}],   (cargo on a carrier only)
+ *  turns, turnsLabel}        (a ship sailing either way only)
  * </pre>
+ *
+ * A sailing ship's {@code turns} are the turns left before it arrives (its
+ * work left: it arrives on the new turn that takes that to 0), and
+ * {@code turnsLabel} says them as FreeCol's progress bar does. Swing shows
+ * neither; each sailing list is in the order the ships arrive, soonest
+ * first, and in FreeCol's order between ships that arrive together.
  *
  * The lists are those of EuropePanel's DestinationPanel, EuropeInPortPanel
  * and EuropeanDocksPanel. The market's {@code sell} is what Europe pays
@@ -94,6 +101,8 @@ final class EuropeJson {
                 }
             }
         }
+        toAmerica.sort(Comparator.comparingInt(Unit::getWorkLeft));
+        toEurope.sort(Comparator.comparingInt(Unit::getWorkLeft));
 
         return new Json()
             .put("title", Messages.getName(europe))
@@ -106,10 +115,10 @@ final class EuropeJson {
                 .put("docks", Messages.message("docks"))
                 .put("cargo", Messages.message("cargoOnCarrier"))
                 .toString())
-            .putRaw("toAmerica", units(toAmerica, selected))
-            .putRaw("toEurope", units(toEurope, selected))
-            .putRaw("inPort", units(inPort, selected))
-            .putRaw("docks", units(docks, selected))
+            .putRaw("toAmerica", units(toAmerica, selected, true))
+            .putRaw("toEurope", units(toEurope, selected, true))
+            .putRaw("inPort", units(inPort, selected, false))
+            .putRaw("docks", units(docks, selected, false))
             .put("selected", (selected == null) ? null : selected.getId())
             .putRaw("market", market(player))
             .putRaw("buttons", new Json()
@@ -212,18 +221,26 @@ final class EuropeJson {
         return (last == null && inPort.size() == 1) ? inPort.get(0) : last;
     }
 
-    private static String units(List<Unit> units, Unit selected) {
+    private static String units(List<Unit> units, Unit selected, boolean sailing) {
         final List<String> json = new ArrayList<>();
-        for (Unit u : units) json.add(unit(u, u == selected));
+        for (Unit u : units) json.add(unit(u, u == selected, sailing));
         return Json.array(json);
     }
 
-    private static String unit(Unit u, boolean selected) {
+    private static String unit(Unit u, boolean selected, boolean sailing) {
         final Json json = new Json()
             .put("id", u.getId())
             .put("name", u.getDescription(Unit.UnitLabelType.NATIONAL))
             .putRaw("images", quoted(MapJson.unitKeys(u)))
             .put("selected", selected);
+        if (sailing) {
+            // A ship arrives on the new turn that takes its work left to 0, so 1 is next turn.
+            final int turns = Math.max(1, u.getWorkLeft());
+            json.put("turns", turns)
+                .put("turnsLabel", Messages.message(StringTemplate
+                    .template("freeColProgressBar.turnsToComplete")
+                    .addAmount("%number%", turns)));
+        }
         if (u.isCarrier()) {
             final List<String> cargo = new ArrayList<>();
             for (Unit aboard : u.getUnitList()) {

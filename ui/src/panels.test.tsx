@@ -2210,6 +2210,31 @@ describe('the Europe panel', () => {
     expect(document.querySelector('[data-list=toAmerica] img')?.getAttribute('src')).toBe('art/caravel.png');
   });
 
+  it('shows the turns left beside each ship at sea, in the order the Engine sends them', () => {
+    const { box } = host();
+    const sailing = (id: string, name: string, turns: number) =>
+      unit(id, name, { turns, turnsLabel: `(Turns: ${turns})` });
+    act(() =>
+      box.show('europe', {
+        ...europe,
+        toAmerica: [sailing('unit:3', 'Merchantman', 1), sailing('unit:6', 'Caravel', 4)],
+        toEurope: [sailing('unit:5', 'Galleon', 2)],
+      }),
+    );
+    const turns = (list: string) =>
+      [...document.querySelectorAll(`[data-list=${list}] .europe-entry`)].map((e) => [
+        e.getAttribute('data-unit'),
+        e.querySelector('.turns')?.textContent,
+      ]);
+    expect(turns('toAmerica')).toEqual([
+      ['unit:3', '1'],
+      ['unit:6', '4'],
+    ]);
+    expect(turns('toEurope')).toEqual([['unit:5', '2']]);
+    // Ships in port and units on the docks have none.
+    expect(document.querySelector('[data-list=inPort] .turns, [data-list=docks] .turns')).toBeNull();
+  });
+
   it('closes on E, the key that opened it, but not while a shop list is open over it', () => {
     const { box } = host();
     act(() => box.show('europe', europe));
