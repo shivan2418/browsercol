@@ -549,6 +549,12 @@ export interface Choice {
   default: boolean;
   /** The choice's picture, as Swing's ChoiceItem icon (the emigration dialog's units): its image keys, best first. */
   images?: string[];
+  /** The Go To list's rows: the turns to get there, shown beside the name. */
+  turns?: number;
+  /** A colony's population; absent for Europe, the New World and native settlements, whose FreeCol shows none. */
+  population?: number;
+  /** A foreign colony or a native settlement, which the "only my colonies" check box hides. */
+  foreign?: boolean;
 }
 
 /** Questions: what is asked, and what the player answers (null: closed). */
@@ -601,7 +607,15 @@ export interface GuiQuestions {
     answer: true;
   };
   choice: {
-    ask: { text: string; cancel: string | null; tile: Id | null; object: Id | null; choices: Choice[] };
+    ask: {
+      text: string;
+      cancel: string | null;
+      tile: Id | null;
+      object: Id | null;
+      choices: Choice[];
+      /** The label of the check box that hides the foreign choices, for the Go To list; absent for no check box. */
+      onlyMine?: string;
+    };
     /** The index of the chosen item. */
     answer: number | null;
   };

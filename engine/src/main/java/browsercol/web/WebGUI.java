@@ -1485,7 +1485,8 @@ public class WebGUI extends GUI {
                 c.defaultOption();
             }
         }
-        return choiceDialog(tile, template, icon, cancelKey, choices, null);
+        return choiceDialog(tile, template, icon, cancelKey, choices, null,
+                            null, null);
     }
 
     /**
@@ -1496,7 +1497,9 @@ public class WebGUI extends GUI {
     private <T> T choiceDialog(Tile tile, StringTemplate template,
                                ImageIcon icon, String cancelKey,
                                List<ChoiceItem<T>> choices,
-                               List<String> images) {
+                               List<String> images,
+                               List<java.util.function.Consumer<Json>> extras,
+                               String onlyMine) {
         List<String> items = new ArrayList<>();
         for (int n = 0; n < choices.size(); n++) {
             final ChoiceItem<T> c = choices.get(n);
@@ -1510,15 +1513,19 @@ public class WebGUI extends GUI {
             if (image != null) {
                 item.putRaw("images", Json.array(List.of(Json.quote(image))));
             }
+            if (extras != null && extras.get(n) != null) {
+                extras.get(n).accept(item);
+            }
             items.add(item.toString());
         }
-        String answer = this.questions.ask("choice", new Json()
+        final Json question = new Json()
             .put("text", Messages.message(template))
             .put("cancel", label(cancelKey))
             .put("tile", id(tile))
             .put("object", id(icon))
-            .putRaw("choices", Json.array(items))
-            .toString());
+            .putRaw("choices", Json.array(items));
+        if (onlyMine != null) question.put("onlyMine", onlyMine);
+        String answer = this.questions.ask("choice", question.toString());
         int i;
         try {
             i = (answer == null) ? -1 : Integer.parseInt(answer);
@@ -1668,7 +1675,7 @@ public class WebGUI extends GUI {
                 Integer chosen;
                 do {
                     chosen = choiceDialog(null, question, null, null,
-                                          choices, images);
+                                          choices, images, null, null);
                 } while (chosen == null);
                 handler.handle(chosen);
             });
@@ -1939,15 +1946,30 @@ public class WebGUI extends GUI {
         count("showSelectDestinationDialog");
         if (unit == null) return null;
         final List<ChoiceItem<Location>> choices = new ArrayList<>();
+        final List<java.util.function.Consumer<Json>> extras = new ArrayList<>();
+        final Player player = unit.getOwner();
         for (Destinations.Destination d : Destinations.of(unit)) {
             choices.add(new ChoiceItem<>(d.name, d.location));
+            // The settlement's icon, as the map draws it; Europe and the
+            // New World are plain rows.
+            final String keys = (d.location instanceof Settlement)
+                ? ObjectImages.json((Settlement)d.location) : null;
+            final int population = d.population();
+            final boolean foreign = !d.isMine(player);
+            extras.add(item -> {
+                if (keys != null) item.putRaw("images", keys);
+                item.put("turns", d.turns);
+                if (population >= 0) item.put("population", population);
+                if (foreign) item.put("foreign", true);
+            });
         }
         if (choices.isEmpty()) return null;
         // Swing's dialog has the first destination selected.
         choices.get(0).defaultOption();
-        return modalChoiceDialog(unit.getTile(),
+        return choiceDialog(unit.getTile(),
             StringTemplate.key("selectDestinationDialog.text"),
-            dialogIcon(unit), "selectDestinationDialog.cancel", choices);
+            dialogIcon(unit), "selectDestinationDialog.cancel", choices,
+            null, extras, label("selectDestinationDialog.onlyMyColonies"));
     }
 
 

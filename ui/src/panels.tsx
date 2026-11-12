@@ -214,10 +214,26 @@ function Confirm({ d, colopedia, art }: { d: Of<'confirm'>; colopedia: (type: st
   );
 }
 
+/**
+ * FreeCol's "only my colonies" check box of the Go To list, kept for the session as its static AtomicBoolean is
+ * (and on, as it starts).
+ */
+let onlyMyColonies = true;
+
+/** Back to FreeCol's start value, for the tests. */
+export const resetOnlyMyColonies = () => {
+  onlyMyColonies = true;
+};
+
 function Choice({ d, art }: { d: Of<'choice'>; art: Art }) {
   const { ask } = d;
+  const [onlyMine, setOnlyMine] = useState(onlyMyColonies);
+  const hidden = (i: number) => onlyMine && ask.onlyMine !== undefined && ask.choices[i].foreign === true;
   const pick = (i: number) => () => d.done(i);
-  const byDefault = ask.choices.findIndex((c) => c.default && c.enabled);
+  // The default item, or the first one shown if the check box hides it.
+  const defaulted = ask.choices.findIndex((c, i) => c.default && c.enabled && !hidden(i));
+  const byDefault =
+    defaulted >= 0 || ask.onlyMine === undefined ? defaulted : ask.choices.findIndex((c, i) => c.enabled && !hidden(i));
   const cancelItem = ask.choices.findIndex((c) => c.cancel && c.enabled);
   // Swing: Escape closes with the cancel item, else null; Enter takes the
   // default item, else the cancel button if there is one.
@@ -229,14 +245,37 @@ function Choice({ d, art }: { d: Of<'choice'>; art: Art }) {
   return (
     <Win d={d} close={cancel}>
       <Text text={ask.text} />
-      <div className="choices">
-        {ask.choices.map((c, i) => (
-          <button key={i} data-choice={i} disabled={!c.enabled} {...enterMark(i === enterItem)} onClick={pick(i)}>
-            {c.images && <Pic keys={c.images} art={art} className="choice-pic" />}
-            {c.text}
-          </button>
-        ))}
+      <div className={ask.onlyMine === undefined ? 'choices' : 'choices destinations'}>
+        {ask.choices.map((c, i) =>
+          hidden(i) ? null : (
+            <button key={i} data-choice={i} disabled={!c.enabled} {...enterMark(i === enterItem)} onClick={pick(i)}>
+              {c.images && <Pic keys={c.images} art={art} className="choice-pic" />}
+              {c.turns === undefined ? (
+                c.text
+              ) : (
+                <>
+                  <span className="choice-text">{c.text}</span>
+                  {c.population !== undefined && <span className="choice-population">{c.population}</span>}
+                  <span className="choice-turns">({c.turns})</span>
+                </>
+              )}
+            </button>
+          ),
+        )}
       </div>
+      {ask.onlyMine !== undefined && (
+        <label className="field">
+          <input
+            type="checkbox"
+            checked={onlyMine}
+            onChange={(e) => {
+              onlyMyColonies = e.target.checked;
+              setOnlyMine(e.target.checked);
+            }}
+          />{' '}
+          {ask.onlyMine}
+        </label>
+      )}
       {ask.cancel !== null && (
         <ButtonRow>
           <button data-answer="cancel" {...enterMark(enterButton)} onClick={() => d.done(null)}>

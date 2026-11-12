@@ -1032,6 +1032,36 @@
         object-fit: contain;
         flex: none;
       }
+      /* The Go To list: compact rows (small icon, name, population, turns), scrolling when there are many. */
+      .dialog .choices.destinations {
+        max-height: calc(var(--screen-h) * 0.6);
+        overflow-y: auto;
+      }
+      .dialog .choices.destinations button {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        text-align: left;
+        min-height: 28px;
+      }
+      .dialog .choices.destinations .choice-pic {
+        height: 24px;
+        width: 32px;
+      }
+      .dialog .choices.destinations .choice-text {
+        flex: 1;
+      }
+      .dialog .choices.destinations .choice-population,
+      .dialog .choices.destinations .choice-turns {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      .dialog .choices.destinations .choice-population {
+        min-width: 2ch;
+      }
+      .dialog .choices.destinations .choice-turns {
+        min-width: 4ch;
+      }
       /* The Find Settlement list: a scrolling column of rows, the picked one marked. */
       .dialog .settlements {
         display: flex;

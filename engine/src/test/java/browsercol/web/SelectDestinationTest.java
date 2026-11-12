@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Timeout;
 
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.i18n.Messages;
+import net.sf.freecol.common.model.Colony;
 import net.sf.freecol.common.model.Europe;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.GoodsType;
@@ -325,6 +326,82 @@ class SelectDestinationTest {
         }
         assertNotNull(found, "no " + kind + " question in " + asked);
         return found;
+    }
+
+    /** The choices of the last choice question, parsed. */
+    @SuppressWarnings("unchecked")
+    private List<java.util.Map<String, Object>> choiceRows() {
+        final java.util.Map<String, Object> q = parse(
+            lastQuestion("choice").substring("choice ".length()));
+        final List<java.util.Map<String, Object>> rows = new ArrayList<>();
+        for (Object o : (List<Object>)q.get("choices")) {
+            rows.add((java.util.Map<String, Object>)o);
+        }
+        return rows;
+    }
+
+    @Test
+    @Timeout(300)
+    void theListGivesEachRowItsTurnsAndEachColonyItsIconAndPopulation() throws Exception {
+        startGame();
+        final Player player = client.getClient().getMyPlayer();
+        final Unit ship = ship();
+        sailOntoHighSeas(ship);
+        final String colonyId = (String)parse(
+            server.debug("{\"action\":\"addColony\"}")).get("colony");
+        final Colony colony = client.getGame().getFreeColGameObject(colonyId, Colony.class);
+        for (int i = 0; i < 500 && colony == null; i++) Thread.sleep(10);
+        assertNotNull(client.getGame().getFreeColGameObject(colonyId, Colony.class));
+        wanted = null;
+        client.getClient().getInGameController().selectDestination(ship);
+        final String question = lastQuestion("choice");
+        assertTrue(question.contains("\"onlyMine\":\"Show only my colonies\""), question);
+        final String europe = Messages.message(
+            player.getEurope().getLocationLabelFor(player));
+        final String name = Messages.message(colony.getLocationLabelFor(player));
+        boolean sawEurope = false, sawColony = false;
+        for (java.util.Map<String, Object> row : choiceRows()) {
+            assertTrue(row.get("turns") instanceof Number, "turns of " + row);
+            if (europe.equals(row.get("text"))) {
+                sawEurope = true;
+                assertNull(row.get("images"), "Europe is a plain row: " + row);
+                assertNull(row.get("population"), row.toString());
+                assertNull(row.get("foreign"), row.toString());
+            } else if (name.equals(row.get("text"))) {
+                sawColony = true;
+                assertNotNull(row.get("images"), "the colony has its icon: " + row);
+                assertEquals((long)colony.getApparentUnitCount(), row.get("population"), row.toString());
+                assertNull(row.get("foreign"), "our colony is ours: " + row);
+            }
+        }
+        assertTrue(sawEurope, question);
+        assertTrue(sawColony, "the colony " + name + " is listed: " + question);
+    }
+
+    @Test
+    void onlyMyColoniesKeepsEuropeTheNewWorldAndOurColonies() throws Exception {
+        startGame();
+        client.debugApplied(server.debug("{\"action\":\"revealMap\",\"reveal\":true}"));
+        final Player player = client.getClient().getMyPlayer();
+        final Unit ship = ship();
+        final Game game = client.getGame();
+        final Destinations.Destination europe
+            = new Destinations.Destination(player.getEurope(), 3, ship);
+        final Destinations.Destination newWorld
+            = new Destinations.Destination(game.getMap(), 3, ship);
+        assertTrue(europe.isMine(player));
+        assertTrue(newWorld.isMine(player));
+        assertEquals(-1, europe.population());
+        // A native settlement is foreign and shows no population.
+        for (Player p : game.getLiveNativePlayerList()) {
+            for (net.sf.freecol.common.model.IndianSettlement is : p.getIndianSettlementList()) {
+                final Destinations.Destination d = new Destinations.Destination(is, 2, ship);
+                assertFalse(d.isMine(player));
+                assertEquals(-1, d.population());
+                return;
+            }
+        }
+        fail("no native settlement");
     }
 
     @Test

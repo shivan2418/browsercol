@@ -40,8 +40,8 @@ import net.sf.freecol.common.model.pathfinding.GoalDeciders.MultipleAdjacentDeci
  * the {@code loadDestinations} and {@code Destination} of that class,
  * without the Swing parts (the list, the "only my colonies" check box
  * and the sort box). The Swing dialog also adds the turns to sail and
- * the prices of the goods carried to each of its entries; those are
- * left out, as the Browser UI shows the label of each destination.
+ * the prices of the goods carried to each of its entries; the prices are
+ * left out. The turns are sent for the Browser UI to show beside the name.
  */
 final class Destinations {
 
@@ -96,6 +96,32 @@ final class Destinations {
                 : (location instanceof IndianSettlement)
                 ? 40
                 : 100;
+        }
+
+        /**
+         * Whether the Swing dialog's "only my colonies" check box keeps the
+         * destination: Europe, the New World and the player's own colonies.
+         *
+         * @param player The player who sails.
+         * @return False for a foreign colony and a native settlement.
+         */
+        boolean isMine(Player player) {
+            return this.location instanceof Europe
+                || this.location instanceof Map
+                || (this.location instanceof Colony
+                    && player.owns((Colony)this.location));
+        }
+
+        /**
+         * The population to show beside a settlement: a colony's units as
+         * the map counts them. FreeCol shows none for a native settlement,
+         * and none for Europe or the New World.
+         *
+         * @return The population, or -1 if there is none to show.
+         */
+        int population() {
+            return (this.location instanceof Colony)
+                ? ((Colony)this.location).getApparentUnitCount() : -1;
         }
 
         /**

@@ -367,6 +367,72 @@ describe('the choice dialog', () => {
     expect(await picked).toBe(0);
   });
 
+  describe('the Go To list', () => {
+    const list = {
+      text: 'Select destination',
+      cancel: 'Remain where you are',
+      tile: null,
+      object: null,
+      onlyMine: 'Show only my colonies',
+      choices: [
+        item('Europe', { turns: 4, default: true }),
+        item('Jamestown', { turns: 2, population: 5, images: ['image.unit.model.unit.caravel'] }),
+        item('Tupi village', { turns: 3, foreign: true, images: ['image.unit.model.unit.caravel'] }),
+        item('Plymouth', { turns: 6, population: 2, foreign: true }),
+      ],
+    };
+    const shownRows = () => [...document.querySelectorAll('[data-choice]')].map((b) => b.textContent);
+
+    afterEach(async () => {
+      const { resetOnlyMyColonies } = await import('./panels');
+      resetOnlyMyColonies();
+    });
+
+    it("shows each row's turns and a colony's population, and hides foreign rows while only my colonies is checked", async () => {
+      const { box } = host();
+      const picked = ask(box, 'choice', list);
+      expect(shownRows()).toEqual(['Europe(4)', 'Jamestown5(2)']);
+      expect(document.querySelector('[data-choice="1"] .choice-pic')).not.toBeNull();
+      expect((screen.getByRole('checkbox', { name: 'Show only my colonies' }) as HTMLInputElement).checked).toBe(true);
+      fireEvent.click(document.querySelector('[data-choice="1"]')!);
+      expect(await picked).toBe(1);
+    });
+
+    it('lists every destination once the box is cleared, and answers with the index in the full list', async () => {
+      const { box } = host();
+      const picked = ask(box, 'choice', list);
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Show only my colonies' }));
+      expect(shownRows()).toEqual(['Europe(4)', 'Jamestown5(2)', 'Tupi village(3)', 'Plymouth2(6)']);
+      fireEvent.click(document.querySelector('[data-choice="2"]')!);
+      expect(await picked).toBe(2);
+    });
+
+    it('keeps the choice of the box for the next list', async () => {
+      const { box } = host();
+      const first = ask(box, 'choice', list);
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Show only my colonies' }));
+      key('Enter');
+      expect(await first).toBe(0);
+      const second = ask(box, 'choice', list);
+      expect((screen.getByRole('checkbox', { name: 'Show only my colonies' }) as HTMLInputElement).checked).toBe(false);
+      expect(shownRows()).toHaveLength(4);
+      key('Escape');
+      expect(await second).toBeNull();
+    });
+
+    it('moves Enter to the first row shown when the default is hidden', async () => {
+      const { box } = host();
+      const q = {
+        ...list,
+        choices: [item('Tupi village', { turns: 3, foreign: true, default: true }), ...list.choices.slice(1, 2)],
+      };
+      const picked = ask(box, 'choice', q);
+      expect(enterMarked()).toEqual(['Jamestown5(2)']);
+      key('Enter');
+      expect(await picked).toBe(1);
+    });
+  });
+
   it('takes its cancel button on Enter when no item is the default', async () => {
     const { box } = host();
     const q = { text: 'Meet the natives', cancel: 'Leave', tile: null, object: null, choices: [item('Trade')] };
