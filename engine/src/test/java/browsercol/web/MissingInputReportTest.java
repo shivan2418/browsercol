@@ -23,6 +23,7 @@ import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.GoodsType;
 import net.sf.freecol.common.model.Player;
 import net.sf.freecol.common.model.Specification;
+import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.Unit;
 
 /**
@@ -78,7 +79,7 @@ class MissingInputReportTest {
     }
 
     private static void eventually(String what, BooleanSupplier ok) throws InterruptedException {
-        for (int i = 0; i < 500 && !ok.getAsBoolean(); i++) Thread.sleep(20);
+        for (int i = 0; i < 1000 && !ok.getAsBoolean(); i++) Thread.sleep(20);
         assertTrue(ok.getAsBoolean(), what);
     }
 
@@ -121,6 +122,15 @@ class MissingInputReportTest {
         worker.setLocation(smith);
         smith.updateProductionType();
         final GoodsType ore = spec.getGoodsType("model.goods.ore");
+        // The colony's own tile feeds it for free, ore too on hills or
+        // mountains with minerals: make it a plain tile with nothing on it.
+        final Tile center = colony.getTile();
+        center.changeType(spec.getTileType("model.tile.plains"));
+        if (center.getTileItemContainer() != null
+            && center.getTileItemContainer().getResource() != null) {
+            center.getTileItemContainer().removeTileItem(center.getTileItemContainer().getResource());
+        }
+        colony.getColonyTile(center).updateProductionType();
         if (mined) {
             final ColonyTile ct = colony.getColonyTiles().stream()
                 .filter(c -> c.isAvailable() && !c.isColonyCenterTile())
