@@ -75,6 +75,11 @@ type FrameProps = {
   close: (() => void) | null;
   /** Letter keys that close the window too, as Escape does: E for Europe, the key that opened it. */
   closeKeys?: readonly string[];
+  /**
+   * `close` only asks: something else (the Engine) closes the window later, or keeps it up. Such a window does not
+   * fade out, which would leave it faded and the backdrop up while it waits, or for good when it stays.
+   */
+  closeAsks?: boolean;
   /** Escape asks this first: true if it used the key (clearing a search, say), and the window stays open. */
   onEscape?: () => boolean;
   /** A panel laid out at fixed sizes (the colony's): its UI scale is lowered until the whole of it fits the screen. */
@@ -193,6 +198,7 @@ export function WindowFrame({
   title,
   close: closeNow,
   closeKeys,
+  closeAsks = false,
   onEscape,
   fit = false,
   advisor = null,
@@ -207,10 +213,18 @@ export function WindowFrame({
   useEffect(() => () => clearTimeout(timer.current), []);
   const close = closeNow
     ? () => {
-        if (!motion) return closeNow();
+        if (!motion || closeAsks) return closeNow();
         if (timer.current) return;
         setClosing(true);
-        timer.current = setTimeout(closeNow, frameEffects.ms);
+        timer.current = setTimeout(() => {
+          closeNow();
+          // Still here a moment later: the close kept the window up (an editor going back to its list, a question
+          // whether to throw edits away), so it shows again rather than staying faded over the backdrop.
+          timer.current = setTimeout(() => {
+            timer.current = undefined;
+            setClosing(false);
+          });
+        }, frameEffects.ms);
       }
     : null;
   useEscape(

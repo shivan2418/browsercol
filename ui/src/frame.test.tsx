@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import {
   Box,
@@ -72,6 +73,52 @@ describe('the window frame', () => {
     } finally {
       frameEffects.motion = motion;
       vi.useRealTimers();
+    }
+  });
+
+  it('shows again, with motion on, when its close kept it up', () => {
+    vi.useFakeTimers();
+    const motion = frameEffects.motion;
+    frameEffects.motion = () => true;
+    try {
+      // The trade route editor's close goes back to the routes, in the same window.
+      function Editor() {
+        const [editing, setEditing] = useState(true);
+        return (
+          <WindowFrame title={editing ? 'Edit route' : 'Routes'} close={() => setEditing(false)}>
+            body
+          </WindowFrame>
+        );
+      }
+      render(<Editor />);
+      fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+      const frame = screen.getByRole('dialog');
+      expect(frame.getAttribute('data-motion')).toBe('out');
+      act(() => void vi.advanceTimersByTime(frameEffects.ms + 1));
+      expect(screen.getByRole('dialog', { name: 'Routes' })).toBe(frame);
+      expect(frame.getAttribute('data-motion')).toBe('in');
+      expect(frame.hasAttribute('inert')).toBe(false);
+    } finally {
+      frameEffects.motion = motion;
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not fade out when its close only asks', () => {
+    const motion = frameEffects.motion;
+    frameEffects.motion = () => true;
+    try {
+      const closed: string[] = [];
+      render(
+        <WindowFrame title="Jamestown" close={() => closed.push('asked')} closeAsks>
+          body
+        </WindowFrame>,
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+      expect(closed).toEqual(['asked']);
+      expect(screen.getByRole('dialog').getAttribute('data-motion')).toBe('in');
+    } finally {
+      frameEffects.motion = motion;
     }
   });
 

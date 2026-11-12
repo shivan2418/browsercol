@@ -102,6 +102,7 @@ function Win({
   title = null,
   close,
   closeKeys,
+  closeAsks = false,
   advisor = null,
   fit = false,
   children,
@@ -111,6 +112,8 @@ function Win({
   close: (() => void) | null;
   /** Keys that close the window as Escape does (frame.tsx). */
   closeKeys?: readonly string[];
+  /** `close` only asks the Engine, which closes the window or keeps it up (frame.tsx). */
+  closeAsks?: boolean;
   /** The advisor's paper as the window's whole background, as FreeCol's InformationPanel draws it. */
   advisor?: Advisor | null;
   /** Laid out at fixed sizes: scaled down to fit the screen rather than cut off (frame.tsx). The advisor's paper always is. */
@@ -127,6 +130,7 @@ function Win({
       title={title}
       close={close}
       closeKeys={closeKeys}
+      closeAsks={closeAsks}
     >
       {children}
     </WindowFrame>
@@ -707,7 +711,7 @@ function ColonyDialog({ d, e, art }: { d: Dialog; e: ColonyView; art: Art }) {
     />
   );
   return (
-    <Win d={d} title={e.name} close={close} fit>
+    <Win d={d} title={e.name} close={close} closeAsks={moves !== null} fit>
       {e.readOnly ? (
         <ColonyActions.Provider value={null}>
           <ContextMenuContext.Provider value={null}>{panel}</ContextMenuContext.Provider>
