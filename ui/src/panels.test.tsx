@@ -2662,7 +2662,7 @@ describe('the Europe panel', () => {
     expect(document.querySelector('[data-list=inPort] .turns, [data-list=docks] .turns')).toBeNull();
   });
 
-  it('shows a damaged ship in port with its repair and the turns it has left, in red over it', () => {
+  it('shows a damaged ship in port with its repair and the turns it has left, in red beside it', () => {
     const { box } = host();
     act(() => box.show('europe', { ...europe, inPort: [{ ...caravel, repair: 'Repair(3)' }, galleon] }));
     expect(document.querySelector('[data-unit="unit:1"] .repair')?.textContent).toBe('Repair(3)');

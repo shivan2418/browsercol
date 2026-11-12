@@ -58,7 +58,7 @@ export const europe: GuiEvents['europe'] = {
   },
   toAmerica: [unit('unit:3', 'Merchantman', 'merchantman', { turns: 2, turnsLabel: '(Turns: 2)' })],
   toEurope: [unit('unit:5', 'Galleon', 'galleon', { turns: 1, turnsLabel: '(Turns: 1)' })],
-  inPort: [caravel, unit('unit:2', 'Frigate', 'frigate')],
+  inPort: [caravel, unit('unit:2', 'Frigate', 'frigate', { repair: 'Repair(3)' })],
   docks: [
     unit('unit:4', 'Expert Farmer', 'expertFarmer'),
     unit('unit:6', 'Indentured Servant', 'indenturedServant'),
