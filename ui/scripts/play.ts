@@ -1151,7 +1151,7 @@ async function play(page: Page, url: string) {
     console.log("  colony panel: goods dropped on the ship's icon load it");
     // The warehouse button opens the warehouse dialog: an export level set there is there when it is reopened.
     const warehouseDialog = page.locator('[role=dialog][data-kind=warehouse]');
-    const exportLevel = warehouseDialog.locator('fieldset input[aria-label$=" export"]').first();
+    const exportLevel = warehouseDialog.locator('tbody input[aria-label$=" export"]').first();
     for (const level of ['37', '38']) {
       await panel.locator('.buttons button:not([data-answer])').click();
       await warehouseDialog.waitFor({ timeout: 10000, label: 'the warehouse dialog opens' });

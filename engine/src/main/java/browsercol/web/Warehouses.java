@@ -15,8 +15,9 @@ import net.sf.freecol.common.option.GameOptions;
  * What WarehouseDialog knows of a colony's custom house settings, without
  * Swing: the question the Browser UI shows, and saving its answer.
  *
- * The question is {title, ok, cancel, export, canExport, tips:
- * {low, high, import, export}, goods: [{type, name, keys, amount, exported,
+ * The question is {title, ok, cancel, export, canExport, labels:
+ * {goods, low, high, import} (the column headings), tips:
+ * {low, high, import, export, exported}, goods: [{type, name, keys, amount, exported,
  * low, high, import, export, max}]}. import is null unless the enhanced
  * trade routes option is on; max is what the import and export levels may
  * reach. The answer is a line for each goods type, its fields separated by
@@ -57,6 +58,12 @@ final class Warehouses {
             .put("cancel", Messages.message("cancel"))
             .put("export", Messages.message("warehouseDialog.export"))
             .put("canExport", colony.hasAbility(Ability.EXPORT))
+            .putRaw("labels", new Json()
+                .put("goods", Messages.message("goods"))
+                .put("low", Messages.message("low"))
+                .put("high", Messages.message("high"))
+                .put("import", Messages.message("mapGeneratorOptions.import.name"))
+                .toString())
             .putRaw("tips", new Json()
                 .put("low", Messages.message("warehouseDialog.lowLevel.shortDescription"))
                 .put("high", Messages.message("warehouseDialog.highLevel.shortDescription"))

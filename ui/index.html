@@ -1090,6 +1090,60 @@
       .dialog .amount .ui-number {
         width: 8em;
       }
+      /* The warehouse dialog (src/panels.tsx): a table, a row for each goods, its columns of fixed widths so the rows line up. */
+      .dialog[data-kind='warehouse'] {
+        max-width: calc(var(--screen-w) - 32px);
+      }
+      .dialog .warehouse-goods {
+        max-height: calc(var(--screen-h) * 0.7);
+        overflow-y: auto;
+      }
+      .dialog .warehouse-goods table {
+        table-layout: fixed;
+        width: max-content;
+        border-collapse: separate;
+        border-spacing: 0;
+      }
+      .dialog .warehouse-goods th,
+      .dialog .warehouse-goods td {
+        padding: 2px 6px;
+        border-bottom: 1px solid var(--line);
+        text-align: center;
+        font-weight: 400;
+        vertical-align: middle;
+      }
+      .dialog .warehouse-goods col {
+        width: 5.5em;
+      }
+      .dialog .warehouse-goods col.goods-col {
+        width: 11em;
+      }
+      .dialog .warehouse-goods col.check {
+        width: 2.5em;
+      }
+      .dialog .warehouse-goods .goods-col {
+        text-align: left;
+      }
+      .dialog .warehouse-goods thead th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: var(--box);
+        color: var(--muted);
+        font-size: var(--fs-s);
+      }
+      .dialog .warehouse-goods .goods-name {
+        margin-left: 6px;
+      }
+      .dialog .warehouse-goods .goods {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        min-width: 3.5em;
+      }
+      .dialog .warehouse-goods .ui-number {
+        width: 100%;
+      }
       .dialog .choices.amounts {
         flex-direction: row;
         flex-wrap: wrap;

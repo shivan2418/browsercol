@@ -539,29 +539,66 @@ function Warehouse({ d, art }: { d: Of<'warehouse'>; art: Art }) {
       onChange={(v) => set(i, { [field]: num(v, max) })}
     />
   );
+  const imports = rows.some((g) => g.import !== null);
   return (
     <Win d={d} title={ask.title} close={cancel}>
       <div className="warehouse-goods">
-        {rows.map((g, i) => (
-          <fieldset key={g.type} data-goods={g.type}>
-            <legend>{g.name}</legend>
-            <GoodsAmount keys={g.keys} name={g.name} amount={g.amount} art={art} />
-            {level(i, 'low', 100, ask.tips.low)}
-            {level(i, 'high', 100, ask.tips.high)}
-            {g.import !== null && level(i, 'import', g.max, ask.tips.import)}
-            <Tip as="label" tip={ask.tips.exported}>
-              <input
-                type="checkbox"
-                aria-label={`${g.name} ${ask.export}`}
-                checked={g.exported}
-                disabled={!ask.canExport}
-                onChange={(e) => set(i, { exported: e.target.checked })}
-              />
-              {ask.export}
-            </Tip>
-            {level(i, 'export', g.max, ask.tips.export)}
-          </fieldset>
-        ))}
+        <table>
+          <colgroup>
+            <col className="goods-col" />
+            <col />
+            <col />
+            {imports && <col />}
+            <col className="check" />
+            <col />
+          </colgroup>
+          <thead>
+            <tr>
+              <th scope="col" className="goods-col">
+                {ask.labels.goods}
+              </th>
+              <Tip as="th" scope="col" tip={ask.tips.low}>
+                {ask.labels.low}
+              </Tip>
+              <Tip as="th" scope="col" tip={ask.tips.high}>
+                {ask.labels.high}
+              </Tip>
+              {imports && (
+                <Tip as="th" scope="col" tip={ask.tips.import}>
+                  {ask.labels.import}
+                </Tip>
+              )}
+              <Tip as="th" scope="col" colSpan={2} tip={ask.tips.exported}>
+                {ask.export}
+              </Tip>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((g, i) => (
+              <tr key={g.type} data-goods={g.type}>
+                <th scope="row" className="goods-col">
+                  <GoodsAmount keys={g.keys} name={g.name} amount={g.amount} art={art} />
+                  <span className="goods-name">{g.name}</span>
+                </th>
+                <td>{level(i, 'low', 100, ask.tips.low)}</td>
+                <td>{level(i, 'high', 100, ask.tips.high)}</td>
+                {imports && <td>{g.import !== null && level(i, 'import', g.max, ask.tips.import)}</td>}
+                <td className="check">
+                  <Tip
+                    as="input"
+                    tip={ask.tips.exported}
+                    type="checkbox"
+                    aria-label={`${g.name} ${ask.export}`}
+                    checked={g.exported}
+                    disabled={!ask.canExport}
+                    onChange={(e) => set(i, { exported: e.target.checked })}
+                  />
+                </td>
+                <td>{level(i, 'export', g.max, ask.tips.export)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
       <OkCancel ok={ask.ok} cancel={ask.cancel} onOk={ok} onCancel={cancel} enter="ok" />
     </Win>

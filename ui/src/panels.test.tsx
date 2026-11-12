@@ -1625,7 +1625,8 @@ describe('the warehouse dialog', () => {
     cancel: 'Cancel',
     export: 'Export',
     canExport: true,
-    tips: { low: 'Low', high: 'High', import: 'Import', export: 'Export above', exported: 'Whether' },
+    labels: { goods: 'Goods', low: 'Low', high: 'High', import: 'Import' },
+    tips: { low: 'Low level tip', high: 'High level tip', import: 'Import level tip', export: 'Export above', exported: 'Whether' },
     goods: [
       {
         type: 'model.goods.food',
@@ -1666,6 +1667,34 @@ describe('the warehouse dialog', () => {
       { type: 'model.goods.rum', exported: false, low: 0, high: 100, import: null, export: 0 },
     ]);
     expect(screen.queryByLabelText('Rum import')).toBeNull();
+  });
+
+  it('lays the goods out as a table: a row for each, the headings named and hinted as FreeCol does', async () => {
+    const { box } = host();
+    ask(box, 'warehouse', q);
+    const headings = screen.getAllByRole('columnheader');
+    expect(headings.map((h) => h.textContent)).toEqual(['Goods', 'Low', 'High', 'Import', 'Export']);
+    expect(headings[4].getAttribute('colspan')).toBe('2');
+    expect(await hint(headings[1])).toBe('Low level tip');
+    const rows = within(screen.getAllByRole('rowgroup')[1]).getAllByRole('row');
+    expect(rows.map((r) => r.getAttribute('data-goods'))).toEqual(['model.goods.food', 'model.goods.rum']);
+    const food = within(rows[0]);
+    expect(food.getAllByRole('textbox').map((t) => (t as HTMLInputElement).value)).toEqual(['10', '90', '20', '50']);
+    expect(food.getByText('5')).toBeTruthy();
+    // Rum has no import level: its cell is empty, so the columns still line up.
+    expect(rows[1].querySelectorAll('td')).toHaveLength(5);
+    expect(within(rows[1]).getAllByRole('textbox')).toHaveLength(3);
+  });
+
+  it('has no import column unless a goods has an import level', () => {
+    const { box } = host();
+    ask(box, 'warehouse', { ...q, goods: q.goods.map((g) => ({ ...g, import: null })) });
+    expect(screen.getAllByRole('columnheader').map((h) => h.textContent)).toEqual([
+      'Goods',
+      'Low',
+      'High',
+      'Export',
+    ]);
   });
 
   it('cannot export without a custom house, and answers null on cancel', async () => {
