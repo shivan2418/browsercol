@@ -1561,7 +1561,10 @@ async function play(page: Page, url: string) {
   await page.evaluate(() => {
     const seen: [string, boolean][] = ((window as any).__keysSeen = []);
     (window as any).__samePage = true;
-    addEventListener('keydown', (e) => seen.push([`${e.shiftKey ? 'Shift+' : ''}${e.code}`, e.defaultPrevented]));
+    addEventListener(
+      'keydown',
+      (e) => /^F\d+$/.test(e.code) && seen.push([`${e.shiftKey ? 'Shift+' : ''}${e.code}`, e.defaultPrevented]),
+    );
   });
   for (const key of [
     'F1',
