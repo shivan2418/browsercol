@@ -164,6 +164,24 @@ describe('the Orders menu', () => {
       'Go To',
       'Execute Go To Orders',
     ]);
+    // Every order names its key, as FreeCol's menu shows each action's accelerator.
+    expect(items.map((i) => i.hint)).toEqual([
+      'B',
+      'F',
+      'S',
+      'Space',
+      'Z',
+      'N',
+      'P',
+      'C',
+      'R',
+      'L',
+      'U',
+      'H',
+      'O',
+      'A',
+      'D',
+    ]);
     find(items, 'Fortify').run();
     find(items, 'Go To').run();
     expect(log).toEqual(['fortify', 'selectDestination']);

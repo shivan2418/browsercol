@@ -119,31 +119,37 @@ export function gameMenu(a: MenuActions): Items {
 }
 
 export function ordersMenu(a: MenuActions): Items {
-  /** An order of the active unit: enabled when the Engine lists it for the unit. */
-  const order = (label: string, c: Command): Items[number] => ({
+  /** An order of the active unit: enabled when the Engine lists it for the unit. hint is its key (input.ts). */
+  const order = (label: string, c: Command, hint: string): Items[number] => ({
     label,
     run: () => a.run(c),
     disabled: !a.ready || !a.orders.includes(orderOf(c) ?? ''),
+    hint,
   });
   return [
-    order('Build Colony', { k: 'buildColony' }),
-    order('Fortify', { k: 'fortify' }),
-    order('Sentry', { k: 'sentry' }),
-    order('Skip', { k: 'skip' }),
-    { label: 'Clear Orders', run: () => a.run({ k: 'clearOrders' }), disabled: !a.ready || !a.hasActiveUnit },
-    order('Rename', { k: 'renameUnit' }),
-    order('Plow', { k: 'plow' }),
-    order('Clear Forest', { k: 'clearForest' }),
-    order('Build Road', { k: 'road' }),
-    order('Load', { k: 'load' }),
-    order('Unload', { k: 'unload' }),
-    order('Go To', { k: 'selectDestination' }),
+    order('Build Colony', { k: 'buildColony' }, 'B'),
+    order('Fortify', { k: 'fortify' }, 'F'),
+    order('Sentry', { k: 'sentry' }, 'S'),
+    order('Skip', { k: 'skip' }, 'Space'),
+    {
+      label: 'Clear Orders',
+      run: () => a.run({ k: 'clearOrders' }),
+      disabled: !a.ready || !a.hasActiveUnit,
+      hint: 'Z',
+    },
+    order('Rename', { k: 'renameUnit' }, 'N'),
+    order('Plow', { k: 'plow' }, 'P'),
+    order('Clear Forest', { k: 'clearForest' }, 'C'),
+    order('Build Road', { k: 'road' }, 'R'),
+    order('Load', { k: 'load' }, 'L'),
+    order('Unload', { k: 'unload' }, 'U'),
+    order('Go To', { k: 'selectDestination' }, 'H'),
     // MapboardAction: needs no unit, only the game (and our turn, which the Engine checks).
-    { label: 'Execute Go To Orders', run: () => a.run({ k: 'executeGotoOrders' }), disabled: !a.ready },
+    { label: 'Execute Go To Orders', run: () => a.run({ k: 'executeGotoOrders' }), disabled: !a.ready, hint: 'O' },
     // AssignTradeRouteAction: only a carrier can be given a route, so this opens the panel for the active
     // carrier and is enabled only when the Engine lists assignRoute for the unit. View's Trade Routes needs none.
-    { ...order('Assign Trade Route', { k: 'assignRoute' }), hint: 'A' },
-    order('Disband Unit', { k: 'disband' }),
+    order('Assign Trade Route', { k: 'assignRoute' }, 'A'),
+    order('Disband Unit', { k: 'disband' }, 'D'),
   ];
 }
 
@@ -162,7 +168,7 @@ export function viewMenu(a: MenuActions): Items {
     { label: 'Zoom In', run: () => a.zoom(1) },
     { label: 'Zoom Out', run: () => a.zoom(-1) },
     { label: 'Center on Active Unit', run: a.centreOnUnit, disabled: !a.hasActiveUnit, hint: 'Ctrl+C' },
-    { label: 'Europe', run: () => a.run({ k: 'showEurope' }), disabled: !a.ready || !a.hasEurope },
+    { label: 'Europe', run: () => a.run({ k: 'showEurope' }), disabled: !a.ready || !a.hasEurope, hint: 'E' },
     // TradeRouteAction, a MapboardAction: the routes panel with no unit, so routes can be made and edited.
     { label: 'Trade Routes', run: () => a.run({ k: 'tradeRoutes' }), disabled: !a.ready, hint: 'T' },
     { label: 'Find Settlement', run: () => a.run({ k: 'findSettlement' }), disabled: !a.ready, hint: 'Ctrl+F' },
