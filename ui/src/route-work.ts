@@ -10,10 +10,11 @@ export const holdsOf = (cargo: readonly string[]) => {
 
 /**
  * What a carrier does at stop i, as FreeCol's: a stop's list is what the carrier leaves with, so against the
- * stop before's (the last one for the first stop, as the route loops) the holds above the list are unloaded,
- * the holds missing from it are loaded, and the holds on both are kept aboard. Each list entry is one full
- * hold (TradeRouteStop.getCompactCargo), so holds are counted per goods type: two holds of sugar arriving and
- * one leaving unloads one. This is the route's plan; real amounts depend on the colony's stock and exports.
+ * stop before's (the last one for the first stop, as the route loops) a goods type the stop does not list is
+ * unloaded, all of it (InGameController.unloadUnitAtStop), and one it lists is kept aboard, all of it, even
+ * beyond the holds listed; a listed goods is loaded only up to its holds (loadUnitAtStop). Each list entry is
+ * one full hold (TradeRouteStop.getCompactCargo), so holds are counted per goods type. This is the route's
+ * plan; real amounts depend on the colony's stock and warehouse levels.
  */
 export function stopWork(stops: readonly { cargo: readonly string[] }[], i: number) {
   const n = stops.length;
@@ -22,11 +23,7 @@ export function stopWork(stops: readonly { cargo: readonly string[] }[], i: numb
   const unload: Work[] = [];
   const load: Work[] = [];
   const keep: Work[] = [];
-  for (const [g, k] of before) {
-    const left = after.get(g) ?? 0;
-    if (k > left) unload.push([g, k - left]);
-    if (left > 0) keep.push([g, Math.min(k, left)]);
-  }
+  for (const [g, k] of before) (after.has(g) ? keep : unload).push([g, k]);
   for (const [g, k] of after) if (k > (before.get(g) ?? 0)) load.push([g, k - (before.get(g) ?? 0)]);
   return { unload, load, keep };
 }
