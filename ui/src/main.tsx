@@ -47,7 +47,7 @@ import {
   type DebugRequest,
   type OverlayAnswer,
 } from './debug';
-import { afterSlide as slideGate, viewHold } from './after-slide';
+import { afterSlide as slideGate, popupsAfterMove, viewHold } from './after-slide';
 import { ColonyActions, ColonyTiles, type ColonyMoves, type DrawTiles } from './colony-panel';
 import { dialogs } from './dialogs';
 import { blockBrowserKeys, steppedScale } from './browser-keys';
@@ -1990,7 +1990,7 @@ async function run() {
     importMap,
     autoplay,
     scope: globalThis as unknown as Scope,
-    gui,
+    gui: { ...gui, events: popupsAfterMove(gui.events, viewChanges) },
     onEvent: async (name, detail) => {
       // A failure the game goes on after; one it does not ("failed", a load that fails) goes on the banner through show().
       const failure = engineError(name, detail);
