@@ -1,0 +1,48 @@
+/*
+ * The order buttons' rules (MapOrders, src/map-orders.tsx), moved out of index.html in their order (#498).
+ */
+@layer components {
+  body[data-map-controls='hidden'] #game #map-orders {
+    --clear: 0px;
+  }
+  /* The active unit's order buttons, where CornerMapControls puts them. */
+  /* Between the minimap and the info panel (main.tsx sets --minimap-w); in a narrow map they wrap upwards. */
+  /* Centred on the screen: the room kept at both sides is that of the wider of the minimap and the info panel. */
+  #game #map-orders {
+    position: absolute;
+    --clear: max(var(--minimap-w, 0px), var(--info-panel-w));
+    left: calc(var(--clear) + 8px);
+    right: calc(var(--clear) + 8px);
+    bottom: 8px;
+    display: flex;
+    flex-wrap: wrap-reverse;
+    justify-content: center;
+    gap: 4px;
+    pointer-events: none;
+  }
+  #game #map-orders button {
+    pointer-events: auto;
+  }
+  /* With FreeCol's pictures (order-buttons), a button is its picture in four states, as the minimap's are. */
+  #game #map-orders .pictured {
+    width: 39px;
+    height: 39px;
+    padding: 0;
+    border: 0;
+    box-shadow: none;
+    background: var(--normal) center / contain no-repeat;
+  }
+  #game #map-orders .pictured:hover:enabled {
+    background-image: var(--highlighted);
+  }
+  #game #map-orders .pictured:active:enabled {
+    background-image: var(--pressed);
+  }
+  #game #map-orders .pictured:disabled {
+    background-image: var(--disabled);
+    opacity: 1;
+  }
+  #game #map-orders .pictured:focus-visible {
+    outline: 2px solid var(--accent);
+  }
+}

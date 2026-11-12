@@ -126,80 +126,12 @@
         flex-direction: column;
         position: relative;
       }
-      body[data-map-controls='hidden'] #game #map-orders {
-        --clear: 0px;
-      }
       /* main.tsx sizes the map's canvas to this box. */
       #map {
         flex: 1;
         min-height: 240px;
         position: relative;
         overflow: hidden;
-      }
-      /*
-       * FreeCol's compass rose (Preferences: display compass rose), where CornerMapControls puts it. It and the
-       * order buttons sit in #game beside #map, not in it: in #map the canvas, appended later, painted over them,
-       * and the map's own pointer listeners took their clicks too (issue 245).
-       */
-      #game > #compass {
-        position: absolute;
-        top: 20px;
-        right: 20px;
-      }
-      /* The frame-rate meter (fps-meter.ts, ?fps or Debug > Show Frame Rate), in the map's top-left corner. */
-      #game > .fps-meter {
-        position: absolute;
-        top: 8px;
-        left: 8px;
-        padding: 2px 6px;
-        background: var(--box);
-        color: var(--ink);
-        border: 1px solid var(--line);
-        font-family: var(--font-mono);
-        font-size: 12px;
-        line-height: 1.4;
-        font-variant-numeric: tabular-nums;
-        pointer-events: none;
-      }
-      /* The active unit's order buttons, where CornerMapControls puts them. */
-      /* Between the minimap and the info panel (main.tsx sets --minimap-w); in a narrow map they wrap upwards. */
-      /* Centred on the screen: the room kept at both sides is that of the wider of the minimap and the info panel. */
-      #game #map-orders {
-        position: absolute;
-        --clear: max(var(--minimap-w, 0px), var(--info-panel-w));
-        left: calc(var(--clear) + 8px);
-        right: calc(var(--clear) + 8px);
-        bottom: 8px;
-        display: flex;
-        flex-wrap: wrap-reverse;
-        justify-content: center;
-        gap: 4px;
-        pointer-events: none;
-      }
-      #game #map-orders button {
-        pointer-events: auto;
-      }
-      /* With FreeCol's pictures (order-buttons), a button is its picture in four states, as the minimap's are. */
-      #game #map-orders .pictured {
-        width: 39px;
-        height: 39px;
-        padding: 0;
-        border: 0;
-        box-shadow: none;
-        background: var(--normal) center / contain no-repeat;
-      }
-      #game #map-orders .pictured:hover:enabled {
-        background-image: var(--highlighted);
-      }
-      #game #map-orders .pictured:active:enabled {
-        background-image: var(--pressed);
-      }
-      #game #map-orders .pictured:disabled {
-        background-image: var(--disabled);
-        opacity: 1;
-      }
-      #game #map-orders .pictured:focus-visible {
-        outline: 2px solid var(--accent);
       }
       /* Focus returns here when a window closes (main.tsx); it is a place for keys, not a control with a ring. */
       #map:focus {
@@ -233,13 +165,6 @@
       ::selection {
         background: var(--accent);
         color: var(--panel);
-      }
-      /* Europe (src/panels.tsx), as EuropePanel lays it out: the ships, the docks and cargo, the market. */
-      /* Europe is a large window over the map. The top bar stays clear above its backdrop, as the gold is read there. */
-      body:has(.dialog[data-kind='europe']) #menubar {
-        position: relative;
-        z-index: 1;
-        pointer-events: none;
       }
       /* A grey wash while the window lacks keyboard focus, so it is obvious
          that keys will not reach the game; its strength is a preference

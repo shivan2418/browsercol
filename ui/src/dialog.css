@@ -1,7 +1,8 @@
 /*
  * What every window framed as a dialog (WindowFrame with the dialog class, src/frame.tsx) has inside it, moved out of
  * index.html in their order (#498). It comes before form-controls.css, so a checkbox keeps its own width. The
- * dialog's own size stays in index.html for now: the shop popup's width, still there after it, must win over it.
+ * dialog's own size stays in index.html for now: there it comes before every sheet, so the shop popup's width
+ * (europe-panel.css) wins over it.
  */
 @layer components {
   .dialog .text {

@@ -3,6 +3,7 @@
 // shows what the player sees: the frames per second over the last second, and
 // the longest frame in it, the one a player feels as a stutter. Plain DOM, no
 // React, so showing it adds next to nothing to what it measures.
+import './fps-meter.css';
 
 /** What the meter shows for one second of frame intervals, in milliseconds. */
 export function frameStats(intervals: readonly number[]): { fps: number; worst: number } {

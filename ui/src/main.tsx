@@ -148,6 +148,7 @@ import { advisor } from './advisor';
 import { InfoPanel } from './info-panel';
 import { MinimapPanel } from './minimap-panel';
 import { MapOrders } from './map-orders';
+import './compass.css';
 import { Side, type SideProps } from './side';
 import { ReloadNotice, reloadPending } from './reload-notice';
 import { isIdle, type Mover, MoverHold, TurnBanner, turnNotice, type TurnFacts, type TurnNotice } from './turn-banner';

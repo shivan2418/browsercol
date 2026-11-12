@@ -1,0 +1,18 @@
+/* The frame-rate meter's rule (src/fps-meter.ts), moved out of index.html (#498). */
+@layer components {
+  /* The frame-rate meter (fps-meter.ts, ?fps or Debug > Show Frame Rate), in the map's top-left corner. */
+  #game > .fps-meter {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    padding: 2px 6px;
+    background: var(--box);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.4;
+    font-variant-numeric: tabular-nums;
+    pointer-events: none;
+  }
+}

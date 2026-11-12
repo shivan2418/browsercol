@@ -117,6 +117,9 @@ const PANEL_SHEETS = [
   './menubar.css',
   './popup-menu.css',
   './turn-banner.css',
+  './map-orders.css',
+  './compass.css',
+  './fps-meter.css',
   './log.css',
   './europe-panel.css',
   './prefs-dialog.css',
@@ -255,6 +258,9 @@ const MOVED: Record<string, RegExp> = {
     /(^|[\s(])(#minimap|#info-panel|#info|#out|#log|\.minimap-buttons|\.menubar|\.popup|\.info-[\w-]+|\.turn-banner(-swatch)?)(?![\w-])/,
   'Europe and its shop (europe-panel.css)':
     /(^|[\s(])\.(europe|europe-(body|log|top|title)|shop-popup|shop-modal)(?![\w-])/,
+  'the map controls (map-orders.css, compass.css, fps-meter.css)':
+    /(^|[\s(])(#map-orders|#compass|\.fps-meter)(?![\w-])/,
+  'the top bar over Europe (europe-panel.css)': /\.dialog\[data-kind='europe'\]\)\s*#menubar/,
   'the Preferences window (prefs-dialog.css)': /(^|[\s(])#preferences\b/,
   'the other screens (#498)':
     /^(\.modal(\s*>\s*(\[data-fit\]|\.declaration))?|\.declaration\b.*|\.error-banner\b.*|\.reload-notice|#mobile-notice\b.*|\.linkish|#credits \.credits-body|#credits ul|#saves\b.*|#unasked\b.*|\.box > \.cap\[data-two-lines\])$/,

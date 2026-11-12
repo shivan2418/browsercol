@@ -1,0 +1,13 @@
+/* The compass rose's rule (src/main.tsx makes it), moved out of index.html (#498). */
+@layer components {
+  /*
+   * FreeCol's compass rose (Preferences: display compass rose), where CornerMapControls puts it. It and the
+   * order buttons sit in #game beside #map, not in it: in #map the canvas, appended later, painted over them,
+   * and the map's own pointer listeners took their clicks too (issue 245).
+   */
+  #game > #compass {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+  }
+}

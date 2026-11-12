@@ -5,6 +5,7 @@ import { Tip } from './controls';
 import { cssUrl, type Art } from './frame';
 import { orderOf, type Command } from './input';
 import { PANEL_KEY_FAMILIES } from './map-keys';
+import './map-orders.css';
 
 /**
  * The buttons: the order each gives the active unit, in CornerMapControls' order, with the name of FreeCol's

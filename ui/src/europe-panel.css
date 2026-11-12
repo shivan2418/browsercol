@@ -3,6 +3,13 @@
  * sheet of a panel: it names the panel, as theme.test.ts's PANEL_SHEETS allows.
  */
 @layer components {
+  /* Europe (src/panels.tsx), as EuropePanel lays it out: the ships, the docks and cargo, the market. */
+  /* Europe is a large window over the map. The top bar stays clear above its backdrop, as the gold is read there. */
+  body:has(.dialog[data-kind='europe']) #menubar {
+    position: relative;
+    z-index: 1;
+    pointer-events: none;
+  }
   /* As Swing's EuropePanel: the name centred, the lists and the sales above the market, the buttons below. */
   .europe-title {
     display: flex;
