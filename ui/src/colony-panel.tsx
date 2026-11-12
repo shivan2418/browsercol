@@ -45,6 +45,7 @@ import { accepts, draggableProps, dropTargetProps, same, type Item, type Place }
 import { ContextMenuContext, useContextMenu } from './popup-menu';
 import type { Buildable, BuildingTip, ColonyView, GoodsAmount as Goods, RebelTip, UnitRef } from './webgui';
 import { useCoverage } from './coverage';
+import './colony-panel.css';
 import './colony-tips.css';
 import { Occupation } from './occupation-badge';
 import { flag } from './flag';

@@ -97,7 +97,7 @@ const bare = (text: string) => text.replace(/\/\*[\s\S]*?\*\//g, '');
  * tables in their own lengths. They are in the components layer like the rest, but the token and panel-name
  * checks below skip them (#435).
  */
-const PANEL_SHEETS = ['./reports.css'];
+const PANEL_SHEETS = ['./reports.css', './colony-panel.css'];
 
 /** Each declaration of a sheet, with the selector of the rule it is in. */
 function declarations(text: string) {
@@ -219,6 +219,7 @@ const MOVED: Record<string, RegExp> = {
   'unit chips, now three components (plan-pills.css, europe-entry.css, occupation-badge.css)': /(^|\s)\.chips?\b/,
   'button rows (button-row.css)':
     /^(\.dialog|\.error-banner|\.start-window|#preferences|\.dialog\[data-kind='europe'\])\s+\.buttons(\s+\[data-answer='close'\])?$/,
+  'the colony panel (colony-panel.css)': /(^|[\s(])\.colony(?![\w-])|^\.dialog\[data-kind='colony'\]/,
 };
 
 test('a moved pattern has no rule left in index.html', () => {

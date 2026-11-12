@@ -5,12 +5,13 @@ import { cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { ColonyPanel } from './colony-panel';
 import { colonist, goods, jamestown } from './colony-fixture';
-import { pageCss } from './page-css.testing';
+import { componentSheets, pageCss } from './page-css.testing';
 import type { ColonyView } from './webgui';
 
 afterEach(cleanup);
 
-const style = pageCss.replace(/\/\*[\s\S]*?\*\//g, '');
+// The page's own rules, then the colony panel's sheet, which comes after them (#498).
+const style = (pageCss + componentSheets['./colony-panel.css']).replace(/\/\*[\s\S]*?\*\//g, '');
 
 /** The declarations of every rule whose selector list names the selector, in order, as one map (a later wins). */
 function declared(selector: string): Record<string, string> {

@@ -1,7 +1,7 @@
 /*
  * UnitLabel's occupation badge (Occupation, src/occupation-badge.tsx) in the label's top-left corner, beside the
  * figure (ImageLibrary.createChip: a black border round the owner's colour, which the Engine sends as --nation and
- * --nation-ink). The label it sits in is the colony panel's, positioned in index.html.
+ * --nation-ink). The label it sits in is the colony panel's, positioned in colony-panel.css.
  */
 @layer components {
   :root {
