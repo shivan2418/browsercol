@@ -166,23 +166,29 @@ final class TradeRoutes {
     }
 
     /**
-     * A colony's warehouse as a carrier finds it now, for each storable
-     * goods: how much it has, how much it keeps (its export level), how much
-     * a carrier may take (Colony.getExportAmount), and how much more it takes
-     * in (Colony.getImportAmount: the room left in the warehouse, or with the
-     * enhanced trade routes option the room up to its import level; null
-     * for goods without a limit).
+     * A colony's warehouse as a carrier finds it, for each storable goods:
+     * how much it has now, how much it keeps (its export level), how much a
+     * carrier may take now (Colony.getExportAmount), the amount a carrier
+     * unloads up to (the warehouse's capacity, or with the enhanced trade
+     * routes option the import level), and how much more it takes in now
+     * (Colony.getImportAmount). upTo and room are null for goods without a
+     * limit.
      */
     private static String stock(Colony colony) {
         final Json json = new Json();
+        final boolean enhanced = colony.getSpecification()
+            .getBoolean(GameOptions.ENHANCED_TRADE_ROUTES);
+        final int capacity = colony.getWarehouseCapacity();
         for (GoodsType type : colony.getSpecification().getStorableGoodsTypeList()) {
             final int in = colony.getImportAmount(type, 0);
+            final boolean limited = !(in >= GoodsContainer.HUGE_CARGO_SIZE || in == Integer.MAX_VALUE);
             json.putRaw(type.getId(), new Json()
                 .put("have", colony.getGoodsCount(type))
                 .put("keep", colony.getExportData(type).getExportLevel())
                 .put("give", colony.getExportAmount(type, 0))
-                .putRaw("room", (in >= GoodsContainer.HUGE_CARGO_SIZE || in == Integer.MAX_VALUE)
-                                ? "null" : String.valueOf(in))
+                .putRaw("upTo", !limited ? "null" : String.valueOf(enhanced
+                    ? colony.getExportData(type).getEffectiveImportLevel(capacity) : capacity))
+                .putRaw("room", !limited ? "null" : String.valueOf(in))
                 .toString());
         }
         return json.toString();

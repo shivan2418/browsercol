@@ -249,11 +249,15 @@ export interface GuiEvents {
       port: boolean;
       land: number | null;
       /**
-       * A colony's warehouse as a carrier finds it now, by goods type (null for Europe): how much it has, how
-       * much it keeps (its export level), how much a carrier may take, and how much more it takes in (the room
-       * left in the warehouse, or with enhanced trade routes up to its import level; null with no limit).
+       * A colony's warehouse as a carrier finds it, by goods type (null for Europe): how much it has now, how
+       * much it keeps (its export level), how much a carrier may take now, the amount a carrier unloads up to
+       * (what the warehouse holds, or with enhanced trade routes its import level), and how much more fits now;
+       * upTo and room are null for goods with no limit.
        */
-      stock: Record<string, { have: number; keep: number; give: number; room: number | null }> | null;
+      stock: Record<
+        string,
+        { have: number; keep: number; give: number; upTo: number | null; room: number | null }
+      > | null;
     }[];
     goods: { id: string; name: string; icon: string }[];
     /** Whether the enhanced trade routes option is on: carriers then load the largest amount first, in any order. */

@@ -18,7 +18,7 @@ const warehouse = (capacity: number, goods: Record<string, [have: number, keep: 
   Object.fromEntries(
     Object.entries(goods).map(([g, [have, keep]]) => [
       `model.goods.${g}`,
-      { have, keep, give: Math.max(0, have - keep), room: Math.max(0, capacity - have) },
+      { have, keep, give: Math.max(0, have - keep), upTo: capacity, room: Math.max(0, capacity - have) },
     ]),
   );
 

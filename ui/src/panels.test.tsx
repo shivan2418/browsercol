@@ -2254,10 +2254,16 @@ describe('the trade routes panel', () => {
     [true, 'never', 'the rest stays on board'],
     [false, 'always', 'the rest is unloaded anyway, and what the warehouse cannot hold is lost at the end of the turn'],
   ] as const)(
-    'with enhanced trade routes %s and overflow %s, shows how much a colony has available and how much fits there now',
+    'with enhanced trade routes %s and overflow %s, shows what a colony leaves and fills up to, and what that comes to now',
     async (enhanced, overflow, rest) => {
       const { box } = host();
-      const w = (have: number, keep: number, room: number) => ({ have, keep, give: Math.max(0, have - keep), room });
+      const w = (have: number, keep: number, upTo: number) => ({
+        have,
+        keep,
+        give: Math.max(0, have - keep),
+        upTo,
+        room: Math.max(0, upTo - have),
+      });
       act(() =>
         box.replace(
           'tradeRoutes',
@@ -2271,7 +2277,7 @@ describe('the trade routes panel', () => {
                 label: 'New Amsterdam',
                 port: true,
                 land: 1,
-                stock: { [T]: w(70, 50, 30), [F]: w(230, 50, 0) },
+                stock: { [T]: w(70, 50, 100), [F]: w(230, 50, 100) },
               },
             ],
           }),
@@ -2279,18 +2285,19 @@ describe('the trade routes panel', () => {
       );
       pick('Fur run (2)');
       press('Edit Trade Route');
-      // New Amsterdam unloads a hold of tools of which only 30 fit, and loads a hold of furs with 180 available.
+      // New Amsterdam unloads a hold of tools up to 100, of which only 30 fit now, and loads a hold of furs,
+      // leaving 50: 180 now.
       const tools = stopAt(1).querySelector(`[data-work=unload][data-type="${T}"]`)!;
       const furs = stopAt(1).querySelector(`[data-work=load][data-type="${F}"]`)!;
-      expect(tools.querySelector('.plan-figure')!.textContent).toBe('only 30 fit');
+      expect(tools.querySelector('.plan-figure')!.textContent).toBe('up to 100');
       expect(tools.hasAttribute('data-short')).toBe(true);
       expect(await hint(tools)).toContain(
-        `New Amsterdam has room for 30 more Tools now, ${enhanced ? 'up to its import level, set in its warehouse' : 'in its warehouse'}. A carrier with more unloads 30, and ${rest}.`,
+        `A carrier unloads until New Amsterdam has 100 (${enhanced ? 'its import level, set in its warehouse' : 'what its warehouse holds'}). It has 70 now, so only 30 fit. A carrier with more unloads 30, and ${rest}.`,
       );
-      expect(furs.querySelector('.plan-figure')!.textContent).toBe('180 available');
+      expect(furs.querySelector('.plan-figure')!.textContent).toBe('leaves 50');
       expect(furs.hasAttribute('data-short')).toBe(false);
       expect(await hint(furs)).toContain(
-        'New Amsterdam has 230 Furs now and keeps 50: a carrier may take 180. What it keeps is set in its warehouse.',
+        'A carrier takes as much as it can, but leaves 50 in New Amsterdam (set in its warehouse). It has 230 now, so a carrier takes 180.',
       );
       // Europe has no warehouse.
       expect(stopAt(0).querySelector('.plan-figure')).toBeNull();

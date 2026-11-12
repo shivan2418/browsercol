@@ -1110,20 +1110,23 @@ function RouteEditor({
     const warehouse = (kind: PillKind, g: string, k: number) => {
       const w = place?.stock?.[g];
       if (!w || !place) return null;
+      // The setting is the figure: a carrier takes all but what the colony keeps, and unloads until the colony
+      // has a set amount. What that comes to now is in the tip.
       if (kind === 'load') {
         const short = w.give < k * 100;
         return {
-          figure: `${short ? 'only ' : ''}${w.give} available`,
+          figure: `leaves ${w.keep}`,
           short,
-          tip: `${place.label} has ${w.have} ${nameOf(g)} now and keeps ${w.keep}: a carrier may take ${w.give}. What it keeps is set in its warehouse.`,
+          tip: `A carrier takes as much as it can, but leaves ${w.keep} in ${place.label} (set in its warehouse). It has ${w.have} now, so a carrier takes ${short ? 'only ' : ''}${w.give}.`,
         };
       }
-      if (kind !== 'unload' || w.room === null) return null;
-      const where = e.enhanced ? `up to its import level, set in its warehouse` : 'in its warehouse';
+      if (kind !== 'unload' || w.room === null || w.upTo === null) return null;
+      const short = w.room < k * 100;
+      const level = e.enhanced ? 'its import level, set in its warehouse' : 'what its warehouse holds';
       return {
-        figure: `${w.room < k * 100 ? 'only ' : ''}${w.room} fit`,
-        short: w.room < k * 100,
-        tip: `${place.label} has room for ${w.room} more ${nameOf(g)} now, ${where}.${w.room < k * 100 ? ` A carrier with more unloads ${w.room}, and ${overflow}.` : ''}`,
+        figure: `up to ${w.upTo}`,
+        short,
+        tip: `A carrier unloads until ${place.label} has ${w.upTo} (${level}). It has ${w.have} now, so ${short ? 'only ' : ''}${w.room} fit.${short ? ` A carrier with more unloads ${w.room}, and ${overflow}.` : ''}`,
       };
     };
     return (kind: PillKind, g: string, k: number): PillExtra | null => {
