@@ -36,6 +36,7 @@ import {
 } from 'react';
 import { Tip } from './controls';
 import { createPortal } from 'react-dom';
+import { barSegments } from './progress-bar';
 import { Box, GoodsAmount, GoodsProgressBar, TEXT_ENTRY, type Art } from './frame';
 import { PANEL_KEYS } from './map-keys';
 import { ReportContext } from './reports';
@@ -405,9 +406,9 @@ function Board({ c, art, children }: { c: ColonyView; art: Art; children: ReactN
  * what the colony makes of it; the bar towards the next rebel; and the turns to the next rebel, to 50% and to 100%,
  * with how many colonists the colony can take or should lose at its bonus.
  */
-function RebelTipBox({ tip, art }: { tip: RebelTip; art: Art }) {
+export function RebelTipBox({ tip, art }: { tip: RebelTip; art: Art }) {
   const { bar } = tip;
-  const width = (n: number) => `${Math.max(0, Math.min(100, (100 * n) / Math.max(1, bar.max)))}%`;
+  const { now, next } = barSegments(bar.value, bar.step, bar.max);
   return (
     <div className="rebel-tip">
       {tip.members.map(([label, count, share]) => (
@@ -427,8 +428,8 @@ function RebelTipBox({ tip, art }: { tip: RebelTip; art: Art }) {
       ))}
       {/* FreeColProgressBar: what is there, darker, and what comes next turn, lighter, under the icon and its text. */}
       <div className="tip-bar">
-        <i className="value" style={{ width: width(bar.value) }} />
-        <i className="step" style={{ left: width(bar.value), width: width(Math.max(0, bar.step)) }} />
+        <i className="value" style={{ width: `${now}%` }} />
+        <i className="step" style={{ left: `${now}%`, width: `${next}%` }} />
         <span className="label">
           <Img keys={bar.keys} art={art} className="icon" />
           {bar.text}

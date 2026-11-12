@@ -48,6 +48,14 @@ describe('loading', () => {
     screen.progress('engine', 500, null);
     expect(loaded()).toBe('14%');
   });
+  it('never fills the bar past its end for more bytes than the size said', () => {
+    const screen = loading();
+    screen.begin(['data', 'engine']);
+    screen.finish('data');
+    screen.progress('engine', 5000, 100);
+    expect(parseInt(loaded(), 10)).toBeLessThanOrEqual(100);
+    expect(Number(root().getAttribute('aria-valuenow'))).toBeLessThanOrEqual(100);
+  });
   it('fades out when the last part is done, then goes', () => {
     const screen = loading();
     screen.begin(['data', 'map']);

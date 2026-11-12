@@ -21,6 +21,7 @@ import { inTextField, TEXT_ENTRY } from './accelerators';
 import { Tip } from './controls';
 import { dragging } from './drag';
 import { focusFirstEntry, menuArrows, useFocusTrap } from './focus';
+import { barSegments } from './progress-bar';
 import type { GoodsProgress } from './webgui';
 import './button.css';
 import './window-frame.css';
@@ -400,9 +401,7 @@ export const goodsIcons = { max: 7, countFrom: 7 };
  */
 export function GoodsProgressBar({ need, art }: { need: GoodsProgress; art: Art }) {
   const { available: have, produced: step, needed: max } = need;
-  const width = (n: number) => (max > 0 ? Math.min(100, Math.max(0, (100 * n) / max)) : 100);
-  const now = have >= max ? 100 : width(have);
-  const next = Math.min(100 - now, width(step));
+  const { now, next } = barSegments(have, step, max);
   const src = art(need.keys);
   return (
     <Tip as="span" className="need" data-goods={need.type} tip={need.name}>
