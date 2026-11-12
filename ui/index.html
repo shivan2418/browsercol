@@ -2265,7 +2265,6 @@
         top: 40px;
         width: 780px;
         max-height: calc(var(--screen-h) * 0.8);
-        overflow-y: auto;
         box-sizing: border-box;
         padding: 16px;
         background: var(--panel);
@@ -2273,18 +2272,62 @@
         border: 2px solid var(--line);
         border-radius: 4px;
         box-shadow: 0 8px 30px color-mix(in srgb, var(--ink) 50%, transparent);
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        /* The window fits the screen: a fixed header and footer round panes that scroll each by itself. */
+        display: flex;
+        flex-direction: column;
         gap: 8px;
       }
+      .colony .queue-head {
+        flex: none;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .colony .queue-head h2 {
+        margin: 0;
+        font-size: var(--caption-size);
+        color: var(--head);
+        text-transform: var(--caption-case);
+        letter-spacing: var(--caption-tracking);
+      }
+      .colony .queue-panes {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      /* The queue scrolls inside its own share of the window, however many rows it has. */
       .colony .queue-body .queued {
-        grid-column: 1 / -1;
+        flex: 0 1 auto;
+        min-height: 4em;
+        max-height: calc(var(--screen-h) * 0.3);
+        overflow-y: auto;
+      }
+      .colony .queue-lists {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-rows: minmax(0, 1fr);
+        gap: 8px;
+      }
+      .colony .queue-lists .box {
+        min-height: 0;
+        overflow-y: auto;
+      }
+      .colony .queue-foot {
+        flex: none;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 16px;
+      }
+      .colony .queue-foot .buy {
+        margin-left: auto;
       }
       .colony .queue-close {
-        z-index: 1;
-        position: absolute;
-        right: 6px;
-        top: 6px;
+        flex: none;
       }
       .colony .queue-body ol,
       .colony .queue-body ul {
@@ -2296,6 +2339,8 @@
         gap: 2px;
       }
       .colony .queue-body li {
+        /* A row never shrinks into the one above it. */
+        flex: none;
         display: flex;
         gap: 6px;
         align-items: center;
@@ -2335,10 +2380,6 @@
         box-sizing: border-box;
         padding-left: 54px;
         font-size: 0.85em;
-      }
-      .colony .queue-body .show-all,
-      .colony .queue-body .buy {
-        grid-column: 1 / -1;
       }
       .colony .queue-body li[data-drag] {
         cursor: grab;

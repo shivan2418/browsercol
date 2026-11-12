@@ -951,6 +951,40 @@ async function play(page: Page, url: string) {
           throw new Error(`the build queue did not show ${type} after it was added`);
         });
     }
+    // A long queue stays inside its own pane, and the window fits the screen with the Buy and close buttons in
+    // view without scrolling: the lists scroll each by itself, not the window as one.
+    // (A building is built once, but a unit can be queued again and again.)
+    const anything = panel.locator('[data-buildable] button:not([disabled])');
+    if ((await anything.count()) > 0) {
+      for (let i = await panel.locator('[data-part=queued] li').count(); i < 12; i++) {
+        await anything.first().click();
+        await panel.locator('[data-part=queued] li').nth(i).waitFor({ timeout: 20000, label: 'a queued row' });
+      }
+    }
+    const fit = await panel.locator('.queue-body').evaluate((win) => {
+      const seen = (e: Element | null) => {
+        if (e === null) return 'missing';
+        const r = e.getBoundingClientRect();
+        const w = win.getBoundingClientRect();
+        const ok = r.top >= w.top && r.bottom <= w.bottom && r.top >= 0 && r.bottom <= innerHeight && r.width > 0;
+        return ok ? '' : `${e.className || e.tagName} is out of view (${r.top}-${r.bottom} of ${w.top}-${w.bottom})`;
+      };
+      const pane = win.querySelector<HTMLElement>('[data-part=queued]')!;
+      pane.scrollTop = 0;
+      const p = pane.getBoundingClientRect();
+      const first = win.querySelector('[data-part=queued] li')!.getBoundingClientRect();
+      const stray = [...win.querySelectorAll('[data-part=queued] li')]
+        .map((li) => li.getBoundingClientRect())
+        .some((r) => r.left < p.left || r.right > p.right + 1);
+      return [
+        win.scrollHeight > win.clientHeight + 1 ? 'the window scrolls as one' : '',
+        seen(win.querySelector('button.buy')),
+        seen(win.querySelector('button.queue-close')),
+        first.top < p.top ? 'the first queued row overflows up out of its pane' : '',
+        pane.scrollHeight > pane.clientHeight + 1 || !stray ? '' : 'a queued row overflows sideways',
+      ].filter((x) => x !== '');
+    });
+    if (fit.length > 0) throw new Error(`the build queue window does not fit: ${fit.join('; ')}`);
     // The queue's popup covers the panel until it is closed.
     await panel.locator('button.queue-close').click();
     await page.evaluate(() => (window.__hold = null));

@@ -868,6 +868,38 @@ describe('the build queue in the colony panel', () => {
     ]);
   });
 
+  it('keeps Buy in a footer apart from the scrolling panes, and the close button in a header', () => {
+    openQueue();
+    const body = document.querySelector('.queue-body')!;
+    const foot = body.querySelector('.queue-foot')!;
+    expect(foot.querySelector('button.buy')).not.toBeNull();
+    expect(body.querySelector('.queue-head button.queue-close')).not.toBeNull();
+    // The footer and header are children of the window; the lists are in the panes between, not in them.
+    expect(foot.parentElement).toBe(body);
+    expect(body.querySelector('.queue-panes')!.contains(foot)).toBe(false);
+    expect(body.querySelector('.queue-panes')!.querySelectorAll('[data-part]').length).toBe(3);
+  });
+
+  it('closes with its colony: it is not open when the colony, or another, opens again', () => {
+    openQueue({ id: 'colony:same' });
+    expect(document.querySelector('.queue-body')).not.toBeNull();
+    cleanup();
+    const box = dialogs();
+    render(
+      <ColonyActions.Provider value={moves}>
+        <DialogHost
+          dialogs={box}
+          goTo={() => {}}
+          art={art}
+          report={{ groupBy() {}, filter() {}, ignore() {}, open() {} }}
+          routes={{ save() {}, remove() {}, assign() {} }}
+        />
+      </ColonyActions.Provider>,
+    );
+    act(() => box.show('colony', { ...jamestown, id: 'colony:same' }));
+    expect(document.querySelector('.queue-body')).toBeNull();
+  });
+
   it('opens on a click on a building that can build', () => {
     openQueue();
     fireEvent.click(document.querySelector('.queue-close')!);

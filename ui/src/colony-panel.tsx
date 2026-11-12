@@ -922,6 +922,15 @@ function BuildQueue({ c, art, children }: { c: ColonyView; art: Art; children: R
   const [selList, setSelList] = useState<string[]>([]);
   const toggle = <T,>(xs: T[], x: T) => (xs.includes(x) ? xs.filter((y) => y !== x) : [...xs, x]);
   const q = c.queue;
+  // The queue window closes with its colony's panel (and when the panel steps to another colony), so it is not
+  // open again when a colony opens.
+  useEffect(
+    () => () => {
+      const s = queues.get(c.id);
+      if (s?.open) queues.set(c.id, { ...s, open: false });
+    },
+    [c.id],
+  );
   // B opens the build queue (ColonyPanel's buildQueueCmd).
   useColonyKey((key) => {
     if (moves && key.toLowerCase() === 'b' && !state.open) set({ ...state, open: true });
@@ -990,140 +999,149 @@ function BuildQueue({ c, art, children }: { c: ColonyView; art: Art; children: R
               }
             }}
           >
-            <Tip
-              as="button"
-              className="queue-close"
-              aria-label="close"
-              tip="close"
-              onClick={() => set({ ...state, open: false })}
-            >
-              ✕
-            </Tip>
-            <Box caption={q.title} data-part="queued" className="queued">
-              <ol
-                {...queueDrag.target(
-                  () => true,
-                  (d) => dropAt(d, ids.length),
-                )}
+            <div className="queue-head">
+              <h2>{q.title}</h2>
+              <Tip
+                as="button"
+                className="queue-close"
+                aria-label="close"
+                tip="close"
+                onClick={() => set({ ...state, open: false })}
               >
-                {q.queue.map((b, i) => (
-                  <li
-                    key={`${b.type}:${i}`}
-                    data-queued={b.type}
-                    data-locked={flag(b.reason !== null)}
-                    onContextMenu={aboutIt(b.type)}
-                    data-selected={flag(selQueue.includes(i))}
-                    {...queueDrag.source(() => ({ from: 'queue', index: i }))}
-                    {...queueDrag.target(
-                      () => true,
-                      (d) => dropAt(d, i),
-                    )}
-                    onClick={(e) => {
-                      if (multi(e)) setSelQueue(toggle(selQueue, i));
-                    }}
-                  >
-                    <Tip as="button" disabled={i === 0} aria-label="up" tip="up" onClick={() => move(i, i - 1)}>
-                      ↑
-                    </Tip>
-                    <Tip
-                      as="button"
-                      disabled={i === ids.length - 1}
-                      aria-label="down"
-                      tip="down"
-                      onClick={() => move(i, i + 1)}
-                    >
-                      ↓
-                    </Tip>
-                    <Tip
-                      as="button"
-                      aria-label="remove"
-                      tip="remove"
-                      onClick={() =>
-                        moves.setQueue(
-                          c.id,
-                          ids.filter((_, j) => j !== i),
-                        )
-                      }
-                    >
-                      ✕
-                    </Tip>
-                    <BuildableLabel b={b} art={art} compact={state.compact} />
-                  </li>
-                ))}
-              </ol>
-            </Box>
-            {lists.map(({ part, title, items }) => (
-              <Box key={part} caption={title} data-part={part} className="can-build">
-                <ul
-                  // A queued row dropped back on a list leaves the queue.
+                ✕
+              </Tip>
+            </div>
+            <div className="queue-panes">
+              <Box aria-label={q.title} data-part="queued" className="queued">
+                <ol
                   {...queueDrag.target(
-                    (d) => d.from === 'queue',
-                    (d) => {
-                      if (d.from === 'queue') {
-                        moves.setQueue(
-                          c.id,
-                          ids.filter((_, j) => j !== d.index),
-                        );
-                      }
-                    },
+                    () => true,
+                    (d) => dropAt(d, ids.length),
                   )}
                 >
-                  {items
-                    .filter((b) => state.all || b.reason === null)
-                    .map((b) => (
-                      <li
-                        key={b.type}
-                        data-buildable={b.type}
-                        data-locked={flag(b.reason !== null)}
-                        onContextMenu={aboutIt(b.type)}
-                        // Dragging one of several selected buildables takes them all.
-                        {...(b.reason === null
-                          ? queueDrag.source(() => ({
-                              from: 'list',
-                              types: selList.includes(b.type) ? selList : [b.type],
-                            }))
-                          : {})}
+                  {q.queue.map((b, i) => (
+                    <li
+                      key={`${b.type}:${i}`}
+                      data-queued={b.type}
+                      data-locked={flag(b.reason !== null)}
+                      onContextMenu={aboutIt(b.type)}
+                      data-selected={flag(selQueue.includes(i))}
+                      {...queueDrag.source(() => ({ from: 'queue', index: i }))}
+                      {...queueDrag.target(
+                        () => true,
+                        (d) => dropAt(d, i),
+                      )}
+                      onClick={(e) => {
+                        if (multi(e)) setSelQueue(toggle(selQueue, i));
+                      }}
+                    >
+                      <Tip as="button" disabled={i === 0} aria-label="up" tip="up" onClick={() => move(i, i - 1)}>
+                        ↑
+                      </Tip>
+                      <Tip
+                        as="button"
+                        disabled={i === ids.length - 1}
+                        aria-label="down"
+                        tip="down"
+                        onClick={() => move(i, i + 1)}
                       >
-                        <Tip
-                          as="button"
-                          disabled={b.reason !== null}
-                          tip={b.reason ?? b.name}
-                          // On the button, which covers the row: the selected look is drawn behind its content.
-                          data-selected={flag(selList.includes(b.type))}
-                          onClick={(e) => {
-                            if (multi(e)) {
-                              setSelList(toggle(selList, b.type));
-                              return;
-                            }
-                            setSelList([]);
-                            moves.setQueue(c.id, [...ids, b.type]);
-                          }}
-                        >
-                          <BuildableLabel b={b} art={art} compact={state.compact} />
-                        </Tip>
-                      </li>
-                    ))}
-                </ul>
+                        ↓
+                      </Tip>
+                      <Tip
+                        as="button"
+                        aria-label="remove"
+                        tip="remove"
+                        onClick={() =>
+                          moves.setQueue(
+                            c.id,
+                            ids.filter((_, j) => j !== i),
+                          )
+                        }
+                      >
+                        ✕
+                      </Tip>
+                      <BuildableLabel b={b} art={art} compact={state.compact} />
+                    </li>
+                  ))}
+                </ol>
               </Box>
-            ))}
-            <label className="show-all">
-              <input type="checkbox" checked={state.all} onChange={(e) => set({ ...state, all: e.target.checked })} />
-              {q.showAll}
-            </label>
-            <label className="show-all compact">
-              <input
-                type="checkbox"
-                checked={state.compact}
-                onChange={(e) => set({ ...state, compact: e.target.checked })}
-              />
-              {q.compact}
-            </label>
-            {q.buy && (
-              <button className="buy" disabled={!q.buy.enabled} onClick={() => moves.buy(c.id)}>
-                {q.buy.label}
-                <span className="muted">{` (${q.buy.price})`}</span>
-              </button>
-            )}
+              <div className="queue-lists">
+                {lists.map(({ part, title, items }) => (
+                  <Box key={part} caption={title} data-part={part} className="can-build">
+                    <ul
+                      // A queued row dropped back on a list leaves the queue.
+                      {...queueDrag.target(
+                        (d) => d.from === 'queue',
+                        (d) => {
+                          if (d.from === 'queue') {
+                            moves.setQueue(
+                              c.id,
+                              ids.filter((_, j) => j !== d.index),
+                            );
+                          }
+                        },
+                      )}
+                    >
+                      {items
+                        .filter((b) => state.all || b.reason === null)
+                        .map((b) => (
+                          <li
+                            key={b.type}
+                            data-buildable={b.type}
+                            data-locked={flag(b.reason !== null)}
+                            onContextMenu={aboutIt(b.type)}
+                            // Dragging one of several selected buildables takes them all.
+                            {...(b.reason === null
+                              ? queueDrag.source(() => ({
+                                  from: 'list',
+                                  types: selList.includes(b.type) ? selList : [b.type],
+                                }))
+                              : {})}
+                          >
+                            <Tip
+                              as="button"
+                              disabled={b.reason !== null}
+                              tip={b.reason ?? b.name}
+                              // On the button, which covers the row: the selected look is drawn behind its content.
+                              data-selected={flag(selList.includes(b.type))}
+                              onClick={(e) => {
+                                if (multi(e)) {
+                                  setSelList(toggle(selList, b.type));
+                                  return;
+                                }
+                                setSelList([]);
+                                moves.setQueue(c.id, [...ids, b.type]);
+                              }}
+                            >
+                              <BuildableLabel b={b} art={art} compact={state.compact} />
+                            </Tip>
+                          </li>
+                        ))}
+                    </ul>
+                  </Box>
+                ))}
+              </div>
+            </div>
+            <div className="queue-foot">
+              <label className="show-all">
+                <input type="checkbox" checked={state.all} onChange={(e) => set({ ...state, all: e.target.checked })} />
+                {q.showAll}
+              </label>
+              <label className="show-all compact">
+                <input
+                  type="checkbox"
+                  checked={state.compact}
+                  onChange={(e) => set({ ...state, compact: e.target.checked })}
+                />
+                {q.compact}
+              </label>
+              {q.buy && (
+                <button className="buy" disabled={!q.buy.enabled} onClick={() => moves.buy(c.id)}>
+                  {q.buy.label}
+                  <span className="muted">{` (${q.buy.price})`}</span>
+                </button>
+              )}
+            </div>
           </div>
         </>
       )}
