@@ -991,8 +991,17 @@ async function play(page: Page, url: string) {
         seen(win.querySelector('button.buy')),
         seen(win.querySelector('button.queue-close')),
         first.top < p.top ? 'the first queued row overflows up out of its pane' : '',
+        // The queue is mostly two or three items: its pane stops at about three rows and leaves the rest to the
+        // buildings and units, which the player picks from.
+        p.height > first.height * 3.8 ? `the queue pane is ${Math.round(p.height / first.height)} rows tall` : '',
+        p.height > win.querySelector('[data-part=buildings]')!.getBoundingClientRect().height
+          ? 'the queue pane is taller than the buildings list'
+          : '',
         pane.scrollHeight > pane.clientHeight + 1 || !stray ? '' : 'a queued row overflows sideways',
       ].filter((x) => x !== '');
+    });
+    await page.screenshot({
+      path: path.join(dist, `../.cache/play-${page.context().browser()!.browserType().name()}-build-queue.png`),
     });
     if (fit.length > 0) throw new Error(`the build queue window does not fit: ${fit.join('; ')}`);
     // The queue's popup covers the panel until it is closed.

@@ -2298,10 +2298,14 @@
         flex-direction: column;
         gap: 8px;
       }
-      /* The queue, the buildings and the units share the height, each scrolling by itself, however many rows it has. */
+      /*
+       * The queue is as tall as its rows, up to about three (a queue is mostly two or three items), and scrolls past
+       * that; the buildings and units take the rest of the height. Each scrolls by itself, however many rows it has.
+       */
       .colony .queue-body .queued {
-        flex: 4 1 0;
+        flex: 0 1 auto;
         min-height: 0;
+        max-height: 10em;
         overflow-y: auto;
       }
       /* The sidebar is narrow: the row's small buttons and a name that wraps leave the costs their room. */
@@ -2315,7 +2319,7 @@
         min-width: 4em;
       }
       .colony .queue-lists {
-        flex: 5 1 0;
+        flex: 1 1 0;
         min-height: 0;
         display: flex;
         flex-direction: column;
