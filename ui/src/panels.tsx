@@ -1434,7 +1434,9 @@ function RoutesPanel({ d, art, routes }: { d: Of<'tradeRoutes'>; art: Art; route
             key={r.id}
             role="option"
             data-route={r.id}
-            aria-label={r.units > 0 ? `${r.name} (${r.units})` : r.name}
+            // The route the carrier follows now, which Assign is greyed out for.
+            data-current={r.id === e.unit?.route || undefined}
+            aria-label={`${r.name}${r.id === e.unit?.route ? ', assigned' : ''}${r.units > 0 ? ` (${r.units})` : ''}`}
             aria-selected={r.id === picked}
             tabIndex={(route ? r.id === picked : i === 0) ? 0 : -1}
             onClick={() => setPicked(r.id)}
@@ -1444,6 +1446,7 @@ function RoutesPanel({ d, art, routes }: { d: Of<'tradeRoutes'>; art: Art; route
             }}
           >
             <span className="name">{r.name}</span>
+            {r.id === e.unit?.route && <span className="current">Assigned</span>}
             {r.units > 0 && <span className="units">{r.units === 1 ? '1 unit' : `${r.units} units`}</span>}
           </button>
         ))}

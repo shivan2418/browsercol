@@ -1227,6 +1227,17 @@
       .dialog .routes .name {
         flex: 1;
       }
+      .dialog .routes [data-current] .name {
+        font-weight: bold;
+      }
+      .dialog .routes .current {
+        padding: 0 6px;
+        font-size: var(--fs-s);
+        font-weight: bold;
+        color: var(--accent);
+        border: 1px solid currentColor;
+        border-radius: 3px;
+      }
       .dialog .routes .units,
       .dialog .routes .none {
         font-size: var(--fs-s);

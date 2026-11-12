@@ -1762,7 +1762,12 @@ describe('the trade routes panel', () => {
         routes({ unit: { id: 'unit:9', name: 'Caravel', images: [], location: null, route: 'tradeRoute:1' } }),
       ),
     );
-    expect(screen.getByRole('option', { name: 'Fur run (2)' }).getAttribute('aria-selected')).toBe('true');
+    const own = screen.getByRole('option', { name: 'Fur run, assigned (2)' });
+    expect(own.getAttribute('aria-selected')).toBe('true');
+    // The carrier's own route is marked, not only by the greyed-out Assign.
+    expect(own.hasAttribute('data-current')).toBe(true);
+    expect(own.textContent).toContain('Assigned');
+    expect(screen.getByRole('option', { name: 'Rum run' }).hasAttribute('data-current')).toBe(false);
     // Its own route is already its route: OK assigns nothing.
     press('OK');
     expect(assigned).toEqual([]);
