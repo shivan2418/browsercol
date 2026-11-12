@@ -2187,7 +2187,7 @@ describe('the trade routes panel', () => {
     press('Edit Trade Route');
     // Europe buys tools, while the gold lasts, and sells the furs from New Amsterdam.
     expect(chipsAt(0)).toEqual([`unload ${F} Sell−1`, `load ${T} Buy+1`]);
-    expect(legAt(0)!.querySelector('.hint')!.textContent).toContain('buying stops when the gold runs out');
+    expect(legAt(0)!.querySelector('.hint')!.textContent).toContain('the carrier waits in Europe');
     expect(legAt(0)!.querySelector('[data-held]')!.hasAttribute('data-sort')).toBe(true);
     // New Amsterdam loads and unloads.
     expect(chipsAt(1)).toEqual([`unload ${T} −1`, `load ${F} +1`]);
@@ -2210,6 +2210,42 @@ describe('the trade routes panel', () => {
     expect(furs.hasAttribute('data-maybe')).toBe(true);
     // New Amsterdam's tools are unloaded at Europe, which keeps none: they load.
     expect(stopAt(1).querySelector('[data-maybe]')).toBeNull();
+  });
+
+  it.each([false, true])(
+    'with enhanced trade routes %s, says what becomes of goods kept on board at every stop',
+    (enhanced) => {
+      const { box } = host();
+      act(() => box.replace('tradeRoutes', routes({ enhanced })));
+      pick('Fur run (2)');
+      press('Edit Trade Route');
+      expect(screen.queryByRole('alert')).toBeNull();
+      // Europe keeps furs on board as well as New Amsterdam, and loads a second hold of them.
+      act(() => void fireEvent.click(within(legAt(0)!).getByRole('button', { name: 'Furs' })));
+      act(() => void fireEvent.click(within(legAt(0)!).getByRole('button', { name: 'Furs' })));
+      const furs = () => stopAt(0).querySelector(`[data-work=load][data-type="${F}"]`);
+      if (enhanced) {
+        // Saved, but loaded only where a later colony's warehouse imports them.
+        expect(screen.queryByRole('alert')).toBeNull();
+        expect(furs()!.hasAttribute('data-maybe')).toBe(true);
+      } else {
+        // FreeCol refuses the route.
+        expect(screen.getByRole('alert').textContent).toContain(
+          'Furs is kept on board at every stop: FreeCol refuses such a route unless enhanced trade routes are on.',
+        );
+        expect(furs()!.hasAttribute('data-maybe')).toBe(false);
+      }
+    },
+  );
+
+  it('says Europe buys all the holds of a goods at once, or none if the gold does not cover them', () => {
+    const { box } = host();
+    act(() => box.replace('tradeRoutes', routes()));
+    pick('Fur run (2)');
+    press('Edit Trade Route');
+    expect(legAt(0)!.querySelector('.hint')!.textContent).toContain(
+      'All the holds of a goods are bought at once, 100 a hold at the market’s price: if the gold does not cover them, none are bought',
+    );
   });
 
   it('disables Add Stop once the route has a stop for every place', async () => {

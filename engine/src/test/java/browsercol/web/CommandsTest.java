@@ -25,6 +25,8 @@ import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.Timeout;
 
 import net.sf.freecol.client.FreeColClient;
@@ -39,6 +41,7 @@ import net.sf.freecol.common.model.Direction;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.ExportData;
 import net.sf.freecol.common.model.GoodsType;
+import net.sf.freecol.common.option.GameOptions;
 import net.sf.freecol.common.model.Map;
 import net.sf.freecol.common.model.Player;
 import net.sf.freecol.common.model.Specification;
@@ -2352,6 +2355,199 @@ class CommandsTest {
         assertTrue(commands.assignTradeRoute(ship.getId(), null), "dropped");
         assertNull(serverShip.getTradeRoute());
         assertNull(ship.getTradeRoute());
+    }
+
+    /**
+     * Turn the enhanced trade routes game option on or off, on the server
+     * and on the client, as a game set up with it would have it.
+     */
+    private void enhancedTradeRoutes(boolean on) {
+        server.getGame().getSpecification().setBoolean(GameOptions.ENHANCED_TRADE_ROUTES, on);
+        client.getGame().getSpecification().setBoolean(GameOptions.ENHANCED_TRADE_ROUTES, on);
+        assertTrue(commands().tradeRoutes());
+        assertTrue(routePanels.get(routePanels.size() - 1).contains("\"enhanced\":" + on),
+                   "the route editor is told the option is " + (on ? "on" : "off"));
+    }
+
+    private Commands commands() {
+        return client.getCommands();
+    }
+
+    /** The answer of a debug action, applied on the client as the page applies it. */
+    private String debug(String json) {
+        final String answer = server.debug(json);
+        client.debugApplied(answer);
+        return answer;
+    }
+
+    /** "x":.., "y":.. of a tile, for a debug action. */
+    private static String xy(Tile t) {
+        return "\"x\":" + t.getX() + ",\"y\":" + t.getY();
+    }
+
+    /**
+     * An empty merchantman (four holds) in the colony's port, on the server,
+     * once the client has it too: the starting ship may still carry a
+     * colonist, and a route's order of goods only shows with room to spare.
+     */
+    private Unit merchantmanIn(Colony colony) throws Exception {
+        final Matcher m = Pattern.compile("\"unit\":\"([^\"]*)\"").matcher(debug(
+            "{\"action\":\"addUnit\"," + xy(colony.getTile()) + ",\"type\":\"model.unit.merchantman\"}"));
+        assertTrue(m.find(), "a merchantman is added");
+        final Unit ship = server.getGame().getFreeColGameObject(m.group(1), Unit.class);
+        awaitTrue(() -> client.getGame().getFreeColGameObject(ship.getId(), Unit.class) != null,
+                  "the client has the merchantman");
+        assertEquals(4, ship.getSpaceLeft(), "the merchantman is empty");
+        return ship;
+    }
+
+    /** Goods put in a colony's warehouse, once the client sees them. */
+    private void stock(Colony colony, String type, int amount) throws Exception {
+        final Colony ours = client.getGame().getFreeColGameObject(colony.getId(), Colony.class);
+        final GoodsType g = client.getGame().getSpecification().getGoodsType(type);
+        final int want = ours.getGoodsCount(g) + amount;
+        debug("{\"action\":\"addGoods\"," + xy(colony.getTile()) + ",\"type\":\"" + type
+              + "\",\"amount\":" + amount + "}");
+        awaitTrue(() -> ours.getGoodsCount(g) == want, "the colony has the " + type);
+    }
+
+    /** End turns until the ship carries something, as a carrier on a route loads in port. */
+    private void untilLoaded(Commands commands, Unit ship) throws Exception {
+        int turns = 0;
+        while (ship.getGoodsList().isEmpty()) {
+            endTurnAndWait(commands);
+            assertTrue(++turns < 4, "the ship loads within 4 turns");
+        }
+    }
+
+    /**
+     * The trade route editor says goods load in the order of a stop's holds
+     * with the enhanced trade routes option off, and the largest amount first
+     * with it on, and that loading stops at the first goods that do not fit.
+     * One route, a hold of cloth and then furs to fill the ship, run by a
+     * merchantman under each rule.
+     */
+    @ParameterizedTest(name = "enhanced trade routes {0}")
+    @ValueSource(booleans = { false, true })
+    @Timeout(300)
+    void aCarrierLoadsAStopsGoodsAsTheRuleSays(boolean enhanced) throws Exception {
+        startGame();
+        final Commands commands = commands();
+        final Player player = client.getClient().getMyPlayer();
+        final Colony colony = foundAColony(commands);
+        enhancedTradeRoutes(enhanced);
+        final Unit ship = merchantmanIn(colony);
+        // A colony keeps 50 of each goods (its export level): what is above it can be loaded.
+        stock(colony, "model.goods.cloth", 100);
+        stock(colony, "model.goods.furs", 450);
+        final String cloth = "model.goods.cloth";
+        final String furs = "model.goods.furs";
+        // One hold of cloth, then four of furs: five holds for a ship of four.
+        assertNull(commands.saveTradeRoute(null, "Order run", true,
+            List.of(colony.getId(), player.getEurope().getId()),
+            List.of(List.of(cloth, furs, furs, furs, furs), List.of())), "the route is saved");
+        assertTrue(commands.assignTradeRoute(ship.getId(), serverRoutes(player).get(0).getId()));
+
+        untilLoaded(commands, ship);
+        final GoodsType clothType = client.getGame().getSpecification().getGoodsType(cloth);
+        final GoodsType fursType = client.getGame().getSpecification().getGoodsType(furs);
+        final Unit onServer = serverUnit(ship);
+        if (enhanced) {
+            // The largest amount first: 400 furs fill the ship, and the cloth does not fit.
+            assertEquals(400, onServer.getGoodsCount(fursType), "the furs load first");
+            assertEquals(0, onServer.getGoodsCount(clothType), "no room is left for the cloth");
+        } else {
+            // In the order of the holds: the cloth, then the furs do not fit, and loading stops.
+            assertTrue(onServer.getGoodsCount(clothType) > 0, "the cloth loads first, above its export level");
+            assertEquals(0, onServer.getGoodsCount(fursType), "400 furs do not fit in what is left");
+        }
+    }
+
+    /**
+     * A goods kept on board at every stop: with the enhanced trade routes
+     * option off FreeCol refuses the route, as the editor warns; with it on
+     * the route is saved, and a carrier does not load the goods, as no later
+     * stop takes it, while it loads the goods a later stop does take.
+     */
+    @ParameterizedTest(name = "enhanced trade routes {0}")
+    @ValueSource(booleans = { false, true })
+    @Timeout(300)
+    void goodsKeptAtEveryStopAreRefusedOrNotLoaded(boolean enhanced) throws Exception {
+        startGame();
+        final Commands commands = commands();
+        final Player player = client.getClient().getMyPlayer();
+        final Colony colony = foundAColony(commands);
+        enhancedTradeRoutes(enhanced);
+        final String cloth = "model.goods.cloth";
+        final String furs = "model.goods.furs";
+        final String refused = commands.saveTradeRoute(null, "Fur loop", true,
+            List.of(colony.getId(), player.getEurope().getId()),
+            List.of(List.of(cloth, furs), List.of(furs)));
+        if (!enhanced) {
+            assertNotNull(refused, "the route is refused");
+            assertTrue(refused.contains("Furs is loaded at all stops"), refused);
+            assertTrue(serverRoutes(player).isEmpty(), "the server has no route");
+            return;
+        }
+        assertNull(refused, "the route is saved");
+        final Unit ship = merchantmanIn(colony);
+        stock(colony, cloth, 100);
+        stock(colony, furs, 100);
+        assertTrue(commands.assignTradeRoute(ship.getId(), serverRoutes(player).get(0).getId()));
+        untilLoaded(commands, ship);
+        final Unit onServer = serverUnit(ship);
+        assertEquals(50, onServer.getGoodsCount(
+            client.getGame().getSpecification().getGoodsType(cloth)), "Europe takes the cloth: it loads");
+        assertEquals(0, onServer.getGoodsCount(
+            client.getGame().getSpecification().getGoodsType(furs)), "nothing takes the furs: they stay");
+    }
+
+    /**
+     * At a Europe stop a carrier buys all the holds of a goods at once, if
+     * the gold covers them (InGameController.askLoadGoods checks the price
+     * of the whole amount), as the editor's Buy chip says: with gold for one
+     * hold and a half of the two listed it buys none, and waits in Europe;
+     * with gold for both it buys both.
+     */
+    @Test
+    @Timeout(300)
+    void aCarrierBuysAGoodsInEuropeOnlyIfTheGoldCoversAllItsHolds() throws Exception {
+        startGame();
+        final Commands commands = commands();
+        final Player player = client.getClient().getMyPlayer();
+        final Colony colony = foundAColony(commands);
+        final Unit ship = merchantmanIn(colony);
+        final Unit onServer = serverUnit(ship);
+        final Player us = server.getGame().getFreeColGameObject(player.getId(), Player.class);
+        final GoodsType tools = server.getGame().getSpecification().getGoodsType("model.goods.tools");
+        assertNull(commands.saveTradeRoute(null, "Tool run", true,
+            List.of(player.getEurope().getId(), colony.getId()),
+            List.of(List.of(tools.getId(), tools.getId()), List.of())), "the route is saved");
+        assertTrue(commands.assignTradeRoute(ship.getId(), serverRoutes(player).get(0).getId()));
+
+        // Before each turn the player has gold for one hold and a half: the ship reaches Europe and
+        // buys nothing there, turn after turn.
+        int turns = 0;
+        int inEurope = 0;
+        while (inEurope < 3) {
+            final int gold = us.getMarket().getBidPrice(tools, 100) * 3 / 2;
+            debug("{\"action\":\"addGold\",\"amount\":" + (gold - us.getGold()) + "}");
+            awaitTrue(() -> player.getGold() == gold, "the client has the gold");
+            endTurnAndWait(commands);
+            if (onServer.isInEurope()) inEurope++;
+            assertEquals(0, onServer.getGoodsCount(tools), "no tools are bought with gold for one hold of two");
+            assertTrue(++turns < 20, "the ship reaches Europe within 20 turns");
+        }
+        assertTrue(onServer.isInEurope(), "the ship waits in Europe");
+        assertTrue(informationPanels.stream().anyMatch(p -> p.contains("You do not have enough gold to buy that item!")),
+                   "the player is told the gold is short: " + informationPanels);
+
+        // With gold for both holds it buys both.
+        final int both = us.getMarket().getBidPrice(tools, 200);
+        debug("{\"action\":\"addGold\",\"amount\":" + (both + 10 - us.getGold()) + "}");
+        awaitTrue(() -> player.getGold() == both + 10, "the client has the gold");
+        endTurnAndWait(commands);
+        assertEquals(200, onServer.getGoodsCount(tools), "both holds are bought");
     }
 
     /**

@@ -1114,6 +1114,12 @@ function RouteEditor({
   // Which carriers can follow the route; nothing is said if a stop's place is not one the Engine sent.
   const reachable = stops.map((s) => e.places.find((p) => p.id === s.place));
   const carriers = reachable.every((p) => p !== undefined) ? reachText(reachable) : null;
+  // Without the enhanced trade routes option FreeCol refuses a route that keeps a goods on board at every stop
+  // (TradeRoute.verify); with it, the carrier loads it only where a later colony's warehouse imports it.
+  const everywhere =
+    n > 1 && !e.enhanced
+      ? [...holdsOf(stops[0].cargo).keys()].filter((g) => stops.every((s) => s.cargo.includes(g)))
+      : [];
   return (
     <>
       {e.error !== null && (
@@ -1151,6 +1157,13 @@ function RouteEditor({
       {carriers && (
         <p className={carriers.ok ? 'text carriers' : 'text carriers error'} role={carriers.ok ? undefined : 'alert'}>
           {carriers.text}
+        </p>
+      )}
+      {everywhere.length > 0 && (
+        <p className="text carriers error" role="alert">
+          {everywhere.map(nameOf).join(', ')} {everywhere.length > 1 ? 'are' : 'is'} kept on board at every stop:
+          FreeCol refuses such a route unless enhanced trade routes are on. Leave{' '}
+          {everywhere.length > 1 ? 'them' : 'it'} out of one stop’s holds, where it is unloaded.
         </p>
       )}
       <div className="voyage">
@@ -1239,7 +1252,7 @@ function RouteEditor({
                             </>
                           )}{' '}
                           {inEurope(i) &&
-                            'Each hold is 100 bought at the market’s price, and buying stops when the gold runs out. '}
+                            'All the holds of a goods are bought at once, 100 a hold at the market’s price: if the gold does not cover them, none are bought, nor the goods after them, and the carrier waits in Europe. '}
                           Shift-click fills to the next mark. <b>{inEurope(i) ? 'Sell' : 'Unload'}: </b>click a hold to
                           empty it; {s.label} {inEurope(i) ? 'sells' : 'unloads'} whatever is no longer in the holds.
                         </p>
