@@ -4,6 +4,7 @@
 // the browser follows come after it, in FreeCol's groups. Hooks for tests: [data-category] on a
 // category's button, with its id; [data-mute] on a volume's mute button, with the preference it sets.
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { flag } from './flag';
 import { Select, Tip } from './controls';
 import { Box, ButtonRow, TEXT_ENTRY, WindowFrame } from './frame';
 import { LANGUAGE_OPTION } from './language';
@@ -493,8 +494,8 @@ export function PreferencesDialog({
                     type="button"
                     data-flat=""
                     data-category={c.id}
-                    data-match={(searching && !dim) || undefined}
-                    data-dim={dim || undefined}
+                    data-match={flag(searching && !dim)}
+                    data-dim={flag(dim)}
                     aria-current={(!searching && c.id === current.id) || undefined}
                     style={{ paddingLeft: 6 + 14 * c.depth }}
                     onClick={pick_}
@@ -502,12 +503,7 @@ export function PreferencesDialog({
                     {c.label}
                   </button>
                 ) : (
-                  <div
-                    key={c.id}
-                    className="heading"
-                    data-dim={dim || undefined}
-                    style={{ paddingLeft: 6 + 14 * c.depth }}
-                  >
+                  <div key={c.id} className="heading" data-dim={flag(dim)} style={{ paddingLeft: 6 + 14 * c.depth }}>
                     {c.label}
                   </div>
                 );

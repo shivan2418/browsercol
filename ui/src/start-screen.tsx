@@ -16,6 +16,7 @@
 // settings (the level's and the game's options, the map's) are tabs under them.
 import { Tabs } from '@base-ui/react/tabs';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { flag } from './flag';
 import { HelpButton, Select } from './controls';
 import { RulesHelp } from './rules-help';
 import { CreditsDialog, SourceLinks } from './credits';
@@ -541,7 +542,7 @@ export function StartScreen({
             <legend>Your nation</legend>
             <div className="nations">
               {options.nations.map((n) => (
-                <label key={n.id} className="nation" data-selected={n.id === nation || undefined}>
+                <label key={n.id} className="nation" data-selected={flag(n.id === nation)}>
                   <input
                     type="radio"
                     name="nation"

@@ -187,7 +187,7 @@ describe('the compact colony report', () => {
     show(box, report);
     expect(screen.getAllByRole('columnheader', { name: 'Colony' })).toHaveLength(2);
     expect(screen.getAllByRole('columnheader', { name: 'U' })).toHaveLength(2);
-    expect(screen.getAllByRole('columnheader')[2].getAttribute('data-dim')).toBe('true');
+    expect(screen.getAllByRole('columnheader')[2].getAttribute('data-dim')).toBe('');
     expect(screen.getAllByAltText('').length).toBeGreaterThan(0);
     const summary = document.querySelector('tr[data-summary]')!;
     expect(summary.textContent).toBe('Mainland5');
@@ -220,6 +220,21 @@ describe('the labour report', () => {
     expect((screen.getByRole('button', { name: /Master Fur Trader/ }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(screen.getByRole('button', { name: /Free Colonist/ }));
     expect(calls).toEqual(['detail labourDetail model.unit.freeColonist']);
+  });
+
+  it('dims the picture of a kind there are none of, and only that one', () => {
+    const { box } = host();
+    const pictured = (count: number): ReportView => ({
+      ...head('labour'),
+      types: [
+        { id: 'model.unit.freeColonist', name: 'Free Colonist', keys: ['image.unit.model.unit.freeColonist'], count },
+      ],
+    });
+    show(box, pictured(2));
+    // Not data-dim="false", which [data-dim] matches as well.
+    expect(document.querySelector('.labour-type img')!.hasAttribute('data-dim')).toBe(false);
+    show(box, pictured(0));
+    expect(document.querySelector('.labour-type img')!.hasAttribute('data-dim')).toBe(true);
   });
 
   it('lists where they are, links the colonies, and goes back to the report', () => {

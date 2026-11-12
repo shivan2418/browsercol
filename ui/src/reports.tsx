@@ -17,6 +17,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from 'react';
+import { flag } from './flag';
 import { Select, Tip } from './controls';
 import type { Dialog } from './dialogs';
 import { ButtonRow, GoodsAmount, GoodsProgressBar, Heading, WindowFrame, type Art, type Menu } from './frame';
@@ -140,7 +141,7 @@ function Img({
 }) {
   const src = art(keys);
   return src === null ? null : (
-    <Tip as="img" className="pic" src={src} alt={title ?? ''} tip={title} data-dim={dim} data-unit={unit} />
+    <Tip as="img" className="pic" src={src} alt={title ?? ''} tip={title} data-dim={flag(dim)} data-unit={unit} />
   );
 }
 
@@ -208,7 +209,7 @@ function CompactColonyReport({ e, art, go }: { e: View<'compactColony'>; art: Ar
   const head = (key: string) => (
     <tr key={key} className="heads">
       {e.columns.map((c, i) => (
-        <Tip as="th" key={i} scope="col" tip={c.tip} data-left={c.left} data-dim={c.dim}>
+        <Tip as="th" key={i} scope="col" tip={c.tip} data-left={c.left} data-dim={flag(c.dim)}>
           {c.keys && <Img keys={c.keys} art={art} />}
           {c.label}
         </Tip>
@@ -226,7 +227,7 @@ function CompactColonyReport({ e, art, go }: { e: View<'compactColony'>; art: Ar
             </>
           );
           return item.link === null ? (
-            <Tip as="span" key={j} className="item" data-tone={item.tone} data-bold={item.bold} tip={item.tip}>
+            <Tip as="span" key={j} className="item" data-tone={item.tone} data-bold={flag(item.bold)} tip={item.tip}>
               {body}
             </Tip>
           ) : (
@@ -235,7 +236,7 @@ function CompactColonyReport({ e, art, go }: { e: View<'compactColony'>; art: Ar
               key={j}
               className="item link"
               data-tone={item.tone}
-              data-bold={item.bold}
+              data-bold={flag(item.bold)}
               tip={item.tip}
               data-link={item.link}
               onClick={() => go.colony(item.link as string)}
@@ -650,13 +651,13 @@ function TradeReport({ e, art, go }: { e: View<'trade'>; art: Art; go: Links }) 
                 key={e.goods[i].type}
                 className="num cell"
                 data-sign={cell.production < 0 ? 'loss' : undefined}
-                data-warn={cell.warning ? '' : undefined}
+                data-warn={flag(cell.warning)}
                 tip={
                   cell.warning ??
                   (cell.exported !== null ? `${e.goods[i].name}: exported at ${cell.exported}` : undefined)
                 }
               >
-                <span className="stock" data-exported={cell.exported !== null ? '' : undefined}>
+                <span className="stock" data-exported={flag(cell.exported !== null)}>
                   {cell.amount}
                 </span>
                 <span className="net">{signed(cell.production)}</span>
@@ -1057,9 +1058,7 @@ function CongressReport({ e, art, go }: { e: View<'congress'>; art: Art; go: Lin
   // getFoundingFatherImage: the portrait at its own size, grey (dim) for a father not yet elected.
   const portrait = (keys: string[], tip: string, dim = false) => {
     const src = art(keys);
-    return src === null ? null : (
-      <Tip as="img" className="portrait" src={src} alt="" tip={tip} data-dim={dim || undefined} />
-    );
+    return src === null ? null : <Tip as="img" className="portrait" src={src} alt="" tip={tip} data-dim={flag(dim)} />;
   };
   const name = (id: string, text: string, tip: string) => (
     <Tip as="span" tip={tip}>
@@ -1182,7 +1181,7 @@ export function ReportPanel({ d, e, art }: { d: Dialog; e: ReportView; art: Art 
       aria-modal="true"
       data-kind="report"
       data-report={e.report}
-      data-fixed={e.report in FIXED_WIDTH || undefined}
+      data-fixed={flag(e.report in FIXED_WIDTH)}
       style={e.report in FIXED_WIDTH ? ({ '--window-width': FIXED_WIDTH[e.report] } as CSSProperties) : undefined}
       title={e.title}
       close={close}

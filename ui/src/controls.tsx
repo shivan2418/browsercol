@@ -2,6 +2,7 @@
 // #overlays layer at the player's UI scale, and Escape closes only the newest thing on screen. The
 // wrappers keep the call sites short and the styling in one place (the .ui-* rules in index.html).
 // Tooltip and NumberField build on `overlayContainer` and `OVERLAY_POSITIONER` here.
+import { clsx } from 'clsx';
 import { NumberField as BaseNumberField } from '@base-ui/react/number-field';
 import { Popover as BasePopover } from '@base-ui/react/popover';
 import { Select as BaseSelect } from '@base-ui/react/select';
@@ -61,7 +62,7 @@ export function Select({ value, onChange, choices, disabled, className, ...rest 
       open={open}
       onOpenChange={setOpen}
     >
-      <BaseSelect.Trigger className={className ? `ui-select ${className}` : 'ui-select'} {...rest}>
+      <BaseSelect.Trigger className={clsx('ui-select', className)} {...rest}>
         <BaseSelect.Value />
         <BaseSelect.Icon className="ui-select-icon">▾</BaseSelect.Icon>
       </BaseSelect.Trigger>
@@ -171,7 +172,7 @@ export function NumberField({
       disabled={disabled}
       allowOutOfRange
       allowWheelScrub
-      className={className ? `ui-number ${className}` : 'ui-number'}
+      className={clsx('ui-number', className)}
     >
       <BaseNumberField.Group className="ui-number-group" render={tip ? <Tip as="div" tip={tip} /> : undefined}>
         <BaseNumberField.Input className="ui-number-input" {...rest} onKeyDown={page} />

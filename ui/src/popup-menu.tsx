@@ -3,6 +3,7 @@
 // its id; this file draws a menu where the pointer was, closes it on Escape,
 // on a press elsewhere and once an entry has run, and gives the colony
 // panel's colonists and goods a right-click that opens theirs.
+import { flag } from './flag';
 import { focusFirstEntry, menuArrows, useFocusTrap } from './focus';
 import { useEscape, type Art } from './frame';
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from 'react';
@@ -107,8 +108,8 @@ export function PopupMenu({
           data-flat=""
           role="menuitem"
           data-entry={e.id}
-          data-gap={e.gap || undefined}
-          data-indent={e.indent || undefined}
+          data-gap={flag(e.gap)}
+          data-indent={flag(e.indent)}
           disabled={!e.enabled}
           onClick={(click) => {
             close();

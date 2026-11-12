@@ -5,6 +5,7 @@
 // than on markup of their own. Their colours come from the tokens in
 // theme.css; the window's, the box's and the goods' styles are beside them, in
 // window-frame.css, box.css, goods.css, popup-surface.css and quiet-text.css (docs/adr/0008), the rest still in index.html.
+import { clsx } from 'clsx';
 import {
   Fragment,
   useEffect,
@@ -17,6 +18,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react';
+import { flag } from './flag';
 import { inTextField, TEXT_ENTRY } from './accelerators';
 import { Tip } from './controls';
 import { dragging } from './drag';
@@ -249,10 +251,10 @@ export function WindowFrame({
       ref={box}
       role="dialog"
       aria-labelledby={title ? titleId : undefined}
-      className={className ? `frame ${className}` : 'frame'}
+      className={clsx('frame', className)}
       {...rest}
-      data-fit={fit || advisor !== null || undefined}
-      data-advised={advisor !== null || undefined}
+      data-fit={flag(fit || advisor !== null)}
+      data-advised={flag(advisor !== null)}
       data-motion={motion ? (closing ? 'out' : 'in') : undefined}
       inert={closing || undefined}
       style={{
@@ -306,13 +308,13 @@ export function Box({
       as={as}
       tip={tip}
       aria-labelledby={caption === undefined ? undefined : id}
-      className={className ? `box ${className}` : 'box'}
-      data-roomy={roomy ? '' : undefined}
+      className={clsx('box', className)}
+      data-roomy={flag(roomy)}
       data-spaced={spaced}
       {...rest}
     >
       {caption !== undefined && (
-        <span className="cap" id={id} data-two-lines={twoLines ? '' : undefined}>
+        <span className="cap" id={id} data-two-lines={flag(twoLines)}>
           {caption}
         </span>
       )}
@@ -338,9 +340,7 @@ export function Heading({
   space?: 'flush' | 'tight' | 'low' | 'window' | 'section';
 } & HTMLAttributes<HTMLHeadingElement>) {
   const Tag = level === 2 ? 'h2' : 'h3';
-  return (
-    <Tag className={className ? `heading ${className}` : 'heading'} data-look={look} data-space={space} {...rest} />
-  );
+  return <Tag className={clsx('heading', className)} data-look={look} data-space={space} {...rest} />;
 }
 
 /**
@@ -359,7 +359,7 @@ export function ButtonRow({
   children?: ReactNode;
 } & Omit<HTMLAttributes<HTMLDivElement>, 'children'>) {
   return (
-    <div className="buttons" data-spread={spread ? '' : undefined} data-space={space} {...rest}>
+    <div className="buttons" data-spread={flag(spread)} data-space={space} {...rest}>
       {children}
     </div>
   );

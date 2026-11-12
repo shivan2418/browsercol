@@ -16,6 +16,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from 'react';
+import { flag } from './flag';
 import type { Advisor } from './advisor';
 import { NumberField, Select, Tip } from './controls';
 import { useNegotiation } from './negotiation';
@@ -837,7 +838,7 @@ function MessageList({
       {event.messages.map((m, i) => {
         const dim = ignored.has(i) || shown.get(m.type) === false;
         return (
-          <div key={i} className="message" data-dim={dim || undefined}>
+          <div key={i} className="message" data-dim={flag(dim)}>
             {m.heading &&
               (m.heading.link ? (
                 <Heading className="text">
@@ -1062,7 +1063,7 @@ function RouteEditor({
               as="button"
               className="hold"
               data-held={g}
-              data-over={k >= MOST_HOLDS || undefined}
+              data-over={flag(k >= MOST_HOLDS)}
               aria-label={`× ${nameOf(g)}`}
               tip={`${k + 1}. ${nameOf(g)} (click to empty${e.enhanced ? '' : ', drag to load it sooner or later'})${k >= MOST_HOLDS ? ': no carrier has this many holds' : ''}`}
               {...(!e.enhanced &&
@@ -1266,7 +1267,7 @@ function RouteEditor({
                 </Tip>
               </div>
               {!shut && (
-                <div className="vleg" data-leg={i} data-open={open || undefined} data-back={i === n - 1 || undefined}>
+                <div className="vleg" data-leg={i} data-open={flag(open)} data-back={flag(i === n - 1)}>
                   <div className="rail" />
                   <div
                     className="ship"
@@ -1435,7 +1436,7 @@ function RoutesPanel({ d, art, routes }: { d: Of<'tradeRoutes'>; art: Art; route
             role="option"
             data-route={r.id}
             // The route the carrier follows now, which Assign is greyed out for.
-            data-current={r.id === e.unit?.route || undefined}
+            data-current={flag(r.id === e.unit?.route)}
             aria-label={`${r.name}${r.id === e.unit?.route ? ', assigned' : ''}${r.units > 0 ? ` (${r.units})` : ''}`}
             aria-selected={r.id === picked}
             tabIndex={(route ? r.id === picked : i === 0) ? 0 : -1}
@@ -1791,7 +1792,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
                       className="europe-entry"
                       data-flat=""
                       data-cargo={c.kind}
-                      data-disabled={goods?.enabled === false || undefined}
+                      data-disabled={flag(goods?.enabled === false)}
                       tip={goods?.reason ?? c.name}
                       onClick={() => sell(c.id)}
                       onContextMenu={cargoMenu(c)}
@@ -1854,7 +1855,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
                   className="good"
                   data-flat=""
                   data-goods={g.id}
-                  data-disabled={!g.enabled || undefined}
+                  data-disabled={flag(!g.enabled)}
                   tip={marketTitle(g)}
                   onClick={() => buy(g.id)}
                   onContextMenu={marketMenu(g.id)}
@@ -1868,7 +1869,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
                   key={g.id}
                   className="good"
                   data-goods={g.id}
-                  data-disabled={!g.enabled || undefined}
+                  data-disabled={flag(!g.enabled)}
                   tip={marketTitle(g)}
                   onContextMenu={marketMenu(g.id)}
                 >

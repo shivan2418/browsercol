@@ -2,6 +2,7 @@
 // panel's, src/panels.tsx). In Europe a carrier sells what it unloads and buys what it loads, and the pills say
 // so. Its styles are in plan-pills.css.
 import type { ReactNode } from 'react';
+import { flag } from './flag';
 import { Tip } from './controls';
 import type { Work } from './route-work';
 import './plan-pills.css';
@@ -56,8 +57,8 @@ function PlanPill({
       className="plan-pill"
       data-work={kind}
       data-type={goods}
-      data-maybe={extra?.maybe || undefined}
-      data-short={extra?.short || undefined}
+      data-maybe={flag(extra?.maybe)}
+      data-short={flag(extra?.short)}
       tip={extra?.tip ? (extra.instead ? extra.tip : `${tip}. ${extra.tip}`) : tip}
     >
       {verb && <span className="plan-verb">{verb}</span>}

@@ -34,6 +34,7 @@ import {
   type MouseEvent,
   type ReactNode,
 } from 'react';
+import { flag } from './flag';
 import { Tip } from './controls';
 import { createPortal } from 'react-dom';
 import { barSegments } from './progress-bar';
@@ -263,7 +264,7 @@ function MovableGoods({
     <span
       className={className}
       data-goods={g.type}
-      data-over={over}
+      data-over={flag(over)}
       onContextMenu={onContextMenu}
       {...(g.amount > 0 ? movable : {})}
     >
@@ -517,7 +518,7 @@ function TilePlace({
       className="tile"
       data-tile={t.id}
       data-ours={t.ours}
-      data-drop={target && !t.centre ? '' : undefined}
+      data-drop={flag(target && !t.centre)}
       tip={t.name}
       style={style}
       {...(t.centre ? undefined : target)}
@@ -591,7 +592,7 @@ function ShipIcon({
       className="ship"
       data-flat=""
       data-unit={u.id}
-      data-drop={target ? '' : undefined}
+      data-drop={flag(target)}
       aria-current={chosen}
       tip={u.name}
       onContextMenu={(e) => {
@@ -633,7 +634,7 @@ function Cargo({ c, art }: { c: ColonyView; art: Art }) {
       data-part="cargo"
       className="cargo"
       data-ship={ship?.id}
-      data-drop={target && ship ? '' : undefined}
+      data-drop={flag(target && ship)}
       {...(ship ? target : undefined)}
     >
       <Row art={art}>
@@ -693,13 +694,7 @@ function Warehouse({ c, art }: { c: ColonyView; art: Art }) {
     }
   });
   return (
-    <Box
-      caption={c.warehouse.title}
-      data-part="warehouse"
-      className="warehouse"
-      data-drop={target ? '' : undefined}
-      {...target}
-    >
+    <Box caption={c.warehouse.title} data-part="warehouse" className="warehouse" data-drop={flag(target)} {...target}>
       <div className="warehouse-line">
         {c.warehouse.goods.map((g) => (
           <MovableGoods
@@ -740,8 +735,8 @@ function BuildingPlace({
     <div
       className="building"
       data-building={b.id}
-      data-builds={b.builds || undefined}
-      data-drop={target ? '' : undefined}
+      data-builds={flag(b.builds)}
+      data-drop={flag(target)}
       aria-label={b.name}
       style={style}
       onMouseEnter={(e) => setOver(e.currentTarget.getBoundingClientRect())}
@@ -853,7 +848,7 @@ function Outside({ c, art }: { c: ColonyView; art: Art }) {
       twoLines
       data-part="outside"
       className="outside"
-      data-drop={target ? '' : undefined}
+      data-drop={flag(target)}
       {...target}
     >
       <Row art={art}>
@@ -1015,9 +1010,9 @@ function BuildQueue({ c, art, children }: { c: ColonyView; art: Art; children: R
                   <li
                     key={`${b.type}:${i}`}
                     data-queued={b.type}
-                    data-locked={b.reason !== null || undefined}
+                    data-locked={flag(b.reason !== null)}
                     onContextMenu={aboutIt(b.type)}
-                    data-selected={selQueue.includes(i) || undefined}
+                    data-selected={flag(selQueue.includes(i))}
                     {...queueDrag.source(() => ({ from: 'queue', index: i }))}
                     {...queueDrag.target(
                       () => true,
@@ -1079,7 +1074,7 @@ function BuildQueue({ c, art, children }: { c: ColonyView; art: Art; children: R
                       <li
                         key={b.type}
                         data-buildable={b.type}
-                        data-locked={b.reason !== null || undefined}
+                        data-locked={flag(b.reason !== null)}
                         onContextMenu={aboutIt(b.type)}
                         // Dragging one of several selected buildables takes them all.
                         {...(b.reason === null
@@ -1094,7 +1089,7 @@ function BuildQueue({ c, art, children }: { c: ColonyView; art: Art; children: R
                           disabled={b.reason !== null}
                           tip={b.reason ?? b.name}
                           // On the button, which covers the row: the selected look is drawn behind its content.
-                          data-selected={selList.includes(b.type) || undefined}
+                          data-selected={flag(selList.includes(b.type))}
                           onClick={(e) => {
                             if (multi(e)) {
                               setSelList(toggle(selList, b.type));

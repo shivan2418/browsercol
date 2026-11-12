@@ -3,6 +3,7 @@
 // to move in our turn, the end turn message and button (fillEndPanel). A press on the unit panel centres the map
 // on the unit, as the panel's mouse listener does. The tile mode (terrain view) is not drawn yet. Once the art has
 // it, FreeCol's skin is the panel's background: a desk with a skull on it, over a sheet of paper.
+import { clsx } from 'clsx';
 import type { CSSProperties, ReactNode } from 'react';
 import { Tip } from './controls';
 import { cssUrl, type Art } from './frame';
@@ -53,12 +54,11 @@ function Skinned({
   children: ReactNode;
 }) {
   const skin = art([PANEL_KEYS.infoPanel]);
-  const classes = [className, skin && 'skinned'].filter(Boolean).join(' ');
   return (
     <section
       id="info-panel"
       aria-label="Information"
-      className={classes || undefined}
+      className={clsx(className, skin && 'skinned') || undefined}
       style={skin ? ({ '--skin': cssUrl(skin) } as CSSProperties) : undefined}
       onPointerDown={onPointerDown}
     >

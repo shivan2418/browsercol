@@ -191,7 +191,7 @@ describe('the colony panel', () => {
     expect(net.querySelector('[data-goods="model.goods.lumber"]')?.textContent).toBe('\u22123');
     const lumber = part('warehouse').querySelector<HTMLElement>('[data-goods="model.goods.lumber"]')!;
     expect(lumber.textContent).toBe('150');
-    expect(lumber.dataset.over).toBe('true');
+    expect(lumber.dataset.over).toBe('');
     expect(lumber.querySelector('img')?.getAttribute('src')).toBe('art/lumber.png');
     expect(within(part('outside')).getAllByAltText('Dutch Free Colonist')).toHaveLength(1);
     expect(within(part('port')).queryAllByRole('img')).toHaveLength(0);

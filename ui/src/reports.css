@@ -159,7 +159,7 @@
   .dialog .report .compact-colonies tr.summary td {
     border-top: 1px solid var(--line);
   }
-  .dialog .report .compact-colonies th[data-dim='true'] {
+  .dialog .report .compact-colonies th[data-dim] {
     opacity: 0.4;
   }
   .dialog .report .compact-colonies .pic {
@@ -170,7 +170,7 @@
   .dialog .report .compact-colonies .item {
     margin-right: 6px;
   }
-  .dialog .report .compact-colonies .item[data-bold='true'] {
+  .dialog .report .compact-colonies .item[data-bold] {
     font-weight: 700;
   }
   .dialog .report .compact-colonies [data-tone='alarm'] {

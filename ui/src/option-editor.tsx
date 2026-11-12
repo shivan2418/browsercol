@@ -6,6 +6,7 @@
 // inside it; [data-group] on a group's box. A percentage option is a slider,
 // as FreeCol's PercentageOptionUI is.
 import { useRef, useState, type ReactNode } from 'react';
+import { flag } from './flag';
 import { NumberField as NumberFieldControl, Select, Tip } from './controls';
 import { Box } from './frame';
 import './option-editor.css';
@@ -308,7 +309,7 @@ function Row({
       as="div"
       className="option"
       data-option={node.id}
-      data-changed={(values && node.id in values) || undefined}
+      data-changed={flag(values && node.id in values)}
       tip={node.description ?? undefined}
     >
       <span className="name">{mark ? mark(node.label) : node.label}</span>
@@ -336,7 +337,7 @@ function Group({ node, ...rest }: { node: Extract<OptionNode, { kind: 'group' }>
 /** An option group with its options and subgroups, each in a box with the group's name as its caption. */
 export function OptionEditor({ root, roomy, ...rest }: Props) {
   return (
-    <div className="option-editor" data-roomy={roomy ? '' : undefined}>
+    <div className="option-editor" data-roomy={flag(roomy)}>
       <Children nodes={root.kind === 'group' ? root.children : [root]} {...rest} />
     </div>
   );
