@@ -1635,6 +1635,7 @@ describe('the warehouse dialog', () => {
       import: 'Import level tip',
       export: 'Export above',
       exported: 'Whether',
+      exportOff: null,
     },
     goods: [
       {
