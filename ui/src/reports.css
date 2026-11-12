@@ -1,6 +1,7 @@
 /*
  * The reports of the Report menu (src/reports.tsx), in the colours of theme.css's tokens.
- * Specific enough to win over the general .dialog rules in index.html whatever the order, in the components layer
+ * Specific enough to win over the general .dialog rules (dialog.css, panels.css,
+ * negotiation.css and the bare .dialog size still in index.html) whatever the order, in the components layer
  * like them (#435). A sheet of panels: it names them, as theme.test.ts's PANEL_SHEETS allows.
  */
 @layer components {

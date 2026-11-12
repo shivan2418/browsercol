@@ -1,6 +1,7 @@
 // The controls a browser draws itself, from Base UI (docs/adr/0006, #259): their popups render into the
 // #overlays layer at the player's UI scale, and Escape closes only the newest thing on screen. The
-// wrappers keep the call sites short and the styling in one place (the .ui-* rules in index.html).
+// wrappers keep the call sites short and the styling in one place (the .ui-* rules in form-controls.css,
+// popup-surface.css and tooltip.css).
 // Tooltip and NumberField build on `overlayContainer` and `OVERLAY_POSITIONER` here.
 import { clsx } from 'clsx';
 import { NumberField as BaseNumberField } from '@base-ui/react/number-field';
@@ -25,7 +26,7 @@ export function overlayContainer(): HTMLElement | undefined {
 /**
  * What a Base UI popup needs to sit right in the overlays, to spread on its Positioner (which only has to
  * stay above the windows). The Positioner is placed in real pixels, so the player's UI scale (`--ui-zoom`)
- * goes on the popup inside it instead: give that the `ui-popup` class, which index.html styles.
+ * goes on the popup inside it instead: give that the `ui-popup` class, which popup-surface.css styles.
  */
 export const OVERLAY_POSITIONER = { className: 'ui-positioner' } as const;
 

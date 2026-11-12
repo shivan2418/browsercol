@@ -1,7 +1,7 @@
 /*
  * A trade route stop's plan (PlanPills, src/plan-pills.tsx): small pills for the goods unloaded (red), loaded
  * (green) and kept aboard (muted), each group after its arrow. Where the row sits in a stop (under the name, or on
- * a phone under it in its own grid row) is the route panel's rule in index.html.
+ * a phone under it in its own grid row) is the route panel's rule in panels.css.
  */
 @layer components {
   :root {

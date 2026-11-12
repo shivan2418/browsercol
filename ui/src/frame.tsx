@@ -4,7 +4,7 @@
 // menu bar over the map with the status line. Panels build on these rather
 // than on markup of their own. Their colours come from the tokens in
 // theme.css; the window's, the box's and the goods' styles are beside them, in
-// window-frame.css, box.css, goods.css, popup-surface.css and quiet-text.css (docs/adr/0008), the rest still in index.html.
+// window-frame.css, box.css, goods.css, popup-surface.css and quiet-text.css (docs/adr/0008), and the menu bar's in menubar.css.
 import { clsx } from 'clsx';
 import {
   Fragment,
