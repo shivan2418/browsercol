@@ -1191,7 +1191,7 @@ final class Reports {
                 final List<String> cargo = new ArrayList<>();
                 if (u.isCarrier()) {
                     for (Goods g : u.getGoodsList()) {
-                        goods.add(ColonyJson.goods(g.getType(), g.getAmount()).toString());
+                        goods.add(Boycotts.mark(ColonyJson.goods(g.getType(), g.getAmount()), u, g.getType(), g.getAmount()).toString());
                     }
                     for (Unit c : u.getUnitList()) cargo.add(ColonyJson.unit(c).toString());
                 }

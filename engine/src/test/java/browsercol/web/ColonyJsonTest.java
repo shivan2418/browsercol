@@ -146,6 +146,76 @@ class ColonyJsonTest {
         assertEquals("(Turns: N/A)", ColonyJson.progressTurns(40, 18, -2));
     }
 
+    /**
+     * GoodsLabel greys a stack the owner may not trade: the warehouse's and a ship
+     * in port's, with "20 Furs (boycotted)" as the hint; not the tradeable ones, and not
+     * the warehouse of a colony whose custom house ignores boycotts, while a ship's
+     * cargo there stays greyed.
+     */
+    @Test
+    @Timeout(120)
+    void aBoycottedGoodsIsMarkedWhereGoodsLabelGreysIt() throws Exception {
+        startGame();
+        final Game game = server.getGame();
+        final Specification spec = game.getSpecification();
+        final Player us = game.getFreeColGameObject(
+            client.getClient().getMyPlayer().getId(), Player.class);
+        final Tile land = game.getMap().getTileSet(t -> t.isLand()
+                && t.getType().getId().equals("model.tile.plains")
+                && !t.hasSettlement() && t.getOwner() == null
+                && freeAround(t))
+            .stream().findFirst().get();
+        final Colony colony = new ServerColony(game, us, "Jamestown", land);
+        us.addSettlement(colony);
+        colony.placeSettlement(true);
+        land.changeOwnership(us, colony);
+        for (Tile t : land.getSurroundingTiles(1)) t.changeOwnership(us, colony);
+        final Unit founder = new ServerUnit(game, land, us, spec.getDefaultUnitType(us));
+        founder.setLocation(colony);
+        final Unit ship = new ServerUnit(game, land, us, spec.getUnitType("model.unit.caravel"));
+        final GoodsType furs = spec.getGoodsType("model.goods.furs");
+        final GoodsType food = spec.getGoodsType("model.goods.food");
+        ship.addGoods(furs, 20);
+        ship.addGoods(food, 30);
+        colony.addGoods(furs, 40);
+        colony.addGoods(food, 50);
+        colony.invalidateCache();
+
+        // Nothing is boycotted yet.
+        Map<String, Object> json = panel(colony);
+        for (Object g : list(obj(json.get("warehouse")).get("goods"))) {
+            assertFalse(obj(g).containsKey("boycotted"), "nothing boycotted: " + g);
+        }
+
+        us.getMarket().setArrears(furs, 500);
+        assertFalse(us.canTrade(furs));
+        json = panel(colony);
+        for (Object g : list(obj(json.get("warehouse")).get("goods"))) {
+            final boolean fur = furs.getId().equals(obj(g).get("type"));
+            assertEquals(fur, obj(g).containsKey("boycotted"), "warehouse stack " + g);
+            if (fur) assertEquals("40 Furs (boycotted)", obj(g).get("label"));
+        }
+        Map<String, Object> cargo = obj(obj(list(obj(json.get("inPort")).get("units")).get(0)).get("cargo"));
+        for (Object g : list(cargo.get("goods"))) {
+            final boolean fur = furs.getId().equals(obj(g).get("type"));
+            assertEquals(fur, obj(g).containsKey("boycotted"), "cargo stack " + g);
+            if (fur) assertEquals("20 Furs (boycotted)", obj(g).get("label"));
+        }
+
+        // A custom house that ignores boycotts: the colony's stacks are not greyed, the ship's still are.
+        spec.setBoolean(GameOptions.CUSTOM_IGNORE_BOYCOTT, true);
+        assertTrue(Boycotts.greyed(colony, furs), "no custom house yet");
+        colony.addBuilding(new net.sf.freecol.server.model.ServerBuilding(game, colony,
+            spec.getBuildingType("model.building.customHouse")));
+        colony.invalidateCache();
+        assertFalse(Boycotts.greyed(colony, furs), "the custom house ignores the boycott");
+        assertTrue(Boycotts.greyed(ship, furs), "cargo is still greyed");
+        spec.setBoolean(GameOptions.CUSTOM_IGNORE_BOYCOTT, false);
+        assertTrue(Boycotts.greyed(colony, furs), "unless the option is off");
+        // Goods that are not stored are never greyed.
+        assertFalse(Boycotts.greyed(colony, spec.getGoodsType("model.goods.bells")));
+    }
+
     @Test
     @Timeout(120)
     void theColonySendsItsBuildingsTilesGoodsAndProduction() throws Exception {

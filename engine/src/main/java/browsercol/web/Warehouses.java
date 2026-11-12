@@ -54,7 +54,7 @@ final class Warehouses {
         final List<String> goods = new ArrayList<>();
         for (GoodsType type : colony.getSpecification().getStorableGoodsTypeList()) {
             final ExportData data = colony.getExportData(type);
-            goods.add(new Json().put("type", type.getId())
+            goods.add(Boycotts.mark(new Json().put("type", type.getId())
                 .put("name", Messages.getName(type))
                 .putRaw("keys", ObjectImages.json(type))
                 .put("amount", colony.getGoodsCount(type))
@@ -64,7 +64,7 @@ final class Warehouses {
                 .putRaw("import", enhanced
                     ? String.valueOf(data.getEffectiveImportLevel(capacity)) : "null")
                 .put("export", data.getExportLevel())
-                .put("max", maxLevel(colony, type))
+                .put("max", maxLevel(colony, type)), colony, type, colony.getGoodsCount(type))
                 .toString());
         }
         return new Json().put("title", Messages.message("warehouseDialog.name"))

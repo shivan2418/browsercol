@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import {
   Box,
+  boycottOf,
   GoodsAmount,
   MENUS,
   MenuBar,
@@ -186,6 +187,21 @@ describe('the goods amount', () => {
     const { container } = render(<GoodsAmount keys={keys} name="Food" amount={amount} change={change} art={art} />);
     return container.firstElementChild as HTMLElement;
   };
+
+  it("is marked boycotted only when told so, and then carries FreeCol's hint (GoodsLabel's disabled icon)", () => {
+    expect(goods(40).hasAttribute('data-boycotted')).toBe(false);
+    const { container } = render(
+      <GoodsAmount
+        keys={['image.icon.model.goods.food']}
+        name="Food"
+        amount={40}
+        art={art}
+        {...boycottOf({ boycotted: true, label: '40 Food (boycotted)' })}
+      />,
+    );
+    expect((container.firstElementChild as HTMLElement).hasAttribute('data-boycotted')).toBe(true);
+    expect(boycottOf({})).toEqual({});
+  });
 
   it('shows the icon for the resource key, and the number', () => {
     const g = goods(40);

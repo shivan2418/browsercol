@@ -880,6 +880,9 @@ class SelectDestinationTest {
         assertEquals(false, entry.get("enabled"), "the goods cannot be traded");
         assertEquals(Messages.message(Boycotts.reason(player, cloth)),
             entry.get("reason"), "the panel says why");
+        // The ship's cloth is marked boycotted, with FreeCol's hint, for the greyed icon.
+        assertEquals(Boolean.TRUE, cargoEntry(panel, ship.getId(), cloth.getId()).get("boycotted"));
+        assertEquals("5 Cloth (boycotted)", cargoEntry(panel, ship.getId(), cloth.getId()).get("label"));
 
         // The trade is refused: the player is asked to pay the arrears, and
         // the fake Browser UI does not.
@@ -1011,6 +1014,21 @@ class SelectDestinationTest {
             entries.add((List<String>)e);
         }
         return entries;
+    }
+
+    /** The cargo entry of a goods type in the cargo of a ship, as the Europe panel shows it. */
+    @SuppressWarnings("unchecked")
+    private static java.util.Map<String, Object> cargoEntry(java.util.Map<String, Object> panel,
+                                                            String shipId, String goodsId) {
+        for (Object o : (List<Object>)panel.get("inPort")) {
+            final java.util.Map<String, Object> unit = (java.util.Map<String, Object>)o;
+            if (!shipId.equals(unit.get("id"))) continue;
+            for (Object c : (List<Object>)unit.get("cargo")) {
+                final java.util.Map<String, Object> cargo = (java.util.Map<String, Object>)c;
+                if (goodsId.equals(cargo.get("id"))) return cargo;
+            }
+        }
+        throw new AssertionError("no cargo " + goodsId);
     }
 
     /**

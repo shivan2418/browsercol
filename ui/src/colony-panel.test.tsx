@@ -726,6 +726,37 @@ describe('loading a ship in port in the colony panel', () => {
       );
     });
 
+    it("greys the stacks the Engine marks boycotted, with FreeCol's hint, and no others", async () => {
+      const boycott = (g: ReturnType<typeof goods>) => ({
+        ...g,
+        boycotted: true,
+        label: `${g.amount} ${g.name} (boycotted)`,
+      });
+      const ship = {
+        ...caravel,
+        cargo: { ...caravel.cargo, goods: [boycott(goods('cloth', 100)), goods('furs', 5)] },
+      };
+      openPort({
+        inPort: { ...port, units: [ship] },
+        warehouse: {
+          ...warehouse,
+          goods: [
+            { ...boycott(goods('cotton', 20)), over: false },
+            { ...goods('lumber', 87), over: false },
+          ],
+        },
+        market,
+      });
+      const greyed = [...document.querySelectorAll('[data-boycotted]')];
+      expect(greyed.map((e) => e.closest('[data-goods]')?.getAttribute('data-goods'))).toEqual([
+        'model.goods.cloth',
+        'model.goods.cotton',
+      ]);
+      expect(stored('lumber').querySelector('[data-boycotted]')).toBeNull();
+      expect(await hint(greyed[0])).toBe('100 Cloth (boycotted)');
+      expect(await hint(greyed[1])).toBe('20 Cotton (boycotted)');
+    });
+
     it('shows no price after independence, when there is no Europe market', () => {
       openPort({ inPort: port, warehouse, market: null });
       expect(stored('lumber').getAttribute('title')).toBeNull();

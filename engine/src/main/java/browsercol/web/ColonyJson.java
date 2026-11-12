@@ -476,7 +476,7 @@ final class ColonyJson {
         for (GoodsType type : spec.getStorableGoodsTypeList()) {
             final int count = colony.getGoodsCount(type);
             if (count < threshold) continue;
-            out.add(goods(type, count)
+            out.add(Boycotts.mark(goods(type, count), colony, type, count)
                 .put("over", !type.limitIgnored() && count > capacity).toString());
         }
         return new Json().put("title", Messages.message("colonyPanel.warehouse"))
@@ -534,7 +534,7 @@ final class ColonyJson {
             if (u.getTradeRoute() == null) selected = u;
             final List<String> goods = new ArrayList<>();
             for (Goods g : u.getGoodsList()) {
-                goods.add(goods(g.getType(), g.getAmount()).toString());
+                goods.add(Boycotts.mark(goods(g.getType(), g.getAmount()), u, g.getType(), g.getAmount()).toString());
             }
             out.add(occupied(colony, u).putRaw("cargo", new Json()
                     .put("title", Messages.message(StringTemplate

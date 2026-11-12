@@ -62,6 +62,18 @@
   }
 
   /*
+   * A boycotted goods (GoodsLabel's disabled icon, MarketLabel's setEnabled(false)): Swing's disabled look, greyscale and
+   * faded. Whatever draws a stack gives it data-boycotted: GoodsAmount, the market's goods, Europe's cargo.
+   */
+  :root {
+    --boycotted-fade: 0.55;
+  }
+  [data-boycotted] :is(img, .amount, .name, .price) {
+    filter: grayscale(1);
+    opacity: var(--boycotted-fade);
+  }
+
+  /*
    * FreeColProgressBar: as tall as its goods icon, with the icon and its text centred over the bar. What is
    * there shades it, what next turn adds shades it lighter.
    */

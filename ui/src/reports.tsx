@@ -20,7 +20,16 @@ import {
 import { flag } from './flag';
 import { Select, Tip } from './controls';
 import type { Dialog } from './dialogs';
-import { ButtonRow, GoodsAmount, GoodsProgressBar, Heading, WindowFrame, type Art, type Menu } from './frame';
+import {
+  boycottOf,
+  ButtonRow,
+  GoodsAmount,
+  GoodsProgressBar,
+  Heading,
+  WindowFrame,
+  type Art,
+  type Menu,
+} from './frame';
 import type { CompactCell, ReportName, ReportView, UnitCount } from './webgui';
 
 /** What a link in a report does (ClientExports.report, reportDetail and showColony, and the page's). */
@@ -470,7 +479,14 @@ function Units({ e, art, go }: { e: View<'military' | 'naval' | 'cargo'>; art: A
                 <span key={u.id} className="unit" data-list="unit">
                   <Img keys={u.keys} art={art} title={u.text} unit={u.id} />
                   {u.goods.map((g) => (
-                    <GoodsAmount key={g.type} keys={g.keys} name={g.name} amount={g.amount} art={art} />
+                    <GoodsAmount
+                      key={g.type}
+                      keys={g.keys}
+                      name={g.name}
+                      amount={g.amount}
+                      art={art}
+                      {...boycottOf(g)}
+                    />
                   ))}
                   {u.cargo.map((c) => (
                     <Img key={c.id} keys={c.keys} art={art} title={c.name} unit={c.id} />

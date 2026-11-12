@@ -37,7 +37,7 @@ import {
 import { Tip } from './controls';
 import { createPortal } from 'react-dom';
 import { barSegments } from './progress-bar';
-import { Box, GoodsAmount, GoodsProgressBar, TEXT_ENTRY, type Art } from './frame';
+import { Box, boycottOf, GoodsAmount, GoodsProgressBar, TEXT_ENTRY, type Art } from './frame';
 import { PANEL_KEYS } from './map-keys';
 import { ReportContext } from './reports';
 import { lane, type TargetProps } from './drag';
@@ -270,7 +270,14 @@ function MovableGoods({
       onContextMenu={onContextMenu}
       {...(g.amount > 0 ? movable : {})}
     >
-      <GoodsAmount keys={g.keys} name={g.name} amount={g.amount} art={art} tip={priceTip(g, market) ?? g.name} />
+      <GoodsAmount
+        keys={g.keys}
+        name={g.name}
+        amount={g.amount}
+        art={art}
+        tip={priceTip(g, market) ?? g.name}
+        {...boycottOf(g)}
+      />
     </span>
   );
 }

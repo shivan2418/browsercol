@@ -354,6 +354,12 @@ export interface GoodsAmount {
   name: string;
   keys: string[];
   amount: number;
+  /**
+   * Set (true) on a stack FreeCol's GoodsLabel draws greyed out: its owner may not trade the goods (a boycott), unless
+   * a colony's custom house ignores it. With `label`, the hint then, goods.getLabel(false): "20 Rum (boycotted)".
+   */
+  boycotted?: boolean;
+  label?: string;
 }
 
 /**
@@ -549,7 +555,15 @@ export interface EuropeUnit {
   name: string;
   images: string[];
   selected: boolean;
-  cargo?: { kind: 'unit' | 'goods'; id: Id; name: string; images: string[]; amount: number }[];
+  cargo?: {
+    kind: 'unit' | 'goods';
+    id: Id;
+    name: string;
+    images: string[];
+    amount: number;
+    boycotted?: boolean;
+    label?: string;
+  }[];
   /** A carrier's cargo box title: its name and the holds left (CargoPanel). */
   cargoTitle?: string;
   /** A ship sailing to America or to Europe: the turns before it arrives (1 is next turn). */
@@ -782,6 +796,8 @@ export interface GuiQuestions {
         import: number | null;
         export: number;
         max: number;
+        boycotted?: boolean;
+        label?: string;
       }[];
     };
     /** The settings of every goods, as they stand when OK is pressed; null for a closed dialog. */

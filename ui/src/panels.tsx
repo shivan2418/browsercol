@@ -24,7 +24,7 @@ import { ColonyActions, ColonyPanel } from './colony-panel';
 import { DebugContext } from './debug';
 import type { Dialog, Dialogs } from './dialogs';
 import { europeButtons } from './europe-client';
-import { Box, ButtonRow, GoodsAmount, Heading, Pic, TEXT_ENTRY, WindowFrame, type Art } from './frame';
+import { Box, boycottOf, ButtonRow, GoodsAmount, Heading, Pic, TEXT_ENTRY, WindowFrame, type Art } from './frame';
 import { Declaration } from './declaration';
 import { CopyDetailsContext, ShowLogContext } from './log';
 import { reachText } from './route-reach';
@@ -582,7 +582,7 @@ function Warehouse({ d, art }: { d: Of<'warehouse'>; art: Art }) {
             {rows.map((g, i) => (
               <tr key={g.type} data-goods={g.type}>
                 <th scope="row" className="goods-col">
-                  <GoodsAmount keys={g.keys} name={g.name} amount={g.amount} art={art} />
+                  <GoodsAmount keys={g.keys} name={g.name} amount={g.amount} art={art} {...boycottOf(g)} />
                   <span className="goods-name">{g.name}</span>
                 </th>
                 <td>{level(i, 'low', 100, ask.tips.low)}</td>
@@ -1850,7 +1850,8 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
                       data-flat=""
                       data-cargo={c.kind}
                       data-disabled={flag(goods?.enabled === false)}
-                      tip={goods?.reason ?? c.name}
+                      data-boycotted={flag(c.boycotted)}
+                      tip={c.label ?? goods?.reason ?? c.name}
                       onClick={() => sell(c.id)}
                       onContextMenu={cargoMenu(c)}
                       {...drag}
@@ -1863,7 +1864,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
                       key={`${c.kind}/${c.id}`}
                       className="europe-entry"
                       data-cargo={c.kind}
-                      tip={goods?.reason ?? c.name}
+                      tip={c.label ?? goods?.reason ?? c.name}
                       onContextMenu={cargoMenu(c)}
                       {...(c.kind === 'unit' ? drag : {})}
                     >
@@ -1913,6 +1914,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
                   data-flat=""
                   data-goods={g.id}
                   data-disabled={flag(!g.enabled)}
+                  data-boycotted={flag(!g.enabled)}
                   tip={marketTitle(g)}
                   onClick={() => buy(g.id)}
                   onContextMenu={marketMenu(g.id)}
@@ -1927,6 +1929,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
                   className="good"
                   data-goods={g.id}
                   data-disabled={flag(!g.enabled)}
+                  data-boycotted={flag(!g.enabled)}
                   tip={marketTitle(g)}
                   onContextMenu={marketMenu(g.id)}
                 >

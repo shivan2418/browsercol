@@ -416,6 +416,10 @@ export function GoodsProgressBar({ need, art }: { need: GoodsProgress; art: Art 
   );
 }
 
+/** What GoodsAmount takes of a stack the Engine sent: greyed when boycotted, with FreeCol's hint (goods.getLabel(false)). */
+export const boycottOf = (g: { boycotted?: boolean; label?: string }) =>
+  g.boycotted ? { boycotted: true, tip: g.label } : {};
+
 export function GoodsAmount({
   keys,
   name,
@@ -426,6 +430,7 @@ export function GoodsAmount({
   icons = false,
   stock = null,
   tip = name,
+  boycotted = false,
 }: {
   /** The goods icon's resource keys, best first (image.icon.model.goods.<id>, say). */
   keys: readonly string[];
@@ -449,6 +454,8 @@ export function GoodsAmount({
   stock?: number | null;
   /** What the hint says, the goods type's name by default. */
   tip?: string | null;
+  /** Drawn greyed out, as GoodsLabel does a boycotted stack (goods.css); give its hint (`label`) as `tip`. */
+  boycotted?: boolean;
 }) {
   const src = art(keys);
   const sign = amount === 0 ? 'zero' : !change ? undefined : amount > 0 ? 'gain' : 'loss';
@@ -469,7 +476,7 @@ export function GoodsAmount({
           : count
         : `${stock}${amount < 0 ? '-' : '+'}${Math.abs(amount)}${more ? `/${expert}` : ''}`;
     return (
-      <Tip as="span" className="goods" data-sign={sign} tip={tip}>
+      <Tip as="span" className="goods" data-sign={sign} data-boycotted={flag(boycotted)} tip={tip}>
         {/* ProductionLabel: as wide as the wider of its icons and its number, both centred. */}
         <span className="pile" style={{ minWidth: step * (n - 1) + 24 }}>
           {Array.from({ length: n }, (_, i) =>
@@ -494,7 +501,7 @@ export function GoodsAmount({
     );
   }
   return (
-    <Tip as="span" className="goods" data-sign={sign} tip={tip}>
+    <Tip as="span" className="goods" data-sign={sign} data-boycotted={flag(boycotted)} tip={tip}>
       {src === null ? <span className="name">{name}</span> : <img src={src} alt={name} />}
       <span className="amount">{expert !== null && expert > amount ? `${text}/${expert}` : text}</span>
     </Tip>

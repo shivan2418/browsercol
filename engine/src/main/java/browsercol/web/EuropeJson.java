@@ -254,11 +254,11 @@ final class EuropeJson {
                     .put("amount", 1).toString());
             }
             for (Goods g : u.getGoodsList()) {
-                cargo.add(new Json().put("kind", "goods")
+                cargo.add(Boycotts.mark(new Json().put("kind", "goods")
                     .put("id", g.getType().getId())
                     .put("name", Messages.getName(g.getType()))
                     .putRaw("images", ObjectImages.json(g.getType()))
-                    .put("amount", g.getAmount()).toString());
+                    .put("amount", g.getAmount()), u, g.getType(), g.getAmount()).toString());
             }
             json.putRaw("cargo", Json.array(cargo));
             json.put("cargoTitle", Messages.message(StringTemplate

@@ -2999,19 +2999,23 @@ describe('the Europe panel', () => {
       name: 'Rum',
       amount: 20,
       images: [],
+      boycotted: true,
+      label: '20 Rum (boycotted)',
     };
     const ship = { ...europe.inPort[0], cargo: [...(europe.inPort[0].cargo ?? []), rumAboard] };
     act(() => box.show('europe', { ...europe, inPort: [ship, ...europe.inPort.slice(1)] }));
     const reason = 'The Crown is boycotting these goods until you have paid your tax arrears of 100 gold.';
     const rum = document.querySelector('[data-goods="model.goods.rum"]')!;
     expect(rum.hasAttribute('data-disabled')).toBe(true);
+    expect(rum.hasAttribute('data-boycotted')).toBe(true);
     expect(await hint(rum)).toBe(reason);
     // Swing's MarketLabel offers to pay the arrears when a boycotted goods is bought.
     fireEvent.click(rum);
     expect(calls).toEqual(['buy model.goods.rum unit:1 true']);
     // And EuropePanel when a boycotted stack of the cargo is sold.
     const stack = document.querySelector('[data-cargo="goods"][data-disabled]')!;
-    expect(await hint(stack)).toBe(reason);
+    expect(stack.hasAttribute('data-boycotted')).toBe(true);
+    expect(await hint(stack)).toBe('20 Rum (boycotted)');
     expect(stack.hasAttribute('data-disabled')).toBe(true);
     fireEvent.click(stack);
     expect(calls).toEqual(['buy model.goods.rum unit:1 true', 'sell model.goods.rum unit:1 true']);
