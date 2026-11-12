@@ -17,6 +17,7 @@ on:
       - 'ui/src/fonts/noto-sans/**'
       - 'tools/site.sh'
       - 'ui/scripts/build-changes.ts'
+      - 'ui/scripts/count-views.ts'
       - '.github/workflows/site.yml'
   workflow_dispatch:
   workflow_call:
@@ -58,7 +59,10 @@ jobs:
           echo "The landing page of $(git rev-parse --short HEAD) around the game of $tag" | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: The landing page around it
-        # In the dev image: build-changes.ts is TypeScript, which its Node runs.
+        # In the dev image: build-changes.ts is TypeScript, which its Node runs. GOATCOUNTER_URL, a repository
+        # variable, puts the page view counter on the pages (docs/adr/0011); unset, nothing is counted.
+        env:
+          GOATCOUNTER_URL: ${{ vars.GOATCOUNTER_URL }}
         run: ./dev.sh tools/site.sh dist
 
       - uses: actions/upload-pages-artifact@v5

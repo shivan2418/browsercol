@@ -89,13 +89,15 @@ jobs:
           name: play
       # The deploy can report success and leave the site on the last build (build 8, deployed from a re-run),
       # and the smoke below passes on any build. Each build's index.html names its own hashed script, so the live
-      # one matches this build's only once this game is what Pages serves. The query skips the CDN's cache.
+      # one matches this build's only once this game is what Pages serves. The query skips the CDN's cache. The
+      # script's name is compared, not the whole page, which the Site workflow adds the view counter to.
       - name: The live game is this build
         run: |
           tar -xzf play.tar.gz play/index.html
           url="${{ needs.deploy.outputs.page_url }}play/"
+          want=$(grep -o 'assets/index-[^"]*\.js' play/index.html)
           for i in $(seq 1 30); do
-            curl -fsS "${url}?build=$GITHUB_REF_NAME-$i" -o live.html && cmp -s live.html play/index.html && exit 0
+            curl -fsS "${url}?build=$GITHUB_REF_NAME-$i" -o live.html && grep -qF "$want" live.html && exit 0
             sleep 10
           done
           echo "After 5 minutes ${url} still serves another build's game than $GITHUB_REF_NAME:" >&2

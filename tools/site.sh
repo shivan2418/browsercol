@@ -15,3 +15,5 @@ cp ui/src/fonts/cinzel/OFL.txt "$out/fonts/OFL-cinzel.txt" 2>/dev/null || true
 cp ui/src/fonts/noto-sans/OFL.txt "$out/fonts/OFL-noto-sans.txt" 2>/dev/null || true
 # The changes page, and the latest builds on the landing page, from ui/site/changes.json (#402).
 node ui/scripts/build-changes.ts ui/site/changes.json "$out"
+# Page views, when GOATCOUNTER_URL is set (docs/adr/0011): on the landing page, the changes page and the game.
+node ui/scripts/count-views.ts "$out"
