@@ -880,6 +880,15 @@ describe('the build queue in the colony panel', () => {
     expect(body.querySelector('.queue-panes')!.querySelectorAll('[data-part]').length).toBe(3);
   });
 
+  it('is drawn inside the colony panel, after everything in it, so it docks to its side and stacks over it', () => {
+    openQueue();
+    const colony = document.querySelector('.colony')!;
+    const body = document.querySelector('.queue-body')!;
+    expect(body.parentElement).toBe(colony);
+    expect(colony.lastElementChild).toBe(body);
+    expect(colony.querySelector('.queue-backdrop')).not.toBeNull();
+  });
+
   it('closes with its colony: it is not open when the colony, or another, opens again', () => {
     openQueue({ id: 'colony:same' });
     expect(document.querySelector('.queue-body')).not.toBeNull();

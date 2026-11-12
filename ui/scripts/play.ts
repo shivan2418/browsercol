@@ -976,7 +976,17 @@ async function play(page: Page, url: string) {
       const stray = [...win.querySelectorAll('[data-part=queued] li')]
         .map((li) => li.getBoundingClientRect())
         .some((r) => r.left < p.left || r.right > p.right + 1);
+      // Docked to the colony panel's right side, as tall as it.
+      const col = win.closest('.colony')!.getBoundingClientRect();
+      const w = win.getBoundingClientRect();
+      const docked =
+        Math.abs(w.top - col.top) > 2 || Math.abs(w.bottom - col.bottom) > 2
+          ? `the window is not as tall as the colony panel (${w.top}-${w.bottom} against ${col.top}-${col.bottom})`
+          : Math.abs(w.right - col.right) > 2
+            ? "the window is not docked to the colony panel's right side"
+            : '';
       return [
+        docked,
         win.scrollHeight > win.clientHeight + 1 ? 'the window scrolls as one' : '',
         seen(win.querySelector('button.buy')),
         seen(win.querySelector('button.queue-close')),

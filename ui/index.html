@@ -2262,9 +2262,10 @@
          * board's right edge and reaches left over the buildings: the column alone is too narrow for two lists.
          */
         right: 0;
-        top: 40px;
-        width: 780px;
-        max-height: calc(var(--screen-h) * 0.8);
+        top: 0;
+        bottom: 0;
+        /* The width of the colony's right column. */
+        width: 400px;
         box-sizing: border-box;
         padding: 16px;
         background: var(--panel);
@@ -2272,7 +2273,7 @@
         border: 2px solid var(--line);
         border-radius: 4px;
         box-shadow: 0 8px 30px color-mix(in srgb, var(--ink) 50%, transparent);
-        /* The window fits the screen: a fixed header and footer round panes that scroll each by itself. */
+        /* A sidebar docked to the colony panel's right side, as tall as the panel: a fixed header and footer round lists that scroll each by itself. */
         display: flex;
         flex-direction: column;
         gap: 8px;
@@ -2297,24 +2298,38 @@
         flex-direction: column;
         gap: 8px;
       }
-      /* The queue scrolls inside its own share of the window, however many rows it has. */
+      /* The queue, the buildings and the units share the height, each scrolling by itself, however many rows it has. */
       .colony .queue-body .queued {
-        flex: 0 1 auto;
-        min-height: 4em;
-        max-height: calc(var(--screen-h) * 0.3);
+        flex: 4 1 0;
+        min-height: 0;
         overflow-y: auto;
       }
+      /* The sidebar is narrow: the row's small buttons and a name that wraps leave the costs their room. */
+      .colony .queue-body .queued li > button {
+        flex: none;
+        min-width: 0;
+        width: 28px;
+        padding-inline: 0;
+      }
+      .colony .queue-body .queued li .name {
+        min-width: 4em;
+      }
       .colony .queue-lists {
-        flex: 1 1 auto;
+        flex: 5 1 0;
         min-height: 0;
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        grid-template-rows: minmax(0, 1fr);
+        display: flex;
+        flex-direction: column;
         gap: 8px;
       }
       .colony .queue-lists .box {
         min-height: 0;
         overflow-y: auto;
+      }
+      .colony .queue-lists .box[data-part='buildings'] {
+        flex: 4 1 0;
+      }
+      .colony .queue-lists .box[data-part='units'] {
+        flex: 2 1 0;
       }
       .colony .queue-foot {
         flex: none;

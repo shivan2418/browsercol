@@ -34,7 +34,6 @@ import {
   type MouseEvent,
   type ReactNode,
 } from 'react';
-import { flag } from './flag';
 import { Tip } from './controls';
 import { createPortal } from 'react-dom';
 import { barSegments } from './progress-bar';
@@ -48,6 +47,7 @@ import type { Buildable, BuildingTip, ColonyView, GoodsAmount as Goods, RebelTip
 import { useCoverage } from './coverage';
 import './colony-tips.css';
 import { Occupation } from './occupation-badge';
+import { flag } from './flag';
 
 /** FreeCol's tile size, which the tiles of TilesPanel are laid out by. */
 const TILE_W = 128;
@@ -148,6 +148,8 @@ const queues = new Map<string, QueueState>();
 const queueOf = (id: string): QueueState => queues.get(id) ?? { open: false, all: false, compact: false };
 /** Opens the colony's build queue: what a click on a building that can build does. */
 const OpenQueue = createContext<() => void>(() => {});
+/** The colony panel's own element: the build queue window is drawn into it, docked to its side, as tall as the panel. */
+const QueueHost = createContext<HTMLElement | null>(null);
 /** What is dragged in the build queue: a queued row (by index), or buildable types from the lists. */
 type QueueDrag = { from: 'queue'; index: number } | { from: 'list'; types: string[] };
 const queueDrag = lane<QueueDrag>();
@@ -911,6 +913,8 @@ function BuildQueue({ c, art, children }: { c: ColonyView; art: Art; children: R
     colopedia(type);
   };
   const [, redraw] = useState(0);
+  const host = useContext(QueueHost);
+  const inHost = (node: ReactNode) => (host ? createPortal(node, host) : node);
   const state = queueOf(c.id);
   const set = (s: QueueState) => {
     queues.set(c.id, s);
@@ -973,178 +977,183 @@ function BuildQueue({ c, art, children }: { c: ColonyView; art: Art; children: R
       >
         {children}
       </Box>
-      {state.open && (
-        <>
-          <div className="queue-backdrop" onClick={() => set({ ...state, open: false })} />
-          <div
-            className="queue-body"
-            role="dialog"
-            aria-label={q.title}
-            tabIndex={-1}
-            ref={(el) => {
-              if (el && !el.contains(document.activeElement)) el.focus();
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && selList.length > 0) {
-                e.preventDefault();
-                moves.setQueue(c.id, [...ids, ...selList]);
-                setSelList([]);
-              } else if (e.key === 'Delete' && selQueue.length > 0) {
-                e.preventDefault();
-                moves.setQueue(
-                  c.id,
-                  ids.filter((_, j) => !selQueue.includes(j)),
-                );
-                setSelQueue([]);
-              }
-            }}
-          >
-            <div className="queue-head">
-              <h2>{q.title}</h2>
-              <Tip
-                as="button"
-                className="queue-close"
-                aria-label="close"
-                tip="close"
-                onClick={() => set({ ...state, open: false })}
-              >
-                ✕
-              </Tip>
-            </div>
-            <div className="queue-panes">
-              <Box aria-label={q.title} data-part="queued" className="queued">
-                <ol
-                  {...queueDrag.target(
-                    () => true,
-                    (d) => dropAt(d, ids.length),
-                  )}
+      {state.open &&
+        inHost(
+          <>
+            <div className="queue-backdrop" onClick={() => set({ ...state, open: false })} />
+            <div
+              className="queue-body"
+              role="dialog"
+              aria-label={q.title}
+              tabIndex={-1}
+              ref={(el) => {
+                if (el && !el.contains(document.activeElement)) el.focus();
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && selList.length > 0) {
+                  e.preventDefault();
+                  moves.setQueue(c.id, [...ids, ...selList]);
+                  setSelList([]);
+                } else if (e.key === 'Delete' && selQueue.length > 0) {
+                  e.preventDefault();
+                  moves.setQueue(
+                    c.id,
+                    ids.filter((_, j) => !selQueue.includes(j)),
+                  );
+                  setSelQueue([]);
+                }
+              }}
+            >
+              <div className="queue-head">
+                <h2>{q.title}</h2>
+                <Tip
+                  as="button"
+                  className="queue-close"
+                  aria-label="close"
+                  tip="close"
+                  onClick={() => set({ ...state, open: false })}
                 >
-                  {q.queue.map((b, i) => (
-                    <li
-                      key={`${b.type}:${i}`}
-                      data-queued={b.type}
-                      data-locked={flag(b.reason !== null)}
-                      onContextMenu={aboutIt(b.type)}
-                      data-selected={flag(selQueue.includes(i))}
-                      {...queueDrag.source(() => ({ from: 'queue', index: i }))}
-                      {...queueDrag.target(
-                        () => true,
-                        (d) => dropAt(d, i),
-                      )}
-                      onClick={(e) => {
-                        if (multi(e)) setSelQueue(toggle(selQueue, i));
-                      }}
-                    >
-                      <Tip as="button" disabled={i === 0} aria-label="up" tip="up" onClick={() => move(i, i - 1)}>
-                        ↑
-                      </Tip>
-                      <Tip
-                        as="button"
-                        disabled={i === ids.length - 1}
-                        aria-label="down"
-                        tip="down"
-                        onClick={() => move(i, i + 1)}
+                  ✕
+                </Tip>
+              </div>
+              <div className="queue-panes">
+                <Box aria-label={q.title} data-part="queued" className="queued">
+                  <ol
+                    {...queueDrag.target(
+                      () => true,
+                      (d) => dropAt(d, ids.length),
+                    )}
+                  >
+                    {q.queue.map((b, i) => (
+                      <li
+                        key={`${b.type}:${i}`}
+                        data-queued={b.type}
+                        data-locked={flag(b.reason !== null)}
+                        onContextMenu={aboutIt(b.type)}
+                        data-selected={flag(selQueue.includes(i))}
+                        {...queueDrag.source(() => ({ from: 'queue', index: i }))}
+                        {...queueDrag.target(
+                          () => true,
+                          (d) => dropAt(d, i),
+                        )}
+                        onClick={(e) => {
+                          if (multi(e)) setSelQueue(toggle(selQueue, i));
+                        }}
                       >
-                        ↓
-                      </Tip>
-                      <Tip
-                        as="button"
-                        aria-label="remove"
-                        tip="remove"
-                        onClick={() =>
-                          moves.setQueue(
-                            c.id,
-                            ids.filter((_, j) => j !== i),
-                          )
-                        }
-                      >
-                        ✕
-                      </Tip>
-                      <BuildableLabel b={b} art={art} compact={state.compact} />
-                    </li>
-                  ))}
-                </ol>
-              </Box>
-              <div className="queue-lists">
-                {lists.map(({ part, title, items }) => (
-                  <Box key={part} caption={title} data-part={part} className="can-build">
-                    <ul
-                      // A queued row dropped back on a list leaves the queue.
-                      {...queueDrag.target(
-                        (d) => d.from === 'queue',
-                        (d) => {
-                          if (d.from === 'queue') {
+                        <Tip as="button" disabled={i === 0} aria-label="up" tip="up" onClick={() => move(i, i - 1)}>
+                          ↑
+                        </Tip>
+                        <Tip
+                          as="button"
+                          disabled={i === ids.length - 1}
+                          aria-label="down"
+                          tip="down"
+                          onClick={() => move(i, i + 1)}
+                        >
+                          ↓
+                        </Tip>
+                        <Tip
+                          as="button"
+                          aria-label="remove"
+                          tip="remove"
+                          onClick={() =>
                             moves.setQueue(
                               c.id,
-                              ids.filter((_, j) => j !== d.index),
-                            );
+                              ids.filter((_, j) => j !== i),
+                            )
                           }
-                        },
-                      )}
-                    >
-                      {items
-                        .filter((b) => state.all || b.reason === null)
-                        .map((b) => (
-                          <li
-                            key={b.type}
-                            data-buildable={b.type}
-                            data-locked={flag(b.reason !== null)}
-                            onContextMenu={aboutIt(b.type)}
-                            // Dragging one of several selected buildables takes them all.
-                            {...(b.reason === null
-                              ? queueDrag.source(() => ({
-                                  from: 'list',
-                                  types: selList.includes(b.type) ? selList : [b.type],
-                                }))
-                              : {})}
-                          >
-                            <Tip
-                              as="button"
-                              disabled={b.reason !== null}
-                              tip={b.reason ?? b.name}
-                              // On the button, which covers the row: the selected look is drawn behind its content.
-                              data-selected={flag(selList.includes(b.type))}
-                              onClick={(e) => {
-                                if (multi(e)) {
-                                  setSelList(toggle(selList, b.type));
-                                  return;
-                                }
-                                setSelList([]);
-                                moves.setQueue(c.id, [...ids, b.type]);
-                              }}
+                        >
+                          ✕
+                        </Tip>
+                        <BuildableLabel b={b} art={art} compact={state.compact} />
+                      </li>
+                    ))}
+                  </ol>
+                </Box>
+                <div className="queue-lists">
+                  {lists.map(({ part, title, items }) => (
+                    <Box key={part} caption={title} data-part={part} className="can-build">
+                      <ul
+                        // A queued row dropped back on a list leaves the queue.
+                        {...queueDrag.target(
+                          (d) => d.from === 'queue',
+                          (d) => {
+                            if (d.from === 'queue') {
+                              moves.setQueue(
+                                c.id,
+                                ids.filter((_, j) => j !== d.index),
+                              );
+                            }
+                          },
+                        )}
+                      >
+                        {items
+                          .filter((b) => state.all || b.reason === null)
+                          .map((b) => (
+                            <li
+                              key={b.type}
+                              data-buildable={b.type}
+                              data-locked={flag(b.reason !== null)}
+                              onContextMenu={aboutIt(b.type)}
+                              // Dragging one of several selected buildables takes them all.
+                              {...(b.reason === null
+                                ? queueDrag.source(() => ({
+                                    from: 'list',
+                                    types: selList.includes(b.type) ? selList : [b.type],
+                                  }))
+                                : {})}
                             >
-                              <BuildableLabel b={b} art={art} compact={state.compact} />
-                            </Tip>
-                          </li>
-                        ))}
-                    </ul>
-                  </Box>
-                ))}
+                              <Tip
+                                as="button"
+                                disabled={b.reason !== null}
+                                tip={b.reason ?? b.name}
+                                // On the button, which covers the row: the selected look is drawn behind its content.
+                                data-selected={flag(selList.includes(b.type))}
+                                onClick={(e) => {
+                                  if (multi(e)) {
+                                    setSelList(toggle(selList, b.type));
+                                    return;
+                                  }
+                                  setSelList([]);
+                                  moves.setQueue(c.id, [...ids, b.type]);
+                                }}
+                              >
+                                <BuildableLabel b={b} art={art} compact={state.compact} />
+                              </Tip>
+                            </li>
+                          ))}
+                      </ul>
+                    </Box>
+                  ))}
+                </div>
+              </div>
+              <div className="queue-foot">
+                <label className="show-all">
+                  <input
+                    type="checkbox"
+                    checked={state.all}
+                    onChange={(e) => set({ ...state, all: e.target.checked })}
+                  />
+                  {q.showAll}
+                </label>
+                <label className="show-all compact">
+                  <input
+                    type="checkbox"
+                    checked={state.compact}
+                    onChange={(e) => set({ ...state, compact: e.target.checked })}
+                  />
+                  {q.compact}
+                </label>
+                {q.buy && (
+                  <button className="buy" disabled={!q.buy.enabled} onClick={() => moves.buy(c.id)}>
+                    {q.buy.label}
+                    <span className="muted">{` (${q.buy.price})`}</span>
+                  </button>
+                )}
               </div>
             </div>
-            <div className="queue-foot">
-              <label className="show-all">
-                <input type="checkbox" checked={state.all} onChange={(e) => set({ ...state, all: e.target.checked })} />
-                {q.showAll}
-              </label>
-              <label className="show-all compact">
-                <input
-                  type="checkbox"
-                  checked={state.compact}
-                  onChange={(e) => set({ ...state, compact: e.target.checked })}
-                />
-                {q.compact}
-              </label>
-              {q.buy && (
-                <button className="buy" disabled={!q.buy.enabled} onClick={() => moves.buy(c.id)}>
-                  {q.buy.label}
-                  <span className="muted">{` (${q.buy.price})`}</span>
-                </button>
-              )}
-            </div>
-          </div>
-        </>
-      )}
+          </>,
+        )}
     </>
   );
 }
@@ -1176,6 +1185,7 @@ export function ColonyPanel({ colony: c, art, footer }: { colony: ColonyView; ar
   });
   // A unit that has left the colony, or been disbanded, or goods that are gone, are no longer picked.
   // The ship chosen in port is kept in chosen; this draws the panel again as another is chosen.
+  const [host, setHost] = useState<HTMLElement | null>(null);
   const [, redraw] = useState(0);
   const choose = (id: string) => {
     chosen.set(c.id, id);
@@ -1210,72 +1220,74 @@ export function ColonyPanel({ colony: c, art, footer }: { colony: ColonyView; ar
       };
   return (
     <OpenQueue.Provider value={openQueue}>
-      <HandContext.Provider value={hand}>
-        <div className="colony">
-          <div className="cbody">
-            <div className="buildings">
-              {c.buildings.map((b, i) => {
-                const at = scatter(i, c.buildings.length);
-                return b.site ? (
-                  // EmptyBuildingSite: the plot's image, nothing more.
-                  <Tip as="div" key={b.type} className="building site" data-site={b.type} tip={b.name} style={at}>
-                    <Img keys={b.keys} art={art} className="art" />
-                  </Tip>
-                ) : (
-                  <BuildingPlace key={b.type} b={b} art={art} style={at}>
-                    <span className="name">{b.name}</span>
-                    <Img keys={b.keys} art={art} className="art" />
-                    <span className="output">
-                      {b.production && <Made g={b.production} art={art} max={b.production.max} />}
-                      {b.upkeep !== null && (
-                        // BuildingPanel's UpkeepLabel: the coin, with the upkeep.
-                        <Tip as="span" className="upkeep" tip={String(b.upkeep)}>
-                          <Img keys={[COIN]} art={art} className="icon" />
-                          {b.upkeep}
-                        </Tip>
-                      )}
-                    </span>
-                    <span className="workers">
-                      {/* Empty places are left blank: no box, outline or shadow. */}
-                      <Units units={b.workers} art={art} />
-                    </span>
-                  </BuildingPlace>
-                );
-              })}
-            </div>
-            <div className="upper">
-              <Board c={c} art={art}>
-                <Tiles c={c} art={art} />
-                <Part part="net">
-                  {c.production.map((g) => (
-                    <Made key={g.type} g={g} art={art} change />
-                  ))}
-                </Part>
-                <BuildQueue c={c} art={art}>
-                  {c.construction === null ? (
-                    <span className="muted">{c.nothing}</span>
+      <QueueHost.Provider value={host}>
+        <HandContext.Provider value={hand}>
+          <div className="colony" ref={setHost}>
+            <div className="cbody">
+              <div className="buildings">
+                {c.buildings.map((b, i) => {
+                  const at = scatter(i, c.buildings.length);
+                  return b.site ? (
+                    // EmptyBuildingSite: the plot's image, nothing more.
+                    <Tip as="div" key={b.type} className="building site" data-site={b.type} tip={b.name} style={at}>
+                      <Img keys={b.keys} art={art} className="art" />
+                    </Tip>
                   ) : (
-                    <>
-                      <Img keys={c.construction.keys} art={art} className="buildable" />
-                      <div className="needs">
-                        <span>{c.construction.name}</span>
-                        {c.construction.required.map((r) => (
-                          <GoodsProgressBar key={r.type} need={r} art={art} />
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </BuildQueue>
-              </Board>
-              <InPort c={c} art={art} choose={choose} />
-              {footer}
+                    <BuildingPlace key={b.type} b={b} art={art} style={at}>
+                      <span className="name">{b.name}</span>
+                      <Img keys={b.keys} art={art} className="art" />
+                      <span className="output">
+                        {b.production && <Made g={b.production} art={art} max={b.production.max} />}
+                        {b.upkeep !== null && (
+                          // BuildingPanel's UpkeepLabel: the coin, with the upkeep.
+                          <Tip as="span" className="upkeep" tip={String(b.upkeep)}>
+                            <Img keys={[COIN]} art={art} className="icon" />
+                            {b.upkeep}
+                          </Tip>
+                        )}
+                      </span>
+                      <span className="workers">
+                        {/* Empty places are left blank: no box, outline or shadow. */}
+                        <Units units={b.workers} art={art} />
+                      </span>
+                    </BuildingPlace>
+                  );
+                })}
+              </div>
+              <div className="upper">
+                <Board c={c} art={art}>
+                  <Tiles c={c} art={art} />
+                  <Part part="net">
+                    {c.production.map((g) => (
+                      <Made key={g.type} g={g} art={art} change />
+                    ))}
+                  </Part>
+                  <BuildQueue c={c} art={art}>
+                    {c.construction === null ? (
+                      <span className="muted">{c.nothing}</span>
+                    ) : (
+                      <>
+                        <Img keys={c.construction.keys} art={art} className="buildable" />
+                        <div className="needs">
+                          <span>{c.construction.name}</span>
+                          {c.construction.required.map((r) => (
+                            <GoodsProgressBar key={r.type} need={r} art={art} />
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </BuildQueue>
+                </Board>
+                <InPort c={c} art={art} choose={choose} />
+                {footer}
+              </div>
+              <Outside c={c} art={art} />
+              <Cargo c={c} art={art} />
+              <Warehouse c={c} art={art} />
             </div>
-            <Outside c={c} art={art} />
-            <Cargo c={c} art={art} />
-            <Warehouse c={c} art={art} />
           </div>
-        </div>
-      </HandContext.Provider>
+        </HandContext.Provider>
+      </QueueHost.Provider>
     </OpenQueue.Provider>
   );
 }
