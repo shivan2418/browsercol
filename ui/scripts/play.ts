@@ -1555,7 +1555,7 @@ async function play(page: Page, url: string) {
     }
   }
 
-  // FreeCol's own keys open the reports too (#465): F1..F9 and F12, Shift+F1..F5. The browser's own use of
+  // FreeCol's own keys open the reports too (#478): F1..F9 and F12, Shift+F1..F5. The browser's own use of
   // each (F5 reload, F3 find, F1 help) must be prevented, which a later listener sees as defaultPrevented; the
   // page must stay the same page (a marker on window survives F5).
   await page.evaluate(() => {
