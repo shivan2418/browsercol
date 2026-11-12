@@ -1685,9 +1685,12 @@ public class WebGUI extends GUI {
         if (!Messages.containsKey(yesId)) yesId = null;
         String noId = action.getNoKey();
         if (!Messages.containsKey(noId)) noId = "close";
+        // The server picks the text: declareWarSupported replaces the action's own,
+        // so a template with its own known id is shown as it is (#482).
         final String text = Messages.message((template == null)
             ? StringTemplate.key(messageId)
-            : StringTemplate.copy(messageId, template));
+            : (template.getId() != null && Messages.containsKey(template.getId()))
+            ? template : StringTemplate.copy(messageId, template));
         String headerKey = action.getHeaderKey();
         if (!Messages.containsKey(headerKey)) headerKey = "monarchDialog.default";
         final String header = Messages.message(headerKey);

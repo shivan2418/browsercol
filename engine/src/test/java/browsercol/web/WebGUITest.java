@@ -798,6 +798,18 @@ class WebGUITest {
         await(got);
         question = asked.get(asked.size() - 1);
         assertTrue(question.endsWith("\"header\":\"Foreign Correspondence\"}"), question);
+        // War support: the server's template is declareWarSupported, naming the
+        // troops and the gold, and the dialog must show that text (#482).
+        final StringTemplate supported = StringTemplate
+            .template("model.monarch.action.declareWarSupported.text")
+            .addName("%nation%", "Dutch").addName("%force%", "3 Dragoons")
+            .addAmount("%gold%", 1500);
+        got = new CompletableFuture<>();
+        gui.showMonarchDialog(MonarchAction.DECLARE_WAR, supported, null, got::complete);
+        await(got);
+        question = asked.get(asked.size() - 1);
+        assertTrue(question.contains("3 Dragoons") && question.contains("1500"),
+                   "the war support text names troops and gold: " + question);
 
         // The end turn dialog asks, and cancel keeps the turn.
         answer = "cancel";
