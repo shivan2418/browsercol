@@ -130,6 +130,12 @@ class MissingInputReportTest {
                 colony.getOwner(), spec.getUnitType("model.unit.freeColonist"));
             smith.updateProductionType();
             ct.getWorkTile().changeType(spec.getTileType("model.tile.hills"));
+            // A mineral resource would bring more ore than the smiths use.
+            final net.sf.freecol.common.model.TileItemContainer items =
+                ct.getWorkTile().getTileItemContainer();
+            if (items != null && items.getResource() != null) {
+                items.removeTileItem(items.getResource());
+            }
             final Unit miner = new net.sf.freecol.server.model.ServerUnit(game, ct,
                 colony.getOwner(), spec.getUnitType("model.unit.freeColonist"));
             miner.setWorkType(ore);
