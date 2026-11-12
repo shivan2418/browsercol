@@ -1338,6 +1338,16 @@ function RouteEditor({
           );
         })}
       </div>
+      {n > 1 && (
+        <p className="text carriers skips">
+          A carrier sets out for the next stop with something to load or unload, skipping the others, and waits where it
+          is if no stop has any. It counts{' '}
+          {e.projected
+            ? 'what the colonies will have made by the time it arrives'
+            : 'what the colonies have now, not what they make on the way'}{' '}
+          (Preferences: Stock accounts for Production).
+        </p>
+      )}
       <ButtonRow>
         <button data-answer="ok" data-enter="" disabled={draft.name.trim() === ''} onClick={ok}>
           {e.ok}

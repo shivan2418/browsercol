@@ -1712,6 +1712,7 @@ describe('the trade routes panel', () => {
     ],
     enhanced: false,
     overflow: 'ask',
+    projected: false,
     error: null,
     newRoute: 'New Trade Route',
     defaultName: 'Trade route 2',
@@ -2346,6 +2347,18 @@ describe('the trade routes panel', () => {
       }
     },
   );
+
+  it.each([false, true])('says a carrier skips stops with nothing to do, counting production %s', (projected) => {
+    const { box } = host();
+    act(() => box.replace('tradeRoutes', routes({ projected })));
+    pick('Fur run (2)');
+    press('Edit Trade Route');
+    expect(document.querySelector('.skips')!.textContent).toBe(
+      'A carrier sets out for the next stop with something to load or unload, skipping the others, and waits ' +
+        `where it is if no stop has any. It counts ${projected ? 'what the colonies will have made by the time it arrives' : 'what the colonies have now, not what they make on the way'} ` +
+        '(Preferences: Stock accounts for Production).',
+    );
+  });
 
   it('disables Add Stop once the route has a stop for every place', async () => {
     const { box } = host();
