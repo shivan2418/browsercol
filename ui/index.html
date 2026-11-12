@@ -2331,7 +2331,19 @@
         align-content: start;
         gap: 8px;
       }
+      /* The caption stays put; only the list under it scrolls. */
       .colony .queue-lists .box {
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .colony .queue-lists .box > .cap {
+        flex: none;
+        position: static;
+      }
+      .colony .queue-lists .box > ul {
+        flex: 0 1 auto;
         min-height: 0;
         overflow-y: auto;
       }

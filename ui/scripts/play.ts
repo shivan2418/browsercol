@@ -1012,14 +1012,27 @@ async function play(page: Page, url: string) {
     const shared = () =>
       panel.locator('.queue-lists').evaluate((lists) => {
         const boxes = [...lists.querySelectorAll<HTMLElement>(':scope > .box')];
-        return boxes.flatMap((a) =>
+        const ul = (box: HTMLElement) => box.querySelector('ul')!;
+        // However far a list is scrolled, its rows never pass under its caption: only the list under it scrolls.
+        const lost = boxes.flatMap((box) => {
+          box.scrollTop = box.scrollHeight;
+          ul(box).scrollTop = ul(box).scrollHeight;
+          const cap = box.querySelector('.cap')!.getBoundingClientRect();
+          const rows = ul(box).getBoundingClientRect();
+          box.scrollTop = 0;
+          ul(box).scrollTop = 0;
+          return rows.top < cap.bottom - 1 ? [`the ${box.dataset.part} rows pass under its caption`] : [];
+        });
+        const crowded = boxes.flatMap((a) =>
           boxes
             .filter((b) => b !== a)
-            .filter((b) => a.scrollHeight > a.clientHeight + 1 && a.clientHeight < b.clientHeight - 2)
-            .map(
-              (b) => `${a.dataset.part} scrolls in ${a.clientHeight}px while ${b.dataset.part} has ${b.clientHeight}px`,
-            ),
+            .filter((b) => {
+              const x = ul(a);
+              return x.scrollHeight > x.clientHeight + 1 && x.clientHeight < ul(b).clientHeight - 2;
+            })
+            .map((b) => `${a.dataset.part} scrolls while ${b.dataset.part} has more room`),
         );
+        return lost.concat(crowded);
       });
     const cramped = await shared();
     const showAll = panel.locator('label.show-all:not(.compact) input');
@@ -1027,8 +1040,13 @@ async function play(page: Page, url: string) {
     await panel.locator('[data-part=units] [data-locked]').first().waitFor({ timeout: 20000, label: 'Show all' });
     cramped.push(...(await shared()));
     await page.screenshot({ path: path.join(dist, `../.cache/play-${browser}-build-queue-all.png`) });
+    // And with each list scrolled part way, where a caption meets the rows passing under it.
+    await panel.locator('.queue-lists').evaluate((lists) => {
+      for (const e of lists.querySelectorAll<HTMLElement>(':scope > .box, :scope > .box > ul')) e.scrollTop = 30;
+    });
+    await page.screenshot({ path: path.join(dist, `../.cache/play-${browser}-build-queue-scrolled.png`) });
     await showAll.uncheck();
-    if (cramped.length > 0) throw new Error(`the build lists do not share their room: ${cramped.join('; ')}`);
+    if (cramped.length > 0) throw new Error(`the build lists: ${cramped.join('; ')}`);
     // The queue's popup covers the panel until it is closed.
     await panel.locator('button.queue-close').click();
     await page.evaluate(() => (window.__hold = null));
