@@ -39,6 +39,7 @@ import { holdsOf, stopWork } from './route-work';
 import type { ColonyView, EuropeUnit, GuiEvents, ReportLink, SettlementEntry, TradeRouteDraft } from './webgui';
 import { useCoverage } from './coverage';
 import './modifiers.css';
+import './panels.css';
 
 export type { Art };
 

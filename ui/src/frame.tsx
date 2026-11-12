@@ -35,6 +35,7 @@ import './pic.css';
 import './popup-surface.css';
 import './selection.css';
 import './quiet-text.css';
+import './dialog.css';
 
 /** The URL of the art for the first of some resource keys the Tileset has, or null if it has none (yet). */
 export type Art = (keys: readonly string[]) => string | null;

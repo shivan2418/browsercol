@@ -8,6 +8,7 @@ import { useState, type ReactNode } from 'react';
 import { EscapeCloses, NumberField, Select } from './controls';
 import { Box, ButtonRow, Heading } from './frame';
 import type { GuiQuestions, TradeItem, TradeKind, TradeOption } from './webgui';
+import './negotiation.css';
 
 type Ask = GuiQuestions['negotiation']['ask'];
 type Answer = NonNullable<GuiQuestions['negotiation']['answer']>;
