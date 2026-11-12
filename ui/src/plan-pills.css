@@ -14,6 +14,8 @@
     --plan-group-after: 6px;
     /* Europe's Buy or Sell: the room round the word. */
     --plan-verb-margin: 0 var(--space-1) 0 var(--space-2);
+    /* The room either side of the rule before a warehouse figure. */
+    --plan-figure-gap: var(--space-2);
   }
   .plan-pills {
     display: flex;
@@ -36,6 +38,18 @@
   .plan-pill[data-work='unload'] {
     background: color-mix(in srgb, var(--bad) 22%, var(--box));
     color: var(--bad);
+  }
+  /* The colony's warehouse figure on a pill; short of the holds, it is marked. */
+  .plan-pill .plan-figure {
+    margin-left: var(--plan-figure-gap);
+    padding-left: var(--plan-figure-gap);
+    border-left: var(--border) solid currentColor;
+    opacity: 0.8;
+  }
+  .plan-pill[data-short] .plan-figure {
+    opacity: 1;
+    font-weight: 600;
+    text-decoration: underline dotted;
   }
   /* A load that happens only if a later colony's warehouse imports the goods (enhanced trade routes). */
   .plan-pill[data-maybe] {

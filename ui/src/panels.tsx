@@ -1096,20 +1096,52 @@ function RouteEditor({
       </div>
     );
   };
-  // What the editor adds to a stop's pills. With the enhanced trade routes option a carrier loads only goods a
-  // later stop takes: one that does not keep them on board, or whose warehouse imports them. If every stop
-  // keeps them, that is up to the warehouses.
-  const pillExtra =
-    (i: number) =>
-    (kind: PillKind, g: string): PillExtra | null => {
-      const kept = e.enhanced && stops.every((s, j) => j === i || s.cargo.includes(g));
-      if (kind !== 'load' || !kept) return null;
+  // What the editor adds to a stop's pills, from what it knows beyond the plan.
+  const pillExtra = (i: number) => {
+    // The colony's warehouse now: what a carrier may take of a goods, and the room it has for one.
+    const place = e.places.find((p) => p.id === stops[i].place);
+    const overflow =
+      e.overflow === 'never'
+        ? 'the rest stays on board'
+        : e.overflow === 'always'
+          ? 'the rest is unloaded anyway, and what the warehouse cannot hold is lost at the end of the turn'
+          : 'you are asked whether to unload the rest anyway';
+    // What a pill adds of the warehouse: a short figure, whether it falls short of the holds, and a tip.
+    const warehouse = (kind: PillKind, g: string, k: number) => {
+      const w = place?.stock?.[g];
+      if (!w || !place) return null;
+      if (kind === 'load') {
+        return {
+          figure: `${w.give} spare`,
+          short: w.give < k * 100,
+          tip: `${place.label} has ${w.have} ${nameOf(g)} now and keeps ${w.keep}: a carrier may take ${w.give}. What it keeps is set in its warehouse.`,
+        };
+      }
+      if (kind !== 'unload' || w.room === null) return null;
+      const where = e.enhanced ? `up to its import level, set in its warehouse` : 'in its warehouse';
       return {
-        maybe: true,
-        tip: `${inEurope(i) ? 'Buy' : 'Load'} ${nameOf(g)} only if a later colony's warehouse imports it: every stop keeps it on board`,
-        instead: true,
+        figure: `room ${w.room}`,
+        short: w.room < k * 100,
+        tip: `${place.label} has room for ${w.room} more ${nameOf(g)} now, ${where}.${w.room < k * 100 ? ` A carrier with more unloads ${w.room}, and ${overflow}.` : ''}`,
       };
     };
+    return (kind: PillKind, g: string, k: number): PillExtra | null => {
+      // With the enhanced trade routes option a carrier loads only goods a later stop takes: one that does not
+      // keep them on board, or whose warehouse imports them. If every stop keeps them, that is up to the
+      // warehouses.
+      const kept = kind === 'load' && e.enhanced && stops.every((s, j) => j === i || s.cargo.includes(g));
+      const w = warehouse(kind, g, k);
+      if (kept) {
+        return {
+          maybe: true,
+          tip: `${inEurope(i) ? 'Buy' : 'Load'} ${nameOf(g)} only if a later colony's warehouse imports it: every stop keeps it on board`,
+          instead: true,
+          figure: w?.figure,
+        };
+      }
+      return w;
+    };
+  };
   const n = stops.length;
   // Which carriers can follow the route; nothing is said if a stop's place is not one the Engine sent.
   const reachable = stops.map((s) => e.places.find((p) => p.id === s.place));

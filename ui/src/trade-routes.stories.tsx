@@ -13,6 +13,15 @@ const none = new Proxy({}, { get: () => () => {} }) as never;
 
 const goods = (id: string, name: string) => ({ id: `model.goods.${id}`, name, icon: `image.icon.model.goods.${id}` });
 
+/** A colony's warehouse as the Engine reports it: goods by type, with what it has and keeps, and its room. */
+const warehouse = (capacity: number, goods: Record<string, [have: number, keep: number]>) =>
+  Object.fromEntries(
+    Object.entries(goods).map(([g, [have, keep]]) => [
+      `model.goods.${g}`,
+      { have, keep, give: Math.max(0, have - keep), room: Math.max(0, capacity - have) },
+    ]),
+  );
+
 const panel: Routes = {
   title: 'Trade Routes',
   unit: null,
@@ -49,14 +58,33 @@ const panel: Routes = {
     },
   ],
   places: [
-    { id: 'europe:1', label: 'Europe', port: true, land: null },
-    { id: 'colony:7', label: 'New Amsterdam', port: true, land: 1 },
-    { id: 'colony:8', label: 'Jamestown', port: true, land: 1 },
-    { id: 'colony:9', label: 'Plymouth', port: true, land: 1 },
-    { id: 'colony:10', label: 'Fort Orange', port: false, land: 1 },
+    { id: 'europe:1', label: 'Europe', port: true, land: null, stock: null },
+    {
+      id: 'colony:7',
+      label: 'New Amsterdam',
+      port: true,
+      land: 1,
+      stock: warehouse(200, { furs: [230, 50], tools: [140, 0], sugar: [0, 50], food: [80, 50] }),
+    },
+    {
+      id: 'colony:8',
+      label: 'Jamestown',
+      port: true,
+      land: 1,
+      stock: warehouse(100, { furs: [20, 50], tools: [60, 50], sugar: [170, 50], food: [40, 50] }),
+    },
+    {
+      id: 'colony:9',
+      label: 'Plymouth',
+      port: true,
+      land: 1,
+      stock: warehouse(100, { furs: [40, 50], tools: [0, 50], sugar: [15, 50], food: [90, 50] }),
+    },
+    { id: 'colony:10', label: 'Fort Orange', port: false, land: 1, stock: null },
   ],
   goods: [goods('tools', 'Tools'), goods('furs', 'Furs'), goods('sugar', 'Sugar'), goods('food', 'Food')],
   enhanced: false,
+  overflow: 'ask',
   error: null,
   newRoute: 'New Trade Route',
   defaultName: 'Trade route 2',

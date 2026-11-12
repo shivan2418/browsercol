@@ -1703,14 +1703,15 @@ describe('the trade routes panel', () => {
       { id: 'tradeRoute:2', name: 'Rum run', silent: true, units: 0, stops: [] },
     ],
     places: [
-      { id: 'europe:1', label: 'Europe', port: true, land: null },
-      { id: 'colony:7', label: 'New Amsterdam', port: true, land: 1 },
+      { id: 'europe:1', label: 'Europe', port: true, land: null, stock: null },
+      { id: 'colony:7', label: 'New Amsterdam', port: true, land: 1, stock: null },
     ],
     goods: [
       { id: 'model.goods.tools', name: 'Tools', icon: 'image.icon.model.goods.tools' },
       { id: 'model.goods.furs', name: 'Furs', icon: 'image.icon.model.goods.furs' },
     ],
     enhanced: false,
+    overflow: 'ask',
     error: null,
     newRoute: 'New Trade Route',
     defaultName: 'Trade route 2',
@@ -1891,10 +1892,10 @@ describe('the trade routes panel', () => {
             },
           ],
           places: [
-            { id: 'europe:1', label: 'Europe', port: true, land: null },
-            { id: 'colony:7', label: 'New Amsterdam', port: true, land: 1 },
-            { id: 'colony:8', label: 'Jamestown', port: true, land: 1 },
-            { id: 'colony:9', label: 'Plymouth', port: true, land: 1 },
+            { id: 'europe:1', label: 'Europe', port: true, land: null, stock: null },
+            { id: 'colony:7', label: 'New Amsterdam', port: true, land: 1, stock: null },
+            { id: 'colony:8', label: 'Jamestown', port: true, land: 1, stock: null },
+            { id: 'colony:9', label: 'Plymouth', port: true, land: 1, stock: null },
           ],
         }),
       ),
@@ -1941,9 +1942,9 @@ describe('the trade routes panel', () => {
             },
           ],
           places: [
-            { id: 'europe:1', label: 'Europe', port: true, land: null },
-            { id: 'colony:7', label: 'New Amsterdam', port: true, land: 1 },
-            { id: 'colony:8', label: 'Jamestown', port: true, land: 1 },
+            { id: 'europe:1', label: 'Europe', port: true, land: null, stock: null },
+            { id: 'colony:7', label: 'New Amsterdam', port: true, land: 1, stock: null },
+            { id: 'colony:8', label: 'Jamestown', port: true, land: 1, stock: null },
           ],
         }),
       ),
@@ -2113,9 +2114,9 @@ describe('the trade routes panel', () => {
         'tradeRoutes',
         routes({
           places: [
-            { id: 'europe:1', label: 'Europe', port: true, land: null },
-            { id: 'colony:7', label: 'New Amsterdam', port: true, land: 1 },
-            { id: 'colony:10', label: 'Fort Orange', port: false, land: 1 },
+            { id: 'europe:1', label: 'Europe', port: true, land: null, stock: null },
+            { id: 'colony:7', label: 'New Amsterdam', port: true, land: 1, stock: null },
+            { id: 'colony:10', label: 'Fort Orange', port: false, land: 1, stock: null },
           ],
         }),
       ),
@@ -2247,6 +2248,54 @@ describe('the trade routes panel', () => {
       'All the holds of a goods are bought at once, 100 a hold at the market’s price: if the gold does not cover them, none are bought',
     );
   });
+
+  it.each([
+    [false, 'ask', 'you are asked whether to unload the rest anyway'],
+    [true, 'never', 'the rest stays on board'],
+    [false, 'always', 'the rest is unloaded anyway, and what the warehouse cannot hold is lost at the end of the turn'],
+  ] as const)(
+    'with enhanced trade routes %s and overflow %s, shows what a colony gives and has room for now',
+    async (enhanced, overflow, rest) => {
+      const { box } = host();
+      const w = (have: number, keep: number, room: number) => ({ have, keep, give: Math.max(0, have - keep), room });
+      act(() =>
+        box.replace(
+          'tradeRoutes',
+          routes({
+            enhanced,
+            overflow,
+            places: [
+              { id: 'europe:1', label: 'Europe', port: true, land: null, stock: null },
+              {
+                id: 'colony:7',
+                label: 'New Amsterdam',
+                port: true,
+                land: 1,
+                stock: { [T]: w(70, 50, 30), [F]: w(230, 50, 0) },
+              },
+            ],
+          }),
+        ),
+      );
+      pick('Fur run (2)');
+      press('Edit Trade Route');
+      // New Amsterdam unloads a hold of tools with room for 30, and loads a hold of furs with 180 spare.
+      const tools = stopAt(1).querySelector(`[data-work=unload][data-type="${T}"]`)!;
+      const furs = stopAt(1).querySelector(`[data-work=load][data-type="${F}"]`)!;
+      expect(tools.querySelector('.plan-figure')!.textContent).toBe('room 30');
+      expect(tools.hasAttribute('data-short')).toBe(true);
+      expect(await hint(tools)).toContain(
+        `New Amsterdam has room for 30 more Tools now, ${enhanced ? 'up to its import level, set in its warehouse' : 'in its warehouse'}. A carrier with more unloads 30, and ${rest}.`,
+      );
+      expect(furs.querySelector('.plan-figure')!.textContent).toBe('180 spare');
+      expect(furs.hasAttribute('data-short')).toBe(false);
+      expect(await hint(furs)).toContain(
+        'New Amsterdam has 230 Furs now and keeps 50: a carrier may take 180. What it keeps is set in its warehouse.',
+      );
+      // Europe has no warehouse.
+      expect(stopAt(0).querySelector('.plan-figure')).toBeNull();
+    },
+  );
 
   it('disables Add Stop once the route has a stop for every place', async () => {
     const { box } = host();

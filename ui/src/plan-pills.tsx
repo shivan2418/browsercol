@@ -11,10 +11,13 @@ type Kind = PillKind;
 
 /**
  * What the route editor adds to a pill from what it knows beyond the plan: a mark that the work may not
- * happen, and the tip that says why, after the pill's own or instead of it.
+ * happen, a figure of the colony's warehouse and whether it falls short of the holds, and the tip that says
+ * more, after the pill's own or instead of it.
  */
 export interface PillExtra {
   maybe?: boolean;
+  figure?: string;
+  short?: boolean;
   tip?: string;
   instead?: boolean;
 }
@@ -54,12 +57,14 @@ function PlanPill({
       data-work={kind}
       data-type={goods}
       data-maybe={extra?.maybe || undefined}
+      data-short={extra?.short || undefined}
       tip={extra?.tip ? (extra.instead ? extra.tip : `${tip}. ${extra.tip}`) : tip}
     >
       {verb && <span className="plan-verb">{verb}</span>}
       {icon}
       {SIGN[kind]}
       {holds}
+      {extra?.figure && <span className="plan-figure">{extra.figure}</span>}
     </Tip>
   );
 }
