@@ -103,6 +103,12 @@ final class TradeRoutes {
             // What a carrier does with goods a colony has no room for (the
             // unload overflow response client option): ask, never unload
             // them, or always (InGameController.unloadUnitAtStop).
+            // Whether a carrier counts a colony's production until it
+            // arrives when it looks for the next stop with work, skipping
+            // the others (the stock accounts for production client option,
+            // InGameController.followTradeRoute and TradeRouteStop.hasWork).
+            .put("projected", client.getClientOptions()
+                 .getBoolean(ClientOptions.STOCK_ACCOUNTS_FOR_PRODUCTION))
             .put("overflow", overflow == ClientOptions.UNLOAD_OVERFLOW_RESPONSE_NEVER ? "never"
                  : overflow == ClientOptions.UNLOAD_OVERFLOW_RESPONSE_ALWAYS ? "always" : "ask")
             // With the enhanced trade routes option a carrier loads the goods

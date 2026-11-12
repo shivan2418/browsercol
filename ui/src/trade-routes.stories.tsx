@@ -85,6 +85,7 @@ const panel: Routes = {
   goods: [goods('tools', 'Tools'), goods('furs', 'Furs'), goods('sugar', 'Sugar'), goods('food', 'Food')],
   enhanced: false,
   overflow: 'ask',
+  projected: false,
   error: null,
   newRoute: 'New Trade Route',
   defaultName: 'Trade route 2',

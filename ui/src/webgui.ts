@@ -267,6 +267,11 @@ export interface GuiEvents {
      * player, never unloads them, or always does, and what the warehouse cannot hold is lost.
      */
     overflow: 'ask' | 'never' | 'always';
+    /**
+     * Whether a carrier counts what the colonies make until it arrives when it looks for the next stop with
+     * something to load or unload (the stock accounts for production option); it skips the others.
+     */
+    projected: boolean;
     error: string | null;
     newRoute: string;
     /** The name the server would give a new route (Player.getNameForTradeRoute), which the editor starts with. */

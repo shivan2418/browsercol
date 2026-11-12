@@ -2631,6 +2631,53 @@ class CommandsTest {
     }
 
     /**
+     * A carrier sets out for the next stop with work, and skips the others:
+     * one where it has nothing to load or unload (TradeRouteStop.hasWork).
+     * With the stock accounts for production option it counts a colony's
+     * production until it arrives; without it, only the stock now. The route
+     * editor's hint says which. B makes food but has none: a ship that has
+     * loaded at A skips B for Europe without the option, and with it sets
+     * out for B.
+     */
+    @ParameterizedTest(name = "stock accounts for production {0}")
+    @ValueSource(booleans = { false, true })
+    @Timeout(300)
+    void aCarrierSkipsAStopWithNothingToDoAsTheOptionCountsIt(boolean projected) throws Exception {
+        startGame();
+        final Commands commands = commands();
+        final Player player = client.getClient().getMyPlayer();
+        final Colony colonyA = foundAColony(commands);
+        final Colony colonyB = secondColony(colonyA, "Tradeville");
+        client.getClient().getClientOptions().setBoolean(ClientOptions.STOCK_ACCOUNTS_FOR_PRODUCTION, projected);
+        assertTrue(commands.tradeRoutes());
+        assertTrue(routePanels.get(routePanels.size() - 1).contains("\"projected\":" + projected),
+                   "the route editor is told how the option is set");
+        final String cloth = "model.goods.cloth";
+        final String food = "model.goods.food";
+        final GoodsType foodType = client.getGame().getSpecification().getGoodsType(food);
+        final Colony oursB = client.getGame().getFreeColGameObject(colonyB.getId(), Colony.class);
+        stock(colonyA, cloth, 100);
+        // B keeps no food back, has none, and makes some each turn.
+        assertTrue(commands.setGoodsLevels(colonyB.getId(), food, false, 0, 100, -1, 0));
+        awaitTrue(() -> oursB.getExportData(foodType).getExportLevel() == 0, "the client has B's level");
+        assertEquals(0, oursB.getGoodsCount(foodType), "B has no food");
+        assertTrue(oursB.getNetProductionOf(foodType) > 0, "B makes food");
+
+        // A loads cloth; B keeps the cloth on board and loads food; Europe takes the cloth.
+        final Unit ship = merchantmanIn(colonyA);
+        final Unit ours = client.getGame().getFreeColGameObject(ship.getId(), Unit.class);
+        assertNull(commands.saveTradeRoute(null, "Skipping run", true,
+            List.of(colonyA.getId(), colonyB.getId(), player.getEurope().getId()),
+            List.of(List.of(cloth), List.of(cloth, food), List.of())), "the route is saved");
+        assertTrue(commands.assignTradeRoute(ship.getId(), serverRoutes(player).get(0).getId()));
+        untilLoaded(commands, ship);
+        assertEquals(projected ? colonyB.getId() : player.getEurope().getId(),
+                     ours.getStop().getLocation().getId(),
+                     projected ? "the ship sets out for B, counting the food B makes on the way"
+                               : "the ship skips B, which has no food now, for Europe");
+    }
+
+    /**
      * A ship on a route between two colonies loads at the first and
      * unloads into the second.
      */
