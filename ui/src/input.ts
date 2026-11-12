@@ -85,6 +85,9 @@ const BY_KEY: Record<string, Command> = {
   // AssignTradeRouteAction opens the trade routes panel for the active carrier.
   a: { k: 'assignRoute' },
   A: { k: 'assignRoute' },
+  // TradeRouteAction opens the trade routes panel with no unit.
+  t: { k: 'tradeRoutes' },
+  T: { k: 'tradeRoutes' },
   // RenameAction names the active unit, and ExecuteGotoOrdersAction moves every unit with goto orders.
   n: { k: 'renameUnit' },
   N: { k: 'renameUnit' },

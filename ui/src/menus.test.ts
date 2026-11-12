@@ -154,7 +154,7 @@ describe('the Orders menu', () => {
       'Unload',
       'Go To',
       'Execute Go To Orders',
-      'Trade Routes',
+      'Assign Trade Route',
       'Disband Unit',
     ]);
     // A unit that cannot found a colony is not offered Build Colony.
@@ -183,11 +183,11 @@ describe('the Orders menu', () => {
     expect(log).toEqual(['renameUnit', 'executeGotoOrders']);
   });
 
-  it('enables Trade Routes only for a carrier, and opens its route panel', () => {
+  it('enables Assign Trade Route only for a carrier, and opens its route panel', () => {
     const plain = ordersMenu(actions({ orders: ['fortify', 'goto'], hasActiveUnit: true }).a);
-    expect(find(plain, 'Trade Routes').disabled).toBe(true);
+    expect(find(plain, 'Assign Trade Route').disabled).toBe(true);
     const { a, log } = actions({ orders: ['goto', 'assignRoute'], hasActiveUnit: true });
-    const routes = find(ordersMenu(a), 'Trade Routes');
+    const routes = find(ordersMenu(a), 'Assign Trade Route');
     expect(routes.disabled).toBe(false);
     routes.run();
     expect(log).toEqual(['assignRoute']);
@@ -208,6 +208,16 @@ describe('the Orders menu', () => {
 });
 
 describe('the View menu', () => {
+  it('opens the trade routes with no unit, as TradeRouteAction does', () => {
+    const { a, log } = actions({ hasActiveUnit: false });
+    const routes = find(viewMenu(a), 'Trade Routes');
+    expect(routes.disabled).toBe(false);
+    expect(routes.hint).toBe('T');
+    routes.run();
+    expect(log).toEqual(['tradeRoutes']);
+    expect(find(viewMenu(actions({ ready: false }).a), 'Trade Routes').disabled).toBe(true);
+  });
+
   it('zooms, centres, opens Europe and switches the display modes', () => {
     const { a, log } = actions({ hasActiveUnit: true });
     const items = viewMenu(a);
@@ -216,6 +226,7 @@ describe('the View menu', () => {
       'Zoom Out',
       'Center on Active Unit',
       'Europe',
+      'Trade Routes',
       'Find Settlement',
       'Show Map Grid',
       'Show Borders',

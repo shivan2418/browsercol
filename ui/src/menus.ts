@@ -140,9 +140,9 @@ export function ordersMenu(a: MenuActions): Items {
     order('Go To', { k: 'selectDestination' }),
     // MapboardAction: needs no unit, only the game (and our turn, which the Engine checks).
     { label: 'Execute Go To Orders', run: () => a.run({ k: 'executeGotoOrders' }), disabled: !a.ready },
-    // Only a carrier can be given a route, so Trade Routes opens the panel for the active carrier
-    // (AssignTradeRouteAction) and is enabled only when the Engine lists assignRoute for the unit.
-    order('Trade Routes', { k: 'assignRoute' }),
+    // AssignTradeRouteAction: only a carrier can be given a route, so this opens the panel for the active
+    // carrier and is enabled only when the Engine lists assignRoute for the unit. View's Trade Routes needs none.
+    { ...order('Assign Trade Route', { k: 'assignRoute' }), hint: 'A' },
     order('Disband Unit', { k: 'disband' }),
   ];
 }
@@ -163,6 +163,8 @@ export function viewMenu(a: MenuActions): Items {
     { label: 'Zoom Out', run: () => a.zoom(-1) },
     { label: 'Center on Active Unit', run: a.centreOnUnit, disabled: !a.hasActiveUnit, hint: 'Ctrl+C' },
     { label: 'Europe', run: () => a.run({ k: 'showEurope' }), disabled: !a.ready || !a.hasEurope },
+    // TradeRouteAction, a MapboardAction: the routes panel with no unit, so routes can be made and edited.
+    { label: 'Trade Routes', run: () => a.run({ k: 'tradeRoutes' }), disabled: !a.ready, hint: 'T' },
     { label: 'Find Settlement', run: () => a.run({ k: 'findSettlement' }), disabled: !a.ready, hint: 'Ctrl+F' },
     { label: 'Show Map Grid', run: () => a.toggleMode('grid'), checked: a.modes.grid },
     { label: 'Show Borders', run: () => a.toggleMode('borders'), checked: a.modes.borders },
