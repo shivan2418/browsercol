@@ -55,10 +55,10 @@
   .goods[data-sign='loss'] {
     color: var(--bad);
   }
+  /* GoodsLabel's zeroAmount colour: the number is grey, the icon is as ever (a faded icon is a boycott's look). */
   .goods[data-sign='zero'] {
     color: var(--muted);
     font-weight: 400;
-    opacity: 0.6;
   }
 
   /*
