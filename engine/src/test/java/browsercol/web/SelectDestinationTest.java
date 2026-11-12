@@ -582,15 +582,27 @@ class SelectDestinationTest {
         assertFalse(serverShip(ship).isInEurope(), "the ship has left Europe");
         panel = europePanel(player);
         assertEquals(List.of(ship.getId()), unitIds(panel, "toAmerica"));
-        // A ship on the high seas is turned around, and back again.
+        final int sail = serverShip(ship).getSailTurns();
+        assertEquals(List.of((long)sail), field(panel, "toAmerica", "turns"), "a whole voyage ahead");
+        // A turn at sea, then the ship is turned around and back again. FreeCol's server
+        // turns the voyage about where the ship is, one turn longer: sail - left + 1.
+        endTurnAndWait();
+        final int left = serverShip(ship).getWorkLeft();
+        assertEquals(sail - 1, left, "a turn of the voyage is behind it");
         assertTrue(client.getCommands().redirectShip(ship.getId(), true),
             "the ship turns toward Europe");
         panel = europePanel(player);
         assertEquals(List.of(ship.getId()), unitIds(panel, "toEurope"));
+        assertEquals(List.of((long)(sail - left + 1)), field(panel, "toEurope", "turns"),
+            "the panel has the server's turns back to Europe");
+        assertEquals(sail - left + 1, serverShip(ship).getWorkLeft());
         assertTrue(client.getCommands().redirectShip(ship.getId(), false),
             "the ship turns toward the New World");
         panel = europePanel(player);
         assertEquals(List.of(ship.getId()), unitIds(panel, "toAmerica"));
+        assertEquals(List.of((long)serverShip(ship).getWorkLeft()), field(panel, "toAmerica", "turns"),
+            "the panel has the server's turns to the New World");
+        assertEquals(left, serverShip(ship).getWorkLeft(), "turned twice, the ship is where it was");
         int turns = 0;
         while (serverShip(ship).getTile() == null) {
             endTurnAndWait();
