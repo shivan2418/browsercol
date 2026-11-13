@@ -48,6 +48,7 @@ const WAITS: Record<string, string> = {
   'colony-big-queue': '.queue-body',
   'colony-small-queue': '.queue-body',
   'route-editor': '[data-stop]',
+  'route-editor-many': '[data-stop]',
 };
 /** The parts of a story's window that must be on screen too. */
 const PARTS: Record<string, string[]> = {
@@ -141,6 +142,15 @@ const problems = (page: Page, target: string, parts: string[]) =>
         if (!el) out.push(`${sel} is missing`);
         else inside(sel, el.getBoundingClientRect());
       }
+      // Scrolled while there is room: the window's own body scrolls its content though the window is well short of the
+      // screen's height, so it could have grown instead (the route editor stopped at 80% of the screen and hid its OK
+      // button below a scroll bar). A list or a part that scrolls inside a window is its own business.
+      const body = d.querySelector<HTMLElement>(':scope > .body');
+      const room = vh * 0.9 - d.getBoundingClientRect().height;
+      if (body && body.scrollHeight > body.clientHeight + 2 && room > 24)
+        out.push(
+          `its body scrolls ${body.scrollHeight - body.clientHeight}px of content while the window could grow ${Math.round(room)}px more: ${f(d.getBoundingClientRect())}`,
+        );
       // Cut off where it should not scroll: a part that clips its content on the vertical axis.
       for (const el of d.querySelectorAll<HTMLElement>('*')) {
         if (el.scrollHeight <= el.clientHeight + 2 || el.clientHeight === 0) continue;

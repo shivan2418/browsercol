@@ -96,6 +96,35 @@ export const RouteEditor: Story = {
   },
 };
 
+/**
+ * The editor on a route whose stops have many plan pills: the colony loads four goods and Europe sells them all, so
+ * each stop's row is tall, and the rail must still run through it to the stop's pin.
+ */
+const all = ['model.goods.tools', 'model.goods.furs', 'model.goods.sugar', 'model.goods.food'];
+export const RouteEditorMany: Story = {
+  args: {
+    show: [
+      'tradeRoutes',
+      {
+        ...routes,
+        routes: [
+          {
+            id: 'tradeRoute:9',
+            name: 'Main export',
+            silent: false,
+            units: 1,
+            stops: [
+              { place: 'colony:7', label: 'New Amsterdam', cargo: [...all, ...all] },
+              { place: 'europe:1', label: 'Europe', cargo: [] },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  play: RouteEditor.play,
+};
+
 const head = <K extends ReportView['report']>(report: K) => ({ report, title: `Report`, ok: 'OK', back: null });
 const unit = { id: 'unit:1', name: 'Free Colonist', keys: ['image.unit.model.unit.freeColonist'] };
 const report = (e: ReportView) => ({ show: ['report', e as GuiEvents['report']] }) as { show: Show };
