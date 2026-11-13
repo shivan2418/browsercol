@@ -465,6 +465,52 @@ describe('a window laid out at fixed sizes fits the screen (#380, #377)', () => 
     const narrow = fitScale(colony, { w: 1000, h: 2000 }, 1)!;
     expect(colony.w * narrow).toBeLessThanOrEqual(1000 * 0.96);
   });
+  it('scales a window down again when it grows past the screen after it opened', () => {
+    // jsdom lays nothing out: the window's own size and the screen's are stubbed, and ResizeObserver is a stand-in.
+    const observers: (() => void)[] = [];
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(private readonly call: () => void) {}
+        observe() {
+          observers.push(this.call);
+        }
+        disconnect() {}
+      },
+    );
+    const size = { w: 1184, h: 600 };
+    const width = vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockImplementation(() => size.w);
+    const height = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(() => size.h);
+    const screenW = vi.spyOn(document.documentElement, 'clientWidth', 'get').mockReturnValue(1280);
+    const screenH = vi.spyOn(document.documentElement, 'clientHeight', 'get').mockReturnValue(800);
+    try {
+      const { container } = render(
+        <WindowFrame title="Metropolis" close={null} fit>
+          x
+        </WindowFrame>,
+      );
+      const dialog = container.querySelector('[role=dialog]') as HTMLElement;
+      // It opens small, before its rows and pictures have come: it fits at 100%.
+      expect(dialog.style.getPropertyValue('--fit')).toBe('1');
+      // Then it grows to 833px on an 800px screen (the colony panel on build 15): it is scaled down to fit.
+      size.h = 833;
+      act(() => observers.forEach((o) => o()));
+      const grown = Number(dialog.style.getPropertyValue('--fit'));
+      expect(grown).toBeLessThan(1);
+      expect(833 * grown).toBeLessThanOrEqual(800 * 0.96);
+      // Its change of scale moves its own size by a pixel or two: that is not worked out again.
+      size.h = 831;
+      dialog.style.setProperty('--fit', 'kept');
+      act(() => observers.forEach((o) => o()));
+      expect(dialog.style.getPropertyValue('--fit')).toBe('kept');
+    } finally {
+      width.mockRestore();
+      height.mockRestore();
+      screenW.mockRestore();
+      screenH.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
   it('leaves a window with no layout alone', () => {
     expect(fitScale({ w: 0, h: 0 }, { w: 1280, h: 720 }, 1)).toBeNull();
   });

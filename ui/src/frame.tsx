@@ -154,25 +154,35 @@ function useFitToScreen(box: { current: HTMLElement | null }, fit: boolean) {
   useLayoutEffect(() => {
     const el = box.current;
     if (!fit || !el) return;
+    /** The window's own size the scale was last worked out for. */
+    let measured = { w: 0, h: 0 };
     const apply = () => {
       const ui = Number(getComputedStyle(document.documentElement).getPropertyValue('--ui-zoom')) || 1;
       const root = document.documentElement;
-      const scale = fitScale(
-        { w: el.offsetWidth, h: el.offsetHeight },
-        { w: root.clientWidth, h: root.clientHeight },
-        ui,
-      );
+      measured = { w: el.offsetWidth, h: el.offsetHeight };
+      const scale = fitScale(measured, { w: root.clientWidth, h: root.clientHeight }, ui);
       if (scale !== null) el.style.setProperty('--fit', String(scale));
     };
     apply();
     addEventListener('resize', apply);
     // The UI scale and the font size, which sets a fixed-size window's own size, are set on the root's style
-    // (main.tsx). (A ResizeObserver on the window would see its own change of scale, and loop.)
+    // (main.tsx).
     const scaled = new MutationObserver(apply);
     scaled.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
+    // The window grows after it opens, as its content comes (the colony panel's rows, its pictures): measured
+    // only then, a 1280x800 screen cut the colony panel off top and bottom. Its own size is in its own pixels,
+    // which its change of scale moves by a pixel or two at most, so only a bigger change works the scale out again.
+    const grown =
+      typeof ResizeObserver === 'function'
+        ? new ResizeObserver(() => {
+            if (Math.abs(el.offsetWidth - measured.w) > 2 || Math.abs(el.offsetHeight - measured.h) > 2) apply();
+          })
+        : null;
+    grown?.observe(el);
     return () => {
       removeEventListener('resize', apply);
       scaled.disconnect();
+      grown?.disconnect();
     };
   }, [box, fit]);
 }
