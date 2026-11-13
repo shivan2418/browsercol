@@ -99,15 +99,15 @@ for (const browserName of browserNames('chromium')) {
     await page.mouse.move(600, 12);
     await shot('game');
 
-    // The reports, by their keys, as the carousel's and a few more.
+    // The reports, by FreeCol's keys for them (reports.tsx, #478), as the carousel's and a few more.
     for (const [key, name] of [
-      ['Shift+F3', 'colonies'],
-      ['Shift+F6', 'congress'],
-      ['Shift+F4', 'foreign-affairs'],
-      ['Shift+F2', 'labour'],
-      ['Shift+F5', 'native-affairs'],
-      ['Shift+F7', 'military'],
-      ['Shift+F9', 'trade'],
+      ['F3', 'colonies'],
+      ['F6', 'congress'],
+      ['F4', 'foreign-affairs'],
+      ['F2', 'labour'],
+      ['F5', 'native-affairs'],
+      ['F7', 'military'],
+      ['F9', 'trade'],
     ] as const) {
       await page.keyboard.press(key);
       await page
