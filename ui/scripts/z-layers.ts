@@ -1,6 +1,6 @@
 // The stacking check (#504, docs/adr/0008): in a real game, nothing from the map, the minimap, the info panel, the
-// turn banner or the side panel may draw over a window. At 1280x720 and 1280x800 (where the minimap's buttons once
-// drew over the Preferences), each window that sits over the map's corners and edges is opened, and for a grid of
+// turn banner or the side panel may draw over a window. At 1280x720 and 1280x800, and on a small screen (800x600,
+// where a window reaches the minimap's pictured buttons, which once drew over the Preferences), each window that sits over the map's corners and edges is opened, and for a grid of
 // points inside its box `document.elementFromPoint` must land inside that window. The menu bar's menu must be over
 // the map, and a window's pop-up list over the window.
 //
@@ -30,6 +30,8 @@ fs.copyFileSync(save, named);
 const SIZES = [
   { width: 1280, height: 720 },
   { width: 1280, height: 800 },
+  // A small screen, where a window is as wide as the screen and reaches the minimap's pictured buttons at the left.
+  { width: 800, height: 600 },
 ];
 /** The windows are held open for the check: every kind this script opens. */
 const HELD = 'colony,europe,report,preferences,endTurn,messages';
@@ -43,10 +45,11 @@ const covered = (page: Page, rootSel: string, insideSel: string) =>
       if (!root) return { error: `no ${rootSel}` };
       const inside = [...document.querySelectorAll(insideSel)].pop() ?? root;
       const r = root.getBoundingClientRect();
-      const left = Math.max(r.left, 0);
-      const top = Math.max(r.top, 0);
-      const right = Math.min(r.right, innerWidth) - 1;
-      const bottom = Math.min(r.bottom, innerHeight) - 1;
+      // Inside the edge by two pixels: Firefox rounds a scaled window's box outwards.
+      const left = Math.max(r.left, 0) + 2;
+      const top = Math.max(r.top, 0) + 2;
+      const right = Math.min(r.right, innerWidth) - 3;
+      const bottom = Math.min(r.bottom, innerHeight) - 3;
       const over: string[] = [];
       const N = 12;
       for (let i = 0; i <= N; i++)
@@ -244,4 +247,4 @@ if (failures.length) {
   console.log(`\nFAIL\n${failures.join('\n')}`);
   process.exit(1);
 }
-console.log('every window is on top of the page at 1280x720 and 1280x800');
+console.log('every window is on top of the page at 1280x720, 1280x800 and 800x600');
