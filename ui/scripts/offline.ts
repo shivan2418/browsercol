@@ -1,6 +1,6 @@
 // The installed app's service worker (#296), in the built site: after one visit a second start works with the
 // network gone, with every picture and preset cached, and a new build is offered as a Restart and picked up through it. Chromium only (the install
-// prompt is Chromium's). The "new build" is dist/play/sw.js with another name in it, put back at the end.
+// prompt is Chromium's). Screenshots of the update offer go to .cache/offline/. The "new build" is dist/play/sw.js with another name in it, put back at the end.
 // Run in the web image:
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/offline.ts
 import fs from 'node:fs';
@@ -12,6 +12,8 @@ import { dist, serveDist } from './serve-dist.ts';
 import type { Page } from 'playwright-core';
 
 const server = await serveDist();
+/** The "new version" offer as the player sees it, for a look by eye. */
+const shots = path.resolve(import.meta.dirname, '../../.cache/offline');
 const swFile = path.join(dist, 'play', 'sw.js');
 const original = fs.readFileSync(swFile, 'utf8');
 const browser = await launchBrowser('chromium');
@@ -100,6 +102,9 @@ try {
   });
   await page.waitForSelector('.update-prompt', { timeout: 60000 });
   check('the new version is offered', (await page.textContent('.update-prompt'))!.includes('A new version is ready'));
+  fs.mkdirSync(shots, { recursive: true });
+  await page.screenshot({ path: path.join(shots, 'update-prompt.png') });
+  await page.locator('.update-prompt').screenshot({ path: path.join(shots, 'update-prompt-close.png') });
   // The reload is seen by a marker the old page has and the new one has not.
   await page.evaluate(() => Object.assign(window, { notReloaded: true }));
   await page.click('.update-prompt button');

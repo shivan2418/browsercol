@@ -1,12 +1,14 @@
 /*
- * "A new version is ready" (src/update-prompt.tsx, #296): at the foot of the page until the player restarts. Over
- * the start screen, where a returning player meets it, and over a window; under the loading screen.
+ * "A new version is ready" (src/update-prompt.tsx, #296): at the top of the page, just under the menu bar (the
+ * installed app's title bar is up to 33px), until the player restarts; the map's orders and the unit panel at the
+ * foot stay clear. Over the start screen, where a returning player meets it, and over a window; under the loading
+ * screen.
  */
 @layer components {
   .update-prompt {
     position: fixed;
     left: 50%;
-    bottom: var(--space-6);
+    top: 44px;
     transform: translateX(-50%);
     z-index: var(--z-update);
     display: flex;
