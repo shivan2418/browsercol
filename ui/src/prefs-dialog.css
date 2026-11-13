@@ -8,7 +8,11 @@
     display: flex;
     gap: 8px;
     align-items: stretch;
-    width: min(46em, var(--screen-w) - 32px);
+    /*
+     * The screen less the window's sides (its padding and border, window-frame.css) and 8px of room each side:
+     * a flat 32px left the window 4px over each edge, which showed at 200% on screens under 1536px wide (#503).
+     */
+    width: min(46em, var(--screen-w) - 2 * (var(--space-6) + var(--frame-border)) - 16px);
     height: min(32em, calc(var(--screen-h) * 0.7));
   }
   #preferences .prefs-side {
