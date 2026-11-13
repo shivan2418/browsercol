@@ -40,9 +40,11 @@ async function poll(page: Page, what: string, fn: (arg: string) => unknown, arg 
 try {
   const context = await browser.newContext();
   // In German, so the translation, loaded before the worker is in, has to be kept for the offline start.
-  await context.addInitScript(() =>
-    localStorage.setItem('freecol.prefs', JSON.stringify({ freecol: { 'model.option.languageOption': 'de' } })),
-  );
+  // Only on the first load: the offline audio choice made later in Preferences must stay.
+  await context.addInitScript(() => {
+    if (!localStorage.getItem('freecol.prefs'))
+      localStorage.setItem('freecol.prefs', JSON.stringify({ freecol: { 'model.option.languageOption': 'de' } }));
+  });
   const page = await context.newPage();
   await answerDialogs(page);
   const errors = collectPageErrors(page);
@@ -79,6 +81,55 @@ try {
   );
   check('the German translation is cached', true);
 
+  // The music and sounds: only those played are cached until the player asks for all of them (#505).
+  const audioFiles = listFiles(path.join(dist, 'play', 'audio')).map((f) => `/browsercol/play/audio/${f}`);
+  const cachedAudio = (name: string) =>
+    page.evaluate(
+      async (n) =>
+        (await (await window.caches.open(n)).keys())
+          .map((r) => new URL(r.url).pathname)
+          .filter((p) => p.includes('/audio/')),
+      name,
+    );
+  check(
+    `not every audio file is cached before the player asks (${(await cachedAudio(cache)).length})`,
+    (await cachedAudio(cache)).length < audioFiles.length,
+  );
+  await page.keyboard.press('Control+p');
+  await page.locator('#preferences').waitFor({ timeout: 20000 });
+  await page.locator('[data-category="clientOptions.audio"]').click();
+  const control = page.locator('[data-pref=offlineAudio]');
+  await control.waitFor({ timeout: 20000 });
+  fs.mkdirSync(shots, { recursive: true });
+  await poll(
+    page,
+    'the worker to answer the audio status',
+    () => document.querySelector('[data-pref=offlineAudio]')?.getAttribute('data-status') === 'idle',
+  );
+  check('the control is enabled once a worker controls the page', await control.locator('button').isEnabled());
+  await page.locator('#preferences').screenshot({ path: path.join(shots, 'prefs-audio-before.png') });
+  await control.locator('button').click();
+  await poll(
+    page,
+    'the audio download to finish',
+    () => document.querySelector('[data-pref=offlineAudio]')?.getAttribute('data-status') === 'done',
+  );
+  console.log(`     ${await control.locator('[data-offline-audio-note]').textContent()}`);
+  check('the control says it is saved', ((await control.textContent()) ?? '').includes('Saved for offline'));
+  check('it offers Remove', (await control.locator('button').textContent()) === 'Remove');
+  await page.locator('#preferences').screenshot({ path: path.join(shots, 'prefs-audio-done.png') });
+  const audioNow = await cachedAudio(cache);
+  const lacking = audioFiles.filter((f) => !audioNow.includes(f));
+  check(
+    `every file of audio/ is cached (${audioFiles.length - lacking.length}/${audioFiles.length})`,
+    lacking.length === 0,
+  );
+  check(
+    'the browser was asked to keep the storage',
+    await page.evaluate(() => navigator.storage.persisted()).then((p) => typeof p === 'boolean'),
+  );
+  await page.keyboard.press('Escape');
+
   // Straight after the first visit, with no second load online.
   await context.setOffline(true);
   await page.goto(url);
@@ -91,6 +142,15 @@ try {
     return (await (await fetch(link.href)).json()) as { icons: { src: string }[] };
   });
   check('the manifest is linked and has icons', manifest.icons.length === 3);
+  // A track this page never played, with the network gone: a whole one, and a range of it as an audio element asks.
+  const track = audioFiles[audioFiles.length - 1]!;
+  const fetched = await page.evaluate(async (file) => {
+    const whole = await fetch(file);
+    const range = await fetch(file, { headers: { Range: 'bytes=0-99' } });
+    return { ok: whole.ok, bytes: (await whole.arrayBuffer()).byteLength, range: range.status };
+  }, track);
+  check(`a track never played loads offline (${track}, ${fetched.bytes} bytes)`, fetched.ok && fetched.bytes > 1000);
+  check('and answers a range request', fetched.range === 206);
   check('the page drew no errors offline', errors.length === 0);
   await context.setOffline(false);
 
@@ -112,6 +172,17 @@ try {
   await waitForResult(page, 300000);
   const kept = await page.evaluate(async () => (await window.caches.keys()).filter((k) => k.startsWith('browsercol-')));
   check(`Restart swaps the build and drops the old cache (${kept.join()})`, kept.join() === 'browsercol-next-build');
+  // The player chose the audio: the new build's fresh cache is filled again, without asking.
+  await poll(
+    page,
+    'the audio in the new build cache',
+    async (arg: string) => {
+      const [name, count] = arg.split('|');
+      return (await (await caches.open(name!)).keys()).filter((r) => r.url.includes('/audio/')).length >= Number(count);
+    },
+    `browsercol-next-build|${audioFiles.length}`,
+  );
+  check(`the new build's cache gets the audio again by itself (${audioFiles.length} files)`, true);
 } catch (ex) {
   console.log(`FAILED: ${await diagnose(ex)}`);
   failed = true;

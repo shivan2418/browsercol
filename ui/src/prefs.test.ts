@@ -80,6 +80,13 @@ describe('prefs', () => {
     expect(parsePrefs('{"playHidden":"yes"}').playHidden).toBe(false);
   });
 
+  it('keeps the music for offline play only when the player chose it (#505)', () => {
+    expect(DEFAULTS.offlineAudio).toBe(false);
+    expect(parsePrefs(null).offlineAudio).toBe(false);
+    expect(parsePrefs('{"offlineAudio":true}').offlineAudio).toBe(true);
+    expect(parsePrefs('{"offlineAudio":1}').offlineAudio).toBe(false);
+  });
+
   it('mutes the music and the sound effects apart, keeping their volumes', () => {
     const p = {
       ...DEFAULTS,

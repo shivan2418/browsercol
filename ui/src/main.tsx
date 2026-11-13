@@ -159,6 +159,7 @@ import { mobileNotice } from './mobile-notice';
 import { loadModule } from './teavm';
 import { applyTheme } from './theme';
 import { registerServiceWorker, syncThemeColor } from './install';
+import { audioLink, offlineAudio } from './offline-audio';
 import { UpdatePrompt } from './update-prompt';
 import { controlArt } from './control-art';
 import { cursor, initialView, panel, reduce, tileOnScreen, W, type ViewEvent, type ViewState } from './view';
@@ -708,6 +709,8 @@ function setPrefs(p: Prefs) {
   prefs = p;
   savePrefs(p);
   applyLook(p);
+  // The player's own change: the worker downloads the audio, or drops it (#505).
+  if (p.offlineAudio !== was.offlineAudio) offlineAudio.want(p.offlineAudio, true);
   void sound.then((s) => s?.setVolumes(volumes(p)));
   followVisibility();
   const changed = Object.fromEntries(Object.entries(p.freecol).filter(([id, v]) => was.freecol[id] !== v));
@@ -971,12 +974,16 @@ keepTabOnPage();
 // The installed app plays offline (#296): a new build waiting is offered as a Restart, never forced mid-game.
 // Registered once the page has loaded, so the worker's downloads come after the page's own. entry.ts imports this
 // module, so the page has usually loaded already.
-const registerWorker = () =>
+const registerWorker = () => {
   void registerServiceWorker((restart) => {
     const host = document.createElement('div');
     document.body.append(host);
     createRoot(host).render(<UpdatePrompt onRestart={restart} />);
   });
+  // A player who chose the music offline gets it into each new build's cache too (#505).
+  offlineAudio.want(prefs.offlineAudio);
+  offlineAudio.attach(audioLink());
+};
 if (document.readyState === 'complete') registerWorker();
 else window.addEventListener('load', registerWorker, { once: true });
 /** Our colony as the colony panel shows it, once the client Engine has loaded (ClientExports.colony). */
