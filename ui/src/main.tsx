@@ -1413,7 +1413,11 @@ const gui: GuiHandlers = {
       side.route = e.route;
       // Another unit (or none) takes the camera off the one that slides: it waits until that one has slid.
       const jump = pageOption(prefs, 'model.option.jumpToActiveUnit');
-      viewChanges.change(() => dispatch({ k: 'activeUnit', ...e, jump }), e.unit !== view.active?.unit);
+      viewChanges.change(
+        () => dispatch({ k: 'activeUnit', ...e, jump }),
+        e.unit !== view.active?.unit,
+        e.unit ?? undefined,
+      );
       noUnitHeard = e.unit === null ? lastTurn : undefined;
       renderSide();
       autoEndTurn();
@@ -1499,7 +1503,9 @@ const afterSlide = slideGate(() => map.settled());
 const viewChanges = viewHold(
   () => map.sliding(),
   () => map.settled(),
+  () => map.stepsSeen(),
 );
+map.onRun((end, unit) => viewChanges.reach(end, unit));
 window.fcSettled = async () => {
   await map.settled();
   await viewChanges.idle();

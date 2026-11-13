@@ -1,5 +1,18 @@
 import { describe, expect, it } from 'vite-plus/test';
-import { BLINK_MS, OPTION_MS, blink, length, path, slide, stepMs, carryOn, track, type Step } from './motion';
+import {
+  BLINK_MS,
+  OPTION_MS,
+  blink,
+  length,
+  path,
+  rewind,
+  runs,
+  slide,
+  stepMs,
+  carryOn,
+  track,
+  type Step,
+} from './motion';
 import { tileOrigin } from './view';
 
 const step = (from: [number, number], to: [number, number], unit = 'unit:1', speed: number | null = null): Step => ({
@@ -134,5 +147,65 @@ describe('blink', () => {
     expect(blink(0)).toBe(1);
     expect(blink(BLINK_MS * 0.9)).toBeLessThan(1);
     expect(blink(BLINK_MS)).toBe(1);
+  });
+});
+
+describe('runs', () => {
+  it("splits a batch into one run for each unit's consecutive steps, in the Engine's order", () => {
+    const batch = [
+      step([1, 1], [2, 1]),
+      step([5, 5], [6, 5], 'unit:2'),
+      step([6, 5], [7, 5], 'unit:2'),
+      step([9, 9], [9, 8], 'unit:3'),
+    ];
+    expect(runs(batch).map((r) => r.map((s) => s.unit))).toEqual([['unit:1'], ['unit:2', 'unit:2'], ['unit:3']]);
+  });
+
+  it('starts a new run where a unit does not go on from where it was', () => {
+    expect(runs([step([1, 1], [2, 1]), step([4, 4], [5, 4])]).length).toBe(2);
+  });
+
+  it('has no runs for no steps', () => {
+    expect(runs([])).toEqual([]);
+  });
+});
+
+describe('rewind', () => {
+  const unit = (x: number, y: number) => ({
+    x,
+    y,
+    keys: ['colonist'],
+    rgb: 1,
+    chip: 'F',
+    fg: 0,
+    stack: 1,
+    fade: false,
+  });
+
+  it('puts the units of the runs still to play back on the tiles they set off from', () => {
+    const now = [unit(2, 1), unit(7, 5)];
+    const back = rewind(now, [[step([6, 5], [7, 5], 'unit:2')]]);
+    expect(back.map((u) => [u.x, u.y])).toEqual([
+      [2, 1],
+      [6, 5],
+    ]);
+    expect(now.map((u) => [u.x, u.y])).toEqual([
+      [2, 1],
+      [7, 5],
+    ]);
+  });
+
+  it('puts a unit that moved in two later runs back on where the first set off', () => {
+    const back = rewind([unit(9, 9)], [[step([1, 1], [5, 5], 'unit:2')], [step([5, 5], [9, 9], 'unit:2')]]);
+    expect(back.map((u) => [u.x, u.y])).toEqual([[1, 1]]);
+  });
+
+  it('adds the unit when the tile it came to shows another (it went into a colony)', () => {
+    const colonist = { ...unit(7, 5), keys: ['wagon'] };
+    const back = rewind([colonist], [[step([6, 5], [7, 5], 'unit:2')]]);
+    expect(back.map((u) => [u.x, u.y])).toEqual([
+      [7, 5],
+      [6, 5],
+    ]);
   });
 });

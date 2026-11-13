@@ -78,6 +78,8 @@ import {
   carryOn,
   track,
   type Path,
+  rewind,
+  runs,
   type Step,
   type Track,
 } from './motion';
@@ -1750,6 +1752,14 @@ export function mapDrawer(
   draw(map: MapView): Promise<void>;
   /** A step the Engine says a unit took; it slides when the next map is drawn. */
   moved(step: Step): void;
+  /** How many steps the Engine has told of in all: what a view change that comes after some of them remembers. */
+  stepsSeen(): number;
+  /**
+   * What the drawer calls before it plays each of several runs of steps in a batch (several units' orders carried
+   * out after the last move): the `end`th step is the run's last, `unit` its unit. It resolves once the view changes
+   * that belong before the run have been made.
+   */
+  onRun(hook: (end: number, unit: string) => Promise<void>): void;
   /**
    * Resolves once the steps told of have been drawn and the unit has slid to its tile, as SwingGUI's animation
    * is over before the dialogs a move brings open; at most `maxMs` later, should no map come.
@@ -1798,6 +1808,9 @@ export function mapDrawer(
   const panels = new Set<(ops: Op[]) => void>();
   /** The steps the Engine told of since the last map was asked to be drawn. */
   let steps: Step[] = [];
+  /** How many steps have come in all, and what is called before each run of a batch plays (onRun). */
+  let stepsSeen = 0;
+  let beforeRun: (end: number, unit: string) => Promise<void> = () => Promise.resolve();
   /**
    * The unit sliding along its tiles now, when it set off, and its track from there. A slide that set off on the
    * Engine's word of the step, before the map that has the unit on its new tile came, is `early` until that map is
@@ -2289,6 +2302,41 @@ export function mapDrawer(
     started();
   }
 
+  /**
+   * Wait until the slide under way is over, as Swing's animation is before the next unit moves, and end it. Timed
+   * rather than waiting on the animation frames, which a hidden tab does not get.
+   */
+  async function slideOut() {
+    while (sliding) {
+      const left = length(sliding.track) - (performance.now() - sliding.since);
+      if (left <= 0) break;
+      await new Promise((ok) => setTimeout(ok, Math.max(16, left)));
+    }
+    sliding = null;
+    blinkFrom = performance.now();
+  }
+
+  /**
+   * Draw a map with the steps it has: several own units' runs of steps (the orders FreeCol carries out after the
+   * last move) play one run after the other, as Swing animates each before the next unit moves. While a run plays the
+   * runs after it have their units on the tiles they set off from, and the active unit does not blink; the view
+   * changes that came with a run are made before it plays (onRun), so the camera comes to its unit. A single run, or
+   * another player's steps, are drawn at once, as before.
+   */
+  async function play(map: MapView, moved: Step[], seen: number) {
+    const all =
+      moved.length > 1 && moveMs > 0 && map.ourTurn && moved.every((s) => s.speed === null) ? runs(moved) : [];
+    if (all.length < 2) return drawNow(map, moved);
+    let end = seen - moved.length;
+    for (let i = 0; i < all.length; i++) {
+      end += all[i].length;
+      await beforeRun(end, all[i][0].unit);
+      if (i === all.length - 1) return drawNow(map, all[i]);
+      await drawNow({ ...map, active: null, units: rewind(map.units, all.slice(i + 1)) }, all[i]);
+      await slideOut();
+    }
+  }
+
   async function drawNow(map: MapView, moved: Step[]) {
     const before = drawn;
     drawn = map;
@@ -2405,15 +2453,21 @@ export function mapDrawer(
     draw: (map) => {
       // The steps belong to this map: they came before it, and those after it go with the next.
       const moved = steps;
+      const seen = stepsSeen;
       steps = [];
       if (moved.length) slideMark('map');
       const shown = firstFrame;
-      return (drawing = drawing.then(() => shown).then(() => drawNow(map, moved)));
+      return (drawing = drawing.then(() => shown).then(() => play(map, moved, seen)));
     },
     moved: (step) => {
       if (!steps.length) slideMark('step');
       steps.push(step);
+      stepsSeen++;
       slideEarly(step);
+    },
+    stepsSeen: () => stepsSeen,
+    onRun: (hook) => {
+      beforeRun = hook;
     },
     sliding: () => sliding !== null || steps.length > 0,
     settled: async (maxMs = 5000) => {

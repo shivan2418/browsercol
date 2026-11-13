@@ -2,6 +2,7 @@
 // along the tiles the Engine says it stepped to, as FreeCol animates a move,
 // and the slow blink of the active unit.
 import { H, W, tileOrigin } from './view';
+import type { Unit } from './tileset';
 import type { GuiEvents } from './webgui';
 
 /** A step of a unit to the next tile, as the Engine tells of it (WebGUI.animateUnitMove). */
@@ -66,6 +67,43 @@ export function path(all: Step[]): Path | null {
     tiles.push(s.to);
   }
   return { step: steps[steps.length - 1], tiles };
+}
+
+/**
+ * A batch of steps as the runs it plays in: each unit's consecutive steps that go on from each other, in the order the
+ * Engine told of them. The orders carried out after the player's last move (FreeCol's doExecuteGotoOrders) are
+ * several units' steps in one batch, which Swing plays one unit after the other.
+ */
+export function runs(all: Step[]): Step[][] {
+  const out: Step[][] = [];
+  for (const s of all) {
+    const run = out[out.length - 1];
+    const prev = run?.[run.length - 1];
+    if (run && prev.unit === s.unit && prev.to.join() === s.from.join()) run.push(s);
+    else out.push([s]);
+  }
+  return out;
+}
+
+/**
+ * The units as they are before the `later` runs: each unit of those runs on the tile it set off from rather than the
+ * one it came to, for a scene drawn while an earlier run plays. The last run is put back first, so a unit that moves in
+ * two runs ends on where the first set off. The units given are left as they are.
+ */
+export function rewind(units: Unit[], later: Step[][]): Unit[] {
+  const out = [...units];
+  for (let i = later.length - 1; i >= 0; i--) {
+    const run = later[i];
+    const first = run[0];
+    const to = run[run.length - 1].to;
+    const at = out.findIndex(
+      (u) => u.x === to[0] && u.y === to[1] && u.rgb === first.rgb && u.keys.join() === first.keys.join(),
+    );
+    if (at >= 0) out.splice(at, 1);
+    const { keys, rgb, chip, fg } = first;
+    out.push({ x: first.from[0], y: first.from[1], keys, rgb, chip, fg, stack: 1, fade: false });
+  }
+  return out;
 }
 
 type Point = [number, number];

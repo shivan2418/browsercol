@@ -89,3 +89,40 @@ describe('viewHold', () => {
     expect(seen).toEqual(['next unit']);
   });
 });
+
+describe('viewHold with a batch of steps played in turn', () => {
+  it('holds a change behind the steps before it until the run that ends there is played', async () => {
+    let steps = 0;
+    const hold = viewHold(
+      () => steps > 0,
+      () => new Promise<void>(() => {}),
+      () => steps,
+    );
+    const seen: string[] = [];
+    steps = 1;
+    hold.change(() => seen.push('next unit'), true, 'unit:2');
+    steps = 3;
+    hold.change(() => seen.push('unit 2 at its new tile'), false, 'unit:2');
+    hold.change(() => seen.push('messages'), true);
+    expect(seen).toEqual([]);
+    // The run of steps 2 and 3 is about to play: what came in it, for its unit, comes first.
+    await hold.reach(3, 'unit:2');
+    expect(seen).toEqual(['next unit', 'unit 2 at its new tile']);
+  });
+
+  it('does not run a change that came after the last step of a run for another unit before the run', async () => {
+    let steps = 1;
+    const hold = viewHold(
+      () => true,
+      () => new Promise<void>(() => {}),
+      () => steps,
+    );
+    const seen: string[] = [];
+    hold.change(() => seen.push('unit 3'), true, 'unit:3');
+    steps = 2;
+    await hold.reach(1, 'unit:2');
+    expect(seen).toEqual([]);
+    await hold.reach(2, 'unit:3');
+    expect(seen).toEqual(['unit 3']);
+  });
+});

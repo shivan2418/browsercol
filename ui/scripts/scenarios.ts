@@ -8,6 +8,8 @@
 //                      Europe panels, the reports and a save
 //   combat             ?preset=combat: the army beside a French colony and a native village at war, and a privateer
 //                      and a frigate beside a loaded French galleon; attacks until the army has had its fights
+//   orders-in-turn     the owner's save, turn 197: the frigate's last move carries out the trade routes of four other units
+//                      in the same command; each plays in turn, and the camera follows each (#502)
 //   capture-goods, dump-cargo, native-demand, diplomacy, independence, victory (#349 part 5)
 //                      each leads the player to a dialog no game reaches by itself, answers it, and checks the
 //                      game went on; the dialog is shot open as .cache/dialog-shots/METHOD-BROWSER.png
@@ -952,6 +954,60 @@ const scenarios: Record<string, (run: Run) => Promise<void>> = {
     await waitKind(run, 'colony', 'once the pop-up is closed and no unit waits, the criminal arrives', 30000);
     await hold(run, null);
     await clickIn(run, 'colony', '[data-answer=close]');
+  },
+  // The orders carried out after the player's last move play one unit after another, the camera on each (#502).
+  // The owner's save: end the turn, sentry every unit but the frigate, move it until its moves are gone. The last move's
+  // command carries out the Go To and trade route orders of the other units; the camera is sampled through it.
+  'orders-in-turn': async (run) => {
+    const page = run.page;
+    type Sample = { t: number; c: [number, number]; a: string | null };
+    await loadSave(run, path.join(root, 'engine/src/test/resources/trade-routes/frigate-last-move.fsg'));
+    await run.endTurn();
+    const frigate = 'unit:6917';
+    for (let i = 0; i < 80; i++) {
+      await run.noDialog();
+      const id = (await run.view()).activeUnit?.id;
+      if (id === frigate) break;
+      if (!id) throw new Error('no unit is active before the frigate');
+      const before = await page.evaluate(() => window.__maps);
+      await page.keyboard.press('s');
+      await page.waitForFunction((n: number) => window.__maps > n, before, { timeout: 15000 });
+    }
+    if ((await run.view()).activeUnit?.id !== frigate) throw new Error('the frigate is not the active unit');
+    await run.shot('before');
+    const keys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
+    for (let i = 0; i < 24; i++) {
+      await page.evaluate(() => {
+        const w = window as unknown as { __cam: Sample[]; __camTimer: number };
+        clearInterval(w.__camTimer);
+        w.__cam = [];
+        const t0 = performance.now();
+        w.__camTimer = window.setInterval(() => {
+          const v = window.fcView();
+          w.__cam.push({ t: Math.round(performance.now() - t0), c: [...v.centre] as [number, number], a: v.activeUnit?.id ?? null });
+        }, 30);
+      });
+      const before = await page.evaluate(() => window.__maps);
+      await page.keyboard.press(keys[i % keys.length]);
+      await page.waitForFunction((n: number) => window.__maps > n, before, { timeout: 15000 }).catch(() => {});
+      // Shots through the play.
+      for (let k = 0; k < 14; k++) {
+        await sleep(600);
+        await run.shot(`move-${i}-${k}`);
+      }
+      const now = (await run.view()).activeUnit?.id ?? null;
+      if (now !== frigate) {
+        const cam = await page.evaluate(() => (window as unknown as { __cam: Sample[] }).__cam);
+        const places = new Set(cam.map((s) => s.c.join()));
+        const jumps = cam.filter((s, j) => j > 0 && Math.hypot(s.c[0] - cam[j - 1].c[0], s.c[1] - cam[j - 1].c[1]) > 400);
+        run.note(`the last move was key ${i}; the camera was at ${places.size} places in ${cam.length} samples, ${jumps.length} jumps over 400 px`);
+        run.note(`active at the end: ${now}; the samples' active units: ${[...new Set(cam.map((s) => s.a))].join(' ')}`);
+        fs.writeFileSync(path.join(cache, 'orders-in-turn-camera.json'), JSON.stringify(cam));
+        if (places.size < 15) throw new Error(`the camera did not follow the units: ${places.size} places`);
+        return;
+      }
+    }
+    throw new Error('the frigate never used its last move');
   },
   'desktop-late-game': async (run) => {
     await loadSave(run, path.join(saves, '2026-11-04-desktop-long-game-turn173.fsg'));

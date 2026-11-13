@@ -14,19 +14,59 @@ export function afterSlide(settled: () => Promise<void>) {
  * came. One that would take the camera off the unit that slides waits until it has slid to its tile, as Swing
  * finishes the animation before it changes the view, and those after it wait their turn behind it. `idle` resolves
  * once none is waiting.
+ *
+ * A batch of several units' steps (orders carried out after the last move) plays one unit's run at a time, and
+ * `seen` counts the steps told of: a change waiting remembers how many came before it. The map drawer says with
+ * `reach` that it is about to play a run of steps up to the `end`th, of a `unit`: the changes before that run, and
+ * those right after it that are for the unit, run first, so the camera comes to the unit as it sets off. The rest wait
+ * for the run's slide, as before.
  */
-export function viewHold(sliding: () => boolean, settled: () => Promise<void>) {
-  let held: Promise<void> | null = null;
+export function viewHold(sliding: () => boolean, settled: () => Promise<void>, seen: () => number = () => 0) {
+  interface Held {
+    run: () => void;
+    off: boolean;
+    at: number;
+    unit?: string;
+  }
+  const queue: Held[] = [];
+  let working: Promise<void> | null = null;
+  const go = (h: Held) => {
+    try {
+      h.run();
+    } catch (ex) {
+      console.error(ex);
+    }
+  };
+  async function drain(): Promise<void> {
+    while (queue.length) {
+      const h = queue[0];
+      if (h.off && sliding()) await settled();
+      // `reach` may have run it while it waited.
+      if (queue[0] !== h) continue;
+      queue.shift();
+      go(h);
+    }
+  }
+  const start = () => {
+    if (working) return;
+    const w = drain().finally(() => {
+      if (working === w) working = null;
+    });
+    working = w;
+  };
   return {
-    change(run: () => void, offTheUnit: boolean): void {
-      if (!held && !(offTheUnit && sliding())) return run();
-      const next = (held ?? settled()).then(run).catch((ex: unknown) => console.error(ex));
-      held = next;
-      void next.then(() => {
-        if (held === next) held = null;
-      });
+    change(run: () => void, offTheUnit: boolean, unit?: string): void {
+      if (!queue.length && !(offTheUnit && sliding())) return run();
+      queue.push({ run, off: offTheUnit, at: seen(), unit });
+      start();
     },
-    idle: (): Promise<void> => held ?? Promise.resolve(),
+    /** About to play the run that ends at the `end`th step, for `unit`: run the changes that belong before it. */
+    async reach(end: number, unit: string): Promise<void> {
+      while (queue.length && (queue[0].at < end || (queue[0].at === end && queue[0].unit === unit))) go(queue.shift()!);
+    },
+    idle: async (): Promise<void> => {
+      while (working) await working;
+    },
   };
 }
 
