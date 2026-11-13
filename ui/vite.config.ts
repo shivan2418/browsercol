@@ -4,7 +4,7 @@ import path from 'node:path';
 import { defineConfig, type Plugin } from 'vite-plus';
 import { buildId } from './scripts/build-id.ts';
 import { layerPageStyles } from './scripts/page-styles.ts';
-import { cacheBuild, listFiles, manifest, precacheList, serviceWorker } from './scripts/pwa.ts';
+import { audioList, cacheBuild, listFiles, manifest, precacheList, serviceWorker } from './scripts/pwa.ts';
 
 /**
  * The installable app (#267): beside the built site, the web app manifest, and (#296) the service worker that
@@ -33,7 +33,10 @@ function installable(build: string): Plugin {
         .digest('hex')
         .slice(0, 8);
       const template = fs.readFileSync('sw.template.js', 'utf8');
-      fs.writeFileSync(path.join(outDir, 'sw.js'), serviceWorker(template, cacheBuild(build, fingerprint), shell));
+      fs.writeFileSync(
+        path.join(outDir, 'sw.js'),
+        serviceWorker(template, cacheBuild(build, fingerprint), shell, audioList(outDir)),
+      );
     },
   };
 }

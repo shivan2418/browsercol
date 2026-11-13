@@ -45,8 +45,86 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'skip-waiting') self.skipWaiting();
+  const type = event.data && event.data.type;
+  if (type === 'skip-waiting') self.skipWaiting();
+  // The music and sounds, cached whole on the player's say (#505): the page asks, and the worker reports.
+  else if (type === 'cache-audio') event.waitUntil(cacheAudio());
+  else if (type === 'drop-audio') event.waitUntil(dropAudio());
+  else if (type === 'audio-status') event.waitUntil(report(false));
 });
+
+/** Every audio file as [URL, bytes]: the build's list, put in by ui/scripts/pwa.ts. */
+const AUDIO = __AUDIO__.map(([file, bytes]) => [new URL(file, scope).href, bytes]);
+const AUDIO_TOTAL = AUDIO.reduce((sum, [, bytes]) => sum + bytes, 0);
+/** How many files are fetched at once. */
+const AUDIO_PARALLEL = 3;
+/** The fill that is running, and whether it was told to stop. */
+let filling = null;
+let stop = false;
+/** Files the running fill could not fetch. */
+let failed = 0;
+
+/** Tell every open page how far the audio is: 'working' while a fill runs, else 'done' once every file is in. */
+async function report(working) {
+  const cache = await caches.open(CACHE);
+  const have = new Set((await cache.keys()).map((r) => r.url));
+  const got = AUDIO.filter(([url]) => have.has(url));
+  const bytes = got.reduce((sum, [, size]) => sum + size, 0);
+  const state = working ? 'working' : got.length === AUDIO.length && AUDIO.length > 0 ? 'done' : 'idle';
+  const message = {
+    type: 'audio-progress',
+    state,
+    done: got.length,
+    total: AUDIO.length,
+    bytes,
+    totalBytes: AUDIO_TOTAL,
+    failed,
+  };
+  for (const client of await self.clients.matchAll()) client.postMessage(message);
+}
+
+/** Fetch the audio files the cache lacks, a few at a time. One failing file is counted, not the end of the rest. */
+function cacheAudio() {
+  if (!filling) {
+    stop = false;
+    failed = 0;
+    filling = fill().finally(() => {
+      filling = null;
+    });
+  }
+  return filling;
+}
+
+async function fill() {
+  const cache = await caches.open(CACHE);
+  const have = new Set((await cache.keys()).map((r) => r.url));
+  const queue = AUDIO.filter(([url]) => !have.has(url));
+  await report(true);
+  const worker = async () => {
+    for (let next = queue.shift(); next && !stop; next = queue.shift()) {
+      try {
+        const response = await fetch(new Request(next[0], { cache: 'reload' }));
+        if (response.status !== 200) throw new Error(String(response.status));
+        if (!stop) await cache.put(next[0], response);
+      } catch {
+        failed++;
+      }
+      await report(true);
+    }
+  };
+  await Promise.all(Array.from({ length: AUDIO_PARALLEL }, worker));
+  await report(false);
+}
+
+/** Drop every audio file from the cache; the ones that play again are cached as they play. */
+async function dropAudio() {
+  stop = true;
+  await filling;
+  const cache = await caches.open(CACHE);
+  for (const [url] of AUDIO) await cache.delete(url);
+  failed = 0;
+  await report(false);
+}
 
 self.addEventListener('fetch', (event) => {
   const request = event.request;

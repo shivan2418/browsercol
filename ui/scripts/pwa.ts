@@ -59,11 +59,24 @@ export function cacheBuild(build: string, fingerprint: string): string {
   return `${build.replace(/[^\w.]+/g, '-')}-${fingerprint}`;
 }
 
-/** The service worker for this build: the template with the build's name and the file list put in. */
-export function serviceWorker(template: string, build: string, shell: string[]): string {
+/** A music or sound file the player can have the worker download for offline play (#505): its URL and size in bytes. */
+export type AudioFile = [file: string, bytes: number];
+
+/** The audio files under `outDir`, by name, for the worker's download (the cache-audio message). */
+export function audioList(outDir: string): AudioFile[] {
+  const dir = path.join(outDir, 'audio');
+  if (!fs.existsSync(dir)) return [];
+  return listFiles(dir)
+    .sort()
+    .map((f) => [`./audio/${f}`, fs.statSync(path.join(dir, f)).size]);
+}
+
+/** The service worker for this build: the template with the build's name, the file list and the audio list put in. */
+export function serviceWorker(template: string, build: string, shell: string[], audio: AudioFile[] = []): string {
   return template
     .replace('__BUILD__', () => JSON.stringify(build))
-    .replace('__SHELL__', () => JSON.stringify(shell, null, 2));
+    .replace('__SHELL__', () => JSON.stringify(shell, null, 2))
+    .replace('__AUDIO__', () => JSON.stringify(audio));
 }
 
 /** Every file under `dir`, relative to it. */

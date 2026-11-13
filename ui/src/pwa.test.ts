@@ -1,3 +1,4 @@
+import vm from 'node:vm';
 import { expect, test } from 'vite-plus/test';
 import template from '../sw.template.js?raw';
 import { cacheBuild, manifest, paletteColours, precacheList, serviceWorker } from '../scripts/pwa.ts';
@@ -53,4 +54,75 @@ test('the service worker is named for the build and lists the shell', () => {
   expect(sw).toContain('"./assets/x.js"');
   expect(sw).not.toContain('__BUILD__');
   expect(sw).not.toContain('__SHELL__');
+});
+
+test('the service worker lists the audio with its sizes for the offline download (#505)', () => {
+  const sw = serviceWorker(template, 'b', ['./'], [['./audio/a.ogg', 1234]]);
+  expect(sw).toContain('[["./audio/a.ogg",1234]]');
+  expect(sw).not.toContain('__AUDIO__');
+});
+
+/** The worker run against a fake cache and network, with the messages it posts to its page. */
+function worker(audio: [string, number][], failing: string[] = []) {
+  const stored = new Map<string, string>();
+  const posted: Record<string, unknown>[] = [];
+  const listeners: Record<string, (e: unknown) => void> = {};
+  const cache = {
+    keys: async () => [...stored.keys()].map((url) => ({ url })),
+    put: async (url: string) => void stored.set(url, 'x'),
+    delete: async (url: string) => stored.delete(url),
+  };
+  const fetched: string[] = [];
+  const self = {
+    registration: { scope: 'https://x.test/play/' },
+    addEventListener: (type: string, fn: (e: unknown) => void) => (listeners[type] = fn),
+    clients: { matchAll: async () => [{ postMessage: (m: Record<string, unknown>) => posted.push(m) }] },
+  };
+  vm.runInNewContext(serviceWorker(template, 'b', ['./'], audio), {
+    self,
+    URL,
+    location: { origin: 'https://x.test' },
+    caches: { open: async () => cache, keys: async () => [] },
+    fetch: async (r: { url: string }) => {
+      fetched.push(r.url);
+      return { status: failing.some((f) => r.url.endsWith(f)) ? 404 : 200 };
+    },
+    Request: class {
+      constructor(public url: string) {}
+    },
+  });
+  const send = async (type: string) => {
+    const waits: Promise<unknown>[] = [];
+    listeners.message!({ data: { type }, waitUntil: (p: Promise<unknown>) => waits.push(p) });
+    await Promise.all(waits);
+  };
+  return { stored, posted, fetched, send };
+}
+
+test('the worker downloads the audio it lacks, counts a failure and goes on, and reports its progress (#505)', async () => {
+  const w = worker(
+    [
+      ['./audio/a.ogg', 100],
+      ['./audio/b.ogg', 200],
+      ['./audio/c.ogg', 300],
+    ],
+    ['b.ogg'],
+  );
+  w.stored.set('https://x.test/play/audio/a.ogg', 'x');
+  await w.send('cache-audio');
+  expect(w.fetched.sort()).toEqual(['https://x.test/play/audio/b.ogg', 'https://x.test/play/audio/c.ogg']);
+  expect([...w.stored.keys()].sort()).toEqual(['https://x.test/play/audio/a.ogg', 'https://x.test/play/audio/c.ogg']);
+  expect(w.posted.at(-1)).toMatchObject({ state: 'idle', done: 2, total: 3, bytes: 400, totalBytes: 600, failed: 1 });
+  expect(w.posted.some((m) => m.state === 'working')).toBe(true);
+});
+
+test('the worker says done once every audio file is in, and drops them on request (#505)', async () => {
+  const w = worker([['./audio/a.ogg', 100]]);
+  await w.send('cache-audio');
+  expect(w.posted.at(-1)).toMatchObject({ state: 'done', done: 1, failed: 0 });
+  await w.send('drop-audio');
+  expect(w.stored.size).toBe(0);
+  expect(w.posted.at(-1)).toMatchObject({ state: 'idle', done: 0 });
+  await w.send('audio-status');
+  expect(w.posted.at(-1)).toMatchObject({ state: 'idle', total: 1 });
 });
