@@ -1,5 +1,15 @@
 [
   {
+    "build": 17,
+    "date": "2026-11-13",
+    "new": [],
+    "fixed": [
+      "The trade route editor grows to fit the screen before it scrolls, so its OK button stays in view.",
+      "The trade route editor's dotted line reaches each stop again when a stop has many goods."
+    ],
+    "changed": []
+  },
+  {
     "build": 16,
     "date": "2026-11-13",
     "new": ["The first public release of BrowserCol."],
