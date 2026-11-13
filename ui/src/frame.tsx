@@ -172,10 +172,18 @@ function useFitToScreen(box: { current: HTMLElement | null }, fit: boolean) {
     // The window grows after it opens, as its content comes (the colony panel's rows, its pictures): measured
     // only then, a 1280x800 screen cut the colony panel off top and bottom. Its own size is in its own pixels,
     // which its change of scale moves by a pixel or two at most, so only a bigger change works the scale out again.
+    // The new scale is set in the next frame: set in the observer's own call, it changes the layout the observer
+    // is still delivering, and the browser reports "ResizeObserver loop completed with undelivered notifications"
+    // as a page error, which the game shows.
+    let frame = 0;
     const grown =
       typeof ResizeObserver === 'function'
         ? new ResizeObserver(() => {
-            if (Math.abs(el.offsetWidth - measured.w) > 2 || Math.abs(el.offsetHeight - measured.h) > 2) apply();
+            if (frame) return;
+            frame = requestAnimationFrame(() => {
+              frame = 0;
+              if (Math.abs(el.offsetWidth - measured.w) > 2 || Math.abs(el.offsetHeight - measured.h) > 2) apply();
+            });
           })
         : null;
     grown?.observe(el);
@@ -183,6 +191,7 @@ function useFitToScreen(box: { current: HTMLElement | null }, fit: boolean) {
       removeEventListener('resize', apply);
       scaled.disconnect();
       grown?.disconnect();
+      cancelAnimationFrame(frame);
     };
   }, [box, fit]);
 }

@@ -468,6 +468,8 @@ describe('a window laid out at fixed sizes fits the screen (#380, #377)', () => 
   it('scales a window down again when it grows past the screen after it opened', () => {
     // jsdom lays nothing out: the window's own size and the screen's are stubbed, and ResizeObserver is a stand-in.
     const observers: (() => void)[] = [];
+    // The new scale is set in the next frame: here, at once.
+    vi.stubGlobal('requestAnimationFrame', (f: FrameRequestCallback) => (f(0), 1));
     vi.stubGlobal(
       'ResizeObserver',
       class {
