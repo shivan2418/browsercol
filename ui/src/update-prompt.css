@@ -1,0 +1,21 @@
+/*
+ * "A new version is ready" (src/update-prompt.tsx, #296): at the foot of the page until the player restarts. Over
+ * the start screen, where a returning player meets it, and over a window; under the loading screen.
+ */
+@layer components {
+  .update-prompt {
+    position: fixed;
+    left: 50%;
+    bottom: var(--space-6);
+    transform: translateX(-50%);
+    z-index: var(--z-update);
+    display: flex;
+    align-items: center;
+    gap: var(--space-5);
+    padding: var(--space-4) var(--space-5);
+    background: var(--menubar);
+    color: var(--menubar-ink);
+    border: var(--border-thick) solid var(--line);
+    font: var(--fs) / 1.4 var(--font);
+  }
+}

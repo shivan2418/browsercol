@@ -158,7 +158,8 @@ import { loading, type PartName } from './loading';
 import { mobileNotice } from './mobile-notice';
 import { loadModule } from './teavm';
 import { applyTheme } from './theme';
-import { syncThemeColor } from './install';
+import { registerServiceWorker, syncThemeColor } from './install';
+import { UpdatePrompt } from './update-prompt';
 import { controlArt } from './control-art';
 import { cursor, initialView, panel, reduce, tileOnScreen, W, type ViewEvent, type ViewState } from './view';
 import type { GuiEvents, GuiHandlers, PopupEvent, ReportView } from './webgui';
@@ -967,6 +968,17 @@ const currentMenus = (): Menu[] => {
 const menuRoot = createRoot(document.getElementById('menubar')!);
 // Tab goes round the page's buttons rather than out to the browser's address bar.
 keepTabOnPage();
+// The installed app plays offline (#296): a new build waiting is offered as a Restart, never forced mid-game.
+// Registered once the page has loaded, so the worker's downloads come after the page's own. entry.ts imports this
+// module, so the page has usually loaded already.
+const registerWorker = () =>
+  void registerServiceWorker((restart) => {
+    const host = document.createElement('div');
+    document.body.append(host);
+    createRoot(host).render(<UpdatePrompt onRestart={restart} />);
+  });
+if (document.readyState === 'complete') registerWorker();
+else window.addEventListener('load', registerWorker, { once: true });
 /** Our colony as the colony panel shows it, once the client Engine has loaded (ClientExports.colony). */
 let colonyNow: (id: string) => string = () => 'null';
 let colonyPull = false;

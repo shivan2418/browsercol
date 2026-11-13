@@ -62,7 +62,8 @@ export async function serveDist(): Promise<Site> {
   let dataFetches = 0;
   const server = http.createServer((req, res) => {
     const name = decodeURIComponent(new URL(req.url!, 'http://x').pathname);
-    if (/\/assets\/data-[^/]*\.json$/.test(name)) dataFetches++;
+    // The service worker's install fetches the data bundle too (X-Precache); only the page's own fetches count.
+    if (/\/assets\/data-[^/]*\.json$/.test(name) && !req.headers['x-precache']) dataFetches++;
     if (!name.startsWith(base)) return res.writeHead(404).end();
     const file = path.join(dist, path.normalize(name.slice(base.length) + (name.endsWith('/') ? 'index.html' : '')));
     if (!file.startsWith(dist) || !fs.existsSync(file) || !fs.statSync(file).isFile()) return res.writeHead(404).end();
