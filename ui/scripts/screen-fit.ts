@@ -39,6 +39,10 @@ if (!fs.existsSync(path.join(root, 'index.json'))) {
   throw new Error(`no built Storybook in ${root}: see the header of this script`);
 }
 
+/** What a story's check is about: its window, or for the menu bar's stories (menu-fit.stories.tsx) the open menu. */
+const TARGET = (story: string) =>
+  story.startsWith('screen-fit-menus--') ? '.menubar [role=menu]' : '[role=dialog].frame';
+
 /** What a story waits for besides the window itself. */
 const WAITS: Record<string, string> = {
   'colony-big-queue': '.queue-body',
@@ -87,37 +91,39 @@ const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
  * Waits for the window to settle: its pictures and the fonts loaded, and its box and its scale (--fit) unchanged for
  * 400 ms, so what is measured is what stays on screen once its content has come, not the window as it opens.
  */
-const settle = (page: Page) =>
-  page.evaluate(() =>
-    document.fonts.ready.then(
-      () =>
-        new Promise<void>((done) => {
-          const state = () => {
-            const d = document.querySelector<HTMLElement>('[role=dialog].frame')!;
-            const loaded = [...d.querySelectorAll('img')]
-              .filter((img) => !img.closest('[aria-hidden=true]'))
-              .every((img) => img.complete);
-            const r = d.getBoundingClientRect();
-            return `${loaded}|${r.x.toFixed(1)},${r.y.toFixed(1)},${r.width.toFixed(1)},${r.height.toFixed(1)}|${d.getAttribute('style')}|${d.querySelectorAll('*').length}`;
-          };
-          let last = '';
-          const start = performance.now();
-          let since = start;
-          const timer = setInterval(() => {
-            const now = performance.now();
-            const s = state();
-            if (s !== last) [last, since] = [s, now];
-            if ((now - since >= 400 && s.startsWith('true')) || now - start > 15000) done(clearInterval(timer));
-          }, 50);
-        }),
-    ),
+const settle = (page: Page, target: string) =>
+  page.evaluate(
+    (target) =>
+      document.fonts.ready.then(
+        () =>
+          new Promise<void>((done) => {
+            const state = () => {
+              const d = document.querySelector<HTMLElement>(target)!;
+              const loaded = [...d.querySelectorAll('img')]
+                .filter((img) => !img.closest('[aria-hidden=true]'))
+                .every((img) => img.complete);
+              const r = d.getBoundingClientRect();
+              return `${loaded}|${r.x.toFixed(1)},${r.y.toFixed(1)},${r.width.toFixed(1)},${r.height.toFixed(1)}|${d.getAttribute('style')}|${d.querySelectorAll('*').length}`;
+            };
+            let last = '';
+            const start = performance.now();
+            let since = start;
+            const timer = setInterval(() => {
+              const now = performance.now();
+              const s = state();
+              if (s !== last) [last, since] = [s, now];
+              if ((now - since >= 400 && s.startsWith('true')) || now - start > 15000) done(clearInterval(timer));
+            }, 50);
+          }),
+      ),
+    target,
   );
 
 /** The problems with a settled window at the viewport: boxes outside it, parts cut off. */
-const problems = (page: Page, parts: string[]) =>
+const problems = (page: Page, target: string, parts: string[]) =>
   page.evaluate(
-    ([parts, slack]) => {
-      const d = document.querySelector<HTMLElement>('[role=dialog].frame')!;
+    ([target, parts, slack]) => {
+      const d = document.querySelector<HTMLElement>(target as string)!;
       const out: string[] = [];
       const vw = document.documentElement.clientWidth;
       const vh = document.documentElement.clientHeight;
@@ -150,7 +156,7 @@ const problems = (page: Page, parts: string[]) =>
       }
       return out;
     },
-    [parts, SLACK] as const,
+    [target, parts, SLACK] as const,
   );
 
 interface Case {
@@ -183,10 +189,11 @@ for (const name of browserNames()) {
       try {
         await page.setViewportSize({ width: w, height: h });
         await page.goto(`${base}/iframe.html?id=${c.story.id}&viewMode=story&globals=uiZoom:${c.scale}`);
-        await page.waitForSelector('[role=dialog].frame', { timeout: 30000 });
+        const target = TARGET(c.story.name);
+        await page.waitForSelector(target, { timeout: 30000 });
         if (WAITS[c.story.name]) await page.waitForSelector(WAITS[c.story.name], { timeout: 10000 });
-        await settle(page);
-        bad.push(...(await problems(page, PARTS[c.story.name] ?? [])));
+        await settle(page, target);
+        bad.push(...(await problems(page, target, PARTS[c.story.name] ?? [])));
       } catch (ex) {
         bad.push(`could not be checked: ${String(ex).split('\n')[0]}`);
       }
