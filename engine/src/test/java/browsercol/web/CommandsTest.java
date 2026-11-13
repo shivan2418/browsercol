@@ -1928,6 +1928,13 @@ class CommandsTest {
         assertTrue(routePanels.get(routePanels.size() - 1).contains("\"Fur run\""),
                    "the panel shows the route");
 
+        // Saved as it is, with nothing changed: still valid, and the panel shows no error.
+        assertNull(commands.saveTradeRoute(id, "Fur run", false,
+            List.of(europe, home), List.of(List.of(tools), List.of(furs))),
+            "a route saved unchanged is accepted");
+        assertTrue(routePanels.get(routePanels.size() - 1).contains("\"error\":null"),
+                   "so the panel has no error to open the editor on");
+
         // Changed: renamed, silenced, a third stop, other goods.
         assertNull(commands.saveTradeRoute(id, "Rum run", true,
             List.of(home, europe, home),
@@ -2345,6 +2352,9 @@ class CommandsTest {
         assertEquals(routeId, serverShip.getTradeRoute().getId(), "the server has it");
         assertSame(player.getTradeRoutes().get(0), ship.getTradeRoute(), "so does the client");
         assertEquals(1, serverRoutes(player).get(0).getAssignedUnits().size());
+        assertNull(commands.saveTradeRoute(routeId, "Cloth run", true,
+            List.of(serverColony.getId(), player.getEurope().getId()),
+            List.of(List.of(cloth.getId()), List.of())), "a followed route saved unchanged is accepted");
 
         // The ship follows the route as turns pass: the cloth leaves the colony.
         int turns = 0;

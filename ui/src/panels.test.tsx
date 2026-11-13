@@ -1945,6 +1945,48 @@ describe('the trade routes panel', () => {
     ]);
   });
 
+  it('saves a route left as it was, and the editor goes once the Engine accepts it', () => {
+    const { box, saved } = host();
+    act(() => box.replace('tradeRoutes', routes()));
+    pick('Fur run (2)');
+    press('Edit Trade Route');
+    press('OK');
+    expect(saved).toEqual([
+      {
+        id: 'tradeRoute:1',
+        name: 'Fur run',
+        silent: false,
+        stops: [
+          { place: 'europe:1', cargo: ['model.goods.tools'] },
+          { place: 'colony:7', cargo: ['model.goods.furs'] },
+        ],
+      },
+    ]);
+    // The Engine sends the routes again, with no error: the list is back, the editor is not.
+    act(() => box.replace('tradeRoutes', routes()));
+    expect(screen.queryByRole('textbox')).toBeNull();
+    expect(screen.getByRole('option', { name: 'Fur run (2)' })).toBeTruthy();
+    // And the panel can be left.
+    press('OK');
+    expect(box.shown('tradeRoutes')).toEqual([]);
+  });
+
+  it('saves once when OK is pressed twice before the Engine answers', () => {
+    // A second save of a new route makes a second route of the same name, which FreeCol refuses as a duplicate:
+    // the editor then reopens on that refusal, over and over.
+    const { box, saved } = host();
+    act(() => box.replace('tradeRoutes', routes()));
+    press('New Trade Route');
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Cotton import' } });
+    press('Add new stop');
+    press('Tools');
+    const ok = screen.getByRole('button', { name: 'OK' });
+    act(() => void fireEvent.click(ok));
+    act(() => void fireEvent.click(ok));
+    act(() => void fireEvent.keyDown(document.body, { key: 'Enter' }));
+    expect(saved.map((d) => d.name)).toEqual(['Cotton import']);
+  });
+
   const stopAt = (i: number) => document.querySelector(`[data-stop="${i}"]`) as HTMLElement;
   const legAt = (i: number) => document.querySelector(`[data-leg="${i}"]`) as HTMLElement | null;
   const pinAt = (i: number) => stopAt(i).querySelector('.pin') as HTMLButtonElement;

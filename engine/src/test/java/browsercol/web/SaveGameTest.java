@@ -205,6 +205,35 @@ class SaveGameTest {
     }
 
     /**
+     * A trade route made before a save is changed after the load as any
+     * route is: saved with nothing changed, it is not taken for a second
+     * route of the same name.
+     */
+    @Test
+    @Timeout(180)
+    void aTradeRouteOfALoadedGameCanBeSavedAsItIs() throws Exception {
+        Session played = playRounds(1);
+        final net.sf.freecol.common.model.Player before = played.client().getClient().getMyPlayer();
+        final String europe = before.getEurope().getId();
+        final String tools = "model.goods.tools";
+        assertEquals(null, played.client().getCommands().saveTradeRoute(null, "Cotton import", false,
+            java.util.List.of(europe, europe),
+            java.util.List.of(java.util.List.of(tools), java.util.List.of())));
+
+        ServerEngine loaded = new ServerEngine(xml -> {});
+        loaded.loadGame(played.server().saveGame(null));
+        Session resumed = login(loaded, 0);
+        final net.sf.freecol.common.model.Player me = resumed.client().getClient().getMyPlayer();
+        assertEquals(1, me.getTradeRoutes().size(), "the route came back once");
+        final String id = me.getTradeRoutes().get(0).getId();
+        assertEquals(null, resumed.client().getCommands().saveTradeRoute(id, "Cotton import", false,
+            java.util.List.of(europe, europe),
+            java.util.List.of(java.util.List.of(tools), java.util.List.of())),
+            "saved as it is, the route is no duplicate of itself");
+        assertEquals(1, me.getTradeRoutes().size(), "still one route");
+    }
+
+    /**
      * A save from desktop FreeCol names its own player, not the browser's
      * default: the client logs in under the save's owner, and a save made
      * from it names that owner again (#69).

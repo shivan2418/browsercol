@@ -1047,7 +1047,15 @@ function RouteEditor({
   const [editing, setEditing] = useState<number | null>(stops[0]?.key ?? null);
   const [folded, setFolded] = useState<ReadonlySet<number>>(new Set());
   const [place, setPlace] = useState('');
-  const ok = () => draft.name.trim() !== '' && save(draft);
+  // Saved once: the Engine answers by sending the routes again, which opens a new editor if the save was refused.
+  // A second save before then (a double click, Enter after a click) would make a second new route of the same
+  // name, which FreeCol refuses as a duplicate, and the editor would reopen on that refusal.
+  const sent = useRef(false);
+  const ok = () => {
+    if (draft.name.trim() === '' || sent.current) return;
+    sent.current = true;
+    save(draft);
+  };
   useEnter(ok);
   const label = (id: string) => e.places.find((p) => p.id === id)?.label ?? id;
   const goods = (id: string) => e.goods.find((g) => g.id === id);
