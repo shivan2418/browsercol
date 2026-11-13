@@ -154,6 +154,7 @@ ${entries.length > 0 ? renderEntries(entries, 'h2') : NOTHING_YET}
           <li><a href="../play/">Play</a></li>
           <li><a href="https://github.com/shivan2418/browsercol">Source on GitHub</a></li>
           <li><a href="https://github.com/shivan2418/browsercol/issues">Report a bug</a></li>
+          <li><a href="../privacy/">Privacy</a></li>
         </ul>
         <p>BrowserCol is free software under the GNU General Public License, like FreeCol.</p>
       </div>

@@ -1,14 +1,15 @@
 // Page views on the website and the game (GoatCounter, docs/adr/0011): tools/site.sh runs this on the deployed site
 // when the GOATCOUNTER_URL repository variable is set, and puts a few lines in each page's <head> that ask GoatCounter
-// to count the view. No cookie, no script from elsewhere, nothing stored in the browser: GoatCounter tells visitors
-// apart by a hash of their address and browser that it keeps for a day. A page loads and plays the same when the
-// request is blocked or fails. Without the variable (a local build, a fork) nothing is counted.
+// to count the view. No cookie, no script from elsewhere, nothing stored in the browser: GoatCounter recognises a
+// repeat visit by address and browser, in memory for up to 8 hours, and stores no IP address (ui/site/privacy/ tells
+// visitors so). A page loads and plays the same when the request is blocked or fails. Without the variable (a local
+// build, a fork) nothing is counted.
 //   node scripts/count-views.ts <site dir>
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-/** The pages counted, from the site's root: the landing page, the changes page and the game. */
-export const COUNTED_PAGES = ['index.html', 'changes/index.html', 'play/index.html'];
+/** The pages counted, from the site's root: the landing page, the changes and privacy pages, and the game. */
+export const COUNTED_PAGES = ['index.html', 'changes/index.html', 'privacy/index.html', 'play/index.html'];
 
 /** GoatCounter's count endpoint for a site code: https://<code>.goatcounter.com/count. */
 const ENDPOINT = /^https:\/\/[a-z0-9-]+\.goatcounter\.com\/count$/;

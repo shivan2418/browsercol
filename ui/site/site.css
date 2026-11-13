@@ -524,16 +524,37 @@ footer p {
   margin: 4px 0;
   overflow-wrap: anywhere;
 }
-main.changes h1 {
+main.changes h1,
+main.privacy h1 {
   margin: 32px 0 6px;
   font: 700 1.8rem/1.2 var(--font-title);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--head);
 }
-main.changes .lede {
+main.changes .lede,
+main.privacy .lede {
   margin: 0 0 20px;
 }
-main.changes {
+main.changes,
+main.privacy {
   padding-bottom: 36px;
+}
+/* The privacy page (ui/site/privacy/): headings and text in the changes page's measure. */
+main.privacy {
+  max-width: 72ch;
+}
+main.privacy h2 {
+  margin: 28px 0 8px;
+  font: 700 1.15rem/1.3 var(--font-title);
+  letter-spacing: 0.04em;
+  color: var(--head);
+}
+main.privacy p {
+  margin: 0 0 12px;
+  line-height: 1.55;
+}
+main.privacy .updated {
+  margin-top: 28px;
+  font-size: 0.9rem;
 }
