@@ -1,5 +1,5 @@
 import { expect, test, vi } from 'vite-plus/test';
-import { describe as say, megabytes, OfflineAudio, stateFrom, type AudioLink } from './offline-audio';
+import { describe as say, KEEP_ALIVE_MS, megabytes, OfflineAudio, stateFrom, type AudioLink } from './offline-audio';
 
 /** A page with a worker container; `controller` is the worker that controls it, if any. */
 function page(controller: { postMessage: ReturnType<typeof vi.fn> } | null, production = true) {
@@ -95,4 +95,21 @@ test('opting in starts the download and asks for persistent storage; opting out 
   audio.want(false, true);
   expect(worker.postMessage).toHaveBeenLastCalledWith({ type: 'drop-audio' });
   expect(p.persist).toHaveBeenCalledTimes(1);
+});
+
+test('while a download is under way the page asks the worker again, so a stopped worker picks it up', () => {
+  vi.useFakeTimers();
+  const worker = { postMessage: vi.fn() };
+  const audio = new OfflineAudio();
+  audio.want(true);
+  audio.attach(page(worker).link);
+  audio.receive(progress('working', 5));
+  worker.postMessage.mockClear();
+  vi.advanceTimersByTime(KEEP_ALIVE_MS);
+  expect(worker.postMessage.mock.calls).toEqual([[{ type: 'cache-audio' }]]);
+  // Done, or given up with failures: no more asking.
+  audio.receive(progress('done', 38));
+  vi.advanceTimersByTime(KEEP_ALIVE_MS * 3);
+  expect(worker.postMessage).toHaveBeenCalledTimes(1);
+  vi.useRealTimers();
 });

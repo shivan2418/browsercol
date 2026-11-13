@@ -64,6 +64,9 @@ export function describe(s: AudioState): string {
   }
 }
 
+/** How often the page asks the worker again while a download is under way. */
+export const KEEP_ALIVE_MS = 20_000;
+
 export class OfflineAudio {
   state: AudioState = UNAVAILABLE;
   private link: AudioLink | undefined;
@@ -79,6 +82,12 @@ export class OfflineAudio {
     // A first visit's worker takes the page over after the shell is in; a new build's does the same.
     container.addEventListener('controllerchange', () => this.sync());
     this.sync();
+    // The browser stops a worker whose work runs for minutes (Chromium: 5), and 93 MB on a slow line can take
+    // longer. While a download is under way the page asks again now and then: the worker takes it as no new work
+    // if the fill still runs, and as a fresh start that skips what is in if it was stopped.
+    setInterval(() => {
+      if (this.wanted && this.state.status === 'working') this.sync();
+    }, KEEP_ALIVE_MS);
   }
 
   /**
