@@ -125,4 +125,26 @@ describe('viewHold with a batch of steps played in turn', () => {
     await hold.reach(2, 'unit:3');
     expect(seen).toEqual(['unit 3']);
   });
+
+  it('plays on past a unit that leaves the map (no steps, no slide), its arrival coming in order after the slides', async () => {
+    let steps = 1;
+    let on = true;
+    let end: () => void = () => {};
+    const slid = new Promise<void>((ok) => (end = ok));
+    const hold = viewHold(
+      () => on,
+      () => slid,
+      () => steps,
+    );
+    const seen: string[] = [];
+    // The caravel sails off to Europe after unit 2's only step: it has no run, and no tile to take the camera to.
+    hold.change(() => seen.push('caravel on the high seas'), true, 'unit:caravel');
+    hold.change(() => seen.push('arrival message'), true);
+    await hold.reach(1, 'unit:2');
+    expect(seen).toEqual([]);
+    on = false;
+    end();
+    await hold.idle();
+    expect(seen).toEqual(['caravel on the high seas', 'arrival message']);
+  });
 });
