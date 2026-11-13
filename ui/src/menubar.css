@@ -4,11 +4,13 @@
 @layer components {
   /* The menu bar (src/frame.tsx): FreeCol's menus, then the status line at the right. */
   .menubar {
+    /* The bar's height, which its menus hang below and measure the screen from. */
+    --menubar-h: 26px;
     display: flex;
     align-items: center;
     gap: 8px;
     padding: 0 6px;
-    min-height: 26px;
+    min-height: var(--menubar-h);
     background: var(--menubar);
     color: var(--menubar-ink);
     font-size: 14px;
@@ -26,7 +28,8 @@
   @media (display-mode: window-controls-overlay) {
     .menubar {
       box-sizing: border-box;
-      min-height: calc(env(titlebar-area-height, 33px) / var(--ui-zoom, 1));
+      --menubar-h: calc(env(titlebar-area-height, 33px) / var(--ui-zoom, 1));
+      min-height: var(--menubar-h);
       margin-left: calc(env(titlebar-area-x, 0px) / var(--ui-zoom, 1));
       width: calc(env(titlebar-area-width, 100%) / var(--ui-zoom, 1));
       app-region: drag;
@@ -64,6 +67,13 @@
     display: flex;
     flex-direction: column;
     padding: 2px;
+    /*
+     * No taller than the screen below the bar (--screen-h is in the menu's own, UI-scaled pixels): at a high UI scale
+     * a long menu ran off the bottom, and its last entries could not be reached. It scrolls instead.
+     */
+    max-height: calc(var(--screen-h) - var(--menubar-h) - 8px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
   .menubar [role='menu'] button {
     text-align: left;
