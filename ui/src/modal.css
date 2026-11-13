@@ -12,6 +12,7 @@
     grid-template: minmax(0, 1fr) / minmax(0, 1fr);
     place-items: center;
     background: var(--backdrop);
+    z-index: var(--z-window);
   }
   /*
    * A dialog over a panel sits in the same place, on top of it. At no weight, so a window's own size (.dialog) wins

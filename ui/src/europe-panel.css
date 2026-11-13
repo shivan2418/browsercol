@@ -7,7 +7,7 @@
   /* Europe is a large window over the map. The top bar stays clear above its backdrop, as the gold is read there. */
   body:has(.dialog[data-kind='europe']) #menubar {
     position: relative;
-    z-index: 1;
+    z-index: var(--z-menubar-raised);
     pointer-events: none;
   }
   /* As Swing's EuropePanel: the name centred, the lists and the sales above the market, the buttons below. */
@@ -69,7 +69,7 @@
   }
   /* The shop popup: every unit a card of the same size, its picture, name and price stacked. */
   .shop-modal {
-    z-index: 5;
+    z-index: var(--z-cover);
   }
   .shop-popup {
     max-width: min(40em, calc(var(--screen-w) * 0.94));

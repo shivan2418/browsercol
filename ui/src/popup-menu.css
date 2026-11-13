@@ -5,7 +5,7 @@
   /* A right-click menu (src/popup-menu.tsx): at the pointer, over the map and every dialog. */
   .popup {
     position: fixed;
-    z-index: 100;
+    z-index: var(--z-popup);
     min-width: 12em;
     max-width: 28em;
     max-height: 90vh;

@@ -60,7 +60,7 @@
     position: absolute;
     top: 100%;
     left: 0;
-    z-index: 10;
+    z-index: var(--z-cover);
     /* As wide as its longest entry and hotkey, not the menu-bar button it hangs from. */
     width: max-content;
     min-width: 12em;

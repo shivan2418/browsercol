@@ -8,7 +8,7 @@
     bottom: 12px;
     left: 50%;
     transform: translateX(-50%);
-    z-index: 5;
+    z-index: var(--z-map-notice);
     padding: 3px 12px;
     background: var(--menubar);
     color: var(--menubar-ink);

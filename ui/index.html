@@ -88,7 +88,7 @@
         position: fixed;
         left: 0;
         top: 0;
-        z-index: 2147483647;
+        z-index: var(--z-drag);
         pointer-events: none;
       }
       /* FreeCol marks no place a thing is dragged over: the picture follows the pointer, which shows no-drop except over a place that takes it (drag.ts marks that one with over-target). */
@@ -118,7 +118,16 @@
       body[data-side-panel='hidden'] #side {
         display: none;
       }
+      /*
+       * The page's regions keep the stacking of what is in them to themselves (tokens.css): a map control's
+       * z-index is only ever compared with its neighbours in #game, never with a window. The menu bar has its own
+       * layer, over the map for its menus and under the windows.
+       */
+      #menubar {
+        z-index: var(--z-menubar);
+      }
       #game {
+        isolation: isolate;
         --info-panel-w: 310px;
         flex: 1;
         min-width: 320px;
@@ -142,6 +151,7 @@
         inset: 0 auto auto 0;
       }
       #side {
+        isolation: isolate;
         flex: none;
         width: 348px;
         display: flex;
@@ -176,7 +186,7 @@
         pointer-events: none;
         opacity: 0;
         transition: opacity 0.15s;
-        z-index: 100000;
+        z-index: var(--z-dim);
       }
       body[data-dim-unfocused='light']::after {
         background: rgba(128, 128, 128, 0.18);
@@ -200,7 +210,7 @@
       #loading {
         position: fixed;
         inset: 0;
-        z-index: 900; /* over the page's windows, under the error banner (1000) */
+        z-index: var(--z-loading); /* over the page's windows, under the error banner */
         display: flex;
         flex-direction: column;
         align-items: center;

@@ -34,5 +34,33 @@
     --shadow-paper: 0 10px 24px rgb(0 0 0 / 45%);
     /* A pop-up over the page: a menu, a select's list, a tooltip. */
     --shadow-popup: 0 4px 12px rgb(0 0 0 / 40%);
+    /*
+     * The z-index scale (#504). Every z-index in the styles is one of these tokens, never a number
+     * (z-layers.test.ts). Page-level layers, lowest first, each over the one before it: what is over a window is
+     * a deliberate choice made here, in one place. #game, #side and #menubar are stacking contexts, so what is in
+     * them (a minimap button, a banner) never reaches this scale; the windows (.modal) have a layer of their own.
+     */
+    --z-map-notice: 10; /* The turn banner and the reload notice, in the map (#game) */
+    --z-tag: 20; /* The beta tag in the page's corner, under the menu bar */
+    --z-menubar: 30; /* The menu bar and its menus, over the map and the side panel */
+    --z-window: 40; /* Every window (.modal) */
+    --z-menubar-raised: 50; /* The menu bar while a window leaves it uncovered (Europe: the gold is read there) */
+    --z-start: 60; /* The start screen */
+    --z-start-tag: 70; /* The beta tag over the start screen */
+    --z-loading: 80; /* The loading screen, over the windows and taking no click */
+    --z-mobile-notice: 90; /* The notice for phones, over the loading screen */
+    --z-error: 100; /* The error banner, over windows */
+    --z-log: 110; /* The log, over the banner it may be opened from */
+    --z-feedback: 120; /* The feedback window, over the log */
+    --z-tooltip: 130; /* A tip beside a thing in a window */
+    --z-popup: 140; /* A window's pop-up lists and a right-click menu, over every window */
+    --z-dim: 150; /* The wash while the page lacks focus */
+    --z-drag: 160; /* A thing dragged, over everything */
+    /* Inside a component, under every layer above: what is over what among its own parts, which a stacking context holds in. */
+    --z-raise: 1;
+    --z-raise-2: 2;
+    --z-raise-3: 3;
+    --z-cover: 4; /* A cover over a panel's parts: the build queue, a menu's list, a pop-up inside a window */
+    --z-cover-body: 5; /* What is on that cover */
   }
 }

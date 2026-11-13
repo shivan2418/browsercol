@@ -45,7 +45,7 @@
   }
   /* The popups of Base UI's controls sit in #overlays above every window; the player's UI scale goes on the popup, not on the positioner Base UI places in real pixels. */
   .ui-positioner {
-    z-index: 1100;
+    z-index: var(--z-popup);
   }
   .ui-popup {
     zoom: var(--ui-zoom, 1);

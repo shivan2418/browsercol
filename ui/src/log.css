@@ -2,9 +2,9 @@
  * The log window's rules (src/log.tsx), moved out of index.html in their order (#498).
  */
 @layer components {
-  /* The log (src/log.tsx), over the error banner (z-index 1000) it may be opened from. */
+  /* The log (src/log.tsx), over the error banner (--z-error) it may be opened from. */
   .modal:has(#log) {
-    z-index: 1001;
+    z-index: var(--z-log);
   }
   #log .log-text {
     width: min(60em, calc(var(--screen-w) * 0.9));

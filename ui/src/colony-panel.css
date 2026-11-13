@@ -86,7 +86,7 @@
   }
   .colony .octagon {
     position: absolute;
-    z-index: 1;
+    z-index: var(--z-raise);
     width: 68px;
     height: 66px;
     box-sizing: border-box;
@@ -261,7 +261,7 @@
     left: 50%;
     top: calc(50% - 2px);
     transform: translate(-50%, -50%);
-    z-index: 3;
+    z-index: var(--z-raise-3);
     pointer-events: none;
     display: flex;
     justify-content: center;
@@ -416,12 +416,12 @@
   .colony .tile .hit {
     position: absolute;
     inset: 0;
-    z-index: 1;
+    z-index: var(--z-raise);
     clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
     pointer-events: auto;
   }
   .colony .tile .who {
-    z-index: 2;
+    z-index: var(--z-raise-2);
     pointer-events: auto;
   }
   /* The build queue (BuildQueuePanel): the queue, then what can be added, each listed with the goods it takes. */
@@ -437,12 +437,12 @@
   .colony .queue-backdrop {
     position: absolute;
     inset: 0;
-    z-index: 20;
+    z-index: var(--z-cover);
     background: color-mix(in srgb, var(--ink) 35%, transparent);
   }
   .colony .queue-body {
     position: absolute;
-    z-index: 21;
+    z-index: var(--z-cover-body);
     /*
      * It sits in the board (the right column, which is positioned for its octagons), so it is anchored to the
      * board's right edge and reaches left over the buildings: the column alone is too narrow for two lists.

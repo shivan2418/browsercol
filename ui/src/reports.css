@@ -481,7 +481,7 @@
   .dialog .report .foreign thead th:first-child {
     position: sticky;
     left: 0;
-    z-index: 1;
+    z-index: var(--z-raise);
     background: var(--panel);
   }
   .dialog .report .foreign thead th {

@@ -1,6 +1,6 @@
 /*
  * The Send feedback window and the Beta tag (feedback-dialog.tsx, #369), on the colour and spacing tokens only
- * (ADR 0004, 0008). The window is over the error banner it may be opened from (z-index 1000), and over the log.
+ * (ADR 0004, 0008). The window is over the error banner it may be opened from (--z-error), and over the log.
  */
 @layer components {
   :root {
@@ -13,7 +13,7 @@
     --beta-tag-top: calc(33px + var(--space-4));
   }
   .modal:has(#feedback) {
-    z-index: 1002;
+    z-index: var(--z-feedback);
   }
   #feedback {
     max-width: min(36em, calc(var(--screen-w) * 0.94));
@@ -181,7 +181,7 @@
     position: fixed;
     top: var(--beta-tag-top);
     right: var(--beta-tag-inset);
-    z-index: 1;
+    z-index: var(--z-tag);
     padding: var(--beta-tag-pad);
     color: var(--menubar-ink);
     background: var(--menubar);
@@ -191,11 +191,11 @@
     cursor: pointer;
   }
   /*
-   * Over the start screen (z-index 10), but not over a window: the tag hides while one is open. Without the start
+   * Over the start screen (--z-start), but not over a window: the tag hides while one is open. Without the start
    * screen, in a game, the menu bar has the tag instead.
    */
   body:has(.start) .beta-tag.corner {
-    z-index: 11;
+    z-index: var(--z-start-tag);
   }
   body:not(:has(.start)) .beta-tag.corner,
   body:has(.modal) .beta-tag.corner {

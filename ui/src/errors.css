@@ -8,7 +8,7 @@
     top: 48px;
     left: 50%;
     transform: translateX(-50%);
-    z-index: 1000;
+    z-index: var(--z-error);
     width: min(40em, calc(100vw - 32px));
     max-height: calc(100vh - 96px);
     overflow: auto;

@@ -11,7 +11,7 @@
   }
   .building-tip {
     position: fixed;
-    z-index: 1001;
+    z-index: var(--z-tooltip);
     max-width: 280px;
     padding: var(--building-tip-pad);
     display: flex;

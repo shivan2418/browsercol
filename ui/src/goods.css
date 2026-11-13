@@ -35,7 +35,7 @@
   .goods .pile .amount {
     position: relative;
     padding: var(--goods-amount-pad);
-    z-index: 1;
+    z-index: var(--z-raise);
     white-space: nowrap;
     font-size: 13px;
     color: var(--pile-ink);

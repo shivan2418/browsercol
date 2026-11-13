@@ -96,7 +96,11 @@ screen-fit *args: art
     DEV_VARIANT=web ./dev.sh node ui/scripts/screen-fit.ts {{args}}
 
 # The whole local suite: fast checks, build and the browser scripts
-suite: fast build (browser "smoke") (browser "play") (browser "tileset") (browser "looks") screen-fit
+suite: fast build (browser "smoke") (browser "play") (browser "tileset") (browser "looks") screen-fit z-layers
+
+# Every window is on top of the map, minimap and side panel in a real game, at 800x600, 1280x720 and 1280x800 (#504; after `just build`)
+z-layers *args:
+    DEV_VARIANT=web ./dev.sh node ui/scripts/z-layers.ts {{args}}
 
 # Approve the key panels' screenshots (ui/looks/) after a change meant to show: look at .cache/looks/ first, then commit them
 looks-approve *args:
