@@ -7,8 +7,15 @@ import { TipProvider, TooltipLayer } from '../src/controls';
 
 const preview: Preview = {
   parameters: { layout: 'fullscreen' },
+  // The player's UI scale in per cent (the Preferences' display scaling), set on the root as the game does
+  // (main.tsx applyLook): the screen-fit check loads each story at each scale with &globals=uiZoom:150.
+  initialGlobals: { uiZoom: 100 },
   // The hints of `Tip`, as the game shows them.
   decorators: [
+    (Story, { globals }) => {
+      document.documentElement.style.setProperty('--ui-zoom', String(Number(globals.uiZoom || 100) / 100));
+      return <Story />;
+    },
     (Story) => (
       <TipProvider>
         <TooltipLayer />

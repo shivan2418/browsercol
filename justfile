@@ -90,8 +90,13 @@ fast: test-engine check test-ui relay
 browser script *args:
     DEV_VARIANT=web ./dev.sh node ui/scripts/{{script}}.ts {{args}}
 
+# Every window at each common screen size and UI scale, from the built Storybook (stories tagged screen-fit): it must lie on the screen (#503; screenshots in .cache/screen-fit/)
+screen-fit *args: art
+    ./dev.sh -C ui pnpm exec storybook build -o ../.cache/storybook --quiet
+    DEV_VARIANT=web ./dev.sh node ui/scripts/screen-fit.ts {{args}}
+
 # The whole local suite: fast checks, build and the browser scripts
-suite: fast build (browser "smoke") (browser "play") (browser "tileset") (browser "looks")
+suite: fast build (browser "smoke") (browser "play") (browser "tileset") (browser "looks") screen-fit
 
 # Approve the key panels' screenshots (ui/looks/) after a change meant to show: look at .cache/looks/ first, then commit them
 looks-approve *args:
