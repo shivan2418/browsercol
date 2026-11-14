@@ -376,9 +376,19 @@ class SelectDestinationTest {
         sailOntoHighSeas(ship);
         final String colonyId = (String)parse(
             server.debug("{\"action\":\"addColony\"}")).get("colony");
-        final Colony colony = client.getGame().getFreeColGameObject(colonyId, Colony.class);
-        for (int i = 0; i < 500 && colony == null; i++) Thread.sleep(10);
-        assertNotNull(client.getGame().getFreeColGameObject(colonyId, Colony.class));
+        // The server adds the colony and its tiles; the client learns of them in later
+        // updates. Re-read the colony each time and wait until it is ours, on the map, and
+        // in our colony list, so the destination list cannot be built before it arrives.
+        Colony seen = null;
+        for (int i = 0; i < 1000; i++) {
+            seen = client.getGame().getFreeColGameObject(colonyId, Colony.class);
+            if (seen != null && seen.getTile() != null && seen.getOwner() == player
+                && player.getColonyList().contains(seen)) break;
+            seen = null;
+            Thread.sleep(10);
+        }
+        assertNotNull(seen, "the client never got the colony " + colonyId);
+        final Colony colony = seen;
         wanted = null;
         client.getClient().getInGameController().selectDestination(ship);
         final String question = lastQuestion("choice");
