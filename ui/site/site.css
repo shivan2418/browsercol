@@ -175,6 +175,7 @@ header.bar nav a:hover {
   color: var(--muted);
 }
 .note.unsupported {
+  font-size: 0.82rem;
   color: var(--warn);
   font-weight: 700;
 }
