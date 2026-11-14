@@ -924,21 +924,37 @@ async function play(page: Page, url: string) {
     await panel.locator('[data-part=construction]').click();
     // The queue's window is over every part of the colony panel, also the warehouse and the units outside under
     // it, which once painted over it while the board it sits in was a stacking context of its own.
-    const buried = await panel.locator('.queue-body').evaluate((queue) => {
-      const r = queue.getBoundingClientRect();
-      const at = [
-        [0.5, 0.5],
-        [0.1, 0.9],
-        [0.9, 0.9],
-        [0.9, 0.6],
-      ];
-      return at
-        .map(([fx, fy]) => [r.left + r.width * fx, r.top + r.height * fy])
-        .filter(([x, y]) => x < innerWidth && y < innerHeight)
-        .map(([x, y]) => document.elementFromPoint(x, y))
-        .filter((e) => e !== null && !queue.contains(e))
-        .map((e) => e!.closest('[data-part]')?.getAttribute('data-part') ?? e!.tagName);
-    });
+    const underWhat = () =>
+      panel.locator('.queue-body').evaluate((queue) => {
+        const r = queue.getBoundingClientRect();
+        const at = [
+          [0.5, 0.5],
+          [0.1, 0.9],
+          [0.9, 0.9],
+          [0.9, 0.6],
+        ];
+        return at
+          .map(([fx, fy]) => [r.left + r.width * fx, r.top + r.height * fy])
+          .filter(([x, y]) => x < innerWidth && y < innerHeight)
+          .map(([x, y]) => document.elementFromPoint(x, y))
+          .filter((e) => e !== null && !queue.contains(e))
+          .map((e) => e!.closest('[data-part]')?.getAttribute('data-part') ?? e!.tagName);
+      });
+    // Sampled once the window has settled (#489): its own opening and anything else still fading in or out are over,
+    // and what was on top a moment ago, a transient overlay, is gone. A window that stays under something fails.
+    await page.evaluate(() =>
+      Promise.all(
+        document
+          .getAnimations()
+          .filter((a) => a.effect?.getComputedTiming().iterations !== Infinity)
+          .map((a) => a.finished.catch(() => {})),
+      ),
+    );
+    let buried = await underWhat();
+    for (let tries = 0; buried.length > 0 && tries < 20; tries++) {
+      await page.waitForTimeout(100);
+      buried = await underWhat();
+    }
     if (buried.length > 0) throw new Error(`the build queue window is under ${buried.join(', ')}`);
     const addable = panel.locator('[data-part=buildings] [data-buildable] button:not([disabled])');
     if ((await addable.count()) > 0) {
