@@ -26,6 +26,7 @@ const LAYERS = [
   '--z-popup',
   '--z-dim',
   '--z-drag',
+  '--z-rotate',
 ];
 
 /** Local tokens, for stacking inside a component or region: they never decide what is over a window. */
@@ -49,6 +50,7 @@ const USERS: Record<string, string[]> = {
   '--z-popup': ['./form-controls.css: .ui-positioner', './popup-menu.css: .popup'],
   '--z-dim': ['index.html: body::after'],
   '--z-drag': ['index.html: .drag-ghost'],
+  '--z-rotate': ['./rotate-notice.css: #rotate-notice'],
 };
 
 function declarations(text: string) {

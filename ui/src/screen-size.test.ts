@@ -51,8 +51,8 @@ test.each(Object.entries(sheets))('%s caps no scaled window by a bare vw or vh',
 test('the screen tokens divide the viewport by the UI scale', () => {
   const root = viewportRules(sheets['index.html']).filter((r) => r.selector === ':root');
   expect(root.map((r) => r.declaration).sort()).toEqual([
-    '--screen-h: calc(100dvh / var(--ui-zoom, 1))',
-    '--screen-w: calc(100vw / var(--ui-zoom, 1))',
+    '--screen-h: calc((100dvh - var(--safe-top) - var(--safe-bottom)) / var(--ui-zoom, 1))',
+    '--screen-w: calc((100vw - var(--safe-left) - var(--safe-right)) / var(--ui-zoom, 1))',
   ]);
 });
 

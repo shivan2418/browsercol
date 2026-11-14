@@ -2,6 +2,11 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    <!-- A phone shows the page at its own width, under the notch (viewport-fit, padded by safe-area insets below), and the browser does not zoom it: the map handles pinch itself (#510). -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
     <title>BrowserCol</title>
     <link rel="icon" type="image/svg+xml" href="./icons/favicon.svg" />
     <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png" />
@@ -54,6 +59,10 @@
         display: flex;
         flex-direction: column;
         height: 100vh;
+        height: 100dvh; /* a phone's toolbars come and go: the visible height */
+        /* The notch, the rounded corners and the home bar of a phone in landscape (issue 510): zero on a desktop. */
+        box-sizing: border-box;
+        padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
         /* The browser's own behaviour stays out of the game (issue 263): no bounce or swipe-back, no scrolling page. */
         overflow: hidden;
         overscroll-behavior: none;
@@ -74,8 +83,17 @@
        * too: 94vh is 117% of the screen at 125%. A window's size is capped by these instead, never by a bare vw or vh.
        */
       :root {
-        --screen-w: calc(100vw / var(--ui-zoom, 1));
-        --screen-h: calc(100dvh / var(--ui-zoom, 1));
+        --safe-top: env(safe-area-inset-top, 0px);
+        --safe-right: env(safe-area-inset-right, 0px);
+        --safe-bottom: env(safe-area-inset-bottom, 0px);
+        --safe-left: env(safe-area-inset-left, 0px);
+        --screen-w: calc((100vw - var(--safe-left) - var(--safe-right)) / var(--ui-zoom, 1));
+        --screen-h: calc((100dvh - var(--safe-top) - var(--safe-bottom)) / var(--ui-zoom, 1));
+      }
+      /* No page zoom by pinch or double tap, even where the browser ignores the viewport's user-scalable (iOS): a thing that handles touches itself says touch-action: none. */
+      html,
+      body {
+        touch-action: pan-x pan-y;
       }
       /* FreeCol's display scaling (Preferences): the menus, side panel and windows; the map has its own zoom. */
       #menubar,
@@ -352,8 +370,15 @@
     </div>
     <!-- The windows and popup menus (src/main.tsx), outside the side panel, which may be hidden. -->
     <div id="overlays"></div>
+    <!-- A phone held upright (src/rotate-notice.css): shown by CSS alone, over everything. -->
+    <div id="rotate-notice" role="alert">
+      <p data-rotate-title>Turn your device to landscape</p>
+      <p>BrowserCol needs the wide screen.</p>
+    </div>
     <script>
       (() => {
+        // iOS Safari still pinch-zooms the page whatever the viewport says (#510).
+        document.addEventListener('gesturestart', (e) => e.preventDefault());
         const sync = () => {
           document.body.dataset.unfocused = String(!document.hasFocus());
         };

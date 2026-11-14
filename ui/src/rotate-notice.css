@@ -1,0 +1,34 @@
+/*
+ * The screen for a phone held upright (#510): the game is laid out wide, so a touch screen in portrait is asked to
+ * turn. Only a coarse primary pointer in portrait: a desktop window, however tall and narrow, never sees it.
+ */
+@layer components {
+  #rotate-notice {
+    display: none;
+  }
+  @media (pointer: coarse) and (orientation: portrait) {
+    #rotate-notice {
+      position: fixed;
+      inset: 0;
+      z-index: var(--z-rotate);
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-4);
+      padding: calc(var(--space-6) + var(--safe-top)) calc(var(--space-6) + var(--safe-right))
+        calc(var(--space-6) + var(--safe-bottom)) calc(var(--space-6) + var(--safe-left));
+      background: var(--page);
+      color: var(--menubar-ink);
+      text-align: center;
+      font: var(--fs) / 1.4 var(--font);
+    }
+    #rotate-notice p {
+      margin: 0;
+    }
+    #rotate-notice [data-rotate-title] {
+      font: 700 var(--fs-h) / 1.2 var(--font-title);
+    }
+  }
+}

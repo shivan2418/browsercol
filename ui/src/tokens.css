@@ -56,6 +56,7 @@
     --z-popup: 140; /* A window's pop-up lists and a right-click menu, over every window */
     --z-dim: 150; /* The wash while the page lacks focus */
     --z-drag: 160; /* A thing dragged, over everything */
+    --z-rotate: 170; /* The "turn your device" screen of a phone held upright, over even that */
     /* Inside a component, under every layer above: what is over what among its own parts, which a stacking context holds in. */
     --z-raise: 1;
     --z-raise-2: 2;

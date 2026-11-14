@@ -150,6 +150,7 @@ import { advisor } from './advisor';
 import { InfoPanel } from './info-panel';
 import { MinimapPanel } from './minimap-panel';
 import { MapOrders, hasTouch } from './map-orders';
+import './rotate-notice.css';
 import './compass.css';
 import { Side, type SideProps } from './side';
 import { ReloadNotice, reloadPending } from './reload-notice';
