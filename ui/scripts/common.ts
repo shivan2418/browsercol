@@ -70,6 +70,45 @@ process.stderr.write = (chunk: string | Uint8Array, ...rest: unknown[]) => {
 const canvas2d = (url: string) =>
   /[?&]renderer=/.test(url) ? url : url + (url.includes('?') ? '&' : '?') + 'renderer=canvas2d';
 
+/** What launchBrowser's newPage adds to each page: the labelled waits, the dialog coverage and Firefox's canvas. */
+async function wrapPage(name: BrowserName, page: Page): Promise<Page> {
+  watchWaits(page);
+  await trackCoverage(page);
+  if (name === 'firefox' && !process.env.FC_FIREFOX_WEBGL) {
+    const goto = page.goto.bind(page);
+    page.goto = (url: string, ...rest: [Parameters<Page['goto']>[1]?]) => goto(canvas2d(url), ...rest);
+  }
+  return page;
+}
+
+/** The touch devices of the browser scripts, all held in landscape (what Playwright's own device list calls "landscape"). */
+export const TOUCH_DEVICES = {
+  /** An iPhone: WebKit, 844 x 390 at 3 device pixels to a CSS pixel. */
+  iphone: { browser: 'webkit', width: 844, height: 390, deviceScaleFactor: 3 },
+  /** A Pixel: Chromium, 915 x 412 at 2.6. */
+  pixel: { browser: 'chromium', width: 915, height: 412, deviceScaleFactor: 2.6 },
+  /** An iPad: WebKit, 1180 x 820 at 2. */
+  ipad: { browser: 'webkit', width: 1180, height: 820, deviceScaleFactor: 2 },
+} as const;
+export type TouchDevice = keyof typeof TOUCH_DEVICES;
+
+/**
+ * A page with a touch screen (hasTouch, and isMobile where the browser has it: Firefox does not), of a browser
+ * launchBrowser made, with what launchBrowser's own newPage adds. `portrait` turns the device on its side.
+ */
+export async function newTouchPage(browser: Browser, device: TouchDevice, portrait = false): Promise<Page> {
+  const d = TOUCH_DEVICES[device];
+  const name = browser.browserType().name() as BrowserName;
+  const [width, height] = portrait ? [d.height, d.width] : [d.width, d.height];
+  const context = await browser.newContext({
+    viewport: { width, height },
+    deviceScaleFactor: d.deviceScaleFactor,
+    hasTouch: true,
+    isMobile: name !== 'firefox',
+  });
+  return wrapPage(name, await context.newPage());
+}
+
 /**
  * Launches a browser that remembers how it dies (#31, #40): Playwright's log
  * of the browser process is kept, and the browser's disconnect noted, for
@@ -85,16 +124,7 @@ export async function launchBrowser(name: BrowserName, args: string[] = []): Pro
   const close = browser.close.bind(browser);
   browser.close = (...args: Parameters<Browser['close']>) => (closing.add(browser), close(...args));
   const newPage = browser.newPage.bind(browser);
-  browser.newPage = async (...args: Parameters<Browser['newPage']>) => {
-    const page = await newPage(...args);
-    watchWaits(page);
-    await trackCoverage(page);
-    if (name === 'firefox' && !process.env.FC_FIREFOX_WEBGL) {
-      const goto = page.goto.bind(page);
-      page.goto = (url: string, ...rest: [Parameters<Page['goto']>[1]?]) => goto(canvas2d(url), ...rest);
-    }
-    return page;
-  };
+  browser.newPage = async (...args: Parameters<Browser['newPage']>) => wrapPage(name, await newPage(...args));
   return browser;
 }
 
