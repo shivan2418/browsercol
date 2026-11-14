@@ -3,6 +3,7 @@
 // panel (FreeCol's InfoPanel, as text), the dialogs the Browser UI cannot
 // show yet, the saved games and the page's status. main.tsx renders it again on each change.
 import { useRef } from 'react';
+import { Tip } from './controls';
 import { DebugMenu, type DebugMenuProps } from './debug-menu';
 import { orderOf, type Command } from './input';
 import type { SaveMeta } from './saves';
@@ -156,7 +157,9 @@ export function Side({
           {saves.length === 0 && 'No saved games'}
           {saves.map((s) => (
             <div key={s.id} data-save={s.id}>
-              <span title={saveLine(s)}>{saveLine(s)}</span>{' '}
+              <Tip as="span" tip={saveLine(s)}>
+                {saveLine(s)}
+              </Tip>{' '}
               <button data-load={s.id} onClick={() => load(s.id)}>
                 Load
               </button>{' '}

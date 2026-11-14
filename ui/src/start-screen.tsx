@@ -17,7 +17,7 @@
 import { Tabs } from '@base-ui/react/tabs';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { flag } from './flag';
-import { HelpButton, Select } from './controls';
+import { HelpButton, Select, Tip } from './controls';
 import { RulesHelp } from './rules-help';
 import { CreditsDialog, SourceLinks } from './credits';
 import type { Art } from './frame';
@@ -68,13 +68,14 @@ function ColourSwatch({
     return () => el.removeEventListener('change', done);
   }, []);
   return (
-    <input
+    <Tip
+      as="input"
       ref={input}
       type="color"
       className="swatch"
       data-colour={hook}
       aria-label={`${name} colour`}
-      title={`${name} colour`}
+      tip={`${name} colour`}
       value={shown}
       onChange={(e) => setShown(e.target.value)}
     />
@@ -200,16 +201,17 @@ function SoundToggles({
   sound: { music: boolean; effects: boolean; setMusic: (on: boolean) => void; setEffects: (on: boolean) => void };
 }) {
   const toggle = (label: string, on: boolean, set: (on: boolean) => void, hook: string) => (
-    <button
+    <Tip
+      as="button"
       type="button"
       className="sound-toggle"
       aria-pressed={on}
-      title={`${label} ${on ? 'on' : 'off'}`}
+      tip={`${label} ${on ? 'on' : 'off'}`}
       {...{ [hook]: '' }}
       onClick={() => set(!on)}
     >
       {on ? '\u{1F50A}' : '\u{1F507}'} {label}: {on ? 'on' : 'off'}
-    </button>
+    </Tip>
   );
   return (
     <div className="sound-toggles" role="group" aria-label="Sound">

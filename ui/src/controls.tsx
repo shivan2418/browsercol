@@ -16,6 +16,7 @@ import {
   type ComponentProps,
   type KeyboardEvent,
   type ReactNode,
+  type Ref,
 } from 'react';
 import { dragging } from './drag';
 import { useEscape } from './frame';
@@ -303,6 +304,8 @@ type TipProps<T extends TipTag> = {
   as: T;
   /** What the hint says (a string's lines split with a newline), or what it shows; nothing, and the element has no hint. */
   tip: ReactNode;
+  /** The element, as `ref` is on a plain one. */
+  ref?: Ref<HTMLElement>;
 } & Omit<ComponentProps<T>, 'ref' | 'as'>;
 
 /**
