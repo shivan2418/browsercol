@@ -35,6 +35,8 @@ const COMPACT_SIZES = (opt('compact-sizes', '') || '844x390,915x412,700x500')
   .split(',')
   .filter((s) => s)
   .map((s) => s.split('x').map(Number) as [number, number]);
+/** The stories of short prompts (screen-fit.stories.tsx): on a small screen they stay centred modals, not sheets. */
+const PROMPTS = /^prompt-/;
 /** The display scaling options of client-options.xml; its "automatic" is 100% (uiZoom in prefs.ts). */
 const SCALES = (opt('scales', '') || '75,100,125,150,175,200').split(',').map(Number);
 const only = opt('stories', '')
@@ -61,6 +63,8 @@ const WAITS: Record<string, string> = {
   'route-editor': '[data-stop]',
   'route-editor-many': '[data-stop]',
 };
+/** Stories whose window scrolls by design, a capped dialog holding a long list: no "it could have grown" check. */
+const SCROLLS = new Set(['prompt-choice-long']);
 /** The parts of a story's window that must be on screen too. */
 const PARTS: Record<string, string[]> = {
   'colony-big': ['[data-part=warehouse]'],
@@ -132,9 +136,9 @@ const settle = (page: Page, target: string) =>
   );
 
 /** The problems with a settled window at the viewport: boxes outside it, parts cut off. */
-const problems = (page: Page, target: string, parts: string[]) =>
+const problems = (page: Page, target: string, parts: string[], scrolls: boolean) =>
   page.evaluate(
-    ([target, parts, slack]) => {
+    ([target, parts, slack, scrolls]) => {
       const d = document.querySelector<HTMLElement>(target as string)!;
       const out: string[] = [];
       const vw = document.documentElement.clientWidth;
@@ -160,7 +164,7 @@ const problems = (page: Page, target: string, parts: string[]) =>
       // button below a scroll bar). A list or a part that scrolls inside a window is its own business.
       const body = d.querySelector<HTMLElement>(':scope > .body');
       const room = vh * 0.9 - d.getBoundingClientRect().height;
-      if (body && body.scrollHeight > body.clientHeight + 2 && room > 24)
+      if (!scrolls && body && body.scrollHeight > body.clientHeight + 2 && room > 24)
         out.push(
           `its body scrolls ${body.scrollHeight - body.clientHeight}px of content while the window could grow ${Math.round(room)}px more: ${f(d.getBoundingClientRect())}`,
         );
@@ -179,7 +183,7 @@ const problems = (page: Page, target: string, parts: string[]) =>
       }
       return out;
     },
-    [target, parts, SLACK] as const,
+    [target, parts, SLACK, scrolls] as const,
   );
 
 interface Case {
@@ -195,7 +199,7 @@ const cases: Case[] = [
   ...COMPACT_SIZES.flatMap((size) =>
     stories
       .filter((story) => !story.name.startsWith('screen-fit-menus--'))
-      .map((story) => ({ size, scale: 100, story, sheet: true })),
+      .map((story) => ({ size, scale: 100, story, sheet: !PROMPTS.test(story.name) })),
   ),
 ];
 
@@ -224,8 +228,13 @@ for (const name of browserNames()) {
         await page.waitForSelector(target, { timeout: 30000 });
         if (WAITS[c.story.name]) await page.waitForSelector(WAITS[c.story.name], { timeout: 10000 });
         await settle(page, target);
-        bad.push(...(await problems(page, target, PARTS[c.story.name] ?? [])));
+        bad.push(...(await problems(page, target, PARTS[c.story.name] ?? [], SCROLLS.has(c.story.name))));
         if (c.sheet) bad.push(...(await page.evaluate(sheetProblems, target)));
+        else if (
+          COMPACT_SIZES.some(([w2, h2]) => w2 === w && h2 === h) &&
+          (await page.locator(`${target}[data-sheet]`).count())
+        )
+          bad.push('a short prompt is a sheet, not a centred modal');
       } catch (ex) {
         bad.push(`could not be checked: ${String(ex).split('\n')[0]}`);
       }

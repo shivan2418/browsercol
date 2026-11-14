@@ -13,23 +13,32 @@ import { PreferencesDialog } from './prefs-dialog';
 import { DEFAULTS } from './prefs';
 import { art } from './story-art';
 import * as tradeRoutes from './trade-routes.stories';
-import type { ColonyView, GuiEvents, ReportView } from './webgui';
+import type { ColonyView, GuiEvents, GuiQuestions, ReportView } from './webgui';
 
 const none = new Proxy({}, { get: () => () => {} }) as never;
 const moves = new Proxy({}, { get: () => () => {} }) as ColonyMoves;
 
-type Show = { [K in 'colony' | 'europe' | 'tradeRoutes' | 'report' | 'messages']: [K, GuiEvents[K]] }[
-  | 'colony'
-  | 'europe'
-  | 'tradeRoutes'
-  | 'report'
-  | 'messages'];
+/** A question the Engine asks (a short prompt, which stays a centred window on a small screen: compact.ts). */
+type Prompt = { [K in 'confirm' | 'choice' | 'input']: ['ask', K, GuiQuestions[K]['ask']] }[
+  | 'confirm'
+  | 'choice'
+  | 'input'];
+
+type Show =
+  | Prompt
+  | { [K in 'colony' | 'europe' | 'tradeRoutes' | 'report' | 'messages']: [K, GuiEvents[K]] }[
+      | 'colony'
+      | 'europe'
+      | 'tradeRoutes'
+      | 'report'
+      | 'messages'];
 
 /** A window opened through the page's DialogHost, as the game's dialogs are. */
 function Window({ show }: { show: Show }) {
   const box = useMemo(() => {
     const b = dialogs();
-    (b.show as (kind: string, event: unknown) => void)(show[0], show[1]);
+    if (show[0] === 'ask') void (b.ask as (kind: string, ask: unknown) => Promise<unknown>)(show[1], show[2]);
+    else (b.show as (kind: string, event: unknown) => void)(show[0], show[1]);
     return b;
   }, [show]);
   return (
@@ -240,4 +249,54 @@ export const ModelMessage: Story = {
 /** The Preferences window, with BrowserCol's own options (FreeCol's come from the Engine's data). */
 export const Preferences: Story = {
   render: () => <PreferencesDialog prefs={DEFAULTS} freecol={null} change={() => {}} close={() => {}} />,
+};
+
+/** Short prompts, as FreeCol's confirm, choice and input dialogs: modals on a small screen, never sheets (screen-fit.ts). */
+export const PromptConfirm: Story = {
+  args: {
+    show: [
+      'ask',
+      'confirm',
+      {
+        text: 'Do you really want to disband this unit?\nIt will be gone for good.',
+        ok: 'Yes',
+        cancel: 'No',
+        defaultOk: false,
+        tile: null,
+        object: null,
+        header: 'Disband unit',
+      },
+    ],
+  },
+};
+export const PromptChoiceLong: Story = {
+  args: {
+    show: [
+      'ask',
+      'choice',
+      {
+        text: 'Where to?',
+        cancel: 'Cancel',
+        tile: null,
+        object: null,
+        choices: Array.from({ length: 20 }, (_, i) => ({
+          text: `Colony ${i}`,
+          enabled: true,
+          ok: false,
+          cancel: false,
+          default: i === 0,
+          turns: i + 1,
+        })),
+      },
+    ],
+  },
+};
+export const PromptInput: Story = {
+  args: {
+    show: [
+      'ask',
+      'input',
+      { text: 'Name the new colony:', value: 'Jamestown', ok: 'OK', cancel: 'Cancel', tile: null },
+    ],
+  },
 };
