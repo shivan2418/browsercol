@@ -556,16 +556,25 @@ async function isSheet(page: Page, selector: string, what: string) {
 }
 
 /**
- * A window opened from the menu bar is a sheet, and its back button closes it. The Report menu's first entry; the
- * titles are what the menu bar shows on this screen.
+ * A window opened from the menu is a sheet, and its back button closes it: the Report menu's Colony report, from the
+ * menu bar's titles on a large screen or the ☰ menu's Report group on a small one.
  */
 async function menuSheet(page: Page, finger: Finger) {
   const dialogs = page.locator('[role=dialog]');
   const before = await dialogs.count();
   await step('a window opened from the menu is a sheet', async () => {
-    const title = page.locator('.menubar [role=menubar] > .menu > button', { hasText: 'Report' }).first();
-    await finger.tap(...(await center(title)));
-    const entry = page.locator('[role=menu][aria-label="Report"] [role=menuitem]:not([disabled])').first();
+    const folded = (await page.locator('.menubar .menu-toggle').count()) > 0;
+    let entry;
+    if (folded) {
+      await finger.tap(...(await center(page.locator('.menubar .menu-toggle'))));
+      const menu = page.locator('.menubar [role=menu][aria-label=Menu]');
+      await finger.tap(...(await center(menu.locator('button.group', { hasText: 'Report' }))));
+      entry = menu.getByRole('menuitem', { name: /Colony report/ });
+    } else {
+      const title = page.locator('.menubar [role=menubar] > .menu > button', { hasText: 'Report' }).first();
+      await finger.tap(...(await center(title)));
+      entry = page.locator('[role=menu][aria-label="Report"] [role=menuitem]:not([disabled])').first();
+    }
     await finger.tap(...(await center(entry)));
     check('a menu entry opens a window', await until(async () => (await dialogs.count()) > before));
     await isSheet(page, '[role=dialog]', 'a window opened from the menu');
