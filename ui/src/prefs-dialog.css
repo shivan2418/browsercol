@@ -86,4 +86,15 @@
     color: var(--muted);
     font-size: var(--fs-s);
   }
+  /* The offline audio download (#505): its button, and the line of progress beside it. */
+  #preferences .offline-audio {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin: 6px 0;
+  }
+  #preferences .offline-audio .prefs-note {
+    margin: 0;
+  }
 }

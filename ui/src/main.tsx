@@ -158,7 +158,11 @@ import { loading, type PartName } from './loading';
 import { mobileNotice } from './mobile-notice';
 import { loadModule } from './teavm';
 import { applyTheme } from './theme';
-import { removeServiceWorker, syncThemeColor } from './install';
+import { registerServiceWorker, removeServiceWorker, syncThemeColor } from './install';
+import { OfflineIndicator } from './offline-indicator';
+import { offlineStatus } from './offline-status';
+import { audioLink, offlineAudio } from './offline-audio';
+import { UpdatePrompt } from './update-prompt';
 import { controlArt } from './control-art';
 import { cursor, initialView, panel, reduce, tileOnScreen, W, type ViewEvent, type ViewState } from './view';
 import type { GuiEvents, GuiHandlers, PopupEvent, ReportView } from './webgui';
@@ -706,7 +710,11 @@ function setPrefs(p: Prefs) {
   const was = prefs;
   prefs = p;
   savePrefs(p);
+  // Offline play turned off removes the worker and its copy; turned on, the worker is registered and saves one.
+  if (p.offline !== was.offline) registerWorker();
   applyLook(p);
+  // The player's own change: the worker downloads the audio, or drops it (#505).
+  if (p.offlineAudio !== was.offlineAudio) offlineAudio.want(p.offlineAudio, true);
   void sound.then((s) => s?.setVolumes(volumes(p)));
   followVisibility();
   const changed = Object.fromEntries(Object.entries(p.freecol).filter(([id, v]) => was.freecol[id] !== v));
@@ -965,10 +973,35 @@ const currentMenus = (): Menu[] => {
   return names.map((name) => ({ name, items: items[name] ?? [] }));
 };
 const menuRoot = createRoot(document.getElementById('menubar')!);
-// Offline play is off for now: a service worker builds 18 and 19 installed goes, with the copy it saved.
-void removeServiceWorker().catch(() => {});
 // Tab goes round the page's buttons rather than out to the browser's address bar.
 keepTabOnPage();
+// The installed app plays offline (#296): a new build waiting takes over at once on the start screen, and is offered
+// as a Restart in a game, never forced on one. Registered once the page has loaded, so the worker's downloads come
+// after the page's own. entry.ts imports this module, so the page has usually loaded already.
+const registerWorker = () => {
+  // The player turned offline play off: no worker, and the copy a worker saved goes.
+  if (!prefs.offline) {
+    offlineStatus.off();
+    void removeServiceWorker();
+    return;
+  }
+  // Before registering, so the install's first progress message is heard (the menu bar's "Saving for offline").
+  if (import.meta.env.PROD && 'serviceWorker' in navigator) offlineStatus.attach(navigator.serviceWorker);
+  void registerServiceWorker(
+    (restart) => {
+      const host = document.createElement('div');
+      document.body.append(host);
+      createRoot(host).render(<UpdatePrompt onRestart={restart} />);
+    },
+    undefined,
+    () => gameStarted,
+  );
+  // A player who chose the music offline gets it into each new build's cache too (#505).
+  offlineAudio.want(prefs.offlineAudio);
+  offlineAudio.attach(audioLink());
+};
+if (document.readyState === 'complete') registerWorker();
+else window.addEventListener('load', registerWorker, { once: true });
 /** Our colony as the colony panel shows it, once the client Engine has loaded (ClientExports.colony). */
 let colonyNow: (id: string) => string = () => 'null';
 let colonyPull = false;
@@ -1085,7 +1118,12 @@ function renderSide() {
     <MenuBar
       menus={currentMenus()}
       status={statusLine}
-      trailing={<BetaTag inBar open={() => openFeedback('bug')} />}
+      trailing={
+        <>
+          <OfflineIndicator />
+          <BetaTag inBar open={() => openFeedback('bug')} />
+        </>
+      }
     />,
   );
   infoRoot.render(
