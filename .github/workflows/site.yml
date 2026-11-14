@@ -22,7 +22,6 @@ on:
       - 'ui/src/fonts/noto-sans/**'
       - 'tools/site.sh'
       - 'tools/newest-build.sh'
-      - 'tools/pages-deploy.sh'
       - 'ui/scripts/build-changes.ts'
       - 'ui/scripts/count-views.ts'
       - '.github/workflows/site.yml'
@@ -93,18 +92,12 @@ jobs:
           GOATCOUNTER_URL: ${{ vars.GOATCOUNTER_URL }}
         run: ./dev.sh tools/site.sh dist
 
-      - id: upload
-        uses: actions/upload-pages-artifact@v5
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
 
-      # Not actions/deploy-pages, which names each deployment by the commit: Pages keeps the first deployment of a
-      # commit, and a new build's tag is the commit the deploy skill's changelog push has already deployed (#501).
       - id: deployment
-        name: Deploy to GitHub Pages
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: tools/pages-deploy.sh "${{ steps.upload.outputs.artifact_id }}"
+        uses: actions/deploy-pages@v5
 
   # The game was smoke-tested when it was deployed: here, only that both pages are served.
   check:
