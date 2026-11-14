@@ -1,0 +1,11 @@
+/*
+ * What can be dragged (drag.ts): a finger's touch on it is the drag's, not the browser's, which would take it for a
+ * scroll and cancel the pointer. A list that scrolls with drag sources in it says where a finger may still scroll
+ * (colony-panel.css).
+ */
+@layer components {
+  [data-drag],
+  [data-sort] {
+    touch-action: none;
+  }
+}

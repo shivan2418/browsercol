@@ -15,7 +15,14 @@
 // floating icon takes no pointer events, so the pointer's moves and its
 // release go to what is under it, and the innermost place that takes the
 // thing has it.
+//
+// A finger can also move a thing in two taps: a tap on something that can be dragged picks it up (it takes
+// the data-picked look, selection.css), and a tap on a place that takes it drops it there, by the place's own
+// drop, as a drag onto it would. A tap on the picked thing again, on any other spot, or Escape puts it back;
+// a tap on another thing picks that one instead. This is decided per pointer event, by its pointerType: a
+// mouse (or a hybrid device's mouse) only drags, as before.
 import type { DragEvent as ReactDragEvent, PointerEvent as ReactPointerEvent } from 'react';
+import './drag.css';
 
 /** The class of the place a thing is dragged over that would take it. */
 export const OVER = 'over-target';
@@ -42,6 +49,9 @@ interface Press {
   event: Event;
   /** Whether it became a drag: its release then makes no click, even after Escape put the thing back. */
   dragged: boolean;
+  /** Whether a finger pressed, and whether a tap on it may pick the thing up. */
+  touch: boolean;
+  tap: boolean;
 }
 /** The drag under way: its lane, what is carried, and the icon that follows the pointer. */
 interface Carry {
@@ -143,6 +153,8 @@ function moving(e: PointerEvent) {
     const thing = lift(e);
     if (thing === null || thing === undefined) return end();
     press.dragged = true;
+    // Dragging has begun: what was picked by a tap is not the thing in hand any more.
+    putDown();
     carry = { lane, thing, ...ghostOf(look) };
     document.body.dataset.dragging = '';
     getSelection()?.removeAllRanges();
@@ -162,6 +174,9 @@ export const sorting = (on: boolean) => {
   if (on) document.body.dataset.dragging = '';
   else if (!carry) delete document.body.dataset.dragging;
 };
+
+/** Whether a thing is being carried along by the pointer (not just picked by a tap, nor a list's item lifted). */
+export const carrying = () => carry !== null;
 
 /** Whether a thing is being dragged: Escape is the drag's then, and closes no window (frame.tsx's useEscape). */
 export const dragging = () => carry !== null || sortingNow;
@@ -217,6 +232,122 @@ function end() {
   }
 }
 
+/** The thing a tap picked up, its lane, and the element tapped, which wears the data-picked look. */
+interface Pick {
+  lane: object;
+  thing: unknown;
+  el: Element;
+}
+let pick: Pick | null = null;
+
+/** How far, in CSS pixels, a finger may drift and still tap (the long press's own slop, long-press.ts). */
+export const TAP_SLOP = 10;
+
+/** The finger now down: it taps if it lifts without having moved far, or been held to a long-press, or been joined. */
+let finger: { id: number; x: number; y: number; void: boolean } | null = null;
+/** Whether the finger that just lifted tapped; read by the places and sources as the lift bubbles. */
+let tapNow = false;
+/** Whether a place took the tap as a drop, so the tap is no pick or put-down besides. */
+let tapDropped = false;
+/** When the last tap lifted: the click the browser makes of it follows within moments. */
+let tappedAt = -Infinity;
+
+/** Whether a click is the one a tap made, which the pick machinery has already handled: a thing's own click must not repeat it. */
+export const fromTap = (now = Date.now()) => now - tappedAt < 700;
+
+/** Whether something is picked up by a tap, and waits for a place. */
+export const picked = () => pick !== null;
+
+/** Put down what a tap picked up, where it was. */
+function putDown() {
+  if (!pick) return;
+  pick.el.removeAttribute('data-picked');
+  pick = null;
+  removeEventListener('keydown', pickKey, true);
+}
+
+function pickKey(e: KeyboardEvent) {
+  if (e.key !== 'Escape' || !pick) return;
+  e.preventDefault();
+  e.stopPropagation();
+  putDown();
+}
+
+/** Pick up what a tapped source carries, or put it down if it is the one already picked. */
+function toggle(p: Press) {
+  if (pick && pick.el === p.el) return putDown();
+  const thing = p.lift({ shiftKey: false, altKey: false });
+  putDown();
+  if (thing === null || thing === undefined) return;
+  pick = { lane: p.lane, thing, el: p.el };
+  p.el.setAttribute('data-picked', '');
+  addEventListener('keydown', pickKey, true);
+}
+
+/** The click that follows a tap which dropped something is the drop's: no button or building under it answers it. */
+function swallowTap() {
+  const swallow = (e: Event) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+  addEventListener('click', swallow, true);
+  setTimeout(() => removeEventListener('click', swallow, true), 600);
+}
+
+function touchDown(e: PointerEvent) {
+  tapNow = false;
+  tapDropped = false;
+  if (e.pointerType !== 'touch') return void (finger = null);
+  // A second finger makes no tap of the first.
+  if (finger && finger.id !== e.pointerId) finger.void = true;
+  else finger = { id: e.pointerId, x: e.clientX, y: e.clientY, void: false };
+  if (pick && !pick.el.isConnected) putDown();
+}
+
+function touchMove(e: PointerEvent) {
+  if (finger && finger.id === e.pointerId && Math.hypot(e.clientX - finger.x, e.clientY - finger.y) > TAP_SLOP)
+    finger.void = true;
+}
+
+function touchUp(e: PointerEvent) {
+  if (!finger || finger.id !== e.pointerId) return;
+  tapNow = !finger.void;
+  if (tapNow) tappedAt = Date.now();
+  finger = null;
+}
+
+/** After the places: a tap that dropped nothing picks up the source it pressed, or puts down what was picked. */
+function tapped(e: PointerEvent) {
+  const tap = tapNow;
+  tapNow = false;
+  const dropped = tapDropped;
+  tapDropped = false;
+  if (!tap || dropped || e.pointerType !== 'touch') return;
+  if (press && press.touch && press.tap && !press.dragged) toggle(press);
+  else putDown();
+}
+
+let listening = false;
+/** The window's listeners for taps, once: they run before a press's own, and the places' (React's) between. */
+function listen() {
+  if (listening || typeof addEventListener !== 'function') return;
+  listening = true;
+  addEventListener('pointerdown', touchDown, true);
+  addEventListener('pointermove', touchMove, true);
+  addEventListener('pointercancel', () => (finger = null), true);
+  addEventListener('pointerup', touchUp, true);
+  addEventListener('pointerup', tapped);
+}
+
+/** What inside a source answers a tap itself, so the tap picks nothing up. */
+const INTERACTIVE = 'button, a, input, select, textarea, [role="button"]';
+
+/** Whether a tap on `target`, inside the source `el`, is the source's: not a button or link of its own inside it. */
+const ownTap = (target: Element, el: Element) => {
+  const inner = target.closest?.(INTERACTIVE);
+  return !inner || inner === el || !el.contains(inner);
+};
+
 /** The props of something that can be dragged. */
 export interface SourceProps {
   'data-drag': '';
@@ -237,8 +368,9 @@ export interface Lane<T> {
    *
    * @param lift What it carries, as the drag starts with these keys held, or null to drag nothing.
    * @param look The element whose copy follows the pointer, out of the one pressed; that one by default.
+   * @param tap Whether a finger's tap picks it up (the default); false where a tap already does what is wanted.
    */
-  source(lift: (keys: Keys) => T | null, look?: (el: HTMLElement) => Element | null): SourceProps;
+  source(lift: (keys: Keys) => T | null, look?: (el: HTMLElement) => Element | null, tap?: boolean): SourceProps;
   /**
    * The props of a place that can take what is dragged.
    *
@@ -251,16 +383,17 @@ export interface Lane<T> {
 /** A new kind of drag. */
 export function lane<T>(): Lane<T> {
   const me = {};
+  listen();
   const mine = (takes: (thing: T) => boolean) => carry !== null && carry.lane === me && takes(carry.thing as T);
   return {
-    source: (lift, look) => ({
+    source: (lift, look, tap = true) => ({
       'data-drag': '',
       onPointerDown: (e) => {
         if (e.button !== 0 || press?.event === e.nativeEvent) return;
         end();
         const el = e.currentTarget as HTMLElement;
         // A touch captures the pointer where it pressed; the drag needs its moves to go to what is under it.
-        if (e.pointerType === 'touch') (e.target as Element).releasePointerCapture(e.pointerId);
+        if (e.pointerType === 'touch') (e.target as Element).releasePointerCapture?.(e.pointerId);
         press = {
           lane: me,
           lift,
@@ -270,6 +403,9 @@ export function lane<T>(): Lane<T> {
           y: e.clientY,
           event: e.nativeEvent,
           dragged: false,
+          touch: e.pointerType === 'touch',
+          // A button or link inside the source keeps its own tap.
+          tap: tap && ownTap(e.target as Element, el),
         };
         addEventListener('pointermove', moving, true);
         addEventListener('pointermove', moved);
@@ -285,7 +421,14 @@ export function lane<T>(): Lane<T> {
       onPointerMove: (e) => {
         if (claim === null && mine(takes)) claim = e.currentTarget;
       },
-      onPointerUp: () => {
+      onPointerUp: (e) => {
+        if (tapNow && pick && pick.lane === me && takes(pick.thing as T) && !pick.el.contains(e.target as Node)) {
+          const thing = pick.thing as T;
+          putDown();
+          tapDropped = true;
+          swallowTap();
+          return drop(thing);
+        }
         if (!mine(takes)) return;
         const thing = carry!.thing as T;
         end();
@@ -297,5 +440,7 @@ export function lane<T>(): Lane<T> {
 
 /** Let go of a press that has not become a drag: a long-press took it (long-press.ts), so moving on will not drag. */
 export const cancelPress = () => {
+  // The finger held: it was no tap either.
+  if (finger) finger.void = true;
   if (!carry) end();
 };

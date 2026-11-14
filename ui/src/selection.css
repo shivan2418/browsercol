@@ -24,8 +24,15 @@
    */
   [aria-selected='true']:not([role='tab'], [data-highlighted]),
   [aria-current]:not([aria-current='false']),
-  [data-selected]:not([data-highlighted]) {
+  [data-selected]:not([data-highlighted]),
+  [data-picked] {
     background-image: linear-gradient(var(--selected-bg), var(--selected-bg));
+  }
+
+  /* What a finger tapped to move (drag.ts) shows more than selected: an outline besides the tint. */
+  [data-picked] {
+    outline: var(--border-thick) solid var(--accent);
+    outline-offset: calc(var(--border-thick) * -1);
   }
 
   button[aria-pressed='true'] {
