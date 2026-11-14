@@ -40,7 +40,7 @@ async function poll(page: Page, what: string, fn: (arg: string) => unknown, arg 
 try {
   const context = await browser.newContext();
   // In German, so the translation, loaded before the worker is in, has to be kept for the offline start.
-  // Only on the first load: the offline audio choice made later in Preferences must stay.
+  // Only on the first load, so a reload keeps whatever the page saved since.
   await context.addInitScript(() => {
     if (!localStorage.getItem('freecol.prefs'))
       localStorage.setItem('freecol.prefs', JSON.stringify({ freecol: { 'model.option.languageOption': 'de' } }));
@@ -90,7 +90,7 @@ try {
   );
   check('the German translation is cached', true);
 
-  // The music: only the tracks played are cached until the player asks for all of them (#505).
+  // The music: all of it, downloaded as soon as the worker has the page, with no choice to make (#505).
   const audioFiles = listFiles(path.join(dist, 'play', 'audio')).map((f) => `/browsercol/play/audio/${f}`);
   const cachedAudio = (name: string) =>
     page.evaluate(
@@ -100,10 +100,6 @@ try {
           .filter((p) => p.includes('/audio/')),
       name,
     );
-  check(
-    `not every music file is cached before the player asks (${(await cachedAudio(cache)).length})`,
-    (await cachedAudio(cache)).length < audioFiles.length,
-  );
   await page.keyboard.press('Control+p');
   await page.locator('#preferences').waitFor({ timeout: 20000 });
   await page.locator('[data-category="clientOptions.audio"]').click();
@@ -112,30 +108,18 @@ try {
   fs.mkdirSync(shots, { recursive: true });
   await poll(
     page,
-    'the worker to answer the audio status',
-    () => document.querySelector('[data-pref=offlineAudio]')?.getAttribute('data-status') === 'idle',
-  );
-  check('the control is enabled once a worker controls the page', await control.locator('button').isEnabled());
-  await page.locator('#preferences').screenshot({ path: path.join(shots, 'prefs-audio-before.png') });
-  await control.locator('button').click();
-  await poll(
-    page,
-    'the audio download to finish',
+    'the music download to finish by itself',
     () => document.querySelector('[data-pref=offlineAudio]')?.getAttribute('data-status') === 'done',
   );
   console.log(`     ${await control.locator('[data-offline-audio-note]').textContent()}`);
-  check('the control says it is saved', ((await control.textContent()) ?? '').includes('Saved for offline'));
-  check('it offers Remove', (await control.locator('button').textContent()) === 'Remove');
+  check('Preferences says the music is saved', ((await control.textContent()) ?? '').includes('Saved for offline'));
+  check('with nothing to press', (await control.locator('button').count()) === 0);
   await page.locator('#preferences').screenshot({ path: path.join(shots, 'prefs-audio-done.png') });
   const audioNow = await cachedAudio(cache);
   const lacking = audioFiles.filter((f) => !audioNow.includes(f));
   check(
     `every file of audio/ is cached (${audioFiles.length - lacking.length}/${audioFiles.length})`,
     lacking.length === 0,
-  );
-  check(
-    'the browser was asked to keep the storage',
-    await page.evaluate(() => navigator.storage.persisted()).then((p) => typeof p === 'boolean'),
   );
   await page.keyboard.press('Escape');
 
@@ -176,12 +160,14 @@ try {
   await page.locator('.update-prompt').screenshot({ path: path.join(shots, 'update-prompt-close.png') });
   // The reload is seen by a marker the old page has and the new one has not.
   await page.evaluate(() => Object.assign(window, { notReloaded: true }));
+  // The new build is installed; with the network gone, the music it gets can only come from the old build's cache.
+  await context.setOffline(true);
   await page.click('.update-prompt button');
   await poll(page, 'the page to reload', () => !('notReloaded' in window));
   await waitForResult(page, 300000);
   const kept = await page.evaluate(async () => (await window.caches.keys()).filter((k) => k.startsWith('browsercol-')));
   check(`Restart swaps the build and drops the old cache (${kept.join()})`, kept.join() === 'browsercol-next-build');
-  // The player chose the audio: the new build's fresh cache is filled again, without asking.
+  // The new build's fresh cache takes the old one's music before the old one goes, offline as it is.
   await poll(
     page,
     'the audio in the new build cache',
@@ -191,7 +177,8 @@ try {
     },
     `browsercol-next-build|${audioFiles.length}`,
   );
-  check(`the new build's cache gets the audio again by itself (${audioFiles.length} files)`, true);
+  check(`the new build's cache carries the music over, offline (${audioFiles.length} files)`, true);
+  await context.setOffline(false);
 } catch (ex) {
   console.log(`FAILED: ${await diagnose(ex)}`);
   failed = true;

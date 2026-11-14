@@ -261,26 +261,18 @@ function PlayHiddenRow({ label, prefs, change }: { label: ReactNode; prefs: Pref
   );
 }
 
-const OFFLINE_AUDIO = 'Download the music for offline';
+const OFFLINE_AUDIO = 'Music for offline';
 
 /**
- * The audio categories' offline download (#505): a button that has the service worker keep every music file (the
- * sound effects are cached at install), with its progress, and Remove once it is done. The choice is the offlineAudio preference. Without a worker
- * (a dev server) the button is disabled, and the line says why.
+ * The audio categories' line on the music for offline play: the service worker downloads every music file once it
+ * has the page (the sound effects are cached at install), and this shows how far it is. Without a worker (a dev
+ * server) it says why there is none.
  */
-function OfflineAudioRow({ label, prefs, change }: { label: ReactNode; prefs: Prefs; change: (p: Prefs) => void }) {
+function OfflineAudioRow({ label }: { label: ReactNode }) {
   const state = useSyncExternalStore(offlineAudio.subscribe, offlineAudio.snapshot);
-  const done = state.status === 'done';
   return (
     <div data-pref="offlineAudio" data-status={state.status} className="offline-audio">
-      <button
-        type="button"
-        data-offline-audio-button={done ? 'remove' : 'download'}
-        disabled={state.status === 'unavailable' || state.status === 'working'}
-        onClick={() => change({ ...prefs, offlineAudio: !done })}
-      >
-        {done ? 'Remove' : label}
-      </button>
+      <span>{label}</span>
       <span className="prefs-note" data-offline-audio-note>
         {describe(state)}
       </span>
@@ -431,7 +423,7 @@ function Results({
           ) : 'playHidden' in m.what ? (
             <PlayHiddenRow label={mark(m.label)} prefs={prefs} change={change} />
           ) : 'offlineAudio' in m.what ? (
-            <OfflineAudioRow label={mark(m.label)} prefs={prefs} change={change} />
+            <OfflineAudioRow label={mark(m.label)} />
           ) : (
             <OptionEditor
               root={{ id: m.key, label: m.label, description: null, kind: 'group', children: [m.what.option] }}
@@ -578,9 +570,7 @@ export function PreferencesDialog({
                     {current.options.children.some((o) => o.id in MUTES) && (
                       <PlayHiddenRow label={PLAY_HIDDEN} prefs={prefs} change={change} />
                     )}
-                    {current.options.children.some((o) => o.id in MUTES) && (
-                      <OfflineAudioRow label={OFFLINE_AUDIO} prefs={prefs} change={change} />
-                    )}
+                    {current.options.children.some((o) => o.id in MUTES) && <OfflineAudioRow label={OFFLINE_AUDIO} />}
                     {current.options.children.some((o) => o.id === LANGUAGE_OPTION) && (
                       <p data-note="language" className="prefs-note">
                         The language is that of FreeCol's own text: messages, reports, names and the Colopedia.

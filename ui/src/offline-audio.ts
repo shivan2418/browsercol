@@ -1,7 +1,7 @@
 // The music for offline play (#505): the page's side of the service worker's audio download
-// (ui/sw.template.js). The worker keeps what has played; this asks it to keep every file, on the player's say, and
-// shows how far it is. Preferences' "Download the music for offline" is this; the choice is a preference
-// (prefs.offlineAudio), so a new build's fresh cache is filled again without asking.
+// (ui/sw.template.js). main.tsx asks the worker to keep every music file as soon as it has the page, a new build's
+// fresh cache too, since offline a track the cache lacks fails to load; Preferences' "Music for offline" line shows
+// how far it is.
 
 /** Where the download is. 'unavailable': no worker controls the page (a dev server, or a first visit still installing). */
 export type AudioStatus = 'unavailable' | 'idle' | 'working' | 'done';
