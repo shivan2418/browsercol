@@ -1,0 +1,15 @@
+/* The Home Screen hint on the start screen (src/ios-notes.tsx). */
+@layer components {
+  .home-screen-hint {
+    margin: var(--space-4) 0;
+    padding: var(--space-4) var(--space-5);
+    background: var(--box);
+    color: var(--ink);
+    border: var(--border-thick) solid var(--line);
+    border-radius: var(--radius-m);
+    font: var(--fs-s) / 1.4 var(--font);
+  }
+  .home-screen-hint p {
+    margin: 0 0 var(--space-4);
+  }
+}

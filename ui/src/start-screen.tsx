@@ -30,6 +30,7 @@ import { levelFile, loadDefaults, readLevelFile, saveDefaults } from './start-op
 import { ADVANTAGES, MAPS, type Advantages, type StartChoice, type StartOptions } from './start';
 import type { ReportView } from './webgui';
 import { coverageHitMethod, useCoverage } from './coverage';
+import { HomeScreenHint, IosSavesWarning } from './ios-notes';
 import './start-window.css';
 
 /** The map generator's import file option (MapGeneratorOptions.IMPORT_FILE). */
@@ -696,6 +697,7 @@ export function StartScreen({
             <button type="submit" className="start-button" autoFocus data-start>
               Start game
             </button>
+            <HomeScreenHint />
             {open && (saves.length > 0 || openFile) && (
               <div className="saved-games">
                 {saves.length > 0 && (
@@ -708,6 +710,7 @@ export function StartScreen({
                     </button>
                   </>
                 )}
+                {saves.length > 0 && <IosSavesWarning />}
                 {saves.length === 0 && (openFile || openNote) && <OpenFile openFile={openFile} note={openNote} />}
               </div>
             )}

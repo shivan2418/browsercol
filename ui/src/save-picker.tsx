@@ -8,6 +8,7 @@ import { ButtonRow, WindowFrame } from './frame';
 import './save-picker.css';
 import type { SaveMeta } from './saves';
 import { useCoverage } from './coverage';
+import { IosSavesWarning } from './ios-notes';
 
 const when = (s: SaveMeta) => new Date(s.date).toLocaleString();
 
@@ -150,6 +151,7 @@ export function OpenDialog({
     <div className="modal">
       <WindowFrame title="Open Game" close={close} id="open-game" className="dialog">
         <SaveList saves={saves} open={open} exportSave={exportSave} />
+        <IosSavesWarning />
         {(openFile || note) && <OpenFile openFile={openFile} note={note} />}
         <ButtonRow>
           <button type="button" data-open-cancel onClick={close}>
@@ -200,6 +202,7 @@ export function SaveDialog({
             The save is kept in this browser only. Clearing the browser's data deletes it, so download a copy of any
             game you want to keep.
           </p>
+          <IosSavesWarning />
           <ButtonRow>
             <button type="button" data-save-cancel onClick={close}>
               Cancel
