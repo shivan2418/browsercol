@@ -1973,12 +1973,9 @@ async function run() {
     freecolOptions = shownClientOptions(clientOptions);
     freecolDefaults = new Map([...leaves(clientOptions)].map(([id, o]) => [id, o.value]));
   }
-  // A save the player picked, not the autosave the page resumed by itself.
-  if (loadId !== undefined && !resumed) await confirmLoad(loadId);
-  const { preset: chosen, importMap } = skipStart
-    ? { preset: '', importMap: undefined }
-    : await chooseGame(data, language, missingNote);
-  choice = chosen;
+  // Both Engines load while the player sets up the game, so Start has little left to wait for: the Worker loads the
+  // server Engine as soon as it is made and starts it once it has the data, and the client module is the one the
+  // game will use (clientModule loads it once). The loading screen counts a part that finished early as done.
   const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
   // An error the Worker does not catch, such as a trap in the server Engine, stops the game's server.
   askWorkerLog = () => worker.postMessage({ k: 'log' } satisfies ToWorker);
@@ -1987,6 +1984,14 @@ async function run() {
   worker.addEventListener('messageerror', () =>
     reportError('The game server sent a message the page could not read', ''),
   );
+  worker.postMessage({ k: 'data', data, language } satisfies ToWorker);
+  void clientModule().catch(() => {}); // a failure is reported when the game asks for it
+  // A save the player picked, not the autosave the page resumed by itself.
+  if (loadId !== undefined && !resumed) await confirmLoad(loadId);
+  const { preset: chosen, importMap } = skipStart
+    ? { preset: '', importMap: undefined }
+    : await chooseGame(data, language, missingNote);
+  choice = chosen;
   const presetJson = preset ? await fetchPreset(preset) : chosen;
   const client = startPage({
     worker,
