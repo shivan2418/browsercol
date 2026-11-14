@@ -78,12 +78,17 @@ jobs:
     needs: release
     uses: ./.github/workflows/site.yml
     with:
-      # This build's game, not whatever release GitHub calls latest a moment after this one was made (#501).
-      tag: ${{ github.ref_name }}
+      # The newest build when the deploy has its turn, which is this one or a newer one, never an older (#501).
+      at-least: ${{ github.ref_name }}
 
+  # Also when the deploy above was replaced while it waited for its turn (site.yml): the run that replaced it
+  # deploys the newest build, this one, and the first step waits for this build to be live.
   smoke:
-    needs: deploy
+    needs: [release, deploy]
+    if: ${{ always() && needs.release.result == 'success' }}
     runs-on: ubuntu-24.04
+    env:
+      PAGE_URL: ${{ needs.deploy.outputs.page_url || 'https://browsercol.com/' }}
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
@@ -97,7 +102,7 @@ jobs:
       - name: The live game is this build
         run: |
           tar -xzf play.tar.gz play/index.html
-          url="${{ needs.deploy.outputs.page_url }}play/"
+          url="${PAGE_URL}play/"
           want=$(grep -o 'assets/index-[^"]*\.js' play/index.html)
           for i in $(seq 1 30); do
             curl -fsS "${url}?build=$GITHUB_REF_NAME-$i" -o live.html && grep -qF "$want" live.html && exit 0
@@ -107,4 +112,4 @@ jobs:
           grep -o 'assets/index-[^"]*\.js' live.html play/index.html >&2
           exit 1
       - name: Smoke against the Pages URL
-        run: DEV_VARIANT=web ./dev.sh node ui/scripts/smoke.ts --url "${{ needs.deploy.outputs.page_url }}"
+        run: DEV_VARIANT=web ./dev.sh node ui/scripts/smoke.ts --url "$PAGE_URL"
