@@ -196,7 +196,11 @@ export interface GotoPicker {
   tap(tile: Tile): void;
 }
 
-export function createGotoPicker(goto: GotoDeps, activeUnit: () => Id | null, onChange: () => void = () => {}): GotoPicker {
+export function createGotoPicker(
+  goto: GotoDeps,
+  activeUnit: () => Id | null,
+  onChange: () => void = () => {},
+): GotoPicker {
   let unit: Id | null = null;
   let chosen: Tile | null = null;
   const stop = () => {
@@ -246,7 +250,17 @@ const CLICK_ECHO_MS = 700;
 /** Move the view with the middle button on the map in a host. Returns whether the last click was a drag. */
 export function pointerInput(
   host: HTMLElement,
-  { view, dispatch, tileAt, goto, tap, longPress, picker, edgeScrolls = () => true, dragScrolls = () => true }: PointerDeps,
+  {
+    view,
+    dispatch,
+    tileAt,
+    goto,
+    tap,
+    longPress,
+    picker,
+    edgeScrolls = () => true,
+    dragScrolls = () => true,
+  }: PointerDeps,
 ): () => boolean {
   let wheel = 0;
   let from: [number, number] | null = null;

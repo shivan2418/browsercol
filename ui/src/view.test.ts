@@ -126,7 +126,9 @@ describe('the view', () => {
     const snapped = reduce(pinched, { k: 'zoomSnap', at: [0, 0] });
     expect(snapped.zoom).toBe(1.5);
     expect(snapped.centre[0]).toBeCloseTo(1024 + 320 / 1.5);
-    expect(reduce(reduce(focused, { k: 'zoomTo', zoom: 0.8, at: [0, 0] }), { k: 'zoomSnap', at: [0, 0] }).zoom).toBe(0.75);
+    expect(reduce(reduce(focused, { k: 'zoomTo', zoom: 0.8, at: [0, 0] }), { k: 'zoomSnap', at: [0, 0] }).zoom).toBe(
+      0.75,
+    );
   });
 
   it('pans by screen pixels, and zooms about the pointer within its levels', () => {

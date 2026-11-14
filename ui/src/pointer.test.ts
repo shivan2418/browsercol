@@ -1,6 +1,14 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vite-plus/test';
-import { HOLD_MS, blockBrowserMenu, blockImageDrag, createGotoPicker, pointerInput, rightClickInput, wheelZoom } from './pointer';
+import {
+  HOLD_MS,
+  blockBrowserMenu,
+  blockImageDrag,
+  createGotoPicker,
+  pointerInput,
+  rightClickInput,
+  wheelZoom,
+} from './pointer';
 import { initialView } from './view';
 
 const PIXEL = 0;

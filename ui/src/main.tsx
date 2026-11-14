@@ -106,6 +106,7 @@ import {
   onCanvas,
   pointerInput,
   rightClickInput,
+  createGotoPicker,
   type GotoDeps,
 } from './pointer';
 import { ContextMenuContext, PopupMenu, parseMenu, type ContextMenus, type MenuData, type Popup } from './popup-menu';
@@ -147,7 +148,7 @@ import {
 import { advisor } from './advisor';
 import { InfoPanel } from './info-panel';
 import { MinimapPanel } from './minimap-panel';
-import { MapOrders } from './map-orders';
+import { MapOrders, hasTouch } from './map-orders';
 import './compass.css';
 import { Side, type SideProps } from './side';
 import { ReloadNotice, reloadPending } from './reload-notice';
@@ -160,7 +161,7 @@ import { loadModule } from './teavm';
 import { applyTheme } from './theme';
 import { removeServiceWorker, syncThemeColor } from './install';
 import { controlArt } from './control-art';
-import { cursor, initialView, panel, reduce, tileOnScreen, W, type ViewEvent, type ViewState } from './view';
+import { cursor, initialView, panel, reduce, tileOnScreen, W, type Tile, type ViewEvent, type ViewState } from './view';
 import type { GuiEvents, GuiHandlers, PopupEvent, ReportView } from './webgui';
 
 declare global {
@@ -1104,7 +1105,15 @@ function renderSide() {
   );
   ordersRoot.render(
     <TipProvider>
-      <MapOrders orders={side.orders} active={view.active !== null} run={(c) => runCommand(c)} art={art} />
+      <MapOrders
+        orders={side.orders}
+        active={view.active !== null}
+        run={(c) => runCommand(c)}
+        art={art}
+        touch={hasTouch()}
+        choosing={gotoPicker.choosing()}
+        goTo={() => gotoPicker.toggle()}
+      />
     </TipProvider>,
   );
   sideRoot.render(
@@ -1582,7 +1591,19 @@ const gotoDeps: GotoDeps = {
     }),
   go: (tile, unit) => gotoClient?.goToUnit(unit, ...tile),
 };
+/** Go To by taps (touch): the Go to button starts it, taps pick and confirm the destination. */
+const gotoPicker = createGotoPicker(
+  gotoDeps,
+  () => view.active?.unit ?? null,
+  () => renderSide(),
+);
+/** What a tap and a long press on the map do once the client Engine is there (set in playWith). */
+let tapTile: ((tile: Tile, detail: number) => void) | null = null;
+let longPressTile: ((tile: Tile, x: number, y: number) => void) | null = null;
 const dragged = pointerInput(mapHost, {
+  tap: (tile, detail) => tapTile?.(tile, detail),
+  longPress: (tile, x, y) => longPressTile?.(tile, x, y),
+  picker: gotoPicker,
   view: () => view,
   dispatch,
   tileAt: (px, py) => map.tileAt(px, py),
@@ -1696,14 +1717,14 @@ function playWith(client: ClientExports) {
   });
   menuClient = client;
   // A right-click on a map tile opens its popup; a dialog over the map has the pointer instead.
-  rightClickInput(
-    mapHost,
-    (px, py) => map.tileAt(px, py),
-    (tile, x, y) => {
-      const menu = debugTileEntries(parseMenu(client.tileMenu(...tile)), tile);
-      showPopup(menu && { menu, x, y });
-    },
-  );
+  const openTilePopup = (tile: Tile, x: number, y: number) => {
+    const menu = debugTileEntries(parseMenu(client.tileMenu(...tile)), tile);
+    showPopup(menu && { menu, x, y });
+  };
+  rightClickInput(mapHost, (px, py) => map.tileAt(px, py), openTilePopup);
+  // A finger's tap is a click and its long press a right-click (pointer.ts, touchInput).
+  tapTile = (tile, detail) => client.click(...tile, detail);
+  longPressTile = openTilePopup;
   mapHost.addEventListener('click', (e) => {
     const at = onCanvas(mapHost, e);
     const tile = at && !dragged() ? map.tileAt(...at) : null;

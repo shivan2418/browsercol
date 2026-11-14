@@ -70,7 +70,10 @@ export function createGestures(
 
   const pair = () => {
     const [a, b] = [...fingers.values()];
-    return { dist: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)), mid: [(a.x + b.x) / 2, (a.y + b.y) / 2] as [number, number] };
+    return {
+      dist: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)),
+      mid: [(a.x + b.x) / 2, (a.y + b.y) / 2] as [number, number],
+    };
   };
   const finish = () => {
     if (!fingers.size) phase = 'idle';

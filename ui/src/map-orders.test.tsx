@@ -31,4 +31,27 @@ describe('MapOrders', () => {
     expect(screen.getByRole('button', { name: 'Skip' }).style.getPropertyValue('--pressed')).toContain('pressed.done');
     expect(screen.queryByRole('button', { name: 'Go to' })).toBeNull();
   });
+
+  it('adds Wait, Go to and Next unit on tile on a touch screen only', () => {
+    const { rerender } = render(<MapOrders orders={['goto']} active run={() => {}} />);
+    expect(screen.queryByRole('button', { name: 'Wait' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Go to' })).toBeNull();
+    const ran: Command[] = [];
+    let goTos = 0;
+    rerender(<MapOrders orders={['goto']} active touch run={(c) => ran.push(c)} goTo={() => goTos++} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Wait' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Next unit on tile' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Go to' }));
+    expect(ran).toEqual([{ k: 'nextUnit' }, { k: 'change' }]);
+    expect(goTos).toBe(1);
+  });
+
+  it('keeps Go to pressed and clickable while a destination is being chosen, and off when the unit cannot go', () => {
+    const { rerender } = render(<MapOrders orders={[]} active touch run={() => {}} />);
+    expect((screen.getByRole('button', { name: 'Go to' }) as HTMLButtonElement).disabled).toBe(true);
+    rerender(<MapOrders orders={[]} active touch choosing run={() => {}} />);
+    const goTo = screen.getByRole('button', { name: 'Go to' }) as HTMLButtonElement;
+    expect(goTo.disabled).toBe(false);
+    expect(goTo.getAttribute('aria-pressed')).toBe('true');
+  });
 });
