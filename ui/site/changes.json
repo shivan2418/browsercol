@@ -1,5 +1,19 @@
 [
   {
+    "build": 20,
+    "date": "2026-11-14",
+    "new": [
+      "Start is almost instant: the game loads in the background while you set up your game.",
+      "A game in progress is saved when you switch away from the tab, and the start screen offers to resume it."
+    ],
+    "fixed": [
+      "A new version reliably reaches browsercol.com. Before, the site sometimes kept the previous version after an update."
+    ],
+    "changed": [
+      "Offline play is off for now while we fix it. The copy saved in your browser is removed, and each visit loads the newest version."
+    ]
+  },
+  {
     "build": 19,
     "date": "2026-11-14",
     "new": [],
