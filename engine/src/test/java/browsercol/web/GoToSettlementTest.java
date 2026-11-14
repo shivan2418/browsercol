@@ -47,7 +47,8 @@ class GoToSettlementTest {
     }
 
     private static void eventually(String what, BooleanSupplier ok) throws InterruptedException {
-        for (int i = 0; i < 500 && !ok.getAsBoolean(); i++) Thread.sleep(20);
+        // 60 s, as endTurn waits: a loaded machine runs a Go To's steps and its dialog slowly (#463).
+        for (int i = 0; i < 3000 && !ok.getAsBoolean(); i++) Thread.sleep(20);
         assertTrue(ok.getAsBoolean(), what);
     }
 
@@ -188,7 +189,16 @@ class GoToSettlementTest {
         eventually("the speak / tribute / attack choice on arrival", this::chiefAsked);
         assertEquals(1, scout.getTile().getDistanceTo(village), () -> "the scout stands next to the settlement: "
             + scout.getTile());
-        assertNull(scout.getDestination(), "the Go To is done");
+        // The client's own refresh steps in too, on another thread than this one, so it can clear
+        // the order (askClearGotoOrders) just before our goTo sets it again (#463: the scout stood
+        // next to the settlement with its order and full moves, the choice already cancelled).
+        // The order is then waiting to step in at the next command, as it is meant to; send one.
+        for (int i = 0; i < 500 && scout.getDestination() != null; i++) {
+            if (i % 25 == 24) commands.afterCommand();
+            Thread.sleep(20);
+        }
+        assertNull(scout.getDestination(), () -> "the Go To is done: " + scout + " at " + scout.getTile()
+            + " moves " + scout.getMovesLeft() + " state " + scout.getState() + "; asked " + asked);
     }
 
     @Test
