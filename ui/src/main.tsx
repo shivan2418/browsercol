@@ -637,6 +637,8 @@ const sound = fetch('audio/audio.json')
     followVisibility = () => player.setHidden(document.visibilityState === 'hidden' && !prefs.playHidden);
     document.addEventListener('visibilitychange', followVisibility);
     followVisibility();
+    // Leaving the page: the music's download is let go, or Firefox waits on it before it loads the next page (#507).
+    addEventListener('pagehide', () => player.release());
     return player;
   })
   .catch((ex: unknown) => {
