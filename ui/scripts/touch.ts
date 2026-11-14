@@ -44,8 +44,8 @@ fs.mkdirSync(shotDir, { recursive: true });
 const server = await serveDist();
 const wanted = opt('devices', 'pixel,iphone,ipad').split(',') as TouchDevice[];
 const only = opt('browsers', 'chromium,webkit').split(',');
-/** Which parts to run, for working on one: start (start screen, order bar, background save), map (map, bars, colony), europe, mouse. */
-const parts = opt('parts', 'start,map,europe,mouse').split(',');
+/** Which parts to run, for working on one: start (start screen, order bar, background save), map (map, bars, colony), europe, mouse, ios (saves and the Home Screen hint on iOS, #511). */
+const parts = opt('parts', 'start,map,europe,mouse,ios').split(',');
 const timeout = 300_000;
 const ZOOMS = [0.25, 0.5, 0.75, 1, 1.5, 2];
 
@@ -1066,6 +1066,126 @@ async function mouseUnchanged(browserName: BrowserName) {
   await browser.close();
 }
 
+const IPHONE_UA =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1';
+const iosShotDir = path.resolve(import.meta.dirname, '../../.cache/ios-saves');
+
+/**
+ * Saves on iOS (#511): the week-away warning and the Add to Home Screen hint show in an iPhone Safari tab (the
+ * user agent of one, in a touch context), and not on a desktop browser, an Android phone or an installed page.
+ * Screenshots go to .cache/ios-saves/ for WebKit.
+ */
+async function iosSaves(browserName: BrowserName) {
+  label = `${browserName} ios saves`;
+  fs.mkdirSync(iosShotDir, { recursive: true });
+  const browser = await launchBrowser(browserName);
+  const hint = '[data-home-screen-hint]';
+  const warning = '[data-ios-saves-warning]';
+  const iosShot = (page: Page, name: string) =>
+    page.screenshot({ path: path.join(iosShotDir, `${browserName}-${name}.png`) });
+  const startScreen = async (page: Page) => {
+    await page.goto(`${server.url}?autoplay=0`);
+    await page.waitForSelector('[data-start]', { timeout: 60000 });
+  };
+  const count = (page: Page, sel: string) => page.locator(sel).count();
+  const phoneOptions = {
+    viewport: { width: 844, height: 390 },
+    deviceScaleFactor: 3,
+    hasTouch: true,
+    isMobile: browserName !== 'firefox',
+  };
+
+  // An iPhone in a Safari tab.
+  const phone = await browser.newPage({ ...phoneOptions, userAgent: IPHONE_UA });
+  const errors = collectPageErrors(phone);
+  await answerDialogs(phone);
+  await watchMaps(phone);
+  await prepare(phone);
+  await step('iPhone tab', async () => {
+    await startScreen(phone);
+    check('the iPhone tab start screen offers the Home Screen hint', (await count(phone, hint)) === 1);
+    const text = (await phone.locator(hint).textContent()) ?? '';
+    check('the hint names Add to Home Screen and Share', /Add to Home Screen/.test(text) && /Share/.test(text), text);
+    check('no saves warning before there is a save', (await count(phone, warning)) === 0);
+    await phone.locator(hint).scrollIntoViewIfNeeded();
+    await iosShot(phone, 'start-hint');
+    // Chromium saves through the file picker, so the save dialog and the saved games' note are WebKit's to check.
+    if (browserName === 'webkit') {
+      // The save screen: Game > Save has no file picker in WebKit, so the name dialog shows, with the warning.
+      await openPreset(phone, 'skipstart&debug&preset=colony-step');
+      await waitForTurn(phone);
+      await phone.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+      await phone.keyboard.press('Control+s');
+      await phone.waitForSelector('#save-game [data-save-where]', { timeout: 10000 });
+      check('the save dialog shows the warning', (await count(phone, `#save-game ${warning}`)) === 1);
+      const warned = (await phone.locator(warning).textContent()) ?? '';
+      check(
+        'the warning says a week and Home Screen and a file',
+        /week/.test(warned) && /Home Screen/.test(warned) && /file/.test(warned),
+        warned,
+      );
+      await iosShot(phone, 'save-warning');
+      await phone.click('#save-game [data-save-ok]');
+      await until(async () => (await count(phone, '#save-game')) === 0);
+      await sleep(1000);
+      // The start screen again: the saved games carry the warning too; dismissing the hint is remembered.
+      await startScreen(phone);
+      await phone.waitForSelector('[data-continue]', { timeout: 30000 });
+      check('the start screen with saves shows the warning', (await count(phone, `.saved-games ${warning}`)) === 1);
+      await phone.locator(warning).scrollIntoViewIfNeeded();
+      await iosShot(phone, 'start-saves');
+    }
+    await phone.click('[data-home-screen-dismiss]');
+    check('dismissing puts the hint away', (await count(phone, hint)) === 0);
+    await startScreen(phone);
+    check('the dismissed hint stays away after a reload', (await count(phone, hint)) === 0);
+  });
+  if (errors.length) check('no page errors', false, errors.join(' | '));
+  await phone.context().close();
+
+  // The same iPhone, installed (opened from the Home Screen): neither shows.
+  const installed = await browser.newPage({ ...phoneOptions, userAgent: IPHONE_UA });
+  await prepare(installed);
+  await installed.addInitScript(() => Object.defineProperty(navigator, 'standalone', { value: true }));
+  await step('installed iPhone', async () => {
+    await startScreen(installed);
+    check('an installed page shows no hint', (await count(installed, hint)) === 0);
+  });
+  await installed.context().close();
+
+  // An Android phone, and a desktop window: no hint, and no warning in the save dialog or beside the saves.
+  const others: [string, Parameters<Browser['newPage']>[0]][] = [
+    [
+      'Android',
+      {
+        ...phoneOptions,
+        userAgent:
+          'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36',
+      },
+    ],
+    ['desktop', { viewport: { width: 1280, height: 800 } }],
+  ];
+  for (const [name, options] of others) {
+    const page = await browser.newPage(options);
+    await answerDialogs(page);
+    await watchMaps(page);
+    await prepare(page);
+    await step(name, async () => {
+      await startScreen(page);
+      check(`${name}: no Home Screen hint`, (await count(page, hint)) === 0);
+      if (browserName === 'chromium') return; // Chromium saves through the file picker, not the dialog
+      await openPreset(page, 'skipstart&debug&preset=colony-step');
+      await waitForTurn(page);
+      await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+      await page.keyboard.press('Control+s');
+      await page.waitForSelector('#save-game [data-save-where]', { timeout: 10000 });
+      check(`${name}: no saves warning in the save dialog`, (await count(page, warning)) === 0);
+    });
+    await page.context().close();
+  }
+  await browser.close();
+}
+
 const nation = 'model.nation.french';
 const browsers = new Map<BrowserName, TouchDevice[]>();
 for (const d of wanted) {
@@ -1222,6 +1342,7 @@ for (const [browserName, devices] of browsers) {
   await browser.close();
 }
 if (only.includes('chromium') && parts.includes('mouse')) await mouseUnchanged('chromium');
+if (parts.includes('ios')) for (const b of ['webkit', 'chromium'] as const) if (only.includes(b)) await iosSaves(b);
 server.close();
 console.log(failed ? 'FAILED' : 'all touch checks passed');
 process.exit(failed ? 1 : 0);
