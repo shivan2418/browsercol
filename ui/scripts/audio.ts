@@ -1,7 +1,9 @@
 // Audio loads lazily (#347): the built site's music and sound effects (93 MB of dist/) stay out of the first load.
 // A cold browser loads the start screen and then the first turn, twice: with music off (the default,
 // #318) and with it on. Nothing may fetch a music file while it is off, only the introduction music may
-// before the first turn with it on, and the page must register no service worker, so nothing precaches audio/ (#267, #296).
+// before the first turn with it on, and the offline worker (#296) may cache no music the page did not play: only the
+// sound effects, which come with its install. Its install fetches (X-Precache) are not the page's, so they are not
+// counted (#506).
 // Prints the bytes each load took (response headers and bodies, as the browser received them), and the
 // requests that were audio.
 // Run in the web image:
@@ -27,7 +29,7 @@ interface Load {
   firstTurn: number;
   audio: string[];
   audioBytes: number;
-  workers: number;
+  cached: string[];
   errors: string[];
 }
 
@@ -45,6 +47,8 @@ async function load(name: ReturnType<typeof browserNames>[number], music: boolea
     }
     const sizes: Promise<{ url: string; bytes: number }>[] = [];
     page.on('response', (r: Response) => {
+      // The worker's install downloads the shell for offline play; only what the page itself loads counts.
+      if (r.request().headers()['x-precache'] || r.request().serviceWorker()) return;
       sizes.push(
         r
           .request()
@@ -68,17 +72,21 @@ async function load(name: ReturnType<typeof browserNames>[number], music: boolea
     const firstTurn = await total();
     const all = await Promise.all(sizes);
     const audio = all.filter((r) => /\/audio\/.+\.(ogg|wav|mp3|flac)$/i.test(r.url));
-    const workers = await page.evaluate(async () => {
-      const regs = 'serviceWorker' in navigator ? await navigator.serviceWorker.getRegistrations() : [];
-      const caches_ = 'caches' in self ? await caches.keys() : [];
-      return regs.length + caches_.length;
+    const cached = await page.evaluate(async () => {
+      if (!('caches' in self)) return [];
+      const urls: string[] = [];
+      for (const name of await caches.keys()) {
+        for (const r of await (await caches.open(name)).keys())
+          if (/\/audio\/.+\.(ogg|wav|mp3|flac)$/i.test(r.url)) urls.push(r.url);
+      }
+      return urls;
     });
     return {
       startScreen,
       firstTurn,
       audio: audio.map((r) => r.url.replace(/^.*\/audio\//, '')),
       audioBytes: audio.reduce((sum, r) => sum + r.bytes, 0),
-      workers: workers + context.serviceWorkers().length,
+      cached: cached.map((u) => u.replace(/^.*\/audio\//, '')),
       errors,
     };
   } finally {
@@ -159,9 +167,12 @@ for (const name of browserNames()) {
       // Sound effects are fetched once the game starts (#391); music is not, unless it is on.
       const notEffect = l.audio.filter((f) => !EFFECT.test(`/audio/${f}`));
       const unwanted = music ? notEffect.filter((f) => !INTRO.test(`/audio/${f}`)) : notEffect;
+      const unwantedCached = l.cached.filter(
+        (f) => !EFFECT.test(`/audio/${f}`) && !(music && INTRO.test(`/audio/${f}`)),
+      );
       const problems = [
         ...unwanted.map((f) => `fetched ${f}`),
-        ...(l.workers ? [`${l.workers} service worker registrations or caches`] : []),
+        ...unwantedCached.map((f) => `cached ${f}`),
         ...l.errors,
       ];
       failed ||= problems.length > 0;
