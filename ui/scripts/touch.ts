@@ -264,10 +264,14 @@ async function assertHit(page: Page, at: Pt, inside: string, what: string) {
     );
 }
 
-/** The middle of an element, once it is there; throws if something else is on top of that point. */
+/**
+ * The middle of an element, once it is there and scrolled into view as a player would; throws if something else
+ * is on top of that point even then.
+ */
 const center = async (l: Locator): Promise<Pt> => {
   const e = l.first();
   await e.waitFor({ state: 'visible', timeout: 20000 });
+  await e.scrollIntoViewIfNeeded();
   const b = (await e.boundingBox())!;
   const at: Pt = [b.x + b.width / 2, b.y + b.height / 2];
   const ok = await e.evaluate((el, [x, y]) => el.contains(document.elementFromPoint(x!, y!)), at);
