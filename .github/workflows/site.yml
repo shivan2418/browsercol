@@ -1,7 +1,7 @@
 # Deploys the site to GitHub Pages: the landing page and changes page (ui/site/) of main's
 # latest commit, around the game of the newest build released (play.tar.gz, which
 # pages.yml attaches to each build-N). A push to main that changes the page
-# (the paths below, which tools/site.sh copies) runs it, and so does pages.yml
+# (the paths below, which tools/site.sh copies) runs it, and so does pages.yml, on main,
 # once it has released a new game. The game, and the build number
 # players see, change only with `just deploy` (#374). Pages replaces the whole
 # site on each deploy, which is why the game goes up again with the page.
@@ -26,7 +26,6 @@ on:
       - 'ui/scripts/count-views.ts'
       - '.github/workflows/site.yml'
   workflow_dispatch:
-  workflow_call:
     inputs:
       at-least:
         description: >-
@@ -34,9 +33,6 @@ on:
           job waits until it lists this build or a newer one.
         type: string
         required: false
-    outputs:
-      page_url:
-        value: ${{ jobs.deploy.outputs.page_url }}
 
 permissions:
   contents: read
@@ -47,7 +43,7 @@ jobs:
   deploy:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    # The one deploy at a time, across this workflow's own runs and pages.yml's call of it.
+    # The one deploy at a time, across this workflow's runs: pushes, and pages.yml starting it for a new build.
     concurrency:
       group: pages-deploy
       cancel-in-progress: false

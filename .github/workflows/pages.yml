@@ -74,21 +74,26 @@ jobs:
           gh release create "$GITHUB_REF_NAME" play.tar.gz --repo "$GITHUB_REPOSITORY"
           --title "${GITHUB_REF_NAME/build-/Build }" --generate-notes --verify-tag
 
+  # The site goes up from main, never from this tag (#501): GitHub Pages ignores a deployment made from a tag of a
+  # commit already deployed from main, and the deploy skill's changelog commit, which its push deploys, is the very
+  # commit it tags. Builds 8, 14 and 16 to 19 went live with the build before's game that way; a deployment from main
+  # has always taken. So this starts the Site workflow on main, which deploys the newest build, this one.
   deploy:
     needs: release
-    uses: ./.github/workflows/site.yml
-    with:
-      # The newest build when the deploy has its turn, which is this one or a newer one, never an older (#501).
-      at-least: ${{ github.ref_name }}
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: write
+    steps:
+      - name: Start the Site workflow on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run site.yml --repo "$GITHUB_REPOSITORY" --ref main -f "at-least=$GITHUB_REF_NAME"
 
-  # Also when the deploy above was replaced while it waited for its turn (site.yml): the run that replaced it
-  # deploys the newest build, this one, and the first step waits for this build to be live.
   smoke:
-    needs: [release, deploy]
-    if: ${{ always() && needs.release.result == 'success' }}
+    needs: deploy
     runs-on: ubuntu-24.04
     env:
-      PAGE_URL: ${{ needs.deploy.outputs.page_url || 'https://browsercol.com/' }}
+      PAGE_URL: https://browsercol.com/
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
@@ -104,11 +109,11 @@ jobs:
           tar -xzf play.tar.gz play/index.html
           url="${PAGE_URL}play/"
           want=$(grep -o 'assets/index-[^"]*\.js' play/index.html)
-          for i in $(seq 1 30); do
+          for i in $(seq 1 60); do
             curl -fsS "${url}?build=$GITHUB_REF_NAME-$i" -o live.html && grep -qF "$want" live.html && exit 0
             sleep 10
           done
-          echo "After 5 minutes ${url} still serves another build's game than $GITHUB_REF_NAME:" >&2
+          echo "After 10 minutes ${url} still serves another build's game than $GITHUB_REF_NAME:" >&2
           grep -o 'assets/index-[^"]*\.js' live.html play/index.html >&2
           exit 1
       - name: Smoke against the Pages URL
