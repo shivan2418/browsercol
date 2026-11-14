@@ -113,6 +113,19 @@ describe('the minimap on a small screen', () => {
     expect(document.getElementById('minimap')).toBeNull();
   });
 
+  it('draws on the canvas it is shown with, not only on the one it had at first', () => {
+    const fill = vi.fn();
+    HTMLCanvasElement.prototype.getContext = (() => ({
+      setTransform() {},
+      fillRect: fill,
+      drawImage() {},
+      strokeRect() {},
+    })) as unknown as typeof HTMLCanvasElement.prototype.getContext;
+    show();
+    fireEvent.click(screen.getByRole('button', { name: 'Minimap' }));
+    expect(fill).toHaveBeenCalled();
+  });
+
   it('still works when the browser has no storage', () => {
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
       throw new Error('blocked');

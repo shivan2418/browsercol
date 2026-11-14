@@ -128,7 +128,7 @@ export function MinimapPanel({ map, res, view, options, centre, setOption, art =
       Math.round(visible[2]),
       Math.round(visible[3]),
     );
-  }, [image, cx, cy, vw, vh, zoom, size, background, res]);
+  }, [image, cx, cy, vw, vh, zoom, size, background, res, compact && shown]);
 
   if (!map) return null;
   const focus = (e: ReactPointerEvent<HTMLCanvasElement>) => {
