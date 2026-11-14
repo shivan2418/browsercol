@@ -58,6 +58,8 @@ type Pt = readonly [number, number];
 /** A finger: real touches on Chromium, taps on WebKit's touch screen and touch PointerEvents for the rest. */
 interface Finger {
   tap(x: number, y: number): Promise<void>;
+  /** Two taps on one spot, sent together so a slow script cannot stretch them past the page's double-tap window. */
+  doubleTap(x: number, y: number): Promise<void>;
   drag(from: Pt, to: Pt, steps?: number): Promise<void>;
   hold(at: Pt, ms?: number): Promise<void>;
   /** Two fingers apart by `from` pixels, moved to `to` apart, about a centre. */
@@ -76,6 +78,16 @@ function makeFinger(page: Page, cdp: CDPSession | null): Finger {
         await send('touchStart', [[x, y]]);
         await sleep(50);
         await send('touchEnd', []);
+        await sleep(300);
+      },
+      async doubleTap(x, y) {
+        // Queued without an await between them: the protocol keeps their order, and nothing here can stall between the taps.
+        await Promise.all([
+          send('touchStart', [[x, y]]),
+          send('touchEnd', []),
+          send('touchStart', [[x, y]]),
+          send('touchEnd', []),
+        ]);
         await sleep(300);
       },
       async drag(from, to, steps = 12) {
@@ -124,6 +136,18 @@ function makeFinger(page: Page, cdp: CDPSession | null): Finger {
   return {
     async tap(x, y) {
       await page.touchscreen.tap(x, y);
+      await sleep(300);
+    },
+    async doubleTap(x, y) {
+      // Both taps in one script in the page, so the time between them is the page's own.
+      await run(
+        PRELUDE +
+          `const [x, y] = arg;
+          fire('pointerdown', 1, x, y); await sleep(30); fire('pointerup', 1, x, y);
+          await sleep(60);
+          fire('pointerdown', 1, x, y); await sleep(30); fire('pointerup', 1, x, y);`,
+        [x, y],
+      );
       await sleep(300);
     },
     async drag(from, to, steps = 12) {
@@ -216,10 +240,68 @@ const view = (page: Page) =>
 const shot = (page: Page, name: string) =>
   page.screenshot({ path: path.join(shotDir, `${label.replace(/ /g, '-')}-${name}.png`) });
 
+/** What the page has at a point, for a failure message. */
+const describeAt = (page: Page, [x, y]: Pt) =>
+  page.evaluate(
+    ([a, b]) => {
+      const e = document.elementFromPoint(a!, b!);
+      return e
+        ? `${e.tagName.toLowerCase()}${e.id ? '#' + e.id : ''}${typeof e.className === 'string' && e.className ? '.' + e.className.split(' ').join('.') : ''}`
+        : 'nothing';
+    },
+    [x, y],
+  );
+
+/** Throws unless what the page has at the point is inside the element `inside` matches: a tap there would hit it. */
+async function assertHit(page: Page, at: Pt, inside: string, what: string) {
+  const ok = await page.evaluate(
+    ([x, y, sel]) => !!document.elementFromPoint(x as number, y as number)?.closest(sel as string),
+    [at[0], at[1], inside],
+  );
+  if (!ok)
+    throw new Error(
+      `a tap at ${at.map(Math.round).join(',')} for ${what} would hit ${await describeAt(page, at)}, not ${inside}`,
+    );
+}
+
+/** The middle of an element, once it is there; throws if something else is on top of that point. */
 const center = async (l: Locator): Promise<Pt> => {
-  const b = (await l.first().boundingBox())!;
-  return [b.x + b.width / 2, b.y + b.height / 2];
+  const e = l.first();
+  await e.waitFor({ state: 'visible', timeout: 20000 });
+  const b = (await e.boundingBox())!;
+  const at: Pt = [b.x + b.width / 2, b.y + b.height / 2];
+  const ok = await e.evaluate((el, [x, y]) => el.contains(document.elementFromPoint(x!, y!)), at);
+  if (!ok)
+    throw new Error(
+      `the middle of ${String(l)} at ${at.map(Math.round).join(',')} is covered by ${await describeAt(l.page(), at)}`,
+    );
+  return at;
 };
+
+/** A point on the map canvas: throws if the order bar, a panel or a window is over it. */
+async function onMap(page: Page, at: Pt, what: string): Promise<Pt> {
+  await assertHit(page, at, '#map canvas', what);
+  return at;
+}
+
+/** Waits for a condition that reads the page from here, up to `ms`; polls, so a slow page only takes longer. */
+async function until(fn: () => Promise<boolean>, ms = 15000): Promise<boolean> {
+  const end = Date.now() + ms;
+  for (;;) {
+    if (await fn().catch(() => false)) return true;
+    if (Date.now() > end) return false;
+    await sleep(100);
+  }
+}
+
+/** Runs one part of a part, so that a miss is reported and the next one still runs on what the page has. */
+async function step(name: string, fn: () => Promise<void>) {
+  try {
+    await fn();
+  } catch (ex) {
+    check(name, false, await diagnose(ex));
+  }
+}
 
 /** Waits for a condition the page decides, for as long as `ms`; false when it did not come. */
 const soon = async (page: Page, fn: () => boolean, ms = 5000) =>
@@ -232,7 +314,7 @@ const soon = async (page: Page, fn: () => boolean, ms = 5000) =>
 async function tileAt(page: Page, x: number, y: number): Promise<Pt> {
   const box = (await page.locator('#map canvas').boundingBox())!;
   const [px, py] = await page.evaluate(([a, b]) => window.fcReveal!(a, b), [x, y]);
-  return [box.x + px, box.y + py];
+  return onMap(page, [box.x + px, box.y + py], `tile ${x},${y}`);
 }
 
 /** Candidate tiles around a tile, nearest first, for a destination the active unit can reach. */
@@ -259,7 +341,7 @@ async function openPreset(page: Page, query: string) {
 async function startByTaps(page: Page, finger: Finger, nation: string) {
   await page.waitForSelector('[data-start]', { timeout: 60000 });
   await finger.tap(...(await center(page.locator(`label.nation:has([data-nation="${nation}"])`))));
-  check('a tap on a nation picks it', await page.locator(`[data-nation="${nation}"]`).isChecked());
+  check('a tap on a nation picks it', await until(() => page.locator(`[data-nation="${nation}"]`).isChecked()));
   await page.locator('[data-start]').scrollIntoViewIfNeeded();
   await finger.tap(...(await center(page.locator('[data-start]'))));
   const r = await waitForResult(page, timeout);
@@ -306,12 +388,15 @@ async function orderBar(page: Page, finger: Finger) {
   // Go to: the button is pressed, a tap on a reachable tile shows the path, the same tap again sends the unit.
   const goButton = bar.locator('[data-order=selectDestination]');
   await finger.tap(...(await center(goButton)));
-  check('Go to is pressed while choosing', (await goButton.getAttribute('aria-pressed')) === 'true');
+  check(
+    'Go to is pressed while choosing',
+    await until(async () => (await goButton.getAttribute('aria-pressed')) === 'true'),
+  );
   let chosen: [number, number] | null = null;
   for (const t of around(after.active.tile)) {
     await finger.tap(...(await tileAt(page, ...t)));
-    const v = await view(page);
-    if (v.preview && v.preview.length > 0) {
+    // A tile the unit cannot reach shows no path; the wait for one is short for those.
+    if (await soon(page, () => (window.fcView!().preview?.length ?? 0) > 0, 2500)) {
       chosen = t;
       break;
     }
@@ -325,85 +410,102 @@ async function orderBar(page: Page, finger: Finger) {
     page,
     () => !document.querySelector('[data-order=selectDestination][aria-pressed=true]') && !window.fcView!().preview,
   );
-  await sleep(1500);
+  const moved = await until(async () => {
+    const a = (await view(page)).active;
+    return a?.unit !== was.unit || a?.tile?.join() !== was.tile?.join();
+  }, 20000);
   const now = await view(page);
   check(
     'a second tap on it sends the unit',
-    gone && (now.active?.unit !== was.unit || now.active?.tile?.join() !== was.tile?.join()),
+    gone && moved,
     `${was.unit}@${was.tile?.join()} -> ${now.active?.unit}@${now.active?.tile?.join()}`,
   );
 }
 
-/** The map's gestures, on a game with a colony. */
+/** The map's gestures, on a game with a colony. Each gesture is its own step on whatever state the one before left. */
 async function mapGestures(page: Page, finger: Finger, colony: [number, number]) {
   const box = (await page.locator('#map canvas').boundingBox())!;
-  // Tap: the tile's name fills the info panel (view.tapped), whatever it is.
-  const next: [number, number] = around(colony)[0]!;
-  const at = await tileAt(page, ...next);
-  await finger.tap(...at);
-  const v1 = await view(page);
-  check(
-    'a tap picks the tile for the info panel',
-    v1.tapped?.join() === next.join(),
-    `${v1.tapped?.join()} for ${next.join()}`,
-  );
-  // Pan: one finger drags the map under it.
-  const from: Pt = [box.x + box.width * 0.35, box.y + box.height * 0.35];
-  const c0 = (await view(page)).centre;
-  await finger.drag(from, [from[0] - 140, from[1] - 50]);
-  await sleep(800);
-  const c1 = (await view(page)).centre;
-  check(
-    'a finger drag pans the view',
-    Math.hypot(c1[0] - c0[0], c1[1] - c0[1]) > 20,
-    `${c0.map(Math.round).join()} -> ${c1.map(Math.round).join()}`,
-  );
-  // Pinch: spread two fingers and the zoom changes, then snaps to a level; pinch together to go back.
-  const mid: Pt = [box.x + box.width / 2, box.y + box.height / 2];
-  const z0 = (await view(page)).zoom;
-  await finger.pinch(mid, 60, z0 >= 1 ? 30 : 140);
-  const z1 = (await view(page)).zoom;
-  check('a pinch changes the zoom and snaps to a level', z1 !== z0 && ZOOMS.includes(z1), `${z0} -> ${z1}`);
-  await finger.pinch(mid, z0 >= 1 ? 30 : 140, 60);
-  const z2 = (await view(page)).zoom;
-  check('a pinch back snaps to a level too', ZOOMS.includes(z2), `${z2}`);
-  // Long press on a tile: its popup.
-  const spot = await tileAt(page, ...colony);
-  await finger.hold(spot);
   const menu = page.locator('[role=menu].popup');
-  check(
-    'a long press opens the tile popup',
-    await menu
-      .first()
-      .isVisible()
-      .catch(() => false),
-  );
-  await shot(page, 'longpress-popup');
-  await finger.tap(box.x + 5, box.y + box.height / 2);
-  check('a tap elsewhere closes the popup', (await menu.count()) === 0);
-  // Double tap on the colony: its window.
-  await page.evaluate(() => (window.__hold = 'colony'));
-  const where = await tileAt(page, ...colony);
-  await finger.tap(...where);
-  await finger.tap(...where);
-  const win = page.locator('[role=dialog][data-kind=colony]');
-  check(
-    'a double-tap on a colony opens it',
-    await win
-      .first()
-      .waitFor({ timeout: 15000 })
-      .then(
-        () => true,
-        () => false,
-      ),
-  );
+  const popupGone = () => until(async () => (await menu.count()) === 0);
+  // Tap: the tile's name fills the info panel (view.tapped), whatever it is.
+  await step('a tap picks the tile for the info panel', async () => {
+    const next: [number, number] = around(colony)[0]!;
+    await finger.tap(...(await tileAt(page, ...next)));
+    const picked = await until(async () => (await view(page)).tapped?.join() === next.join(), 15000);
+    check('a tap picks the tile for the info panel', picked, `${(await view(page)).tapped?.join()} for ${next.join()}`);
+  });
+  // Pan: one finger drags the map under it.
+  await step('a finger drag pans the view', async () => {
+    const from = await onMap(page, [box.x + box.width * 0.35, box.y + box.height * 0.35], 'the drag start');
+    const c0 = (await view(page)).centre;
+    await finger.drag(from, [from[0] - 140, from[1] - 50]);
+    const dist = async () => {
+      const c = (await view(page)).centre;
+      return Math.hypot(c[0] - c0[0], c[1] - c0[1]);
+    };
+    await until(async () => (await dist()) > 20);
+    const c1 = (await view(page)).centre;
+    check(
+      'a finger drag pans the view',
+      Math.hypot(c1[0] - c0[0], c1[1] - c0[1]) > 20,
+      `${c0.map(Math.round).join()} -> ${c1.map(Math.round).join()}`,
+    );
+  });
+  // Pinch: spread two fingers and the zoom changes, then snaps to a level; pinch together to go back.
+  await step('a pinch changes the zoom', async () => {
+    const mid = await onMap(page, [box.x + box.width / 2, box.y + box.height / 2], 'the pinch centre');
+    const zoom = async () => (await view(page)).zoom;
+    const z0 = await zoom();
+    const out = z0 >= 1 ? 30 : 140;
+    await finger.pinch(mid, 60, out);
+    await until(async () => (await zoom()) !== z0 && ZOOMS.includes(await zoom()));
+    const z1 = await zoom();
+    check('a pinch changes the zoom and snaps to a level', z1 !== z0 && ZOOMS.includes(z1), `${z0} -> ${z1}`);
+    await finger.pinch(mid, out, 60);
+    await until(async () => (await zoom()) !== z1 && ZOOMS.includes(await zoom()));
+    const z2 = await zoom();
+    check('a pinch back snaps to a level too', ZOOMS.includes(z2), `${z2}`);
+  });
+  // Long press on a tile: its popup.
+  await step('a long press opens the tile popup', async () => {
+    await finger.hold(await tileAt(page, ...colony), 800);
+    check('a long press opens the tile popup', await until(() => menu.first().isVisible()));
+    await shot(page, 'longpress-popup');
+    await finger.tap(...(await onMap(page, [box.x + 5, box.y + box.height / 2], 'a spot away from the popup')));
+    check('a tap elsewhere closes the popup', await popupGone());
+  });
+  // Double tap on the colony: its window. The step before leaves nothing open (a popup is closed here if it stayed).
+  await step('a double-tap on a colony opens it', async () => {
+    if ((await menu.count()) > 0) {
+      await page.keyboard.press('Escape');
+      await popupGone();
+    }
+    await page.evaluate(() => (window.__hold = 'colony'));
+    const win = page.locator('[role=dialog][data-kind=colony]');
+    const opened = async (ms: number) =>
+      win
+        .first()
+        .waitFor({ timeout: ms })
+        .then(
+          () => true,
+          () => false,
+        );
+    await finger.doubleTap(...(await tileAt(page, ...colony)));
+    const ok = await opened(20000);
+    check('a double-tap on a colony opens it', ok);
+    // The colony part needs the window; one more try (not checked) so a miss above does not take it down too.
+    if (!ok) {
+      await finger.doubleTap(...(await tileAt(page, ...colony)));
+      await opened(20000);
+    }
+  });
 }
 
 /** Wait: the next unit is active (the preset has several). */
 async function waitButton(page: Page, finger: Finger) {
   const before = await view(page);
   await finger.tap(...(await center(page.locator('#map-orders [data-order=nextUnit]'))));
-  await sleep(800);
+  await until(async () => (await view(page)).active?.unit !== before.active?.unit, 20000);
   const after = await view(page);
   check(
     'Wait moves to the next unit',
@@ -435,50 +537,47 @@ async function waitGame(browser: Browser, device: TouchDevice, finger: (page: Pa
 async function bars(page: Page, finger: Finger) {
   const titles = page.locator('.menubar [role=menubar] > .menu > button');
   const n = await titles.count();
-  await finger.tap(...(await center(titles.nth(0))));
+  const open = (label: string | null) => page.locator(`[role=menu][aria-label="${label}"]`).count();
+  const any = () => page.locator('.menubar [role=menu]').count();
+  const second = Math.min(1, n - 1);
   const first = await titles.nth(0).textContent();
-  check(
-    'a tap on a menu title opens its menu',
-    (await page.locator(`[role=menu][aria-label="${first}"]`).count()) === 1,
-  );
-  await finger.tap(...(await center(titles.nth(Math.min(1, n - 1)))));
-  const second = await titles.nth(Math.min(1, n - 1)).textContent();
-  await sleep(200);
-  check(
-    'a tap on another title switches menus',
-    (await page.locator(`[role=menu][aria-label="${second}"]`).count()) === 1 &&
-      (await page.locator(`[role=menu][aria-label="${first}"]`).count()) === 0,
-  );
-  await finger.tap(...(await center(titles.nth(Math.min(1, n - 1)))));
-  check('a tap on the open title closes it', (await page.locator('.menubar [role=menu]').count()) === 0);
+  const next = await titles.nth(second).textContent();
+  await step('a tap on a menu title opens its menu', async () => {
+    if ((await any()) > 0) await finger.tap(...(await center(titles.nth(0)))); // a menu left open
+    await until(async () => (await any()) === 0);
+    await finger.tap(...(await center(titles.nth(0))));
+    check('a tap on a menu title opens its menu', await until(async () => (await open(first)) === 1));
+  });
+  await step('a tap on another title switches menus', async () => {
+    await finger.tap(...(await center(titles.nth(second))));
+    check(
+      'a tap on another title switches menus',
+      await until(async () => (await open(next)) === 1 && (second === 0 || (await open(first)) === 0)),
+    );
+  });
+  await step('a tap on the open title closes it', async () => {
+    await finger.tap(...(await center(titles.nth(second))));
+    check('a tap on the open title closes it', await until(async () => (await any()) === 0));
+  });
   // A Tip trigger: the order bar's Wait.
-  const wait = page.locator('#map-orders [data-order=nextUnit]');
   const tip = page.locator('.ui-tip');
-  await finger.hold(await center(wait), 800);
-  check(
-    'a long press on a Tip shows its tooltip',
-    await tip
-      .first()
-      .isVisible()
-      .catch(() => false),
-  );
-  const map = (await page.locator('#map canvas').boundingBox())!;
-  await finger.tap(map.x + 5, map.y + map.height / 2);
-  await sleep(300);
-  check(
-    'a tap elsewhere closes the tooltip',
-    (await tip.count()) === 0 ||
-      !(await tip
-        .first()
-        .isVisible()
-        .catch(() => false)),
-  );
+  const shown = () => tip.first().isVisible();
+  await step('a long press on a Tip shows its tooltip', async () => {
+    await finger.hold(await center(page.locator('#map-orders [data-order=nextUnit]')), 800);
+    check('a long press on a Tip shows its tooltip', await until(shown));
+  });
+  await step('a tap elsewhere closes the tooltip', async () => {
+    const map = (await page.locator('#map canvas').boundingBox())!;
+    await finger.tap(...(await onMap(page, [map.x + 5, map.y + map.height / 2], 'a spot away from the tooltip')));
+    check('a tap elsewhere closes the tooltip', await until(async () => (await tip.count()) === 0 || !(await shown())));
+  });
 }
 
-/** The colony window: a long press, a finger drag, two taps and Escape. */
+/** The colony window: a long press, a finger drag, two taps and Escape. Each is a step on the colonist's place now. */
 async function colony(page: Page, finger: Finger) {
   const win = page.locator('[role=dialog][data-kind=colony]');
-  await sleep(1500);
+  await win.first().waitFor({ timeout: 30000 });
+  await page.locator('.colony [data-unit]').first().waitFor({ timeout: 30000 });
   const units = await page
     .locator('.colony [data-unit]')
     .evaluateAll((es) => es.map((e) => (e as HTMLElement).dataset.unit!));
@@ -487,7 +586,8 @@ async function colony(page: Page, finger: Finger) {
     .evaluateAll((es) => es.map((e) => e.getAttribute('data-building')!));
   const where = (id: string) =>
     page.evaluate((id) => {
-      const e = document.querySelector(`.colony [data-unit="${id}"]`)!;
+      const e = document.querySelector(`.colony [data-unit="${id}"]`);
+      if (!e) return 'gone';
       const t = e.closest<HTMLElement>('[data-tile]');
       if (t) return `tile ${t.dataset.tile}`;
       const b = e.closest('[data-building]');
@@ -497,51 +597,76 @@ async function colony(page: Page, finger: Finger) {
     }, id);
   const sel = (id: string) => page.locator(`.colony [data-unit="${id}"]`);
   const id = units[0]!;
-  check('the colony has colonists and buildings', units.length > 0 && buildings.length > 1);
-  // Long press on a colonist: its menu.
-  await sel(id).scrollIntoViewIfNeeded();
-  await finger.hold(await center(sel(id)));
+  const picked = () => page.locator('[data-picked]').count();
   const menu = page.locator('[role=menu].popup');
-  check(
-    'a long press on a colonist opens its menu',
-    await menu
-      .first()
-      .isVisible()
-      .catch(() => false),
-  );
-  await finger.tap(...(await center(win.locator('.title'))));
-  await sleep(200);
-  check('a tap elsewhere closes it', (await menu.count()) === 0);
-  // Finger drag onto a building.
-  const start = await where(id);
-  const target = buildings.find((b) => start !== `building ${b}`)!;
   const tgt = (b: string) => page.locator(`.colony [data-building="${b}"]`);
-  await tgt(target).scrollIntoViewIfNeeded();
-  await finger.drag(await center(sel(id)), await center(tgt(target)));
-  const moved = await where(id);
-  check('a finger drag moves a colonist onto a building', moved === `building ${target}`, `${start} -> ${moved}`);
+  check('the colony has colonists and buildings', units.length > 0 && buildings.length > 1);
+  /** A pick or popup left by a step that missed is put down, so the next step starts clean. */
+  const clean = async () => {
+    if ((await picked()) > 0 || (await menu.count()) > 0) {
+      await page.keyboard.press('Escape');
+      await until(async () => (await picked()) === 0 && (await menu.count()) === 0, 5000);
+    }
+  };
+  // Long press on a colonist: its menu.
+  await step('a long press on a colonist opens its menu', async () => {
+    await sel(id).scrollIntoViewIfNeeded();
+    await finger.hold(await center(sel(id)), 800);
+    check('a long press on a colonist opens its menu', await until(() => menu.first().isVisible()));
+    await finger.tap(...(await center(win.locator('.title'))));
+    check('a tap elsewhere closes it', await until(async () => (await menu.count()) === 0));
+  });
+  // Finger drag onto a building.
+  await step('a finger drag moves a colonist onto a building', async () => {
+    await clean();
+    const start = await where(id);
+    const target = buildings.find((b) => start !== `building ${b}`)!;
+    await tgt(target).scrollIntoViewIfNeeded();
+    await finger.drag(await center(sel(id)), await center(tgt(target)));
+    await until(async () => (await where(id)) === `building ${target}`);
+    const moved = await where(id);
+    check('a finger drag moves a colonist onto a building', moved === `building ${target}`, `${start} -> ${moved}`);
+  });
   // Tap then tap.
-  const target2 = buildings.find((b) => `building ${b}` !== moved)!;
-  await finger.tap(...(await center(sel(id))));
-  check('a tap picks the colonist', (await page.locator('[data-picked]').count()) === 1);
-  await shot(page, 'colony-picked');
-  await finger.tap(...(await center(tgt(target2))));
-  await sleep(500);
-  const moved2 = await where(id);
-  check(
-    'a tap on a building puts it there',
-    moved2 === `building ${target2}` && (await page.locator('[data-picked]').count()) === 0,
-    `${moved} -> ${moved2}`,
-  );
+  await step('a tap picks the colonist', async () => {
+    await clean();
+    await sel(id).scrollIntoViewIfNeeded();
+    await finger.tap(...(await center(sel(id))));
+    check('a tap picks the colonist', await until(async () => (await picked()) === 1));
+    await shot(page, 'colony-picked');
+  });
+  await step('a tap on a building puts it there', async () => {
+    const now = await where(id);
+    const target2 = buildings.find((b) => `building ${b}` !== now)!;
+    if ((await picked()) === 0) {
+      await sel(id).scrollIntoViewIfNeeded();
+      await finger.tap(...(await center(sel(id)))); // not picked by the step before
+      await until(async () => (await picked()) === 1);
+    }
+    await tgt(target2).scrollIntoViewIfNeeded();
+    await finger.tap(...(await center(tgt(target2))));
+    await until(async () => (await where(id)) === `building ${target2}` && (await picked()) === 0);
+    const moved2 = await where(id);
+    check(
+      'a tap on a building puts it there',
+      moved2 === `building ${target2}` && (await picked()) === 0,
+      `${now} -> ${moved2}`,
+    );
+  });
   // Escape cancels a pick, the window stays.
-  await finger.tap(...(await center(sel(id))));
-  await page.keyboard.press('Escape');
-  await sleep(300);
-  check(
-    'Escape puts a pick down and closes no window',
-    (await page.locator('[data-picked]').count()) === 0 && (await win.count()) === 1,
-  );
+  await step('Escape puts a pick down and closes no window', async () => {
+    await clean();
+    await sel(id).scrollIntoViewIfNeeded();
+    await finger.tap(...(await center(sel(id))));
+    await until(async () => (await picked()) === 1);
+    await page.keyboard.press('Escape');
+    check(
+      'Escape puts a pick down and closes no window',
+      await until(async () => (await picked()) === 0 && (await win.count()) === 1),
+    );
+  });
   await finger.tap(...(await center(win.locator('button.close, .close').first())));
+  await until(async () => (await win.count()) === 0, 5000);
 }
 
 /** Europe: a cargo unit goes to the docks by two taps. */
@@ -600,7 +725,7 @@ async function europe(page: Page, finger: Finger) {
   await panel.locator('[data-list=cargo] [data-cargo=unit]').scrollIntoViewIfNeeded();
   // Tap the cargo unit: picked; tap the docks: landed.
   await finger.tap(...(await center(panel.locator('[data-list=cargo] [data-cargo=unit]'))));
-  check('a tap on a cargo unit picks it', (await page.locator('[data-picked]').count()) === 1);
+  check('a tap on a cargo unit picks it', await until(async () => (await page.locator('[data-picked]').count()) === 1));
   await shot(page, 'europe-picked');
   await finger.tap(...(await center(panel.locator('[data-list=docks]'))));
   const landed = await soon(
@@ -658,6 +783,7 @@ async function mouseUnchanged(browserName: BrowserName) {
   try {
     await openPreset(page, 'skipstart&debug&preset=colony-step');
     await waitForTurn(page);
+    await page.waitForFunction(() => window.__map.settlements.some((s) => s.population >= 0), null, { timeout: 60000 });
     const m = await page.evaluate(() => window.__map);
     const mine = m.settlements.filter((s) => s.population >= 0);
     const colonyAt: [number, number] = [mine[0]!.x, mine[0]!.y];
@@ -666,18 +792,22 @@ async function mouseUnchanged(browserName: BrowserName) {
     // Right-click: the tile popup.
     const spot = await tileAt(page, ...colonyAt);
     await page.mouse.click(...spot, { button: 'right' });
-    check('a right-click opens the tile popup', await page.locator('[role=menu].popup').first().isVisible());
+    check(
+      'a right-click opens the tile popup',
+      await until(() => page.locator('[role=menu].popup').first().isVisible()),
+    );
     await page.keyboard.press('Escape');
+    await until(async () => (await page.locator('[role=menu].popup').count()) === 0);
     // Hold: the path shows while the button is down, and the unit is sent on release.
     let held = false;
     for (const t of around(tile)) {
       const p = await tileAt(page, ...t);
       await page.mouse.move(...p);
       await page.mouse.down();
-      await sleep(700);
-      const v = await view(page);
+      // The path shows once the press has been held (500 ms in the page); a tile the unit cannot reach shows none.
+      const shown = await soon(page, () => (window.fcView!().preview?.length ?? 0) > 0, 3000);
       await page.mouse.up();
-      if (v.preview && v.preview.length > 0) {
+      if (shown) {
         held = true;
         break;
       }
@@ -738,7 +868,10 @@ for (const [browserName, devices] of browsers) {
         check(`the phone notice ${phone ? 'shows' : 'does not show'}`, (await notice.count()) === (phone ? 1 : 0));
         if (phone) {
           await finger.tap(...(await center(notice)));
-          check('a tap on Continue anyway puts the notice away', (await page.locator('#mobile-notice').count()) === 0);
+          check(
+            'a tap on Continue anyway puts the notice away',
+            await until(async () => (await page.locator('#mobile-notice').count()) === 0),
+          );
         }
         check('the rotate notice is hidden in landscape', !(await noticeShown(page)));
         await checkLayout(page, d.width);
@@ -751,8 +884,13 @@ for (const [browserName, devices] of browsers) {
           for (let i = 0; i < 12 && !(await page.locator('.info-end button').count()); i++) {
             const skip = page.locator('#map-orders [data-order=skip]');
             if (!(await skip.count()) || (await skip.isDisabled())) break;
+            const before = (await view(page)).active?.unit;
             await finger.tap(...(await center(skip)));
-            await sleep(500);
+            await until(
+              async () =>
+                (await view(page)).active?.unit !== before || !!(await page.locator('.info-end button').count()),
+              10000,
+            );
           }
           await finger.tap(...(await center(page.locator('.info-end button'))));
           const passed = await page
