@@ -319,8 +319,9 @@ function LabourDetail({ e, art, go }: { e: View<'labourDetail'>; art: Art; go: L
             <dd>{c.count}</dd>
           </div>
         ))}
-        {e.places.map((p) => (
-          <div key={p.label}>
+        {/* By place: two tiles can share a label, "Plains (north of Jamestown)". */}
+        {e.places.map((p, i) => (
+          <div key={i}>
             <dt>
               {p.europe || p.at ? (
                 <Link go={() => (p.europe ? go.europe() : p.at && go.goTo(p.at))}>{p.label}</Link>
@@ -331,8 +332,8 @@ function LabourDetail({ e, art, go }: { e: View<'labourDetail'>; art: Art; go: L
             <dd>{p.count}</dd>
           </div>
         ))}
-        {e.atSea.map((p) => (
-          <div key={p.label}>
+        {e.atSea.map((p, i) => (
+          <div key={i}>
             <dt>{p.label}</dt>
             <dd>{p.count}</dd>
           </div>
@@ -478,15 +479,9 @@ function Units({ e, art, go }: { e: View<'military' | 'naval' | 'cargo'>; art: A
               {kind.map((u) => (
                 <span key={u.id} className="unit" data-list="unit">
                   <Img keys={u.keys} art={art} title={u.text} unit={u.id} />
-                  {u.goods.map((g) => (
-                    <GoodsAmount
-                      key={g.type}
-                      keys={g.keys}
-                      name={g.name}
-                      amount={g.amount}
-                      art={art}
-                      {...boycottOf(g)}
-                    />
+                  {/* By place: FreeCol lists cargo in loads of 100, so 200 muskets are two of them. */}
+                  {u.goods.map((g, i) => (
+                    <GoodsAmount key={i} keys={g.keys} name={g.name} amount={g.amount} art={art} {...boycottOf(g)} />
                   ))}
                   {u.cargo.map((c) => (
                     <Img key={c.id} keys={c.keys} art={art} title={c.name} unit={c.id} />
@@ -785,8 +780,9 @@ function RequirementsReport({ e, go }: { e: View<'requirements'>; go: Links }) {
           {c.items.map((item, i) => (
             <p key={i} data-item={i}>
               {item.text}
+              {/* By place: FreeCol names a colony once per misused expert, so it can come twice. */}
               {item.colonies.map((l, j) => (
-                <span key={l.id}>
+                <span key={j}>
                   {j === 0 ? ' ' : ', '}
                   <Link go={() => go.colony(l.id)} data-link={l.id}>
                     {l.name}

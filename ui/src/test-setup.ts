@@ -3,20 +3,20 @@
 import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
 const KEY_WARNING = /Encountered two children with the same key|Each child in a list should have a unique "key"/;
-let warnings: string[] = [];
+let warnings = new Set<string>();
 
 beforeEach(() => {
-  warnings = [];
+  warnings = new Set();
   const error = console.error.bind(console);
   vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
     const text = args.map(String).join(' ');
-    if (KEY_WARNING.test(text)) warnings.push(text);
+    if (KEY_WARNING.test(text)) warnings.add(text);
     error(...args);
   });
 });
 
 afterEach(() => {
-  const found = warnings;
-  warnings = [];
+  const found = [...warnings];
+  warnings = new Set();
   expect(found, "React's key warnings").toEqual([]);
 });

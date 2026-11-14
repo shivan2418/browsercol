@@ -282,6 +282,25 @@ describe('the labour report', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
     expect(calls.at(-1)).toBe('open labour');
   });
+
+  it('lists two places that share a label, and two ships that do', () => {
+    const { box } = host();
+    const plains = { label: 'Plains (north of Jamestown)', count: 1, europe: false, at: [3, 4] as [number, number] };
+    show(box, {
+      ...head('labourDetail', 'labour'),
+      unit: { id: 'u', name: 'Free Colonist', keys: [] },
+      total: 4,
+      colonies: [],
+      places: [plains, { ...plains, at: [4, 4] }],
+      atSea: [
+        { label: 'On board Mayflower', count: 1 },
+        { label: 'On board Mayflower', count: 1 },
+      ],
+      canTrain: null,
+    });
+    expect(screen.getAllByText('Plains (north of Jamestown)')).toHaveLength(2);
+    expect(screen.getAllByText('On board Mayflower')).toHaveLength(2);
+  });
 });
 
 describe('the compact labour report', () => {
@@ -403,6 +422,27 @@ describe('the military, naval and cargo reports', () => {
     show(box, units('military'));
     fireEvent.click(screen.getByRole('button', { name: 'Tile 3, 4' }));
     expect(calls).toEqual(['colony colony:7', 'europe', 'goTo 3,4']);
+  });
+});
+
+describe('a carrier in the cargo report', () => {
+  it('shows each cargo load of 100, two of the same goods too', () => {
+    const { box } = host();
+    const muskets = { type: 'model.goods.muskets', name: 'Muskets', keys: [], amount: 100 };
+    show(box, {
+      ...head('cargo'),
+      forces: { name: 'English forces', units: [] },
+      ref: { name: 'Royal Expeditionary Force', units: [] },
+      none: 'none',
+      locations: [
+        {
+          label: 'Jamestown',
+          link: { kind: 'colony', id: 'colony:7', at: [1, 2] },
+          units: [{ ...colonist, text: 'Caravel', goods: [muskets, muskets], cargo: [] }],
+        },
+      ],
+    });
+    expect(document.querySelectorAll('[data-list="unit"] .goods')).toHaveLength(2);
   });
 });
 
@@ -672,6 +712,23 @@ describe('the requirements report', () => {
     expect(plymouth.querySelector('p')?.textContent).toBe('All requirements are met.');
     fireEvent.click(within(jamestown).getByRole('button', { name: 'Salem' }));
     expect(calls).toEqual(['colony colony:9']);
+  });
+
+  it('names a colony as often as FreeCol lists it: once per misused expert', () => {
+    const { box } = host();
+    const plymouth = { id: 'colony:8', name: 'Plymouth', info: '' };
+    show(box, {
+      ...head('requirements'),
+      colonies: [
+        {
+          id: 'colony:7',
+          name: 'Jamestown',
+          items: [{ text: 'Expert Fishermen working elsewhere:', colonies: [plymouth, plymouth] }],
+          met: null,
+        },
+      ],
+    });
+    expect(screen.getAllByRole('button', { name: 'Plymouth' })).toHaveLength(2);
   });
 });
 

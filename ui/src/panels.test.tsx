@@ -953,6 +953,31 @@ describe('the negotiation dialog', () => {
     expect((await picker)?.status).toBe('reject');
   });
 
+  it('offers a goods type once, though the ship carries two loads of it', async () => {
+    const { box } = host();
+    const muskets = { key: 'model.goods.muskets', amount: 100, text: '100 Muskets' };
+    void ask(
+      box,
+      'negotiation',
+      q({
+        context: 'trade',
+        options: [
+          {
+            kind: 'goods',
+            side: 'offer',
+            label: 'Goods',
+            unique: false,
+            choices: [muskets, muskets, { key: 'model.goods.cloth', amount: 100, text: '100 Cloth' }],
+            empty: null,
+          },
+        ],
+      }),
+    );
+    fireEvent.click(column('offer').getByRole('button', { name: 'Goods' }));
+    await openSelect(screen.getByRole('combobox', { name: 'Goods' }));
+    expect(listed()).toEqual(['100 Muskets', '100 Cloth']);
+  });
+
   it('trades goods, units and gold without relations, and leaves the trade', async () => {
     const { box } = host();
     const answer = ask(
@@ -2654,6 +2679,13 @@ describe('the Europe panel', () => {
   /** The names in one of the panel's lists. */
   const names = (list: string) =>
     [...document.querySelectorAll(`[data-list=${list}] .europe-entry .name`)].map((n) => n.textContent);
+
+  it('shows each cargo load of 100 on the chosen ship, two of the same goods too', () => {
+    const { box } = host();
+    const cloth = { kind: 'goods' as const, id: 'model.goods.cloth', name: 'Cloth', amount: 100, images: [] };
+    act(() => box.show('europe', { ...europe, inPort: [{ ...caravel, cargo: [cloth, cloth] }, galleon] }));
+    expect(document.querySelectorAll('[data-list=cargo] [data-cargo=goods]')).toHaveLength(2);
+  });
 
   it('lists the ships, the docks and every goods’ prices under FreeCol’s headings', () => {
     const { box } = host();

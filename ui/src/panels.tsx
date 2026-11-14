@@ -1842,6 +1842,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
               {...(ship ? dropTargetProps('cargo', onCargo) : {})}
             >
               <div className="europe-entries">
+                {/* Keyed by place too: FreeCol lists cargo in loads of 100, so 200 cloth are two of them. */}
                 {ship?.cargo?.map((c, i) => {
                   const goods = trade.get(c.id);
                   // A boycotted stack is still a button: selling it asks to pay the arrears, as Swing does.
@@ -1859,7 +1860,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
                   return sellable ? (
                     <Tip
                       as="button"
-                      key={`${c.kind}/${c.id}`}
+                      key={`${c.kind}/${c.id}/${i}`}
                       className="europe-entry"
                       data-flat=""
                       data-cargo={c.kind}
@@ -1875,7 +1876,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
                   ) : (
                     <Tip
                       as="div"
-                      key={`${c.kind}/${c.id}`}
+                      key={`${c.kind}/${c.id}/${i}`}
                       className="europe-entry"
                       data-cargo={c.kind}
                       tip={c.label ?? goods?.reason ?? c.name}

@@ -102,11 +102,15 @@ export function useNegotiation(
     ]);
   };
 
-  /** The choices of a picker that are still to add. */
+  /**
+   * The choices of a picker that are still to add, each key once: a ship's goods come in loads of 100, so 200
+   * muskets would be two choices of one key, which the picker cannot tell apart.
+   */
   const left = (o: TradeOption) =>
-    o.unique
+    (o.unique
       ? o.choices
-      : o.choices.filter((c) => !items.some((i) => i.kind === o.kind && i.side === o.side && i.key === c.key));
+      : o.choices.filter((c) => !items.some((i) => i.kind === o.kind && i.side === o.side && i.key === c.key))
+    ).filter((c, n, all) => all.findIndex((d) => d.key === c.key) === n);
   const optionFor = (p: Pick) => ask.options.find((o) => o.kind === p.kind && o.side === p.side);
   const amountError = (p: Pick, o: TradeOption) => {
     const n = p.amount;
