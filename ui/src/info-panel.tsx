@@ -5,11 +5,13 @@
 // it, FreeCol's skin is the panel's background: a desk with a skull on it, over a sheet of paper.
 import { clsx } from 'clsx';
 import type { CSSProperties, ReactNode } from 'react';
+import { useCompact } from './compact';
 import { Tip } from './controls';
 import { cssUrl, type Art } from './frame';
 import { PANEL_KEYS } from './map-keys';
 import type { ActiveUnit } from './tileset';
 import './info-panel.css';
+import './compact-hud.css';
 
 export interface InfoPanelProps {
   /** The active unit, once a map view about it has come. */
@@ -29,6 +31,23 @@ export const END_TURN = { text: 'Press enter in order to end the turn.', button:
 
 /** InfoPanel's two modes the Browser UI has: the unit, and the end turn message; otherwise an empty panel. */
 export function InfoPanel({ unit, idle, endTurn = END_TURN, art, centre, endTurnNow }: InfoPanelProps) {
+  const compact = useCompact();
+  // A small screen (docs/adr/0012): a thin strip along the bottom with no skin, and End Turn a button of its own.
+  if (compact)
+    return (
+      <>
+        {unit ? (
+          <UnitPanel unit={unit} art={art} centre={centre} compact />
+        ) : (
+          <Skinned art={art} compact>
+            {idle && <p className="info-label">{endTurn.text}</p>}
+          </Skinned>
+        )}
+        <button type="button" id="end-turn" data-end-turn data-idle={idle || undefined} onClick={endTurnNow}>
+          {endTurn.button}
+        </button>
+      </>
+    );
   if (unit) return <UnitPanel unit={unit} art={art} centre={centre} />;
   return (
     <Skinned art={art}>
@@ -46,20 +65,22 @@ export function InfoPanel({ unit, idle, endTurn = END_TURN, art, centre, endTurn
 function Skinned({
   art,
   className,
+  compact = false,
   onPointerDown,
   children,
 }: {
   art: Art;
+  compact?: boolean;
   className?: string;
   onPointerDown?: () => void;
   children: ReactNode;
 }) {
-  const skin = art([PANEL_KEYS.infoPanel]);
+  const skin = compact ? null : art([PANEL_KEYS.infoPanel]);
   return (
     <section
       id="info-panel"
       aria-label="Information"
-      className={clsx(className, skin && 'skinned') || undefined}
+      className={clsx(className, skin && 'skinned', compact && 'strip') || undefined}
       style={skin ? ({ '--skin': cssUrl(skin) } as CSSProperties) : undefined}
       onPointerDown={onPointerDown}
     >
@@ -68,10 +89,20 @@ function Skinned({
   );
 }
 
-function UnitPanel({ unit, art, centre }: { unit: ActiveUnit; art: Art; centre: () => void }) {
+function UnitPanel({
+  unit,
+  art,
+  centre,
+  compact = false,
+}: {
+  unit: ActiveUnit;
+  art: Art;
+  centre: () => void;
+  compact?: boolean;
+}) {
   const src = art(unit.keys);
   return (
-    <Skinned art={art} className="info-unit" onPointerDown={centre}>
+    <Skinned art={art} className="info-unit" compact={compact} onPointerDown={centre}>
       <div className="info-picture">{src && <img src={src} alt="" />}</div>
       <div className="info-text">
         <p className="info-label">{unit.label}</p>

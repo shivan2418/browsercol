@@ -122,4 +122,77 @@
     font-size: var(--fs-s);
     white-space: nowrap;
   }
+  /*
+   * A small screen (compact.ts): the bar is over the top of the map, its empty parts taking no touch, with the
+   * one ☰ button (compact-menu.tsx), the status line and the Beta tag as chips. The list drops below the ☰.
+   */
+  :root[data-compact] #menubar {
+    position: absolute;
+    top: var(--safe-top);
+    left: var(--safe-left);
+    right: var(--safe-right);
+    pointer-events: none;
+  }
+  :root[data-compact] .menubar.compact {
+    --menubar-h: var(--touch-target);
+    background: none;
+    align-items: center;
+    padding: 4px;
+    gap: 4px;
+    position: relative;
+    min-height: 0;
+  }
+  :root[data-compact] .menubar.compact > * {
+    pointer-events: auto;
+  }
+  :root[data-compact] .menubar .menu-toggle {
+    flex: none;
+    width: var(--touch-target);
+    height: var(--touch-target);
+    padding: 0;
+    font-size: 24px;
+    line-height: 1;
+    background: var(--menubar);
+    border-radius: var(--radius-m);
+  }
+  :root[data-compact] .menubar.compact .status {
+    margin-left: 0;
+    padding: 3px 8px;
+    min-width: 0;
+    flex: 0 1 auto;
+    background: var(--menubar);
+    border-radius: var(--radius-m);
+    font-size: var(--fs-s);
+  }
+  :root[data-compact] .menubar.compact .beta-tag {
+    margin-left: auto;
+    background: var(--menubar);
+    border-radius: var(--radius-m);
+    padding: 3px 6px;
+    font-size: 11px;
+  }
+  /* The Beta tag keeps its words for a screen reader, drawn as just "Beta". */
+  :root[data-compact] .beta-tag .beta-more {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  :root[data-compact] .menubar.compact [role='menu'] {
+    top: calc(var(--touch-target) + 4px);
+    left: 4px;
+    min-width: min(18em, calc(var(--screen-w) - 8px));
+    max-height: calc(var(--screen-h) - var(--touch-target) - 12px);
+  }
+  :root[data-compact] .menubar.compact [role='menu'] button {
+    min-height: var(--touch-target);
+  }
+  :root[data-compact] .menubar.compact [role='menu'] button.group {
+    font-weight: bold;
+  }
+  :root[data-compact] .menubar [role='menu'] button.nested.deep {
+    padding-left: 3em;
+  }
 }

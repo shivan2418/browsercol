@@ -368,7 +368,8 @@ export function BetaTag({ open, inBar = false }: { open: () => void; inBar?: boo
   if (!BETA_TAG) return null;
   return inBar ? (
     <button type="button" className="beta-tag" data-beta-menu data-flat="" onClick={open}>
-      <b>Beta</b> · Send feedback
+      <b>Beta</b>
+      <span className="beta-more"> · Send feedback</span>
     </button>
   ) : (
     <button type="button" className="beta-tag corner" data-beta-tag data-flat="" onClick={open}>

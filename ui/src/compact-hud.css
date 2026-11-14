@@ -1,0 +1,129 @@
+/*
+ * The map screen on a small screen (docs/adr/0012, #511), under <html data-compact> only (compact.ts); the menu
+ * bar's part is in menubar.css. Along the bottom: the info strip, with the End Turn button in the corner at its
+ * right; above that corner the order buttons; at the left the minimap's toggle and, when shown, the minimap. The
+ * HUD's empty areas take no touch, so the map's gestures (pointer.ts) reach it between the controls.
+ */
+@layer components {
+  :root[data-compact] #game {
+    --strip-h: calc(var(--touch-target) + var(--space-4));
+    --end-w: 132px;
+    --end-h: calc(var(--touch-target) + var(--space-4));
+    --hud-gap: var(--space-4);
+  }
+  /* The info panel: a strip along the bottom, no skin. */
+  :root[data-compact] #info-panel.strip {
+    left: 0;
+    right: calc(var(--end-w) + 2 * var(--hud-gap));
+    bottom: 0;
+    width: auto;
+    height: var(--strip-h);
+    min-height: 0;
+    padding: var(--space-2) var(--space-5);
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    overflow: hidden;
+    border-width: var(--border-thick) var(--border-thick) 0 0;
+    border-radius: 0 var(--radius-m) 0 0;
+  }
+  :root[data-compact] #info-panel.strip .info-picture {
+    min-width: 0;
+  }
+  :root[data-compact] #info-panel.strip .info-picture img {
+    max-height: calc(var(--strip-h) - 2 * var(--space-2));
+    max-width: var(--touch-target);
+    object-fit: contain;
+  }
+  :root[data-compact] #info-panel.strip .info-text {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-5);
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  :root[data-compact] #info-panel.strip p {
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  :root[data-compact] #info-panel.strip .info-units,
+  :root[data-compact] #info-panel.strip .info-goods {
+    margin: 0;
+    flex-wrap: nowrap;
+  }
+  :root[data-compact] #info-panel.strip .info-units img {
+    height: 24px;
+  }
+  /* End Turn, in the bottom-right corner; it pulses while no unit is left to move. */
+  :root[data-compact] #end-turn {
+    position: absolute;
+    right: var(--hud-gap);
+    bottom: var(--hud-gap);
+    width: var(--end-w);
+    height: var(--end-h);
+    padding: 0 var(--space-4);
+    font-size: var(--fs-h);
+    font-weight: bold;
+    background: var(--accent);
+    color: var(--btn-ink);
+  }
+  :root[data-compact] #end-turn[data-idle] {
+    animation: end-turn-pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes end-turn-pulse {
+    50% {
+      opacity: 0.6;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    :root[data-compact] #end-turn[data-idle] {
+      animation: none;
+    }
+  }
+  /* The order buttons: a grid of 44 px coins, right-aligned above End Turn. */
+  :root[data-compact] #game #map-orders {
+    --clear: 0px;
+    left: auto;
+    right: var(--hud-gap);
+    bottom: calc(var(--end-h) + 2 * var(--hud-gap));
+    width: calc(6 * var(--touch-target) + 5 * var(--space-2));
+    max-width: calc(100% - 2 * var(--hud-gap));
+    justify-content: flex-end;
+    gap: var(--space-2);
+  }
+  :root[data-compact] #game #map-orders .pictured,
+  :root[data-compact] #game #map-orders button {
+    width: var(--touch-target);
+    height: var(--touch-target);
+    min-width: var(--touch-target);
+    padding: 0;
+  }
+  /* The minimap: its toggle above the strip at the left, the minimap above the toggle. */
+  :root[data-compact] #minimap-toggle {
+    position: absolute;
+    left: var(--hud-gap);
+    bottom: calc(var(--strip-h) + var(--hud-gap));
+    width: var(--touch-target);
+    height: var(--touch-target);
+    padding: 0;
+    font-size: var(--fs-s);
+  }
+  :root[data-compact] #minimap {
+    left: var(--hud-gap);
+    bottom: calc(var(--strip-h) + var(--touch-target) + 2 * var(--hud-gap));
+    border-width: var(--border-thick);
+    border-radius: var(--radius-m);
+  }
+  :root[data-compact] .minimap-buttons button {
+    min-width: var(--touch-target);
+    min-height: calc(var(--touch-target) - var(--space-4));
+  }
+  /* Only the controls take a touch; the map between them keeps its gestures. */
+  :root[data-compact] #end-turn,
+  :root[data-compact] #minimap-toggle,
+  :root[data-compact] #minimap,
+  :root[data-compact] #info-panel {
+    pointer-events: auto;
+  }
+}

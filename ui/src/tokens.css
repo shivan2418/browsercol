@@ -23,6 +23,8 @@
     --radius-m: 4px;
     /* Border widths: a line round a box or a button, and a window's frame. */
     --border: 1px;
+    /* The smallest a thing a finger presses may be (docs/adr/0012). */
+    --touch-target: 44px;
     --border-thick: 2px;
     /* A box's caption (FreeCol's titled borders, "IN PORT"): its size, weight, case and letter spacing. */
     --caption-size: 12px;

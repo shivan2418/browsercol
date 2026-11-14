@@ -22,6 +22,8 @@ import { useCompact, windowStyle } from './compact';
 import { flag } from './flag';
 import { inTextField, TEXT_ENTRY } from './accelerators';
 import { Tip } from './controls';
+import { useCompact } from './compact';
+import { CompactMenuBar } from './compact-menu';
 import { dragging, picked } from './drag';
 import { focusFirstEntry, menuArrows, useFocusTrap } from './focus';
 import { barSegments } from './progress-bar';
@@ -587,12 +589,23 @@ export interface Menu {
 /** FreeCol's menus (InGameMenuBar), in its order; menus.ts and reports.tsx give them entries. */
 export const MENUS: readonly string[] = ['Game', 'View', 'Orders', 'Report', 'Colopedia'];
 
+export interface MenuBarProps {
+  menus: Menu[];
+  status: string;
+  trailing?: ReactNode;
+}
+
 /**
  * The bar across the top of the map: the menus on the left and FreeCol's
  * status line (Score ✧ Gold ✧ Tax ✧ Year) on the right. A menu with entries
- * opens on a click and closes on a pick, a click elsewhere or Escape.
+ * opens on a click and closes on a pick, a click elsewhere or Escape. On a small screen (compact.ts) the menus
+ * fold into one ☰ button (compact-menu.tsx).
  */
-export function MenuBar({ menus, status, trailing }: { menus: Menu[]; status: string; trailing?: ReactNode }) {
+export function MenuBar(props: MenuBarProps) {
+  return useCompact() ? <CompactMenuBar {...props} /> : <WideMenuBar {...props} />;
+}
+
+function WideMenuBar({ menus, status, trailing }: MenuBarProps) {
   const [open, setOpen] = useState<string | null>(null);
   /** The submenu that is opened, by its label. */
   const [sub, setSub] = useState<string | null>(null);

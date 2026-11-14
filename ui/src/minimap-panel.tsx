@@ -4,7 +4,15 @@
 // the map view there. Each button keeps its client option, as FreeCol's do. Once the art has them, FreeCol's
 // skin goes over it all, a desk with a globe whose legs frame the minimap, and the buttons are FreeCol's
 // pictures on the left leg, where image.skin.MiniMap.properties puts them.
-import { useEffect, useMemo, useRef, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+} from 'react';
+import { useCompact } from './compact';
 import { Tip } from './controls';
 import { cssUrl, type Art } from './frame';
 import {
@@ -52,8 +60,34 @@ function buttonPictures(art: Art, name: string): CSSProperties | null {
   return Object.fromEntries(states.map((state, i) => [`--${state}`, cssUrl(srcs[i] as string)])) as CSSProperties;
 }
 
+const SHOWN_KEY = 'browsercol.minimap-shown';
+
+/** Whether a small screen shows the minimap (docs/adr/0012): off until the player turns it on, kept in this browser. */
+export function useMinimapShown(): [boolean, (shown: boolean) => void] {
+  const [shown, set] = useState(() => {
+    try {
+      return localStorage.getItem(SHOWN_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+  return [
+    shown,
+    (next) => {
+      set(next);
+      try {
+        localStorage.setItem(SHOWN_KEY, next ? '1' : '0');
+      } catch {
+        // No storage: it is for this visit only.
+      }
+    },
+  ];
+}
+
 export function MinimapPanel({ map, res, view, options, centre, setOption, art = () => null }: MinimapProps) {
   const canvas = useRef<HTMLCanvasElement>(null);
+  const compact = useCompact();
+  const [shown, show] = useMinimapShown();
   const size = tileSize(options.zoom);
   const background = BACKGROUNDS[options.background] ?? BACKGROUNDS[0];
   const { borders, fog } = options;
@@ -110,9 +144,9 @@ export function MinimapPanel({ map, res, view, options, centre, setOption, art =
     zoomIn: buttonPictures(art, 'zoom_in'),
     zoomOut: buttonPictures(art, 'zoom_out'),
   };
-  const pictured = skin !== null && Object.values(pictures).every(Boolean);
+  const pictured = !compact && skin !== null && Object.values(pictures).every(Boolean);
   const look = (picture: CSSProperties | null) => (pictured ? { className: 'pictured', style: picture! } : {});
-  return (
+  const box = (
     <div
       id="minimap"
       className={pictured ? 'skinned' : undefined}
@@ -177,5 +211,21 @@ export function MinimapPanel({ map, res, view, options, centre, setOption, art =
       />
       {pictured && <div className="minimap-skin" aria-hidden="true" />}
     </div>
+  );
+  if (!compact) return box;
+  return (
+    <>
+      {shown && box}
+      <button
+        type="button"
+        id="minimap-toggle"
+        aria-label="Minimap"
+        aria-pressed={shown}
+        aria-controls="minimap"
+        onClick={() => show(!shown)}
+      >
+        Map
+      </button>
+    </>
   );
 }
