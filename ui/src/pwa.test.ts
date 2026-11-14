@@ -122,7 +122,7 @@ test('the service worker lists the audio with its sizes for the offline download
 });
 
 /** The worker run against a fake cache and network, with the messages it posts to its page. */
-function worker(audio: [string, number][], failing: string[] = []) {
+function worker(audio: [string, number][], failing: string[] = [], shell: [string, number][] = [['./', 0]]) {
   const stored = new Map<string, string>();
   const posted: Record<string, unknown>[] = [];
   const listeners: Record<string, (e: unknown) => void> = {};
@@ -132,31 +132,86 @@ function worker(audio: [string, number][], failing: string[] = []) {
     delete: async (url: string) => stored.delete(url),
   };
   const fetched: string[] = [];
+  /** Each fetch's cache mode, by URL. */
+  const modes: Record<string, string | undefined> = {};
   const self = {
     registration: { scope: 'https://x.test/play/' },
     addEventListener: (type: string, fn: (e: unknown) => void) => (listeners[type] = fn),
     clients: { matchAll: async () => [{ postMessage: (m: Record<string, unknown>) => posted.push(m) }] },
   };
-  vm.runInNewContext(serviceWorker(template, 'b', ['./'], audio), {
-    self,
-    URL,
-    location: { origin: 'https://x.test' },
-    caches: { open: async () => cache, keys: async () => [] },
-    fetch: async (r: { url: string }) => {
-      fetched.push(r.url);
-      return { status: failing.some((f) => r.url.endsWith(f)) ? 404 : 200 };
+  vm.runInNewContext(
+    serviceWorker(
+      template,
+      'b',
+      shell.map(([f]) => f),
+      audio,
+      shell.map(([, n]) => n),
+    ),
+    {
+      self,
+      URL,
+      location: { origin: 'https://x.test' },
+      caches: { open: async () => cache, keys: async () => [] },
+      fetch: async (r: { url: string; init?: { cache?: string } }) => {
+        fetched.push(r.url);
+        modes[r.url] = r.init?.cache;
+        const status = failing.some((f) => r.url.endsWith(f)) ? 404 : 200;
+        return { status, ok: status === 200 };
+      },
+      Request: class {
+        constructor(
+          public url: string,
+          public init?: { cache?: string },
+        ) {}
+      },
     },
-    Request: class {
-      constructor(public url: string) {}
-    },
-  });
+  );
   const send = async (type: string) => {
     const waits: Promise<unknown>[] = [];
     listeners.message!({ data: { type }, waitUntil: (p: Promise<unknown>) => waits.push(p) });
     await Promise.all(waits);
   };
-  return { stored, posted, fetched, send };
+  const install = async () => {
+    const waits: Promise<unknown>[] = [];
+    listeners.install!({ waitUntil: (p: Promise<unknown>) => waits.push(p) });
+    await Promise.all(waits);
+  };
+  return { stored, posted, fetched, modes, send, install };
 }
+
+test('the install takes what the page loaded from the browser cache, and tells the page how far it is', async () => {
+  const w = worker(
+    [],
+    [],
+    [
+      ['./', 100],
+      ['./assets/client-unIB02Jv.wasm', 600],
+      ['./art/tile.png', 300],
+    ],
+  );
+  await w.install();
+  // A file named for its content never changes: the browser's copy will do. Any other is checked, not fetched anew.
+  expect(w.modes['https://x.test/play/assets/client-unIB02Jv.wasm']).toBe('force-cache');
+  expect(w.modes['https://x.test/play/']).toBe('no-cache');
+  expect(w.modes['https://x.test/play/art/tile.png']).toBe('no-cache');
+  const progress = w.posted.filter((m) => m.type === 'offline-progress');
+  expect(progress[0]).toMatchObject({ state: 'saving', bytes: 0, totalBytes: 1000 });
+  expect(progress.map((m) => m.bytes)).toContain(700);
+  expect(progress.at(-1)).toMatchObject({ state: 'saved', bytes: 1000, totalBytes: 1000 });
+});
+
+test('an install that cannot get a file tells the page it failed', async () => {
+  const w = worker(
+    [],
+    ['tile.png'],
+    [
+      ['./', 100],
+      ['./art/tile.png', 300],
+    ],
+  );
+  await expect(w.install()).rejects.toThrow('tile.png');
+  expect(w.posted.at(-1)).toMatchObject({ type: 'offline-progress', state: 'failed', bytes: 100 });
+});
 
 test('the worker downloads the audio it lacks, counts a failure and goes on, and reports its progress (#505)', async () => {
   const w = worker(

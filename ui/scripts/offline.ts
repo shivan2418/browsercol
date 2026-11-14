@@ -4,7 +4,9 @@
 // Run in the web image:
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/offline.ts
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
+import playwright from 'playwright-core';
 import { collectPageErrors, diagnose, launchBrowser, waitForResult } from './common.ts';
 import { answerDialogs } from './dialogs.ts';
 import { listFiles, soundEffects } from './pwa.ts';
@@ -58,6 +60,9 @@ try {
     return reg?.active ? (await window.caches.keys()).find((k) => k.startsWith('browsercol-')) : undefined;
   })) as string;
   check(`the shell is cached (${cache})`, !!cache);
+  // The menu bar says when the copy is in.
+  await page.waitForSelector('.offline-status[data-offline=ready]', { timeout: 120000 });
+  check(`the menu bar says ${await page.textContent('.offline-status')}`, true);
   await poll(page, 'the worker to take the page over', () => !!navigator.serviceWorker.controller);
   check('the page that registered it is taken over', true);
   // Every picture of every Tileset and every preset is in after one visit, drawn yet or not.
@@ -204,6 +209,33 @@ try {
   );
   check('on the start screen a new build takes over by itself', true);
   check('with no offer to restart', (await page.locator('.update-prompt').count()) === 0);
+
+  // The copy costs no second download of what the page loads. In a profile on disk, as a player's: a fresh context
+  // keeps its HTTP cache in memory, too small for the Engines, so there the worker's fetch would miss it anyway.
+  // The first context goes first: its worker would fetch sw.js put back, and its downloads would count.
+  await context.close();
+  fs.writeFileSync(swFile, original);
+  server.served!().clear();
+  const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'offline-profile-'));
+  const player = await playwright.chromium.launchPersistentContext(profile, {});
+  try {
+    const tab = player.pages()[0] ?? (await player.newPage());
+    await tab.goto(server.url);
+    await tab.waitForSelector('.offline-status[data-offline=ready]', { timeout: 180000 });
+    await tab.goto(`${server.url}?skipstart`);
+    const game = await waitForResult(tab, 300000);
+    const big = [...server.served!().entries()].filter(([p]) =>
+      /\/assets\/(client|server|data)-[^/]+\.(wasm|json)$/.test(p),
+    );
+    const counts = big.map(([p, n]) => `${path.basename(p)} ${n}x`).join(', ');
+    check(
+      `the start screen's copy and then a game download the Engines and the data once (${counts})`,
+      game.status === 'finished' && big.length === 3 && big.every(([, n]) => n === 1),
+    );
+  } finally {
+    await player.close();
+    fs.rmSync(profile, { recursive: true, force: true });
+  }
 } catch (ex) {
   console.log(`FAILED: ${await diagnose(ex)}`);
   failed = true;

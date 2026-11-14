@@ -29,12 +29,7 @@ export async function registerServiceWorker(
   const { container } = r;
   // Not in a secure context (a dev server on a LAN address), where the browser has no workers.
   if (!container) return;
-  if (!r.production) {
-    for (const reg of await container.getRegistrations()) await reg.unregister();
-    for (const name of typeof caches === 'undefined' ? [] : await caches.keys())
-      if (name.startsWith('browsercol-')) await caches.delete(name);
-    return;
-  }
+  if (!r.production) return removeServiceWorker(r);
   const firstVisit = !container.controller;
   const reg = await container.register('./sw.js');
   let restarting = false;
@@ -64,6 +59,18 @@ export async function registerServiceWorker(
   });
   // A page left open for days looks for a new build now and then, not only when it is opened.
   setInterval(() => void reg.update().catch(() => {}), 60 * 60 * 1000);
+}
+
+/**
+ * Remove the worker and the copy it saved: in a dev server, so its files are never stale, and when the player turns
+ * offline play off. The page stays as it is; the next load has no worker.
+ */
+export async function removeServiceWorker(r: Registrar = site()) {
+  const { container } = r;
+  if (!container) return;
+  for (const reg of await container.getRegistrations()) await reg.unregister();
+  for (const name of typeof caches === 'undefined' ? [] : await caches.keys())
+    if (name.startsWith('browsercol-')) await caches.delete(name);
 }
 
 function site(): Registrar {

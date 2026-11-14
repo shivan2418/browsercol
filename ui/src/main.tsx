@@ -158,7 +158,9 @@ import { loading, type PartName } from './loading';
 import { mobileNotice } from './mobile-notice';
 import { loadModule } from './teavm';
 import { applyTheme } from './theme';
-import { registerServiceWorker, syncThemeColor } from './install';
+import { registerServiceWorker, removeServiceWorker, syncThemeColor } from './install';
+import { OfflineIndicator } from './offline-indicator';
+import { offlineStatus } from './offline-status';
 import { audioLink, offlineAudio } from './offline-audio';
 import { UpdatePrompt } from './update-prompt';
 import { controlArt } from './control-art';
@@ -708,6 +710,8 @@ function setPrefs(p: Prefs) {
   const was = prefs;
   prefs = p;
   savePrefs(p);
+  // Offline play turned off removes the worker and its copy; turned on, the worker is registered and saves one.
+  if (p.offline !== was.offline) registerWorker();
   applyLook(p);
   // The player's own change: the worker downloads the audio, or drops it (#505).
   if (p.offlineAudio !== was.offlineAudio) offlineAudio.want(p.offlineAudio, true);
@@ -975,6 +979,14 @@ keepTabOnPage();
 // as a Restart in a game, never forced on one. Registered once the page has loaded, so the worker's downloads come
 // after the page's own. entry.ts imports this module, so the page has usually loaded already.
 const registerWorker = () => {
+  // The player turned offline play off: no worker, and the copy a worker saved goes.
+  if (!prefs.offline) {
+    offlineStatus.off();
+    void removeServiceWorker();
+    return;
+  }
+  // Before registering, so the install's first progress message is heard (the menu bar's "Saving for offline").
+  if (import.meta.env.PROD && 'serviceWorker' in navigator) offlineStatus.attach(navigator.serviceWorker);
   void registerServiceWorker(
     (restart) => {
       const host = document.createElement('div');
@@ -1106,7 +1118,12 @@ function renderSide() {
     <MenuBar
       menus={currentMenus()}
       status={statusLine}
-      trailing={<BetaTag inBar open={() => openFeedback('bug')} />}
+      trailing={
+        <>
+          <OfflineIndicator />
+          <BetaTag inBar open={() => openFeedback('bug')} />
+        </>
+      }
     />,
   );
   infoRoot.render(

@@ -10,6 +10,7 @@ import {
   listFiles,
   manifest,
   precacheList,
+  shellSizes,
   serviceWorker,
   soundEffects,
 } from './scripts/pwa.ts';
@@ -45,7 +46,13 @@ function installable(build: string): Plugin {
       const template = fs.readFileSync('sw.template.js', 'utf8');
       fs.writeFileSync(
         path.join(outDir, 'sw.js'),
-        serviceWorker(template, cacheBuild(build, fingerprint), shell, audioList(outDir, effects)),
+        serviceWorker(
+          template,
+          cacheBuild(build, fingerprint),
+          shell,
+          audioList(outDir, effects),
+          shellSizes(outDir, shell),
+        ),
       );
     },
   };

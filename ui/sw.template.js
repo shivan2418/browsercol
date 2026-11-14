@@ -12,7 +12,9 @@
 
 const BUILD = __BUILD__;
 const CACHE = `browsercol-${BUILD}`;
+/** The shell's files as [URL relative to the page, bytes]. */
 const SHELL = __SHELL__;
+const SHELL_TOTAL = SHELL.reduce((sum, [, bytes]) => sum + bytes, 0);
 
 const scope = self.registration.scope;
 /** The page: any navigation within the scope, whatever its query. */
@@ -22,16 +24,51 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     (async () => {
       const cache = await caches.open(CACHE);
-      for (const file of SHELL) {
+      let bytes = 0;
+      let told = -1;
+      await tellOffline('saving', 0);
+      for (const [file, size] of SHELL) {
         const url = new URL(file, scope).href;
         // The header lets the browser scripts' server tell this fetch from the page's own.
-        const response = await fetch(new Request(url, { headers: { 'X-Precache': '1' }, cache: 'reload' }));
-        if (!response.ok) throw new Error(`${url}: ${response.status}`);
+        const response = await fetch(new Request(url, { headers: { 'X-Precache': '1' }, cache: cacheMode(file) }));
+        if (!response.ok) {
+          await tellOffline('failed', bytes);
+          throw new Error(`${url}: ${response.status}`);
+        }
         await cache.put(url, response);
+        bytes += size;
+        // A message each percent, not each of the near thousand files.
+        const percent = Math.floor((100 * bytes) / Math.max(SHELL_TOTAL, 1));
+        if (percent !== told) {
+          told = percent;
+          await tellOffline('saving', bytes);
+        }
       }
+      await tellOffline('saved', bytes);
     })(),
   );
 });
+
+/**
+ * How the install fetches a file without downloading again what the page has just loaded: a file whose name has
+ * Vite's content hash in it (assets/main-D98mpgMP.js) never changes, so the browser's own cache serves it if it has
+ * it; any other file is asked for only if it changed since (a 304, no download, when it did not).
+ */
+function cacheMode(file) {
+  return /^\.\/assets\/.+-[\w-]{8}\.\w+$/.test(file) ? 'force-cache' : 'no-cache';
+}
+
+/**
+ * Tell every page of the site how far the offline copy is: 'saving' while the install runs, 'saved' once it is in
+ * (the worker takes over a first visit's page then), 'failed' if a file could not be had. A first visit's page is
+ * not this worker's yet, so uncontrolled pages are told too.
+ */
+async function tellOffline(state, bytes) {
+  const message = { type: 'offline-progress', state, bytes, totalBytes: SHELL_TOTAL };
+  for (const client of await self.clients.matchAll({ includeUncontrolled: true, type: 'window' })) {
+    client.postMessage(message);
+  }
+}
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(

@@ -66,6 +66,11 @@ export interface Prefs {
   /** Whether the sound goes on while the tab is hidden or the app minimised; off, it pauses and resumes on return. */
   playHidden: boolean;
   /**
+   * Whether the game is kept in the browser for offline play (#296): the service worker saves a copy at the first
+   * visit and each new build's. Off, there is no worker, and the copy is removed.
+   */
+  offline: boolean;
+  /**
    * Whether the music is kept for offline play (#505): the service worker downloads every music file, and again into
    * each new build's cache. Off, a track is cached only as it plays. The sound effects are cached at install either way.
    */
@@ -97,6 +102,7 @@ export const DEFAULTS: Prefs = {
   muteMusic: true,
   muteEffects: false,
   playHidden: false,
+  offline: true,
   offlineAudio: false,
   // Off on the released site (build.sh -Prelease, Vite's release mode), on in a dev build and its scripts (#464).
   allowDebug: import.meta.env.MODE !== 'release',
@@ -465,6 +471,7 @@ export function parsePrefs(text: string | null): Prefs {
       muteMusic: typeof o.muteMusic === 'boolean' ? o.muteMusic : DEFAULTS.muteMusic,
       muteEffects: typeof o.muteEffects === 'boolean' ? o.muteEffects : DEFAULTS.muteEffects,
       playHidden: typeof o.playHidden === 'boolean' ? o.playHidden : DEFAULTS.playHidden,
+      offline: typeof o.offline === 'boolean' ? o.offline : DEFAULTS.offline,
       offlineAudio: typeof o.offlineAudio === 'boolean' ? o.offlineAudio : DEFAULTS.offlineAudio,
       allowDebug: typeof o.allowDebug === 'boolean' ? o.allowDebug : DEFAULTS.allowDebug,
       freecol: freecolValues(o.freecol),

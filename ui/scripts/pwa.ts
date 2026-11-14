@@ -105,11 +105,25 @@ export function audioList(outDir: string, effects: string[] = []): AudioFile[] {
     .map((f) => [`./audio/${f}`, fs.statSync(path.join(dir, f)).size]);
 }
 
-/** The service worker for this build: the template with the build's name, the file list and the audio list put in. */
-export function serviceWorker(template: string, build: string, shell: string[], audio: AudioFile[] = []): string {
+/** The size in bytes of each shell file under `outDir` (precacheList's URLs; './' is the page), for the progress. */
+export function shellSizes(outDir: string, shell: string[]): number[] {
+  return shell.map((f) => fs.statSync(path.join(outDir, f === './' ? 'index.html' : f.slice(2))).size);
+}
+
+/**
+ * The service worker for this build: the template with the build's name, the file list with each file's size (for
+ * the progress the page shows), and the audio list put in.
+ */
+export function serviceWorker(
+  template: string,
+  build: string,
+  shell: string[],
+  audio: AudioFile[] = [],
+  sizes: number[] = shell.map(() => 0),
+): string {
   return template
     .replace('__BUILD__', () => JSON.stringify(build))
-    .replace('__SHELL__', () => JSON.stringify(shell, null, 2))
+    .replace('__SHELL__', () => JSON.stringify(shell.map((f, i) => [f, sizes[i] ?? 0])))
     .replace('__AUDIO__', () => JSON.stringify(audio));
 }
 

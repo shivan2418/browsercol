@@ -87,6 +87,12 @@ describe('prefs', () => {
     expect(parsePrefs('{"offlineAudio":1}').offlineAudio).toBe(false);
   });
 
+  it('keeps the game for offline play unless the player turns it off (#296)', () => {
+    expect(DEFAULTS.offline).toBe(true);
+    expect(parsePrefs('{"offline":false}').offline).toBe(false);
+    expect(parsePrefs('{"offline":"no"}').offline).toBe(true);
+  });
+
   it('mutes the music and the sound effects apart, keeping their volumes', () => {
     const p = {
       ...DEFAULTS,

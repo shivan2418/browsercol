@@ -75,6 +75,8 @@ export class OfflineAudio {
 
   /** Follow the worker: its progress, and the page being taken over by one. Call once, with the browser's side. */
   attach(link: AudioLink) {
+    // Again when the player turns offline play back on: the listeners are already there.
+    if (this.link) return this.sync();
     this.link = link;
     const { container } = link;
     if (!link.production || !container) return;

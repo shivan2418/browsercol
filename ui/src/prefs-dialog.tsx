@@ -127,6 +127,12 @@ export const OWN_OPTIONS = [
   { pref: 'fonts', label: 'Fonts' },
   { pref: 'tileset', label: 'Tileset (on reload)' },
   {
+    pref: 'offline',
+    label: 'Keep the game for offline play',
+    description:
+      'Saves a copy of the game in this browser (about 60 MB), so it starts with no network, installed or in a tab. The menu bar shows how far it is. Off, nothing is saved, and the copy is removed.',
+  },
+  {
     pref: 'allowDebug',
     label: 'Allow debug mode',
     description: 'The Debug menu: reveal the map, add gold, units and goods. Off, Ctrl+Shift+D and ?debug do nothing.',
@@ -176,6 +182,7 @@ function OwnRow({
       );
     case 'autoEndTurn':
     case 'tutorial':
+    case 'offline':
     case 'allowDebug':
       return (
         <label data-pref={pref} style={ROW}>
@@ -239,7 +246,21 @@ function OwnOptions({ prefs, change }: { prefs: Prefs; change: (p: Prefs) => voi
   return (
     <>
       {OWN_OPTIONS.map((o) => (
-        <OwnRow key={o.pref} pref={o.pref} label={o.label} prefs={prefs} change={change} />
+        <OwnRow
+          key={o.pref}
+          pref={o.pref}
+          label={
+            'description' in o ? (
+              <Tip as="span" tip={o.description}>
+                {o.label}
+              </Tip>
+            ) : (
+              o.label
+            )
+          }
+          prefs={prefs}
+          change={change}
+        />
       ))}
     </>
   );

@@ -40,7 +40,10 @@ const USERS: Record<string, string[]> = {
   '--z-window': ['./modal.css: .modal'],
   '--z-menubar-raised': ["./europe-panel.css: body:has(.dialog[data-kind='europe']) #menubar"],
   '--z-start': ['./start-window.css: .start'],
-  '--z-start-tag': ['./feedback.css: body:has(.start) .beta-tag.corner'],
+  '--z-start-tag': [
+    './feedback.css: body:has(.start) .beta-tag.corner',
+    './offline-indicator.css: .offline-status.corner',
+  ],
   '--z-update': ['./update-prompt.css: .update-prompt'],
   '--z-loading': ['index.html: #loading'],
   '--z-mobile-notice': ['./mobile-notice.css: #mobile-notice'],
