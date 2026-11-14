@@ -600,30 +600,35 @@ async function confirmModal(page: Page, finger: Finger) {
 
 /** Menu bar and tips: a tap opens and switches a menu, a long press shows a tip, a tap elsewhere closes it. */
 async function bars(page: Page, finger: Finger) {
+  // A small screen has one ☰ menu instead of titles (phoneHud's steps); the tips are the same.
+  const compact = await isCompact(page);
   const titles = page.locator('.menubar [role=menubar] > .menu > button');
-  const n = await titles.count();
+  const n = compact ? 0 : await titles.count();
   const open = (label: string | null) => page.locator(`[role=menu][aria-label="${label}"]`).count();
   const any = () => page.locator('.menubar [role=menu]').count();
   const second = Math.min(1, n - 1);
-  const first = await titles.nth(0).textContent();
-  const next = await titles.nth(second).textContent();
-  await step('a tap on a menu title opens its menu', async () => {
-    if ((await any()) > 0) await finger.tap(...(await center(titles.nth(0)))); // a menu left open
-    await until(async () => (await any()) === 0);
-    await finger.tap(...(await center(titles.nth(0))));
-    check('a tap on a menu title opens its menu', await until(async () => (await open(first)) === 1));
-  });
-  await step('a tap on another title switches menus', async () => {
-    await finger.tap(...(await center(titles.nth(second))));
-    check(
-      'a tap on another title switches menus',
-      await until(async () => (await open(next)) === 1 && (second === 0 || (await open(first)) === 0)),
-    );
-  });
-  await step('a tap on the open title closes it', async () => {
-    await finger.tap(...(await center(titles.nth(second))));
-    check('a tap on the open title closes it', await until(async () => (await any()) === 0));
-  });
+  const first = compact ? null : await titles.nth(0).textContent();
+  const next = compact ? null : await titles.nth(second).textContent();
+  if (!compact) await menuTitles();
+  async function menuTitles() {
+    await step('a tap on a menu title opens its menu', async () => {
+      if ((await any()) > 0) await finger.tap(...(await center(titles.nth(0)))); // a menu left open
+      await until(async () => (await any()) === 0);
+      await finger.tap(...(await center(titles.nth(0))));
+      check('a tap on a menu title opens its menu', await until(async () => (await open(first)) === 1));
+    });
+    await step('a tap on another title switches menus', async () => {
+      await finger.tap(...(await center(titles.nth(second))));
+      check(
+        'a tap on another title switches menus',
+        await until(async () => (await open(next)) === 1 && (second === 0 || (await open(first)) === 0)),
+      );
+    });
+    await step('a tap on the open title closes it', async () => {
+      await finger.tap(...(await center(titles.nth(second))));
+      check('a tap on the open title closes it', await until(async () => (await any()) === 0));
+    });
+  }
   // A Tip trigger: the order bar's Wait.
   const tip = page.locator('.ui-tip');
   const shown = () => tip.first().isVisible();
@@ -635,6 +640,157 @@ async function bars(page: Page, finger: Finger) {
     const map = (await page.locator('#map canvas').boundingBox())!;
     await finger.tap(...(await onMap(page, [map.x + 5, map.y + map.height / 2], 'a spot away from the tooltip')));
     check('a tap elsewhere closes the tooltip', await until(async () => (await tip.count()) === 0 || !(await shown())));
+  });
+}
+
+const isCompact = (page: Page) => page.evaluate(() => document.documentElement.hasAttribute('data-compact'));
+
+/** A rect of an element, or null while it is not drawn. */
+const rectOf = (page: Page, selector: string) =>
+  page.evaluate((sel) => {
+    const e = document.querySelector(sel);
+    if (!e) return null;
+    const r = e.getBoundingClientRect();
+    return r.width > 0 && r.height > 0 ? { x: r.x, y: r.y, w: r.width, h: r.height } : null;
+  }, selector);
+
+/**
+ * The phone map screen (#511): the ☰ button opens the menus and a report from them, the minimap is a toggle, the HUD's
+ * controls are finger-sized and overlap nothing, the map still pans between them, and End Turn ends the turn (last, as
+ * it changes the game). Screenshots go to .cache/phone-hud/ as well.
+ */
+async function phoneHud(page: Page, finger: Finger) {
+  const hudShot = async (name: string) => {
+    const dir = path.resolve(import.meta.dirname, '../../.cache/phone-hud');
+    fs.mkdirSync(dir, { recursive: true });
+    await page.screenshot({ path: path.join(dir, `${label.replace(/ /g, '-')}-${name}.png`) });
+  };
+  const menu = page.locator('.menubar [role=menu][aria-label=Menu]');
+  const windows = page.locator('[role=dialog]');
+  await step('the map screen has the ☰ button and no menu titles', async () => {
+    const toggle = await rectOf(page, '.menubar .menu-toggle');
+    check('the ☰ button is at least 44 px', !!toggle && toggle.w >= 43.5 && toggle.h >= 43.5, JSON.stringify(toggle));
+    check('the ☰ button is top left', !!toggle && toggle.x < 20 && toggle.y < 20);
+    check('the menu bar has no titles', (await page.locator('.menubar [role=menubar]').count()) === 0);
+    check(
+      'the status line stays visible',
+      ((await page.locator('#statusLine').textContent()) ?? '').trim().length > 0 &&
+        !!(await rectOf(page, '#statusLine')),
+    );
+    await hudShot('map');
+  });
+  await step('the ☰ button opens the menus and a report opens from it', async () => {
+    await finger.tap(...(await center(page.locator('.menubar .menu-toggle'))));
+    check('a tap on ☰ opens the menu', await until(async () => (await menu.count()) === 1));
+    const names = await menu.locator('button.group').allTextContents();
+    for (const n of ['Game', 'View', 'Orders', 'Report', 'Colopedia'])
+      check(
+        `the menu lists ${n}`,
+        names.some((t) => t.startsWith(n)),
+        names.join(),
+      );
+    await finger.tap(...(await center(menu.locator('button.group', { hasText: 'Report' }))));
+    await hudShot('menu');
+    // The page's dialog answerer (answerDialogs) closes the report's window once it has opened and logged it.
+    const logged = await page.evaluate(() => window.__dialogs.length);
+    await finger.tap(...(await center(menu.getByRole('menuitem', { name: /Colony report/ }))));
+    check(
+      'a report opens from the menu and the menu closes',
+      (await until(async () => (await page.evaluate(() => window.__dialogs.length)) > logged)) &&
+        (await menu.count()) === 0,
+      (await page.evaluate(() => window.__dialogs.slice(-1)[0])) as string,
+    );
+    check('the report closes again', await until(async () => (await windows.count()) === 0));
+  });
+  await step('the minimap toggles', async () => {
+    const toggle = page.locator('#minimap-toggle');
+    const r = await rectOf(page, '#minimap-toggle');
+    check('the minimap toggle is at least 44 px', !!r && r.w >= 43.5 && r.h >= 43.5, JSON.stringify(r));
+    check('the minimap is hidden at first', (await page.locator('#minimap').count()) === 0);
+    await finger.tap(...(await center(toggle)));
+    check('a tap shows the minimap', await until(async () => !!(await rectOf(page, '#minimap'))));
+    await hudShot('minimap');
+  });
+  await step('the HUD is finger-sized, clear of the screen edge and overlaps nothing', async () => {
+    const vp = page.viewportSize()!;
+    const found = await page.evaluate(() => {
+      const parts: Record<string, Element[]> = {
+        '☰': [...document.querySelectorAll('.menubar .menu-toggle')],
+        status: [...document.querySelectorAll('.menubar .status')],
+        beta: [...document.querySelectorAll('.menubar .beta-tag')],
+        strip: [...document.querySelectorAll('#info-panel')],
+        'End Turn': [...document.querySelectorAll('#end-turn')],
+        'minimap toggle': [...document.querySelectorAll('#minimap-toggle')],
+        minimap: [...document.querySelectorAll('#minimap')],
+        ...Object.fromEntries(
+          [...document.querySelectorAll('#map-orders button')].map((b) => [
+            `order ${(b as HTMLElement).dataset.order}`,
+            [b],
+          ]),
+        ),
+      };
+      return Object.entries(parts).flatMap(([name, els]) =>
+        els.map((e) => {
+          const r = e.getBoundingClientRect();
+          return { name, x: r.x, y: r.y, w: r.width, h: r.height };
+        }),
+      );
+    });
+    check('the order bar has buttons', found.filter((f) => f.name.startsWith('order ')).length >= 8);
+    const small = found.filter((f) => f.name.startsWith('order ') && (f.w < 43.5 || f.h < 43.5));
+    check(
+      'every order button is at least 44 px',
+      small.length === 0,
+      small.map((f) => `${f.name} ${f.w}x${f.h}`).join(),
+    );
+    const eT = found.find((f) => f.name === 'End Turn');
+    check('End Turn is prominent', !!eT && eT.w >= 100 && eT.h >= 44, JSON.stringify(eT));
+    check(
+      'End Turn is in the bottom-right corner',
+      !!eT && eT.x + eT.w > vp.width - 20 && eT.y + eT.h > vp.height - 20,
+      JSON.stringify(eT),
+    );
+    const outside = found.filter(
+      (f) => f.x < -0.5 || f.y < -0.5 || f.x + f.w > vp.width + 0.5 || f.y + f.h > vp.height + 0.5,
+    );
+    check('nothing of the HUD is off the screen', outside.length === 0, JSON.stringify(outside));
+    const clashes: string[] = [];
+    for (let i = 0; i < found.length; i++)
+      for (let j = i + 1; j < found.length; j++) {
+        const a = found[i]!;
+        const b = found[j]!;
+        const w = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
+        const h = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
+        if (w > 0.5 && h > 0.5) clashes.push(`${a.name} / ${b.name}`);
+      }
+    check('no HUD element overlaps another', clashes.length === 0, clashes.join('; '));
+    await hudShot('hud');
+  });
+  await step('the map still pans with a finger in the middle', async () => {
+    const box = (await page.locator('#map canvas').boundingBox())!;
+    const from = await onMap(page, [box.x + box.width / 2, box.y + box.height / 2], 'the drag start');
+    const c0 = (await view(page)).centre;
+    await finger.drag(from, [from[0] - 90, from[1] - 30]);
+    const moved = async () => {
+      const c = (await view(page)).centre;
+      return Math.hypot(c[0] - c0[0], c[1] - c0[1]);
+    };
+    check('the map pans with a finger in the middle', await until(async () => (await moved()) > 20));
+  });
+  await step('the minimap hides again', async () => {
+    await finger.tap(...(await center(page.locator('#minimap-toggle'))));
+    check('a second tap hides the minimap', await until(async () => (await page.locator('#minimap').count()) === 0));
+  });
+  await step('End Turn ends the turn', async () => {
+    const turn = await page.evaluate(() => window.__map.turn);
+    await finger.tap(...(await center(page.locator('#end-turn'))));
+    const passed = await page
+      .waitForFunction((t) => window.__map.turn !== t && window.__map.ourTurn, turn, { timeout: 120000 })
+      .then(
+        () => true,
+        () => false,
+      );
+    check('End Turn ends the turn', passed);
   });
 }
 
@@ -1031,6 +1187,7 @@ for (const [browserName, devices] of browsers) {
         await confirmModal(game, finger2);
         await game.evaluate(() => (window.__hold = null));
         await bars(game, finger2);
+        if (await isCompact(game)) await phoneHud(game, finger2);
       } catch (ex) {
         check('map gestures', false, await diagnose(ex));
         await shot(game, 'error-map').catch(() => {});
