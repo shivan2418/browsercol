@@ -171,6 +171,7 @@ import { OfflineIndicator } from './offline-indicator';
 import { offlineStatus } from './offline-status';
 import { audioLink, offlineAudio } from './offline-audio';
 import { UpdatePrompt } from './update-prompt';
+import { watchCompact } from './compact';
 import { controlArt } from './control-art';
 import { cursor, initialView, panel, reduce, tileOnScreen, W, type Tile, type ViewEvent, type ViewState } from './view';
 import type { GuiEvents, GuiHandlers, PopupEvent, ReportView } from './webgui';
@@ -1102,6 +1103,8 @@ const contextMenus: ContextMenus = {
   show: (menu, x, y) => showPopup({ menu, x, y }),
 };
 // Escape closes a window in full screen, where the browser can lock it (fullscreen-lock.ts).
+// A small screen (a phone in landscape) marks <html data-compact>: windows become sheets (docs/adr/0012).
+watchCompact();
 lockEscapeInFullScreen(document, (navigator as { keyboard?: KeyboardLock }).keyboard, renderSide);
 // The menus' Save entries depend on whether a window is open.
 dialogQueue.subscribe(() => renderSide());
