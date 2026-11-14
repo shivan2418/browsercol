@@ -116,6 +116,19 @@ describe('the view', () => {
     expect(away.centre).toEqual([1984, 992]);
   });
 
+  it('zooms between the levels with a pinch, keeping the point under the fingers, and snaps to the nearest level', () => {
+    const focused = play({ k: 'focus', tile: 'tile:2', at: [10, 20] });
+    const pinched = reduce(focused, { k: 'zoomTo', zoom: 1.3, at: [0, 0] });
+    expect(pinched.zoom).toBe(1.3);
+    expect(pinched.centre[0]).toBeCloseTo(1024 + 320 / 1.3);
+    expect(reduce(focused, { k: 'zoomTo', zoom: 9, at: [0, 0] }).zoom).toBe(2);
+    expect(reduce(focused, { k: 'zoomTo', zoom: 0.01, at: [0, 0] }).zoom).toBe(0.25);
+    const snapped = reduce(pinched, { k: 'zoomSnap', at: [0, 0] });
+    expect(snapped.zoom).toBe(1.5);
+    expect(snapped.centre[0]).toBeCloseTo(1024 + 320 / 1.5);
+    expect(reduce(reduce(focused, { k: 'zoomTo', zoom: 0.8, at: [0, 0] }), { k: 'zoomSnap', at: [0, 0] }).zoom).toBe(0.75);
+  });
+
   it('pans by screen pixels, and zooms about the pointer within its levels', () => {
     const focused = play({ k: 'focus', tile: 'tile:2', at: [10, 20] });
     expect(reduce(focused, { k: 'pan', dx: 100, dy: -40 }).centre).toEqual([1244, 712]);
@@ -230,6 +243,10 @@ describe('the view', () => {
     expect(hover([1, 0])).toEqual({ name: 'Ocean', owner: null });
     expect(hover([0, 1]), 'unexplored').toEqual({ name: null, owner: null });
     expect(hover(null)).toBeNull();
+    // A touch screen has no hover: the tapped tile is shown, and a hover wins when there is one.
+    const tapped = reduce(v, { k: 'tapped', at: [1, 0] });
+    expect(panel(tapped).tile).toEqual({ name: 'Ocean', owner: null });
+    expect(panel(reduce(tapped, { k: 'hover', at: [0, 0] })).tile?.name).toBe('Plains');
 
     // The WebGUI moved on to another unit before the next map view: show none.
     const next = reduce(v, {

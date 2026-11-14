@@ -49,6 +49,8 @@ export interface ViewState {
   overlay: DebugOverlay;
   /** The tile under the pointer. */
   hover: Tile | null;
+  /** The tile a finger last tapped, shown in the info panel in place of a hover. */
+  tapped: Tile | null;
   /** The path the active unit would take to the tile the player holds the pointer on, drawn until release. */
   preview: PathStep[] | null;
 }
@@ -74,6 +76,12 @@ export type ViewEvent =
   | { k: 'overlay'; overlay: DebugOverlay }
   /** The pointer is over a tile, or off the map. */
   | { k: 'hover'; at: Tile | null }
+  /** A finger tapped a tile: the info panel shows it, as a touch screen has no hover. */
+  | { k: 'tapped'; at: Tile | null }
+  /** A pinch sets the scale between the levels, keeping the map under a viewport point still. */
+  | { k: 'zoomTo'; zoom: number; at: [number, number] }
+  /** A pinch ended: the scale snaps to the nearest zoom level. */
+  | { k: 'zoomSnap'; at: [number, number] }
   /** The goto path under the held pointer, or none once it is released. */
   | { k: 'preview'; path: PathStep[] | null };
 
@@ -91,6 +99,7 @@ export const initialView: ViewState = {
   modes: NO_MODES,
   overlay: NO_OVERLAY,
   hover: null,
+  tapped: null,
   preview: null,
 };
 
@@ -155,7 +164,7 @@ export function cursor(v: ViewState): Cursor | null {
 export interface Panel {
   /** The active unit, once a map view about it has come. */
   unit: ActiveUnit | null;
-  /** The hovered tile: its type's name (null if unexplored) and owner. */
+  /** The hovered (on touch, last tapped) tile: its type's name (null if unexplored) and owner. */
   tile: { name: string | null; owner: { name: string; rgb: number } | null } | null;
 }
 
@@ -169,8 +178,10 @@ export function activeUnitFacts(v: ViewState): ActiveUnit | null {
 export function panel(v: ViewState): Panel {
   const m = v.map;
   const unit = activeUnitFacts(v);
-  if (!m || !v.hover) return { unit, tile: null };
-  const i = v.hover[1] * m.w + v.hover[0];
+  // A touch screen has no hover: the tile last tapped stands in for it.
+  const at = v.hover ?? v.tapped;
+  if (!m || !at) return { unit, tile: null };
+  const i = at[1] * m.w + at[0];
   const type = m.types[m.tiles.charCodeAt(i) - 65];
   const owner = m.players[m.owners.charCodeAt(i) - 65];
   return { unit, tile: { name: type?.name ?? null, owner: owner ?? null } };
@@ -223,14 +234,27 @@ function apply(v: ViewState, e: ViewEvent): ViewState {
       return { ...v, overlay: e.overlay };
     case 'hover':
       return { ...v, hover: e.at };
+    case 'tapped':
+      return { ...v, tapped: e.at };
+    case 'zoomTo':
+      return zoomAbout(v, Math.max(ZOOMS[0], Math.min(ZOOMS[ZOOMS.length - 1], e.zoom)), e.at);
+    case 'zoomSnap': {
+      const nearest = ZOOMS.reduce((a, z) => (Math.abs(z / v.zoom - 1) < Math.abs(a / v.zoom - 1) ? z : a));
+      return zoomAbout(v, nearest, e.at);
+    }
     case 'preview':
       return { ...v, preview: e.path };
     case 'zoom': {
       const level = ZOOMS.indexOf(v.zoom) + e.steps;
       const zoom = ZOOMS[Math.max(0, Math.min(ZOOMS.length - 1, level))];
-      const [mx, my] = toMap(v, e.at);
-      const [ax, ay] = [e.at[0] - v.viewport[0] / 2, e.at[1] - v.viewport[1] / 2];
-      return { ...v, zoom, centre: [mx - ax / zoom, my - ay / zoom] };
+      return zoomAbout(v, zoom, e.at);
     }
   }
+}
+
+/** The view at another scale, with the map under a viewport point where it was. */
+function zoomAbout(v: ViewState, zoom: number, at: [number, number]): ViewState {
+  const [mx, my] = toMap(v, at);
+  const [ax, ay] = [at[0] - v.viewport[0] / 2, at[1] - v.viewport[1] / 2];
+  return { ...v, zoom, centre: [mx - ax / zoom, my - ay / zoom] };
 }
