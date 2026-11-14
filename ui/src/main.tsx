@@ -107,6 +107,7 @@ import {
   pointerInput,
   rightClickInput,
   createGotoPicker,
+  type GotoPicker,
   type GotoDeps,
 } from './pointer';
 import { ContextMenuContext, PopupMenu, parseMenu, type ContextMenus, type MenuData, type Popup } from './popup-menu';
@@ -1061,6 +1062,8 @@ lockEscapeInFullScreen(document, (navigator as { keyboard?: KeyboardLock }).keyb
 // The menus' Save entries depend on whether a window is open.
 dialogQueue.subscribe(() => renderSide());
 const sideRoot = createRoot(document.getElementById('side')!);
+/** Go To by taps (touch), made once the Go To deps exist; the order buttons ask it whether a destination is awaited. */
+let gotoPicker: GotoPicker | null = null;
 /**
  * The active unit's order buttons over the map (map-orders.tsx), in a host beside the map rather than in it, so
  * the map's canvas does not cover them nor their clicks reach the map (#245).
@@ -1111,8 +1114,8 @@ function renderSide() {
         run={(c) => runCommand(c)}
         art={art}
         touch={hasTouch()}
-        choosing={gotoPicker.choosing()}
-        goTo={() => gotoPicker.toggle()}
+        choosing={gotoPicker?.choosing() ?? false}
+        goTo={() => gotoPicker?.toggle()}
       />
     </TipProvider>,
   );
@@ -1592,7 +1595,7 @@ const gotoDeps: GotoDeps = {
   go: (tile, unit) => gotoClient?.goToUnit(unit, ...tile),
 };
 /** Go To by taps (touch): the Go to button starts it, taps pick and confirm the destination. */
-const gotoPicker = createGotoPicker(
+gotoPicker = createGotoPicker(
   gotoDeps,
   () => view.active?.unit ?? null,
   () => renderSide(),
@@ -1603,7 +1606,7 @@ let longPressTile: ((tile: Tile, x: number, y: number) => void) | null = null;
 const dragged = pointerInput(mapHost, {
   tap: (tile, detail) => tapTile?.(tile, detail),
   longPress: (tile, x, y) => longPressTile?.(tile, x, y),
-  picker: gotoPicker,
+  ...(gotoPicker ? { picker: gotoPicker } : {}),
   view: () => view,
   dispatch,
   tileAt: (px, py) => map.tileAt(px, py),
