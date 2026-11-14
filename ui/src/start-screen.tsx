@@ -25,7 +25,7 @@ import { OptionEditor } from './option-editor';
 import { leaves, sameValue, type OptionGroup, type OptionValue } from './options';
 import { ReportContext, ReportPanel, startColopediaAt, type ReportActions } from './reports';
 import { OpenDialog, OpenFile } from './save-picker';
-import type { SaveMeta } from './saves';
+import { isBackgroundSave, type SaveMeta } from './saves';
 import { levelFile, loadDefaults, readLevelFile, saveDefaults } from './start-options';
 import { ADVANTAGES, MAPS, type Advantages, type StartChoice, type StartOptions } from './start';
 import type { ReportView } from './webgui';
@@ -701,7 +701,7 @@ export function StartScreen({
                 {saves.length > 0 && (
                   <>
                     <button type="button" data-continue onClick={() => open(saves[0].id)}>
-                      Continue Playing
+                      {isBackgroundSave(saves[0]) ? 'Resume your last game' : 'Continue Playing'}
                     </button>
                     <button type="button" data-open-saves onClick={() => setSavesShown(true)}>
                       Open a saved game...

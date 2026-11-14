@@ -4,7 +4,11 @@ import {
   AUTOSAVE_NAME,
   debounced,
   defaultSaveName,
+  BACKGROUND_NAME,
   dropOlderAutosaves,
+  dropOlderBackgroundSaves,
+  isAutosave,
+  isBackgroundSave,
   dropOutdatedAutosaves,
   dropTurnAutosaves,
   isTurnAutosave,
@@ -116,6 +120,17 @@ describe('autosave', () => {
     const kept = await put(store, AUTOSAVE_NAME);
     await dropOlderAutosaves(store, kept);
     expect((await store.list()).map((m) => m.id)).toEqual([kept.id, mine.id].sort((a, b) => b - a));
+  });
+
+  it('keeps the background slot apart from the autosave and drops only older background saves', async () => {
+    const store = fakeSaveStore();
+    const auto = await put(store, AUTOSAVE_NAME);
+    await put(store, BACKGROUND_NAME);
+    const kept = await put(store, BACKGROUND_NAME);
+    expect(isBackgroundSave(auto)).toBe(false);
+    await dropOlderBackgroundSaves(store, kept);
+    expect((await store.list()).map((m) => m.id)).toEqual([kept.id, auto.id]);
+    expect(isAutosave(kept)).toBe(false);
   });
 
   it('debounces a burst into one call', () => {

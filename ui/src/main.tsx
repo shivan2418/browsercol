@@ -65,6 +65,7 @@ import { debugMenu, gameMenu, ordersMenu, reportOptionsMenu, viewMenu, type Menu
 import { commandForKey, type Command } from './input';
 import { PreferencesDialog } from './prefs-dialog';
 import { setCurrentSaveSource } from './current-save';
+import { saveInBackground } from './background-save';
 import { BetaTag } from './feedback-dialog';
 import { feedbackOpen, openFeedback, setFeedbackSources, startFeedback } from './feedback-host';
 import { OpenDialog, SaveDialog } from './save-picker';
@@ -130,6 +131,9 @@ import {
 import { LoadingSaveDialog, showsLoadingSave } from './loading-save';
 import {
   AUTOSAVE_NAME,
+  BACKGROUND_NAME,
+  dropOlderBackgroundSaves,
+  isBackgroundSave,
   debounced,
   dropOlderAutosaves,
   dropOutdatedAutosaves,
@@ -425,6 +429,8 @@ async function openSaveFile(): Promise<string> {
 let saveGame: (name: string) => void = () => {};
 /** Schedule an autosave (set once the client Engine has loaded). */
 let autosaveSoon: () => void = () => {};
+/** Whether the game has ended (the high scores at its end were shown): nothing more to save in the background. */
+let gameOver = false;
 /** Saves asked for by name before the client Engine has loaded, made once it has. */
 const waitingSaves: string[] = [];
 /** Make a save with this name, quietly (set once the client Engine has loaded). */
@@ -1461,7 +1467,10 @@ const gui: GuiHandlers = {
     findSettlement: (e) => dialogQueue.replace('findSettlement', e),
     workProduction: (e) => dialogQueue.replace('workProduction', e),
     colopedia: (e) => dialogQueue.replace('colopedia', e),
-    highScores: (e) => dialogQueue.show('highScores', e),
+    highScores: (e) => {
+      if (e.text !== null) gameOver = true; // the game's end, not the list opened from a menu
+      dialogQueue.show('highScores', e);
+    },
     tradeRoutes: (e) => dialogQueue.replace('tradeRoutes', e),
     europe: (e) => showEurope(dialogQueue, e),
     options: (e) => dialogQueue.replace('options', e, (open) => open.kind === e.kind),
@@ -2073,7 +2082,7 @@ async function run() {
           saveFailShown = false;
           leaveAsk.saved();
           const auto = autosaveOptions(prefs);
-          const quiet = isAutosave(meta) || isTurnAutosave(auto, meta);
+          const quiet = isAutosave(meta) || isBackgroundSave(meta) || isTurnAutosave(auto, meta);
           const pending = saveFile;
           // The player's save, made for the file they picked: the save of that name, or with the default name the
           // first one not an autosave. Written there, then on as for any save.
@@ -2105,6 +2114,10 @@ async function run() {
             if (resume !== null) history.replaceState(history.state, '', `${location.pathname}${resume}`);
             // One slot: the new autosave replaces the old ones, quietly.
             return void dropOlderAutosaves(store, meta).catch(console.warn).finally(listSaves);
+          }
+          if (isBackgroundSave(meta)) {
+            // One slot, and the older one goes only now that this one is whole in the store.
+            return void dropOlderBackgroundSaves(store, meta).catch(console.warn).finally(listSaves);
           }
           if (isTurnAutosave(auto, meta)) {
             // Quietly too; a new last-turn save moves the old one to before-last-turn.
@@ -2181,6 +2194,12 @@ async function run() {
     worker.postMessage({ k: 'save', active: exports.activeUnitId(), name } satisfies ToWorker);
   };
   waitingSaves.splice(0).forEach(saveNamed);
+  // A phone freezes a hidden tab: save what is there to the background slot (autosave and turn saves need our turn).
+  saveInBackground(
+    { doc: document, win: window },
+    () => autoplay === 0 && !gameOver && !!lastTurn?.ourTurn,
+    () => saveNamed(BACKGROUND_NAME),
+  );
   // A game runs once its first turn has been shown.
   setCurrentSaveSource(
     snapshotter(

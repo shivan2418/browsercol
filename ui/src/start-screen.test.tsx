@@ -415,6 +415,24 @@ test('the start screen offers to continue the newest save and to open another', 
   expect(document.querySelector('[data-save-picker]')).toBeNull();
 });
 
+test('the continue button says "Resume your last game" when the newest save is the background one', () => {
+  const save = (id: number, name: string) => ({ id, name, date: 0, turn: 3, year: 1495, nation: 'Dutch', size: 1 });
+  const { unmount } = render(
+    <StartScreen options={options} start={() => {}} saves={[save(7, 'Background autosave')]} open={() => {}} />,
+  );
+  expect(document.querySelector('[data-continue]')!.textContent).toBe('Resume your last game');
+  unmount();
+  render(
+    <StartScreen
+      options={options}
+      start={() => {}}
+      saves={[save(8, 'Mine'), save(7, 'Background autosave')]}
+      open={() => {}}
+    />,
+  );
+  expect(document.querySelector('[data-continue]')!.textContent).toBe('Continue Playing');
+});
+
 test('with no saves there is nothing to continue', () => {
   render(<StartScreen options={options} start={() => {}} saves={[]} open={() => {}} />);
   expect(document.querySelector('[data-continue]')).toBeNull();

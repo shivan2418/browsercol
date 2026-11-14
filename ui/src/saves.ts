@@ -161,6 +161,19 @@ export const AUTOSAVE_NAME = 'Autosave';
 
 export const isAutosave = (m: Pick<SaveMeta, 'name'>): boolean => m.name === AUTOSAVE_NAME;
 
+/**
+ * The name of the save the page makes as it goes to the background (background-save.ts): one slot of its own, so
+ * it never replaces the autosave or a save the player made. The start screen offers it when it is the newest.
+ */
+export const BACKGROUND_NAME = 'Background autosave';
+
+export const isBackgroundSave = (m: Pick<SaveMeta, 'name'>): boolean => m.name === BACKGROUND_NAME;
+
+/** Once `kept` is stored, drop every older background save. */
+export async function dropOlderBackgroundSaves(store: SaveStore, kept: SaveMeta): Promise<void> {
+  for (const m of await store.list()) if (isBackgroundSave(m) && m.id !== kept.id) await store.remove(m.id);
+}
+
 /** The newest autosave, or null. */
 export async function latestAutosave(store: SaveStore): Promise<SaveMeta | null> {
   return (await store.list()).find(isAutosave) ?? null;
