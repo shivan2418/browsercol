@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
+import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { dialogs } from './dialogs';
 import { MENUS, MenuBar, type Art } from './frame';
 import { DialogHost } from './panels';
@@ -975,7 +975,6 @@ describe('the colopedia', () => {
       ],
     });
     const refs = () => detail().querySelectorAll('.ref').length;
-    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
     expect(refs()).toBe(2);
     fireEvent.click(tree().getByRole('button', { name: 'Conquest' }));
     expect(refs()).toBe(3);
@@ -986,9 +985,6 @@ describe('the colopedia', () => {
     fireEvent.click(document.querySelector('[data-section="units"] button') as HTMLElement);
     fireEvent.click(tree().getByRole('button', { name: 'Caravel' }));
     expect(refs()).toBe(0);
-    // React's own warning of the cause: in a browser its reconciliation then keeps stale rows.
-    expect(errors.mock.calls.flat().join(' ')).not.toContain('same key');
-    errors.mockRestore();
   });
 });
 

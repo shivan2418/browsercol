@@ -79,6 +79,7 @@ export default defineConfig(({ command }) => {
     },
     test: {
       include: ['src/**/*.test.{ts,tsx}'],
+      setupFiles: ['src/test-setup.ts'],
       // Vitest's 5 s default is too tight for the component tests when many workers share the machine (#304, #335);
       // select-test.ts waits up to 10 s for a drop-down list, so a test has room for two of those.
       testTimeout: 30_000,
