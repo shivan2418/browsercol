@@ -454,7 +454,10 @@ export function sheetProblems(selector: string): string[] {
     const bar = document.querySelector<HTMLElement>('#menubar');
     if (bar) {
       const m = bar.getBoundingClientRect();
-      const over = Number(getComputedStyle(bar).zIndex) > Number(getComputedStyle(el.closest('.modal') ?? el).zIndex);
+      // A window opened from another sits inside its backdrop: the outermost one is what the menu bar is stacked against.
+      let top: Element = el;
+      for (let m = el.closest('.modal'); m; m = m.parentElement?.closest('.modal') ?? null) top = m;
+      const over = Number(getComputedStyle(bar).zIndex) > Number(getComputedStyle(top).zIndex);
       if (over && m.bottom > t.top + 1 && m.top < t.bottom - 1) out.push('the menu bar is drawn over its top bar');
     }
     const close = title.querySelector<HTMLElement>('.close');
