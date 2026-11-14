@@ -450,6 +450,13 @@ export function sheetProblems(selector: string): string[] {
     const t = title.getBoundingClientRect();
     if (t.height < 1 || t.left < -slack || t.top < -slack || t.right > vw + slack || t.bottom > vh + slack)
       out.push(`its top bar is not on the screen: ${f(t)}`);
+    // The menu bar, which a window may raise above its backdrop (Europe's), must not be drawn over the sheet's top bar.
+    const bar = document.querySelector<HTMLElement>('#menubar');
+    if (bar) {
+      const m = bar.getBoundingClientRect();
+      const over = Number(getComputedStyle(bar).zIndex) > Number(getComputedStyle(el.closest('.modal') ?? el).zIndex);
+      if (over && m.bottom > t.top + 1 && m.top < t.bottom - 1) out.push('the menu bar is drawn over its top bar');
+    }
     const close = title.querySelector<HTMLElement>('.close');
     if (close) {
       const c = close.getBoundingClientRect();

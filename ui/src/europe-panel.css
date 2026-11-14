@@ -4,8 +4,11 @@
  */
 @layer components {
   /* Europe (src/panels.tsx), as EuropePanel lays it out: the ships, the docks and cargo, the market. */
-  /* Europe is a large window over the map. The top bar stays clear above its backdrop, as the gold is read there. */
-  body:has(.dialog[data-kind='europe']) #menubar {
+  /*
+   * Europe is a large window over the map. The top bar stays clear above its backdrop, as the gold is read there. Not
+   * for a sheet (docs/adr/0012), which fills the screen with its own top bar: the menu bar would draw over it.
+   */
+  body:has(.dialog[data-kind='europe']:not([data-sheet])) #menubar {
     position: relative;
     z-index: var(--z-menubar-raised);
     pointer-events: none;

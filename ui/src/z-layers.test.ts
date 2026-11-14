@@ -39,7 +39,7 @@ const USERS: Record<string, string[]> = {
   '--z-tag': ['./feedback.css: .beta-tag.corner'],
   '--z-menubar': ['index.html: #menubar'],
   '--z-window': ['./modal.css: .modal'],
-  '--z-menubar-raised': ["./europe-panel.css: body:has(.dialog[data-kind='europe']) #menubar"],
+  '--z-menubar-raised': ["./europe-panel.css: body:has(.dialog[data-kind='europe']:not([data-sheet])) #menubar"],
   '--z-start': ['./start-window.css: .start'],
   '--z-start-tag': [
     './feedback.css: body:has(.start) .beta-tag.corner',
