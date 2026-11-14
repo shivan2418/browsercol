@@ -21,6 +21,11 @@ on:
       - '.github/workflows/site.yml'
   workflow_dispatch:
   workflow_call:
+    inputs:
+      tag:
+        description: The build-N whose game goes up; pages.yml passes its own (#501).
+        type: string
+        required: false
     outputs:
       page_url:
         value: ${{ jobs.deploy.outputs.page_url }}
@@ -40,19 +45,27 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    outputs:
+      tag: ${{ steps.game.outputs.tag }}
     steps:
       - uses: actions/checkout@v7
         with:
           ref: main
 
+      # The game of the tag pages.yml passes, or else of the highest build-N released. Not GitHub's "latest"
+      # release: just after pages.yml makes a release, "latest" can still name the build before it (#501).
       - name: The latest release's game
+        id: game
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
         run: |
-          if ! tag=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName); then
+          tag=${TAG:-$(tools/newest-build.sh)}
+          if [ -z "$tag" ]; then
             echo "No release with a game yet: deploy one with 'just deploy' first." >&2
             exit 1
           fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
           gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern play.tar.gz
           mkdir dist
           tar -C dist -xzf play.tar.gz
@@ -72,18 +85,45 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-24.04
+    # One deploy at a time, across this workflow's own runs and pages.yml's: the later one checks below after the
+    # earlier has finished. (The workflow's concurrency above does not cover pages.yml's call of it.)
+    concurrency:
+      group: pages-deploy
+      cancel-in-progress: false
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     outputs:
       page_url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          sparse-checkout: tools
+      # A run that started before a new build was released (the deploy skill's changelog push, #501) must not put
+      # the last build's game back over the new one when it deploys after the new build's own deploy.
+      - name: Still the newest build
+        id: current
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILT: ${{ needs.build.outputs.tag }}
+          PASSED: ${{ inputs.tag }}
+        run: |
+          newest=$(tools/newest-build.sh)
+          if [ -n "$PASSED" ] || [ "$BUILT" = "$newest" ]; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "Not deployed: built around $BUILT, but $newest is released since; its own deploy carries the page." | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
       - id: deployment
+        if: steps.current.outputs.ok == 'true'
         uses: actions/deploy-pages@v5
 
   # The game was smoke-tested when it was deployed: here, only that both pages are served.
   check:
     needs: deploy
+    if: needs.deploy.outputs.page_url != ''
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:

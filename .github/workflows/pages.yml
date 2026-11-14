@@ -77,6 +77,9 @@ jobs:
   deploy:
     needs: release
     uses: ./.github/workflows/site.yml
+    with:
+      # This build's game, not whatever release GitHub calls latest a moment after this one was made (#501).
+      tag: ${{ github.ref_name }}
 
   smoke:
     needs: deploy
