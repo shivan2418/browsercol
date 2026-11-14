@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { audioManifest } from './resources';
-import { soundPlayer, type EffectsOutput } from './sound';
+import { soundPlayer, type EffectsOutput, type SoundPlayerDeps } from './sound';
 
 // Layers as FreeCol loads them: data/base, then the "default" TC.
 const base = {
@@ -66,6 +66,7 @@ class FakeAudio {
   volume = 1;
   playing = false;
   onended: (() => void) | null = null;
+  onerror: (() => void) | null = null;
   blocked = false;
   play(): Promise<void> {
     if (this.blocked) return Promise.reject(new DOMException('no gesture yet', 'NotAllowedError'));
@@ -78,6 +79,11 @@ class FakeAudio {
   end() {
     this.playing = false;
     this.onended?.();
+  }
+  /** The file could not be loaded: offline and not cached, say. */
+  fail() {
+    this.playing = false;
+    this.onerror?.();
   }
 }
 
@@ -116,7 +122,7 @@ class FakeEffects implements EffectsOutput {
 
 describe('soundPlayer', () => {
   const manifest = audioManifest([base, tc], files);
-  const setup = () => {
+  const setup = (more: Partial<SoundPlayerDeps> = {}) => {
     const made: FakeAudio[] = [];
     const fx = new FakeEffects();
     let clock = 0;
@@ -132,6 +138,7 @@ describe('soundPlayer', () => {
       now: () => clock,
       random: () => 0,
       afterGesture: (f) => (gesture = f),
+      ...more,
     });
     const playing = () => made.filter((a) => a.playing).map((a) => a.src);
     return { player, made, playing, fx, tick: (ms: number) => (clock += ms), gesture: () => gesture() };
@@ -314,6 +321,39 @@ describe('soundPlayer', () => {
     player.play('sound.intro.general');
     made[0].end();
     expect(playing()).toEqual(['audio/default/resources/music/default/tailwind.ogg']);
+  });
+
+  it('offline, skips a track the cache lacks without asking for it, and plays one it has', () => {
+    const { player, made, playing } = setup({ playable: (url) => url.endsWith('founders.ogg') });
+    player.startPlaylist(); // tailwind first, which is not there
+    expect(playing()).toEqual(['audio/default/resources/music/default/founders.ogg']);
+    expect(made.map((a) => a.src)).toEqual(['audio/default/resources/music/default/founders.ogg']);
+  });
+
+  it('waits for the cache to say whether it has a track', async () => {
+    const { player, playing } = setup({ playable: (url) => Promise.resolve(url.endsWith('founders.ogg')) });
+    player.startPlaylist();
+    expect(playing()).toEqual([]);
+    for (let i = 0; i < 4; i++) await Promise.resolve();
+    expect(playing()).toEqual(['audio/default/resources/music/default/founders.ogg']);
+  });
+
+  it('goes on to the next track when one fails to load, rather than stop the music', () => {
+    const { player, made, playing } = setup();
+    player.startPlaylist();
+    expect(playing()).toEqual(['audio/default/resources/music/default/tailwind.ogg']);
+    made[0].fail();
+    expect(playing()).toEqual(['audio/default/resources/music/default/founders.ogg']);
+  });
+
+  it('stays quiet when no track can play, without trying them over and over', () => {
+    const asked: string[] = [];
+    const { player, made, playing } = setup({ playable: (url) => (asked.push(url), false) });
+    player.play('sound.intro.general');
+    player.startPlaylist();
+    expect(playing()).toEqual([]);
+    expect(made[0].src).toBe('');
+    expect(asked.length).toBeLessThanOrEqual(4);
   });
 
   it('starts the playlist at once when no music is playing', () => {

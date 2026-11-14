@@ -454,21 +454,22 @@ const audioGroup: OptionGroup = {
   ],
 };
 
-test('the offline music line says why there is none while no worker controls the page', () => {
+test('the offline audio control is disabled with a reason while no worker controls the page (#505)', () => {
   const { container } = render(
     <PreferencesDialog prefs={DEFAULTS} freecol={audioGroup} change={() => {}} close={() => {}} />,
   );
   fireEvent.click(container.querySelector<HTMLElement>('[data-category="clientOptions.audio"]')!);
   const row = container.querySelector<HTMLElement>('[data-pref="offlineAudio"]')!;
   expect(row.dataset.status).toBe('unavailable');
-  expect(row.querySelector('button')).toBeNull();
-  expect(row.textContent).toContain('Music for offline');
+  expect(row.querySelector('button')!.disabled).toBe(true);
+  expect(row.textContent).toContain('Download the music for offline');
   expect(row.textContent).toContain('installed or built site');
 });
 
-test('the offline music line shows the download, which needs no choice', () => {
+test('the offline audio control downloads, shows its progress, and removes (#505)', () => {
+  const changes: Prefs[] = [];
   const { container } = render(
-    <PreferencesDialog prefs={DEFAULTS} freecol={audioGroup} change={() => {}} close={() => {}} />,
+    <PreferencesDialog prefs={DEFAULTS} freecol={audioGroup} change={(p) => changes.push(p)} close={() => {}} />,
   );
   fireEvent.click(container.querySelector<HTMLElement>('[data-category="clientOptions.audio"]')!);
   const row = () => container.querySelector<HTMLElement>('[data-pref="offlineAudio"]')!;
@@ -484,9 +485,17 @@ test('the offline music line shows the download, which needs no choice', () => {
         failed: 0,
       }),
     );
+  message('idle', 0, 0);
+  expect(row().querySelector('button')!.disabled).toBe(false);
+  fireEvent.click(row().querySelector('button')!);
+  expect(changes.at(-1)).toMatchObject({ offlineAudio: true });
   message('working', 19, 47_000_000);
-  expect(row().querySelector('button')).toBeNull();
+  expect(row().querySelector('button')!.disabled).toBe(true);
   expect(row().textContent).toContain('19 of 38 files, 47 MB of 93 MB');
   message('done', 38, 93_000_000);
   expect(row().textContent).toContain('Saved for offline, 93 MB');
+  const remove = row().querySelector('button')!;
+  expect(remove.textContent).toBe('Remove');
+  fireEvent.click(remove);
+  expect(changes.at(-1)).toMatchObject({ offlineAudio: false });
 });

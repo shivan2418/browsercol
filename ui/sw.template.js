@@ -2,10 +2,8 @@
 // build's name and the shell's file list, and vite.config.ts writes the result beside the site as sw.js.
 //
 // The shell (the page, the Engines, the data, the scripts, styles and fonts, the maps, the art, the presets, the
-// icons and the sound effects) is cached whole at install. The music (93 MB) comes after: the page asks for all of it
-// as soon as this worker has it, since offline a track not in the cache fails to load. It is not part of the install,
-// which the browser stops after a few minutes: on a slow line that would leave no worker at all. The translations
-// are cached as the game loads them. The cache is named for the build, so a new build's worker fills a new one and
+// icons and the sound effects) is cached whole at install. The music and the translations are large and only some of
+// them are ever used, so they are cached as the game loads them, or the music all at once on the player's say. The cache is named for the build, so a new build's worker fills a new one and
 // the old one goes when the player restarts into it. The page shows "A new version is ready" while the new worker
 // waits, and sends it 'skip-waiting' when the player presses Restart; it does not take over a running game.
 // Once active it claims the open page, so the art a first visit loads after the shell is in is kept too. A worker
@@ -49,7 +47,7 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('message', (event) => {
   const type = event.data && event.data.type;
   if (type === 'skip-waiting') self.skipWaiting();
-  // The music, cached whole as soon as the page has a worker (#505): the page asks, and the worker reports.
+  // The music, cached whole on the player's say (#505): the page asks, and the worker reports.
   else if (type === 'cache-audio') event.waitUntil(cacheAudio());
   else if (type === 'drop-audio') event.waitUntil(dropAudio());
   else if (type === 'audio-status') event.waitUntil(report(false));
@@ -105,7 +103,7 @@ async function fill() {
   const worker = async () => {
     for (let next = queue.shift(); next && !stop; next = queue.shift()) {
       try {
-        const response = await fetch(new Request(next[0], { headers: { 'X-Precache': '1' }, cache: 'reload' }));
+        const response = await fetch(new Request(next[0], { cache: 'reload' }));
         if (response.status !== 200) throw new Error(String(response.status));
         if (!stop) await cache.put(next[0], response);
       } catch {
@@ -119,7 +117,7 @@ async function fill() {
 }
 
 /**
- * Put the music the last build's cache has into this one's before it goes, rather than download 93 MB again: a file
+ * Put the music the last build's cache has into this one's before it goes, rather than download it again: a file
  * of the same name and size is the same file. A copy within the browser, quick next to the network.
  */
 async function carryAudio(older) {
@@ -159,7 +157,13 @@ async function answer(event, request, url) {
   const key = request.mode === 'navigate' ? PAGE : url.origin + url.pathname;
   const hit = await cache.match(key);
   if (hit) return slice(request, hit);
-  const response = await fetch(request);
+  let response;
+  try {
+    response = await fetch(request);
+  } catch {
+    // Offline and not cached: the page sees a failed load, as without a worker, and the worker logs nothing.
+    return Response.error();
+  }
   if (response.status === 200) {
     event.waitUntil(cache.put(key, response.clone()));
   } else if (response.status === 206) {

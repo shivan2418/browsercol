@@ -709,6 +709,8 @@ function setPrefs(p: Prefs) {
   prefs = p;
   savePrefs(p);
   applyLook(p);
+  // The player's own change: the worker downloads the audio, or drops it (#505).
+  if (p.offlineAudio !== was.offlineAudio) offlineAudio.want(p.offlineAudio, true);
   void sound.then((s) => s?.setVolumes(volumes(p)));
   followVisibility();
   const changed = Object.fromEntries(Object.entries(p.freecol).filter(([id, v]) => was.freecol[id] !== v));
@@ -978,9 +980,8 @@ const registerWorker = () => {
     document.body.append(host);
     createRoot(host).render(<UpdatePrompt onRestart={restart} />);
   });
-  // The music is always downloaded for offline play once the worker has the page, a new build's too: offline, a
-  // track it lacks would fail to load.
-  offlineAudio.want(true);
+  // A player who chose the music offline gets it into each new build's cache too (#505).
+  offlineAudio.want(prefs.offlineAudio);
   offlineAudio.attach(audioLink());
 };
 if (document.readyState === 'complete') registerWorker();
