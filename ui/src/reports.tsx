@@ -892,8 +892,9 @@ function Colopedia({ e, art, go: links }: { e: View<'colopedia'>; art: Art; go: 
                   <dt>{f.label}</dt>
                   <dd>
                     {f.value}
-                    {f.refs.map((r) => (
-                      <span key={r.id} className="ref">
+                    {/* By place: a fact can name one type twice (a nation's starting units, R-9EGSK). */}
+                    {f.refs.map((r, j) => (
+                      <span key={j} className="ref">
                         <Img keys={r.keys} art={art} />
                         <Link go={() => go(r.id)} data-link={r.id}>
                           {r.name}

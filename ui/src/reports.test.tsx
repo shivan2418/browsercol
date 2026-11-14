@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vite-plus/test';
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { dialogs } from './dialogs';
 import { MENUS, MenuBar, type Art } from './frame';
 import { DialogHost } from './panels';
@@ -954,6 +954,41 @@ describe('the colopedia', () => {
     const { box } = host();
     show(box, { ...report, select: 'g:1' });
     expect(detail().querySelector('h3')?.textContent).toBe('Food');
+  });
+
+  it('shows a fact that names the same unit type twice, and leaves nothing behind on other entries (R-9EGSK)', () => {
+    const colonist = { id: 'u:1', name: 'Free Colonist', keys: [], note: '1' };
+    const start = (n: number) => ({ label: 'Units:', value: '', refs: Array.from({ length: n }, () => colonist) });
+    const { box } = host();
+    show(box, {
+      ...report,
+      sections: [
+        {
+          id: 'nationTypes',
+          name: 'Nation types',
+          entries: [
+            { id: 'n:1', name: 'Trade', group: null, keys: [], text: '', facts: [start(2)] },
+            { id: 'n:2', name: 'Conquest', group: null, keys: [], text: '', facts: [start(3)] },
+          ],
+        },
+        report.sections[0],
+      ],
+    });
+    const refs = () => detail().querySelectorAll('.ref').length;
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    expect(refs()).toBe(2);
+    fireEvent.click(tree().getByRole('button', { name: 'Conquest' }));
+    expect(refs()).toBe(3);
+    fireEvent.click(tree().getByRole('button', { name: 'Trade' }));
+    expect(refs()).toBe(2);
+    fireEvent.click(tree().getByRole('button', { name: 'Conquest' }));
+    expect(refs()).toBe(3);
+    fireEvent.click(document.querySelector('[data-section="units"] button') as HTMLElement);
+    fireEvent.click(tree().getByRole('button', { name: 'Caravel' }));
+    expect(refs()).toBe(0);
+    // React's own warning of the cause: in a browser its reconciliation then keeps stale rows.
+    expect(errors.mock.calls.flat().join(' ')).not.toContain('same key');
+    errors.mockRestore();
   });
 });
 
