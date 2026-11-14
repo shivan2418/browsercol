@@ -22,7 +22,6 @@ import { useCompact, windowStyle } from './compact';
 import { flag } from './flag';
 import { inTextField, TEXT_ENTRY } from './accelerators';
 import { Tip } from './controls';
-import { useCompact } from './compact';
 import { CompactMenuBar } from './compact-menu';
 import { dragging, picked } from './drag';
 import { focusFirstEntry, menuArrows, useFocusTrap } from './focus';
