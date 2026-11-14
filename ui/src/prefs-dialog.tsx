@@ -15,11 +15,13 @@ import {
   DEFAULTS,
   DIMS,
   MUTES,
+  RENDER_CAPS,
   SPEEDS,
   TILESETS,
   type ActiveStyle,
   type Dim,
   type Prefs,
+  type RenderCap,
   type Speed,
   type Tileset,
 } from './prefs';
@@ -29,6 +31,13 @@ import './prefs-dialog.css';
 
 const LABEL: Record<Speed, string> = { off: 'Off', slow: 'Slow', normal: 'Normal', fast: 'Fast' };
 
+const RENDER_CAP_LABEL: Record<RenderCap, string> = {
+  auto: 'Automatic',
+  '1': '1x',
+  '2': '2x',
+  '3': '3x',
+  none: 'None',
+};
 const DIM_LABEL: Record<Dim, string> = { off: 'Off', light: 'Light', normal: 'Normal', heavy: 'Heavy' };
 
 const STYLE_LABEL: Record<ActiveStyle, string> = {
@@ -126,6 +135,12 @@ export const OWN_OPTIONS = [
   { pref: 'fonts', label: 'Fonts' },
   { pref: 'tileset', label: 'Tileset (on reload)' },
   {
+    pref: 'renderCap',
+    label: 'Map sharpness limit (on reload)',
+    description:
+      'The most device pixels the map draws per screen pixel. Automatic limits a touch screen to 2x, which saves battery and memory on a phone, and leaves other screens at full sharpness.',
+  },
+  {
     pref: 'allowDebug',
     label: 'Allow debug mode',
     description: 'The Debug menu: reveal the map, add gold, units and goods. Off, Ctrl+Shift+D and ?debug do nothing.',
@@ -216,6 +231,17 @@ function OwnRow({
             value={prefs.fonts}
             onChange={(v) => change({ ...prefs, fonts: v as FontSet })}
             choices={FONT_SETS.map((f) => ({ value: f.id, label: f.label }))}
+          />
+        </label>
+      );
+    case 'renderCap':
+      return (
+        <label data-pref="renderCap" style={ROW}>
+          {label}
+          <Select
+            value={prefs.renderCap}
+            onChange={(v) => change({ ...prefs, renderCap: v as RenderCap })}
+            choices={RENDER_CAPS.map((c) => ({ value: c, label: RENDER_CAP_LABEL[c] }))}
           />
         </label>
       );

@@ -14,6 +14,7 @@ import {
   moveMs,
   PAGE_OPTIONS,
   terrainAnimation,
+  pixelCap,
   tilesetManifest,
   pageOption,
   parsePrefs,
@@ -34,6 +35,23 @@ const data = [
   'data/strings/FreeColMessages.properties',
   freecolMessages,
 ];
+
+describe('render cap', () => {
+  it('is automatic by default: 2x on a touch screen, none elsewhere', () => {
+    expect(parsePrefs(null).renderCap).toBe('auto');
+    expect(pixelCap('auto', true)).toBe(2);
+    expect(pixelCap('auto', false)).toBe(Infinity);
+  });
+  it('is the player choice when they make one', () => {
+    expect(pixelCap('1', true)).toBe(1);
+    expect(pixelCap('3', false)).toBe(3);
+    expect(pixelCap('none', true)).toBe(Infinity);
+  });
+  it('keeps a stored choice and ignores an odd one', () => {
+    expect(parsePrefs('{"renderCap":"2"}').renderCap).toBe('2');
+    expect(parsePrefs('{"renderCap":"7"}').renderCap).toBe('auto');
+  });
+});
 
 describe('prefs', () => {
   it('falls back to the defaults on missing or odd text', () => {

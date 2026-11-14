@@ -393,8 +393,14 @@ export const backingSize = (w: number, h: number, ratio: number): [number, numbe
   Math.round(h * ratio),
 ];
 
-/** The screen's pixel ratio now, which a window moving to another screen can change. */
-const screenRatio = (): number => pixelRatio(window.devicePixelRatio);
+/** The most device pixels per CSS pixel the map draws (the render cap preference, #510); Infinity for no cap. */
+let pixelCap = Infinity;
+export const setPixelCap = (cap: number): void => {
+  pixelCap = cap > 0 ? cap : Infinity;
+};
+
+/** The screen's pixel ratio now, which a window moving to another screen can change, under the render cap. */
+const screenRatio = (): number => Math.min(pixelRatio(window.devicePixelRatio), pixelCap);
 
 /** What draws the shader water under the map (map-water.ts). */
 export interface WaterPen {

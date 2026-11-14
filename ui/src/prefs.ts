@@ -40,6 +40,23 @@ export const tilesetManifest = (t: Tileset): string | undefined => (t === 'freec
 export type Dim = 'off' | 'light' | 'normal' | 'heavy';
 export const DIMS: readonly Dim[] = ['off', 'light', 'normal', 'heavy'];
 
+/**
+ * How many device pixels the map draws per CSS pixel at most (#510). A phone's screen is 3x, and drawing at 3x
+ * costs the GPU nine times the pixels of 1x for a sharpness a finger-sized map hardly shows; automatic caps a
+ * touch screen at 2x and leaves other screens as they are.
+ */
+export type RenderCap = 'auto' | '1' | '2' | '3' | 'none';
+export const RENDER_CAPS: readonly RenderCap[] = ['auto', '1', '2', '3', 'none'];
+/** What automatic caps a touch screen at. */
+export const TOUCH_RENDER_CAP = 2;
+
+/** The highest pixel ratio the map draws at for the preference: Infinity for none; `touch` is a coarse primary pointer. */
+export function pixelCap(cap: RenderCap, touch: boolean): number {
+  if (cap === 'none') return Infinity;
+  if (cap === 'auto') return touch ? TOUCH_RENDER_CAP : Infinity;
+  return Number(cap);
+}
+
 export interface Prefs {
   /** What blinks for the active unit; the blink speed applies to either. */
   activeStyle: ActiveStyle;
@@ -59,6 +76,8 @@ export interface Prefs {
   fonts: FontSet;
   /** The map's art; the page loads it, so a change shows on reload. */
   tileset: Tileset;
+  /** The most device pixels the map draws per CSS pixel; the page reads it as the map starts, so a change shows on reload. */
+  renderCap: RenderCap;
   /** Whether the music is muted, whatever its volume option says. */
   muteMusic: boolean;
   /** Whether the sound effects are muted, whatever their volume option says. */
@@ -88,6 +107,7 @@ export const DEFAULTS: Prefs = {
   palette: PALETTES[0].id,
   fonts: FONT_SETS[0].id,
   tileset: TILESETS[0].id,
+  renderCap: 'auto',
   // The music is a bit much for most players: off until they turn it on (#318).
   muteMusic: true,
   muteEffects: false,
@@ -456,6 +476,7 @@ export function parsePrefs(text: string | null): Prefs {
       palette: isPalette(o.palette) ? o.palette : DEFAULTS.palette,
       fonts: isFontSet(o.fonts) ? o.fonts : DEFAULTS.fonts,
       tileset: isTileset(o.tileset) ? o.tileset : DEFAULTS.tileset,
+      renderCap: RENDER_CAPS.includes(o.renderCap as RenderCap) ? (o.renderCap as RenderCap) : DEFAULTS.renderCap,
       muteMusic: typeof o.muteMusic === 'boolean' ? o.muteMusic : DEFAULTS.muteMusic,
       muteEffects: typeof o.muteEffects === 'boolean' ? o.muteEffects : DEFAULTS.muteEffects,
       playHidden: typeof o.playHidden === 'boolean' ? o.playHidden : DEFAULTS.playHidden,

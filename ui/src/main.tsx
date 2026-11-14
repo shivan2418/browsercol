@@ -75,6 +75,7 @@ import {
   minimapOptions,
   moveMs,
   pageOption,
+  pixelCap,
   savePrefs,
   shownClientOptions,
   startModes,
@@ -91,7 +92,7 @@ import {
 } from './prefs';
 import { LANGUAGE_OPTION, languageName, languages, pickLanguage, translationFiles } from './language';
 import { clientOptionsGroup, leaves, type OptionGroup } from './options';
-import { mapDrawer, type MapView, type Terrain } from './map';
+import { mapDrawer, setPixelCap, type MapView, type Terrain } from './map';
 import { europeButtons, showEurope } from './europe-client';
 import { DialogHost, type Art, type ReportButtons, type RouteButtons } from './panels';
 import { acceleratorFor, inTextField, type Accelerator } from './accelerators';
@@ -676,6 +677,7 @@ framePlaces.saved = () => {
 function applyLook(p: Prefs) {
   applyTheme(document.documentElement, p.palette, p.fonts, urlPalette);
   syncThemeColor();
+  setPixelCap(pixelCap(p.renderCap, matchMedia('(pointer: coarse)').matches)); // read as the map starts and resizes
   map.setMotion(moveMs(p), blinkMs(p), p.activeStyle);
   map.setTerrainAnimation(terrainAnimation(p));
   document.body.dataset.dimUnfocused = p.dimUnfocused;
