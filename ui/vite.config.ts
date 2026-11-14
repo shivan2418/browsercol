@@ -1,25 +1,12 @@
-import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { defineConfig, type Plugin } from 'vite-plus';
 import { buildId } from './scripts/build-id.ts';
 import { layerPageStyles } from './scripts/page-styles.ts';
-import {
-  audioList,
-  cacheBuild,
-  listFiles,
-  manifest,
-  precacheList,
-  shellSizes,
-  serviceWorker,
-  soundEffects,
-} from './scripts/pwa.ts';
+import { manifest } from './scripts/pwa.ts';
 
-/**
- * The installable app (#267): beside the built site, the web app manifest, and (#296) the service worker that
- * caches the site so the installed app starts offline.
- */
-function installable(build: string): Plugin {
+/** The installable app (#267): beside the built site, the web app manifest. */
+function installable(): Plugin {
   let outDir = '';
   return {
     name: 'installable',
@@ -34,26 +21,9 @@ function installable(build: string): Plugin {
     closeBundle() {
       const themeCss = fs.readFileSync('src/theme.css', 'utf8');
       fs.writeFileSync(path.join(outDir, 'manifest.webmanifest'), JSON.stringify(manifest(themeCss), null, 2));
-      const audioJson = path.join(outDir, 'audio', 'audio.json');
-      const effects = fs.existsSync(audioJson) ? soundEffects(fs.readFileSync(audioJson, 'utf8')) : [];
-      const shell = precacheList(listFiles(outDir), effects);
-      // The build id alone cannot name the cache: two local builds of one commit share it. The files do not.
-      const page = fs.readFileSync(path.join(outDir, 'index.html'), 'utf8');
-      const fingerprint = createHash('sha1')
-        .update(JSON.stringify(shell) + page)
-        .digest('hex')
-        .slice(0, 8);
-      const template = fs.readFileSync('sw.template.js', 'utf8');
-      fs.writeFileSync(
-        path.join(outDir, 'sw.js'),
-        serviceWorker(
-          template,
-          cacheBuild(build, fingerprint),
-          shell,
-          audioList(outDir, effects),
-          shellSizes(outDir, shell),
-        ),
-      );
+      // Builds 18 and 19 installed a service worker that answers from its cache first. This one, at the same URL,
+      // replaces it: it deletes that copy and unregisters itself (sw-retire.js).
+      fs.copyFileSync('sw-retire.js', path.join(outDir, 'sw.js'));
     },
   };
 }
@@ -66,7 +36,7 @@ function pageLayers(): Plugin {
 export default defineConfig(({ command }) => {
   const build = buildId(process.env, command === 'serve');
   return {
-    plugins: [pageLayers(), installable(build)],
+    plugins: [pageLayers(), installable()],
     // Relative URLs, so the site works from any path (GitHub Pages serves it under /<repo>/).
     base: './',
     define: { __BUILD__: JSON.stringify(build) },

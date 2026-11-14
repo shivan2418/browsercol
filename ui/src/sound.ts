@@ -10,7 +10,6 @@ export interface AudioLike {
   src: string;
   volume: number;
   onended: ((ev: Event) => void) | null;
-  onerror: OnErrorEventHandler;
   play(): Promise<void>;
   pause(): void;
 }
@@ -45,20 +44,6 @@ export interface SoundPlayerDeps {
   random?: () => number;
   /** Run a function once the player next clicks or presses a key: the browser lets a page play sound only then. */
   afterGesture?: (f: () => void) => void;
-  /**
-   * Whether a music file can be had: by default true online, and offline only if the service worker's cache has it,
-   * so a track that is not there is skipped without a request that fails (and errors in the console).
-   */
-  playable?: (url: string) => boolean | Promise<boolean>;
-}
-
-/** Online, any file; offline, one in the service worker's cache. */
-function cachedWhenOffline(url: string): boolean | Promise<boolean> {
-  if (typeof navigator === 'undefined' || navigator.onLine !== false || typeof caches === 'undefined') return true;
-  return caches.match(new URL(url, location.href).href).then(
-    (hit) => hit !== undefined,
-    () => false,
-  );
 }
 
 export interface SoundPlayer {
@@ -94,7 +79,6 @@ export function soundPlayer(manifest: AudioManifest, deps: SoundPlayerDeps): Sou
   const random = deps.random ?? Math.random;
   const afterGesture = deps.afterGesture ?? onFirstGesture;
   const music = makeAudio();
-  const playable = deps.playable ?? cachedWhenOffline;
   let effectsOut: EffectsOutput | null = null;
   const effects = () => {
     if (!effectsOut) {
@@ -163,55 +147,27 @@ export function soundPlayer(manifest: AudioManifest, deps: SoundPlayerDeps): Sou
     a.src = deps.base + file;
     return a.play();
   };
-  /** Tracks in a row that could not be had: past the playlist's length, nothing can play, and the music stops. */
-  let misses = 0;
-  /** A track that is not there (offline) or failed to load: on to the next, as if it had ended. */
-  const missed = () => {
-    musicOn = false;
-    music.pause();
-    if (++misses > manifest.playlist.length) return;
-    nextTrack();
-  };
-  music.onerror = () => {
-    if (musicOn && current && music.src.endsWith(current)) missed();
-  };
   /** Music the browser refuses, as it does until the player has clicked or pressed a key, starts after that. */
   const startMusic = (file: string) => {
     musicOn = true;
     current = file;
     // Music asked for while the volume is 0 is not downloaded: it starts when the volume is raised.
     if (musicQuiet) return;
-    const can = playable(deps.base + file);
-    if (can === true) playMusic(file);
-    else if (can === false) missed();
-    else
-      void can.then((ok) => {
-        if (current !== file || !musicOn || musicQuiet) return; // other music since
-        if (ok) playMusic(file);
-        else missed();
-      });
-  };
-  const playMusic = (file: string) => {
     // Music asked for while the page is hidden waits for it to show.
     if (hidden) {
       music.pause();
       music.src = deps.base + file;
       return;
     }
-    start(music, file).then(
-      () => {
-        misses = 0;
-      },
-      (ex: unknown) => {
-        if (!(ex instanceof DOMException && ex.name === 'NotAllowedError')) return;
-        const src = music.src;
-        const run = () => {
-          if (musicOn && !hidden && music.src === src) void music.play().catch(() => {});
-        };
-        if (waiting) pending = run;
-        else afterGesture(run);
-      },
-    );
+    start(music, file).catch((ex: unknown) => {
+      if (!(ex instanceof DOMException && ex.name === 'NotAllowedError')) return;
+      const src = music.src;
+      const run = () => {
+        if (musicOn && !hidden && music.src === src) void music.play().catch(() => {});
+      };
+      if (waiting) pending = run;
+      else afterGesture(run);
+    });
   };
   /** SoundPlayerThread.run: the next track, the playlist shuffled afresh once it has all played. */
   const nextTrack = () => {

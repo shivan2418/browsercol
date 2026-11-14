@@ -72,7 +72,6 @@ rebuilds the Engine and reloads the page when the Java changes.
 | `just browser saves` | Save, reload, export, delete, import, then load the save and play on |
 | `just browser tileset` | Draw the map and a colony panel with the test Tileset (`ui/tilesets/test`) |
 | `just browser debug` | The debug menu's actions |
-| `just browser offline` | The service worker (#296): a second start with the network gone, and a new build taken through Restart (Chromium) |
 | `just browser rounds --rounds 300` | Time AI rounds and memory as the game grows (`--save FILE` saves the game it reaches) |
 | `just browser scenarios` | Play a desktop FreeCol save, an AI-made late game, a 30-colony empire and combat, timing the panels |
 

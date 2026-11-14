@@ -3,12 +3,11 @@
 // preferences, such as the animation and blink speeds, are the first category; FreeCol's client options
 // the browser follows come after it, in FreeCol's groups. Hooks for tests: [data-category] on a
 // category's button, with its id; [data-mute] on a volume's mute button, with the preference it sets.
-import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { flag } from './flag';
 import { Select, Tip } from './controls';
 import { Box, ButtonRow, TEXT_ENTRY, WindowFrame } from './frame';
 import { LANGUAGE_OPTION } from './language';
-import { describe, offlineAudio } from './offline-audio';
 import { OptionEditor } from './option-editor';
 import type { OptionGroup, OptionNode } from './options';
 import {
@@ -127,12 +126,6 @@ export const OWN_OPTIONS = [
   { pref: 'fonts', label: 'Fonts' },
   { pref: 'tileset', label: 'Tileset (on reload)' },
   {
-    pref: 'offline',
-    label: 'Keep the game for offline play',
-    description:
-      'Saves a copy of the game in this browser (about 60 MB), so it starts with no network, installed or in a tab. The menu bar shows how far it is. Off, nothing is saved, and the copy is removed.',
-  },
-  {
     pref: 'allowDebug',
     label: 'Allow debug mode',
     description: 'The Debug menu: reveal the map, add gold, units and goods. Off, Ctrl+Shift+D and ?debug do nothing.',
@@ -182,7 +175,6 @@ function OwnRow({
       );
     case 'autoEndTurn':
     case 'tutorial':
-    case 'offline':
     case 'allowDebug':
       return (
         <label data-pref={pref} style={ROW}>
@@ -246,21 +238,7 @@ function OwnOptions({ prefs, change }: { prefs: Prefs; change: (p: Prefs) => voi
   return (
     <>
       {OWN_OPTIONS.map((o) => (
-        <OwnRow
-          key={o.pref}
-          pref={o.pref}
-          label={
-            'description' in o ? (
-              <Tip as="span" tip={o.description}>
-                {o.label}
-              </Tip>
-            ) : (
-              o.label
-            )
-          }
-          prefs={prefs}
-          change={change}
-        />
+        <OwnRow key={o.pref} pref={o.pref} label={o.label} prefs={prefs} change={change} />
       ))}
     </>
   );
@@ -279,33 +257,6 @@ function PlayHiddenRow({ label, prefs, change }: { label: ReactNode; prefs: Pref
         onChange={(e) => change({ ...prefs, playHidden: e.target.checked })}
       />
     </label>
-  );
-}
-
-const OFFLINE_AUDIO = 'Download the music for offline';
-
-/**
- * The audio categories' offline download (#505): a button that has the service worker keep every music file (the
- * sound effects are cached at install), with its progress, and Remove once it is done. The choice is the offlineAudio preference. Without a worker
- * (a dev server) the button is disabled, and the line says why.
- */
-function OfflineAudioRow({ label, prefs, change }: { label: ReactNode; prefs: Prefs; change: (p: Prefs) => void }) {
-  const state = useSyncExternalStore(offlineAudio.subscribe, offlineAudio.snapshot);
-  const done = state.status === 'done';
-  return (
-    <div data-pref="offlineAudio" data-status={state.status} className="offline-audio">
-      <button
-        type="button"
-        data-offline-audio-button={done ? 'remove' : 'download'}
-        disabled={state.status === 'unavailable' || state.status === 'working'}
-        onClick={() => change({ ...prefs, offlineAudio: !done })}
-      >
-        {done ? 'Remove' : label}
-      </button>
-      <span className="prefs-note" data-offline-audio-note>
-        {describe(state)}
-      </span>
-    </div>
   );
 }
 
@@ -336,11 +287,7 @@ export interface Match {
   path: string[];
   label: string;
   /** What shows its control: BrowserCol's own preference, the audio switch, or a FreeCol option. */
-  what:
-    | { own: OwnPref }
-    | { playHidden: true }
-    | { offlineAudio: true }
-    | { option: Exclude<OptionNode, { kind: 'group' }> };
+  what: { own: OwnPref } | { playHidden: true } | { option: Exclude<OptionNode, { kind: 'group' }> };
 }
 
 /** Every option the window has, with its place in the tree. */
@@ -380,16 +327,6 @@ export function allOptions(freecol: OptionGroup | null): (Match & { description:
           label: PLAY_HIDDEN,
           description: null,
           what: { playHidden: true },
-        });
-      if (c.children.some((o) => o.id in MUTES))
-        out.push({
-          key: 'offlineAudio',
-          categoryId: c.id,
-          pathIds: here,
-          path: [...named, OFFLINE_AUDIO],
-          label: OFFLINE_AUDIO,
-          description: null,
-          what: { offlineAudio: true },
         });
       walk(c, here, named);
     }
@@ -451,8 +388,6 @@ function Results({
             <OwnRow pref={m.what.own} label={mark(m.label)} prefs={prefs} change={change} />
           ) : 'playHidden' in m.what ? (
             <PlayHiddenRow label={mark(m.label)} prefs={prefs} change={change} />
-          ) : 'offlineAudio' in m.what ? (
-            <OfflineAudioRow label={mark(m.label)} prefs={prefs} change={change} />
           ) : (
             <OptionEditor
               root={{ id: m.key, label: m.label, description: null, kind: 'group', children: [m.what.option] }}
@@ -598,9 +533,6 @@ export function PreferencesDialog({
                     />
                     {current.options.children.some((o) => o.id in MUTES) && (
                       <PlayHiddenRow label={PLAY_HIDDEN} prefs={prefs} change={change} />
-                    )}
-                    {current.options.children.some((o) => o.id in MUTES) && (
-                      <OfflineAudioRow label={OFFLINE_AUDIO} prefs={prefs} change={change} />
                     )}
                     {current.options.children.some((o) => o.id === LANGUAGE_OPTION) && (
                       <p data-note="language" className="prefs-note">

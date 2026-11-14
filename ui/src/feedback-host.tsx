@@ -1,7 +1,6 @@
 // Where the Send feedback window lives (#369): its own root, so the error banner, the Game menu, the start
 // screen and the Beta tag can all open it, before a game exists or after a crash has taken the page's other
 // roots down. main.tsx says where the errors, the log and the save come from (setFeedbackSources).
-import { OfflineIndicator } from './offline-indicator';
 import { createRoot, type Root } from 'react-dom/client';
 import { BUILD } from './build';
 import { currentSave } from './current-save';
@@ -47,7 +46,6 @@ function render() {
   root.render(
     <>
       {!open && <BetaTag open={() => openFeedback('bug')} />}
-      {!open && <OfflineIndicator corner />}
       {open && (
         <FeedbackDialog
           key={open.n}

@@ -46,8 +46,7 @@
     --z-window: 40; /* Every window (.modal) */
     --z-menubar-raised: 50; /* The menu bar while a window leaves it uncovered (Europe: the gold is read there) */
     --z-start: 60; /* The start screen */
-    --z-start-tag: 70; /* The beta tag and the offline copy's word over the start screen */
-    --z-update: 75; /* "A new version is ready", over the start screen and the windows (#296) */
+    --z-start-tag: 70; /* The beta tag over the start screen */
     --z-loading: 80; /* The loading screen, over the windows and taking no click */
     --z-mobile-notice: 90; /* The notice for phones, over the loading screen */
     --z-error: 100; /* The error banner, over windows */

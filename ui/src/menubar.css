@@ -102,18 +102,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  /* The offline copy's progress (src/offline-indicator.tsx), before the Beta tag. */
-  .menubar .offline-status {
-    flex: none;
-    padding: 0 8px;
-    font-size: var(--fs-s);
-    white-space: nowrap;
-    opacity: 0.85;
-  }
-  .menubar .offline-status[data-offline='failed'] {
-    opacity: 1;
-    text-decoration: underline dotted;
-  }
   /* The Beta tag (src/feedback-dialog.tsx) at the bar's right end, after the status line. */
   .menubar .beta-tag {
     flex: none;
