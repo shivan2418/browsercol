@@ -1,7 +1,18 @@
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import vm from 'node:vm';
 import { expect, test } from 'vite-plus/test';
 import template from '../sw.template.js?raw';
-import { cacheBuild, manifest, paletteColours, precacheList, serviceWorker } from '../scripts/pwa.ts';
+import {
+  audioList,
+  cacheBuild,
+  manifest,
+  paletteColours,
+  precacheList,
+  serviceWorker,
+  soundEffects,
+} from '../scripts/pwa.ts';
 import css from './theme.css?raw';
 
 test('the manifest takes its colours from the default palette', () => {
@@ -41,6 +52,54 @@ test('the precache holds the shell, the art and the presets; the audio and trans
     './manifest.webmanifest',
     './presets/a.json',
   ]);
+});
+
+test('the sound effects are precached; the music and the other audio wait (#505)', () => {
+  const effects = soundEffects(
+    JSON.stringify({
+      sounds: {
+        'sound.attack.artillery': { file: 'sound/attack/artillery.ogg', music: false },
+        'sound.event.buildingComplete': { file: 'sound/event/build.ogg', music: false },
+        'sound.event.loadCargo': { file: 'sound/event/build.ogg', music: false },
+        'sound.intro.general': { file: 'sound/intro.ogg', music: true },
+        // A file both a sound and a music entry play is music.
+        'sound.event.meet': { file: 'sound/meet/a.ogg', music: true },
+        'sound.event.other': { file: 'sound/meet/a.ogg', music: false },
+      },
+      playlist: ['music/a.ogg'],
+    }),
+  );
+  expect(effects).toEqual(['audio/audio.json', 'audio/sound/attack/artillery.ogg', 'audio/sound/event/build.ogg']);
+  const files = [
+    'index.html',
+    'assets/x.js',
+    'audio/audio.json',
+    'audio/sound/attack/artillery.ogg',
+    'audio/sound/event/build.ogg',
+    'audio/sound/intro.ogg',
+    'audio/sound/meet/a.ogg',
+    'audio/music/a.ogg',
+  ];
+  expect(precacheList(files, effects)).toEqual([
+    './',
+    './assets/x.js',
+    './audio/audio.json',
+    './audio/sound/attack/artillery.ogg',
+    './audio/sound/event/build.ogg',
+  ]);
+});
+
+test("the worker's audio download is the audio the precache leaves out (#505)", () => {
+  const out = fs.mkdtempSync(path.join(os.tmpdir(), 'pwa-'));
+  try {
+    fs.mkdirSync(path.join(out, 'audio', 'music'), { recursive: true });
+    fs.writeFileSync(path.join(out, 'audio', 'audio.json'), '{}');
+    fs.writeFileSync(path.join(out, 'audio', 'boom.ogg'), 'xx');
+    fs.writeFileSync(path.join(out, 'audio', 'music', 'a.ogg'), 'xxxx');
+    expect(audioList(out, ['audio/audio.json', 'audio/boom.ogg'])).toEqual([['./audio/music/a.ogg', 4]]);
+  } finally {
+    fs.rmSync(out, { recursive: true });
+  }
 });
 
 test('the cache is named for the build and its files, in characters a name can hold', () => {

@@ -1,9 +1,9 @@
 // The service worker (#296): BrowserCol plays offline once it has been opened. ui/scripts/pwa.ts fills in the
 // build's name and the shell's file list, and vite.config.ts writes the result beside the site as sw.js.
 //
-// The shell (the page, the Engines, the data, the scripts, styles and fonts, the icons) is cached whole at install.
-// The art, the audio, the translations and the presets are large and only some of them are ever used, so they are
-// cached as the game loads them. The cache is named for the build, so a new build's worker fills a new one and
+// The shell (the page, the Engines, the data, the scripts, styles and fonts, the maps, the art, the presets, the
+// icons and the sound effects) is cached whole at install. The music and the translations are large and only some of
+// them are ever used, so they are cached as the game loads them, or the music all at once on the player's say. The cache is named for the build, so a new build's worker fills a new one and
 // the old one goes when the player restarts into it. The page shows "A new version is ready" while the new worker
 // waits, and sends it 'skip-waiting' when the player presses Restart; it does not take over a running game.
 // Once active it claims the open page, so the art a first visit loads after the shell is in is kept too. A worker
@@ -47,7 +47,7 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('message', (event) => {
   const type = event.data && event.data.type;
   if (type === 'skip-waiting') self.skipWaiting();
-  // The music and sounds, cached whole on the player's say (#505): the page asks, and the worker reports.
+  // The music, cached whole on the player's say (#505): the page asks, and the worker reports.
   else if (type === 'cache-audio') event.waitUntil(cacheAudio());
   else if (type === 'drop-audio') event.waitUntil(dropAudio());
   else if (type === 'audio-status') event.waitUntil(report(false));

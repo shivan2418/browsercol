@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { collectPageErrors, diagnose, launchBrowser, waitForResult } from './common.ts';
 import { answerDialogs } from './dialogs.ts';
-import { listFiles } from './pwa.ts';
+import { listFiles, soundEffects } from './pwa.ts';
 import { dist, serveDist } from './serve-dist.ts';
 import type { Page } from 'playwright-core';
 
@@ -70,6 +70,15 @@ try {
     const missing = want.filter((f) => !cached.includes(f));
     check(`every file of ${dir}/ is cached (${want.length - missing.length}/${want.length})`, missing.length === 0);
   }
+  // The sound effects too, played yet or not (#505); the music waits for the player's say.
+  const effects = soundEffects(fs.readFileSync(path.join(dist, 'play', 'audio', 'audio.json'), 'utf8')).map(
+    (f) => `/browsercol/play/${f}`,
+  );
+  const effectsMissing = effects.filter((f) => !cached.includes(f));
+  check(
+    `every sound effect is cached (${effects.length - effectsMissing.length}/${effects.length})`,
+    effects.length > 1 && effectsMissing.length === 0,
+  );
 
   // The translation the page loaded before the worker was in goes through it again once it takes over.
   await poll(
@@ -81,7 +90,7 @@ try {
   );
   check('the German translation is cached', true);
 
-  // The music and sounds: only those played are cached until the player asks for all of them (#505).
+  // The music: only the tracks played are cached until the player asks for all of them (#505).
   const audioFiles = listFiles(path.join(dist, 'play', 'audio')).map((f) => `/browsercol/play/audio/${f}`);
   const cachedAudio = (name: string) =>
     page.evaluate(
@@ -92,7 +101,7 @@ try {
       name,
     );
   check(
-    `not every audio file is cached before the player asks (${(await cachedAudio(cache)).length})`,
+    `not every music file is cached before the player asks (${(await cachedAudio(cache)).length})`,
     (await cachedAudio(cache)).length < audioFiles.length,
   );
   await page.keyboard.press('Control+p');

@@ -66,8 +66,8 @@ export interface Prefs {
   /** Whether the sound goes on while the tab is hidden or the app minimised; off, it pauses and resumes on return. */
   playHidden: boolean;
   /**
-   * Whether the music and sounds are kept for offline play (#505): the service worker downloads every file of audio/,
-   * and again into each new build's cache. Off, they are cached only as they play.
+   * Whether the music is kept for offline play (#505): the service worker downloads every music file, and again into
+   * each new build's cache. Off, a track is cached only as it plays. The sound effects are cached at install either way.
    */
   offlineAudio: boolean;
   /**

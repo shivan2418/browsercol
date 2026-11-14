@@ -261,11 +261,11 @@ function PlayHiddenRow({ label, prefs, change }: { label: ReactNode; prefs: Pref
   );
 }
 
-const OFFLINE_AUDIO = 'Download music and sounds for offline';
+const OFFLINE_AUDIO = 'Download the music for offline';
 
 /**
- * The audio categories' offline download (#505): a button that has the service worker keep every music and sound
- * file, with its progress, and Remove once it is done. The choice is the offlineAudio preference. Without a worker
+ * The audio categories' offline download (#505): a button that has the service worker keep every music file (the
+ * sound effects are cached at install), with its progress, and Remove once it is done. The choice is the offlineAudio preference. Without a worker
  * (a dev server) the button is disabled, and the line says why.
  */
 function OfflineAudioRow({ label, prefs, change }: { label: ReactNode; prefs: Prefs; change: (p: Prefs) => void }) {

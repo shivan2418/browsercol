@@ -462,7 +462,7 @@ test('the offline audio control is disabled with a reason while no worker contro
   const row = container.querySelector<HTMLElement>('[data-pref="offlineAudio"]')!;
   expect(row.dataset.status).toBe('unavailable');
   expect(row.querySelector('button')!.disabled).toBe(true);
-  expect(row.textContent).toContain('Download music and sounds for offline');
+  expect(row.textContent).toContain('Download the music for offline');
   expect(row.textContent).toContain('installed or built site');
 });
 

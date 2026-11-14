@@ -4,7 +4,15 @@ import path from 'node:path';
 import { defineConfig, type Plugin } from 'vite-plus';
 import { buildId } from './scripts/build-id.ts';
 import { layerPageStyles } from './scripts/page-styles.ts';
-import { audioList, cacheBuild, listFiles, manifest, precacheList, serviceWorker } from './scripts/pwa.ts';
+import {
+  audioList,
+  cacheBuild,
+  listFiles,
+  manifest,
+  precacheList,
+  serviceWorker,
+  soundEffects,
+} from './scripts/pwa.ts';
 
 /**
  * The installable app (#267): beside the built site, the web app manifest, and (#296) the service worker that
@@ -25,7 +33,9 @@ function installable(build: string): Plugin {
     closeBundle() {
       const themeCss = fs.readFileSync('src/theme.css', 'utf8');
       fs.writeFileSync(path.join(outDir, 'manifest.webmanifest'), JSON.stringify(manifest(themeCss), null, 2));
-      const shell = precacheList(listFiles(outDir));
+      const audioJson = path.join(outDir, 'audio', 'audio.json');
+      const effects = fs.existsSync(audioJson) ? soundEffects(fs.readFileSync(audioJson, 'utf8')) : [];
+      const shell = precacheList(listFiles(outDir), effects);
       // The build id alone cannot name the cache: two local builds of one commit share it. The files do not.
       const page = fs.readFileSync(path.join(outDir, 'index.html'), 'utf8');
       const fingerprint = createHash('sha1')
@@ -35,7 +45,7 @@ function installable(build: string): Plugin {
       const template = fs.readFileSync('sw.template.js', 'utf8');
       fs.writeFileSync(
         path.join(outDir, 'sw.js'),
-        serviceWorker(template, cacheBuild(build, fingerprint), shell, audioList(outDir)),
+        serviceWorker(template, cacheBuild(build, fingerprint), shell, audioList(outDir, effects)),
       );
     },
   };
