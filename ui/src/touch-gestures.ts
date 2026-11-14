@@ -132,6 +132,10 @@ export function createGestures(
       if (phase === 'pinch') {
         emit({ k: 'pinchEnd' });
         phase = 'dead';
+      } else if (phase === 'pending' && t - startT >= LONG_PRESS_MS) {
+        // Held long enough, but no frame ran to say so (a busy page): the lift finds it a long press.
+        lastTap = null;
+        emit({ k: 'longPress', x: f.x, y: f.y });
       } else if (phase === 'pending') {
         const at: [number, number] = [f.x, f.y];
         const second = lastTap && t - lastTap.t <= DOUBLE_TAP_MS && sameSpot(lastTap.at, at);

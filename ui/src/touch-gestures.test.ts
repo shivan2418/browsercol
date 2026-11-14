@@ -117,6 +117,13 @@ describe('createGestures', () => {
     expect(events).toEqual([{ k: 'longPress', x: 7, y: 8 }]);
   });
 
+  it('makes a lift after the long-press time a long press when no frame ticked', () => {
+    const { g, events } = setup();
+    g.down(1, 7, 8, 0);
+    g.up(1, LONG_PRESS_MS + 300);
+    expect(events).toEqual([{ k: 'longPress', x: 7, y: 8 }]);
+  });
+
   it('does not long-press a finger that moved on', () => {
     const { g, events } = setup();
     g.down(1, 0, 0, 0);
