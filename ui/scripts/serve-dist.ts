@@ -31,6 +31,8 @@ export interface Site {
   /** Counts a deployed site's data bundle fetches from the page's own requests; absent when the site is served here. */
   watch?: (page: Page) => unknown;
   dataFetches: () => number;
+  /** Each file's full downloads by path; only for a site served here. */
+  served?: () => Map<string, number>;
   resetDataFetches: () => number;
   close: () => void;
 }
@@ -63,13 +65,22 @@ export async function serveDist(): Promise<Site> {
   const i = process.argv.indexOf('--url');
   if (i >= 0) return remoteSite(process.argv[i + 1]!);
   let dataFetches = 0;
+  /** Each file's full downloads (a 304 is not one), by its path under the site. */
+  const served = new Map<string, number>();
   const server = http.createServer((req, res) => {
     const name = decodeURIComponent(new URL(req.url!, 'http://x').pathname);
-    if (/\/assets\/data-[^/]*\.json$/.test(name)) dataFetches++;
+    // The service worker's install fetches the data bundle too (X-Precache); only the page's own fetches count.
+    if (/\/assets\/data-[^/]*\.json$/.test(name) && !req.headers['x-precache']) dataFetches++;
     if (!name.startsWith(base)) return res.writeHead(404).end();
     const file = path.join(dist, path.normalize(name.slice(base.length) + (name.endsWith('/') ? 'index.html' : '')));
     if (!file.startsWith(dist) || !fs.existsSync(file) || !fs.statSync(file).isFile()) return res.writeHead(404).end();
-    res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] ?? 'application/octet-stream' });
+    // Caching headers as GitHub Pages sends them, so the browser's cache and the worker's use of it are as live.
+    const stat = fs.statSync(file);
+    const etag = `"${stat.size.toString(16)}-${stat.mtimeMs.toString(16)}"`;
+    const headers = { 'Cache-Control': 'max-age=600', ETag: etag };
+    if (req.headers['if-none-match'] === etag) return res.writeHead(304, headers).end();
+    served.set(name, (served.get(name) ?? 0) + 1);
+    res.writeHead(200, { ...headers, 'Content-Type': TYPES[path.extname(file)] ?? 'application/octet-stream' });
     fs.createReadStream(file).pipe(res);
   });
   await new Promise<void>((ok) => server.listen(0, '127.0.0.1', ok));
@@ -79,6 +90,7 @@ export async function serveDist(): Promise<Site> {
     root,
     dataFetches: () => dataFetches,
     resetDataFetches: () => (dataFetches = 0),
+    served: () => served,
     close: () => server.close(),
   };
 }

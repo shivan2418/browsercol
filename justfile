@@ -86,7 +86,7 @@ beta-test:
 # The fast checks a ticket PR needs: Engine tests, vp check, vp test (the UI's and the relay's)
 fast: test-engine check test-ui relay
 
-# Browser script against dist/: smoke, play, saves, tileset, touch, looks or rounds
+# Browser script against dist/: smoke, play, saves, tileset, touch, looks, offline or rounds
 browser script *args:
     DEV_VARIANT=web ./dev.sh node ui/scripts/{{script}}.ts {{args}}
 
