@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { audioManifest } from './resources';
-import { soundPlayer, type EffectsOutput, type SoundPlayerDeps } from './sound';
+import { MAX_FAILURES, soundPlayer, type EffectsOutput, type SoundPlayerDeps } from './sound';
 
 // Layers as FreeCol loads them: data/base, then the "default" TC.
 const base = {
@@ -81,7 +81,11 @@ class FakeAudio {
     this.released = true;
     this.src = '';
   }
-  end() {
+  /** Moves the test's clock on. */
+  advance: (ms: number) => void = () => {};
+  /** The track is over, having played for `ms` (a whole track unless told otherwise). */
+  end(ms = 60_000) {
+    this.advance(ms);
     this.playing = false;
     this.onended?.();
   }
@@ -136,6 +140,7 @@ describe('soundPlayer', () => {
       base: 'audio/',
       makeAudio: () => {
         const a = new FakeAudio();
+        a.advance = (ms) => (clock += ms);
         made.push(a);
         return a;
       },
@@ -360,6 +365,38 @@ describe('soundPlayer', () => {
     expect(playing()).toEqual(['audio/default/resources/music/default/tailwind.ogg']);
     made[0].fail();
     expect(playing()).toEqual(['audio/default/resources/music/default/founders.ogg']);
+  });
+
+  it('stops after a few tracks that play() accepts and then fail at once, as with a broken audio device', async () => {
+    const { player, made, tick } = setup();
+    player.startPlaylist();
+    let attempts = 0;
+    for (let i = 0; i < 20; i++) {
+      if (made[0].playing) attempts++;
+      tick(50);
+      await Promise.resolve(); // play() resolves
+      made[0].fail(); // and the error follows at once
+    }
+    expect(attempts).toBe(MAX_FAILURES);
+    expect(made[0].playing).toBe(false);
+  });
+
+  it('stops after a few tracks that end at once, and goes on past ones that played', () => {
+    const { player, made, playing } = setup();
+    player.startPlaylist();
+    let attempts = 0;
+    for (let i = 0; i < 20; i++) {
+      if (made[0].playing) attempts++;
+      made[0].end(50);
+    }
+    expect(attempts).toBe(MAX_FAILURES);
+    expect(playing()).toEqual([]);
+    const fresh = setup();
+    fresh.player.startPlaylist();
+    for (let i = 0; i < 10; i++) {
+      fresh.made[0].end(); // a whole track
+    }
+    expect(fresh.playing()).toHaveLength(1);
   });
 
   it('stays quiet when no track can play, without trying them over and over', () => {

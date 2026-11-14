@@ -91,6 +91,11 @@ export interface SoundPlayer {
   release(): void;
 }
 
+/** A track that played this long has played: it clears the count of tracks that failed. */
+export const MIN_PLAY_MS = 3000;
+/** Tracks in a row that fail or end at once before the music stops. */
+export const MAX_FAILURES = 2;
+
 /**
  * SoundPlayer.changeVolume's gain, min + (max - min)/2 * log10(vol) for a percentage vol, as an amplitude
  * with the gain running from -80 dB to 0 dB: (vol/100)^2.
@@ -167,21 +172,36 @@ export function soundPlayer(manifest: AudioManifest, deps: SoundPlayerDeps): Sou
   let queue: string[] = [];
   /** Start a file; an effect the browser refuses is dropped, as it would be stale by the time it could play. */
   const start = (a: AudioLike, file: string) => {
+    startedAt = now();
     a.pause();
     a.src = deps.base + file;
     return a.play();
   };
-  /** Tracks in a row that could not be had: past the playlist's length, nothing can play, and the music stops. */
+  /** Tracks in a row that are not there (offline): past the playlist's length, nothing can play, and the music stops. */
   let misses = 0;
-  /** A track that is not there (offline) or failed to load: on to the next, as if it had ended. */
+  /**
+   * Tracks in a row that were fetched and then failed, or ended at once: a broken audio device or codec, as the
+   * Docker Firefox's missing device, where play() resolves and an error follows at once. Each one costs a
+   * download, so a few are enough to stop. Only a track that played for MIN_PLAY_MS clears the count: a play()
+   * that resolves does not, as the track may still fail an instant later.
+   */
+  let failures = 0;
+  let startedAt = 0;
+  /** A track that is not there (offline): on to the next, as if it had ended. */
   const missed = () => {
     musicOn = false;
     music.pause();
     if (++misses > manifest.playlist.length) return;
     nextTrack();
   };
+  const playedLong = () => now() - startedAt >= MIN_PLAY_MS;
   music.onerror = () => {
-    if (musicOn && current && music.src.endsWith(current)) missed();
+    if (!(musicOn && current && music.src.endsWith(current))) return;
+    if (playedLong()) failures = 0;
+    musicOn = false;
+    music.pause();
+    if (++failures >= MAX_FAILURES) return;
+    nextTrack();
   };
   /** Music the browser refuses, as it does until the player has clicked or pressed a key, starts after that. */
   const startMusic = (file: string) => {
@@ -207,9 +227,7 @@ export function soundPlayer(manifest: AudioManifest, deps: SoundPlayerDeps): Sou
       return;
     }
     start(music, file).then(
-      () => {
-        misses = 0;
-      },
+      () => {},
       (ex: unknown) => {
         if (!(ex instanceof DOMException && ex.name === 'NotAllowedError')) return;
         const src = music.src;
@@ -229,6 +247,8 @@ export function soundPlayer(manifest: AudioManifest, deps: SoundPlayerDeps): Sou
   };
   music.onended = () => {
     musicOn = false;
+    if (playedLong()) failures = misses = 0;
+    else if (++failures >= MAX_FAILURES) return; // a track over as soon as it began: nothing can play
     nextTrack();
   };
   return {
