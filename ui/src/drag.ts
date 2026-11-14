@@ -294,3 +294,8 @@ export function lane<T>(): Lane<T> {
     }),
   };
 }
+
+/** Let go of a press that has not become a drag: a long-press took it (long-press.ts), so moving on will not drag. */
+export const cancelPress = () => {
+  if (!carry) end();
+};

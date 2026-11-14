@@ -42,7 +42,8 @@ import { PANEL_KEYS } from './map-keys';
 import { ReportContext } from './reports';
 import { lane, type TargetProps } from './drag';
 import { accepts, draggableProps, dropTargetProps, same, type Item, type Place } from './moves';
-import { ContextMenuContext, useContextMenu } from './popup-menu';
+import { useContextMenu } from './popup-menu';
+import { fromTouch, holdProps } from './long-press';
 import type { Buildable, BuildingTip, ColonyView, GoodsAmount as Goods, RebelTip, UnitRef } from './webgui';
 import { useCoverage } from './coverage';
 import './colony-panel.css';
@@ -223,13 +224,13 @@ function Unit({
 }) {
   const moves = useContext(ColonyActions);
   const movable = useMovable({ kind: 'unit', id: u.id });
-  const onContextMenu = useContextMenu((m) => m.unit(u.id));
+  const menu = useContextMenu((m) => m.unit(u.id));
   // Goods of the warehouse dropped on a colonist equip it (DefaultTransferHandler.equipUnitIfPossible).
   const target = useTarget('unit', (item) => {
     if (item.kind === 'goods') moves?.equip(u.id, item.type);
   });
   return (
-    <span className={className} data-unit={u.id} {...(inert ? undefined : { onContextMenu, ...movable, ...target })}>
+    <span className={className} data-unit={u.id} {...(inert ? undefined : { ...menu, ...movable, ...target })}>
       <Img keys={u.keys} art={art} className="unit" alt={u.name} />
       {!inert && <Occupation u={u} />}
       {children}
@@ -262,15 +263,9 @@ function MovableGoods({
   market: ColonyView['market'];
 }) {
   const movable = useMovable(item);
-  const onContextMenu = useContextMenu((m) => (g.amount > 0 ? m.goods(at, g.type, g.amount) : null));
+  const menu = useContextMenu((m) => (g.amount > 0 ? m.goods(at, g.type, g.amount) : null));
   return (
-    <span
-      className={className}
-      data-goods={g.type}
-      data-over={flag(over)}
-      onContextMenu={onContextMenu}
-      {...(g.amount > 0 ? movable : {})}
-    >
+    <span className={className} data-goods={g.type} data-over={flag(over)} {...menu} {...(g.amount > 0 ? movable : {})}>
       <GoodsAmount
         keys={g.keys}
         name={g.name}
@@ -520,8 +515,8 @@ function TilePlace({
   // The whole tile carries the colonist working it, and opens its menu.
   const worker = t.workers[0];
   const movable = useMovable({ kind: 'unit', id: worker?.id ?? '' });
-  const onContextMenu = useContextMenu((m) => (worker ? m.unit(worker.id) : m.colonyTile(t.at[0], t.at[1])));
-  const carry = worker ? { ...movable, onContextMenu } : { onContextMenu };
+  const menu = useContextMenu((m) => (worker ? m.unit(worker.id) : m.colonyTile(t.at[0], t.at[1])));
+  const carry = worker ? { ...movable, ...menu } : { ...menu };
   return (
     <Tip
       as="div"
@@ -573,7 +568,7 @@ function ShipIcon({
   chosen: boolean;
   choose: (id: string) => void;
 }) {
-  const menus = useContext(ContextMenuContext);
+  const menu = useContextMenu((m) => m.unit(u.id));
   const moves = useContext(ColonyActions);
   const boardable = new Set([...c.outside.units, ...workingIn(c)].map((x) => x.id));
   // As in DefaultTransferHandler, the ship dropped on is chosen, except when the drop moves cargo from another
@@ -605,11 +600,7 @@ function ShipIcon({
       data-drop={flag(target)}
       aria-current={chosen}
       tip={u.name}
-      onContextMenu={(e) => {
-        e.preventDefault();
-        const menu = menus?.unit(u.id);
-        if (menu) menus!.show(menu, e.clientX, e.clientY);
-      }}
+      {...menu}
       {...target}
       // After the target's props, so that its click (which puts down what is picked) does not replace this one.
       onClick={() => {
@@ -741,8 +732,20 @@ function BuildingPlace({
     if (item.kind === 'unit' && b.id !== null) moves?.work(item.id, b.id);
   });
   const [over, setOver] = useState<DOMRect | null>(null);
+  // A touch has no hover: a long-press on the building (not on a worker, whose menu it opens) shows the tip, and the next press closes it.
+  const hold = holdProps(() => ({
+    kind: 'tip',
+    fire: () => {
+      if (!b.tip) return;
+      setOver(el.current!.getBoundingClientRect());
+      addEventListener('pointerdown', () => setOver(null), { capture: true, once: true });
+    },
+  }));
+  const el = useRef<HTMLDivElement>(null);
   return (
     <div
+      ref={el}
+      {...hold}
       className="building"
       data-building={b.id}
       data-builds={flag(b.builds)}
@@ -915,11 +918,14 @@ function BuildQueue({ c, art, children }: { c: ColonyView; art: Art; children: R
   useCoverage('showBuildQueuePanel');
   const moves = useContext(ColonyActions);
   const { colopedia } = useContext(ReportContext);
-  /** Right-click on a building or unit of a list opens its Colopedia entry (BuildQueuePanel). */
-  const aboutIt = (type: string) => (e: { preventDefault: () => void }) => {
-    e.preventDefault();
-    colopedia(type);
-  };
+  /** Right-click, or a long-press, on a building or unit of a list opens its Colopedia entry (BuildQueuePanel). */
+  const aboutIt = (type: string) => ({
+    ...holdProps(() => ({ kind: 'menu', fire: () => colopedia(type) })),
+    onContextMenu: (e: { preventDefault: () => void }) => {
+      e.preventDefault();
+      if (!fromTouch()) colopedia(type);
+    },
+  });
   const [, redraw] = useState(0);
   const host = useContext(QueueHost);
   const inHost = (node: ReactNode) => (host ? createPortal(node, host) : node);
@@ -1037,7 +1043,7 @@ function BuildQueue({ c, art, children }: { c: ColonyView; art: Art; children: R
                         key={`${b.type}:${i}`}
                         data-queued={b.type}
                         data-locked={flag(b.reason !== null)}
-                        onContextMenu={aboutIt(b.type)}
+                        {...aboutIt(b.type)}
                         data-selected={flag(selQueue.includes(i))}
                         {...queueDrag.source(() => ({ from: 'queue', index: i }))}
                         {...queueDrag.target(
@@ -1102,7 +1108,7 @@ function BuildQueue({ c, art, children }: { c: ColonyView; art: Art; children: R
                               key={b.type}
                               data-buildable={b.type}
                               data-locked={flag(b.reason !== null)}
-                              onContextMenu={aboutIt(b.type)}
+                              {...aboutIt(b.type)}
                               // Dragging one of several selected buildables takes them all.
                               {...(b.reason === null
                                 ? queueDrag.source(() => ({

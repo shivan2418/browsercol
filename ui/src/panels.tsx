@@ -1868,7 +1868,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
                       data-boycotted={flag(c.boycotted)}
                       tip={c.label ?? goods?.reason ?? c.name}
                       onClick={() => sell(c.id)}
-                      onContextMenu={cargoMenu(c)}
+                      {...cargoMenu(c)}
                       {...drag}
                     >
                       {inner}
@@ -1880,7 +1880,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
                       className="europe-entry"
                       data-cargo={c.kind}
                       tip={c.label ?? goods?.reason ?? c.name}
-                      onContextMenu={cargoMenu(c)}
+                      {...cargoMenu(c)}
                       {...(c.kind === 'unit' ? drag : {})}
                     >
                       {inner}
@@ -1932,7 +1932,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
                   data-boycotted={flag(!g.enabled)}
                   tip={marketTitle(g)}
                   onClick={() => buy(g.id)}
-                  onContextMenu={marketMenu(g.id)}
+                  {...marketMenu(g.id)}
                   {...drag}
                 >
                   {inner}
@@ -1946,7 +1946,7 @@ function EuropePanel({ d, art }: { d: Of<'europe'>; art: Art }) {
                   data-disabled={flag(!g.enabled)}
                   data-boycotted={flag(!g.enabled)}
                   tip={marketTitle(g)}
-                  onContextMenu={marketMenu(g.id)}
+                  {...marketMenu(g.id)}
                 >
                   {inner}
                 </Tip>

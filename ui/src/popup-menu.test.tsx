@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vite-plus/test';
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
+import { Tip } from './controls';
+import { resetHold } from './long-press';
 import { WindowFrame } from './frame';
 import {
   ContextMenuContext,
@@ -127,8 +129,8 @@ describe('PopupMenu', () => {
 
 describe('useContextMenu', () => {
   function Target() {
-    const onContextMenu = useContextMenu((m) => m.unit('unit:7'));
-    return <span onContextMenu={onContextMenu}>colonist</span>;
+    const menu = useContextMenu((m) => m.unit('unit:7'));
+    return <span {...menu}>colonist</span>;
   }
 
   it('opens the menu the Engine gives at the pointer, and cancels the browser menu', () => {
@@ -167,5 +169,39 @@ describe('useContextMenu', () => {
     unmount();
     render(<Target />);
     expect(fireEvent.contextMenu(screen.getByText('colonist'))).toBe(true);
+  });
+  it('opens the menu on a touch held still, with the tip as its heading, and not for a mouse', () => {
+    vi.useFakeTimers();
+    try {
+      const shown: unknown[] = [];
+      const menus: ContextMenus = {
+        unit: () => menu,
+        colonyTile: () => null,
+        goods: () => null,
+        show: (m, x, y) => shown.push([m.heading, x, y]),
+      };
+      render(
+        <ContextMenuContext.Provider value={menus}>
+          <Tip as="span" tip="Free Colonist" data-testid="held">
+            <Target />
+          </Tip>
+        </ContextMenuContext.Provider>,
+      );
+      const target = screen.getByText('colonist');
+      fireEvent.pointerDown(target, { pointerType: 'mouse', pointerId: 1 });
+      vi.advanceTimersByTime(1000);
+      expect(shown).toEqual([]);
+      fireEvent.pointerDown(target, { pointerType: 'touch', pointerId: 2, clientX: 5, clientY: 6 });
+      vi.advanceTimersByTime(499);
+      expect(shown).toEqual([]);
+      vi.advanceTimersByTime(1);
+      expect(shown).toEqual([['Free Colonist', 5, 6]]);
+      // The contextmenu event a browser makes of the same hold opens nothing more.
+      fireEvent.contextMenu(target);
+      expect(shown).toHaveLength(1);
+    } finally {
+      resetHold();
+      vi.useRealTimers();
+    }
   });
 });

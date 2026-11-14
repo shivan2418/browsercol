@@ -42,7 +42,7 @@ export function EuropeEntry({
     ...(drag ? unitDrag(u.id) : {}),
     ...(drop ? dropTargetProps('ship', drop) : {}),
   };
-  const onContextMenu = useContextMenu((m) => m.unit(u.id));
+  const menu = useContextMenu((m) => m.unit(u.id));
   return pick ? (
     <Tip
       as="button"
@@ -52,13 +52,13 @@ export function EuropeEntry({
       tip={tip}
       aria-current={on}
       onClick={pick}
-      onContextMenu={onContextMenu}
+      {...menu}
       {...props}
     >
       {inner}
     </Tip>
   ) : (
-    <Tip as="div" className="europe-entry" data-unit={u.id} tip={tip} onContextMenu={onContextMenu} {...props}>
+    <Tip as="div" className="europe-entry" data-unit={u.id} tip={tip} {...menu} {...props}>
       {inner}
     </Tip>
   );

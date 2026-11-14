@@ -8,6 +8,7 @@ import { focusFirstEntry, menuArrows, useFocusTrap } from './focus';
 import { useEscape, type Art } from './frame';
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from 'react';
 import { useCoverage } from './coverage';
+import { fromTouch, holdProps, type HoldProps } from './long-press';
 import './popup-menu.css';
 
 /** One entry: its id (the Engine runs it), its label, and how it is drawn (Menus.java). */
@@ -31,6 +32,8 @@ const ASKS = /^(load|unload|buy|sell):/;
 /** A menu as the Engine sends it. */
 export interface MenuData {
   title: string;
+  /** A line over the entries, which a long-press gives the tooltip's text of what was held. */
+  heading?: string;
   entries: MenuEntry[];
 }
 
@@ -103,6 +106,7 @@ export function PopupMenu({
       style={{ left: at[0], top: at[1] }}
       onKeyDown={menuArrows}
     >
+      {popup.menu.heading && <div className="heading">{popup.menu.heading}</div>}
       {popup.menu.entries.map((e, i) => (
         <button
           key={i}
@@ -139,17 +143,36 @@ export interface ContextMenus {
 /** Without it the panel's colonists and goods have no right-click menu. */
 export const ContextMenuContext = createContext<ContextMenus | null>(null);
 
-/** The handler that opens a menu on a right-click, or none when the page has no menus to give. */
+/** What an element spreads to open a menu: on a right-click, and on a touch's long-press (long-press.ts). */
+export interface ContextMenuProps extends HoldProps {
+  onContextMenu(e: MouseEvent): void;
+}
+
+/** The props that open a menu on a right-click or a long-press, or none when the page has no menus to give. */
 export function useContextMenu(get: (menus: ContextMenus) => MenuData | null) {
   return contextMenuHandler(useContext(ContextMenuContext), get);
 }
 
-/** The same handler, for a panel that makes one per item of a list (a hook cannot be called in a loop). */
-export function contextMenuHandler(menus: ContextMenus | null, get: (menus: ContextMenus) => MenuData | null) {
+/** The same props, for a panel that makes one per item of a list (a hook cannot be called in a loop). */
+export function contextMenuHandler(
+  menus: ContextMenus | null,
+  get: (menus: ContextMenus) => MenuData | null,
+): ContextMenuProps | undefined {
   if (!menus) return undefined;
-  return (e: MouseEvent) => {
-    e.preventDefault();
-    const menu = get(menus);
-    if (menu) menus.show(menu, e.clientX, e.clientY);
+  return {
+    ...holdProps(() => ({
+      kind: 'menu',
+      fire: ({ x, y }, heading) => {
+        const menu = get(menus);
+        if (menu) menus.show(heading ? { ...menu, heading } : menu, x, y);
+      },
+    })),
+    onContextMenu: (e) => {
+      e.preventDefault();
+      // A long-press makes a contextmenu event on some browsers: the hold has opened (or will open) the menu.
+      if (fromTouch()) return;
+      const menu = get(menus);
+      if (menu) menus.show(menu, e.clientX, e.clientY);
+    },
   };
 }

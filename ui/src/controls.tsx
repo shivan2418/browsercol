@@ -8,9 +8,18 @@ import { NumberField as BaseNumberField } from '@base-ui/react/number-field';
 import { Popover as BasePopover } from '@base-ui/react/popover';
 import { Select as BaseSelect } from '@base-ui/react/select';
 import { Tooltip as BaseTooltip } from '@base-ui/react/tooltip';
-import { createElement, useEffect, useState, type ComponentProps, type KeyboardEvent, type ReactNode } from 'react';
+import {
+  createElement,
+  useEffect,
+  useId,
+  useState,
+  type ComponentProps,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
 import { dragging } from './drag';
 import { useEscape } from './frame';
+import { fromTouch, offerHold, type PointerLike } from './long-press';
 import './tooltip.css';
 import './form-controls.css';
 
@@ -248,7 +257,11 @@ export function TooltipLayer() {
     const moved = () => {
       if (dragging()) tipHandle.close();
     };
-    const shut = () => tipHandle.close();
+    const shut = (e: Event) => {
+      // A long-press makes a contextmenu event on some browsers, and the hint it opens stays.
+      if (fromTouch()) e.preventDefault();
+      else tipHandle.close();
+    };
     addEventListener('pointermove', moved);
     document.addEventListener('contextmenu', shut, true);
     return () => {
@@ -297,9 +310,28 @@ type TipProps<T extends TipTag> = {
  * own, as a button with an icon: a hint is for the pointer, a label for a screen reader.
  */
 export function Tip<T extends TipTag>({ as, tip, ...rest }: TipProps<T>) {
+  const made = useId();
   if (tip === null || tip === undefined || tip === false || tip === '') return createElement(as, rest);
   // `disabled` is the element's: on a trigger it would mean "no tooltip", so it goes on the element it renders.
-  const { disabled, ...others } = rest as { disabled?: boolean };
+  const { disabled, ...others } = rest as {
+    disabled?: boolean;
+    id?: string;
+    onPointerDownCapture?: (e: PointerLike & { nativeEvent: object }) => void;
+  };
+  const id = others.id ?? made;
+  // A finger has no hover: a long-press shows the hint (or, where the element has a menu too, heads the menu), and
+  // the next press anywhere closes it.
+  const hold = (e: PointerLike & { nativeEvent: object }) => {
+    others.onPointerDownCapture?.(e);
+    offerHold(e, {
+      kind: 'tip',
+      text: typeof tip === 'string' ? tip : undefined,
+      fire: () => {
+        tipHandle.open(id);
+        addEventListener('pointerdown', () => tipHandle.close(), { capture: true, once: true });
+      },
+    });
+  };
   return (
     <BaseTooltip.Trigger
       handle={tipHandle}
@@ -307,6 +339,10 @@ export function Tip<T extends TipTag>({ as, tip, ...rest }: TipProps<T>) {
       delay={TIP_DELAY}
       render={createElement(as, disabled === undefined ? null : { disabled })}
       {...others}
+      id={id}
+      // An input keeps its text selection and keyboard; anything else keeps the browser's own long-press off.
+      data-hold={as === 'input' ? undefined : ''}
+      onPointerDownCapture={hold}
     />
   );
 }
