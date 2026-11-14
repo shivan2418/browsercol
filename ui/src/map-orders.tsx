@@ -26,7 +26,7 @@ const BUTTONS: [string, Command, string][] = [
 /**
  * The buttons a touch screen adds, as it has no W, Tab or G key: Wait (WaitAction, the next unit waits), Go to
  * (GotoAction, then a tap on the destination) and Next unit on tile (ChangeAction, FreeCol's name for Tab). Wait has
- * FreeCol's picture; the others have none in order-buttons and show their names.
+ * FreeCol's picture; FreeCol has none for the others, so theirs are BrowserCol's own, in its look (ui/art).
  */
 const WAIT: [string, Command, string] = ['Wait', { k: 'nextUnit' }, 'wait'];
 const TOUCH_BUTTONS: [string, Command, string][] = [

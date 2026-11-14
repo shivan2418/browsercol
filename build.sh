@@ -17,13 +17,13 @@ rm -rf "$gen"
 tools/copy-modules.sh
 # FreeCol's translations, served as strings/ and fetched as the player picks one.
 node ui/scripts/build-data.ts freecol/data "$gen/data.json" "$gen/public/strings"
-# Map art, served as files under art/ (Vite's public dir), and each other
+# Map art, served as files under art/ (Vite's public dir), with BrowserCol's own (ui/art) over FreeCol's, and each other
 # Tileset's manifest beside the default's: FreeCol+ (the page's
 # ?tileset=freecol-plus), BrowserCol (?tileset=browsercol) and the test Tileset (?tileset=test).
-node ui/scripts/build-art.ts freecol/data "$gen/public/art"
-node ui/scripts/build-art.ts freecol/data "$gen/public/art" --manifest freecol-plus.json ui/tilesets/freecol-plus
-node ui/scripts/build-art.ts freecol/data "$gen/public/art" --manifest browsercol.json ui/tilesets/browsercol
-node ui/scripts/build-art.ts freecol/data "$gen/public/art" --manifest test.json ui/tilesets/test
+node ui/scripts/build-art.ts freecol/data "$gen/public/art" ui/art
+node ui/scripts/build-art.ts freecol/data "$gen/public/art" --manifest freecol-plus.json ui/art ui/tilesets/freecol-plus
+node ui/scripts/build-art.ts freecol/data "$gen/public/art" --manifest browsercol.json ui/art ui/tilesets/browsercol
+node ui/scripts/build-art.ts freecol/data "$gen/public/art" --manifest test.json ui/art ui/tilesets/test
 # Music and sound effects, served as files under audio/, each fetched when it plays.
 node ui/scripts/build-audio.ts freecol/data "$gen/public/audio"
 # BrowserCol's own wordmark globes, the loading screen's picture (index.html, brand/).

@@ -47,7 +47,7 @@ test-ui *args:
 
 # The default Tileset's art manifest, ui/generated/public/art/art.json, which src/story-art.ts imports (about 20 s; skipped when it exists, `just build` makes it too)
 art:
-    [ -f ui/generated/public/art/art.json ] || ./dev.sh node ui/scripts/build-art.ts freecol/data ui/generated/public/art
+    [ -f ui/generated/public/art/art.json ] || ./dev.sh node ui/scripts/build-art.ts freecol/data ui/generated/public/art ui/art
 
 # Format, lint and type check (makes the art manifest first if a fresh checkout has none)
 check: art
