@@ -53,6 +53,35 @@ test('a new build waiting under a running one is offered, and Restart tells it t
   expect(worker.postMessage).toHaveBeenCalledWith({ type: 'skip-waiting' });
 });
 
+test('a new build waiting while no game runs takes over at once, with no offer', async () => {
+  const worker = { postMessage: vi.fn() };
+  const b = browser({}, worker);
+  const offer = vi.fn();
+  await registerServiceWorker(offer, b.r, () => false);
+  expect(offer).not.toHaveBeenCalled();
+  expect(worker.postMessage).toHaveBeenCalledWith({ type: 'skip-waiting' });
+});
+
+test('a new build that finishes installing on the start screen takes over, and one in a game is offered', async () => {
+  let playing = false;
+  const b = browser({}, null);
+  const offer = vi.fn();
+  await registerServiceWorker(offer, b.r, () => playing);
+  const install = () => {
+    const worker = Object.assign(new EventTarget(), { state: 'installing', postMessage: vi.fn() });
+    b.registration.installing = worker;
+    b.registration.dispatchEvent(new Event('updatefound'));
+    worker.state = 'installed';
+    worker.dispatchEvent(new Event('statechange'));
+    return worker;
+  };
+  expect(install().postMessage).toHaveBeenCalledWith({ type: 'skip-waiting' });
+  expect(offer).not.toHaveBeenCalled();
+  playing = true;
+  expect(install().postMessage).not.toHaveBeenCalled();
+  expect(offer).toHaveBeenCalledTimes(1);
+});
+
 test('the first install is not offered as a new version', async () => {
   const b = browser(null, { postMessage: vi.fn() });
   const offer = vi.fn();

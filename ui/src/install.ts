@@ -13,14 +13,19 @@ export interface Registrar {
 }
 
 /**
- * Register the service worker (a built site only) and call `offer(restart)` when a new build is waiting while an
- * older one runs the page; `restart` swaps the worker and reloads the page. In a dev server there is no worker:
+ * Register the service worker (a built site only). A new build waiting while an older one runs the page takes over
+ * at once, the page reloading into it, unless `inGame()`: a game in play is never swapped out from under the player,
+ * so then `offer(restart)` is called, and `restart` swaps the worker and reloads the page. In a dev server there is no worker:
  * one left by a built site at the same address is removed, so the dev server's files are never stale.
  *
  * On a first visit the worker takes the page over once the shell is cached; the page then loads again what it
  * loaded before that (its translation, a sound it played), so the worker keeps those too.
  */
-export async function registerServiceWorker(offer: (restart: () => void) => void, r: Registrar = site()) {
+export async function registerServiceWorker(
+  offer: (restart: () => void) => void,
+  r: Registrar = site(),
+  inGame: () => boolean = () => true,
+) {
   const { container } = r;
   // Not in a secure context (a dev server on a LAN address), where the browser has no workers.
   if (!container) return;
@@ -36,10 +41,13 @@ export async function registerServiceWorker(offer: (restart: () => void) => void
   const waiting = (worker: ServiceWorker) => {
     // The first worker has no older one to replace.
     if (!container.controller) return;
-    offer(() => {
+    const restart = () => {
       restarting = true;
       worker.postMessage({ type: 'skip-waiting' });
-    });
+    };
+    // On the start screen, or still loading, there is nothing to lose: a reload is enough to get a new build.
+    if (inGame()) offer(restart);
+    else restart();
   };
   container.addEventListener('controllerchange', () => {
     // The new worker took over: the page it was waiting to replace reloads into the new build.

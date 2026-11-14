@@ -971,15 +971,19 @@ const currentMenus = (): Menu[] => {
 const menuRoot = createRoot(document.getElementById('menubar')!);
 // Tab goes round the page's buttons rather than out to the browser's address bar.
 keepTabOnPage();
-// The installed app plays offline (#296): a new build waiting is offered as a Restart, never forced mid-game.
-// Registered once the page has loaded, so the worker's downloads come after the page's own. entry.ts imports this
-// module, so the page has usually loaded already.
+// The installed app plays offline (#296): a new build waiting takes over at once on the start screen, and is offered
+// as a Restart in a game, never forced on one. Registered once the page has loaded, so the worker's downloads come
+// after the page's own. entry.ts imports this module, so the page has usually loaded already.
 const registerWorker = () => {
-  void registerServiceWorker((restart) => {
-    const host = document.createElement('div');
-    document.body.append(host);
-    createRoot(host).render(<UpdatePrompt onRestart={restart} />);
-  });
+  void registerServiceWorker(
+    (restart) => {
+      const host = document.createElement('div');
+      document.body.append(host);
+      createRoot(host).render(<UpdatePrompt onRestart={restart} />);
+    },
+    undefined,
+    () => gameStarted,
+  );
   // A player who chose the music offline gets it into each new build's cache too (#505).
   offlineAudio.want(prefs.offlineAudio);
   offlineAudio.attach(audioLink());

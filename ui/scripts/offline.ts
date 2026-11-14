@@ -192,6 +192,18 @@ try {
     `browsercol-next-build|${audioFiles.length}`,
   );
   check(`the new build's cache gets the audio again by itself (${audioFiles.length} files)`, true);
+
+  // A build after that, found from the start screen, where no game is in play: it takes over by itself, with no offer.
+  fs.writeFileSync(swFile, original.replace(/const BUILD = "[^"]*"/, 'const BUILD = "third-build"'));
+  await page.goto(server.url);
+  await poll(
+    page,
+    'the third build to take over by itself',
+    async () =>
+      (await window.caches.keys()).filter((k) => k.startsWith('browsercol-')).join() === 'browsercol-third-build',
+  );
+  check('on the start screen a new build takes over by itself', true);
+  check('with no offer to restart', (await page.locator('.update-prompt').count()) === 0);
 } catch (ex) {
   console.log(`FAILED: ${await diagnose(ex)}`);
   failed = true;
