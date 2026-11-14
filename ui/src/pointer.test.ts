@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vite-plus/test';
-import { HOLD_MS, blockBrowserMenu, blockImageDrag, pointerInput, rightClickInput, wheelZoom } from './pointer';
+import { HOLD_MS, blockBrowserMenu, blockImageDrag, createGotoPicker, pointerInput, rightClickInput, wheelZoom } from './pointer';
 import { initialView } from './view';
 
 const PIXEL = 0;
@@ -207,5 +207,123 @@ describe('blockImageDrag', () => {
     expect(drag(page.querySelector('.lone')!)).toBe(true);
     expect(drag(page.querySelector('.chip')!)).toBe(false);
     page.remove();
+  });
+});
+
+describe('createGotoPicker', () => {
+  const setup = () => {
+    const preview = vi.fn();
+    const go = vi.fn();
+    const changed = vi.fn();
+    const active = { unit: 'unit:1' as string | null };
+    const picker = createGotoPicker({ preview, go }, () => active.unit, changed);
+    return { picker, preview, go, changed, active };
+  };
+
+  it('previews a tapped tile, moves the preview to another, and sends the unit on a second tap of the same tile', () => {
+    const { picker, preview, go } = setup();
+    picker.toggle();
+    expect(picker.choosing()).toBe(true);
+    picker.tap([3, 4]);
+    expect(preview).toHaveBeenLastCalledWith([3, 4], 'unit:1');
+    picker.tap([5, 4]);
+    expect(preview).toHaveBeenLastCalledWith([5, 4], 'unit:1');
+    expect(go).not.toHaveBeenCalled();
+    picker.tap([5, 4]);
+    expect(go).toHaveBeenCalledWith([5, 4], 'unit:1');
+    expect(preview).toHaveBeenLastCalledWith(null, 'unit:1');
+    expect(picker.choosing()).toBe(false);
+  });
+
+  it('is cancelled by the button again, by Escape, and by another active unit', () => {
+    const { picker, preview, go, active } = setup();
+    picker.toggle();
+    picker.tap([1, 1]);
+    picker.toggle();
+    expect(picker.choosing()).toBe(false);
+    expect(preview).toHaveBeenLastCalledWith(null, 'unit:1');
+
+    picker.toggle();
+    dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(picker.choosing()).toBe(false);
+
+    picker.toggle();
+    picker.tap([1, 1]);
+    active.unit = 'unit:2';
+    expect(picker.choosing()).toBe(false);
+    picker.tap([1, 1]);
+    expect(go).not.toHaveBeenCalled();
+  });
+
+  it('does not start without an active unit', () => {
+    const { picker, active } = setup();
+    active.unit = null;
+    picker.toggle();
+    expect(picker.choosing()).toBe(false);
+  });
+});
+
+describe('pointerInput touch', () => {
+  const setup = () => {
+    const host = document.createElement('div');
+    host.innerHTML = '<canvas></canvas>';
+    document.body.append(host);
+    const dispatch = vi.fn();
+    const tap = vi.fn();
+    const longPress = vi.fn();
+    pointerInput(host, {
+      view: () => initialView,
+      dispatch,
+      tileAt: (px) => [Math.floor(px / 10), 0],
+      tap,
+      longPress,
+      goto: { preview: vi.fn(), go: vi.fn() },
+    });
+    const send = (type: string, target: EventTarget, pointerType: string, x: number) => {
+      const e = new MouseEvent(type, { clientX: x, clientY: 0, bubbles: true });
+      Object.defineProperties(e, { pointerType: { value: pointerType }, pointerId: { value: 1 } });
+      target.dispatchEvent(e);
+    };
+    return { host, dispatch, tap, longPress, send };
+  };
+
+  it('taps like a click, double-taps with detail 2, and leaves the mouse alone', () => {
+    const { host, dispatch, tap, send } = setup();
+    send('pointerdown', host, 'touch', 25);
+    send('pointerup', window, 'touch', 25);
+    send('pointerdown', host, 'touch', 26);
+    send('pointerup', window, 'touch', 26);
+    expect(tap.mock.calls).toEqual([
+      [[2, 0], 1],
+      [[2, 0], 2],
+    ]);
+    expect(dispatch).toHaveBeenCalledWith({ k: 'tapped', at: [2, 0] });
+
+    // A mouse press neither taps nor hovers through the touch path.
+    tap.mockClear();
+    send('pointerdown', host, 'mouse', 25);
+    send('pointerup', window, 'mouse', 25);
+    expect(tap).not.toHaveBeenCalled();
+  });
+
+  it('pans on a drag and sets no hover for a finger', () => {
+    const { host, dispatch, tap, send } = setup();
+    send('pointermove', host, 'touch', 5);
+    expect(dispatch.mock.calls.some(([e]) => e.k === 'hover')).toBe(false);
+    send('pointerdown', host, 'touch', 100);
+    send('pointermove', window, 'touch', 130);
+    send('pointerup', window, 'touch', 130);
+    expect(dispatch).toHaveBeenCalledWith({ k: 'pan', dx: 30, dy: 0 });
+    expect(tap).not.toHaveBeenCalled();
+  });
+
+  it('drops the click the browser makes of a tap', () => {
+    const { host, send } = setup();
+    const clicked = vi.fn();
+    host.addEventListener('click', clicked);
+    send('pointerdown', host, 'touch', 25);
+    send('pointerup', window, 'touch', 25);
+    host.querySelector('canvas')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(clicked).not.toHaveBeenCalled();
   });
 });

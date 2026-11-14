@@ -3,6 +3,7 @@
 // hovered. Each turns into a view event (view.ts) for the page to dispatch.
 import { inTextField } from './accelerators';
 import type { Id } from './webgui';
+import { createGestures, type GestureEvent } from './touch-gestures';
 import { edgeScroll, type Tile, type ViewEvent, type ViewState } from './view';
 
 /** Pointer at the map's edge (view.ts, edgeScroll), for EDGE_DELAY ms, scrolls it by EDGE_SPEED a frame. */
@@ -98,6 +99,12 @@ export interface PointerDeps {
   goto?: GotoDeps;
   /** Whether a pointer resting at the map's edge scrolls it (FreeCol's auto scroll option); always, if left out. */
   edgeScrolls?: () => boolean;
+  /** A finger tapped a tile (detail 2 for a double-tap): what a click does. */
+  tap?: (tile: Tile, detail: number) => void;
+  /** A finger pressed a tile for a while: what a right-click does, at the finger. */
+  longPress?: (tile: Tile, clientX: number, clientY: number) => void;
+  /** Go To by taps on a touch screen: while it is choosing, a tap on a tile picks the destination, not clicks. */
+  picker?: GotoPicker;
   /** Whether the map scrolls at its edge while the Go To order is held (FreeCol's map scroll on drag option). */
   dragScrolls?: () => boolean;
 }
@@ -176,10 +183,70 @@ export function gotoKeyInput(
   addEventListener('blur', stop);
 }
 
+/**
+ * Go To for a touch screen, which has no hold: the Go To button starts it (`toggle`), a tap on a tile shows the path
+ * there (and a tap on another tile moves it), a second tap on the same tile sets off. The button again, Escape or
+ * another active unit cancels. `onChange` is told when it starts or stops, for the button's look.
+ */
+export interface GotoPicker {
+  choosing(): boolean;
+  toggle(): void;
+  cancel(): void;
+  /** A tap on a tile while choosing. */
+  tap(tile: Tile): void;
+}
+
+export function createGotoPicker(goto: GotoDeps, activeUnit: () => Id | null, onChange: () => void = () => {}): GotoPicker {
+  let unit: Id | null = null;
+  let chosen: Tile | null = null;
+  const stop = () => {
+    if (unit === null) return;
+    if (chosen) goto.preview(null, unit);
+    unit = null;
+    chosen = null;
+    onChange();
+  };
+  // SwingGUI.changeView clears the goto path when the active unit changes: so does the choice.
+  const stale = () => unit !== null && activeUnit() !== unit;
+  const picker: GotoPicker = {
+    choosing: () => {
+      if (stale()) stop();
+      return unit !== null;
+    },
+    toggle() {
+      if (picker.choosing()) return stop();
+      unit = activeUnit();
+      if (unit) onChange();
+    },
+    cancel: stop,
+    tap(tile) {
+      if (!picker.choosing() || !unit) return;
+      if (chosen && chosen[0] === tile[0] && chosen[1] === tile[1]) {
+        const goer = unit;
+        stop();
+        goto.go(tile, goer);
+        return;
+      }
+      chosen = tile;
+      goto.preview(tile, unit);
+    },
+  };
+  addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && unit !== null && !inTextField(e.target)) {
+      e.preventDefault();
+      stop();
+    }
+  });
+  return picker;
+}
+
+/** Milliseconds after a finger lifts in which the click the browser makes of it is dropped: the gesture already acted. */
+const CLICK_ECHO_MS = 700;
+
 /** Move the view with the middle button on the map in a host. Returns whether the last click was a drag. */
 export function pointerInput(
   host: HTMLElement,
-  { view, dispatch, tileAt, goto, edgeScrolls = () => true, dragScrolls = () => true }: PointerDeps,
+  { view, dispatch, tileAt, goto, tap, longPress, picker, edgeScrolls = () => true, dragScrolls = () => true }: PointerDeps,
 ): () => boolean {
   let wheel = 0;
   let from: [number, number] | null = null;
@@ -207,6 +274,7 @@ export function pointerInput(
     return true;
   };
   host.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'touch') return;
     from = [e.clientX, e.clientY];
     panning = e.button === 1;
     if (panning) e.preventDefault();
@@ -226,7 +294,7 @@ export function pointerInput(
     }, HOLD_MS);
   });
   addEventListener('pointermove', (e) => {
-    if (!from) return;
+    if (!from || e.pointerType === 'touch') return;
     if (heldFor) {
       if (cancelled()) return;
       const tile = tileUnder(e);
@@ -241,7 +309,8 @@ export function pointerInput(
     from = [e.clientX, e.clientY];
     if (panning) dispatch({ k: 'pan', dx, dy });
   });
-  addEventListener('pointerup', () => {
+  addEventListener('pointerup', (e) => {
+    if (e.pointerType === 'touch') return;
     clearTimeout(holdTimer);
     from = null;
     if (heldFor && !cancelled() && holding && unit) {
@@ -250,7 +319,8 @@ export function pointerInput(
     }
     holding = null;
   });
-  addEventListener('pointercancel', () => {
+  addEventListener('pointercancel', (e) => {
+    if (e.pointerType === 'touch') return;
     clearTimeout(holdTimer);
     from = null;
     if (holding) goto?.preview(null, unit);
@@ -274,15 +344,19 @@ export function pointerInput(
   let pointer: [number, number] | null = null;
   let edgeSince = 0;
   host.addEventListener('pointermove', (e) => {
+    // A finger does not hover; the tile it taps shows in the info panel instead.
+    if (e.pointerType === 'touch') return;
     pointer = onCanvas(host, e);
     const at = pointer && tileAt(...pointer);
     const was = view().hover;
     if (at?.[0] !== was?.[0] || at?.[1] !== was?.[1]) dispatch({ k: 'hover', at: at ?? null });
   });
-  host.addEventListener('pointerleave', () => {
+  host.addEventListener('pointerleave', (e) => {
+    if (e.pointerType === 'touch') return;
     pointer = null;
     if (view().hover) dispatch({ k: 'hover', at: null });
   });
+  touchInput(host, { view, dispatch, tileAt, tap, longPress, picker });
   const scroll = (now: number) => {
     // At rest, as the auto scroll option says; while the Go To order is held, as map scroll on drag says.
     const scrolls = from ? heldFor && dragScrolls() : edgeScrolls();
@@ -294,4 +368,107 @@ export function pointerInput(
   };
   requestAnimationFrame(scroll);
   return () => moved > DRAG_PIXELS || heldFor;
+}
+
+/**
+ * The fingers on the map in a host: touch pointers only, so the mouse and the pen keep their own handling and both
+ * work in one session. A tap is a click, a drag pans (and glides), two fingers pinch, a long press is a right-click.
+ */
+function touchInput(
+  host: HTMLElement,
+  {
+    view,
+    dispatch,
+    tileAt,
+    tap,
+    longPress,
+    picker,
+  }: Pick<PointerDeps, 'view' | 'dispatch' | 'tileAt' | 'tap' | 'longPress' | 'picker'>,
+): void {
+  host.style.touchAction = 'none';
+  const tileUnder = (p: { clientX: number; clientY: number }) => {
+    const at = onCanvas(host, p);
+    return at && tileAt(...at);
+  };
+  const sameTile = (a: [number, number], b: [number, number]) => {
+    const [ta, tb] = [tileUnder({ clientX: a[0], clientY: a[1] }), tileUnder({ clientX: b[0], clientY: b[1] })];
+    return !!ta && !!tb && ta[0] === tb[0] && ta[1] === tb[1];
+  };
+  let pinchFrom = 1;
+  let pinchAt: [number, number] = [0, 0];
+  let lastLift = -Infinity;
+  const act = (g: GestureEvent) => {
+    switch (g.k) {
+      case 'pan':
+        return dispatch({ k: 'pan', dx: g.dx, dy: g.dy });
+      case 'tap': {
+        const tile = tileUnder({ clientX: g.x, clientY: g.y });
+        dispatch({ k: 'tapped', at: tile });
+        if (!tile) return;
+        if (picker?.choosing()) picker.tap(tile);
+        else tap?.(tile, g.detail);
+        return;
+      }
+      case 'longPress': {
+        const tile = tileUnder({ clientX: g.x, clientY: g.y });
+        if (tile && !picker?.choosing()) longPress?.(tile, g.x, g.y);
+        return;
+      }
+      case 'pinchStart':
+        pinchFrom = view().zoom;
+        return;
+      case 'pinch': {
+        const at = onCanvas(host, { clientX: g.x, clientY: g.y });
+        if (!at) return;
+        pinchAt = at;
+        return dispatch({ k: 'zoomTo', zoom: pinchFrom * g.ratio, at });
+      }
+      case 'pinchEnd':
+        return dispatch({ k: 'zoomSnap', at: pinchAt });
+    }
+  };
+  const gestures = createGestures(act, sameTile);
+  let frame = 0;
+  const run = (now: number) => {
+    frame = 0;
+    gestures.tick(now);
+    if (gestures.busy()) frame = requestAnimationFrame(run);
+  };
+  const wake = () => {
+    if (!frame) frame = requestAnimationFrame(run);
+  };
+  host.addEventListener('pointerdown', (e) => {
+    if (e.pointerType !== 'touch') return;
+    gestures.down(e.pointerId, e.clientX, e.clientY, performance.now());
+    wake();
+  });
+  addEventListener('pointermove', (e) => {
+    if (e.pointerType === 'touch') gestures.move(e.pointerId, e.clientX, e.clientY, performance.now());
+  });
+  addEventListener('pointerup', (e) => {
+    if (e.pointerType !== 'touch') return;
+    lastLift = performance.now();
+    gestures.up(e.pointerId, lastLift);
+    wake();
+  });
+  addEventListener('pointercancel', (e) => {
+    if (e.pointerType !== 'touch') return;
+    lastLift = performance.now();
+    gestures.cancel();
+  });
+  // The click the browser makes of a tap (and of a lifted long press) is not a second one, and the menu it opens on
+  // a long press is not the game's: the gestures above have acted.
+  const echo = () => performance.now() - lastLift < CLICK_ECHO_MS || gestures.busy();
+  for (const type of ['click', 'contextmenu']) {
+    host.addEventListener(
+      type,
+      (e) => {
+        if (echo()) {
+          e.stopImmediatePropagation();
+          if (type === 'contextmenu') e.preventDefault();
+        }
+      },
+      true,
+    );
+  }
 }
