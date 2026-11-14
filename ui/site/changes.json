@@ -1,5 +1,19 @@
 [
   {
+    "build": 18,
+    "date": "2026-11-14",
+    "new": [
+      "Installed as an app, BrowserCol plays offline.",
+      "Preferences can download the music, so it plays offline too. The sound effects come with the install."
+    ],
+    "fixed": [
+      "The Colopedia no longer adds another Free Colonist to a nation's starting units each time you open Conquest, Building or Fur Trading.",
+      "A ship carrying two loads of the same goods shows both in the cargo report and in Europe, and a trade offers those goods once.",
+      "The labour report shows every place colonists work, even two places with the same name."
+    ],
+    "changed": ["\"A new version is ready\" sits under the menu bar, clear of the map's orders."]
+  },
+  {
     "build": 17,
     "date": "2026-11-13",
     "new": [],
