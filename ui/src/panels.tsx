@@ -1585,6 +1585,8 @@ const goodsDrag = (item: Item) =>
     (e) => ({ ...item, ask: e.shiftKey && !e.altKey, all: e.shiftKey && e.altKey }) as Item,
     // A stack of cargo shows its goods and amount; the market's goods show alone, not their price beside them.
     (el) => (item.kind === 'goods' && item.from === 'market' ? el.querySelector('img') : null),
+    // A tap on goods buys or sells them, asking how many: that is the click's, so goods are not picked by a tap.
+    false,
   );
 /**
  * Europe, arranged as EuropePanel arranges it: the ships sailing to America and to Europe, the

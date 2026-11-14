@@ -86,10 +86,16 @@ const items = lane<Item>();
  *     on the keys held as it is picked up (the colony panel's shift-drag).
  * @param look The element whose icon follows the pointer, out of the one dragged
  *     (the unit's picture, not the tile around it); that one by default.
+ * @param tap Whether a finger's tap picks it up to be put down by another tap; false where a tap already acts.
  * @return The props.
  */
-export function draggableProps(item: Item, at?: (keys: Keys) => Item, look?: (el: HTMLElement) => Element | null) {
-  return items.source((keys) => (at ? at(keys) : item), look);
+export function draggableProps(
+  item: Item,
+  at?: (keys: Keys) => Item,
+  look?: (el: HTMLElement) => Element | null,
+  tap = true,
+) {
+  return items.source((keys) => (at ? at(keys) : item), look, tap);
 }
 
 /**

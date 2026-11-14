@@ -7,8 +7,8 @@ import type { EuropeUnit } from './webgui';
 import './europe-entry.css';
 
 /** A unit's drag shows its picture, not its name beside it. */
-export const unitDrag = (id: string) =>
-  draggableProps({ kind: 'unit', id }, undefined, (el) => el.querySelector('img'));
+export const unitDrag = (id: string, tap = true) =>
+  draggableProps({ kind: 'unit', id }, undefined, (el) => el.querySelector('img'), tap);
 
 /** A unit or ship of Europe's panel, with its picture, the turns left of a ship at sea, and a damaged ship's repair. */
 export function EuropeEntry({
@@ -39,7 +39,8 @@ export function EuropeEntry({
   // A sailing ship's hint says its turns left as well as its name, a damaged ship's its repair.
   const tip = [u.name, u.turnsLabel, u.repair].filter(Boolean).join(' ');
   const props = {
-    ...(drag ? unitDrag(u.id) : {}),
+    // A ship in port is picked by a tap already (it chooses the ship, whose Sail button sends it); a tap does not pick it up.
+    ...(drag ? unitDrag(u.id, !pick) : {}),
     ...(drop ? dropTargetProps('ship', drop) : {}),
   };
   const menu = useContextMenu((m) => m.unit(u.id));

@@ -600,6 +600,8 @@
   }
   .colony .queue-body li[data-drag] {
     cursor: grab;
+    /* The lists scroll: a finger drags a row sideways to the other list, and scrolls up and down (the queue is reordered by tap and tap, or its arrows). */
+    touch-action: pan-y;
   }
   .colony .stored[data-over] .goods {
     color: var(--bad);

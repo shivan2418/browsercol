@@ -40,7 +40,7 @@ import { barSegments } from './progress-bar';
 import { Box, boycottOf, GoodsAmount, GoodsProgressBar, TEXT_ENTRY, type Art } from './frame';
 import { PANEL_KEYS } from './map-keys';
 import { ReportContext } from './reports';
-import { lane, type TargetProps } from './drag';
+import { fromTap, lane, type TargetProps } from './drag';
 import { accepts, draggableProps, dropTargetProps, same, type Item, type Place } from './moves';
 import { useContextMenu } from './popup-menu';
 import { fromTouch, holdProps } from './long-press';
@@ -197,7 +197,8 @@ function useMovable(item: Item) {
     // As DragListener.mousePressed, shift on the press makes the drag partial.
     onMouseDown: (e: MouseEvent) => (shiftPressed = e.shiftKey),
     onClick: (e: MouseEvent) => {
-      if (!movable || item.kind === 'unit' || (hand.picked !== null && !picked)) return;
+      // A finger's tap picks and puts down in drag.ts, for goods and colonists alike.
+      if (fromTap() || !movable || item.kind === 'unit' || (hand.picked !== null && !picked)) return;
       e.stopPropagation();
       hand.pick(picked ? null : withShift(e.shiftKey));
     },
