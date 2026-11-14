@@ -1,5 +1,14 @@
 [
   {
+    "build": 19,
+    "date": "2026-11-14",
+    "new": [],
+    "fixed": [
+      "Playing offline, music that hasn't been downloaded is skipped quietly. Before, the music stopped for good at the first missing track."
+    ],
+    "changed": ["A new version keeps the music you downloaded for offline play, instead of downloading it again."]
+  },
+  {
     "build": 18,
     "date": "2026-11-14",
     "new": [
