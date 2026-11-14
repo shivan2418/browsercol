@@ -21,7 +21,7 @@ import {
 import { flag } from './flag';
 import { inTextField, TEXT_ENTRY } from './accelerators';
 import { Tip } from './controls';
-import { dragging } from './drag';
+import { dragging, picked } from './drag';
 import { focusFirstEntry, menuArrows, useFocusTrap } from './focus';
 import { barSegments } from './progress-bar';
 import type { GoodsProgress } from './webgui';
@@ -107,8 +107,8 @@ export function useEscape(close: (() => void) | null, keys: readonly string[] = 
     const me = {};
     frames.push(me);
     const onKey = (e: KeyboardEvent) => {
-      // Escape during a drag puts the thing back (drag.ts), and closes nothing.
-      if (dragging()) return;
+      // Escape during a drag, or with something picked by a tap, puts the thing back (drag.ts), and closes nothing.
+      if (dragging() || picked()) return;
       if (frames.at(-1) !== me || !(e.key === 'Escape' || isCloseKey(e, closeKeys.current))) return;
       e.preventDefault();
       e.stopPropagation();
