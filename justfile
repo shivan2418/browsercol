@@ -86,7 +86,7 @@ beta-test:
 # The fast checks a ticket PR needs: Engine tests, vp check, vp test (the UI's and the relay's)
 fast: test-engine check test-ui relay
 
-# Browser script against dist/: smoke, play, saves, tileset, looks or rounds
+# Browser script against dist/: smoke, play, saves, tileset, touch, looks or rounds
 browser script *args:
     DEV_VARIANT=web ./dev.sh node ui/scripts/{{script}}.ts {{args}}
 
@@ -96,7 +96,7 @@ screen-fit *args: art
     DEV_VARIANT=web ./dev.sh node ui/scripts/screen-fit.ts {{args}}
 
 # The whole local suite: fast checks, build and the browser scripts
-suite: fast build (browser "smoke") (browser "play") (browser "tileset") (browser "looks") screen-fit z-layers
+suite: fast build (browser "smoke") (browser "play") (browser "tileset") (browser "touch") (browser "looks") screen-fit z-layers
 
 # Every window is on top of the map, minimap and side panel in a real game, at 800x600, 1280x720 and 1280x800 (#504; after `just build`)
 z-layers *args:
