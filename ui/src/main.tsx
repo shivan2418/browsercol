@@ -1382,7 +1382,18 @@ window.fcReveal = (x, y) => {
   const info = document.getElementById('info-panel')?.getBoundingClientRect();
   const underInfo =
     !!info && info.width > 0 && px > info.left - host.left - margin && py > info.top - host.top - margin;
-  if (px < margin || py < margin || px > vw - margin || py > vh - margin || underMinimap || underInfo) {
+  // So is one under a touch order button (the bar's own box is wider than its buttons, and lets taps through).
+  const underOrder = [...document.querySelectorAll('#map-orders button')].some((b) => {
+    const r = b.getBoundingClientRect();
+    return (
+      r.width > 0 &&
+      px > r.left - host.left - margin &&
+      px < r.right - host.left + margin &&
+      py > r.top - host.top - margin &&
+      py < r.bottom - host.top + margin
+    );
+  });
+  if (px < margin || py < margin || px > vw - margin || py > vh - margin || underMinimap || underInfo || underOrder) {
     dispatch({ k: 'focus', tile: null, at: [x, y] });
   }
   return tileOnScreen(view, [x, y]);
