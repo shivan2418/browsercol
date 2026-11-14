@@ -76,6 +76,11 @@ class FakeAudio {
   pause() {
     this.playing = false;
   }
+  released = false;
+  release() {
+    this.released = true;
+    this.src = '';
+  }
   end() {
     this.playing = false;
     this.onended?.();
@@ -143,6 +148,17 @@ describe('soundPlayer', () => {
     const playing = () => made.filter((a) => a.playing).map((a) => a.src);
     return { player, made, playing, fx, tick: (ms: number) => (clock += ms), gesture: () => gesture() };
   };
+
+  it('lets go of the music when the page is going away, and starts none after', async () => {
+    const { player, made, playing } = setup();
+    player.startPlaylist();
+    expect(playing()).toHaveLength(1);
+    player.release();
+    expect(playing()).toEqual([]);
+    expect(made[0]!.released).toBe(true);
+    made[0]!.end();
+    expect(playing()).toEqual([]);
+  });
 
   it('plays music and an effect at once, and a null key stops only the effect', async () => {
     const { player, playing, fx } = setup();

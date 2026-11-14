@@ -13,6 +13,8 @@ export interface AudioLike {
   onerror: OnErrorEventHandler;
   play(): Promise<void>;
   pause(): void;
+  /** Drop the file, as <audio>'s removeAttribute('src') then load() do: its download stops. */
+  release(): void;
 }
 
 /**
@@ -81,6 +83,12 @@ export interface SoundPlayer {
    */
   waitForChoice(wait: boolean): void;
   choose(): void;
+  /**
+   * The page is going away: the music stops and its file is let go. Firefox keeps a page it was told to leave
+   * waiting on the download of the music it had playing, ten seconds and more, when a service worker controls
+   * the page (#507).
+   */
+  release(): void;
 }
 
 /**
@@ -90,7 +98,7 @@ export interface SoundPlayer {
 export const amplitude = (percent: number): number => (Math.max(0, Math.min(100, percent)) / 100) ** 2;
 
 export function soundPlayer(manifest: AudioManifest, deps: SoundPlayerDeps): SoundPlayer {
-  const makeAudio: () => AudioLike = deps.makeAudio ?? (() => new Audio());
+  const makeAudio: () => AudioLike = deps.makeAudio ?? (() => audioElement());
   const random = deps.random ?? Math.random;
   const afterGesture = deps.afterGesture ?? onFirstGesture;
   const music = makeAudio();
@@ -290,11 +298,28 @@ export function soundPlayer(manifest: AudioManifest, deps: SoundPlayerDeps): Sou
       preloadWanted = true;
       preload();
     },
+    release() {
+      musicOn = false;
+      playlistOn = false;
+      music.pause();
+      music.release();
+    },
     startPlaylist() {
       playlistOn = true;
       if (!musicOn) nextTrack();
     },
   };
+}
+
+/** An <audio> element as the player uses it. */
+function audioElement(): AudioLike {
+  const a = new Audio();
+  return Object.assign(a, {
+    release() {
+      a.removeAttribute('src');
+      a.load();
+    },
+  });
 }
 
 /** The effects on the browser's Web Audio: one context and one gain node for the effects volume. */
