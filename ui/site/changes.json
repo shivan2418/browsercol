@@ -1,5 +1,17 @@
 [
   {
+    "build": 21,
+    "date": "2026-11-14",
+    "new": [
+      "Offline play is back: installed or in a tab, the game keeps a copy so it starts with no network. A preference, on by default; the menu bar shows how far the download is."
+    ],
+    "fixed": [
+      "In Firefox, reloading or leaving a game with music on no longer hangs for ten seconds or more.",
+      "Music that can't play on this machine stops after two tries, instead of downloading the whole playlist again and again."
+    ],
+    "changed": []
+  },
+  {
     "build": 20,
     "date": "2026-11-14",
     "new": [
