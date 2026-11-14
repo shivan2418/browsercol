@@ -39,6 +39,7 @@
   --accent: #8a2e12;
   --accent-ink: #f8ecd0;
   --link: #8a2e12;
+  --warn: #b01c0c;
   --font: 'Noto Sans', system-ui, sans-serif;
   --font-title: 'Cinzel', 'Palatino Linotype', Georgia, serif;
 }
@@ -172,6 +173,10 @@ header.bar nav a:hover {
   margin: 0;
   font-size: 0.9rem;
   color: var(--muted);
+}
+.note.unsupported {
+  color: var(--warn);
+  font-weight: 700;
 }
 
 /* The screenshots: a row of slides that snaps, with arrows and dots; it works by swipe and scroll without the script. */
