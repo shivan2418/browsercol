@@ -550,3 +550,85 @@ describe('a window laid out at fixed sizes fits the screen (#380, #377)', () => 
     expect(plain.container.querySelector('[role=dialog]')!.hasAttribute('data-fit')).toBe(false);
   });
 });
+
+describe('a window on a small screen', () => {
+  /** A screen the test says is small, as matchMedia answers for the compact query. */
+  const small = (matches: boolean) => {
+    const was = window.matchMedia;
+    window.matchMedia = (() => ({
+      matches,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    })) as never;
+    return () => void (window.matchMedia = was);
+  };
+  const frame = (name: string) => screen.getByRole('dialog', { name }) as HTMLElement;
+
+  it('is a sheet, and is not dragged', () => {
+    const restore = small(true);
+    try {
+      render(
+        <WindowFrame title="Reports" close={() => {}}>
+          body
+        </WindowFrame>,
+      );
+      expect(frame('Reports').hasAttribute('data-sheet')).toBe(true);
+      const bar = frame('Reports').querySelector('.title') as HTMLElement;
+      fireEvent.pointerDown(bar, { button: 0, clientX: 5, clientY: 5, pointerId: 1 });
+      fireEvent.pointerMove(bar, { clientX: 90, clientY: 60, pointerId: 1 });
+      expect(frame('Reports').style.transform).toBe('');
+      expect(screen.getByRole('button', { name: 'Close' }).textContent).toBe('‹');
+    } finally {
+      restore();
+    }
+  });
+
+  it('stays a centred window when it is a short prompt, or the screen is large', () => {
+    let restore = small(true);
+    try {
+      render(
+        <WindowFrame title="Sure?" close={() => {}} modal>
+          body
+        </WindowFrame>,
+      );
+      expect(frame('Sure?').hasAttribute('data-sheet')).toBe(false);
+    } finally {
+      restore();
+    }
+    cleanup();
+    restore = small(false);
+    try {
+      render(
+        <WindowFrame title="Reports" close={() => {}}>
+          body
+        </WindowFrame>,
+      );
+      expect(frame('Reports').hasAttribute('data-sheet')).toBe(false);
+    } finally {
+      restore();
+    }
+  });
+
+  it('stacks sheets, Escape and back closing the newest and leaving the one under it', () => {
+    const restore = small(true);
+    try {
+      const closed: string[] = [];
+      render(
+        <>
+          <WindowFrame title="Europe" close={() => closed.push('europe')}>
+            under
+          </WindowFrame>
+          <WindowFrame title="Recruit" close={() => closed.push('recruit')}>
+            over
+          </WindowFrame>
+        </>,
+      );
+      key('Escape');
+      expect(closed).toEqual(['recruit']);
+      fireEvent.click(within(frame('Recruit')).getByRole('button', { name: 'Close' }));
+      expect(closed).toEqual(['recruit', 'recruit']);
+    } finally {
+      restore();
+    }
+  });
+});

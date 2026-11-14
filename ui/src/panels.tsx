@@ -16,6 +16,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from 'react';
+import { MODAL_KINDS } from './compact';
 import { flag } from './flag';
 import type { Advisor } from './advisor';
 import { NumberField, Select, Tip } from './controls';
@@ -131,6 +132,7 @@ function Win({
       close={close}
       closeKeys={closeKeys}
       closeAsks={closeAsks}
+      modal={MODAL_KINDS.has(d.kind)}
     >
       {children}
     </WindowFrame>

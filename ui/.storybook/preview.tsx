@@ -3,7 +3,11 @@ import '../src/theme.css';
 import '../src/fonts.css';
 import '../src/tokens.css';
 import type { Preview } from '@storybook/react-vite';
+import { watchCompact } from '../src/compact';
 import { TipProvider, TooltipLayer } from '../src/controls';
+
+// <html data-compact> as the game sets it (main.tsx), so a story at a phone's size shows sheets.
+watchCompact();
 
 const preview: Preview = {
   parameters: { layout: 'fullscreen' },

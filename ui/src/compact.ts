@@ -34,3 +34,21 @@ export function useCompact(): boolean {
     () => false,
   );
 }
+
+/** Whether a window is a full-screen sheet or a centred modal (docs/adr/0012). */
+export type WindowStyle = 'sheet' | 'modal';
+
+/**
+ * The questions that stay centred modals on a small screen: a short prompt the player answers at once, which fits
+ * a phone in landscape with room round it (FreeCol's FreeColConfirmDialog, FreeColChoiceDialog and the input and
+ * amount dialogs, and the error message). Every other window is a panel with content to read or work in (reports,
+ * the colony, Europe, trade routes, Preferences, the Colopedia, the information and event panels, dialogs that
+ * hold lists) and is a sheet. One rule, decided by the window's kind; a window outside the dialog queue says it
+ * with WindowFrame's `modal` prop.
+ */
+export const MODAL_KINDS: ReadonlySet<string> = new Set(['confirm', 'choice', 'input', 'amount', 'error']);
+
+/** What a window is: a sheet on a small screen unless it is a short prompt, else the centred window of FreeCol's layout. */
+export function windowStyle(compact: boolean, modal: boolean): WindowStyle {
+  return compact && !modal ? 'sheet' : 'modal';
+}

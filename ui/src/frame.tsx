@@ -18,6 +18,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react';
+import { useCompact, windowStyle } from './compact';
 import { flag } from './flag';
 import { inTextField, TEXT_ENTRY } from './accelerators';
 import { Tip } from './controls';
@@ -89,6 +90,11 @@ type FrameProps = {
    * far down the painted figure reaches, where the text starts. Such a window is fitted to the screen too.
    */
   advisor?: { src: string; top: number } | null;
+  /**
+   * A short prompt: it stays a centred window on a small screen, where every other window is a full-screen sheet
+   * (compact.ts, MODAL_KINDS, decides this for the dialog queue's kinds).
+   */
+  modal?: boolean;
   children: ReactNode;
 } & Omit<HTMLAttributes<HTMLElement>, 'title' | 'children'>;
 
@@ -221,10 +227,16 @@ export function WindowFrame({
   onEscape,
   fit = false,
   advisor = null,
+  modal = false,
   children,
   className,
   ...rest
 }: FrameProps) {
+  // On a small screen (docs/adr/0012) a window that is not a short prompt is a full-screen sheet: it is not dragged,
+  // not scaled to fit (it fills the screen and its body scrolls), and the advisor's paper is left off. Windows
+  // stack as they always did: one over another in the page's order, Escape closing the newest; the sheet's back
+  // button is its close button.
+  const sheet = windowStyle(useCompact(), modal) === 'sheet';
   // The window fades out before it closes, unless it is not to animate; a second close meanwhile does nothing.
   const [motion] = useState(() => frameEffects.motion());
   const [closing, setClosing] = useState(false);
@@ -256,7 +268,7 @@ export function WindowFrame({
   const box = useRef<HTMLElement>(null);
   // Tab goes round the newest window's buttons and fields while the focus is in it, not off the page.
   useFocusTrap(box);
-  useFitToScreen(box, fit || advisor !== null);
+  useFitToScreen(box, !sheet && (fit || advisor !== null));
   const titleId = useId();
   const attrs = rest as Record<string, unknown>;
   const placeKey =
@@ -266,7 +278,7 @@ export function WindowFrame({
   );
   // Drag the window by its title bar (not by the close button).
   const drag = (e: ReactPointerEvent<HTMLElement>) => {
-    if (e.button !== 0 || (e.target instanceof Element && e.target.closest('button'))) return;
+    if (sheet || e.button !== 0 || (e.target instanceof Element && e.target.closest('button'))) return;
     const bar = e.currentTarget;
     const from = { x: e.clientX - shift.x, y: e.clientY - shift.y };
     bar.setPointerCapture?.(e.pointerId);
@@ -291,21 +303,31 @@ export function WindowFrame({
       aria-labelledby={title ? titleId : undefined}
       className={clsx('frame', className)}
       {...rest}
-      data-fit={flag(fit || advisor !== null)}
-      data-advised={flag(advisor !== null)}
+      data-fit={flag(!sheet && (fit || advisor !== null))}
+      data-advised={flag(!sheet && advisor !== null)}
+      data-sheet={flag(sheet)}
       data-motion={motion ? (closing ? 'out' : 'in') : undefined}
       inert={closing || undefined}
       style={{
         ...rest.style,
-        ...(advisor && ({ '--advisor': cssUrl(advisor.src), '--advisor-top': `${advisor.top}px` } as CSSProperties)),
-        transform: shift.x || shift.y ? `translate(${shift.x}px, ${shift.y}px)` : undefined,
+        ...(advisor &&
+          !sheet &&
+          ({ '--advisor': cssUrl(advisor.src), '--advisor-top': `${advisor.top}px` } as CSSProperties)),
+        transform: !sheet && (shift.x || shift.y) ? `translate(${shift.x}px, ${shift.y}px)` : undefined,
       }}
     >
-      <div className="title" onPointerDown={drag} style={{ cursor: 'move', touchAction: 'none' }}>
+      <div className="title" onPointerDown={drag} style={sheet ? undefined : { cursor: 'move', touchAction: 'none' }}>
         {title && <h2 id={titleId}>{title}</h2>}
         {close && (
-          <Tip as="button" className="close" data-flat="" aria-label="Close" tip="Close (Esc)" onClick={close}>
-            ✕
+          <Tip
+            as="button"
+            className="close"
+            data-flat=""
+            aria-label="Close"
+            tip={sheet ? 'Back (Esc)' : 'Close (Esc)'}
+            onClick={close}
+          >
+            {sheet ? '‹' : '✕'}
           </Tip>
         )}
       </div>

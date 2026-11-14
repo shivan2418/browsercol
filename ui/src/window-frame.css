@@ -14,6 +14,8 @@
     --frame-title-case: none;
     /* The advisor's paper: the text's margins inside the painted edge, as InformationPanel lays it out. */
     --frame-paper-pad: 0 28px 24px;
+    /* A sheet's top bar and back button: at least a finger's size (docs/adr/0012). */
+    --frame-hit: 44px;
   }
   /* At no weight, so that a window's own size (.dialog's, in index.html) wins whichever sheet comes first. */
   :where(.frame) {
@@ -123,5 +125,41 @@
   }
   .frame[data-advised] > .body > .buttons {
     margin-top: auto;
+  }
+
+  /*
+   * A sheet (docs/adr/0012): on a small screen a window fills the screen's safe area, which .modal's padding keeps
+   * clear of the notch, with the title bar as its top bar and its body scrolling. Written with .modal > so it beats
+   * the windows' own sizes (.dialog, the panels') that come before it. A sheet is not scaled (no --fit, no UI zoom).
+   */
+  .modal > .frame[data-sheet] {
+    zoom: 1;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    box-sizing: border-box;
+    border: 0;
+    box-shadow: none;
+    transform: none;
+  }
+  .frame[data-sheet] > .title {
+    /* A hit target of a finger's size for the back button, and the bar tall enough to hold it. */
+    min-height: var(--frame-hit);
+    padding-block: 0;
+    flex: none;
+  }
+  .frame[data-sheet] > .title .close {
+    order: -1;
+    margin: 0 0 0 calc(var(--space-2) * -1);
+    min-width: var(--frame-hit);
+    min-height: var(--frame-hit);
+    padding: 0;
+    font-size: calc(var(--fs) * 1.8);
+    line-height: 1;
+  }
+  .frame[data-sheet] > .body {
+    flex: 1;
+    overscroll-behavior: contain;
   }
 }
