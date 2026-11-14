@@ -47,7 +47,10 @@ function remoteSite(raw: string): Site {
     root,
     watch: (page: Page) =>
       page.on('request', (r: Request) => {
-        if (/\/assets\/data-[^/]*\.json$/.test(new URL(r.url()).pathname)) dataFetches++;
+        // The service worker's install fetches the data bundle too (X-Precache), as for a site served here.
+        if (/\/assets\/data-[^/]*\.json$/.test(new URL(r.url()).pathname) && !r.headers()['x-precache']) {
+          dataFetches++;
+        }
       }),
     dataFetches: () => dataFetches,
     resetDataFetches: () => (dataFetches = 0),
