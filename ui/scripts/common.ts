@@ -411,3 +411,55 @@ function watchWaits(page: Page) {
     };
   }
 }
+
+/**
+ * What is wrong with a window that should be a full-screen sheet (docs/adr/0012, #511): it is marked data-sheet, it
+ * fills the safe area its backdrop (.modal) leaves, not moved, and its top bar shows with a back button of at least
+ * 44 x 44 CSS px, all on the screen. Run in the page (page.evaluate), so it uses nothing outside itself: [] when
+ * the window is a sheet.
+ */
+export function sheetProblems(selector: string): string[] {
+  const out: string[] = [];
+  const el = document.querySelector<HTMLElement>(selector);
+  if (!el) return [`${selector} is missing`];
+  if (!el.hasAttribute('data-sheet')) out.push('it is not marked data-sheet');
+  const slack = 1.5;
+  const vw = document.documentElement.clientWidth;
+  const vh = document.documentElement.clientHeight;
+  const pad = getComputedStyle(el.closest('.modal') ?? document.body);
+  const area = {
+    left: parseFloat(pad.paddingLeft) || 0,
+    top: parseFloat(pad.paddingTop) || 0,
+    right: vw - (parseFloat(pad.paddingRight) || 0),
+    bottom: vh - (parseFloat(pad.paddingBottom) || 0),
+  };
+  const r = el.getBoundingClientRect();
+  const f = (b: DOMRect | typeof area) =>
+    `x ${b.left.toFixed(1)}..${b.right.toFixed(1)}, y ${b.top.toFixed(1)}..${b.bottom.toFixed(1)}`;
+  if (
+    Math.abs(r.left - area.left) > slack ||
+    Math.abs(r.top - area.top) > slack ||
+    Math.abs(r.right - area.right) > slack ||
+    Math.abs(r.bottom - area.bottom) > slack
+  )
+    out.push(`it does not fill the safe area: box ${f(r)}, area ${f(area)}`);
+  if (el.style.transform) out.push(`it was moved (${el.style.transform})`);
+  const title = el.querySelector<HTMLElement>(':scope > .title');
+  if (!title) out.push('it has no top bar');
+  else {
+    const t = title.getBoundingClientRect();
+    if (t.height < 1 || t.left < -slack || t.top < -slack || t.right > vw + slack || t.bottom > vh + slack)
+      out.push(`its top bar is not on the screen: ${f(t)}`);
+    const close = title.querySelector<HTMLElement>('.close');
+    if (close) {
+      const c = close.getBoundingClientRect();
+      if (c.width < 43.5 || c.height < 43.5)
+        out.push(`its back button is ${c.width.toFixed(1)}x${c.height.toFixed(1)}, under 44`);
+      if (c.left < -slack || c.top < -slack || c.right > vw + slack || c.bottom > vh + slack)
+        out.push(`its back button is not on the screen: ${f(c)}`);
+      const hit = document.elementFromPoint(c.left + c.width / 2, c.top + c.height / 2);
+      if (!close.contains(hit)) out.push('its back button is covered');
+    }
+  }
+  return out;
+}

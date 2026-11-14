@@ -130,9 +130,10 @@
   /*
    * A sheet (docs/adr/0012): on a small screen a window fills the screen's safe area, which .modal's padding keeps
    * clear of the notch, with the title bar as its top bar and its body scrolling. Written with .modal > so it beats
-   * the windows' own sizes (.dialog, the panels') that come before it. A sheet is not scaled (no --fit, no UI zoom).
+   * the windows' own sizes (.dialog, the panels', the reports' with their own attributes). The attribute twice
+   * outweighs a window's size by one more attribute. A sheet is not scaled (no --fit, no UI zoom).
    */
-  .modal > .frame[data-sheet] {
+  .modal > .frame[data-sheet][data-sheet] {
     zoom: 1;
     width: 100%;
     height: 100%;

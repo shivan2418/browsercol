@@ -6,6 +6,7 @@
 //   - its box, its title bar and the parts named below (the colony's warehouse, the build queue) lie inside the viewport;
 //   - nothing in it clips its content where it should not scroll;
 //   - the page raised no error.
+// On the small screens (compact-sizes: 844x390, 915x412, 700x500) every window must also be a full-screen sheet.
 // A failure names the size, scale, story and the box that overflowed. A screenshot of every case is kept in
 // .cache/screen-fit/BROWSER/. Pages run side by side (--pages, 4), each case a fresh load of the story.
 // Run in the web image after building the Storybook into .cache/storybook:
@@ -18,11 +19,21 @@ import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import path from 'node:path';
 import type { Page } from 'playwright-core';
-import { browserNames, collectPageErrors, diagnose, launchBrowser, opt } from './common.ts';
+import { browserNames, collectPageErrors, diagnose, launchBrowser, opt, sheetProblems } from './common.ts';
 
 /** The screen sizes of the issue: common laptop and desktop screens. */
 const SIZES = (opt('sizes', '') || '1280x720,1366x768,1280x800,1440x900,1536x864,1920x1080,2560x1440')
   .split(',')
+  .map((s) => s.split('x').map(Number) as [number, number]);
+/**
+ * The small screens (docs/adr/0012, #511): two phones held in landscape and a small desktop window, each under 600 CSS px
+ * on its short side. There every window is a full-screen sheet: it must fill the safe area, with its top bar and a back
+ * button of at least 44 px on the screen (sheetProblems in common.ts), and what its body holds scrolls inside it. A sheet
+ * ignores the UI scale, so a small screen is checked at 100% only.
+ */
+const COMPACT_SIZES = (opt('compact-sizes', '') || '844x390,915x412,700x500')
+  .split(',')
+  .filter((s) => s)
   .map((s) => s.split('x').map(Number) as [number, number]);
 /** The display scaling options of client-options.xml; its "automatic" is 100% (uiZoom in prefs.ts). */
 const SCALES = (opt('scales', '') || '75,100,125,150,175,200').split(',').map(Number);
@@ -137,10 +148,12 @@ const problems = (page: Page, target: string, parts: string[]) =>
       inside('window', d.getBoundingClientRect());
       const title = d.querySelector('.title');
       if (title) inside('title bar', title.getBoundingClientRect());
+      // A sheet scrolls: a part of it is there to be scrolled to, not on the screen as it opens.
+      const sheet = d.hasAttribute('data-sheet');
       for (const sel of parts as string[]) {
         const el = d.querySelector(sel);
         if (!el) out.push(`${sel} is missing`);
-        else inside(sel, el.getBoundingClientRect());
+        else if (!sheet) inside(sel, el.getBoundingClientRect());
       }
       // Scrolled while there is room: the window's own body scrolls its content though the window is well short of the
       // screen's height, so it could have grown instead (the route editor stopped at 80% of the screen and hid its OK
@@ -173,10 +186,18 @@ interface Case {
   size: [number, number];
   scale: number;
   story: { id: string; name: string };
+  /** A small screen: the window must be a sheet. */
+  sheet?: boolean;
 }
-const cases: Case[] = SIZES.flatMap((size) =>
-  SCALES.flatMap((scale) => stories.map((story) => ({ size, scale, story }))),
-);
+const cases: Case[] = [
+  ...SIZES.flatMap((size) => SCALES.flatMap((scale) => stories.map((story) => ({ size, scale, story })))),
+  // The menus' stories are the menu bar's, which the phone screen folds (not a window): not checked as sheets.
+  ...COMPACT_SIZES.flatMap((size) =>
+    stories
+      .filter((story) => !story.name.startsWith('screen-fit-menus--'))
+      .map((story) => ({ size, scale: 100, story, sheet: true })),
+  ),
+];
 
 const failures: string[] = [];
 let done = 0;
@@ -204,6 +225,7 @@ for (const name of browserNames()) {
         if (WAITS[c.story.name]) await page.waitForSelector(WAITS[c.story.name], { timeout: 10000 });
         await settle(page, target);
         bad.push(...(await problems(page, target, PARTS[c.story.name] ?? [])));
+        if (c.sheet) bad.push(...(await page.evaluate(sheetProblems, target)));
       } catch (ex) {
         bad.push(`could not be checked: ${String(ex).split('\n')[0]}`);
       }
