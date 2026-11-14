@@ -12,6 +12,9 @@
 //     without closing the window; Europe: a cargo unit goes to the docks by two taps;
 //   - a hidden page (pagehide) in our turn saves to "Background autosave", and the start screen offers to resume it;
 //   - the mouse is unchanged: in a non-touch Chromium page a held press still starts a Go To, a right-click a popup.
+//   - sheets (#511, docs/adr/0012): on a phone a window opened from the menu bar, the colony and Europe are full-screen
+//     sheets (they fill the safe area, with a top bar and a back button of at least 44 px), a window opened from
+//     another (Europe's purchase list) is a sheet over it, and its back button returns to the one under it;
 // The iPad only starts a game and plays a turn (order bar, Skip, End Turn). Chromium's fingers are real touches over
 // the DevTools protocol (Input.dispatchTouchEvent). WebKit's Playwright can only tap (page.touchscreen), so its taps are
 // real and its drag, pinch and long press are touch PointerEvents sent to the page (the game listens to pointer
@@ -27,6 +30,7 @@ import {
   launchBrowser,
   newTouchPage,
   opt,
+  sheetProblems,
   TOUCH_DEVICES,
   waitForResult,
   type BrowserName,
@@ -272,7 +276,15 @@ const center = async (l: Locator): Promise<Pt> => {
   const e = l.first();
   await e.waitFor({ state: 'visible', timeout: 20000 });
   await e.scrollIntoViewIfNeeded();
-  const b = (await e.boundingBox())!;
+  // A sheet scrolls and its content settles as images arrive: aim at the box once it has stopped moving.
+  let b = (await e.boundingBox())!;
+  for (let i = 0; i < 20; i++) {
+    await sleep(100);
+    const now = (await e.boundingBox())!;
+    const still = now.x === b.x && now.y === b.y && now.width === b.width && now.height === b.height;
+    b = now;
+    if (still) break;
+  }
   const at: Pt = [b.x + b.width / 2, b.y + b.height / 2];
   const ok = await e.evaluate((el, [x, y]) => el.contains(document.elementFromPoint(x!, y!)), at);
   if (!ok)
@@ -537,6 +549,55 @@ async function waitGame(browser: Browser, device: TouchDevice, finger: (page: Pa
   await page.context().close();
 }
 
+/** Checks that a window is a full-screen sheet with its top bar and back button on the screen (common.ts, sheetProblems). */
+async function isSheet(page: Page, selector: string, what: string) {
+  const bad = await page.evaluate(sheetProblems, selector).catch((ex) => [String(ex).split('\n')[0]!]);
+  check(`${what} is a sheet`, bad.length === 0, bad.join('; '));
+}
+
+/**
+ * A window opened from the menu bar is a sheet, and its back button closes it. The Report menu's first entry; the
+ * titles are what the menu bar shows on this screen.
+ */
+async function menuSheet(page: Page, finger: Finger) {
+  const dialogs = page.locator('[role=dialog]');
+  const before = await dialogs.count();
+  await step('a window opened from the menu is a sheet', async () => {
+    const title = page.locator('.menubar [role=menubar] > .menu > button', { hasText: 'Report' }).first();
+    await finger.tap(...(await center(title)));
+    const entry = page.locator('[role=menu][aria-label="Report"] [role=menuitem]:not([disabled])').first();
+    await finger.tap(...(await center(entry)));
+    check('a menu entry opens a window', await until(async () => (await dialogs.count()) > before));
+    await isSheet(page, '[role=dialog]', 'a window opened from the menu');
+    await shot(page, 'sheet-report');
+    await finger.tap(...(await center(dialogs.last().locator('.title .close'))));
+    check('its back button closes it', await until(async () => (await dialogs.count()) === before));
+  });
+}
+
+/** A short prompt stays a centred modal on a phone: the Disband order's question is not a sheet, and No answers it. */
+async function confirmModal(page: Page, finger: Finger) {
+  await step('a confirm dialog stays a centred modal', async () => {
+    const win = page.locator('[role=dialog][data-kind=confirm]');
+    await finger.tap(...(await center(page.locator('#map-orders [data-order=disband]:not([disabled])'))));
+    await win.waitFor({ timeout: 10000 });
+    const r = await win.evaluate((el) => {
+      const b = el.getBoundingClientRect();
+      const vw = document.documentElement.clientWidth;
+      const vh = document.documentElement.clientHeight;
+      return { sheet: el.hasAttribute('data-sheet'), gapX: b.left, gapY: b.top, w: b.width, h: b.height, vw, vh };
+    });
+    check(
+      'a confirm dialog is a centred modal, not a sheet',
+      !r.sheet && r.w < r.vw - 40 && r.h <= r.vh && r.gapX > 0 && Math.abs(r.gapX - (r.vw - r.w - r.gapX)) < 2,
+      JSON.stringify(r),
+    );
+    await shot(page, 'modal-confirm');
+    await finger.tap(...(await center(win.locator('[data-answer=cancel]'))));
+    check('No answers it', await until(async () => (await win.count()) === 0));
+  });
+}
+
 /** Menu bar and tips: a tap opens and switches a menu, a long press shows a tip, a tap elsewhere closes it. */
 async function bars(page: Page, finger: Finger) {
   const titles = page.locator('.menubar [role=menubar] > .menu > button');
@@ -581,6 +642,8 @@ async function bars(page: Page, finger: Finger) {
 async function colony(page: Page, finger: Finger) {
   const win = page.locator('[role=dialog][data-kind=colony]');
   await win.first().waitFor({ timeout: 30000 });
+  await isSheet(page, '[role=dialog][data-kind=colony]', 'the colony');
+  await shot(page, 'sheet-colony');
   await page.locator('.colony [data-unit]').first().waitFor({ timeout: 30000 });
   const units = await page
     .locator('.colony [data-unit]')
@@ -616,7 +679,12 @@ async function colony(page: Page, finger: Finger) {
   await step('a long press on a colonist opens its menu', async () => {
     await sel(id).scrollIntoViewIfNeeded();
     await finger.hold(await center(sel(id)), 800);
-    check('a long press on a colonist opens its menu', await until(() => menu.first().isVisible()));
+    const opened = await until(() => menu.first().isVisible());
+    const seen = opened
+      ? ''
+      : `menus ${await menu.count()}, ${JSON.stringify(await page.evaluate(() => [...document.querySelectorAll('[role=menu]')].map((m) => m.getBoundingClientRect().toJSON())))}`;
+    if (!opened) await shot(page, 'colony-longpress-fail');
+    check('a long press on a colonist opens its menu', opened, seen);
     await finger.tap(...(await center(win.locator('.title'))));
     check('a tap elsewhere closes it', await until(async () => (await menu.count()) === 0));
   });
@@ -695,6 +763,19 @@ async function europe(page: Page, finger: Finger) {
   await page.click('button[data-command=showEurope]');
   const panel = page.locator('[role=dialog][data-kind=europe]');
   await panel.waitFor({ timeout: 10_000 });
+  await isSheet(page, '[role=dialog][data-kind=europe]', 'Europe');
+  await panel.locator('button[data-europe=purchase]').click();
+  // The purchase list is a window opened from Europe: a sheet over it, and back returns to Europe.
+  await panel.locator('[data-shop=purchase]').waitFor({ timeout: 10_000 });
+  await isSheet(page, '[data-shop=purchase]', 'the purchase list opened from Europe');
+  check('Europe stays under it', (await page.locator('[role=dialog][data-sheet]').count()) === 2);
+  await shot(page, 'sheet-stacked');
+  await finger.tap(...(await center(panel.locator('[data-shop=purchase] .title .close'))));
+  check(
+    'its back button returns to Europe',
+    await until(async () => (await panel.locator('[data-shop]').count()) === 0 && (await panel.isVisible())),
+  );
+  await isSheet(page, '[role=dialog][data-kind=europe]', 'Europe after back');
   await panel.locator('button[data-europe=purchase]').click();
   const offers = panel.locator('[data-shop=purchase] [data-offer]');
   for (let i = 0, n = await offers.count(); i < n; i++) {
@@ -944,6 +1025,11 @@ for (const [browserName, devices] of browsers) {
           check('colony window', false, await diagnose(ex));
           await shot(game, 'error-colony').catch(() => {});
         });
+        // answerDialogs would close a report and answer Yes to the Disband question: hold both open for the checks.
+        await game.evaluate(() => (window.__hold = 'report,confirm'));
+        await menuSheet(game, finger2);
+        await confirmModal(game, finger2);
+        await game.evaluate(() => (window.__hold = null));
         await bars(game, finger2);
       } catch (ex) {
         check('map gestures', false, await diagnose(ex));
