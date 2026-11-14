@@ -622,9 +622,11 @@ export function MenuBar({ menus, status, trailing }: { menus: Menu[]; status: st
               data-flat=""
               aria-haspopup="menu"
               aria-expanded={open === m.name}
-              // While a menu is open, pointing at another title opens that one, as a desktop menu bar does.
-              onPointerEnter={() => {
-                if (open === null || open === m.name || m.items.length === 0) return;
+              // While a menu is open, pointing at another title opens that one, as a desktop menu bar does. A
+              // finger lands on a title just before its click, which would then close what the landing opened:
+              // a touch switches menus by tapping.
+              onPointerEnter={(e) => {
+                if (e.pointerType === 'touch' || open === null || open === m.name || m.items.length === 0) return;
                 setSub(null);
                 setOpen(m.name);
               }}

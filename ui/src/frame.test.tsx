@@ -445,6 +445,24 @@ describe('the menu bar', () => {
     fireEvent.pointerEnter(view);
     expect(screen.queryByRole('menu')).toBeNull();
   });
+
+  it('switches menus on a tap, whose pointer landing does not open one before its click', () => {
+    render(
+      <MenuBar
+        menus={[
+          { name: 'Game', items: [{ label: 'Save', run: () => {} }] },
+          { name: 'View', items: [{ label: 'Zoom', run: () => {} }] },
+        ]}
+        status=""
+      />,
+    );
+    const view = screen.getByRole('menuitem', { name: 'View' });
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Game' }));
+    fireEvent.pointerEnter(view, { pointerType: 'touch' });
+    expect(screen.getByRole('menu', { name: 'Game' })).toBeTruthy();
+    fireEvent.click(view);
+    expect(screen.getByRole('menu', { name: 'View' })).toBeTruthy();
+  });
 });
 
 describe('a window laid out at fixed sizes fits the screen (#380, #377)', () => {
