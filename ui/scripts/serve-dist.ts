@@ -33,6 +33,8 @@ export interface Site {
   dataFetches: () => number;
   /** Each file's full downloads by path; only for a site served here. */
   served?: () => Map<string, number>;
+  /** The service worker install's requests (X-Precache), a 304 too, by path; only for a site served here. */
+  precached?: () => Map<string, number>;
   resetDataFetches: () => number;
   close: () => void;
 }
@@ -67,10 +69,12 @@ export async function serveDist(): Promise<Site> {
   let dataFetches = 0;
   /** Each file's full downloads (a 304 is not one), by its path under the site. */
   const served = new Map<string, number>();
+  const precached = new Map<string, number>();
   const server = http.createServer((req, res) => {
     const name = decodeURIComponent(new URL(req.url!, 'http://x').pathname);
     // The service worker's install fetches the data bundle too (X-Precache); only the page's own fetches count.
     if (/\/assets\/data-[^/]*\.json$/.test(name) && !req.headers['x-precache']) dataFetches++;
+    if (req.headers['x-precache']) precached.set(name, (precached.get(name) ?? 0) + 1);
     if (!name.startsWith(base)) return res.writeHead(404).end();
     const file = path.join(dist, path.normalize(name.slice(base.length) + (name.endsWith('/') ? 'index.html' : '')));
     if (!file.startsWith(dist) || !fs.existsSync(file) || !fs.statSync(file).isFile()) return res.writeHead(404).end();
@@ -91,6 +95,7 @@ export async function serveDist(): Promise<Site> {
     dataFetches: () => dataFetches,
     resetDataFetches: () => (dataFetches = 0),
     served: () => served,
+    precached: () => precached,
     close: () => server.close(),
   };
 }

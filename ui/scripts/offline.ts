@@ -70,6 +70,13 @@ try {
     async (name) => (await (await window.caches.open(name)).keys()).map((r) => new URL(r.url).pathname),
     cache!,
   );
+  // The art, presets and the rest come in a few packs (#519), not a request each.
+  const requests = [...server.precached!().keys()];
+  const packs = requests.filter((p) => p.includes('/packs/'));
+  check(
+    `the install made ${requests.length} requests, ${packs.length} of them packs, none for art/`,
+    packs.length > 0 && requests.length < 150 && !requests.some((p) => p.includes('/art/')),
+  );
   for (const dir of ['art', 'presets']) {
     const want = listFiles(path.join(dist, 'play', dir)).map((f) => `/browsercol/play/${dir}/${f}`);
     const missing = want.filter((f) => !cached.includes(f));
@@ -168,7 +175,8 @@ try {
   check('the page drew no errors offline', errors.length === 0);
   await context.setOffline(false);
 
-  // A new build: the same site under another name.
+  // A new build: the same site under another name. Its packs are the same, so it copies them from this cache.
+  server.precached!().clear();
   fs.writeFileSync(swFile, original.replace(/const BUILD = "[^"]*"/, 'const BUILD = "next-build"'));
   await page.evaluate(async () => {
     const reg = await navigator.serviceWorker.ready;
@@ -186,6 +194,15 @@ try {
   await waitForResult(page, 300000);
   const kept = await page.evaluate(async () => (await window.caches.keys()).filter((k) => k.startsWith('browsercol-')));
   check(`Restart swaps the build and drops the old cache (${kept.join()})`, kept.join() === 'browsercol-next-build');
+  const repacked = [...server.precached!().keys()].filter((p) => p.includes('/packs/'));
+  check(`the new build downloads no pack the last one had (${repacked.length})`, repacked.length === 0);
+  const nextCached = await page.evaluate(
+    async () => (await (await window.caches.open('browsercol-next-build')).keys()).map((r) => r.url),
+  );
+  check(
+    `and has every file of art/ (${nextCached.filter((u) => u.includes('/art/')).length})`,
+    listFiles(path.join(dist, 'play', 'art')).every((f) => nextCached.some((u) => u.endsWith(`/play/art/${f}`))),
+  );
   // The player chose the audio: the new build's fresh cache is filled again, without asking.
   await poll(
     page,

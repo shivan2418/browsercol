@@ -10,9 +10,9 @@ import {
   listFiles,
   manifest,
   precacheList,
-  shellSizes,
   serviceWorker,
   soundEffects,
+  writePacks,
 } from './scripts/pwa.ts';
 
 /**
@@ -36,7 +36,7 @@ function installable(build: string): Plugin {
       fs.writeFileSync(path.join(outDir, 'manifest.webmanifest'), JSON.stringify(manifest(themeCss), null, 2));
       const audioJson = path.join(outDir, 'audio', 'audio.json');
       const effects = fs.existsSync(audioJson) ? soundEffects(fs.readFileSync(audioJson, 'utf8')) : [];
-      const shell = precacheList(listFiles(outDir), effects);
+      const shell = writePacks(outDir, precacheList(listFiles(outDir), effects));
       // The build id alone cannot name the cache: two local builds of one commit share it. The files do not.
       const page = fs.readFileSync(path.join(outDir, 'index.html'), 'utf8');
       const fingerprint = createHash('sha1')
@@ -46,13 +46,7 @@ function installable(build: string): Plugin {
       const template = fs.readFileSync('sw.template.js', 'utf8');
       fs.writeFileSync(
         path.join(outDir, 'sw.js'),
-        serviceWorker(
-          template,
-          cacheBuild(build, fingerprint),
-          shell,
-          audioList(outDir, effects),
-          shellSizes(outDir, shell),
-        ),
+        serviceWorker(template, cacheBuild(build, fingerprint), shell, audioList(outDir, effects)),
       );
     },
   };
