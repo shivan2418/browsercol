@@ -291,7 +291,7 @@ test('the install takes what the page loaded from the browser cache, and tells t
   expect(progress.at(-1)).toMatchObject({ state: 'saved', bytes: 1000, totalBytes: 1000 });
 });
 
-test("the install splits a pack into its files, each under its own URL with its type (#519)", async () => {
+test('the install splits a pack into its files, each under its own URL with its type (#519)', async () => {
   const w = worker({ packs: [PACK], served: { './packs/abc.bin': 'PNG{}' } });
   await w.install();
   expect(w.fetched.sort()).toEqual([SCOPE, `${SCOPE}packs/abc.bin`]);

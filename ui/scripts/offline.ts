@@ -196,8 +196,8 @@ try {
   check(`Restart swaps the build and drops the old cache (${kept.join()})`, kept.join() === 'browsercol-next-build');
   const repacked = [...server.precached!().keys()].filter((p) => p.includes('/packs/'));
   check(`the new build downloads no pack the last one had (${repacked.length})`, repacked.length === 0);
-  const nextCached = await page.evaluate(
-    async () => (await (await window.caches.open('browsercol-next-build')).keys()).map((r) => r.url),
+  const nextCached = await page.evaluate(async () =>
+    (await (await window.caches.open('browsercol-next-build')).keys()).map((r) => r.url),
   );
   check(
     `and has every file of art/ (${nextCached.filter((u) => u.includes('/art/')).length})`,

@@ -45,7 +45,11 @@ async function install() {
   };
   await tellOffline('saving', 0);
   const jobs = [
-    ...PACKS.map(([pack, files]) => () => savePack(cache, older, pack, files, progress)),
+    ...PACKS.map(
+      ([pack, files]) =>
+        () =>
+          savePack(cache, older, pack, files, progress),
+    ),
     ...LOOSE.map(([file, size]) => async () => {
       const url = new URL(file, scope).href;
       // The header lets the browser scripts' server tell this fetch from the page's own.

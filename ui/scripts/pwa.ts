@@ -188,12 +188,7 @@ export function writePacks(outDir: string, shell: string[]): ShellPlan {
  * The service worker for this build: the template with the build's name, the shell as loose files and packs, each
  * file with its size (for the progress the page shows), and the audio list put in.
  */
-export function serviceWorker(
-  template: string,
-  build: string,
-  shell: ShellPlan,
-  audio: AudioFile[] = [],
-): string {
+export function serviceWorker(template: string, build: string, shell: ShellPlan, audio: AudioFile[] = []): string {
   return template
     .replace('__BUILD__', () => JSON.stringify(build))
     .replace('__LOOSE__', () => JSON.stringify(shell.loose))
