@@ -9,6 +9,7 @@ function browser(controller: object | null, waiting: object | null) {
   const registration = Object.assign(new EventTarget(), {
     waiting,
     installing: null as object | null,
+    active: null as object | null,
     update: vi.fn(),
   });
   const container = Object.assign(new EventTarget(), {
@@ -83,10 +84,27 @@ test('a new build that finishes installing on the start screen takes over, and o
 });
 
 test('the first install is not offered as a new version', async () => {
-  const b = browser(null, { postMessage: vi.fn() });
+  const worker = { postMessage: vi.fn() };
+  const b = browser(null, worker);
   const offer = vi.fn();
   await registerServiceWorker(offer, b.r);
   expect(offer).not.toHaveBeenCalled();
+  expect(worker.postMessage).not.toHaveBeenCalled();
+});
+
+test('a page loaded past the worker tells a new build waiting under an older one to take over, with no reload', async () => {
+  const reload = vi.fn();
+  vi.stubGlobal('location', { reload });
+  const worker = { postMessage: vi.fn() };
+  const b = browser(null, worker);
+  b.registration.active = {};
+  const offer = vi.fn();
+  await registerServiceWorker(offer, b.r);
+  expect(worker.postMessage).toHaveBeenCalledWith({ type: 'skip-waiting' });
+  expect(offer).not.toHaveBeenCalled();
+  b.container.dispatchEvent(new Event('controllerchange'));
+  expect(reload).not.toHaveBeenCalled();
+  vi.unstubAllGlobals();
 });
 
 test('a build that finishes installing later is offered', async () => {

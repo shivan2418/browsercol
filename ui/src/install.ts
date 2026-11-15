@@ -34,8 +34,13 @@ export async function registerServiceWorker(
   const reg = await container.register('./sw.js');
   let restarting = false;
   const waiting = (worker: ServiceWorker) => {
-    // The first worker has no older one to replace.
-    if (!container.controller) return;
+    if (!container.controller) {
+      // A page loaded past the worker (a hard reload) is already the new build; an older worker still active would
+      // keep serving its build on the next load, so the new one takes over now, with no offer and no reload. The
+      // first worker has no older one to replace, and activates by itself.
+      if (reg.active) worker.postMessage({ type: 'skip-waiting' });
+      return;
+    }
     const restart = () => {
       restarting = true;
       worker.postMessage({ type: 'skip-waiting' });
