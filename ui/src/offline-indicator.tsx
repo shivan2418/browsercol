@@ -29,6 +29,20 @@ export function offlineFraction(p: OfflineProgress): number {
   return Math.min(1, p.bytes / Math.max(p.totalBytes, 1));
 }
 
+/** What the ring's mark says, first in its tooltip: the player sees a tick or a ring, not words. */
+export function ringMeaning(state: OfflineProgress['state'], percent: number): string {
+  switch (state) {
+    case 'ready':
+      return 'The tick: the game is ready to play offline.';
+    case 'failed':
+      return 'The cross: the offline copy could not be saved.';
+    case 'updating':
+      return `The ring: saving the new version for offline play, ${percent}% done.`;
+    default:
+      return `The ring: saving the game for offline play, ${percent}% done.`;
+  }
+}
+
 /**
  * The offline copy on the title screen: a ring drawn in ink round the centre of the map's compass, filling as the
  * copy is saved, with a tick once it is ready and a cross if it failed. The words are its tooltip and its label.
@@ -46,7 +60,7 @@ export function OfflineRing() {
       role="progressbar"
       aria-label={shown.label}
       aria-valuenow={percent}
-      tip={`${shown.label}. ${shown.tip}`}
+      tip={`${ringMeaning(progress.state, percent)}\n${shown.tip}`}
     >
       <svg viewBox="0 0 100 100" aria-hidden="true">
         <circle className="track" cx="50" cy="50" r="42" />

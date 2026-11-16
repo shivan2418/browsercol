@@ -6,8 +6,8 @@
 @layer components {
   :root {
     --title-edge: #1b1b1b; /* The dark round the map's burnt edges, for the page past them */
-    --title-plaque: rgb(59 36 16 / 72%); /* A menu button: the wordmark's brown ink */
-    --title-plaque-hover: rgb(92 58 26 / 85%);
+    --title-plaque: rgb(59 36 16 / 55%); /* A menu button: the wordmark's brown ink */
+    --title-plaque-hover: rgb(92 58 26 / 75%);
     --title-plaque-ink: #efe2bf; /* The parchment of the wordmark's globes */
     --title-plaque-line: #8c6c3c;
     --title-note-bg: rgb(239 226 191 / 92%);
@@ -60,25 +60,30 @@
     position: absolute;
     top: calc(565% / 768 * 100);
     left: calc(1178.5% / 1376 * 100);
-    width: calc(50% / 1376 * 100);
+    /* The hover target is the compass's middle, twice the ring's size, so the tooltip is easy to find. */
+    display: grid;
+    place-items: center;
+    width: calc(100% / 1376 * 100);
     aspect-ratio: 1;
     translate: -50% -50%;
+    border-radius: 50%;
+    cursor: help;
   }
   .offline-ring svg {
     display: block;
-    width: 100%;
-    height: 100%;
+    width: 50%;
+    height: 50%;
     rotate: -90deg;
     fill: none;
     stroke-linecap: round;
   }
   .offline-ring .track {
     stroke: var(--title-ring-track);
-    stroke-width: 8;
+    stroke-width: 12;
   }
   .offline-ring .arc {
     stroke: var(--title-ring-ink);
-    stroke-width: 8;
+    stroke-width: 12;
     transition: stroke-dasharray 0.4s;
   }
   .offline-ring .mark {
@@ -136,7 +141,7 @@
     background: var(--title-plaque-hover);
   }
   .title-menu nav button:disabled {
-    opacity: 0.55;
+    opacity: 0.7;
     cursor: default;
     box-shadow: none;
   }
