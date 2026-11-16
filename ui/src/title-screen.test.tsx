@@ -30,14 +30,21 @@ test('the title screen offers to continue the newest save and to load another', 
   expect(document.querySelector('[data-save-picker]')).toBeNull();
 });
 
-test('Continue is the first choice, and focused, when there is a save; New Game is when there is none', () => {
+test('Continue is under New Game, and goes on only for a player who has played before', () => {
   const { unmount } = render(<TitleScreen newGame={() => {}} saves={[save(7, 'a')]} open={() => {}} />);
-  expect(document.querySelector('nav button')).toBe(document.querySelector('[data-continue]'));
-  expect(document.activeElement).toBe(document.querySelector('[data-continue]'));
-  unmount();
-  render(<TitleScreen newGame={() => {}} saves={[]} open={() => {}} />);
-  expect(document.querySelector('[data-continue]')).toBeNull();
+  const buttons = [...document.querySelectorAll('nav button')];
+  expect(buttons.indexOf(document.querySelector('[data-continue]')!)).toBe(
+    buttons.indexOf(document.querySelector('[data-new-game]')!) + 1,
+  );
+  expect((document.querySelector('[data-continue]') as HTMLButtonElement).disabled).toBe(false);
   expect(document.activeElement).toBe(document.querySelector('[data-new-game]'));
+  unmount();
+  let opened = 0;
+  render(<TitleScreen newGame={() => {}} saves={[]} open={() => opened++} />);
+  const none = document.querySelector('[data-continue]') as HTMLButtonElement;
+  expect(none.disabled).toBe(true);
+  fireEvent.click(none);
+  expect(opened).toBe(0);
 });
 
 test('Continue says "Resume your last game" when the newest save is the background one', () => {

@@ -1,6 +1,7 @@
 /*
- * The title screen (title-screen.tsx): the parchment map fills the page, the wordmark and the main menu sit on the
- * open ocean in its middle. The colours are the map's own inks and stay the same in the dark theme, as the art does.
+ * The title screen (title-screen.tsx): the parchment map covers the page, the wordmark sits in the map's top
+ * cartouche, the main menu on the open ocean in its middle, and the offline copy's ring in the compass. The colours
+ * are the map's own inks and stay the same in the dark theme, as the art does.
  */
 @layer components {
   :root {
@@ -12,30 +13,106 @@
     --title-note-bg: rgb(239 226 191 / 92%);
     --title-note-ink: #3b2410;
     --title-foot-bg: rgb(0 0 0 / 55%);
+    --title-ring-ink: #3b2410;
+    --title-ring-track: rgb(59 36 16 / 18%);
+    --title-ring-failed: #8b2a1a;
   }
   /* It is also .start (start-window.css), the page's start-screen layer: placed, centred and over the page as that. */
   .start.title-screen {
+    container-type: size;
     overflow-y: auto;
-    background: var(--title-edge) url('./title-map.webp') center / cover no-repeat;
+    background: var(--title-edge);
+  }
+  .title-backdrop {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+  }
+  /*
+   * The map at its own shape (1376 x 768), as large as covers the page and centred: what is placed on it is placed
+   * in its picture's coordinates, as percentages.
+   */
+  .title-art {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100cqw, 100cqh * 1376 / 768);
+    height: max(100cqh, 100cqw * 768 / 1376);
+    translate: -50% -50%;
+    background: url('./title-map.webp') center / 100% 100% no-repeat;
+  }
+  /* The cartouche's inside is x 568 to 808, y 71 to 118 of the picture. */
+  .title-art h1 {
+    position: absolute;
+    top: calc(94.5% / 768 * 100);
+    left: 50%;
+    width: calc(200% / 1376 * 100);
+    margin: 0;
+    translate: -50% -50%;
+  }
+  .title-art h1 img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  /* The compass's centre is at x 1178, y 565 of the picture; its inner circle has a radius of 26. */
+  .offline-ring {
+    position: absolute;
+    top: calc(565% / 768 * 100);
+    left: calc(1178.5% / 1376 * 100);
+    width: calc(50% / 1376 * 100);
+    aspect-ratio: 1;
+    translate: -50% -50%;
+  }
+  .offline-ring svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    rotate: -90deg;
+    fill: none;
+    stroke-linecap: round;
+  }
+  .offline-ring .track {
+    stroke: var(--title-ring-track);
+    stroke-width: 8;
+  }
+  .offline-ring .arc {
+    stroke: var(--title-ring-ink);
+    stroke-width: 8;
+    transition: stroke-dasharray 0.4s;
+  }
+  .offline-ring .mark {
+    rotate: 90deg;
+    transform-origin: 50px 50px;
+    stroke: var(--title-ring-ink);
+    stroke-width: 9;
+    stroke-linejoin: round;
+  }
+  .offline-ring[data-offline='saving'] .arc,
+  .offline-ring[data-offline='updating'] .arc {
+    animation: offline-ring-breathe 1.6s ease-in-out infinite alternate;
+  }
+  .offline-ring[data-offline='failed'] .mark {
+    stroke: var(--title-ring-failed);
+  }
+  @keyframes offline-ring-breathe {
+    to {
+      opacity: 0.55;
+    }
+  }
+  /* A window too narrow shows the map's middle only, without the compass: the corner's words say it there. */
+  @media (aspect-ratio < 3/2) {
+    .offline-ring {
+      display: none;
+    }
   }
   .title-menu {
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: var(--space-6);
-    /* Narrower on a short screen (a phone held sideways), so the menu fits under it. */
-    width: min(34rem, 100% - 32px, 95vh);
-    /* A little above the middle, where the map's ocean is emptiest. */
-    margin-bottom: calc(var(--space-6) * 3);
-  }
-  .title-menu h1 {
-    width: 100%;
-    margin: 0;
-  }
-  .title-menu h1 img {
-    display: block;
-    width: 100%;
-    height: auto;
+    width: min(34rem, 100% - 32px);
   }
   .title-menu nav {
     display: flex;
@@ -55,8 +132,13 @@
     box-shadow: var(--shadow-popup);
     cursor: pointer;
   }
-  .title-menu nav button:hover {
+  .title-menu nav button:hover:enabled {
     background: var(--title-plaque-hover);
+  }
+  .title-menu nav button:disabled {
+    opacity: 0.55;
+    cursor: default;
+    box-shadow: none;
   }
   .title-menu nav button:focus-visible {
     outline: var(--border-thick) solid var(--title-plaque-ink);

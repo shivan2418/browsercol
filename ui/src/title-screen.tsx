@@ -10,6 +10,7 @@ import { HomeScreenHint, IosSavesWarning } from './ios-notes';
 import { OpenDialog, OpenFile } from './save-picker';
 import { isBackgroundSave, type SaveMeta } from './saves';
 import { useCoverage } from './coverage';
+import { OfflineRing } from './offline-indicator';
 import './title-screen.css';
 
 /** What Quit does: close the tab. A browser closes only a tab a script opened, so the page may stay. */
@@ -63,18 +64,28 @@ export function TitleScreen({
   const load = saves.length > 0 ? () => setSavesShown(true) : openFile;
   return (
     <div className="start title-screen" data-testid="title">
+      {/* The map, sized as the page's cover: the wordmark sits in its top cartouche whatever the window's shape. */}
+      <div className="title-backdrop">
+        <div className="title-art">
+          <h1>
+            <img src={wordmark} alt="BrowserCol" />
+          </h1>
+          <OfflineRing />
+        </div>
+      </div>
       <div className="title-menu">
-        <h1>
-          <img src={wordmark} alt="BrowserCol" />
-        </h1>
         <nav aria-label="Main menu">
-          {newest && openGame && (
-            <button type="button" data-continue autoFocus onClick={choose(() => openGame(newest.id))}>
-              {isBackgroundSave(newest) ? 'Resume your last game' : 'Continue'}
-            </button>
-          )}
-          <button type="button" data-new-game autoFocus={!newest || !openGame} onClick={choose(newGame)}>
+          <button type="button" data-new-game autoFocus onClick={choose(newGame)}>
             New Game
+          </button>
+          {/* Played before: the newest save goes on. Never played: there is nothing to go on with. */}
+          <button
+            type="button"
+            data-continue
+            disabled={!newest || !openGame}
+            onClick={choose(() => newest && openGame?.(newest.id))}
+          >
+            {newest && isBackgroundSave(newest) ? 'Resume your last game' : 'Continue'}
           </button>
           {openGame && load && (
             <button type="button" data-open-saves onClick={choose(load)}>

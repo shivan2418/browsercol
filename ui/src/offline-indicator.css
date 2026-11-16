@@ -16,6 +16,12 @@
     font-size: var(--fs-s);
     opacity: 0.9;
   }
+  /* On the title screen the map's compass shows it (title-screen.css), while the window is wide enough to show it. */
+  @media (aspect-ratio >= 3/2) {
+    body:has(.title-screen) .offline-status.corner {
+      display: none;
+    }
+  }
   body:not(:has(.start)) .offline-status.corner,
   body:has(.modal) .offline-status.corner {
     display: none;
