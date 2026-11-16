@@ -6,8 +6,8 @@
 @layer components {
   :root {
     --title-edge: #1b1b1b; /* The dark round the map's burnt edges, for the page past them */
-    --title-plaque: rgb(59 36 16 / 55%); /* A menu button: the wordmark's brown ink */
-    --title-plaque-hover: rgb(92 58 26 / 75%);
+    --title-plaque: rgb(59 36 16 / 80%); /* A menu button: the wordmark's brown ink */
+    --title-plaque-hover: rgb(92 58 26 / 90%);
     --title-plaque-ink: #efe2bf; /* The parchment of the wordmark's globes */
     --title-plaque-line: #8c6c3c;
     --title-note-bg: rgb(239 226 191 / 92%);
