@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen } from '@testing-library/react';
 import { expect, test, vi } from 'vite-plus/test';
-import { registerServiceWorker, syncThemeColor, type Registrar } from './install';
+import { notInstalled, registerServiceWorker, syncThemeColor, type Registrar } from './install';
 import { UpdatePrompt } from './update-prompt';
 
 /** A browser with a service worker container, and the registration it hands back. */
@@ -159,4 +159,20 @@ test('the theme colour follows the menu bar token', () => {
   syncThemeColor();
   expect(document.querySelectorAll('meta[name="theme-color"]')).toHaveLength(1);
   expect(document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')!.content).toBe('#3b2a17');
+});
+
+test('when the worker takes over, the page loads again only what the install leaves out: translations and audio', () => {
+  const folder = 'https://x/play/';
+  expect(
+    notInstalled(
+      [
+        'https://x/play/assets/data-CBaD6zy_.json',
+        'https://x/play/art/default/resources/images/terrain.png',
+        'https://x/play/strings/FreeColMessages_de.properties',
+        'https://x/play/audio/sound/intro.ogg',
+        'https://other/play/strings/x.properties',
+      ],
+      folder,
+    ),
+  ).toEqual(['https://x/play/strings/FreeColMessages_de.properties', 'https://x/play/audio/sound/intro.ogg']);
 });

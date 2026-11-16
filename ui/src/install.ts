@@ -8,7 +8,7 @@ export interface Registrar {
   container:
     | Pick<ServiceWorkerContainer, 'register' | 'getRegistrations' | 'controller' | 'addEventListener'>
     | undefined;
-  /** The files under the page's folder that the page has loaded so far (its translation, a sound it played). */
+  /** The files the page has loaded so far that the install leaves out (its translation, a sound it played). */
   loaded: () => string[];
 }
 
@@ -52,7 +52,8 @@ export async function registerServiceWorker(
   container.addEventListener('controllerchange', () => {
     // The new worker took over: the page it was waiting to replace reloads into the new build.
     if (restarting) location.reload();
-    // The first worker took the page over: what the page loaded before goes through it, so it is kept.
+    // The first worker took the page over: what the page loaded before, that the install left out, goes through
+    // it, so it is kept.
     else if (firstVisit) for (const url of r.loaded()) void fetch(url).catch(() => {});
   });
   if (reg.waiting) waiting(reg.waiting);
@@ -78,17 +79,24 @@ export async function removeServiceWorker(r: Registrar = site()) {
     if (name.startsWith('browsercol-')) await caches.delete(name);
 }
 
+/**
+ * Of the URLs a page loaded, those under its folder that the worker's install leaves out: the translations and the
+ * audio (pwa.ts's ON_DEMAND). The rest (the data, the Engines, the art) the install caches already, so loading them
+ * again when the worker takes over would only be a second request for each (the data bundle's showed in the smoke).
+ */
+export function notInstalled(urls: string[], folder: string): string[] {
+  return urls.filter((url) => url.startsWith(`${folder}strings/`) || url.startsWith(`${folder}audio/`));
+}
+
 function site(): Registrar {
   return {
     production: import.meta.env.PROD,
     container: 'serviceWorker' in navigator ? navigator.serviceWorker : undefined,
-    loaded: () => {
-      const folder = new URL('./', location.href).href;
-      return performance
-        .getEntriesByType('resource')
-        .map((e) => e.name)
-        .filter((url) => url.startsWith(folder));
-    },
+    loaded: () =>
+      notInstalled(
+        performance.getEntriesByType('resource').map((e) => e.name),
+        new URL('./', location.href).href,
+      ),
   };
 }
 
