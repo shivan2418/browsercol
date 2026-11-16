@@ -11,7 +11,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { readFsg, zipEntry } from '../src/fsg.ts';
-import { browserNames, collectPageErrors, diagnose, launchBrowser, opt, waitForResult } from './common.ts';
+import { browserNames, collectPageErrors, diagnose, launchBrowser, opt, waitForResult, newGame } from './common.ts';
 import { answerDialogs } from './dialogs.ts';
 import { serveDist } from './serve-dist.ts';
 import type { Download, Page, Route } from 'playwright-core';
@@ -59,7 +59,7 @@ async function run(page: Page, url: string, browserName: string) {
 
   // --- No relay in the build: the start screen, and the download alone. ---
   await page.goto(url);
-  await page.waitForSelector('[data-start]', { timeout: 120000 });
+  await newGame(page, 120000);
   check(/beta/i.test(await page.locator('[data-beta-tag]').innerText()), 'the start screen has the Beta tag');
   await shot('start-tag');
   await open();

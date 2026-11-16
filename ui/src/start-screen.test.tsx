@@ -394,67 +394,6 @@ test('the map chosen stays chosen across a ruleset switch', async () => {
   expect(started[0].builtInMap).toBe(MAPS[0].url);
 });
 
-test('the start screen offers to continue the newest save and to open another', () => {
-  const opened: number[] = [];
-  const save = (id: number, name: string) => ({ id, name, date: 0, turn: 3, year: 1495, nation: 'Dutch', size: 1 });
-  render(
-    <StartScreen
-      options={options}
-      start={() => {}}
-      saves={[save(7, 'Newest'), save(2, 'Older')]}
-      open={(id) => opened.push(id)}
-    />,
-  );
-  fireEvent.click(document.querySelector('[data-continue]')!);
-  // The saves are in a window of their own, not on the start window (no foldout to shift its layout).
-  expect(document.querySelector('[data-save-picker]')).toBeNull();
-  fireEvent.click(document.querySelector('[data-open-saves]')!);
-  fireEvent.doubleClick(document.querySelector('[data-open-save="2"]')!);
-  expect(opened).toEqual([7, 2]);
-  fireEvent.click(document.querySelector('[data-open-cancel]')!);
-  expect(document.querySelector('[data-save-picker]')).toBeNull();
-});
-
-test('the continue button says "Resume your last game" when the newest save is the background one', () => {
-  const save = (id: number, name: string) => ({ id, name, date: 0, turn: 3, year: 1495, nation: 'Dutch', size: 1 });
-  const { unmount } = render(
-    <StartScreen options={options} start={() => {}} saves={[save(7, 'Background autosave')]} open={() => {}} />,
-  );
-  expect(document.querySelector('[data-continue]')!.textContent).toBe('Resume your last game');
-  unmount();
-  render(
-    <StartScreen
-      options={options}
-      start={() => {}}
-      saves={[save(8, 'Mine'), save(7, 'Background autosave')]}
-      open={() => {}}
-    />,
-  );
-  expect(document.querySelector('[data-continue]')!.textContent).toBe('Continue Playing');
-});
-
-test('with no saves there is nothing to continue', () => {
-  render(<StartScreen options={options} start={() => {}} saves={[]} open={() => {}} />);
-  expect(document.querySelector('[data-continue]')).toBeNull();
-});
-
-test('with no saves a save file can still be opened, and the reason one will not open is shown', () => {
-  let asked = 0;
-  render(
-    <StartScreen
-      options={options}
-      start={() => {}}
-      saves={[]}
-      open={() => {}}
-      openFile={() => asked++}
-      openNote="Could not open the file: not a zip"
-    />,
-  );
-  fireEvent.click(document.querySelector('[data-open-file]')!);
-  expect(asked).toBe(1);
-  expect(screen.getByText('Could not open the file: not a zip')).toBeTruthy();
-});
-
 test('the game options the player started with are the defaults of the next game, the level’s are not', () => {
   const first = screenWith();
   fireEvent.click(screen.getByLabelText('Fog of war'));
@@ -561,17 +500,22 @@ test('the sound toggles show music and sound effects on or off, and change them'
   expect(calls).toEqual(['music true', 'effects false']);
 });
 
-test('Start game and Continue Playing are the choices that start the title music', () => {
+test('Start game is a choice that starts the title music', () => {
   let chosen = 0;
-  const { unmount } = render(<StartScreen options={options} start={() => {}} chosen={() => chosen++} />);
+  render(<StartScreen options={options} start={() => {}} chosen={() => chosen++} />);
   expect(chosen).toBe(0);
   fireEvent.click(document.querySelector('[data-start]')!);
   expect(chosen).toBe(1);
+});
+
+test('Back goes back to the title screen; with no way back there is no button', () => {
+  let back = 0;
+  const { unmount } = render(<StartScreen options={options} start={() => {}} back={() => back++} />);
+  fireEvent.click(document.querySelector('[data-back]')!);
+  expect(back).toBe(1);
   unmount();
-  const saves = [{ id: 7, name: 'a', date: 0, turn: 3, year: 1495, nation: 'Dutch', size: 1 }];
-  render(<StartScreen options={options} start={() => {}} saves={saves} open={() => {}} chosen={() => chosen++} />);
-  fireEvent.click(document.querySelector('[data-continue]')!);
-  expect(chosen).toBe(2);
+  render(<StartScreen options={options} start={() => {}} />);
+  expect(document.querySelector('[data-back]')).toBeNull();
 });
 
 test('the start screen opens with Start focused, so the focus ring marks the default', () => {

@@ -355,6 +355,8 @@ async function openPreset(page: Page, query: string) {
 
 /** The start screen by taps: a nation is picked, the game starts and is the player's. */
 async function startByTaps(page: Page, finger: Finger, nation: string) {
+  await page.waitForSelector('[data-new-game]', { timeout: 60000 });
+  await finger.tap(...(await center(page.locator('[data-new-game]'))));
   await page.waitForSelector('[data-start]', { timeout: 60000 });
   await finger.tap(...(await center(page.locator(`label.nation:has([data-nation="${nation}"])`))));
   check('a tap on a nation picks it', await until(() => page.locator(`[data-nation="${nation}"]`).isChecked()));
@@ -1017,7 +1019,7 @@ async function background(page: Page, finger: Finger) {
     .locator('[data-continue]')
     .textContent({ timeout: 30000 })
     .catch(() => null);
-  check('the start screen offers to resume it', text === 'Resume your last game', String(text));
+  check('the title screen offers to resume it', text === 'Resume your last game', String(text));
   void finger;
 }
 
@@ -1094,7 +1096,7 @@ async function iosSaves(browserName: BrowserName) {
     page.screenshot({ path: path.join(iosShotDir, `${browserName}-${name}.png`) });
   const startScreen = async (page: Page) => {
     await page.goto(`${server.url}?autoplay=0`);
-    await page.waitForSelector('[data-start]', { timeout: 60000 });
+    await page.waitForSelector('[data-new-game]', { timeout: 60000 });
   };
   const count = (page: Page, sel: string) => page.locator(sel).count();
   const phoneOptions = {
@@ -1140,7 +1142,7 @@ async function iosSaves(browserName: BrowserName) {
       // The start screen again: the saved games carry the warning too; dismissing the hint is remembered.
       await startScreen(phone);
       await phone.waitForSelector('[data-continue]', { timeout: 30000 });
-      check('the start screen with saves shows the warning', (await count(phone, `.saved-games ${warning}`)) === 1);
+      check('the title screen with saves shows the warning', (await count(phone, `.title-menu ${warning}`)) === 1);
       await phone.locator(warning).scrollIntoViewIfNeeded();
       await iosShot(phone, 'start-saves');
     }
@@ -1215,7 +1217,7 @@ for (const [browserName, devices] of browsers) {
       const page = await newTouchPage(browser, device, true);
       await prepare(page);
       await page.goto(`${server.url}?autoplay=0`);
-      await page.waitForSelector('[data-start]', { timeout: 60000 });
+      await page.waitForSelector('[data-new-game]', { timeout: 60000 });
       check('the rotate notice shows in portrait', await noticeShown(page));
       await page.screenshot({ path: path.join(shotDir, `${label.replace(/ /g, '-')}-rotate.png`) });
       await page.context().close();
@@ -1231,7 +1233,7 @@ for (const [browserName, devices] of browsers) {
       const finger = makeFinger(page, cdp);
       try {
         await page.goto(`${server.url}?autoplay=0`);
-        await page.waitForSelector('[data-start]', { timeout: 60000 });
+        await page.waitForSelector('[data-new-game]', { timeout: 60000 });
         // A phone is told the game was not made for it; a tap puts the notice away. A tablet is not told.
         const phone = Math.min(d.width, d.height) <= 600;
         const notice = page.locator('#mobile-notice [data-dismiss]');

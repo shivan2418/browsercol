@@ -20,6 +20,7 @@ import {
   opt,
   waitForResult,
   type FcResult,
+  newGame,
 } from './common.ts';
 import { answerDialogs } from './dialogs.ts';
 import { dist, serveDist } from './serve-dist.ts';
@@ -50,7 +51,7 @@ const MAP_HEIGHT = 'model.option.mapHeight';
 
 /** Pick on the start screen (nothing picked keeps what it shows first) and start the game. */
 async function startFromScreen(page: Page, nation?: string, level?: string, edits = false) {
-  await page.waitForSelector('[data-start]', { timeout: 60000 });
+  await newGame(page);
   if (nation) await page.click(`[data-nation="${nation}"]`);
   if (level) {
     // A drop-down list (src/controls.tsx): open it, then pick the entry by its value.
@@ -141,6 +142,7 @@ for (const name of browsers) {
         localStorage.setItem('freecol.prefs', JSON.stringify({ freecol: { 'model.option.languageOption': 'de' } })),
       );
       await german.goto(`${server.url}?autoplay=0`);
+      await newGame(german);
       await german.waitForSelector('[data-nation="model.nation.dutch"]', { timeout: 60000 });
       const nation = await german.textContent('label:has([data-nation="model.nation.dutch"]) .name');
       await german.click('[data-start]');
@@ -160,6 +162,7 @@ for (const name of browsers) {
         localStorage.setItem('freecol.prefs', JSON.stringify({ freecol: { 'model.option.languageOption': 'en_GB' } })),
       );
       await uk.goto(`${server.url}?autoplay=0`);
+      await newGame(uk);
       await uk.waitForSelector('[data-nation="model.nation.dutch"]', { timeout: 60000 });
       await uk.click('[data-start]');
       const r = await waitForResult(uk, startTimeout);
@@ -176,6 +179,7 @@ for (const name of browsers) {
     const pedia = await browser.newPage();
     try {
       await pedia.goto(`${server.url}?autoplay=0`);
+      await newGame(pedia, 120000);
       await pedia.click('[data-colopedia=nations]');
       await pedia.waitForSelector('.colopedia [data-entry="model.nation.dutch"]', { timeout: 120000 });
       // The window keeps one width and one height whatever entry is shown (#423), the longest text wrapping in it.

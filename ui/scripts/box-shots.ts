@@ -15,7 +15,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import type { Locator, Page } from 'playwright-core';
-import { browserNames, collectPageErrors, launchBrowser, opt, waitForResult } from './common.ts';
+import { browserNames, collectPageErrors, launchBrowser, opt, waitForResult, newGame } from './common.ts';
 import { answerDialogs } from './dialogs.ts';
 import { serveDist } from './serve-dist.ts';
 
@@ -176,7 +176,7 @@ for (const browserName of browserNames()) {
   try {
     // The start screen: the option editor's tabs (difficulty, game, map), as new game's more options.
     await page.goto(server.url);
-    await page.waitForSelector('[data-start]', { timeout: 60000 });
+    await newGame(page);
     await look();
     for (const t of ['difficulty', 'game', 'map']) {
       await page.click(`[data-customize-tab=${t}]`);

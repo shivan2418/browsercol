@@ -1,0 +1,95 @@
+/*
+ * The title screen (title-screen.tsx): the parchment map fills the page, the wordmark and the main menu sit on the
+ * open ocean in its middle. The colours are the map's own inks and stay the same in the dark theme, as the art does.
+ */
+@layer components {
+  :root {
+    --title-edge: #1b1b1b; /* The dark round the map's burnt edges, for the page past them */
+    --title-plaque: rgb(59 36 16 / 88%); /* A menu button: the wordmark's brown ink */
+    --title-plaque-hover: rgb(92 58 26 / 94%);
+    --title-plaque-ink: #efe2bf; /* The parchment of the wordmark's globes */
+    --title-plaque-line: #8c6c3c;
+    --title-note-bg: rgb(239 226 191 / 92%);
+    --title-note-ink: #3b2410;
+    --title-foot-bg: rgb(0 0 0 / 55%);
+  }
+  /* It is also .start (start-window.css), the page's start-screen layer: placed, centred and over the page as that. */
+  .start.title-screen {
+    overflow-y: auto;
+    background: var(--title-edge) url('./title-map.webp') center / cover no-repeat;
+  }
+  .title-menu {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-6);
+    /* Narrower on a short screen (a phone held sideways), so the menu fits under it. */
+    width: min(34rem, 100% - 32px, 95vh);
+    /* A little above the middle, where the map's ocean is emptiest. */
+    margin-bottom: calc(var(--space-6) * 3);
+  }
+  .title-menu h1 {
+    width: 100%;
+    margin: 0;
+  }
+  .title-menu h1 img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .title-menu nav {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    width: min(16rem, 100%);
+  }
+  .title-menu nav button {
+    min-height: var(--touch-target);
+    padding: var(--space-3) var(--space-6);
+    border: var(--border) solid var(--title-plaque-line);
+    border-radius: var(--radius-m);
+    background: var(--title-plaque);
+    color: var(--title-plaque-ink);
+    font: 600 1.15em / 1.2 var(--font-title);
+    letter-spacing: 0.04em;
+    box-shadow: var(--shadow-popup);
+    cursor: pointer;
+  }
+  .title-menu nav button:hover {
+    background: var(--title-plaque-hover);
+  }
+  .title-menu nav button:focus-visible {
+    outline: var(--border-thick) solid var(--title-plaque-ink);
+    outline-offset: var(--space-1);
+  }
+  .title-menu .title-note,
+  .title-menu > p {
+    margin: 0;
+    padding: var(--space-3) var(--space-5);
+    border-radius: var(--radius-m);
+    background: var(--title-note-bg);
+    color: var(--title-note-ink);
+    text-align: center;
+  }
+  .title-menu > p:empty {
+    display: none;
+  }
+  .start.title-screen .source-links {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    translate: -50% 0;
+    width: max-content;
+    max-width: calc(100% - 32px);
+    margin: 0;
+    padding: var(--space-2) var(--space-5);
+    border-radius: var(--radius-m) var(--radius-m) 0 0;
+    background: var(--title-foot-bg);
+    color: var(--title-plaque-ink);
+    font-size: var(--fs-s);
+  }
+  .start.title-screen .source-links a,
+  .start.title-screen .source-links .linkish {
+    color: inherit;
+  }
+}

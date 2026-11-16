@@ -11,7 +11,7 @@ const components = import.meta.glob(['./*.tsx', '!./*.test.tsx', '!./*.stories.t
 }) as Record<string, string>;
 
 /**
- * The rules that may use the viewport's units as they are: those of elements outside every scaled one (the page, the start screen, the loading screen, the right-click menu and the error
+ * The rules that may use the viewport's units as they are: those of elements outside every scaled one (the page, the start and title screens, the loading screen, the right-click menu and the error
  * banner, which are drawn at the browser's own scale).
  */
 const UNSCALED = new Set([
@@ -20,6 +20,7 @@ const UNSCALED = new Set([
   '.error-banner',
   '.start-window',
   '.start-window.new-game',
+  '.title-menu',
   ".new-game .more-options [role='tabpanel']",
   '#loading [data-loading-frame]',
 ]);

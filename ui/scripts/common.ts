@@ -224,6 +224,12 @@ export interface FcResult {
   [key: string]: unknown;
 }
 
+/** From the title screen a new page shows, on to the start screen by New Game: [data-start] is there after it. */
+export async function newGame(page: Page, timeout = 60000): Promise<void> {
+  await page.click('[data-new-game]', { timeout });
+  await page.waitForSelector('[data-start]', { timeout });
+}
+
 /**
  * Waits for the page's window.fcResult and returns it, once the loading screen (index.html, #265) has faded
  * out or stayed up to show a failed start: it never takes a click, but a screenshot taken while it fades has it in.

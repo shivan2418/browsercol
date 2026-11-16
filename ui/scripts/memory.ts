@@ -7,7 +7,7 @@
 // Run in the web image (Linux only, it reads /proc):
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/memory.ts [--browsers chromium,webkit] [--autoplay 10] [--wait 20]
 import fs from 'node:fs';
-import { browserNames, launchBrowser, opt, waitForResult } from './common.ts';
+import { browserNames, launchBrowser, opt, waitForResult, newGame } from './common.ts';
 import { answerDialogs } from './dialogs.ts';
 import { serveDist } from './serve-dist.ts';
 
@@ -58,7 +58,7 @@ for (const name of browsers) {
     console.log(`${name}: ${label}: peak ${peak.toFixed(0)} MB, now ${sample().toFixed(0)} MB`);
   };
   await page.goto(`${server.url}?autoplay=${autoplay}`);
-  await page.waitForSelector('[data-start]', { timeout: 120000 });
+  await newGame(page, 120000);
   phase('start screen shown');
   await page.waitForTimeout(wait);
   phase('start screen, both Engines loaded');

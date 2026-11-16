@@ -40,8 +40,12 @@ _Avoid_: fancy mode, HD mode, 3D mode
 FreeCol's name for one piece of art (e.g. a terrain tile, a unit image or the road colour), resolved to an image, colour or string through resource properties and mod overrides.
 _Avoid_: asset id, sprite name
 
+**Title screen**:
+The Browser UI's first page, a parchment map with the main menu: New Game (to the Start screen), Continue, Load Game, Options (Preferences) and Quit (FreeCol's MainPanel).
+_Avoid_: main menu page, splash screen, landing page
+
 **Start screen**:
-The Browser UI's first page, where the player picks a European nation and a difficulty level before the game starts (FreeCol's NewPanel and StartGamePanel, single player). Its choices reach the Engine as a preset.
+The Browser UI's page after the Title screen's New Game, where the player picks a European nation and a difficulty level before the game starts (FreeCol's NewPanel and StartGamePanel, single player). Its choices reach the Engine as a preset.
 _Avoid_: new game dialog, lobby
 
 **Room**:

@@ -116,6 +116,7 @@ import { ContextMenuContext, PopupMenu, parseMenu, type ContextMenus, type MenuD
 import type { AudioManifest } from './resources';
 import { soundPlayer } from './sound';
 import { StartScreen, type StartSetup } from './start-screen';
+import { TitleScreen } from './title-screen';
 import { presetJson, startOptions } from './start';
 import { nationName } from './fsg';
 import {
@@ -1849,7 +1850,7 @@ async function fetchPreset(name: string): Promise<string> {
 async function chooseGame(
   data: string[],
   language: string,
-  note = '',
+  firstNote = '',
 ): Promise<{ preset: string; importMap?: Uint8Array }> {
   // FreeCol's main panel offers Continue Playing and Open: the saves in the store, newest first.
   const saves = await store.list().catch(() => []);
@@ -1863,88 +1864,124 @@ async function chooseGame(
   // The screen goes once the start screen has had a frame to draw in.
   requestAnimationFrame(() => boot.finish('start'));
   return new Promise((done) => {
+    // The title screen first; New Game opens the start screen, which stays mounted under the title after Back so
+    // the setup made so far is kept.
+    let page: 'title' | 'setup' = 'title';
+    let setupOpened = false;
+    let note = firstNote;
     // Drawn again with why a save file would not open, if one does not.
-    const draw = (openNote: string) =>
+    const draw = (openNote = note) => {
+      note = openNote;
       root.render(
         // The setup's option rows explain themselves on hover (FreeCol's short descriptions): the start screen
         // needs its own tooltip layer, as the side panel's is not mounted before a game.
         <TipProvider>
           <TooltipLayer />
-          <StartScreen
-            key={rules}
-            openFile={() => void openSaveFile().then(draw)}
-            openNote={openNote}
-            exportSave={(id) => {
-              const meta = saves.find((s) => s.id === id);
-              if (meta) void exportSaveFile(store, meta).then(draw);
-            }}
-            options={startOptions(data, rules)}
-            rules={rules}
-            setup={startSetup}
-            changeRules={(id, setup) => {
-              // The data bundle holds every ruleset, so the start screen switches in place; the address keeps
-              // the choice for a reload. Its nations and options differ, so the screen starts afresh (key),
-              // keeping what of the setup the new ruleset still has.
-              rules = id;
-              startSetup = setup;
-              const next = new URLSearchParams(location.search);
-              next.set('rules', id);
-              history.replaceState(history.state, '', `?${next}`);
-              draw(openNote);
-            }}
-            saves={saves}
-            open={openSave}
-            chosen={chosen}
-            sound={{
-              music: !prefs.muteMusic,
-              effects: !prefs.muteEffects,
-              setMusic: (on) => {
-                setPrefs({ ...prefs, muteMusic: !on });
-                draw(openNote);
-              },
-              setEffects: (on) => {
-                setPrefs({ ...prefs, muteEffects: !on });
-                draw(openNote);
-              },
-            }}
-            // No client Engine exists yet: the Colopedia comes from the client module's rules-only entry.
-            colopedia={async (select) =>
-              colopediaBefore<ReportView & { report: 'colopedia' }>(
-                await clientModule(),
-                globalThis as unknown as Scope,
-                language,
-                data,
-                rules,
-                select,
-              )
-            }
-            art={art}
-            start={(c) => {
-              root.unmount();
-              host.remove();
-              boot.begin(gameParts);
-              // The browser has no file system for the server Engine to read the file from: hand it the bytes.
-              void (
-                c.importMap?.arrayBuffer() ??
-                (c.builtInMap
-                  ? fetch(c.builtInMap).then((r) => {
-                      if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
-                      return r.arrayBuffer();
-                    })
-                  : Promise.resolve(undefined))
-              ).then(
-                (bytes) => done({ preset: presetJson(c), importMap: bytes && new Uint8Array(bytes) }),
-                (ex: unknown) => {
-                  // A file the browser can no longer read: start on a generated map and say so.
-                  reportError('The map file could not be read', String(ex));
-                  done({ preset: presetJson(c) });
-                },
-              );
-            }}
-          />
+          {page === 'title' && (
+            <TitleScreen
+              newGame={() => {
+                page = 'setup';
+                setupOpened = true;
+                draw();
+              }}
+              saves={saves}
+              open={openSave}
+              openFile={() => void openSaveFile().then(draw)}
+              openNote={openNote}
+              exportSave={(id) => {
+                const meta = saves.find((s) => s.id === id);
+                if (meta) void exportSaveFile(store, meta).then(draw);
+              }}
+              preferences={(close) => (
+                <PreferencesDialog
+                  prefs={prefs}
+                  freecol={freecolOptions}
+                  change={(p) => {
+                    setPrefs(p);
+                    draw();
+                  }}
+                  close={close}
+                />
+              )}
+              chosen={chosen}
+            />
+          )}
+          {setupOpened && (
+            <div hidden={page !== 'setup'}>
+              <StartScreen
+                key={rules}
+                back={() => {
+                  page = 'title';
+                  draw();
+                }}
+                options={startOptions(data, rules)}
+                rules={rules}
+                setup={startSetup}
+                changeRules={(id, setup) => {
+                  // The data bundle holds every ruleset, so the start screen switches in place; the address keeps
+                  // the choice for a reload. Its nations and options differ, so the screen starts afresh (key),
+                  // keeping what of the setup the new ruleset still has.
+                  rules = id;
+                  startSetup = setup;
+                  const next = new URLSearchParams(location.search);
+                  next.set('rules', id);
+                  history.replaceState(history.state, '', `?${next}`);
+                  draw(openNote);
+                }}
+                chosen={chosen}
+                sound={{
+                  music: !prefs.muteMusic,
+                  effects: !prefs.muteEffects,
+                  setMusic: (on) => {
+                    setPrefs({ ...prefs, muteMusic: !on });
+                    draw();
+                  },
+                  setEffects: (on) => {
+                    setPrefs({ ...prefs, muteEffects: !on });
+                    draw();
+                  },
+                }}
+                // No client Engine exists yet: the Colopedia comes from the client module's rules-only entry.
+                colopedia={async (select) =>
+                  colopediaBefore<ReportView & { report: 'colopedia' }>(
+                    await clientModule(),
+                    globalThis as unknown as Scope,
+                    language,
+                    data,
+                    rules,
+                    select,
+                  )
+                }
+                art={art}
+                start={(c) => {
+                  root.unmount();
+                  host.remove();
+                  boot.begin(gameParts);
+                  // The browser has no file system for the server Engine to read the file from: hand it the bytes.
+                  void (
+                    c.importMap?.arrayBuffer() ??
+                    (c.builtInMap
+                      ? fetch(c.builtInMap).then((r) => {
+                          if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+                          return r.arrayBuffer();
+                        })
+                      : Promise.resolve(undefined))
+                  ).then(
+                    (bytes) => done({ preset: presetJson(c), importMap: bytes && new Uint8Array(bytes) }),
+                    (ex: unknown) => {
+                      // A file the browser can no longer read: start on a generated map and say so.
+                      reportError('The map file could not be read', String(ex));
+                      done({ preset: presetJson(c) });
+                    },
+                  );
+                }}
+              />
+            </div>
+          )}
         </TipProvider>,
       );
-    draw(note);
+    };
+    draw();
   });
 }
 

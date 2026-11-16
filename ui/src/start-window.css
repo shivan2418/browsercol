@@ -235,14 +235,6 @@
     font-weight: bold;
     border-color: var(--accent);
   }
-  .new-game .saved-games {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
-  }
-  .new-game .saved-games p {
-    margin: 0;
-  }
   /* The rarely changed settings: a row of tabs, and the open tab's panel under it. */
   .new-game .more-options {
     --tab-panel: var(--box);

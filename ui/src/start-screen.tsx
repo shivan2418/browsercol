@@ -1,8 +1,8 @@
 // The start screen (#55): FreeCol's NewPanel and StartGamePanel for a single
 // player, in the Browser UI's look (docs/adr/0004). The player picks a
-// European nation and a difficulty level and starts the game. Rendered by
-// main.tsx until the game starts. Hooks for the browser scripts: [data-nation]
-// on each nation's radio button, [data-difficulty] on the level's select and
+// European nation and a difficulty level and starts the game. Opened by the
+// title screen's New Game (title-screen.tsx); Back ([data-back]) returns there.
+// Hooks for the browser scripts: [data-nation] on each nation's radio button, [data-difficulty] on the level's select and
 // [data-start] on the Start button. The level's options and the game options
 // open in the option editor (#56) under [data-customize=difficulty] and
 // [data-customize=game]; the map generator's options (#57) under
@@ -24,13 +24,10 @@ import type { Art } from './frame';
 import { OptionEditor } from './option-editor';
 import { leaves, sameValue, type OptionGroup, type OptionValue } from './options';
 import { ReportContext, ReportPanel, startColopediaAt, type ReportActions } from './reports';
-import { OpenDialog, OpenFile } from './save-picker';
-import { isBackgroundSave, type SaveMeta } from './saves';
 import { levelFile, loadDefaults, readLevelFile, saveDefaults } from './start-options';
 import { ADVANTAGES, MAPS, type Advantages, type StartChoice, type StartOptions } from './start';
 import type { ReportView } from './webgui';
 import { coverageHitMethod, useCoverage } from './coverage';
-import { HomeScreenHint, IosSavesWarning } from './ios-notes';
 import './start-window.css';
 
 /** The map generator's import file option (MapGeneratorOptions.IMPORT_FILE). */
@@ -260,11 +257,7 @@ export function StartScreen({
   rules,
   changeRules,
   setup,
-  saves = [],
-  open: openGame,
-  openFile,
-  exportSave,
-  openNote,
+  back,
   colopedia,
   art = () => null,
   sound,
@@ -280,18 +273,10 @@ export function StartScreen({
   changeRules?: (rules: string, setup: StartSetup) => void;
   /** The setup carried over from another ruleset's screen; the ruleset's defaults without it. */
   setup?: StartSetup;
-  /** The saved games, newest first: the first is the one Continue plays. */
-  saves?: SaveMeta[];
-  /** Play a saved game. */
-  open?: (id: number) => void;
-  /** The player's New Game or Continue click, called inside it: the browser lets the title music start then (#272). */
+  /** Back to the title screen; no Back button without it. */
+  back?: () => void;
+  /** The player's Start game click, called inside it: the browser lets the title music start then (#272). */
   chosen?: () => void;
-  /** Ask for a .fsg file and play it, as MainPanel's Open does with its file chooser. */
-  openFile?: () => void;
-  /** Download a save as a .fsg file. */
-  exportSave?: (id: number) => void;
-  /** Why the last file would not open, or what became of an export; empty for none. */
-  openNote?: string;
   /**
    * The Colopedia, as the report the Engine builds from the rules alone, opened on an entry or none. Swing's
    * player table opens it on the nations and the nation types (PlayersTable); no button shows without it.
@@ -303,12 +288,6 @@ export function StartScreen({
   sound?: { music: boolean; effects: boolean; setMusic: (on: boolean) => void; setEffects: (on: boolean) => void };
 }) {
   useCoverage('showNewPanel');
-  const open =
-    openGame &&
-    ((id: number) => {
-      gameChosen?.();
-      openGame(id);
-    });
   const nationIds = [...options.nations, ...options.rivals].map((n) => n.id);
   const [advantages, setAdvantages] = useState<Advantages>(setup?.advantages ?? 'SELECTABLE');
   const [nationType, setNationType] = useState<string>(() =>
@@ -375,8 +354,6 @@ export function StartScreen({
   const [credits, setCredits] = useState(false);
   const [pedia, setPedia] = useState<ReportView | null>(null);
   const [opening, setOpening] = useState(false);
-  // The saves open in a window of their own, as Game > Open's, not a foldout that pushes the start window about.
-  const [savesShown, setSavesShown] = useState(false);
   const [pediaError, setPediaError] = useState<string | null>(null);
   /** Open the Colopedia on a section or entry; a link in it goes on in the same window. */
   const openPedia = (section: string | null, select: string | null = null) => {
@@ -697,32 +674,10 @@ export function StartScreen({
             <button type="submit" className="start-button" autoFocus data-start>
               Start game
             </button>
-            <HomeScreenHint />
-            {open && (saves.length > 0 || openFile) && (
-              <div className="saved-games">
-                {saves.length > 0 && (
-                  <>
-                    <button type="button" data-continue onClick={() => open(saves[0].id)}>
-                      {isBackgroundSave(saves[0]) ? 'Resume your last game' : 'Continue Playing'}
-                    </button>
-                    <button type="button" data-open-saves onClick={() => setSavesShown(true)}>
-                      Open a saved game...
-                    </button>
-                  </>
-                )}
-                {saves.length > 0 && <IosSavesWarning />}
-                {saves.length === 0 && (openFile || openNote) && <OpenFile openFile={openFile} note={openNote} />}
-              </div>
-            )}
-            {open && savesShown && saves.length > 0 && (
-              <OpenDialog
-                saves={saves}
-                open={open}
-                openFile={openFile}
-                exportSave={exportSave}
-                note={openNote}
-                close={() => setSavesShown(false)}
-              />
+            {back && (
+              <button type="button" className="start-back" data-back onClick={back}>
+                Back
+              </button>
             )}
             {sound && <SoundToggles sound={sound} />}
           </div>

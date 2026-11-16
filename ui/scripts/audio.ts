@@ -9,7 +9,7 @@
 // Run in the web image:
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/audio.ts [--browsers chromium,firefox] [--url https://browsercol.com/]
 import type { Page, Response } from 'playwright-core';
-import { browserNames, collectPageErrors, diagnose, launchBrowser, opt, waitForResult } from './common.ts';
+import { browserNames, collectPageErrors, diagnose, launchBrowser, opt, waitForResult, newGame } from './common.ts';
 import { answerDialogs } from './dialogs.ts';
 import { logAudio } from './sound-log.ts';
 import { serveDist } from './serve-dist.ts';
@@ -61,7 +61,7 @@ async function load(name: ReturnType<typeof browserNames>[number], music: boolea
     });
     const total = async () => (await Promise.all(sizes)).reduce((sum, r) => sum + r.bytes, 0);
     await page.goto(url);
-    await page.waitForSelector('[data-start]', { timeout: 60000 });
+    await newGame(page);
     // The start screen's own music, if it plays, is requested at once: give it time.
     await page.waitForTimeout(3000);
     const startScreen = await total();
