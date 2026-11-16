@@ -45,7 +45,8 @@ export function ringMeaning(state: OfflineProgress['state'], percent: number): s
 
 /**
  * The offline copy on the title screen: a ring drawn in ink round the centre of the map's compass, filling as the
- * copy is saved, with a tick once it is ready and a cross if it failed. The words are its tooltip and its label.
+ * copy is saved with the percent inside it, then a tick once it is ready and a cross if it failed. The words are its
+ * tooltip and its label.
  */
 export function OfflineRing() {
   const progress = useSyncExternalStore(offlineStatus.subscribe, offlineStatus.snapshot);
@@ -65,6 +66,11 @@ export function OfflineRing() {
       <svg viewBox="0 0 100 100" aria-hidden="true">
         <circle className="track" cx="50" cy="50" r="42" />
         <circle className="arc" cx="50" cy="50" r="42" pathLength="100" strokeDasharray={`${percent} 100`} />
+        {(progress.state === 'saving' || progress.state === 'updating') && (
+          <text className="percent" x="50" y="50">
+            {percent}%
+          </text>
+        )}
         {progress.state === 'ready' && <path className="mark" d="M33 51 L45 63 L68 38" />}
         {progress.state === 'failed' && <path className="mark" d="M36 36 L64 64 M64 36 L36 64" />}
       </svg>

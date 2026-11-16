@@ -93,6 +93,15 @@
     stroke-width: 9;
     stroke-linejoin: round;
   }
+  .offline-ring .percent {
+    rotate: 90deg;
+    transform-origin: 50px 50px;
+    fill: var(--title-ring-ink);
+    stroke: none;
+    font: 700 26px var(--font);
+    text-anchor: middle;
+    dominant-baseline: central;
+  }
   .offline-ring[data-offline='saving'] .arc,
   .offline-ring[data-offline='updating'] .arc {
     animation: offline-ring-breathe 1.6s ease-in-out infinite alternate;
