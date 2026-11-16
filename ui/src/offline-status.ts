@@ -14,20 +14,41 @@ export interface OfflineProgress {
 const UNAVAILABLE: OfflineProgress = { state: 'unavailable', bytes: 0, totalBytes: 0 };
 
 /** What the status needs of the browser's worker container, so a test can stand in for it. */
-export type OfflineContainer = Pick<ServiceWorkerContainer, 'controller' | 'addEventListener'>;
+export type OfflineContainer = Pick<ServiceWorkerContainer, 'controller' | 'addEventListener'> &
+  Partial<Pick<ServiceWorkerContainer, 'getRegistration'>>;
 
 export class OfflineStatus {
   progress: OfflineProgress = UNAVAILABLE;
   private listeners = new Set<() => void>();
   private attached = false;
+  /** Whether this browser has a whole copy already: a worker runs the page, or one is active for the site. */
+  private hasCopy = false;
 
-  /** Follow the worker's messages. A page a worker already runs has the copy, as a worker takes over only then. */
+  /**
+   * Follow the worker's messages. A page a worker already runs has the copy, as a worker takes over only then. A
+   * page loaded with Ctrl+Shift+R is not run by the worker even so: the site's registration says whether one is
+   * active (the copy is in) or installing (it is being saved), as the messages may have gone before the page heard.
+   */
   attach(container: OfflineContainer) {
     if (!this.attached) {
       this.attached = true;
-      container.addEventListener('message', (e) => this.receive((e as MessageEvent).data, !!container.controller));
+      container.addEventListener('message', (e) => this.receive((e as MessageEvent).data, this.hasCopy));
     }
-    this.set(container.controller ? { ...this.progress, state: 'ready' } : { ...this.progress, state: 'unavailable' });
+    this.hasCopy = !!container.controller;
+    this.set(this.hasCopy ? { ...this.progress, state: 'ready' } : { ...this.progress, state: 'unavailable' });
+    if (this.hasCopy) return;
+    void container
+      .getRegistration?.()
+      .then((r) => {
+        if (!r || this.progress.state === 'off') return;
+        if (r.active) {
+          this.hasCopy = true;
+          if (this.progress.state === 'unavailable') this.set({ ...this.progress, state: 'ready' });
+        } else if (r.installing && this.progress.state === 'unavailable') {
+          this.set({ ...this.progress, state: 'saving' });
+        }
+      })
+      .catch(() => {});
   }
 
   /** The player turned the offline copy off: it is gone, and nothing is saved. */
@@ -35,7 +56,7 @@ export class OfflineStatus {
     this.set({ state: 'off', bytes: 0, totalBytes: 0 });
   }
 
-  /** Take a message from a worker; `controlled` is whether a worker already runs the page (a new build saving). */
+  /** Take a message from a worker; `controlled` is whether the browser has a copy already (a new build saving). */
   receive(data: unknown, controlled: boolean) {
     const m = data as { type?: string; state?: string; bytes?: number; totalBytes?: number };
     if (!m || m.type !== 'offline-progress' || this.progress.state === 'off') return;
