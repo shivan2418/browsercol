@@ -197,6 +197,19 @@ class SelectDestinationTest {
         }
     }
 
+    /** The land nearest the ship where the player can found a colony that is a port on the high seas. */
+    private Tile portSite(Unit ship) {
+        final Game game = server.getGame();
+        final Player us = game.getFreeColGameObject(
+            client.getClient().getMyPlayer().getId(), Player.class);
+        final Tile from = game.getMap().getTile(ship.getTile().getX(), ship.getTile().getY());
+        final Tile site = game.getMap().getTileSet(t -> t.isLand() && us.canClaimToFoundSettlement(t)
+                && t.getSurroundingTiles(1, 1).stream().anyMatch(Tile::isDirectlyHighSeasConnected))
+            .stream().min(Comparator.comparingInt(t -> t.getDistanceTo(from))).orElse(null);
+        assertNotNull(site, "the map has a claimable coast on the high seas");
+        return site;
+    }
+
     @SuppressWarnings("unchecked")
     private static java.util.Map<String, Object> parse(String json) {
         return (java.util.Map<String, Object>)JsonReader.read(json);
@@ -374,8 +387,12 @@ class SelectDestinationTest {
         final Player player = client.getClient().getMyPlayer();
         final Unit ship = ship();
         sailOntoHighSeas(ship);
-        final String colonyId = (String)parse(
-            server.debug("{\"action\":\"addColony\"}")).get("colony");
+        // A colony is listed to a ship only if it is a connected port. addColony with no tile
+        // founds on the nearest claimable land, which on some maps (the map is made afresh
+        // for every game) is inland or on a lake, so the test names a coastal tile on the sea.
+        final Tile site = portSite(ship);
+        final String colonyId = (String)parse(server.debug("{\"action\":\"addColony\",\"x\":"
+            + site.getX() + ",\"y\":" + site.getY() + "}")).get("colony");
         // The server adds the colony and its tiles; the client learns of them in later
         // updates. Re-read the colony each time and wait until it is ours, on the map, and
         // in our colony list, so the destination list cannot be built before it arrives.
@@ -389,6 +406,8 @@ class SelectDestinationTest {
         }
         assertNotNull(seen, "the client never got the colony " + colonyId);
         final Colony colony = seen;
+        assertTrue(colony.isConnectedPort(), "the client's colony at " + colony.getTile().getX()
+            + "," + colony.getTile().getY() + " is a connected port, or no ship can list it");
         wanted = null;
         client.getClient().getInGameController().selectDestination(ship);
         final String question = lastQuestion("choice");
