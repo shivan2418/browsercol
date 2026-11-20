@@ -57,6 +57,15 @@ public abstract class Session {
      */
     protected Session(String key) {
         Session s = getSession(key);
+        // A completed session stays registered until the next turn (completeAll), so a
+        // question answered this turn made declaring independence, whose mercenary offer has the
+        // same key, throw halfway through (#173). Drop it, as Session.lookup does.
+        if (s != null && s.isComplete()) {
+            synchronized (allSessions) {
+                allSessions.remove(key, s);
+            }
+            s = null;
+        }
         if (s != null) {
             throw new IllegalArgumentException("Duplicate session: " + key
                                                + " -> " + s);

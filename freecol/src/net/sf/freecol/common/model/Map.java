@@ -2206,7 +2206,7 @@ ok:     while (!openMap.isEmpty()) {
         // Flood fill each contiguous water region, setting the
         // contiguity number.
         int contig = 0;
-        floodFill(contig, ymax, xmax, waterMap);
+        contig = floodFill(contig, ymax, xmax, waterMap); // number land after water (#172)
 
         // Complement the waterMap, it is now the land map.
         for (int y = 0; y < ymax; y++) {
@@ -2226,8 +2226,12 @@ ok:     while (!openMap.isEmpty()) {
      * @param ymax The Y-value
      * @param xmax The X-value
      * @param waterMap The boolean array containing the x and y coordinates
+     * @return The next free contiguity number.
      */
-    private void floodFill(int contig, int ymax, int xmax, boolean[][] waterMap) {
+    // It returned nothing, so the land pass numbered its regions
+    // from 0 again, and the first land region shared contiguity 0 with
+    // the first water region (#172).
+    private int floodFill(int contig, int ymax, int xmax, boolean[][] waterMap) {
         for (int y = 0; y < ymax; y++) {
             for (int x = 0; x < xmax; x++) {
                 if (waterMap[x][y]) {
@@ -2249,6 +2253,7 @@ ok:     while (!openMap.isEmpty()) {
                 }
             }
         }
+        return contig;
     }
 
     /**

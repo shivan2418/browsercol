@@ -36,12 +36,33 @@ public class ExportData extends FreeColObject {
     private static final int HIGH_LEVEL_DEFAULT = 90;
     private static final int LOW_LEVEL_DEFAULT = 10;
     private static final int EXPORT_LEVEL_DEFAULT = 50;
-    
+
+    // new data starts as FreeCol's fixed 90, 10 and 50, and follow the
+    // warehouse client options (highLevel, lowLevel, customStock), which
+    // upstream reads nowhere: see setDefaults.
+    private static int highLevelDefault = 90;
+    private static int lowLevelDefault = 10;
+    private static int exportLevelDefault = 50;
+
+    /**
+     * Start the export data made from now on at these levels: the warehouse
+     * client options, as the Browser UI's client Engine follows them.
+     *
+     * @param highLevel The high water mark.
+     * @param lowLevel The low water mark.
+     * @param exportLevel The amount of goods to retain.
+     */
+    public static void setDefaults(int highLevel, int lowLevel, int exportLevel) {
+        highLevelDefault = highLevel;
+        lowLevelDefault = lowLevel;
+        exportLevelDefault = exportLevel;
+    }
+
     /** The high water mark for the goods type. */
-    private int highLevel = HIGH_LEVEL_DEFAULT;
+    private int highLevel = highLevelDefault;
 
     /** The low water mark for the goods type. */
-    private int lowLevel = LOW_LEVEL_DEFAULT;
+    private int lowLevel = lowLevelDefault;
 
     /**
      * The amount of goods to import to, do not import when this is present.
@@ -51,7 +72,7 @@ public class ExportData extends FreeColObject {
     /**
      * The amount of goods to retain, goods beyond this amount are exported.
      */
-    private int exportLevel = EXPORT_LEVEL_DEFAULT;
+    private int exportLevel = exportLevelDefault;
 
     /** Whether to export or not. */
     private boolean exported = false;

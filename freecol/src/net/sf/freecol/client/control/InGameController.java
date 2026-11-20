@@ -2767,6 +2767,30 @@ public final class InGameController extends FreeColClientHolder {
     }
 
     /**
+     * why a unit on the map cannot found a colony, by the causes
+     * Unit.canBuildColony checks: the unit's type, then a rebel's game
+     * option, as both last past this turn, then the unit's moves. The rules
+     * have no sentence for these, so they are English, as the Engine is.
+     *
+     * @param unit The {@code Unit} that cannot found a colony.
+     * @return The cause, as a sentence, or "" for a cause not known here.
+     */
+    private static String whyNoColony(Unit unit) {
+        if (!unit.getType().canBuildColony()) {
+            return "Units of its type never found colonies.";
+        }
+        if (unit.getOwner().isRebel()
+            && !unit.getSpecification().getBoolean(GameOptions.FOUND_COLONY_DURING_REBELLION)) {
+            return "A rebel founds no colony while the game option "
+                + Messages.message(GameOptions.FOUND_COLONY_DURING_REBELLION + ".name")
+                + " is off.";
+        }
+        if (unit.getMovesLeft() <= 0) return "It has no moves left this turn.";
+        // A cause Unit.canBuildColony has gained since: say none rather than the wrong one.
+        return "";
+    }
+
+    /**
      * Use the active unit to build a colony.
      *
      * Called from BuildColonyAction.
@@ -2781,9 +2805,20 @@ public final class InGameController extends FreeColClientHolder {
         final Tile tile = unit.getTile();
         if (tile == null) return false;
         if (!unit.canBuildColony()) {
-            showInformationPanel(unit, StringTemplate
-                .template("buildColony.badUnit")
-                .addName("%unit%", unit.getName()));
+            // the message names the unit with its label; upstream names
+            // it with Unit.getName(), which is null for every unit the player
+            // never renamed, so the message read "Your null can not build a
+            // colony." FreeCol names only ships, so most units had no name.
+            // The message then says why: upstream's Swing client never shows
+            // it, as BuildColonyAction is disabled, but the player who meets
+            // it should not have to guess which of the causes applies.
+            final StringTemplate message = StringTemplate.label(" ")
+                .addStringTemplate(StringTemplate
+                    .template("buildColony.badUnit")
+                    .addStringTemplate("%unit%", unit.getLabel()));
+            final String why = whyNoColony(unit);
+            if (!why.isEmpty()) message.addName(why);
+            showInformationPanel(unit, message);
             return false;
         }
 

@@ -382,6 +382,7 @@ public class TradeRoute extends FreeColGameObject implements Nameable, Ownable {
         if (o == null || !super.copyIn(o)) return false;
         this.name = o.getName();
         this.owner = o.getOwner();
+        this.silent = o.isSilent(); // Upstream forgets it, so the server loses a route's silence
         clearStops();
         for (TradeRouteStop trs : o.getStopList()) {
             addStop(new TradeRouteStop(trs));

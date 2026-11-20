@@ -4581,8 +4581,12 @@ outer:  for (Effect effect : effects) {
                 csNaturalDisasters(random, cs, disaster);
             }
 
+            // Hold the intervention while no connected port is left
+            // (the REF may have taken the last one). Upstream picked a random
+            // member of the empty list and dereferenced null (#224).
             if (isRebel()
-                && interventionBells >= spec.getInteger(GameOptions.INTERVENTION_BELLS)) {
+                && interventionBells >= spec.getInteger(GameOptions.INTERVENTION_BELLS)
+                && !getConnectedPortList().isEmpty()) {
                 interventionBells = Integer.MIN_VALUE;
                 
                 // Enter near a port.
