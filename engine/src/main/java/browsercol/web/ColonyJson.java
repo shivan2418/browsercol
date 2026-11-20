@@ -396,12 +396,21 @@ final class ColonyJson {
         return goods(ag.getType(), ag.getAmount()).put("max", max).toString();
     }
 
-    /** TilesPanel's grid: Swing's tiles[x][y], from the colony tile. */
-    private static final Direction[][] GRID = {
-        { Direction.N, Direction.NE, Direction.E },
-        { Direction.NW, null, Direction.SE },
-        { Direction.W, Direction.SW, Direction.S },
-    };
+    /**
+     * TilesPanel's grid: Swing's tiles[x][y], from the colony tile. The
+     * colony's eight neighbours go round the grid's edge, anticlockwise from
+     * its top left corner, in the order of Direction.allDirections.
+     */
+    private static final Direction[][] GRID = gridOfNeighbours();
+
+    private static Direction[][] gridOfNeighbours() {
+        final int[][] ring = { {0, 0}, {1, 0}, {2, 0}, {2, 1}, {2, 2}, {1, 2}, {0, 2}, {0, 1} };
+        final Direction[][] grid = new Direction[3][3];
+        for (int i = 0; i < ring.length; i++) {
+            grid[ring[i][0]][ring[i][1]] = Direction.allDirections.get(0).rotate(-i);
+        }
+        return grid;
+    }
 
     private static String tiles(Colony colony) {
         final Tile centre = colony.getTile();

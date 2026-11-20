@@ -157,7 +157,7 @@ public class RiverSection {
 
     public String encodeStyle() {
         StringBuilder sb = new StringBuilder();
-        for (Direction direction : Direction.longSides) {
+        for (Direction direction : Direction.edgeNeighbours) {
             sb.append(Integer.toString(getBranch(direction), Character.MAX_RADIX));
         }
         return sb.toString();

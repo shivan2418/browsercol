@@ -196,7 +196,7 @@ public class LandMap {
         if (!setLand(x, y)) return;
 
         Position p = new Position(x, y);
-        for (Direction direction : Direction.longSides) {
+        for (Direction direction : Direction.edgeNeighbours) {
             Position n = new Position(p, direction);
             if (n.isValid(getWidth(), getHeight())) {
                 growLand(n.getX(), n.getY(), distanceToEdge);
@@ -346,7 +346,7 @@ public class LandMap {
                 && p.getX() < getWidth() - distanceToEdge);
         final Function<Direction, Position> positionMapper = d ->
             new Position(position, d);
-        return transform(map(Direction.longSides, positionMapper), landPred);
+        return transform(map(Direction.edgeNeighbours, positionMapper), landPred);
     }
 
     /**

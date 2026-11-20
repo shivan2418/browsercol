@@ -772,12 +772,12 @@ public class TerrainGenerator {
             = new EnumMap<>(Direction.class);
 
         // corners
-        for (Direction d : Direction.corners) {
+        for (Direction d : Direction.cornerNeighbours) {
             Tile t = tile.getNeighbourOrNull(d);
             connections.put(d, t != null && t.isLand());
         }
         // edges
-        for (Direction d : Direction.longSides) {
+        for (Direction d : Direction.edgeNeighbours) {
             Tile t = tile.getNeighbourOrNull(d);
             if (t != null && t.isLand()) {
                 connections.put(d, Boolean.TRUE);
@@ -790,11 +790,11 @@ public class TerrainGenerator {
         }
         int result = 0;
         int index = 0;
-        for (Direction d : Direction.corners) {
+        for (Direction d : Direction.cornerNeighbours) {
             if (connections.get(d)) result += (int)Math.pow(2, index);
             index++;
         }
-        for (Direction d : Direction.longSides) {
+        for (Direction d : Direction.edgeNeighbours) {
             if (connections.get(d)) result += (int)Math.pow(2, index);
             index++;
         }

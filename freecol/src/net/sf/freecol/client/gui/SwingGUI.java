@@ -1346,7 +1346,7 @@ public class SwingGUI extends GUI {
          */
         
         boolean scrolled = false;
-        if (Direction.longSides.contains(direction)) {
+        if (Direction.edgeNeighbours.contains(direction)) {
             final List<Direction> directions = toNonDiagonalDirections(direction);
             scrolled |= this.mapViewer.getMapViewerBounds().scrollMap(directions.get(0));
             if (scrolled) {

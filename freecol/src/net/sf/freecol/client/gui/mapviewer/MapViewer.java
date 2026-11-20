@@ -1413,9 +1413,9 @@ public final class MapViewer extends FreeColClientHolder {
             final EnumMap<Direction, Float> borderPoints = mapViewerScaledUtils.getBorderPoints();
             EnumMap<Direction, Float> controlPoints = mapViewerScaledUtils.getControlPoints();
             
-            path.moveTo(borderPoints.get(Direction.longSides.get(0)).x,
-                    borderPoints.get(Direction.longSides.get(0)).y);
-            for (Direction d : Direction.longSides) {
+            path.moveTo(borderPoints.get(Direction.edgeNeighbours.get(0)).x,
+                    borderPoints.get(Direction.edgeNeighbours.get(0)).y);
+            for (Direction d : Direction.edgeNeighbours) {
                 Tile otherTile = tile.getNeighbourOrNull(d);
                 Direction next = d.getNextDirection();
                 Direction next2 = next.getNextDirection();

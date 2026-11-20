@@ -982,6 +982,11 @@ public class Map extends FreeColGameObject implements Location, Iterable<Tile> {
      */
     private final class CircleIterator implements Iterator<Tile> {
 
+        /** The edge neighbour a ring's first tile is one step along from the ring's first corner. */
+        private final Direction firstEdge = Direction.edgeNeighbours.get(0);
+        /** The corner neighbour that the ring's first corner lies towards. */
+        private final Direction firstCorner = Direction.cornerNeighbours.get(0);
+
         /** The maximum radius. */
         private final int radius;
         /** The current radius of the iteration. */
@@ -1010,7 +1015,7 @@ public class Map extends FreeColGameObject implements Location, Iterable<Tile> {
             if (radius <= 0) {
                 x = y = UNDEFINED;
             } else if (isFilled || radius == 1) {
-                step = Direction.NE.step(center.getX(), center.getY());
+                step = firstEdge.step(center.getX(), center.getY());
                 x = step.x;
                 y = step.y;
                 currentRadius = 1;
@@ -1019,11 +1024,11 @@ public class Map extends FreeColGameObject implements Location, Iterable<Tile> {
                 x = center.getX();
                 y = center.getY();
                 for (int i = 1; i < radius; i++) {
-                    step = Direction.N.step(x, y);
+                    step = firstCorner.step(x, y);
                     x = step.x;
                     y = step.y;
                 }
-                step = Direction.NE.step(x, y);
+                step = firstEdge.step(x, y);
                 x = step.x;
                 y = step.y;
             }
@@ -1038,7 +1043,8 @@ public class Map extends FreeColGameObject implements Location, Iterable<Tile> {
             do {
                 n++;
                 final int width = currentRadius * 2;
-                if (n >= width * 4) {
+                final int sides = Direction.edgeNeighbours.size();
+                if (n >= width * sides) {
                     currentRadius++;
                     if (currentRadius > radius) {
                         x = y = UNDEFINED;
@@ -1049,30 +1055,15 @@ public class Map extends FreeColGameObject implements Location, Iterable<Tile> {
                     } else {
                         n = 0;
                         started = false;
-                        Position step = Direction.NE.step(x, y);
+                        Position step = firstEdge.step(x, y);
                         x = step.x;
                         y = step.y;
                     }
                 } else {
-                    int i = n / width;
-                    Direction direction;
-                    switch (i) {
-                    case 0:
-                        direction = Direction.SE;
-                        break;
-                    case 1:
-                        direction = Direction.SW;
-                        break;
-                    case 2:
-                        direction = Direction.NW;
-                        break;
-                    case 3:
-                        direction = Direction.NE;
-                        break;
-                    default:
-                        throw new IllegalStateException("i=" + i + ", n=" + n
-                            + ", width=" + width);
-                    }
+                    // The ring starts one corner round from the first
+                    // edge, and walks one edge neighbour per side.
+                    Direction direction = Direction.edgeNeighbours
+                        .get((n / width + 1) % sides);
                     Position step = direction.step(x, y);
                     x = step.x;
                     y = step.y;

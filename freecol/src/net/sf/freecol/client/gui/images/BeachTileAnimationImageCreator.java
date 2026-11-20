@@ -122,12 +122,12 @@ public final class BeachTileAnimationImageCreator {
      * Returns a string representing the {@code directions} given.
      * @param directions The directions that should be included
      * @return The directions in lowercase, ordered alphabetically and
-     *      combined with "_". Corners that are a part of a longSide is
+     *      combined with "_". Corners that are a part of an edge neighbour are
      *      not included in the returned {@code String}.
      */
     private String determineDirectionCombinationKey(List<Direction> directions) {
         final Optional<String> neighboursPre = directions.stream()
-                .filter(d -> Direction.longSides.contains(d))
+                .filter(d -> Direction.edgeNeighbours.contains(d))
                 .map(d -> d.toString().toLowerCase())
                 .sorted()
                 .reduce((a, b) -> a + "_" + b);
@@ -139,7 +139,7 @@ public final class BeachTileAnimationImageCreator {
          * graphics for these cases as well.
          */
         final String beachVariationKey = directions.stream()
-                .filter(d -> Direction.longSides.contains(d)
+                .filter(d -> Direction.edgeNeighbours.contains(d)
                         || neighboursPre.isEmpty()
                         || !neighboursPre.get().contains(d.toString().toLowerCase()))
                 .map(d -> d.toString().toLowerCase())

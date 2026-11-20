@@ -268,6 +268,11 @@ final class DosMap {
             : ((b & RIVER) != 0) ? TileImprovement.SMALL_RIVER : 0;
     }
 
+    /** A river style with this magnitude on every edge neighbour: one digit for each. */
+    private static String riverStyle(int magnitude) {
+        return Integer.toString(magnitude).repeat(Direction.edgeNeighbours.size());
+    }
+
     /**
      * Put the grid's rivers on the map and join them up. FreeCol joins a
      * river only across a tile's diagonal sides, so where a DOS river runs
@@ -276,20 +281,26 @@ final class DosMap {
     private static void addRivers(Map map, Grid grid) {
         map.forEachTile(t -> {
                 int mag = grid.rivers[t.getY() * grid.width + t.getX()];
-                if (mag > 0 && t.isLand()) t.addRiver(mag, "0000");
+                if (mag > 0 && t.isLand()) t.addRiver(mag, riverStyle(0));
             });
+        // The DOS river runs straight down from a tile to the one two rows
+        // below it, a corner neighbour; the tiles between are the two
+        // directions on either side of that corner, its edge neighbours.
+        final Direction down = Direction.S;
+        final Direction first = down.getNextDirection();
+        final Direction second = down.getPreviousDirection();
         map.forEachTile(t -> {
-                Tile south = t.getNeighbourOrNull(Direction.S);
+                Tile south = t.getNeighbourOrNull(down);
                 if (!t.hasRiver() || south == null || !south.hasRiver()) return;
-                Tile sw = t.getNeighbourOrNull(Direction.SW), se = t.getNeighbourOrNull(Direction.SE);
-                if ((sw != null && sw.hasRiver()) || (se != null && se.hasRiver())) return;
-                Tile between = canCarryRiver(sw) ? sw : canCarryRiver(se) ? se : null;
-                if (between != null) between.addRiver(TileImprovement.SMALL_RIVER, "0000");
+                Tile a = t.getNeighbourOrNull(first), b = t.getNeighbourOrNull(second);
+                if ((a != null && a.hasRiver()) || (b != null && b.hasRiver())) return;
+                Tile between = canCarryRiver(a) ? a : canCarryRiver(b) ? b : null;
+                if (between != null) between.addRiver(TileImprovement.SMALL_RIVER, riverStyle(0));
             });
         map.forEachTile(t -> {
                 TileImprovement river = t.getRiver();
                 if (river == null) return;
-                String all = (river.getMagnitude() == TileImprovement.LARGE_RIVER) ? "2222" : "1111";
+                String all = (river.getMagnitude() == TileImprovement.LARGE_RIVER) ? riverStyle(2) : riverStyle(1);
                 river.updateRiverConnections(all);
             });
     }

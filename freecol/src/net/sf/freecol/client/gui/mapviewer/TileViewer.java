@@ -484,7 +484,7 @@ public final class TileViewer extends FreeColClientHolder {
     }
     
     boolean hasRiverDelta(Tile tile) {
-        for (Direction direction : Direction.longSides) {
+        for (Direction direction : Direction.edgeNeighbours) {
             Tile borderingTile = tile.getNeighbourOrNull(direction);
             if (borderingTile == null || tile.isLand() || !borderingTile.isLand() || !tile.isExplored()) {
                 continue;
@@ -506,7 +506,7 @@ public final class TileViewer extends FreeColClientHolder {
     }
     
     private void drawRiverMouth(Graphics2D g2d, Tile tile, long ticks) {
-        for (Direction direction : Direction.longSides) {
+        for (Direction direction : Direction.edgeNeighbours) {
             Tile borderingTile = tile.getNeighbourOrNull(direction);
             if (borderingTile == null || tile.isLand() || !borderingTile.isLand() || !tile.isExplored()) {
                 continue;

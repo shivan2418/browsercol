@@ -152,7 +152,7 @@ public class TileImprovement extends TileItem {
      * Gets the directions that a connection can form across for this
      * this type of improvement.
      *
-     * - For rivers, it is just the longSided directions.
+     * - For rivers, it is just the edge neighbours.
      * - For roads, it is all directions.
      * - In other cases, no directions are relevant.
      *
@@ -160,7 +160,7 @@ public class TileImprovement extends TileItem {
      */
     public List<Direction> getConnectionDirections() {
         return (isRoad()) ? Direction.allDirections
-            : (isRiver()) ? Direction.longSides
+            : (isRiver()) ? Direction.edgeNeighbours
             : null;
     }
 
@@ -245,7 +245,7 @@ public class TileImprovement extends TileItem {
      * @return The magnitude of the river branch or 0 if there is none.
      */
     public int getRiverConnection(Direction direction) {
-        int index = Direction.longSides.indexOf(direction);
+        int index = Direction.edgeNeighbours.indexOf(direction);
         if (index == -1 || style == null)
             return 0;
         int mag = Character.digit(style.getString().charAt(index), 10);
@@ -263,7 +263,7 @@ public class TileImprovement extends TileItem {
      */
     public boolean isConnectedTo(Direction direction) {
         int index = isRoad() ? direction.ordinal()
-            : isRiver() ? Direction.longSides.indexOf(direction) : -1;
+            : isRiver() ? Direction.edgeNeighbours.indexOf(direction) : -1;
         return (index == -1 || style == null) ? false
             : style.getString().charAt(index) != '0';
     }
@@ -393,7 +393,7 @@ public class TileImprovement extends TileItem {
         final Tile tile = getTile();
         int i = 0;
         int[] counts = {0, 0};
-        for (Direction d : Direction.longSides) {
+        for (Direction d : Direction.edgeNeighbours) {
             Direction dReverse = d.getReverseDirection();
             Tile t = tile.getNeighbourOrNull(d);
             TileImprovement river = (t == null) ? null : t.getRiver();
@@ -440,7 +440,7 @@ public class TileImprovement extends TileItem {
         if (!isRiver()) return null;
         final Tile tile = getTile();
         int i = 0;
-        for (Direction d : Direction.longSides) {
+        for (Direction d : Direction.edgeNeighbours) {
             Direction dReverse = d.getReverseDirection();
             Tile t = tile.getNeighbourOrNull(d);
             TileImprovement river = (t == null) ? null : t.getRiver();
@@ -629,7 +629,7 @@ public class TileImprovement extends TileItem {
             // These could at least be added using the map editor.
             String conns = style.getString();
             int i = 0;
-            for (Direction d : Direction.longSides) {
+            for (Direction d : Direction.edgeNeighbours) {
                 Direction dReverse = d.getReverseDirection();
                 Tile t = tile.getNeighbourOrNull(d);
                 TileImprovement river = (t == null) ? null : t.getRiver();

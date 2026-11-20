@@ -56,36 +56,14 @@ public class River {
 
         public Direction getNewDirection(Direction oldDirection) {
             switch(this) {
-            case STRAIGHT_AHEAD:
-                return oldDirection;
             case RIGHT_TURN:
-                switch(oldDirection) {
-                case NE:
-                    return Direction.SE;
-                case SE:
-                    return Direction.SW;
-                case SW:
-                    return Direction.NW;
-                case NW:
-                    return Direction.NE;
-                default:
-                    return oldDirection;
-                }
+                return oldDirection.getNextEdgeNeighbour();
             case LEFT_TURN:
-                switch(oldDirection) {
-                case NE:
-                    return Direction.NW;
-                case SE:
-                    return Direction.NE;
-                case SW:
-                    return Direction.SE;
-                case NW:
-                    return Direction.SW;
-                default:
-                    return oldDirection;
-                }
+                return oldDirection.getPreviousEdgeNeighbour();
+            case STRAIGHT_AHEAD:
+            default:
+                return oldDirection;
             }
-            return oldDirection;
         }
     }
 
@@ -146,7 +124,7 @@ public class River {
         this.random = random;
         this.riverType = map.getSpecification()
             .getTileImprovementType("model.improvement.river");
-        this.direction = getRandomMember(logger, "River", Direction.longSides,
+        this.direction = getRandomMember(logger, "River", Direction.edgeNeighbours,
                                          random);
         logger.fine("Starting new river flowing " + direction);
     }
@@ -230,7 +208,7 @@ public class River {
      * @return true if the given tile is next to this river.
      */
     private boolean isNextToSelf(Tile tile) {
-        return any(Direction.longSides,
+        return any(Direction.edgeNeighbours,
             d -> this.contains(tile.getNeighbourOrNull(d)));
     }
 
@@ -241,7 +219,7 @@ public class River {
      * @return true if the given tile is next to a river, lake or sea.
      */
     private boolean isNextToWater(Tile tile) {
-        return any(Direction.longSides,
+        return any(Direction.edgeNeighbours,
             d -> {
                 Tile t = tile.getNeighbourOrNull(d);
                 return t != null && (!t.isLand() || t.hasRiver());

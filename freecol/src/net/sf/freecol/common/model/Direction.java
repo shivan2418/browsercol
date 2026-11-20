@@ -52,11 +52,21 @@ public enum Direction implements Named {
                                Direction.S, Direction.SW,
                                Direction.W, Direction.NW);
 
-    public static final List<Direction> longSides
+    /**
+     * The neighbours that share an edge with a tile, clockwise from the
+     * first.  Rivers run along these, and their order is the order of the
+     * digits of a river style, which is in saved games.
+     */
+    public static final List<Direction> edgeNeighbours
         = makeUnmodifiableList(Direction.NE, Direction.SE,
                                Direction.SW, Direction.NW);
 
-    public static final List<Direction> corners
+    /**
+     * The neighbours that touch a tile only at a corner, clockwise from
+     * the first.  Their order, ahead of the edges', is the order of the
+     * bits of a coast style, which is in saved games.
+     */
+    public static final List<Direction> cornerNeighbours
         = makeUnmodifiableList(Direction.N, Direction.E,
                                Direction.S, Direction.W);
     
@@ -106,6 +116,41 @@ public enum Direction implements Named {
     public Direction rotate(int n) {
         return values()[(ordinal() + n + NUMBER_OF_DIRECTIONS)
                         % NUMBER_OF_DIRECTIONS];
+    }
+
+    /**
+     * Is this direction one of the neighbours that share an edge?
+     *
+     * @return True if this is an edge neighbour.
+     */
+    public boolean isEdgeNeighbour() {
+        return edgeNeighbours.contains(this);
+    }
+
+    /**
+     * Gets the edge neighbour that follows this one, going clockwise
+     * through the edge neighbours only.
+     *
+     * @return The next edge neighbour, or this direction if it is not one.
+     */
+    public Direction getNextEdgeNeighbour() {
+        final int i = edgeNeighbours.indexOf(this);
+        return (i < 0) ? this
+            : edgeNeighbours.get((i + 1) % edgeNeighbours.size());
+    }
+
+    /**
+     * Gets the edge neighbour that precedes this one, going clockwise
+     * through the edge neighbours only.
+     *
+     * @return The previous edge neighbour, or this direction if it is not
+     *     one.
+     */
+    public Direction getPreviousEdgeNeighbour() {
+        final int i = edgeNeighbours.indexOf(this);
+        return (i < 0) ? this
+            : edgeNeighbours.get((i + edgeNeighbours.size() - 1)
+                                 % edgeNeighbours.size());
     }
 
     /**

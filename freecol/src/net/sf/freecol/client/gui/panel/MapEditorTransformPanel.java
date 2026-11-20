@@ -106,7 +106,7 @@ public final class MapEditorTransformPanel extends FreeColPanel {
                 tile.removeRiver();
             } else {
                 StringBuilder sb = new StringBuilder(64);
-                for (Direction direction : Direction.longSides) {
+                for (Direction direction : Direction.edgeNeighbours) {
                     Tile t = tile.getNeighbourOrNull(direction);
                     TileImprovement otherRiver = (t == null) ? null
                         : t.getRiver();

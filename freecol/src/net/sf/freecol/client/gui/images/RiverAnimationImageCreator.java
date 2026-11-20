@@ -105,7 +105,7 @@ public final class RiverAnimationImageCreator {
     
     @SuppressWarnings("unused")
     private List<Direction> determineRiverCombinations(Tile tile) {
-        final List<Direction> directionsWithRiver = Direction.longSides.stream().filter(d -> {
+        final List<Direction> directionsWithRiver = Direction.edgeNeighbours.stream().filter(d -> {
             final Tile neighbour = tile.getNeighbourOrNull(d);
             return neighbour != null && (neighbour.hasRiver() || tile.isLand() && !neighbour.isLand());
         }).collect(Collectors.toList());

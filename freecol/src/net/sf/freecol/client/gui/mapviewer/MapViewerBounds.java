@@ -224,13 +224,13 @@ public final class MapViewerBounds {
             return false;
         }
 
-        if (Direction.longSides.contains(direction)) {
+        if (Direction.edgeNeighbours.contains(direction)) {
             /*
              * We need to scroll an additional tile when moving the
              * map diagonally in order to get the correct direction.
              * 
              * Please note that the tiles are diamond shapes, so that
-             * diagonally on the screen is longSide for a tile.
+             * diagonally on the screen is an edge neighbour of a tile.
              */
             final Tile extraScrollTile = t.getNeighbourOrNull(direction);
             if (extraScrollTile != null) {
