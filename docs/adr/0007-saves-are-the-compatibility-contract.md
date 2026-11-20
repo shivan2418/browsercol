@@ -2,7 +2,7 @@
 
 BrowserCol is a hosted page: everyone who opens it gets the latest deploy, and nobody can stay on an older one. Nothing pins to a BrowserCol version, so a semantic version would carry no promise. The one thing an update can break for a player is a game they saved: a save in their browser, or an `.fsg` they exported, that no longer loads. So saves are the contract, and deploys are just numbered builds: `build-N` tags, made by `tools/deploy.sh` (`just deploy`), shown on the page as "build N · <commit>" so a bug report names the code it came from.
 
-A save's format already has its own version. Each FreeCol save records `SAVEGAME_VERSION` (14 at the commit vendored in freecol/), and FreeColServer refuses those below `MINIMUM_SAVEGAME_VERSION` and upgrades older ones as it reads them. Three things can still break a save without that number moving: our patched copies in `engine/patches/` changing what a model class reads or writes, a new FreeCol pin in `freecol.sha`, and the IndexedDB schema in `ui/src/saves.ts` (database version 1) that holds the browser's saves.
+A save's format already has its own version. Each FreeCol save records `SAVEGAME_VERSION` (14 at the commit vendored in freecol/), and FreeColServer refuses those below `MINIMUM_SAVEGAME_VERSION` and upgrades older ones as it reads them. Three things can still break a save without that number moving: a change in `freecol/` to what a model class reads or writes, an upstream fix taken into it, and the IndexedDB schema in `ui/src/saves.ts` (database version 1) that holds the browser's saves.
 
 ## Considered Options
 

@@ -49,7 +49,7 @@ public class UserServerAPI extends ServerAPI {
     /** The last message handler specified. */
     private MessageHandler messageHandler = null;
 
-    /** makes connections instead of sockets when set. */
+    /** Makes connections instead of sockets when set. */
     public interface ConnectionFactory {
         Connection connect(String name, String host, int port) throws IOException;
     }

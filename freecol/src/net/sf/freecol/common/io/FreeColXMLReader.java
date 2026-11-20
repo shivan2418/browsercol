@@ -188,7 +188,7 @@ public class FreeColXMLReader extends StreamReaderDelegate
      * @return A new <code>XMLInputFactory</code>.
      */
     private static XMLInputFactory newXMLInputFactory() {
-        return SHARED_FACTORY; // one factory, see below
+        return SHARED_FACTORY; // One factory for every reader
     }
 
     /**

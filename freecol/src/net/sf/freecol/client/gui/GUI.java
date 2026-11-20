@@ -2115,7 +2115,7 @@ public class GUI extends FreeColClientHolder {
 
     /**
      * Show an error panel that also has the non-i18n detail the server
-     * sent. // the WebGUI keeps the detail for a bug report.
+     * sent. The WebGUI keeps the detail for a bug report.
      *
      * @param message The error message to display.
      * @param detail The non-i18n detail, or null.
@@ -2148,7 +2148,7 @@ public class GUI extends FreeColClientHolder {
     /**
      * Show an event panel and run something once it is closed.
      *
-     * added. Upstream calls addClosingCallback on the panel that
+     * Upstream calls addClosingCallback on the panel that
      * showEventPanel returns, but a FreeColPanel is a Swing JPanel, which
      * TeaVM cannot load, so the WebGUI cannot return one. The base GUI
      * shows no panel and runs the callback at once.

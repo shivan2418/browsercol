@@ -169,7 +169,7 @@ public class FreeColDataFile {
             return new BufferedInputStream(new java.io.FileInputStream(
                 new File(this.file, filename)));
         }
-        // nor jar: URLs, so read the entry whole, and close the
+        // Nor can TeaVM open jar: URLs, so read the entry whole, and close the
         // archive at once. Not with ZipFile: TeaVM's hands its inflater
         // only the entry's compressed bytes, without the dummy byte zlib
         // needs after them (OpenJDK's ZipFile adds one), so a save whose

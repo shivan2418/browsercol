@@ -108,8 +108,8 @@ git clone https://github.com/FreeCol/freecol.git ../freecol-upstream   # once
 git -C ../freecol-upstream format-patch -1 <commit> --stdout | git am --directory=freecol
 ```
 
-`git am -3` falls back to a three-way merge, and fixes that touch our changes need
-the conflicts resolved by hand. Add a cherry-picked bug fix to `docs/upstream-fixes.md`.
+Add `-3` to `git am` for a three-way merge; a fix that touches our changes needs its
+conflicts resolved by hand. Add a cherry-picked bug fix to `docs/upstream-fixes.md`.
 Run the whole suite before it lands.
 
 ### Engine dependencies

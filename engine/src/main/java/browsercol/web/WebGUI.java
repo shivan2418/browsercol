@@ -81,7 +81,7 @@ import net.sf.freecol.common.option.OptionGroup;
  *     <td>as SwingGUI: the active unit, else the fallback tile, then the
  *         focus on its tile; tells the ClientEngine the game started</td></tr>
  * <tr><td>getActiveUnit</td><td>nothing</td><td>the kept active unit</td></tr>
- * <tr><td>dialogIcon (a hook)</td><td>nothing</td>
+ * <tr><td>dialogIcon (overridden here)</td><td>nothing</td>
  *     <td>an icon carrying the object, for a question's object id</td></tr>
  * <tr><td>refresh</td><td>event refresh</td><td>{}</td></tr>
  * <tr><td>currentPlayer (the setCurrentPlayer message)</td><td>event mover</td>

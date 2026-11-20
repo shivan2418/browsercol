@@ -259,7 +259,7 @@ public class Messages {
                     String value = line.substring(index + 1).trim()
                         .replace("\\n", "\n").replace("\\t", "\t");
                     bundle.put(key, value);
-                    // FileChooser.* keys went to Swing's UIManager
+                    // FileChooser.* keys no longer go to Swing's UIManager
                 }
             }
         }

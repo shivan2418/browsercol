@@ -165,7 +165,7 @@ public class FreeColDirectories {
                                    SPECIFICATION_FILE_NAME);
 
     /** Posix file mode 0700. */
-    // no POSIX permissions, directories keep the default mode
+    // No POSIX permissions, directories keep the default mode
         
     
     /**

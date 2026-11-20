@@ -290,7 +290,7 @@ public class FreeColDebugger {
         setDebugRunTurns(-1);
 
         if (getDebugRunSave() != null) {
-            // no debug run saves: no server in process, and saveGame reaches ImageIO and File.toPath
+            // A debug run does not save: no server in process, and saveGame reaches ImageIO and File.toPath
             freeColClient.quit();
         }
         return true;

@@ -44,7 +44,7 @@ public class AudioMixerOption extends AbstractOption<AudioMixerOption.MixerWrapp
     public static final String TAG = "audioMixerOption";
 
     /**
-     * A wrapper for the mixer, including the mixer info (no javax.sound) including a
+     * A wrapper for the mixer, including the mixer info (an Object here, as there is no javax.sound) including a
      * potentially null value.
      */
     public static class MixerWrapper implements Comparable<MixerWrapper> {

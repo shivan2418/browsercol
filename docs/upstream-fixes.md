@@ -2,7 +2,7 @@
 
 Bugs in FreeCol itself (`FreeCol/freecol`) that this repo fixes in `freecol/`.
 Add a row when you add such a fix, and keep it when FreeCol fixes the bug too,
-noting the FreeCol commit, in case upstream wants the fixes.
+noting the FreeCol commit, so the fixes can be offered upstream.
 
 FreeCol's own bug tracker is on SourceForge
 (https://sourceforge.net/p/freecol/bugs/); its commits cite those numbers.

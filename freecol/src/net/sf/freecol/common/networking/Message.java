@@ -65,7 +65,7 @@ public abstract class Message {
             Constructor<? extends Message>>());
 
     /**
-     * makes a message from a stream, as its (Game,
+     * Makes a message from a stream, as its (Game,
      * FreeColXMLReader) constructor does.
      */
     public interface Reader {
@@ -73,7 +73,7 @@ public abstract class Message {
     }
 
     /**
-     * readers by message tag, tried before reflection. TeaVM does
+     * Readers by message tag, tried before reflection. TeaVM does
      * not find the message classes by name (docs/teavm.md).
      */
     public static final Map<String, Reader> readers = new HashMap<>();

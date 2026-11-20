@@ -46,7 +46,7 @@ import java.util.jar.JarOutputStream;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-// no javax.imageio (see saveGame)
+// No javax.imageio (see saveGame)
 import javax.xml.stream.XMLStreamException;
 
 import net.sf.freecol.FreeCol;
