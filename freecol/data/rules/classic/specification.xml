@@ -4833,9 +4833,9 @@
       <optionGroup id="mapGeneratorOptions.landGenerator" >
         <!-- Options for setting the size of the map -->
         <integerOption id="model.option.mapWidth"
-                       value="40" minimumValue="30" maximumValue="200"/>
+                       value="80" minimumValue="30" maximumValue="200"/>
         <integerOption id="model.option.mapHeight"
-                       value="100" minimumValue="20" maximumValue="200"/>
+                       value="50" minimumValue="20" maximumValue="200"/>
         <!-- Option for setting the land mass of the map -->
         <integerOption id="model.option.landMass"
                        value="25" minimumValue="15" maximumValue="50"/>
@@ -4856,7 +4856,7 @@
                        defaultValue="5" minimumValue="1" maximumValue="10"/>
         <!-- Maximum distance to the edge of the map -->
         <integerOption id="model.option.maximumDistanceToEdge"
-                       defaultValue="10" minimumValue="5" maximumValue="20"/>
+                       defaultValue="20" minimumValue="10" maximumValue="40"/>
         <!-- Preferred distance from land to high seas -->
         <integerOption id="model.option.distanceToHighSea"
                        defaultValue="4" minimumValue="3" maximumValue="10"/>
