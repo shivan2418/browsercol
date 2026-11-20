@@ -237,6 +237,9 @@ class SquareGridTest {
         assertEquals(Set.of("1,0", "0,1", "1,1"), names(circle(map, corner, false, 1)));
         // Ring 2 round a corner: the L of tiles two away.
         assertEquals(Set.of("2,0", "2,1", "2,2", "1,2", "0,2"), names(circle(map, corner, false, 2)));
+        // A radius past the map's far edge ends there, so INFINITY is the whole map but the centre.
+        assertEquals(6 * 5 - 1, names(circle(map, map.getTile(2, 2), true, Integer.MAX_VALUE)).size());
+        assertFalse(map.getCircleIterator(map.getTile(2, 2), false, 50).hasNext(), "no ring that far is on the map");
         // Everything of a 6x5 map within 3 of (2,2) but the centre.
         assertEquals(6 * 5 - 1, names(circle(map, map.getTile(2, 2), true, 3)).size());
     }

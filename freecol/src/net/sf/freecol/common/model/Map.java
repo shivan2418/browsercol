@@ -997,9 +997,13 @@ public class Map extends FreeColGameObject implements Location, Iterable<Tile> {
             }
             this.cx = center.getX();
             this.cy = center.getY();
-            this.radius = radius;
+            // No ring is on the map beyond the farthest edge, so a radius
+            // of INFINITY ends there.
+            final int reach = Math.max(Math.max(cx, getWidth() - 1 - cx),
+                                       Math.max(cy, getHeight() - 1 - cy));
+            this.radius = Math.min(radius, reach);
             this.n = -1;
-            if (radius <= 0) {
+            if (radius <= 0 || (!isFilled && radius > reach)) {
                 x = y = UNDEFINED;
             } else {
                 currentRadius = (isFilled || radius == 1) ? 1 : radius;
