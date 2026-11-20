@@ -1,0 +1,79 @@
+<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+  <xs:annotation>
+    <xs:documentation>
+
+      Copyright (C) 2002-2021  The FreeCol Team
+
+      This file is part of FreeCol.
+
+      FreeCol is free software: you can redistribute it and/or modify
+      it under the terms of the GNU General Public License as published by
+      the Free Software Foundation, either version 2 of the License, or
+      (at your option) any later version.
+
+      FreeCol is distributed in the hope that it will be useful,
+      but WITHOUT ANY WARRANTY; without even the implied warranty of
+      MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+      GNU General Public License for more details.
+
+      You should have received a copy of the GNU General Public License
+      along with FreeCol. If not, see http://www.gnu.org/licenses
+    </xs:documentation>
+  </xs:annotation>
+
+  <xs:include schemaLocation="../spec/spec-model.xsd" />
+
+  <xs:element name="modelMessage">
+    <xs:annotation>
+      <xs:documentation>
+	      This class contains model messages.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:complexContent>
+        <xs:extension base="StringTemplateType" >
+          <xs:choice minOccurs="0" maxOccurs="unbounded">
+	          <xs:element name="data">
+	            <xs:complexType>
+	              <xs:attribute name="xLength" type="xs:int" use="required"/>
+	              <xs:anyAttribute namespace="##local" processContents="skip"/>
+	            </xs:complexType>
+	          </xs:element>
+          </xs:choice>
+          <xs:attribute name="owner" type="PlayerId" use="required" />
+          <xs:attribute name="source" type="SourceId" use="optional" />
+          <xs:attribute name="display" type="xs:string" use="optional" />
+          <xs:attribute name="hasBeenDisplayed" type="xs:boolean" use="optional"
+                        default="false" />
+          <xs:attribute name="messageType" type="ModelMessageType" use="optional" />
+        </xs:extension>
+      </xs:complexContent>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:simpleType name="ModelMessageType">
+    <xs:restriction base="xs:NMTOKEN">
+      <xs:enumeration value="accepted_demands" />
+      <xs:enumeration value="building_completed" />
+      <xs:enumeration value="combat_result" />
+      <xs:enumeration value="default" />
+      <xs:enumeration value="foreign_diplomacy" />
+      <xs:enumeration value="gift_goods" />
+      <xs:enumeration value="government_efficiency" />
+      <xs:enumeration value="lost_city_rumour" />
+      <xs:enumeration value="market_prices" />
+      <xs:enumeration value="missing_goods" />
+      <xs:enumeration value="rejected_demands" />
+      <xs:enumeration value="sons_of_liberty" />
+      <xs:enumeration value="tutorial" />
+      <xs:enumeration value="unit_added" />
+      <xs:enumeration value="unit_demoted" />
+      <xs:enumeration value="unit_improved" />
+      <xs:enumeration value="unit_lost" />
+      <xs:enumeration value="warehouse_capacity" />
+      <xs:enumeration value="warning" />
+    </xs:restriction>
+  </xs:simpleType>
+
+</xs:schema>

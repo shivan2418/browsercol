@@ -1,0 +1,72 @@
+<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+  <xs:annotation>
+    <xs:documentation>
+
+      Copyright (C) 2002-2024  The FreeCol Team
+
+      This file is part of FreeCol.
+
+      FreeCol is free software: you can redistribute it and/or modify
+      it under the terms of the GNU General Public License as published by
+      the Free Software Foundation, either version 2 of the License, or
+      (at your option) any later version.
+
+      FreeCol is distributed in the hope that it will be useful,
+      but WITHOUT ANY WARRANTY; without even the implied warranty of
+      MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+      GNU General Public License for more details.
+
+      You should have received a copy of the GNU General Public License
+      along with FreeCol. If not, see http://www.gnu.org/licenses
+    </xs:documentation>
+  </xs:annotation>
+
+
+  <xs:include schemaLocation="../spec/spec.xsd" />
+  
+  <xs:include schemaLocation="data-nationOptions.xsd" />
+  <xs:include schemaLocation="data-player.xsd" />
+  <xs:include schemaLocation="data-map.xsd" />
+  <xs:include schemaLocation="data-modelMessage.xsd" />
+  <xs:include schemaLocation="data-areas.xsd" />
+
+  <xs:element name="game">
+    <xs:annotation>
+      <xs:documentation>
+	      This class contains the game.
+      </xs:documentation>
+    </xs:annotation>
+
+    <xs:complexType>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element ref="cibola" minOccurs="0" maxOccurs="7" />
+        <xs:element ref="freecol-specification" />
+	      <xs:element ref="map" />
+	      <xs:element ref="modelMessage" />
+        <xs:element ref="nationOptions" />
+        <xs:element name="newWorld" />
+        <xs:element ref="player" />
+        <xs:element ref="areas" />
+      </xs:choice>
+
+      <xs:attribute name="id" type="GameId" use="required"/>
+
+      <xs:attribute name="currentPlayer" type="PlayerId" use="optional"/>
+      <xs:attribute name="initialActiveUnitId" type="UnitId" use="optional"/>
+      <!-- nextId is not visible to the clients -->
+      <xs:attribute name="nextId" type="xs:int" use="optional"/>
+      <xs:attribute name="spanishSuccession" type="xs:boolean" use="optional"
+	                  default="false"/>
+      <xs:attribute name="turn" type="xs:int" use="required"/>
+      <xs:attribute name="UUID" type="xs:string" use="optional"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="cibola">
+    <xs:complexType>
+      <xs:attribute name="id" type="xs:string" />
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>

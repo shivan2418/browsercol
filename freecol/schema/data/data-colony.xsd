@@ -1,0 +1,90 @@
+<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+  <xs:annotation>
+    <xs:documentation>
+
+      Copyright (C) 2002-2021  The FreeCol Team
+
+      This file is part of FreeCol.
+
+      FreeCol is free software: you can redistribute it and/or modify
+      it under the terms of the GNU General Public License as published by
+      the Free Software Foundation, either version 2 of the License, or
+      (at your option) any later version.
+
+      FreeCol is distributed in the hope that it will be useful,
+      but WITHOUT ANY WARRANTY; without even the implied warranty of
+      MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+      GNU General Public License for more details.
+
+      You should have received a copy of the GNU General Public License
+      along with FreeCol. If not, see http://www.gnu.org/licenses
+
+    </xs:documentation>
+  </xs:annotation>
+
+  <xs:include schemaLocation="../spec/spec-model.xsd" />
+  <xs:include schemaLocation="../spec/spec-common.xsd" />
+  <xs:include schemaLocation="data-colonyTile.xsd" />
+  <xs:include schemaLocation="data-building.xsd" />
+  <xs:include schemaLocation="data-goodsContainer.xsd" />
+  <xs:include schemaLocation="data-exportData.xsd" />
+
+  <xs:element name="colony">
+    <xs:complexType>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+	      <xs:element ref="building" />
+        <xs:element ref="buildQueueItem" minOccurs="0" maxOccurs="unbounded" />
+	      <xs:element ref="colonyTile" minOccurs="3" maxOccurs="9" />
+	      <xs:element ref="exportData" />
+	      <xs:element ref="goodsContainer" minOccurs="0" maxOccurs="1" />
+        <xs:element ref="populationQueueItem" minOccurs="0" maxOccurs="unbounded" />
+	      <xs:element ref="ability" />
+	      <xs:element ref="modifier" />
+      </xs:choice>
+      
+      <xs:attribute name="id" type="ColonyId" use="required"/>
+
+      <xs:attribute name="currentlyBuilding" type="xs:string" use="optional"/>
+      <xs:attribute name="established" type="xs:int" use="optional"
+                    default="1"/>
+      <xs:attribute name="immigration" type="xs:int" use="optional"
+                    default="0"/>
+      <xs:attribute name="landLocked" type="xs:boolean" use="optional"
+                    default="true"/>
+      <xs:attribute name="liberty" type="xs:int" use="optional"
+                    default="0"/>
+      <xs:attribute name="name" type="xs:string" use="required"/>
+      <xs:attribute name="oldSonsOfLiberty" type="xs:int" use="optional"
+                    default="0"/>
+      <xs:attribute name="oldTories" type="xs:int" use="optional"
+                    default="0"/>
+      <xs:attribute name="owner" type="PlayerId" use="required"/>
+      <xs:attribute name="productionBonus" type="xs:int" use="optional"
+                    default="0"/>
+      <xs:attribute name="settlementType" type="xs:string"/>
+      <xs:attribute name="sonsOfLiberty" type="xs:int" use="optional"
+                    default="0"/>
+      <xs:attribute name="stockadeLevel" type="xs:int" use="optional"
+                    default="0"/>
+      <xs:attribute name="tile" type="TileId" use="required"/>
+      <xs:attribute name="tories" type="xs:int" use="optional"
+                    default="0"/>
+      <xs:attribute name="unitCount" type="xs:int" use="optional"
+                    default="-1"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="buildQueueItem">
+    <xs:complexType>
+      <xs:attribute name="id" type="BuildQueueId" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="populationQueueItem">
+    <xs:complexType>
+      <xs:attribute name="id" type="UnitTypeId" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>

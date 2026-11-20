@@ -1,0 +1,65 @@
+<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+  <xs:annotation>
+    <xs:documentation>
+
+      Copyright (C) 2002-2021  The FreeCol Team
+
+      This file is part of FreeCol.
+
+      FreeCol is free software: you can redistribute it and/or modify
+      it under the terms of the GNU General Public License as published by
+      the Free Software Foundation, either version 2 of the License, or
+      (at your option) any later version.
+
+      FreeCol is distributed in the hope that it will be useful,
+      but WITHOUT ANY WARRANTY; without even the implied warranty of
+      MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+      GNU General Public License for more details.
+
+      You should have received a copy of the GNU General Public License
+      along with FreeCol. If not, see http://www.gnu.org/licenses
+    </xs:documentation>
+  </xs:annotation>
+
+  <xs:include schemaLocation="../spec/spec-model.xsd" />
+  <xs:include schemaLocation="../spec/spec-common.xsd" />
+  <xs:include schemaLocation="data-unit.xsd" />
+
+  <xs:element name="europe">
+    <xs:complexType>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element ref="unit"/>
+        <xs:element name="unitPrice">
+          <xs:complexType>
+            <xs:attribute name="unitType" type="xs:string" use="required"/>
+            <xs:attribute name="price" type="xs:int" use="required"/>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="recruit">
+          <xs:complexType>
+            <!-- @compat 0.11.x -->
+            <xs:attribute name="id" type="UnitTypeId" />
+            <!-- end @compat 0.11.x
+              These were added for 0.12.0, make required in 0.13.x -->
+            <xs:attribute name="type" type="UnitTypeId" use="optional"/>
+            <xs:attribute name="role" type="RoleId" use="optional"/>
+            <xs:attribute name="number" type="xs:int" use="optional"/>
+            <!-- end addition -->
+          </xs:complexType>
+        </xs:element>
+        <xs:element ref="ability" />
+        <xs:element ref="modifier" />
+      </xs:choice>
+
+      <xs:attribute name="id" type="EuropeId" use="required"/>
+
+      <xs:attribute name="owner" type="PlayerId" use="required"/>
+      <xs:attribute name="recruitLowerCap" type="xs:int" use="optional"
+		                default="80"/>
+      <xs:attribute name="recruitPrice" type="xs:int" use="optional"
+		                default="200"/>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>

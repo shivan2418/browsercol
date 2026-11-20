@@ -1,0 +1,214 @@
+<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+	   elementFormDefault="qualified">
+  <xs:annotation>
+    <xs:documentation>
+
+      Copyright (C) 2002-2021  The FreeCol Team
+
+      This file is part of FreeCol.
+
+      FreeCol is free software: you can redistribute it and/or modify
+      it under the terms of the GNU General Public License as published by
+      the Free Software Foundation, either version 2 of the License, or
+      (at your option) any later version.
+
+      FreeCol is distributed in the hope that it will be useful,
+      but WITHOUT ANY WARRANTY; without even the implied warranty of
+      MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+      GNU General Public License for more details.
+
+      You should have received a copy of the GNU General Public License
+      along with FreeCol. If not, see http://www.gnu.org/licenses
+    </xs:documentation>
+  </xs:annotation>
+
+  <xs:simpleType name="AIGoodsId">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="aiGoods:(|am)([0-9])+" />
+    </xs:restriction>
+  </xs:simpleType>
+  
+  <xs:simpleType name="AreaId">
+    <xs:restriction base="xs:int">
+      <xs:pattern value="model\.area\.(.)+" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="BuildingId">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="building:([0-9])+" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="BuildQueueId">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="model\.(building|unit)\.([a-zA-Z])+" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="ColonyId">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="colony:([0-9])+" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="ColonyTileId">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="colonyTile:([0-9])+" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="EuropeId">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="europe:([0-9])+" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="GameId">
+    <xs:restriction base="xs:int">
+      <xs:pattern value="([0-9])+" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="GoodsId">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="goods:([0-9])+" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="GoodsContainerId">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="goodsContainer:([0-9])+" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="IndianSettlementId">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="indianSettlement:([0-9])+" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="LocationId">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="(tile|unit|colony|europe|colonyTile|building|indianSettlement|highSeas|map):([0-9])+" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="LostCityRumourId">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="lostCityRumour:([0-9])+" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="MapId">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="map:([0-9])+" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="MarketId">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="market:([0-9])+" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="MarketDataId">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="marketData:([0-9])+" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="MonarchId">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="monarch:([0-9])+" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="PlayerId">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="player:([0-9])+" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="RegionId">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="region:([0-9])+" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="ResourceId">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="resource:([0-9])+" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="SettlementId">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="(indianSettlement|colony):([0-9])+" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="SourceId">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="(colony|europe|market|player|tile|unit):([0-9])+" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="TileId">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="tile:([0-9])+" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="TileImprovementId">
+    <xs:restriction base="xs:string">
+      <!-- @compat 0.11.x
+           To Become: <xs:pattern value="tileImprovement:([0-9])+" />
+      -->
+      <xs:pattern value="(tileimprovement|tileImprovement):([0-9])+" />
+      <!-- end @compat 0.11.x -->
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="TileImprovementPlanId">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="tileImprovementPlan:(|am)([0-9])+" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="TileItemContainerId">
+    <xs:restriction base="xs:string">
+      <!-- @compat 0.11.x
+           To Become: <xs:pattern value="tileItemContainer:([0-9])+" />
+      -->
+      <xs:pattern value="(tileitemcontainer|tileItemContainer):([0-9])+" />
+      <!-- end @compat 0.11.x -->
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="TradeRouteId">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="tradeRoute:([0-9])+" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="TransportableId">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="(aiGoods:|aiGoods:am|unit:)([0-9])+" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="UnitId">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="unit:([0-9])+" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="WishId">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="(goods|worker)Wish:(|am)([0-9])+" />
+    </xs:restriction>
+  </xs:simpleType>
+
+</xs:schema>

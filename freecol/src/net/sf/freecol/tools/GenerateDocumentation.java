@@ -1,0 +1,258 @@
+/**
+ *  Copyright (C) 2002-2024   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package net.sf.freecol.tools;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FilenameFilter;
+import java.io.IOException;
+import java.io.Reader;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.xml.transform.stream.StreamResult;
+import javax.xml.transform.stream.StreamSource;
+import javax.xml.transform.Result;
+import javax.xml.transform.Source;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.XMLConstants;
+
+import net.sf.freecol.common.i18n.Messages;
+import net.sf.freecol.common.model.StringTemplate;
+import net.sf.freecol.common.util.Utils;
+
+
+/**
+ * Generate some documentation.
+ */
+public class GenerateDocumentation {
+
+    private static final File STRING_DIRECTORY = new File("data/strings");
+    private static final File RESOURCE_DIRECTORY = new File("data/default");
+    private static final File RULE_DIRECTORY = new File("data/rules/classic");
+    private static final String XSL = "specification.xsl";
+
+    private static final File DESTINATION_DIRECTORY =
+            new File("doc");
+
+    private static final Map<String, String> resources = new HashMap<>();
+
+    private static final String[] sourceFiles
+            = STRING_DIRECTORY.list(new FilenameFilter() {
+        @Override
+        public boolean accept(File dir, String name) {
+            return name.matches("FreeColMessages.*\\.properties");
+        }
+    });
+
+
+
+
+    public static void main(String[] args) {
+        System.setProperty("jaxp.debug", "1");
+        if (args.length > 0) {
+            Arrays.sort(args);
+        }
+        readResources();
+        //generateTMX();
+        generateDocumentation(args);
+    }
+
+    private static void readResources() {
+        System.out.println("Processing source file: resources.properties");
+        File sourceFile = new File(RESOURCE_DIRECTORY, "resources.properties");
+        try (
+             Reader reader = Utils.getFileUTF8Reader(sourceFile);
+             BufferedReader bufferedReader = new BufferedReader(reader);
+        ) {
+            String line = bufferedReader.readLine();
+            while (line != null) {
+                int index = line.indexOf('=');
+                if (index >= 0) {
+                    String key = line.substring(0, index).trim();
+                    String value = line.substring(index + 1).trim();
+                    resources.put(key, value);
+                }
+                line = bufferedReader.readLine();
+            }
+        } catch (IOException ioe) {
+            System.err.println("Error reading resources: " + ioe);
+        }
+    }
+
+    /* Currently unused
+    private static void generateTMX() {
+
+        Map<String, Map<String, String>> translations = new HashMap<>();
+
+        for (String name : sourceFiles) {
+
+            System.out.println("Processing source file: " + name);
+
+            String languageCode = name.substring(15, name.length() - 11);
+            if (languageCode.isEmpty()) {
+                languageCode = "en";
+            } else if ('_' == languageCode.charAt(0)) {
+                languageCode = languageCode.substring(1);
+            } else {
+                // don't know what to do
+                continue;
+            }
+
+            File sourceFile = new File(STRING_DIRECTORY, name);
+
+            try (
+                    Reader reader = Utils.getFileUTF8Reader(sourceFile);
+                    BufferedReader bufferedReader = new BufferedReader(reader);
+            ) {
+                String line = bufferedReader.readLine();
+                while (line != null) {
+                    int index = line.indexOf('=');
+                    if (index >= 0) {
+                        String key = line.substring(0, index).trim();
+                        String value = line.substring(index + 1).trim()
+                                           .replace("<", "&lt;").replace(">", "&gt;")
+                                           .replace("&", "&amp;");
+                        Map<String, String> map = translations.get(key);
+                        if (map == null) {
+                            map = new HashMap<>();
+                            translations.put(key, map);
+                        }
+                        map.put(languageCode, value);
+                    }
+                    line = bufferedReader.readLine();
+                }
+            } catch (Exception e) {
+                // forget it
+            }
+        }
+        File destinationFile = new File(DESTINATION_DIRECTORY, "freecol.tmx");
+        try (
+                Writer out = Utils.getFileUTF8Writer(destinationFile);
+        ) {
+            out.write("<?xml version =\"1.0\" encoding=\"UTF-8\"?>\n");
+            out.write("<tmx version=\"1.4b\">\n");
+            out.write("<body>\n");
+            for (Map.Entry<String, Map<String, String>> tu : translations.entrySet()) {
+                out.write("  <tu tuid=\"" + tu.getKey() + "\">\n");
+                for (Map.Entry<String, String> tuv : tu.getValue().entrySet()) {
+                    out.write("    <tuv xml:lang=\"" + tuv.getKey() + "\">\n");
+                    out.write("      <seg>" + tuv.getValue() + "</seg>\n");
+                    out.write("    </tuv>\n");
+                }
+                out.write("  </tu>\n");
+            }
+            out.write("</body>\n");
+            out.write("</tmx>\n");
+            out.flush();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+    */
+    
+    private static void generateDocumentation(String[] languages) {
+        for (String name : sourceFiles) {
+
+            String languageCode = name.substring(15, name.length() - 11);
+            if (languageCode.isEmpty()) {
+                languageCode = "en";
+            } else if ('_' == languageCode.charAt(0)) {
+                languageCode = languageCode.substring(1);
+                if ("qqq".equals(languageCode)) {
+                    System.out.println("Skipping language code 'qqq'");
+                    continue;
+                }
+            } else {
+                // don't know what to do
+                continue;
+            }
+            if (languages.length == 0
+                    || Arrays.binarySearch(languages, languageCode) >= 0) {
+                System.out.println("Generating localized documentation for language code "
+                                           + languageCode);
+
+                Messages.loadMessageBundle(Messages.getLocale(languageCode));
+                try {
+                    TransformerFactory factory = TransformerFactory.newInstance();
+                    factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+                    factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_STYLESHEET, "");
+                    Source xsl = new StreamSource(new File("doc", XSL));
+                    Transformer stylesheet;
+                    try {
+                        stylesheet = factory.newTransformer(xsl);
+                    } catch (TransformerException tce) {
+                        System.err.println("Problem with " + XSL + " at: "
+                            + tce.getLocationAsString() + '\n' + tce);
+                        continue;
+                    }
+
+                    Source request  = new StreamSource(new File(RULE_DIRECTORY, "specification.xml"));
+                    Result response = new StreamResult(new File(DESTINATION_DIRECTORY, "specification_"
+                            + languageCode + ".html"));
+                    stylesheet.transform(request, response);
+                }
+                catch (TransformerException e) {
+                    System.err.println("Transformation error: " + e);
+                }
+            }
+        }
+    }
+
+    public static String getResource(String key) {
+        final String[] options = {
+                null,null,/*placeholders*/ "icon", "flavor", "tileitem" };
+        String ourKey = key;
+        final String[] splitKey = key.split("\\.");
+        String found = resources.get(ourKey);
+        if (found == null && splitKey.length > 2
+                && "model".equals(splitKey[0])) {
+            String suffix = ("tile".equals(splitKey[1])) ? ".center" : "";
+            options[0] = splitKey[1];
+            options[1] = splitKey[1] + "icon";
+            for (String x : options) {
+                ourKey = "image." + x + "." + key + suffix;
+                found = resources.get(ourKey);
+                if (found != null) {
+                    final String resourcePrefix = "resource:";
+                    if (found.startsWith(resourcePrefix)) {
+                        found = resources.get(found.substring(resourcePrefix.length()));
+                    }
+                    break;
+                }
+            }
+        }
+        return found;
+    }
+
+    public static String localize(String template) {
+        return Messages.message(template);
+    }
+
+    public static String localize(String template, String key, String number) {
+        double num = Double.parseDouble(number);
+        StringTemplate stringTemplate = StringTemplate.template(template)
+                                                      .addAmount(key, num);
+        return Messages.message(stringTemplate);
+    }
+}
