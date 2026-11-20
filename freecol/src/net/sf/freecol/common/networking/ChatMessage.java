@@ -53,7 +53,7 @@ public class ChatMessage extends AttributeMessage {
      * @param privateChat Whether this message is private.
      */
     public ChatMessage(Player player, String message, boolean privateChat) {
-        super(TAG, COLOR_TAG, String.valueOf(player.getNationColor().getRGB()),
+        super(TAG, COLOR_TAG, String.valueOf(net.sf.freecol.common.util.Utils.getRGB(player.getNationColor())),
               MESSAGE_TAG, message,
               PRIVATE_TAG, String.valueOf(privateChat),
               SENDER_TAG, player.getName());
