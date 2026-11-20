@@ -36,10 +36,6 @@ import javax.xml.namespace.NamespaceContext;
 import javax.xml.stream.XMLOutputFactory;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
-import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerException;
-import javax.xml.transform.stream.StreamResult;
-import javax.xml.transform.stream.StreamSource;
 
 import net.sf.freecol.common.model.FreeColObject;
 import net.sf.freecol.common.model.Location;
@@ -131,7 +127,7 @@ public class FreeColXMLWriter implements Closeable, XMLStreamWriter {
     private final StringWriter stringWriter;
 
     /** An optional transformer to handle indentation. */
-    private final Transformer transformer;
+    private final Object transformer; // always null
 
     /** The writer that receives the final output. */
     private final Writer outputWriter;
@@ -203,8 +199,7 @@ public class FreeColXMLWriter implements Closeable, XMLStreamWriter {
         } catch (XMLStreamException e) {
             throw new IOException(e);
         }
-        this.transformer = (indent) ? Utils.makeTransformer(false, true)
-            : null;
+        this.transformer = null; // no javax.xml.transform, never indent
         this.writeScope = (scope == null) ? WriteScope.toSave() : scope;
     }
 
@@ -215,7 +210,7 @@ public class FreeColXMLWriter implements Closeable, XMLStreamWriter {
      * @return An {@code XMLOutputFactory}.
      */
     private XMLOutputFactory getFactory() {
-        return XMLOutputFactory.newInstance();
+        return new com.fasterxml.aalto.stax.OutputFactoryImpl(); // no FactoryFinder
     }
 
     /**
@@ -265,14 +260,6 @@ public class FreeColXMLWriter implements Closeable, XMLStreamWriter {
                     this.outputWriter.write(str);
                 } catch (IOException ioe) {
                     logger.log(Level.WARNING, "Flush-write fail:" + str, ioe);
-                }
-            } else {
-                StreamSource source = new StreamSource(new StringReader(str));
-                StreamResult result = new StreamResult(this.outputWriter);
-                try {
-                    this.transformer.transform(source, result);
-                } catch (TransformerException te) {
-                    logger.log(Level.WARNING, "Transform fail:" + str, te);
                 }
             }
 

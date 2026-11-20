@@ -82,7 +82,10 @@ public class MarketWas extends ObjectWas {
      * @param amount The amount of goods that changed hands.
      */
     private void fireChange(GoodsType type, int amount) {
-        for (TransactionListener l : this.market.getTransactionListener()) {
+        // the listeners as a list: TeaVM makes an array of an
+        // interface type an Object[], and the checkcast of the result of
+        // toArray then fails.
+        for (TransactionListener l : this.market.getTransactionListeners()) {
             if (amount < 0) {
                 int buy = this.costToBuy.get(type);
                 l.logPurchase(type, -amount, buy);

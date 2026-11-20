@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import javax.xml.stream.XMLStreamException;
@@ -481,6 +482,19 @@ public final class Market extends FreeColGameObject implements Ownable {
      */
     public TransactionListener[] getTransactionListener() {
         return transactionListeners.toArray(new TransactionListener[0]);
+    }
+
+    /**
+     * The listeners added to this market, as a list.
+     *
+     * TeaVM makes an array of an interface type an {@code Object[]}, and
+     * the checkcast of the result of {@code toArray} then fails, so the
+     * listeners are taken as a list here.
+     *
+     * @return The {@code TransactionListener}s added to this market.
+     */
+    public List<TransactionListener> getTransactionListeners() {
+        return this.transactionListeners;
     }
 
 

@@ -274,7 +274,7 @@ public class Nation extends FreeColSpecObjectType {
 
         if (refNation != null) xw.writeAttribute(REF_TAG, refNation);
 
-        if (color != null) xw.writeAttribute(COLOR_TAG, color.getRGB());
+        if (color != null) xw.writeAttribute(COLOR_TAG, net.sf.freecol.common.util.Utils.getRGB(color)); // no Color.getRGB
     }
 
     /**

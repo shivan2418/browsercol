@@ -46,7 +46,7 @@ import java.util.jar.JarOutputStream;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import javax.imageio.ImageIO;
+// no javax.imageio (see saveGame)
 import javax.xml.stream.XMLStreamException;
 
 import net.sf.freecol.FreeCol;
@@ -853,18 +853,18 @@ public final class FreeColServer {
      * @exception IOException If a problem was encountered while trying
      *     to open, write or close the file.
      */
-    private void saveGame(File file, String owner, OptionGroup options,
+    public void saveGame(File file, String owner, OptionGroup options,
                           Unit active, BufferedImage image) throws IOException {
         // Try to GC now before launching into the save, as a failure
         // here can lead to a corrupt saved game file (BR#3146).
         // Alas, gc is only advisory, but it is all we have got.
         garbageCollect();
-        try (JarOutputStream fos = new JarOutputStream(Files
-                .newOutputStream(file.toPath()))) {
+        try (JarOutputStream fos = new JarOutputStream(
+                new java.io.FileOutputStream(file))) { // no File.toPath
             if (image != null) {
                 fos.putNextEntry(new JarEntry(FreeColSavegameFile.THUMBNAIL_FILE));
-                ImageIO.write(image, "png", fos);
-                fos.closeEntry();
+                // no javax.imageio; only the map editor passes an image.
+                throw new IOException("No thumbnails in the browser");
             }
 
             if (options != null) {
@@ -879,7 +879,13 @@ public final class FreeColServer {
             properties.setProperty("map.height",
                 Integer.toString(this.serverGame.getMap().getHeight()));
             fos.putNextEntry(new JarEntry(FreeColSavegameFile.SAVEGAME_PROPERTIES));
-            properties.store(fos, null);
+            // TeaVM's Properties.store asks for an "ISO8859_1"
+            // writer, a charset name TeaVM does not know.  The values are
+            // digits, so write the lines store would write.
+            for (String key : properties.stringPropertyNames()) {
+                fos.write((key + "=" + properties.getProperty(key) + "\n")
+                    .getBytes(java.nio.charset.StandardCharsets.ISO_8859_1));
+            }
             fos.closeEntry();
 
             // save the actual game data

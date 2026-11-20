@@ -55,7 +55,8 @@ public class HighScore extends FreeColObject {
     public static final String TAG = "highScore";
 
     /** Trivial UUID to used when it is not present in the high score file. */
-    private static final UUID nullUUID = new UUID(0L, 0L);
+    private static final UUID nullUUID // TeaVM has no UUID(long, long)
+        = UUID.fromString("00000000-0000-0000-0000-000000000000");
     
     /** A comparator by ascending AI object value. */
     public static final Comparator<? super HighScore> descendingScoreComparator
@@ -368,11 +369,11 @@ public class HighScore extends FreeColObject {
         final int nScores = scores.size();
         final int score = highScore.getScore();
         final UUID uuid = highScore.getGameUUID();
-        if (uuid.compareTo(nullUUID) != 0) {
+        if (!uuid.equals(nullUUID)) { // no UUID.compareTo
             // UUID is valid, check for duplicate games
             for (int i = nScores-1; i >= 0; i--) {
                 HighScore hs = scores.get(i);
-                if (uuid.compareTo(hs.getGameUUID()) == 0
+                if (uuid.equals(hs.getGameUUID()) // no UUID.compareTo
                     && score > hs.getScore()) return i; // Replace score i
             }
         }
@@ -437,7 +438,7 @@ public class HighScore extends FreeColObject {
             return scores;
         }
         // Do not crash on high score fail
-        try (InputStream fis = Files.newInputStream(hsf.toPath())) {
+        try (InputStream fis = new java.io.FileInputStream(hsf) /* no File.toPath */) {
             try (FreeColXMLReader xr = new FreeColXMLReader(fis)) {
                 xr.nextTag();
 
@@ -469,7 +470,7 @@ public class HighScore extends FreeColObject {
         tidyScores(scores);
 
         File hsf = FreeColDirectories.getHighScoreFile();
-        try (OutputStream fos = Files.newOutputStream(hsf.toPath())) {
+        try (OutputStream fos = new java.io.FileOutputStream(hsf) /* no File.toPath */) {
             try (FreeColXMLWriter xw = new FreeColXMLWriter(fos,
                     FreeColXMLWriter.WriteScope.toSave(), true)) {
                 xw.writeStartDocument("UTF-8", "1.0");

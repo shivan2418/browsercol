@@ -22,7 +22,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.Writer;
 import java.nio.file.Files;
-import java.nio.file.attribute.PosixFilePermission;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -166,10 +165,7 @@ public class FreeColDirectories {
                                    SPECIFICATION_FILE_NAME);
 
     /** Posix file mode 0700. */
-    private static final Set<PosixFilePermission> mode0700
-        = makeUnmodifiableSet(PosixFilePermission.OWNER_READ,
-                              PosixFilePermission.OWNER_WRITE,
-                              PosixFilePermission.OWNER_EXECUTE);
+    // no POSIX permissions, directories keep the default mode
         
     
     /**
@@ -296,13 +292,6 @@ public class FreeColDirectories {
             if (dir.isDirectory() && dir.canWrite()) return dir;
         } else {
             if (dir.mkdir()) {
-                try {
-                    Files.setPosixFilePermissions(dir.toPath(), mode0700);
-                } catch (IOException|UnsupportedOperationException ex) {
-                    // Just log, error is not fatal
-                    System.err.println("Failed to change permissions of "
-                        + dir.getPath());
-                }
                 return dir;
             }
         }
@@ -484,7 +473,7 @@ public class FreeColDirectories {
      */
     private static File deriveAutosaveDirectory() {
         if (saveDirectory != null
-            && saveDirectory.toPath().endsWith(AUTOSAVE_DIRECTORY)) {
+            && saveDirectory.getName().equals(AUTOSAVE_DIRECTORY)) { // no File.toPath
             // Do not create autosave directories inside autosave
             // directories (BR#3276).  However, having save==autosave
             // is not a good idea either.  Lets see who that next

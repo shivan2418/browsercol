@@ -34,8 +34,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Reader;
@@ -65,6 +63,18 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public class Utils {
 
     private static final Logger logger = Logger.getLogger(Utils.class.getName());
+
+    /**
+     * Get a colour as packed ARGB, as Color.getRGB does.
+     * TeaVM's Color has no getRGB.
+     *
+     * @param c The {@code Color}.
+     * @return The packed value.
+     */
+    public static int getRGB(java.awt.Color c) {
+        return (c.getAlpha() << 24) | (c.getRed() << 16)
+            | (c.getGreen() << 8) | c.getBlue();
+    }
 
     /** Hex constant digits for get/restoreRandomState. */
     private static final String HEX_DIGITS = "0123456789ABCDEF";
@@ -104,18 +114,62 @@ public class Utils {
      */
     public static synchronized String getRandomState(Random random)
         throws IOException {
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        try (ObjectOutputStream oos = new ObjectOutputStream(bos)) {
-            oos.writeObject(random);
-            oos.flush();
-        }
-        byte[] bytes = bos.toByteArray();
-        StringBuilder sb = new StringBuilder(bytes.length * 2);
-        for (byte b : bytes) {
-            sb.append(HEX_DIGITS.charAt((b >> 4) & 0x0F));
-            sb.append(HEX_DIGITS.charAt(b & 0x0F));
+        // no Java serialization in TeaVM, and no way to read a
+        // Random's private seed.  So reseed the generator from itself,
+        // which makes its seed known, and write the bytes that
+        // ObjectOutputStream writes for a java.util.Random with that
+        // seed, so desktop FreeCol reads the state as before.  The
+        // game goes on from the reseeded state, as a load of this save
+        // does.
+        long seed = random.nextLong();
+        random.setSeed(seed);
+        long scrambled = (seed ^ RANDOM_MULTIPLIER) & RANDOM_MASK;
+        StringBuilder sb = new StringBuilder(RANDOM_STATE_LENGTH);
+        sb.append(RANDOM_HEADER)
+            .append("00")                // haveNextNextGaussian
+            .append("0000000000000000"); // nextNextGaussian
+        appendHex(sb, scrambled);        // seed
+        sb.append("78");                 // TC_ENDBLOCKDATA
+        return sb.toString();
+    }
+
+    // the serialized form of java.util.Random, see
+    // getRandomState.  The class descriptor: stream magic and version,
+    // TC_OBJECT, TC_CLASSDESC, the class name, its serialVersionUID,
+    // SC_WRITE_METHOD | SC_SERIALIZABLE, and its three fields as
+    // ObjectStreamClass orders them, then TC_ENDBLOCKDATA and TC_NULL
+    // for no superclass descriptor.  The values follow: a boolean, a
+    // double and a long.
+    private static final String RANDOM_HEADER
+        = "ACED0005" + "7372" + "0010" + hex("java.util.Random")
+        + "363296344BF00A53" + "03" + "0003"
+        + "5A" + "0014" + hex("haveNextNextGaussian")
+        + "44" + "0010" + hex("nextNextGaussian")
+        + "4A" + "0004" + hex("seed")
+        + "7870";
+
+    private static final int RANDOM_STATE_LENGTH
+        = RANDOM_HEADER.length() + 2 + 16 + 16 + 2;
+
+    /** java.util.Random's multiplier, with which setSeed scrambles. */
+    private static final long RANDOM_MULTIPLIER = 0x5DEECE66DL;
+
+    private static final long RANDOM_MASK = (1L << 48) - 1;
+
+    private static String hex(String ascii) {
+        StringBuilder sb = new StringBuilder(ascii.length() * 2);
+        for (int i = 0; i < ascii.length(); i++) {
+            char c = ascii.charAt(i);
+            sb.append(HEX_DIGITS.charAt((c >> 4) & 0x0F))
+                .append(HEX_DIGITS.charAt(c & 0x0F));
         }
         return sb.toString();
+    }
+
+    private static void appendHex(StringBuilder sb, long value) {
+        for (int shift = 60; shift >= 0; shift -= 4) {
+            sb.append(HEX_DIGITS.charAt((int)(value >>> shift) & 0x0F));
+        }
     }
 
     /**
@@ -126,21 +180,27 @@ public class Utils {
      */
     public static synchronized Random restoreRandomState(String state) {
         if (state == null || state.isEmpty()) return null;
-        byte[] bytes = new byte[state.length() / 2];
-        int pos = 0;
-        for (int i = 0; i < bytes.length; i++) {
-            bytes[i] = (byte) HEX_DIGITS.indexOf(state.charAt(pos++));
-            bytes[i] <<= 4;
-            bytes[i] |= (byte) HEX_DIGITS.indexOf(state.charAt(pos++));
+        // read the serialized java.util.Random by hand, see
+        // getRandomState.  Desktop FreeCol writes the same bytes.  The
+        // stored Gaussian is dropped: FreeCol never asks for one.
+        final String s = state.toUpperCase(java.util.Locale.ROOT);
+        if (s.length() != RANDOM_STATE_LENGTH || !s.startsWith(RANDOM_HEADER)
+            || !s.endsWith("78")) {
+            logger.warning("Unable to restore random state: " + state);
+            return null;
         }
-        ByteArrayInputStream bis = new ByteArrayInputStream(bytes);
-        try {
-            ObjectInputStream ois = new ObjectInputStream(bis);
-            return (Random) ois.readObject();
-        } catch (IOException | ClassNotFoundException e) {
-            logger.log(Level.WARNING, "Unable to restore random state.", e);
+        final int at = RANDOM_HEADER.length() + 2 + 16;
+        long scrambled = 0;
+        for (int i = at; i < at + 16; i++) {
+            int d = HEX_DIGITS.indexOf(s.charAt(i));
+            if (d < 0) {
+                logger.warning("Unable to restore random state: " + state);
+                return null;
+            }
+            scrambled = (scrambled << 4) | d;
         }
-        return null;
+        // setSeed scrambles with the multiplier, so unscramble first.
+        return new Random((scrambled & RANDOM_MASK) ^ RANDOM_MULTIPLIER);
     }
 
     /**
@@ -151,7 +211,7 @@ public class Utils {
      */
     public static Reader getFileUTF8Reader(File file) {
         try {
-            InputStream fis = Files.newInputStream(file.toPath());
+            InputStream fis = new java.io.FileInputStream(file); // no File.toPath
             return new InputStreamReader(fis, StandardCharsets.UTF_8);
         } catch (IOException ioe) {
             logger.log(Level.WARNING, "No input stream for " + file.getPath(),
@@ -208,8 +268,8 @@ public class Utils {
     private static Writer getF8W(File file, boolean append) {
         try {
             OutputStream fos = (append)
-                ? Files.newOutputStream(file.toPath(), CREATE, APPEND)
-                : Files.newOutputStream(file.toPath());
+                ? new java.io.FileOutputStream(file, true) // no File.toPath
+                : new java.io.FileOutputStream(file);
             return getUTF8Writer(fos);
         } catch (IOException ioe) {
             logger.log(Level.WARNING, "No output stream for " + file.getName(),

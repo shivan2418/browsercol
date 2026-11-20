@@ -41,7 +41,6 @@ import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import javax.swing.UIManager;
 import javax.xml.stream.XMLStreamException;
 
 import net.sf.freecol.common.ObjectWithId;
@@ -112,13 +111,35 @@ public class Messages {
      * The mapping from language-independent key to localized message
      * for the established locale.
      */
-    private static final Map<String, String> messageBundle = new HashMap<>();
+    // A volatile reference to a concurrent map. A reload fills a
+    // new map and swaps it in, so a game still reading the bundle (the
+    // previous test's EDT tail, a second Engine) never sees it empty.
+    private static volatile Map<String, String> messageBundle
+        = new java.util.concurrent.ConcurrentHashMap<>();
 
     /**
      * A map with Selector values and the tag keys used in choice
      * formats.
      */
     private static final Map<String, Selector> tagMap = new HashMap<>();
+
+    /**
+     * English descriptions that FreeCol's rules do not bear out,
+     * worded to say what the rules do. They replace FreeColMessages'
+     * English text; a translation keeps its own.
+     *
+     * Brebeuf gives missionaries the expert missionary ability, which
+     * doubles a mission's calming of the natives and helps in denouncing
+     * (ServerPlayer, InGameController.denounceMission), but conversion
+     * goes by the missionary's unit type (ServerIndianSettlement
+     * .csStartTurn), so a colonist does not convert as a Jesuit does.
+     */
+    private static final Map<String, String> CLARIFIED = Map.of(
+        "model.foundingFather.fatherJeanDeBrebeuf.description",
+        "All missionaries count as expert missionaries: their missions calm"
+        + " the natives twice as much, and they are better at denouncing"
+        + " other missions and at withstanding denunciation. They do not"
+        + " convert natives any faster.");
 
 
     // Message bundle initialization
@@ -151,13 +172,15 @@ public class Messages {
      * @param locale The {@code Locale} to set resources for.
      */
     public static void loadMessageBundle(Locale locale) {
-        messageBundle.clear(); // Reset the message bundle.
+        // Build the new bundle aside and swap it in at the end.
+        final Map<String, String> bundle
+            = new java.util.concurrent.ConcurrentHashMap<>();
 
         if (!NumberRules.isInitialized()) {
             // attempt to read grammatical rules
             File cldr = FreeColDirectories.getI18nPluralsFile();
             if (cldr.exists()) {
-                try (InputStream in = Files.newInputStream(cldr.toPath())) {
+                try (InputStream in = new java.io.FileInputStream(cldr)) { // no File.toPath
                     NumberRules.load(in);
                 } catch (IOException|XMLStreamException e) {
                     System.err.println("Failed to read CLDR rules: "
@@ -176,12 +199,14 @@ public class Messages {
         for (File f : FreeColDirectories.getI18nMessageFileList(locale)) {
             if (!f.canRead()) continue;
             try {
-                loadMessages(Files.newInputStream(f.toPath()));
+                loadMessages(new java.io.FileInputStream(f), bundle); // no File.toPath
             } catch (IOException ioe) {
                 System.err.println("Failed to load messages from "
                     + f.getPath() + ": " + ioe.getMessage());
             }
         }
+        // English text that says what the rules do (CLARIFIED); a translation keeps its own.
+        if ("en".equals(loc.getLanguage())) bundle.putAll(CLARIFIED);
 
         List<String> filenames
             = FreeColDirectories.getMessageFileNameList(locale);
@@ -194,7 +219,7 @@ public class Messages {
                     continue; // Expecting failure
                 }
                 try {
-                    loadMessages(is);
+                    loadMessages(is, bundle);
                 } catch (IOException ioe) {
                     System.err.println("Failed to load rules messages from "
                         + fn + ": " + ioe.getMessage());
@@ -203,6 +228,7 @@ public class Messages {
                 }
             }
         }
+        messageBundle = bundle;
     }
 
     /**
@@ -216,6 +242,11 @@ public class Messages {
      * @throws IOException on failure to read from the stream.
      */
     public static void loadMessages(InputStream is) throws IOException {
+        loadMessages(is, messageBundle);
+    }
+
+    private static void loadMessages(InputStream is, Map<String, String> bundle)
+        throws IOException {
         try (BufferedReader in = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
             String line = null;
             while((line = in.readLine()) != null) {
@@ -227,10 +258,8 @@ public class Messages {
                     String key = line.substring(0, index).trim();
                     String value = line.substring(index + 1).trim()
                         .replace("\\n", "\n").replace("\\t", "\t");
-                    messageBundle.put(key, value);
-                    if (key.startsWith("FileChooser.")) {
-                        UIManager.put(key, value);
-                    }
+                    bundle.put(key, value);
+                    // FileChooser.* keys went to Swing's UIManager
                 }
             }
         }

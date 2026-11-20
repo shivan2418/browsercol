@@ -50,7 +50,7 @@ public class SetColorMessage extends AttributeMessage {
      */
     public SetColorMessage(Nation nation, Color color) {
         super(TAG, NATION_TAG, nation.getId(),
-              COLOR_TAG, String.valueOf(color.getRGB()));
+              COLOR_TAG, String.valueOf(net.sf.freecol.common.util.Utils.getRGB(color))); // no Color.getRGB
     }
 
     /**
