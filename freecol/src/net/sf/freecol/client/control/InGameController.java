@@ -894,8 +894,8 @@ public final class InGameController extends FreeColClientHolder {
         if (server != null) {
             showStatusPanel(Messages.message("status.savingGame"));
             try {
-                server.saveGame(file, getClientOptions(), getGUI().getActiveUnit());
-                result = true;
+                // the server is in the Worker, not in process, and its saveGame reaches ImageIO and File.toPath
+                throw new IOException("Saving is not ported to the browser");
             } catch (IOException ioe) {
                 error(FreeCol.badFile("error.couldNotSave", file), null);
                 logger.log(Level.WARNING, "Save fail", ioe);
@@ -4196,6 +4196,11 @@ public final class InGameController extends FreeColClientHolder {
                 nativeTrade(nt, act, nti, prompt);
                 uw.fireChanges();
                 gui.changeView(current, false);
+                // the trade has used the unit's moves, and nothing after it asks for a new
+                // active unit: the updateGUI of the move that began it ran before they were gone,
+                // as the WebGUI runs deferred work at once. As every action ends, update the GUI
+                // now: a unit that is no candidate for the next active unit is replaced.
+                updateGUI(null, false);
             });                
     }
 
@@ -4325,14 +4330,15 @@ public final class InGameController extends FreeColClientHolder {
         StringTemplate t = StringTemplate.template("event.firstLanding")
             .addName("%name%", name);
 
+        // the first landing panel is a Swing FreeColPanel, which TeaVM cannot load, so
+        // the closing callback goes to showEventPanel, which the WebGUI runs when the player
+        // closes the panel, instead of to addClosingCallback on the panel it returns. The
+        // tutorial names the Browser UI's key for building a colony, as the Swing action's
+        // accelerator (FreeColActionUI) is Swing's.
         invokeLater(() -> {
-            final FreeColPanel firstLandinPanel = getGUI().showEventPanel(Messages.message(t), "image.flavor.event.firstLanding", null);
-            firstLandinPanel.addClosingCallback(() -> {
+            getGUI().showEventPanel(Messages.message(t), "image.flavor.event.firstLanding", null, () -> {
                 // Add tutorial message.
-                final String key = FreeColActionUI
-                    .getHumanKeyStrokeText(getFreeColClient()
-                        .getActionManager().getFreeColAction("buildColonyAction")
-                        .getAccelerator());
+                final String key = "B";
                 player.addModelMessage(new ModelMessage(ModelMessage.MessageType.TUTORIAL, "buildColony.tutorial", player)
                     .addName("%colonyKey%", key)
                     .add("%colonyMenuItem%", "buildColonyAction.name")

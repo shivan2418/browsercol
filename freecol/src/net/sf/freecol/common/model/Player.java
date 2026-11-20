@@ -674,7 +674,7 @@ public class Player extends FreeColGameObject implements Nameable {
     public ChangeSet clientError(StringTemplate template) {
         logger.warning(Messages.message(template));
         if (FreeColDebugger.isInDebugMode(FreeColDebugger.DebugMode.COMMS)) {
-            Thread.dumpStack();
+            new Throwable("clientError").printStackTrace(); // no Thread.dumpStack
         }
         return ChangeSet.clientError(ChangeSet.See.only(this), template);
     }
@@ -689,7 +689,7 @@ public class Player extends FreeColGameObject implements Nameable {
     public ChangeSet clientError(String message) {
         logger.warning(message);
         if (FreeColDebugger.isInDebugMode(FreeColDebugger.DebugMode.COMMS)) {
-            Thread.dumpStack();
+            new Throwable("clientError").printStackTrace(); // no Thread.dumpStack
         }
         return ChangeSet.clientError(ChangeSet.See.only(this), message);
     }

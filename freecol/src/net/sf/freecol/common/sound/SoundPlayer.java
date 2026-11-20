@@ -261,7 +261,7 @@ public final class SoundPlayer {
      */
     private void setMixer(MixerWrapper mw) {
         try {
-            this.mixer = AudioSystem.getMixer(mw.getMixerInfo());
+            this.mixer = AudioSystem.getMixer((Mixer.Info)mw.getMixerInfo()); // MixerWrapper holds Object
             logger.info("Mixer " + mw + " selected");
         } catch (Exception e) {
             this.mixer = null;

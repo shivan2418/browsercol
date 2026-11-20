@@ -49,6 +49,12 @@ public class UserServerAPI extends ServerAPI {
     /** The last message handler specified. */
     private MessageHandler messageHandler = null;
 
+    /** makes connections instead of sockets when set. */
+    public interface ConnectionFactory {
+        Connection connect(String name, String host, int port) throws IOException;
+    }
+    public static ConnectionFactory connectionFactory = null;
+
 
     /**
      * Create the new user wrapper for the server API.
@@ -119,6 +125,7 @@ public class UserServerAPI extends ServerAPI {
      */
     private static Connection newConnection(String name, String host, int port)
         throws IOException {
+        if (connectionFactory != null) return connectionFactory.connect(name, host, port);
         int tries;
         if (port < 0) {
             port = FreeCol.getServerPort();

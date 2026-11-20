@@ -291,6 +291,28 @@ public final class FreeColClient {
         });
     }
 
+    /**
+     * A client for the Browser UI, with no Swing GUI, sound,
+     * resources or actions. The GUI comes from the factory.
+     *
+     * @param guiFactory Makes the {@code GUI} for this client.
+     */
+    public FreeColClient(java.util.function.Function<FreeColClient, GUI> guiFactory) {
+        this.mapEditor = false;
+        this.serverAPI = new UserServerAPI();
+        this.connectController = new ConnectController(this);
+        this.preGameController = new PreGameController(this);
+        this.inGameController = new InGameController(this);
+        this.mapEditorController = null; // no map editor
+        this.inputHandler = new ClientInputHandler(this);
+        setMessageHandler(this.inputHandler);
+        this.actionManager = null; // actions are Swing
+        this.clientOptions = loadClientOptions(null);
+        this.clientOptions.fixClientOptions();
+        this.gui = guiFactory.apply(this);
+        this.soundController = null; // no sound, and SoundPlayer needs javax.sound
+    }
+
     private void startFirstTaskInGui(String userMsg, boolean showOpeningVideo, File savedGame,
             Specification spec) {
         // Now the GUI is going, either:
@@ -693,6 +715,7 @@ public final class FreeColClient {
      * should change due to the current game context.
      */
     public void updateActions() {
+        if (actionManager == null) return; // no actions
         actionManager.update();
     }
 
@@ -702,6 +725,7 @@ public final class FreeColClient {
      * @param specification The {@code Specification} to use.
      */
     public void addSpecificationActions(Specification specification) {
+        if (actionManager == null) return; // no actions
         SwingUtilities.invokeLater(() -> {
             actionManager.addSpecificationActions(specification);
             // XXX: The actions are loaded asynchronously without a callback.

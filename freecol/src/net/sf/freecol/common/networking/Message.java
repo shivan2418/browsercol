@@ -64,6 +64,20 @@ public abstract class Message {
         = Collections.synchronizedMap(new HashMap<String,
             Constructor<? extends Message>>());
 
+    /**
+     * makes a message from a stream, as its (Game,
+     * FreeColXMLReader) constructor does.
+     */
+    public interface Reader {
+        Message read(Game game, FreeColXMLReader xr) throws Exception;
+    }
+
+    /**
+     * readers by message tag, tried before reflection. TeaVM does
+     * not find the message classes by name (docs/teavm.md).
+     */
+    public static final Map<String, Reader> readers = new HashMap<>();
+
     /** Classes used by Message.read() */
     private static final Class<?>[] readClasses = {
         Game.class, FreeColXMLReader.class };
@@ -630,6 +644,16 @@ public abstract class Message {
         throws FreeColException {
         final String tag = xr.getLocalName();
         Message ret = null;
+        final Reader reader = readers.get(tag);
+        if (reader != null) {
+            try {
+                return reader.read(game, xr);
+            } catch (FreeColException fce) {
+                throw fce;
+            } catch (Exception ex) {
+                throw new FreeColException(ex);
+            }
+        }
         Constructor<? extends Message> mb = builders.get(tag);
         if (mb == null) {
             final String className = "net.sf.freecol.common.networking."

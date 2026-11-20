@@ -133,7 +133,7 @@ public final class FreeCol {
         = System.getProperty("java.version");
 
     /** The maximum available memory. */
-    private static final long MEMORY_MAX = Runtime.getRuntime().maxMemory();
+    private static final long MEMORY_MAX = Runtime.getRuntime().totalMemory(); // no maxMemory
 
     public static final String  CLIENT_THREAD = "FreeColClient:";
     public static final String  SERVER_THREAD = "FreeColServer:";
@@ -537,7 +537,7 @@ public final class FreeCol {
      */
     @SuppressFBWarnings(value="DM_EXIT", justification="Deliberate")
     public static void quit(int status) {
-        System.exit(status);
+        System.err.println("FreeCol.quit(" + status + ")"); // no System.exit, nothing to exit
     }
 
     /**
@@ -568,7 +568,7 @@ public final class FreeCol {
     private static void fatal(String err) {
         if (err == null || err.isEmpty()) {
             err = "Bogus null fatal error message";
-            Thread.dumpStack();
+            new Throwable(err).printStackTrace(); // no Thread.dumpStack
         }
         System.err.println(err);
         quit(1);

@@ -24,8 +24,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.logging.*;
 
-import javax.sound.sampled.AudioSystem;
-import javax.sound.sampled.Mixer;
 import javax.xml.stream.XMLStreamException;
 
 import net.sf.freecol.common.i18n.Messages;
@@ -46,7 +44,7 @@ public class AudioMixerOption extends AbstractOption<AudioMixerOption.MixerWrapp
     public static final String TAG = "audioMixerOption";
 
     /**
-     * A wrapper for the mixer, including the Mixer.Info including a
+     * A wrapper for the mixer, including the mixer info (no javax.sound) including a
      * potentially null value.
      */
     public static class MixerWrapper implements Comparable<MixerWrapper> {
@@ -55,10 +53,10 @@ public class AudioMixerOption extends AbstractOption<AudioMixerOption.MixerWrapp
         private final String name;
 
         /** The mixer info for a mixer. */
-        private final Mixer.Info mixerInfo;
+        private final Object /* was Mixer.Info */ mixerInfo;
 
 
-        public MixerWrapper(String name, Mixer.Info mixerInfo) {
+        public MixerWrapper(String name, Object /* was Mixer.Info */ mixerInfo) {
             this.name = name;
             this.mixerInfo = mixerInfo;
         }
@@ -67,7 +65,7 @@ public class AudioMixerOption extends AbstractOption<AudioMixerOption.MixerWrapp
             return name;
         }
 
-        public Mixer.Info getMixerInfo() {
+        public Object /* was Mixer.Info */ getMixerInfo() {
             return mixerInfo;
         }
 
@@ -117,30 +115,16 @@ public class AudioMixerOption extends AbstractOption<AudioMixerOption.MixerWrapp
     public static final String AUTO_NAME
         = Messages.message("clientOptions.audio.audioMixer.automatic");
 
-    /** The autodetected mixer. */
-    private static final Mixer AUTODETECTED_MIXER;
-    static {
-        Mixer mixer = null;
-        try {
-            mixer = AudioSystem.getMixer(null);
-        } catch (IllegalArgumentException e) {
-            logger.log(Level.FINE, "No Audio Mixer installed on the system.", e);
-        }
-        AUTODETECTED_MIXER = mixer;
-    }
+    // no javax.sound and no audio; only the "automatic" choice.
 
     /** The default mixer wrapper around the autodetected mixer. */
     private static final MixerWrapper DEFAULT_MIXER_WRAPPER
-        = new MixerWrapper(AUTO_NAME, (AUTODETECTED_MIXER == null) ? null
-            : AUTODETECTED_MIXER.getMixerInfo());
+        = new MixerWrapper(AUTO_NAME, null);
 
     /** The available audio mixers. */
     private static final List<MixerWrapper> audioMixers = new ArrayList<>();
     static {
-        audioMixers.addAll(transform(AudioSystem.getMixerInfo(),
-                alwaysTrue(), mi -> new MixerWrapper(mi.getName(), mi),
-                Comparator.naturalOrder()));
-        audioMixers.add(0, DEFAULT_MIXER_WRAPPER);
+        audioMixers.add(DEFAULT_MIXER_WRAPPER);
     }
 
 

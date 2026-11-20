@@ -173,8 +173,7 @@ public class GUI extends FreeColClientHolder {
     public final boolean modalConfirmDialog(Tile tile, StringTemplate template,
                                  GoodsType goodsType,
                                  String okKey, String cancelKey) {
-        ImageIcon icon = new ImageIcon(getFixedImageLibrary()
-            .getScaledGoodsTypeImage(goodsType));
+        ImageIcon icon = dialogIcon(goodsType); // the WebGUI has no ImageLibrary
         return modalConfirmDialog(tile, template, icon, okKey, cancelKey, true);
     }
 
@@ -191,8 +190,7 @@ public class GUI extends FreeColClientHolder {
     public final boolean modalConfirmDialog(Tile tile, StringTemplate template,
                                  Settlement settlement,
                                  String okKey, String cancelKey) {
-        ImageIcon icon = new ImageIcon(getFixedImageLibrary()
-            .getScaledSettlementImage(settlement));
+        ImageIcon icon = dialogIcon(settlement); // the WebGUI has no ImageLibrary
         return modalConfirmDialog(tile, template, icon, okKey, cancelKey, true);
     }
 
@@ -210,8 +208,7 @@ public class GUI extends FreeColClientHolder {
      */
     public final boolean modalConfirmDialog(Tile tile, StringTemplate template, Unit unit,
                                  String okKey, String cancelKey, boolean defaultOk) {
-        ImageIcon icon = new ImageIcon(getFixedImageLibrary()
-            .getScaledUnitImage(unit));
+        ImageIcon icon = dialogIcon(unit); // the WebGUI has no ImageLibrary
         return modalConfirmDialog(tile, template, icon, okKey, cancelKey, defaultOk);
     }
 
@@ -531,8 +528,7 @@ public class GUI extends FreeColClientHolder {
      */
     public final <T> T modalChoiceDialog(StringTemplate explain, String cancelKey,
                                  List<ChoiceItem<T>> choices) {
-        ImageIcon icon = new ImageIcon(getFixedImageLibrary()
-            .getPlaceholderImage());
+        ImageIcon icon = dialogIcon(null); // the WebGUI has no ImageLibrary
         return modalChoiceDialog(null, explain, icon, cancelKey, choices);
     }
 
@@ -551,8 +547,7 @@ public class GUI extends FreeColClientHolder {
     private final <T> T modalChoiceDialog(Tile tile, StringTemplate template,
                                   GoodsType goodsType, String cancelKey,
                                   List<ChoiceItem<T>> choices) {
-        ImageIcon icon = new ImageIcon(getFixedImageLibrary()
-            .getScaledGoodsTypeImage(goodsType));
+        ImageIcon icon = dialogIcon(goodsType); // the WebGUI has no ImageLibrary
         return modalChoiceDialog(tile, template, icon, cancelKey, choices);
     }
 
@@ -571,8 +566,7 @@ public class GUI extends FreeColClientHolder {
     private final <T> T modalChoiceDialog(Tile tile, StringTemplate template,
                                   Nation nation, String cancelKey,
                                   List<ChoiceItem<T>> choices) {
-        ImageIcon icon = new ImageIcon(getFixedImageLibrary()
-            .getScaledNationImage(nation));
+        ImageIcon icon = dialogIcon(nation); // the WebGUI has no ImageLibrary
         return modalChoiceDialog(tile, template, icon, cancelKey, choices);
     }
 
@@ -591,8 +585,7 @@ public class GUI extends FreeColClientHolder {
     public final <T> T modalChoiceDialog(Tile tile, StringTemplate template,
                                  Settlement settlement, String cancelKey,
                                  List<ChoiceItem<T>> choices) {
-        ImageIcon icon = new ImageIcon(getFixedImageLibrary()
-            .getScaledSettlementImage(settlement));
+        ImageIcon icon = dialogIcon(settlement); // the WebGUI has no ImageLibrary
         return modalChoiceDialog(tile, template, icon, cancelKey, choices);
     }
 
@@ -611,8 +604,7 @@ public class GUI extends FreeColClientHolder {
     public final <T> T modalChoiceDialog(Tile tile, StringTemplate template,
                                  Unit unit, String cancelKey,
                                  List<ChoiceItem<T>> choices) {
-        ImageIcon icon = new ImageIcon(getFixedImageLibrary()
-            .getScaledUnitImage(unit));
+        ImageIcon icon = dialogIcon(unit); // the WebGUI has no ImageLibrary
         return modalChoiceDialog(tile, template, icon, cancelKey, choices);
     }
 
@@ -931,7 +923,7 @@ public class GUI extends FreeColClientHolder {
         if (message != null && FreeColDebugger.isInDebugMode()) {
             display += "/" + message + "/";
         }
-        return showErrorPanel(display, callback);
+        return showErrorPanel(display, message, callback); // the extra message goes on, for the copy details button
     }
 
     /**
@@ -1215,6 +1207,24 @@ public class GUI extends FreeColClientHolder {
      */
     public void animateUnitMove(Unit unit, Tile srcTile, Tile dstTile) {}
 
+
+    /**
+     * The icon for a dialog about an object. The WebGUI, which
+     * has no ImageLibrary, overrides it.
+     *
+     * @param display The {@code Unit}, {@code Settlement},
+     *     {@code GoodsType} or {@code Nation} to show, or null for
+     *     the placeholder image.
+     * @return The icon.
+     */
+    protected ImageIcon dialogIcon(FreeColObject display) {
+        final ImageLibrary lib = getFixedImageLibrary();
+        return new ImageIcon((display instanceof Unit) ? lib.getScaledUnitImage((Unit)display)
+            : (display instanceof Settlement) ? lib.getScaledSettlementImage((Settlement)display)
+            : (display instanceof GoodsType) ? lib.getScaledGoodsTypeImage((GoodsType)display)
+            : (display instanceof Nation) ? lib.getScaledNationImage((Nation)display)
+            : lib.getPlaceholderImage());
+    }
 
     // Dialog primitives
 
@@ -2104,6 +2114,20 @@ public class GUI extends FreeColClientHolder {
     public FreeColPanel showErrorPanel(String message, Runnable callback) { return null; }
 
     /**
+     * Show an error panel that also has the non-i18n detail the server
+     * sent. // the WebGUI keeps the detail for a bug report.
+     *
+     * @param message The error message to display.
+     * @param detail The non-i18n detail, or null.
+     * @param callback An optional {@code Runnable} to run on close.
+     * @return The panel shown.
+     */
+    public FreeColPanel showErrorPanel(String message, String detail,
+                                       Runnable callback) {
+        return showErrorPanel(message, callback);
+    }
+
+    /**
      * Show the Europe panel.
      *
      * @return The panel shown.
@@ -2120,6 +2144,25 @@ public class GUI extends FreeColClientHolder {
      */
     public FreeColPanel showEventPanel(String header, String image,
                                        String footer) { return null; }
+
+    /**
+     * Show an event panel and run something once it is closed.
+     *
+     * added. Upstream calls addClosingCallback on the panel that
+     * showEventPanel returns, but a FreeColPanel is a Swing JPanel, which
+     * TeaVM cannot load, so the WebGUI cannot return one. The base GUI
+     * shows no panel and runs the callback at once.
+     *
+     * @param header The header text.
+     * @param image The image resource key.
+     * @param footer Optional footer text.
+     * @param closing What to run when the panel is closed.
+     */
+    public void showEventPanel(String header, String image, String footer,
+                               Runnable closing) {
+        showEventPanel(header, image, footer);
+        if (closing != null) closing.run();
+    }
 
     /**
      * Show the FindSettlement panel.
