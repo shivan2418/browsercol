@@ -283,8 +283,8 @@ class GamePresetTest {
         FreeColRules.loadRules();
         Specification spec = FreeCol.loadSpecification(
             FreeColRules.getFreeColRulesFile("classic"), null, "model.difficulty.medium");
-        assertEquals(40, spec.getInteger("model.option.mapWidth"));
-        assertEquals(100, spec.getInteger("model.option.mapHeight"));
+        assertEquals(80, spec.getInteger("model.option.mapWidth"));
+        assertEquals(50, spec.getInteger("model.option.mapHeight"));
         assertEquals(25, spec.getInteger("model.option.landMass"));
         assertEquals(15, spec.getInteger("model.option.riverNumber"));
         assertEquals(10, spec.getInteger("model.option.mountainNumber"));

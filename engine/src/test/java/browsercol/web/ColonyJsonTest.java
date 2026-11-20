@@ -52,7 +52,7 @@ class ColonyJsonTest {
      * the food the colony produces changes when that tile turns to
      * water. Another seed needs one whose north tile grows food.
      */
-    private static final long MAP_SEED = 4;
+    private static final long MAP_SEED = 1;
 
     private final ExecutorService toClient = Executors.newSingleThreadExecutor();
     private final ExecutorService toServer = Executors.newSingleThreadExecutor();
@@ -399,9 +399,9 @@ class ColonyJsonTest {
             assertTrue(ids(worked.get("workers")).contains(founder.getId()));
         }
         final Tile north = land.getNeighbourOrNull(Direction.N);
-        assertEquals(List.of(0L, 0L), tiles.stream()
+        assertEquals(List.of(1L, 0L), tiles.stream()
             .filter(t -> colony.getColonyTile(north).getId().equals(t.get("id")))
-            .findFirst().get().get("pos"), "north is at the top, as in Swing");
+            .findFirst().get().get("pos"), "north is the middle of the top row");
         // Each tile's place on the map, for the panel to draw it as the map
         // does, and none taken or native land in a colony on free land.
         final Map<String, Object> northJson = tiles.stream()

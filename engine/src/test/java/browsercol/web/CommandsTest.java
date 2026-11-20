@@ -2663,6 +2663,7 @@ class CommandsTest {
         final Tile land = game.getMap().getTileSet(t -> t.isLand() && !t.hasSettlement()
                 && t.getUnitCount() == 0 && t.getOwner() == null
                 && t.getDistanceTo(at) >= 9 && t.getDistanceTo(at) <= 16
+                && t.getPotentialProduction(game.getSpecification().getGoodsType("model.goods.food"), null) > 0
                 && t.getSurroundingTiles(1, 1).stream().anyMatch(n -> !n.isLand()))
             .stream().min(Comparator.comparingInt(t -> t.getDistanceTo(at))).get();
         final Colony colony = new ServerColony(game, us, name, land);
