@@ -5,7 +5,7 @@
 # last build. Run in the dev image, from the repo root.
 set -uo pipefail
 stamp=$(mktemp)
-watched=(engine/src engine/patches engine/build.gradle engine/settings.gradle engine/gradle.properties)
+watched=(engine/src freecol/src engine/build.gradle engine/settings.gradle engine/gradle.properties)
 echo "watch-engine: rebuilding the Engine when ${watched[*]} change"
 while sleep 1; do
   [[ -n "$(find "${watched[@]}" -newer "$stamp" -type f -print -quit 2>/dev/null)" ]] || continue

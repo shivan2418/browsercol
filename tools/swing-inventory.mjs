@@ -219,7 +219,6 @@ for (const file of files) {
 
 const read = (p) => readFileSync(p, 'utf8');
 const webSrc = walk(webRoot, '.java').map(read).join('\n');
-const patchSrc = walk(join(repo, 'engine/patches'), '.java').map(read).join('\n');
 const uiSrc = walk(uiRoot, '.ts')
   .concat(walk(uiRoot, '.tsx'))
   .filter((p) => !/\.test\.tsx?$/.test(p))

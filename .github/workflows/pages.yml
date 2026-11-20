@@ -26,9 +26,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Clone upstream FreeCol at the pinned commit
-        run: ./freecol.sh
-
       # The feedback relay's URL (#369, docs/adr/0009) comes from a repository variable; dev.sh passes it on
       # to the container, and Vite reads it as import.meta.env.VITE_FEEDBACK_URL. Unset, the game has no Send button.
       - name: Build dist/

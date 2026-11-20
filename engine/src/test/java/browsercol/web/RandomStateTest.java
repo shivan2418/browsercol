@@ -17,7 +17,7 @@ import net.sf.freecol.common.util.Utils;
 
 
 /**
- * The patched Utils writes and reads a Random's state without Java
+ * The Utils of freecol/ writes and reads a Random's state without Java
  * serialization, in the bytes desktop FreeCol writes and reads with it.
  */
 class RandomStateTest {

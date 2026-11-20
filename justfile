@@ -18,7 +18,7 @@ build *args:
 dev:
     #!/usr/bin/env bash
     set -euo pipefail
-    [ -f ui/generated/client.wasm ] && [ -z "$(find engine/src engine/patches engine/*.gradle* -newer ui/generated/client.wasm -type f -print -quit 2>/dev/null)" ] || just build
+    [ -f ui/generated/client.wasm ] && [ -z "$(find engine/src freecol/src engine/*.gradle* -newer ui/generated/client.wasm -type f -print -quit 2>/dev/null)" ] || just build
     port={{port}}
     while (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null; do port=$((port + 1)); done
     echo "Dev server: http://localhost:$port"

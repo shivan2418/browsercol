@@ -1,18 +1,18 @@
 #!/bin/sh
-# Build the upstream FreeCol.jar (the Swing game) at freecol.sha into ~/.cache/freecol-swing/src.
+# Build the upstream FreeCol.jar (the Swing game) at the commit this repo's freecol/ was vendored from, into
+# ~/.cache/freecol-swing/src. It is built from FreeCol's own repository, not from freecol/, which holds our changes.
 # Ant comes from Maven Central and runs in Docker; nothing is installed on the host. Skips the build
 # when the jar is already there for this sha.
 set -eu
-REPO=$(cd "$(dirname "$0")/../.." && pwd)
 C=${FC_SWING_CACHE:-$HOME/.cache/freecol-swing}
-SHA=$(cat "$REPO/freecol.sha")
+SHA=1c272e80d2f8946e096063f6d88eb945a44f789d
 mkdir -p "$C/shots"
 [ -f "$C/src/FreeCol.jar" ] && [ "$(cat "$C/built.sha" 2>/dev/null)" = "$SHA" ] && exit 0
-[ -d "$C/src" ] || git clone -q --shared "$REPO/freecol" "$C/src"
-git -C "$C/src" fetch -q origin 2>/dev/null || true
+if [ ! -d "$C/src" ]; then git init -q "$C/src"; fi
+git -C "$C/src" cat-file -e "$SHA^{commit}" 2>/dev/null \
+  || git -C "$C/src" fetch -q --depth 1 https://github.com/FreeCol/freecol.git "$SHA"
 git -C "$C/src" checkout -q --detach "$SHA"
-# The clone borrows the repo's objects, so mount them at the same path for the jar's git revision.
-docker run --rm -v "$C":/w -v "$REPO/freecol":"$REPO/freecol":ro --entrypoint sh browsercol-agent -c '
+docker run --rm -v "$C":/w --entrypoint sh browsercol-agent -c '
   git config --global --add safe.directory "*"
   set -e; mkdir -p /w/ant
   for a in ant ant-launcher; do [ -f /w/ant/$a.jar ] || curl -fsS --max-time 120 -o /w/ant/$a.jar \

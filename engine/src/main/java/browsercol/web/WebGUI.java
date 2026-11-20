@@ -81,10 +81,10 @@ import net.sf.freecol.common.option.OptionGroup;
  *     <td>as SwingGUI: the active unit, else the fallback tile, then the
  *         focus on its tile; tells the ClientEngine the game started</td></tr>
  * <tr><td>getActiveUnit</td><td>nothing</td><td>the kept active unit</td></tr>
- * <tr><td>dialogIcon (browser: hook)</td><td>nothing</td>
+ * <tr><td>dialogIcon (a hook)</td><td>nothing</td>
  *     <td>an icon carrying the object, for a question's object id</td></tr>
  * <tr><td>refresh</td><td>event refresh</td><td>{}</td></tr>
- * <tr><td>currentPlayer (browser: the setCurrentPlayer message)</td><td>event mover</td>
+ * <tr><td>currentPlayer (the setCurrentPlayer message)</td><td>event mover</td>
  *     <td>{name, native, rgb, fg, ours}: the player whose turn starts, by its nation's name and
  *         colour; the AI players' turns come this way too</td></tr>
  * <tr><td>updateMenuBar</td><td>event refresh</td><td>{}; the status line
@@ -1370,8 +1370,8 @@ public class WebGUI extends GUI {
      * Defers, as Swing's panel does: the Browser UI is asked with an event
      * question, and the callback runs when the player closes the panel.
      * No panel is returned for the caller to add a closing callback to:
-     * a FreeColPanel is a Swing JPanel, which TeaVM cannot load (see the
-     * patched InGameController.newLandName).
+     * a FreeColPanel is a Swing JPanel, which TeaVM cannot load (see
+     * InGameController.newLandName).
      */
     @Override
     public void showEventPanel(String header, String image, String footer,

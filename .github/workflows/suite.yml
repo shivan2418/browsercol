@@ -16,9 +16,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Clone upstream FreeCol at the pinned commit
-        run: ./freecol.sh
-
       - name: Engine tests
         run: ./dev.sh -C engine gradle --console=plain test
 

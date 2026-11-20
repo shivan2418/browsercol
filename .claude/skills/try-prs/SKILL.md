@@ -21,12 +21,10 @@ Take the PRs the human named. Otherwise take every open PR that targets main: `g
 git -C /home/emil/freecol-online fetch -q origin main
 ```
 
-- **The worktree exists:** stop any dev server still running from it. Then run `git checkout -B try/prs origin/main` inside it and `git clean -fd` (tracked and untracked files only, not ignored ones, so `freecol/`, `ui/generated/` and `node_modules/` survive).
-- **It doesn't exist:** `git -C /home/emil/freecol-online worktree add -B try/prs /home/emil/freecol-online-worktrees/try-prs origin/main`. Then give it FreeCol's source as a shared clone pinned to `freecol.sha`, never a symlink, because `vp test` and the dev server refuse paths outside the worktree: `git clone -q --shared /home/emil/freecol-online/freecol freecol && git -C freecol checkout -q $(cat freecol.sha)`. Run `just install`.
+- **The worktree exists:** stop any dev server still running from it. Then run `git checkout -B try/prs origin/main` inside it and `git clean -fd` (tracked and untracked files only, not ignored ones, so `ui/generated/` and `node_modules/` survive).
+- **It doesn't exist:** `git -C /home/emil/freecol-online worktree add -B try/prs /home/emil/freecol-online-worktrees/try-prs origin/main`. Run `just install`.
 
-In either case, check `freecol/` is at the sha in `freecol.sha`, and check it out if not, since main may have moved the pin.
-
-**Done when** `try/prs` sits at `origin/main` in the worktree, and `freecol/` matches the pin.
+**Done when** `try/prs` sits at `origin/main` in the worktree.
 
 ## 3. Merge the PRs
 

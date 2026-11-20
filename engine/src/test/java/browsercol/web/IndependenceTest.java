@@ -488,7 +488,7 @@ class IndependenceTest {
      * registered until the next turn (Session.completeAll in
      * ServerGame.csNextTurn), and Session's constructor refuses its key:
      * the declaration stopped half done with "Duplicate session" (#173).
-     * The patched Session drops a completed session with the same key.
+     * FreeCol's Session, as changed in freecol/, drops a completed session with the same key.
      */
     @Test
     @Timeout(300)
@@ -537,7 +537,7 @@ class IndependenceTest {
      * north-east corner (the debug colony of this map, at 38,1). FreeCol
      * gave that strip the main ocean's contiguity, so the army on the
      * ships looked as if it could walk there, was given no transport and
-     * sailed back to Europe (#172, fixed in our patched Map.java).
+     * sailed back to Europe (#172, fixed in freecol/'s Map.java).
      */
     @Test
     @Timeout(300)

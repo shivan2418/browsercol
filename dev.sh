@@ -24,12 +24,6 @@ if ! docker image inspect "$image" >/dev/null 2>&1 || [[ "${DEV_REBUILD:-}" == 1
 fi
 tty=(); [[ -t 0 && -t 1 ]] && tty=(-it)
 ports=(); [[ -n "${DEV_PORT:-}" ]] && ports=(-p "127.0.0.1:$DEV_PORT:$DEV_PORT")
-# A worktree or job clone may link freecol/ to the main checkout's clone,
-# which lies outside the mounted repo: mount its target instead.
-extra=()
-if [[ -L "$repo/freecol" ]]; then
-  extra=(-v "$(readlink -f "$repo/freecol"):/work/freecol:ro")
-fi
 # Rootless Docker: container root maps to the host user, so files stay ours.
 # GITHUB_SHA and GITHUB_REF_NAME, when CI sets them, name the build the page
 # shows (ui/scripts/build-id.ts); git in the container cannot tell it there.
@@ -41,7 +35,7 @@ BUILD_COMMIT=$(git -C "$repo" rev-parse HEAD 2>/dev/null || true)
 export BUILD_COMMIT
 run=(docker run --rm ${tty[@]+"${tty[@]}"} ${shm[@]+"${shm[@]}"} ${ports[@]+"${ports[@]}"} -e HOME=/work/.cache/home
   -e GITHUB_SHA -e GITHUB_REF_NAME -e BUILD_COMMIT -e VITE_FEEDBACK_URL -e VITE_BETA_TAG -e GOATCOUNTER_URL
-  -v "$repo:/work" ${extra[@]+"${extra[@]}"} -w "$workdir" "$image" "$@")
+  -v "$repo:/work" -w "$workdir" "$image" "$@")
 # Concurrent containers share the Gradle user home in /work/.cache/gradle, and
 # Gradle gives up on its journal lock after 60 s before any build step runs
 # (#219). That failure is transient and does nothing to the build, so a Gradle

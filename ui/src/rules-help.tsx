@@ -1,6 +1,6 @@
 // What the Rules choice on the start screen changes (#326): a summary of how FreeCol's Classic and FreeCol
 // rule sets differ, shown beside the choice. Every row names the option as the Game options tab labels it,
-// and was checked against the two specification.xml files at freecol.sha (the FreeCol one only overrides
+// and was checked against the two specification.xml files in freecol/ (the FreeCol one only overrides
 // Classic) and against the Java that reads the option, not the option's description: the file and line that
 // decide each row are listed in the pull request of #326. Only what differs is here. The wording is ours:
 // FreeCol has no strings for it.

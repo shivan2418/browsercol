@@ -1,6 +1,4 @@
-// FreeCol's Engine (model, server, AI) built from the upstream clone
-// at ../freecol plus our patched copies in patches/, which replace the
-// upstream file at the same path.
+// FreeCol's Engine (model, server, AI), built from freecol/src in this repo.
 plugins {
     id 'java'
     id 'application'
@@ -17,21 +15,7 @@ repositories {
 }
 
 def freecol = file('../freecol')
-def patches = file('patches')
-
-def patchedPaths = provider {
-    fileTree(patches).matching { include '**/*.java' }.files
-        .collect { patches.toPath().relativize(it.toPath()).toString() }
-}
-
-tasks.register('engineSources', Sync) {
-    from(fileTree("$freecol/src")) { exclude { patchedPaths.get().contains(it.relativePath.pathString) } }
-    from(patches)
-    into layout.buildDirectory.dir('engine-src')
-}
-
-sourceSets.main.java.srcDirs = [layout.buildDirectory.dir('engine-src'), 'src/main/java']
-compileJava.dependsOn 'engineSources'
+sourceSets.main.java.srcDirs = ["$freecol/src", 'src/main/java']
 
 java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }
 compileJava {

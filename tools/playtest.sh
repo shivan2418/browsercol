@@ -17,10 +17,6 @@ ensure_worktree() {
   if [ ! -d "$wt" ]; then
     git -C "$repo" worktree add -q --detach "$wt" main
   fi
-  # FreeCol's source at the commit the Engine needs: a shared clone, as a symlink breaks vp test.
-  [ -d "$wt/freecol/.git" ] || git clone -q --shared "$repo/freecol" "$wt/freecol"
-  git -C "$wt/freecol" fetch -q "$repo/freecol" 2>/dev/null || true
-  git -C "$wt/freecol" checkout -q "$(cat "$wt/freecol.sha")"
   [ -d "$wt/ui/node_modules" ] || (cd "$wt" && ./dev.sh -C ui pnpm install --frozen-lockfile)
 }
 

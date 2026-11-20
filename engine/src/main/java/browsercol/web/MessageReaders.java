@@ -10,7 +10,7 @@ import net.sf.freecol.common.networking.*;
  *
  * Under TeaVM 0.16 Wasm GC, Class.forName does not find the message
  * classes although the reflection policy selects them, so Message.read
- * (patched) looks here first. Generated from the message classes.
+ * (in freecol/) looks here first. Generated from the message classes.
  */
 final class MessageReaders {
 
