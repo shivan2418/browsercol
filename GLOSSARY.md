@@ -24,6 +24,10 @@ _Avoid_: skin, theme, art pack
 The player's choice of how the Browser UI draws the map: Tileset mode or Procedural mode.
 _Avoid_: renderer, graphics setting
 
+**Map view**:
+How the Browser UI projects the square grid of the model: Top-down (tiles as squares, the map a rectangle) or Isometric (tiles as diamonds, the map a large diamond). A separate axis from Map mode, so a player can switch Map view during a game with either Map mode.
+_Avoid_: camera, perspective, projection mode
+
 **Tileset mode**:
 The Map mode that draws everything on the map from the chosen Tileset's images, as FreeCol does.
 _Avoid_: classic mode, sprite mode
