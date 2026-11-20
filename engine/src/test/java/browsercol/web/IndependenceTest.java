@@ -534,8 +534,7 @@ class IndependenceTest {
 
     /**
      * The REF lands beside a colony on the polar land strip, in the
-     * north-east corner (it was the debug colony of this map, at 38,1,
-     * on the staggered grid). FreeCol
+     * north-east corner. FreeCol
      * gave that strip the main ocean's contiguity, so the army on the
      * ships looked as if it could walk there, was given no transport and
      * sailed back to Europe (#172, fixed in freecol/'s Map.java).
@@ -544,7 +543,7 @@ class IndependenceTest {
     @Timeout(300)
     void theREFLandsBesideAColonyInTheMapsCorner() throws Exception {
         start(GAME);
-        // The polar land tile nearest the north-east corner.
+        // The polar land tile closest to the north-east corner.
         final net.sf.freecol.common.model.Map map = server.getGame().getMap();
         final Tile spot = map.getTileList(t -> t.isLand() && t.isPolar() && t.getY() <= 1
                 && us().canClaimToFoundSettlement(t)).stream()

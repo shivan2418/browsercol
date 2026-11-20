@@ -67,7 +67,7 @@ import net.sf.freecol.common.util.LogBuilder;
 
 
 /**
- * A rectangular isometric map.  The map is represented as a
+ * A rectangular map on a square grid.  The map is represented as a
  * two-dimensional array of tiles.  Off-map destinations, such as
  * {@link Europe}, can be reached via the {@link HighSeas}.
  *
@@ -88,8 +88,7 @@ public class Map extends FreeColGameObject implements Location, Iterable<Tile> {
 
     /**
      * The number of tiles from the upper edge that are considered
-     * polar by default.  Rows are full height on the square grid, so
-     * this is half the 2 it was when rows were half height.
+     * polar by default: one row, as rows are full height.
      */
     public final static int POLAR_HEIGHT = 1;
 
@@ -2485,8 +2484,7 @@ ok:     while (!openMap.isEmpty()) {
     /**
      * Scale the map into the specified size.
      *
-     * This implementation uses a simple linear scaling, and
-     * the isometric shape is not taken into account.
+     * This implementation uses a simple linear scaling.
      *
      * FIXME: Find a better method for choosing a group of
      * adjacent tiles.  This group can then be merged into a

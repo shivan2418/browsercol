@@ -122,13 +122,12 @@ final class DosMap {
         final Grid grid = new Grid(dosWidth, dosHeight);
         for (int y = 0; y < grid.height; y++) {
             for (int x = 0; x < grid.width; x++) {
-                final int dx = x, dy = y;
                 // As the DOS game does on starting a game on the map (startNewGame
                 // 86be:235c and generateMap 78bd:08c0): the first and last rows
                 // arctic, the first and last columns sea lane.
-                int b = (dx < dosWidth) ? bytes[HEADER + dy * dosWidth + dx] & 0xff : SEA_LANE;
-                if (dy == 0 || dy == dosHeight - 1) b = ARCTIC;
-                else if (dx == 0 || dx >= dosWidth - 1) b = SEA_LANE;
+                int b = bytes[HEADER + y * dosWidth + x] & 0xff;
+                if (y == 0 || y == dosHeight - 1) b = ARCTIC;
+                else if (x == 0 || x >= dosWidth - 1) b = SEA_LANE;
                 grid.types[y * grid.width + x] = tileType(b);
                 grid.rivers[y * grid.width + x] = river(b);
             }
