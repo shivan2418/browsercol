@@ -88,9 +88,10 @@ public class Map extends FreeColGameObject implements Location, Iterable<Tile> {
 
     /**
      * The number of tiles from the upper edge that are considered
-     * polar by default.
+     * polar by default.  Rows are full height on the square grid, so
+     * this is half the 2 it was when rows were half height.
      */
-    public final static int POLAR_HEIGHT = 2;
+    public final static int POLAR_HEIGHT = 1;
 
     /**
      * The layers included in the map. The RIVERS layer includes all
@@ -174,11 +175,9 @@ public class Map extends FreeColGameObject implements Location, Iterable<Tile> {
         }
 
         /**
-         * Gets the distance in tiles between two map positions.
-         * With an isometric map this is a non-trivial task.
-         * The formula below has been developed largely through trial and
-         * error.  It should cover all cases, but I wouldn't bet my
-         * life on it.
+         * Gets the distance in tiles between two map positions.  On the
+         * square grid that is the Chebyshev distance: a diagonal step
+         * costs the same as a straight one.
          *
          * @param ax The x-coordinate of the first position.
          * @param ay The y-coordinate of the first position.
@@ -187,22 +186,11 @@ public class Map extends FreeColGameObject implements Location, Iterable<Tile> {
          * @return The distance in tiles between the positions.
          */
         public static int getXYDistance(int ax, int ay, int bx, int by) {
-            int r = (bx - ax) - (ay - by) / 2;
-
-            if (by > ay && ay % 2 == 0 && by % 2 != 0) {
-                r++;
-            } else if (by < ay && ay % 2 != 0 && by % 2 == 0) {
-                r--;
-            }
-            return Math.max(Math.abs(ay - by + r), Math.abs(r));
+            return Math.max(Math.abs(ax - bx), Math.abs(ay - by));
         }
 
         /**
          * Gets the distance in tiles between two map positions.
-         * With an isometric map this is a non-trivial task.
-         * The formula below has been developed largely through trial and
-         * error.  It should cover all cases, but I wouldn't bet my
-         * life on it.
          *
          * @param position The other {@code Position} to compare.
          * @return The distance in tiles to the other position.
@@ -977,21 +965,20 @@ public class Map extends FreeColGameObject implements Location, Iterable<Tile> {
         
     /**
      * An iterator returning positions in a spiral starting at a given
-     * center tile.  The center tile is never included in the returned
-     * tiles, and all returned tiles are valid.
+     * center tile.  The center tile is never returned, and all returned
+     * tiles are valid.  Each ring is the square of tiles at the same
+     * Chebyshev distance from the center, so it has {@code 8 * radius}
+     * tiles.
      */
     private final class CircleIterator implements Iterator<Tile> {
 
-        /** The edge neighbour a ring's first tile is one step along from the ring's first corner. */
-        private final Direction firstEdge = Direction.edgeNeighbours.get(0);
-        /** The corner neighbour that the ring's first corner lies towards. */
-        private final Direction firstCorner = Direction.cornerNeighbours.get(0);
-
+        /** The center of the circle. */
+        private final int cx, cy;
         /** The maximum radius. */
         private final int radius;
         /** The current radius of the iteration. */
         private int currentRadius;
-        /** The current index in the circle with the current radius: */
+        /** The current index in the ring with the current radius. */
         private int n;
         /** The current position in the circle. */
         private int x, y;
@@ -1008,66 +995,53 @@ public class Map extends FreeColGameObject implements Location, Iterable<Tile> {
             if (center == null) {
                 throw new RuntimeException("center must not be null: " + this);
             }
+            this.cx = center.getX();
+            this.cy = center.getY();
             this.radius = radius;
-            n = 0;
-            
-            Position step;
+            this.n = -1;
             if (radius <= 0) {
                 x = y = UNDEFINED;
-            } else if (isFilled || radius == 1) {
-                step = firstEdge.step(center.getX(), center.getY());
-                x = step.x;
-                y = step.y;
-                currentRadius = 1;
             } else {
-                this.currentRadius = radius;
-                x = center.getX();
-                y = center.getY();
-                for (int i = 1; i < radius; i++) {
-                    step = firstCorner.step(x, y);
-                    x = step.x;
-                    y = step.y;
-                }
-                step = firstEdge.step(x, y);
-                x = step.x;
-                y = step.y;
+                currentRadius = (isFilled || radius == 1) ? 1 : radius;
+                nextTile();
             }
-            if (!isValid(x, y)) nextTile();
+        }
+
+        /**
+         * The position at an index of a ring.  A ring starts at its
+         * north-west corner and runs clockwise.
+         *
+         * @param r The radius of the ring.
+         * @param i The index in the ring, from 0 to {@code 8 * r - 1}.
+         * @return The position.
+         */
+        private Position ringPosition(int r, int i) {
+            final int side = i / (2 * r), k = i % (2 * r);
+            switch (side) {
+            case 0: return new Position(cx - r + k, cy - r);
+            case 1: return new Position(cx + r, cy - r + k);
+            case 2: return new Position(cx + r - k, cy + r);
+            default: return new Position(cx - r, cy + r - k);
+            }
         }
 
         /**
          * Finds the next position.
          */
         private void nextTile() {
-            boolean started = n != 0;
             do {
                 n++;
-                final int width = currentRadius * 2;
-                final int sides = Direction.edgeNeighbours.size();
-                if (n >= width * sides) {
+                if (n >= 8 * currentRadius) {
                     currentRadius++;
+                    n = 0;
                     if (currentRadius > radius) {
                         x = y = UNDEFINED;
-                        break;
-                    } else if (!started) {
-                        x = y = UNDEFINED;
-                        break;
-                    } else {
-                        n = 0;
-                        started = false;
-                        Position step = firstEdge.step(x, y);
-                        x = step.x;
-                        y = step.y;
+                        return;
                     }
-                } else {
-                    // The ring starts one corner round from the first
-                    // edge, and walks one edge neighbour per side.
-                    Direction direction = Direction.edgeNeighbours
-                        .get((n / width + 1) % sides);
-                    Position step = direction.step(x, y);
-                    x = step.x;
-                    y = step.y;
                 }
+                Position p = ringPosition(currentRadius, n);
+                x = p.x;
+                y = p.y;
             } while (!isValid(x, y));
         }
 

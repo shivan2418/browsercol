@@ -30,19 +30,19 @@ import static net.sf.freecol.common.util.RandomUtils.*;
 
 
 /**
- * The directions a Unit can move to. Includes deltas for moving
- * to adjacent squares, which are required due to the isometric
- * map. Starting north and going clockwise.
+ * The directions a Unit can move to. Includes deltas for moving to
+ * adjacent squares on the square grid (x grows east, y grows south).
+ * Starting north and going clockwise.
 */
 public enum Direction implements Named {
-    N  ( 0, -2,  0, -2),
-    NE ( 1, -1,  0, -1),
-    E  ( 1,  0,  1,  0),
-    SE ( 1,  1,  0,  1),
-    S  ( 0,  2,  0,  2),
-    SW ( 0,  1, -1,  1),
-    W  (-1,  0, -1,  0),
-    NW ( 0, -1, -1, -1);
+    N  ( 0, -1),
+    NE ( 1, -1),
+    E  ( 1,  0),
+    SE ( 1,  1),
+    S  ( 0,  1),
+    SW (-1,  1),
+    W  (-1,  0),
+    NW (-1, -1);
 
     public final static int NUMBER_OF_DIRECTIONS = values().length;
 
@@ -58,8 +58,8 @@ public enum Direction implements Named {
      * digits of a river style, which is in saved games.
      */
     public static final List<Direction> edgeNeighbours
-        = makeUnmodifiableList(Direction.NE, Direction.SE,
-                               Direction.SW, Direction.NW);
+        = makeUnmodifiableList(Direction.N, Direction.E,
+                               Direction.S, Direction.W);
 
     /**
      * The neighbours that touch a tile only at a corner, clockwise from
@@ -67,29 +67,23 @@ public enum Direction implements Named {
      * bits of a coast style, which is in saved games.
      */
     public static final List<Direction> cornerNeighbours
-        = makeUnmodifiableList(Direction.N, Direction.E,
-                               Direction.S, Direction.W);
+        = makeUnmodifiableList(Direction.NE, Direction.SE,
+                               Direction.SW, Direction.NW);
     
     /** The direction increments. */
-    private final int oddDX;
-    private final int oddDY;
-    private final int evenDX;
-    private final int evenDY;
+    private final int dx;
+    private final int dy;
 
 
     /**
      * Create a new direction with the given increments.
      *
-     * @param oddDX Delta X/odd.
-     * @param oddDY Delta y/odd.
-     * @param evenDX Delta X/even.
-     * @param evenDY Delta y/even.
+     * @param dx Delta X.
+     * @param dy Delta Y.
      */
-    Direction(int oddDX, int oddDY, int evenDX, int evenDY) {
-        this.oddDX = oddDX;
-        this.oddDY = oddDY;
-        this.evenDX = evenDX;
-        this.evenDY = evenDY;
+    Direction(int dx, int dy) {
+        this.dx = dx;
+        this.dy = dy;
     }
 
 
@@ -101,9 +95,7 @@ public enum Direction implements Named {
      * @return The map position after the step.
      */
     public Map.Position step(int x, int y) {
-        return ((y & 1) != 0)
-            ? new Map.Position(x + oddDX, y + oddDY)
-            : new Map.Position(x + evenDX, y + evenDY);
+        return new Map.Position(x + dx, y + dy);
     }
 
     /**
