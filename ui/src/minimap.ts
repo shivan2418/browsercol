@@ -7,7 +7,7 @@
 import { PANEL_KEY_FAMILIES } from './map-keys';
 import type { Resources } from './resources';
 import type { MapView } from './tileset';
-import { W, projection } from './projection';
+import { W, projection, tracePath } from './projection';
 
 export interface MinimapOptions {
   /** miniMapToggleBorders: political colours with the owners over them, rather than economic ones. */
@@ -129,7 +129,7 @@ export function paintMinimap(
   g.fillRect(0, 0, w, h);
   const diamond = (origin: [number, number], scale: number) => {
     g.beginPath();
-    projection.outline(origin, size, scale).forEach((pt, i) => (i ? g.lineTo(...pt) : g.moveTo(...pt)));
+    tracePath(g, projection.outline(origin, size, scale));
     g.closePath();
   };
   g.lineWidth = 1;

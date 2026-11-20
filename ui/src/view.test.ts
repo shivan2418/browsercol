@@ -14,7 +14,7 @@ import {
 } from './view';
 
 // A 20x40 map, 2624x1312 pixels at zoom 1, in a 640x480 viewport. Tile
-// (x, y)'s centre is at (128x + 64 + 64 * (y % 2), 32y + 32).
+// (x, y)'s centre is at projection.centre(x, y).
 const facts = (more: Partial<MapFacts> = {}): MapFacts => ({
   w: 20,
   h: 40,

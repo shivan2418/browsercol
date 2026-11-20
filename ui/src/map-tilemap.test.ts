@@ -14,7 +14,7 @@ import {
   type Item,
   type Page,
 } from './map-tilemap';
-import { H, W, projection } from './projection';
+import { H, W, mapGrid, projection } from './projection';
 
 describe('staticDrawing', () => {
   it('draws the static layers as tilemaps on WebGL, and as sprites on the Canvas and WebGPU renderers', () => {
@@ -41,12 +41,7 @@ describe('chunkOf', () => {
     };
     for (let y = 2; y < 80; y++)
       for (let x = 1; x < 60; x++) {
-        const odd = y % 2;
-        for (const [bx, by] of [
-          [x, y - 2],
-          [x - 1 + odd, y - 1],
-          [x + odd, y - 1],
-        ])
+        for (const [bx, by] of (['N', 'NW', 'NE'] as const).map((d) => mapGrid.neighbour(x, y, d)))
           expect(chunkOrder(chunk(bx, by), chunk(x, y))).toBeLessThanOrEqual(0);
       }
   });

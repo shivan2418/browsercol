@@ -84,7 +84,7 @@ import {
   type Track,
 } from './motion';
 import { slideMark } from './timing';
-import { H, W, projection } from './projection';
+import { H, W, projection, tracePath } from './projection';
 import { activeUnitFacts, cursor, toMap, type ViewState } from './view';
 
 export type { MapView } from './tileset';
@@ -146,9 +146,6 @@ const MAX_OTHER_UNITS = 10;
 
 type Picture = HTMLImageElement | HTMLCanvasElement;
 const css = (c: number) => '#' + c.toString(16).padStart(6, '0');
-/** A closed shape's corners as a path on a Canvas 2D pen. */
-const polygon = (c: Pick<CanvasRenderingContext2D, 'moveTo' | 'lineTo'>, pts: [number, number][]) =>
-  pts.forEach((pt, i) => (i ? c.lineTo(...pt) : c.moveTo(...pt)));
 /** FreeCol's fog of war RescaleOp: each colour channel at 80%. */
 const fogged = (c: number) =>
   [16, 8, 0].reduce((n, shift) => n | (Math.round(((c >> shift) & 0xff) * 0.8) << shift), 0);
@@ -1036,7 +1033,7 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
           g.globalAlpha = alpha;
           g.fillStyle = css(color);
           g.beginPath();
-          polygon(g, projection.outline([0, 0]));
+          tracePath(g, projection.outline([0, 0]));
           g.fill();
         });
         return pushImage(pic, x - SHAPE_PAD, y - SHAPE_PAD, false, false);
@@ -1269,7 +1266,7 @@ export function canvasPen(host: HTMLElement, width: number, height: number, back
         c.globalAlpha = alpha;
         c.fillStyle = css(color);
         c.beginPath();
-        polygon(c, projection.outline([x, y]));
+        tracePath(c, projection.outline([x, y]));
         c.fill();
         c.globalAlpha = 1;
       }),
@@ -1571,9 +1568,7 @@ async function paint(pen: Pen, layer: Layer, ops: Op[], pics: ReturnType<typeof 
           oy,
           0x000000,
           (p) => {
-            const [first, ...rest] = projection.outline([0, 0]);
-            p.moveTo(...first);
-            for (const pt of [...rest, first]) p.lineTo(...pt);
+            tracePath(p, projection.outline([0, 0]), true);
           },
           GRID_WIDTH,
           GRID_ALPHA,

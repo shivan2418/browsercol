@@ -199,3 +199,10 @@ export const isometric: Projection = {
 /** The grid and the projection the map uses. */
 export const mapGrid: Grid = staggered;
 export const projection: Projection = isometric;
+
+/** A closed shape's corners as a path on a pen with moveTo and lineTo; `close` goes back to the first corner. */
+export const tracePath = (
+  pen: { moveTo(x: number, y: number): void; lineTo(x: number, y: number): void },
+  pts: Point[],
+  close = false,
+) => (close ? [...pts, pts[0]] : pts).forEach((pt, i) => (i ? pen.lineTo(...pt) : pen.moveTo(...pt)));
