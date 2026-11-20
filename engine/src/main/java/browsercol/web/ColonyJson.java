@@ -15,6 +15,7 @@ import net.sf.freecol.common.model.Direction;
 import net.sf.freecol.common.model.FeatureContainer;
 import net.sf.freecol.common.model.Goods;
 import net.sf.freecol.common.model.GoodsType;
+import net.sf.freecol.common.model.Map;
 import net.sf.freecol.common.model.Market;
 import net.sf.freecol.common.model.Modifier;
 import net.sf.freecol.common.model.Player;
@@ -397,17 +398,18 @@ final class ColonyJson {
     }
 
     /**
-     * TilesPanel's grid: Swing's tiles[x][y], from the colony tile. The
-     * colony's eight neighbours go round the grid's edge, anticlockwise from
-     * its top left corner, in the order of Direction.allDirections.
+     * TilesPanel's grid: Swing's tiles[x][y], from the colony tile. It is
+     * the colony's 3x3 as the square grid lays it out: the colony tile is
+     * at (1, 1) and a neighbour at (1 + dx, 1 + dy), so north is the
+     * middle of the top row.
      */
     private static final Direction[][] GRID = gridOfNeighbours();
 
     private static Direction[][] gridOfNeighbours() {
-        final int[][] ring = { {0, 0}, {1, 0}, {2, 0}, {2, 1}, {2, 2}, {1, 2}, {0, 2}, {0, 1} };
         final Direction[][] grid = new Direction[3][3];
-        for (int i = 0; i < ring.length; i++) {
-            grid[ring[i][0]][ring[i][1]] = Direction.allDirections.get(0).rotate(-i);
+        for (Direction d : Direction.allDirections) {
+            final Map.Position step = d.step(1, 1);
+            grid[step.getX()][step.getY()] = d;
         }
         return grid;
     }

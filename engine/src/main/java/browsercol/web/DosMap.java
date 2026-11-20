@@ -29,13 +29,8 @@ import net.sf.freecol.server.model.ServerGame;
  * mountains with 0x80 as well; without 0x20, 0x40 is a minor river and
  * 0x80 a major one (terrainOfTile 13e4:000e in VICEROY.EXE).
  *
- * DOS tiles are square and FreeCol's are diamonds in staggered rows, odd
- * rows shifted half a tile to the right. A DOS tile is laid on the
- * FreeCol tile whose centre falls in it at half a column wide and two rows
- * high, which keeps the land's shape and makes one FreeCol tile of each
- * DOS tile: DOS (dx, dy) is FreeCol (dx / 2, 2 * dy) for even dx and
- * ((dx - 1) / 2, 2 * dy - 1) for odd dx. DOS east and west neighbours are
- * then FreeCol diagonal neighbours, and DOS north and south FreeCol's.
+ * DOS tiles are square and so is the grid (#526), so a DOS tile is the
+ * tile at the same column and row, and DOS neighbours are FreeCol's.
  *
  * The DOS map has only ocean. Its water closed off from the sea (the
  * Great Lakes) becomes lake when FreeCol imports the map: the water with
@@ -43,7 +38,7 @@ import net.sf.freecol.server.model.ServerGame;
  *
  * The game does not come with the DOS file. Its America map comes as a
  * map of our own made from it (MAGIC, see text()): FreeCol's tile type and
- * river of each FreeCol tile, laid out as above, one character each, which
+ * river of each FreeCol tile, one character each, which
  * DosMap reads as it reads a .MP file. A player's own .MP file still reads.
  */
 final class DosMap {
@@ -114,28 +109,8 @@ final class DosMap {
         return (bytes[at] & 0xff) | ((bytes[at + 1] & 0xff) << 8);
     }
 
-    /** The FreeCol width of a DOS map width dosWidth wide: a column for each two DOS columns. */
-    static int width(int dosWidth) {
-        return (dosWidth + 1) / 2;
-    }
-
-    /** The FreeCol height of a DOS map dosHeight high: two rows for each DOS row, less the first. */
-    static int height(int dosHeight) {
-        return 2 * dosHeight - 1;
-    }
-
-    /** The DOS column of FreeCol tile (x, y). */
-    static int dosX(int x, int y) {
-        return 2 * x + (y & 1);
-    }
-
-    /** The DOS row of FreeCol tile (x, y). */
-    static int dosY(int x, int y) {
-        return (y + 1) / 2;
-    }
-
     /**
-     * Lay a DOS map onto FreeCol's rows, as the class comment says.
+     * Read a DOS map's tiles into a grid, one for one.
      *
      * @param bytes The .MP file.
      * @return Its grid.
@@ -144,10 +119,10 @@ final class DosMap {
     static Grid grid(byte[] bytes) {
         if (!isDosMap(bytes)) throw new IllegalArgumentException("not a Colonization map");
         final int dosWidth = word(bytes, 0), dosHeight = word(bytes, 2);
-        final Grid grid = new Grid(width(dosWidth), height(dosHeight));
+        final Grid grid = new Grid(dosWidth, dosHeight);
         for (int y = 0; y < grid.height; y++) {
             for (int x = 0; x < grid.width; x++) {
-                final int dx = dosX(x, y), dy = dosY(x, y);
+                final int dx = x, dy = y;
                 // As the DOS game does on starting a game on the map (startNewGame
                 // 86be:235c and generateMap 78bd:08c0): the first and last rows
                 // arctic, the first and last columns sea lane.
@@ -274,28 +249,14 @@ final class DosMap {
     }
 
     /**
-     * Put the grid's rivers on the map and join them up. FreeCol joins a
-     * river only across a tile's diagonal sides, so where a DOS river runs
-     * north or south a tile between the two gets a river too.
+     * Put the grid's rivers on the map and join them up. A river runs along
+     * a tile's edges, which are the DOS map's own neighbours, so a river
+     * tile joins every river tile beside it.
      */
     private static void addRivers(Map map, Grid grid) {
         map.forEachTile(t -> {
                 int mag = grid.rivers[t.getY() * grid.width + t.getX()];
                 if (mag > 0 && t.isLand()) t.addRiver(mag, riverStyle(0));
-            });
-        // The DOS river runs straight down from a tile to the one two rows
-        // below it, a corner neighbour; the tiles between are the two
-        // directions on either side of that corner, its edge neighbours.
-        final Direction down = Direction.S;
-        final Direction first = down.getNextDirection();
-        final Direction second = down.getPreviousDirection();
-        map.forEachTile(t -> {
-                Tile south = t.getNeighbourOrNull(down);
-                if (!t.hasRiver() || south == null || !south.hasRiver()) return;
-                Tile a = t.getNeighbourOrNull(first), b = t.getNeighbourOrNull(second);
-                if ((a != null && a.hasRiver()) || (b != null && b.hasRiver())) return;
-                Tile between = canCarryRiver(a) ? a : canCarryRiver(b) ? b : null;
-                if (between != null) between.addRiver(TileImprovement.SMALL_RIVER, riverStyle(0));
             });
         map.forEachTile(t -> {
                 TileImprovement river = t.getRiver();
@@ -322,11 +283,5 @@ final class DosMap {
                 return generator.generateMap(game, read(bytes, game.getSpecification()), units, lb);
             }
         };
-    }
-
-    private static boolean canCarryRiver(Tile t) {
-        return t != null && t.isLand()
-            && !"model.tile.hills".equals(t.getType().getId())
-            && !"model.tile.mountains".equals(t.getType().getId());
     }
 }

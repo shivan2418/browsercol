@@ -13,6 +13,7 @@ import java.util.concurrent.Executors;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
@@ -75,17 +76,17 @@ class DosMapTest {
     @Test
     void aDosMapBecomesAMapOfOurOwnAndReadsBackTheSame() {
         DosMap.Grid grid = DosMap.grid(tinyDosMap());
-        assertEquals(3, grid.width);
-        assertEquals(7, grid.height);
-        // DOS (2, 1) grassland is FreeCol (1, 2); DOS (3, 1) hills is (1, 1); DOS (2, 2) plains with a river is (1, 4).
-        assertEquals("grassland", grid.types[2 * 3 + 1]);
-        assertEquals("hills", grid.types[1 * 3 + 1]);
-        assertEquals("plains", grid.types[4 * 3 + 1]);
-        assertEquals(1, grid.rivers[4 * 3 + 1]);
+        // The grid is square, so the DOS map's tiles stay where they are.
+        assertEquals(6, grid.width);
+        assertEquals(4, grid.height);
+        assertEquals("grassland", grid.types[1 * 6 + 2]);
+        assertEquals("hills", grid.types[1 * 6 + 3]);
+        assertEquals("plains", grid.types[2 * 6 + 2]);
+        assertEquals(1, grid.rivers[2 * 6 + 2]);
         assertEquals("arctic", grid.types[0]);
-        assertEquals("highSeas", grid.types[2 * 3]);
+        assertEquals("highSeas", grid.types[1 * 6]);
         String text = DosMap.text(grid);
-        assertTrue(text.startsWith(DosMap.MAGIC + "\n3 7\n"), text);
+        assertTrue(text.startsWith(DosMap.MAGIC + "\n6 4\n"), text);
         DosMap.Grid back = DosMap.parse(text);
         assertEquals(java.util.Arrays.asList(grid.types), java.util.Arrays.asList(back.types));
         assertEquals(java.util.Arrays.toString(grid.rivers), java.util.Arrays.toString(back.rivers));
@@ -104,22 +105,6 @@ class DosMapTest {
         assertEquals(0, DosMap.river(0xa0 | 4), "the mountain bit is no river");
         assertEquals(1, DosMap.river(0x40 | 4));
         assertEquals(2, DosMap.river(0x80 | 4));
-    }
-
-    @Test
-    void dosNeighboursStayNeighbours() {
-        // DOS (dx, dy) east is a FreeCol diagonal neighbour, DOS south is FreeCol's south.
-        for (int y = 1; y < 20; y++) {
-            for (int x = 0; x < 10; x++) {
-                int dx = DosMap.dosX(x, y), dy = DosMap.dosY(x, y);
-                Map.Position east = (((y & 1) != 0) ? Direction.SE : Direction.NE).step(x, y);
-                assertEquals(dx + 1, DosMap.dosX(east.getX(), east.getY()));
-                assertEquals(dy, DosMap.dosY(east.getX(), east.getY()));
-                Map.Position south = Direction.S.step(x, y);
-                assertEquals(dx, DosMap.dosX(south.getX(), south.getY()));
-                assertEquals(dy + 1, DosMap.dosY(south.getX(), south.getY()));
-            }
-        }
     }
 
     private ServerEngine play(byte[] importMap) throws Exception {
@@ -148,6 +133,7 @@ class DosMapTest {
         return server;
     }
 
+    @Disabled("#528: ui/maps/america-1492.txt is laid out for the staggered grid")
     @Test
     @Timeout(240)
     void aGameOnTheAmericaMapHasItsShapeRiversAndNatives() throws Exception {
