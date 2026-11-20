@@ -13,9 +13,14 @@ are in git history, in `spike/README.md` before its removal.
 
 ## How FreeCol is made to compile
 
-- **Patches.** A FreeCol file TeaVM can't take as it is gets a full copy in
-  `engine/patches/`, which replaces the upstream file at build time. Every
-  changed line is marked. `engine/patches/README.md` lists each file and why.
+- **Changed files.** A FreeCol file TeaVM can't take as it is is changed in
+  place in `freecol/` (ADR 0013); git history is the record of why. When a
+  Swing or JVM-only call has to go, take out only that call and keep the game
+  behaviour next to it (a message, a server request, model state, a callback),
+  restored through a GUI overload the WebGUI implements or `WebGUI.defer`. In
+  #84 a change commented out a whole block because one call in it returned a
+  Swing panel; the first landing panel and the build colony tutorial went with
+  it, and nothing reported the loss.
   Typical reasons: `File.toPath()`/`Files.*`, Java serialization,
   `javax.sound`, Swing, `ClassLoader.loadClass`, and JDK methods TeaVM's
   classlib lacks, such as `Color.getRGB`, `Thread.dumpStack` and
@@ -108,20 +113,20 @@ that may suspend is hit the same way. Four open TeaVM monitor pull requests
    reflection policy selects them. Model classes such as `TileType` are
    found. The root cause is not known. `MessageReaders` is a generated
    table mapping each message tag to its `(Game, FreeColXMLReader)`
-   constructor, and the patched `Message.read` tries it before reflection.
+   constructor, and `Message.read` in `freecol/` tries it before reflection.
    The JVM tests use the same table.
 2. **Firefox `TypeError: bad type` in `StringInternPool.query`.** The pool
    holds interned strings by weak reference. Aalto interns XML names, and
    FreeCol made a new factory, with its own symbol table, for every reader.
    Once a table was dropped, the pool could read a cleared entry before its
    finalizer removed it. The fix: every reader shares one Aalto factory
-   (patched `FreeColXMLReader`), which keeps the names alive. A pool shim
+   (`FreeColXMLReader` in `freecol/`), which keeps the names alive. A pool shim
    isn't possible, because TeaVM's compiler refers to the pool's internals.
    Worth reporting upstream.
 3. **An array of an interface type is an `Object[]`.** The checkcast of
    `list.toArray(new SomeInterface[0])` fails with a `ClassCastException`.
-   `Market`'s transaction listeners are taken as a list instead (patched
-   `Market`, `MarketWas`, #64). `TPropertyChangeSupport` makes one too and
+   `Market`'s transaction listeners are taken as a list instead (`Market` and
+   `MarketWas` in `freecol/`, #64). `TPropertyChangeSupport` makes one too and
    has not failed so far.
 4. **Exception classes named only in `catch` clauses** aren't reported as
    missing. TeaVM emits an invalid `br_on_cast` for them, and V8 rejects the

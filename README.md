@@ -19,8 +19,8 @@ between them and draws the game.
 └────────────────────────────────────┘               └────────────────────┘
 ```
 
-FreeCol is pinned to the commit in `freecol.sha`. Our changes to its source
-are patched copies in `engine/patches/`, each listed with its reason. Terms
+FreeCol's source lives in `freecol/`, a fork vendored into this repo (ADR 0013),
+and the Engine is built from it. Terms
 such as Engine, Browser UI and Tileset are defined in
 [`GLOSSARY.md`](GLOSSARY.md), and design decisions are in
 [`docs/adr/`](docs/adr/).
@@ -36,7 +36,6 @@ To work on BrowserCol itself, you need Docker and [`just`](https://github.com/ca
 `./dev.sh`, and nothing else is installed on the host.
 
 ```sh
-./freecol.sh                            # clone FreeCol into freecol/ at freecol.sha
 git config core.hooksPath .githooks     # the commit gate (see CLAUDE.md)
 just install                            # the UI's packages
 just dev                                # build, then a dev server with hot reload
@@ -86,7 +85,8 @@ for the result, so your machine stays free.
 
 ### Comparing with Swing FreeCol
 
-`tools/fc-swing/` runs upstream FreeCol's Swing game at `freecol.sha`. The
+`tools/fc-swing/` runs upstream FreeCol's Swing game, built from FreeCol's own repository at
+the commit `freecol/` was vendored from (1c272e80). The
 jar is built with Ant in Docker into `~/.cache/freecol-swing` and runs on the
 host's `java`.
 
@@ -97,17 +97,20 @@ just swing-shot -s last wait:40000 shot:map key:F1 wait:3000 shot:f1
 just parity            # Swing's player actions, row by row, into docs/parity/
 ```
 
-### Updating FreeCol
+### Taking an upstream FreeCol fix
 
-The Gradle build fails when `freecol/` is on any commit other than
-`freecol.sha`, or on a branch. To try a newer FreeCol:
+`freecol/` is FreeCol's tree at commit 1c272e80 with our changes on top, without
+`srcdata/` and `www.freecol.org/`. It has no upstream history, so `git subtree` and
+`git merge` do not work. Take a single upstream fix as a patch:
 
-1. Run `./freecol.sh <commit, branch or tag>`. It rewrites `freecol.sha`,
-   checks the commit out and lists the files in `engine/patches/` whose
-   upstream changed.
-2. Merge those upstream changes into the patched copies.
-3. Run the whole suite, for example by committing on a branch and running
-   `./ci.sh`.
+```sh
+git clone https://github.com/FreeCol/freecol.git ../freecol-upstream   # once
+git -C ../freecol-upstream format-patch -1 <commit> --stdout | git am --directory=freecol
+```
+
+`git am -3` falls back to a three-way merge, and fixes that touch our changes need
+the conflicts resolved by hand. Add a cherry-picked bug fix to `docs/upstream-fixes.md`.
+Run the whole suite before it lands.
 
 ### Engine dependencies
 
@@ -158,7 +161,7 @@ after a change to what a save holds.
 | Path | What's there |
 | --- | --- |
 | `engine/` | Gradle build of the Engine: compiles `freecol/` with TeaVM into `server.wasm` and `client.wasm` |
-| `engine/patches/` | Our patched copies of FreeCol files, which replace upstream at build time; its README lists each one |
+| `freecol/` | FreeCol's source and data, vendored (ADR 0013) and changed in place; the Engine compiles `freecol/src` |
 | `engine/src/main/java/browsercol/web/` | Entry points: `WorkerMain` (the server, in the Worker), `ClientMain` (the page), `Commands` (the UI's orders), `WebGUI` (FreeCol's GUI interface, answered as events to the page), `DebugActions` |
 | `engine/src/main/java/browsercol/shim/` | Stand-ins for JDK classes TeaVM lacks (`java.awt`, `java.beans`, `java.net`, …) and TeaVM's reflection and substitution policies |
 | `engine/src/test/` | JVM tests that run the Engine on the JVM |
@@ -170,13 +173,13 @@ after a change to what a save holds.
 | `ui/.storybook/` | Storybook config |
 | `relay/` | The feedback relay (ADR 0009): a Lambda that keeps beta reports in S3; `template.yaml` (AWS SAM) and `deploy.sh` (`just deploy-relay`, by hand), tests with `just relay` |
 | `tools/` | Developer tools: `fc-swing/`, `teavm/` (TeaVM from source, the `Object.wait` reproducer), `swing-inventory.mjs`, `watch-engine.sh` (Engine rebuilds for `just dev`), `copy-modules.sh`, `desktop-check.sh` |
-| `docs/` | `adr/` decision records, `research/` notes, `parity/` the Swing parity inventory, `teavm.md` TeaVM's quirks and our workarounds, `agents/` how coding agents use the tracker, `upstream-fixes.md` FreeCol bugs our patches fix |
+| `docs/` | `adr/` decision records, `research/` notes, `parity/` the Swing parity inventory, `teavm.md` TeaVM's quirks and our workarounds, `agents/` how coding agents use the tracker, `upstream-fixes.md` FreeCol bugs we fix |
 | `docker/` | `dev.Dockerfile` (JDK, Gradle, Node, pnpm) `web.Dockerfile` (Playwright with Chromium and Firefox) and `sam.Dockerfile` (the AWS SAM CLI, for the relay's deploy) |
 | `.githooks/` | The commit gate: `pre-commit` compiles the Engine, `commit-msg` requires an author trailer |
 | `.github/workflows/` | `suite.yml` (the whole suite), `pages.yml` (deploy the game to Pages on a `build-N` tag) and `site.yml` (deploy the landing page when a push to `main` changes it) |
-| `dev.sh`, `build.sh`, `ci.sh`, `freecol.sh` | Run in Docker; build `dist/`; the suite on Actions; pin and update `freecol/` |
+| `dev.sh`, `build.sh`, `ci.sh` | Run in Docker; build `dist/`; the suite on Actions |
 
-Gitignored: `freecol/` (the upstream clone), `ui/generated/` (built modules
+Gitignored: `ui/generated/` (built modules
 and data the page imports), `dist/` (the site) and `.cache/` (Gradle and pnpm
 caches, screenshots).
 

@@ -7,3 +7,5 @@ FreeCol's Swing client could plausibly run unmodified under CheerpJ, but CheerpJ
 - CheerpJ via CDN (free): rejected, third-party runtime dependency.
 - CheerpJ self-hosted (paid): rejected, cost and a closed binary in a GPL project.
 - LLM or tool translation of Java to TypeScript: rejected earlier, forks FreeCol for good.
+
+ADR 0013 forks FreeCol into this repo, which retires the "forks FreeCol for good" argument above.
