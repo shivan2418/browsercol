@@ -228,7 +228,7 @@ class CommandsTest {
     }
 
     /** Seeds are tried in order from here, so a run can be reproduced. */
-    private static final long FIRST_SEED = 1;
+    private static final long FIRST_SEED = 2;
     private static final int MAX_SEEDS = 20;
     /** The tests sail with a limit of 8 turns to sight land; this leaves margin. */
     private static final int LAND_WITHIN = 10;
@@ -2160,7 +2160,7 @@ class CommandsTest {
             .getFreeColGameObject(serverColony.getId(), Colony.class);
         final Player player = client.getClient().getMyPlayer();
         final Unit ship = player.getUnits().filter(Unit::isNaval).findFirst().get();
-        select(commands, ship);
+        client.getClient().getGUI().changeView(ship, false); // not a click, which picks the soldier aboard
         assertTrue(commands.move(client.getGame().getMap()
             .getDirection(ship.getTile(), ours.getTile()).toString()), "into port");
         final GoodsType food = client.getGame().getSpecification().getGoodsTypeList().stream()
@@ -2200,7 +2200,7 @@ class CommandsTest {
         // Out at sea U dumps the cargo.
         assertTrue(commands.menuEntry(load), "loads for the sea");
         endTurnAndWait(commands);
-        select(commands, ship);
+        client.getClient().getGUI().changeView(ship, false); // not a click, which picks the soldier aboard
         Direction out = null;
         for (Direction d : Direction.values()) {
             final Tile n = ship.getTile().getNeighbourOrNull(d);
@@ -2663,7 +2663,6 @@ class CommandsTest {
         final Tile land = game.getMap().getTileSet(t -> t.isLand() && !t.hasSettlement()
                 && t.getUnitCount() == 0 && t.getOwner() == null
                 && t.getDistanceTo(at) >= 9 && t.getDistanceTo(at) <= 16
-                && t.getPotentialProduction(game.getSpecification().getGoodsType("model.goods.food"), null) > 0
                 && t.getSurroundingTiles(1, 1).stream().anyMatch(n -> !n.isLand()))
             .stream().min(Comparator.comparingInt(t -> t.getDistanceTo(at))).get();
         final Colony colony = new ServerColony(game, us, name, land);

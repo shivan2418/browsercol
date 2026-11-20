@@ -120,7 +120,8 @@
       "action": "addUnit",
       "type": "model.unit.frigate",
       "ship": true,
-      "dx": -4
+      "dx": -2,
+      "dy": 1
     },
     {
       "action": "addUnit",

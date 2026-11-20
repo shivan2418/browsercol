@@ -3,8 +3,8 @@
   "nation": "model.nation.dutch",
   "seed": 1,
   "options": {
-    "model.option.mapWidth": 40,
-    "model.option.mapHeight": 80,
+    "model.option.mapWidth": 80,
+    "model.option.mapHeight": 40,
     "model.option.fogOfWar": false
   },
   "setup": [
