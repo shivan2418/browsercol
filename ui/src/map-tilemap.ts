@@ -18,14 +18,13 @@
 // or WebGPU renderer the map draws its static layers as sprites (staticDrawing).
 import { Container, Rectangle, Texture } from 'pixi.js';
 import { POINT_STRUCT_SIZE, Tilemap, settings as tilemapSettings } from '@pixi/tilemap';
-import { H, W } from './view';
+import { H, W, mapGrid } from './projection';
 
 export const CHUNK = 16;
 
 /** The chunk a tile is in: tiles along the diamond grid's two axes, 16 by 16. */
 export function chunkOf(x: number, y: number): [number, number] {
-  const u = x + ((y + 1) >> 1);
-  const v = (y >> 1) - x;
+  const [u, v] = mapGrid.lattice(x, y);
   return [Math.floor(u / CHUNK), Math.floor(v / CHUNK)];
 }
 

@@ -16,7 +16,7 @@ import {
 } from './map-water';
 import { resources } from './resources';
 import type { MapView } from './tileset';
-import { tileOrigin } from './view';
+import { projection } from './projection';
 
 describe('riverDirections', () => {
   const network = (rivers: MapView['rivers'], water: [number, number][] = []): RiverMap => {
@@ -212,7 +212,7 @@ describe('waterField', () => {
   const texel = 8;
   /** The field's RGBA at a tile's centre. */
   const centre = (f: ReturnType<typeof waterField>, x: number, y: number) => {
-    const [ox, oy] = tileOrigin(x, y);
+    const [ox, oy] = projection.origin(x, y);
     const k = Math.floor((oy + 32) / f.texelY) * f.cols + Math.floor((ox + 64) / texel);
     return f.data.slice(4 * k, 4 * k + 4);
   };
@@ -282,7 +282,7 @@ describe('waterField', () => {
     );
     expect(asked.length).toBeGreaterThan(0);
     expect(asked.every(([u, v]) => u >= 0 && u <= 128 && v >= 0 && v <= 64)).toBe(true);
-    const [ox, oy] = tileOrigin(2, 4);
+    const [ox, oy] = projection.origin(2, 4);
     const at = (px: number, py: number) => f.data[4 * (Math.floor(py / f.texelY) * f.cols + Math.floor(px / texel))];
     expect(at(ox + 64, oy + 12)).toBe(255);
     expect(at(ox + 64, oy + 52)).toBe(0);
@@ -296,7 +296,7 @@ describe('waterField', () => {
     tiles[7 * w + 2] = 'D';
     const f = waterField({ ...map, tiles: tiles.join('') }, texel, () => 0, null, 3);
     const depthAt = (x: number, y: number) => {
-      const [ox, oy] = tileOrigin(x, y);
+      const [ox, oy] = projection.origin(x, y);
       return f.data[4 * (Math.floor((oy + 32) / f.texelY) * f.cols + Math.floor((ox + 64) / texel)) + 1];
     };
     expect(depthAt(2, 3)).toBeGreaterThan(100);
@@ -338,7 +338,7 @@ describe('waterField', () => {
     const tiles = Array.from({ length: w * h }, () => 'A');
     tiles[3 * w + 3] = tiles[3 * w + 4] = 'B';
     const f = waterField({ ...map, tiles: tiles.join('') }, 4, () => 0, null, 3);
-    const [ox, oy] = tileOrigin(3, 3);
+    const [ox, oy] = projection.origin(3, 3);
     const start = Math.floor((oy + 32) / f.texelY) * f.cols + Math.floor((ox + 64) / f.texel);
     const end = start + 32;
     const seen = new Set([start]);

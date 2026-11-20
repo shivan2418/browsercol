@@ -50,14 +50,18 @@ import './colony-panel.css';
 import './colony-tips.css';
 import { Occupation } from './occupation-badge';
 import { flag } from './flag';
+import { projection } from './projection';
 
-/** FreeCol's tile size, which the tiles of TilesPanel are laid out by. */
-const TILE_W = 128;
-const TILE_H = 64;
 /** Room above the tiles for art taller than its tile (forests, hills, the colony). */
-const TILE_TOP = TILE_H / 2;
+const TILE_TOP = projection.tile.h / 2;
 /** ImageLibrary.ICON_COIN, which an UpkeepLabel shows. */
 const COIN = PANEL_KEYS.coin;
+/** The colony's 3x3 tiles, laid out as the map's projection draws a block of them (TilesPanel). */
+const BLOCK = projection.blockSize();
+const placeOf = (x: number, y: number): CSSProperties => {
+  const [left, top] = projection.block(x, y);
+  return { left, top };
+};
 /** ImageLibrary.TILE_TAKEN and TILE_OWNED_BY_INDIANS, which TileViewer.displayColonyTile draws over a tile. */
 const TILE_TAKEN = ['image.tile.tileTaken'];
 const NATIVE_LAND = ['image.tileitem.nativeLand'];
@@ -470,13 +474,13 @@ function Tiles({ c, art }: { c: ColonyView; art: Art }) {
     return draw(ground.current, centre, JSON.parse(at) as [number, number][], TILE_TOP);
   }, [draw, at, centre[0], centre[1]]);
   return (
-    <section className="tiles" data-part="tiles" style={{ width: TILE_W * 3, height: TILE_H * 3 + TILE_TOP }}>
+    <section className="tiles" data-part="tiles" style={{ width: BLOCK[0], height: BLOCK[1] + TILE_TOP }}>
       {draw && <div className="ground" ref={ground} />}
       <div className="over" style={{ top: TILE_TOP }}>
         {c.tiles.map((t) => {
           const [x, y] = t.pos;
           return (
-            <TilePlace key={t.id} t={t} style={{ left: ((2 - x + y) * TILE_W) / 2, top: ((x + y) * TILE_H) / 2 }}>
+            <TilePlace key={t.id} t={t} style={placeOf(x, y)}>
               {!draw && <Img keys={t.terrain} art={art} className="terrain" />}
               {!draw && t.forest && <Img keys={t.forest} art={art} className="forest" />}
               {t.taken && <Img keys={TILE_TAKEN} art={art} className="taken" />}

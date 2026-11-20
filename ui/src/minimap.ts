@@ -7,7 +7,7 @@
 import { PANEL_KEY_FAMILIES } from './map-keys';
 import type { Resources } from './resources';
 import type { MapView } from './tileset';
-import { W } from './view';
+import { W, projection } from './projection';
 
 export interface MinimapOptions {
   /** miniMapToggleBorders: political colours with the owners over them, rather than economic ones. */
@@ -34,10 +34,11 @@ export const MAX_ZOOM = 6;
 export const tileSize = (zoom: number): number => 4 * Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Math.round(zoom)));
 
 /** The whole map's size on the minimap, as MiniMap.recreateBufferImage makes its image. */
-export const imageSize = (m: { w: number; h: number }, size: number): [number, number] => [
-  size * m.w + size / 2,
-  (size * m.h) / 2 + size / 4,
-];
+export const imageSize = (m: { w: number; h: number }, size: number): [number, number] => {
+  // As FreeCol's: the image is as tall as the map would be with twice the rows.
+  const [width, height] = [projection.mapSize(m.w, m.h)[0], projection.mapSize(m.w, 2 * m.h)[1]];
+  return [(width * size) / W, (height * size) / W];
+};
 
 /** What the minimap shows of an explored tile. */
 export interface MiniTile {
@@ -126,21 +127,15 @@ export function paintMinimap(
 ) {
   g.fillStyle = css(background);
   g.fillRect(0, 0, w, h);
-  const diamond = (ox: number, oy: number, scale: number) => {
-    const [tw, th] = [size * scale, (size / 2) * scale];
-    const [cx, cy] = [ox + size / 2, oy + size / 4];
+  const diamond = (origin: [number, number], scale: number) => {
     g.beginPath();
-    g.moveTo(cx, cy - th / 2);
-    g.lineTo(cx + tw / 2, cy);
-    g.lineTo(cx, cy + th / 2);
-    g.lineTo(cx - tw / 2, cy);
+    projection.outline(origin, size, scale).forEach((pt, i) => (i ? g.lineTo(...pt) : g.moveTo(...pt)));
     g.closePath();
   };
   g.lineWidth = 1;
   for (const t of tiles) {
-    const ox = t.x * size + (t.y & 1) * (size / 2);
-    const oy = (t.y * size) / 4;
-    diamond(ox, oy, 1);
+    const at = projection.origin(t.x, t.y).map((c) => (c * size) / W) as [number, number];
+    diamond(at, 1);
     g.fillStyle = css(t.fill);
     g.fill();
     if (t.owner !== null) {
@@ -148,14 +143,14 @@ export function paintMinimap(
       g.fill();
     }
     if (t.marker) {
-      diamond(ox, oy, t.marker.kind === 'settlement' ? 0.7 : 0.5);
+      diamond(at, t.marker.kind === 'settlement' ? 0.7 : 0.5);
       g.strokeStyle = '#000';
       g.stroke();
       g.fillStyle = css(t.marker.rgb);
       g.fill();
     }
     if (t.fogged) {
-      diamond(ox, oy, 1);
+      diamond(at, 1);
       g.fillStyle = css(0, 100 / 255);
       g.fill();
     }

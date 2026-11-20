@@ -18,7 +18,7 @@ import { BufferImageSource, Geometry, ImageSource, Mesh, Shader, type TextureSou
 import { MAP_KEY_FAMILIES } from './map-keys';
 import type { Resources } from './resources';
 import type { MapView } from './tileset';
-import { H, W } from './view';
+import { H, W, mapGrid, projection } from './projection';
 
 const KEY = MAP_KEY_FAMILIES.shaderWater;
 
@@ -58,16 +58,14 @@ export interface Palette {
 
 type FieldMap = Pick<MapView, 'w' | 'h' | 'types' | 'tiles'>;
 
-/** River sides in FreeCol's style order, in the staggered map and the 2:1 screen diamond. */
-export const RIVER_SIDES = ['NE', 'SE', 'SW', 'NW'] as const;
-export const RIVER_MIDPOINTS = [
-  [32, -16],
-  [32, 16],
-  [-32, 16],
-  [-32, -16],
-] as const;
+/** River sides in FreeCol's style order. */
+export const RIVER_SIDES = mapGrid.edges;
+/** Where each of those sides' middle is, from the tile's middle. */
+export const RIVER_MIDPOINTS = RIVER_SIDES.map((d) => projection.edgeMidpoint(d));
+/** The side a river on `side` flows into: the neighbour's side that faces it. */
+export const oppositeSide = (side: number): number => mapGrid.edgeIndex(mapGrid.opposite(mapGrid.edges[side]));
 export function riverNeighbour(x: number, y: number, side: number): [number, number] {
-  return [x + (side < 2 ? y % 2 : (y % 2) - 1), y + (side === 0 || side === 3 ? -1 : 1)];
+  return mapGrid.neighbour(x, y, mapGrid.edges[side]);
 }
 
 export type RiverMap = FieldMap & Pick<MapView, 'rivers'>;
@@ -94,7 +92,7 @@ export function riverDirections(map: RiverMap): Map<number, number> {
       if (!t) continue;
       const next = ny * map.w + nx;
       if (!t.land) outlets.push(side);
-      else if (Number(rivers.get(next)?.[3][(side + 2) % 4]) > 0) adjacent.push([side, next]);
+      else if (Number(rivers.get(next)?.[3][oppositeSide(side)]) > 0) adjacent.push([side, next]);
     }
     edges.set(id, adjacent);
     if (outlets.length) mouths.set(id, outlets);
@@ -273,8 +271,8 @@ const SHORE_CAP = 192;
 /** How far closing the coast grows and shrinks it, in map pixels. */
 const CLOSING_PX = 20;
 
-/** The whole map's size in map pixels: odd rows stick out half a tile, and each row is half a tile down. */
-export const mapPixels = (w: number, h: number): [number, number] => [w * W + W / 2, ((h + 1) * H) / 2];
+/** The whole map's size in map pixels. */
+export const mapPixels = (w: number, h: number): [number, number] => projection.mapSize(w, h);
 
 /** The map pixels a field texel covers for a map, so the field is no more than `max` texels either way. */
 export const fieldTexel = (w: number, h: number, max = 4096): number => {
@@ -393,12 +391,13 @@ export function waterField(
     for (const [k, r] of riverEntries) if (was.rivers.get(k) !== r) changed(k);
     for (const k of was.rivers.keys()) if (!riverEntries.has(k)) changed(k);
     if (x1 < 0) return last;
+    const [left, top, right, bottom] = projection.neighbourhood(x0, y0, x1, y1);
     raw = clip(
       {
-        i0: Math.floor(((x0 - 1) * W) / texel),
-        j0: Math.floor(((y0 - 2) * H) / 2 / texelY),
-        i1: Math.ceil(((x1 + 2) * W + W / 2) / texel),
-        j1: Math.ceil(((y1 + 4) * H) / 2 / texelY),
+        i0: Math.floor(left / texel),
+        j0: Math.floor(top / texelY),
+        i1: Math.ceil(right / texel),
+        j1: Math.ceil(bottom / texelY),
       },
       cols,
       rows,
@@ -421,7 +420,6 @@ export function waterField(
   });
   for (let j = raw.j0; j < raw.j1; j++) {
     const py = (j + 0.5) * texelY;
-    const row = Math.floor(py / (H / 2));
     for (let i = raw.i0; i < raw.i1; i++) {
       const px = (i + 0.5) * texel;
       const k = j * cols + i;
@@ -433,62 +431,47 @@ export function waterField(
       seed[k] = 0;
       channels[k] = 0;
       plume[k] = 0;
-      // The tile whose diamond holds the texel's centre, as map.ts tileAt finds it.
-      for (let y = row - 1; y <= row; y++) {
-        if (y < 0 || y >= h) continue;
-        const ox0 = (y % 2) * (W / 2);
-        const x = Math.floor((px - ox0) / W);
-        if (x < 0 || x >= w) continue;
-        const [u, v] = [px - x * W - ox0, py - (y * H) / 2];
-        if (Math.abs(u - W / 2) / (W / 2) + Math.abs(v - H / 2) / (H / 2) > 1) continue;
-        const c = tiles.charCodeAt(y * w + x) - 65;
-        if (c < 0) break;
+      // The tile that holds the texel's centre, as the map's hit test finds it.
+      const at = projection.tileAt(w, h, px, py);
+      const c = at ? tiles.charCodeAt(at[1] * w + at[0]) - 65 : -1;
+      if (at && c >= 0) {
+        const [x, y] = at;
+        const [ox, oy] = projection.origin(x, y);
+        const [u, v] = [px - ox, py - oy];
         const kind = kinds[c];
         if (kind === 0) {
           land[k] = 1;
           zone[k] = zones[c];
-          break;
-        }
-        water[k] = 1;
-        depth[k] = kind - 1;
-        let a = 0;
-        for (let s = 0; s < SAMPLES.length; s += 2)
-          a += sand(x, y, u + SAMPLES[s] * texel, v + SAMPLES[s + 1] * texelY);
-        land[k] = a / (SAMPLES.length / 2);
-        if (land[k] < 0.05 && Math.abs(u - W / 2) / (W / 2) + Math.abs(v - H / 2) / (H / 2) < 0.5) seed[k] = 1;
-        const dx = u - W / 2,
-          dy = (v - H / 2) * 2;
-        if (Math.hypot(dx, dy) < W * 0.25) channels[k] = 1;
-        const left = x + (y % 2) - 1;
-        const neighbours = [
-          [x, y - 2],
-          [left + 1, y - 1],
-          [x + 1, y],
-          [left + 1, y + 1],
-          [x, y + 2],
-          [left, y + 1],
-          [x - 1, y],
-          [left, y - 1],
-        ];
-        for (let d = 0; d < neighbours.length; d++) {
-          const [nx, ny] = neighbours[d];
-          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-          const nt = map.types[tiles.charCodeAt(ny * w + nx) - 65];
-          if (!nt) continue;
-          const ex = (nx - x) * W + (((ny % 2) - (y % 2)) * W) / 2;
-          const ey = (ny - y) * H;
-          const length = Math.hypot(ex, ey);
-          const along = (dx * ex + dy * ey) / length;
-          const side = Math.abs(dx * ey - dy * ex) / length;
-          if (!nt.land && along >= 0 && along <= length && side < W * 0.18) channels[k] = 1;
-          const river = riverTiles.get(ny * w + nx);
-          // River style order NE, SE, SW, NW. Only a connection toward this water tile makes a mouth.
-          if (nt.land && d % 2 === 1 && river && Number(river[3][((d - 1) / 2 + 2) % 4]) > 0) {
-            const offshore = length / 2 - along;
-            plume[k] = Math.max(plume[k], riverPlume(offshore, side, river[2]));
+        } else {
+          water[k] = 1;
+          depth[k] = kind - 1;
+          let a = 0;
+          for (let s = 0; s < SAMPLES.length; s += 2)
+            a += sand(x, y, u + SAMPLES[s] * texel, v + SAMPLES[s + 1] * texelY);
+          land[k] = a / (SAMPLES.length / 2);
+          if (land[k] < 0.05 && projection.inset(u, v) < 0.5) seed[k] = 1;
+          const [dx, dy] = projection.fromAbove(u - projection.middle[0], v - projection.middle[1]);
+          if (Math.hypot(dx, dy) < W * 0.25) channels[k] = 1;
+          for (const d of mapGrid.directions) {
+            const [nx, ny] = mapGrid.neighbour(x, y, d);
+            if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+            const nt = map.types[tiles.charCodeAt(ny * w + nx) - 65];
+            if (!nt) continue;
+            // The way to the neighbour's middle, as seen from above (as dy is).
+            const [nox, noy] = projection.origin(nx, ny);
+            const [ex, ey] = projection.fromAbove(nox - ox, noy - oy);
+            const length = Math.hypot(ex, ey);
+            const along = (dx * ex + dy * ey) / length;
+            const side = Math.abs(dx * ey - dy * ex) / length;
+            if (!nt.land && along >= 0 && along <= length && side < W * 0.18) channels[k] = 1;
+            const river = riverTiles.get(ny * w + nx);
+            // River style order NE, SE, SW, NW. Only a connection toward this water tile makes a mouth.
+            if (nt.land && mapGrid.isEdge(d) && river && Number(river[3][mapGrid.edgeIndex(mapGrid.opposite(d))]) > 0) {
+              const offshore = length / 2 - along;
+              plume[k] = Math.max(plume[k], riverPlume(offshore, side, river[2]));
+            }
           }
         }
-        break;
       }
     }
   }

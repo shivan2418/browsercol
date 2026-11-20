@@ -174,7 +174,8 @@ import { audioLink, offlineAudio } from './offline-audio';
 import { UpdatePrompt } from './update-prompt';
 import { watchCompact } from './compact';
 import { controlArt } from './control-art';
-import { cursor, initialView, panel, reduce, tileOnScreen, W, type Tile, type ViewEvent, type ViewState } from './view';
+import { W } from './projection';
+import { cursor, initialView, panel, reduce, tileOnScreen, type Tile, type ViewEvent, type ViewState } from './view';
 import type { GuiEvents, GuiHandlers, PopupEvent, ReportView } from './webgui';
 
 declare global {

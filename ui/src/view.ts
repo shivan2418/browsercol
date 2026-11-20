@@ -3,6 +3,7 @@
 // reduce() takes the WebGUI's events (webgui.ts), the client Engine's map
 // views and the player's pans, zooms and pointer moves, and follows the
 // active unit as SwingGUI does. map.ts draws what it says.
+import { projection, type Tile } from './projection';
 import type { GuiEvents, Id } from './webgui';
 import {
   NO_MODES,
@@ -15,18 +16,9 @@ import {
   type ViewModes,
 } from './tileset';
 
-/** FreeCol's tiles: 128x64 diamonds in staggered rows, odd rows half a tile to the right. */
-export const W = 128;
-export const H = 64;
+export type { Tile };
 
-export type Tile = [number, number];
-
-/** Where a tile's 128x64 box starts on the whole map, at zoom 1. */
-export const tileOrigin = (x: number, y: number): Tile => [x * W + (y % 2) * (W / 2), (y * H) / 2];
-const tileCentre = ([x, y]: Tile): [number, number] => {
-  const [ox, oy] = tileOrigin(x, y);
-  return [ox + W / 2, oy + H / 2];
-};
+const tileCentre = ([x, y]: Tile): [number, number] => projection.centre(x, y);
 
 /** What the view uses of a map view. */
 export type MapFacts = Pick<MapView, 'w' | 'h' | 'types' | 'tiles' | 'owners' | 'players' | 'active' | 'activeUnit'>;
@@ -104,7 +96,7 @@ export const initialView: ViewState = {
 };
 
 /** The whole map's size in pixels at zoom 1. */
-export const mapSize = (m: { w: number; h: number }): [number, number] => [(m.w + 0.5) * W, ((m.h + 1) * H) / 2];
+export const mapSize = (m: { w: number; h: number }): [number, number] => projection.mapSize(m.w, m.h);
 
 /** Keep the view on the map, once both sizes are known; a map smaller than the view sits in its middle. */
 function clamp(v: ViewState): ViewState {

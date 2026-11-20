@@ -1,7 +1,7 @@
 // How the moving and the active unit look at a moment: the slide of a unit
 // along the tiles the Engine says it stepped to, as FreeCol animates a move,
 // and the slow blink of the active unit.
-import { H, W, tileOrigin } from './view';
+import { H, W, projection } from './projection';
 import type { Unit } from './tileset';
 import type { GuiEvents } from './webgui';
 
@@ -123,7 +123,7 @@ export interface Track {
  * and a diagonal step is half a tile each way.
  */
 export function track(tiles: [number, number][], ms: number): Track {
-  const points = tiles.map((t) => tileOrigin(...t));
+  const points = tiles.map((t) => projection.origin(...t));
   let at = 0;
   const ends = points.slice(1).map(([x, y], i) => {
     const [fx, fy] = points[i];

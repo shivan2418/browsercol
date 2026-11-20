@@ -18,6 +18,7 @@
 // GPU does not have. Run in the web image:
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/slide-timing.ts [--browsers chromium,firefox] [--trials 6] [--query renderer=pixi] [--only single|goto|colony] [--verbose] [--timeline]
 import type { Page } from 'playwright-core';
+import { projection } from '../src/projection.ts';
 import type { MapView } from '../src/tileset.ts';
 import { browserNames, launchBrowser, opt, waitForResult } from './common.ts';
 import { answerDialogs } from './dialogs.ts';
@@ -38,8 +39,8 @@ const STAGES: [string, string, string][] = [
 ];
 
 type Tile = [number, number];
-/** A tile's top-left corner in map pixels, as src/view.ts places it on its staggered rows. */
-const tileOrigin = (x: number, y: number): Tile => [x * 128 + (y % 2) * 64, y * 32];
+/** A tile's top-left corner in map pixels, as the map's projection places it. */
+const tileOrigin = (x: number, y: number): Tile => projection.origin(x, y);
 declare global {
   interface Window {
     __marks: [string, number][];

@@ -14,7 +14,7 @@ import {
   type Item,
   type Page,
 } from './map-tilemap';
-import { H, W, tileOrigin } from './view';
+import { H, W, projection } from './projection';
 
 describe('staticDrawing', () => {
   it('draws the static layers as tilemaps on WebGL, and as sprites on the Canvas and WebGPU renderers', () => {
@@ -62,7 +62,7 @@ describe('ChunkLayer', () => {
   const grass = pic();
   const water = [pic(), pic()];
   const item = (x: number, y: number, p: HTMLCanvasElement): [[number, number], Item] => {
-    const [ox, oy] = tileOrigin(x, y);
+    const [ox, oy] = projection.origin(x, y);
     const name = p === grass ? 'g' : water.indexOf(p);
     return [[x, y], { key: `i${name},${x},${y}`, pic: p, x: ox, y: oy, dim: false, tile: true, box: [ox, oy, W, H] }];
   };

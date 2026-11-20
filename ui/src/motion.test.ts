@@ -13,7 +13,7 @@ import {
   track,
   type Step,
 } from './motion';
-import { tileOrigin } from './view';
+import { projection } from './projection';
 
 const step = (from: [number, number], to: [number, number], unit = 'unit:1', speed: number | null = null): Step => ({
   unit,
@@ -119,8 +119,8 @@ describe('slide', () => {
 
   it('is offset from where the actors are drawn: a slide that sets off before the unit is drawn on its new tile', () => {
     const t = track(row(3, 4), 300);
-    expect(slide(t, 0, tileOrigin(3, 2)).map(Math.abs)).toEqual([0, 0]);
-    expect(slide(t, 300, tileOrigin(3, 2))).toEqual([128, 0]);
+    expect(slide(t, 0, projection.origin(3, 2)).map(Math.abs)).toEqual([0, 0]);
+    expect(slide(t, 300, projection.origin(3, 2))).toEqual([128, 0]);
   });
 
   it('carries a move made mid-slide on from where the unit is, without a jump', () => {

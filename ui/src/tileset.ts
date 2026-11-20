@@ -5,6 +5,7 @@
 // some images by masking others (terrain transitions, beaches, rivers);
 // those come as a Recipe that map.ts composites and caches by id.
 import { MAP_KEY_FAMILIES, MAP_KEYS } from './map-keys';
+import { mapGrid, type Direction } from './projection';
 import type { Resources } from './resources';
 import type { Cursor } from './view';
 
@@ -250,31 +251,9 @@ export type Op =
 /** FreeCol's colony labels option: none, classic (the population in the settlement, the name below) or modern. */
 export type ColonyLabels = 0 | 1 | 2;
 
-export type Direction = 'N' | 'NE' | 'E' | 'SE' | 'S' | 'SW' | 'W' | 'NW';
-
-/** FreeCol's Direction: [dx, dy] on odd rows, then on even rows. */
-const STEPS: Record<Direction, [number, number, number, number]> = {
-  N: [0, -2, 0, -2],
-  NE: [1, -1, 0, -1],
-  E: [1, 0, 1, 0],
-  SE: [1, 1, 0, 1],
-  S: [0, 2, 0, 2],
-  SW: [0, 1, -1, 1],
-  W: [-1, 0, -1, 0],
-  NW: [0, -1, -1, -1],
-};
-export const DIRECTIONS = Object.keys(STEPS) as Direction[];
-const LONG_SIDES: Direction[] = ['NE', 'SE', 'SW', 'NW'];
-const REVERSE: Record<Direction, Direction> = {
-  N: 'S',
-  NE: 'SW',
-  E: 'W',
-  SE: 'NW',
-  S: 'N',
-  SW: 'NE',
-  W: 'E',
-  NW: 'SE',
-};
+export type { Direction };
+/** All the directions, in FreeCol's order. */
+export const DIRECTIONS = mapGrid.directions;
 
 // The map's resource keys, from map-keys.ts, where the families the map
 // draws live: the prefixes are the ones build-art.ts copies the art of,
@@ -480,8 +459,7 @@ function build(
   const index = (x: number, y: number) => y * w + x;
   const inside = (x: number, y: number) => x >= 0 && y >= 0 && x < w && y < h;
   const step = (x: number, y: number, d: Direction): [number, number] | null => {
-    const s = STEPS[d];
-    const [nx, ny] = y % 2 ? [x + s[0], y + s[1]] : [x + s[2], y + s[3]];
+    const [nx, ny] = mapGrid.neighbour(x, y, d);
     return inside(nx, ny) ? [nx, ny] : null;
   };
   const typeAt = (x: number, y: number): TileType | null => {
@@ -514,8 +492,8 @@ function build(
   // where the mask for the land sides cuts it away, and over that again by an
   // alpha that goes up and down with the frame.
   const beachKey = (dirs: Direction[]) => {
-    const pre = lower(dirs.filter((d) => LONG_SIDES.includes(d)));
-    return lower(dirs.filter((d) => LONG_SIDES.includes(d) || pre === '' || !pre.includes(d.toLowerCase())));
+    const pre = lower(dirs.filter((d) => mapGrid.isEdge(d)));
+    return lower(dirs.filter((d) => mapGrid.isEdge(d) || pre === '' || !pre.includes(d.toLowerCase())));
   };
   const water = (x: number, y: number, type: TileType, ticks: Ticks): Src | null => {
     const n = frame(terrainKey(type.id), ticks.water);
@@ -605,10 +583,10 @@ function build(
   const deltas = (x: number, y: number): Direction[] =>
     land([x, y]) || !explored([x, y])
       ? []
-      : LONG_SIDES.filter((d) => {
+      : mapGrid.edges.filter((d) => {
           const b = step(x, y, d);
           const river = land(b) ? riverAt(b) : undefined;
-          return !!river && Number(river.style[LONG_SIDES.indexOf(REVERSE[d])] ?? 0) > 0;
+          return !!river && Number(river.style[mapGrid.edgeIndex(mapGrid.opposite(d))] ?? 0) > 0;
         });
   // DeltaAnimationImageCreator: the pebbles in their mask, the river water in its, both kept in the tile's.
   const delta = (d: Direction, ticks: Ticks): Recipe | null => {
@@ -656,7 +634,7 @@ function build(
   // the shape of the river's mask, fading out at a slightly larger mask.
   const river = (x: number, y: number, ticks: Ticks): Recipe | null => {
     const r = riverAt([x, y])!;
-    const conns = LONG_SIDES.filter((_, i) => r.style[i] !== '0');
+    const conns = mapGrid.edges.filter((_, i) => r.style[i] !== '0');
     const shape = lower(conns);
     const minor = r.magnitude <= 1 ? '.minor' : '';
     const toMajor =
@@ -713,7 +691,7 @@ function build(
   };
   /** A pass over the tiles, row by row. */
   const each = (f: (x: number, y: number) => void) => {
-    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) f(x, y);
+    mapGrid.eachTile(w, h, f);
     endPass();
   };
   const terrain = (x: number, y: number, type: TileType | null) => {
@@ -973,34 +951,31 @@ export function viewModeOps(
   const ops: Op[] = [];
   if (!modes.grid && !modes.borders && !modes.tileText) return ops;
   const { w, h } = map;
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const i = y * w + x;
-      if (modes.grid) ops.push({ k: 'grid', x, y });
-      if (modes.borders) {
-        const owner = map.players[map.owners.charCodeAt(i) - 65];
-        if (owner) {
-          const sides = LONG_SIDES.filter((d) => {
-            const s = STEPS[d];
-            const [nx, ny] = y % 2 ? [x + s[0], y + s[1]] : [x + s[2], y + s[3]];
-            const other = nx >= 0 && ny >= 0 && nx < w && ny < h ? map.owners.charCodeAt(ny * w + nx) : Number.NaN;
-            return other !== map.owners.charCodeAt(i);
-          });
-          if (sides.length) ops.push({ k: 'border', x, y, sides, rgb: owner.rgb });
-        }
+  mapGrid.eachTile(w, h, (x, y) => {
+    const i = y * w + x;
+    if (modes.grid) ops.push({ k: 'grid', x, y });
+    if (modes.borders) {
+      const owner = map.players[map.owners.charCodeAt(i) - 65];
+      if (owner) {
+        const sides = mapGrid.edges.filter((d) => {
+          const [nx, ny] = mapGrid.neighbour(x, y, d);
+          const other = nx >= 0 && ny >= 0 && nx < w && ny < h ? map.owners.charCodeAt(ny * w + nx) : Number.NaN;
+          return other !== map.owners.charCodeAt(i);
+        });
+        if (sides.length) ops.push({ k: 'border', x, y, sides, rgb: owner.rgb });
       }
-      // TileViewer.displayOptionalTileText.
-      const name =
-        modes.tileText === 1
-          ? map.types[map.tiles.charCodeAt(i) - 65]?.name
-          : modes.tileText === 2
-            ? map.players[map.owners.charCodeAt(i) - 65]?.name
-            : modes.tileText === 3
-              ? map.regionNames?.[(map.regions?.charCodeAt(i) ?? 0) - 65]
-              : undefined;
-      if (name) ops.push({ k: 'tileName', x, y, name });
     }
-  }
+    // TileViewer.displayOptionalTileText.
+    const name =
+      modes.tileText === 1
+        ? map.types[map.tiles.charCodeAt(i) - 65]?.name
+        : modes.tileText === 2
+          ? map.players[map.owners.charCodeAt(i) - 65]?.name
+          : modes.tileText === 3
+            ? map.regionNames?.[(map.regions?.charCodeAt(i) ?? 0) - 65]
+            : undefined;
+    if (name) ops.push({ k: 'tileName', x, y, name });
+  });
   return ops;
 }
 

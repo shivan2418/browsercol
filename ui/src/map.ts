@@ -84,7 +84,8 @@ import {
   type Track,
 } from './motion';
 import { slideMark } from './timing';
-import { H, W, activeUnitFacts, cursor, tileOrigin, toMap, type ViewState } from './view';
+import { H, W, projection } from './projection';
+import { activeUnitFacts, cursor, toMap, type ViewState } from './view';
 
 export type { MapView } from './tileset';
 /** The whole map's terrain, explored or not (MapJson.terrain, the server's): what the shader water's field is made of. */
@@ -143,22 +144,11 @@ const OTHER_UNITS_OFFSET_X = -5;
 const OTHER_UNITS_WIDTH = 3;
 const MAX_OTHER_UNITS = 10;
 
-/** The tile whose diamond holds a point of the whole map, or null off the map. */
-export function tileAt(w: number, h: number, px: number, py: number): [number, number] | null {
-  const row = Math.floor(py / (H / 2));
-  for (const y of [row - 1, row]) {
-    if (y < 0 || y >= h) continue;
-    const x = Math.floor((px - (y % 2) * (W / 2)) / W);
-    const [ox, oy] = tileOrigin(x, y);
-    if (x >= 0 && x < w && Math.abs(px - ox - W / 2) / (W / 2) + Math.abs(py - oy - H / 2) / (H / 2) <= 1) {
-      return [x, y];
-    }
-  }
-  return null;
-}
-
 type Picture = HTMLImageElement | HTMLCanvasElement;
 const css = (c: number) => '#' + c.toString(16).padStart(6, '0');
+/** A closed shape's corners as a path on a Canvas 2D pen. */
+const polygon = (c: Pick<CanvasRenderingContext2D, 'moveTo' | 'lineTo'>, pts: [number, number][]) =>
+  pts.forEach((pt, i) => (i ? c.lineTo(...pt) : c.moveTo(...pt)));
 /** FreeCol's fog of war RescaleOp: each colour channel at 80%. */
 const fogged = (c: number) =>
   [16, 8, 0].reduce((n, shift) => n | (Math.round(((c >> shift) & 0xff) * 0.8) << shift), 0);
@@ -333,7 +323,7 @@ const canvas = (w: number, h: number) => Object.assign(document.createElement('c
 function fadeMask(d: Direction): HTMLCanvasElement {
   const c = canvas(W, H);
   const g = c.getContext('2d')!;
-  const [[ax, ay], [bx, by]] = SIDES[d as keyof typeof SIDES];
+  const [[ax, ay], [bx, by]] = projection.edge(d);
   const [mx, my] = [(ax + bx) / 2, (ay + by) / 2];
   // The side's normal, pointing into the tile, as long as the way from the side to the centre.
   const len = Math.hypot(bx - ax, by - ay);
@@ -548,11 +538,11 @@ export function borderPaths(ops: { x: number; y: number; sides: string[]; rgb: n
     return k;
   };
   for (const op of ops) {
-    const [ox, oy] = tileOrigin(op.x, op.y);
+    const [ox, oy] = projection.origin(op.x, op.y);
     let segs = byColor.get(op.rgb);
     if (!segs) byColor.set(op.rgb, (segs = []));
     for (const d of op.sides) {
-      const [a, b] = SIDES[d as 'NE' | 'SE' | 'SW' | 'NW'];
+      const [a, b] = projection.edge(d as Direction);
       segs.push([key(ox + a[0], oy + a[1]), key(ox + b[0], oy + b[1])]);
     }
   }
@@ -757,7 +747,7 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
   /** Draw an object on the layer being drawn, culled when off the screen: the one it held showing `key`, else `make`'s. */
   const add = (key: string | null, make: () => Container) => {
     if (collecting) {
-      const [ox, oy] = tileOrigin(...at);
+      const [ox, oy] = projection.origin(...at);
       collecting.push(at, pass, {
         key: key ?? `?${unkeyed++}`,
         x: ox,
@@ -1046,21 +1036,13 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
           g.globalAlpha = alpha;
           g.fillStyle = css(color);
           g.beginPath();
-          g.moveTo(W / 2, 0);
-          g.lineTo(W, H / 2);
-          g.lineTo(W / 2, H);
-          g.lineTo(0, H / 2);
+          polygon(g, projection.outline([0, 0]));
           g.fill();
         });
         return pushImage(pic, x - SHAPE_PAD, y - SHAPE_PAD, false, false);
       }
       const key = `d${x},${y},${color},${alpha}`;
-      add(key, () =>
-        keyed(
-          key,
-          new Graphics().poly([x + W / 2, y, x + W, y + H / 2, x + W / 2, y + H, x, y + H / 2]).fill({ color, alpha }),
-        ),
-      );
+      add(key, () => keyed(key, new Graphics().poly(projection.outline([x, y]).flat()).fill({ color, alpha })));
     },
     road: (x, y, color, path, width = H / 32, alpha = 1, key) => {
       if (collecting && atlas && key) {
@@ -1287,10 +1269,7 @@ export function canvasPen(host: HTMLElement, width: number, height: number, back
         c.globalAlpha = alpha;
         c.fillStyle = css(color);
         c.beginPath();
-        c.moveTo(x + W / 2, y);
-        c.lineTo(x + W, y + H / 2);
-        c.lineTo(x + W / 2, y + H);
-        c.lineTo(x, y + H / 2);
+        polygon(c, projection.outline([x, y]));
         c.fill();
         c.globalAlpha = 1;
       }),
@@ -1438,17 +1417,7 @@ export function canvasPen(host: HTMLElement, width: number, height: number, back
   };
 }
 
-/** RoadPainter's corner points and the road pairs it skips on 3 and 4 way tiles. */
-const CORNERS: Record<Direction, [number, number]> = {
-  N: [W / 2, 0],
-  NE: [0.75 * W, 0.25 * H],
-  E: [W, H / 2],
-  SE: [0.75 * W, 0.75 * H],
-  S: [W / 2, H],
-  SW: [0.25 * W, 0.75 * H],
-  W: [0, H / 2],
-  NW: [0.25 * W, 0.25 * H],
-};
+/** The road pairs RoadPainter skips on 3 and 4 way tiles. */
 const PROHIBITED: Record<Direction, Direction[]> = {
   N: ['NW', 'NE'],
   NE: ['N', 'E'],
@@ -1460,7 +1429,7 @@ const PROHIBITED: Record<Direction, Direction[]> = {
   NW: ['W', 'N'],
 };
 function roadPath(dirs: Direction[], p: PathSink) {
-  const pts = dirs.map((d) => CORNERS[d]);
+  const pts = dirs.map((d) => projection.anchor(d));
   const [cx, cy] = [W / 2, H / 2];
   if (pts.length === 0) {
     p.moveTo(0.35 * W, 0.35 * H);
@@ -1475,10 +1444,10 @@ function roadPath(dirs: Direction[], p: PathSink) {
     p.quadTo(cx, cy, ...pts[1]);
   } else if (pts.length <= 4) {
     let pen = dirs[dirs.length - 1];
-    p.moveTo(...CORNERS[pen]);
+    p.moveTo(...projection.anchor(pen));
     for (const d of dirs) {
-      if (PROHIBITED[pen].includes(d)) p.moveTo(...CORNERS[d]);
-      else p.quadTo(cx, cy, ...CORNERS[d]);
+      if (PROHIBITED[pen].includes(d)) p.moveTo(...projection.anchor(d));
+      else p.quadTo(cx, cy, ...projection.anchor(d));
       pen = d;
     }
   } else {
@@ -1488,14 +1457,6 @@ function roadPath(dirs: Direction[], p: PathSink) {
     }
   }
 }
-
-/** The diamond's sides, by the neighbour they face. */
-const SIDES: Record<'NE' | 'SE' | 'SW' | 'NW', [[number, number], [number, number]]> = {
-  NE: [CORNERS.N, CORNERS.E],
-  SE: [CORNERS.E, CORNERS.S],
-  SW: [CORNERS.S, CORNERS.W],
-  NW: [CORNERS.W, CORNERS.N],
-};
 
 /** How long a map waits for a slide's first frame before it is painted anyway. */
 const FIRST_FRAME_MS = 100;
@@ -1537,7 +1498,7 @@ async function paint(pen: Pen, layer: Layer, ops: Op[], pics: ReturnType<typeof 
   const firstBorder = ops.findIndex((o) => o.k === 'border');
   ops.forEach((op, i) => {
     pen.tile?.(op.x, op.y, passOf.get(op) ?? 0);
-    const [ox, oy] = tileOrigin(op.x, op.y);
+    const [ox, oy] = projection.origin(op.x, op.y);
     const shade = (c: number) => ('dim' in op && op.dim ? fogged(c) : c);
     switch (op.k) {
       case 'image': {
@@ -1600,7 +1561,7 @@ async function paint(pen: Pen, layer: Layer, ops: Op[], pics: ReturnType<typeof 
         return;
       // MapViewer.displayPath: half-transparent lines 5 wide, then 20-pixel marks.
       case 'pathLine': {
-        const [tx, ty] = tileOrigin(...op.to);
+        const [tx, ty] = projection.origin(...op.to);
         pen.line(ox + W / 2, oy + H / 2, tx + W / 2, ty + H / 2, pathColor(op.turns), 5, 0.5);
         return;
       }
@@ -1610,11 +1571,9 @@ async function paint(pen: Pen, layer: Layer, ops: Op[], pics: ReturnType<typeof 
           oy,
           0x000000,
           (p) => {
-            p.moveTo(W / 2, 0);
-            p.lineTo(W, H / 2);
-            p.lineTo(W / 2, H);
-            p.lineTo(0, H / 2);
-            p.lineTo(W / 2, 0);
+            const [first, ...rest] = projection.outline([0, 0]);
+            p.moveTo(...first);
+            for (const pt of [...rest, first]) p.lineTo(...pt);
           },
           GRID_WIDTH,
           GRID_ALPHA,
@@ -2111,7 +2070,7 @@ export function mapDrawer(
     const alpha =
       !sliding && ((view.mode === 'units' && view.active) || tileCursor) ? blink(now - blinkFrom, blinkMs) : 1;
     if (sliding) {
-      const [dx, dy] = slide(sliding.track, now - sliding.since, actor ? tileOrigin(...actor.tile) : undefined);
+      const [dx, dy] = slide(sliding.track, now - sliding.since, actor ? projection.origin(...actor.tile) : undefined);
       pen.actors(dx, dy, 1);
     } else {
       pen.actors(0, 0, cursorBlinks ? 1 : alpha);
@@ -2500,19 +2459,22 @@ export function mapDrawer(
     tileAt: (px, py) => {
       if (!pen || !view?.map) return null;
       const [mx, my] = toMap(view, [px, py]);
-      return tileAt(view.map.w, view.map.h, mx, my);
+      return projection.tileAt(view.map.w, view.map.h, mx, my);
     },
     resources: () => res,
     drawTiles: (host, centre, tiles, top) => {
-      const pen = canvasPen(host, 3 * W, 3 * H + top, false);
+      const [blockW, blockH] = projection.blockSize();
+      const pen = canvasPen(host, blockW, blockH + top, false);
       const keep = new Set(tiles.map(([x, y]) => `${x},${y}`));
-      const [cx, cy] = tileOrigin(...centre);
+      const [cx, cy] = projection.origin(...centre);
       // The tiles' terrain, items, roads and settlement; not the units, chips, fog or labels the map adds.
       const render = (all: Op[]) => {
         const ops = all.filter(
           (op) => keep.has(`${op.x},${op.y}`) && ((op.k === 'image' && op.at !== 'unit') || op.k === 'road'),
         );
-        void paint(pen, 0, ops, pics).then(() => pen.show(W - cx, H + top - cy, 1));
+        // The centre tile is the block's middle one.
+        const [mx, my] = projection.block(1, 1);
+        void paint(pen, 0, ops, pics).then(() => pen.show(mx - cx, my + top - cy, 1));
       };
       // Drawn from the map last drawn, and again with each map after it: a colony just founded is not in the one
       // drawn before the panel opened.

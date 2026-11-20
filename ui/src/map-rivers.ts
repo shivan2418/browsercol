@@ -6,6 +6,7 @@ import { BufferImageSource, Geometry, ImageSource } from 'pixi.js';
 import {
   paintedWaterAtlas,
   RIVER_MIDPOINTS,
+  oppositeSide,
   riverDirections,
   RIVER_SIDES,
   riverNeighbour,
@@ -15,7 +16,7 @@ import {
   type WaterLook,
 } from './map-water';
 import { isAnimated, passOf, STILL, type Op, type Recipe, type Src } from './tileset';
-import { H, W, tileOrigin } from './view';
+import { H, W, projection } from './projection';
 
 type Picture = HTMLImageElement | HTMLCanvasElement;
 const VERTEX = `precision highp float;
@@ -149,7 +150,7 @@ export function riverPatches(map: RiverMap, base: Op[]): { banks: Op[]; patches:
       x: op.x,
       y: op.y,
       mask,
-      downstream: mouth < 0 ? (directions.get(ry * map.w + rx) ?? -1) : (mouth + 2) % 4,
+      downstream: mouth < 0 ? (directions.get(ry * map.w + rx) ?? -1) : oppositeSide(mouth),
       style: mouth < 0 ? river[3] : '0000',
       magnitude: river[2],
       keep: mouth >= 0 && 'mask' in keep ? keep.mask : undefined,
@@ -255,7 +256,7 @@ export async function riverDrawing(
   const mouths = new Float32Array(patches.length * 4);
   const indices = new Uint32Array(patches.length * 6);
   patches.forEach((patch, i) => {
-    const [x, y] = tileOrigin(patch.x, patch.y);
+    const [x, y] = projection.origin(patch.x, patch.y);
     positions.set([x, y, x + W, y, x + W, y + H, x, y + H], i * 8);
     const u = ((slots[i] % cols) * (W + 2) + 1) / width;
     const v = (Math.floor(slots[i] / cols) * (H + 2) + 1) / height;
