@@ -23,7 +23,10 @@ import net.sf.freecol.common.model.Tile;
  * styles, the rivers' magnitudes and style digits, and the resources, as a
  * hash. The refactor that moved the edge and corner neighbours into
  * Direction changed none of them, and the hashes below were taken before it.
- * A change that moves one means a map drawn from a seed is no longer the
+ * The square grid (#526) moved every map on purpose, and the hashes were
+ * taken again on it: the edge and corner neighbours are other directions, so
+ * a seed's coast styles and river digits mean other sides, and the land
+ * generator walks other rows. A change that moves one means a map drawn from a seed is no longer the
  * map a saved game was played on, or that its styles no longer match the
  * art.
  */
@@ -104,19 +107,19 @@ class FixedSeedMapTest {
     @Timeout(240)
     void seed1On40x60() throws Exception {
         pins("{ \"seed\": 1, \"options\": { \"model.option.mapWidth\": 40,"
-            + " \"model.option.mapHeight\": 60 } }", "2ff71041a7b3f6eb7f5d4dc793adce5a80c6450611911192e822f108ee149984");
+            + " \"model.option.mapHeight\": 60 } }", "72099d670571aea53dbb1455bc5b3355fcee508e5686bafd60ed6874488e7ced");
     }
 
     @Test
     @Timeout(240)
     void seed7WithVeryManyRiversOn60x80() throws Exception {
         pins("{ \"seed\": 7, \"options\": { \"model.option.mapWidth\": 60,"
-            + " \"model.option.mapHeight\": 80, \"model.option.riverNumber\": 40 } }", "47841fddfa272d58f69a7074c63cd88f798ae4c9a68a256fd79aed58e0514efe");
+            + " \"model.option.mapHeight\": 80, \"model.option.riverNumber\": 40 } }", "834322666f0472be00297ed9946e3310059050b96a47cb8031b780268a0006eb");
     }
 
     @Test
     @Timeout(240)
     void seed1492OnTheDefaultSize() throws Exception {
-        pins("{ \"seed\": 1492 }", "cb4d8e6fff8e0822b7b54dbd7458dee83b7e3e352a26e2a0f57801d180726404");
+        pins("{ \"seed\": 1492 }", "45d7388339a3132b608ea42134a2c94b3b7670b206eeffc6ee0d8eac60e1d6e9");
     }
 }
