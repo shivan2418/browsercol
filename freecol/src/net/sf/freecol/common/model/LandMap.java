@@ -208,32 +208,6 @@ public class LandMap {
     // Internals
 
     /**
-     * Gets the clearance to the left and right map edges in columns.
-     * The preferred distance to the edge was written for 40 columns of
-     * half-height rows, and the map is now 80 columns of full-height
-     * rows, so columns are half as wide.
-     *
-     * @param distanceToEdge The preferred distance to the map edge.
-     * @return The clearance in columns.
-     */
-    private static int edgeX(int distanceToEdge) {
-        return 2 * distanceToEdge;
-    }
-
-    /**
-     * Gets the clearance to the top and bottom map edges in rows.
-     * The preferred distance to the edge was counted in half-height
-     * rows for the poles, 2 per tile of clearance, and rows are now
-     * full height, so the clearance is the distance itself.
-     *
-     * @param distanceToEdge The preferred distance to the map edge.
-     * @return The clearance in rows.
-     */
-    private static int edgeY(int distanceToEdge) {
-        return distanceToEdge;
-    }
-
-    /**
      * Generate the land map using the given generator type.
      *
      * @param type The generator type.
@@ -287,8 +261,10 @@ public class LandMap {
      * @param minNumberOfTiles Lower bound for the tiles to create.
      */
     private void createClassicLandMap(int distanceToEdge, int minNumberOfTiles) {
-        final int edgX = edgeX(distanceToEdge) * 2;
-        final int edgY = edgeY(distanceToEdge);
+        // Rows were half height, so the clearance to the top and bottom was
+        // twice the distance in rows; it is the distance now.
+        final int edgX = distanceToEdge * 2;
+        final int edgY = distanceToEdge;
         final int wid = getWidth() - edgX * 2;
         final int hgt = getHeight() - edgY * 2;
         int x, y;
@@ -369,8 +345,8 @@ public class LandMap {
         final Predicate<Position> landPred = p ->
             (p.isValid(getWidth(), getHeight())
                 && !hasAdjacentLand(p.getX(), p.getY())
-                && p.getX() > edgeX(distanceToEdge)
-                && p.getX() < getWidth() - edgeX(distanceToEdge));
+                && p.getX() > distanceToEdge
+                && p.getX() < getWidth() - distanceToEdge);
         final Function<Direction, Position> positionMapper = d ->
             new Position(position, d);
         return transform(map(Direction.edgeNeighbours, positionMapper), landPred);
@@ -396,10 +372,10 @@ public class LandMap {
         // this tile will be set to land.
         // This value is part random, part based on position, that is:
         // -1 in the center of the map, and growing to
-        // the preferred distance to the edge at the maps edges.
+        // distanceToEdge at the maps edges.
         int r = this.cache.nextInt(8) + Math.max(-1,
-            (1 + Math.max(edgeX(distanceToEdge) - Math.min(x, getWidth()-x),
-                edgeY(distanceToEdge) - Math.min(y, getHeight()-y))));
+            (1 + Math.max(distanceToEdge - Math.min(x, getWidth()-x),
+                distanceToEdge - Math.min(y, getHeight()-y))));
 
         final Position p = new Position(x, y);
         final Predicate<Direction> landPred = d -> {
@@ -430,11 +406,11 @@ public class LandMap {
 
         // Pick a starting position that is sea without neighbouring land.
         if (x < 0 || y < 0) {
-            final int wid = getWidth() - edgeX(distanceToEdge) * 2;
-            final int startY = (distanceToEdge + 1) / 2; // was in half rows
+            final int wid = getWidth() - distanceToEdge * 2;
+            final int startY = (distanceToEdge + 1) / 2; // was in half-height rows
             final int hgt = getHeight() - startY * 2;
             do {
-                x = edgeX(distanceToEdge) + this.cache.nextInt(wid);
+                x = distanceToEdge + this.cache.nextInt(wid);
                 y = startY + this.cache.nextInt(hgt);
             } while (isLand(x, y) || hasAdjacentLand(x, y));
         }
