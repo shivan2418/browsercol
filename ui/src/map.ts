@@ -2055,6 +2055,7 @@ export function mapDrawer(
     // goes back to the actors' layer to blink.
     if (sliding && now - sliding.since >= length(sliding.track) + (sliding.early ? EARLY_WAIT_MS : 0)) {
       sliding = null;
+      slideMark('rest');
       blinkFrom = now;
       drawing = drawing.then(() => (drawn && last ? paintScene(drawn, last.ground, last.units) : undefined));
     }

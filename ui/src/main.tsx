@@ -166,6 +166,7 @@ import { ErrorBanner, addError, engineError, type GameError } from './errors';
 import { loading, type PartName } from './loading';
 import { mobileNotice } from './mobile-notice';
 import { loadModule } from './teavm';
+import { timingOn } from './timing';
 import { applyTheme } from './theme';
 import { registerServiceWorker, removeServiceWorker, syncThemeColor } from './install';
 import { OfflineIndicator } from './offline-indicator';
@@ -2104,7 +2105,10 @@ async function run() {
   // Both Engines load while the player sets up the game, so Start has little left to wait for: the Worker loads the
   // server Engine as soon as it is made and starts it once it has the data, and the client module is the one the
   // game will use (clientModule loads it once). The loading screen counts a part that finished early as done.
-  const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
+  const worker = new Worker(new URL('./worker.ts', import.meta.url), {
+    type: 'module',
+    name: timingOn ? 'timing' : '',
+  });
   // An error the Worker does not catch, such as a trap in the server Engine, stops the game's server.
   askWorkerLog = () => worker.postMessage({ k: 'log' } satisfies ToWorker);
   askWorkerLogQuietly = askWorkerLog;

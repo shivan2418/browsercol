@@ -49,6 +49,18 @@ public final class ClientMain {
     @JSBody(params = { "name", "detail" }, script = "fcClientEvent(name, detail);")
     private static native void event(String name, String detail);
 
+    @JSBody(script = "return typeof location !== 'undefined' && new URLSearchParams(location.search).has('slidetiming');")
+    private static native boolean timingOn();
+
+    @JSBody(script = "return performance.now();")
+    private static native double now();
+
+    @JSBody(params = "name", script = "performance.mark(name);")
+    private static native void mark(String name);
+
+    @JSBody(params = { "name", "start" }, script = "performance.measure(name, { start: start }); performance.clearMeasures(name);")
+    private static native void measure(String name, double start);
+
     @JSBody(params = { "kind", "json" }, script = "fcShow(kind, json);")
     private static native void show(String kind, String json);
 
@@ -114,6 +126,14 @@ public final class ClientMain {
         Failures.reportTo((what, detail) -> event("error", what + "\n" + detail));
         Failures.reportFatalTo(detail -> event("failed", detail));
         browsercol.shim.TaskFailures.listen(StartupFailures::taskFailed);
+        // Only for the browser scripts that time the Engine: the page's ?slidetiming.
+        if (timingOn()) {
+            Timing.install(new Timing.Probe() {
+                public double now() { return ClientMain.now(); }
+                public void measure(String name, double start) { ClientMain.measure(name, start); }
+                public void mark(String name) { ClientMain.mark(name); }
+            });
+        }
         new Thread(() -> {
                 try {
                     writeData(args);
@@ -317,19 +337,26 @@ public final class ClientMain {
      */
     private static void command(String name, Runnable run) {
         // A command is a job: a dialog it opens is modal until it is done (#401).
-        commands.add(() -> engine.job(() -> {
+        if (Timing.on()) Timing.mark("cmd: enter " + name);
+        commands.add(() -> {
+            Timing.mark("cmd: thread");
+            engine.job(() -> {
                 try {
+                    Timing.mark("cmd: run");
                     run.run();
+                    Timing.mark("cmd: ran");
                     engine.getCommands().afterCommand();
                     // The map after the command covers any refresh that came
                     // while it ran.
                     refreshPending.set(false);
                     event("map", mapJson());
+                    Timing.mark("cmd: done");
                 } catch (Throwable ex) {
                     ex.printStackTrace();
                     event("commandFailed", name + ": " + Failures.describe(ex));
                 }
-        }));
+            });
+        });
     }
 
     /**
@@ -863,6 +890,15 @@ public final class ClientMain {
 
     /** The client's view of the map for Tileset mode: see MapJson. */
     static String mapJson() {
+        final double t = Timing.now();
+        try {
+            return mapJsonNow();
+        } finally {
+            Timing.measure("map: json", t);
+        }
+    }
+
+    private static String mapJsonNow() {
         return MapJson.of(engine.getGame(), engine.getClient().getMyPlayer(),
                           engine.getClient().getGUI().getActiveUnit(),
                           engine.getClient().getClientOptions()

@@ -220,7 +220,8 @@ export type ToWorker =
   | { k: 'fc'; xml: string };
 
 export type ToPage =
-  | { k: 'fc'; xml: string }
+  /** `t`: the Worker's clock (epoch ms) when it posted, for scripts/move-latency.ts. */
+  | { k: 'fc'; xml: string; t?: number }
   | { k: 'event'; name: string; detail: string }
   /** The answer to a snapshot request: the game's bytes, or why there are none. */
   | { k: 'snapshot'; bytes: Uint8Array }
@@ -275,6 +276,8 @@ export function serveWorker(
   store: SaveStore,
   /** What the Worker's console was given, for the error dialog's log (log.tsx). */
   log: { text(): string } = { text: () => '' },
+  /** Stamp each message the Engine posts with the Worker's clock, for scripts/move-latency.ts. */
+  timing = false,
 ): void {
   const send = (m: ToPage) => endpoint.postMessage(m);
   const event = (name: string, detail: string) => send({ k: 'event', name, detail });
@@ -283,7 +286,8 @@ export function serveWorker(
   const names: (string | null)[] = [];
   let bytes: Uint8Array | null = null;
   // Globals WorkerMain calls.
-  scope.fcPost = (xml: string) => send({ k: 'fc', xml });
+  scope.fcPost = (xml: string) =>
+    send(timing ? { k: 'fc', xml, t: performance.timeOrigin + performance.now() } : { k: 'fc', xml });
   scope.fcSaved = (b: Int8Array) => {
     bytes = Uint8Array.from(new Uint8Array(b.buffer, b.byteOffset, b.length)); // a copy: the Engine's memory moves on
   };

@@ -15,4 +15,6 @@ serveWorker(
   globalThis as unknown as Scope,
   idbSaveStore(),
   log,
+  // The page names the Worker 'timing' when it times (?slidetiming).
+  self.name === 'timing',
 );

@@ -1,0 +1,6 @@
+{
+  "difficulty": "model.difficulty.veryEasy",
+  "nation": "model.nation.dutch",
+  "seed": 7,
+  "setup": [{ "action": "addColony" }, { "action": "addUnit", "type": "model.unit.seasonedScout", "around": true }]
+}

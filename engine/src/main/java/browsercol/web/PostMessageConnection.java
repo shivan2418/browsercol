@@ -248,10 +248,12 @@ public class PostMessageConnection extends Connection {
         MessageHandler mh = getMessageHandler();
         if (mh == null) throw new FreeColException("No handler for " + r.getLocalName());
         this.xr = r;
+        final double t = Timing.now();
         try {
             return mh.read(this);
         } finally {
             this.xr = null;
+            if (Timing.on()) Timing.measure("fc: read " + r.getLocalName(), t);
         }
     }
 
@@ -344,8 +346,10 @@ public class PostMessageConnection extends Connection {
      */
     private void handleAndReply(Message message, int replyId) {
         boolean replied = replyId < 0;
+        final double t = Timing.now();
         try {
             Message reply = handle(message);
+            if (Timing.on()) Timing.measure("fc: handle " + message.getType(), t);
             replied = true;
             sendMessage((replyId < 0) ? reply
                 : new ReplyMessage(replyId, reply));
@@ -387,7 +391,10 @@ public class PostMessageConnection extends Connection {
     public void sendMessage(Message message)
         throws FreeColException, IOException, XMLStreamException {
         if (message == null || !this.open) return;
-        this.port.post(toXml(message, this.writeScope));
+        final double t = Timing.now();
+        final String xml = toXml(message, this.writeScope);
+        if (Timing.on()) Timing.measure("fc: write " + message.getType() + " " + xml.length(), t);
+        this.port.post(xml);
         logMessage(message, true);
     }
 

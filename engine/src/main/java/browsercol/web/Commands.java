@@ -186,7 +186,9 @@ public final class Commands {
         final Unit unit = movable(unitId);
         final Tile tile = tile(x, y);
         if (unit == null || tile == null || unit.getTile() == tile) return false;
+        final double found = Timing.now();
         final PathNode path = unit.findPath(tile);
+        Timing.measure("cmd: findPath", found);
         if (path == null) {
             // SwingGUI.traverseGotoPath: no path clears the unit's goto orders.
             igc().clearGotoOrders(unit);
