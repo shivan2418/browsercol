@@ -85,10 +85,15 @@ def main():
                 log.write(json.dumps({"n": n, "t": round(time.time(), 1), "screen": h[:8]}) + "\n"); log.flush()
             c.key("Return")
             last_key = time.time()
+        elif s == "europe":
+            # A popup choice can send the ship to Europe; go back to the map.
+            log.write(json.dumps({"n": n, "t": round(time.time(), 1), "screen": "europe"}) + "\n"); log.flush()
+            c.key("Escape")
+            last_key = time.time()
         elif s == "map" and time.time() - last_key > 1.5:
             c.key("space")
             last_key = time.time()
-        time.sleep(0.3)
+        time.sleep(1.0)  # each check spawns a screenshot; once a second is enough
 
 
 if __name__ == "__main__":
