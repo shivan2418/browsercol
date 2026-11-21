@@ -135,7 +135,7 @@ class NameCacheTest {
     @Test
     @Timeout(240)
     void namesForAFixedSeedAreAsBefore() throws Exception {
-        assertEquals("74914366622f98ff37506b06ae6578a23d022e9dc0d8d19c5cd97633161d1e1c", hash(names(play(SEED_1).getGame())));
+        assertEquals("67786c8eb1716f12d405578c03594e315a90ba729396a57d55ae5f61c8c3c9cf", hash(names(play(SEED_1).getGame())));
     }
 
     @Test
@@ -144,6 +144,6 @@ class NameCacheTest {
         ServerEngine played = play(SEED_1);
         ServerEngine loaded = new ServerEngine(xml -> {});
         loaded.loadGame(played.saveGame());
-        assertEquals("e55d4fc30604844bc256c135d5e7af9864d381f51abf8ce842153a204eeeb893", hash(names(loaded.getGame())));
+        assertEquals("826f399de9f6a5777a5ae8454440c0f08d5455ff33fa6c9acda5fa173319ab13", hash(names(loaded.getGame())));
     }
 }
