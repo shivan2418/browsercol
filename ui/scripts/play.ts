@@ -510,7 +510,9 @@ async function play(page: Page, url: string) {
         if (++bannerMisses >= 3) {
           throw new Error(`three AI rounds passed without the banner naming a player (last banner seen: "${seen}")`);
         }
-        console.log(`  an AI round passed without the banner naming a player (banner seen: "${seen}"); watching the next`);
+        console.log(
+          `  an AI round passed without the banner naming a player (banner seen: "${seen}"); watching the next`,
+        );
         return;
       }
       await page.waitForTimeout(50);
