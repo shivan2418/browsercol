@@ -38,4 +38,15 @@ files, with fields located by diffing our own saves (see the tax-rate ticket).
 
 | Field | Where | How it was found |
 |---|---|---|
+| Year (16-bit little-endian) | offset 0x1A | Autosaves from consecutive turns hold 1497, 1498, … there. |
 | Tax rate (percent, 1 byte) | 22,062 bytes before the end of the file | Saves at tax 0/1/2/5 in one turn (set with the cheat keys) differ in that byte only. It held for saves of 25,097 and 25,905 bytes, at tax 7 and 11. |
+
+## Experiments
+
+- `soak.sh OUT ORIGIN.SAV --until YEAR` loads the save and keeps ending
+  turns, logging year and tax from every autosave to `OUT/turns.jsonl`.
+  The game autosaves to `COLONY09.SAV` each turn, and to `COLONY08.SAV` in
+  years ending in 0.
+- `batch.sh PREFIX N ORIGIN.SAV` runs N soaks in parallel.
+- Two runs from the same save become different games within a few turns, so
+  the save does not fix the random seed and each run is its own sample.

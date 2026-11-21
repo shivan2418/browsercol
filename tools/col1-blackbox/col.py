@@ -112,6 +112,21 @@ class Col:
         return path
 
 
+def load_slot1(c):
+    """From DOSBox start: skip the intro, LOAD Game, slot 1, dismiss the notice."""
+    time.sleep(6)
+    c.key("Escape", pause=4)
+    c.key("Escape", pause=3)
+    c.key("Down", "Down", "Down", "Return", pause=0.5)
+    time.sleep(2)
+    c.key("Return", pause=5)
+    for _ in range(5):
+        if c.screen() == "map":
+            return
+        c.key("Return", pause=2)
+    raise SystemExit("load did not reach the map")
+
+
 def end_turn(c, timeout=60):
     """End the turn with Space and wait for the next turn's autosave.
     Popups on the way are kept in /tmp/popups and dismissed with Return."""
@@ -151,6 +166,8 @@ if __name__ == "__main__":
         c.leave_europe()
     elif cmd == "tax":
         c.tax(args[0], int(args[1]) if len(args) > 1 else 1)
+    elif cmd == "load":
+        load_slot1(c)
     elif cmd == "endturn":
         for _ in range(int(args[0]) if args else 1):
             print(end_turn(c))
