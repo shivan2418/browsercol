@@ -6,7 +6,7 @@ import type { AddressInfo } from 'node:net';
 import path from 'node:path';
 import type { Page, Request } from 'playwright-core';
 
-export const dist = path.resolve(import.meta.dirname, '../../dist');
+export const dist = path.resolve(import.meta.dirname, '../../', process.env.DIST_DIR ?? 'dist');
 const base = '/browsercol/';
 
 const TYPES: Record<string, string> = {
