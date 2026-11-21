@@ -33,14 +33,15 @@ describe('riverDirections', () => {
       ],
     };
   };
-  it('drains a straight river into water across staggered rows', () => {
+  // The style digits are the grid's N, E, S, W edges (the screen's NE, SE, SW, NW), and a tile's index is y * 6 + x.
+  it('drains a straight river into water', () => {
     const map = network(
       [
         [2, 4, 1, '1000', ''],
         [2, 3, 1, '1010', ''],
-        [3, 2, 1, '1010', ''],
+        [2, 2, 1, '1010', ''],
       ],
-      [[3, 1]],
+      [[2, 1]],
     );
     expect([...riverDirections(map).values()]).toEqual([0, 0, 0]);
   });
@@ -49,69 +50,72 @@ describe('riverDirections', () => {
       [
         [2, 4, 1, '1000', ''],
         [2, 3, 1, '0011', ''],
-        [2, 2, 1, '0101', ''],
+        [1, 3, 1, '1100', ''],
       ],
-      [[1, 1]],
+      [[1, 2]],
     );
-    expect([...riverDirections(map).values()]).toEqual([0, 3, 3]);
+    expect([...riverDirections(map).values()]).toEqual([0, 3, 0]);
   });
   it('carries a minor tributary into the major river', () => {
     const map = network(
       [
-        [1, 3, 1, '2000', ''],
-        [2, 2, 2, '0212', ''],
-        [1, 1, 2, '0200', ''],
+        [1, 3, 1, '0100', ''],
+        [2, 3, 2, '2022', ''],
+        [2, 2, 2, '2020', ''],
       ],
-      [[2, 3]],
+      [[2, 1]],
     );
     const flow = riverDirections(map);
-    expect(flow.get(19)).toBe(0);
-    expect(flow.get(14)).toBe(1);
-    expect(flow.get(7)).toBe(1);
+    expect(flow.get(14)).toBe(0);
+    expect(flow.get(20)).toBe(0);
+    expect(flow.get(19)).toBe(1);
   });
   it('prefers the larger mouth, then the nearest equally large mouth', () => {
     const map = network(
       [
-        [2, 4, 1, '1010', ''],
+        [2, 1, 2, '2020', ''],
+        [2, 2, 1, '1010', ''],
         [2, 3, 1, '1010', ''],
-        [3, 2, 2, '2020', ''],
+        [2, 4, 1, '1010', ''],
       ],
       [
-        [1, 5],
-        [3, 1],
+        [2, 0],
+        [2, 5],
       ],
     );
+    expect(riverDirections(map).get(14)).toBe(0);
     expect(riverDirections(map).get(20)).toBe(0);
-    map.rivers[2][2] = 1;
+    expect(riverDirections(map).get(26)).toBe(0);
+    map.rivers[0][2] = 1;
+    expect(riverDirections(map).get(14)).toBe(0);
+    expect(riverDirections(map).get(20)).toBe(2);
     expect(riverDirections(map).get(26)).toBe(2);
-    expect(riverDirections(map).get(15)).toBe(0);
-    expect(riverDirections(map).get(20)).toBe(0);
   });
   it('drains an inland river toward its largest end, independently of input order', () => {
     const map = network([
       [2, 4, 1, '1000', ''],
       [2, 3, 1, '1010', ''],
-      [3, 2, 2, '0020', ''],
+      [2, 2, 2, '0020', ''],
     ]);
     const flow = riverDirections(map);
     expect(flow.get(26)).toBe(0);
     expect(flow.get(20)).toBe(0);
-    expect(flow.get(15)).toBe(-1);
+    expect(flow.get(14)).toBe(-1);
     map.rivers.reverse();
     expect(riverDirections(map)).toEqual(flow);
   });
   it('orients a closed loop without a directed cycle', () => {
     const map = network([
       [2, 2, 2, '0110', ''],
-      [2, 3, 1, '0011', ''],
-      [2, 4, 1, '1001', ''],
-      [1, 3, 1, '1100', ''],
+      [3, 2, 1, '0011', ''],
+      [3, 3, 1, '1001', ''],
+      [2, 3, 1, '1100', ''],
     ]);
     const flow = riverDirections(map);
     expect(flow.get(14)).toBe(-1);
-    expect(flow.get(20)).toBe(3);
-    expect(flow.get(19)).toBe(0);
-    expect(flow.get(26)).toBe(0);
+    expect(flow.get(15)).toBe(3);
+    expect(flow.get(20)).toBe(0);
+    expect(flow.get(21)).toBe(0);
   });
 });
 
@@ -162,10 +166,10 @@ shader.water.tropical.shallow=urn:color:0x40c6b9
 
 describe('fieldTexel', () => {
   it('is FIELD_TEXEL map pixels, or more for a map too big for the GPU to take at that', () => {
-    expect(fieldTexel(40, 100)).toBe(FIELD_TEXEL);
-    // 200 tiles across is 25664 map pixels: 7 to a texel would fit 4096, but no fewer than 8.
+    expect(fieldTexel(80, 50)).toBe(FIELD_TEXEL);
+    // 200 by 120 tiles is a diamond 20480 map pixels across: 5 to a texel would fit 4096, but no fewer than 8.
     expect(fieldTexel(200, 120)).toBe(8);
-    expect(fieldTexel(200, 120, 2048)).toBe(13);
+    expect(fieldTexel(200, 120, 2048)).toBe(10);
     expect(Math.ceil(mapPixels(200, 120)[0] / fieldTexel(200, 120, 2048))).toBeLessThanOrEqual(2048);
   });
 });
@@ -212,7 +216,7 @@ describe('waterField', () => {
   const texel = 8;
   /** The field's RGBA at a tile's centre. */
   const centre = (f: ReturnType<typeof waterField>, x: number, y: number) => {
-    const [ox, oy] = projection.origin(x, y);
+    const [ox, oy] = projection.origin(x, y, h);
     const k = Math.floor((oy + 32) / f.texelY) * f.cols + Math.floor((ox + 64) / texel);
     return f.data.slice(4 * k, 4 * k + 4);
   };
@@ -282,7 +286,7 @@ describe('waterField', () => {
     );
     expect(asked.length).toBeGreaterThan(0);
     expect(asked.every(([u, v]) => u >= 0 && u <= 128 && v >= 0 && v <= 64)).toBe(true);
-    const [ox, oy] = projection.origin(2, 4);
+    const [ox, oy] = projection.origin(2, 4, h);
     const at = (px: number, py: number) => f.data[4 * (Math.floor(py / f.texelY) * f.cols + Math.floor(px / texel))];
     expect(at(ox + 64, oy + 12)).toBe(255);
     expect(at(ox + 64, oy + 52)).toBe(0);
@@ -296,7 +300,7 @@ describe('waterField', () => {
     tiles[7 * w + 2] = 'D';
     const f = waterField({ ...map, tiles: tiles.join('') }, texel, () => 0, null, 3);
     const depthAt = (x: number, y: number) => {
-      const [ox, oy] = projection.origin(x, y);
+      const [ox, oy] = projection.origin(x, y, h);
       return f.data[4 * (Math.floor((oy + 32) / f.texelY) * f.cols + Math.floor((ox + 64) / texel)) + 1];
     };
     expect(depthAt(2, 3)).toBeGreaterThan(100);
@@ -330,15 +334,16 @@ describe('waterField', () => {
     const f = waterField(coast, 4, () => 0, null, 3);
     const cover = (x: number, y: number) => f.data[4 * (Math.floor(y / f.texelY) * f.cols + Math.floor(x / f.texel))];
     // The neighbouring water tile's centre remains open for ships.
-    expect(cover(576, 96)).toBe(0);
+    expect(cover(...projection.centre(4, 3, h))).toBe(0);
     for (let k = 0; k < f.made!.land.length; k++) if (f.made!.land[k]) expect(f.data[4 * k]).toBe(255);
   });
 
   it('preserves the water passage between corner-touching tiles after closing', () => {
     const tiles = Array.from({ length: w * h }, () => 'A');
-    tiles[3 * w + 3] = tiles[3 * w + 4] = 'B';
+    // (4,2) is up and to the right of (3,3) on the screen, touching only at a corner of its diamond.
+    tiles[3 * w + 3] = tiles[2 * w + 4] = 'B';
     const f = waterField({ ...map, tiles: tiles.join('') }, 4, () => 0, null, 3);
-    const [ox, oy] = projection.origin(3, 3);
+    const [ox, oy] = projection.origin(3, 3, h);
     const start = Math.floor((oy + 32) / f.texelY) * f.cols + Math.floor((ox + 64) / f.texel);
     const end = start + 32;
     const seen = new Set([start]);

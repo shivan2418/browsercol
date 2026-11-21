@@ -174,7 +174,7 @@ import { audioLink, offlineAudio } from './offline-audio';
 import { UpdatePrompt } from './update-prompt';
 import { watchCompact } from './compact';
 import { controlArt } from './control-art';
-import { W } from './projection';
+import { W, projection } from './projection';
 import { cursor, initialView, panel, reduce, tileOnScreen, type Tile, type ViewEvent, type ViewState } from './view';
 import type { GuiEvents, GuiHandlers, PopupEvent, ReportView } from './webgui';
 
@@ -1695,7 +1695,7 @@ function playWith(client: ClientExports) {
   const run = (c: Command) => {
     // The same two actions are disabled in Swing, so the E key and the buttons do nothing either.
     if ((c.k === 'declareIndependence' && !canDeclare()) || (c.k === 'showEurope' && !hasEurope())) return;
-    if (c.k === 'move') client.move(c.direction);
+    if (c.k === 'move') client.move(projection.inGrid(c.direction));
     // ClearOrdersAction: the same as Clear orders in the unit's menu.
     else if (c.k === 'clearOrders') {
       if (view.active) client.menuEntry(`clear:${view.active.unit}`);

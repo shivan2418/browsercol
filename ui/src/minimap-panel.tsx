@@ -100,7 +100,7 @@ export function MinimapPanel({ map, res, view, options, centre, setOption, art =
     c.height = h;
     const g = c.getContext('2d');
     if (!g) return null;
-    paintMinimap(g, minimapTiles(map, res, { borders, fog }), size, [w, h], background);
+    paintMinimap(g, minimapTiles(map, res, { borders, fog }), size, [w, h], background, map.h);
     return c;
   }, [map, res, borders, fog, size, background]);
 

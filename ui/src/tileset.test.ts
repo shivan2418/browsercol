@@ -22,13 +22,13 @@ import {
   type Op,
 } from './tileset';
 
-// A 2x4 corner of a map. FreeCol stores the diamond grid as staggered rows,
-// odd rows half a tile to the right, so from (1,0) the plains at (0,1),
-// (1,1), (1,2) and (0,0) lie SW, SE, S and W.
+// A 2x4 corner of a map on the square grid, drawn as FreeCol's diamonds turned an eighth: the grid's N, E, S and W
+// neighbours show NE, SE, SW and NW, and its corner neighbours NE, SE, SW and NW show E, S, W and N. So from (1,0)
+// the land at (1,1), (0,1) and (0,0) lies grid S, SW and W, which show SW, W and NW.
 //   row 0:  P  O        P plains, O ocean, H hills, . unexplored
-//   row 1:    P  H
+//   row 1:  P  H
 //   row 2:  .  P
-//   row 3:    P  P
+//   row 3:  P  P
 const map: MapView = {
   w: 2,
   h: 4,
@@ -74,14 +74,14 @@ image.mask.ne=resources/mask-ne.png
 image.mask.nw=resources/mask-nw.png
 image.mask.se=resources/mask-se.png
 image.mask.sw=resources/mask-sw.png
-image.mask.beach.se_sw=resources/beach_se_sw.png
+image.mask.beach.nw_sw=resources/beach_nw_sw.png
 image.tile.model.tile.beach=resources/beach0.png
 image.tile.model.tile.plains.center=resources/plains0.png
 image.tile.model.tile.hills.center=resource:image.tile.model.tile.plains.center
 image.tileoverlay.model.tile.hills=resources/hills0.png
 image.tile.model.tile.ocean.center=resources/ocean0.png
 image.tile.model.tile.unexplored.center=resources/unexplored0.png
-image.tile.model.tile.unexplored.border.S=resources/border_S0.png
+image.tile.model.tile.unexplored.border.W=resources/border_W0.png
 image.tileitem.model.resource.ore=resources/ore.png
 image.unit.model.unit.caravel=resources/caravel.png
 image.settlement.colony=resources/colony.png
@@ -104,14 +104,14 @@ const files = [
   'mask-nw',
   'mask-se',
   'mask-sw',
-  'beach_se_sw',
+  'beach_nw_sw',
   'beach0',
   'plains0',
   'hills0',
   'ocean0',
   'ocean02',
   'unexplored0',
-  'border_S0',
+  'border_W0',
   'ore',
   'caravel',
   'colony',
@@ -140,9 +140,9 @@ describe('scene', () => {
   });
 
   it('puts a beach on water by land, masked to the land sides', () => {
-    // Land lies SE, S, SW and W of (1,0). FreeCol keys the beach mask by
-    // the long sides (se_sw), and S and W are dropped because their names
-    // occur in "se_sw". The ocean is its first frame, variation 0.
+    // Land lies SW, W and NW of (1,0) on the screen. FreeCol keys the beach mask by
+    // the long sides (nw_sw), and W is dropped because its name occurs in
+    // "nw_sw". The ocean is its first frame, variation 0.
     const [op] = at(scene(map, tileset), 1, 0);
     expect({ ...op, src: op.k === 'image' ? frameAt(op.src, STILL) : null }).toEqual({
       k: 'image',
@@ -151,13 +151,13 @@ describe('scene', () => {
       at: 'tile',
       base: true,
       src: {
-        id: 'beach:default/resources/ocean02.png:se_sw',
+        id: 'beach:default/resources/ocean02.png:nw_sw',
         steps: [
           { draw: art('beach0') },
           {
             draw: {
-              id: 'mask:default/resources/ocean02.png:default/resources/beach_se_sw.png',
-              steps: [{ draw: art('ocean02') }, { mask: art('beach_se_sw') }],
+              id: 'mask:default/resources/ocean02.png:default/resources/beach_nw_sw.png',
+              steps: [{ draw: art('ocean02') }, { mask: art('beach_nw_sw') }],
             },
           },
           { mask: art('mask') },
@@ -174,7 +174,7 @@ describe('scene', () => {
     };
     expect(beachAt(2)).toEqual(beachAt(0));
     const next = beachAt(1)!;
-    expect(next.id).toBe('beach:default/resources/ocean0.png:se_sw');
+    expect(next.id).toBe('beach:default/resources/ocean0.png:nw_sw');
     expect(next.steps.map((s) => ('alpha' in s ? s.alpha : null)).filter((a) => a !== null)).toEqual([0.05]);
   });
 
@@ -184,9 +184,9 @@ describe('scene', () => {
     expect(animated.length).toBeGreaterThan(0);
     // Its id is the still frame's, the same at every frame; what it shows moves on with the frame.
     const beach = animated.find((a) => a.id.startsWith('anim:beach:'))!;
-    expect(beach.id).toBe('anim:beach:default/resources/ocean02.png:se_sw');
-    expect(srcId(beach.animate(STILL))).toBe('beach:default/resources/ocean02.png:se_sw');
-    expect(srcId(beach.animate({ water: 1, river: 0 }))).toBe('beach:default/resources/ocean0.png:se_sw');
+    expect(beach.id).toBe('anim:beach:default/resources/ocean02.png:nw_sw');
+    expect(srcId(beach.animate(STILL))).toBe('beach:default/resources/ocean02.png:nw_sw');
+    expect(srcId(beach.animate({ water: 1, river: 0 }))).toBe('beach:default/resources/ocean0.png:nw_sw');
     // Two tiles showing the same have animated pictures of the same id: the map draws them as one picture.
     const ids = animated.map((a) => a.id);
     expect(new Set(ids).size).toBeLessThanOrEqual(ids.length);
@@ -194,14 +194,11 @@ describe('scene', () => {
 
   it('blends a land tile into its neighbours with masked transitions', () => {
     const ops = at(scene(map, tileset), 0, 1).filter((op) => op.k === 'image' && op.src !== art('plains0'));
-    // (0,1) has the ocean NE: the beach shows through the NE mask. SW is
-    // unexplored, so no transition. NW and SE are plains like it, but get
-    // FreeCol's "nice corner" anyway: the neighbour's terrain with its own
-    // NE and SW transitions (none here: the hills share the plains image).
+    // (0,1)'s NE is plains like it, its SW is unexplored and its NW is off the map: no transition. Its SE is the
+    // hills, which share its image but get FreeCol's "nice corner" anyway: the neighbour's terrain with its own NE
+    // transition, the ocean (1,0) beyond it.
     expect(ops.map((op) => op.k === 'image' && typeof op.src !== 'string' && op.src.id)).toEqual([
-      'transition:default/resources/beach0.png:default/resources/mask-ne.png',
-      expect.stringMatching(/^corner:.*mask-nw/),
-      expect.stringMatching(/^corner:.*mask-se/),
+      expect.stringMatching(/^corner:.*model\.tile\.ocean.*mask-se/),
     ]);
   });
 
@@ -209,8 +206,8 @@ describe('scene', () => {
     const ops = scene(map, tileset);
     expect(ops).toContainEqual({ k: 'fog', x: 1, y: 1 });
     expect(ops).not.toContainEqual({ k: 'fog', x: 0, y: 2 });
-    // (0,2) is unexplored and lies S of (0,0).
-    expect(ops).toContainEqual({ k: 'image', x: 0, y: 0, src: art('border_S0'), at: 'tile' });
+    // (0,2) is unexplored and lies grid SW of (1,1), which shows to its W.
+    expect(ops).toContainEqual({ k: 'image', x: 1, y: 1, src: art('border_W0'), at: 'tile' });
     expect(ops).toContainEqual({ k: 'image', x: 1, y: 1, src: art('hills0'), at: 'bottom', dim: true });
     expect(ops).toContainEqual({ k: 'image', x: 1, y: 1, src: art('ore'), at: 'center', dim: true });
   });
@@ -246,8 +243,8 @@ describe('the shader water (#409)', () => {
         base: true,
         shore: true,
         src: {
-          id: `sand:${art('beach0')}:${art('beach_se_sw')}`,
-          steps: [{ draw: art('beach0') }, { cut: art('beach_se_sw') }, { mask: art('mask') }],
+          id: `sand:${art('beach0')}:${art('beach_nw_sw')}`,
+          steps: [{ draw: art('beach0') }, { cut: art('beach_nw_sw') }, { mask: art('mask') }],
         },
       },
     ]);
@@ -271,32 +268,32 @@ describe('the shader water (#409)', () => {
   });
 
   it("fades a river's water out into the shader water where it runs into the sea, keeping its banks", () => {
-    // A river on the plains at (0,1) runs NE into the ocean at (1,0), which has a delta from its SW.
-    const river = { ...map, rivers: [[0, 1, 1, '1000', '0100']] as MapView['rivers'] };
+    // A river on the plains at (0,0) runs grid E into the ocean at (1,0), which has a delta from its NW.
+    const river = { ...map, rivers: [[0, 0, 1, '0100', '0100']] as MapView['rivers'] };
     const more = `${props}
 image.tile.river.pebbles=resources/pebbles.png
 image.tile.river.water=resources/riverwater.png
-image.mask.river.delta.sw=resources/delta-sw.png
-image.mask.river.delta.pebbles.sw=resources/delta-pebbles-sw.png
+image.mask.river.delta.nw=resources/delta-nw.png
+image.mask.river.delta.pebbles.nw=resources/delta-pebbles-nw.png
 `;
-    const extra = ['pebbles', 'riverwater', 'delta-sw', 'delta-pebbles-sw'].map(art);
+    const extra = ['pebbles', 'riverwater', 'delta-nw', 'delta-pebbles-nw'].map(art);
     const res = resources([{ dir: 'default', props: more }], [...files, ...extra]);
     const deltaOf = (water?: 'surface') =>
       staticScene(river, res, 1, water).base.find((op) => op.k === 'image' && srcId(op.src).includes('delta:'));
     const still = (op: Op | undefined) => (op?.k === 'image' ? frameAt(op.src, STILL) : null);
     expect(still(deltaOf('surface'))).toEqual({
-      id: `delta:${art('riverwater')}:sw:fading`,
+      id: `delta:${art('riverwater')}:nw:fading`,
       steps: [
         {
           draw: {
-            id: `mask:${art('pebbles')}:${art('delta-pebbles-sw')}`,
-            steps: [{ draw: art('pebbles') }, { mask: art('delta-pebbles-sw') }],
+            id: `mask:${art('pebbles')}:${art('delta-pebbles-nw')}`,
+            steps: [{ draw: art('pebbles') }, { mask: art('delta-pebbles-nw') }],
           },
         },
         {
           draw: {
-            id: `mouth:${art('riverwater')}:sw`,
-            steps: [{ draw: art('riverwater') }, { mask: art('delta-sw') }, { mask: fadeFrom('SW') }],
+            id: `mouth:${art('riverwater')}:nw`,
+            steps: [{ draw: art('riverwater') }, { mask: art('delta-nw') }, { mask: fadeFrom('NW') }],
           },
           alpha: 0.9,
         },
@@ -304,7 +301,7 @@ image.mask.river.delta.pebbles.sw=resources/delta-pebbles-sw.png
       ],
     });
     // FreeCol's own delta, river water and all, on the flipbook.
-    expect(srcId(still(deltaOf())!)).toBe(`delta:${art('riverwater')}:sw`);
+    expect(srcId(still(deltaOf())!)).toBe(`delta:${art('riverwater')}:nw`);
   });
 
   it('keeps one static scene per way of drawing the water', () => {
@@ -324,11 +321,13 @@ describe('passOf', () => {
     expect(passes.every((p) => p !== undefined)).toBe(true);
     expect(passes).toEqual(passes.toSorted((a, b) => a! - b!));
     // The terrain, the transitions, ... each their own pass: a pass is not one tile row by row twice.
+    // The tiles go along the diagonals, back to front, each from west to east.
     const terrain = passOf.get(below[0])!;
-    expect(below.filter((op) => passOf.get(op) === terrain).map((op) => op.y * 100 + op.x)).toEqual(
+    const drawn = (op: Op) => (op.x + op.y) * 1000 + op.x - op.y;
+    expect(below.filter((op) => passOf.get(op) === terrain).map(drawn)).toEqual(
       below
         .filter((op) => passOf.get(op) === terrain)
-        .map((op) => op.y * 100 + op.x)
+        .map(drawn)
         .toSorted((a, b) => a - b),
     );
     expect(new Set(passes).size).toBeGreaterThan(2);
@@ -703,7 +702,7 @@ describe('viewModeOps', () => {
     const border = viewModeOps(both, { grid: false, borders: true, tileText: 0 }).find(
       (o) => o.k === 'border' && o.x === 0 && o.y === 0,
     );
-    expect(border).toMatchObject({ sides: ['NE', 'SW', 'NW'] });
+    expect(border).toMatchObject({ sides: ['NE', 'NW'] });
   });
 });
 

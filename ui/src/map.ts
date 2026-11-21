@@ -3,7 +3,7 @@
 // headless browsers). Images load by path from the art/ directory that
 // scripts/build-art.ts fills; recipes (FreeCol's masked images) are
 // composited once on a canvas and cached by id. The map is FreeCol's: 128x64
-// diamonds in staggered rows, odd rows half a tile to the right. It shows
+// diamonds, the square grid drawn turned an eighth as one big diamond (projection.ts). It shows
 // the part of the map, at the zoom, that the view state (view.ts) says, with
 // the cursor and the active unit's path drawn over it.
 import {
@@ -416,7 +416,7 @@ interface Pen {
   /** Clear a layer, and draw on it from now on. */
   begin(layer: Layer): void;
   /** The tile and pass (tileset.ts passOf) the draws after this belong to, which a pen drawing in chunks needs. */
-  tile?(x: number, y: number, pass: number): void;
+  tile?(x: number, y: number, pass: number, origin: [number, number]): void;
   /** `tile`: a whole tile's picture, which the pen overlaps its neighbours by a device pixel when the map is scaled between pixels. */
   image(pic: Picture, x: number, y: number, dim: boolean, tile?: boolean): void;
   /** The pictures of a layer on the screen, which the animated water draws the next frame of (#408). */
@@ -526,7 +526,10 @@ function roundedPath(p: PathSink, { pts, closed }: Polyline) {
  * corner continues into it, so a border is one stroke rather than a row of sides with dots where
  * their round ends overlap.
  */
-export function borderPaths(ops: { x: number; y: number; sides: string[]; rgb: number }[]): Map<number, Polyline[]> {
+export function borderPaths(
+  ops: { x: number; y: number; sides: string[]; rgb: number }[],
+  rows: number,
+): Map<number, Polyline[]> {
   const byColor = new Map<number, [string, string][]>();
   const points = new Map<string, [number, number]>();
   const key = (x: number, y: number) => {
@@ -535,7 +538,7 @@ export function borderPaths(ops: { x: number; y: number; sides: string[]; rgb: n
     return k;
   };
   for (const op of ops) {
-    const [ox, oy] = projection.origin(op.x, op.y);
+    const [ox, oy] = projection.origin(op.x, op.y, rows);
     let segs = byColor.get(op.rgb);
     if (!segs) byColor.set(op.rgb, (segs = []));
     for (const d of op.sides) {
@@ -744,7 +747,7 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
   /** Draw an object on the layer being drawn, culled when off the screen: the one it held showing `key`, else `make`'s. */
   const add = (key: string | null, make: () => Container) => {
     if (collecting) {
-      const [ox, oy] = projection.origin(...at);
+      const [ox, oy] = tileOrigin;
       collecting.push(at, pass, {
         key: key ?? `?${unkeyed++}`,
         x: ox,
@@ -850,6 +853,7 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
   /** The static layer being drawn in chunks, the tile its draws belong to, and a count to key what has no key. */
   let collecting: ChunkLayer | null = null;
   let at: [number, number] = [0, 0];
+  let tileOrigin: [number, number] = [0, 0];
   let pass = 0;
   let unkeyed = 0;
   const pushImage = (pic: Picture, x: number, y: number, dim: boolean, tile: boolean) => {
@@ -966,7 +970,8 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
     canvas: app.canvas,
     name: atlas ? 'pixi' : `pixi (${app.renderer.name}: sprites)`,
     water,
-    tile: (x, y, p) => {
+    tile: (x, y, p, origin) => {
+      tileOrigin = origin;
       at = [x, y];
       pass = p;
     },
@@ -1475,7 +1480,7 @@ const PATH_TURNS: TextStyle = { color: 0x000000, font: 'sans-serif', size: 12, p
 const pathColor = (turns: number) => (turns > 0 ? 0xffff00 : 0x00ff00);
 
 /** Draw operations on a layer, loading what they need first. */
-async function paint(pen: Pen, layer: Layer, ops: Op[], pics: ReturnType<typeof pictures>) {
+async function paint(pen: Pen, layer: Layer, ops: Op[], pics: ReturnType<typeof pictures>, rows: number) {
   const images = await Promise.all(
     ops.map((op) =>
       op.k === 'image' ? (op.fade ? pics.gray(op.src) : pics.get(op.src)).catch(() => null) : Promise.resolve(null),
@@ -1494,8 +1499,8 @@ async function paint(pen: Pen, layer: Layer, ops: Op[], pics: ReturnType<typeof 
   pen.begin(layer);
   const firstBorder = ops.findIndex((o) => o.k === 'border');
   ops.forEach((op, i) => {
-    pen.tile?.(op.x, op.y, passOf.get(op) ?? 0);
-    const [ox, oy] = projection.origin(op.x, op.y);
+    const [ox, oy] = projection.origin(op.x, op.y, rows);
+    pen.tile?.(op.x, op.y, passOf.get(op) ?? 0, [ox, oy]);
     const shade = (c: number) => ('dim' in op && op.dim ? fogged(c) : c);
     switch (op.k) {
       case 'image': {
@@ -1558,7 +1563,7 @@ async function paint(pen: Pen, layer: Layer, ops: Op[], pics: ReturnType<typeof 
         return;
       // MapViewer.displayPath: half-transparent lines 5 wide, then 20-pixel marks.
       case 'pathLine': {
-        const [tx, ty] = projection.origin(...op.to);
+        const [tx, ty] = projection.origin(...op.to, rows);
         pen.line(ox + W / 2, oy + H / 2, tx + W / 2, ty + H / 2, pathColor(op.turns), 5, 0.5);
         return;
       }
@@ -1577,7 +1582,7 @@ async function paint(pen: Pen, layer: Layer, ops: Op[], pics: ReturnType<typeof 
         // All the borders at once, at the first: joined up, they have no seams at the tiles' corners.
         if (i === firstBorder) {
           const borders = ops.filter((o): o is Extract<Op, { k: 'border' }> => o.k === 'border');
-          for (const [rgb, paths] of borderPaths(borders)) pen.outline(paths, rgb, 4, 0.8);
+          for (const [rgb, paths] of borderPaths(borders, rows)) pen.outline(paths, rgb, 4, 0.8);
         }
         return;
       case 'modernLabel': {
@@ -1765,7 +1770,7 @@ export function mapDrawer(
   /** The map last drawn, which drawTiles draws from. */
   let drawn: MapView | null = null;
   /** What redraws each open drawTiles canvas from the scene of a new map. */
-  const panels = new Set<(ops: Op[]) => void>();
+  const panels = new Set<(ops: Op[], rows: number) => void>();
   /** The steps the Engine told of since the last map was asked to be drawn. */
   let steps: Step[] = [];
   /** How many steps have come in all, and what is called before each run of a batch plays (onRun). */
@@ -2065,7 +2070,11 @@ export function mapDrawer(
     const alpha =
       !sliding && ((view.mode === 'units' && view.active) || tileCursor) ? blink(now - blinkFrom, blinkMs) : 1;
     if (sliding) {
-      const [dx, dy] = slide(sliding.track, now - sliding.since, actor ? projection.origin(...actor.tile) : undefined);
+      const [dx, dy] = slide(
+        sliding.track,
+        now - sliding.since,
+        actor && view?.map ? projection.origin(...actor.tile, view.map.h) : undefined,
+      );
       pen.actors(dx, dy, 1);
     } else {
       pen.actors(0, 0, cursorBlinks ? 1 : alpha);
@@ -2156,8 +2165,8 @@ export function mapDrawer(
     const key = `${modes.id}|${JSON.stringify(ops)}`;
     if (key !== shown) {
       shown = key;
-      await paint(pen, 1, [...modes.ops, ...ops.filter((op) => !isCursorMarker(op))], pics);
-      await paint(pen, 4, ops.filter(isCursorMarker), pics);
+      await paint(pen, 1, [...modes.ops, ...ops.filter((op) => !isCursorMarker(op))], pics, view.map?.h ?? 0);
+      await paint(pen, 4, ops.filter(isCursorMarker), pics, view.map?.h ?? 0);
     }
     camera();
   }
@@ -2201,13 +2210,13 @@ export function mapDrawer(
       // Not kept until all three are drawn: a draw cut short leaves them to be drawn again.
       painted = null;
       await riversNow(map, ground);
-      await paint(pen!, 5, riverBase ?? ground.base, pics);
-      await paint(pen!, 0, ground.below, pics);
-      await paint(pen!, 7, ground.above, pics);
+      await paint(pen!, 5, riverBase ?? ground.base, pics, map.h);
+      await paint(pen!, 0, ground.below, pics, map.h);
+      await paint(pen!, 7, ground.above, pics, map.h);
       painted = ground;
     }
-    await paint(pen!, 6, rest, pics);
-    await paint(pen!, 2, actors, pics);
+    await paint(pen!, 6, rest, pics, map.h);
+    await paint(pen!, 2, actors, pics, map.h);
     // The layer and its offset change together: no frame draws between them.
     actor = holds;
     camera();
@@ -2247,7 +2256,7 @@ export function mapDrawer(
   function slideEarly(step: Step) {
     if (!pen || moveMs <= 0 || step.speed !== null || !drawn?.ourTurn) return;
     const now = performance.now();
-    const next = track([step.from, step.to], moveMs);
+    const next = track([step.from, step.to], moveMs, drawn.h);
     const tiles: [number, number][] = [step.from, step.to];
     const prev = sliding;
     if (prev) {
@@ -2326,7 +2335,7 @@ export function mapDrawer(
       if (panels.size) {
         const still = waterDrawing === 'flipbook' ? ground : staticScene(map, res!, colonyLabels);
         const ops = [...still.base, ...still.below, ...still.above];
-        panels.forEach((render) => render(ops));
+        panels.forEach((render) => render(ops, map.h));
       }
     }
     // A slide that set off early, on the Engine's word of the step, goes on: this map puts the unit on the tile it
@@ -2346,7 +2355,7 @@ export function mapDrawer(
       await paintScene(map, ground, units, way);
       slideMark('painted');
       const now = performance.now();
-      const next = track(way.tiles, stepTime);
+      const next = track(way.tiles, stepTime, map.h);
       // A move made while the same unit still slides to where this one sets off from carries on from where it is.
       const prev = sliding;
       const carry =
@@ -2381,7 +2390,7 @@ export function mapDrawer(
     last = { ground, units };
     // A redraw that explores nothing more (the server often sends several maps in a row) leaves a fade under way alone.
     if (covers.length) {
-      await paint(pen!, 3, covers, pics);
+      await paint(pen!, 3, covers, pics, map.h);
       lifting = moveMs > 0 ? { since: performance.now() } : null;
     }
     await showNow();
@@ -2461,19 +2470,19 @@ export function mapDrawer(
       const [blockW, blockH] = projection.blockSize();
       const pen = canvasPen(host, blockW, blockH + top, false);
       const keep = new Set(tiles.map(([x, y]) => `${x},${y}`));
-      const [cx, cy] = projection.origin(...centre);
       // The tiles' terrain, items, roads and settlement; not the units, chips, fog or labels the map adds.
-      const render = (all: Op[]) => {
+      const render = (all: Op[], rows: number) => {
+        const [cx, cy] = projection.origin(...centre, rows);
         const ops = all.filter(
           (op) => keep.has(`${op.x},${op.y}`) && ((op.k === 'image' && op.at !== 'unit') || op.k === 'road'),
         );
         // The centre tile is the block's middle one.
         const [mx, my] = projection.block(1, 1);
-        void paint(pen, 0, ops, pics).then(() => pen.show(mx - cx, my + top - cy, 1));
+        void paint(pen, 0, ops, pics, rows).then(() => pen.show(mx - cx, my + top - cy, 1));
       };
       // Drawn from the map last drawn, and again with each map after it: a colony just founded is not in the one
       // drawn before the panel opened.
-      if (drawn && res) render(scene(drawn, res, colonyLabels));
+      if (drawn && res) render(scene(drawn, res, colonyLabels), drawn.h);
       panels.add(render);
       return () => {
         panels.delete(render);

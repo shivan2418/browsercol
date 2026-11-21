@@ -18,7 +18,7 @@
 // GPU does not have. Run in the web image:
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/slide-timing.ts [--browsers chromium,firefox] [--trials 6] [--query renderer=pixi] [--only single|goto|colony] [--verbose] [--timeline]
 import type { Page } from 'playwright-core';
-import { projection } from '../src/projection.ts';
+import { neighbourOnScreen, projection } from '../src/projection.ts';
 import type { MapView } from '../src/tileset.ts';
 import { browserNames, launchBrowser, opt, waitForResult } from './common.ts';
 import { answerDialogs } from './dialogs.ts';
@@ -39,8 +39,8 @@ const STAGES: [string, string, string][] = [
 ];
 
 type Tile = [number, number];
-/** A tile's top-left corner in map pixels, as the map's projection places it. */
-const tileOrigin = (x: number, y: number): Tile => projection.origin(x, y);
+/** A tile's top-left corner in map pixels, as the map's projection places it (only distances between them are used here, which the map's height does not change). */
+const tileOrigin = (x: number, y: number): Tile => projection.origin(x, y, 0);
 declare global {
   interface Window {
     __marks: [string, number][];
@@ -118,41 +118,9 @@ function instrument() {
   });
 }
 
-const DIRECTIONS = {
-  E: [
-    [1, 0],
-    [1, 0],
-  ],
-  W: [
-    [-1, 0],
-    [-1, 0],
-  ],
-  N: [
-    [0, -2],
-    [0, -2],
-  ],
-  S: [
-    [0, 2],
-    [0, 2],
-  ],
-  NE: [
-    [1, -1],
-    [0, -1],
-  ],
-  SE: [
-    [1, 1],
-    [0, 1],
-  ],
-  SW: [
-    [0, 1],
-    [-1, 1],
-  ],
-  NW: [
-    [0, -1],
-    [-1, -1],
-  ],
-} as const;
-type Dir = keyof typeof DIRECTIONS;
+/** The directions as the player's keys name them: where the unit goes on the screen. */
+const DIRECTIONS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'] as const;
+type Dir = (typeof DIRECTIONS)[number];
 const KEYS: Record<Dir, string> = {
   N: 'Numpad8',
   NE: 'Numpad9',
@@ -163,10 +131,7 @@ const KEYS: Record<Dir, string> = {
   W: 'Numpad4',
   NW: 'Numpad7',
 };
-const neighbour = ([x, y]: Tile, d: Dir): Tile => {
-  const [dx, dy] = DIRECTIONS[d][y % 2 ? 0 : 1];
-  return [x + dx, y + dy];
-};
+const neighbour = ([x, y]: Tile, d: Dir): Tile => neighbourOnScreen(x, y, d);
 const typeOf = (m: MapView, [x, y]: Tile) => {
   if (x < 0 || y < 0 || x >= m.w || y >= m.h) return null;
   const i = m.tiles.charCodeAt(y * m.w + x) - 65;
@@ -248,7 +213,7 @@ async function endTurn(page: Page) {
 }
 /** A direction from the active unit to a free tile that `fits`, or null. */
 function freeDir(m: MapView, fits: (land: boolean) => boolean): Dir | null {
-  for (const d of Object.keys(DIRECTIONS) as Dir[]) {
+  for (const d of DIRECTIONS) {
     const t = neighbour(m.active!, d);
     const type = typeOf(m, t);
     if (type && fits(type.land) && empty(m, t)) return d;
@@ -296,7 +261,7 @@ async function run(page: Page, url: string) {
     await endTurn(page);
     const m = await view(page);
     let target: Tile | null = null;
-    for (const d of Object.keys(DIRECTIONS) as Dir[]) {
+    for (const d of DIRECTIONS) {
       let t = m.active!;
       let ok = true;
       for (let i = 0; i < 3 && ok; i++) {
@@ -338,7 +303,7 @@ async function run(page: Page, url: string) {
       continue;
     }
     const here = m.active;
-    const dirs = Object.keys(DIRECTIONS) as Dir[];
+    const dirs = [...DIRECTIONS];
     const inColony = here[0] === home[0] && here[1] === home[1];
     const sea = (t: Tile) => typeOf(m, t)?.land === false && empty(m, t);
     const d = inColony

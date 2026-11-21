@@ -5,7 +5,7 @@
 // some images by masking others (terrain transitions, beaches, rivers);
 // those come as a Recipe that map.ts composites and caches by id.
 import { MAP_KEY_FAMILIES, MAP_KEYS } from './map-keys';
-import { mapGrid, type Direction } from './projection';
+import { mapGrid, neighbourOnScreen, projection, type Direction } from './projection';
 import type { Resources } from './resources';
 import type { Cursor } from './view';
 
@@ -253,7 +253,7 @@ export type ColonyLabels = 0 | 1 | 2;
 
 export type { Direction };
 /** All the directions, in FreeCol's order. */
-export const DIRECTIONS = mapGrid.directions;
+export const DIRECTIONS: readonly Direction[] = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
 
 // The map's resource keys, from map-keys.ts, where the families the map
 // draws live: the prefixes are the ones build-art.ts copies the art of,
@@ -459,7 +459,7 @@ function build(
   const index = (x: number, y: number) => y * w + x;
   const inside = (x: number, y: number) => x >= 0 && y >= 0 && x < w && y < h;
   const step = (x: number, y: number, d: Direction): [number, number] | null => {
-    const [nx, ny] = mapGrid.neighbour(x, y, d);
+    const [nx, ny] = neighbourOnScreen(x, y, d);
     return inside(nx, ny) ? [nx, ny] : null;
   };
   const typeAt = (x: number, y: number): TileType | null => {
@@ -492,8 +492,8 @@ function build(
   // where the mask for the land sides cuts it away, and over that again by an
   // alpha that goes up and down with the frame.
   const beachKey = (dirs: Direction[]) => {
-    const pre = lower(dirs.filter((d) => mapGrid.isEdge(d)));
-    return lower(dirs.filter((d) => mapGrid.isEdge(d) || pre === '' || !pre.includes(d.toLowerCase())));
+    const pre = lower(dirs.filter((d) => projection.isFace(d)));
+    return lower(dirs.filter((d) => projection.isFace(d) || pre === '' || !pre.includes(d.toLowerCase())));
   };
   const water = (x: number, y: number, type: TileType, ticks: Ticks): Src | null => {
     const n = frame(terrainKey(type.id), ticks.water);
@@ -583,10 +583,10 @@ function build(
   const deltas = (x: number, y: number): Direction[] =>
     land([x, y]) || !explored([x, y])
       ? []
-      : mapGrid.edges.filter((d) => {
+      : projection.faces.filter((d) => {
           const b = step(x, y, d);
           const river = land(b) ? riverAt(b) : undefined;
-          return !!river && Number(river.style[mapGrid.edgeIndex(mapGrid.opposite(d))] ?? 0) > 0;
+          return !!river && Number(river.style[projection.faces.indexOf(mapGrid.opposite(d))] ?? 0) > 0;
         });
   // DeltaAnimationImageCreator: the pebbles in their mask, the river water in its, both kept in the tile's.
   const delta = (d: Direction, ticks: Ticks): Recipe | null => {
@@ -634,7 +634,7 @@ function build(
   // the shape of the river's mask, fading out at a slightly larger mask.
   const river = (x: number, y: number, ticks: Ticks): Recipe | null => {
     const r = riverAt([x, y])!;
-    const conns = mapGrid.edges.filter((_, i) => r.style[i] !== '0');
+    const conns = projection.faces.filter((_, i) => r.style[i] !== '0');
     const shape = lower(conns);
     const minor = r.magnitude <= 1 ? '.minor' : '';
     const toMajor =
@@ -691,7 +691,7 @@ function build(
   };
   /** A pass over the tiles, row by row. */
   const each = (f: (x: number, y: number) => void) => {
-    mapGrid.eachTile(w, h, f);
+    projection.eachTile(w, h, f);
     endPass();
   };
   const terrain = (x: number, y: number, type: TileType | null) => {
@@ -951,14 +951,14 @@ export function viewModeOps(
   const ops: Op[] = [];
   if (!modes.grid && !modes.borders && !modes.tileText) return ops;
   const { w, h } = map;
-  mapGrid.eachTile(w, h, (x, y) => {
+  projection.eachTile(w, h, (x, y) => {
     const i = y * w + x;
     if (modes.grid) ops.push({ k: 'grid', x, y });
     if (modes.borders) {
       const owner = map.players[map.owners.charCodeAt(i) - 65];
       if (owner) {
-        const sides = mapGrid.edges.filter((d) => {
-          const [nx, ny] = mapGrid.neighbour(x, y, d);
+        const sides = projection.faces.filter((d) => {
+          const [nx, ny] = neighbourOnScreen(x, y, d);
           const other = nx >= 0 && ny >= 0 && nx < w && ny < h ? map.owners.charCodeAt(ny * w + nx) : Number.NaN;
           return other !== map.owners.charCodeAt(i);
         });

@@ -27,13 +27,13 @@ describe('staticDrawing', () => {
 describe('chunkOf', () => {
   const key = (x: number, y: number) => chunkOf(x, y).join();
 
-  it('puts 16 by 16 tiles along the diamond grid in a chunk', () => {
+  it('puts 16 by 16 tiles of the grid in a chunk', () => {
     const counts = new Map<string, number>();
     for (let y = 0; y < 200; y++) for (let x = 0; x < 100; x++) counts.set(key(x, y), (counts.get(key(x, y)) ?? 0) + 1);
     expect(Math.max(...counts.values())).toBe(CHUNK * CHUNK);
   });
 
-  it('puts the tiles behind a tile (north, north-east, north-west) in its chunk or one drawn before it', () => {
+  it('puts the tiles behind a tile on the screen (its grid N, NW and W neighbours) in its chunk or one drawn before it', () => {
     // A tile's picture spills onto the tiles behind it, so it must be drawn after them.
     const chunk = (x: number, y: number) => {
       const [cu, cv] = chunkOf(x, y);
@@ -41,7 +41,7 @@ describe('chunkOf', () => {
     };
     for (let y = 2; y < 80; y++)
       for (let x = 1; x < 60; x++) {
-        for (const [bx, by] of (['N', 'NW', 'NE'] as const).map((d) => mapGrid.neighbour(x, y, d)))
+        for (const [bx, by] of (['N', 'NW', 'W'] as const).map((d) => mapGrid.neighbour(x, y, d)))
           expect(chunkOrder(chunk(bx, by), chunk(x, y))).toBeLessThanOrEqual(0);
       }
   });
@@ -56,8 +56,10 @@ const fakePage = (): Page => ({
 describe('ChunkLayer', () => {
   const grass = pic();
   const water = [pic(), pic()];
+  // Tile (0,0) at the map's top left, as for a map one row tall.
+  const at = (x: number, y: number) => projection.origin(x, y, 1);
   const item = (x: number, y: number, p: HTMLCanvasElement): [[number, number], Item] => {
-    const [ox, oy] = projection.origin(x, y);
+    const [ox, oy] = at(x, y);
     const name = p === grass ? 'g' : water.indexOf(p);
     return [[x, y], { key: `i${name},${x},${y}`, pic: p, x: ox, y: oy, dim: false, tile: true, box: [ox, oy, W, H] }];
   };
@@ -99,7 +101,7 @@ describe('ChunkLayer', () => {
     layer.setView(new Rectangle(0, 0, 300, 300), new Rectangle(0, 0, 300, 300));
     draw(scene(water[0]));
     expect(built).toEqual([chunkOf(0, 0).join()]);
-    layer.setView(new Rectangle(40 * W, 0, 300, 300), new Rectangle(40 * W, 0, 300, 300));
+    layer.setView(new Rectangle(...at(40, 0), 300, 300), new Rectangle(...at(40, 0), 300, 300));
     expect(built).toEqual([chunkOf(0, 0).join(), chunkOf(40, 0).join()]);
   });
 
@@ -157,7 +159,7 @@ describe('ChunkLayer', () => {
     const [[t, tall]] = [item(0, 4, grass)];
     // A picture of tile (0,4) reaching 200 pixels up, over the tiles behind it.
     tall.box = [tall.x, tall.y - 200, W, H + 200];
-    const view = new Rectangle(0, tall.y - 200, 50, 50);
+    const view = new Rectangle(tall.x, tall.y - 200, 50, 50);
     layer.setView(view, view);
     draw([[t, tall]]);
     expect(built).toEqual([chunkOf(0, 4).join()]);

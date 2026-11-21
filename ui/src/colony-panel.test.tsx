@@ -144,10 +144,11 @@ describe('the colony panel', () => {
     open();
     const tiles = part('tiles');
     const at = (id: string) => tiles.querySelector<HTMLElement>(`[data-tile="${id}"]`)!;
-    // TilesPanel: north at the top centre, the centre tile in the middle, west at the left.
+    // TilesPanel on the square grid, laid out as the map is: the colony's north-west corner tile at the top centre,
+    // the centre tile in the middle, and east of it down and to the right.
     expect([at('colonyTile:00').style.left, at('colonyTile:00').style.top]).toEqual(['128px', '0px']);
     expect([at('colonyTile:11').style.left, at('colonyTile:11').style.top]).toEqual(['128px', '64px']);
-    expect([at('colonyTile:21').style.left, at('colonyTile:21').style.top]).toEqual(['64px', '96px']);
+    expect([at('colonyTile:21').style.left, at('colonyTile:21').style.top]).toEqual(['192px', '96px']);
     expect(within(at('colonyTile:21')).getByAltText('Dutch Free Colonist')).toBeTruthy();
     expect(at('colonyTile:21').querySelectorAll('[data-goods="model.goods.grain"] .pile > *')).toHaveLength(3);
     expect(at('colonyTile:11').querySelectorAll('[data-goods="model.goods.cotton"] .pile > *')).toHaveLength(2);

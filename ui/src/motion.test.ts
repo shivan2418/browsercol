@@ -65,24 +65,26 @@ describe("another player's unit", () => {
 });
 
 describe('slide', () => {
-  const row = (...xs: number[]): [number, number][] => xs.map((x) => [x, 2]);
+  // Tiles along a row of the screen: east on the screen is the grid's north-east, a step of x + 1 and y - 1.
+  const ROWS = 12;
+  const row = (...xs: number[]): [number, number][] => xs.map((x) => [x, 10 - x]);
 
   it('starts a tile back and ends on the tile', () => {
-    const t = track(row(3, 4), 300);
+    const t = track(row(3, 4), 300, ROWS);
     expect(slide(t, 0)).toEqual([-128, 0]);
     expect(slide(t, 300).map(Math.abs)).toEqual([0, 0]);
     expect(length(t)).toBe(300);
   });
 
   it('eases out onto the tile: quick off the mark, slow as it lands', () => {
-    const t = track(row(3, 4), 300);
+    const t = track(row(3, 4), 300, ROWS);
     expect(slide(t, 150)).toEqual([-32, 0]);
     const moved = (a: number, b: number) => slide(t, b)[0] - slide(t, a)[0];
     expect(moved(0, 30)).toBeGreaterThan(moved(270, 300) * 5);
   });
 
   it('goes evenly through the tiles of a longer path, easing only onto the last', () => {
-    const t = track(row(3, 4, 5), 300);
+    const t = track(row(3, 4, 5), 300, ROWS);
     expect(slide(t, 0)).toEqual([-256, 0]);
     expect(slide(t, 150)).toEqual([-192, 0]);
     expect(slide(t, 300)).toEqual([-128, 0]);
@@ -91,7 +93,8 @@ describe('slide', () => {
   });
 
   it('takes half the time for a diagonal step, as Swing moves as many pixels a frame across a tile as down it', () => {
-    // (3, 2) to (3, 3) is south-east, half a tile across and half down; (3, 2) to (3, 0) is north, a whole tile up.
+    // (3, 2) to (3, 3) is a step south on the grid, half a tile across and half down on the screen; (3, 2) to (3, 0) is
+    // two steps north, a whole tile across.
     expect(
       length(
         track(
@@ -100,6 +103,7 @@ describe('slide', () => {
             [3, 3],
           ],
           300,
+          ROWS,
         ),
       ),
     ).toBe(150);
@@ -111,21 +115,22 @@ describe('slide', () => {
             [3, 0],
           ],
           300,
+          ROWS,
         ),
       ),
     ).toBe(300);
-    expect(length(track(row(3, 4), 300))).toBe(300);
+    expect(length(track(row(3, 4), 300, ROWS))).toBe(300);
   });
 
   it('is offset from where the actors are drawn: a slide that sets off before the unit is drawn on its new tile', () => {
-    const t = track(row(3, 4), 300);
-    expect(slide(t, 0, projection.origin(3, 2)).map(Math.abs)).toEqual([0, 0]);
-    expect(slide(t, 300, projection.origin(3, 2))).toEqual([128, 0]);
+    const t = track(row(3, 4), 300, ROWS);
+    expect(slide(t, 0, projection.origin(...row(3)[0], ROWS)).map(Math.abs)).toEqual([0, 0]);
+    expect(slide(t, 300, projection.origin(...row(3)[0], ROWS))).toEqual([128, 0]);
   });
 
   it('carries a move made mid-slide on from where the unit is, without a jump', () => {
-    const first = track(row(3, 4), 300);
-    const carried = carryOn(first, 150, track(row(4, 5), 300));
+    const first = track(row(3, 4), 300, ROWS);
+    const carried = carryOn(first, 150, track(row(4, 5), 300, ROWS));
     // A quarter of a tile short of 4 when the next move comes (the first eased out): 32 + 128 pixels short of 5.
     expect(slide(carried, 0)).toEqual([-160, 0]);
     expect(slide(carried, 0)[0] - slide(first, 150)[0]).toBe(-128);
@@ -136,7 +141,7 @@ describe('slide', () => {
   });
 
   it('starts the next move from the tile when the first slide is over', () => {
-    const carried = carryOn(track(row(3, 4), 300), 400, track(row(4, 5), 300));
+    const carried = carryOn(track(row(3, 4), 300, ROWS), 400, track(row(4, 5), 300, ROWS));
     expect(slide(carried, 0)).toEqual([-128, 0]);
     expect(length(carried)).toBe(300);
   });

@@ -22,6 +22,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import type { Locator, Page } from 'playwright-core';
+import { neighbourOnScreen } from '../src/projection.ts';
 import type { MapView, Unit } from '../src/tileset.ts';
 import { browserNames, collectPageErrors, diagnose, launchBrowser, opt, waitForResult } from './common.ts';
 import { logAudio } from './sound-log.ts';
@@ -69,43 +70,10 @@ interface Result {
   note?: string;
 }
 
-// FreeCol's Direction deltas on its staggered rows: [odd row, even row].
-const DIRECTIONS = {
-  N: [
-    [0, -2],
-    [0, -2],
-  ],
-  NE: [
-    [1, -1],
-    [0, -1],
-  ],
-  E: [
-    [1, 0],
-    [1, 0],
-  ],
-  SE: [
-    [1, 1],
-    [0, 1],
-  ],
-  S: [
-    [0, 2],
-    [0, 2],
-  ],
-  SW: [
-    [0, 1],
-    [-1, 1],
-  ],
-  W: [
-    [-1, 0],
-    [-1, 0],
-  ],
-  NW: [
-    [0, -1],
-    [-1, -1],
-  ],
-};
+/** The directions as the player's keys name them: where the unit goes on the screen. */
+const DIRECTIONS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'] as const;
 // The page's keys for each direction (ui/src/input.ts).
-type Dir = keyof typeof DIRECTIONS;
+type Dir = (typeof DIRECTIONS)[number];
 const KEYS = {
   N: 'ArrowUp',
   NE: 'Numpad9',
@@ -132,10 +100,7 @@ const MAX_DETOUR = 2;
 // FreeCol's grey for a fortified unit (MapJson draws it in that colour).
 const FORTIFIED = 0x808080;
 
-const neighbour = ([x, y]: Tile, d: Dir): Tile => {
-  const [dx, dy] = DIRECTIONS[d][y % 2 ? 0 : 1];
-  return [x + dx, y + dy];
-};
+const neighbour = ([x, y]: Tile, d: Dir): Tile => neighbourOnScreen(x, y, d);
 const same = (a: Tile | null | undefined, b: Tile | null | undefined) => a && b && a[0] === b[0] && a[1] === b[1];
 const label = (tile: Tile | null | undefined) => (tile ? tile.join(',') : 'none');
 const at = (list: { x: number; y: number }[], tile: Tile) => list.some(({ x, y }) => same([x, y], tile));
@@ -179,7 +144,7 @@ const isWorkable = (m: MapView, t: Tile) => {
  * Whether a colony founded on the tile would have a tile for its colonists
  * to work: FreeCol puts the founder in the town hall when it has none.
  */
-const hasWork = (m: MapView, t: Tile) => (Object.keys(DIRECTIONS) as Dir[]).some((d) => isWorkable(m, neighbour(t, d)));
+const hasWork = (m: MapView, t: Tile) => [...DIRECTIONS].some((d) => isWorkable(m, neighbour(t, d)));
 
 /**
  * Land to found on: explored, not water or barren, nobody's (so founding
@@ -211,7 +176,7 @@ function ownedLand(m: MapView, t: Tile) {
  * of the shortest route to the land.
  */
 function freeLands(m: MapView, ship: Tile, visited = new Set<string>()) {
-  const dirs = Object.keys(DIRECTIONS) as Dir[];
+  const dirs = [...DIRECTIONS];
   const lands = new Map<string, Land>();
   const first = new Map<string, Dir | null>([[label(ship), null]]);
   const dist = new Map([[label(ship), 0]]);
@@ -1086,7 +1051,7 @@ async function play(page: Page, url: string) {
     m = await select(m, sea);
     if (!same(m.active, sea)) throw new Error(`clicking ${label(sea)} selected ${label(m.active)}`);
     const shipId = m.activeUnit!.id;
-    const dirs = Object.keys(DIRECTIONS) as Dir[];
+    const dirs = [...DIRECTIONS];
     const into = dirs.find((d) => same(neighbour(sea, d), land));
     const out = dirs.find((d) => same(neighbour(land, d), sea));
     m = await act(() => pressKey(KEYS[into!]));

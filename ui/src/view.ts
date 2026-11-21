@@ -18,7 +18,12 @@ import {
 
 export type { Tile };
 
-const tileCentre = ([x, y]: Tile): [number, number] => projection.centre(x, y);
+/** The middle of a tile on the map, at zoom 1. A tile means nothing without a map, so the view's map is the one asked. */
+const tileCentre = (v: ViewState, [x, y]: Tile): [number, number] => projection.centre(x, y, v.map?.h ?? 0);
+
+/** The view centred on a tile: at once, or when the map comes, if it has not. */
+const centreOn = (v: ViewState, at: Tile): Pick<ViewState, 'centre' | 'pending'> =>
+  v.map ? { centre: tileCentre(v, at), pending: null } : { centre: v.centre, pending: at };
 
 /** What the view uses of a map view. */
 export type MapFacts = Pick<MapView, 'w' | 'h' | 'types' | 'tiles' | 'owners' | 'players' | 'active' | 'activeUnit'>;
@@ -45,6 +50,8 @@ export interface ViewState {
   tapped: Tile | null;
   /** The path the active unit would take to the tile the player holds the pointer on, drawn until release. */
   preview: PathStep[] | null;
+  /** A tile to centre on once the first map view says how big the map is: where a tile is depends on it. */
+  pending: Tile | null;
 }
 
 export type ViewEvent =
@@ -93,6 +100,7 @@ export const initialView: ViewState = {
   hover: null,
   tapped: null,
   preview: null,
+  pending: null,
 };
 
 /** The whole map's size in pixels at zoom 1. */
@@ -106,7 +114,9 @@ function clamp(v: ViewState): ViewState {
     const half = v.viewport[i] / 2 / v.zoom;
     return half * 2 >= size[i] ? size[i] / 2 : Math.min(size[i] - half, Math.max(half, c));
   }) as [number, number];
-  return centre[0] === v.centre[0] && centre[1] === v.centre[1] ? v : { ...v, centre };
+  // The map is a diamond on the screen: the camera stays on it, so the view is never wholly off the map.
+  const kept = projection.keepOn(v.map.w, v.map.h, centre);
+  return kept[0] === v.centre[0] && kept[1] === v.centre[1] ? v : { ...v, centre: kept };
 }
 
 /** A viewport pixel's map point, at zoom 1. */
@@ -122,13 +132,13 @@ export const toScreen = (v: ViewState, [mx, my]: [number, number]): [number, num
 ];
 
 /** Where a tile's centre shows in the viewport. */
-export const tileOnScreen = (v: ViewState, at: Tile) => toScreen(v, tileCentre(at));
+export const tileOnScreen = (v: ViewState, at: Tile) => toScreen(v, tileCentre(v, at));
 
 const sameTile = (a: Tile, b: Tile | null) => !!b && a[0] === b[0] && a[1] === b[1];
 
 /** Whether a tile's centre is in view. */
 function onScreen(v: ViewState, at: Tile) {
-  const c = tileCentre(at);
+  const c = tileCentre(v, at);
   return c.every((p, i) => Math.abs(p - v.centre[i]) <= v.viewport[i] / 2 / v.zoom);
 }
 
@@ -191,26 +201,27 @@ function apply(v: ViewState, e: ViewEvent): ViewState {
       if (!e.unit) return { ...v, active: null, mode: 'units', selected: null, preview: null };
       const active = { ...v, active: { unit: e.unit, tile: e.at }, mode: 'units' as const, preview: null };
       if (!e.at) return active;
-      if (e.force) return onScreen(v, e.at) ? active : { ...active, centre: tileCentre(e.at) };
-      if (e.jump === false)
-        return { ...active, selected: e.at, ...(onScreen(v, e.at) ? {} : { centre: tileCentre(e.at) }) };
-      return { ...active, selected: e.at, centre: tileCentre(e.at) };
+      if (e.force) return onScreen(v, e.at) ? active : { ...active, ...centreOn(v, e.at) };
+      if (e.jump === false) return { ...active, selected: e.at, ...(onScreen(v, e.at) ? {} : centreOn(v, e.at)) };
+      return { ...active, selected: e.at, ...centreOn(v, e.at) };
     }
     case 'selectedTile': {
       // SwingGUI.changeView(Tile): refocus only if the tile is out of view, unless always centring.
       const selected = { ...v, mode: 'terrain' as const, selected: e.at };
-      return e.at && (e.always || !onScreen(v, e.at)) ? { ...selected, centre: tileCentre(e.at) } : selected;
+      return e.at && (e.always || !onScreen(v, e.at)) ? { ...selected, ...centreOn(v, e.at) } : selected;
     }
     case 'focus':
-      return e.at ? { ...v, centre: tileCentre(e.at) } : v;
+      return e.at ? { ...v, ...centreOn(v, e.at) } : v;
     case 'map': {
       // The camera follows the active unit: when its map view puts it on a new tile, it moves there,
       // and the view moves with it once it is out of view.
+      // A tile asked for before the map came is centred on now: where it is depends on the map's size.
+      if (v.pending) v = { ...v, map: e.map, centre: tileCentre({ ...v, map: e.map }, v.pending), pending: null };
       const at = e.map.active;
       const moved = at && v.active && e.map.activeUnit?.id === v.active.unit && !sameTile(at, v.active.tile);
       if (!moved) return { ...v, map: e.map };
       const next = { ...v, map: e.map, active: { ...v.active!, tile: at } };
-      return onScreen(v, at) ? next : { ...next, centre: tileCentre(at) };
+      return onScreen(v, at) ? next : { ...next, centre: tileCentre(next, at) };
     }
     case 'resize':
       return { ...v, viewport: [e.width, e.height] };

@@ -12,12 +12,13 @@ import {
   type MapFacts,
   type ViewEvent,
 } from './view';
+import { projection } from './projection';
 
-// A 20x40 map, 2624x1312 pixels at zoom 1, in a 640x480 viewport. Tile
-// (x, y)'s centre is at projection.centre(x, y).
+// A 20x20 map, which the Isometric view draws as a diamond 2560x1280 pixels at zoom 1, in a 640x480 viewport. Tile
+// (x, y)'s centre is at projection.centre(x, y, 20), ((x - y + 20) * 64, (x + y + 1) * 32).
 const facts = (more: Partial<MapFacts> = {}): MapFacts => ({
   w: 20,
-  h: 40,
+  h: 20,
   types: [],
   tiles: '',
   owners: '',
@@ -43,7 +44,7 @@ describe('the view', () => {
       orders: [],
       route: null,
     });
-    expect(v.centre).toEqual([768, 384]);
+    expect(v.centre).toEqual([896, 544]);
     expect(v.active).toEqual({ unit: 'unit:7', tile: [5, 11] });
   });
 
@@ -67,16 +68,20 @@ describe('the view', () => {
   });
 
   it('centres on a focus tile but keeps the view on the map, even when the focus comes first', () => {
-    expect(play({ k: 'focus', tile: 'tile:2', at: [10, 20] }).centre).toEqual([1344, 672]);
+    expect(play({ k: 'focus', tile: 'tile:2', at: [10, 10] }).centre).toEqual([1280, 672]);
     // reconnectGUI focuses before the first map view: clamp once it comes.
     const first = [{ k: 'focus', tile: 'tile:0', at: [0, 0] } as ViewEvent, ...SIZE].reduce(reduce, initialView);
-    expect(first.centre).toEqual([320, 240]);
-    expect(play({ k: 'focus', tile: 'tile:3', at: [19, 39] }).centre).toEqual([2624 - 320, 1312 - 240]);
+    expect(first.centre).toEqual([1280, 240]);
+    expect(play({ k: 'focus', tile: 'tile:3', at: [19, 19] }).centre).toEqual([1280, 1280 - 240]);
+    // The map is a diamond: its box's corner is off it, and the view is brought in to the diamond.
+    const right = play({ k: 'centre', at: [2560, 0] }).centre;
+    expect(right).toEqual(projection.keepOn(20, 20, [2560 - 320, 240]));
+    expect(right[0]).toBeLessThan(2560 - 320);
   });
 
   it('centres on a map point, as a click on the minimap asks, but keeps the view on the map', () => {
     expect(play({ k: 'centre', at: [1000, 600] }).centre).toEqual([1000, 600]);
-    expect(play({ k: 'centre', at: [0, 5000] }).centre).toEqual([320, 1312 - 240]);
+    expect(play({ k: 'centre', at: [0, 5000] }).centre).toEqual(projection.keepOn(20, 20, [320, 1280 - 240]));
   });
 
   it('follows the active unit after a move, re-centring only once it leaves the view', () => {
@@ -108,45 +113,45 @@ describe('the view', () => {
       k: 'activeUnit',
       unit: 'unit:7',
       tile: 'tile:8',
-      at: [15, 30],
+      at: [15, 12],
       force: true,
       orders: [],
       route: null,
     });
-    expect(away.centre).toEqual([1984, 992]);
+    expect(away.centre).toEqual([1472, 896]);
   });
 
   it('zooms between the levels with a pinch, keeping the point under the fingers, and snaps to the nearest level', () => {
-    const focused = play({ k: 'focus', tile: 'tile:2', at: [10, 20] });
+    const focused = play({ k: 'focus', tile: 'tile:2', at: [10, 10] });
     const pinched = reduce(focused, { k: 'zoomTo', zoom: 1.3, at: [0, 0] });
     expect(pinched.zoom).toBe(1.3);
-    expect(pinched.centre[0]).toBeCloseTo(1024 + 320 / 1.3);
+    expect(pinched.centre[0]).toBeCloseTo(960 + 320 / 1.3);
     expect(reduce(focused, { k: 'zoomTo', zoom: 9, at: [0, 0] }).zoom).toBe(2);
     expect(reduce(focused, { k: 'zoomTo', zoom: 0.01, at: [0, 0] }).zoom).toBe(0.25);
     const snapped = reduce(pinched, { k: 'zoomSnap', at: [0, 0] });
     expect(snapped.zoom).toBe(1.5);
-    expect(snapped.centre[0]).toBeCloseTo(1024 + 320 / 1.5);
+    expect(snapped.centre[0]).toBeCloseTo(960 + 320 / 1.5);
     expect(reduce(reduce(focused, { k: 'zoomTo', zoom: 0.8, at: [0, 0] }), { k: 'zoomSnap', at: [0, 0] }).zoom).toBe(
       0.75,
     );
   });
 
   it('pans by screen pixels, and zooms about the pointer within its levels', () => {
-    const focused = play({ k: 'focus', tile: 'tile:2', at: [10, 20] });
-    expect(reduce(focused, { k: 'pan', dx: 100, dy: -40 }).centre).toEqual([1244, 712]);
+    const focused = play({ k: 'focus', tile: 'tile:2', at: [10, 10] });
+    expect(reduce(focused, { k: 'pan', dx: 100, dy: -40 }).centre).toEqual([1180, 712]);
 
-    // The map point under the viewport's top left, (1024, 432), stays there.
+    // The map point under the viewport's top left, (960, 432), stays there.
     const zoom = (v: typeof focused, steps: number) => reduce(v, { k: 'zoom', steps, at: [0, 0] });
     const twice = zoom(zoom(focused, 1), 1);
     expect(twice.zoom).toBe(2);
-    expect(twice.centre).toEqual([1024 + 160, 432 + 120]);
-    expect(reduce(twice, { k: 'pan', dx: 100, dy: 0 }).centre).toEqual([1134, 552]);
+    expect(twice.centre).toEqual([960 + 160, 432 + 120]);
+    expect(reduce(twice, { k: 'pan', dx: 100, dy: 0 }).centre).toEqual([1070, 552]);
     expect(zoom(twice, 1).zoom, 'no further in').toBe(2);
 
     const out = zoom(zoom(zoom(focused, -1), -1), -1);
     expect(out.zoom).toBe(0.25);
-    // 1920 map pixels tall in view, more than the map's 1312: centred.
-    expect(out.centre[1]).toBe(656);
+    // 1920 map pixels tall in view, more than the map's 1280: centred.
+    expect(out.centre[1]).toBe(640);
   });
 
   it("puts FreeCol's cursor on the active unit, or on the selected tile in terrain mode", () => {
@@ -176,7 +181,7 @@ describe('the view', () => {
     expect(cursor(stays)).toEqual({ at: [6, 12], kind: 'unit' });
     expect(reduce(active, next).centre).not.toEqual(active.centre);
     // Out of view, it still moves there.
-    expect(reduce(active, { ...next, at: [15, 30], jump: false }).centre).toEqual([1984, 992]);
+    expect(reduce(active, { ...next, at: [15, 12], jump: false }).centre).toEqual([1472, 896]);
 
     // No units left to move: changeView(fallback tile) selects a tile and
     // keeps the active unit. On screen, the view stays where it is.
@@ -185,7 +190,7 @@ describe('the view', () => {
     expect(near.active).toEqual(active.active);
     expect(near.centre).toEqual(active.centre);
     // Off screen, it centres there.
-    expect(reduce(active, { k: 'selectedTile', tile: 'tile:5', at: [15, 30] }).centre).toEqual([1984, 992]);
+    expect(reduce(active, { k: 'selectedTile', tile: 'tile:5', at: [15, 12] }).centre).toEqual([1472, 896]);
     // With FreeCol's always center option, it centres there even on screen.
     const centred = reduce(active, { k: 'selectedTile', tile: 'tile:4', at: [6, 12], always: true });
     expect(centred.centre).toEqual(reduce(active, { k: 'focus', tile: null, at: [6, 12] }).centre);
@@ -264,27 +269,27 @@ describe('the view', () => {
   });
 
   it('converts between viewport and map pixels at the zoom', () => {
-    const v = reduce(play({ k: 'focus', tile: 'tile:2', at: [10, 20] }), { k: 'zoom', steps: 2, at: [320, 240] });
+    const v = reduce(play({ k: 'focus', tile: 'tile:2', at: [10, 10] }), { k: 'zoom', steps: 2, at: [320, 240] });
     expect(v.zoom).toBe(2);
-    expect(toScreen(v, [1344, 672]), 'the centre').toEqual([320, 240]);
-    expect(toScreen(v, [1408, 640])).toEqual([448, 176]);
-    expect(toMap(v, [448, 176])).toEqual([1408, 640]);
+    expect(toScreen(v, [1280, 672]), 'the centre').toEqual([320, 240]);
+    expect(toScreen(v, [1344, 640])).toEqual([448, 176]);
+    expect(toMap(v, [448, 176])).toEqual([1344, 640]);
   });
 
-  it("places a tile's centre in the viewport, odd rows half a tile right", () => {
-    const v = reduce(play({ k: 'focus', tile: 'tile:2', at: [10, 20] }), { k: 'zoom', steps: 2, at: [320, 240] });
-    expect(tileOnScreen(v, [10, 20])).toEqual([320, 240]);
-    expect(tileOnScreen(v, [11, 20])).toEqual([576, 240]);
-    expect(tileOnScreen(v, [10, 21])).toEqual([448, 304]);
+  it("places a tile's centre in the viewport, east of a tile being down and to the right of it", () => {
+    const v = reduce(play({ k: 'focus', tile: 'tile:2', at: [10, 10] }), { k: 'zoom', steps: 2, at: [320, 240] });
+    expect(tileOnScreen(v, [10, 10])).toEqual([320, 240]);
+    expect(tileOnScreen(v, [11, 10])).toEqual([448, 304]);
+    expect(tileOnScreen(v, [10, 11])).toEqual([192, 304]);
   });
 
   it('keeps the view on the map when the window grows', () => {
-    // In the bottom right corner of the map, then twice as wide and tall.
-    const corner = play({ k: 'focus', tile: 'tile:3', at: [19, 39] });
-    expect(corner.centre).toEqual([2304, 1072]);
+    // In the top right of the map's box, which the diamond leaves empty, then twice as wide and tall.
+    const corner = play({ k: 'centre', at: [2560, 0] });
+    expect(corner.centre).toEqual(projection.keepOn(20, 20, [2560 - 320, 240]));
     const grown = reduce(corner, { k: 'resize', width: 1280, height: 960 });
     expect(grown.viewport).toEqual([1280, 960]);
-    expect(grown.centre).toEqual([1984, 832]);
+    expect(grown.centre).toEqual(projection.keepOn(20, 20, [2560 - 640, 480]));
   });
 });
 
@@ -318,7 +323,7 @@ describe("the map view's active unit", () => {
       { k: 'map', map: facts({ active: [3, 0], activeUnit: unit }) },
     );
     expect(far.active?.tile).toEqual([3, 0]);
-    expect(far.centre).toEqual([3 * 128 + 64, 32]);
+    expect(far.centre).toEqual(projection.centre(3, 0, 20));
   });
 
   it('is the active unit, once a map view about it has come', () => {

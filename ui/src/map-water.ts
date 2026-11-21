@@ -58,8 +58,8 @@ export interface Palette {
 
 type FieldMap = Pick<MapView, 'w' | 'h' | 'types' | 'tiles'>;
 
-/** River sides in FreeCol's style order. */
-export const RIVER_SIDES = mapGrid.edges;
+/** River sides in FreeCol's style order, by the screen direction of each (the art's names; the grid's N, E, S, W). */
+export const RIVER_SIDES = projection.faces;
 /** Where each of those sides' middle is, from the tile's middle. */
 export const RIVER_MIDPOINTS = RIVER_SIDES.map((d) => projection.edgeMidpoint(d));
 /** The side a river on `side` flows into: the neighbour's side that faces it. */
@@ -391,7 +391,7 @@ export function waterField(
     for (const [k, r] of riverEntries) if (was.rivers.get(k) !== r) changed(k);
     for (const k of was.rivers.keys()) if (!riverEntries.has(k)) changed(k);
     if (x1 < 0) return last;
-    const [left, top, right, bottom] = projection.neighbourhood(x0, y0, x1, y1);
+    const [left, top, right, bottom] = projection.neighbourhood(x0, y0, x1, y1, h);
     raw = clip(
       {
         i0: Math.floor(left / texel),
@@ -436,7 +436,7 @@ export function waterField(
       const c = at ? tiles.charCodeAt(at[1] * w + at[0]) - 65 : -1;
       if (at && c >= 0) {
         const [x, y] = at;
-        const [ox, oy] = projection.origin(x, y);
+        const [ox, oy] = projection.origin(x, y, h);
         const [u, v] = [px - ox, py - oy];
         const kind = kinds[c];
         if (kind === 0) {
@@ -458,14 +458,14 @@ export function waterField(
             const nt = map.types[tiles.charCodeAt(ny * w + nx) - 65];
             if (!nt) continue;
             // The way to the neighbour's middle, as seen from above (as dy is).
-            const [nox, noy] = projection.origin(nx, ny);
+            const [nox, noy] = projection.origin(nx, ny, h);
             const [ex, ey] = projection.fromAbove(nox - ox, noy - oy);
             const length = Math.hypot(ex, ey);
             const along = (dx * ex + dy * ey) / length;
             const side = Math.abs(dx * ey - dy * ex) / length;
             if (!nt.land && along >= 0 && along <= length && side < W * 0.18) channels[k] = 1;
             const river = riverTiles.get(ny * w + nx);
-            // River style order NE, SE, SW, NW. Only a connection toward this water tile makes a mouth.
+            // River style order N, E, S, W of the grid. Only a connection toward this water tile makes a mouth.
             if (nt.land && mapGrid.isEdge(d) && river && Number(river[3][mapGrid.edgeIndex(mapGrid.opposite(d))]) > 0) {
               const offshore = length / 2 - along;
               plume[k] = Math.max(plume[k], riverPlume(offshore, side, river[2]));
@@ -513,14 +513,14 @@ export function waterField(
     }
   const share = new Float64Array(3);
   for (let j = outClimate.j0; j < outClimate.j1; j++) {
-    // Far from any land, the latitude: cold toward the poles, tropical round the equator. Per row, and without
-    // arrays per texel: this loop runs over every texel made again when a move explores a tile.
-    const lat = Math.abs(((j + 0.5) * texelY) / ph - 0.5) * 2;
-    const cold = smooth(0.62, 0.8, lat);
-    const tropical = 1 - smooth(0.25, 0.45, lat);
-    const temperate = Math.max(0, 1 - cold - tropical);
     for (let i = outClimate.i0; i < outClimate.i1; i++) {
       const k = j * cols + i;
+      // Far from any land, the latitude (the map's row, which runs across the screen on a turned map): cold toward the
+      // poles, tropical round the equator.
+      const lat = Math.abs(projection.rowFraction(h, (i + 0.5) * texel, (j + 0.5) * texelY) - 0.5) * 2;
+      const cold = smooth(0.62, 0.8, lat);
+      const tropical = 1 - smooth(0.25, 0.45, lat);
+      const temperate = Math.max(0, 1 - cold - tropical);
       grid.at(i, j, share);
       const far = Math.max(0, 1 - (share[0] + share[1] + share[2]) / 0.25) * 0.25;
       const a = share[0] + far * cold,

@@ -122,8 +122,8 @@ export interface Track {
  * that a diagonal step, as SwingGUI's UnitMoveAnimation moves a unit as many pixels a frame across a tile as down it,
  * and a diagonal step is half a tile each way.
  */
-export function track(tiles: [number, number][], ms: number): Track {
-  const points = tiles.map((t) => projection.origin(...t));
+export function track(tiles: [number, number][], ms: number, rows: number): Track {
+  const points = tiles.map((t) => projection.origin(t[0], t[1], rows));
   let at = 0;
   const ends = points.slice(1).map(([x, y], i) => {
     const [fx, fy] = points[i];

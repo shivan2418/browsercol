@@ -15,11 +15,11 @@ import { waterLook } from './map-water';
 
 // A map with water, land, a forest, a river, a road, a colony and a native
 // settlement, so the scene asks for every kind of key it draws.
-// FreeCol's grid is staggered: odd rows half a tile to the right.
+// FreeCol's grid is square.
 //   row 0:  P  O  P  P        P plains, O ocean, F forest, . unexplored
-//   row 1:    F  P  O  O
+//   row 1:  F  P  O  O
 //   row 2:  P  O  P  P
-//   row 3:    P  P  P  .
+//   row 3:  P  P  P  .
 const map: MapView = {
   w: 4,
   h: 4,

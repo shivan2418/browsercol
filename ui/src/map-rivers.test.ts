@@ -3,9 +3,9 @@ import { riverDrawing, riverPatches } from './map-rivers';
 import { resources } from './resources';
 import { frameAt, srcId, staticScene, STILL, type MapView, type Op, type Recipe } from './tileset';
 
-// A minor river on the plains at (0,1) runs NE into the ocean at (1,0), which draws its delta from the SW.
+// A minor river on the plains at (1,1) runs grid N, shown NE, into the ocean at (1,0), which draws its delta from the SW.
 //   row 0:  P  O
-//   row 1:    P  P
+//   row 1:  P  P
 //   row 2:  P  P
 const map: MapView = {
   w: 2,
@@ -25,7 +25,7 @@ const map: MapView = {
   seen: '111111',
   owners: '......',
   players: [],
-  rivers: [[0, 1, 1, '1000', '0100']],
+  rivers: [[1, 1, 1, '1000', '0100']],
   roads: [],
   items: [],
   settlements: [],
@@ -74,7 +74,7 @@ describe('riverPatches', () => {
       if (!id.startsWith('river:') && !id.startsWith('delta:')) expect(banks[i]).toBe(op);
     });
     const river = still(
-      base.find((op) => op.x === 0 && op.y === 1 && op.k === 'image' && srcId(op.src).startsWith('river:')),
+      base.find((op) => op.x === 1 && op.y === 1 && op.k === 'image' && srcId(op.src).startsWith('river:')),
     );
     const bank = banks.find((op) => op.k === 'image' && srcId(op.src) === `flow-banks:${river!.id}`);
     // The pebbles and the masks that soften them; not the masked water, the recipe's second step.
@@ -84,13 +84,13 @@ describe('riverPatches', () => {
     });
     const delta = banks.find((op) => op.k === 'image' && srcId(op.src).startsWith('flow-banks:delta:'));
     expect([delta?.x, delta?.y]).toEqual([1, 0]);
-    // The river flows NE, out to sea; its mouth, on the ocean tile's SW side, flows on NE away from the land.
+    // The river flows NE on the screen, out to sea; its mouth, on the ocean tile's SW side, flows on NE away from the land.
     expect(patches.map((p) => [p.x, p.y, p.downstream, p.style, p.magnitude, !!p.keep])).toEqual([
       [1, 0, 0, '0000', 1, true],
-      [0, 1, 0, '1000', 1, false],
+      [1, 1, 0, '1000', 1, false],
     ]);
     // The mesh draws the water in the river's own shape: its mask, then the masks softening it.
-    const own = patches.find((p) => p.x === 0)!;
+    const own = patches.find((p) => p.y === 1)!;
     expect(own.mask.steps).toEqual([{ draw: art('river-ne') }, ...river!.steps.slice(2)]);
   });
 
@@ -98,7 +98,7 @@ describe('riverPatches', () => {
     const { key } = riverPatches(map, baseOf(map));
     const explored = { ...map, tiles: 'AB' + 'AA' + 'BA' };
     expect(riverPatches(explored, baseOf(explored)).key).toBe(key);
-    const major = { ...map, rivers: [[0, 1, 2, '2000', '0200']] as MapView['rivers'] };
+    const major = { ...map, rivers: [[1, 1, 2, '2000', '0200']] as MapView['rivers'] };
     expect(riverPatches(major, baseOf(major)).key).not.toBe(key);
     expect(riverPatches({ ...map, rivers: [] }, baseOf({ ...map, rivers: [] })).key).toBe('');
   });

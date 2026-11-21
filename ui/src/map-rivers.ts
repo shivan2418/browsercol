@@ -256,7 +256,7 @@ export async function riverDrawing(
   const mouths = new Float32Array(patches.length * 4);
   const indices = new Uint32Array(patches.length * 6);
   patches.forEach((patch, i) => {
-    const [x, y] = projection.origin(patch.x, patch.y);
+    const [x, y] = projection.origin(patch.x, patch.y, map.h);
     positions.set([x, y, x + W, y, x + W, y + H, x, y + H], i * 8);
     const u = ((slots[i] % cols) * (W + 2) + 1) / width;
     const v = (Math.floor(slots[i] / cols) * (H + 2) + 1) / height;

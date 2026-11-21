@@ -101,9 +101,9 @@ describe('the minimap', () => {
     expect(tileSize(9)).toBe(24);
   });
 
-  it('draws the whole map as tile-wide diamonds in staggered rows', () => {
-    // MiniMap.recreateBufferImage: tileSize * width + tileSize / 2 by tileSize * height / 2 + tileSize / 4.
-    expect(imageSize({ w: 40, h: 100 }, 8)).toEqual([324, 402]);
+  it('draws the whole map as tile-wide diamonds in one big diamond', () => {
+    // The map is (w + h) tile halves across and (w + h) quarter tiles down.
+    expect(imageSize({ w: 80, h: 50 }, 8)).toEqual([520, 260]);
   });
 
   it('centres on what the map view is centred on, with a box round what it shows', () => {

@@ -37,28 +37,34 @@ describe('borderPaths', () => {
   const all = ['NE', 'SE', 'SW', 'NW'];
 
   it("joins a lone tile's four sides into one closed loop", () => {
-    const paths = borderPaths([{ x: 0, y: 0, sides: all, rgb: 1 }]).get(1)!;
+    const paths = borderPaths([{ x: 0, y: 0, sides: all, rgb: 1 }], 1).get(1)!;
     expect(paths).toHaveLength(1);
     expect(paths[0].closed).toBe(true);
     expect(paths[0].pts).toHaveLength(4);
   });
 
   it("runs one owner's border round two touching tiles as one loop, without the side they share", () => {
-    // (0,0) and (0,1) share (0,0)'s SE side.
-    const paths = borderPaths([
-      { x: 0, y: 0, sides: ['NE', 'SW', 'NW'], rgb: 1 },
-      { x: 0, y: 1, sides: ['NE', 'SE', 'SW'], rgb: 1 },
-    ]).get(1)!;
+    // (0,0) and (1,0) share (0,0)'s SE side.
+    const paths = borderPaths(
+      [
+        { x: 0, y: 0, sides: ['NE', 'SW', 'NW'], rgb: 1 },
+        { x: 1, y: 0, sides: ['NE', 'SE', 'SW'], rgb: 1 },
+      ],
+      1,
+    ).get(1)!;
     expect(paths).toHaveLength(1);
     expect(paths[0]).toMatchObject({ closed: true });
     expect(paths[0].pts).toHaveLength(6);
   });
 
   it('keeps a border that stops at the map edge open, and each colour apart', () => {
-    const byColor = borderPaths([
-      { x: 0, y: 0, sides: ['NE', 'SE'], rgb: 1 },
-      { x: 1, y: 0, sides: all, rgb: 2 },
-    ]);
+    const byColor = borderPaths(
+      [
+        { x: 0, y: 0, sides: ['NE', 'SE'], rgb: 1 },
+        { x: 1, y: 0, sides: all, rgb: 2 },
+      ],
+      1,
+    );
     expect(byColor.get(1)).toEqual([
       {
         pts: [

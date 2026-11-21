@@ -35,8 +35,7 @@ export const tileSize = (zoom: number): number => 4 * Math.max(MIN_ZOOM, Math.mi
 
 /** The whole map's size on the minimap, as MiniMap.recreateBufferImage makes its image. */
 export const imageSize = (m: { w: number; h: number }, size: number): [number, number] => {
-  // As FreeCol's: the image is as tall as the map would be with twice the rows.
-  const [width, height] = [projection.mapSize(m.w, m.h)[0], projection.mapSize(m.w, 2 * m.h)[1]];
+  const [width, height] = projection.mapSize(m.w, m.h);
   return [(width * size) / W, (height * size) / W];
 };
 
@@ -124,6 +123,7 @@ export function paintMinimap(
   size: number,
   [w, h]: [number, number],
   background: number,
+  rows: number,
 ) {
   g.fillStyle = css(background);
   g.fillRect(0, 0, w, h);
@@ -134,7 +134,7 @@ export function paintMinimap(
   };
   g.lineWidth = 1;
   for (const t of tiles) {
-    const at = projection.origin(t.x, t.y).map((c) => (c * size) / W) as [number, number];
+    const at = projection.origin(t.x, t.y, rows).map((c) => (c * size) / W) as [number, number];
     diamond(at, 1);
     g.fillStyle = css(t.fill);
     g.fill();
