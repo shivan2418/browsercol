@@ -145,7 +145,10 @@ public final class ResampleMaps {
                 final int[] o = oldTileAt(nx(x), ny(y), w, h);
                 final Tile ot = old.getTile(o[0], o[1]);
                 from[y * nw + x] = ot;
-                return new Tile(game, ot.getType(), x, y);
+                final Tile t = new Tile(game, ot.getType(), x, y);
+                // The edge tiles a ship sails off the map from (Giga Earth has them on tiles of no region).
+                if (ot.getMoveToEurope() != null && (x == 0 || x == nw - 1)) t.setMoveToEurope(ot.getMoveToEurope());
+                return t;
             });
 
         // Native settlements go to the new tile at their old position, on land, one to a tile.
