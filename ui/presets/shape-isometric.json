@@ -1,0 +1,11 @@
+{
+  "rules": "classic",
+  "difficulty": "model.difficulty.medium",
+  "nation": "model.nation.english",
+  "seed": 1492,
+  "options": {
+    "model.option.mapShape": 1,
+    "model.option.fogOfWar": false
+  },
+  "setup": [{ "action": "revealMap" }]
+}

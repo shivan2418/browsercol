@@ -6,13 +6,17 @@
 //    its terrain in squares;
 //  - a preset with colonies of the player's own (colony-step): a colony's panel in Top-down, whose tiles are a 3x3
 //    block of 64 px squares.
+// Then the map shapes (#559), a new game of each shape in its own view, zoomed out to show the whole map, with shots in
+// .cache/shape-<browser>-<shape>.png: an Isometric shaped game in the Isometric view and a Top-down shaped one in the
+// Top-down view (?view=topdown), each revealed (presets shape-isometric and shape-topdown), a rectangle on the screen
+// with the arctic along its top and bottom. A game with no preset has the shape of the view the page is in.
 // The page must raise no errors. Playing a whole game in the view is play.ts --view topdown.
 // Run in the web image:
 //   DEV_VARIANT=web ./dev.sh node ui/scripts/topdown.ts [--browsers chromium,firefox]
 import fs from 'node:fs';
 import path from 'node:path';
 import type { Page } from 'playwright-core';
-import { isometric, topDown } from '../src/projection.ts';
+import { isometric, setMapShape, topDown, projection, setView } from '../src/projection.ts';
 import { browserNames, collectPageErrors, diagnose, launchBrowser, setStep, waitForResult } from './common.ts';
 import { answerDialogs } from './dialogs.ts';
 import { dist, serveDist } from './serve-dist.ts';
@@ -91,6 +95,96 @@ async function hits(page: Page, tile: Tile, what: string) {
     throw new Error(`${what}: a tile to the ${dx < 0 ? 'west' : 'east'} of ${label(tile)} hovers ${label(next)}`);
 }
 
+/** Zoom out to the farthest level, which shows the whole map if the window is big enough. */
+async function zoomOut(page: Page) {
+  const canvas = (await page.locator('#map canvas').boundingBox())!;
+  await page.mouse.move(canvas.x + canvas.width / 2, canvas.y + canvas.height / 2);
+  for (let i = 0; i < 8; i++) await page.mouse.wheel(0, 100);
+  await sleep(2000);
+}
+
+/** What the page's map says of its shape, and its tiles by staggered column and row, as the Engine sends them. */
+const shapeOf = (page: Page) =>
+  page.evaluate(() => {
+    const m = window.__map;
+    return { shape: m.shape ?? 'topDown', rows: m.rows ?? 0, w: m.w, h: m.h, types: m.types, tiles: m.tiles };
+  });
+
+/**
+ * A new game of a shape, in the view it is made for: a shot of the whole map, and a check that the view shows the map
+ * as the shape says (a rectangle), and that no tile is on it where the shape has none.
+ */
+async function shapeGame(name: string, open: () => Promise<Page>, url: string, shape: 'isometric' | 'topDown') {
+  const kind = shape === 'isometric' ? 'isometric' : 'topdown';
+  setStep(`${name}: a new ${shape}-shaped game in the ${kind} view`);
+  const page = await open();
+  await page.setViewportSize({ width: 2000, height: 1400 });
+  await start(page, url);
+  const got = await shapeOf(page);
+  if (got.shape !== shape) throw new Error(`the new game's map is ${got.shape}-shaped, not ${shape}`);
+  const view = await page.evaluate(() => (document.querySelector('#map-view') as HTMLSelectElement | null)?.value);
+  if (view && view !== kind) throw new Error(`the game is in the ${view} view, not ${kind}`);
+  // The shape as the UI's own maths has it: the box's tiles that are on the map are the ones the Engine sent.
+  setMapShape({ kind: got.shape as 'isometric' | 'topDown', rows: got.rows });
+  setView(kind);
+  try {
+    let onMap = 0;
+    for (let y = 0; y < got.h; y++) {
+      for (let x = 0; x < got.w; x++) {
+        const present = got.tiles[y * got.w + x] !== '.';
+        if (present) onMap++;
+        const expected = projection.tileAt(got.w, got.h, ...projection.centre(x, y, got.h)) !== null;
+        // A tile that is on the map is where the view puts it; one that is not on it has nothing there. The map is
+        // revealed only where it is explored, so an unexplored tile of the shape reads '.' too.
+        if (present && !expected) throw new Error(`a tile at ${x},${y} is not on a ${shape}-shaped map`);
+      }
+    }
+    if (onMap === 0) throw new Error('no tile is explored');
+    // The map is revealed, so every tile of the shape is there: 41 x 102 on an Isometric shape, 58 x 72 on the other.
+    const want = shape === 'isometric' ? 41 * 102 : 58 * 72;
+    if (onMap !== want) throw new Error(`the ${shape}-shaped map has ${onMap} tiles on the map, not ${want}`);
+    // The first and last rows of the screen are all land and polar.
+    const typeAt = (x: number, y: number) => got.types[got.tiles.charCodeAt(y * got.w + x) - 65];
+    const rows = shape === 'isometric' ? got.rows : got.h;
+    for (const row of [0, rows - 1]) {
+      const edge: Tile[] = [];
+      for (let y = 0; y < got.h; y++) {
+        for (let x = 0; x < got.w; x++) {
+          const at = shape === 'isometric' ? x + y - (got.w - (got.rows >> 1) - 1) : y;
+          if (at === row && typeAt(x, y)) edge.push([x, y]);
+        }
+      }
+      if (edge.length < 20) throw new Error(`row ${row} of the ${shape}-shaped map has only ${edge.length} tiles`);
+      if (!edge.every(([x, y]) => typeAt(x, y)!.land))
+        throw new Error(`row ${row} of the ${shape}-shaped map is not all land (polar)`);
+    }
+    const [mw, mh] = projection.mapSize(got.w, got.h);
+    await zoomOut(page);
+    const { centre, zoom } = await page.evaluate(() => {
+      const v = window.fcView!();
+      return { centre: v.centre as [number, number], zoom: v.zoom as number };
+    });
+    // Zoomed all the way out in a big window, the map is smaller than the view and sits in its middle.
+    if (Math.abs(centre[0] - mw / 2) > 2 || Math.abs(centre[1] - mh / 2) > 2)
+      throw new Error(
+        `zoomed out at ${zoom}, the camera is at ${centre.map(Math.round)} and not at the middle of the ${Math.round(mw)}x${Math.round(mh)} map`,
+      );
+    if (shape === 'isometric') {
+      // A rectangle: the camera cannot be moved off it into the corners of the box's diamond.
+      const [kx, ky] = projection.keepOn(got.w, got.h, [0, 0]);
+      if (kx !== 0 || ky !== 0) throw new Error(`the top left of an Isometric shaped map is not on its rectangle`);
+    }
+    await page.mouse.move(0, 0);
+    const file = path.join(out, `shape-${name}-${shape === 'isometric' ? 'isometric' : 'topdown'}.png`);
+    fs.writeFileSync(file, await page.screenshot());
+    console.log(`  ${path.relative(process.cwd(), file)}`);
+  } finally {
+    setMapShape(null);
+    setView('isometric');
+  }
+  await page.close();
+}
+
 let failed = false;
 for (const name of browserNames()) {
   const browser = await launchBrowser(name);
@@ -104,10 +198,17 @@ for (const name of browserNames()) {
     return page;
   };
   try {
+    // A new game of each shape, in the view it is made for.
+    await shapeGame(name, open, `${server.url}?skipstart&preset=shape-isometric`, 'isometric');
+    await shapeGame(name, open, `${server.url}?skipstart&preset=shape-topdown&view=topdown`, 'topDown');
+
     // A random map.
     setStep(`${name}: a new game on a random map`);
     let page = await open();
     await start(page, `${server.url}?skipstart`);
+    // A new game's map has the shape of the view the page opened in.
+    const shape = await page.evaluate(() => window.__map.shape);
+    if (shape !== 'isometric') throw new Error(`a new game in the Isometric view has a ${shape}-shaped map`);
     await shot(page, name, 'iso-start');
     await pick(page, 'topdown');
     await shot(page, name, 'start');
