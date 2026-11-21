@@ -38,8 +38,13 @@ files, with fields located by diffing our own saves (see the tax-rate ticket).
 
 | Field | Where | How it was found |
 |---|---|---|
-| Year (16-bit little-endian) | offset 0x1A | Autosaves from consecutive turns hold 1497, 1498, … there. |
-| Tax rate (percent, 1 byte) | 22,062 bytes before the end of the file | Saves at tax 0/1/2/5 in one turn (set with the cheat keys) differ in that byte only. It held for saves of 25,097 and 25,905 bytes, at tax 7 and 11. |
+| Year (u16 LE) | 0x1A | Autosaves from consecutive turns hold 1497, 1498, … there. |
+| Turn counter (u16 LE) | 0x1E | 0 in 1492, +1 every turn, including both turns of a year after 1600. |
+| Tax rate (percent, 1 byte) | 391 + 28 × u16(0x2C) + 202 × u16(0x2E) | Saves at tax 0/1/2/5 in one turn (set with the cheat keys) differ only there. The two header counts fit its position on 144 saves of one game (1497–1620); a fixed distance from the file end drifted. |
+| Gold (u32 LE) | tax position + 41 | Stays 1000 in no-trade games, drops after an Indian raid, and the game shows an edited value. |
+
+Edits load: the game shows a save with tax set to 42 and gold to 2340
+without complaint, so experiments can start from edited saves.
 
 ## Experiments
 
