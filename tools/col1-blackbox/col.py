@@ -15,6 +15,18 @@ REF = {
 }
 
 
+POPUP_WOOD = 2000  # message boxes have 5,700+ wood-brown pixels over the map; the bare map ~100-200
+
+
+def wood_pixels(im):
+    """Count wood-brown pixels in the map viewport (left of the side panel)."""
+    n = 0
+    for r, g, b in im.crop((0, 9, 240, 200)).getdata():
+        if 50 <= r <= 150 and 25 <= g <= 110 and b <= 70 and r > g > b and r - b >= 30:
+            n += 1
+    return n
+
+
 def sh(*a):
     return subprocess.run(a, check=True, capture_output=True, text=True).stdout.strip()
 
@@ -50,9 +62,12 @@ class Col:
         return Image.open(path).convert("RGB")
 
     def screen(self, im=None):
+        """map, popup (a message box over the map), europe, or other."""
         im = im or self.grab()
         for name, (box, h) in REF.items():
             if hashlib.md5(im.crop(box).tobytes()).hexdigest() == h:
+                if name == "map" and wood_pixels(im) > POPUP_WOOD:
+                    return "popup"
                 return name
         return "other"
 

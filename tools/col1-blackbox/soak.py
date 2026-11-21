@@ -17,11 +17,20 @@ def mtimes():
     return {p: os.path.getmtime(p) for p in AUTOS if os.path.exists(p)}
 
 
+def tax_pos(d):
+    """The tax byte follows two record lists whose counts are in the header:
+    u16 at 0x2C counts 28-byte records, u16 at 0x2E counts 202-byte records.
+    Fitted on 144 saves of one game (see README)."""
+    u = lambda h: struct.unpack_from("<H", d, h)[0]
+    return 391 + 28 * u(0x2C) + 202 * u(0x2E)
+
+
 def fields(d):
+    p = tax_pos(d)
     return {
         "year": struct.unpack_from("<H", d, 0x1A)[0],
-        "tax": d[len(d) - 22062],
-        "gold_candidate": struct.unpack_from("<I", d, len(d) - 22062 + 41)[0],
+        "tax": d[p],
+        "gold_candidate": struct.unpack_from("<I", d, p + 41)[0],
         "size": len(d),
         "md5": hashlib.md5(d).hexdigest(),
     }
@@ -31,6 +40,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", required=True)
     ap.add_argument("--until", type=int, default=1900)
+    ap.add_argument("--turbo", action="store_true", help="press Alt+F12 (DOSBox speed unlock) after loading")
+    ap.add_argument("--keep", action="store_true", help="keep a copy of every autosave in OUT/saves/")
     ap.add_argument("--idle", type=float, default=120, help="seconds without an autosave that end the run")
     a = ap.parse_args()
     os.makedirs(os.path.join(a.out, "screens"), exist_ok=True)
@@ -38,6 +49,8 @@ def main():
 
     c = col.Col()
     col.load_slot1(c)
+    if a.turbo:
+        c.key("alt+F12")
     last_mtimes = mtimes()
     last_save, last_key, n, seen = time.time(), 0, 0, set()
     while True:
@@ -47,7 +60,11 @@ def main():
             time.sleep(0.3)  # let the write finish
             last_mtimes = mtimes()
             p = changed[0]
-            rec = {"n": n, "t": round(time.time(), 1), "file": os.path.basename(p), **fields(open(p, "rb").read())}
+            data = open(p, "rb").read()
+            rec = {"n": n, "t": round(time.time(), 1), "file": os.path.basename(p), **fields(data)}
+            if True:  # always keep: readers can be fixed and rerun on the files
+                os.makedirs(os.path.join(a.out, "saves"), exist_ok=True)
+                open(os.path.join(a.out, "saves", f"{n:04d}-{rec['year']}.SAV"), "wb").write(data)
             n += 1
             log.write(json.dumps(rec) + "\n"); log.flush()
             last_save = time.time()
@@ -58,7 +75,7 @@ def main():
             return
         im = c.grab()
         s = c.screen(im)
-        if s == "other":
+        if s in ("other", "popup"):
             time.sleep(0.4)
             im = c.grab()
             h = hashlib.md5(im.tobytes()).hexdigest()
