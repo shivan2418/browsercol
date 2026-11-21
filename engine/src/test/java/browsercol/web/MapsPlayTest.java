@@ -27,7 +27,9 @@ import net.sf.freecol.common.model.Map;
 
 /**
  * Every map the start screen offers (the .fsm files FreeCol comes with, but Giga Earth, which the start screen
- * leaves out, #459) and the America map start a game and play AI rounds on the square grid (#528).
+ * leaves out, #459) and the America map start a game and play AI rounds on the square grid (#528). FreeCol's maps
+ * come in both shapes (#559): resampled north-up, as Top-down shaped maps, in data/maps, and as FreeCol made them,
+ * which load as Isometric shaped maps, in data/maps/isometric; a map keeps its shape in the game.
  */
 class MapsPlayTest {
 
@@ -51,10 +53,15 @@ class MapsPlayTest {
         toServer.shutdownNow();
     }
 
-    /** The map files by name: America of ours, then FreeCol's. */
+    private static Stream<String> fsms(String dir) {
+        return Arrays.stream(new File("data/maps", dir).list())
+            .filter(n -> n.endsWith(".fsm") && !n.equals(LEFT_OUT)).sorted();
+    }
+
+    /** The map files by name: America of ours, then FreeCol's, Top-down shaped, then in FreeCol's own shape. */
     static Stream<String> maps() {
-        return Stream.concat(Stream.of("america-1492.txt"), Arrays.stream(new File("data/maps").list())
-            .filter(n -> n.endsWith(".fsm") && !n.equals(LEFT_OUT)).sorted());
+        return Stream.concat(Stream.concat(Stream.of("america-1492.txt"), fsms("")),
+            fsms("isometric").map(n -> "isometric/" + n));
     }
 
     private static File file(String name) {
@@ -88,6 +95,11 @@ class MapsPlayTest {
         FirstTurn.await(finished[0]);
         final Map map = server.getGame().getMap();
         assertTrue(map.getWidth() > 0 && map.getHeight() > 0);
+        assertEquals(name.startsWith("isometric/"), map.getShape().isIsometric(), "the map's shape: " + map.getShape());
+        // Every tile of the game is on the map, and none of the box's corners is.
+        final int tiles = map.getTileList(t -> true).size();
+        assertEquals(tiles, map.getShape().isIsometric() ? map.getShape().getColumns() * map.getShape().getRows()
+            : map.getWidth() * map.getHeight());
         assertFalse(map.getTileList(t -> t.isLand()).isEmpty(), "the map has land");
         assertNotNull(server.getGame().getPlayerByNationId("model.nation.dutch").getEntryTile(),
             "the Dutch have an entry tile");
