@@ -8,7 +8,7 @@ import type { Direction } from './projection';
 export const FLAT = 'flat:';
 
 /** What marks a terrain type besides its colour. */
-export type Marker = 'none' | 'hills' | 'mountains' | 'forest' | 'marsh';
+export type Marker = 'none' | 'hills' | 'mountains' | 'forest' | 'marsh' | 'ice';
 
 const COLOURS: Record<string, number> = {
   plains: 0xc8b85a,
@@ -19,7 +19,8 @@ const COLOURS: Record<string, number> = {
   swamp: 0x587a62,
   desert: 0xe0cd8f,
   tundra: 0xaab9a6,
-  arctic: 0xf2f6fa,
+  // Not white: the colony panel's paper is nearly that, and an arctic tile there must not look like no tile at all.
+  arctic: 0xc4d6e8,
   hills: 0x9aa35f,
   mountains: 0x8d887c,
   ocean: 0x4a78c4,
@@ -37,6 +38,9 @@ const RIVER = 0x6fa8e8;
 /** The last word of a tile type's id: `model.tile.mixedForest` is `mixedForest`. */
 const nameOf = (id: string) => id.slice(id.lastIndexOf('.') + 1);
 
+/** Whether a tile type has a colour of its own, rather than the land or water one every type without gets. */
+export const hasColour = (id: string): boolean => nameOf(id) in COLOURS;
+
 /** A tile type's placeholder look: its colour and its marker. */
 export function lookOf(type: { id: string; land: boolean; forested: boolean } | null): {
   colour: number;
@@ -53,7 +57,9 @@ export function lookOf(type: { id: string; land: boolean; forested: boolean } | 
         ? 'mountains'
         : name === 'marsh' || name === 'swamp'
           ? 'marsh'
-          : 'none';
+          : name === 'arctic'
+            ? 'ice'
+            : 'none';
   return { colour: known ?? (type.land ? LAND : WATER), marker };
 }
 
@@ -134,6 +140,22 @@ export function drawFlat(name: string): HTMLCanvasElement {
         g.lineTo(x + 3, y + 4);
       });
     }
+  }
+  if (marker === 'ice') {
+    // Cracks in the ice.
+    g.strokeStyle = 'rgb(110, 140, 175)';
+    g.lineWidth = 2;
+    g.beginPath();
+    for (const [x, y] of [
+      [16, 20],
+      [40, 34],
+      [22, 46],
+    ]) {
+      g.moveTo(x, y);
+      g.lineTo(x + 12, y - 5);
+      g.lineTo(x + 20, y + 3);
+    }
+    g.stroke();
   }
   if (river) {
     g.strokeStyle = shade(RIVER, 0);

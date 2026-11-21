@@ -14,7 +14,9 @@ import {
   type Direction,
 } from './projection';
 import { staticScene, UNIT_FIT, unitScene, type MapView, type Op, type Recipe } from './tileset';
-import { drawFlat, flatSrc, FLAT, lookOf, riverSides } from './topdown-art';
+import fs from 'node:fs';
+import path from 'node:path';
+import { drawFlat, flatSrc, FLAT, hasColour, lookOf, riverSides } from './topdown-art';
 import { initialView, reduce, switchView, type MapFacts, type ViewEvent } from './view';
 
 afterEach(() => {
@@ -230,6 +232,30 @@ describe('the placeholder art', () => {
     // A type it has no colour for is told apart by land and water.
     expect(lookOf(type('unheardOf', true)).colour).not.toBe(lookOf(type('unheardOf', false)).colour);
     expect(lookOf(null).colour).toBe(0);
+  });
+
+  it("gives every tile type of the classic rules a colour of its own, none near the colony panel's paper", () => {
+    const spec = fs.readFileSync(
+      path.resolve(import.meta.dirname, '../../freecol/data/rules/classic/specification.xml'),
+      'utf8',
+    );
+    const types = [...spec.matchAll(/<tile-type\s+id="([^"]+)"([^>]*)>/g)].map((m) => ({
+      id: m[1],
+      land: !/is-water="true"/.test(m[2]),
+      forested: /is-forest="true"/.test(m[2]),
+    }));
+    expect(types.length).toBeGreaterThanOrEqual(24);
+    for (const t of types) {
+      const { colour } = lookOf(t);
+      // Forests share one colour; the others are listed.
+      expect(t.forested || hasColour(t.id), t.id).toBe(true);
+      expect(colour, t.id).toBeGreaterThan(0);
+      // Paper is about 0xf0e4c4: no tile's colour is that light in all three channels.
+      expect(Math.min((colour >> 16) & 255, (colour >> 8) & 255, colour & 255), t.id).toBeLessThan(0xd8);
+    }
+    expect(lookOf(types.find((t) => t.id.endsWith('arctic'))!).marker).toBe('ice');
+    // A type the rules do not have still gets one, by land and water.
+    expect(lookOf({ id: 'mod.tile.moss', land: true, forested: false }).colour).toBeGreaterThan(0);
   });
 
   it('names the picture by what it shows, and draws it a tile big', () => {
