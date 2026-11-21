@@ -44,10 +44,9 @@ test {
     jvmArgs '-Djava.awt.headless=true'
     // A fork that runs out of heap leaves a dump in build/ (java_pid*.hprof).
     jvmArgs '-XX:+HeapDumpOnOutOfMemoryError', "-XX:HeapDumpPath=${layout.buildDirectory.get().asFile}"
-    // Every test starts whole FreeCol games. FreeCol's NameCache kept every
-    // game a JVM made reachable, about 17 MB each, until ClearNameCache
-    // (#439) cleared it after each test; before that the heap ran out at
-    // 512 MB, and at 2 GB under load. A fresh JVM every few test classes
+    // Every test starts whole FreeCol games, about 17 MB each. StopServers ends
+    // each test's server thread (which holds its game), and NameCache holds
+    // its players weakly (#541, #439). A fresh JVM every few test classes
     // stays as a backstop against the next such leak.
     maxHeapSize = '2g'
     forkEvery = 6
