@@ -1240,6 +1240,9 @@ public final class InGameController extends FreeColClientHolder {
                     && unit.getTile().isDirectlyHighSeasConnected()) {
                     return moveTowardEurope(unit, (Europe)path.getLocation());
                 }
+                // A unit that has just sailed onto the high seas on this
+                // path is already on its way to Europe.
+                if (unit.isAtSea()) return true;
                 logger.warning("Can not move to Europe from "
                     + unit.getLocation()
                     + " on path: " + path.fullPathToString());
@@ -1519,13 +1522,16 @@ public final class InGameController extends FreeColClientHolder {
      *
      * @param unit The {@code Unit} to be moved.
      * @param europe The {@code Europe} to be moved to.
-     * @return True if automatic movement of the unit can proceed (never).
+     * @return True if the unit is now on its way to Europe, so it needs
+     *     nothing more from the player this turn; false if the server
+     *     refused the move.
      */
     private boolean moveTowardEurope(Unit unit, Europe europe) {
         UnitWas unitWas = new UnitWas(unit);
         if (askServer().moveTo(unit, europe)) {
             fireChanges(unitWas);
             updateGUI(null, false);
+            return true;
         }
         return false;
     }
