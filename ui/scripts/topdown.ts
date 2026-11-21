@@ -80,13 +80,15 @@ async function hits(page: Page, tile: Tile, what: string) {
   await sleep(300);
   const hover = await page.evaluate(() => window.fcView!().hover as Tile | null);
   if (!same(hover, tile)) throw new Error(`${what}: the pointer over ${label(tile)} hovers ${label(hover)}`);
-  // A pixel past the tile's own half a tile (64 px at zoom 1, whatever the zoom) east is its neighbour.
+  // A pixel past the tile's own half a tile (64 px at zoom 1, whatever the zoom) is its neighbour. West,
+  // unless the tile is in the first column: a ship can start in the last column, with nothing east of it.
+  const dx = tile[0] > 0 ? -1 : 1;
   const zoom = await page.evaluate(() => window.fcView!().zoom as number);
-  await page.mouse.move(box.x + px + 48 * zoom, box.y + py);
+  await page.mouse.move(box.x + px + dx * 48 * zoom, box.y + py);
   await sleep(300);
   const next = await page.evaluate(() => window.fcView!().hover as Tile | null);
-  if (!same(next, [tile[0] + 1, tile[1]]))
-    throw new Error(`${what}: a tile to the east of ${label(tile)} hovers ${label(next)}`);
+  if (!same(next, [tile[0] + dx, tile[1]]))
+    throw new Error(`${what}: a tile to the ${dx < 0 ? 'west' : 'east'} of ${label(tile)} hovers ${label(next)}`);
 }
 
 let failed = false;
