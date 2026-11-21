@@ -4946,10 +4946,15 @@ public final class InGameController extends FreeColClientHolder {
         MarketWas marketWas = new MarketWas(player);
         
         UnitWas unitWas = new UnitWas(carrier);
+        // The server pays nothing for boycotted goods, it dumps them,
+        // so that is not a sale: no sale sound, nothing for the listeners.
+        final boolean sale = player.canTrade(goods.getType());
         boolean ret = askUnloadGoods(goods.getType(), goods.getAmount(), carrier);
         if (ret) {
-            marketWas.add(new AbstractGoods(goods.getType(), goods.getAmount()));
-            sound("sound.event.sellCargo");
+            if (sale) {
+                marketWas.add(new AbstractGoods(goods.getType(), goods.getAmount()));
+                sound("sound.event.sellCargo");
+            }
             fireChanges(europeWas, marketWas, unitWas);
             updateGUI(null, false);
         }
