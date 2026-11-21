@@ -1,0 +1,3 @@
+runs/
+# Glyph bitmaps are copied from the game's screen font; rebuild locally with learn.py.
+glyphs.json
