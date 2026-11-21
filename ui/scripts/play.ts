@@ -476,10 +476,17 @@ async function play(page: Page, url: string) {
       if (same(m.active, tile) || attempt === 3) return m;
     }
   };
-  /** The first end turn watches the banner: it must name a player who is moving (#382), and it is shot while it does. */
-  let bannerWatched = false;
+  /**
+   * The end turns watch the banner until it has named a player who is moving (#382), and it is shot while it
+   * does. A round can be over before the page shows any banner (a landing on the first turn, with the others
+   * having little to move, ends it in a blink), so a round that shows none is no failure by itself: the next
+   * end turn watches again, and the third round with no name is the failure.
+   */
+  let bannerNamed = false;
+  let bannerMisses = 0;
   const watchBanner = async (roundOver: () => boolean) => {
     const shot = new Set<string>();
+    let seen = '';
     while (true) {
       const text =
         (await page
@@ -487,6 +494,7 @@ async function play(page: Page, url: string) {
           .first()
           .textContent({ timeout: 300 })
           .catch(() => null)) ?? '';
+      if (text) seen = text;
       if (/^The .* are moving\.\.\./.test(text)) {
         const kind = text.startsWith('The natives') ? 'natives' : 'nation';
         if (!shot.has(kind)) {
@@ -499,7 +507,11 @@ async function play(page: Page, url: string) {
       }
       if (roundOver()) {
         if (shot.size > 0) return;
-        throw new Error('the AI round passed without the banner naming a player');
+        if (++bannerMisses >= 3) {
+          throw new Error(`three AI rounds passed without the banner naming a player (last banner seen: "${seen}")`);
+        }
+        console.log(`  an AI round passed without the banner naming a player (banner seen: "${seen}"); watching the next`);
+        return;
       }
       await page.waitForTimeout(50);
     }
@@ -507,16 +519,19 @@ async function play(page: Page, url: string) {
   const endTurn = async (expectUnit = false) => {
     const turn = (await view()).turn;
     let over = false;
-    const watching = bannerWatched ? null : watchBanner(() => over);
+    const missesBefore = bannerMisses;
+    const watching = bannerNamed ? null : watchBanner(() => over);
     watching?.catch(() => {});
-    bannerWatched = true;
     await pressKey('Enter');
     await page.waitForFunction((t) => window.__map.turn !== t && window.__map.ourTurn, turn, {
       timeout: 120000,
       label: 'the next turn starts and play is back with the human',
     });
     over = true;
-    await watching;
+    if (watching) {
+      await watching;
+      bannerNamed = bannerNamed || bannerMisses === missesBefore;
+    }
     // The client picks the unit to play with, which the map names when it comes: the map of the new
     // turn may come first, with no unit yet, and the script must not spend its turns on that.
     if (expectUnit) {
