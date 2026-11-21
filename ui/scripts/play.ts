@@ -18,11 +18,13 @@
 // what the side panel leaves of the window, and the wheel, a drag and the
 // pointer at an edge must zoom and scroll it at its new size. Exits non-zero
 // unless every browser gets there. Run in the web image:
-//   DEV_VARIANT=web ./dev.sh node ui/scripts/play.ts [--browsers chromium,firefox] [--query renderer=canvas2d|preset=dutch-small|preset=] (default preset: play) [--scale 2]
+//   DEV_VARIANT=web ./dev.sh node ui/scripts/play.ts [--browsers chromium,firefox] [--query renderer=canvas2d|preset=dutch-small|preset=] (default preset: play) [--scale 2] [--view topdown]
+// With --view topdown the game is played in the Top-down Map view (#530), which the script switches to in the debug
+// side panel as the game starts; its screenshots are .cache/play-topdown-*.png.
 import fs from 'node:fs';
 import path from 'node:path';
 import type { Locator, Page } from 'playwright-core';
-import { neighbourOnScreen } from '../src/projection.ts';
+import { neighbourOnScreen, setView } from '../src/projection.ts';
 import type { MapView, Unit } from '../src/tileset.ts';
 import { browserNames, collectPageErrors, diagnose, launchBrowser, opt, waitForResult } from './common.ts';
 import { logAudio } from './sound-log.ts';
@@ -41,6 +43,12 @@ const query = /(^|&)preset=/.test(given)
   : `preset=play${given ? `&${given}` : ''}`;
 /** The device pixel ratio the browser reports: 2 to play as on a HiDPI screen. */
 const scale = Number(opt('scale', '1'));
+/** The Map view to play in (#530): isometric, the default, or topdown, which the side panel's switch turns on at the start. */
+const mapView = opt('view', 'isometric');
+/** What the screenshots' names carry, so that a run in each view keeps its shots apart. */
+const viewTag = mapView === 'topdown' ? '-topdown' : '';
+// The script's own copy of the projection is the page's: it works out the tiles next to a tile with it.
+if (mapView === 'topdown') setView('topdown');
 const MAX_TURNS = 15;
 
 /** A tile's [x, y]. */
@@ -328,7 +336,7 @@ async function play(page: Page, url: string) {
     shooting++;
     try {
       if (kind === 'europe') europeSeen.push(await europePanel());
-      await page.screenshot({ path: path.join(dist, `../.cache/play-${browserName}-${kind}-${n}.png`) });
+      await page.screenshot({ path: path.join(dist, `../.cache/play${viewTag}-${browserName}-${kind}-${n}.png`) });
       shotTimes.push(`${kind} ${n}: ${((Date.now() - t) / 1000).toFixed(1)} s`);
     } catch (ex) {
       shotTimes.push(`${kind} ${n}: failed ${String(ex).split('\n')[0]}`);
@@ -1003,7 +1011,7 @@ async function play(page: Page, url: string) {
       ].filter((x) => x !== '');
     });
     const browser = page.context().browser()!.browserType().name();
-    await page.screenshot({ path: path.join(dist, `../.cache/play-${browser}-build-queue.png`) });
+    await page.screenshot({ path: path.join(dist, `../.cache/play${viewTag}-${browser}-build-queue.png`) });
     if (fit.length > 0) throw new Error(`the build queue window does not fit: ${fit.join('; ')}`);
     // The buildings and the units take the room their rows need: a list scrolls only if it has at least the other's
     // room. Show all lists everything, units the colony cannot build yet too, so both lists are long.
@@ -1037,12 +1045,12 @@ async function play(page: Page, url: string) {
     await showAll.check();
     await panel.locator('[data-part=units] [data-locked]').first().waitFor({ timeout: 20000, label: 'Show all' });
     cramped.push(...(await shared()));
-    await page.screenshot({ path: path.join(dist, `../.cache/play-${browser}-build-queue-all.png`) });
+    await page.screenshot({ path: path.join(dist, `../.cache/play${viewTag}-${browser}-build-queue-all.png`) });
     // And with each list scrolled part way, where a caption meets the rows passing under it.
     await panel.locator('.queue-lists').evaluate((lists) => {
       for (const e of lists.querySelectorAll<HTMLElement>(':scope > .box, :scope > .box > ul')) e.scrollTop = 30;
     });
-    await page.screenshot({ path: path.join(dist, `../.cache/play-${browser}-build-queue-scrolled.png`) });
+    await page.screenshot({ path: path.join(dist, `../.cache/play${viewTag}-${browser}-build-queue-scrolled.png`) });
     await showAll.uncheck();
     if (cramped.length > 0) throw new Error(`the build lists: ${cramped.join('; ')}`);
     // The queue's popup covers the panel until it is closed.
@@ -1506,6 +1514,10 @@ async function play(page: Page, url: string) {
 
   await page.goto(url);
   await waitForResult(page, 120000);
+  if (mapView === 'topdown') {
+    await page.selectOption('#map-view', 'topdown');
+    console.log('  map view: top-down');
+  }
   let m = await view();
   if (!m.ourTurn) throw new Error('not our turn at the start');
   await following(m, 'at the start');
@@ -2143,12 +2155,12 @@ for (const name of browsers) {
   try {
     result = await play(page, `${server.url}?skipstart${query ? `&${query}` : ''}`);
     await page.evaluate(([x, y]) => window.fcReveal!(x, y), result.land!);
-    await page.screenshot({ path: path.join(dist, `../.cache/play-${name}.png`) });
+    await page.screenshot({ path: path.join(dist, `../.cache/play${viewTag}-${name}.png`) });
   } catch (ex) {
     result = { error: await diagnose(ex) };
   }
   // The page may be too stuck to shoot: that must not replace the failure with a bare screenshot timeout.
-  await page.screenshot({ path: path.join(dist, `../.cache/play-${name}.png`) }).catch((ex) => {
+  await page.screenshot({ path: path.join(dist, `../.cache/play${viewTag}-${name}.png`) }).catch((ex) => {
     console.log(`  the final screenshot failed: ${String(ex).split('\n')[0]}`);
   });
   const log = await dialogLog(page).catch(() => ({ dialogs: [], texts: [], pictures: [], unasked: [] }));

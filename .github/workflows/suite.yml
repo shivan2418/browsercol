@@ -49,6 +49,14 @@ jobs:
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: DEV_VARIANT=web ./dev.sh node ui/scripts/play.ts
 
+      - name: Browser play (Top-down view)
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: DEV_VARIANT=web ./dev.sh node ui/scripts/play.ts --view topdown
+
+      - name: Browser top-down shots
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: DEV_VARIANT=web ./dev.sh node ui/scripts/topdown.ts
+
       - name: Browser saves
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: DEV_VARIANT=web ./dev.sh node ui/scripts/saves.ts
