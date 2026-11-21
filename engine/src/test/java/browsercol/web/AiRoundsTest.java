@@ -55,8 +55,8 @@ class AiRoundsTest {
         server.startGame("classic", GamePreset.parse(preset));
         assertTrue(client[0].startGame(0), "login");
         FirstTurn.await(finished[0]);
-        assertEquals(80, server.getGame().getMap().getWidth(), "the default map is 80x50");
-        assertEquals(50, server.getGame().getMap().getHeight());
+        assertEquals(58, server.getGame().getMap().getWidth(), "the default map is 58x72");
+        assertEquals(72, server.getGame().getMap().getHeight());
         final int turn = client[0].getGame().getTurn().getNumber();
         finished[0] = new CountDownLatch(1);
         client[0].skipTurns(ROUNDS);
