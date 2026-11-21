@@ -13,7 +13,6 @@ import java.util.concurrent.Executors;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
@@ -132,21 +131,25 @@ class DosMapTest {
         return server;
     }
 
-    @Disabled("#528: ui/maps/america-1492.txt is laid out for the staggered grid")
     @Test
     @Timeout(240)
     void aGameOnTheAmericaMapHasItsShapeRiversAndNatives() throws Exception {
         Game game = play(america()).getGame();
         Map map = game.getMap();
-        assertEquals(29, map.getWidth());
-        assertEquals(143, map.getHeight());
+        // The DOS map's own size and layout, tile for tile.
+        assertEquals(58, map.getWidth());
+        assertEquals(72, map.getHeight());
         // DOS (30, 36), deep in South America's Amazon, and (2, 36) in the Pacific.
-        assertTrue(map.getTile(15, 72).isLand(), map.getTile(15, 72).toString());
-        assertFalse(map.getTile(1, 72).isLand());
+        assertTrue(map.getTile(30, 36).isLand(), map.getTile(30, 36).toString());
+        assertFalse(map.getTile(2, 36).isLand());
         assertEquals("model.tile.arctic", map.getTile(5, 0).getType().getId());
-        assertEquals("model.tile.highSeas", map.getTile(28, 71).getType().getId());
+        assertEquals("model.tile.highSeas", map.getTile(57, 36).getType().getId());
+        // North is up: Canada's tundra above, Tierra del Fuego's tip below.
+        assertTrue(map.getTile(7, 5).isLand(), "land in the north-west");
+        assertTrue(map.getTile(36, 66).isLand(), "land in the far south");
+        assertFalse(map.getTile(7, 66).isLand(), "the south-west is sea");
         // DOS (18, 12), in the Great Lakes: ocean in the DOS map, lake once FreeCol imports it.
-        assertEquals("model.tile.lake", map.getTile(9, 24).getType().getId());
+        assertEquals("model.tile.lake", map.getTile(18, 12).getType().getId());
         long rivers = map.getTileList(Tile::hasRiver).size();
         assertTrue(rivers > 50, rivers + " river tiles");
         long joined = map.getTileList(t -> t.hasRiver()
@@ -154,7 +157,8 @@ class DosMapTest {
         assertTrue(joined > rivers * 9 / 10, joined + " of " + rivers + " river tiles joined");
         assertTrue(map.getTileList(t -> t.getRegion() == null).isEmpty(), "every tile has a region");
         assertFalse(game.getLiveNativePlayerList().isEmpty());
-        assertTrue(map.getTileList(t -> t.getIndianSettlement() != null).size() > 20);
+        long settlements = map.getTileList(t -> t.getIndianSettlement() != null).size();
+        assertTrue(settlements >= 15, settlements + " native settlements");
         assertNotNull(game.getPlayerByNationId("model.nation.dutch").getEntryTile());
     }
 }

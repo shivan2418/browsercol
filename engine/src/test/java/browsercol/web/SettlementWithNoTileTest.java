@@ -13,7 +13,6 @@ import java.util.concurrent.Executors;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
@@ -85,7 +84,6 @@ class SettlementWithNoTileTest {
      * the game while it was being copied (#542). The map JSON of the start of
      * the game threw (#459, #462): the page stayed on "Loading the art".
      */
-    @Disabled("#528: data/maps/XL_GigaEarth_Mazim.fsm is laid out for the staggered grid, and the seed's settlement beside the entry tile moves with it")
     @Test
     @Timeout(240)
     void everySettlementOfTheClientHasItsTile() throws Exception {
