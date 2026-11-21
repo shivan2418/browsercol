@@ -15,6 +15,12 @@
 // takes a grid direction; everything that draws (roads, rivers, beaches, borders, fog) and the player's keys think in
 // screen ones, and use `neighbourOnScreen` and Projection.inGrid.
 
+// A map has a shape that fits the Map view the game is played in (#559, ADR 0014). A Top-down shaped map is the whole
+// rectangle of the grid. An Isometric shaped one is a 45 degree diamond on the grid: the tiles whose screen column
+// x - y and screen row x + y are in a range, which draws as a rectangle in the Isometric view. The map's w and h are
+// the box round its tiles; the Engine leaves out the tiles in the box's corners. `shape` below says which kind the
+// map shown is, and the Isometric view lays an Isometric shaped map out as that rectangle.
+
 export type Direction = 'N' | 'NE' | 'E' | 'SE' | 'S' | 'SW' | 'W' | 'NW';
 
 /** A tile's column and row. */
@@ -122,6 +128,63 @@ export interface Projection {
   blockSize(size?: number): Point;
 }
 
+/** The outline of the map: the whole grid, or the diamond of FreeCol's staggered maps. */
+export interface MapShape {
+  kind: 'topDown' | 'isometric';
+  /** An Isometric shape's half-height rows (a row is half a tile high on the screen), else 0. */
+  rows: number;
+}
+
+const TOP_DOWN_SHAPE: MapShape = { kind: 'topDown', rows: 0 };
+let shape: MapShape = TOP_DOWN_SHAPE;
+
+/** The shape of the map shown. */
+export const mapShape = (): MapShape => shape;
+/** Set the shape of the map shown, when a game's map arrives. Returns whether it changed. */
+export const setMapShape = (next: Partial<MapShape> | null | undefined): boolean => {
+  const n: MapShape =
+    next?.kind === 'isometric' && (next.rows ?? 0) > 0 ? { kind: 'isometric', rows: next.rows! } : TOP_DOWN_SHAPE;
+  const changed = n.kind !== shape.kind || n.rows !== shape.rows;
+  shape = n;
+  return changed;
+};
+
+/** The Map view a shape is made for: an Isometric shaped map is a rectangle on screen in the Isometric view. */
+export const viewOfShape = (s: Pick<MapShape, 'kind'> | null | undefined): MapViewKind =>
+  s?.kind === 'isometric' ? 'isometric' : 'topdown';
+
+/** The tiles across an Isometric shape of a box `w` wide: the columns of its staggered map. */
+const isoColumns = (w: number) => w - (shape.rows >> 1);
+
+/**
+ * Whether column x, row y of a w by h box is a tile of the map. An Isometric shaped map's tile (x, y) is column
+ * x - ((r + 1) >> 1) of the staggered row r = x + y - (columns - 1): the staggered map's tile, in the diamond.
+ */
+export const inShape = (w: number, h: number, x: number, y: number): boolean => {
+  if (x < 0 || y < 0 || x >= w || y >= h) return false;
+  if (shape.kind !== 'isometric') return true;
+  const columns = isoColumns(w);
+  const row = x + y - (columns - 1);
+  const col = x - ((row + 1) >> 1);
+  return row >= 0 && row < shape.rows && col >= 0 && col < columns;
+};
+
+/**
+ * Whether the Isometric view lays the map out as a rectangle on the screen: it does for an Isometric shaped map, and
+ * only then (a Top-down shaped map is a big diamond there, and an Isometric shaped one a diamond in Top-down).
+ */
+const flat = () => kind === 'isometric' && shape.kind === 'isometric';
+/**
+ * Where the Isometric view's rectangle starts in the box's own diamond layout: the tiles of an Isometric shaped map
+ * are those with screen column x - y from 1 - columns to columns and screen row x + y from columns - 1, which in
+ * the box w by h (rows = h) puts the rectangle's left edge at (h - columns) tile half-widths and its top at
+ * (columns - 1) half-heights.
+ */
+const flatOffset = (h: number): Point => {
+  const columns = h - ((shape.rows - 1) >> 1);
+  return [(h - columns) * (W / 2), (columns - 1) * (H / 2)];
+};
+
 const DIRECTIONS: readonly Direction[] = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
 /** FreeCol's Direction since #526 (ADR 0014): the same step in every row. */
 const STEPS: Record<Direction, Point> = {
@@ -194,7 +257,10 @@ export const isometric: Projection = {
   tile: { w: W, h: H },
   stride: { w: W, h: H },
   labelsInside: false,
-  origin: (x, y, rows) => [(x - y + rows - 1) * (W / 2), (x + y) * (H / 2)],
+  origin: (x, y, rows) => {
+    const [dx, dy] = flat() ? flatOffset(rows) : [0, 0];
+    return [(x - y + rows - 1) * (W / 2) - dx, (x + y) * (H / 2) - dy];
+  },
   centre: (x, y, rows) => {
     const [ox, oy] = isometric.origin(x, y, rows);
     return [ox + W / 2, oy + H / 2];
@@ -212,20 +278,30 @@ export const isometric: Projection = {
       isometric.origin(x1 + reach, y1 + reach, rows)[1] + H,
     ];
   },
-  mapSize: (w, h) => [((w + h) * W) / 2, ((w + h) * H) / 2],
+  mapSize: (w, h) =>
+    flat()
+      ? // The rectangle of an Isometric shaped map: its columns of tile widths and a half more, its rows of half tiles
+        // and a half more.
+        [isoColumns(w) * W + W / 2, ((shape.rows + 1) * H) / 2]
+      : [((w + h) * W) / 2, ((w + h) * H) / 2],
   tileAt: (w, h, px, py) => {
     // With a = x and b = y as continuous coordinates, a tile's diamond is where both are within half a tile of it.
-    const p = px / (W / 2) - h;
-    const q = py / (H / 2) - 1;
+    const [ox, oy] = flat() ? flatOffset(h) : [0, 0];
+    const p = (px + ox) / (W / 2) - h;
+    const q = (py + oy) / (H / 2) - 1;
     const [x, y] = [Math.floor((p + q) / 2 + 0.5), Math.floor((q - p) / 2 + 0.5)];
-    return x >= 0 && y >= 0 && x < w && y < h ? [x, y] : null;
+    return inShape(w, h, x, y) ? [x, y] : null;
   },
   keepOn: (w, h, [px, py]) => {
     const [mw, mh] = isometric.mapSize(w, h);
+    // A rectangle on the screen: the camera stays inside it.
+    if (flat()) return [Math.min(mw, Math.max(0, px)), Math.min(mh, Math.max(0, py))];
     const out = Math.abs(px - mw / 2) / (mw / 2) + Math.abs(py - mh / 2) / (mh / 2);
     return out <= 1 ? [px, py] : [mw / 2 + (px - mw / 2) / out, mh / 2 + (py - mh / 2) / out];
   },
   rowFraction: (h, px, py) => {
+    // A rectangle has its rows across it: the top edge is the north pole and the bottom edge the south pole.
+    if (flat()) return Math.min(1, Math.max(0, py / (((shape.rows + 1) * H) / 2)));
     // The row is the continuous coordinate b = (q - p) / 2 of tileAt, from -0.5 to h - 0.5.
     const [p, q] = [px / (W / 2) - h, py / (H / 2) - 1];
     return Math.min(1, Math.max(0, (q - p) / 2 + 0.5) / h);
@@ -233,7 +309,7 @@ export const isometric: Projection = {
   eachTile: (w, h, f) => {
     // Along the diagonals x + y, back to front, each from west to east: what a tile's art covers is drawn before it.
     for (let s = 0; s < w + h - 1; s++) {
-      for (let x = Math.max(0, s - h + 1); x <= Math.min(w - 1, s); x++) f(x, s - x);
+      for (let x = Math.max(0, s - h + 1); x <= Math.min(w - 1, s); x++) if (inShape(w, h, x, s - x)) f(x, s - x);
     }
   },
   faces: FACES,
@@ -289,12 +365,12 @@ export const topDown: Projection = {
   mapSize: (w, h) => [w * T, h * T],
   tileAt: (w, h, px, py) => {
     const [x, y] = [Math.floor(px / T), Math.floor(py / T)];
-    return x >= 0 && y >= 0 && x < w && y < h ? [x, y] : null;
+    return inShape(w, h, x, y) ? [x, y] : null;
   },
   keepOn: (w, h, [px, py]) => [Math.min(w * T, Math.max(0, px)), Math.min(h * T, Math.max(0, py))],
   rowFraction: (h, _px, py) => Math.min(1, Math.max(0, py / (h * T))),
   eachTile: (w, h, f) => {
-    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) f(x, y);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (inShape(w, h, x, y)) f(x, y);
   },
   faces: EDGES,
   isFace: (d) => EDGES.includes(d),

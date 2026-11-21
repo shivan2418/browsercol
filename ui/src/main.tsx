@@ -119,7 +119,7 @@ import type { AudioManifest } from './resources';
 import { soundPlayer } from './sound';
 import { StartScreen, type StartSetup } from './start-screen';
 import { TitleScreen } from './title-screen';
-import { presetJson, startOptions } from './start';
+import { presetJson, shapedFor, startOptions } from './start';
 import { nationName } from './fsg';
 import {
   chooseOpenFile,
@@ -176,7 +176,7 @@ import { audioLink, offlineAudio } from './offline-audio';
 import { UpdatePrompt } from './update-prompt';
 import { watchCompact } from './compact';
 import { controlArt } from './control-art';
-import { currentView, projection, type MapViewKind } from './projection';
+import { currentView, mapShape, projection, setMapShape, setView, viewOfShape, type MapViewKind } from './projection';
 import { debugMarkers, registerTileArt, unregisterTileArt } from './tile-art';
 import {
   cursor,
@@ -331,6 +331,10 @@ const preset = params.get('preset');
 let skipStart = params.has('skipstart') || params.has('preset') || loadId !== undefined;
 /** The preferences as the page loads: some are read only then. */
 const prefsAtLoad = loadPrefs();
+// A Map view named in the URL (scripts use ?view=topdown), over the one the page opens in. A game is made for it: its
+// map is shaped for the view it is started in (#559).
+const urlView = params.get('view');
+if (urlView === 'topdown' || urlView === 'isometric') setView(urlView);
 /**
  * Debug mode: `?debug`, or switched on and off with Ctrl+Shift+D or the View menu (FreeCol's Debug action), each only
  * while the player allows debug mode in Preferences (#464).
@@ -1682,7 +1686,20 @@ document.addEventListener('visibilitychange', showTabTitle);
 
 /** Whether the first map has been sent to be drawn: the loading screen waits for it. */
 let mapShown = false;
+/**
+ * A game's map has a shape made for one Map view (#559): the game opens in that view, whatever the page was in, and
+ * the map is laid out for its shape. The debug side panel's switch can change the view after; a map in the other view
+ * only has to draw. A debug preset (?preset=) places things by coordinates and keeps the view it is started in.
+ */
+function followShape(m: Pick<MapView, 'shape' | 'rows'>) {
+  const changed = setMapShape({ kind: m.shape, rows: m.rows });
+  const want = viewOfShape(mapShape());
+  if (!mapShown && !preset && want !== currentView()) setMapView(want);
+  else if (changed) map.viewSwitched();
+}
+
 function drawMap(m: MapView) {
+  followShape(m);
   nation = m.nation;
   side.turn = `${m.turn}${m.ourTurn ? '' : ' (AI playing)'}`;
   statusLine = m.statusLine;
@@ -2209,7 +2226,9 @@ async function run() {
     language,
     rules,
     load: loadId,
-    preset: presetJson,
+    // A new game's map is shaped for the view it is started in (#559); a loaded game's is the one it was saved with, and
+    // a debug preset's is its own (Top-down, as the scenarios place their things by coordinates).
+    preset: loadId === undefined && !preset ? shapedFor(presetJson, currentView()) : presetJson,
     importMap,
     autoplay,
     scope: globalThis as unknown as Scope,
@@ -2234,8 +2253,12 @@ async function run() {
         case 'map':
           return drawMap(JSON.parse(detail) as MapView);
         case 'terrain':
-          // The whole map's terrain, from the server Engine as a game starts or loads: the shader water's field.
-          return map.setTerrain(JSON.parse(detail) as Terrain);
+        // The whole map's terrain, from the server Engine as a game starts or loads: the shader water's field.
+        {
+          const terrain = JSON.parse(detail) as Terrain;
+          setMapShape({ kind: terrain.shape, rows: terrain.rows });
+          return map.setTerrain(terrain);
+        }
         case 'log':
           // The Worker's log, asked for by the error dialog or the banner.
           return showWorkerLog(detail);

@@ -121,6 +121,15 @@ const freecolMapUrls = import.meta.glob(['../../freecol/data/maps/*.fsm', '!**/X
 }) as Record<string, string>;
 
 /**
+ * FreeCol's original staggered maps (freecol/data/maps/isometric), which load as Isometric shaped maps, tile for tile
+ * (#559). The same file names as the resampled, Top-down shaped ones above.
+ */
+const freecolIsometricMapUrls = import.meta.glob(
+  ['../../freecol/data/maps/isometric/*.fsm', '!**/XL_GigaEarth_Mazim.fsm'],
+  { query: '?url', import: 'default', eager: true },
+) as Record<string, string>;
+
+/**
  * Each FreeCol map's size in tiles, width by height (its savegame.properties; start.test.ts checks them). The maps
  * are resampled to north-up square grids (#528): a staggered W x H map is 2W x H/2 here, the same tile count.
  */
@@ -150,6 +159,36 @@ export const FREECOL_MAP_SIZES: Record<string, [number, number]> = {
 };
 
 /**
+ * The same maps as FreeCol made them, in tiles across by half-height rows (the staggered map's size, from its
+ * savegame.properties; start.test.ts checks them). As Isometric shaped maps they have the tiles of the resampled
+ * ones above, in FreeCol's own shape.
+ */
+export const FREECOL_ISOMETRIC_SIZES: Record<string, [number, number]> = {
+  'L_America_JsTheDude.fsm': [58, 261],
+  'L_America_Mazim.fsm': [58, 261],
+  'L_Asia_Mazim.fsm': [68, 256],
+  'L_PacificSouth_Mazim.fsm': [70, 200],
+  'L_TheOldWorld_Mazim.fsm': [88, 140],
+  'M_Africa_Gilolat.fsm': [37, 192],
+  'M_Africa_Mazim.fsm': [40, 160],
+  'M_America_Mazim.fsm': [40, 180],
+  'M_AustraliaOceania_Mazim.fsm': [50, 160],
+  'M_CaribbeanIslands_Mazim.fsm': [80, 160],
+  'M_Caribbean_Piotrus.fsm': [60, 140],
+  'M_Eurasia_Mazim.fsm': [45, 120],
+  'M_NorthAmerica2_Mazim.fsm': [36, 160],
+  'M_NorthAmerica_Mazim.fsm': [52, 130],
+  'M_SouthAmerica_Mazim.fsm': [35, 153],
+  'S_Arabias_Mazim.fsm': [40, 100],
+  'S_AustraliaOceania_Gilolat.fsm': [28, 128],
+  'S_Caribbean_Phil.fsm': [48, 48],
+  'S_FeudalJapan_Mazim.fsm': [30, 120],
+  'S_SouthEastAsia_Mazim.fsm': [40, 100],
+  'S_USA_Mazim.fsm': [40, 100],
+  'XXL_HugeWorld_Mazim.fsm': [180, 300],
+};
+
+/**
  * A FreeCol map's name from its file name, which is size_Place_Author.fsm: "M_NorthAmerica2_Mazim.fsm" is "North
  * America 2 (Mazim)".
  */
@@ -169,21 +208,39 @@ export function freecolMapName(file: string): string {
 export const HEAVY_TILES = 20_000;
 
 /** A map's name with its size after it, and "heavy" for a heavy one, as the start screen lists it. */
-export const sized = (name: string, [w, h]: [number, number]) =>
-  `${name}, ${w}×${h}${w * h > HEAVY_TILES ? ' (heavy)' : ''}`;
+export const sized = (name: string, [w, h]: [number, number], isometric = false) =>
+  `${name}, ${w}×${h}${isometric ? ' Isometric' : ''}${w * h > HEAVY_TILES ? ' (heavy)' : ''}`;
 
 /**
  * The maps the game comes with, besides the generated one: first the original DOS Colonization's America (#459), as
  * a map of our own made from the DOS game's AMER2.MP (DosMap.java, laid out tile for tile, 58x72), then FreeCol's
- * own maps by name.
+ * own maps by name, resampled north-up to Top-down shaped maps (#528), then the same maps as FreeCol made them, as
+ * Isometric shaped maps (#559). A map's shape is the Map view its game is played in.
  */
-export const MAPS: { id: string; name: string; url: string }[] = [
-  { id: 'america', name: sized('America (1492)', [58, 72]), url: americaMap },
+export const MAPS: { id: string; name: string; url: string; shape: 'topDown' | 'isometric' }[] = [
+  { id: 'america', name: sized('America (1492)', [58, 72]), url: americaMap, shape: 'topDown' },
   ...Object.entries(freecolMapUrls)
     .map(([path, url]) => {
       const file = path.slice(path.lastIndexOf('/') + 1);
       const size = FREECOL_MAP_SIZES[file];
-      return { id: file, name: size ? sized(freecolMapName(file), size) : freecolMapName(file), url };
+      return {
+        id: file,
+        name: size ? sized(freecolMapName(file), size) : freecolMapName(file),
+        url,
+        shape: 'topDown' as const,
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name)),
+  ...Object.entries(freecolIsometricMapUrls)
+    .map(([path, url]) => {
+      const file = path.slice(path.lastIndexOf('/') + 1);
+      const size = FREECOL_ISOMETRIC_SIZES[file];
+      return {
+        id: `isometric/${file}`,
+        name: size ? sized(freecolMapName(file), size, true) : `${freecolMapName(file)} Isometric`,
+        url,
+        shape: 'isometric' as const,
+      };
     })
     .sort((a, b) => a.name.localeCompare(b.name)),
 ];
@@ -395,6 +452,21 @@ export function startOptions(data: string[], rules: string, defaultLevel = 'mode
     return { units: unitText, modifiers };
   };
   return { nations, rivals, nationTypes, bonus, rulesets, levels, defaultLevel, defaultUnavailable, groups };
+}
+
+/** The map generator option for the shape of the map (MapGeneratorOptions.MAP_SHAPE): 0 Top-down, 1 Isometric. */
+export const MAP_SHAPE = 'model.option.mapShape';
+
+/**
+ * A preset's JSON with the map shaped for a Map view (#559), unless the preset sets the shape itself: a new game's
+ * map is a rectangle on the grid for the Top-down view and a diamond for the Isometric one. Until the setup menu
+ * lets the player choose (#531), the shape follows the view the page is in.
+ */
+export function shapedFor(json: string, view: 'isometric' | 'topdown'): string {
+  const preset = json.trim() ? (JSON.parse(json) as { options?: Record<string, OptionValue> }) : {};
+  const options = preset.options ?? {};
+  if (options[MAP_SHAPE] !== undefined) return json;
+  return JSON.stringify({ ...preset, options: { ...options, [MAP_SHAPE]: view === 'topdown' ? 0 : 1 } });
 }
 
 /** The GamePreset JSON for the Engine: the level, and the options changed from the level's own values. */

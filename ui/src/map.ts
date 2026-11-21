@@ -92,7 +92,7 @@ import { activeUnitFacts, cursor, toMap, type ViewState } from './view';
 
 export type { MapView } from './tileset';
 /** The whole map's terrain, explored or not (MapJson.terrain, the server's): what the shader water's field is made of. */
-export type Terrain = Pick<MapView, 'w' | 'h' | 'types' | 'tiles' | 'rivers'>;
+export type Terrain = Pick<MapView, 'w' | 'h' | 'shape' | 'rows' | 'types' | 'tiles' | 'rivers'>;
 
 /** How many rows of the whole map's terrain a strip of its shore covers takes (wholeCovers). */
 const COVER_STRIP_ROWS = 8;

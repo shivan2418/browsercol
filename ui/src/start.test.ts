@@ -264,7 +264,7 @@ test("a FreeCol map's name is its file name's place and author", () => {
 
 test('Huge World, and only it, is marked heavy in the Map list, and Giga Earth is left out', () => {
   const heavy = MAPS.filter((m) => m.name.endsWith(' (heavy)')).map((m) => m.id);
-  expect(heavy).toEqual(['XXL_HugeWorld_Mazim.fsm']);
+  expect(heavy).toEqual(['XXL_HugeWorld_Mazim.fsm', 'isometric/XXL_HugeWorld_Mazim.fsm']);
   expect(MAPS.find((m) => m.id === 'XXL_HugeWorld_Mazim.fsm')?.name).toBe('Huge World (Mazim), 360×150 (heavy)');
   expect(MAPS.some((m) => m.id === LEFT_OUT)).toBe(false);
 });

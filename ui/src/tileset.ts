@@ -21,6 +21,13 @@ export interface TileType {
 export interface MapView {
   w: number;
   h: number;
+  /**
+   * The map's shape (#559): w and h are the box round its tiles, and the tiles outside an Isometric shape's diamond
+   * are not on the map (they read '.' like an unexplored one). Without it, a Top-down shape.
+   */
+  shape?: 'topDown' | 'isometric';
+  /** An Isometric shape's half-height rows. */
+  rows?: number;
   turn: string;
   /** The season and year of the turn, e.g. Spring 1493. */
   turnLabel: string;
