@@ -5,7 +5,7 @@ the map is kept as a PNG (once per distinct image) and dismissed with Return.
 Runs inside the harness container. Writes OUT/turns.jsonl, OUT/screens/,
 and OUT/game-over.png when the game stops writing autosaves.
 """
-import argparse, hashlib, json, os, struct, time
+import argparse, hashlib, json, os, struct, subprocess, time
 import col
 
 # The game autosaves to COLONY09.SAV each turn; years ending in 0 went
@@ -97,4 +97,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except subprocess.CalledProcessError:
+        # The DOSBox window is gone: the game exited to DOS, e.g. after the
+        # Hall of Fame when the last colony was lost.
+        print("DOSBox exited")
