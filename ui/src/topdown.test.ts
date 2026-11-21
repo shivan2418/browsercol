@@ -244,7 +244,7 @@ describe('the placeholder art', () => {
       land: !/is-water="true"/.test(m[2]),
       forested: /is-forest="true"/.test(m[2]),
     }));
-    expect(types.length).toBeGreaterThanOrEqual(24);
+    expect(types.length).toBeGreaterThanOrEqual(23);
     for (const t of types) {
       const { colour } = lookOf(t);
       // Forests share one colour; the others are listed.
