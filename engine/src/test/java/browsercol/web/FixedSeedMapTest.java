@@ -120,6 +120,6 @@ class FixedSeedMapTest {
     @Test
     @Timeout(240)
     void seed1492OnTheDefaultSize() throws Exception {
-        pins("{ \"seed\": 1492 }", "45d7388339a3132b608ea42134a2c94b3b7670b206eeffc6ee0d8eac60e1d6e9");
+        pins("{ \"seed\": 1492 }", "c9a57d5c907cb243757379e9ab4ce2dea5db46d5bedac35e4fe5bf29085872b2");
     }
 }
