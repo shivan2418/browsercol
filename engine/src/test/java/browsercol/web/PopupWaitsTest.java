@@ -105,7 +105,8 @@ class PopupWaitsTest {
 
         servant = unit("unit:6421");
         criminal = unit("unit:6324");
-        rumour = client.getGame().getMap().getTile(19, 77);
+        // The save is from the staggered grid, where the rumour was at (19, 77): u = 19 + 39, v = 38 - 19 + 39 (#527).
+        rumour = client.getGame().getMap().getTile(58, 58);
         besideTheColony = criminal.getTile();
         assertTrue(rumour.hasLostCityRumour(), "the rumour beside the servant");
         assertNotNull(criminal.getDestination(), "the criminal's Go To into New Amsterdam");

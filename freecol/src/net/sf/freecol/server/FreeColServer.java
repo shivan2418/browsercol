@@ -68,6 +68,8 @@ import net.sf.freecol.common.model.Nation;
 import net.sf.freecol.common.model.NationOptions.NationState;
 import net.sf.freecol.common.model.Player;
 import net.sf.freecol.common.model.Specification;
+import net.sf.freecol.common.model.Tile;
+import net.sf.freecol.server.generator.TerrainGenerator;
 import net.sf.freecol.common.model.Stance;
 import net.sf.freecol.common.model.Tension;
 import net.sf.freecol.common.model.Unit;
@@ -144,11 +146,14 @@ public final class FreeColServer {
      * Version 13 coincides with the start of the 0.11.x series.
      * Version 14 coincides with the start of the 0.12.x series.
      *
+     * Version 15 is BrowserCol's: the map is a square grid (#527); older
+     * saves are converted as they are read.
+     *
      * Please add to this comment if you increase the version.
      * These days we *try* to change this only for (semi-)major
      * releases (i.e. when x changes in 0.x.y).
      */
-    public static final int SAVEGAME_VERSION = 14;
+    public static final int SAVEGAME_VERSION = 15;
 
     /**
      * The oldest save game format that can still be loaded.
@@ -1070,6 +1075,15 @@ public final class FreeColServer {
                 } else if (Game.TAG.equals(tag)) {
                     // Read the game
                     serverGame = new ServerGame(specification, xr);
+                    // SAVEGAME_VERSION 15: the grid became square.
+                    if (savegameVersion < 15 && serverGame.getMap() != null) {
+                        final Specification spec = serverGame.getSpecification();
+                        for (Tile t : serverGame.getMap().convertFromStaggered(
+                                spec.getTileType("model.tile.highSeas"),
+                                spec.getTileType("model.tile.ocean"))) {
+                            TerrainGenerator.encodeStyle(t);
+                        }
+                    }
                     serverGame.setCurrentPlayer(null);
                     if (freeColServer != null) {
                         freeColServer.setGame(serverGame);

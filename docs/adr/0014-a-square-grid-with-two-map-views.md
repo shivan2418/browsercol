@@ -14,6 +14,6 @@ On the grid a tile has eight neighbours at the same offsets in every row (N is `
 
 - The map's outer edges differ by view. A rectangle in Top-down is a large diamond in Isometric, as in OpenTTD. That is the accepted cost of having both views.
 - No game rule changes in practice: distances are still Chebyshev's, a colony still works its eight neighbours, movement costs one per step in any of the eight directions, and line of sight and the AI use the same distance and ring code. East-west travel on a generated map takes twice as many steps, because a square tile is half as wide as a diamond was (the map is 80 tiles across, not 40), and the default of the maximum distance to the edge (the width of the high seas strip) is doubled, to 20 columns, to keep its share of the map.
-- Old saves and the shipped maps hold staggered coordinates and break until they are converted (saves in #527, maps in #528). River style digits and coast style bits keep their order but now mean N/E/S/W for rivers and NE/SE/SW/NW for the coast's corners.
+- Old saves are converted as they load (#527, ADR 0007); the shipped maps hold staggered coordinates and break until they are converted (#528). River style digits and coast style bits keep their order but now mean N/E/S/W for rivers and NE/SE/SW/NW for the coast's corners.
 - Maps made from a seed change on purpose; `FixedSeedMapTest`'s hashes were retaken.
 - The UI still draws the staggered grid until the Isometric view (#529) and the Top-down view (#530) land.

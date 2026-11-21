@@ -432,6 +432,55 @@ public class Map extends FreeColGameObject implements Location, Iterable<Tile> {
     }
 
     /**
+     * Convert this map from the staggered grid of games saved before
+     * SAVEGAME_VERSION 15 to the square grid, losslessly: a tile at (x, y)
+     * goes to u = x + ((y+1)>>1), v = (y>>1) - x, plus an offset that makes
+     * every v non-negative. Each tile keeps all eight of its neighbours.
+     * The map grows to the bounding box of the old diamond, and the new tiles
+     * in its corners are high seas where they lie beyond the old east or
+     * west edge, where ships sailed off the map to Europe, and ocean where
+     * they lie beyond a polar edge. Everything else refers to a tile by its
+     * identifier, which does not change.
+     *
+     * @param highSeas The high seas tile type.
+     * @param ocean The ocean tile type.
+     * @return The tiles that were added.
+     */
+    public List<Tile> convertFromStaggered(TileType highSeas, TileType ocean) {
+        final List<Tile> added = new ArrayList<>();
+        final int oldW = this.width, oldH = this.height;
+        final Tile[][] old = this.tileArray;
+        final int newW = oldW + (oldH >> 1);
+        final int newH = ((oldH - 1) >> 1) + oldW;
+        final int offset = oldW - 1;
+        final Game game = getGame();
+        setTiles(newW, newH);
+        for (int y = 0; y < oldH; y++) {
+            for (int x = 0; x < oldW; x++) {
+                final int u = x + ((y + 1) >> 1), v = (y >> 1) - x + offset;
+                old[x][y].convertFromStaggered(u, v);
+                this.tileArray[u][v] = old[x][y];
+            }
+        }
+        for (int v = 0; v < newH; v++) {
+            for (int u = 0; u < newW; u++) {
+                if (this.tileArray[u][v] == null) {
+                    // The old position of this square: y = u + v', x = u - ((y+1)>>1).
+                    final int y = u + (v - offset);
+                    final int x = u - ((y + 1) >> 1);
+                    this.tileArray[u][v] = new Tile(game,
+                        (x < 0 || x >= oldW) ? highSeas : ocean, u, v);
+                    added.add(this.tileArray[u][v]);
+                }
+                this.tileList.add(this.tileArray[u][v]);
+            }
+        }
+        calculateLatitudePerRow();
+        resetHighSeasCount();
+        return added;
+    }
+
+    /**
      * Gets the Tile at position (x, y).  'x' specifies a column and
      * 'y' specifies a row.  (0, 0) is the Tile at the top-left corner
      * of the Map.

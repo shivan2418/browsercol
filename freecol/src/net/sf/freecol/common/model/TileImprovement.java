@@ -359,6 +359,20 @@ public class TileImprovement extends TileItem {
     }
 
     /**
+     * Re-encode the style of a road from the staggered grid's directions to
+     * the square grid's (SAVEGAME_VERSION 15). A road's eight characters
+     * are in Direction order, and each neighbour's direction moved one
+     * place back (old N is now NW, old NE is now N, and so on). A river's
+     * four digits are in the order of Direction.edgeNeighbours, whose
+     * neighbours are the same ones in the same places, so they stay.
+     */
+    void convertFromStaggered() {
+        if (style == null || !isRoad() || style.getString().length() != 8) return;
+        final String old = style.getString();
+        style = TileImprovementStyle.getInstance(old.substring(1) + old.charAt(0));
+    }
+
+    /**
      * Updates the connections from the current style.
      *
      * Public for the test suite.

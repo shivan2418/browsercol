@@ -279,6 +279,46 @@ public final class Tile extends UnitLocation implements Named, Ownable {
     }
 
 
+    /**
+     * Move this tile, and the copies of it that players have cached, from
+     * its place on a staggered map to the place the lossless mapping
+     * u = x + ((y+1)>>1), v = (y>>1) - x gives it on the square grid, and
+     * re-encode what is relative to direction: the coast bits of the style,
+     * and the road and river styles of the tile and the cached copies.
+     *
+     * Only for reading a save from before SAVEGAME_VERSION 15.
+     *
+     * @param u The new x position.
+     * @param v The new y position.
+     */
+    void convertFromStaggered(int u, int v) {
+        convertOneFromStaggered(u, v);
+        if (this.cachedTiles != null) {
+            for (Tile t : this.cachedTiles.values()) {
+                if (t != null && t != this) t.convertOneFromStaggered(u, v);
+            }
+        }
+    }
+
+    private void convertOneFromStaggered(int u, int v) {
+        this.x = u;
+        this.y = v;
+        // The corner bits were N, E, S, W and are NE, SE, SW, NW: each
+        // direction's bit moves to the new direction of the same
+        // neighbour (old N is now NW, old E is now NE, ...). The edge bits
+        // were NE, SE, SW, NW and are N, E, S, W, the same neighbours in
+        // the same places.
+        int corners = this.style & 0xF;
+        this.style = (this.style & ~0xF)
+            | ((corners >> 1) | ((corners & 1) << 3));
+        if (this.tileItemContainer != null) {
+            for (TileImprovement ti : this.tileItemContainer.getImprovements()) {
+                ti.convertFromStaggered();
+            }
+        }
+    }
+
+
     //
     // Basic accessors and mutators
     //
