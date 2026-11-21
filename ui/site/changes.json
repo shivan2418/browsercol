@@ -1,5 +1,15 @@
 [
   {
+    "build": 26,
+    "date": "2026-11-21",
+    "new": [],
+    "fixed": [
+      "With Thomas Paine in the Continental Congress, each player's bells bonus follows their own tax rate, instead of one shared bonus set by whoever's tax changed last.",
+      "Playing several games in one tab no longer uses more memory with each new game."
+    ],
+    "changed": []
+  },
+  {
     "build": 21,
     "date": "2026-11-14",
     "new": [
