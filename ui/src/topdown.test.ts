@@ -211,6 +211,30 @@ describe('switching the Map view', () => {
     expect(switchView(v, 'isometric')).toBe(v);
   });
 
+  it('lets the camera reach every edge of the rectangle, at every zoom, by pan and by centre', () => {
+    const top = switchView(play(), 'topdown');
+    const [mw, mh] = [20 * T, 20 * T];
+    for (const zoom of [0.5, 1, 2]) {
+      let v = reduce(top, { k: 'zoomTo', zoom, at: [320, 240] });
+      const [hw, hh] = [320 / zoom, 240 / zoom];
+      // A pan far to each side: the view's edge meets the map's, and a pan back moves it again.
+      const left = reduce(v, { k: 'pan', dx: 1e6, dy: 0 });
+      expect(left.centre[0]).toBeCloseTo(Math.min(hw, mw / 2));
+      const right = reduce(v, { k: 'pan', dx: -1e6, dy: 0 });
+      expect(right.centre[0]).toBeCloseTo(Math.max(mw - hw, mw / 2));
+      const up = reduce(v, { k: 'pan', dx: 0, dy: 1e6 });
+      expect(up.centre[1]).toBeCloseTo(Math.min(hh, mh / 2));
+      const down = reduce(v, { k: 'pan', dx: 0, dy: -1e6 });
+      expect(down.centre[1]).toBeCloseTo(Math.max(mh - hh, mh / 2));
+      // Resting at the right edge scrolls on from short of it, and stops at it.
+      // (A map no wider than the view stays in its middle.)
+      if (mw <= 2 * hw) continue;
+      v = reduce(right, { k: 'pan', dx: 30 * zoom, dy: 0 });
+      expect(v.centre[0]).toBeLessThan(right.centre[0]);
+      expect(reduce(v, { k: 'pan', dx: -30 * zoom, dy: 0 }).centre[0]).toBeCloseTo(right.centre[0]);
+    }
+  });
+
   it("keeps the camera on the map's rectangle in the Top-down view", () => {
     const top = switchView(play(), 'topdown');
     const far = reduce(top, { k: 'centre', at: [90000, -90000] });

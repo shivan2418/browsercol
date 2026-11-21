@@ -1465,7 +1465,9 @@ async function play(page: Page, url: string) {
     const dragged = await movedFrom(zoomed.centre!, 'a drag scrolls the map');
     if (same(dragged.centre, zoomed.centre)) throw new Error('a drag did not scroll the map within 5 s');
     // The right edge, which only the current viewport's width finds after a resize.
-    await page.mouse.move(box.x + box.width - 4, cy);
+    // The canvas's box as it is now: the page's layout can have changed since the drag began.
+    const now = (await page.locator('#map canvas').boundingBox())!;
+    await page.mouse.move(now.x + now.width - 4, cy);
     const edged = await movedFrom(dragged.centre!, 'resting the pointer at the right edge scrolls the map');
     await page.mouse.move(cx, cy);
     if (same(edged.centre, dragged.centre)) {
