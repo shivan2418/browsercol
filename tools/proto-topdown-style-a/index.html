@@ -1,0 +1,282 @@
+<title>Style A Tiles Prototype</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<!--
+  PROTOTYPE, throw away. Question: in Lolonization's style A, on BrowserCol's 64px Top-down grid,
+  do terrain edges hold up when each terrain is cut from one generated patch with edge masks,
+  and can you still tell which tiles are mountains?
+  Three variants on one map, switched with the bottom bar or the arrow keys (#A, #B, #C):
+    A  Edge pieces: one piece per tile, picked by its 8 neighbours (edges and corners, about 47 cases).
+    B  Corner pieces: four quarter pieces per tile, each picked by the 4 tiles around a corner (16 cases).
+    C  Sprites only: no footprints, just trees, hills and mountains on grass (classic look, baseline).
+  Art: Meshy nano-banana-pro, image-to-image from target-look.jpg, 2026-11-21.
+-->
+<style>
+:root {
+  --bg: #e9eeec; --panel: #ffffff; --ink: #182327; --muted: #5d6b70; --rule: #cfd8d6; --accent: #1f5f86;
+  --bar: #182327; --bar-ink: #f4f7f6;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --body: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #0f1518; --panel: #172125; --ink: #e3ebea; --muted: #9babae; --rule: #2a383c; --accent: #86bde0; --bar: #f4f7f6; --bar-ink: #182327; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --bg: #0f1518; --panel: #172125; --ink: #e3ebea; --muted: #9babae; --rule: #2a383c; --accent: #86bde0; --bar: #f4f7f6; --bar-ink: #182327; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); margin: 0;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 16px 96px; }
+.top { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; margin-bottom: 10px; }
+h1 { font-size: 18px; margin: 0; }
+.q { color: var(--muted); font-size: 14px; max-width: 80ch; }
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 16px; align-items: start; }
+.mapbox { overflow: auto; border: 1px solid var(--rule); border-radius: 6px; background: #2c6f99; max-height: 78vh; }
+canvas { display: block; image-rendering: auto; }
+aside { background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; padding: 12px 14px; display: grid; gap: 10px; font-size: 13px; }
+aside h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0; }
+.state { font-family: var(--mono); font-size: 12px; white-space: pre-wrap; line-height: 1.5; }
+.toggles { display: grid; gap: 6px; }
+label { display: flex; gap: 8px; align-items: center; cursor: pointer; }
+kbd { font-family: var(--mono); font-size: 11px; border: 1px solid var(--rule); border-radius: 3px; padding: 0 4px; }
+.desc { color: var(--muted); }
+.switcher { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  display: flex; align-items: center; gap: 4px; background: var(--bar); color: var(--bar-ink); border-radius: 999px; padding: 6px; box-shadow: 0 6px 24px rgba(0,0,0,.3); z-index: 5; }
+.switcher button { background: transparent; color: inherit; border: 0; font-size: 18px; width: 36px; height: 36px; border-radius: 999px; cursor: pointer; }
+.switcher button:hover, .switcher button:focus-visible { background: rgba(127,127,127,.25); outline: none; }
+.switcher span { font-size: 14px; font-weight: 600; padding: 0 10px; min-width: 210px; text-align: center; }
+@media (max-width: 820px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+</style>
+
+<div class="top">
+  <h1>Style A tiles · prototype</h1>
+  <span class="q">Do the edges hold up, and can you tell which tiles are mountains? 24×16 tiles of 64 px. Throwaway.</span>
+</div>
+<div class="layout">
+  <div class="mapbox"><canvas id="map" width="1536" height="1024"></canvas></div>
+  <aside>
+    <h2>Variant</h2>
+    <div id="vdesc" class="desc"></div>
+    <h2>Show</h2>
+    <div class="toggles">
+      <label><input type="checkbox" id="t-grid"> Grid <kbd>G</kbd></label>
+      <label><input type="checkbox" id="t-tops" checked> Trees, hills, mountains <kbd>T</kbd></label>
+      <label><input type="checkbox" id="t-zoom"> Zoom 2× <kbd>Z</kbd></label>
+    </div>
+    <h2>Under the pointer</h2>
+    <div id="state" class="state">Point at a tile.</div>
+  </aside>
+</div>
+<div class="switcher" role="group" aria-label="Variant">
+  <button id="prev" aria-label="Previous variant">←</button>
+  <span id="vlabel"></span>
+  <button id="next" aria-label="Next variant">→</button>
+</div>
+
+<script>
+const T = 64, W = 24, H = 16;
+const VARIANTS = {
+  A: { name: 'Edge pieces', desc: 'One piece per tile, picked by its 8 neighbours: straight edges toward unlike tiles, rounded outer corners, notched inner corners. About 47 cases per terrain.' },
+  B: { name: 'Corner pieces', desc: 'Four quarter pieces per tile. Each quarter is picked by the 4 tiles around that corner, 16 cases per terrain. Shapes run smoother across diagonals.' },
+  C: { name: 'Sprites only', desc: 'No footprints: trees, hills and mountains stand on plain grass, one group per tile. The classic look, as a baseline.' },
+};
+const KEYS = Object.keys(VARIANTS);
+
+// ---- Map: seeded value noise ----
+function hash(x, y, s) { let h = (x * 374761393 + y * 668265263 + s * 2147483647) | 0; h = (h ^ (h >>> 13)) * 1274126177 | 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
+function smooth(t) { return t * t * (3 - 2 * t); }
+function vnoise(x, y, s) { const xi = Math.floor(x), yi = Math.floor(y), fx = smooth(x - xi), fy = smooth(y - yi);
+  const a = hash(xi, yi, s), b = hash(xi + 1, yi, s), c = hash(xi, yi + 1, s), d = hash(xi + 1, yi + 1, s);
+  return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy; }
+function fbm(x, y, s) { return vnoise(x, y, s) * 0.6 + vnoise(x * 2, y * 2, s + 7) * 0.3 + vnoise(x * 4, y * 4, s + 13) * 0.1; }
+
+const terr = []; // 'water' | 'grass' | 'forest' | 'hills' | 'mountains'
+for (let y = 0; y < H; y++) { terr.push([]); for (let x = 0; x < W; x++) {
+  const landness = fbm(x * 0.22, y * 0.22, 1) + (0.75 - x / W) * 0.9 - Math.abs(y - H / 2) / H * 0.25;
+  let t = landness > 0.42 ? 'grass' : 'water';
+  if (t === 'grass') {
+    const ridge = 1 - Math.abs(fbm(x * 0.11 + 3, y * 0.13 + 1, 5) - 0.5) * 2, high = fbm(x * 0.2, y * 0.2, 17);
+    const f = fbm(x * 0.3, y * 0.3, 9);
+    if (ridge > 0.9 && high > 0.42) t = 'mountains'; else if (ridge > 0.8 && high > 0.38) t = 'hills'; else if (f > 0.52) t = 'forest';
+  }
+  terr[y].push(t);
+} }
+const at = (x, y) => terr[Math.min(H - 1, Math.max(0, y))][Math.min(W - 1, Math.max(0, x))];
+// Footprint layers: land (coast), forest floor, rock under mountains. Hills share the land.
+const LAYERS = {
+  land: (t) => t !== 'water',
+  forest: (t) => t === 'forest',
+  rock: (t) => t === 'mountains',
+};
+
+// ---- Art ----
+function mirrored(im) {
+  const c = document.createElement('canvas'); c.width = im.width * 2; c.height = im.height * 2; const g = c.getContext('2d');
+  for (const [fx, fy] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) { g.save(); g.translate(fx < 0 ? c.width : 0, fy < 0 ? c.height : 0); g.scale(fx, fy); g.drawImage(im, 0, 0); g.restore(); }
+  return c;
+}
+const img = (src) => new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => no(new Error('could not load ' + src)); i.src = src; });
+function cutSheet(im, cols, rows) {
+  const c = document.createElement('canvas'); c.width = im.width; c.height = im.height; const g = c.getContext('2d'); g.drawImage(im, 0, 0);
+  const d = g.getImageData(0, 0, c.width, c.height).data, cw = im.width / cols, ch = im.height / rows, out = [];
+  for (let r = 0; r < rows; r++) for (let q = 0; q < cols; q++) {
+    let x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1;
+    for (let y = Math.floor(r * ch); y < Math.floor((r + 1) * ch); y++) for (let x = Math.floor(q * cw); x < Math.floor((q + 1) * cw); x++)
+      if (d[(y * c.width + x) * 4 + 3] > 40) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    if (x1 > x0) out.push({ im: c, x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 });
+  }
+  return out;
+}
+
+// ---- Masks: 1 inside, 0 outside, one byte per map pixel ----
+const MW = W * T, MH = H * T, INSET = 12, R = 12;
+function wob(x, y) { return (vnoise(x / 9, y / 9, 31) - 0.5) * 5; } // world-space wobble so neighbours meet
+function maskA(member) {
+  const m = new Uint8Array(MW * MH);
+  for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) {
+    if (!member(at(tx, ty))) continue;
+    const open = (dx, dy) => { const x = tx + dx, y = ty + dy; return x < 0 || y < 0 || x >= W || y >= H || member(at(x, y)); };
+    for (let py = 0; py < T; py++) for (let px = 0; px < T; px++) {
+      const wx = tx * T + px, wy = ty * T + py, w = wob(wx, wy);
+      // Fold into the top-left quadrant: u, v measured from the tile's nearest corner.
+      const sx = px < T / 2 ? -1 : 1, sy = py < T / 2 ? -1 : 1;
+      let u = (sx < 0 ? px : T - 1 - px) + w, v = (sy < 0 ? py : T - 1 - py) - w;
+      const hOpen = open(0, sy), vOpen = open(sx, 0), dOpen = open(sx, sy);
+      let inside;
+      if (hOpen && vOpen) inside = dOpen || Math.hypot(u, v) >= INSET;
+      else if (hOpen) inside = u >= INSET;
+      else if (vOpen) inside = v >= INSET;
+      else { const c = INSET + R; inside = u >= INSET && v >= INSET && (u >= c || v >= c || Math.hypot(u - c, v - c) <= R); }
+      if (inside) m[wy * MW + wx] = 1;
+    }
+  }
+  return m;
+}
+function maskB(member) {
+  const m = new Uint8Array(MW * MH), val = (x, y) => member(at(x, y)) ? 1 : 0;
+  for (let wy = 0; wy < MH; wy++) for (let wx = 0; wx < MW; wx++) {
+    const gx = wx / T - 0.5, gy = wy / T - 0.5, i = Math.floor(gx), j = Math.floor(gy), fx = gx - i, fy = gy - j;
+    const a = val(i, j), b = val(i + 1, j), c = val(i, j + 1), d = val(i + 1, j + 1);
+    if (a === b && b === c && c === d) { if (a) m[wy * MW + wx] = 1; continue; }
+    const f = a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy;
+    if (f + wob(wx, wy) * 0.02 > 0.5) m[wy * MW + wx] = 1;
+  }
+  return m;
+}
+function maskTiles(member) { // hard tile squares, for variant C's coast
+  const m = new Uint8Array(MW * MH);
+  for (let wy = 0; wy < MH; wy++) for (let wx = 0; wx < MW; wx++) if (member(at(Math.floor(wx / T), Math.floor(wy / T)))) m[wy * MW + wx] = 1;
+  return m;
+}
+function maskCanvas(m, rgba) {
+  const c = document.createElement('canvas'); c.width = MW; c.height = MH; const g = c.getContext('2d'), id = g.createImageData(MW, MH), d = id.data;
+  for (let i = 0; i < m.length; i++) if (m[i]) { d[i * 4] = rgba[0]; d[i * 4 + 1] = rgba[1]; d[i * 4 + 2] = rgba[2]; d[i * 4 + 3] = rgba[3]; }
+  g.putImageData(id, 0, 0); return c;
+}
+function textured(m, pattern, scale) {
+  const c = maskCanvas(m, [0, 0, 0, 255]), g = c.getContext('2d');
+  g.globalCompositeOperation = 'source-in'; g.save(); g.scale(scale, scale); g.fillStyle = pattern; g.fillRect(0, 0, MW / scale, MH / scale); g.restore();
+  return c;
+}
+function ring(g, shape, radius, steps) { for (let k = 0; k < steps; k++) { const a = (k / steps) * Math.PI * 2; g.drawImage(shape, Math.cos(a) * radius, Math.sin(a) * radius); } }
+
+// ---- Draw ----
+const cv = document.getElementById('map'), g = cv.getContext('2d');
+let ART = null, cache = {};
+const opts = { grid: false, tops: true, zoom: false };
+function variant() { const v = location.hash.replace('#', ''); return KEYS.includes(v) ? v : 'A'; }
+
+function layerSet(v) {
+  if (cache[v]) return cache[v];
+  const mk = v === 'A' ? maskA : v === 'B' ? maskB : null;
+  const land = mk ? mk(LAYERS.land) : maskTiles(LAYERS.land);
+  const set = { land, forest: mk ? mk(LAYERS.forest) : null, rock: mk ? mk(LAYERS.rock) : null };
+  set.landTex = textured(land, ART.grassP, 0.5);
+  set.landDark = maskCanvas(land, [40, 46, 30, 255]);
+  set.landSand = maskCanvas(land, [226, 205, 150, 255]);
+  set.landShallow = maskCanvas(land, [140, 205, 220, 140]);
+  for (const k of ['forest', 'rock']) if (set[k]) {
+    set[k + 'Tex'] = textured(set[k], k === 'forest' ? ART.floorP : ART.rockP, k === 'forest' ? 0.42 : 0.5);
+    set[k + 'Dark'] = maskCanvas(set[k], [28, 32, 24, 230]);
+    set[k + 'Shadow'] = maskCanvas(set[k], [0, 0, 0, 70]);
+  }
+  return (cache[v] = set);
+}
+
+function tops() {
+  const list = [];
+  for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) {
+    const t = terr[ty][tx], x0 = tx * T, y0 = ty * T, h = (k) => hash(tx, ty, k);
+    if (t === 'forest') {
+      const slots = [[16, 30], [46, 26], [30, 46], [52, 54], [12, 58]], kind = h(3) < 0.4 ? 0 : h(3) < 0.75 ? 1 : 2; // conifer, autumn, green
+      for (const [sx, sy] of slots) {
+        const pick = kind * 4 + Math.floor(h(sx + sy) * 4) % 4, s = ART.trees[Math.min(pick, ART.trees.length - 1)];
+        const w = 24 + h(sx * 7) * 6;
+        list.push({ s, x: x0 + sx + (h(sx) - 0.5) * 6, y: y0 + sy + (h(sy) - 0.5) * 4, w });
+      }
+    } else if (t === 'mountains') {
+      const s = ART.mountains[Math.floor(h(5) * ART.mountains.length)];
+      list.push({ s, x: x0 + T / 2 + (h(8) - 0.5) * 8, y: y0 + T - 4 + (h(9) - 0.5) * 6, w: 92 + h(10) * 12 });
+    } else if (t === 'hills') {
+      const s = ART.hills[Math.floor(h(6) * ART.hills.length)];
+      list.push({ s, x: x0 + T / 2, y: y0 + T - 12, w: 70 });
+    }
+  }
+  return list.sort((a, b) => a.y - b.y);
+}
+
+function draw() {
+  const v = variant(), L = layerSet(v);
+  g.clearRect(0, 0, MW, MH);
+  // Water: a vertical gradient, deeper to the east.
+  const wg = g.createLinearGradient(0, 0, MW, 0); wg.addColorStop(0, '#3f9cc4'); wg.addColorStop(1, '#1d5f8e');
+  g.fillStyle = wg; g.fillRect(0, 0, MW, MH);
+  // Coast: shallow band, sand, a dark line, then the grass.
+  ring(g, L.landShallow, 14, 16); ring(g, L.landSand, 6, 16); ring(g, L.landDark, 1.5, 8); g.drawImage(L.landTex, 0, 0);
+  for (const k of ['forest', 'rock']) if (L[k]) { g.drawImage(L[k + 'Shadow'], 3, 4); ring(g, L[k + 'Dark'], 1.5, 8); g.drawImage(L[k + 'Tex'], 0, 0); }
+  if (opts.tops) for (const t of tops()) { const sc = t.w / t.s.w, h = t.s.h * sc; g.drawImage(t.s.im, t.s.x, t.s.y, t.s.w, t.s.h, t.x - t.w / 2, t.y - h, t.w, h); }
+  if (opts.grid) { g.strokeStyle = 'rgba(0,0,0,0.35)'; g.lineWidth = 1; g.beginPath();
+    for (let x = 0; x <= W; x++) { g.moveTo(x * T + 0.5, 0); g.lineTo(x * T + 0.5, MH); }
+    for (let y = 0; y <= H; y++) { g.moveTo(0, y * T + 0.5); g.lineTo(MW, y * T + 0.5); } g.stroke(); }
+  document.getElementById('vlabel').textContent = `${v} · ${VARIANTS[v].name}`;
+  document.getElementById('vdesc').textContent = VARIANTS[v].desc;
+  cv.style.width = opts.zoom ? MW * 2 / devicePixelRatio + 'px' : '100%';
+}
+
+function cases(tx, ty, layer) {
+  const member = LAYERS[layer], me = member(at(tx, ty)) ? 1 : 0;
+  const n = [[0, -1], [1, 0], [0, 1], [-1, 0]].reduce((s, [dx, dy], i) => s | ((member(at(tx + dx, ty + dy)) ? 1 : 0) << i), 0);
+  const corner = (cx, cy) => [[cx - 1, cy - 1], [cx, cy - 1], [cx - 1, cy], [cx, cy]].reduce((s, [x, y], i) => s | ((member(at(x, y)) ? 1 : 0) << i), 0);
+  return { me, edges: n, corners: [corner(tx, ty), corner(tx + 1, ty), corner(tx, ty + 1), corner(tx + 1, ty + 1)] };
+}
+cv.addEventListener('mousemove', (e) => {
+  const r = cv.getBoundingClientRect(), tx = Math.floor((e.clientX - r.left) / r.width * W), ty = Math.floor((e.clientY - r.top) / r.height * H);
+  if (tx < 0 || ty < 0 || tx >= W || ty >= H) return;
+  const t = terr[ty][tx], layer = t === 'forest' ? 'forest' : t === 'mountains' ? 'rock' : 'land', c = cases(tx, ty, layer), v = variant();
+  const bits = (n) => n.toString(2).padStart(4, '0');
+  document.getElementById('state').textContent =
+    `tile      ${tx},${ty}\nterrain   ${t}\nlayer     ${layer}\n` +
+    (v === 'A' ? `edge case N E S W = ${bits(c.edges).split('').reverse().join('')}\n(diagonals pick the corner notches)` :
+     v === 'B' ? `corner cases (TL TR BL BR):\n${c.corners.map(bits).join('  ')}` : 'no footprint piece');
+});
+
+function go(d) { const i = (KEYS.indexOf(variant()) + d + KEYS.length) % KEYS.length; location.hash = KEYS[i]; }
+document.getElementById('prev').onclick = () => go(-1);
+document.getElementById('next').onclick = () => go(1);
+window.addEventListener('hashchange', draw);
+for (const k of ['grid', 'tops', 'zoom']) document.getElementById('t-' + k).addEventListener('change', (e) => { opts[k] = e.target.checked; draw(); });
+window.addEventListener('keydown', (e) => {
+  if (e.target.closest && e.target.closest('input, textarea, [contenteditable]') && e.target.type !== 'checkbox') return;
+  if (e.key === 'ArrowLeft') go(-1); else if (e.key === 'ArrowRight') go(1);
+  else if ('gtz'.includes(e.key.toLowerCase()) && e.key.length === 1) {
+    const k = { g: 'grid', t: 'tops', z: 'zoom' }[e.key.toLowerCase()]; opts[k] = !opts[k]; document.getElementById('t-' + k).checked = opts[k]; draw();
+  }
+});
+
+Promise.all(['art/grass.jpg', 'art/forest-floor.jpg', 'art/rock.jpg', 'art/trees-512.png', 'art/mountains-512.png', 'art/hills-512.png'].map(img))
+  .then(([grass, floor, rock, trees, mountains, hills]) => {
+    ART = {
+      grassP: g.createPattern(mirrored(grass), 'repeat'), floorP: g.createPattern(mirrored(floor), 'repeat'), rockP: g.createPattern(rock, 'repeat'),
+      trees: cutSheet(trees, 4, 4), mountains: cutSheet(mountains, 2, 3), hills: cutSheet(hills, 2, 3),
+    };
+    draw();
+  })
+  .catch((err) => { document.getElementById('state').textContent = err.message; });
+</script>
