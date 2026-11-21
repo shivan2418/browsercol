@@ -345,6 +345,69 @@ and builds a stream and takes a monitor per call), `Map.searchMap`'s
 single-threaded program. A Chromium profile of the same rounds was not taken,
 so which of these Firefox runs slower than V8 is not measured.
 
+## Moving a unit: key to screen (spike)
+
+`ui/scripts/move-latency.ts` times a move from the key (or click) to the slide's first frame and to the
+unit at rest, and counts what each move costs: messages, bytes, maps, long tasks, frames over 33 ms. It
+starts from `ui/presets/move-latency.json` (the default 40x100 map, fog of war on, a colony with eight
+scouts around it, a ship at sea) and times a land step that explores (`reveals`), one into explored
+land (`explored`), a ship's step (`sea`) and a Go To of 3-5 sea tiles (`goto`). The page marks its part
+only with `?slidetiming` (`src/timing.ts`); the Engine marks `cmd: ...` and measures `fc: read/write/handle`
+and `map: json` on the performance timeline through `Timing.java`. The Worker's posts carry its clock
+(`t`), to split the server's time from the trip back.
+
+What one plain move is made of (Chromium, 6x CPU throttle of the page; the Worker is not slowed by
+Chromium's throttle, which is fair for a server that takes 0.7 ms):
+
+- One question to the server (`question:move`, 80 bytes) and one reply (`reply:multiple`, 1.7 KB of XML).
+  No question goes from the server to the client for a move: the changes come back in the reply. The
+  server takes 0.7 ms. The protocol is not where the time goes. (The setup's 1,900 questions are the
+  debug actions, not moves.)
+- One map event per command: 19 KB of JSON for 4,000 tiles, of which a move changes a handful. The
+  Engine's walk of every tile costs 1 ms (6 ms at 6x, 2 ms in Firefox), the page's parse and handler
+  1-2 ms. It comes after the slide has started, so it is not in the key-to-slide time, only in the
+  long tasks. A Go To makes one map for its whole path.
+- A Go To finds its path in the client twice (`Commands.goTo`, then `InGameController.moveToDestination`)
+  and a third time for the map's path of the active unit: 7 ms each at 6x, ships at sea.
+- A step that explores tiles rebuilds the whole static scene: `map: scene` 17 ms and `map: paint` 160 ms
+  at 6x for 2-10 new tiles (100 ms unthrottled in Chromium on SwiftShader, 19 ms in Firefox's Canvas 2D).
+  The slide has started by then (`slideEarly`), but it drops frames: 2-3 over 33 ms.
+- The water animation's frame is 14 ms at 6x every 125 ms, whatever the move.
+
+**TeaVM's scheduler.** TeaVM's runtime resumes a fiber (a new thread, a notify, a yield) with
+`setTimeout(fn, 0)`, and a browser stretches timers started inside timers to 4 ms once they nest five
+deep. A command crossed such hops before its order left (`CommandQueue`'s new thread): `thread start`,
+key to the command's first line, was 9 ms for a plain move unthrottled and 17-25 ms at 6x, and 1,900
+questions at a few hops each in a preset's setup. `src/teavm.ts` now gives the runtime an `offer` that
+posts a message on a `MessageChannel` for what is due now and keeps `setTimeout` for a wait (the
+runtime takes `installImports`). Chromium at 6x, median, 10 moves each, machine load about 3:
+
+| key to the slide's first frame, ms | before | after |
+|---|---|---|
+| a step into explored land | 54.5 | 27.3 |
+| a ship's step | 82.1 | 42.1 |
+| a step that explores | 74.0 (4 moves) | 91.6 (4 moves, noisy) |
+| a Go To, first step | 172.5 | 201.8 (noisy) |
+
+The probes (`Timing.java`, the Worker's clock stamp, `slideMark`) do nothing, and allocate nothing, unless
+the page has `?slidetiming`, which `move-latency.ts` sets; the page names the Worker `timing` so it knows.
+
+**AI rounds and setup, scheduler off against on** (`scenarios.ts --only ai-late-game --turns 10`, the
+round-300 save, two runs of each, 16 rounds in Chromium and 20 in Firefox, machine load 3-7 at the start of
+each run, 1600x900): the scheduler does nothing for them, as the AI's work is compute, not hand-offs.
+
+| AI round, ms (Engine's own time) | before: mean / median | after: mean / median |
+|---|---|---|
+| Chromium | 1140 / 937 | 1146 / 938 |
+| Firefox | 6982 / 6975 | 6842 / 6802 |
+
+Wall time per played turn is the same to 1% (Chromium 4.8-8.6 s, Firefox 9.3-15.8 s). `big-empire`'s
+setup, to the page quiet: Chromium 9.7 s before, 9.8 and 9.8 s after; Firefox 17.2 s before (one run),
+15.9 and 15.9 s after. Nothing got worse; the gain is in the first step of a move, not in bulk work.
+
+The rest of a plain move at 6x: the key handler 5 ms, thread start 5 ms, server and back 1.2 ms, the
+client's reply 2 ms, then the wait for the next animation frame, 13 ms.
+
 ## Open questions
 
 - AI rounds took about 2x longer in Chromium and 6x longer in Firefox than
