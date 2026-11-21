@@ -49,6 +49,13 @@ const LAND_PRICE = 'model.option.landPriceFactor';
 const MAP_WIDTH = 'model.option.mapWidth';
 const MAP_HEIGHT = 'model.option.mapHeight';
 
+/**
+ * The size of the map's box for the 30 by 40 the editor asks for (#559): a new game's map is shaped for the view the
+ * page is in, the Isometric one here. An Isometric shape's size is its staggered map's, 30 tiles across and 40
+ * half-height rows, and its box has 30 + 20 columns and 30 + 19 rows of the grid.
+ */
+const BOX_OF_30X40 = '50x49';
+
 /** Pick on the start screen (nothing picked keeps what it shows first) and start the game. */
 async function startFromScreen(page: Page, nation?: string, level?: string, edits = false) {
   await newGame(page);
@@ -122,7 +129,7 @@ for (const name of browsers) {
             (nation !== 'model.nation.french' ||
               (sent.options?.[LAND_PRICE] === 123 &&
                 sent.options?.['model.option.fogOfWar'] === false &&
-                r.mapSize?.join('x') === '30x40'))
+                r.mapSize?.join('x') === BOX_OF_30X40))
             ? `${nation.split('.').pop()} ok`
             : `${nation} FAILED (${r.status}${r.error ? ': ' + r.error : ''}, player ${r.nation}, sent ${r.choice})`,
         );
