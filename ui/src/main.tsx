@@ -205,6 +205,16 @@ declare global {
       cursor: ReturnType<typeof cursor>;
       cursorOnScreen: [number, number] | null;
     };
+    /**
+     * For scripts/tileset.ts: the Map view and its Tileset, the manifest it loads (none: the default art.json), and
+     * whether the art now loaded has each of some resource keys (units and colonies in Top-down come from FreeCol's).
+     */
+    fcTileset?: (keys?: string[]) => {
+      view: MapViewKind;
+      tileset: string;
+      manifest: string | null;
+      has: boolean[];
+    };
     /** For scripts: the WebGUI dialogs that had no Browser UI, by method, each time one was asked. */
     fcUnasked?: string[];
     /** For scripts: the errors the banner has shown (errors.tsx), dismissed or not. */
@@ -1509,6 +1519,16 @@ window.fcView = () => {
   const { map: _, ...rest } = view;
   const c = cursor(view);
   return { ...rest, cursor: c, cursorOnScreen: c && tileOnScreen(view, c.at) };
+};
+
+window.fcTileset = (keys = []) => {
+  const t = tilesetOf(prefs, currentView());
+  return {
+    view: currentView(),
+    tileset: t,
+    manifest: tilesetManifest(t) ?? null,
+    has: keys.map((key) => map.resources()?.has(key) ?? false),
+  };
 };
 
 /** The debug side panel's copy of the info panel, as text: the active unit, and the tile under the pointer. */
