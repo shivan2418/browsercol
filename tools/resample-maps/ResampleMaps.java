@@ -49,6 +49,12 @@ import net.sf.freecol.server.model.ServerRegion;
  */
 public final class ResampleMaps {
 
+    /**
+     * The savegame version of a square-grid file (#527 makes it FreeColServer's SAVEGAME_VERSION): a reader converts
+     * files below it from staggered to square, and these are square already.
+     */
+    private static final int SQUARE_GRID_VERSION = 15;
+
     /** Old tile centre in screen units: width 128, row pitch 32. */
     private static double cx(int x, int y) { return (x + 0.5 + 0.5 * (y & 1)) * 128; }
     private static double cy(int y) { return (y + 1) * 32.0; }
@@ -294,7 +300,7 @@ public final class ResampleMaps {
                 xw.writeAttribute("owner", "mapEditor");
                 xw.writeAttribute("publicServer", false);
                 xw.writeAttribute("singleplayer", false);
-                xw.writeAttribute("version", FreeColServer.SAVEGAME_VERSION);
+                xw.writeAttribute("version", SQUARE_GRID_VERSION);
                 xw.writeAttribute("randomState", "");
                 xw.writeAttribute("debug", "");
                 game.toXML(xw);
