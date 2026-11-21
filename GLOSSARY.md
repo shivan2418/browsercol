@@ -17,28 +17,24 @@ The Engine-side implementation of FreeCol's `GUI` interface that hands every sho
 _Avoid_: bridge, adapter, glue
 
 **Tileset**:
-A full set of map art (images, plus the colours and chip texts the map draws) addressed by resource keys and containing no rules changes. FreeCol's own art is the default Tileset; a player can provide another as an art-only mod. A Tileset may also give the look of **Shader water** (BrowserCol does).
+A full set of map art (images, plus the colours and chip texts the map draws) addressed by resource keys and containing no rules changes. FreeCol's own art is the default Tileset; a player can provide another as an art-only mod. A Tileset says which **Map views** it supports; a view's Tileset needs only what that view draws itself (for Top-down: terrain, water, forests, relief, rivers and roads), and the rest comes from FreeCol's default Tileset. A Tileset may also give the look of **Shader water** (BrowserCol does), and may register layers of **Art placed by rule**.
 _Avoid_: skin, theme, art pack
 
-**Map mode**:
-The player's choice of how the Browser UI draws the map: Tileset mode or Procedural mode.
-_Avoid_: renderer, graphics setting
-
 **Map view**:
-How the Browser UI projects the square grid of the model: Top-down (tiles as squares, the map a rectangle) or Isometric (tiles as diamonds, the map a large diamond). A separate axis from Map mode, so a player can switch Map view during a game with either Map mode.
+How the Browser UI projects the square grid of the model: Top-down (tiles as squares, the map a rectangle) or Isometric (tiles as diamonds, the map a large diamond). A player can switch Map view during a game; the Tileset picker then offers the Tilesets that support the view, and the last one used in each view is remembered.
 _Avoid_: camera, perspective, projection mode
 
-**Tileset mode**:
-The Map mode that draws everything on the map from the chosen Tileset's images, as FreeCol does.
+**Tileset art**:
+The pictures of the map that a Tileset's images give, by resource key, as FreeCol draws them.
 _Avoid_: classic mode, sprite mode
 
 **Shader water**:
-The water (ocean, lakes, high seas) of a Tileset that gives its look (shader.water.* keys) drawn in Tileset mode as one surface under the tiles, in place of FreeCol's painted frames: FreeCol's own water art, coloured per pixel by a shader by the climate of the nearest land, with a shallow shelf, bands moving ashore and foam at the beach. The water tiles draw only their coasts' sand. It is made once from the whole map's terrain, explored or not, which the server Engine in the browser has: exploring changes nothing of it, and the water at the edge of what is explored hints at the shore beyond. Its rivers flow too: one surface in FreeCol's river shapes and banks, carried downstream and fading into the sea at their mouths. Where the shader cannot run, compile or draw, the water and rivers are FreeCol's frames.
+The water (ocean, lakes, high seas) of a Tileset that gives its look (shader.water.* keys) drawn as Tileset art as one surface under the tiles, in place of FreeCol's painted frames: FreeCol's own water art, coloured per pixel by a shader by the climate of the nearest land, with a shallow shelf, bands moving ashore and foam at the beach. The water tiles draw only their coasts' sand. It is made once from the whole map's terrain, explored or not, which the server Engine in the browser has: exploring changes nothing of it, and the water at the edge of what is explored hints at the shore beyond. Its rivers flow too: one surface in FreeCol's river shapes and banks, carried downstream and fading into the sea at their mouths. Where the shader cannot run, compile or draw, the water and rivers are FreeCol's frames.
 _Avoid_: animated water, water effect
 
-**Procedural mode**:
-The Map mode that draws terrain (ground, water, rivers, forests) in layers, with art such as single trees placed by code; units, colonies and roads still come from the chosen Tileset.
-_Avoid_: fancy mode, HD mode, 3D mode
+**Art placed by rule**:
+The pictures of the map that code places over the tiles by rules rather than a fixed image per tile, such as single trees scattered in a forest or peaks scattered on mountains. A Tileset registers it as layers in the chunk tilemap's seam (`ui/src/tile-art.ts`); the real use is post-2.0, and only a debug layer ships (docs/adr/0003).
+_Avoid_: procedural mode, fancy mode, HD mode, 3D mode
 
 **Resource key**:
 FreeCol's name for one piece of art (e.g. a terrain tile, a unit image or the road colour), resolved to an image, colour or string through resource properties and mod overrides.
