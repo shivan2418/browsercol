@@ -289,7 +289,7 @@ final class DebugActions {
         final List<Tile> natives = new ArrayList<>();
         for (Player p : this.game.getLiveNativePlayerList()) {
             for (net.sf.freecol.common.model.Settlement s : p.getSettlementList()) {
-                if (s.getTile() != null) natives.add(s.getTile());
+                natives.add(s.getTile());
             }
         }
         natives.sort((a, b) -> Integer.compare(this.game.getMap().getDistance(from, a),
@@ -441,7 +441,6 @@ final class DebugActions {
         int best = Integer.MAX_VALUE;
         for (Player n : this.game.getLiveNativePlayerList()) {
             for (net.sf.freecol.common.model.Settlement s : n.getSettlementList()) {
-                if (s.getTile() == null) continue;
                 final int d = this.game.getMap().getDistance(colony.getTile(), s.getTile());
                 if (d < best) {
                     best = d;

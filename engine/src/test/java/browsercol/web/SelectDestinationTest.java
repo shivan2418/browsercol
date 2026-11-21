@@ -1001,7 +1001,7 @@ class SelectDestinationTest {
             "the stack is dumped");
         assertEquals(0, serverShip(ship).getGoodsCount(cloth), "the cloth is gone");
         assertEquals(gold, serverPlayer.getGold(), "and not paid for");
-        // A dump is not a sale: no entry in the log and no sale sound (#441).
+        // A dump is not a sale: no entry in the log and no sale sound (#441, #540).
         client.getClient().getGUI().showEuropePanel();
         assertEquals(loggedBefore, logOf(parse(lastEurope())).size(),
             "a dump is not logged as a sale: " + lastEurope());

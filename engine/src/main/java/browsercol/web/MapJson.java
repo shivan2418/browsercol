@@ -371,9 +371,7 @@ final class MapJson {
     }
 
     /**
-     * A settlement on the tile {@code t}. The settlement's own tile is not
-     * used: the client's copy of a native settlement it has not seen has
-     * none, which stalled the start of a game on Giga Earth (#459).
+     * A settlement on the tile {@code t}.
      */
     private static String settlement(Settlement s, Tile t, Player player) {
         int population = -1, bonus = 0, sizeChange = 0;

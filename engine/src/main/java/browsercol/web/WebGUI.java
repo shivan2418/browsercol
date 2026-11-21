@@ -437,9 +437,7 @@ public class WebGUI extends GUI {
     /** The orders last sent with the active unit event. */
     private List<String> lastOrders = new ArrayList<>();
     /** The purchases and sales of the turn in Europe. */
-    private final SalesLog salesLog = new SalesLog(this::isNotASale);
-    /** The calling thread is doing what FreeCol words as a sale but is not one (#441). */
-    private final ThreadLocal<Boolean> notASale = ThreadLocal.withInitial(() -> false);
+    private final SalesLog salesLog = new SalesLog();
 
 
     /** The colonies whose panels are open, watched for changes ColonyPanel reacts to. */
@@ -1059,28 +1057,8 @@ public class WebGUI extends GUI {
         this.modalGate.invoke(runnable);
     }
 
-    /**
-     * Run something FreeCol's client reports as a sale, with no sale sound
-     * and no entry in the sales log: dumping boycotted goods in Europe,
-     * which sells goods through the sale routine but pays nothing (#441).
-     */
-    <T> T notASale(java.util.function.Supplier<T> action) {
-        final boolean was = this.notASale.get();
-        this.notASale.set(true);
-        try {
-            return action.get();
-        } finally {
-            this.notASale.set(was);
-        }
-    }
-
-    private boolean isNotASale() {
-        return this.notASale.get();
-    }
-
     @Override
     public void playSound(String sound) {
-        if (isNotASale() && "sound.event.sellCargo".equals(sound)) return;
         this.ui.show("sound", new Json().put("key", sound).toString());
     }
 
@@ -1161,20 +1139,9 @@ public class WebGUI extends GUI {
         return this.activeUnit;
     }
 
-    /**
-     * {@inheritDoc}
-     *
-     * A unit on the high seas is never made the active one: it is off the
-     * map, and no order on the map applies to it. Upstream's
-     * doExecuteGotoOrders selects each unit it moves, and stops at a ship
-     * that has just sailed onto the high seas for Europe, as
-     * moveTowardEurope says the move cannot go on; that left the ship as the
-     * active unit (#428). The goto orders run only once no unit is left to
-     * cycle through, so no active unit is what the player gets otherwise.
-     */
     @Override
     public void changeView(Unit unit, boolean force) {
-        this.activeUnit = (unit != null && unit.isAtSea()) ? null : unit;
+        this.activeUnit = unit;
         showActiveUnit(force);
     }
 
@@ -1209,11 +1176,6 @@ public class WebGUI extends GUI {
      */
     @Override
     public void updateMapControls() {
-        // The active unit may have sailed onto the high seas since it was selected (#428).
-        if (this.activeUnit != null && this.activeUnit.isAtSea()) {
-            changeView(null, false);
-            return;
-        }
         if (orders(this.activeUnit).equals(this.lastOrders)) return;
         showActiveUnit(false);
     }

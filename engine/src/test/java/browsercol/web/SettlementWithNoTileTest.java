@@ -1,6 +1,7 @@
 package browsercol.web;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
@@ -24,9 +25,9 @@ import net.sf.freecol.common.model.Tile;
 
 
 /**
- * FreeCol's client copy of a native settlement the player has not seen can
- * have no tile (#462). The map and the readers of a player's settlements
- * skip or place it, not throw.
+ * FreeCol's client copy of a settlement that is in sight of the first map
+ * update has its tile (#542, found in #462), and the map and the readers of a
+ * player's settlements work on it.
  */
 class SettlementWithNoTileTest {
 
@@ -79,22 +80,23 @@ class SettlementWithNoTileTest {
 
     /**
      * Seed 9 of Giga Earth puts a native settlement next to the Dutch entry
-     * tile that the client has no tile for (seed 2 did, before the ocean
-     * regions changed), and the map JSON of the start of the game threw
-     * (#459, #462): the page stayed on "Loading the art".
+     * tile, in sight of the first map update. FreeCol built the client's copy
+     * of it with no tile, because the tile it sits on was not registered in
+     * the game while it was being copied (#542). The map JSON of the start of
+     * the game threw (#459, #462): the page stayed on "Loading the art".
      */
     @Disabled("#528: data/maps/XL_GigaEarth_Mazim.fsm is laid out for the staggered grid, and the seed's settlement beside the entry tile moves with it")
     @Test
     @Timeout(240)
-    void theMapOfAClientWithASettlementThatHasNoTileComes() throws Exception {
+    void everySettlementOfTheClientHasItsTile() throws Exception {
         play(Files.readAllBytes(new File("data/maps/XL_GigaEarth_Mazim.fsm").toPath()), 9);
-        final List<Tile> found = lastClient.getGame().getMap().getTileList(
-            t -> t.getSettlement() != null && t.getSettlement().getTile() == null);
-        // FreeCol's client copy of a native settlement the player has not seen has no
-        // tile. If FreeCol ever gives it one, this assertion fails, and the test no
-        // longer tests anything: the guards it covers may then go.
-        assertFalse(found.isEmpty(), "a client settlement with no tile");
-        final Tile tile = found.get(0);
+        final List<Tile> withSettlement = lastClient.getGame().getMap().getTileList(
+            t -> t.getSettlement() != null);
+        assertFalse(withSettlement.isEmpty(), "the client sees a settlement");
+        for (Tile t : withSettlement) {
+            assertSame(t, t.getSettlement().getTile(), "the tile of the settlement at " + t.getX() + "," + t.getY());
+        }
+        final Tile tile = withSettlement.get(0);
         final Player me = lastClient.getClient().getMyPlayer();
         String json = MapJson.of(lastClient.getGame(), me, null, false);
         assertTrue(json.contains("\"x\":" + tile.getX() + ",\"y\":" + tile.getY() + ","), "the settlement is on the map");

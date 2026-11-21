@@ -356,6 +356,7 @@ flow:
 
     private void delta(Tile tile, Direction direction, RiverSection section, Direction d) {
         Tile t = tile.getNeighbourOrNull(d);
+        if (t == null) return; // The delta would run off the edge of the map.
         if (!t.isLand()) {
             List<RiverSection> deltaSections = new ArrayList<>();
             section.setBranch(d, TileImprovement.SMALL_RIVER);
@@ -363,7 +364,7 @@ flow:
             drawToMap(deltaSections);
         } else if (riverType.isTileTypeAllowed(t.getType())) {
             Tile t2 = t.getNeighbourOrNull(direction);
-            if (!t2.isLand() && randomInt(logger, "Delta", random, 2) == 0) {
+            if (t2 != null && !t2.isLand() && randomInt(logger, "Delta", random, 2) == 0) {
                 List<RiverSection> deltaSections = new ArrayList<>();
                 section.setBranch(d, TileImprovement.SMALL_RIVER);
                 RiverSection rs = new RiverSection(t, direction);

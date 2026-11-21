@@ -320,6 +320,10 @@ public final class FreeColServer {
         throws IOException {
         this(name, address, port);
 
+        // The session registry is static and outlives a game: forget the
+        // last game's open sessions, which a new game's would otherwise
+        // meet, keyed by the same player ids, as "Duplicate session".
+        Session.clearAll();
         this.setPublicServer(publicServer);
         this.singlePlayer = singlePlayer;
         this.random = new Random();

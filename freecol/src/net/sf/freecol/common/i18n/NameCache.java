@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.WeakHashMap;
 import java.util.logging.Logger;
 
 import net.sf.freecol.common.model.Game;
@@ -85,15 +86,24 @@ public class NameCache {
     private static final Object seasonNamesLock = new Object();
     private static int seasonNumber = 0;
     
-    /** Settlement names. */
+    /**
+     * Settlement names.
+     *
+     * These maps are keyed by Player and a Player is equal only to one
+     * of the same game, so they must not keep a game's players alive:
+     * nothing ever removes them, and a strong map held every game a
+     * JVM ever made, about 17MB each.  The values hold no Player, so
+     * weak keys let a finished game go.
+     */
     private static final Map<Player, String> capitalNames
-        = new HashMap<>();
+        = new WeakHashMap<>();
     private static final Map<Player, List<String>> settlementNames
-        = new HashMap<>();
+        = new WeakHashMap<>();
     private static final Object settlementNameLock = new Object();
 
-    /** Ship names. */
-    private static final Map<Player, List<String>> shipNames = new HashMap<>();
+    /** Ship names (weak keys, as for the settlement names). */
+    private static final Map<Player, List<String>> shipNames
+        = new WeakHashMap<>();
     private static final Object shipNameLock = new Object();
 
 

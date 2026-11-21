@@ -538,7 +538,12 @@ public class Game extends FreeColGameObject {
         if (fcgo == null) {
             if (create) {
                 fcgo = newInstance(this, returnClass, false);
+                // Intern before the copy: objects the copy reaches
+                // (a settlement's tile, as a new tile takes its settlement)
+                // look this one up by its id, and find nothing if it is
+                // not registered yet.
                 fcgo.setId(id);
+                fcgo.internId(id);
             } else {
                 // Otherwise this is an error
                 logger.warning("Update of missing object: " + id
@@ -559,7 +564,6 @@ public class Game extends FreeColGameObject {
             throw new RuntimeException("Update copy failed: " + id
                 + " onto " + t);
         }
-        if (create) t.internId(id);
         return t;
     }
 

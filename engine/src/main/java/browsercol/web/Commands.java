@@ -474,7 +474,7 @@ public final class Commands {
             if (act == BoycottAction.BOYCOTT_PAY_ARREARS) {
                 igc().payArrears(type);
             } else if (act == BoycottAction.BOYCOTT_DUMP_CARGO) {
-                dumped = dump(new Goods(this.client.getGame(), ship, type, aboard));
+                dumped = igc().unloadCargo(new Goods(this.client.getGame(), ship, type, aboard), true);
             }
             gui().showEuropePanel();
             return dumped;
@@ -975,7 +975,7 @@ public final class Commands {
         if (ship == null || type == null) return false;
         final int amount = Math.min(stack, ship.getGoodsCount(type));
         if (amount <= 0) return false;
-        final boolean done = dump(new Goods(this.client.getGame(), ship, type, amount));
+        final boolean done = igc().unloadCargo(new Goods(this.client.getGame(), ship, type, amount), true);
         if (ship.isInEurope()) gui().showEuropePanel();
         return done;
     }
@@ -1003,21 +1003,6 @@ public final class Commands {
             }
         }
         return any;
-    }
-
-    /**
-     * Dump goods from a carrier. In Europe FreeCol's client routes this
-     * through sellGoods, which plays the sale sound and logs a sale; the
-     * server sells nothing for boycotted goods, so neither is wanted (#441).
-     */
-    private boolean dump(Goods goods) {
-        final Player player = this.client.getMyPlayer();
-        final Unit ship = (Unit)goods.getLocation();
-        if (ship.isInEurope() && !player.canTrade(goods.getType())
-            && gui() instanceof WebGUI) {
-            return ((WebGUI)gui()).notASale(() -> igc().unloadCargo(goods, true));
-        }
-        return igc().unloadCargo(goods, true);
     }
 
     /** One of our carriers, anywhere, by id, else null. */
