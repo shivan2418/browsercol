@@ -167,7 +167,7 @@ async function shapeGame(name: string, open: () => Promise<Page>, url: string, s
     // Zoomed all the way out in a big window, the map is smaller than the view and sits in its middle.
     if (Math.abs(centre[0] - mw / 2) > 2 || Math.abs(centre[1] - mh / 2) > 2)
       throw new Error(
-        `zoomed out at ${zoom}, the camera is at ${centre.map(Math.round)} and not at the middle of the ${Math.round(mw)}x${Math.round(mh)} map`,
+        `zoomed out at ${zoom}, the camera is at ${centre.map(Math.round).join(',')} and not at the middle of the ${Math.round(mw)}x${Math.round(mh)} map`,
       );
     if (shape === 'isometric') {
       // A rectangle: the camera cannot be moved off it into the corners of the box's diamond.
