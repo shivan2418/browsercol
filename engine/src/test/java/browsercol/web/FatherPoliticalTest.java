@@ -291,6 +291,73 @@ class FatherPoliticalTest {
         assertEquals(at20, bells(serverColony(id)), "the server's town hall");
     }
 
+    /** The value of the bells modifier Paine gives this player, or null without one. */
+    private static Float paineBells(Player player) {
+        return player.getModifiers("model.goods.bells")
+            .filter(m -> m.getSource() != null
+                && "model.foundingFather.thomasPaine".equals(m.getSource().getId()))
+            .map(Modifier::getValue).findFirst().orElse(null);
+    }
+
+    @Test
+    @Timeout(240)
+    void eachPlayerWithPaineHasABellsBonusOfTheirOwnTax() throws Exception {
+        final String id = colonyWithAStatesman();
+        final ServerPlayer us = us();
+        final ServerPlayer rival = (ServerPlayer)server.getGame().getLiveEuropeanPlayers(us)
+            .filter(p -> !p.isREF()).findFirst().get();
+        final ChangeSet ourTax = new ChangeSet();
+        us.csSetTax(50, ourTax);
+        send(ourTax);
+        eventually("the client's tax", () -> me().getTax() == 50);
+        rival.csSetTax(10, new ChangeSet());
+
+        join("thomasPaine");
+        rival.csAddFoundingFather(spec().getFoundingFather("model.foundingFather.thomasPaine"),
+            new Random(1), new ChangeSet());
+
+        // Each has Paine, and each gets their own tax: the rival's joining
+        // did not change ours.
+        assertEquals(50f, paineBells(us), "ours");
+        assertEquals(10f, paineBells(rival), "the rival's");
+        final int at50 = (int)(6 * 1.5f) + 1;
+        assertEquals(at50, bells(serverColony(id)), "the server's town hall");
+        eventually("the client's town hall", () -> bells(clientColony(id)) == at50);
+
+        // The rival's tax changes, and ours does not move; nor on the client.
+        rival.csSetTax(30, new ChangeSet());
+        assertEquals(30f, paineBells(rival), "the rival's, changed");
+        assertEquals(50f, paineBells(us), "ours, after the rival's tax changed");
+        assertEquals(at50, bells(serverColony(id)), "the server's town hall, after");
+
+        // The server sends the player again, as it does on every change of
+        // hers: the client's bonus stays one bonus, at her tax.
+        final ChangeSet again = new ChangeSet();
+        again.add(See.only(us), us);
+        send(again);
+        Thread.sleep(300);
+        assertEquals(50f, paineBells(me()), "the client's");
+        eventually("the client's town hall, after the player was sent again",
+            () -> bells(clientColony(id)) == at50);
+        assertEquals(1, me().getModifiers("model.goods.bells")
+            .filter(m -> m.getSource() != null
+                && "model.foundingFather.thomasPaine".equals(m.getSource().getId())).count(),
+            "one bonus on the client");
+
+        // A save keeps each one's own bonus, whatever order they load in.
+        java.nio.file.Path saves = java.nio.file.Files.createTempDirectory("paine-saves");
+        ServerEngine.saveDirectory = saves.toFile();
+        final byte[] bytes = server.saveGame();
+        final ServerEngine loaded = new ServerEngine(xml -> {});
+        loaded.loadGame(bytes);
+        assertEquals(50f, paineBells(loaded.getGame().getFreeColGameObject(us.getId(), Player.class)),
+            "ours, loaded");
+        assertEquals(30f, paineBells(loaded.getGame().getFreeColGameObject(rival.getId(), Player.class)),
+            "the rival's, loaded");
+        assertEquals(at50, bells(loaded.getGame().getFreeColGameObject(id, Colony.class)),
+            "the loaded town hall");
+    }
+
     @Test
     @Timeout(240)
     void bolivarRaisesSonsOfLibertyByTwentyInEveryColony() throws Exception {

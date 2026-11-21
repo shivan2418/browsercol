@@ -10,6 +10,7 @@ FreeCol's own bug tracker is on SourceForge
 | Bug | Fixed in | Our issue / commit | FreeCol report | Upstream status |
 | --- | --- | --- | --- | --- |
 | Thomas Paine's bells bonus stays 0 on the server from the turn he joins until the tax next changes or the game is reloaded; the client shows it at once. `Player.addFather` never calls `recalculateBellsBonus`. | `common/model/Player.java` (`addFather`) | #169 | [#2187](https://sourceforge.net/p/freecol/bugs/2187/) (2011, the same symptom, closed as fixed in 0.10.1) | Still in FreeCol's code at 1c272e80 (the commit vendored) and on its newer branches. Fix sent as [FreeCol PR #181](https://github.com/FreeCol/freecol/pull/181) (2026-11-06). |
+| Players who both have Thomas Paine share one bells modifier: the spec's own "template" is added to each player uncopied and `recalculateBellsBonus` sets its value in place, so every player with Paine gets the tax of whichever player's bonus was recalculated last (the colony panel, on the client's copy, disagrees with the server). Each player now gets a copy, swapped in when the tax changes (the modifier's hash includes its value, so it is replaced rather than changed), and `addFather` drops a father's features before adding them again, so the client's repeated `setFoundingFathers` leaves one bonus. | `common/model/Player.java` (`recalculateBellsBonus`, `addFather`) | #313 | None found | Not reported yet; a follow-up to FreeCol PR #181. |
 | A trade route's "silent" flag is lost when the server copies the route in (`TradeRoute.copyIn` skips it). | `common/model/TradeRoute.java` (`copyIn`) | #70 (348b3b0) | None found | Not reported. |
 | Open sessions (a monarch's offer, a trade) outlive their game: `Session`'s registry is static and FreeCol clears it only when it loads a saved game, so a new game in the same JVM that reaches the same session (same player ids) fails with "Duplicate session". Declaring independence opens one, the mercenary offer. | `server/FreeColServer.java` (the new-game constructor clears the registry) | #538 (found while testing the War of Independence) | None found | Not reported. |
 | Declaring independence the turn a monarch question (a tax raise) was answered stops half done with "Duplicate session": the answered session stays registered until the next turn, and the declaration's mercenary offer makes one with the same key. | `server/model/Session.java` (the constructor drops a completed session with the same key) | #173 | None found | Not reported. |
@@ -26,7 +27,6 @@ FreeCol's own bug tracker is on SourceForge
 
 | Bug | Where | Notes |
 | --- | --- | --- |
-| Paine's bells modifier is meant to be a template copied per player (the spec says so), but every player who has Paine shares the one modifier, so its value is the tax of whichever player's tax was set last. | `Player.recalculateBellsBonus` | #313. Found while fixing #169; only matters when two players both have Paine, which includes an AI rival. A first attempt at a per-player copy changed the bells count (9 instead of 8 at 20% tax) for a reason not yet understood, so it was left out. |
 
 ## Text we reword
 
