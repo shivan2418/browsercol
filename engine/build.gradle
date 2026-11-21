@@ -124,3 +124,19 @@ tasks.register('dosMap', JavaExec) {
     mainClass = 'browsercol.web.DosMap'
     args = [project.findProperty('in'), project.findProperty('out')]
 }
+
+// Resample FreeCol's staggered map files into north-up square grids (#528); tools/resample-maps.sh runs it.
+sourceSets {
+    tools {
+        java.srcDir '../tools/resample-maps'
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        runtimeClasspath += output + sourceSets.main.output + sourceSets.main.runtimeClasspath
+    }
+}
+tasks.register('resampleMaps', JavaExec) {
+    classpath = sourceSets.tools.runtimeClasspath
+    mainClass = 'ResampleMaps'
+    workingDir = freecol
+    jvmArgs '-Djava.awt.headless=true', '-Xmx2g'
+    args = (project.findProperty('resampleArgs') as String).split(' ').toList()
+}
