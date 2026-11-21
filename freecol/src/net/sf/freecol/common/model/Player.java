@@ -38,6 +38,7 @@ import static net.sf.freecol.common.util.CollectionUtils.removeInPlace;
 import static net.sf.freecol.common.util.CollectionUtils.sort;
 import static net.sf.freecol.common.util.CollectionUtils.sum;
 import static net.sf.freecol.common.util.CollectionUtils.sumDouble;
+import static net.sf.freecol.common.util.CollectionUtils.toList;
 import static net.sf.freecol.common.util.CollectionUtils.transform;
 import static net.sf.freecol.common.util.StringUtils.getEnumKey;
 import static net.sf.freecol.common.util.StringUtils.lastPart;
@@ -1368,9 +1369,19 @@ public class Player extends FreeColGameObject implements Nameable {
         for (Ability ability : transform(getAbilities(Ability.ADD_TAX_TO_BELLS),
                                          isNotNull(Ability::getSource))) {
             FreeColObject source = ability.getSource();
-            for (Modifier modifier : transform(getModifiers("model.goods.bells"),
-                                               matchKeyEquals(source, Modifier::getSource))) {
-                modifier.setValue(tax);
+            // The father's modifier is a template (value 0) in the
+            // specification, shared by every player: give this player
+            // their own copy, with the tax as its value.  The copy is
+            // swapped in rather than changed, as the modifier's hash
+            // includes its value.
+            List<Modifier> templates = toList(transform(
+                    getModifiers("model.goods.bells"),
+                    matchKeyEquals(source, Modifier::getSource)));
+            for (Modifier template : templates) {
+                removeModifier(template);
+                Modifier copy = Modifier.makeModifier(template);
+                copy.setValue(tax);
+                addModifier(copy);
                 ret = true;
             }
         }
@@ -1468,6 +1479,7 @@ public class Player extends FreeColGameObject implements Nameable {
      */
     public void addFather(FoundingFather father) {
         foundingFathers.add(father);
+        removeFeatures(father); // in case the father is added again
         addFeatures(father);
         recalculateBellsBonus(); // Paine's bonus is the tax from the turn he joins, not 0
         for (Colony c : getColonyList()) c.invalidateCache();
