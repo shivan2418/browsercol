@@ -7,7 +7,7 @@
 import { PANEL_KEY_FAMILIES } from './map-keys';
 import type { Resources } from './resources';
 import type { MapView } from './tileset';
-import { W, projection, tracePath } from './projection';
+import { projection, tracePath } from './projection';
 
 export interface MinimapOptions {
   /** miniMapToggleBorders: political colours with the owners over them, rather than economic ones. */
@@ -36,7 +36,7 @@ export const tileSize = (zoom: number): number => 4 * Math.max(MIN_ZOOM, Math.mi
 /** The whole map's size on the minimap, as MiniMap.recreateBufferImage makes its image. */
 export const imageSize = (m: { w: number; h: number }, size: number): [number, number] => {
   const [width, height] = projection.mapSize(m.w, m.h);
-  return [(width * size) / W, (height * size) / W];
+  return [(width * size) / projection.tile.w, (height * size) / projection.tile.w];
 };
 
 /** What the minimap shows of an explored tile. */
@@ -97,7 +97,7 @@ export interface ViewBox {
  * and the box round what the map view shows: x, y, width and height.
  */
 export function placement(v: ViewBox, box: [number, number], size: number) {
-  const s = size / W;
+  const s = size / projection.tile.w;
   const image: [number, number] = [box[0] / 2 - v.centre[0] * s, box[1] / 2 - v.centre[1] * s];
   const [w, h] = [(v.viewport[0] / v.zoom) * s, (v.viewport[1] / v.zoom) * s];
   const visible: [number, number, number, number] = [box[0] / 2 - w / 2, box[1] / 2 - h / 2, w, h];
@@ -110,7 +110,10 @@ export const pointAt = (
   box: [number, number],
   size: number,
   [px, py]: [number, number],
-): [number, number] => [v.centre[0] + ((px - box[0] / 2) * W) / size, v.centre[1] + ((py - box[1] / 2) * W) / size];
+): [number, number] => [
+  v.centre[0] + ((px - box[0] / 2) * projection.tile.w) / size,
+  v.centre[1] + ((py - box[1] / 2) * projection.tile.w) / size,
+];
 
 /** A 0xRRGGBB colour, and an alpha, as CSS. */
 export const css = (rgb: number, alpha = 1) =>
@@ -134,7 +137,7 @@ export function paintMinimap(
   };
   g.lineWidth = 1;
   for (const t of tiles) {
-    const at = projection.origin(t.x, t.y, rows).map((c) => (c * size) / W) as [number, number];
+    const at = projection.origin(t.x, t.y, rows).map((c) => (c * size) / projection.tile.w) as [number, number];
     diamond(at, 1);
     g.fillStyle = css(t.fill);
     g.fill();

@@ -6,6 +6,7 @@ import { useRef } from 'react';
 import { Tip } from './controls';
 import { DebugMenu, type DebugMenuProps } from './debug-menu';
 import { orderOf, type Command } from './input';
+import type { MapViewKind } from './projection';
 import type { SaveMeta } from './saves';
 import './side.css';
 import './side-lists.css';
@@ -36,6 +37,8 @@ export interface SideProps {
   exportSave: (id: number) => void;
   /** Add a .fsg file the player chose to the saved games. */
   importFile: (file: File) => void;
+  /** The Map view and how to switch it (#530): Isometric, the default, or the Top-down view's placeholder art. */
+  mapView?: { kind: MapViewKind; set: (kind: MapViewKind) => void };
   /** The debug menu, in debug mode (`?debug`) only: with none, it is not drawn. */
   debug?: DebugMenuProps;
 }
@@ -93,6 +96,7 @@ export function Side({
   remove,
   exportSave,
   importFile,
+  mapView,
   debug,
 }: SideProps) {
   const name = useRef<HTMLInputElement>(null);
@@ -125,6 +129,17 @@ export function Side({
         edge, to scroll; the wheel zooms.
       </div>
       <div id="info">{info}</div>
+      {mapView && (
+        <div>
+          <label>
+            Map view:{' '}
+            <select id="map-view" value={mapView.kind} onChange={(e) => mapView.set(e.target.value as MapViewKind)}>
+              <option value="isometric">Isometric</option>
+              <option value="topdown">Top-down (placeholder art)</option>
+            </select>
+          </label>
+        </div>
+      )}
       {debug && <DebugMenu {...debug} />}
       <div id="saving">
         <input ref={name} id="save-name" placeholder="Save name (optional)" />

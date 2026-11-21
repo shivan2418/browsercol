@@ -424,6 +424,10 @@
     z-index: var(--z-raise-2);
     pointer-events: auto;
   }
+  /* In the Top-down view the tile's whole square takes them (#530). */
+  .colony .tiles[data-view='topdown'] .tile .hit {
+    clip-path: none;
+  }
   /* The build queue (BuildQueuePanel): the queue, then what can be added, each listed with the goods it takes. */
   /* What is being built, and a building that can build, open the queue when clicked: nothing lights up, as in FreeCol. */
   .colony .building[data-builds] {

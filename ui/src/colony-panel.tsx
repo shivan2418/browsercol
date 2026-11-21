@@ -50,17 +50,16 @@ import './colony-panel.css';
 import './colony-tips.css';
 import { Occupation } from './occupation-badge';
 import { flag } from './flag';
-import { projection } from './projection';
+import { currentView, projection } from './projection';
 
 /** Room above the tiles for art taller than its tile (forests, hills, the colony). */
-const TILE_TOP = projection.tile.h / 2;
+const tileTop = () => projection.tile.h / 2;
 /** ImageLibrary.ICON_COIN, which an UpkeepLabel shows. */
 const COIN = PANEL_KEYS.coin;
 /** The colony's 3x3 tiles, laid out as the map's projection draws a block of them (TilesPanel). */
-const BLOCK = projection.blockSize();
 const placeOf = (x: number, y: number): CSSProperties => {
   const [left, top] = projection.block(x, y);
-  return { left, top };
+  return { left, top, width: projection.tile.w, height: projection.tile.h };
 };
 /** ImageLibrary.TILE_TAKEN and TILE_OWNED_BY_INDIANS, which TileViewer.displayColonyTile draws over a tile. */
 const TILE_TAKEN = ['image.tile.tileTaken'];
@@ -469,14 +468,18 @@ function Tiles({ c, art }: { c: ColonyView; art: Art }) {
   const ground = useRef<HTMLDivElement>(null);
   const centre = c.tiles.find((t) => t.centre)?.at ?? c.at;
   const at = JSON.stringify(c.tiles.map((t) => t.at));
+  // The Map view (#530) sets the tiles' shape and size; the panel is drawn again when it is switched.
+  const view = currentView();
+  const [blockW, blockH] = projection.blockSize();
+  const top = tileTop();
   useEffect(() => {
     if (!draw || !ground.current) return;
-    return draw(ground.current, centre, JSON.parse(at) as [number, number][], TILE_TOP);
-  }, [draw, at, centre[0], centre[1]]);
+    return draw(ground.current, centre, JSON.parse(at) as [number, number][], top);
+  }, [draw, at, centre[0], centre[1], view]);
   return (
-    <section className="tiles" data-part="tiles" style={{ width: BLOCK[0], height: BLOCK[1] + TILE_TOP }}>
+    <section className="tiles" data-part="tiles" data-view={view} style={{ width: blockW, height: blockH + top }}>
       {draw && <div className="ground" ref={ground} />}
-      <div className="over" style={{ top: TILE_TOP }}>
+      <div className="over" style={{ top }}>
         {c.tiles.map((t) => {
           const [x, y] = t.pos;
           return (
@@ -503,7 +506,7 @@ function Tiles({ c, art }: { c: ColonyView; art: Art }) {
   );
 }
 
-/** A tile of the 3x3: a diamond that takes colonists (the centre tile takes none), around what it shows. */
+/** A tile of the 3x3: a diamond (a square in the Top-down view) that takes colonists (the centre tile takes none), around what it shows. */
 function TilePlace({
   t,
   style,

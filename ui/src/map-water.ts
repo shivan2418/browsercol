@@ -18,7 +18,7 @@ import { BufferImageSource, Geometry, ImageSource, Mesh, Shader, type TextureSou
 import { MAP_KEY_FAMILIES } from './map-keys';
 import type { Resources } from './resources';
 import type { MapView } from './tileset';
-import { H, W, mapGrid, projection } from './projection';
+import { H, W, isometric, mapGrid, projection } from './projection';
 
 const KEY = MAP_KEY_FAMILIES.shaderWater;
 
@@ -59,9 +59,10 @@ export interface Palette {
 type FieldMap = Pick<MapView, 'w' | 'h' | 'types' | 'tiles'>;
 
 /** River sides in FreeCol's style order, by the screen direction of each (the art's names; the grid's N, E, S, W). */
-export const RIVER_SIDES = projection.faces;
+// The shader water is the Isometric view's: these are its projection's, whichever view is on.
+export const RIVER_SIDES = isometric.faces;
 /** Where each of those sides' middle is, from the tile's middle. */
-export const RIVER_MIDPOINTS = RIVER_SIDES.map((d) => projection.edgeMidpoint(d));
+export const RIVER_MIDPOINTS = RIVER_SIDES.map((d) => isometric.edgeMidpoint(d));
 /** The side a river on `side` flows into: the neighbour's side that faces it. */
 export const oppositeSide = (side: number): number => mapGrid.edgeIndex(mapGrid.opposite(mapGrid.edges[side]));
 export function riverNeighbour(x: number, y: number, side: number): [number, number] {

@@ -5,7 +5,8 @@
 // some images by masking others (terrain transitions, beaches, rivers);
 // those come as a Recipe that map.ts composites and caches by id.
 import { MAP_KEY_FAMILIES, MAP_KEYS } from './map-keys';
-import { mapGrid, neighbourOnScreen, projection, type Direction } from './projection';
+import { currentView, mapGrid, neighbourOnScreen, projection, type Direction, type MapViewKind } from './projection';
+import { flatSrc, lookOf, riverSides } from './topdown-art';
 import type { Resources } from './resources';
 import type { Cursor } from './view';
 
@@ -138,6 +139,8 @@ export type Src = string | Recipe | Animated;
 export interface Recipe {
   /** Same id, same image: map.ts's cache key. */
   id: string;
+  /** The picture's size; a tile's (the Isometric view's, 128x64) if not given. */
+  size?: [number, number];
   steps: Step[];
 }
 /**
@@ -174,7 +177,7 @@ export const isAnimated = (src: Src): src is Animated => typeof src !== 'string'
 export const frameAt = (src: Src, ticks: Ticks): Src => (isAnimated(src) ? src.animate(ticks) : src);
 
 /** Draw an image (scaled about the centre if asked), keep only where a mask is opaque, or cut away where it is. */
-export type Step = { draw: Src; alpha?: number; scale?: number } | { mask: Src } | { cut: Src };
+export type Step = { draw: Src; alpha?: number; scale?: number; fit?: [number, number] } | { mask: Src } | { cut: Src };
 
 /**
  * Where an image sits on its tile, as TileViewer and MapViewer place it:
@@ -287,12 +290,28 @@ const lower = (ds: Direction[]) =>
     .join('_');
 const terrainKey = (id: string) => `${TILE}${id}.center`;
 
+/**
+ * The Top-down view's size for a picture of the map's art on a tile (#530): FreeCol's art is made for a 128x64 diamond,
+ * so a unit, a settlement or a resource is drawn smaller, centred in a tile-sized picture of its own.
+ */
+const UNIT_FIT: [number, number] = [34, 46];
+const SETTLEMENT_FIT: [number, number] = [56, 56];
+const ITEM_FIT: [number, number] = [40, 40];
+const fitted = (path: string, box: [number, number]): Recipe => ({
+  id: `fit:${path}:${box.join('x')}`,
+  size: [projection.tile.w, projection.tile.h],
+  steps: [{ draw: path, fit: box }],
+});
+
 /** What draws a unit on its tile: its image, the first of its keys the art has, then its occupation chip. */
 export function unitOps(u: Unit, res: Resources): Op[] {
   const { x, y, rgb, chip, fg, stack, fade } = u;
   const key = u.keys.find((k) => res.has(k));
   const ops: Op[] = [];
-  if (key) ops.push({ k: 'image', x, y, src: res.path(key)!, at: 'unit', ...(fade ? { fade: true as const } : {}) });
+  const fadeNow = fade ? { fade: true as const } : {};
+  if (key && currentView() === 'topdown')
+    ops.push({ k: 'image', x, y, src: fitted(res.path(key)!, UNIT_FIT), at: 'center', ...fadeNow });
+  else if (key) ops.push({ k: 'image', x, y, src: res.path(key)!, at: 'unit', ...fadeNow });
   ops.push({ k: 'chip', x, y, text: chip, bg: rgb, fg, stack });
   return ops;
 }
@@ -413,6 +432,7 @@ export function staticScenes(): (
     res: Resources;
     colonyLabels: ColonyLabels;
     water: WaterDrawing;
+    view: MapViewKind;
     scene: StaticScene;
   } | null = null;
   return (map, res, colonyLabels, water = 'flipbook') => {
@@ -421,10 +441,11 @@ export function staticScenes(): (
       kept.res === res &&
       kept.colonyLabels === colonyLabels &&
       kept.water === water &&
+      kept.view === currentView() &&
       sameStaticScene(kept.map, map)
     )
       return kept.scene;
-    kept = { map, res, colonyLabels, water, scene: staticScene(map, res, colonyLabels, water) };
+    kept = { map, res, colonyLabels, water, view: currentView(), scene: staticScene(map, res, colonyLabels, water) };
     return kept.scene;
   };
 }
@@ -454,6 +475,8 @@ function build(
 ): { ops: Op[]; baseEnd: number; unitsAt: number } {
   const { w, h } = map;
   const ops: Op[] = [];
+  /** The Top-down view (#530): placeholder terrain, flat colours, in place of the Isometric view's art. */
+  const top = currentView() === 'topdown';
 
   /** A tile's place in the row-major per-tile strings and lookups. */
   const index = (x: number, y: number) => y * w + x;
@@ -698,6 +721,13 @@ function build(
     const src = res.forSeed(terrainKey(type?.id ?? UNEXPLORED), seedOf(x, y));
     if (src) ops.push({ k: 'image', x, y, src, at: 'tile' });
   };
+  /** The Top-down view's terrain: a flat colour and a marker for the type, with the river's lines (topdown-art.ts). */
+  const flat = (x: number, y: number) => {
+    const look = lookOf(typeAt(x, y));
+    const r = riverAt([x, y]);
+    const river = r ? riverSides(r.style, projection.faces) || '-' : '';
+    ops.push({ k: 'image', x, y, src: flatSrc(look.colour, look.marker, river), at: 'tile' });
+  };
   const animated = (x: number, y: number) => {
     const type = typeAt(x, y);
     return !!type && (!type.land || !!riverAt([x, y]));
@@ -717,49 +747,52 @@ function build(
 
   // MapViewer paints the animated base tiles below the rest: water with its
   // beaches and deltas, and land with a river.
-  each((x, y) => {
-    const type = typeAt(x, y);
-    if (!type) return;
-    if (!type.land) {
-      if (waterDrawing === 'surface') {
-        const src = sand(x, y);
-        if (src) ops.push({ k: 'image', x, y, src, at: 'tile', shore: true });
-      } else {
-        const src = animatedSrc((t) => water(x, y, type, t));
-        if (src) ops.push({ k: 'image', x, y, src, at: 'tile' });
-      }
-      const ds = deltas(x, y);
-      if (ds.length) transitions(x, y);
-      for (const d of ds) {
+  if (!top)
+    each((x, y) => {
+      const type = typeAt(x, y);
+      if (!type) return;
+      if (!type.land) {
+        if (waterDrawing === 'surface') {
+          const src = sand(x, y);
+          if (src) ops.push({ k: 'image', x, y, src, at: 'tile', shore: true });
+        } else {
+          const src = animatedSrc((t) => water(x, y, type, t));
+          if (src) ops.push({ k: 'image', x, y, src, at: 'tile' });
+        }
+        const ds = deltas(x, y);
+        if (ds.length) transitions(x, y);
+        for (const d of ds) {
+          const src = animatedSrc(
+            (t) => delta(d, t),
+            () => deltaLayers(d),
+          );
+          if (src) ops.push({ k: 'image', x, y, src, at: 'tile' });
+        }
+      } else if (riverAt([x, y])) {
+        terrain(x, y, type);
+        transitions(x, y);
         const src = animatedSrc(
-          (t) => delta(d, t),
-          () => deltaLayers(d),
+          (t) => river(x, y, t),
+          () => riverLayers(x, y),
         );
         if (src) ops.push({ k: 'image', x, y, src, at: 'tile' });
       }
-    } else if (riverAt([x, y])) {
-      terrain(x, y, type);
-      transitions(x, y);
-      const src = animatedSrc(
-        (t) => river(x, y, t),
-        () => riverLayers(x, y),
-      );
-      if (src) ops.push({ k: 'image', x, y, src, at: 'tile' });
-    }
-  });
+    });
   for (const op of ops) if (op.k === 'image') op.base = true;
   const baseEnd = ops.length;
   each((x, y) => {
-    if (!animated(x, y)) terrain(x, y, typeAt(x, y));
+    if (top) flat(x, y);
+    else if (!animated(x, y)) terrain(x, y, typeAt(x, y));
   });
-  each((x, y) => {
-    if (explored([x, y]) && !riverAt([x, y]) && !deltas(x, y).length) transitions(x, y);
-  });
+  if (!top)
+    each((x, y) => {
+      if (explored([x, y]) && !riverAt([x, y]) && !deltas(x, y).length) transitions(x, y);
+    });
   each((x, y) => {
     if (explored([x, y]) && !seen(x, y)) ops.push({ k: 'fog', x, y });
   });
   each((x, y) => {
-    if (!explored([x, y])) return;
+    if (top || !explored([x, y])) return;
     for (const d of DIRECTIONS) {
       const n = step(x, y, d);
       if (!n || explored(n)) continue;
@@ -792,7 +825,11 @@ function build(
   for (const [x, y, z, kind, key] of map.items) {
     const src = res.path(key);
     const dim = seen(x, y) ? {} : { dim: true as const };
-    if (src)
+    // The Top-down view draws what is centred on the tile, smaller; what fills a diamond does not fit a square.
+    if (src && top) {
+      if (kind !== 'tile')
+        addItem(x, y, z, () => ops.push({ k: 'image', x, y, src: fitted(src, ITEM_FIT), at: 'center', ...dim }));
+    } else if (src)
       addItem(x, y, z, () => ops.push({ k: 'image', x, y, src, at: kind === 'tile' ? 'tile' : 'center', ...dim }));
   }
   const settlements = new Map(map.settlements.map((s) => [index(s.x, s.y), s]));
@@ -805,10 +842,10 @@ function build(
       while (items.length && items[0].z < z) items.shift()!.op();
     };
     upTo(100);
-    const overlay = res.forSeed(`${TILE_OVERLAY}${type.id}`, seedOf(x, y));
+    const overlay = top ? null : res.forSeed(`${TILE_OVERLAY}${type.id}`, seedOf(x, y));
     if (overlay) ops.push({ k: 'image', x, y, src: overlay, at: 'bottom', ...dim });
     upTo(200);
-    if (type.forested) {
+    if (type.forested && !top) {
       const r = riverAt([x, y]);
       const styled = r && `${TILE_FOREST}${type.id}.s${r.mask === '0000' ? '0100' : r.mask}`;
       const src = res.path(styled && res.has(styled) ? styled : `${TILE_FOREST}${type.id}`);
@@ -818,7 +855,8 @@ function build(
     const s = settlements.get(index(x, y));
     const key = s && first(s.keys);
     if (s && key) {
-      ops.push({ k: 'image', x, y, src: res.path(key)!, at: 'large', ...dim });
+      if (top) ops.push({ k: 'image', x, y, src: fitted(res.path(key)!, SETTLEMENT_FIT), at: 'center', ...dim });
+      else ops.push({ k: 'image', x, y, src: res.path(key)!, at: 'large', ...dim });
       // TileViewer.displaySettlementWithChipsOrPopulationNumber: the number with classic labels, the chips
       // unless modern.
       const { rgb, population, bonus, sizeChange, chips } = s;
@@ -850,7 +888,7 @@ function build(
 
   each((x, y) => {
     const type = typeAt(x, y);
-    const src = type && res.forSeed(`${ABOVE_TILE}${type.id}`, seedOf(x, y));
+    const src = type && !top && res.forSeed(`${ABOVE_TILE}${type.id}`, seedOf(x, y));
     if (src) ops.push({ k: 'image', x, y, src, at: 'center' });
   });
 

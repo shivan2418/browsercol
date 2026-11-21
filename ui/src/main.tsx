@@ -174,8 +174,18 @@ import { audioLink, offlineAudio } from './offline-audio';
 import { UpdatePrompt } from './update-prompt';
 import { watchCompact } from './compact';
 import { controlArt } from './control-art';
-import { W, projection } from './projection';
-import { cursor, initialView, panel, reduce, tileOnScreen, type Tile, type ViewEvent, type ViewState } from './view';
+import { currentView, projection, type MapViewKind } from './projection';
+import {
+  cursor,
+  initialView,
+  panel,
+  reduce,
+  switchView,
+  tileOnScreen,
+  type Tile,
+  type ViewEvent,
+  type ViewState,
+} from './view';
 import type { GuiEvents, GuiHandlers, PopupEvent, ReportView } from './webgui';
 
 declare global {
@@ -1178,6 +1188,7 @@ function renderSide() {
       <TooltipLayer />
       <Side
         {...side}
+        mapView={{ kind: currentView(), set: setMapView }}
         debug={
           debug
             ? { at: cursor(view)?.at ?? null, note: debugNote, request: debugRequest, skipTurns: debugSkip, resetSave }
@@ -1354,6 +1365,19 @@ function dispatch(e: ViewEvent) {
   showPanel();
   renderMinimap();
 }
+/**
+ * Switch the Map view (#530, the debug side panel's): the camera stays on the tile it is on, the map is drawn again in
+ * the new projection, and what the panels and the minimap show of it is made again.
+ */
+function setMapView(kind: MapViewKind) {
+  if (kind === currentView()) return;
+  view = switchView(view, kind);
+  map.viewSwitched();
+  map.show(view);
+  showPanel();
+  renderMinimap();
+  renderSide();
+}
 let minimapQueued = false;
 function minimapAfterFrame() {
   if (minimapQueued) return;
@@ -1417,7 +1441,7 @@ new ResizeObserver(resize).observe(mapHost);
 
 window.fcReveal = (x, y) => {
   const [px, py] = tileOnScreen(view, [x, y]);
-  const margin = W * view.zoom;
+  const margin = projection.tile.w * view.zoom;
   const [vw, vh] = view.viewport;
   // A tile under the minimap, at the map's bottom-left, or the info panel, at its bottom-right, is out of reach too.
   const host = mapHost.getBoundingClientRect();

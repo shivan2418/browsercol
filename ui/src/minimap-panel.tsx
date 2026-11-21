@@ -30,6 +30,7 @@ import {
   type ViewBox,
 } from './minimap';
 import { PANEL_KEY_FAMILIES, PANEL_KEYS } from './map-keys';
+import { currentView } from './projection';
 import type { Resources } from './resources';
 import type { MapView } from './tileset';
 import './minimap-panel.css';
@@ -90,6 +91,8 @@ export function MinimapPanel({ map, res, view, options, centre, setOption, art =
   const [shown, show] = useMinimapShown();
   const size = tileSize(options.zoom);
   const background = BACKGROUNDS[options.background] ?? BACKGROUNDS[0];
+  // The Map view (#530) shapes the tiles: the image is made again when it is switched.
+  const mapView = currentView();
   const { borders, fog } = options;
   // The whole map drawn once per map view and options (MiniMap's prerendered image); the view only moves it.
   const image = useMemo(() => {
@@ -102,7 +105,7 @@ export function MinimapPanel({ map, res, view, options, centre, setOption, art =
     if (!g) return null;
     paintMinimap(g, minimapTiles(map, res, { borders, fog }), size, [w, h], background, map.h);
     return c;
-  }, [map, res, borders, fog, size, background]);
+  }, [map, res, borders, fog, size, background, mapView]);
 
   // The page passes a new view for every change, the hovered tile's too: the minimap is drawn again only when what
   // it shows of the view moved.

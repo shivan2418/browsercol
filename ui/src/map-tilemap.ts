@@ -18,7 +18,7 @@
 // or WebGPU renderer the map draws its static layers as sprites (staticDrawing).
 import { Container, Rectangle, Texture } from 'pixi.js';
 import { POINT_STRUCT_SIZE, Tilemap, settings as tilemapSettings } from '@pixi/tilemap';
-import { H, W, mapGrid } from './projection';
+import { mapGrid } from './projection';
 
 export const CHUNK = 16;
 
@@ -389,7 +389,7 @@ export class Atlas {
     const map = tile ? this.tileEntries : this.entries;
     let e = map.get(pic);
     if (!e) {
-      const [w, h] = tile ? [W + 2 * TILE_PAD, H + 2 * TILE_PAD] : [pic.width, pic.height];
+      const [w, h] = tile ? [pic.width + 2 * TILE_PAD, pic.height + 2 * TILE_PAD] : [pic.width, pic.height];
       const slot = this.alloc(w + 2 * PAD, h + 2 * PAD);
       if (!slot) return null;
       e = {
@@ -455,7 +455,7 @@ export class Atlas {
     p.g.clearRect(e.slot.x, e.slot.y, e.slot.w, e.slot.h);
     if (e.tile) {
       const b = Math.min(this.bleed, 2 * TILE_PAD);
-      p.g.drawImage(e.pic, e.u + TILE_PAD - b / 2, e.v + TILE_PAD - b / 2, W + b, H + b);
+      p.g.drawImage(e.pic, e.u + TILE_PAD - b / 2, e.v + TILE_PAD - b / 2, e.pic.width + b, e.pic.height + b);
     } else p.g.drawImage(e.pic, e.u, e.v);
     p.dirty = true;
   }

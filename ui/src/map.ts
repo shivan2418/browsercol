@@ -3,7 +3,8 @@
 // headless browsers). Images load by path from the art/ directory that
 // scripts/build-art.ts fills; recipes (FreeCol's masked images) are
 // composited once on a canvas and cached by id. The map is FreeCol's: 128x64
-// diamonds, the square grid drawn turned an eighth as one big diamond (projection.ts). It shows
+// diamonds, the square grid drawn turned an eighth as one big diamond (projection.ts), or in the Top-down view (#530)
+// 64x64 squares of placeholder art (topdown-art.ts), switched at runtime (viewSwitched). It shows
 // the part of the map, at the zoom, that the view state (view.ts) says, with
 // the cursor and the active unit's path drawn over it.
 import {
@@ -84,7 +85,8 @@ import {
   type Track,
 } from './motion';
 import { slideMark } from './timing';
-import { H, W, projection, tracePath } from './projection';
+import { H, W, currentView, projection, tracePath } from './projection';
+import { FLAT, drawFlat } from './topdown-art';
 import { activeUnitFacts, cursor, toMap, type ViewState } from './view';
 
 export type { MapView } from './tileset';
@@ -165,12 +167,21 @@ const FRAMES_EACH = 2 * 21 * 2;
 export function pictures(base: string, load: (path: string) => Promise<Picture> = loadImage(base)) {
   const cache = new Map<string, Promise<Picture>>();
   const compose = async (src: Recipe, get: (src: Src) => Promise<Picture>): Promise<Picture> => {
-    const c = canvas(W, H);
+    const [cw, ch] = src.size ?? [W, H];
+    const c = canvas(cw, ch);
     const g = c.getContext('2d')!;
     for (const step of src.steps) {
       if ('mask' in step || 'cut' in step) {
         g.globalCompositeOperation = 'mask' in step ? 'destination-in' : 'destination-out';
-        g.drawImage(await get('mask' in step ? step.mask : step.cut), 0, 0, W, H);
+        g.drawImage(await get('mask' in step ? step.mask : step.cut), 0, 0, cw, ch);
+      } else if (step.fit) {
+        // Scaled down to fit a box, never up, and centred (the Top-down view's units, settlements and resources).
+        const img = await get(step.draw);
+        const k = Math.min(1, step.fit[0] / img.width, step.fit[1] / img.height);
+        const [iw, ih] = [img.width * k, img.height * k];
+        g.globalCompositeOperation = 'source-over';
+        g.globalAlpha = step.alpha ?? 1;
+        g.drawImage(img, (cw - iw) / 2, (ch - ih) / 2, iw, ih);
       } else {
         const s = step.scale ?? 1;
         g.globalCompositeOperation = 'source-over';
@@ -190,7 +201,11 @@ export function pictures(base: string, load: (path: string) => Promise<Picture> 
   };
   /** An image file, or one of the masks made here rather than loaded (tileset.ts fadeFrom). */
   const file = (path: string): Promise<Picture> =>
-    path.startsWith(FADE) ? Promise.resolve(fadeMask(path.slice(FADE.length) as Direction)) : load(path);
+    path.startsWith(FADE)
+      ? Promise.resolve(fadeMask(path.slice(FADE.length) as Direction))
+      : path.startsWith(FLAT)
+        ? Promise.resolve(drawFlat(path))
+        : load(path);
 
   /**
    * The animated water's frames, composited, by id, the most lately drawn last: the frames and the recipes they are
@@ -406,6 +421,8 @@ export interface WaterPen {
   time(ms: number, riversMoving?: boolean): void;
   /** Draw these rivers over the water from now on, or none; false if the GPU cannot build their shader. */
   rivers?(next: RiverSurface | null): boolean;
+  /** Show the water and its rivers, or hide them while the Top-down view (#530) is on, which has no shader water. */
+  show?(on: boolean): void;
 }
 
 /** What draws the map: a PixiJS scene graph or a Canvas 2D context. */
@@ -756,7 +773,7 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
         tile: false,
         make,
         // Room for labels and chips that spill off their tile.
-        box: [ox - W, oy - 2 * H, 3 * W, 4 * H],
+        box: [ox - projection.tile.w, oy - 2 * projection.tile.h, 3 * projection.tile.w, 4 * projection.tile.h],
       });
       return;
     }
@@ -818,9 +835,9 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
   const bleeding = new Set<Sprite>();
   const bleed = (s: Sprite) => {
     const b = seamBleed(world.scale.x * app.renderer.resolution);
-    s.position.set(s.x + (s.width - W) / 2 - b / 2, s.y + (s.height - H) / 2 - b / 2);
-    s.width = W + b;
-    s.height = H + b;
+    s.position.set(s.x + (s.width - projection.tile.w) / 2 - b / 2, s.y + (s.height - projection.tile.h) / 2 - b / 2);
+    s.width = projection.tile.w + b;
+    s.height = projection.tile.h + b;
   };
   // On WebGL, the static layers (the animated base, the scene under the units and over them) as tilemaps per chunk
   // (map-tilemap.ts); on PixiJS's Canvas or WebGPU renderer, as sprites like the other layers.
@@ -834,7 +851,10 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
   const shape = (key: string, draw: (g: CanvasRenderingContext2D) => void) => {
     let c = shapes.get(key);
     if (!c) {
-      c = Object.assign(document.createElement('canvas'), { width: W + 2 * SHAPE_PAD, height: H + 2 * SHAPE_PAD });
+      c = Object.assign(document.createElement('canvas'), {
+        width: projection.tile.w + 2 * SHAPE_PAD,
+        height: projection.tile.h + 2 * SHAPE_PAD,
+      });
       const g = c.getContext('2d')!;
       g.translate(SHAPE_PAD, SHAPE_PAD);
       draw(g);
@@ -857,7 +877,7 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
   let pass = 0;
   let unkeyed = 0;
   const pushImage = (pic: Picture, x: number, y: number, dim: boolean, tile: boolean) => {
-    const whole = tile && pic.width === W && pic.height === H;
+    const whole = tile && pic.width === projection.tile.w && pic.height === projection.tile.h;
     collecting!.push(at, pass, {
       key: pictureKey(pic, x, y, dim),
       pic,
@@ -865,7 +885,7 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
       y,
       dim,
       tile: whole,
-      box: whole ? [x - 4, y - 4, W + 8, H + 8] : [x, y, pic.width, pic.height],
+      box: whole ? [x - 4, y - 4, projection.tile.w + 8, projection.tile.h + 8] : [x, y, pic.width, pic.height],
     });
   };
   // A lost WebGL context (a GPU reset, the browser reclaiming it) needs nothing of the shader water: while it is lost
@@ -927,6 +947,12 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
             }
             redraw(null);
             return true;
+          },
+          show: (on) => {
+            for (const mesh of [surface?.surface.mesh, surface?.surface.overlay, rivers?.surface.mesh]) {
+              if (mesh) mesh.visible = on;
+            }
+            redraw(null);
           },
           field: (f, now) => {
             surface?.surface.setField(f, now);
@@ -1009,7 +1035,7 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
         spritePics.set(s, pic);
         s.position.set(x, y);
         if (dim) s.tint = 0xcccccc;
-        if (tile && pic.width === W && pic.height === H) {
+        if (tile && pic.width === projection.tile.w && pic.height === projection.tile.h) {
           bleeding.add(s);
           bleed(s);
         }
@@ -1046,7 +1072,7 @@ async function pixiPen(host: HTMLElement, width: number, height: number, quality
       const key = `d${x},${y},${color},${alpha}`;
       add(key, () => keyed(key, new Graphics().poly(projection.outline([x, y]).flat()).fill({ color, alpha })));
     },
-    road: (x, y, color, path, width = H / 32, alpha = 1, key) => {
+    road: (x, y, color, path, width = projection.tile.h / 32, alpha = 1, key) => {
       if (collecting && atlas && key) {
         const pic = shape(`r${key},${color},${width},${alpha}`, (g) => {
           g.globalAlpha = alpha;
@@ -1254,8 +1280,11 @@ export function canvasPen(host: HTMLElement, width: number, height: number, back
         // A dimmed picture is drawn from a copy made once: setting the context's filter for every tile took
         // half of Firefox's time in a big map, since it parses the filter string each time.
         const src = dim ? dimmed(pic) : pic;
-        const b = tile && pic.width === W && pic.height === H ? seamBleed(c.getTransform().a) : 0;
-        if (b) c.drawImage(src, x - b / 2, y - b / 2, W + b, H + b);
+        const b =
+          tile && pic.width === projection.tile.w && pic.height === projection.tile.h
+            ? seamBleed(c.getTransform().a)
+            : 0;
+        if (b) c.drawImage(src, x - b / 2, y - b / 2, projection.tile.w + b, projection.tile.h + b);
         else c.drawImage(src, x, y);
       };
       call.pic = pic;
@@ -1275,7 +1304,7 @@ export function canvasPen(host: HTMLElement, width: number, height: number, back
         c.fill();
         c.globalAlpha = 1;
       }),
-    road: (x, y, color, path, width = H / 32, alpha = 1) =>
+    road: (x, y, color, path, width = projection.tile.h / 32, alpha = 1) =>
       push((c) => {
         c.globalAlpha = alpha;
         c.strokeStyle = css(color);
@@ -1377,10 +1406,10 @@ export function canvasPen(host: HTMLElement, width: number, height: number, back
       changed = false;
       shownKey = key;
       // What is on the screen, in map pixels, with a tile and a bit of room for what slides and bleeds.
-      const left = -dx / scale - 2 * W;
-      const top = -dy / scale - 2 * H;
-      const right = (width - dx) / scale + 2 * W;
-      const bottom = (height - dy) / scale + 2 * H;
+      const left = -dx / scale - 2 * projection.tile.w;
+      const top = -dy / scale - 2 * projection.tile.h;
+      const right = (width - dx) / scale + 2 * projection.tile.w;
+      const bottom = (height - dy) / scale + 2 * projection.tile.h;
       // The transform carries the pixel ratio, so the drawing code works in CSS pixels.
       c.setTransform(ratio, 0, 0, ratio, 0, 0);
       c.fillStyle = '#000';
@@ -1432,12 +1461,12 @@ const PROHIBITED: Record<Direction, Direction[]> = {
 };
 function roadPath(dirs: Direction[], p: PathSink) {
   const pts = dirs.map((d) => projection.anchor(d));
-  const [cx, cy] = [W / 2, H / 2];
+  const [cx, cy] = [projection.tile.w / 2, projection.tile.h / 2];
   if (pts.length === 0) {
-    p.moveTo(0.35 * W, 0.35 * H);
-    p.lineTo(0.65 * W, 0.65 * H);
-    p.moveTo(0.35 * W, 0.65 * H);
-    p.lineTo(0.65 * W, 0.35 * H);
+    p.moveTo(0.35 * projection.tile.w, 0.35 * projection.tile.h);
+    p.lineTo(0.65 * projection.tile.w, 0.65 * projection.tile.h);
+    p.moveTo(0.35 * projection.tile.w, 0.65 * projection.tile.h);
+    p.lineTo(0.65 * projection.tile.w, 0.35 * projection.tile.h);
   } else if (pts.length === 1) {
     p.moveTo(cx, cy);
     p.lineTo(...pts[0]);
@@ -1511,12 +1540,15 @@ async function paint(pen: Pen, layer: Layer, ops: Op[], pics: ReturnType<typeof 
           op.at === 'tile'
             ? [0, 0]
             : op.at === 'bottom'
-              ? [0, H - ih]
+              ? [0, projection.tile.h - ih]
               : op.at === 'center'
-                ? [(W - iw) / 2, (H - ih) / 2]
+                ? [(projection.tile.w - iw) / 2, (projection.tile.h - ih) / 2]
                 : op.at === 'large'
-                  ? [(W - iw) / 2, H - ih > 0 ? (H - ih) / 2 : H - ih]
-                  : [(W - iw) / 2, (H - ih) / 2 - UNIT_OFFSET];
+                  ? [
+                      (projection.tile.w - iw) / 2,
+                      projection.tile.h - ih > 0 ? (projection.tile.h - ih) / 2 : projection.tile.h - ih,
+                    ]
+                  : [(projection.tile.w - iw) / 2, (projection.tile.h - ih) / 2 - UNIT_OFFSET];
         pen.image(img, ox + Math.trunc(dx), oy + Math.trunc(dy), !!op.dim, op.at === 'tile');
         return;
       }
@@ -1550,8 +1582,8 @@ async function paint(pen: Pen, layer: Layer, ops: Op[], pics: ReturnType<typeof 
         const style = op.emph ? POPULATION_EMPH : POPULATION;
         pen.text(
           String(op.population),
-          ox + W / 2,
-          oy + (H - style.size) / 2,
+          ox + projection.tile.w / 2,
+          oy + (projection.tile.h - style.size) / 2,
           { ...style, color: shade(op.color) },
           true,
         );
@@ -1559,12 +1591,26 @@ async function paint(pen: Pen, layer: Layer, ops: Op[], pics: ReturnType<typeof 
       }
       case 'label':
         // The classic colony labels: the name below the tile.
-        pen.text(op.name, ox + W / 2 + 1, oy + H, { ...NAME, color: shade(op.rgb) }, true);
+        pen.text(
+          op.name,
+          ox + projection.tile.w / 2 + 1,
+          oy + projection.tile.h,
+          { ...NAME, color: shade(op.rgb) },
+          true,
+        );
         return;
       // MapViewer.displayPath: half-transparent lines 5 wide, then 20-pixel marks.
       case 'pathLine': {
         const [tx, ty] = projection.origin(...op.to, rows);
-        pen.line(ox + W / 2, oy + H / 2, tx + W / 2, ty + H / 2, pathColor(op.turns), 5, 0.5);
+        pen.line(
+          ox + projection.tile.w / 2,
+          oy + projection.tile.h / 2,
+          tx + projection.tile.w / 2,
+          ty + projection.tile.h / 2,
+          pathColor(op.turns),
+          5,
+          0.5,
+        );
         return;
       }
       case 'grid':
@@ -1595,8 +1641,8 @@ async function paint(pen: Pen, layer: Layer, ops: Op[], pics: ReturnType<typeof 
         const height = vPad + styles.reduce((h, s, i) => h + s.size + (i > 0 ? linePad : 0), 0);
         const left = op.left;
         const leftW = !left ? 0 : 'capital' in left ? height : pen.measure(left.text, font) + hPad;
-        let x = ox + W / 2 - width / 2 - (left ? leftW + spacing : 0);
-        const y = oy + H - height / 2;
+        let x = ox + projection.tile.w / 2 - width / 2 - (left ? leftW + spacing : 0);
+        const y = oy + projection.tile.h - height / 2;
         if (left) {
           pen.rect(x, y, leftW, height, bg, 0.5);
           if ('capital' in left) {
@@ -1667,20 +1713,29 @@ async function paint(pen: Pen, layer: Layer, ops: Op[], pics: ReturnType<typeof 
         return;
       }
       case 'tileName':
-        pen.text(op.name, ox + W / 2, oy + H / 2 - NAME.size / 2, { ...NAME, size: 11 }, true);
+        pen.text(
+          op.name,
+          ox + projection.tile.w / 2,
+          oy + projection.tile.h / 2 - NAME.size / 2,
+          { ...NAME, size: 11 },
+          true,
+        );
         return;
       case 'tint':
         return pen.diamond(ox, oy, op.rgb, TINT_ALPHA);
       case 'debugText': {
         // TileViewer draws the text at the tile's middle; a tile with several lines stacks them there.
         const step = NAME.size - 1;
-        const top = oy + H / 2 - (step * op.lines.length) / 2;
-        op.lines.forEach((line, n) => pen.text(line, ox + W / 2, top + n * step, { ...NAME, size: 11 }, true));
+        const top = oy + projection.tile.h / 2 - (step * op.lines.length) / 2;
+        op.lines.forEach((line, n) =>
+          pen.text(line, ox + projection.tile.w / 2, top + n * step, { ...NAME, size: 11 }, true),
+        );
         return;
       }
       case 'pathMark':
-        pen.circle(ox + W / 2, oy + H / 2, 10, pathColor(op.turns), 0x000000, 0.5);
-        if (op.turns > 0) pen.label(String(op.turns), ox + W / 2, oy + H / 2, PATH_TURNS);
+        pen.circle(ox + projection.tile.w / 2, oy + projection.tile.h / 2, 10, pathColor(op.turns), 0x000000, 0.5);
+        if (op.turns > 0)
+          pen.label(String(op.turns), ox + projection.tile.w / 2, oy + projection.tile.h / 2, PATH_TURNS);
         return;
     }
   });
@@ -1744,6 +1799,11 @@ export function mapDrawer(
   setMotion(moveMs: number, blinkMs: number, style: ActiveStyle): void;
   /** Which of the terrain animates (FreeCol's terrain animations and graphics quality options); off shows the still map. */
   setTerrainAnimation(mode: TerrainAnimation): void;
+  /**
+   * The Map view was switched (#530; the projection is already the new one): draw the map again in it. The caller
+   * shows its new view after.
+   */
+  viewSwitched(): void;
   /** FreeCol's colony labels option; the map is drawn again when it changes. */
   setColonyLabels(labels: ColonyLabels): void;
   /** The whole map's terrain, explored or not, which the shader water's field is made from from then on. */
@@ -1754,7 +1814,7 @@ export function mapDrawer(
   resources(): Resources | null;
   /**
    * Draw some tiles of the map as the map draws them, without units, into a new canvas in `host`, as
-   * TileViewer.displayColonyTiles draws the colony panel's tiles: `centre` at (W, H + top) of a canvas
+   * TileViewer.displayColonyTiles draws the colony panel's tiles: `centre` at the block's middle tile, `top` down, of a canvas
    * 3 tiles wide and 3 high plus `top` above for art taller than its tile. Returns what removes it.
    */
   drawTiles(host: HTMLElement, centre: [number, number], tiles: [number, number][], top: number): () => void;
@@ -1811,6 +1871,8 @@ export function mapDrawer(
   let baseNext = 0;
   /** How the water is drawn: as the shader water once the pen and the Tileset can (#409). */
   let waterDrawing: WaterDrawing = 'flipbook';
+  /** Whether the shader water is drawn: it is the Isometric view's; the Top-down view (#530) has flat tiles. */
+  const surfaceOn = () => waterDrawing === 'surface' && currentView() === 'isometric';
   /** The shader water's field last made, and the map and tiles it was made from. */
   let field: WaterField | null = null;
   let fieldOf = '';
@@ -1857,7 +1919,7 @@ export function mapDrawer(
 
   async function riversNow(map: MapView, ground: StaticScene) {
     if (!pen?.water?.rivers) return;
-    const enabled = waterDrawing === 'surface';
+    const enabled = surfaceOn();
     const key = enabled ? `${map.w}:${map.h}:${map.tiles}:${JSON.stringify(map.rivers)}` : '';
     if (key === riverKey) return;
     riverKey = key;
@@ -2099,7 +2161,7 @@ export function mapDrawer(
     if (!sliding || !view) return null;
     const [ex, ey] = sliding.track.points[sliding.track.points.length - 1];
     const [cx, cy] = view.centre;
-    if (cx !== ex + W / 2 || cy !== ey + H / 2) return null;
+    if (cx !== ex + projection.tile.w / 2 || cy !== ey + projection.tile.h / 2) return null;
     // In whole map pixels, as the actors' offset is: the unit stays still on the screen.
     const [dx, dy] = slide(sliding.track, now - sliding.since).map(Math.round);
     return [cx + dx, cy + dy];
@@ -2151,8 +2213,8 @@ export function mapDrawer(
     animateBase();
     // The shader water moves at the screen's frame rate.
     const moving = waterMotion(terrain);
-    if (waterDrawing === 'surface' && moving) pen?.water?.time(performance.now(), moving.rivers);
-    if (waterDrawing === 'surface') pen?.water?.fading(performance.now());
+    if (surfaceOn() && moving) pen?.water?.time(performance.now(), moving.rivers);
+    if (surfaceOn()) pen?.water?.fading(performance.now());
     if (sliding || lifting || (view?.mode === 'units' && view.active) || (view?.mode === 'terrain' && view.selected))
       camera();
   }
@@ -2325,7 +2387,7 @@ export function mapDrawer(
     if (!kept) {
       // The ground just explored is painted at once, never waiting for the water's field: it fades in when made
       // (WaterPen.field). Only the first field of a map is waited for, so the map does not show without water.
-      if (waterDrawing === 'surface') {
+      if (surfaceOn()) {
         const made = waterFieldNow([map, ground]);
         if (field && fieldMap === `${map.w}x${map.h}`) void made.catch(console.warn);
         else await made;
@@ -2333,7 +2395,7 @@ export function mapDrawer(
       pics.retain(ground.base);
       // The panels draw no units, and FreeCol's water pictures: under the shader water the ground has none.
       if (panels.size) {
-        const still = waterDrawing === 'flipbook' ? ground : staticScene(map, res!, colonyLabels);
+        const still = surfaceOn() ? staticScene(map, res!, colonyLabels) : ground;
         const ops = [...still.base, ...still.below, ...still.above];
         panels.forEach((render) => render(ops, map.h));
       }
@@ -2411,7 +2473,19 @@ export function mapDrawer(
       // The field made from the explored tiles is made again from the whole map, behind whatever is drawn.
       const now = drawn;
       const ground = last?.ground;
-      if (now && ground && waterDrawing === 'surface') void waterFieldNow([now, ground]).catch(console.warn);
+      if (now && ground && surfaceOn()) void waterFieldNow([now, ground]).catch(console.warn);
+    },
+    viewSwitched() {
+      // The projection changed (switchView in view.ts): the scene, the pictures and the actors' places are the old one's.
+      painted = null;
+      last = null;
+      sliding = null;
+      actor = null;
+      shown = '';
+      baseKey = '';
+      pen?.water?.show?.(currentView() === 'isometric');
+      const again = drawn;
+      if (again) drawing = drawing.then(() => drawNow(again, []));
     },
     setColonyLabels(labels) {
       if (labels === colonyLabels) return;
