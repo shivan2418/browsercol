@@ -1,7 +1,7 @@
 // How the moving and the active unit look at a moment: the slide of a unit
 // along the tiles the Engine says it stepped to, as FreeCol animates a move,
 // and the slow blink of the active unit.
-import { H, W, projection } from './projection';
+import { H, projection } from './projection';
 import type { Unit } from './tileset';
 import type { GuiEvents } from './webgui';
 
@@ -127,7 +127,8 @@ export function track(tiles: [number, number][], ms: number, rows: number): Trac
   let at = 0;
   const ends = points.slice(1).map(([x, y], i) => {
     const [fx, fy] = points[i];
-    return (at += ms * Math.min(1, Math.max(Math.abs(x - fx) / W, Math.abs(y - fy) / H)));
+    return (at +=
+      ms * Math.min(1, Math.max(Math.abs(x - fx) / projection.stride.w, Math.abs(y - fy) / projection.stride.h)));
   });
   return { points, ends };
 }

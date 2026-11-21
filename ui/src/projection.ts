@@ -6,7 +6,8 @@
 //  - a Grid, how the tiles are numbered and which are next to which (the square grid of #526, ADR 0014);
 //  - a Projection, where a tile goes on the screen at zoom 1 and its outline (the Isometric view of #529: FreeCol's
 //    128x64 diamonds, the whole map one big diamond).
-// The exports at the bottom are the ones in use; the Top-down view (#530) adds a second Projection.
+// The exports at the bottom are the ones in use: `projection` stands for whichever of the two Projections, Isometric
+// or Top-down (#530), the Map view is now on, and `setView` switches it.
 //
 // Two kinds of direction meet here. A *grid* direction is where a neighbour is in the grid: N is (0, -1), E is (1, 0).
 // A *screen* direction is where it shows on the screen, which is what FreeCol's art is named by: in the Isometric view
@@ -48,6 +49,12 @@ export interface Grid {
 export interface Projection {
   /** The size of a tile's box in map pixels. */
   readonly tile: { readonly w: number; readonly h: number };
+  /**
+   * How far a unit slides on the screen in one full step's time, across and down: a step of a tile to a neighbour
+   * takes the share of that its distance is. The Isometric view's is its tile's size (an edge step is half a tile
+   * each way, so half a step); the Top-down view's is two tiles', so an edge step takes as long.
+   */
+  readonly stride: { readonly w: number; readonly h: number };
   /** The middle of a tile's box, in the box. */
   readonly middle: Point;
   /**
@@ -180,6 +187,7 @@ const FACES: readonly Direction[] = ['NE', 'SE', 'SW', 'NW'];
  */
 export const isometric: Projection = {
   tile: { w: W, h: H },
+  stride: { w: W, h: H },
   origin: (x, y, rows) => [(x - y + rows - 1) * (W / 2), (x + y) * (H / 2)],
   centre: (x, y, rows) => {
     const [ox, oy] = isometric.origin(x, y, rows);
@@ -251,9 +259,93 @@ export const isometric: Projection = {
   blockSize: (size = 3) => [size * W, size * H],
 };
 
-/** The grid and the projection the map uses. */
+/** A tile's side in the Top-down view, in map pixels. The art for it is 64x64 (#530). */
+export const T = 64;
+
+/**
+ * The Top-down view of the square grid (#530): each tile a 64x64 square, north up, the whole map a rectangle. A screen
+ * direction is a grid direction: there is no turn between them.
+ */
+export const topDown: Projection = {
+  tile: { w: T, h: T },
+  stride: { w: 2 * T, h: 2 * T },
+  origin: (x, y) => [x * T, y * T],
+  centre: (x, y) => [x * T + T / 2, y * T + T / 2],
+  middle: [T / 2, T / 2],
+  inset: (u, v) => Math.max(Math.abs(u - T / 2), Math.abs(v - T / 2)) / (T / 2),
+  fromAbove: (dx, dy) => [dx, dy],
+  neighbourhood: (x0, y0, x1, y1) => {
+    // Three tiles round, as in the Isometric view: a beach two tiles away and the art taller than its tile.
+    const reach = 3;
+    return [(x0 - reach) * T, (y0 - reach) * T, (x1 + reach + 1) * T, (y1 + reach + 1) * T];
+  },
+  mapSize: (w, h) => [w * T, h * T],
+  tileAt: (w, h, px, py) => {
+    const [x, y] = [Math.floor(px / T), Math.floor(py / T)];
+    return x >= 0 && y >= 0 && x < w && y < h ? [x, y] : null;
+  },
+  keepOn: (w, h, [px, py]) => [Math.min(w * T, Math.max(0, px)), Math.min(h * T, Math.max(0, py))],
+  rowFraction: (h, _px, py) => Math.min(1, Math.max(0, py / (h * T))),
+  eachTile: (w, h, f) => {
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) f(x, y);
+  },
+  faces: EDGES,
+  isFace: (d) => EDGES.includes(d),
+  onScreen: (d) => d,
+  inGrid: (d) => d,
+  outline: ([ox, oy], width = T, scale = 1) => {
+    const s = width * scale;
+    const [x0, y0] = [ox + (width - s) / 2, oy + (width - s) / 2];
+    return [
+      [x0, y0],
+      [x0 + s, y0],
+      [x0 + s, y0 + s],
+      [x0, y0 + s],
+    ];
+  },
+  anchor: (d) => {
+    const [dx, dy] = STEPS[d];
+    return [(T / 2) * (1 + dx), (T / 2) * (1 + dy)];
+  },
+  edge: (d) => {
+    const [dx, dy] = STEPS[d];
+    // The side in a direction: its middle is half a tile that way, and it runs across.
+    const [cx, cy] = [(T / 2) * (1 + dx), (T / 2) * (1 + dy)];
+    return dx === 0
+      ? [
+          [0, cy],
+          [T, cy],
+        ]
+      : [
+          [cx, 0],
+          [cx, T],
+        ];
+  },
+  edgeMidpoint: (d) => [(T / 2) * STEPS[d][0], (T / 2) * STEPS[d][1]],
+  block: (col, row) => [col * T, row * T],
+  blockSize: (size = 3) => [size * T, size * T],
+};
+
+/** The Map views: the Isometric one (FreeCol's own, the default) and the Top-down one (#530). */
+export type MapViewKind = 'isometric' | 'topdown';
+const VIEWS: Record<MapViewKind, Projection> = { isometric, topdown: topDown };
+let kind: MapViewKind = 'isometric';
+
+/** The Map view the map is on now. */
+export const currentView = (): MapViewKind => kind;
+/**
+ * Switch the Map view. What was worked out with the old projection (the camera, the scenes, the pictures made) is the
+ * caller's to make again: see switchView in view.ts.
+ */
+export const setView = (next: MapViewKind): void => {
+  kind = next;
+};
+
+/** The grid and the projection the map uses; `projection` is whichever Map view is on, and changes when it is switched. */
 export const mapGrid: Grid = square;
-export const projection: Projection = isometric;
+export const projection: Projection = new Proxy({} as Projection, {
+  get: (_, key) => VIEWS[kind][key as keyof Projection],
+});
 
 /** The tile next to (x, y) in a screen direction: where a road, river or picture named for that direction leads. */
 export const neighbourOnScreen = (x: number, y: number, d: Direction): Tile =>

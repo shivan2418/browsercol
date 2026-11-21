@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vite-plus/test';
-import { isometric, mapGrid, neighbourOnScreen, projection, square, type Direction } from './projection';
+import { currentView, isometric, mapGrid, neighbourOnScreen, projection, square, type Direction } from './projection';
 
 // A 3-wide, 2-tall map (w 3, h 2) in the Isometric view. Tile (x, y)'s box is at ((x - y + 1) * 64, (x + y) * 32),
 // 128x64, so (0,0) is at (64, 0), (2,0) at (192, 64), (0,1) at (0, 32) and (2,1) at (128, 96); the map is
@@ -55,7 +55,10 @@ describe('tileAt', () => {
 describe('the square grid', () => {
   it('is the grid and the projection the map draws with', () => {
     expect(mapGrid).toBe(square);
-    expect(projection).toBe(isometric);
+    // The Isometric view is the default: `projection` stands for it until the view is switched (#530).
+    expect(currentView()).toBe('isometric');
+    expect(projection.tile).toEqual(isometric.tile);
+    expect(projection.origin(3, 2, 5)).toEqual(isometric.origin(3, 2, 5));
   });
 
   it('finds a tile\'s neighbours with the same steps in every row ("N" is up the rows)', () => {

@@ -3,7 +3,7 @@
 // reduce() takes the WebGUI's events (webgui.ts), the client Engine's map
 // views and the player's pans, zooms and pointer moves, and follows the
 // active unit as SwingGUI does. map.ts draws what it says.
-import { projection, type Tile } from './projection';
+import { currentView, projection, setView, type MapViewKind, type Tile } from './projection';
 import type { GuiEvents, Id } from './webgui';
 import {
   NO_MODES,
@@ -117,6 +117,22 @@ function clamp(v: ViewState): ViewState {
   // The map is a diamond on the screen: the camera stays on it, so the view is never wholly off the map.
   const kept = projection.keepOn(v.map.w, v.map.h, centre);
   return kept[0] === v.centre[0] && kept[1] === v.centre[1] ? v : { ...v, centre: kept };
+}
+
+/**
+ * The view on another Map view (#530), centred on the tile it was centred on: where a tile is depends on the
+ * projection, so the centre is worked out with the old one and the new one. Switches the projection itself.
+ */
+export function switchView(v: ViewState, next: MapViewKind): ViewState {
+  if (next === currentView()) return v;
+  const m = v.map;
+  let tile: Tile | null = null;
+  if (m) {
+    const kept = projection.keepOn(m.w, m.h, v.centre);
+    tile = projection.tileAt(m.w, m.h, ...kept) ?? [Math.floor(m.w / 2), Math.floor(m.h / 2)];
+  }
+  setView(next);
+  return clamp(tile && m ? { ...v, centre: tileCentre(v, tile), pending: null } : v);
 }
 
 /** A viewport pixel's map point, at zoom 1. */
