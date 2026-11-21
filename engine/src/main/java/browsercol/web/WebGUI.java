@@ -1139,20 +1139,9 @@ public class WebGUI extends GUI {
         return this.activeUnit;
     }
 
-    /**
-     * {@inheritDoc}
-     *
-     * A unit on the high seas is never made the active one: it is off the
-     * map, and no order on the map applies to it. Upstream's
-     * doExecuteGotoOrders selects each unit it moves, and stops at a ship
-     * that has just sailed onto the high seas for Europe, as
-     * moveTowardEurope says the move cannot go on; that left the ship as the
-     * active unit (#428). The goto orders run only once no unit is left to
-     * cycle through, so no active unit is what the player gets otherwise.
-     */
     @Override
     public void changeView(Unit unit, boolean force) {
-        this.activeUnit = (unit != null && unit.isAtSea()) ? null : unit;
+        this.activeUnit = unit;
         showActiveUnit(force);
     }
 
@@ -1187,11 +1176,6 @@ public class WebGUI extends GUI {
      */
     @Override
     public void updateMapControls() {
-        // The active unit may have sailed onto the high seas since it was selected (#428).
-        if (this.activeUnit != null && this.activeUnit.isAtSea()) {
-            changeView(null, false);
-            return;
-        }
         if (orders(this.activeUnit).equals(this.lastOrders)) return;
         showActiveUnit(false);
     }
