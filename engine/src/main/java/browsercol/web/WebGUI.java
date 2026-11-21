@@ -437,9 +437,7 @@ public class WebGUI extends GUI {
     /** The orders last sent with the active unit event. */
     private List<String> lastOrders = new ArrayList<>();
     /** The purchases and sales of the turn in Europe. */
-    private final SalesLog salesLog = new SalesLog(this::isNotASale);
-    /** The calling thread is doing what FreeCol words as a sale but is not one (#441). */
-    private final ThreadLocal<Boolean> notASale = ThreadLocal.withInitial(() -> false);
+    private final SalesLog salesLog = new SalesLog();
 
 
     /** The colonies whose panels are open, watched for changes ColonyPanel reacts to. */
@@ -1059,28 +1057,8 @@ public class WebGUI extends GUI {
         this.modalGate.invoke(runnable);
     }
 
-    /**
-     * Run something FreeCol's client reports as a sale, with no sale sound
-     * and no entry in the sales log: dumping boycotted goods in Europe,
-     * which sells goods through the sale routine but pays nothing (#441).
-     */
-    <T> T notASale(java.util.function.Supplier<T> action) {
-        final boolean was = this.notASale.get();
-        this.notASale.set(true);
-        try {
-            return action.get();
-        } finally {
-            this.notASale.set(was);
-        }
-    }
-
-    private boolean isNotASale() {
-        return this.notASale.get();
-    }
-
     @Override
     public void playSound(String sound) {
-        if (isNotASale() && "sound.event.sellCargo".equals(sound)) return;
         this.ui.show("sound", new Json().put("key", sound).toString());
     }
 
