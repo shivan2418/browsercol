@@ -294,7 +294,7 @@ const terrainKey = (id: string) => `${TILE}${id}.center`;
  * The Top-down view's size for a picture of the map's art on a tile (#530): FreeCol's art is made for a 128x64 diamond,
  * so a unit, a settlement or a resource is drawn smaller, centred in a tile-sized picture of its own.
  */
-const UNIT_FIT: [number, number] = [34, 46];
+export const UNIT_FIT: [number, number] = [58, 58];
 const SETTLEMENT_FIT: [number, number] = [56, 56];
 const ITEM_FIT: [number, number] = [40, 40];
 const fitted = (path: string, box: [number, number]): Recipe => ({

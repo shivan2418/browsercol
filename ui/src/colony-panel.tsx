@@ -486,7 +486,12 @@ function Tiles({ c, art }: { c: ColonyView; art: Art }) {
             <TilePlace key={t.id} t={t} style={placeOf(x, y)}>
               {!draw && <Img keys={t.terrain} art={art} className="terrain" />}
               {!draw && t.forest && <Img keys={t.forest} art={art} className="forest" />}
-              {t.taken && <Img keys={TILE_TAKEN} art={art} className="taken" />}
+              {t.taken &&
+                (view === 'topdown' ? (
+                  <span className="taken square" />
+                ) : (
+                  <Img keys={TILE_TAKEN} art={art} className="taken" />
+                ))}
               {t.natives && <Img keys={NATIVE_LAND} art={art} className="natives" />}
               {t.workers.map((u) => (
                 <Unit key={u.id} u={u} art={art} className="who" inert />

@@ -55,6 +55,11 @@ export interface Projection {
    * each way, so half a step); the Top-down view's is two tiles', so an edge step takes as long.
    */
   readonly stride: { readonly w: number; readonly h: number };
+  /**
+   * Whether a settlement's name and label sit inside the tile, along its bottom edge, rather than straddling it: the
+   * Isometric diamond's corners leave room below it, a square tile has none.
+   */
+  readonly labelsInside: boolean;
   /** The middle of a tile's box, in the box. */
   readonly middle: Point;
   /**
@@ -188,6 +193,7 @@ const FACES: readonly Direction[] = ['NE', 'SE', 'SW', 'NW'];
 export const isometric: Projection = {
   tile: { w: W, h: H },
   stride: { w: W, h: H },
+  labelsInside: false,
   origin: (x, y, rows) => [(x - y + rows - 1) * (W / 2), (x + y) * (H / 2)],
   centre: (x, y, rows) => {
     const [ox, oy] = isometric.origin(x, y, rows);
@@ -269,6 +275,7 @@ export const T = 64;
 export const topDown: Projection = {
   tile: { w: T, h: T },
   stride: { w: 2 * T, h: 2 * T },
+  labelsInside: true,
   origin: (x, y) => [x * T, y * T],
   centre: (x, y) => [x * T + T / 2, y * T + T / 2],
   middle: [T / 2, T / 2],
@@ -346,6 +353,13 @@ export const mapGrid: Grid = square;
 export const projection: Projection = new Proxy({} as Projection, {
   get: (_, key) => VIEWS[kind][key as keyof Projection],
 });
+
+/** The top of a text `size` high that names a settlement, on the tile whose box starts at `oy`: below it, or inside its bottom edge. */
+export const nameTop = (oy: number, size: number): number =>
+  oy + projection.tile.h - (projection.labelsInside ? size + 2 : 0);
+/** The top of a settlement's label box `height` high: across the tile's bottom edge, or inside it. */
+export const boxTop = (oy: number, height: number): number =>
+  oy + projection.tile.h - (projection.labelsInside ? height : height / 2);
 
 /** The tile next to (x, y) in a screen direction: where a road, river or picture named for that direction leads. */
 export const neighbourOnScreen = (x: number, y: number, d: Direction): Tile =>

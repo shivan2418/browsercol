@@ -85,8 +85,8 @@ import {
   type Track,
 } from './motion';
 import { slideMark } from './timing';
-import { H, W, currentView, projection, tracePath } from './projection';
-import { FLAT, drawFlat } from './topdown-art';
+import { H, W, boxTop, currentView, nameTop, projection, tracePath } from './projection';
+import { FLAT, drawFlat, flatSrc } from './topdown-art';
 import { activeUnitFacts, cursor, toMap, type ViewState } from './view';
 
 export type { MapView } from './tileset';
@@ -1594,7 +1594,7 @@ async function paint(pen: Pen, layer: Layer, ops: Op[], pics: ReturnType<typeof 
         pen.text(
           op.name,
           ox + projection.tile.w / 2 + 1,
-          oy + projection.tile.h,
+          nameTop(oy, NAME.size),
           { ...NAME, color: shade(op.rgb) },
           true,
         );
@@ -1642,7 +1642,7 @@ async function paint(pen: Pen, layer: Layer, ops: Op[], pics: ReturnType<typeof 
         const left = op.left;
         const leftW = !left ? 0 : 'capital' in left ? height : pen.measure(left.text, font) + hPad;
         let x = ox + projection.tile.w / 2 - width / 2 - (left ? leftW + spacing : 0);
-        const y = oy + projection.tile.h - height / 2;
+        const y = boxTop(oy, height);
         if (left) {
           pen.rect(x, y, leftW, height, bg, 0.5);
           if ('capital' in left) {
@@ -2550,6 +2550,14 @@ export function mapDrawer(
         const ops = all.filter(
           (op) => keep.has(`${op.x},${op.y}`) && ((op.k === 'image' && op.at !== 'unit') || op.k === 'road'),
         );
+        // A tile with no picture (off the map, where the Top-down view's panel would show its pale background) is
+        // drawn as the unexplored ground is.
+        if (currentView() === 'topdown') {
+          for (const [x, y] of tiles) {
+            if (!ops.some((op) => op.k === 'image' && op.x === x && op.y === y))
+              ops.unshift({ k: 'image', x, y, src: flatSrc(0, 'none', ''), at: 'tile' });
+          }
+        }
         // The centre tile is the block's middle one.
         const [mx, my] = projection.block(1, 1);
         void paint(pen, 0, ops, pics, rows).then(() => pen.show(mx - cx, my + top - cy, 1));

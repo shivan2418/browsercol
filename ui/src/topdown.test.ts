@@ -9,9 +9,11 @@ import {
   setView,
   T,
   topDown,
+  boxTop,
+  nameTop,
   type Direction,
 } from './projection';
-import { staticScene, unitScene, type MapView, type Op } from './tileset';
+import { staticScene, UNIT_FIT, unitScene, type MapView, type Op, type Recipe } from './tileset';
 import { drawFlat, flatSrc, FLAT, lookOf, riverSides } from './topdown-art';
 import { initialView, reduce, switchView, type MapFacts, type ViewEvent } from './view';
 
@@ -156,6 +158,20 @@ describe('the top-down projection', () => {
     // An edge step is (64, 0) here and (64, 32) there, which are half of each view's stride.
     expect(topDown.stride).toEqual({ w: 2 * T, h: 2 * T });
     expect(isometric.stride).toEqual({ w: 128, h: 64 });
+  });
+});
+
+describe('settlement labels', () => {
+  it('sit inside the square tile along its bottom edge in the Top-down view, and as before in the Isometric one', () => {
+    // Isometric: the name's top at the tile's bottom, the box centred on it.
+    expect(nameTop(100, 13)).toBe(164);
+    expect(boxTop(100, 20)).toBe(154);
+    setView('topdown');
+    expect(nameTop(100, 13)).toBe(100 + 64 - 15);
+    expect(boxTop(100, 20)).toBe(144);
+    // Both end inside the tile's box.
+    expect(nameTop(100, 13) + 13).toBeLessThanOrEqual(164);
+    expect(boxTop(100, 20) + 20).toBeLessThanOrEqual(164);
   });
 });
 
@@ -322,6 +338,17 @@ color.map.road=urn:color:0x804000
     expect(of(ground(), 0, 1).some((op) => op.k === 'road')).toBe(true);
     const unit = unitScene(map, res).find((op) => op.k === 'image');
     expect(unit?.k === 'image' && unit.at).toBe('center');
+  });
+
+  it('fits a unit to most of the square, whatever its shape, never past it', () => {
+    setView('topdown');
+    expect(UNIT_FIT[0]).toBeGreaterThanOrEqual(48);
+    expect(UNIT_FIT[1]).toBeGreaterThanOrEqual(48);
+    expect(Math.max(...UNIT_FIT)).toBeLessThanOrEqual(64);
+    const unit = unitScene(map, res).find((op) => op.k === 'image');
+    const recipe = (unit?.k === 'image' ? unit.src : null) as Recipe;
+    expect(recipe.size).toEqual([64, 64]);
+    expect(recipe.steps[0]).toMatchObject({ fit: UNIT_FIT });
   });
 
   it('draws the Isometric scene as before in the other view', () => {

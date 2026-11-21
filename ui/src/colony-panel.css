@@ -424,6 +424,15 @@
     z-index: var(--z-raise-2);
     pointer-events: auto;
   }
+  /* In the Top-down view the unavailable mark is a square inset from the tile's edge, not the diamond's (#530). */
+  .colony .tile .taken.square {
+    inset: 5px;
+    width: auto;
+    height: auto;
+    box-sizing: border-box;
+    border: 3px solid rgb(200 30 30 / 0.85);
+    background: rgb(200 30 30 / 0.12);
+  }
   /* In the Top-down view the tile's whole square takes them (#530). */
   .colony .tiles[data-view='topdown'] .tile .hit {
     clip-path: none;
