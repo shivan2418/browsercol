@@ -34,6 +34,7 @@ import {
   type WaterLook,
 } from './map-water';
 import { resources, type ArtLayer, type Resources } from './resources';
+import { placeTileArt, tileArtLayers } from './tile-art';
 import {
   FADE,
   isAnimated,
@@ -1509,7 +1510,15 @@ const PATH_TURNS: TextStyle = { color: 0x000000, font: 'sans-serif', size: 12, p
 const pathColor = (turns: number) => (turns > 0 ? 0xffff00 : 0x00ff00);
 
 /** Draw operations on a layer, loading what they need first. */
-async function paint(pen: Pen, layer: Layer, ops: Op[], pics: ReturnType<typeof pictures>, rows: number) {
+async function paint(
+  pen: Pen,
+  layer: Layer,
+  ops: Op[],
+  pics: ReturnType<typeof pictures>,
+  rows: number,
+  /** Called once the ops are drawn, to add what the layer holds besides them (art placed by rule). */
+  after?: (pen: Pen) => void,
+) {
   const images = await Promise.all(
     ops.map((op) =>
       op.k === 'image' ? (op.fade ? pics.gray(op.src) : pics.get(op.src)).catch(() => null) : Promise.resolve(null),
@@ -1739,6 +1748,27 @@ async function paint(pen: Pen, layer: Layer, ops: Op[], pics: ReturnType<typeof 
         return;
     }
   });
+  after?.(pen);
+}
+
+/**
+ * The art the Tileset's layers place by rule (tile-art.ts), added to the layer being drawn after its ops, in a pass of
+ * its own over them. Nothing is called, made or looked at when no layer is registered.
+ */
+function placeArt(pen: Pen, map: MapView, ops: Op[]) {
+  const active = tileArtLayers();
+  if (active.length === 0) return;
+  let top = -1;
+  for (const op of ops) top = Math.max(top, passOf.get(op) ?? 0);
+  const pass = top + 1;
+  const typeAt = (x: number, y: number) => {
+    const c = map.tiles.charCodeAt(y * map.w + x) - 65;
+    return c >= 0 ? map.types[c] : null;
+  };
+  placeTileArt(active, { w: map.w, h: map.h, typeAt }, projection, ([x, y], p) => {
+    pen.tile?.(x, y, pass, projection.origin(x, y, map.h));
+    pen.image(p.pic, p.x, p.y, false, false);
+  });
 }
 
 /**
@@ -1804,6 +1834,13 @@ export function mapDrawer(
    * shows its new view after.
    */
   viewSwitched(): void;
+  /** A layer of art placed by rule was registered or unregistered (tile-art.ts): draw the map again with it. */
+  tileArtChanged(): void;
+  /**
+   * Load the art from another manifest under the art base (a Map view's Tileset, #535), and draw the map again with
+   * it. The same manifest does nothing; before the first draw it only names what the first draw loads.
+   */
+  useManifest(manifest: string): Promise<void>;
   /** FreeCol's colony labels option; the map is drawn again when it changes. */
   setColonyLabels(labels: ColonyLabels): void;
   /** The whole map's terrain, explored or not, which the shader water's field is made from from then on. */
@@ -1889,9 +1926,26 @@ export function mapDrawer(
   /** The key of the river mesh drawn now, '' for none. */
   let riverMesh = '';
 
+  /** The manifest the art is loaded from, which useManifest changes (#535: a Map view's Tileset). */
+  let manifestNow = manifest;
+  async function loadArt(name: string): Promise<Resources> {
+    const art = (await (await fetch(artBase + name)).json()) as Art;
+    return resources(art.layers, art.files);
+  }
+  /** The water's look and how it is drawn, from the art `res` now holds, for a pen. */
+  async function lookOfArt(p: Pen) {
+    look = waterLook(res!);
+    const waterArt = async () =>
+      paintedWaterAtlas(
+        await Promise.all(
+          ['ocean', 'highSeas', 'lake'].map((kind) => pics.get(res!.path(`image.tile.model.tile.${kind}.center`)!)),
+        ),
+      );
+    waterDrawing = await waterDrawingFor(look, p.water, waterArt);
+  }
+
   async function init() {
-    const art = (await (await fetch(artBase + manifest)).json()) as Art;
-    res = resources(art.layers, art.files);
+    res = await loadArt(manifestNow);
     onManifest();
     // resize() swaps in a new array, so a changed size is a different one.
     const startSize = size;
@@ -1907,14 +1961,7 @@ export function mapDrawer(
     // The window may have changed while PixiJS started.
     if (size !== startSize) p.resize(...size);
     pen = p;
-    look = waterLook(res);
-    const waterArt = async () =>
-      paintedWaterAtlas(
-        await Promise.all(
-          ['ocean', 'highSeas', 'lake'].map((kind) => pics.get(res!.path(`image.tile.model.tile.${kind}.center`)!)),
-        ),
-      );
-    waterDrawing = await waterDrawingFor(look, p.water, waterArt);
+    await lookOfArt(p);
   }
 
   async function riversNow(map: MapView, ground: StaticScene) {
@@ -2273,7 +2320,7 @@ export function mapDrawer(
       painted = null;
       await riversNow(map, ground);
       await paint(pen!, 5, riverBase ?? ground.base, pics, map.h);
-      await paint(pen!, 0, ground.below, pics, map.h);
+      await paint(pen!, 0, ground.below, pics, map.h, (p) => placeArt(p, map, ground.below));
       await paint(pen!, 7, ground.above, pics, map.h);
       painted = ground;
     }
@@ -2366,6 +2413,19 @@ export function mapDrawer(
       await drawNow({ ...map, active: null, units: rewind(map.units, all.slice(i + 1)) }, all[i]);
       await slideOut();
     }
+  }
+
+  /** Draw the map again from scratch: its scene, its pictures and the actors' places are no longer what is drawn. */
+  function drawAgain() {
+    painted = null;
+    last = null;
+    sliding = null;
+    actor = null;
+    shown = '';
+    baseKey = '';
+    pen?.water?.show?.(currentView() === 'isometric');
+    const again = drawn;
+    if (again) drawing = drawing.then(() => drawNow(again, []));
   }
 
   async function drawNow(map: MapView, moved: Step[]) {
@@ -2477,15 +2537,33 @@ export function mapDrawer(
     },
     viewSwitched() {
       // The projection changed (switchView in view.ts): the scene, the pictures and the actors' places are the old one's.
-      painted = null;
-      last = null;
-      sliding = null;
-      actor = null;
-      shown = '';
-      baseKey = '';
-      pen?.water?.show?.(currentView() === 'isometric');
-      const again = drawn;
-      if (again) drawing = drawing.then(() => drawNow(again, []));
+      drawAgain();
+    },
+    tileArtChanged() {
+      // A layer was registered or unregistered (tile-art.ts): the chunks are built again with or without its pictures.
+      drawAgain();
+    },
+    useManifest(name) {
+      if (name === manifestNow) return Promise.resolve();
+      manifestNow = name;
+      // Before the first draw the page has not loaded any art yet: init loads this one.
+      if (!pen) return Promise.resolve();
+      const p = pen;
+      const done = drawing.then(async () => {
+        const next = await loadArt(name);
+        if (manifestNow !== name) return;
+        res = next;
+        await lookOfArt(p);
+        // What the old art's look made: the shader water's field and the river mesh.
+        fieldOf = '';
+        riverKey = '';
+        riverMesh = '';
+        riverBase = null;
+        p.water?.rivers?.(null);
+        drawAgain();
+      });
+      drawing = done.catch(console.warn);
+      return done;
     },
     setColonyLabels(labels) {
       if (labels === colonyLabels) return;

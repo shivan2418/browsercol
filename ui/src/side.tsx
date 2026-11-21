@@ -38,7 +38,13 @@ export interface SideProps {
   /** Add a .fsg file the player chose to the saved games. */
   importFile: (file: File) => void;
   /** The Map view and how to switch it (#530): Isometric, the default, or the Top-down view's placeholder art. */
-  mapView?: { kind: MapViewKind; set: (kind: MapViewKind) => void };
+  mapView?: {
+    kind: MapViewKind;
+    set: (kind: MapViewKind) => void;
+    /** The debug test layer of art placed by rule (#535): a marker at each explored tile's middle. */
+    markers: boolean;
+    setMarkers: (on: boolean) => void;
+  };
   /** The debug menu, in debug mode (`?debug`) only: with none, it is not drawn. */
   debug?: DebugMenuProps;
 }
@@ -135,8 +141,17 @@ export function Side({
             Map view:{' '}
             <select id="map-view" value={mapView.kind} onChange={(e) => mapView.set(e.target.value as MapViewKind)}>
               <option value="isometric">Isometric</option>
-              <option value="topdown">Top-down (placeholder art)</option>
+              <option value="topdown">Top-down</option>
             </select>
+          </label>{' '}
+          <label>
+            <input
+              id="tile-art-markers"
+              type="checkbox"
+              checked={mapView.markers}
+              onChange={(e) => mapView.setMarkers(e.target.checked)}
+            />{' '}
+            Test layer
           </label>
         </div>
       )}

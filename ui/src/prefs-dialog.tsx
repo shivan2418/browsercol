@@ -5,6 +5,7 @@
 // category's button, with its id; [data-mute] on a volume's mute button, with the preference it sets.
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { flag } from './flag';
+import { currentView } from './projection';
 import { Select, Tip } from './controls';
 import { Box, ButtonRow, TEXT_ENTRY, WindowFrame } from './frame';
 import { LANGUAGE_OPTION } from './language';
@@ -18,13 +19,15 @@ import {
   MUTES,
   RENDER_CAPS,
   SPEEDS,
-  TILESETS,
+  tilesetOf,
+  type Tileset,
+  tilesetsFor,
+  withTileset,
   type ActiveStyle,
   type Dim,
   type Prefs,
   type RenderCap,
   type Speed,
-  type Tileset,
 } from './prefs';
 import { FONT_SETS, PALETTES, type FontSet, type Palette } from './theme';
 import { useCoverage } from './coverage';
@@ -134,7 +137,7 @@ export const OWN_OPTIONS = [
   { pref: 'dimUnfocused', label: 'Grey out the window when it is not focused' },
   { pref: 'palette', label: 'Colours' },
   { pref: 'fonts', label: 'Fonts' },
-  { pref: 'tileset', label: 'Tileset (on reload)' },
+  { pref: 'tilesets', label: 'Tileset' },
   {
     pref: 'renderCap',
     label: 'Map sharpness limit (on reload)',
@@ -253,14 +256,14 @@ function OwnRow({
           />
         </label>
       );
-    case 'tileset':
+    case 'tilesets':
       return (
-        <label data-pref="tileset" style={ROW}>
+        <label data-pref="tilesets" style={ROW}>
           {label}
           <Select
-            value={prefs.tileset}
-            onChange={(v) => change({ ...prefs, tileset: v as Tileset })}
-            choices={TILESETS.map((t) => ({ value: t.id, label: t.label }))}
+            value={tilesetOf(prefs, currentView())}
+            onChange={(v) => change(withTileset(prefs, currentView(), v as Tileset))}
+            choices={tilesetsFor(currentView()).map((t) => ({ value: t.id, label: t.label }))}
           />
         </label>
       );

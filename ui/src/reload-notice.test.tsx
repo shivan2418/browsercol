@@ -17,10 +17,9 @@ const options: OptionGroup = {
 
 const withFreecol = (freecol: Prefs['freecol']): Prefs => ({ ...DEFAULTS, freecol });
 
-test('a changed Tileset is pending until the page reloads; setting it back clears it', () => {
-  const other = { ...DEFAULTS, tileset: 'freecol-plus' } as Prefs;
-  expect(reloadPending(DEFAULTS, other, options)).toEqual(['Tileset']);
-  expect(reloadPending(DEFAULTS, DEFAULTS, options)).toEqual([]);
+test('a changed Tileset is loaded at once, so nothing waits for a reload', () => {
+  const other = { ...DEFAULTS, tilesets: { ...DEFAULTS.tilesets, isometric: 'freecol-plus' } } as Prefs;
+  expect(reloadPending(DEFAULTS, other, options)).toEqual([]);
 });
 
 test("FreeCol's on-reload options count, by label; others and an unchanged default do not", () => {

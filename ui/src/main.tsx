@@ -84,7 +84,9 @@ import {
   visibleMessages,
   fontScale,
   terrainAnimation,
+  tilesetLayers,
   tilesetManifest,
+  tilesetOf,
   uiZoom,
   volumes,
   autosaveOptions,
@@ -175,6 +177,7 @@ import { UpdatePrompt } from './update-prompt';
 import { watchCompact } from './compact';
 import { controlArt } from './control-art';
 import { currentView, projection, type MapViewKind } from './projection';
+import { debugMarkers, registerTileArt, unregisterTileArt } from './tile-art';
 import {
   cursor,
   initialView,
@@ -338,7 +341,7 @@ const map = mapDrawer(
   mapHost,
   mapSize(),
   'art/',
-  tileset ? `${tileset}.json` : tilesetManifest(prefsAtLoad.tileset),
+  tileset ? `${tileset}.json` : tilesetManifest(tilesetOf(prefsAtLoad, currentView())),
   // FreeCol's Enable OpenGL option off draws with Canvas 2D, as ?renderer=canvas2d does.
   params.get('renderer') === 'canvas2d' || !pageOption(prefsAtLoad, 'model.option.useOpenGL'),
   pageOption(prefsAtLoad, 'model.option.graphicsQuality'),
@@ -731,6 +734,36 @@ let freecolDefaults = new Map<string, unknown>();
 function pushFreecolOptions(values: Prefs['freecol']) {
   for (const [id, v] of Object.entries(values)) colonyClient?.setClientOption(id, String(v));
 }
+/** The ids of the layers of art placed by rule (tile-art.ts) the Tileset in use registered. */
+let tilesetLayerIds: string[] = [];
+/**
+ * Make the map use the Tileset the preferences name for the Map view now shown (#535): load its art, if that is another
+ * manifest than the map has, and register the layers it places by rule. A ?tileset= in the page's address stays.
+ */
+function applyTileset() {
+  const t = tilesetOf(prefs, currentView());
+  for (const id of tilesetLayerIds) unregisterTileArt(id);
+  const layers = tilesetLayers(t);
+  tilesetLayerIds = layers.map((l) => l.id);
+  for (const l of layers) registerTileArt(l);
+  map.tileArtChanged();
+  if (tileset) return;
+  // The panels show the art too, so they are made again once it is in.
+  void map.useManifest(tilesetManifest(t) ?? 'art.json').then(() => {
+    showPanel();
+    renderMinimap();
+    renderSide();
+  });
+}
+/** Whether the debug test layer, a marker at each tile's middle, is on (the debug side panel's). */
+let markers = false;
+function setMarkers(on: boolean) {
+  markers = on;
+  if (on) registerTileArt(debugMarkers);
+  else unregisterTileArt(debugMarkers.id);
+  map.tileArtChanged();
+  renderSide();
+}
 /** Change the preferences: keep them, and make the page and the client Engine follow. */
 function setPrefs(p: Prefs) {
   const was = prefs;
@@ -749,6 +782,8 @@ function setPrefs(p: Prefs) {
     if (!(id in p.freecol) && freecolDefaults.has(id)) changed[id] = freecolDefaults.get(id) as FreeColValue;
   }
   pushFreecolOptions(changed);
+  // Another Tileset for the Map view now shown: its art is loaded at once.
+  if (tilesetOf(p, currentView()) !== tilesetOf(was, currentView())) applyTileset();
   // The Engine's map says whether the fog of war shows.
   if (MODE_OPTIONS.fog in changed) colonyClient?.refreshMap();
   // The View menu's modes follow their options.
@@ -1188,7 +1223,7 @@ function renderSide() {
       <TooltipLayer />
       <Side
         {...side}
-        mapView={{ kind: currentView(), set: setMapView }}
+        mapView={{ kind: currentView(), set: setMapView, markers, setMarkers }}
         debug={
           debug
             ? { at: cursor(view)?.at ?? null, note: debugNote, request: debugRequest, skipTurns: debugSkip, resetSave }
@@ -1373,6 +1408,8 @@ function setMapView(kind: MapViewKind) {
   if (kind === currentView()) return;
   view = switchView(view, kind);
   map.viewSwitched();
+  // The Tileset of the view: the last one used in it, or its default.
+  applyTileset();
   map.show(view);
   showPanel();
   renderMinimap();

@@ -9,6 +9,8 @@ import type { AutosaveOptions } from './saves';
 import type { OptionGroup, OptionNode } from './options';
 import { FONT_SETS, isFontSet, isPalette, PALETTES, type FontSet, type Palette } from './theme';
 import type { TerrainAnimation, TileText, ViewModes } from './tileset';
+import type { MapViewKind } from './projection';
+import type { TileArtLayer } from './tile-art';
 
 /** A speed the player picks; each preference maps it to a duration. */
 export type Speed = 'off' | 'slow' | 'normal' | 'fast';
@@ -21,20 +23,100 @@ export const SPEEDS: readonly Speed[] = ['off', 'slow', 'normal', 'fast'];
 export type ActiveStyle = 'freecol' | 'online';
 export const ACTIVE_STYLES: readonly ActiveStyle[] = ['freecol', 'online'];
 
+/** What a Tileset's art can be for: the parts of the map it draws, and what else the page shows. */
+export type ArtPart =
+  | 'terrain'
+  | 'water'
+  | 'forests'
+  | 'relief'
+  | 'rivers'
+  | 'roads'
+  | 'units'
+  | 'colonies'
+  | 'resources'
+  | 'icons';
+export const ART_PARTS: readonly ArtPart[] = [
+  'terrain',
+  'water',
+  'forests',
+  'relief',
+  'rivers',
+  'roads',
+  'units',
+  'colonies',
+  'resources',
+  'icons',
+];
+/** What a Top-down Tileset needs to give (#535); the other parts come from FreeCol's default Tileset. */
+export const TOPDOWN_PARTS: readonly ArtPart[] = ['terrain', 'water', 'forests', 'relief', 'rivers', 'roads'];
+
+export interface TilesetInfo {
+  id: string;
+  label: string;
+  /** The Map views it has art for. */
+  views: readonly MapViewKind[];
+  /** The manifest it is loaded from, under art/; none for FreeCol's own, the page's default art.json. */
+  manifest?: string;
+  /** The parts of the art it gives itself; the rest come from FreeCol's default Tileset. All of them when left out. */
+  provides?: readonly ArtPart[];
+  /** Art placed by rule (src/tile-art.ts): the layers it registers while it is the Tileset in use. */
+  layers?: readonly TileArtLayer[];
+}
+
 /**
- * The Tilesets the player can pick, FreeCol's own first. Each but FreeCol's is an art-only mod under
- * ui/tilesets/<id>, whose manifest build.sh writes as art/<id>.json.
+ * The Tilesets the player can pick, FreeCol's own first. Each of the Isometric ones but FreeCol's is an art-only mod
+ * under ui/tilesets/<id>, whose manifest build.sh writes as art/<id>.json. The Top-down one is built in: its terrain
+ * is drawn in code (topdown-art.ts), and the rest comes from FreeCol's.
  */
 export const TILESETS = [
-  { id: 'freecol', label: 'FreeCol' },
-  { id: 'freecol-plus', label: 'FreeCol+' },
-  { id: 'browsercol', label: 'BrowserCol' },
-] as const;
+  { id: 'freecol', label: 'FreeCol', views: ['isometric'] },
+  { id: 'freecol-plus', label: 'FreeCol+', views: ['isometric'], manifest: 'freecol-plus.json' },
+  { id: 'browsercol', label: 'BrowserCol', views: ['isometric'], manifest: 'browsercol.json' },
+  { id: 'topdown', label: 'Top-down (built in)', views: ['topdown'], provides: TOPDOWN_PARTS },
+] as const satisfies readonly TilesetInfo[];
 export type Tileset = (typeof TILESETS)[number]['id'];
 const isTileset = (v: unknown): v is Tileset => TILESETS.some((t) => t.id === v);
 
-/** The manifest to load for a Tileset: none for FreeCol's own, the page's default art.json. */
-export const tilesetManifest = (t: Tileset): string | undefined => (t === 'freecol' ? undefined : `${t}.json`);
+/** The Tileset every missing picture comes from: FreeCol's own, whose art is the page's default art.json. */
+export const FALLBACK_TILESET: Tileset = 'freecol';
+/** The Tileset a Map view starts with, and falls back to when the one chosen no longer supports it. */
+export const DEFAULT_TILESETS: Record<MapViewKind, Tileset> = { isometric: 'freecol', topdown: 'topdown' };
+
+const info = (t: Tileset): TilesetInfo => TILESETS.find((x) => x.id === t)!;
+
+/** The Tilesets that support a Map view, in the picker's order. */
+export const tilesetsFor = (view: MapViewKind): TilesetInfo[] =>
+  (TILESETS as readonly TilesetInfo[]).filter((t) => t.views.includes(view));
+
+/** Whether a Tileset has art for a Map view. */
+export const supportsView = (t: Tileset, view: MapViewKind): boolean => info(t).views.includes(view);
+
+/** The Tileset a Map view shows: the last one picked in it, or its default. */
+export const tilesetOf = (prefs: Pick<Prefs, 'tilesets'>, view: MapViewKind): Tileset =>
+  supportsView(prefs.tilesets[view], view) ? prefs.tilesets[view] : DEFAULT_TILESETS[view];
+
+/** The preferences with the Tileset picked for a Map view; a Tileset that does not support the view is not picked. */
+export const withTileset = (prefs: Prefs, view: MapViewKind, t: Tileset): Prefs =>
+  supportsView(t, view) ? { ...prefs, tilesets: { ...prefs.tilesets, [view]: t } } : prefs;
+
+/**
+ * Which Tileset gives a part of the art when `t` is in use: itself if it gives that part, else FreeCol's default. So a
+ * Top-down Tileset of terrain alone still shows FreeCol's units, colonies, resources and icons.
+ */
+export const artSource = (t: Tileset, part: ArtPart): Tileset => {
+  const own = (info(t).provides ?? ART_PARTS) as readonly ArtPart[];
+  return own.includes(part) ? t : FALLBACK_TILESET;
+};
+
+/**
+ * The manifest to load for a Tileset: none for the page's default art.json. A Tileset that gives only some parts is
+ * loaded as the default's art, which has the rest.
+ */
+export const tilesetManifest = (t: Tileset): string | undefined =>
+  ART_PARTS.every((p) => artSource(t, p) === t) ? (info(t).manifest as string | undefined) : undefined;
+
+/** The art-placed-by-rule layers of a Tileset. */
+export const tilesetLayers = (t: Tileset): readonly TileArtLayer[] => info(t).layers ?? [];
 
 /** How strongly the window greys out while it lacks keyboard focus. */
 export type Dim = 'off' | 'light' | 'normal' | 'heavy';
@@ -74,8 +156,11 @@ export interface Prefs {
   palette: Palette;
   /** The fonts of their text (fonts.css). */
   fonts: FontSet;
-  /** The map's art; the page loads it, so a change shows on reload. */
-  tileset: Tileset;
+  /**
+   * The Tileset last used in each Map view (#535): the map's art, which the Tileset picker follows the view for. Kept
+   * as one record so the Map view setting (#531) can sit beside it in the same stored preferences.
+   */
+  tilesets: Record<MapViewKind, Tileset>;
   /** The most device pixels the map draws per CSS pixel; the page reads it as the map starts, so a change shows on reload. */
   renderCap: RenderCap;
   /** Whether the music is muted, whatever its volume option says. */
@@ -116,7 +201,7 @@ export const DEFAULTS: Prefs = {
   autoEndTurn: false,
   palette: PALETTES[0].id,
   fonts: FONT_SETS[0].id,
-  tileset: TILESETS[0].id,
+  tilesets: { ...DEFAULT_TILESETS },
   renderCap: 'auto',
   // The music is a bit much for most players: off until they turn it on (#318).
   muteMusic: true,
@@ -472,6 +557,14 @@ const speed = (v: unknown, fallback: Speed): Speed => (SPEEDS.includes(v as Spee
 /** The grey-out strength; the old on/off switch reads as normal or off. */
 const dim = (v: unknown): Dim => (DIMS.includes(v as Dim) ? (v as Dim) : v === false ? 'off' : DEFAULTS.dimUnfocused);
 
+/** The Tileset per Map view as stored; an older single `tileset` is the Isometric view's. */
+function tilesetsOf(o: Record<string, unknown>): Record<MapViewKind, Tileset> {
+  const stored = (typeof o.tilesets === 'object' && o.tilesets !== null ? o.tilesets : {}) as Record<string, unknown>;
+  const pick = (view: MapViewKind, v: unknown): Tileset =>
+    isTileset(v) && supportsView(v, view) ? v : DEFAULT_TILESETS[view];
+  return { isometric: pick('isometric', stored.isometric ?? o.tileset), topdown: pick('topdown', stored.topdown) };
+}
+
 /** Parse stored text; anything missing or odd falls back to the defaults. */
 export function parsePrefs(text: string | null): Prefs {
   try {
@@ -487,7 +580,7 @@ export function parsePrefs(text: string | null): Prefs {
       autoEndTurn: typeof o.autoEndTurn === 'boolean' ? o.autoEndTurn : DEFAULTS.autoEndTurn,
       palette: isPalette(o.palette) ? o.palette : DEFAULTS.palette,
       fonts: isFontSet(o.fonts) ? o.fonts : DEFAULTS.fonts,
-      tileset: isTileset(o.tileset) ? o.tileset : DEFAULTS.tileset,
+      tilesets: tilesetsOf(o),
       renderCap: RENDER_CAPS.includes(o.renderCap as RenderCap) ? (o.renderCap as RenderCap) : DEFAULTS.renderCap,
       muteMusic: typeof o.muteMusic === 'boolean' ? o.muteMusic : DEFAULTS.muteMusic,
       muteEffects: typeof o.muteEffects === 'boolean' ? o.muteEffects : DEFAULTS.muteEffects,

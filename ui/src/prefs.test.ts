@@ -15,7 +15,17 @@ import {
   PAGE_OPTIONS,
   terrainAnimation,
   pixelCap,
+  ART_PARTS,
+  artSource,
+  loadPrefs,
+  savePrefs,
+  supportsView,
+  TILESETS,
+  TOPDOWN_PARTS,
   tilesetManifest,
+  tilesetOf,
+  tilesetsFor,
+  withTileset,
   pageOption,
   parsePrefs,
   shownClientOptions,
@@ -64,17 +74,65 @@ describe('prefs', () => {
     expect(parsePrefs('{"activeStyle":"freecol"}').activeStyle).toBe('freecol');
   });
 
-  it("reads the Tileset, FreeCol's own unless another known one is stored", () => {
-    expect(parsePrefs(null).tileset).toBe('freecol');
-    expect(parsePrefs('{"tileset":"freecol-plus"}').tileset).toBe('freecol-plus');
-    expect(parsePrefs('{"tileset":"browsercol"}').tileset).toBe('browsercol');
-    expect(parsePrefs('{"tileset":"test"}').tileset).toBe('freecol');
+  it("reads a Tileset per Map view, each view's own default unless another that supports it is stored", () => {
+    expect(parsePrefs(null).tilesets).toEqual({ isometric: 'freecol', topdown: 'topdown' });
+    expect(parsePrefs('{"tilesets":{"isometric":"freecol-plus"}}').tilesets.isometric).toBe('freecol-plus');
+    expect(parsePrefs('{"tilesets":{"isometric":"browsercol","topdown":"topdown"}}').tilesets).toEqual({
+      isometric: 'browsercol',
+      topdown: 'topdown',
+    });
+    // Unknown, or not supporting the view: the view's default.
+    expect(parsePrefs('{"tilesets":{"isometric":"test"}}').tilesets.isometric).toBe('freecol');
+    expect(parsePrefs('{"tilesets":{"isometric":"topdown","topdown":"browsercol"}}').tilesets).toEqual({
+      isometric: 'freecol',
+      topdown: 'topdown',
+    });
   });
 
-  it("loads FreeCol's own Tileset from the default manifest and another from its own", () => {
+  it("reads the single Tileset an older version stored as the Isometric view's", () => {
+    expect(parsePrefs('{"tileset":"browsercol"}').tilesets).toEqual({ isometric: 'browsercol', topdown: 'topdown' });
+  });
+
+  it('remembers the Tileset of each view across a reload, through the stored preferences', () => {
+    localStorage.clear();
+    savePrefs(withTileset(DEFAULTS, 'isometric', 'browsercol'));
+    const again = loadPrefs();
+    expect(tilesetOf(again, 'isometric')).toBe('browsercol');
+    expect(tilesetOf(again, 'topdown')).toBe('topdown');
+    // Another Tileset in one view leaves the other view's alone.
+    savePrefs(withTileset(again, 'isometric', 'freecol-plus'));
+    expect(loadPrefs().tilesets).toEqual({ isometric: 'freecol-plus', topdown: 'topdown' });
+    localStorage.clear();
+  });
+
+  it("offers a view only the Tilesets that support it, and declares each one's views", () => {
+    expect(tilesetsFor('isometric').map((t) => t.id)).toEqual(['freecol', 'freecol-plus', 'browsercol']);
+    expect(tilesetsFor('topdown').map((t) => t.id)).toEqual(['topdown']);
+    for (const t of TILESETS) expect(t.views.length).toBeGreaterThan(0);
+    expect(supportsView('freecol', 'topdown')).toBe(false);
+    expect(supportsView('browsercol', 'topdown')).toBe(false);
+    expect(supportsView('freecol-plus', 'topdown')).toBe(false);
+    expect(supportsView('topdown', 'isometric')).toBe(false);
+  });
+
+  it('will not pick a Tileset for a view it does not support', () => {
+    expect(withTileset(DEFAULTS, 'topdown', 'browsercol')).toBe(DEFAULTS);
+    expect(withTileset(DEFAULTS, 'isometric', 'topdown')).toBe(DEFAULTS);
+  });
+
+  it("falls back to FreeCol's Tileset for what a Top-down Tileset does not give", () => {
+    for (const part of TOPDOWN_PARTS) expect(artSource('topdown', part)).toBe('topdown');
+    for (const part of ['units', 'colonies', 'resources', 'icons'] as const)
+      expect(artSource('topdown', part)).toBe('freecol');
+    // An Isometric Tileset gives it all (its manifest is layered over the default's).
+    for (const part of ART_PARTS) expect(artSource('browsercol', part)).toBe('browsercol');
+  });
+
+  it("loads FreeCol's own Tileset from the default manifest and another from its own; Top-down loads FreeCol's art", () => {
     expect(tilesetManifest('freecol')).toBeUndefined();
     expect(tilesetManifest('freecol-plus')).toBe('freecol-plus.json');
     expect(tilesetManifest('browsercol')).toBe('browsercol.json');
+    expect(tilesetManifest('topdown')).toBeUndefined();
   });
 
   it('reads the palette and the font set, parchment and the default set unless stored otherwise', () => {
