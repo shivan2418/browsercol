@@ -178,6 +178,39 @@ async function shapeGame(name: string, open: () => Promise<Page>, url: string, s
     const file = path.join(out, `shape-${name}-${shape === 'isometric' ? 'isometric' : 'topdown'}.png`);
     fs.writeFileSync(file, await page.screenshot());
     console.log(`  ${path.relative(process.cwd(), file)}`);
+    // The minimap lays the map out as the main map does: a click in its middle keeps the camera where it is, and one to
+    // the right of the middle moves the camera right and down the same way on the screen, to a tile of the map.
+    const canvas = (await page.locator('#map canvas').boundingBox())!;
+    await page.mouse.move(canvas.x + canvas.width / 2, canvas.y + canvas.height / 2);
+    for (let i = 0; i < 6; i++) await page.mouse.wheel(0, -100);
+    await sleep(1500);
+    const mini = page.locator('#minimap canvas');
+    if (await mini.count()) {
+      const box = (await mini.first().boundingBox())!;
+      const camera = () => page.evaluate(() => window.fcView!().centre as [number, number]);
+      await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+      await sleep(800);
+      const middle = await camera();
+      await page.mouse.click(box.x + box.width / 2 + 40, box.y + box.height / 2 + 20);
+      await sleep(800);
+      const moved = await camera();
+      if (!(moved[0] > middle[0] + 100 && moved[1] > middle[1] + 50))
+        throw new Error(
+          `a minimap click right of its middle moved the camera from ${middle.join(',')} to ${moved.join(',')}`,
+        );
+      if (!projection.tileAt(got.w, got.h, ...moved))
+        throw new Error(`the minimap click put the camera at ${moved.join(',')}, off the ${shape}-shaped map`);
+      // The click in the middle of the minimap, with the camera at the map's middle, is the map's middle.
+      await page.evaluate(([x, y]) => window.fcReveal!(x, y), [Math.floor(got.w / 2), Math.floor(got.h / 2)]);
+      await sleep(800);
+      await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+      await sleep(800);
+      const mid = await camera();
+      if (Math.abs(mid[0] - mw / 2) > mw * 0.25 || Math.abs(mid[1] - mh / 2) > mh * 0.25)
+        throw new Error(
+          `a minimap click in its middle put the camera at ${mid.join(',')}, not near the middle of the map`,
+        );
+    }
   } finally {
     setMapShape(null);
     setView('isometric');
