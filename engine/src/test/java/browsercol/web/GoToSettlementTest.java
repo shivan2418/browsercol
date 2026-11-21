@@ -264,6 +264,15 @@ class GoToSettlementTest {
         startGame();
         final Spot s = spot();
         assertNotNull(s, "a native settlement with free land two tiles off");
+        // The way in must cross a region nobody has discovered, whatever this seed's regions are: every
+        // land tile that is next to both the scout's and the village's takes one that is still to find.
+        final net.sf.freecol.common.model.Region unfound = server.getGame().getMap().getRegions().stream()
+            .filter(r -> r.getDiscoverable() && r.getDiscoverer() == null && !r.isPacific())
+            .findFirst().orElse(null);
+        assertNotNull(unfound, "a region nobody has discovered");
+        for (Tile way : s.village.getSurroundingTiles(1, 1)) {
+            if (way.isLand() && way.getDistanceTo(s.far) == 1) way.setRegion(unfound);
+        }
         final Unit scout = addScout(s.far);
         noMovesLeft(scout);
         final Commands commands = client.getCommands();

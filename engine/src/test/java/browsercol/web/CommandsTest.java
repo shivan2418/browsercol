@@ -665,9 +665,12 @@ class CommandsTest {
         final Map known = server.getGame().getMap();
         final Player us = serverUnit(landed).getOwner();
 
-        // A native camp with free land beside it, for our wagon train of trade goods.
+        // A native camp with free land beside it, for our wagon train of trade goods. The camp
+        // has goods to sell as well, so the menu comes round again after our sale: that is the
+        // question after the sale, which the test closes.
         Tile campTile = null, beside = null;
-        for (Tile t : known.getTileSet(t -> t.getIndianSettlement() != null)) {
+        for (Tile t : known.getTileSet(t -> t.getIndianSettlement() != null
+                && !t.getIndianSettlement().getSellGoods(null).isEmpty())) {
             for (Tile n : t.getSurroundingTiles(1, 1)) {
                 if (n.isLand() && !n.hasSettlement() && n.getUnitCount() == 0
                     && !n.hasLostCityRumour()) {
@@ -1049,6 +1052,20 @@ class CommandsTest {
         at.setAccessible(true);
         at.set(copy, clientTile);
         clientTile.changeOwnership(null, null);
+        if (clientTile.getTileItemContainer() == null) {
+            // A tile with no resource, river or road has no item container on the client yet, and
+            // the client cannot make ids for one either: it takes the id of the server's.
+            final net.sf.freecol.common.model.TileItemContainer made =
+                new net.sf.freecol.common.model.TileItemContainer(
+                    clientTile.getGame(), serverTile.getTileItemContainer().getId());
+            final java.lang.reflect.Field owner = made.getClass().getDeclaredField("tile");
+            owner.setAccessible(true);
+            owner.set(made, clientTile);
+            final java.lang.reflect.Field held = clientTile.getClass()
+                .getDeclaredField("tileItemContainer");
+            held.setAccessible(true);
+            held.set(clientTile, made);
+        }
         clientTile.addLostCityRumour(copy);
         assertEquals(UnitLocation.NoAddReason.MISSING_ABILITY, ct.getNoAddReason(colonist));
 

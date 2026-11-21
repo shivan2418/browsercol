@@ -71,11 +71,15 @@ class SettlementWithNoTileTest {
         assertTrue(client[0].startGame(0), "login");
         finished.await();
         lastClient = client[0];
+        lastServer = server;
         return server.getGame();
     }
 
     /** The client of the last game played. */
     private ClientEngine lastClient;
+
+    /** The server of the last game played. */
+    private ServerEngine lastServer;
 
     /**
      * Seed 9 of Giga Earth puts a native settlement next to the Dutch entry
@@ -88,8 +92,14 @@ class SettlementWithNoTileTest {
     @Timeout(240)
     void everySettlementOfTheClientHasItsTile() throws Exception {
         play(Files.readAllBytes(new File("data/maps/XL_GigaEarth_Mazim.fsm").toPath()), 9);
-        final List<Tile> withSettlement = lastClient.getGame().getMap().getTileList(
+        List<Tile> withSettlement = lastClient.getGame().getMap().getTileList(
             t -> t.getSettlement() != null);
+        if (withSettlement.isEmpty()) {
+            // The map is not the one seed 9 was found on (it is resampled now), and no settlement is in
+            // sight of the first update: the server tells the client the whole map, settlements in it.
+            lastClient.debugApplied(lastServer.debug("{\"action\":\"revealMap\",\"reveal\":true}"));
+            withSettlement = lastClient.getGame().getMap().getTileList(t -> t.getSettlement() != null);
+        }
         assertFalse(withSettlement.isEmpty(), "the client sees a settlement");
         for (Tile t : withSettlement) {
             assertSame(t, t.getSettlement().getTile(), "the tile of the settlement at " + t.getX() + "," + t.getY());

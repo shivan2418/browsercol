@@ -125,6 +125,22 @@ class ColonyJsonTest {
     }
 
     /** All eight neighbours are on the map, land (a colony without docks cannot work water) and nobody's. */
+    /**
+     * The north tile grows more grain than any other tile around this one, so a colony's
+     * first worker takes it, and the food the colony makes follows what becomes of it.
+     */
+    private static boolean northIsTheBestFood(Tile t, Specification spec) {
+        final Tile north = t.getNeighbourOrNull(Direction.N);
+        if (north == null) return false;
+        final GoodsType grain = spec.getGoodsType("model.goods.grain");
+        final int up = north.getPotentialProduction(grain, null);
+        if (up <= 0) return false;
+        for (Tile around : t.getSurroundingTiles(1)) {
+            if (around != north && around.getPotentialProduction(grain, null) >= up) return false;
+        }
+        return true;
+    }
+
     private static boolean freeAround(Tile t) {
         int n = 0;
         for (Tile around : t.getSurroundingTiles(1)) {
@@ -227,7 +243,7 @@ class ColonyJsonTest {
         final Tile land = game.getMap().getTileSet(t -> t.isLand()
                 && t.getType().getId().equals("model.tile.plains")
                 && !t.hasSettlement() && t.getOwner() == null
-                && freeAround(t))
+                && freeAround(t) && northIsTheBestFood(t, spec))
             .stream().findFirst().get();
         // As FreeColTestUtils founds a colony: the founder joins it, and
         // another colonist waits outside, on the colony's tile.
@@ -414,15 +430,15 @@ class ColonyJsonTest {
         // taken image over it. (Another player's land only needs a claim.)
         // The north tile grows grain, and a colony stores grain as food, so
         // the food the colony produces drops when the tile turns to water.
-        // The map seed is picked for that, so this is the case the panel's
-        // numbers have to follow.
+        // The land is picked for that (the north tile is the best grain around),
+        // so this is the case the panel's numbers have to follow.
         final GoodsType food = spec.getGoodsType("model.goods.food");
         final int foodBefore = colony.getAdjustedNetProductionOf(food);
         north.changeType(spec.getTileType("model.tile.ocean"));
         final int foodAfter = colony.getAdjustedNetProductionOf(food);
         assertTrue(foodAfter < foodBefore, "the north tile's grain is the "
             + "colony's food, and it is gone: " + foodBefore + " -> "
-            + foodAfter + "; another map seed?");
+            + foodAfter);
         final Map<String, Object> taken = list(panel(colony)
                 .get("tiles")).stream().map(ColonyJsonTest::obj)
             .filter(t -> northJson.get("id").equals(t.get("id"))).findFirst().get();
