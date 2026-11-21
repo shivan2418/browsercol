@@ -21,3 +21,21 @@ font glyphs (`runs/` and `glyphs.json` are ignored).
 
 Screenshots only drive the game. The measurements are meant to come from save
 files, with fields located by diffing our own saves (see the tax-rate ticket).
+
+## Driving a game from a save
+
+- `probe.sh NAME ORIGIN.SAV` starts a container with the save installed as
+  slot 1; `poke.sh` gets through the menus to load it.
+- `col.py` runs checked steps inside the container (`docker exec -w /harness
+  NAME python3 col.py ...`): `screen`, `cheat`, `europe`, `tax up|down N`,
+  `leave-europe`, `save SLOT`, `endturn N`. Each step first checks which
+  screen is showing. Escape on the map asks to quit, and a blind Return then
+  exits to DOS.
+- Turn on the game options' Autosave: the game then rewrites `COLONY09.SAV`
+  every turn, so every turn's state can be read from it.
+
+## Save fields found by diffing our own saves
+
+| Field | Where | How it was found |
+|---|---|---|
+| Tax rate (percent, 1 byte) | 22,062 bytes before the end of the file | Saves at tax 0/1/2/5 in one turn (set with the cheat keys) differ in that byte only. It held for saves of 25,097 and 25,905 bytes, at tax 7 and 11. |
