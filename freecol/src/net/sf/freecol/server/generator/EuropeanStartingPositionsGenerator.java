@@ -423,7 +423,7 @@ class EuropeanStartingPositionsGenerator {
         final int latY = map.getRow(nation.getPreferredLatitude());
         List<Tile> tiles = (nation.getStartsOnEastCoast()) ? east : west;
         if (tiles.isEmpty()) return null;
-        final ToIntFunction<Tile> dist = t -> Math.abs(t.getY() - latY);
+        final ToIntFunction<Tile> dist = t -> Math.abs(map.getRowOf(t) - latY);
         final Comparator<Tile> closest = Comparator.comparingInt(dist);
         Tile ret = minimize(tiles, closest);
         tiles.remove(ret); // chosen tile is no longer a candidate

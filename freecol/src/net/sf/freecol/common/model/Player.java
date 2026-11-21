@@ -2738,7 +2738,8 @@ public class Player extends FreeColGameObject implements Nameable {
     public void addStartGameMessage() {
         Tile tile = getEntryTile();
         String sailTag = (tile == null) ? "unknown"
-            : (tile.getX() < tile.getMap().getWidth() / 2) ? "east"
+            : (tile.getMap().getColumnOf(tile)
+                < tile.getMap().getShape().getColumns() / 2) ? "east"
             : "west";
         addModelMessage(new ModelMessage(ModelMessage.MessageType.TUTORIAL,
                                          "model.player.startGame", this)

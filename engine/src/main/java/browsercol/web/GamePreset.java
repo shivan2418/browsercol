@@ -17,6 +17,7 @@ import net.sf.freecol.common.model.Specification;
 import net.sf.freecol.common.option.AbstractOption;
 import net.sf.freecol.common.option.BooleanOption;
 import net.sf.freecol.common.option.IntegerOption;
+import net.sf.freecol.common.option.MapGeneratorOptions;
 import net.sf.freecol.common.option.OptionGroup;
 import net.sf.freecol.common.option.StringOption;
 import net.sf.freecol.common.option.TextOption;
@@ -279,6 +280,19 @@ public final class GamePreset {
         }
         for (Map.Entry<String, Object> e : this.options.entrySet()) {
             setOption(spec, e.getKey(), e.getValue());
+        }
+        // An Isometric shaped map's size is the staggered map's, so the
+        // Top-down default does not fit it: it has its own default.
+        if (spec.getInteger(MapGeneratorOptions.MAP_SHAPE)
+            == MapGeneratorOptions.MAP_SHAPE_ISOMETRIC) {
+            if (!this.options.containsKey(MapGeneratorOptions.MAP_WIDTH)) {
+                setOption(spec, MapGeneratorOptions.MAP_WIDTH,
+                    (long)MapGeneratorOptions.ISOMETRIC_DEFAULT_WIDTH);
+            }
+            if (!this.options.containsKey(MapGeneratorOptions.MAP_HEIGHT)) {
+                setOption(spec, MapGeneratorOptions.MAP_HEIGHT,
+                    (long)MapGeneratorOptions.ISOMETRIC_DEFAULT_HEIGHT);
+            }
         }
     }
 

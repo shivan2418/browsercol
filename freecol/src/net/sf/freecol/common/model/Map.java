@@ -243,8 +243,15 @@ public class Map extends FreeColGameObject implements Location, Iterable<Tile> {
     }
 
 
-    /** The width and height of the map. */
+    /** The width and height of the map, the box its tiles are in. */
     private int width = -1, height = -1;
+
+    /**
+     * The shape of the map: all the box on the grid, or the diamond
+     * that fits an Isometric view.  A tile outside the shape is not
+     * part of the map; its place in the tile array stays null.
+     */
+    private MapShape shape;
 
     /**
      * The tiles that this map contains, as a 2D array.  This starts
@@ -303,6 +310,18 @@ public class Map extends FreeColGameObject implements Location, Iterable<Tile> {
         setLayer(Layer.RESOURCES);
         calculateLatitudePerRow();
         initializeTraceSearch();
+    }
+
+    /**
+     * Create a new {@code Map} of a given shape.
+     *
+     * @param game The enclosing {@code Game}.
+     * @param shape The {@code MapShape}, with the size of the tile array.
+     */
+    public Map(Game game, MapShape shape) {
+        this(game, shape.getWidth(), shape.getHeight());
+        this.shape = shape;
+        calculateLatitudePerRow();
     }
 
     /**
@@ -381,7 +400,65 @@ public class Map extends FreeColGameObject implements Location, Iterable<Tile> {
      * @return True if the coordinates are valid.
      */
     public boolean isValid(int x, int y) {
-        return Map.inBox(x, y, getWidth(), getHeight());
+        return getShape().contains(x, y);
+    }
+
+    /**
+     * Gets the shape of this map.
+     *
+     * @return The {@code MapShape}, Top-down unless set.
+     */
+    public final MapShape getShape() {
+        MapShape s = this.shape;
+        if (s == null || s.getWidth() != this.width
+            || s.getHeight() != this.height) {
+            s = this.shape = MapShape.topDown(this.width, this.height);
+        }
+        return s;
+    }
+
+    /**
+     * Sets the shape of this map.  The shape must fit the tile array.
+     *
+     * @param shape The new {@code MapShape}.
+     */
+    private void setShape(MapShape shape) {
+        this.shape = shape;
+        calculateLatitudePerRow();
+    }
+
+    /**
+     * Gets the row of a tile, north to south.  Rows are what latitude
+     * follows (see {@link MapShape}).
+     *
+     * @param tile The {@code Tile}.
+     * @return The row.
+     */
+    public final int getRowOf(Tile tile) {
+        return getShape().getRow(tile.getX(), tile.getY());
+    }
+
+    /**
+     * Gets the column of a tile, west to east.  The first and last
+     * column are the map's west and east edges.
+     *
+     * @param tile The {@code Tile}.
+     * @return The column.
+     */
+    public final int getColumnOf(Tile tile) {
+        return getShape().getColumn(tile.getX(), tile.getY());
+    }
+
+    /**
+     * Is a tile on the west or east edge of the map, where ships sail
+     * off for Europe?
+     *
+     * @param tile The {@code Tile}.
+     * @return True if it is in the first or last column.
+     */
+    public final boolean isOnEastWestEdge(Tile tile) {
+        final int c = getColumnOf(tile);
+        return c == 0 || c == getShape().getColumns() - 1;
     }
 
     /**
@@ -409,6 +486,7 @@ public class Map extends FreeColGameObject implements Location, Iterable<Tile> {
         this.height = height;
         this.tileArray = new Tile[width][height];
         this.tileList.clear();
+        this.shape = null;
         return null;
     }
 
@@ -436,25 +514,20 @@ public class Map extends FreeColGameObject implements Location, Iterable<Tile> {
      * SAVEGAME_VERSION 15 to the square grid, losslessly: a tile at (x, y)
      * goes to u = x + ((y+1)>>1), v = (y>>1) - x, plus an offset that makes
      * every v non-negative. Each tile keeps all eight of its neighbours.
-     * The map grows to the bounding box of the old diamond, and the new tiles
-     * in its corners are high seas where they lie beyond the old east or
-     * west edge, where ships sailed off the map to Europe, and ocean where
-     * they lie beyond a polar edge. Everything else refers to a tile by its
-     * identifier, which does not change.
-     *
-     * @param highSeas The high seas tile type.
-     * @param ocean The ocean tile type.
-     * @return The tiles that were added.
+     * The map becomes an Isometric-shaped map (see {@link MapShape}): the
+     * old diamond is its outline, and the corners of the bounding box that
+     * the old tiles do not fill are not part of the map, so a ship that
+     * sailed off the old east or west edge still sails off it.
+     * Everything else refers to a tile by its identifier, which does not
+     * change.
      */
-    public List<Tile> convertFromStaggered(TileType highSeas, TileType ocean) {
-        final List<Tile> added = new ArrayList<>();
+    public void convertFromStaggered() {
         final int oldW = this.width, oldH = this.height;
         final Tile[][] old = this.tileArray;
-        final int newW = oldW + (oldH >> 1);
-        final int newH = ((oldH - 1) >> 1) + oldW;
+        final MapShape iso = MapShape.isometric(oldW, oldH);
         final int offset = oldW - 1;
-        final Game game = getGame();
-        setTiles(newW, newH);
+        setTiles(iso.getWidth(), iso.getHeight());
+        this.shape = iso;
         for (int y = 0; y < oldH; y++) {
             for (int x = 0; x < oldW; x++) {
                 final int u = x + ((y + 1) >> 1), v = (y >> 1) - x + offset;
@@ -462,22 +535,15 @@ public class Map extends FreeColGameObject implements Location, Iterable<Tile> {
                 this.tileArray[u][v] = old[x][y];
             }
         }
-        for (int v = 0; v < newH; v++) {
-            for (int u = 0; u < newW; u++) {
-                if (this.tileArray[u][v] == null) {
-                    // The old position of this square: y = u + v', x = u - ((y+1)>>1).
-                    final int y = u + (v - offset);
-                    final int x = u - ((y + 1) >> 1);
-                    this.tileArray[u][v] = new Tile(game,
-                        (x < 0 || x >= oldW) ? highSeas : ocean, u, v);
-                    added.add(this.tileArray[u][v]);
+        for (int v = 0; v < getHeight(); v++) {
+            for (int u = 0; u < getWidth(); u++) {
+                if (this.tileArray[u][v] != null) {
+                    this.tileList.add(this.tileArray[u][v]);
                 }
-                this.tileList.add(this.tileArray[u][v]);
             }
         }
         calculateLatitudePerRow();
         resetHighSeasCount();
-        return added;
     }
 
     /**
@@ -503,6 +569,19 @@ public class Map extends FreeColGameObject implements Location, Iterable<Tile> {
      */
     public Tile getTile(Position p) {
         return getTile(p.getX(), p.getY());
+    }
+
+    /**
+     * Gets the Tile in a column and row of the map's shape, where
+     * column 0 is the west edge and row 0 the north edge.
+     *
+     * @param column The column.
+     * @param row The row.
+     * @return The {@code Tile}, or null if there is none.
+     */
+    public Tile getTileAt(int column, int row) {
+        final MapShape shape = getShape();
+        return getTile(shape.getX(column, row), shape.getY(column, row));
     }
 
     /**
@@ -611,17 +690,31 @@ public class Map extends FreeColGameObject implements Location, Iterable<Tile> {
      */
     private final void calculateLatitudePerRow() {
         this.latitudePerRow = 1f * (this.maximumLatitude - this.minimumLatitude) /
-            (getHeight() - 1);
+            (getShape().getRows() - 1);
     }
 
     /**
-     * Gets the latitude of the given map row.
+     * Gets the latitude of the given map row.  A row is a grid row on a
+     * Top-down shaped map, and a half-height screen row on an Isometric
+     * shaped one (see {@link MapShape}).
      *
      * @param row The row to check.
      * @return The row latitude.
      */
     public int getLatitude(int row) {
         return this.minimumLatitude + (int) (row * this.latitudePerRow);
+    }
+
+    /**
+     * Gets the latitude of a tile.  North is up the screen in the map's
+     * own view, so it is (0, -1) on a Top-down shaped map and (-1, -1) on
+     * an Isometric shaped one.
+     *
+     * @param tile The {@code Tile}.
+     * @return The latitude of the tile's row.
+     */
+    public int getLatitude(Tile tile) {
+        return getLatitude(getRowOf(tile));
     }
 
     /**
@@ -764,8 +857,21 @@ public class Map extends FreeColGameObject implements Location, Iterable<Tile> {
      * @return True if the tile is in a polar region.
      */
     public boolean isPolar(Tile tile) {
-        return tile.getY() <= POLAR_HEIGHT
-            || tile.getY() >= getHeight() - POLAR_HEIGHT - 1;
+        final MapShape shape = getShape();
+        final int row = shape.getRow(tile.getX(), tile.getY());
+        return row <= getPolarRows() || row >= shape.getRows() - getPolarRows() - 1;
+    }
+
+    /**
+     * How many rows from each pole's edge count as polar.  The polar
+     * strip is as thick on screen on either shape, so this is
+     * {@link #POLAR_HEIGHT} tile heights.
+     *
+     * @return The last polar row, counting from the edge.
+     */
+    public int getPolarRows() {
+        final MapShape shape = getShape();
+        return (POLAR_HEIGHT + 1) * shape.getRowsPerTile() - 1;
     }
 
     /**
@@ -868,7 +974,14 @@ public class Map extends FreeColGameObject implements Location, Iterable<Tile> {
         }
         x += randomInt(logger, "W", random, width);
         y += randomInt(logger, "H", random, height);
-        for (Tile t : getCircleTiles(getTile(x, y), true, INFINITY)) {
+        Tile centre = getTile(x, y);
+        if (centre == null) {
+            // The corner of an Isometric shaped map's box: use a tile of
+            // the map's middle row.
+            final MapShape shape = getShape();
+            centre = getTileAt(shape.getColumns() / 2, shape.getRows() / 2);
+        }
+        for (Tile t : getCircleTiles(centre, true, INFINITY)) {
             if (t.isLand()) return t;
         }
         return null;
@@ -944,6 +1057,7 @@ public class Map extends FreeColGameObject implements Location, Iterable<Tile> {
     public boolean populateTiles(BiFunction<Integer, Integer, Tile> func) {
         for (int y = 0; y < this.height; y++) {
             for (int x = 0; x < this.width; x++) {
+                if (!isValid(x, y)) continue;
                 if (!this.setTile(func.apply(x, y), x, y)) return false;
             }
         }
@@ -993,7 +1107,8 @@ public class Map extends FreeColGameObject implements Location, Iterable<Tile> {
         List<Tile> ret = new ArrayList<>();
         for (int yi = y; yi < y+h; yi++) {
             for (int xi = x; xi < x+w; xi++) {
-                ret.add(getTile(xi, yi));
+                final Tile t = getTile(xi, yi);
+                if (t != null) ret.add(t);
             }
         }
         return ret;
@@ -2288,32 +2403,32 @@ ok:     while (!openMap.isEmpty()) {
         // Find the innermost high seas connected tile on each row (if
         // any) on the east and west sides of the map
         final int west = 0;
-        final int east = getWidth() - 1;
+        final int east = getShape().getColumns() - 1;
         eastTiles.clear();
         westTiles.clear();
-        for (int y = 0; y < getHeight(); y++) {
-            int x;
-            Tile ok = getTile(east, y);
-            if (ok.isDirectlyHighSeasConnected()) {
-                for (x = east; x > west; x--) {
-                    Tile t = getTile(x, y);
+        for (int row = 0; row < getShape().getRows(); row++) {
+            int c;
+            Tile ok = getTileAt(east, row);
+            if (ok != null && ok.isDirectlyHighSeasConnected()) {
+                for (c = east; c > west; c--) {
+                    Tile t = getTileAt(c, row);
                     if (!t.isDirectlyHighSeasConnected()) break;
                     ok = t;
                 }
-                if (ok != null) eastTiles.add(ok);
+                eastTiles.add(ok);
             }
-            ok = getTile(west, y);
-            if (ok.isDirectlyHighSeasConnected()) {
-                for (x = west; x < east; x++) {
-                    Tile t = getTile(x, y);
+            ok = getTileAt(west, row);
+            if (ok != null && ok.isDirectlyHighSeasConnected()) {
+                for (c = west; c < east; c++) {
+                    Tile t = getTileAt(c, row);
                     if (!t.isDirectlyHighSeasConnected()) break;
                     ok = t;
                 }
-                if (ok != null) westTiles.add(ok);
+                westTiles.add(ok);
             }
         }
     }
-    
+
     /**
      * Places the "high seas"-tiles on the border of this map.
      *
@@ -2345,14 +2460,14 @@ ok:     while (!openMap.isEmpty()) {
         // Reset all highSeas tiles to the default ocean type.
         forEachTile(t -> t.getType() == highSeas, t -> t.setType(ocean));
 
-        final int width = getWidth(), height = getHeight();
+        final int width = getShape().getColumns(), height = getShape().getRows();
         Tile t, seaL = null, seaR = null;
         int totalL = 0, totalR = 0, distanceL = -1, distanceR = -1;
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < maxDistanceToEdge && x < width
-                     && isValid(x, y)
-                     && (t = getTile(x, y)).getType() == ocean; x++) {
-                Tile other = getLandWithinDistance(x, y,
+                     && (t = getTileAt(x, y)) != null
+                     && t.getType() == ocean; x++) {
+                Tile other = getLandWithinDistance(t.getX(), t.getY(),
                     distToLandFromHighSeas);
                 if (other == null) {
                     t.setType(highSeas);
@@ -2366,9 +2481,9 @@ ok:     while (!openMap.isEmpty()) {
                 }
             }
             for (int x = 0; x < maxDistanceToEdge && x < width
-                     && isValid(width-1-x, y)
-                     && (t = getTile(width-1-x, y)).getType() == ocean; x++) {
-                Tile other = getLandWithinDistance(width-1-x, y,
+                     && (t = getTileAt(width-1-x, y)) != null
+                     && t.getType() == ocean; x++) {
+                Tile other = getLandWithinDistance(t.getX(), t.getY(),
                     distToLandFromHighSeas);
                 if (other == null) {
                     t.setType(highSeas);
@@ -2421,7 +2536,7 @@ ok:     while (!openMap.isEmpty()) {
         for (Tile t : this.tileList) {
             t.setHighSeasCount(-1);
             if (!t.isLand()) {
-                if ((t.getX() == 0 || t.getX() == getWidth()-1)
+                if (isOnEastWestEdge(t)
                     && t.getType() != null
                     && t.getType().isHighSeasConnected()
                     && !t.getType().isDirectlyHighSeasConnected()
@@ -2472,6 +2587,7 @@ ok:     while (!openMap.isEmpty()) {
         for (int y = 0; y < hgt; y++) {
             for (int x = 0; x < wid; x++) {
                 Tile t = getTile(x, y);
+                if (t == null) continue;
                 regions |= t.getRegion() != null;
                 rivers |= t.hasRiver();
                 lostCityRumours |= t.hasLostCityRumour();
@@ -2552,6 +2668,9 @@ ok:     while (!openMap.isEmpty()) {
         // Note: can not use Tile.copyIn as that sets x,y
         final Game game = getGame();
         Map ret = new Map(game, width, height);
+        if (getShape().isIsometric()) {
+            throw new UnsupportedOperationException("Scaling an Isometric map");
+        }
         final int oldWidth = getWidth();
         final int oldHeight = getHeight();
         ret.populateTiles((x, y) -> {
@@ -2742,6 +2861,7 @@ ok:     while (!openMap.isEmpty()) {
         for (int y = 0; y < hgt; y++) {
             for (int x = 0; x < wid; x++) {
                 Tile t = getTile(x, y);
+                if (t == null) continue;
                 result = result.combine(t.checkIntegrity(fix, lb));
             }
         }
@@ -2761,6 +2881,7 @@ ok:     while (!openMap.isEmpty()) {
         final Game game = getGame();
         String err = updateTiles(o.getWidth(), o.getHeight());
         if (err != null) throw new RuntimeException("copyIn failure, " + err);
+        this.shape = o.getShape();
         // Allow creating new regions in first map update
         clearRegions();
         for (Region r : o.getRegions()) addRegion(game.update(r, true));
@@ -2782,6 +2903,8 @@ ok:     while (!openMap.isEmpty()) {
     private static final String LAYER_TAG = "layer";
     private static final String MAXIMUM_LATITUDE_TAG = "maximumLatitude";
     private static final String MINIMUM_LATITUDE_TAG = "minimumLatitude";
+    private static final String SHAPE_TAG = "shape";
+    private static final String SHAPE_ROWS_TAG = "shapeRows";
     private static final String WIDTH_TAG = "width";
 
 
@@ -2801,6 +2924,13 @@ ok:     while (!openMap.isEmpty()) {
         xw.writeAttribute(MINIMUM_LATITUDE_TAG, minimumLatitude);
 
         xw.writeAttribute(MAXIMUM_LATITUDE_TAG, maximumLatitude);
+
+        // SAVEGAME_VERSION 16: the shape; before it every map was Top-down.
+        final MapShape shape = getShape();
+        xw.writeAttribute(SHAPE_TAG, shape.getKind().getKey());
+        if (shape.isIsometric()) {
+            xw.writeAttribute(SHAPE_ROWS_TAG, shape.getStaggeredRows());
+        }
     }
 
     /**
@@ -2815,7 +2945,8 @@ ok:     while (!openMap.isEmpty()) {
         final int hgt = getHeight(), wid = getWidth();
         for (int y = 0; y < hgt; y++) {
             for (int x = 0; x < wid; x++) {
-                getTile(x, y).toXML(xw);
+                final Tile t = getTile(x, y);
+                if (t != null) t.toXML(xw);
             }
         }
     }
@@ -2831,6 +2962,16 @@ ok:     while (!openMap.isEmpty()) {
         if (err != null) throw new XMLStreamException("Map.readAttributes failure, " + err);
 
         setLayer(xr.getAttribute(LAYER_TAG, Layer.class, Layer.ALL));
+
+        final MapShape.Kind kind = MapShape.Kind.fromKey(
+            xr.getAttribute(SHAPE_TAG, (String)null));
+        try {
+            this.shape = MapShape.of(kind, getWidth(), getHeight(),
+                xr.getAttribute(SHAPE_ROWS_TAG, 0));
+        } catch (IllegalArgumentException iae) {
+            throw new XMLStreamException("Map.readAttributes failure, "
+                + iae.getMessage());
+        }
 
         minimumLatitude = xr.getAttribute(MINIMUM_LATITUDE_TAG, -90);
 

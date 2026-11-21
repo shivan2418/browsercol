@@ -69,12 +69,9 @@ public class FreeColMapLoader implements MapLoader {
     public Layer loadMap(Game game, Layer layer) {
         Layer highestLayer = layer.compareTo(importMap.getLayer()) < 0
             ? layer : importMap.getLayer();
-        int width = importMap.getWidth();
-        int height = importMap.getHeight();
-
         java.util.Map<String, ServerRegion> regions = new HashMap<>();
 
-        Map map = new Map(game, width, height);
+        Map map = new Map(game, importMap.getShape());
         if (highestLayer == Layer.LAND) {
             // import only the land / water distinction
             map.populateTiles((x, y) -> {

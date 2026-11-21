@@ -4836,6 +4836,16 @@
                        value="58" minimumValue="30" maximumValue="250"/>
         <integerOption id="model.option.mapHeight"
                        value="72" minimumValue="20" maximumValue="250"/>
+        <!-- The shape of the map, for the Map view the game is played in:
+             a rectangle on the grid (Top-down), or the 45 degree diamond
+             that is a rectangle on screen in Isometric (#559).  For
+             Isometric, the width and height are the staggered map's:
+             tiles across and half-height rows.  -->
+        <selectOption id="model.option.mapShape"
+                      defaultValue="0" localizedLabels="true">
+          <selectValue label="model.option.mapShape.topDown" value="0"/>
+          <selectValue label="model.option.mapShape.isometric" value="1"/>
+        </selectOption>
         <!-- Option for setting the land mass of the map -->
         <integerOption id="model.option.landMass"
                        value="25" minimumValue="15" maximumValue="50"/>

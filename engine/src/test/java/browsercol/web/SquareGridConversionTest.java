@@ -100,6 +100,15 @@ class SquareGridConversionTest {
         Game game = engine.getGame();
         net.sf.freecol.common.model.Map map = game.getMap();
         assertTrue(map.getWidth() * map.getHeight() >= old.size(), "the map grew");
+        // The map is Isometric shaped (#559): tile for tile the old map, with nothing in the corners.
+        assertTrue(map.getShape().isIsometric(), "an Isometric shaped map: " + map.getShape());
+        assertEquals(old.size(), map.getTileList(x -> true).size(), "no tile added");
+        for (Map.Entry<String, int[]> e : old.entrySet()) {
+            Tile t = (Tile)game.getFreeColGameObject(e.getKey());
+            assertEquals(e.getValue()[0], map.getColumnOf(t), "column of " + e.getKey() + " in " + f.getName());
+            assertEquals(e.getValue()[1], map.getRowOf(t), "row of " + e.getKey() + " in " + f.getName());
+            assertEquals(t, map.getTileAt(e.getValue()[0], e.getValue()[1]));
+        }
 
         int checked = 0;
         for (Map.Entry<String, int[]> e : old.entrySet()) {
@@ -153,10 +162,12 @@ class SquareGridConversionTest {
             TileImprovement road = t.getRoad();
             if (road != null && !road.getVirtual()) checkImprovement(t, road, false, oldStyles, atOld, old, map);
         }
-        // And it saves and loads again as a version 15 game.
+        // And it saves and loads again as a game with the same shape.
         ServerEngine again = new ServerEngine(x -> {});
         again.loadGame(engine.saveGame());
         assertEquals(map.getWidth(), again.getGame().getMap().getWidth());
+        assertEquals(map.getShape(), again.getGame().getMap().getShape());
+        assertEquals(old.size(), again.getGame().getMap().getTileList(x -> true).size());
     }
 
     /**

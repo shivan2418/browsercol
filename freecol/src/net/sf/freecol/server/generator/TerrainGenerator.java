@@ -479,7 +479,7 @@ public class TerrainGenerator {
             for (int index = 0; index < length; index++) {
                 // Raise current tile up as mountain
                 if (!tile.getType().isMountains()) {
-                    final TileType mountains = getRandomTileType(game, spec.getMountainsTileTypeList(), map.getLatitude(tile.getY()));
+                    final TileType mountains = getRandomTileType(game, spec.getMountainsTileTypeList(), map.getLatitude(tile));
                     if (mountains == null) {
                         continue;
                     }
@@ -495,7 +495,7 @@ public class TerrainGenerator {
                         || t.getType().isMountains()) continue;
                     int r = this.cache.nextInt(8);
                     if (r < 2) {
-                        final TileType mountains = getRandomTileType(game, spec.getMountainsTileTypeList(), map.getLatitude(t.getY()));
+                        final TileType mountains = getRandomTileType(game, spec.getMountainsTileTypeList(), map.getLatitude(t));
                         if (mountains == null) {
                             continue;
                         }
@@ -503,7 +503,7 @@ public class TerrainGenerator {
                         mountainRegion.addTile(t);
                         counter++;
                     } else if (r < 7) {
-                        final TileType hills = getRandomTileType(game, spec.getHillsTileTypeList(), map.getLatitude(t.getY()));
+                        final TileType hills = getRandomTileType(game, spec.getHillsTileTypeList(), map.getLatitude(t));
                         if (hills == null) {
                             continue;
                         }
@@ -534,8 +534,8 @@ public class TerrainGenerator {
             / mapOptions.getRange(MapGeneratorOptions.MOUNTAIN_NUMBER);
         counter = 0;
         for (Tile t : tiles) {
-            final TileType mountains = getRandomTileType(game, spec.getMountainsTileTypeList(), map.getLatitude(t.getY()));
-            final TileType hills = getRandomTileType(game, spec.getHillsTileTypeList(), map.getLatitude(t.getY()));
+            final TileType mountains = getRandomTileType(game, spec.getMountainsTileTypeList(), map.getLatitude(t));
+            final TileType hills = getRandomTileType(game, spec.getHillsTileTypeList(), map.getLatitude(t));
             if (mountains == null || hills == null) {
                 continue;
             }
@@ -804,6 +804,25 @@ public class TerrainGenerator {
     // Main functionality, create the map.
 
     /**
+     * The width of the high seas strip on each side of the map, in
+     * columns.  The option is for the Top-down default of 58 columns; an
+     * Isometric shaped map has fewer, wider columns (41 for about the
+     * same number of tiles), so the strip keeps its share of the map.
+     *
+     * @param map The {@code Map} being made.
+     * @param mapOptions The map generator options.
+     * @return The most columns of high seas from an edge.
+     */
+    private static int highSeasWidth(Map map, OptionGroup mapOptions) {
+        final int max = mapOptions
+            .getInteger(MapGeneratorOptions.MAXIMUM_DISTANCE_TO_EDGE);
+        return (map.getShape().isIsometric())
+            ? Math.max(1, max * MapGeneratorOptions.ISOMETRIC_DEFAULT_WIDTH
+                / MapGeneratorOptions.TOP_DOWN_DEFAULT_WIDTH)
+            : max;
+    }
+
+    /**
      * Make a {@code Map}.
      *
      * @param game The {@code Game} to generate a map for.
@@ -815,8 +834,6 @@ public class TerrainGenerator {
     public Map generateMap(Game game, Map importMap, LandMap landMap,
                            LogBuilder lb) {
         final OptionGroup mapOptions = game.getMapGeneratorOptions();
-        final int width = landMap.getWidth();
-        final int height = landMap.getHeight();
         final boolean importBonuses = (importMap != null)
             && mapOptions.getBoolean(MapGeneratorOptions.IMPORT_BONUSES);
         final boolean importRumours = (importMap != null)
@@ -824,7 +841,7 @@ public class TerrainGenerator {
         final boolean importTerrain = (importMap != null)
             && mapOptions.getBoolean(MapGeneratorOptions.IMPORT_TERRAIN);
 
-        Map map = new Map(game, width, height);
+        Map map = new Map(game, landMap.getShape());
         game.changeMap(map);
         
         int minimumLatitude = mapOptions
@@ -904,7 +921,7 @@ public class TerrainGenerator {
         } else {
             map.resetHighSeas(
                 mapOptions.getInteger(MapGeneratorOptions.DISTANCE_TO_HIGH_SEA),
-                mapOptions.getInteger(MapGeneratorOptions.MAXIMUM_DISTANCE_TO_EDGE));
+                highSeasWidth(map, mapOptions));
             if (landMap.hasLand()) {
                 newRegions.addAll(createMountains(map, lb));
                 newRegions.addAll(createRivers(map, lb));

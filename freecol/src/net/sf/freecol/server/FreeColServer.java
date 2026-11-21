@@ -149,11 +149,15 @@ public final class FreeColServer {
      * Version 15 is BrowserCol's: the map is a square grid (#527); older
      * saves are converted as they are read.
      *
+     * Version 16 saves a map's shape (#559).  A save without one is a
+     * Top-down shaped map; a staggered save below 15 converts to an
+     * Isometric shaped one.
+     *
      * Please add to this comment if you increase the version.
      * These days we *try* to change this only for (semi-)major
      * releases (i.e. when x changes in 0.x.y).
      */
-    public static final int SAVEGAME_VERSION = 15;
+    public static final int SAVEGAME_VERSION = 16;
 
     /**
      * The oldest save game format that can still be loaded.
@@ -1075,14 +1079,10 @@ public final class FreeColServer {
                 } else if (Game.TAG.equals(tag)) {
                     // Read the game
                     serverGame = new ServerGame(specification, xr);
-                    // SAVEGAME_VERSION 15: the grid became square.
+                    // SAVEGAME_VERSION 15: the grid became square, and
+                    // the staggered map is its Isometric shape.
                     if (savegameVersion < 15 && serverGame.getMap() != null) {
-                        final Specification spec = serverGame.getSpecification();
-                        for (Tile t : serverGame.getMap().convertFromStaggered(
-                                spec.getTileType("model.tile.highSeas"),
-                                spec.getTileType("model.tile.ocean"))) {
-                            TerrainGenerator.encodeStyle(t);
-                        }
+                        serverGame.getMap().convertFromStaggered();
                     }
                     serverGame.setCurrentPlayer(null);
                     if (freeColServer != null) {

@@ -70,6 +70,25 @@ public class MapGeneratorOptions {
     public static final String MAP_HEIGHT
         = "model.option.mapHeight";
 
+    /**
+     * Option for the shape of the map (see MapShape).  For an Isometric
+     * shape the map width and height are the staggered map's: the tiles
+     * across and the half-height rows.
+     */
+    public static final String MAP_SHAPE
+        = "model.option.mapShape";
+    public static final int MAP_SHAPE_TOP_DOWN  = 0,
+                            MAP_SHAPE_ISOMETRIC = 1;
+
+    /**
+     * The default size of an Isometric shaped map, in tiles across and
+     * half-height rows.  It has about as many tiles as the Top-down
+     * default of 58 x 72 (ADR 0014).
+     */
+    public static final int TOP_DOWN_DEFAULT_WIDTH = 58,
+                            ISOMETRIC_DEFAULT_WIDTH = 41,
+                            ISOMETRIC_DEFAULT_HEIGHT = 102;
+
     /** Option for setting the land mass of the map. */
     public static final String LAND_MASS
         = "model.option.landMass";

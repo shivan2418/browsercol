@@ -29,6 +29,7 @@ import net.sf.freecol.common.model.Direction;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.HistoryEvent;
 import net.sf.freecol.common.model.Map;
+import net.sf.freecol.common.model.MapShape;
 import net.sf.freecol.common.model.Player;
 import net.sf.freecol.common.model.Region;
 import net.sf.freecol.common.model.Tile;
@@ -203,11 +204,15 @@ public class ServerRegion extends Region {
     public void addTile(Tile tile) {
         tile.setRegion(this);
         size++;
+        // The bounds are in the map's columns and rows (MapShape).
+        final Map map = tile.getMap();
+        final int x = (map == null) ? tile.getX() : map.getColumnOf(tile);
+        final int y = (map == null) ? tile.getY() : map.getRowOf(tile);
         if (bounds.x == 0 && bounds.width == 0
             || bounds.y == 0 && bounds.height == 0) {
-            bounds.setBounds(tile.getX(), tile.getY(), 0, 0);
+            bounds.setBounds(x, y, 0, 0);
         } else {
-            bounds.add(tile.getX(), tile.getY());
+            bounds.add(x, y);
         }
     }
 
@@ -245,11 +250,11 @@ public class ServerRegion extends Region {
      * @return The indexes separating the three parts.
      */
     private static int[] findYForThirdsOfLand(Map map) {
-        final int[] landTiles = new int[map.getHeight() - 1];
+        final int[] landTiles = new int[map.getShape().getRows() - 1];
         long sum = 0;
         for (Tile t : map) {
             if (t.isLand() && !t.isPolar()) {
-                landTiles[t.getY()]++;
+                landTiles[map.getRowOf(t)]++;
                 sum++;
             }
         }
@@ -263,18 +268,19 @@ public class ServerRegion extends Region {
      * for each.
      *  
      * @param map The map.
-     * @param startY The starting Y-coordinate for the submap (inclusive).
-     * @param endY The ending Y-coordinate for the submap (inclusive).
+     * @param startY The starting row for the submap (inclusive).
+     * @param endY The ending row for the submap (inclusive).
      * @return The indexes separating the three parts.
      */
     private static int[] findXForThirdsOfLand(Map map, int startY, int endY) {
-        final List<Tile> subMap = map.subMap(0, startY, map.getWidth() - 1, endY - startY + 1);
-        
-        final int[] landTiles = new int[map.getWidth() - 1];
+        final int columns = map.getShape().getColumns();
+        final int[] landTiles = new int[columns - 1];
         long sum = 0;
-        for (Tile t : subMap) {
-            if (t.isLand() && !t.isPolar()) {
-                landTiles[t.getX()]++;
+        for (Tile t : map) {
+            final int row = map.getRowOf(t), col = map.getColumnOf(t);
+            if (row >= startY && row <= endY && col < columns - 1
+                && t.isLand() && !t.isPolar()) {
+                landTiles[col]++;
                 sum++;
             }
         }
@@ -310,8 +316,10 @@ public class ServerRegion extends Region {
     private static Rectangle ensureWithinMap(Map map, Rectangle bounds) {
         final int capX = Math.max(0, bounds.x);
         final int capY = Math.max(0, bounds.y);
-        final int capWidth = Math.min(map.getWidth() - 1, bounds.x + Math.min(map.getWidth() - 1, bounds.width)) - capX;
-        final int capHeight = Math.min(map.getHeight() - 1, bounds.y + Math.min(map.getHeight() - 1, bounds.height)) - capY;
+        final int columns = map.getShape().getColumns();
+        final int rows = map.getShape().getRows();
+        final int capWidth = Math.min(columns - 1, bounds.x + Math.min(columns - 1, bounds.width)) - capX;
+        final int capHeight = Math.min(rows - 1, bounds.y + Math.min(rows - 1, bounds.height)) - capY;
         
         return new Rectangle(capX, capY, capWidth, capHeight);
     }
@@ -334,33 +342,30 @@ public class ServerRegion extends Region {
         // defined but with no tiles assigned to them, thus they will
         // not be seen on the map.  Generated games though will not
         // have the region defined, and so will create it here.
-        final int arcticHeight = Map.POLAR_HEIGHT;
+        final MapShape shape = map.getShape();
+        final int arcticHeight = Map.POLAR_HEIGHT * shape.getRowsPerTile();
         ServerRegion arctic = (ServerRegion)fixed.get("model.region.arctic");
         if (arctic == null) {
             arctic = new ServerRegion(map, "model.region.arctic",
                                       RegionType.LAND, null);
-            for (int x = 0; x < map.getWidth(); x++) {
+            for (int x = 0; x < shape.getColumns(); x++) {
                 for (int y = 0; y < arcticHeight; y++) {
-                    if (map.isValid(x, y)) {
-                        Tile tile = map.getTile(x, y);
-                        if (tile.isLand()) arctic.addTile(tile);
-                    }
+                    Tile tile = map.getTileAt(x, y);
+                    if (tile != null && tile.isLand()) arctic.addTile(tile);
                 }
             }
             lb.add("+arctic");
         }
         result.add(arctic);
-        final int antarcticHeight = map.getHeight() - Map.POLAR_HEIGHT - 1;
+        final int antarcticHeight = shape.getRows() - arcticHeight - 1;
         ServerRegion antarctic = (ServerRegion)fixed.get("model.region.antarctic");
         if (antarctic == null) {
             antarctic = new ServerRegion(map, "model.region.antarctic",
                                          RegionType.LAND, null);
-            for (int x = 0; x < map.getWidth(); x++) {
-                for (int y = antarcticHeight; y < map.getHeight(); y++) {
-                    if (map.isValid(x, y)) {
-                        Tile tile = map.getTile(x, y);
-                        if (tile.isLand()) antarctic.addTile(tile);
-                    }
+            for (int x = 0; x < shape.getColumns(); x++) {
+                for (int y = antarcticHeight; y < shape.getRows(); y++) {
+                    Tile tile = map.getTileAt(x, y);
+                    if (tile != null && tile.isLand()) antarctic.addTile(tile);
                 }
             }
             lb.add("+antarctic");
@@ -439,7 +444,7 @@ public class ServerRegion extends Region {
         map.addRegion(east);
 
         
-        xDelimiterThirds = findXForThirdsOfLand(map, yDelimiterThirds[1], map.getHeight() - 1);
+        xDelimiterThirds = findXForThirdsOfLand(map, yDelimiterThirds[1], shape.getRows() - 1);
         
         map.removeRegionsByKey("model.region.southWest");
         final ServerRegion southWest = new ServerRegion(map, "model.region.southWest", RegionType.LAND, null);
@@ -543,19 +548,19 @@ public class ServerRegion extends Region {
         // or multiple such incursions across the nominal quadrant divisions.
         //
         if (!allOceans) {
-            final int maxx = map.getWidth();
+            final int maxx = shape.getColumns();
             final int midx = maxx / 2;
-            final int maxy = map.getHeight();
+            final int maxy = shape.getRows();
             final int midy = maxy / 2;
             Tile tNP = null, tSP = null, tNA = null, tSA = null, t;
             for (int y = midy-1; y >= 0; y--) {
-                if (tNP == null && !(t = map.getTile(0, y)).isLand()) tNP = t;
-                if (tNA == null && !(t = map.getTile(maxx-1, y)).isLand()) tNA = t;
+                if (tNP == null && !(t = map.getTileAt(0, y)).isLand()) tNP = t;
+                if (tNA == null && !(t = map.getTileAt(maxx-1, y)).isLand()) tNA = t;
                 if (tNP != null && tNA != null) break;
             }
             for (int y = midy; y < maxy; y++) {
-                if (tSP == null && !(t = map.getTile(0, y)).isLand()) tSP = t;
-                if (tSA == null && !(t = map.getTile(maxx-1, y)).isLand()) tSA = t;
+                if (tSP == null && !(t = map.getTileAt(0, y)).isLand()) tSP = t;
+                if (tSA == null && !(t = map.getTileAt(maxx-1, y)).isLand()) tSA = t;
                 if (tSP != null && tSA != null) break;
             }
             int nNP = 0, nSP = 0, nNA = 0, nSA = 0;
@@ -615,7 +620,7 @@ public class ServerRegion extends Region {
                 Tile t = map.getAdjacentTile(tile, direction);
                 if (t != null
                     && !visited[t.getX()][t.getY()]
-                    && bounds.contains(t.getX(), t.getY())) {
+                    && bounds.contains(map.getColumnOf(t), map.getRowOf(t))) {
                     visited[t.getX()][t.getY()] = true;
                     if ((t.getRegion() == null || t.getRegion() == region)
                         && !t.isLand()) {

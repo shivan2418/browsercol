@@ -38,7 +38,10 @@ import net.sf.freecol.common.util.Utils;
  * which keys exist, this sends the candidates, most specific first, and the
  * Browser UI takes the first its Tileset has. Fields:
  * <ul>
- * <li>w, h, turn, turnLabel (the season and year, e.g. Spring 1493),
+ * <li>w, h, shape ("topDown" or "isometric", the map's MapShape, #559) and
+ *     rows (an Isometric shape's half-height rows, else 0): w and h are the
+ *     bounding box of the grid, and tiles outside the shape are not part of the
+ *     map and show as '.', turn, turnLabel (the season and year, e.g. Spring 1493),
  *     ourTurn, colonial, europe, nation, statusLine, colonial being whether
  *     the player is still a colonial power (DeclareIndependenceAction is
  *     enabled only then), europe whether the player has a Europe
@@ -169,6 +172,8 @@ final class MapJson {
         for (Region r : regionList) regionNames.add(Json.quote(Messages.message(r.getLabel())));
         final Tile at = (active == null) ? null : active.getTile();
         return new Json().put("w", w).put("h", h)
+            .put("shape", map.getShape().getKind().getKey())
+            .put("rows", map.getShape().getStaggeredRows())
             .put("turn", String.valueOf(game.getTurn()))
             .put("turnLabel", Messages.message(game.getTurn().getLabel()))
             .put("ourTurn", player == game.getCurrentPlayer())
@@ -277,7 +282,7 @@ final class MapJson {
 
     /**
      * The whole map's terrain, explored or not, for the shader water's field
-     * (ui/src/map-water.ts, #411): {w, h, types, tiles, rivers}, as of() gives
+     * (ui/src/map-water.ts, #411): {w, h, shape, rows, types, tiles, rivers}, as of() gives
      * them but for every tile. The server's map, which the browser runs too:
      * the field is made once from it, so exploring a coast makes it no more.
      * The water at the edge of what is explored shows the shore beyond.
@@ -311,6 +316,8 @@ final class MapJson {
                 .put("name", type.getId()).toString());
         }
         return new Json().put("w", w).put("h", h)
+            .put("shape", map.getShape().getKind().getKey())
+            .put("rows", map.getShape().getStaggeredRows())
             .putRaw("types", Json.array(typeJson))
             .put("tiles", tiles.toString())
             .putRaw("rivers", Json.array(rivers))

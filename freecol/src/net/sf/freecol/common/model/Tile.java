@@ -608,9 +608,12 @@ public final class Tile extends UnitLocation implements Named, Ownable {
      */
     private int getEdgeDistance() {
         final Map map = getMap();
-        final int x = getX(), y = getY();
-        return Math.min(Math.min(x, map.getWidth() - x),
-                        Math.min(y, map.getHeight() - y));
+        final MapShape shape = map.getShape();
+        final int c = shape.getColumn(getX(), getY());
+        final int r = shape.getRow(getX(), getY());
+        return Math.min(Math.min(c, shape.getColumns() - c),
+                        Math.min(r, shape.getRows() - r)
+                        / shape.getRowsPerTile());
     }
 
     /**

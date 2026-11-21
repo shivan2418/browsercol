@@ -366,7 +366,7 @@ public class SimpleMapGenerator implements MapGenerator {
             }
             
             final Set<Tile> settlementTilesForNation = settlementTiles.stream()
-                    .filter(t -> otherRegions.stream().anyMatch(bounds -> bounds.contains(t.getX(), t.getY())))
+                    .filter(t -> otherRegions.stream().anyMatch(bounds -> bounds.contains(map.getColumnOf(t), map.getRowOf(t))))
                     .collect(Collectors.toCollection(LinkedHashSet::new));
             
             if (settlementTilesForNation.isEmpty()) {

@@ -38,10 +38,13 @@ public class LandMap {
 
     private static final Logger logger = Logger.getLogger(LandMap.class.getName());
 
-    /** The map width. */
+    /** The shape of the map: the outline, and what north is. */
+    private final MapShape shape;
+
+    /** The width of the box that holds the map. */
     private final int width;
 
-    /** The map height. */
+    /** The height of the box that holds the map. */
     private final int height;
 
     /** A cached random integer source. */
@@ -62,8 +65,19 @@ public class LandMap {
      * @param cache A pseudo random number source.
      */
     public LandMap(int width, int height, RandomIntCache cache) {
-        this.width = width;
-        this.height = height;
+        this(MapShape.topDown(width, height), cache);
+    }
+
+    /**
+     * Create a new land map with a given shape.
+     *
+     * @param shape The {@code MapShape}.
+     * @param cache A pseudo random number source.
+     */
+    public LandMap(MapShape shape, RandomIntCache cache) {
+        this.shape = shape;
+        this.width = shape.getWidth();
+        this.height = shape.getHeight();
         this.cache = cache;
         this.map = new boolean[this.width][this.height];
         this.numberOfLandTiles = 0;
@@ -76,7 +90,7 @@ public class LandMap {
      * @param cache A pseudo random number source.
      */
     public LandMap(Map map, RandomIntCache cache) {
-        this(map.getWidth(), map.getHeight(), cache);
+        this(map.getShape(), cache);
 
         for (int y = 0; y < this.height; y++) {
             for (int x = 0; x < this.width; x++) {
@@ -96,23 +110,44 @@ public class LandMap {
      * @param cache A pseudo random number source.
      */
     public LandMap(OptionGroup mgo, RandomIntCache cache) {
-        this(mgo.getInteger(MapGeneratorOptions.MAP_WIDTH),
-             mgo.getInteger(MapGeneratorOptions.MAP_HEIGHT),
-             cache);
+        this(shapeOf(mgo), cache);
 
         int distanceToEdge
             = mgo.getInteger(MapGeneratorOptions.PREFERRED_DISTANCE_TO_EDGE);
         int minNumberOfTiles = mgo.getInteger(MapGeneratorOptions.LAND_MASS)
-            * getWidth() * getHeight() / 100;
+            * this.shape.getColumns() * this.shape.getRows() / 100;
         int gen = mgo.getSelection(MapGeneratorOptions.LAND_GENERATOR_TYPE);
         logger.info("Using land generator "
             + mgo.getSelectionName(MapGeneratorOptions.LAND_GENERATOR_TYPE)
-            + " to make " + width + "x" + height + " map"
+            + " to make a " + this.shape + " map"
             + " with distance-to-edge=" + distanceToEdge
             + " and min-tile#=" + minNumberOfTiles);
         generate(gen, distanceToEdge, minNumberOfTiles);
     }
 
+
+    /**
+     * The shape the map generator options ask for.
+     *
+     * @param mgo The map generator {@code OptionGroup}.
+     * @return The {@code MapShape}.
+     */
+    private static MapShape shapeOf(OptionGroup mgo) {
+        final int w = mgo.getInteger(MapGeneratorOptions.MAP_WIDTH);
+        final int h = mgo.getInteger(MapGeneratorOptions.MAP_HEIGHT);
+        return (mgo.getInteger(MapGeneratorOptions.MAP_SHAPE)
+            == MapGeneratorOptions.MAP_SHAPE_ISOMETRIC)
+            ? MapShape.isometric(w, h) : MapShape.topDown(w, h);
+    }
+
+    /**
+     * Get the shape of the land map.
+     *
+     * @return The {@code MapShape}.
+     */
+    public final MapShape getShape() {
+        return this.shape;
+    }
 
     /**
      * Get the width of the land map.
@@ -140,7 +175,7 @@ public class LandMap {
      * @return True if there coordinate is valid.
      */
     public boolean isValid(int x, int y) {
-        return x >= 0  && y >= 0 && x < getWidth() && y < getHeight();
+        return this.shape.contains(x, y);
     }
 
     /**
@@ -198,7 +233,7 @@ public class LandMap {
         Position p = new Position(x, y);
         for (Direction direction : Direction.edgeNeighbours) {
             Position n = new Position(p, direction);
-            if (n.isValid(getWidth(), getHeight())) {
+            if (isValid(n.getX(), n.getY())) {
                 growLand(n.getX(), n.getY(), distanceToEdge);
             }
         }
@@ -225,9 +260,11 @@ public class LandMap {
             // center, then fill up with small islands.
             addPolarRegions();
             int contsize = (minNumberOfTiles * 75) / 100;
-            int height = getHeight()/4 + this.cache.nextInt(getHeight()/2);
-            addLandMass(contsize, contsize, getWidth()/2, height,
-                        distanceToEdge);
+            final int rows = this.shape.getRows();
+            int row = rows/4 + this.cache.nextInt(rows/2);
+            final int col = this.shape.getColumns()/2;
+            addLandMass(contsize, contsize, this.shape.getX(col, row),
+                        this.shape.getY(col, row), distanceToEdge);
             while (this.numberOfLandTiles < minNumberOfTiles) {
                 addLandMass(15, 25, -1, -1, distanceToEdge);
             }
@@ -264,15 +301,17 @@ public class LandMap {
         // Rows were half height, so the clearance to the top and bottom was
         // twice the distance in rows; it is the distance now.
         final int edgX = distanceToEdge * 2;
-        final int edgY = distanceToEdge;
-        final int wid = getWidth() - edgX * 2;
-        final int hgt = getHeight() - edgY * 2;
+        final int edgY = distanceToEdge * this.shape.getRowsPerTile();
+        final int wid = this.shape.getColumns() - edgX * 2;
+        final int hgt = this.shape.getRows() - edgY * 2;
         int x, y;
         while (this.numberOfLandTiles < minNumberOfTiles) {
             int failCounter = 0;
             do {
-                x = edgX + this.cache.nextInt(wid);
-                y = edgY + this.cache.nextInt(hgt);
+                final int col = edgX + this.cache.nextInt(wid);
+                final int row = edgY + this.cache.nextInt(hgt);
+                x = this.shape.getX(col, row);
+                y = this.shape.getY(col, row);
                 failCounter++;
                 // If landmass% is set too high, this loop may fail to
                 // find a free tile.  Decrease necessary minimum over
@@ -295,10 +334,15 @@ public class LandMap {
      * FIXME: Make POLAR_HEIGHT an option.
      */
     private void addPolarRegions() {
-        for (int x = 0; x < this.width; x++) {
-            for (int y = 0; y < Map.POLAR_HEIGHT; y++) setLand(x, y);
-            int limit = this.height - 1 - Map.POLAR_HEIGHT;
-            for (int y = limit; y < this.height; y++) setLand(x, y);
+        final int rows = this.shape.getRows();
+        final int polar = Map.POLAR_HEIGHT * this.shape.getRowsPerTile();
+        for (int col = 0; col < this.shape.getColumns(); col++) {
+            for (int row = 0; row < polar; row++) {
+                setLand(this.shape.getX(col, row), this.shape.getY(col, row));
+            }
+            for (int row = rows - 1 - polar; row < rows; row++) {
+                setLand(this.shape.getX(col, row), this.shape.getY(col, row));
+            }
         }
     }
 
@@ -343,10 +387,11 @@ public class LandMap {
     private List<Position> newPositions(Position position,
                                         int distanceToEdge) {
         final Predicate<Position> landPred = p ->
-            (p.isValid(getWidth(), getHeight())
+            (isValid(p.getX(), p.getY())
                 && !hasAdjacentLand(p.getX(), p.getY())
-                && p.getX() > distanceToEdge
-                && p.getX() < getWidth() - distanceToEdge);
+                && this.shape.getColumn(p.getX(), p.getY()) > distanceToEdge
+                && this.shape.getColumn(p.getX(), p.getY())
+                    < this.shape.getColumns() - distanceToEdge);
         final Function<Direction, Position> positionMapper = d ->
             new Position(position, d);
         return transform(map(Direction.edgeNeighbours, positionMapper), landPred);
@@ -373,9 +418,14 @@ public class LandMap {
         // This value is part random, part based on position, that is:
         // -1 in the center of the map, and growing to
         // distanceToEdge at the maps edges.
+        final int col = this.shape.getColumn(x, y);
+        final int row = this.shape.getRow(x, y);
+        final int rows = this.shape.getRows();
+        final int rpt = this.shape.getRowsPerTile();
         int r = this.cache.nextInt(8) + Math.max(-1,
-            (1 + Math.max(distanceToEdge - Math.min(x, getWidth()-x),
-                distanceToEdge - Math.min(y, getHeight()-y))));
+            (1 + Math.max(
+                distanceToEdge - Math.min(col, this.shape.getColumns() - col),
+                distanceToEdge - Math.min(row, rows - row) / rpt)));
 
         final Position p = new Position(x, y);
         final Predicate<Direction> landPred = d -> {
@@ -406,12 +456,15 @@ public class LandMap {
 
         // Pick a starting position that is sea without neighbouring land.
         if (x < 0 || y < 0) {
-            final int wid = getWidth() - distanceToEdge * 2;
-            final int startY = (distanceToEdge + 1) / 2; // was in half-height rows
-            final int hgt = getHeight() - startY * 2;
+            final int wid = this.shape.getColumns() - distanceToEdge * 2;
+            final int startY = ((distanceToEdge + 1) / 2) // was in half-height rows
+                * this.shape.getRowsPerTile();
+            final int hgt = this.shape.getRows() - startY * 2;
             do {
-                x = distanceToEdge + this.cache.nextInt(wid);
-                y = startY + this.cache.nextInt(hgt);
+                final int col = distanceToEdge + this.cache.nextInt(wid);
+                final int row = startY + this.cache.nextInt(hgt);
+                x = this.shape.getX(col, row);
+                y = this.shape.getY(col, row);
             } while (isLand(x, y) || hasAdjacentLand(x, y));
         }
 
