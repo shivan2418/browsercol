@@ -120,30 +120,33 @@ const freecolMapUrls = import.meta.glob(['../../freecol/data/maps/*.fsm', '!**/X
   eager: true,
 }) as Record<string, string>;
 
-/** Each FreeCol map's size in tiles, width by height (its savegame.properties; start.test.ts checks them). */
+/**
+ * Each FreeCol map's size in tiles, width by height (its savegame.properties; start.test.ts checks them). The maps
+ * are resampled to north-up square grids (#528): a staggered W x H map is 2W x H/2 here, the same tile count.
+ */
 export const FREECOL_MAP_SIZES: Record<string, [number, number]> = {
-  'L_America_JsTheDude.fsm': [58, 261],
-  'L_America_Mazim.fsm': [58, 261],
-  'L_Asia_Mazim.fsm': [68, 256],
-  'L_PacificSouth_Mazim.fsm': [70, 200],
-  'L_TheOldWorld_Mazim.fsm': [88, 140],
-  'M_Africa_Gilolat.fsm': [37, 192],
-  'M_Africa_Mazim.fsm': [40, 160],
-  'M_America_Mazim.fsm': [40, 180],
-  'M_AustraliaOceania_Mazim.fsm': [50, 160],
-  'M_CaribbeanIslands_Mazim.fsm': [80, 160],
-  'M_Caribbean_Piotrus.fsm': [60, 140],
-  'M_Eurasia_Mazim.fsm': [45, 120],
-  'M_NorthAmerica2_Mazim.fsm': [36, 160],
-  'M_NorthAmerica_Mazim.fsm': [52, 130],
-  'M_SouthAmerica_Mazim.fsm': [35, 153],
-  'S_Arabias_Mazim.fsm': [40, 100],
-  'S_AustraliaOceania_Gilolat.fsm': [28, 128],
-  'S_Caribbean_Phil.fsm': [48, 48],
-  'S_FeudalJapan_Mazim.fsm': [30, 120],
-  'S_SouthEastAsia_Mazim.fsm': [40, 100],
-  'S_USA_Mazim.fsm': [40, 100],
-  'XXL_HugeWorld_Mazim.fsm': [180, 300],
+  'L_America_JsTheDude.fsm': [116, 131],
+  'L_America_Mazim.fsm': [116, 131],
+  'L_Asia_Mazim.fsm': [136, 128],
+  'L_PacificSouth_Mazim.fsm': [140, 100],
+  'L_TheOldWorld_Mazim.fsm': [176, 70],
+  'M_Africa_Gilolat.fsm': [74, 96],
+  'M_Africa_Mazim.fsm': [80, 80],
+  'M_America_Mazim.fsm': [80, 90],
+  'M_AustraliaOceania_Mazim.fsm': [100, 80],
+  'M_CaribbeanIslands_Mazim.fsm': [160, 80],
+  'M_Caribbean_Piotrus.fsm': [120, 70],
+  'M_Eurasia_Mazim.fsm': [90, 60],
+  'M_NorthAmerica2_Mazim.fsm': [72, 80],
+  'M_NorthAmerica_Mazim.fsm': [104, 65],
+  'M_SouthAmerica_Mazim.fsm': [70, 77],
+  'S_Arabias_Mazim.fsm': [80, 50],
+  'S_AustraliaOceania_Gilolat.fsm': [56, 64],
+  'S_Caribbean_Phil.fsm': [96, 24],
+  'S_FeudalJapan_Mazim.fsm': [60, 60],
+  'S_SouthEastAsia_Mazim.fsm': [80, 50],
+  'S_USA_Mazim.fsm': [80, 50],
+  'XXL_HugeWorld_Mazim.fsm': [360, 150],
 };
 
 /**
@@ -171,10 +174,11 @@ export const sized = (name: string, [w, h]: [number, number]) =>
 
 /**
  * The maps the game comes with, besides the generated one: first the original DOS Colonization's America (#459), as
- * a map of our own made from the DOS game's AMER2.MP (DosMap.java, laid out 29x143), then FreeCol's own maps by name.
+ * a map of our own made from the DOS game's AMER2.MP (DosMap.java, laid out tile for tile, 58x72), then FreeCol's
+ * own maps by name.
  */
 export const MAPS: { id: string; name: string; url: string }[] = [
-  { id: 'america', name: sized('America (1492)', [29, 143]), url: americaMap },
+  { id: 'america', name: sized('America (1492)', [58, 72]), url: americaMap },
   ...Object.entries(freecolMapUrls)
     .map(([path, url]) => {
       const file = path.slice(path.lastIndexOf('/') + 1);

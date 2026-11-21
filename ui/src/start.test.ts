@@ -252,7 +252,7 @@ test("the start screen lists every map FreeCol comes with, with its size from th
     expect([f, w, h]).toEqual([f, ...FREECOL_MAP_SIZES[f]!]);
     expect(MAPS.find((m) => m.id === f)?.name).toBe(sized(freecolMapName(f), [w, h]));
   }
-  expect(MAPS[0]!.name).toBe('America (1492), 29×143');
+  expect(MAPS[0]!.name).toBe('America (1492), 58×72');
 });
 
 test("a FreeCol map's name is its file name's place and author", () => {
