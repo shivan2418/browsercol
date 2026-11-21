@@ -21,8 +21,12 @@ A full set of map art (images, plus the colours and chip texts the map draws) ad
 _Avoid_: skin, theme, art pack
 
 **Map view**:
-How the Browser UI projects the square grid of the model: Top-down (tiles as squares, the map a rectangle) or Isometric (tiles as diamonds, the map a large diamond). A player can switch Map view during a game; the Tileset picker then offers the Tilesets that support the view, and the last one used in each view is remembered.
+How the Browser UI projects the square grid of the model: Top-down (tiles as squares) or Isometric (tiles as diamonds). A game is played in the Map view its **map shape** is made for and stays in it; only the debug side panel switches it, and the map then only has to draw. The Tileset picker offers the Tilesets that support the view, and the last one used in each view is remembered.
 _Avoid_: camera, perspective, projection mode
+
+**Map shape**:
+A map's outline on the square grid, saved with the game and fitting one **Map view**. A **Top-down-shaped** map is a rectangle of the grid. An **Isometric-shaped** map is a 45 degree diamond of it, the same shape as FreeCol's staggered maps, and a rectangle on screen in the Isometric view. The tiles in the corners of an Isometric-shaped map's bounding box are not part of the map: units cannot enter them and nothing draws or counts them. North and latitude follow the shape: north is up the screen, which is (0, -1) on a Top-down-shaped map and the corner direction (-1, -1) on an Isometric-shaped one, and the poles are the top and bottom of the screen, the high seas the east and west edges (docs/adr/0014).
+_Avoid_: map type, map mode, map layout
 
 **Tileset art**:
 The pictures of the map that a Tileset's images give, by resource key, as FreeCol draws them.
