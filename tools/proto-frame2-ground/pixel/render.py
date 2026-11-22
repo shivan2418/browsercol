@@ -25,6 +25,9 @@ CANOPY = len(sys.argv) > 8 and sys.argv[8] == 'canopy'  # forests and mountains 
 cells = json.load(open(HERE.parent / 'usa.json'))['cells']
 MH, MW = len(cells), len(cells[0])
 code = np.array([[c[0] for c in r] for r in cells])
+# Forests are a layer on top of their base terrain (FreeCol: mixed forest -> plains, conifer -> grassland, ...).
+forest = code == 4
+code = np.where(forest, np.array([[c[3] for c in r] for r in cells]), code)
 kind = np.array([[c[1] for c in r] for r in cells])
 river = np.array([[c[2] for c in r] for r in cells])
 rng = np.random.default_rng(3)
@@ -49,6 +52,7 @@ ys, xs = np.mgrid[0:PH, 0:PW] / T
 ty = np.clip((ys + y0 + wy).astype(int), 0, MH - 1)
 tx = np.clip((xs + x0 + wx).astype(int), 0, MW - 1)
 ter = code[ty, tx]
+for_px = forest[ty, tx]
 water = ter == 0
 
 
@@ -154,7 +158,7 @@ inside = lambda m, x, y: 0 <= x < PW and 0 <= y < PH and m[int(y), int(x)]
 edge_ok = lambda m, x, y, r: all(inside(m, x + dx, y + dy) for dx, dy in ((r, 0), (-r, 0), (0, r // 2), (0, -r)))
 objs = []
 for (mask, step, r, pick) in (
-    (ter == 4, 10 * k, 3 * k, 'tree'),
+    (for_px, 10 * k, 3 * k, 'tree'),
     (ter == 6, 17 * k, 7 * k, 'mount'),
     (ter == 8, 18 * k, 6 * k, 'hill'),
 ):
@@ -214,13 +218,22 @@ if CANOPY:
         tex = np.asarray(Image.open(HERE.parent / 'pieces' / f'{name}.png').convert('RGB').resize((n * T, n * T), Image.LANCZOS), float)
         oy, ox = (y0 % n) * T, (x0 % n) * T
         big_t = np.tile(tex, (PH // (n * T) + 2, PW // (n * T) + 2, 1))[oy:oy + PH, ox:ox + PW]
-        m = (ter == cls) & ~cut
+        m = ((for_px & (ter != 0)) if cls == 4 else (ter == cls)) & ~cut
         inner = ~grow(~m, max(1, T // 32))                       # pull the edge in a little
         rim = m & ~(~grow(~m, max(2, T // 12)))                   # a band along the edge, darkened as shade
         shadow = np.roll(np.roll(m, T // 16, 0), T // 16, 1) & ~m  # cast shadow toward the lower right
         base[shadow] *= .7
-        base[inner] = big_t[inner]
-        base[rim & inner] *= .78
+        if cls == 4:
+            # Trees on top of the ground: the dark gaps between crowns become see-through (with a little shade), so the
+            # base terrain shows between the trees and says what land the forest stands on.
+            lumi = big_t @ np.array([.3, .55, .15])
+            gap = np.clip((lumi - 45) / 40, 0, 1)[..., None]          # 0 in the darkest gaps, 1 on the crowns
+            under = base * .72                                       # ground in the forest's shade
+            mix = under * (1 - gap) + big_t * gap
+            base[inner] = mix[inner]
+        else:
+            base[inner] = big_t[inner]
+        base[rim & inner] *= .82
     pic = Image.fromarray(base.clip(0, 255).astype(np.uint8))
 
 # One palette for everything: built once from all the art, then the whole picture is reduced to it.
