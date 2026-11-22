@@ -21,6 +21,10 @@
   <label>View <select id="view">
     <option value="guide">Guide map, 64 px tiles</option>
     <option value="large">Guide map, frame-2 scale, beside frame 2</option>
+    <option value="usa-se">USA map: Southeast and Florida</option>
+    <option value="usa-ne">USA map: Great Lakes and Northeast</option>
+    <option value="usa-plains">USA map: Great Plains and rivers</option>
+    <option value="usa-west">USA map: Rockies and West</option>
     <option value="big">Big random map (performance)</option>
   </select></label>
   <label><input type="checkbox" id="soft" checked> Soft borders</label>
@@ -88,7 +92,9 @@ float h21(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32);
 float vn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
   return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y); }
 float fbm(vec2 p) { return vn(p) * .55 + vn(p * 2.03 + 7.1) * .3 + vn(p * 4.1 + 3.7) * .15; }
-int terr(vec2 c) { ivec2 t = clamp(ivec2(c), ivec2(0), ivec2(uMapSize) - 1); return int(texelFetch(uMap, t, 0).r * 255. + .5); }
+vec4 cellAt(vec2 c) { ivec2 t = clamp(ivec2(c), ivec2(0), ivec2(uMapSize) - 1); return texelFetch(uMap, t, 0); }
+int terr(vec2 c) { return int(cellAt(c).r * 255. + .5); }
+bool riv(vec2 c) { return cellAt(c).g > .5; }
 float sm(float d, float b) { return smoothstep(.5 + b, .5 - b, d); }
 float lum(vec3 c) { return dot(c, vec3(.3, .55, .15)); }
 float segd(vec2 p, vec4 s) { vec2 a = s.xy, b = s.zw, pa = p - a, ba = b - a;
@@ -105,11 +111,13 @@ void main() {
   c1 *= .9 + .22 * big; c2 *= .92 + .16 * big;
   c3 = mix(c3, vec3(lum(c3)) * vec3(1.12, .98, .74), .6); // plains: duller and browner than prairie
   vec3 c6 = mix(c3, vec3(lum(c3)) * vec3(.95, .92, .9), .7) * .85; // mountain ground: grey scree
-  vec3 C[7] = vec3[7](c0, c1, c2, c3, c4, c5, c6);
+  vec3 c7 = mix(c3, vec3(.93, .85, .62), .55);       // desert: pale sand
+  vec3 c8 = mix(c1, c4, .35) * vec3(.95, .97, .85);  // hills ground: darker olive grass
+  vec3 C[9] = vec3[9](c0, c1, c2, c3, c4, c5, c6, c7, c8);
   // Land terrains: soft tile footprints at a noise-warped position, so borders wander off the tile lines.
   vec2 q = p + uWarp * 2. * (vec2(fbm(p * .55), fbm(p * .55 + 17.)) - .5)
              + uWarp * 1.2 * (vec2(fbm(p * 1.7 + 3.), fbm(p * 1.7 + 29.)) - .5);
-  float W[7] = float[7](0., 0., 0., 0., 0., 0., 0.);
+  float W[9] = float[9](0., 0., 0., 0., 0., 0., 0., 0., 0.);
   float L = 0.;
   vec2 qc = p + uWarp * 2.4 * (vec2(fbm(p * .5 + 31.), fbm(p * .5 + 53.)) - .5)
               + uWarp * 1.2 * (vec2(fbm(p * 1.4 + 11.), fbm(p * 1.4 + 23.)) - .5);
@@ -123,13 +131,13 @@ void main() {
     if (terr(cc) != 0) L += sm(dc.x, .38) * sm(dc.y, .38);
   }
   // Ragged borders: each terrain's own texture brightness pushes its edge in or out (tufts, bites), then sharpen.
-  float H[7] = float[7](0., lum(c1), lum(c2), lum(c3), lum(c4), lum(c5), lum(c6));
+  float H[9] = float[9](0., lum(c1), lum(c2), lum(c3), lum(c4), lum(c5), lum(c6), lum(c7), lum(c8));
   float n = fbm(p * 9.) - .5;
   float m = 0.;
   W[5] *= 1.5;                                       // swamp's dark texture otherwise loses every border
-  for (int t = 1; t < 7; t++) { W[t] *= 1. + uRagged * ((H[t] - .45) * 2. + n); m = max(m, W[t]); }
+  for (int t = 1; t < 9; t++) { W[t] *= 1. + uRagged * ((H[t] - .45) * 2. + n); m = max(m, W[t]); }
   vec3 land = vec3(0.); float sw = 0.;
-  for (int t = 1; t < 7; t++) { float w = max(W[t] - m + .22 * (uBand / .13), 0.); land += C[t] * w; sw += w; }
+  for (int t = 1; t < 9; t++) { float w = max(W[t] - m + .22 * (uBand / .13), 0.); land += C[t] * w; sw += w; }
   land = sw > 0. ? land / sw : c1;
   // Coast: a curved line through the land fraction, with a beach band and surf on the water side.
   L += (fbm(p * 5.) - .5) * .16;
@@ -147,6 +155,19 @@ void main() {
   vec2 rp = p + .5 * (vec2(fbm(p * 1.1 + 5.), fbm(p * 1.1 + 9.)) - .5) * 2.;
   float rd = 9.;
   for (int k = 0; k < 16; k++) { if (k >= uRiverN) break; rd = min(rd, segd(rp, uRiver[k])); }
+  // Rivers from tile data: each river tile joins its centre to neighbouring river tiles, and runs into the sea.
+  for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) {
+    vec2 cell = floor(rp) + vec2(i, j);
+    if (!riv(cell)) continue;
+    vec2 cc = cell + .5; bool any = false;
+    for (int k = 0; k < 4; k++) {
+      vec2 dir = k == 0 ? vec2(1, 0) : k == 1 ? vec2(-1, 0) : k == 2 ? vec2(0, 1) : vec2(0, -1);
+      vec2 nb = cell + dir;
+      if (riv(nb)) { rd = min(rd, segd(rp, vec4(cc, cc + dir * .5))); any = true; }
+      else if (terr(nb) == 0) { rd = min(rd, segd(rp, vec4(cc, cc + dir * .8))); any = true; }
+    }
+    if (!any) rd = min(rd, length(rp - cc));
+  }
   vec3 water = mix(c0, vec3(.3, .6, .78), .45);
   col = mix(col, col * .7, (1. - smoothstep(.07, .1, rd)) * isLand);
   col = mix(col, water, (1. - smoothstep(.055, .07, rd)) * isLand);
@@ -178,16 +199,20 @@ imgs.forEach((im, k) => {
   gl.uniform1i(U('t' + k), 1 + k);
 });
 const trees = await Promise.all(Array.from({ length: 12 }, (_, i) => load(`art/tree${i}.png`)));
+const loadAll = async (name) => { const out = []; for (let i = 0; ; i++) { try { out.push(await load(`art/${name}${i}.png`)); } catch { return out; } } };
+const mountains = await loadAll('mountain'), hills = await loadAll('hill');
+const usa = await (await fetch('usa.json')).json();
 const mapTex = gl.createTexture();
 
 let map, river, tilePx, origin = [0, 0];
+// A map is rows of cells [terrain code, forest kind (1 conifer, 2 mixed, 3 broadleaf), river 0/1].
 function setMap(m, r) {
   map = m; river = r;
-  const rows = m.length, cols = m[0].length, data = new Uint8Array(cols * rows);
-  m.forEach((row, y) => row.forEach((v, x) => (data[y * cols + x] = v)));
+  const rows = m.length, cols = m[0].length, data = new Uint8Array(cols * rows * 2);
+  m.forEach((row, y) => row.forEach(([v, , rv], x) => { data[(y * cols + x) * 2] = v; data[(y * cols + x) * 2 + 1] = rv ? 255 : 0; }));
   gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, mapTex);
   gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, cols, rows, 0, gl.RED, gl.UNSIGNED_BYTE, data);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG8, cols, rows, 0, gl.RG, gl.UNSIGNED_BYTE, data);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
   gl.uniform1i(U('uMap'), 0); gl.uniform2f(U('uMapSize'), cols, rows);
   const flat = new Float32Array(64); r.slice(0, 16).forEach((s, i) => flat.set(s, i * 4));
@@ -205,20 +230,27 @@ function draw() {
   gl.drawArrays(gl.TRIANGLES, 0, 3);
   drawTrees();
 }
-// Trees: 4-5 per forest tile at fixed, seeded spots, drawn back to front; about half a tile tall.
+// Objects: trees (4-5 per forest tile by forest kind), one mountain or hill per tile; seeded spots, back to front.
+const PINES = [0, 1, 2, 3, 8, 9], BROAD = [4, 5, 6, 7, 10, 11];
 function drawTrees() {
   const c = fx.canvas; fx.clearRect(0, 0, c.width, c.height);
   if (!$('trees').checked) return;
   const list = [];
-  map.forEach((row, y) => row.forEach((v, x) => {
-    if (v !== 4) return;
+  map.forEach((row, y) => row.forEach(([v, kind], x) => {
     const r = rng(x * 7919 + y * 104729 + 1);
+    if (v === 6 && mountains.length) list.push({ x: x + .5 + (r() - .5) * .1, y: y + .86, im: mountains[Math.floor(r() * mountains.length)], h: 1.0 + r() * .2 });
+    if (v === 8 && hills.length) list.push({ x: x + .5 + (r() - .5) * .15, y: y + .8, im: hills[Math.floor(r() * hills.length)], h: .55 + r() * .1 });
+    if (v !== 4) return;
+    const pool = kind === 1 ? PINES : kind === 3 ? BROAD : r() < .5 ? PINES : BROAD;
     const spots = [[.28, .38], [.72, .34], [.5, .62], [.22, .86], [.78, .84]];
-    for (const [sx, sy] of spots) list.push({ x: x + sx + (r() - .5) * .18, y: y + sy + (r() - .5) * .14, k: Math.floor(r() * 12), s: .85 + r() * .3 });
+    for (const [sx, sy] of spots) {
+      const k = (kind === 2 ? (r() < .5 ? PINES : BROAD) : pool)[Math.floor(r() * 6)];
+      list.push({ x: x + sx + (r() - .5) * .18, y: y + sy + (r() - .5) * .14, im: trees[k], h: .56 * (.85 + r() * .3) });
+    }
   }));
   list.sort((a, b) => a.y - b.y);
   for (const t of list) {
-    const im = trees[t.k], h = tilePx * .56 * t.s, w = h * im.width / im.height;
+    const im = t.im, h = tilePx * t.h, w = h * im.width / im.height;
     const X = (t.x - origin[0]) * tilePx, Y = (t.y - origin[1]) * tilePx;
     if (X < -w || Y < -h || X > c.width + w || Y > c.height + h) continue;
     fx.drawImage(im, X - w / 2, Y - h * .92, w, h);
@@ -226,8 +258,15 @@ function drawTrees() {
 }
 function setView(v) {
   $('ref').style.display = v === 'large' ? '' : 'none';
-  if (v === 'big') { setMap(bigMap(120, 80), []); tilePx = 64; origin = [10, 10]; size(1920, 1080); }
-  else { setMap(GUIDE, GUIDE_RIVER); tilePx = v === 'large' ? 1200 / 624 * 64 : 64; origin = [0, 0]; size(Math.round(9.75 * tilePx), Math.round(7.3125 * tilePx)); }
+  if (v.startsWith('usa')) {
+    setMap(usa.cells, []); tilePx = 64;
+    origin = { 'usa-se': [38, 31], 'usa-ne': [52, 12], 'usa-plains': [22, 12], 'usa-west': [6, 14] }[v] ?? [50, 30];
+    size(1920, 1080);
+    $('cap').textContent = `FreeCol's S_USA_Mazim map (80 x 50), 64 px tiles, from tile ${origin}. Drag to pan.`;
+    return draw();
+  }
+  if (v === 'big') { setMap(bigMap(120, 80).map((r) => r.map((v) => [v, 2, 0])), []); tilePx = 64; origin = [10, 10]; size(1920, 1080); }
+  else { setMap(GUIDE.map((r) => r.map((v) => [v, 2, 0])), GUIDE_RIVER); tilePx = v === 'large' ? 1200 / 624 * 64 : 64; origin = [0, 0]; size(Math.round(9.75 * tilePx), Math.round(7.3125 * tilePx)); }
   $('cap').textContent = v === 'big' ? 'Random 120 x 80 map, 1920 x 1080 view. Drag to pan.' : `The guide map, ${Math.round(tilePx)} px tiles.`;
   draw();
 }
