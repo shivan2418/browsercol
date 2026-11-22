@@ -1,0 +1,259 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>PROTOTYPE: frame-2 ground from tiles</title>
+<!-- Throwaway prototype (see the branch proto-frame2-ground). Question: can the renderer make frame 2's look (soft,
+     wandering terrain borders, curved coasts, a winding river) from plain tile data, and is it cheap enough for a
+     netbook? Ground is a WebGL2 shader that mixes one seamless texture per terrain with noise-warped tile weights;
+     trees are sprites on a 2D canvas on top. Open ?view=guide|large|big and ?bench=1. -->
+<style>
+  body { margin: 0; background: #1a1f1c; color: #dde; font: 13px system-ui, sans-serif; }
+  #bar { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; padding: 8px 12px; background: #11151a; }
+  #bar label { display: inline-flex; gap: 6px; align-items: center; }
+  #wrap { display: flex; gap: 12px; padding: 12px; align-items: flex-start; flex-wrap: wrap; }
+  .stage { position: relative; line-height: 0; }
+  .stage canvas { display: block; }
+  .stage canvas + canvas { position: absolute; left: 0; top: 0; }
+  #stats { font-variant-numeric: tabular-nums; color: #9fc; }
+  #ref { display: none; }
+  .cap { line-height: 1.4; color: #aab; padding-top: 4px; }
+</style>
+<div id="bar">
+  <label>View <select id="view">
+    <option value="guide">Guide map, 64 px tiles</option>
+    <option value="large">Guide map, frame-2 scale, beside frame 2</option>
+    <option value="big">Big random map (performance)</option>
+  </select></label>
+  <label><input type="checkbox" id="soft" checked> Soft borders</label>
+  <label>Wander <input type="range" id="warp" min="0" max="0.45" step="0.01" value="0.3"></label>
+  <label>Band <input type="range" id="band" min="0.01" max="0.3" step="0.01" value="0.28"></label>
+  <label>Ragged <input type="range" id="ragged" min="0" max="1.5" step="0.05" value="0.6"></label>
+  <label><input type="checkbox" id="trees" checked> Trees</label>
+  <button id="bench">Benchmark</button>
+  <span id="stats"></span>
+</div>
+<div id="wrap">
+  <div><div class="stage"><canvas id="gl"></canvas><canvas id="fx"></canvas></div><div class="cap" id="cap"></div></div>
+  <div id="ref"><img src="frame-2.png" width="1200" height="896" alt="frame 2"><div class="cap">Frame 2 (the target), same scale</div></div>
+</div>
+<script type="module">
+// ---- Maps -------------------------------------------------------------------------------------------------------
+// Terrain codes: 0 ocean, 1 grassland, 2 prairie, 3 plains, 4 forest, 5 swamp, 6 mountains.
+const CODE = { o: 0, G: 1, R: 2, P: 3, F: 4, S: 5, M: 6 };
+const GUIDE = [
+  'o o o o o o o o o o',
+  'o o o o o o o F F F',
+  'o o o o o o F G F P',
+  'R R G G R o o o F F',
+  'F P G F R o o F F F',
+  'o o o o S F F F R R',
+  'o o o F R G F F F G',
+  'F F G G F F F M S G',
+].map((r) => r.split(' ').map((c) => CODE[c]));
+// The guide's river, in tile units (the guide's pixels / 64, its first column starting at x = 6).
+const gx = (x) => (x - 6) / 64, gy = (y) => y / 64;
+const GUIDE_RIVER = [
+  [[624, 352], [486, 352]], [[486, 352], [486, 416]], [[486, 416], [198, 416]],
+  [[230, 384], [230, 416]], [[358, 416], [358, 480]],
+].map(([a, b]) => [gx(a[0]), gy(a[1]), gx(b[0]), gy(b[1])]);
+
+function rng(seed) { return () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296); }
+function bigMap(cols, rows) {
+  const r = rng(7), N = 24, g = Array.from({ length: N * N }, r);
+  const vn = (x, y) => { // value noise on a 24 x 24 lattice
+    const xi = Math.floor(x), yi = Math.floor(y), fx = x - xi, fy = y - yi;
+    const at = (i, j) => g[((j % N + N) % N) * N + ((i % N + N) % N)];
+    const s = (t) => t * t * (3 - 2 * t), a = at(xi, yi), b = at(xi + 1, yi), c = at(xi, yi + 1), d = at(xi + 1, yi + 1);
+    return a + (b - a) * s(fx) + (c - a) * s(fy) + (a - b - c + d) * s(fx) * s(fy);
+  };
+  return Array.from({ length: rows }, (_, y) => Array.from({ length: cols }, (_, x) => {
+    const e = vn(x / 7, y / 7) * 0.7 + vn(x / 3, y / 3) * 0.3, m = vn(x / 5 + 9, y / 5 + 4);
+    if (e < 0.45) return 0;
+    if (e > 0.78) return 6;
+    return m < 0.3 ? 3 : m < 0.45 ? 2 : m < 0.6 ? 1 : m < 0.8 ? 4 : 5;
+  }));
+}
+
+// ---- WebGL ground ------------------------------------------------------------------------------------------------
+const VS = `#version 300 es
+in vec2 a; void main() { gl_Position = vec4(a, 0., 1.); }`;
+const FS = `#version 300 es
+precision highp float;
+uniform sampler2D uMap; uniform vec2 uMapSize;
+uniform sampler2D t0, t1, t2, t3, t4, t5;
+uniform vec2 uOrigin; uniform float uTilePx; uniform vec2 uView;
+uniform vec4 uRiver[16]; uniform int uRiverN;
+uniform float uWarp, uBand, uRagged;
+out vec4 o;
+float h21(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+float vn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
+  return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y); }
+float fbm(vec2 p) { return vn(p) * .55 + vn(p * 2.03 + 7.1) * .3 + vn(p * 4.1 + 3.7) * .15; }
+int terr(vec2 c) { ivec2 t = clamp(ivec2(c), ivec2(0), ivec2(uMapSize) - 1); return int(texelFetch(uMap, t, 0).r * 255. + .5); }
+float sm(float d, float b) { return smoothstep(.5 + b, .5 - b, d); }
+float lum(vec3 c) { return dot(c, vec3(.3, .55, .15)); }
+float segd(vec2 p, vec4 s) { vec2 a = s.xy, b = s.zw, pa = p - a, ba = b - a;
+  float h = clamp(dot(pa, ba) / dot(ba, ba), 0., 1.); return length(pa - ba * h); }
+void main() {
+  vec2 px = vec2(gl_FragCoord.x, uView.y - gl_FragCoord.y);
+  vec2 p = uOrigin + px / uTilePx;
+  vec2 uv = p * .34;                                 // one texture repeat per three tiles
+  // Softer, more painted: blend each texture with a blurrier mip of itself, and lower its contrast.
+  #define SOFT(t, k) mix(texture(t, uv).rgb, texture(t, uv, 2.5).rgb, k)
+  vec3 c0 = mix(SOFT(t0, .6), texture(t0, uv, 6.).rgb, .7), c1 = SOFT(t1, .45), c2 = SOFT(t2, .4);
+  vec3 c3 = SOFT(t3, .45), c4 = SOFT(t4, .3), c5 = SOFT(t5, .25);
+  float big = fbm(p * .35 + 40.);                    // large patches of lighter and darker ground, across tiles
+  c1 *= .9 + .22 * big; c2 *= .92 + .16 * big;
+  c3 = mix(c3, vec3(lum(c3)) * vec3(1.12, .98, .74), .6); // plains: duller and browner than prairie
+  vec3 c6 = mix(c3, vec3(lum(c3)) * vec3(.95, .92, .9), .7) * .85; // mountain ground: grey scree
+  vec3 C[7] = vec3[7](c0, c1, c2, c3, c4, c5, c6);
+  // Land terrains: soft tile footprints at a noise-warped position, so borders wander off the tile lines.
+  vec2 q = p + uWarp * 2. * (vec2(fbm(p * .55), fbm(p * .55 + 17.)) - .5)
+             + uWarp * 1.2 * (vec2(fbm(p * 1.7 + 3.), fbm(p * 1.7 + 29.)) - .5);
+  float W[7] = float[7](0., 0., 0., 0., 0., 0., 0.);
+  float L = 0.;
+  vec2 qc = p + uWarp * 2.4 * (vec2(fbm(p * .5 + 31.), fbm(p * .5 + 53.)) - .5)
+              + uWarp * 1.2 * (vec2(fbm(p * 1.4 + 11.), fbm(p * 1.4 + 23.)) - .5);
+  for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) {
+    vec2 cell = floor(q) + vec2(i, j);
+    int t = terr(cell);
+    vec2 d = abs(q - cell - .5);
+    W[t] += sm(d.x, uBand) * sm(d.y, uBand);
+    vec2 cc = floor(qc) + vec2(i, j);
+    vec2 dc = abs(qc - cc - .5);
+    if (terr(cc) != 0) L += sm(dc.x, .38) * sm(dc.y, .38);
+  }
+  // Ragged borders: each terrain's own texture brightness pushes its edge in or out (tufts, bites), then sharpen.
+  float H[7] = float[7](0., lum(c1), lum(c2), lum(c3), lum(c4), lum(c5), lum(c6));
+  float n = fbm(p * 9.) - .5;
+  float m = 0.;
+  W[5] *= 1.5;                                       // swamp's dark texture otherwise loses every border
+  for (int t = 1; t < 7; t++) { W[t] *= 1. + uRagged * ((H[t] - .45) * 2. + n); m = max(m, W[t]); }
+  vec3 land = vec3(0.); float sw = 0.;
+  for (int t = 1; t < 7; t++) { float w = max(W[t] - m + .22 * (uBand / .13), 0.); land += C[t] * w; sw += w; }
+  land = sw > 0. ? land / sw : c1;
+  // Coast: a curved line through the land fraction, with a beach band and surf on the water side.
+  L += (fbm(p * 5.) - .5) * .16;
+  float isLand = smoothstep(.49, .51, L);
+  vec3 sand = vec3(.9, .82, .6) * (.93 + .12 * fbm(p * 14.));
+  float beach = 1. - smoothstep(.56, .64, L + (fbm(p * 7.) - .5) * .06);
+  vec3 ground = mix(land, sand, beach);
+  vec3 sea = mix(c0 * vec3(.8, .9, 1.) * (.9 + .2 * big), mix(c0, vec3(.2, .6, .7), .65), smoothstep(.04, .48, L));
+  float foam = smoothstep(.46, .5, L) * (1. - isLand);
+  float wave = sin(L * 34. + fbm(p * 2.5) * 7.);
+  float streak = smoothstep(.8, .97, wave) * smoothstep(.12, .4, L) * smoothstep(.25, .65, fbm(p * 5. + 2.)) * (1. - isLand);
+  sea = mix(sea, vec3(.94, .97, .96), clamp(foam * .9 + streak * .8, 0., 1.));
+  vec3 col = mix(sea, ground, isLand);
+  // River: a slightly winding line through the tile centres it was given.
+  vec2 rp = p + .5 * (vec2(fbm(p * 1.1 + 5.), fbm(p * 1.1 + 9.)) - .5) * 2.;
+  float rd = 9.;
+  for (int k = 0; k < 16; k++) { if (k >= uRiverN) break; rd = min(rd, segd(rp, uRiver[k])); }
+  vec3 water = mix(c0, vec3(.3, .6, .78), .45);
+  col = mix(col, col * .7, (1. - smoothstep(.07, .1, rd)) * isLand);
+  col = mix(col, water, (1. - smoothstep(.055, .07, rd)) * isLand);
+  o = vec4(col, 1.);
+}`;
+
+const gl = document.getElementById('gl').getContext('webgl2', { preserveDrawingBuffer: true, antialias: false });
+const fx = document.getElementById('fx').getContext('2d');
+const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
+const prog = gl.createProgram();
+gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS));
+gl.linkProgram(prog); gl.useProgram(prog);
+gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+const U = (n) => gl.getUniformLocation(prog, n);
+
+const load = (src) => new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = src; });
+const TEX = ['ocean', 'grassland', 'prairie', 'plains', 'forest', 'swamp'];
+const imgs = await Promise.all(TEX.map((t) => load(`art/${t}.jpg`)));
+imgs.forEach((im, k) => {
+  gl.activeTexture(gl.TEXTURE1 + k);
+  gl.bindTexture(gl.TEXTURE_2D, gl.createTexture());
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, im);
+  gl.generateMipmap(gl.TEXTURE_2D);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+  gl.uniform1i(U('t' + k), 1 + k);
+});
+const trees = await Promise.all(Array.from({ length: 12 }, (_, i) => load(`art/tree${i}.png`)));
+const mapTex = gl.createTexture();
+
+let map, river, tilePx, origin = [0, 0];
+function setMap(m, r) {
+  map = m; river = r;
+  const rows = m.length, cols = m[0].length, data = new Uint8Array(cols * rows);
+  m.forEach((row, y) => row.forEach((v, x) => (data[y * cols + x] = v)));
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, mapTex);
+  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, cols, rows, 0, gl.RED, gl.UNSIGNED_BYTE, data);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.uniform1i(U('uMap'), 0); gl.uniform2f(U('uMapSize'), cols, rows);
+  const flat = new Float32Array(64); r.slice(0, 16).forEach((s, i) => flat.set(s, i * 4));
+  gl.uniform4fv(U('uRiver'), flat); gl.uniform1i(U('uRiverN'), Math.min(16, r.length));
+}
+const $ = (id) => document.getElementById(id);
+function draw() {
+  const soft = $('soft').checked;
+  gl.uniform1f(U('uWarp'), soft ? +$('warp').value : 0);
+  gl.uniform1f(U('uBand'), soft ? +$('band').value : 0.005);
+  gl.uniform1f(U('uRagged'), soft ? +$('ragged').value : 0);
+  gl.uniform2f(U('uOrigin'), origin[0], origin[1]); gl.uniform1f(U('uTilePx'), tilePx);
+  gl.uniform2f(U('uView'), gl.canvas.width, gl.canvas.height);
+  gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  drawTrees();
+}
+// Trees: 4-5 per forest tile at fixed, seeded spots, drawn back to front; about half a tile tall.
+function drawTrees() {
+  const c = fx.canvas; fx.clearRect(0, 0, c.width, c.height);
+  if (!$('trees').checked) return;
+  const list = [];
+  map.forEach((row, y) => row.forEach((v, x) => {
+    if (v !== 4) return;
+    const r = rng(x * 7919 + y * 104729 + 1);
+    const spots = [[.28, .38], [.72, .34], [.5, .62], [.22, .86], [.78, .84]];
+    for (const [sx, sy] of spots) list.push({ x: x + sx + (r() - .5) * .18, y: y + sy + (r() - .5) * .14, k: Math.floor(r() * 12), s: .85 + r() * .3 });
+  }));
+  list.sort((a, b) => a.y - b.y);
+  for (const t of list) {
+    const im = trees[t.k], h = tilePx * .56 * t.s, w = h * im.width / im.height;
+    const X = (t.x - origin[0]) * tilePx, Y = (t.y - origin[1]) * tilePx;
+    if (X < -w || Y < -h || X > c.width + w || Y > c.height + h) continue;
+    fx.drawImage(im, X - w / 2, Y - h * .92, w, h);
+  }
+}
+function setView(v) {
+  $('ref').style.display = v === 'large' ? '' : 'none';
+  if (v === 'big') { setMap(bigMap(120, 80), []); tilePx = 64; origin = [10, 10]; size(1920, 1080); }
+  else { setMap(GUIDE, GUIDE_RIVER); tilePx = v === 'large' ? 1200 / 624 * 64 : 64; origin = [0, 0]; size(Math.round(9.75 * tilePx), Math.round(7.3125 * tilePx)); }
+  $('cap').textContent = v === 'big' ? 'Random 120 x 80 map, 1920 x 1080 view. Drag to pan.' : `The guide map, ${Math.round(tilePx)} px tiles.`;
+  draw();
+}
+function size(w, h) { for (const c of [gl.canvas, fx.canvas]) { c.width = w; c.height = h; } }
+for (const id of ['view']) $(id).onchange = () => setView($('view').value);
+for (const id of ['soft', 'warp', 'band', 'ragged', 'trees']) $(id).oninput = draw;
+let drag = null;
+gl.canvas.parentElement.onpointerdown = (e) => (drag = [e.clientX, e.clientY]);
+onpointerup = () => (drag = null);
+onpointermove = (e) => { if (!drag) return; origin[0] -= (e.clientX - drag[0]) / tilePx; origin[1] -= (e.clientY - drag[1]) / tilePx; drag = [e.clientX, e.clientY]; draw(); };
+
+// Benchmark: the ground shader alone, full canvas, 60 frames, each forced to finish (a one-pixel read).
+function bench() {
+  const px = new Uint8Array(4), n = 60, t0 = performance.now();
+  for (let i = 0; i < n; i++) { origin[0] += 0.01; draw0(); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); }
+  const ground = (performance.now() - t0) / n;
+  const t1 = performance.now(); for (let i = 0; i < 20; i++) drawTrees(); const tr = (performance.now() - t1) / 20;
+  const res = { w: gl.canvas.width, h: gl.canvas.height, groundMs: +ground.toFixed(2), treesMs: +tr.toFixed(2), renderer: gl.getParameter(gl.getExtension('WEBGL_debug_renderer_info')?.UNMASKED_RENDERER_WEBGL ?? gl.RENDERER) };
+  $('stats').textContent = `ground ${res.groundMs} ms/frame at ${res.w}x${res.h}, trees ${res.treesMs} ms · ${res.renderer}`;
+  window.benchResult = res; return res;
+}
+function draw0() { const t = $('trees').checked; $('trees').checked = false; draw(); $('trees').checked = t; }
+$('bench').onclick = bench;
+window.bench = bench; window.setView = setView;
+const qs = new URLSearchParams(location.search);
+$('view').value = qs.get('view') ?? 'guide';
+setView($('view').value);
+window.ready = true;
+</script>
