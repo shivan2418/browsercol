@@ -1,0 +1,8 @@
+{
+  "name": "proto-civ4-map",
+  "private": true,
+  "description": "THROWAWAY prototype (#405): a Civ IV-style 3D map from tile data",
+  "dependencies": {
+    "three": "0.187.0"
+  }
+}
