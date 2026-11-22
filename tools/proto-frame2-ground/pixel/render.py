@@ -13,7 +13,7 @@ from collections import deque
 from pathlib import Path
 
 import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter
 
 HERE = Path(__file__).resolve().parent
 ART = HERE.parent / 'art'
@@ -21,7 +21,8 @@ out, x0, y0, W, H = sys.argv[1], *map(int, sys.argv[2:6])
 NCOL = int(sys.argv[6]) if len(sys.argv) > 6 else 40
 T = int(sys.argv[7]) if len(sys.argv) > 7 else 32
 PIECES = len(sys.argv) > 8 and sys.argv[8] == 'pieces'
-CANOPY = len(sys.argv) > 8 and sys.argv[8] == 'canopy'  # forests and mountains cut from one seamless texture each  # forests and mountains from 16-piece neighbour sets
+CANOPY = len(sys.argv) > 8 and sys.argv[8] in ('canopy', 'layers')
+LAYERS = len(sys.argv) > 8 and sys.argv[8] == 'layers'  # new art made for layering: quiet bases, transparent tree layers  # forests and mountains cut from one seamless texture each  # forests and mountains from 16-piece neighbour sets
 cells = json.load(open(HERE.parent / 'usa.json'))['cells']
 MH, MW = len(cells), len(cells[0])
 code = np.array([[c[0] for c in r] for r in cells])
@@ -58,7 +59,8 @@ water = ter == 0
 
 def texture(name, contrast):
     """A terrain's texture at 4 tiles per repeat, tiled over the region, with its contrast lowered (quiet ground)."""
-    t = np.asarray(Image.open(ART / f'{name}.jpg').convert('RGB').resize((4 * T, 4 * T), Image.LANCZOS), float)
+    src = HERE.parent / 'layers' / f'{name}.png'
+    t = np.asarray(Image.open(src if LAYERS and src.exists() else ART / f'{name}.jpg').convert('RGB').resize((4 * T, 4 * T), Image.LANCZOS), float)
     t = t.mean((0, 1)) + (t - t.mean((0, 1))) * contrast
     reps = (PH // t.shape[0] + 1, PW // t.shape[1] + 1, 1)
     return np.tile(t, reps)[:PH, :PW]
@@ -223,6 +225,15 @@ if CANOPY:
         rim = m & ~(~grow(~m, max(2, T // 12)))                   # a band along the edge, darkened as shade
         shadow = np.roll(np.roll(m, T // 16, 0), T // 16, 1) & ~m  # cast shadow toward the lower right
         base[shadow] *= .7
+        if cls == 4 and LAYERS:
+            # A transparent, seamless tree layer over the base terrain; the region's edge is feathered.
+            lay = np.asarray(Image.open(HERE.parent / 'layers' / 'forest-mixed.png').convert('RGBA').resize((5 * T, 5 * T), Image.LANCZOS), float)
+            oy2, ox2 = (y0 % 5) * T, (x0 % 5) * T
+            lay = np.tile(lay, (PH // (5 * T) + 2, PW // (5 * T) + 2, 1))[oy2:oy2 + PH, ox2:ox2 + PW]
+            soft = np.asarray(Image.fromarray((m * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(T / 16)), float) / 255
+            a = (lay[..., 3] / 255 * soft)[..., None]
+            base = base * (1 - a) + lay[..., :3] * a
+            continue
         if cls == 4:
             # Trees on top of the ground: the dark gaps between crowns become see-through (with a little shade), so the
             # base terrain shows between the trees and says what land the forest stands on.
