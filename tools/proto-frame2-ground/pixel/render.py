@@ -20,7 +20,8 @@ ART = HERE.parent / 'art'
 out, x0, y0, W, H = sys.argv[1], *map(int, sys.argv[2:6])
 NCOL = int(sys.argv[6]) if len(sys.argv) > 6 else 40
 T = int(sys.argv[7]) if len(sys.argv) > 7 else 32
-PIECES = len(sys.argv) > 8 and sys.argv[8] == 'pieces'  # forests and mountains from 16-piece neighbour sets
+PIECES = len(sys.argv) > 8 and sys.argv[8] == 'pieces'
+CANOPY = len(sys.argv) > 8 and sys.argv[8] == 'canopy'  # forests and mountains cut from one seamless texture each  # forests and mountains from 16-piece neighbour sets
 cells = json.load(open(HERE.parent / 'usa.json'))['cells']
 MH, MW = len(cells), len(cells[0])
 code = np.array([[c[0] for c in r] for r in cells])
@@ -93,6 +94,8 @@ img[near_land[0]] = np.array([232, 240, 236])                               # su
 
 pic = Image.fromarray(img.clip(0, 255).astype(np.uint8))
 draw = ImageDraw.Draw(pic)
+rmask = Image.new('L', pic.size)
+rdraw = ImageDraw.Draw(rmask)
 
 # Rivers: a tree draining to the sea (breadth-first from river tiles beside the sea), drawn centre to parent.
 rv = {(x, y) for y in range(MH) for x in range(MW) if river[y, x]}
@@ -125,6 +128,7 @@ for (x, y), (pxx, pyy, why) in parent.items():
     mid = ((a[0] + b[0]) / 2 + rng.normal() * 3, (a[1] + b[1]) / 2 + rng.normal() * 3)
     for w, col in ((5, (70, 110, 120)), (3, (80, 150, 200))):
         draw.line([a, mid, b], fill=col, width=w, joint='curve')
+    rdraw.line([a, mid, b], fill=255, width=round(T / 5), joint='curve')
 
 # Objects: scattered on a jittered grid that ignores tile lines, each kept inside its own terrain's region.
 def sprites(prefix, n, height, tint=None):
@@ -154,7 +158,7 @@ for (mask, step, r, pick) in (
     (ter == 6, 17 * k, 7 * k, 'mount'),
     (ter == 8, 18 * k, 6 * k, 'hill'),
 ):
-    if PIECES and pick != 'hill':
+    if (PIECES or CANOPY) and pick != 'hill':
         continue
     for gy in np.arange(-T, PH + T, step * .87):
         for gx in np.arange(-T, PW + T, step):
@@ -200,6 +204,24 @@ if PIECES:
             m = same(tx_, ty_ - 1, c) | same(tx_ + 1, ty_, c) << 1 | same(tx_, ty_ + 1, c) << 2 | same(tx_ - 1, ty_, c) << 3
             pc = SET[c][m]
             pic.paste(pc, ((tx_ - x0) * T, (ty_ - y0) * T), pc)
+
+# Canopy: every forest / mountain pixel shows the same world-aligned seamless texture, so neighbouring tiles match by
+# construction; the terrain region (with its ragged, warped edge) decides where it stops. Rivers cut through it.
+if CANOPY:
+    base = np.asarray(pic.convert('RGB'), float)
+    cut = np.asarray(rmask, float) > 0
+    for name, cls, n in (('forest-canopy', 4, 6), ('mountain-range', 6, 4)):
+        tex = np.asarray(Image.open(HERE.parent / 'pieces' / f'{name}.png').convert('RGB').resize((n * T, n * T), Image.LANCZOS), float)
+        oy, ox = (y0 % n) * T, (x0 % n) * T
+        big_t = np.tile(tex, (PH // (n * T) + 2, PW // (n * T) + 2, 1))[oy:oy + PH, ox:ox + PW]
+        m = (ter == cls) & ~cut
+        inner = ~grow(~m, max(1, T // 32))                       # pull the edge in a little
+        rim = m & ~(~grow(~m, max(2, T // 12)))                   # a band along the edge, darkened as shade
+        shadow = np.roll(np.roll(m, T // 16, 0), T // 16, 1) & ~m  # cast shadow toward the lower right
+        base[shadow] *= .7
+        base[inner] = big_t[inner]
+        base[rim & inner] *= .78
+    pic = Image.fromarray(base.clip(0, 255).astype(np.uint8))
 
 # One palette for everything: built once from all the art, then the whole picture is reduced to it.
 srcs = [Image.open(ART / f'{n}.jpg').convert('RGB').resize((96, 96)) for n in ('grassland', 'prairie', 'plains', 'ocean', 'forest', 'swamp')]
