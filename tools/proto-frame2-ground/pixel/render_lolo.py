@@ -41,6 +41,17 @@ GROUND = {'plains': (150, 172, 78), 'grassland': (104, 158, 70), 'prairie': (196
 BASES = list(GROUND) + ['ocean', 'highSeas', 'lake']
 LAYERS = sorted(set(LAYER_OF.values()))
 base_idx = np.array([[BASES.index(BASE_OF.get(t, t)) for t in r] for r in names])
+# Hills and mountains stand on their neighbours' ground (not a fixed grassland / tundra square).
+from collections import Counter
+for _ in range(3):
+    for y_ in range(MH):
+        for x_ in range(MW):
+            if names[y_][x_] in ('hills', 'mountains'):
+                c = Counter(int(base_idx[y_ + dy, x_ + dx]) for dy in (-1, 0, 1) for dx in (-1, 0, 1)
+                            if (dx or dy) and 0 <= y_ + dy < MH and 0 <= x_ + dx < MW
+                            and names[y_ + dy][x_ + dx] not in ('hills', 'mountains', 'ocean', 'highSeas', 'lake'))
+                if c:
+                    base_idx[y_, x_] = c.most_common(1)[0][0]
 layer_idx = np.array([[LAYERS.index(LAYER_OF[t]) if t in LAYER_OF else -1 for t in r] for r in names])
 is_water = np.array([[t in WATER for t in r] for r in names])
 is_deep = np.array([[t == 'highSeas' for t in r] for r in names])
@@ -58,15 +69,19 @@ def noise(h, w, cell, seed):
 
 PH, PW = H * T, W * T
 k = T / 64
-wy = (noise(PH, PW, int(48 * k), 1) - .5) * .6 + (noise(PH, PW, int(10 * k), 2) - .5) * .18
-wx = (noise(PH, PW, int(48 * k), 3) - .5) * .6 + (noise(PH, PW, int(10 * k), 4) - .5) * .18
+WARP = float(__import__('os').environ.get('WARP', .22))  # was .6: borders and coast stay near the tile lines
+wy = (noise(PH, PW, int(48 * k), 1) - .5) * WARP + (noise(PH, PW, int(10 * k), 2) - .5) * WARP * .25
+wx = (noise(PH, PW, int(48 * k), 3) - .5) * WARP + (noise(PH, PW, int(10 * k), 4) - .5) * WARP * .25
 ys, xs = np.mgrid[0:PH, 0:PW] / T
 ty = np.clip((ys + y0 + wy).astype(int), 0, MH - 1)
 tx = np.clip((xs + x0 + wx).astype(int), 0, MW - 1)
 bpx, lpx = base_idx[ty, tx], layer_idx[ty, tx]
 
 # Coast: a smoothed land mask, so the shore curves instead of following tile steps.
-landf = nd.gaussian_filter((~is_water[ty, tx]).astype(float), 6 * k)
+CW_ = .4  # the coast keeps a little more curve than the ground borders
+cty = np.clip((ys + y0 + wy * CW_ / WARP).astype(int), 0, MH - 1)
+ctx = np.clip((xs + x0 + wx * CW_ / WARP).astype(int), 0, MW - 1)
+landf = nd.gaussian_filter((~is_water[cty, ctx]).astype(float), 8 * k)
 land = landf > .5
 deepf = nd.gaussian_filter(is_deep[ty, tx].astype(float), 40 * k)
 
@@ -319,19 +334,40 @@ for o in trees:
     arr = np.asarray(sp, float); arr[..., :3] *= [f, f + .02, f - .04]
     items.append((Y, X, Image.fromarray(arr.clip(0, 255).astype(np.uint8)), .97))
 ART = HERE.parent / 'art'
-RELIEF = {'mountains': ([Image.open(ART / f'mountain{i}.png').convert('RGBA') for i in range(9)], 1.25),
-          'hills': ([Image.open(ART / f'hill{i}.png').convert('RGBA') for i in range(9)], 1.0)}
+MOUNT = [Image.open(ART / f'mountain{i}.png').convert('RGBA') for i in range(9)]
+HILL = [Image.open(ART / f'hill{i}.png').convert('RGBA') for i in range(9)]
+def put(sprs, cx, cy, wid):  # base centre (cx, cy) in tile coords, width in tiles
+    s_ = sprs[rng.integers(len(sprs))]
+    w_ = max(1, round(wid * T))
+    s_ = s_.resize((w_, max(1, round(s_.height * w_ / s_.width))), Image.LANCZOS)
+    if rng.random() < .5:
+        s_ = s_.transpose(Image.FLIP_LEFT_RIGHT)
+    X, Y = (cx - x0) * T, (cy - y0) * T
+    if sprs is HILL:  # made of the ground it stands on: keep the sprite's light and shade, take the ground's colour
+        a_ = np.asarray(s_, float)
+        lum = a_[..., :3].mean(-1)
+        lum = lum / max(1, np.percentile(lum[a_[..., 3] > 128], 60))
+        g = img[min(max(int(Y), 0), PH - 1), min(max(int(X), 0), PW - 1)]
+        a_[..., :3] = np.clip(g * lum[..., None] ** 1.15, 0, 255)
+        s_ = Image.fromarray(a_.astype(np.uint8))
+    cw, ch = round(w_ * 1.0), max(1, round(w_ * .3))
+    if X - cw / 2 >= 0 and Y - ch / 2 >= 0:
+        canvas.alpha_composite(contact.resize((cw, ch)), (int(X - cw / 2), int(Y - ch * .55)))
+    items.append((Y, X, s_, .92))
+# Hills: a few smaller mounds kept inside their tile, like trees, not one big hill pasted over the tile.
+HILL_SLOTS = [(.3, .42), (.7, .4), (.5, .62), (.28, .86), (.72, .84)]
 for ty_ in range(y0, min(MH, y0 + H)):
     for tx_ in range(x0, min(MW, x0 + W)):
         nm = tname(tx_, ty_)
-        if nm in RELIEF:
-            sprs, wid = RELIEF[nm]
-            s_ = sprs[rng.integers(len(sprs))]
-            w_ = round(wid * T * rng.uniform(.92, 1.1))
-            s_ = s_.resize((w_, round(s_.height * w_ / s_.width)), Image.LANCZOS)
-            if rng.random() < .5:
-                s_ = s_.transpose(Image.FLIP_LEFT_RIGHT)
-            items.append(((ty_ - y0 + .78) * T, (tx_ - x0 + .5 + rng.uniform(-.06, .06)) * T, s_, .9))
+        if nm == 'hills':
+            for u, v in HILL_SLOTS:
+                if rng.random() < .15:
+                    continue
+                wid = rng.uniform(.44, .56)
+                u = min(max(u + rng.uniform(-.05, .05), wid / 2 + .02), 1 - wid / 2 - .02)
+                put(HILL, tx_ + u, ty_ + v + rng.uniform(-.03, .03), wid)
+        elif nm == 'mountains':
+            put(MOUNT, tx_ + .5 + rng.uniform(-.04, .04), ty_ + .86, rng.uniform(.9, .98))
 items.sort(key=lambda i: i[0])
 for Y, X, sp, ay in items:
     canvas.alpha_composite(sp, (int(X - sp.width / 2), int(Y - sp.height * ay))) if X - sp.width / 2 >= 0 and Y - sp.height * ay >= 0 else canvas.paste(sp, (int(X - sp.width / 2), int(Y - sp.height * ay)), sp)
