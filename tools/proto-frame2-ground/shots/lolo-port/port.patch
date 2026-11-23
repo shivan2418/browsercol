@@ -1,0 +1,50 @@
+--- "lolonization/prototypes/connected/main.js"	2026-10-19 12:09:46.758745108 -0400
++++ port/prototypes/connected/main.js	2026-11-23 12:29:34.882354969 -0500
+@@ -708,6 +708,8 @@
+ const top = new Container();
+ const treeFloor = new Container(); // layered forest: contact shadows under the crowns
+ camera.addChild(world, cells, treeFloor, shadows, pieces, top, flowLayer);
++// BrowserCol port: top-down draws the river channel over the dual-grid pieces, so a river cuts through a wood.
++if (params.get('cam') === 'td' && params.get('riverTop') !== '0') camera.addChildAt(riverSet.layer, camera.getChildIndex(cells) + 1);
+ app.stage.addChild(camera);
+ 
+ let variant = params.get('variant');
+@@ -968,9 +970,13 @@
+       pieces.addChild(s); pieceCount++;
+       continue;
+     }
+-    const alts = set.byMask[m], tex = alts[(hash2(cx * 1.7, cy * 2.3) * alts.length) | 0];
++    // BrowserCol port (?mirror=0 turns it off): a left-right mirror of the piece for the mirrored corner case.
++    const mm = ((m & 1) << 1) | ((m & 2) >> 1) | ((m & 4) << 1) | ((m & 8) >> 1);
++    const mir = params.get('mirror') !== '0' && hash2(cx * 3.1 + 7, cy * 1.9 + 3) < .5 && set.byMask[mm];
++    const alts = mir ? set.byMask[mm] : set.byMask[m], tex = alts[(hash2(cx * 1.7, cy * 2.3) * alts.length) | 0];
+     const s = new Sprite(tex);
+     s.position.set((cx - .5 - set.m) * T, (cy - .5 - set.m) * T); s.width = s.height = T * set.k;
++    if (mir) { s.scale.x *= -1; s.position.x += T * set.k; }
+     s.tint = tint ?? tintOf(t0);
+     cells.addChild(s); pieceCount++;
+     if (shadow && !opts.iso && opts.shadows) {
+@@ -997,7 +1003,7 @@
+   // fill them themselves; a (and c where a species has no painted set) cuts the river out of the pieces.
+   const forestSet = (t) => (aiSets[`forest-${t.ground}`] ? { set: `forest-${t.ground}`, tint: 0xffffff } : { set: 'forest' });
+   const forestTint = (t) => (TREES[t.ground] ?? TREES.Mixed)[1];
+-  const stays = (t) => isForest(t) && !riverForest.leaves(t, rfMode);
++  const stays = (t) => isForest(t) && (!opts.iso || !riverForest.leaves(t, rfMode)); // BrowserCol port: top-down keeps them
+   cutCorner = opts.iso && rfMode !== 'off' && rfMode !== 'b' && rfMode !== 'b2' ? (c) => c.some((t) => stays(t) && t.river) : null;
+   if (opts.trees && forestMode !== 'P') {
+     pieceCount += layered.place({ pieces, floor: treeFloor, loose: forestMode === 'L2', adjust: treeAdjust(), leg, shadowFor: opts.shadows && ((tex, k, kx, x, y) => {
+--- "lolonization/prototypes/connected/layered.js"	2026-10-18 21:26:34.693895049 -0400
++++ port/prototypes/connected/layered.js	2026-11-23 11:45:25.499820062 -0500
+@@ -113,8 +113,10 @@
+     }
+   }, true);
+ 
+-  const proj = (tx, ty) => [(tx - ty) * S * T, (tx + ty) * S / 2 * T];
+-  const unproj = (wx, wy) => { const a = wx / (S * T), b = wy / (S / 2 * T); return [(a + b) / 2, (b - a) / 2]; };
++  // BrowserCol port: ?cam=td looks straight down (trees keep their iso size: they read better slightly large).
++  const TD = new URLSearchParams(location.search).get('cam') === 'td';
++  const proj = TD ? (tx, ty) => [tx * T, ty * T] : (tx, ty) => [(tx - ty) * S * T, (tx + ty) * S / 2 * T];
++  const unproj = TD ? (wx, wy) => [wx / T, wy / T] : (wx, wy) => { const a = wx / (S * T), b = wy / (S / 2 * T); return [(a + b) / 2, (b - a) / 2]; };
+   const TW = 2 * S * T;
+   const wet = (px, py) => coastAt(px, py) < BEACH || riverSet.clear(px, py) < 0;
+   // Does a crown of height h (screen px) standing at (px, py) cover water? It rises up the screen from its base.
